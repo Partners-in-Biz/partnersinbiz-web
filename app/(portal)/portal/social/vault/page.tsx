@@ -25,6 +25,8 @@ interface MediaItem {
   alt?: string
 }
 
+type DateLike = string | number | Date | { _seconds?: number; seconds?: number }
+
 interface VaultPost {
   id: string
   content: { text: string } | string
@@ -35,10 +37,10 @@ interface VaultPost {
   labels?: string[]
   campaign?: string | null
   media?: MediaItem[]
-  scheduledAt?: any
-  publishedAt?: any
-  createdAt?: any
-  approvedAt?: any
+  scheduledAt?: DateLike
+  publishedAt?: DateLike
+  createdAt?: DateLike
+  approvedAt?: DateLike
 }
 
 const PLATFORM_COLORS: Record<string, { bg: string; label: string }> = {
@@ -109,15 +111,18 @@ function getPostPlatforms(post: VaultPost): string[] {
   return []
 }
 
-function tsToDate(ts: any): Date | null {
+function tsToDate(ts: DateLike | null | undefined): Date | null {
   if (!ts) return null
-  if (ts._seconds) return new Date(ts._seconds * 1000)
-  if (ts.seconds) return new Date(ts.seconds * 1000)
+  if (typeof ts === 'object' && !(ts instanceof Date)) {
+    if (ts._seconds) return new Date(ts._seconds * 1000)
+    if (ts.seconds) return new Date(ts.seconds * 1000)
+    return null
+  }
   const d = new Date(ts)
   return isNaN(d.getTime()) ? null : d
 }
 
-function relativeTime(ts: any): string {
+function relativeTime(ts: DateLike | null | undefined): string {
   const d = tsToDate(ts)
   if (!d) return '—'
   const diff = d.getTime() - Date.now()
@@ -191,6 +196,7 @@ function VaultCard({ post, onCopy, onDownload }: {
   const platforms = getPostPlatforms(post)
   const hashtags = (post.hashtags ?? []).filter(Boolean)
   const media = post.media ?? []
+  const visibleMedia = media.slice(0, 4)
   const status = post.status
   const lineCount = text.split('\n').length
 
@@ -219,6 +225,36 @@ function VaultCard({ post, onCopy, onDownload }: {
           {STATUS_LABELS[status] ?? status}
         </span>
       </div>
+
+      {/* Media preview */}
+      {visibleMedia.length > 0 && (
+        <div className={`grid gap-2 ${visibleMedia.length === 1 ? '' : 'grid-cols-2'}`}>
+          {visibleMedia.map((m, i) => {
+            const src = m.thumbnailUrl || m.url
+            const isFeature = visibleMedia.length === 3 && i === 0
+            return (
+              <div
+                key={i}
+                className={`relative overflow-hidden rounded-[var(--radius-card)] bg-[var(--color-surface-variant)] border border-[var(--color-outline-variant)] ${visibleMedia.length === 1 ? 'aspect-[4/3]' : 'aspect-square'} ${isFeature ? 'col-span-2 aspect-[16/9]' : ''}`}
+              >
+                {src ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={src} alt={m.alt ?? ''} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-xs text-[var(--color-on-surface-variant)]">
+                    {(m.type ?? 'file').slice(0, 3)}
+                  </div>
+                )}
+                {i === visibleMedia.length - 1 && media.length > visibleMedia.length && (
+                  <span className="absolute inset-0 flex items-center justify-center bg-black/55 text-sm font-semibold text-white">
+                    +{media.length - visibleMedia.length} more
+                  </span>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
 
       {/* Content */}
       <div className="relative">
@@ -281,35 +317,6 @@ function VaultCard({ post, onCopy, onDownload }: {
         </div>
       )}
 
-      {/* Media thumbs */}
-      {media.length > 0 && (
-        <div className="flex gap-1.5 items-center">
-          {media.slice(0, 4).map((m, i) => {
-            const src = m.thumbnailUrl || m.url
-            return (
-              <div
-                key={i}
-                className="w-12 h-12 rounded overflow-hidden bg-[var(--color-surface-variant)] flex-shrink-0 border border-[var(--color-outline-variant)]"
-              >
-                {src ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={src} alt={m.alt ?? ''} className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-[10px] text-[var(--color-on-surface-variant)]">
-                    {(m.type ?? 'file').slice(0, 3)}
-                  </div>
-                )}
-              </div>
-            )
-          })}
-          {media.length > 4 && (
-            <span className="text-xs text-[var(--color-on-surface-variant)] ml-1">
-              +{media.length - 4} more
-            </span>
-          )}
-        </div>
-      )}
-
       {/* Date */}
       {dateLabel && (
         <p className="text-xs text-[var(--color-on-surface-variant)]">{dateLabel}</p>
@@ -319,14 +326,14 @@ function VaultCard({ post, onCopy, onDownload }: {
       <div className="flex gap-2 pt-3 mt-auto border-t border-[var(--color-outline-variant)]">
         <button
           onClick={() => onCopy(post)}
-          className="pib-btn-secondary text-xs px-3 py-1.5 flex-1"
+          className="pib-btn-secondary text-xs px-3 py-1.5 flex-1 inline-flex items-center justify-center text-center"
           title="Copy text + hashtags"
         >
           Copy text
         </button>
         <button
           onClick={() => onDownload(post)}
-          className="pib-btn-primary text-xs px-3 py-1.5 flex-1"
+          className="pib-btn-primary text-xs px-3 py-1.5 flex-1 inline-flex items-center justify-center text-center"
           title="Download bundle"
         >
           Download
@@ -365,8 +372,8 @@ export default function VaultPage() {
       }
       const body = await res.json()
       setPosts(body.data ?? [])
-    } catch (err: any) {
-      setError(err?.message ?? 'Failed to load vault')
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to load vault')
       setPosts([])
     } finally {
       setLoading(false)
