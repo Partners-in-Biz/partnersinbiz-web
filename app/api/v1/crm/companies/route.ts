@@ -9,7 +9,7 @@
  *
  * Auth: GET → viewer+, POST → member+
  */
-import { FieldValue, Timestamp } from 'firebase-admin/firestore'
+import { Timestamp } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { withCrmAuth } from '@/lib/auth/crm-middleware'
 import { apiSuccess, apiError } from '@/lib/api/response'
@@ -19,7 +19,7 @@ import {
   validateParentChain,
   validateAccountManager,
 } from '@/lib/companies/store'
-import type { CompanyInput, CompanyListParams } from '@/lib/companies/types'
+import type { Company, CompanyInput, CompanyListParams } from '@/lib/companies/types'
 
 // TODO: refactor to import { buildCompanyQuery, applyPostFilterSearch } from '@/lib/companies/filters' when W2-G lands
 
@@ -107,7 +107,8 @@ export const GET = withCrmAuth('viewer', async (req, ctx) => {
 
   const snapshot = await query.get()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let companies = snapshot.docs.map((doc: any) => ({ id: doc.id, ...doc.data() }))
+  const companiesFromSnapshot: Company[] = snapshot.docs.map((doc: any) => ({ id: doc.id, ...doc.data() }))
+  let companies: Company[] = companiesFromSnapshot
 
   // Post-filter search (client-side substring match)
   if (params.search) {
