@@ -24,7 +24,7 @@ const MIME_TO_EXT: Record<string, string> = {
   'video/quicktime': 'mov',
 }
 
-export const POST = withAuth('admin', withTenant(async (req, user, orgId) => {
+export const POST = withAuth('client', withTenant(async (req, user, orgId) => {
   const contentLength = Number(req.headers.get('content-length') ?? 0)
   if (contentLength > MAX_SIZE_BYTES) {
     return apiError('File exceeds 512MB limit', 413)

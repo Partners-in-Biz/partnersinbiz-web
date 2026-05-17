@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import PlatformPreview from '@/components/social/PlatformPreview'
 
 const PLATFORM_CONFIG: Record<string, { label: string; bg: string; short: string; charLimit: number; supportsThreads: boolean }> = {
   twitter: { label: 'X (Twitter)', bg: 'bg-black', short: 'X', charLimit: 280, supportsThreads: true },
@@ -14,6 +15,9 @@ const PLATFORM_CONFIG: Record<string, { label: string; bg: string; short: string
   pinterest: { label: 'Pinterest', bg: 'bg-red-700', short: 'PI', charLimit: 500, supportsThreads: false },
   bluesky: { label: 'Bluesky', bg: 'bg-sky-500', short: 'BS', charLimit: 300, supportsThreads: true },
   threads: { label: 'Threads', bg: 'bg-gray-700', short: 'TH', charLimit: 500, supportsThreads: true },
+  youtube: { label: 'YouTube', bg: 'bg-red-600', short: 'YT', charLimit: 5000, supportsThreads: false },
+  mastodon: { label: 'Mastodon', bg: 'bg-purple-600', short: 'MA', charLimit: 500, supportsThreads: true },
+  dribbble: { label: 'Dribbble', bg: 'bg-pink-500', short: 'DR', charLimit: 500, supportsThreads: false },
 }
 
 interface Account {
@@ -22,6 +26,13 @@ interface Account {
   displayName: string
   username: string
   status: string
+}
+
+interface MediaItem {
+  id: string
+  url: string
+  type: 'image'
+  altText: string
 }
 
 export default function PortalComposePage() {
@@ -36,6 +47,8 @@ export default function PortalComposePage() {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState(false)
   const [successMsg, setSuccessMsg] = useState('')
+  const [mediaItems, setMediaItems] = useState<MediaItem[]>([])
+  const [uploadingImage, setUploadingImage] = useState(false)
 
   useEffect(() => {
     fetch('/api/v1/social/accounts')
@@ -95,10 +108,67 @@ export default function PortalComposePage() {
     accountIds: selectedAccounts,
     status,
     scheduledAt: scheduledFor ? new Date(scheduledFor).toISOString() : undefined,
+    media: mediaItems.map((item, index) => ({
+      mediaId: item.id,
+      type: item.type,
+      url: item.url,
+      thumbnailUrl: item.url,
+      width: 0,
+      height: 0,
+      duration: null,
+      altText: item.altText,
+      order: index,
+    })),
     hashtags,
     labels: [],
     source: 'ui',
   })
+
+  const handleImageUpload = async (file: File | null) => {
+    if (!file) return
+    if (!file.type.startsWith('image/')) {
+      setErrors({ upload: 'Only image uploads are supported here.' })
+      return
+    }
+
+    setUploadingImage(true)
+    setErrors(prev => {
+      const next = { ...prev }
+      delete next.upload
+      return next
+    })
+
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('altText', file.name.replace(/\.[^.]+$/, ''))
+
+      const res = await fetch('/api/v1/social/media/upload', {
+        method: 'POST',
+        body: formData,
+      })
+      const body = await res.json()
+      if (!res.ok) throw new Error(body.error ?? 'Image upload failed')
+
+      setMediaItems(prev => [
+        ...prev,
+        {
+          id: body.data.id,
+          url: body.data.url,
+          type: 'image',
+          altText: file.name.replace(/\.[^.]+$/, ''),
+        },
+      ])
+    } catch (err: unknown) {
+      setErrors({ upload: err instanceof Error ? err.message : 'Image upload failed' })
+    } finally {
+      setUploadingImage(false)
+    }
+  }
+
+  const removeMediaItem = (id: string) => {
+    setMediaItems(prev => prev.filter(item => item.id !== id))
+  }
 
   const handleSubmit = async (action: 'draft' | 'schedule' | 'publish') => {
     if (!validate()) return
@@ -128,8 +198,8 @@ export default function PortalComposePage() {
         setSuccessMsg(action === 'schedule' ? 'Post scheduled!' : 'Draft saved!')
       }
       setTimeout(() => router.push('/portal/social'), 1200)
-    } catch (err: any) {
-      setErrors({ submit: err.message })
+    } catch (err: unknown) {
+      setErrors({ submit: err instanceof Error ? err.message : 'Something went wrong' })
     } finally {
       setSubmitting(false)
     }
@@ -138,7 +208,8 @@ export default function PortalComposePage() {
   const minDateTime = new Date().toISOString().slice(0, 16)
 
   return (
-    <div className="space-y-6 max-w-2xl">
+    <div className="grid gap-6 xl:grid-cols-[minmax(0,42rem)_minmax(22rem,1fr)]">
+      <div className="space-y-6 max-w-2xl">
       <div>
         <h1 className="font-headline text-2xl font-bold tracking-tighter">Compose Post</h1>
         <p className="text-sm text-[var(--color-on-surface-variant)] mt-1">Create and schedule social media content</p>
@@ -228,6 +299,44 @@ export default function PortalComposePage() {
         {errors.content && <p className="text-red-300 text-xs mt-1">{errors.content}</p>}
       </div>
 
+      {/* Media */}
+      <div>
+        <label className="block text-xs font-label uppercase tracking-widest text-[var(--color-on-surface-variant)] mb-2">Images</label>
+        <div className="pib-card p-3 space-y-3">
+          {mediaItems.length > 0 && (
+            <div className="grid grid-cols-2 gap-2">
+              {mediaItems.map(media => (
+                <div key={media.id} className="relative overflow-hidden border border-[var(--color-outline-variant)] bg-black/20">
+                  <img src={media.url} alt={media.altText || 'Uploaded media'} className="h-32 w-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => removeMediaItem(media.id)}
+                    className="absolute right-1 top-1 flex h-7 w-7 items-center justify-center bg-black/70 text-sm font-bold text-white transition-colors hover:bg-red-600"
+                    aria-label="Remove image"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          <label className="flex cursor-pointer items-center justify-center border border-dashed border-[var(--color-outline-variant)] px-4 py-3 text-sm font-label font-bold uppercase tracking-widest text-[var(--color-on-surface-variant)] transition-colors hover:border-[var(--color-on-surface-variant)] hover:text-[var(--color-on-surface)]">
+            {uploadingImage ? 'Uploading...' : '+ Upload Image'}
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/gif,image/webp"
+              disabled={uploadingImage}
+              onChange={e => {
+                handleImageUpload(e.target.files?.[0] ?? null)
+                e.currentTarget.value = ''
+              }}
+              className="sr-only"
+            />
+          </label>
+        </div>
+        {errors.upload && <p className="text-red-300 text-xs mt-1">{errors.upload}</p>}
+      </div>
+
       {/* Schedule */}
       <div>
         <label className="block text-xs font-label uppercase tracking-widest text-[var(--color-on-surface-variant)] mb-2">Schedule For</label>
@@ -288,6 +397,44 @@ export default function PortalComposePage() {
           Publish Now
         </button>
       </div>
+      </div>
+
+      <aside className="space-y-4 xl:sticky xl:top-6 xl:self-start">
+        <div>
+          <h2 className="font-headline text-xl font-bold tracking-tighter">Preview</h2>
+          <p className="text-sm text-[var(--color-on-surface-variant)] mt-1">Selected platforms render here as you compose.</p>
+        </div>
+        {selectedPlatforms.length === 0 ? (
+          <div className="pib-card p-4 text-sm text-[var(--color-on-surface-variant)]">
+            Select a connected platform to see its preview.
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {selectedPlatforms.map(platform => {
+              const account = accounts.find(a => a.platform === platform && selectedAccounts.includes(a.id))
+                ?? accounts.find(a => a.platform === platform)
+              return (
+                <div key={platform} className="space-y-2">
+                  <div className="flex items-center gap-2 text-xs font-label font-bold uppercase tracking-widest text-[var(--color-on-surface-variant)]">
+                    <span className={`${PLATFORM_CONFIG[platform]?.bg ?? 'bg-gray-600'} text-white text-[10px] px-2 py-0.5 rounded font-bold`}>
+                      {PLATFORM_CONFIG[platform]?.short ?? platform.slice(0, 2).toUpperCase()}
+                    </span>
+                    {PLATFORM_CONFIG[platform]?.label ?? platform}
+                  </div>
+                  <PlatformPreview
+                    platform={platform}
+                    content={content}
+                    mediaItems={mediaItems}
+                    charLimit={PLATFORM_CONFIG[platform]?.charLimit ?? 5000}
+                    userName={account?.displayName || 'Your Brand'}
+                    userHandle={account?.username ? `@${account.username.replace(/^@/, '')}` : '@yourbrand'}
+                  />
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </aside>
     </div>
   )
 }
