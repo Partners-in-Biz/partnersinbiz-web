@@ -47,6 +47,13 @@ const NAV_LINKS: NavItem[] = [
     ],
   },
   {
+    href: '/portal/companies',
+    label: 'Companies',
+    icon: 'domain',
+    group: 'work',
+    activePatterns: ['/portal/companies'],
+  },
+  {
     href: '/portal/deals',
     label: 'Deals',
     icon: 'monetization_on',
