@@ -345,6 +345,7 @@ export type AdCustomAudienceStatus =
   | 'READY'          // matched, usable
   | 'EMPTY'          // matched but too few users
   | 'TOO_SMALL'      // Meta minimum (typically 1000) not met
+  | 'ARCHIVED'       // archived or deleted at provider
   | 'ERROR'          // Meta rejected the audience
 
 export interface CustomerListSource {
