@@ -82,6 +82,7 @@ describe('custom-audiences store', () => {
     const ca = await createCustomAudience({
       orgId: 'org_1',
       createdBy: 'user_abc',
+      platform: 'meta',
       input: BASE_INPUT,
     })
 
@@ -103,6 +104,7 @@ describe('custom-audiences store', () => {
     const ca = await createCustomAudience({
       orgId: 'org_1',
       createdBy: 'user_abc',
+      platform: 'meta',
       input: BASE_INPUT,
       id: 'ca_preset123',
     })
@@ -114,9 +116,9 @@ describe('custom-audiences store', () => {
   })
 
   it('listCustomAudiences filters by orgId and type', async () => {
-    await createCustomAudience({ orgId: 'org_1', createdBy: 'u1', input: { ...BASE_INPUT, type: 'CUSTOMER_LIST' } })
-    await createCustomAudience({ orgId: 'org_1', createdBy: 'u1', input: { ...BASE_INPUT, type: 'WEBSITE', source: { kind: 'WEBSITE', pixelId: 'px_1', retentionDays: 30, rules: [] } } })
-    await createCustomAudience({ orgId: 'org_2', createdBy: 'u2', input: BASE_INPUT })
+    await createCustomAudience({ orgId: 'org_1', createdBy: 'u1', platform: 'meta', input: { ...BASE_INPUT, type: 'CUSTOMER_LIST' } })
+    await createCustomAudience({ orgId: 'org_1', createdBy: 'u1', platform: 'meta', input: { ...BASE_INPUT, type: 'WEBSITE', source: { kind: 'WEBSITE', pixelId: 'px_1', retentionDays: 30, rules: [] } } })
+    await createCustomAudience({ orgId: 'org_2', createdBy: 'u2', platform: 'meta', input: BASE_INPUT })
 
     const lists = await listCustomAudiences({ orgId: 'org_1', type: 'CUSTOMER_LIST' })
     expect(lists).toHaveLength(1)
@@ -130,6 +132,7 @@ describe('custom-audiences store', () => {
     const ca = await createCustomAudience({
       orgId: 'org_1',
       createdBy: 'u1',
+      platform: 'meta',
       input: BASE_INPUT,
     })
 
@@ -145,6 +148,7 @@ describe('custom-audiences store', () => {
     const ca = await createCustomAudience({
       orgId: 'org_1',
       createdBy: 'u1',
+      platform: 'meta',
       input: BASE_INPUT,
     })
 
@@ -158,6 +162,7 @@ describe('custom-audiences store', () => {
     const ca = await createCustomAudience({
       orgId: 'org_1',
       createdBy: 'u1',
+      platform: 'meta',
       input: BASE_INPUT,
     })
 
@@ -168,8 +173,8 @@ describe('custom-audiences store', () => {
   })
 
   it('isolates custom audiences by orgId — does not leak across tenants', async () => {
-    await createCustomAudience({ orgId: 'org_1', createdBy: 'u1', input: { ...BASE_INPUT, name: 'Org 1 Audience' } })
-    await createCustomAudience({ orgId: 'org_2', createdBy: 'u2', input: { ...BASE_INPUT, name: 'Org 2 Audience' } })
+    await createCustomAudience({ orgId: 'org_1', createdBy: 'u1', platform: 'meta', input: { ...BASE_INPUT, name: 'Org 1 Audience' } })
+    await createCustomAudience({ orgId: 'org_2', createdBy: 'u2', platform: 'meta', input: { ...BASE_INPUT, name: 'Org 2 Audience' } })
 
     const list1 = await listCustomAudiences({ orgId: 'org_1' })
     const list2 = await listCustomAudiences({ orgId: 'org_2' })
