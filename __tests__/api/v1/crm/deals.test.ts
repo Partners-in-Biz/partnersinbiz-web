@@ -735,11 +735,11 @@ describe('POST /api/v1/crm/deals — custom field validation', () => {
     const member = seedOrgMember('org-cf-deal', 'uid-cf-deal-ok', { role: 'member' })
     stageAuth(member)
     ;(getDefinitionsForResource as jest.Mock).mockResolvedValueOnce([
-      { id: 'd1', key: 'budget', type: 'currency', required: false, currencyCode: 'ZAR', orgId: 'org-cf-deal', resource: 'deal', label: 'Budget', order: 0, createdAt: null, updatedAt: null },
+      { id: 'd1', key: 'closed_on', type: 'date', required: false, orgId: 'org-cf-deal', resource: 'deal', label: 'Closed On', order: 0, createdAt: null, updatedAt: null },
     ])
     const req = callAsMember(member, 'POST', '/api/v1/crm/deals', {
       ...validDeal,
-      customFields: { budget: 5000 },
+      customFields: { closed_on: '2026-01-01' },
     })
     const { POST } = await import('@/app/api/v1/crm/deals/route')
     const res = await POST(req)
@@ -750,11 +750,11 @@ describe('POST /api/v1/crm/deals — custom field validation', () => {
     const member = seedOrgMember('org-cf-deal', 'uid-cf-deal-bad', { role: 'member' })
     stageAuth(member)
     ;(getDefinitionsForResource as jest.Mock).mockResolvedValueOnce([
-      { id: 'd1', key: 'budget', type: 'currency', required: true, currencyCode: 'ZAR', min: 0, orgId: 'org-cf-deal', resource: 'deal', label: 'Budget', order: 0, createdAt: null, updatedAt: null },
+      { id: 'd1', key: 'closed_on', type: 'date', required: true, orgId: 'org-cf-deal', resource: 'deal', label: 'Closed On', order: 0, createdAt: null, updatedAt: null },
     ])
     const req = callAsMember(member, 'POST', '/api/v1/crm/deals', {
       ...validDeal,
-      customFields: { budget: 'not-a-number' },
+      customFields: { closed_on: 'not-a-date' },
     })
     const { POST } = await import('@/app/api/v1/crm/deals/route')
     const res = await POST(req)

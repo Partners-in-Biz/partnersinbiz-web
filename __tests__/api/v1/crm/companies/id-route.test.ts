@@ -34,6 +34,12 @@ jest.mock('@/lib/companies/store', () => ({
   loadMemberRef: jest.fn().mockResolvedValue({ uid: 'am-uid', displayName: 'AM User' }),
 }))
 
+// Mock custom fields store for validation tests
+jest.mock('@/lib/customFields/store', () => ({
+  getDefinitionsForResource: jest.fn().mockResolvedValue([]),
+}))
+import { getDefinitionsForResource } from '@/lib/customFields/store'
+
 import { adminAuth, adminDb } from '@/lib/firebase/admin'
 // Import store mocks so we can control them
 import * as companiesStore from '@/lib/companies/store'
@@ -287,5 +293,41 @@ describe('DELETE /api/v1/crm/companies/:id', () => {
     const res = await routeModule.DELETE(req, routeCtx('co-cascade-fail'))
     expect(res.status).toBe(200)
     expect((await res.json()).data.id).toBe('co-cascade-fail')
+  })
+})
+
+describe('PATCH /api/v1/crm/companies/:id — custom field validation', () => {
+  it('accepts write when customFields match definitions', async () => {
+    const uid = uidFor('cf-patch-ok')
+    const member = seedOrgMember('org-cf-id', uid, { role: 'member' })
+    stageAuth(member)
+    const co = buildCompany({ id: 'co-cf1', orgId: 'org-cf-id', name: 'CF Co' })
+    ;(companiesStore.loadCompany as jest.Mock).mockResolvedValue(makeLoadedCompany(co))
+    ;(getDefinitionsForResource as jest.Mock).mockResolvedValueOnce([
+      { id: 'd1', key: 'verified', type: 'checkbox', required: false, orgId: 'org-cf-id', resource: 'company', label: 'Verified', order: 0, createdAt: null, updatedAt: null },
+    ])
+    const req = callAsMember(member, 'PATCH', '/api/v1/crm/companies/co-cf1', {
+      customFields: { verified: true },
+    })
+    const res = await routeModule.PATCH(req, routeCtx('co-cf1'))
+    expect(res.status).toBe(200)
+  })
+
+  it('rejects write with 400 when customFields violate definitions', async () => {
+    const uid = uidFor('cf-patch-bad')
+    const member = seedOrgMember('org-cf-id', uid, { role: 'member' })
+    stageAuth(member)
+    const co = buildCompany({ id: 'co-cf2', orgId: 'org-cf-id', name: 'CF Co 2' })
+    ;(companiesStore.loadCompany as jest.Mock).mockResolvedValue(makeLoadedCompany(co))
+    ;(getDefinitionsForResource as jest.Mock).mockResolvedValueOnce([
+      { id: 'd1', key: 'verified', type: 'checkbox', required: true, orgId: 'org-cf-id', resource: 'company', label: 'Verified', order: 0, createdAt: null, updatedAt: null },
+    ])
+    const req = callAsMember(member, 'PATCH', '/api/v1/crm/companies/co-cf2', {
+      customFields: { verified: 'not-a-bool' },
+    })
+    const res = await routeModule.PATCH(req, routeCtx('co-cf2'))
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body.error).toMatch(/custom field/i)
   })
 })

@@ -36,6 +36,12 @@ jest.mock('@/lib/companies/store', () => ({
   loadMemberRef: jest.fn().mockResolvedValue({ uid: 'am-uid', displayName: 'AM User' }),
 }))
 
+// Mock custom fields store for validation tests
+jest.mock('@/lib/customFields/store', () => ({
+  getDefinitionsForResource: jest.fn().mockResolvedValue([]),
+}))
+import { getDefinitionsForResource } from '@/lib/customFields/store'
+
 import { adminAuth, adminDb } from '@/lib/firebase/admin'
 import { seedOrgMember, callAsMember, callAsAgent } from '../../../../helpers/crm'
 import { buildCompany, uidFor, buildMemberDoc } from './_fixtures'
@@ -286,5 +292,42 @@ describe('POST /api/v1/crm/companies', () => {
     expect(written.createdByRef.uid).toBe('agent:pip')
     expect(written.createdByRef.kind).toBe('agent')
     expect(written.createdBy).toBeUndefined()
+  })
+})
+
+describe('POST /api/v1/crm/companies — custom field validation', () => {
+  it('accepts write when customFields match definitions', async () => {
+    const uid = uidFor('cf-co-ok')
+    const member = seedOrgMember('org-cf-co', uid, { role: 'member' })
+    const captured = jest.fn().mockResolvedValue(undefined)
+    stageAuth(member, {}, { capturedDocSet: captured })
+    ;(getDefinitionsForResource as jest.Mock).mockResolvedValueOnce([
+      { id: 'd1', key: 'compliance_notes', type: 'longtext', required: false, maxLength: 5000, orgId: 'org-cf-co', resource: 'company', label: 'Compliance Notes', order: 0, createdAt: null, updatedAt: null },
+    ])
+    const req = callAsMember(member, 'POST', '/api/v1/crm/companies', {
+      name: 'CF Corp',
+      customFields: { compliance_notes: 'All good' },
+    })
+    const { POST } = await import('@/app/api/v1/crm/companies/route')
+    const res = await POST(req)
+    expect(res.status).toBe(201)
+  })
+
+  it('rejects write with 400 when customFields violate definitions', async () => {
+    const uid = uidFor('cf-co-bad')
+    const member = seedOrgMember('org-cf-co', uid, { role: 'member' })
+    stageAuth(member, {})
+    ;(getDefinitionsForResource as jest.Mock).mockResolvedValueOnce([
+      { id: 'd1', key: 'verified', type: 'checkbox', required: true, orgId: 'org-cf-co', resource: 'company', label: 'Verified', order: 0, createdAt: null, updatedAt: null },
+    ])
+    const req = callAsMember(member, 'POST', '/api/v1/crm/companies', {
+      name: 'CF Corp Bad',
+      customFields: { verified: 'not-a-bool' },
+    })
+    const { POST } = await import('@/app/api/v1/crm/companies/route')
+    const res = await POST(req)
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body.error).toMatch(/custom field/i)
   })
 })
