@@ -843,4 +843,200 @@ to feed Meta CAPI. This requires:
   in skill calls)
 - An `event_id` matching the browser pixel's eventID for dedupe
 
+---
+
+## Companies (A1 — first-class entity)
+
+Companies are now a first-class CRM entity. Every `Contact`, `Deal`, `Quote`, and `Activity` can carry `companyId` and be linked to a `Company` record.
+
+### Company field reference
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | string | Firestore doc ID |
+| `orgId` | string | Tenant scope — always enforced |
+| `name` | string | Required, max 200 chars |
+| `domain` | string? | e.g. `acme.com` — lowercased on write, used for fuzzy matching |
+| `website` | string? | Full URL accepted |
+| `industry` | string? | Free-form |
+| `size` | `'1-10'|'11-50'|'51-200'|'201-1000'|'1000+'`? | |
+| `employeeCount` | number? | |
+| `annualRevenue` | number? | |
+| `currency` | Currency? | For annualRevenue |
+| `tier` | `'enterprise'|'mid-market'|'smb'`? | |
+| `lifecycleStage` | `'lead'|'prospect'|'customer'|'churned'`? | |
+| `tags` | string[] | Default `[]`, max 30 |
+| `notes` | string | Default `''`, max 10 000 chars |
+| `phone` | string? | |
+| `address` | CompanyAddress? | `{ street, city, state, country, postalCode, label }` |
+| `secondaryAddresses` | CompanyAddress[]? | |
+| `socialProfiles` | SocialProfiles? | `{ linkedin, twitter, facebook, instagram }` |
+| `logoUrl` | string? | Firebase Storage path OR external URL |
+| `parentCompanyId` | string? | Same-org only; cycle-detection enforced (max 10 levels) |
+| `accountManagerUid` | string? | Must be org member |
+| `accountManagerRef` | MemberRef? | Snapshot at write |
+| `healthScore` | number? | 0-100, nullable until A6 automation |
+| `customFields` | Record\<string, unknown\>? | Unvalidated until A2 |
+| `ownerUid` | string? | |
+| `ownerRef` | MemberRef? | |
+| `createdBy` | string? | |
+| `createdByRef` | MemberRef? | |
+| `updatedBy` | string? | |
+| `updatedByRef` | MemberRef? | |
+| `createdAt` | Timestamp\|null | |
+| `updatedAt` | Timestamp\|null | |
+| `deleted` | boolean? | `true` on soft-delete |
+
+### Hybrid migration model
+
+`Contact.company` (plain string) is preserved. New fields are additive:
+
+| Contact reads | Meaning |
+|---|---|
+| `companyId` set + `companyName` cached | Use cache (saves a Firestore read) |
+| `companyId` set, no cache | Look up `company.name` for current state |
+| `companyId` unset + `company` set | Use `company` string as display label (B2C fallback) |
+| both unset | "No company" |
+
+When linking a contact to a company, write both `companyId` + `companyName`. On company rename, best-effort cache-refresh updates `companyName` on all linked records (in-band for ≤30, background for more). On unlink, clear `companyId` + `companyName`, preserve `company` string.
+
+### Company endpoints
+
+#### `GET /crm/companies` — auth: viewer
+List companies with filters + pagination.
+
+Query params:
+- `search` — substring on `name`/`domain`/`website` (case-insensitive in-memory)
+- `industry` — exact
+- `size` — `1-10`|`11-50`|`51-200`|`201-1000`|`1000+`
+- `tier` — `enterprise`|`mid-market`|`smb`
+- `lifecycleStage` — `lead`|`prospect`|`customer`|`churned`
+- `tags` — comma-separated (array-contains-any, max 10)
+- `accountManagerUid` — exact
+- `hasOpenDeals` — bool (`true` = companies with at least one open deal)
+- `limit` — default 50, max 200
+- `cursor` — Firestore cursor (opaque) for next page
+- `orderBy` — `createdAt-desc` (default) | `name-asc` | `updatedAt-desc`
+
+Response:
+```json
+{ "success": true, "data": { "companies": [ { "id": "co_abc", "orgId": "org_xyz", "name": "Acme Corp", "domain": "acme.com", ... } ] } }
+```
+
+#### `POST /crm/companies` — auth: member
+Create a company. Required: `name`.
+
+Body: any subset of Company fields (except `id`, `orgId`, `createdAt`, `updatedAt`). `orgId` is resolved from auth middleware.
+
+Response (201): `{ id: "co_abc", ...fields }`
+
+#### `GET /crm/companies/[id]` — auth: viewer
+Full company record.
+
+#### `PUT /crm/companies/[id]` — auth: member
+Full replace. Empty body → 400.
+
+#### `PATCH /crm/companies/[id]` — auth: member
+Partial update. Empty body → 400.
+
+#### `DELETE /crm/companies/[id]` — auth: admin
+Soft-delete (`deleted: true`). Triggers cascade soft-clear of `companyId` + `companyName` on all linked contacts, deals, quotes, and activities within the same org (best-effort, 30-record batches). Does NOT delete linked records.
+
+Response: `{ id: "co_abc" }`
+
+#### `POST /crm/companies/bulk` — auth: member
+Bulk-update multiple companies.
+
+Body:
+```json
+{ "ids": ["co_1", "co_2"], "patch": { "accountManagerUid": "uid123", "tier": "enterprise" } }
+```
+
+Allowed `patch` fields: `accountManagerUid`, `ownerUid`, `tags` (replace), `tier`, `lifecycleStage`, `industry`, `size`. Others → 400.
+
+#### `POST /crm/companies/[id]/upload-logo` — auth: member
+Upload a company logo. `Content-Type: multipart/form-data`, field `logo`. Max 5 MB. Allowed types: `image/png`, `image/jpeg`, `image/webp`, `image/svg+xml`.
+
+Response: `{ logoUrl: "https://storage.googleapis.com/..." }`
+
+#### `POST /crm/companies/migrate-from-contacts` — auth: admin
+Migration tool: group existing plain-string `contact.company` values into real Company records.
+
+**Preview mode (default):**
+```json
+{ "mode": "preview" }
+```
+Response: list of normalized groups with `normalizedKey`, `rawValues`, `contactIds`, `suggestedCompanyName`, `existingCompanyId`.
+
+**Apply mode:**
+```json
+{ "mode": "apply", "selections": [ { "normalizedKey": "acme corp", "suggestedCompanyName": "Acme Corp", "contactIds": ["c1","c2"], "existingCompanyId": null } ] }
+```
+Per selection: creates company if `existingCompanyId === null`, then batch-links contacts. Returns per-row `created`/`linked`/`failed`. Idempotent.
+
+#### `GET /crm/companies/[id]/contacts` — auth: viewer
+Contacts linked to this company via `companyId`. Query: `limit` (default 50, max 200). Sorted `updatedAt desc`.
+
+#### `GET /crm/companies/[id]/deals` — auth: viewer
+Deals linked to this company. Query: `limit`. Sorted `updatedAt desc`. Excludes soft-deleted.
+
+#### `GET /crm/companies/[id]/quotes` — auth: viewer
+Quotes linked to this company. Query: `limit`. Sorted `updatedAt desc`.
+
+#### `GET /crm/companies/[id]/activities` — auth: viewer
+Activity timeline for this company. Query: `limit` (default 50, max 200). Sorted `createdAt desc`.
+
+### Cascade on DELETE
+
+`DELETE /crm/companies/[id]` soft-clears `companyId` + `companyName` on all 4 collections (`contacts`, `deals`, `quotes`, `activities`) within the same org. Uses 30-record Firestore batch chunks. Best-effort wrapped in try/catch — partial success is logged but does NOT block the delete response.
+
+---
+
+## Cross-entity companyId field notes
+
+### Contact
+
+New fields (additive, W1-A):
+- `companyId?: string` — link to a Company record (same org)
+- `companyName?: string` — denormalized cache of `company.name` at link time
+
+Hybrid: `company: string` (original plain-text field) is preserved unchanged. UI falls back to `company` when `companyId` is unset.
+
+POST and PATCH: supply `companyId` to link. If valid, the route writes both `companyId` + `companyName` from the Company record.
+
+### Deal
+
+New fields (additive, W1-A):
+- `companyId?: string`
+- `companyName?: string`
+
+Auto-derive: POST with `contactId` → if contact has `companyId`, deal inherits it (best-effort, wrapped in try/catch). PATCH with `contactId` change → repopulates `companyId` + `companyName` from new contact. PATCH with explicit `companyId` → validated + written directly (wins over contact-derived value in same PATCH).
+
+### Quote
+
+Same shape and auto-derive rules as Deal. Webhook payloads (`quote.created`, `quote.accepted`, `quote.rejected`) include `companyId` + `companyName` when set.
+
+### Activity
+
+New field (additive, W1-A):
+- `companyId?: string` — no `companyName` cache (activities only carry companyId)
+
+Auto-derive: POST with `contactId` → if contact has `companyId`, activity inherits it (best-effort). POST with explicit `companyId` → validated against org scope (returns 400 if invalid/cross-tenant).
+
+---
+
+## Role matrix
+
+| Resource | viewer (GET) | member (write) | admin (delete/bulk-admin) |
+|---|---|---|---|
+| Contacts | GET list/detail/activities/tags | POST, PUT, DELETE (if permitted) | DELETE always |
+| Deals | GET list/detail | POST, PUT | DELETE |
+| Quotes | GET list/detail | POST, PATCH | DELETE |
+| Activities | GET list | POST | — |
+| Forms | GET list/detail/submissions | — | POST, PUT, DELETE |
+| Segments | GET, resolve | POST, PUT | DELETE |
+| Integrations | GET list/detail | — | POST, PUT, DELETE, sync |
+| Capture sources | GET list/detail | — | POST, PUT, DELETE |
+| **Companies** | **GET list/detail/contacts/deals/quotes/activities** | **POST, PUT, PATCH, bulk, upload-logo** | **DELETE, migrate-from-contacts** |
+
 See the Ads sub-project 1 design spec for full payload shape.
