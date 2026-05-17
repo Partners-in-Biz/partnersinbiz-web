@@ -11,7 +11,29 @@ import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { withCrmAuth } from '@/lib/auth/crm-middleware'
 import { apiSuccess, apiError } from '@/lib/api/response'
-import type { ActivityType } from '@/lib/crm/types'
+import { loadCompany } from '@/lib/companies/store'
+import type { ActivityType, Contact } from '@/lib/crm/types'
+
+/**
+ * Best-effort: resolve companyId from a contact's companyId field.
+ * Wrapped in try/catch per Sub-1 invariant — failure must NOT block the activity write.
+ */
+async function deriveCompanyFromContact(
+  contactId: string,
+  orgId: string,
+): Promise<{ companyId?: string }> {
+  try {
+    const snap = await adminDb.collection('contacts').doc(contactId).get()
+    if (!snap.exists) return {}
+    const c = snap.data() as Contact
+    if (c.orgId !== orgId) return {}
+    if (!c.companyId) return {}
+    return { companyId: c.companyId }
+  } catch (e) {
+    console.error('deriveCompanyFromContact failed', e)
+    return {}
+  }
+}
 
 function parseDate(s: string | null): Date | null {
   if (!s) return null
@@ -84,13 +106,28 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
   // PR 3 pattern 1: use ctx.actor directly (no snapshotForWrite)
   const actorRef = ctx.actor
 
+  const contactId = body.contactId.trim()
+
+  // Derive companyId from the linked contact (best-effort, never blocks)
+  let resolvedCompanyId: string | undefined
+  if (body.companyId && typeof body.companyId === 'string' && body.companyId.trim()) {
+    // Explicit override — validate it belongs to this org
+    const loaded = await loadCompany(body.companyId.trim(), ctx.orgId)
+    if (!loaded) return apiError('Invalid companyId', 400)
+    resolvedCompanyId = body.companyId.trim()
+  } else {
+    const derived = await deriveCompanyFromContact(contactId, ctx.orgId)
+    if (derived.companyId) resolvedCompanyId = derived.companyId
+  }
+
   const docData = {
     orgId: ctx.orgId,
-    contactId: body.contactId.trim(),
+    contactId,
     dealId: typeof body.dealId === 'string' ? body.dealId : '',
     type: body.type as ActivityType,
     summary: body.summary.trim(),
     metadata: typeof body.metadata === 'object' && body.metadata !== null ? body.metadata : {},
+    companyId: resolvedCompanyId,
     createdBy: ctx.isAgent ? undefined : ctx.actor.uid,
     createdByRef: actorRef,
     createdAt: FieldValue.serverTimestamp(),
