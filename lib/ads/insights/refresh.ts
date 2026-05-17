@@ -1,11 +1,13 @@
 // lib/ads/insights/refresh.ts
 import { metaProvider } from '@/lib/ads/providers/meta'
 import { fetchInsights as fetchGoogleInsights } from '@/lib/ads/providers/google/insights'
+import { pullInsights as pullLinkedinInsights } from '@/lib/ads/providers/linkedin/insights'
 import { readDeveloperToken } from '@/lib/integrations/google_ads/oauth'
 import { adminDb } from '@/lib/firebase/admin'
 import { Timestamp } from 'firebase-admin/firestore'
 import type { MetaInsightRow, InsightLevel } from '@/lib/ads/providers/meta/insights'
 import type { DailyInsightRow, GoogleInsightsLevel } from '@/lib/ads/providers/google/insights'
+import type { LinkedinInsightLevel, LinkedinDailyInsightRow } from '@/lib/ads/providers/linkedin/insights'
 
 // ─── Shared arg types ─────────────────────────────────────────────────────────
 
@@ -36,8 +38,17 @@ export interface GoogleRefreshArgs extends RefreshArgsBase {
   loginCustomerId?: string
 }
 
+export interface LinkedinRefreshArgs extends RefreshArgsBase {
+  platform: 'linkedin'
+  /** Entity URN to fetch insights for (campaign group URN, campaign URN, or creative URN). */
+  linkedinEntityUrn: string
+  level: LinkedinInsightLevel
+  /** ISO 4217 currency from the connected ad account (used for canonical spend cents derivation). */
+  currencyCode: string
+}
+
 /** Union — callers pass `platform` to select the provider path. */
-export type RefreshArgs = MetaRefreshArgs | GoogleRefreshArgs
+export type RefreshArgs = MetaRefreshArgs | GoogleRefreshArgs | LinkedinRefreshArgs
 
 /**
  * Legacy form kept for backward-compat with existing callers that do not pass `platform`.
@@ -61,6 +72,10 @@ export async function refreshEntityInsights(args: RefreshArgs | LegacyRefreshArg
   const untilStr = today.toISOString().slice(0, 10)
 
   // ── Platform dispatch ────────────────────────────────────────────────────
+  if ((args as RefreshArgs).platform === 'linkedin') {
+    return _refreshLinkedin(args as LinkedinRefreshArgs, sinceStr, untilStr)
+  }
+
   if ((args as RefreshArgs).platform === 'google') {
     return _refreshGoogle(args as GoogleRefreshArgs, sinceStr, untilStr)
   }
@@ -177,6 +192,72 @@ async function _refreshGoogle(
   })
 
   return { rowsWritten, daysProcessed: rows.length }
+}
+
+// ─── LinkedIn path ────────────────────────────────────────────────────────────
+
+async function _refreshLinkedin(
+  args: LinkedinRefreshArgs,
+  sinceStr: string,
+  untilStr: string,
+): Promise<{ rowsWritten: number; daysProcessed: number }> {
+  const rows = await pullLinkedinInsights({
+    accessToken: args.accessToken,
+    level: args.level,
+    ids: [args.linkedinEntityUrn],
+    dateRange: { start: sinceStr, end: untilStr },
+    currencyCode: args.currencyCode,
+  })
+
+  let rowsWritten = 0
+  const batch = adminDb.batch()
+
+  for (const row of rows) {
+    const metrics = mapLinkedinInsightRow(row)
+    for (const [metric, value] of Object.entries(metrics)) {
+      if (value == null) continue
+      const docId = `linkedin_ads_${args.orgId}_${args.level}_${args.pibEntityId}_${row.date}_${metric}`
+      const ref = adminDb.collection('metrics').doc(docId)
+      batch.set(ref, {
+        orgId: args.orgId,
+        source: 'linkedin_ads',
+        level: args.level,
+        dimensionId: args.pibEntityId,
+        date: row.date,
+        metric,
+        value,
+        updatedAt: Timestamp.now(),
+      })
+      rowsWritten++
+    }
+  }
+
+  await batch.commit()
+
+  const collection =
+    args.level === 'campaign' ? 'ad_campaigns' : args.level === 'adset' ? 'ad_sets' : 'ads'
+  await adminDb.collection(collection).doc(args.pibEntityId).update({
+    lastRefreshedAt: Timestamp.now(),
+  })
+
+  return { rowsWritten, daysProcessed: rows.length }
+}
+
+/**
+ * Map a LinkedIn daily insight row to canonical metric values.
+ * Exported for testing.
+ */
+export function mapLinkedinInsightRow(row: LinkedinDailyInsightRow): Record<string, number | null | undefined> {
+  return {
+    impressions: row.impressions,
+    clicks: row.clicks,
+    spend_cents: row.spendCents,
+    conversions: row.conversions,
+    leads: row.leads,
+    landing_page_clicks: row.landingPageClicks,
+    video_views: row.videoViews,
+    conversion_value_cents: Math.round(row.conversionValueMajor * 100),
+  }
 }
 
 /**

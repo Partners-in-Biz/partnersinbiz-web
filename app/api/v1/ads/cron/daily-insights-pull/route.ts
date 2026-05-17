@@ -180,6 +180,65 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // ── LinkedIn: walk all active LinkedIn connections ────────────────────────
+  const linkedinConnsSnap = await adminDb
+    .collection('ad_connections')
+    .where('platform', '==', 'linkedin')
+    .where('status', '==', 'active')
+    .get()
+
+  for (const connDoc of linkedinConnsSnap.docs) {
+    const connRaw = connDoc.data() as AdConnection
+    const orgId = connRaw.orgId
+    try {
+      const allConns = await listConnections({ orgId })
+      const linkedin = allConns.find((c) => c.platform === 'linkedin')
+      if (!linkedin) continue
+
+      const accessToken = decryptAccessToken(linkedin)
+
+      // Read currency from connection meta if stored (fall back to USD)
+      const linkedinMeta = (
+        (linkedin.meta as { linkedin?: { currencyCode?: string } } | undefined)?.linkedin
+      )
+      const currencyCode = linkedinMeta?.currencyCode ?? 'USD'
+
+      // Fetch campaigns tagged as LinkedIn
+      const campaigns = await listCampaigns({ orgId, platform: 'linkedin' })
+
+      for (const campaign of campaigns.filter(
+        (c) => c.status === 'ACTIVE' || c.status === 'PAUSED',
+      )) {
+        const linkedinData = (
+          campaign.providerData as { linkedin?: { campaignGroupUrn?: string } } | undefined
+        )?.linkedin
+        const campaignGroupUrn = linkedinData?.campaignGroupUrn
+        if (!campaignGroupUrn) continue
+
+        try {
+          await refreshEntityInsights({
+            platform: 'linkedin',
+            orgId,
+            accessToken,
+            pibEntityId: campaign.id,
+            linkedinEntityUrn: campaignGroupUrn,
+            level: 'campaign',
+            currencyCode,
+            daysBack: 2,
+          })
+          totalProcessed++
+        } catch (err) {
+          totalFailed++
+          errors.push(
+            `LinkedIn ${orgId}/campaign/${campaign.id}: ${(err as Error).message}`,
+          )
+        }
+      }
+    } catch (err) {
+      errors.push(`LinkedIn org ${orgId} setup: ${(err as Error).message}`)
+    }
+  }
+
   return apiSuccess({
     processed: totalProcessed,
     failed: totalFailed,
