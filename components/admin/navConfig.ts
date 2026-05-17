@@ -38,7 +38,7 @@ export const OPERATOR_NAV: NavItem[] = [
   { label: 'Documents', href: '/admin/documents', icon: 'description' },
   { label: 'Support',   href: '/admin/support',   icon: 'support_agent' },
   { label: 'Agents',   href: '/admin/agents',   icon: 'group_work' },
-  { label: 'Settings', href: '/admin/settings', icon: 'settings', activePatterns: ['/admin/platform-users'] },
+  { label: 'Settings', href: '/admin/settings', icon: 'settings', activePatterns: ['/admin/platform-users', '/admin/platform-members'] },
 ]
 
 export const OPERATOR_NAV_TOPBAR: NavItem[] = [
@@ -85,9 +85,10 @@ export const OPERATOR_NAV_TOPBAR: NavItem[] = [
     children: [
       { label: 'Settings',       href: '/admin/settings' },
       { label: 'Platform users', href: '/admin/platform-users' },
+      { label: 'Platform members', href: '/admin/platform-members' },
       { label: 'API keys',       href: '/admin/settings/api-keys' },
     ],
-    activePatterns: ['/admin/platform-users'],
+    activePatterns: ['/admin/platform-users', '/admin/platform-members'],
   },
 ]
 

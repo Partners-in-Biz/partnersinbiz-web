@@ -1,0 +1,371 @@
+'use client'
+
+export const dynamic = 'force-dynamic'
+
+import Link from 'next/link'
+import { useEffect, useMemo, useState } from 'react'
+import { resetPassword } from '@/lib/firebase/auth'
+import { copyToClipboard } from '@/lib/utils/clipboard'
+
+type OrgRole = 'owner' | 'admin' | 'member' | 'viewer'
+
+interface LinkedClientOrg {
+  id: string
+  name: string
+  slug: string
+  role?: OrgRole
+  source: 'membership' | 'user'
+}
+
+interface PlatformMember {
+  uid: string
+  email: string
+  displayName: string
+  role: 'client'
+  orgId?: string
+  orgIds: string[]
+  linkedOrgs: LinkedClientOrg[]
+  authFound: boolean
+  emailVerified?: boolean
+  disabled?: boolean
+  lastSignInTime?: string | null
+}
+
+function Skeleton({ className = '' }: { className?: string }) {
+  return <div className={`pib-skeleton ${className}`} />
+}
+
+function Avatar({ name }: { name: string }) {
+  const initials = (name || '?')
+    .split(' ')
+    .slice(0, 2)
+    .map((n) => n[0]?.toUpperCase() ?? '')
+    .join('')
+
+  return (
+    <div
+      className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-on-surface flex-shrink-0"
+      style={{ backgroundColor: 'var(--color-accent-v2)' }}
+    >
+      {initials || '?'}
+    </div>
+  )
+}
+
+function RoleBadge({ role }: { role?: OrgRole }) {
+  if (!role) return null
+  const colors: Record<OrgRole, string> = {
+    owner: 'var(--color-accent-v2)',
+    admin: '#2563eb',
+    member: '#6b7280',
+    viewer: '#9ca3af',
+  }
+  return (
+    <span
+      className="text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full"
+      style={{ background: `${colors[role]}20`, color: colors[role] }}
+    >
+      {role}
+    </span>
+  )
+}
+
+export default function PlatformMembersPage() {
+  const [members, setMembers] = useState<PlatformMember[]>([])
+  const [loading, setLoading] = useState(true)
+  const [topError, setTopError] = useState<string | null>(null)
+  const [search, setSearch] = useState('')
+  const [busyUid, setBusyUid] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
+  const [passwordUid, setPasswordUid] = useState<string | null>(null)
+  const [newPassword, setNewPassword] = useState('')
+  const [passwordError, setPasswordError] = useState<string | null>(null)
+  const [setupLinkByUid, setSetupLinkByUid] = useState<Record<string, string>>({})
+
+  async function load() {
+    setLoading(true)
+    setTopError(null)
+    try {
+      const res = await fetch('/api/v1/admin/platform-members')
+      const body = await res.json()
+      if (!res.ok) {
+        setTopError(body?.error ?? 'Failed to load platform members')
+        setMembers([])
+      } else {
+        setMembers(body.data ?? [])
+      }
+    } catch (err) {
+      setTopError(err instanceof Error ? err.message : 'Failed to load platform members')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    load()
+  }, [])
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return members
+    return members.filter((member) => {
+      const haystack = [
+        member.displayName,
+        member.email,
+        member.uid,
+        ...member.linkedOrgs.map((org) => `${org.name} ${org.slug} ${org.id}`),
+      ].join(' ').toLowerCase()
+      return haystack.includes(q)
+    })
+  }, [members, search])
+
+  async function sendFirebaseReset(member: PlatformMember) {
+    setBusyUid(member.uid)
+    setNotice(null)
+    try {
+      await resetPassword(member.email)
+      setNotice(`Firebase reset email sent to ${member.email}.`)
+    } catch (err) {
+      setTopError(err instanceof Error ? err.message : 'Failed to send Firebase reset email')
+    } finally {
+      setBusyUid(null)
+    }
+  }
+
+  async function createSetupLink(member: PlatformMember) {
+    setBusyUid(member.uid)
+    setNotice(null)
+    try {
+      const res = await fetch(`/api/v1/admin/platform-members/${member.uid}/reset`, { method: 'POST' })
+      const body = await res.json()
+      if (!res.ok) throw new Error(body?.error ?? 'Failed to create setup link')
+      const setupLink = body.data?.setupLink
+      if (setupLink) {
+        setSetupLinkByUid((prev) => ({ ...prev, [member.uid]: setupLink }))
+        await copyToClipboard(setupLink)
+        setNotice(`Setup link copied for ${member.email}.`)
+      }
+    } catch (err) {
+      setTopError(err instanceof Error ? err.message : 'Failed to create setup link')
+    } finally {
+      setBusyUid(null)
+    }
+  }
+
+  async function savePassword(member: PlatformMember) {
+    setBusyUid(member.uid)
+    setPasswordError(null)
+    setNotice(null)
+    try {
+      const res = await fetch(`/api/v1/admin/platform-members/${member.uid}/password`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ password: newPassword }),
+      })
+      const body = await res.json()
+      if (!res.ok) throw new Error(body?.error ?? 'Failed to set password')
+      setNotice(`Password updated for ${member.email}.`)
+      setPasswordUid(null)
+      setNewPassword('')
+      await load()
+    } catch (err) {
+      setPasswordError(err instanceof Error ? err.message : 'Failed to set password')
+    } finally {
+      setBusyUid(null)
+    }
+  }
+
+  return (
+    <div className="space-y-6 max-w-6xl mx-auto">
+      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div>
+          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">
+            Settings / Platform
+          </p>
+          <h1 className="text-2xl font-headline font-bold text-on-surface">Platform Members</h1>
+          <p className="text-sm text-on-surface-variant mt-0.5">
+            Client portal logins and the client accounts each person is linked to.
+          </p>
+        </div>
+        <Link href="/admin/settings" className="pib-btn-ghost text-sm font-label self-start md:self-auto">
+          Back to settings
+        </Link>
+      </div>
+
+      {topError && (
+        <div className="pib-card border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-red-400">
+          {topError}
+        </div>
+      )}
+
+      {notice && (
+        <div className="pib-card border border-green-500/30 bg-green-500/5 px-4 py-3 text-sm text-green-400">
+          {notice}
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className="pib-card p-4">
+          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Client logins</p>
+          <p className="text-2xl font-headline font-bold text-on-surface mt-1">{members.length}</p>
+        </div>
+        <div className="pib-card p-4">
+          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Missing Auth</p>
+          <p className="text-2xl font-headline font-bold text-on-surface mt-1">
+            {members.filter((member) => !member.authFound).length}
+          </p>
+        </div>
+        <div className="pib-card p-4">
+          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Multi-account users</p>
+          <p className="text-2xl font-headline font-bold text-on-surface mt-1">
+            {members.filter((member) => member.linkedOrgs.length > 1).length}
+          </p>
+        </div>
+      </div>
+
+      <input
+        type="text"
+        placeholder="Search by name, email, uid, or client account..."
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        className="pib-input w-full"
+      />
+
+      {loading ? (
+        <div className="space-y-2">
+          <Skeleton className="h-24 rounded-xl" />
+          <Skeleton className="h-24 rounded-xl" />
+          <Skeleton className="h-24 rounded-xl" />
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="pib-card p-6 text-center text-sm text-on-surface-variant">
+          {members.length === 0 ? 'No client logins found.' : 'No matches.'}
+        </div>
+      ) : (
+        <ul className="space-y-3">
+          {filtered.map((member) => {
+            const showPassword = passwordUid === member.uid
+            const busy = busyUid === member.uid
+            return (
+              <li key={member.uid} className="pib-card p-4">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+                  <div className="flex items-start gap-3 flex-1 min-w-0">
+                    <Avatar name={member.displayName || member.email} />
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-sm font-semibold text-on-surface truncate">
+                          {member.displayName || '(no name)'}
+                        </p>
+                        {!member.authFound && (
+                          <span className="text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full bg-red-500/10 text-red-400">
+                            Auth missing
+                          </span>
+                        )}
+                        {member.disabled && (
+                          <span className="text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full bg-red-500/10 text-red-400">
+                            Disabled
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-on-surface-variant truncate">{member.email}</p>
+                      <p className="text-[11px] text-on-surface-variant/60 mt-0.5 font-mono truncate">
+                        {member.uid}
+                      </p>
+                      {member.lastSignInTime ? (
+                        <p className="text-[11px] text-on-surface-variant/60 mt-0.5">
+                          Last login: {new Date(member.lastSignInTime).toLocaleString()}
+                        </p>
+                      ) : (
+                        <p className="text-[11px] text-on-surface-variant/40 mt-0.5">Never signed in</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2 lg:justify-end">
+                    <button
+                      onClick={() => sendFirebaseReset(member)}
+                      disabled={busy || !member.email || !member.authFound}
+                      className="pib-btn-secondary text-xs font-label"
+                    >
+                      {busy ? 'Working...' : 'Send reset email'}
+                    </button>
+                    <button
+                      onClick={() => createSetupLink(member)}
+                      disabled={busy || !member.email || !member.authFound}
+                      className="pib-btn-ghost text-xs font-label"
+                    >
+                      Setup link
+                    </button>
+                    <button
+                      onClick={() => {
+                        setPasswordUid(showPassword ? null : member.uid)
+                        setNewPassword('')
+                        setPasswordError(null)
+                      }}
+                      disabled={busy || !member.authFound}
+                      className="pib-btn-ghost text-xs font-label"
+                    >
+                      {showPassword ? 'Cancel' : 'Set password'}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {member.linkedOrgs.length === 0 ? (
+                    <span className="text-xs text-on-surface-variant">No linked client accounts</span>
+                  ) : (
+                    member.linkedOrgs.map((org) => (
+                      <Link
+                        key={`${member.uid}-${org.id}`}
+                        href={`/admin/org/${org.slug}/dashboard`}
+                        className="inline-flex items-center gap-2 rounded-full bg-on-surface/10 px-3 py-1 text-xs text-on-surface-variant hover:text-on-surface transition-colors"
+                        title={org.source === 'user' ? 'Linked from user profile' : 'Linked from organisation members'}
+                      >
+                        <span>{org.name}</span>
+                        <RoleBadge role={org.role} />
+                      </Link>
+                    ))
+                  )}
+                </div>
+
+                {setupLinkByUid[member.uid] && (
+                  <div className="mt-3 rounded-md border border-on-surface/10 bg-on-surface/5 p-3">
+                    <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">
+                      Setup link
+                    </p>
+                    <code className="block text-[11px] break-all text-on-surface-variant">
+                      {setupLinkByUid[member.uid]}
+                    </code>
+                  </div>
+                )}
+
+                {showPassword && (
+                  <div className="mt-4 rounded-md border border-on-surface/10 bg-on-surface/5 p-3">
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <input
+                        type="password"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        placeholder="New password, minimum 8 characters"
+                        className="pib-input flex-1"
+                        autoComplete="new-password"
+                      />
+                      <button
+                        onClick={() => savePassword(member)}
+                        disabled={busy || newPassword.length < 8}
+                        className="pib-btn-primary text-sm font-label"
+                      >
+                        Save password
+                      </button>
+                    </div>
+                    {passwordError && <p className="text-xs text-red-400 mt-2">{passwordError}</p>}
+                  </div>
+                )}
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </div>
+  )
+}
