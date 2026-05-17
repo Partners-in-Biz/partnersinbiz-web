@@ -58,14 +58,12 @@ jest.mock('@/lib/integrations/google_ads/oauth', () => ({
 }))
 
 // ─── Firebase admin (for direct adminDb writes in LinkedIn branch) ────────────
-const mockUpdate = jest.fn().mockResolvedValue(undefined)
-const mockSet = jest.fn().mockResolvedValue(undefined)
 jest.mock('@/lib/firebase/admin', () => ({
   adminDb: {
     collection: jest.fn().mockReturnValue({
       doc: jest.fn().mockReturnValue({
-        set: mockSet,
-        update: mockUpdate,
+        set: jest.fn().mockResolvedValue(undefined),
+        update: jest.fn().mockResolvedValue(undefined),
       }),
     }),
   },
@@ -108,6 +106,12 @@ const { getConnection, decryptAccessToken } = jest.requireMock('@/lib/ads/connec
 const { createContactListAudience, createWebsiteAudience, createLookalikeAudience, createEngagementAudience } =
   jest.requireMock('@/lib/ads/providers/linkedin/audiences')
 
+/** Helper to get the update fn from the firebase admin mock (re-acquired each test) */
+function getAdminDbUpdateMock() {
+  const { adminDb } = jest.requireMock('@/lib/firebase/admin')
+  return (adminDb.collection('x').doc('y') as { update: jest.Mock }).update
+}
+
 // ─── Shared stubs ─────────────────────────────────────────────────────────────
 const fakeConn = {
   meta: { linkedin: { selectedAdAccountUrn: 'urn:li:sponsoredAccount:123456' } },
@@ -132,7 +136,11 @@ beforeEach(() => {
   createWebsiteAudience.mockResolvedValue({ urn: 'urn:li:dmpSegment:100', id: '100' })
   createLookalikeAudience.mockResolvedValue({ urn: 'urn:li:dmpSegment:101', id: '101' })
   createEngagementAudience.mockResolvedValue({ urn: 'urn:li:dmpSegment:102', id: '102' })
-  mockUpdate.mockResolvedValue(undefined)
+  // Reset firebase admin doc mock fns
+  const { adminDb } = jest.requireMock('@/lib/firebase/admin')
+  const docMock = adminDb.collection('x').doc('y') as { set: jest.Mock; update: jest.Mock }
+  docMock.set.mockResolvedValue(undefined)
+  docMock.update.mockResolvedValue(undefined)
 })
 
 describe('POST /api/v1/ads/custom-audiences — LinkedIn dispatch', () => {
@@ -155,7 +163,8 @@ describe('POST /api/v1/ads/custom-audiences — LinkedIn dispatch', () => {
     expect(createCall.name).toBe('My CRM List')
 
     // adminDb.update called to stamp dmpSegmentUrn
-    expect(mockUpdate).toHaveBeenCalledWith(
+    const updateMock = getAdminDbUpdateMock()
+    expect(updateMock).toHaveBeenCalledWith(
       expect.objectContaining({
         providerData: expect.objectContaining({
           linkedin: expect.objectContaining({ dmpSegmentUrn: 'urn:li:dmpSegment:99' }),
