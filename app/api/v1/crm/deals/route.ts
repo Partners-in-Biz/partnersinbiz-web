@@ -7,9 +7,24 @@ import { adminDb } from '@/lib/firebase/admin'
 import { withCrmAuth } from '@/lib/auth/crm-middleware'
 import { resolveMemberRef, type MemberRef } from '@/lib/orgMembers/memberRef'
 import { apiSuccess, apiError } from '@/lib/api/response'
-import type { Deal, DealStage, Currency } from '@/lib/crm/types'
+import type { Deal, DealStage, Currency, Contact } from '@/lib/crm/types'
 import { dispatchWebhook } from '@/lib/webhooks/dispatch'
 import { logActivity } from '@/lib/activity/log'
+import { loadCompany } from '@/lib/companies/store'
+
+async function deriveCompanyFromContact(contactId: string, orgId: string): Promise<{ companyId?: string; companyName?: string }> {
+  try {
+    const snap = await adminDb.collection('contacts').doc(contactId).get()
+    if (!snap.exists) return {}
+    const c = snap.data() as Contact
+    if (c.orgId !== orgId) return {}  // cross-tenant safeguard
+    if (!c.companyId) return {}
+    return { companyId: c.companyId, companyName: c.companyName }
+  } catch (e) {
+    console.error('deriveCompanyFromContact failed', e)
+    return {}
+  }
+}
 
 const VALID_STAGES: DealStage[] = ['discovery', 'proposal', 'negotiation', 'won', 'lost']
 const VALID_CURRENCIES: Currency[] = ['USD', 'EUR', 'ZAR']
@@ -60,7 +75,7 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
     ownerRef = await resolveMemberRef(ctx.orgId, body.ownerUid)
   }
 
-  const dealData = {
+  const dealData: Record<string, unknown> = {
     orgId: ctx.orgId,
     contactId: body.contactId.trim(),
     title: body.title.trim(),
@@ -78,6 +93,19 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
     updatedByRef: actorRef,
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
+  }
+
+  // Auto-derive companyId from contact when not explicitly provided
+  if (body.contactId && !body.companyId) {
+    const derived = await deriveCompanyFromContact(body.contactId, ctx.orgId)
+    Object.assign(dealData, derived)
+  }
+  // Explicit companyId in body always wins — validate and use it
+  if (body.companyId) {
+    const loaded = await loadCompany(body.companyId, ctx.orgId)
+    if (!loaded) return apiError('Invalid companyId', 400)
+    dealData.companyId = body.companyId
+    dealData.companyName = loaded.data.name
   }
 
   // Firestore rejects undefined values — strip them before write

@@ -517,6 +517,161 @@ describe('PUT /api/v1/crm/deals/[id]', () => {
   })
 })
 
+describe('POST deals with company derivation', () => {
+  beforeEach(() => jest.clearAllMocks())
+
+  it('auto-populates companyId+companyName from contact.companyId when contactId set', async () => {
+    const member = seedOrgMember('org-1', 'uid-1', { role: 'member' })
+    const captured = jest.fn().mockResolvedValue(undefined)
+    ;(adminAuth.verifySessionCookie as jest.Mock).mockResolvedValue({ uid: member.uid })
+    ;(adminDb.collection as jest.Mock).mockImplementation((name: string) => {
+      if (name === 'users') return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => ({ activeOrgId: 'org-1' }) }) }) }
+      if (name === 'orgMembers') return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => member }) }) }
+      if (name === 'organizations') return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => ({ settings: { permissions: {} } }) }) }) }
+      if (name === 'contacts') return {
+        doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => ({ orgId: 'org-1', companyId: 'comp-1', companyName: 'Acme Corp' }) }) }),
+      }
+      if (name === 'deals') return { doc: jest.fn().mockReturnValue({ id: 'deal-x', set: captured }) }
+      return { doc: () => ({ get: () => Promise.resolve({ exists: false }) }) }
+    })
+    const req = callAsMember(member, 'POST', '/api/v1/crm/deals', {
+      contactId: 'c-1', title: 'Auto Derive Test', value: 0, currency: 'ZAR', stage: 'discovery',
+    })
+    const { POST } = await import('@/app/api/v1/crm/deals/route')
+    const res = await POST(req)
+    expect(res.status).toBe(201)
+    const data = captured.mock.calls[0][0]
+    expect(data.companyId).toBe('comp-1')
+    expect(data.companyName).toBe('Acme Corp')
+  })
+
+  it('explicit body.companyId overrides auto-derive', async () => {
+    const member = seedOrgMember('org-1', 'uid-1', { role: 'member' })
+    const captured = jest.fn().mockResolvedValue(undefined)
+    ;(adminAuth.verifySessionCookie as jest.Mock).mockResolvedValue({ uid: member.uid })
+    ;(adminDb.collection as jest.Mock).mockImplementation((name: string) => {
+      if (name === 'users') return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => ({ activeOrgId: 'org-1' }) }) }) }
+      if (name === 'orgMembers') return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => member }) }) }
+      if (name === 'organizations') return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => ({ settings: { permissions: {} } }) }) }) }
+      if (name === 'contacts') return {
+        doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => ({ orgId: 'org-1', companyId: 'comp-from-contact', companyName: 'Contact Corp' }) }) }),
+      }
+      if (name === 'companies') return {
+        doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => ({ orgId: 'org-1', name: 'Explicit Corp', deleted: false }) }) }),
+      }
+      if (name === 'deals') return { doc: jest.fn().mockReturnValue({ id: 'deal-x', set: captured }) }
+      return { doc: () => ({ get: () => Promise.resolve({ exists: false }) }) }
+    })
+    const req = callAsMember(member, 'POST', '/api/v1/crm/deals', {
+      contactId: 'c-1', title: 'Explicit Override', value: 0, currency: 'ZAR', stage: 'discovery',
+      companyId: 'comp-explicit',
+    })
+    const { POST } = await import('@/app/api/v1/crm/deals/route')
+    const res = await POST(req)
+    expect(res.status).toBe(201)
+    const data = captured.mock.calls[0][0]
+    expect(data.companyId).toBe('comp-explicit')
+    expect(data.companyName).toBe('Explicit Corp')
+  })
+
+  it('contact lookup failure does not 500 — companyId not set on deal', async () => {
+    const member = seedOrgMember('org-1', 'uid-1', { role: 'member' })
+    const captured = jest.fn().mockResolvedValue(undefined)
+    ;(adminAuth.verifySessionCookie as jest.Mock).mockResolvedValue({ uid: member.uid })
+    ;(adminDb.collection as jest.Mock).mockImplementation((name: string) => {
+      if (name === 'users') return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => ({ activeOrgId: 'org-1' }) }) }) }
+      if (name === 'orgMembers') return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => member }) }) }
+      if (name === 'organizations') return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => ({ settings: { permissions: {} } }) }) }) }
+      if (name === 'contacts') return {
+        doc: () => ({ get: () => Promise.reject(new Error('Firestore unavailable')) }),
+      }
+      if (name === 'deals') return { doc: jest.fn().mockReturnValue({ id: 'deal-x', set: captured }) }
+      return { doc: () => ({ get: () => Promise.resolve({ exists: false }) }) }
+    })
+    const req = callAsMember(member, 'POST', '/api/v1/crm/deals', {
+      contactId: 'c-err', title: 'Resilient Deal', value: 0, currency: 'ZAR', stage: 'discovery',
+    })
+    const { POST } = await import('@/app/api/v1/crm/deals/route')
+    const res = await POST(req)
+    // Should succeed — derivation failure is swallowed
+    expect(res.status).toBe(201)
+    const data = captured.mock.calls[0][0]
+    expect(data.companyId).toBeUndefined()
+  })
+})
+
+describe('PATCH deals companyId', () => {
+  beforeEach(() => jest.clearAllMocks())
+
+  it('PATCH contactId change repopulates companyId from new contact', async () => {
+    const member = seedOrgMember('org-1', 'uid-1', { role: 'member' })
+    const captured = jest.fn().mockResolvedValue(undefined)
+    ;(adminAuth.verifySessionCookie as jest.Mock).mockResolvedValue({ uid: member.uid })
+    ;(adminDb.collection as jest.Mock).mockImplementation((name: string) => {
+      if (name === 'users') return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => ({ activeOrgId: 'org-1' }) }) }) }
+      if (name === 'orgMembers') return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => member }) }) }
+      if (name === 'organizations') return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => ({ settings: { permissions: {} } }) }) }) }
+      if (name === 'contacts') return {
+        doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => ({ orgId: 'org-1', companyId: 'comp-new', companyName: 'New Corp' }) }) }),
+      }
+      if (name === 'activities') return { add: jest.fn().mockResolvedValue({ id: 'act-1' }) }
+      if (name === 'deals') return {
+        doc: jest.fn().mockReturnValue({
+          id: 'd1',
+          get: jest.fn().mockResolvedValue({
+            exists: true,
+            id: 'd1',
+            data: () => ({ orgId: 'org-1', contactId: 'c-old', stage: 'discovery', title: 'T' }),
+          }),
+          update: captured,
+        }),
+      }
+      return { doc: () => ({ get: () => Promise.resolve({ exists: false }) }) }
+    })
+    const req = callAsMember(member, 'PATCH', '/api/v1/crm/deals/d1', { contactId: 'c-new' })
+    const { PATCH } = await import('@/app/api/v1/crm/deals/[id]/route')
+    const res = await PATCH(req, { params: Promise.resolve({ id: 'd1' }) })
+    expect(res.status).toBeLessThan(300)
+    const patch = captured.mock.calls[0][0]
+    expect(patch.companyId).toBe('comp-new')
+    expect(patch.companyName).toBe('New Corp')
+  })
+
+  it("PATCH { companyId: '' } clears both fields via FieldValue.delete()", async () => {
+    const member = seedOrgMember('org-1', 'uid-1', { role: 'member' })
+    const captured = jest.fn().mockResolvedValue(undefined)
+    ;(adminAuth.verifySessionCookie as jest.Mock).mockResolvedValue({ uid: member.uid })
+    ;(adminDb.collection as jest.Mock).mockImplementation((name: string) => {
+      if (name === 'users') return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => ({ activeOrgId: 'org-1' }) }) }) }
+      if (name === 'orgMembers') return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => member }) }) }
+      if (name === 'organizations') return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => ({ settings: { permissions: {} } }) }) }) }
+      if (name === 'activities') return { add: jest.fn().mockResolvedValue({ id: 'act-1' }) }
+      if (name === 'deals') return {
+        doc: jest.fn().mockReturnValue({
+          id: 'd1',
+          get: jest.fn().mockResolvedValue({
+            exists: true,
+            id: 'd1',
+            data: () => ({ orgId: 'org-1', contactId: 'c1', stage: 'discovery', title: 'T', companyId: 'comp-1', companyName: 'Old Corp' }),
+          }),
+          update: captured,
+        }),
+      }
+      return { doc: () => ({ get: () => Promise.resolve({ exists: false }) }) }
+    })
+    const req = callAsMember(member, 'PATCH', '/api/v1/crm/deals/d1', { companyId: '' })
+    const { PATCH } = await import('@/app/api/v1/crm/deals/[id]/route')
+    const res = await PATCH(req, { params: Promise.resolve({ id: 'd1' }) })
+    expect(res.status).toBeLessThan(300)
+    const patch = captured.mock.calls[0][0]
+    // FieldValue.delete() sentinel — not a plain string, and both fields set
+    expect(patch.companyId).toBeDefined()
+    expect(patch.companyName).toBeDefined()
+    // Verify it's a sentinel (not a string)
+    expect(typeof patch.companyId).not.toBe('string')
+  })
+})
+
 describe('DELETE /api/v1/crm/deals/[id]', () => {
   beforeEach(() => jest.clearAllMocks())
 

@@ -12,6 +12,22 @@ import { apiSuccess, apiError } from '@/lib/api/response'
 import { dispatchWebhook } from '@/lib/webhooks/dispatch'
 import { logActivity } from '@/lib/activity/log'
 import { tryAttributeDealWon } from '@/lib/email-analytics/attribution-hooks'
+import { loadCompany } from '@/lib/companies/store'
+import type { Contact } from '@/lib/crm/types'
+
+async function deriveCompanyFromContact(contactId: string, orgId: string): Promise<{ companyId?: string; companyName?: string }> {
+  try {
+    const snap = await adminDb.collection('contacts').doc(contactId).get()
+    if (!snap.exists) return {}
+    const c = snap.data() as Contact
+    if (c.orgId !== orgId) return {}  // cross-tenant safeguard
+    if (!c.companyId) return {}
+    return { companyId: c.companyId, companyName: c.companyName }
+  } catch (e) {
+    console.error('deriveCompanyFromContact failed', e)
+    return {}
+  }
+}
 
 type RouteCtx = { params: Promise<{ id: string }> }
 
@@ -55,6 +71,26 @@ async function handleDealUpdate(
     } else {
       // Unassign — explicitly clear ownerRef in Firestore
       patch.ownerRef = FieldValue.delete()
+    }
+  }
+
+  // contactId changed AND user didn't explicitly set companyId — auto-repopulate
+  if (body.contactId && body.contactId !== before.contactId && !('companyId' in body)) {
+    const derived = await deriveCompanyFromContact(body.contactId, ctx.orgId)
+    if (derived.companyId !== undefined) patch.companyId = derived.companyId
+    if (derived.companyName !== undefined) patch.companyName = derived.companyName
+  }
+
+  // Explicit companyId in body always wins
+  if ('companyId' in body) {
+    if (body.companyId === '' || body.companyId === null) {
+      patch.companyId = FieldValue.delete()
+      patch.companyName = FieldValue.delete()
+    } else {
+      const loaded2 = await loadCompany(body.companyId as string, ctx.orgId)
+      if (!loaded2) return apiError('Invalid companyId', 400)
+      patch.companyId = body.companyId
+      patch.companyName = loaded2.data.name
     }
   }
 
