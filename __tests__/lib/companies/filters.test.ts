@@ -28,6 +28,19 @@ describe('buildCompanyQuery', () => {
     expect(mockWhere).toHaveBeenCalledWith('orgId', '==', 'org-a')
   })
 
+  it('excludes soft-deleted by default (where deleted != true)', () => {
+    buildCompanyQuery('org-a', {})
+    expect(mockWhere).toHaveBeenCalledWith('deleted', '!=', true)
+    // Must orderBy('deleted') first when filtering by deleted inequality
+    expect(mockOrderBy).toHaveBeenCalledWith('deleted')
+  })
+
+  it('does NOT apply soft-delete filter when includeDeleted: true', () => {
+    buildCompanyQuery('org-a', {}, { includeDeleted: true })
+    expect(mockWhere).not.toHaveBeenCalledWith('deleted', '!=', true)
+    expect(mockOrderBy).not.toHaveBeenCalledWith('deleted')
+  })
+
   it('applies industry filter', () => {
     buildCompanyQuery('org-a', { industry: 'SaaS' })
     expect(mockWhere).toHaveBeenCalledWith('industry', '==', 'SaaS')
@@ -63,6 +76,10 @@ describe('applyPostFilterSearch', () => {
   it('also matches domain + website', () => {
     const cos = [{ name: 'X', domain: 'foo.com', website: 'https://wow.io' }]
     expect(applyPostFilterSearch(cos as never, 'wow')).toEqual(cos)
+  })
+  it('also matches industry', () => {
+    const cos = [{ name: 'X', domain: 'foo.com', industry: 'SaaS Analytics' }]
+    expect(applyPostFilterSearch(cos as never, 'analytics')).toEqual(cos)
   })
   it('returns all when search empty', () => {
     const cos = [{ name: 'A' }, { name: 'B' }] as never

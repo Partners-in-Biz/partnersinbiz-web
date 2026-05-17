@@ -1,28 +1,66 @@
 // lib/companies/filters.ts
+//
+// Pure helpers for composing Firestore queries against the `companies` collection
+// plus an in-memory post-filter for substring search.
+//
+// `buildCompanyQuery` defaults to excluding soft-deleted records — pass
+// `{ includeDeleted: true }` to opt out (e.g. for admin restore flows).
+
 import { adminDb } from '@/lib/firebase/admin'
 import type { CompanyListParams, Company } from './types'
 
-export function buildCompanyQuery(orgId: string, params: CompanyListParams) {
+export interface BuildCompanyQueryOptions {
+  /** Default false. When false, query excludes soft-deleted records via `where('deleted', '!=', true)`. */
+  includeDeleted?: boolean
+}
+
+export function buildCompanyQuery(
+  orgId: string,
+  params: CompanyListParams,
+  opts: BuildCompanyQueryOptions = {},
+) {
   let q: FirebaseFirestore.Query = adminDb.collection('companies').where('orgId', '==', orgId)
-  if (params.industry) q = q.where('industry', '==', params.industry)
-  if (params.size) q = q.where('size', '==', params.size)
-  if (params.tier) q = q.where('tier', '==', params.tier)
-  if (params.lifecycleStage) q = q.where('lifecycleStage', '==', params.lifecycleStage)
+
+  // Soft-delete filter (default: exclude). When applied, `deleted` must be
+  // the first orderBy field per Firestore's inequality+orderBy rule.
+  const excludeDeleted = !opts.includeDeleted
+  if (excludeDeleted) {
+    q = q.where('deleted', '!=', true)
+  }
+
+  if (params.industry)          q = q.where('industry', '==', params.industry)
+  if (params.size)              q = q.where('size', '==', params.size)
+  if (params.tier)              q = q.where('tier', '==', params.tier)
+  if (params.lifecycleStage)    q = q.where('lifecycleStage', '==', params.lifecycleStage)
   if (params.accountManagerUid) q = q.where('accountManagerUid', '==', params.accountManagerUid)
-  if (params.tags && params.tags.length > 0) q = q.where('tags', 'array-contains-any', params.tags.slice(0, 10))
-  const orderField = params.orderBy === 'name-asc' ? 'name' : params.orderBy === 'updatedAt-desc' ? 'updatedAt' : 'createdAt'
-  const orderDir = params.orderBy === 'name-asc' ? 'asc' : 'desc'
+  if (params.tags && params.tags.length > 0) {
+    q = q.where('tags', 'array-contains-any', params.tags.slice(0, 10))
+  }
+
+  // Ordering: when soft-delete filter is active, `deleted` must come first.
+  const orderField = params.orderBy === 'name-asc'
+    ? 'name'
+    : params.orderBy === 'updatedAt-desc'
+      ? 'updatedAt'
+      : 'createdAt'
+  const orderDir: FirebaseFirestore.OrderByDirection = params.orderBy === 'name-asc' ? 'asc' : 'desc'
+  if (excludeDeleted) {
+    q = q.orderBy('deleted')
+  }
   q = q.orderBy(orderField, orderDir)
+
   q = q.limit(Math.min(params.limit ?? 50, 200))
   return q
 }
 
+/** In-memory substring match across name / domain / website / industry (case-insensitive). */
 export function applyPostFilterSearch(companies: Company[], search: string): Company[] {
   if (!search.trim()) return companies
   const needle = search.toLowerCase().trim()
   return companies.filter(c =>
     c.name?.toLowerCase().includes(needle) ||
     c.domain?.toLowerCase().includes(needle) ||
-    c.website?.toLowerCase().includes(needle)
+    c.website?.toLowerCase().includes(needle) ||
+    c.industry?.toLowerCase().includes(needle),
   )
 }

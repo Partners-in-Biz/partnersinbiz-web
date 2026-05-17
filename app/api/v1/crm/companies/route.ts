@@ -19,54 +19,8 @@ import {
   validateParentChain,
   validateAccountManager,
 } from '@/lib/companies/store'
+import { buildCompanyQuery, applyPostFilterSearch } from '@/lib/companies/filters'
 import type { Company, CompanyInput, CompanyListParams } from '@/lib/companies/types'
-
-// TODO: refactor to import { buildCompanyQuery, applyPostFilterSearch } from '@/lib/companies/filters' when W2-G lands
-
-// ── Inline fallback query builder (replaces W2-G helpers until they land) ────────
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function buildCompanyQuery(orgId: string, params: CompanyListParams): any {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let q: any = adminDb.collection('companies')
-    .where('orgId', '==', orgId)
-    .where('deleted', '!=', true)
-
-  if (params.industry) q = q.where('industry', '==', params.industry)
-  if (params.size)     q = q.where('size', '==', params.size)
-  if (params.tier)     q = q.where('tier', '==', params.tier)
-  if (params.lifecycleStage) q = q.where('lifecycleStage', '==', params.lifecycleStage)
-  if (params.accountManagerUid) q = q.where('accountManagerUid', '==', params.accountManagerUid)
-  if (params.tags && params.tags.length > 0) {
-    q = q.where('tags', 'array-contains-any', params.tags.slice(0, 10))
-  }
-
-  // Ordering
-  const orderBy = params.orderBy ?? 'createdAt-desc'
-  if (orderBy === 'name-asc') {
-    q = q.orderBy('deleted').orderBy('name', 'asc')
-  } else if (orderBy === 'updatedAt-desc') {
-    q = q.orderBy('deleted').orderBy('updatedAt', 'desc')
-  } else {
-    q = q.orderBy('deleted').orderBy('createdAt', 'desc')
-  }
-
-  const limit = Math.min(params.limit ?? 50, 200)
-  q = q.limit(limit)
-
-  return { q, limit }
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function applyPostFilterSearch(companies: any[], search: string): any[] {
-  const q = search.toLowerCase()
-  return companies.filter(
-    (c) =>
-      c.name?.toLowerCase().includes(q) ||
-      c.domain?.toLowerCase().includes(q) ||
-      c.industry?.toLowerCase().includes(q),
-  )
-}
 
 // ── GET ─────────────────────────────────────────────────────────────────────────
 
@@ -92,10 +46,11 @@ export const GET = withCrmAuth('viewer', async (req, ctx) => {
     params.tags = tagsParam.split(',').map(t => t.trim()).filter(Boolean)
   }
 
-  const { q, limit } = buildCompanyQuery(ctx.orgId, params)
+  const limit = Math.min(params.limit ?? 50, 200)
+  const baseQuery = buildCompanyQuery(ctx.orgId, params)
 
   // Cursor-based pagination
-  let query = q
+  let query: FirebaseFirestore.Query = baseQuery
   if (params.cursor) {
     try {
       const cursorSnap = await adminDb.collection('companies').doc(params.cursor).get()
