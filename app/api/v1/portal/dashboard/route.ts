@@ -6,7 +6,7 @@
 //   - latest report (if any) with public link
 
 import { NextRequest, NextResponse } from 'next/server'
-import { withPortalAuth } from '@/lib/auth/portal-middleware'
+import { withPortalAuthAndRole } from '@/lib/auth/portal-middleware'
 import { adminDb } from '@/lib/firebase/admin'
 import { snapshotKpis, lastCompletedMonth, monthPeriod } from '@/lib/reports/snapshot'
 import { listConnectionsForOrg } from '@/lib/integrations/connections'
@@ -21,12 +21,6 @@ interface PortalProperty {
   domain: string
 }
 
-async function resolveOrgId(uid: string): Promise<string | null> {
-  const userDoc = await adminDb.collection('users').doc(uid).get()
-  const data = userDoc.data() as { orgId?: string } | undefined
-  return data?.orgId ?? null
-}
-
 async function listProps(orgId: string): Promise<PortalProperty[]> {
   const snap = await adminDb
     .collection('properties')
@@ -39,12 +33,7 @@ async function listProps(orgId: string): Promise<PortalProperty[]> {
   })
 }
 
-export const GET = withPortalAuth(async (req: NextRequest, uid: string) => {
-  const orgId = await resolveOrgId(uid)
-  if (!orgId) {
-    return NextResponse.json({ error: 'No org' }, { status: 404 })
-  }
-
+export const GET = withPortalAuthAndRole('viewer', async (_req: NextRequest, _uid: string, orgId: string) => {
   // Use the current month-to-date for the live dashboard.
   const now = new Date()
   const tz = 'UTC' // Portal users see UTC for now; server-rendered, no timezone leakage.

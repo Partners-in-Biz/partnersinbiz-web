@@ -9,6 +9,7 @@ import Link from 'next/link'
 interface Org {
   id: string
   name: string
+  slug?: string
 }
 
 interface Report {
@@ -49,18 +50,38 @@ export default function AdminReportsPage() {
 
   // Load orgs once on mount.
   useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search)
+    const requestedOrgId = searchParams.get('orgId')
+    const requestedOrgSlug = searchParams.get('orgSlug')
     ;(async () => {
       try {
         const r = await fetch('/api/v1/organizations')
         const data = await r.json()
-        const fetched: Org[] = (data.organizations ?? data.orgs ?? []) as Org[]
+        const fetched: Org[] = (data.data ?? data.organizations ?? data.orgs ?? []) as Org[]
         setOrgs(fetched)
-        if (fetched.length > 0) setOrgId(fetched[0].id)
+        const scopedOrg = requestedOrgId
+          ? fetched.find((o) => o.id === requestedOrgId)
+          : requestedOrgSlug
+            ? fetched.find((o) => (o.slug ?? slugify(o.name)) === requestedOrgSlug)
+            : null
+        if (scopedOrg) {
+          setOrgId(scopedOrg.id)
+        } else if (fetched.length > 0) {
+          setOrgId(fetched[0].id)
+        }
       } catch {
         setOrgs([])
       }
     })()
   }, [])
+
+  function slugify(value: string) {
+    return value
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+  }
 
   const loadReports = useCallback(async (id: string) => {
     if (!id) return

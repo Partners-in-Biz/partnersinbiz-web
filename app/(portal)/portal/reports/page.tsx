@@ -36,7 +36,7 @@ export default function PortalReports() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch('/api/v1/portal/dashboard')
+    fetch('/api/v1/portal/reports')
       .then((r) => r.json())
       .then((b) => { setReports(b.reports ?? []); setLoading(false) })
       .catch(() => setLoading(false))

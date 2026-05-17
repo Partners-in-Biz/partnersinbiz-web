@@ -40,7 +40,7 @@ export default function OrgIntelligencePage() {
             },
             {
               label: 'Reports',
-              href: '/admin/reports',
+              href: `/admin/reports?orgSlug=${encodeURIComponent(slug)}`,
               icon: 'monitoring',
               description: 'Open generated performance reports and shareable outputs.',
               eyebrow: 'Monthly',
@@ -52,21 +52,21 @@ export default function OrgIntelligencePage() {
           actions: [
             {
               label: 'Analytics',
-              href: '/admin/analytics',
+              href: `/admin/analytics?orgSlug=${encodeURIComponent(slug)}`,
               icon: 'analytics',
               description: 'Inspect sessions, events, users, funnels, retention, and live traffic.',
               eyebrow: 'Product',
             },
             {
               label: 'Properties',
-              href: '/admin/properties',
+              href: `/admin/properties?orgSlug=${encodeURIComponent(slug)}`,
               icon: 'apartment',
               description: 'Manage connected sites and runtime configuration.',
               eyebrow: 'Sites',
             },
             {
               label: 'Email analytics',
-              href: '/admin/email-analytics',
+              href: `/admin/email-analytics?orgSlug=${encodeURIComponent(slug)}`,
               icon: 'mark_email_read',
               description: 'Review email performance across broadcasts and sequences.',
               eyebrow: 'Comms',
