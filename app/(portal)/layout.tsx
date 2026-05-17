@@ -131,6 +131,7 @@ function NavLink({ item, pathname, collapsed }: { item: NavItem; pathname: strin
 export default function PortalLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
+  const isEmailRoute = pathname === '/portal/email' || pathname.startsWith('/portal/email/')
 
   const [email, setEmail]       = useState('')
   const [name, setName]         = useState('')
@@ -149,11 +150,21 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
   // Restore persisted preferences
   useEffect(() => {
     const c = localStorage.getItem('portal_sidebar_collapsed')
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (c === 'true') setCollapsed(true)
     const m = localStorage.getItem('portal_layout_mode') as LayoutMode | null
     if (m === 'sidebar' || m === 'topbar') setLayoutMode(m)
   }, [])
+
+  // Mail needs workspace more than navigation; collapse the sidebar automatically
+  // when users enter the mailbox.
+  useEffect(() => {
+    if (!isEmailRoute) return
+    setCollapsed((prev) => {
+      if (prev) return prev
+      localStorage.setItem('portal_sidebar_collapsed', 'true')
+      return true
+    })
+  }, [isEmailRoute])
 
   // Auth check
   useEffect(() => {
@@ -198,7 +209,6 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
 
   // Close mobile drawer on navigation
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setDrawerOpen(false)
   }, [pathname])
 
@@ -411,15 +421,20 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
           </div>
         )}
 
-        <main className="flex-1 px-4 md:px-8 py-8 max-w-6xl mx-auto w-full">{children}</main>
+        <main className={isEmailRoute
+          ? 'flex-1 px-3 md:px-5 py-4 w-full max-w-none'
+          : 'flex-1 px-4 md:px-8 py-8 max-w-6xl mx-auto w-full'
+        }>{children}</main>
 
-        <footer className="px-4 md:px-8 py-6 border-t border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] text-xs flex flex-wrap items-center justify-between gap-3">
-          <span>© {new Date().getFullYear()} Partners in Biz · Pretoria</span>
-          <div className="flex items-center gap-4">
-            <Link href="/privacy-policy" className="hover:text-[var(--color-pib-text)] transition-colors">Privacy</Link>
-            <Link href="/terms-of-service" className="hover:text-[var(--color-pib-text)] transition-colors">Terms</Link>
-          </div>
-        </footer>
+        {!isEmailRoute && (
+          <footer className="px-4 md:px-8 py-6 border-t border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] text-xs flex flex-wrap items-center justify-between gap-3">
+            <span>© {new Date().getFullYear()} Partners in Biz · Pretoria</span>
+            <div className="flex items-center gap-4">
+              <Link href="/privacy-policy" className="hover:text-[var(--color-pib-text)] transition-colors">Privacy</Link>
+              <Link href="/terms-of-service" className="hover:text-[var(--color-pib-text)] transition-colors">Terms</Link>
+            </div>
+          </footer>
+        )}
       </div>
     )
   }
@@ -627,15 +642,20 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
           </div>
         </header>
 
-        <main className="flex-1 px-4 md:px-8 py-8 max-w-6xl mx-auto w-full">{children}</main>
+        <main className={isEmailRoute
+          ? 'flex-1 px-3 md:px-5 py-4 w-full max-w-none'
+          : 'flex-1 px-4 md:px-8 py-8 max-w-6xl mx-auto w-full'
+        }>{children}</main>
 
-        <footer className="px-4 md:px-8 py-6 border-t border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] text-xs flex flex-wrap items-center justify-between gap-3">
-          <span>© {new Date().getFullYear()} Partners in Biz · Pretoria</span>
-          <div className="flex items-center gap-4">
-            <Link href="/privacy-policy" className="hover:text-[var(--color-pib-text)] transition-colors">Privacy</Link>
-            <Link href="/terms-of-service" className="hover:text-[var(--color-pib-text)] transition-colors">Terms</Link>
-          </div>
-        </footer>
+        {!isEmailRoute && (
+          <footer className="px-4 md:px-8 py-6 border-t border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] text-xs flex flex-wrap items-center justify-between gap-3">
+            <span>© {new Date().getFullYear()} Partners in Biz · Pretoria</span>
+            <div className="flex items-center gap-4">
+              <Link href="/privacy-policy" className="hover:text-[var(--color-pib-text)] transition-colors">Privacy</Link>
+              <Link href="/terms-of-service" className="hover:text-[var(--color-pib-text)] transition-colors">Terms</Link>
+            </div>
+          </footer>
+        )}
       </div>
     </div>
   )

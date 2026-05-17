@@ -20,6 +20,8 @@ import type {
 import { dispatchWebhook } from '@/lib/webhooks/dispatch'
 import { logActivity } from '@/lib/activity/log'
 import { loadCompany } from '@/lib/companies/store'
+import { getDefinitionsForResource } from '@/lib/customFields/store'
+import { validateCustomFields } from '@/lib/customFields/validation'
 
 const VALID_STAGES: ContactStage[] = [
   'new', 'contacted', 'replied', 'demo', 'proposal', 'won', 'lost',
@@ -160,6 +162,19 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
     createdByRef: actorRef,
     updatedBy: ctx.isAgent ? undefined : ctx.actor.uid,
     updatedByRef: actorRef,
+  }
+
+  // Custom field validation (best-effort — Firestore outage must not block core write)
+  if (body.customFields !== undefined && body.customFields !== null) {
+    try {
+      const defs = await getDefinitionsForResource(orgId, 'contact')
+      const errs = validateCustomFields(defs, body.customFields as Record<string, unknown>)
+      if (errs.length > 0) {
+        return apiError(`Custom field validation failed: ${errs.map(e => `${e.key}: ${e.message}`).join('; ')}`, 400)
+      }
+    } catch (err) {
+      console.error('custom-field-validation-skipped', err)
+    }
   }
 
   // Firestore rejects undefined values — strip them before write

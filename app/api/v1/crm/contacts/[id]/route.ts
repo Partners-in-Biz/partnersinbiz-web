@@ -19,6 +19,8 @@ import { dispatchWebhook } from '@/lib/webhooks/dispatch'
 import { logActivity } from '@/lib/activity/log'
 import { loadCompany } from '@/lib/companies/store'
 import { sanitizeContactForWrite } from '@/lib/crm/contacts'
+import { getDefinitionsForResource } from '@/lib/customFields/store'
+import { validateCustomFields } from '@/lib/customFields/validation'
 
 type RouteCtx = { params: Promise<{ id: string }> }
 
@@ -87,6 +89,19 @@ async function handleUpdate(
     }
     // Remove raw companyId from patch so it doesn't overwrite resolved value
     // (patch.companyId is already set above; remove the body spread duplicate)
+  }
+
+  // Custom field validation (best-effort — Firestore outage must not block core write)
+  if (body.customFields !== undefined && body.customFields !== null) {
+    try {
+      const defs = await getDefinitionsForResource(ctx.orgId, 'contact')
+      const errs = validateCustomFields(defs, body.customFields as Record<string, unknown>)
+      if (errs.length > 0) {
+        return apiError(`Custom field validation failed: ${errs.map(e => `${e.key}: ${e.message}`).join('; ')}`, 400)
+      }
+    } catch (err) {
+      console.error('custom-field-validation-skipped', err)
+    }
   }
 
   // Firestore rejects undefined values — strip them before write
