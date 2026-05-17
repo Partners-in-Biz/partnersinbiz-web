@@ -5,9 +5,16 @@ import { apiError } from '@/lib/api/response'
 import type { OrgRole } from '@/lib/organizations/types'
 import { ROLE_RANK } from '@/lib/orgMembers/types'
 
-type PortalHandler = (req: NextRequest, uid: string, ...args: any[]) => Promise<Response>
+type PortalHandler = (
+  req: NextRequest,
+  uid: string,
+  // Route context is forwarded without inspecting it so typed Next handlers can keep their own param shape.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ...args: any[]
+) => Promise<Response>
 
 export function withPortalAuth(handler: PortalHandler) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return async (req: NextRequest, ...args: any[]): Promise<Response> => {
     const sessionCookie = req.cookies.get('__session')?.value
     if (!sessionCookie) return apiError('Unauthorized', 401)
@@ -25,10 +32,16 @@ type PortalRoleHandler = (
   uid: string,
   orgId: string,
   role: OrgRole,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ...args: any[]
 ) => Promise<Response>
 
+function isOrgRole(value: unknown): value is OrgRole {
+  return typeof value === 'string' && value in ROLE_RANK
+}
+
 export function withPortalAuthAndRole(minRole: OrgRole, handler: PortalRoleHandler) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return withPortalAuth(async (req: NextRequest, uid: string, ...args: any[]) => {
     const userDoc = await adminDb.collection('users').doc(uid).get()
     if (!userDoc.exists) return apiError('User not found', 404)
@@ -39,13 +52,16 @@ export function withPortalAuthAndRole(minRole: OrgRole, handler: PortalRoleHandl
     let role: OrgRole | null = null
     const memberDoc = await adminDb.collection('orgMembers').doc(`${orgId}_${uid}`).get()
     if (memberDoc.exists) {
-      role = memberDoc.data()!.role as OrgRole
-    } else {
+      const memberRole = memberDoc.data()?.role
+      role = isOrgRole(memberRole) ? memberRole : null
+    }
+
+    if (!role) {
       const orgDoc = await adminDb.collection('organizations').doc(orgId).get()
       if (orgDoc.exists) {
         const members: Array<{ userId: string; role: OrgRole }> = orgDoc.data()!.members ?? []
         const m = members.find((m) => m.userId === uid)
-        if (m) role = m.role
+        if (isOrgRole(m?.role)) role = m.role
       }
     }
 

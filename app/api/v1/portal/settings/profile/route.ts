@@ -3,6 +3,8 @@ import { FieldValue } from 'firebase-admin/firestore'
 import { withPortalAuth } from '@/lib/auth/portal-middleware'
 import { adminDb } from '@/lib/firebase/admin'
 import { apiError, apiErrorFromException } from '@/lib/api/response'
+import { ROLE_RANK } from '@/lib/orgMembers/types'
+import type { OrgRole } from '@/lib/organizations/types'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,6 +15,18 @@ async function resolveOrgId(uid: string): Promise<string | null> {
   return (d.activeOrgId ?? d.orgId ?? null) as string | null
 }
 
+function isOrgRole(value: unknown): value is OrgRole {
+  return typeof value === 'string' && value in ROLE_RANK
+}
+
+async function resolveMemberRole(orgId: string, uid: string): Promise<OrgRole | null> {
+  const orgDoc = await adminDb.collection('organizations').doc(orgId).get()
+  if (!orgDoc.exists) return null
+  const members: Array<{ userId?: string; role?: unknown }> = orgDoc.data()?.members ?? []
+  const member = members.find((item) => item.userId === uid)
+  return isOrgRole(member?.role) ? member.role : null
+}
+
 export const GET = withPortalAuth(async (_req: NextRequest, uid: string) => {
   try {
     const orgId = await resolveOrgId(uid)
@@ -20,12 +34,14 @@ export const GET = withPortalAuth(async (_req: NextRequest, uid: string) => {
 
     const memberDoc = await adminDb.collection('orgMembers').doc(`${orgId}_${uid}`).get()
     if (!memberDoc.exists) {
+      const fallbackRole = await resolveMemberRole(orgId, uid)
       return NextResponse.json({
-        profile: { firstName: '', lastName: '', jobTitle: '', phone: '', avatarUrl: '', role: null, profileBannerDismissed: false },
+        profile: { firstName: '', lastName: '', jobTitle: '', phone: '', avatarUrl: '', role: fallbackRole, profileBannerDismissed: false },
       })
     }
 
     const d = memberDoc.data()!
+    const role = isOrgRole(d.role) ? d.role : await resolveMemberRole(orgId, uid)
     return NextResponse.json({
       profile: {
         firstName: d.firstName ?? '',
@@ -33,7 +49,7 @@ export const GET = withPortalAuth(async (_req: NextRequest, uid: string) => {
         jobTitle: d.jobTitle ?? '',
         phone: d.phone ?? '',
         avatarUrl: d.avatarUrl ?? '',
-        role: d.role ?? null,
+        role,
         profileBannerDismissed: d.profileBannerDismissed ?? false,
       },
     })
@@ -57,14 +73,22 @@ export const PATCH = withPortalAuth(async (req: NextRequest, uid: string) => {
 
     // Get existing doc for role + createdAt handling
     const existingDoc = await adminDb.collection('orgMembers').doc(`${orgId}_${uid}`).get()
-    const existingRole = existingDoc.exists ? (existingDoc.data()!.role ?? null) : null
+    const existingRoleValue = existingDoc.exists ? existingDoc.data()!.role : null
+    const existingRole = isOrgRole(existingRoleValue) ? existingRoleValue : await resolveMemberRole(orgId, uid)
 
     if (!firstName && profileBannerDismissed) {
       // Dismiss-only — only write the flag, never touch profile fields
       await adminDb
         .collection('orgMembers')
         .doc(`${orgId}_${uid}`)
-        .set({ profileBannerDismissed: true, updatedAt: FieldValue.serverTimestamp() }, { merge: true })
+        .set(
+          {
+            ...(existingRole ? { role: existingRole } : {}),
+            profileBannerDismissed: true,
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true },
+        )
       return NextResponse.json({ profile: { ...(existingDoc.data() ?? {}), profileBannerDismissed: true, role: existingRole } })
     }
 
@@ -85,6 +109,7 @@ export const PATCH = withPortalAuth(async (req: NextRequest, uid: string) => {
           jobTitle,
           phone,
           avatarUrl,
+          ...(existingRole ? { role: existingRole } : {}),
           ...(profileBannerDismissed ? { profileBannerDismissed: true } : {}),
           ...(!existingDoc.exists ? { createdAt: FieldValue.serverTimestamp() } : {}),
           updatedAt: FieldValue.serverTimestamp(),
