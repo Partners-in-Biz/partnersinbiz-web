@@ -9,6 +9,7 @@ import { metaProvider } from '@/lib/ads/providers/meta'
 import { logCustomAudienceActivity } from '@/lib/ads/activity'
 import { getConnection, decryptAccessToken } from '@/lib/ads/connections/store'
 import { Timestamp } from 'firebase-admin/firestore'
+import { adminDb } from '@/lib/firebase/admin'
 
 /** Lowercase + trim + SHA-256 hex hash per Meta spec. */
 function hashField(raw: string): string {
@@ -84,13 +85,12 @@ export const POST = withAuth(
       const members = rows.map((r) => rowToMember({ email: r.email, phone: r.phone }))
       const uploadResult = await uploadAudienceMembers({ accessToken, segmentUrn, members })
 
-      await updateCustomAudience(id, {
-        source: {
-          ...ca.source,
-          hashCount: uploadResult.totalMembers,
-          uploadedAt: Timestamp.now(),
-        },
-        status: 'BUILDING',
+      // Update status via store (only mutable fields); update source directly via adminDb
+      await updateCustomAudience(id, { status: 'BUILDING' })
+      await adminDb.collection('custom_audiences').doc(id).update({
+        'source.hashCount': uploadResult.totalMembers,
+        'source.uploadedAt': Timestamp.now(),
+        updatedAt: Timestamp.now(),
       })
 
       const actor = {
