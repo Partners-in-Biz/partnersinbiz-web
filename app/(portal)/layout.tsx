@@ -68,11 +68,18 @@ const NAV_LINKS: NavItem[] = [
     activePatterns: ['/portal/conversations', '/portal/enquiries'],
   },
   {
+    href: '/portal/email',
+    label: 'Email',
+    icon: 'mail',
+    group: 'comms',
+    activePatterns: ['/portal/email-domains', '/portal/email-analytics'],
+  },
+  {
     href: '/portal/reports',
     label: 'Reports',
     icon: 'analytics',
     group: 'data',
-    activePatterns: ['/portal/email-analytics', '/portal/properties', '/portal/data'],
+    activePatterns: ['/portal/properties', '/portal/data'],
   },
   { href: '/portal/payments', label: 'Billing', icon: 'payments', group: 'comms' },
 ]
