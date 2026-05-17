@@ -75,6 +75,34 @@ export const PATCH = withAuth(
           }
         }
       }
+    } else if (adSet.platform === 'linkedin') {
+      const linkedinData = (adSet.providerData as Record<string, unknown>)?.linkedin as Record<string, unknown> | undefined
+      const campaignUrn = typeof linkedinData?.campaignUrn === 'string' ? linkedinData.campaignUrn : undefined
+      if (campaignUrn) {
+        const conn = await getConnection({ orgId, platform: 'linkedin' })
+        if (conn) {
+          const accessToken = decryptAccessToken(conn)
+          const linkedinMeta = ((conn.meta ?? {}) as Record<string, unknown>).linkedin as Record<string, unknown> | undefined
+          const accountUrn = typeof linkedinMeta?.selectedAdAccountUrn === 'string' ? linkedinMeta.selectedAdAccountUrn : undefined
+          if (accountUrn) {
+            try {
+              const { updateCampaign: linkedinUpdateCampaign } = await import('@/lib/ads/providers/linkedin/adsets')
+              const { linkedinStatusFromCanonical } = await import('@/lib/ads/providers/linkedin/mappers')
+              await linkedinUpdateCampaign({
+                accountUrn,
+                accessToken,
+                campaignUrn,
+                patch: {
+                  ...(patch.name ? { name: patch.name } : {}),
+                  ...(patch.status ? { status: linkedinStatusFromCanonical(patch.status) } : {}),
+                },
+              })
+            } catch (err) {
+              warnings.push(`LinkedIn Ads sync warning: ${(err as Error).message}`)
+            }
+          }
+        }
+      }
     } else {
       // Meta path — preserved verbatim
       // PATCH limited to: name, status, dailyBudget, lifetimeBudget, bidAmount
@@ -136,6 +164,25 @@ export const DELETE = withAuth(
               } catch {
                 // swallow — local delete is source of truth
               }
+            }
+          }
+        }
+      }
+    } else if (adSet.platform === 'linkedin') {
+      const linkedinData = (adSet.providerData as Record<string, unknown>)?.linkedin as Record<string, unknown> | undefined
+      const campaignUrn = typeof linkedinData?.campaignUrn === 'string' ? linkedinData.campaignUrn : undefined
+      if (campaignUrn) {
+        const conn = await getConnection({ orgId, platform: 'linkedin' })
+        if (conn) {
+          const accessToken = decryptAccessToken(conn)
+          const linkedinMeta = ((conn.meta ?? {}) as Record<string, unknown>).linkedin as Record<string, unknown> | undefined
+          const accountUrn = typeof linkedinMeta?.selectedAdAccountUrn === 'string' ? linkedinMeta.selectedAdAccountUrn : undefined
+          if (accountUrn) {
+            try {
+              const { archiveCampaign: linkedinArchiveCampaign } = await import('@/lib/ads/providers/linkedin/adsets')
+              await linkedinArchiveCampaign({ accountUrn, accessToken, campaignUrn })
+            } catch {
+              // swallow — local delete is source of truth
             }
           }
         }

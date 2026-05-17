@@ -41,6 +41,9 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
     rsaAssets?: RsaAssets
     rdaAssets?: RdaAssets
     productAd?: boolean
+    linkedinAds?: {
+      referenceUrn: string
+    }
   }
 
   if (!body.input?.name || !body.input?.adSetId) {
@@ -116,6 +119,42 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
       providerData: {
         ...(ad.providerData ?? {}),
         google: { ...((ad.providerData as Record<string, unknown>)?.google as Record<string, unknown> | undefined ?? {}), adGroupAdResourceName: result.resourceName, googleAdId: result.id },
+      },
+    } as any)
+  } else if (platform === 'linkedin') {
+    const referenceUrn = body.linkedinAds?.referenceUrn
+    if (typeof referenceUrn !== 'string' || referenceUrn.length === 0) {
+      return apiError('LinkedIn ads require linkedinAds.referenceUrn (Share URN or asset URN backing the creative)', 400)
+    }
+
+    const conn = await getConnection({ orgId: ctx.orgId, platform: 'linkedin' })
+    if (!conn) return apiError('No LinkedIn ads connection for org', 400)
+    const accessToken = decryptAccessToken(conn)
+    const linkedinMeta = ((conn.meta ?? {}) as Record<string, unknown>).linkedin as Record<string, unknown> | undefined
+    const accountUrn = typeof linkedinMeta?.selectedAdAccountUrn === 'string' ? linkedinMeta.selectedAdAccountUrn : undefined
+    if (!accountUrn) return apiError('No Ad Account URN set on LinkedIn connection', 400)
+
+    const linkedinAdSetData = (adSet.providerData as Record<string, unknown>)?.linkedin as Record<string, unknown> | undefined
+    const campaignUrn = typeof linkedinAdSetData?.campaignUrn === 'string' ? linkedinAdSetData.campaignUrn : undefined
+    if (!campaignUrn) return apiError('Parent ad-set has no LinkedIn Campaign URN', 400)
+
+    const { createCreative } = await import('@/lib/ads/providers/linkedin/ads')
+    const result = await createCreative({
+      accountUrn,
+      accessToken,
+      canonical: ad,
+      campaignUrn,
+      referenceUrn,
+    })
+
+    await updateAd(ad.id, {
+      providerData: {
+        ...(ad.providerData ?? {}),
+        linkedin: {
+          ...((ad.providerData as Record<string, unknown>)?.linkedin as Record<string, unknown> | undefined ?? {}),
+          creativeUrn: result.urn,
+          contentReferenceUrn: referenceUrn,
+        },
       },
     } as any)
   }
