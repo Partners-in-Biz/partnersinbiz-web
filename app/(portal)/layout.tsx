@@ -12,6 +12,7 @@ import { LastPathTracker } from '@/components/pwa/LastPathTracker'
 import { clearLastPath } from '@/lib/pwa/lastPath'
 import { WelcomeFlashHandler } from '@/components/ui/WelcomeFlashHandler'
 import { SettingsNav } from '@/components/settings/SettingsNav'
+import { SupportDrawer } from '@/components/support/SupportDrawer'
 
 interface NavItem {
   href: string
@@ -330,12 +331,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
               >
                 <span className="material-symbols-outlined text-[18px]">dock_to_right</span>
               </button>
-              <a
-                href="mailto:hello@partnersinbiz.online"
-                className="hidden sm:inline-flex items-center gap-1 text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors"
-              >
-                <span className="material-symbols-outlined text-[18px]">support_agent</span>
-              </a>
+              <SupportDrawer triggerClassName="hidden sm:inline-flex items-center gap-1 text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors" />
               <div className="w-8 h-8 rounded-full bg-[var(--color-pib-accent-soft)] border border-[var(--color-pib-line-strong)] flex items-center justify-center text-xs font-medium text-[var(--color-pib-accent-hover)]">
                 {initials || '·'}
               </div>
@@ -613,13 +609,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
             >
               <span className="material-symbols-outlined text-[18px]">top_panel_open</span>
             </button>
-            <a
-              href="mailto:hello@partnersinbiz.online"
-              className="hidden sm:inline-flex items-center gap-1.5 text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors"
-            >
-              <span className="material-symbols-outlined text-[18px]">support_agent</span>
-              Need help?
-            </a>
+            <SupportDrawer triggerClassName="hidden sm:inline-flex items-center gap-1.5 text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors" />
           </div>
         </header>
 

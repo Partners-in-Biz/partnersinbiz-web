@@ -3,8 +3,7 @@
 // Tests that CRM integration config is encrypted before Firestore writes
 // and decrypted internally before building the public view.
 
-// ── Crypto mock ──────────────────────────────────────────────────────────────
-// Use real encrypt/decrypt so we can verify round-trip correctness.
+// ── Crypto — use real encrypt/decrypt to verify round-trip correctness ────────
 // We still need SOCIAL_TOKEN_MASTER_KEY set for the helper.
 process.env.SOCIAL_TOKEN_MASTER_KEY = 'a'.repeat(64) // 64 hex chars = 32-byte key
 
@@ -17,15 +16,15 @@ const mockUpdate = jest.fn()
 const mockWhere = jest.fn()
 const mockDocGet = jest.fn()
 
-// snap returned by doc().get() — ref points back to the docRef so snap.ref.update / snap.ref.get work
-function makeMockSnap(dataFn: () => unknown, existsVal = true) {
-  return { exists: existsVal, data: dataFn, id: 'int-1', ref: mockDocRef }
-}
-
 // The docRef object that snap.ref points back to
 const mockDocRef = {
   get: mockDocGet,
   update: mockUpdate,
+}
+
+// snap returned by doc().get() — ref points back to the docRef so snap.ref.update / snap.ref.get work
+function makeMockSnap(dataFn: () => unknown, existsVal = true) {
+  return { exists: existsVal, data: dataFn, id: 'int-1', ref: mockDocRef }
 }
 
 jest.mock('@/lib/firebase/admin', () => ({
@@ -39,13 +38,13 @@ jest.mock('@/lib/firebase/admin', () => ({
   },
 }))
 
-// ── Auth / scope mocks ────────────────────────────────────────────────────────
-jest.mock('@/lib/api/auth', () => ({
-  withAuth: (_tier: string, handler: Function) => handler,
-}))
-
-jest.mock('@/lib/api/orgScope', () => ({
-  resolveOrgScope: jest.fn(() => ({ ok: true, orgId: 'org-1' })),
+// ── Auth mock — withCrmAuth passes (req, ctx, routeCtx) to handler ────────────
+// We mock it to call the handler directly with a synthetic CrmAuthContext,
+// matching the shape expected by routes migrated to withCrmAuth.
+jest.mock('@/lib/auth/crm-middleware', () => ({
+  withCrmAuth: (_role: string, handler: Function) =>
+    (req: Request, routeCtx?: unknown) =>
+      handler(req, { uid: 'user-1', orgId: 'org-1', role: 'admin', isAgent: false, actor: { uid: 'user-1', displayName: 'Test User', kind: 'human' }, permissions: {} }, routeCtx),
 }))
 
 jest.mock('@/lib/api/response', () => ({
@@ -58,6 +57,9 @@ jest.mock('firebase-admin/firestore', () => ({
   FieldValue: {
     serverTimestamp: () => '__SERVER_TIMESTAMP__',
     increment: (n: number) => ({ _increment: n }),
+  },
+  Timestamp: {
+    now: () => ({ toDate: () => new Date() }),
   },
 }))
 
@@ -75,7 +77,6 @@ function makeRequest(body: unknown): Request {
   } as unknown as Request
 }
 
-const mockUser = { uid: 'user-1', orgId: ORG_ID, role: 'admin' }
 const mockContext = { params: Promise.resolve({ id: 'int-1' }) }
 
 beforeEach(() => {
@@ -120,7 +121,6 @@ describe('CRM integration config encryption', () => {
         name: 'My list',
         config: PLAIN_CONFIG,
       }) as Request,
-      mockUser as unknown as never,
     )
 
     expect(mockAdd).toHaveBeenCalledTimes(1)
@@ -172,7 +172,7 @@ describe('CRM integration config encryption', () => {
       url: `https://example.com/api/v1/crm/integrations?orgId=${ORG_ID}`,
     } as Request
 
-    const response = await GET(req, mockUser as unknown as never)
+    const response = await GET(req)
     const publicViews = (response as { _data: unknown })._data as Array<Record<string, unknown>>
 
     expect(Array.isArray(publicViews)).toBe(true)
@@ -211,7 +211,7 @@ describe('CRM integration config encryption', () => {
     })
 
     const snap = makeMockSnap(docData)
-    // doc().get() is called twice: once to fetch, once after update via snap.ref.get()
+    // doc().get() is called twice: once to fetch, once after update via r.ref.get()
     mockDocRef.get
       .mockResolvedValueOnce(snap)
       .mockResolvedValueOnce(snap)
@@ -219,7 +219,6 @@ describe('CRM integration config encryption', () => {
 
     await PUT(
       makeRequest({ config: newConfig }) as Request,
-      mockUser as unknown as never,
       mockContext,
     )
 

@@ -118,6 +118,11 @@ service cloud.firestore {
     // ── Organizations ────────────────────────────────────────────────────────
     // Note: members array items must have exactly {userId, role} — no extra fields —
     // for hasAny map-equality checks to work correctly.
+    //
+    // firebase-tools deploy emits "Invalid variable name" warnings for `userId`
+    // and `role` in the hasAny([{...}]) literals below. False positive: those are
+    // map keys in an object literal, not variable references. Rules evaluate
+    // correctly at runtime. See firebase-tools issue tracker; safe to ignore.
     match /organizations/{orgId} {
       allow read: if isAdmin() || (request.auth != null &&
         (resource.data.members.hasAny([{ userId: request.auth.uid, role: 'owner' }]) ||

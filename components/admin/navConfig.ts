@@ -36,6 +36,7 @@ export const OPERATOR_NAV: NavItem[] = [
     activePatterns: ['/admin/invoicing', '/admin/quotes'],
   },
   { label: 'Documents', href: '/admin/documents', icon: 'description' },
+  { label: 'Support',   href: '/admin/support',   icon: 'support_agent' },
   { label: 'Agents',   href: '/admin/agents',   icon: 'group_work' },
   { label: 'Settings', href: '/admin/settings', icon: 'settings', activePatterns: ['/admin/platform-users'] },
 ]
@@ -77,6 +78,7 @@ export const OPERATOR_NAV_TOPBAR: NavItem[] = [
     ],
     activePatterns: ['/admin/invoicing', '/admin/quotes'],
   },
+  { label: 'Support',  href: '/admin/support',  icon: 'support_agent' },
   { label: 'Agents',   href: '/admin/agents',   icon: 'group_work' },
   {
     label: 'Settings', href: '/admin/settings', icon: 'settings',
