@@ -165,10 +165,11 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
   }
 
   // Custom field validation (best-effort — Firestore outage must not block core write)
-  if (body.customFields !== undefined && body.customFields !== null) {
+  const bodyRaw = body as unknown as Record<string, unknown>
+  if (bodyRaw.customFields !== undefined && bodyRaw.customFields !== null) {
     try {
       const defs = await getDefinitionsForResource(orgId, 'contact')
-      const errs = validateCustomFields(defs, body.customFields as Record<string, unknown>)
+      const errs = validateCustomFields(defs, bodyRaw.customFields as Record<string, unknown>)
       if (errs.length > 0) {
         return apiError(`Custom field validation failed: ${errs.map(e => `${e.key}: ${e.message}`).join('; ')}`, 400)
       }
