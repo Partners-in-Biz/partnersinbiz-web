@@ -1,26 +1,43 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import React, { useEffect, useState } from 'react'
-import { useSearchParams } from 'next/navigation'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import {
   FaXTwitter, FaLinkedin, FaFacebook, FaInstagram,
-  FaReddit, FaTiktok, FaPinterest, FaYoutube, FaMastodon,
+  FaReddit, FaTiktok, FaPinterest, FaYoutube,
 } from 'react-icons/fa6'
 import { SiThreads, SiBluesky } from 'react-icons/si'
 
-const PLATFORMS = [
-  { id: 'twitter', label: 'X (Twitter)', bg: 'bg-black', oauth: true },
-  { id: 'linkedin', label: 'LinkedIn', bg: 'bg-blue-700', oauth: true },
-  { id: 'facebook', label: 'Facebook', bg: 'bg-blue-600', oauth: true },
-  { id: 'instagram', label: 'Instagram', bg: 'bg-pink-600', oauth: true },
-  { id: 'reddit', label: 'Reddit', bg: 'bg-orange-600', oauth: true },
-  { id: 'tiktok', label: 'TikTok', bg: 'bg-gray-800', oauth: true },
-  { id: 'pinterest', label: 'Pinterest', bg: 'bg-red-700', oauth: true },
-  { id: 'threads', label: 'Threads', bg: 'bg-gray-700', oauth: true },
-  { id: 'youtube', label: 'YouTube', bg: 'bg-red-600', oauth: true },
-  { id: 'bluesky', label: 'Bluesky', bg: 'bg-sky-500', oauth: false },
-]
+type AccountStatus = 'active' | 'token_expired' | 'disconnected' | 'rate_limited'
+type SubAccountType = 'personal' | 'page'
+type TimestampLike = { _seconds?: number; seconds?: number } | string | null | undefined
+
+interface SocialAccount {
+  id: string
+  platform: string
+  displayName: string
+  username?: string
+  status: AccountStatus
+  isDefault?: boolean
+  subAccountType?: SubAccountType
+  accountType?: SubAccountType
+  avatarUrl?: string
+  lastUsedAt?: TimestampLike
+  lastUsed?: TimestampLike
+  tokenExpiresAt?: TimestampLike
+  platformMeta?: Record<string, unknown>
+}
+
+interface PendingOption {
+  index: number
+  displayName: string
+  username: string
+  avatarUrl: string
+  accountType: SubAccountType
+  platformAccountId: string
+  platformMeta?: Record<string, unknown>
+}
 
 const PLATFORM_ICONS: Record<string, { bg: string; icon: React.ReactNode }> = {
   twitter:   { bg: 'bg-black',       icon: <FaXTwitter size={14} /> },
@@ -34,43 +51,459 @@ const PLATFORM_ICONS: Record<string, { bg: string; icon: React.ReactNode }> = {
   bluesky:   { bg: 'bg-sky-500',     icon: <SiBluesky size={14} /> },
   threads:   { bg: 'bg-gray-700',    icon: <SiThreads size={14} /> },
   youtube:   { bg: 'bg-red-600',     icon: <FaYoutube size={14} /> },
-  mastodon:  { bg: 'bg-purple-600',  icon: <FaMastodon size={14} /> },
 }
 
-const STATUS_STYLES: Record<string, string> = {
-  active: 'border-green-400/40 text-green-300',
-  token_expired: 'border-red-400/40 text-red-300',
-  disconnected: 'border-[var(--color-outline-variant)] text-[var(--color-on-surface-variant)]',
-  rate_limited: 'border-yellow-400/40 text-yellow-300',
+const PLATFORM_LABELS: Record<string, string> = {
+  twitter: 'X (Twitter)',
+  linkedin: 'LinkedIn',
+  facebook: 'Facebook',
+  instagram: 'Instagram',
+  reddit: 'Reddit',
+  tiktok: 'TikTok',
+  pinterest: 'Pinterest',
+  bluesky: 'Bluesky',
+  threads: 'Threads',
+  youtube: 'YouTube',
+}
+
+const OAUTH_PLATFORMS = ['twitter', 'linkedin', 'facebook', 'instagram', 'reddit', 'tiktok', 'pinterest', 'threads', 'youtube']
+
+const STATUS_PILLS: Record<AccountStatus, string> = {
+  active: 'pib-pill pib-pill-success',
+  token_expired: 'pib-pill pib-pill-danger',
+  disconnected: 'pib-pill',
+  rate_limited: 'pib-pill pib-pill-warn',
+}
+
+const STATUS_LABELS: Record<AccountStatus, string> = {
+  active: 'Active',
+  token_expired: 'Expired',
+  disconnected: 'Disconnected',
+  rate_limited: 'Rate limited',
+}
+
+function timestampToDate(ts: TimestampLike): Date | null {
+  if (!ts) return null
+  if (typeof ts === 'object' && typeof ts._seconds === 'number') return new Date(ts._seconds * 1000)
+  if (typeof ts === 'object' && typeof ts.seconds === 'number') return new Date(ts.seconds * 1000)
+  if (typeof ts !== 'string') return null
+  const date = new Date(ts)
+  return Number.isNaN(date.getTime()) ? null : date
+}
+
+function daysUntil(ts: TimestampLike): number | null {
+  const date = timestampToDate(ts)
+  if (!date) return null
+  return Math.ceil((date.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+}
+
+function formatLastUsed(ts: TimestampLike): string {
+  const date = timestampToDate(ts)
+  if (!date) return 'Not used yet'
+  return date.toLocaleDateString('en-ZA', { day: '2-digit', month: 'short', year: 'numeric' })
+}
+
+function PlatformBadge({ platformId }: { platformId: string }) {
+  const config = PLATFORM_ICONS[platformId]
+  if (!config) {
+    return (
+      <span className="grid h-8 w-8 place-items-center rounded-md bg-[var(--color-surface-container)] text-[10px] font-bold uppercase text-on-surface-variant">
+        {platformId.slice(0, 2)}
+      </span>
+    )
+  }
+  return (
+    <span className={`${config.bg} grid h-8 w-8 place-items-center rounded-md text-white`}>
+      {config.icon}
+    </span>
+  )
+}
+
+function AccountAvatar({ account }: { account: SocialAccount }) {
+  if (account.avatarUrl) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={account.avatarUrl}
+        alt=""
+        className="h-9 w-9 rounded-full border border-[var(--color-card-border)] object-cover"
+      />
+    )
+  }
+
+  return (
+    <span className="grid h-9 w-9 place-items-center rounded-full bg-[var(--color-surface-container)] text-xs font-bold text-on-surface">
+      {account.displayName.slice(0, 2).toUpperCase()}
+    </span>
+  )
+}
+
+function SubAccountRow({
+  account,
+  onDisconnect,
+  onSetDefault,
+  disconnecting,
+}: {
+  account: SocialAccount
+  onDisconnect: (id: string) => void
+  onSetDefault: (id: string) => void
+  disconnecting: boolean
+}) {
+  const days = daysUntil(account.tokenExpiresAt)
+  const subAccountType = account.subAccountType ?? account.accountType
+  const username = account.username || account.displayName
+
+  return (
+    <div className="grid gap-3 border-t border-[var(--color-card-border)] px-4 py-3 sm:grid-cols-[auto_1fr_auto] sm:items-center">
+      <div className="flex min-w-0 items-center gap-3">
+        <AccountAvatar account={account} />
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold text-on-surface">{account.displayName}</p>
+          <p className="truncate text-xs text-on-surface-variant">@{username}</p>
+          <p className="mt-1 text-[11px] text-on-surface-variant">Last used: {formatLastUsed(account.lastUsedAt ?? account.lastUsed)}</p>
+          {days !== null && days <= 7 && (
+            <p className={`mt-1 text-[11px] ${days <= 0 ? 'text-[#FCA5A5]' : 'text-[#FBBF24]'}`}>
+              {days <= 0 ? 'Token expired' : `Token expires in ${days} day${days === 1 ? '' : 's'}`}
+            </p>
+          )}
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+        <span className={STATUS_PILLS[account.status] ?? 'pib-pill'}>
+          {STATUS_LABELS[account.status] ?? account.status}
+        </span>
+        {subAccountType && (
+          <span className={subAccountType === 'page' ? 'pib-pill pib-pill-info' : 'pib-pill'}>
+            {subAccountType}
+          </span>
+        )}
+        <button
+          type="button"
+          aria-pressed={account.isDefault}
+          onClick={() => !account.isDefault && onSetDefault(account.id)}
+          className={`rounded-md border px-2.5 py-1 text-xs font-label transition-colors ${
+            account.isDefault
+              ? 'border-[var(--color-pib-accent)] bg-[var(--color-pib-accent)]/10 text-[var(--color-pib-accent)]'
+              : 'border-[var(--color-card-border)] text-on-surface-variant hover:border-[var(--color-pib-accent)] hover:text-[var(--color-pib-accent)]'
+          }`}
+        >
+          {account.isDefault ? 'Default' : 'Set default'}
+        </button>
+        <button
+          type="button"
+          onClick={() => onDisconnect(account.id)}
+          disabled={disconnecting}
+          className="rounded-md border border-red-400/30 px-2.5 py-1 text-xs font-label text-red-300 transition-colors hover:bg-red-400/10 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          {disconnecting ? 'Disconnecting...' : 'Disconnect'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function PlatformCard({
+  platform,
+  accounts,
+  onDisconnect,
+  onSetDefault,
+  disconnectingId,
+}: {
+  platform: string
+  accounts: SocialAccount[]
+  onDisconnect: (id: string) => void
+  onSetDefault: (id: string) => void
+  disconnectingId: string | null
+}) {
+  const label = PLATFORM_LABELS[platform] ?? platform
+  const oauthUrl = `/api/v1/social/oauth/${platform}?redirectUrl=/portal/social/accounts`
+  const defaultAccount = accounts.find((account) => account.isDefault)
+
+  return (
+    <section className="pib-card overflow-hidden !p-0">
+      <div className="flex flex-wrap items-center gap-3 px-4 py-4">
+        <PlatformBadge platformId={platform} />
+        <div className="min-w-0 flex-1">
+          <h3 className="font-headline text-lg font-bold leading-tight text-on-surface">{label}</h3>
+          <p className="text-xs text-on-surface-variant">
+            {accounts.length} connected{defaultAccount ? ` · default: ${defaultAccount.displayName}` : ''}
+          </p>
+        </div>
+        {OAUTH_PLATFORMS.includes(platform) && (
+          <a href={oauthUrl} className="btn-pib-secondary !px-3 !py-2 !text-xs">
+            <span className="material-symbols-outlined text-base">add</span>
+            Add account
+          </a>
+        )}
+      </div>
+      {accounts.map((account) => (
+        <SubAccountRow
+          key={account.id}
+          account={account}
+          onDisconnect={onDisconnect}
+          onSetDefault={onSetDefault}
+          disconnecting={disconnectingId === account.id}
+        />
+      ))}
+    </section>
+  )
+}
+
+function PickerModal({
+  nonce,
+  platform,
+  onConfirm,
+  onSkip,
+}: {
+  nonce: string
+  platform: string
+  onConfirm: () => void
+  onSkip: () => void
+}) {
+  const [options, setOptions] = useState<PendingOption[]>([])
+  const [selected, setSelected] = useState<Set<number>>(new Set())
+  const [defaultIndex, setDefaultIndex] = useState<number | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    setSelected(new Set())
+    setDefaultIndex(null)
+    setLoading(true)
+    setError('')
+
+    fetch(`/api/v1/social/oauth/pending/${nonce}`)
+      .then((res) => res.ok ? res.json() : Promise.reject(new Error(`Failed (${res.status})`)))
+      .then((body) => {
+        const opts: PendingOption[] = body.data?.options ?? []
+        setOptions(opts)
+        setSelected(new Set(opts.map((_, index) => index)))
+        if (opts.length > 0) setDefaultIndex(0)
+      })
+      .catch(() => setError('Failed to load account options. Please reconnect and try again.'))
+      .finally(() => setLoading(false))
+  }, [nonce])
+
+  function toggleSelect(index: number) {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(index)) {
+        next.delete(index)
+        if (defaultIndex === index) setDefaultIndex(null)
+      } else {
+        next.add(index)
+        if (defaultIndex === null) setDefaultIndex(index)
+      }
+      return next
+    })
+  }
+
+  function setAsDefault(index: number) {
+    if (!selected.has(index)) return
+    setDefaultIndex(index)
+  }
+
+  async function handleConfirm() {
+    if (selected.size === 0) return
+    setSaving(true)
+    setError('')
+
+    try {
+      const selections = Array.from(selected).map((index) => ({
+        index,
+        isDefault: index === defaultIndex,
+      }))
+      const res = await fetch('/api/v1/social/accounts/confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nonce, selections }),
+      })
+      if (!res.ok) throw new Error(`Failed (${res.status})`)
+      onConfirm()
+    } catch {
+      setError('Failed to save accounts. Please try again.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const label = PLATFORM_LABELS[platform] ?? platform
+  const icon = PLATFORM_ICONS[platform]
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+      <div className="w-full max-w-lg rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-6 shadow-2xl">
+        <div className="mb-2 flex items-center gap-3">
+          {icon && <span className={`${icon.bg} grid h-9 w-9 place-items-center rounded-md text-white`}>{icon.icon}</span>}
+          <h2 className="font-headline text-xl font-bold text-on-surface">Choose {label} accounts</h2>
+        </div>
+        <p className="mb-5 text-sm text-on-surface-variant">
+          Select every account you want connected. The default account is what Pip uses first when posting automatically.
+        </p>
+
+        {loading && <div className="h-28 animate-pulse rounded-md bg-[var(--color-surface-container)]" />}
+        {!loading && error && <p className="rounded-md border border-red-400/30 bg-red-400/10 px-3 py-2 text-sm text-red-300">{error}</p>}
+
+        {!loading && !error && (
+          <div className="mb-5 space-y-2">
+            {options.map((option, index) => {
+              const isSelected = selected.has(index)
+              const isDefault = defaultIndex === index
+              return (
+                <div
+                  key={`${option.platformAccountId}-${index}`}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => isSelected ? setAsDefault(index) : toggleSelect(index)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault()
+                      if (isSelected) setAsDefault(index)
+                      else toggleSelect(index)
+                    }
+                  }}
+                  className={`flex cursor-pointer items-center gap-3 rounded-md border px-4 py-3 transition-colors ${
+                    isSelected
+                      ? isDefault
+                        ? 'border-[var(--color-pib-accent)] bg-[var(--color-pib-accent)]/10'
+                        : 'border-[var(--color-card-border)] bg-[var(--color-surface-container)]'
+                      : 'border-[var(--color-card-border)] opacity-60'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={() => toggleSelect(index)}
+                    onClick={(event) => event.stopPropagation()}
+                    className="h-4 w-4 accent-[var(--color-pib-accent)]"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-on-surface">{option.displayName}</p>
+                    <p className="truncate text-xs text-on-surface-variant">@{option.username}</p>
+                  </div>
+                  <span className={option.accountType === 'page' ? 'pib-pill pib-pill-info' : 'pib-pill'}>
+                    {option.accountType}
+                  </span>
+                  {isSelected && isDefault && <span className="pib-pill pib-pill-success">Default</span>}
+                </div>
+              )
+            })}
+            {options.length === 0 && (
+              <div className="rounded-md border border-[var(--color-card-border)] p-5 text-center text-sm text-on-surface-variant">
+                No account options were returned.
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <button
+            type="button"
+            onClick={handleConfirm}
+            disabled={saving || selected.size === 0}
+            className="btn-pib-accent flex-1 justify-center disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {saving ? 'Connecting...' : `Connect selected (${selected.size})`}
+          </button>
+          <button type="button" onClick={onSkip} className="btn-pib-secondary justify-center">
+            Skip
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function BlueskyForm({ onSuccess, disabled }: { onSuccess: () => void; disabled: boolean }) {
+  const [handle, setHandle] = useState('')
+  const [appPassword, setAppPassword] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function handleSubmit(event: React.FormEvent) {
+    event.preventDefault()
+    if (!handle.trim() || !appPassword.trim()) return
+    setSubmitting(true)
+    setError(null)
+
+    try {
+      const res = await fetch('/api/v1/social/accounts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          platform: 'bluesky',
+          displayName: handle.trim(),
+          username: handle.trim(),
+          status: 'active',
+          platformMeta: { handle: handle.trim(), appPassword: appPassword.trim() },
+        }),
+      })
+      const body = await res.json().catch(() => ({})) as { error?: string }
+      if (!res.ok) throw new Error(body.error ?? `Failed (${res.status})`)
+      setHandle('')
+      setAppPassword('')
+      onSuccess()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to connect Bluesky.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="pib-card space-y-4">
+      <div className="flex flex-wrap items-center gap-3">
+        <PlatformBadge platformId="bluesky" />
+        <div>
+          <h3 className="font-headline text-lg font-bold text-on-surface">Connect Bluesky</h3>
+          <p className="text-xs text-on-surface-variant">Use a Bluesky app password, not your main password.</p>
+        </div>
+      </div>
+      <div className="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
+        <input
+          type="text"
+          value={handle}
+          onChange={(event) => setHandle(event.target.value)}
+          placeholder="handle.bsky.social"
+          disabled={disabled || submitting}
+          className="pib-input"
+        />
+        <input
+          type="password"
+          value={appPassword}
+          onChange={(event) => setAppPassword(event.target.value)}
+          placeholder="App password"
+          disabled={disabled || submitting}
+          className="pib-input"
+        />
+        <button
+          type="submit"
+          disabled={disabled || submitting || !handle.trim() || !appPassword.trim()}
+          className="btn-pib-accent justify-center disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          {submitting ? 'Connecting...' : 'Connect'}
+        </button>
+      </div>
+      {error && <p className="text-sm text-red-300">{error}</p>}
+    </form>
+  )
 }
 
 export default function PortalAccountsPage() {
+  const router = useRouter()
   const searchParams = useSearchParams()
-  const [accounts, setAccounts] = useState<any[]>([])
+  const [accounts, setAccounts] = useState<SocialAccount[]>([])
   const [loading, setLoading] = useState(true)
-  const [disconnecting, setDisconnecting] = useState<string | null>(null)
-  const [message, setMessage] = useState('')
-  const [messageType, setMessageType] = useState<'success' | 'error'>('success')
+  const [disconnectingId, setDisconnectingId] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
+  const [message, setMessage] = useState<string | null>(null)
 
-  // Bluesky form
-  const [bskyHandle, setBskyHandle] = useState('')
-  const [bskyPassword, setBskyPassword] = useState('')
-  const [bskyConnecting, setBskyConnecting] = useState(false)
+  const pickerNonce = searchParams.get('picker')
+  const pickerPlatform = searchParams.get('platform') ?? ''
 
-  useEffect(() => {
-    const status = searchParams.get('status')
-    const platform = searchParams.get('platform')
-    const msg = searchParams.get('message')
-    if (status === 'success' && platform) {
-      setMessage(`Successfully connected ${platform}!`)
-      setMessageType('success')
-    } else if (status === 'error' && msg) {
-      setMessage(decodeURIComponent(msg))
-      setMessageType('error')
-    }
-  }, [searchParams])
-
-  const fetchAccounts = async () => {
+  const fetchAccounts = useCallback(async () => {
     setLoading(true)
     try {
       const res = await fetch('/api/v1/social/accounts')
@@ -78,177 +511,227 @@ export default function PortalAccountsPage() {
       setAccounts(body.data ?? [])
     } catch {
       setAccounts([])
+      setActionError('Failed to load social accounts.')
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
-  useEffect(() => { fetchAccounts() }, [])
+  useEffect(() => {
+    fetchAccounts()
+  }, [fetchAccounts])
 
-  const handleDisconnect = async (accountId: string) => {
-    setDisconnecting(accountId)
+  useEffect(() => {
+    const status = searchParams.get('status')
+    const platform = searchParams.get('platform')
+    const errorMessage = searchParams.get('message')
+
+    if (status === 'error' && errorMessage) {
+      setActionError(decodeURIComponent(errorMessage))
+    } else if (status === 'success' && platform && !pickerNonce) {
+      setMessage(`${PLATFORM_LABELS[platform] ?? platform} connected.`)
+      fetchAccounts()
+    }
+  }, [fetchAccounts, pickerNonce, searchParams])
+
+  async function handleDisconnect(id: string) {
+    if (!confirm('Disconnect this account? You can reconnect it later.')) return
+    setActionError(null)
+    setMessage(null)
+    setDisconnectingId(id)
+
     try {
-      const res = await fetch(`/api/v1/social/accounts/${accountId}`, { method: 'DELETE' })
-      if (!res.ok) throw new Error(`Failed to disconnect (${res.status})`)
+      const res = await fetch(`/api/v1/social/accounts/${id}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error(`Failed (${res.status})`)
       setMessage('Account disconnected.')
-      setMessageType('success')
-      fetchAccounts()
+      await fetchAccounts()
     } catch {
-      setMessage('Failed to disconnect account.')
-      setMessageType('error')
+      setActionError('Failed to disconnect account. Please try again.')
     } finally {
-      setDisconnecting(null)
+      setDisconnectingId(null)
     }
   }
 
-  const handleBlueskyConnect = async () => {
-    if (!bskyHandle.trim() || !bskyPassword.trim()) return
-    setBskyConnecting(true)
+  async function handleSetDefault(id: string) {
+    setActionError(null)
+    setMessage(null)
+
     try {
-      const res = await fetch('/api/v1/social/accounts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          platform: 'bluesky',
-          displayName: bskyHandle,
-          username: bskyHandle,
-          status: 'active',
-          platformMeta: { handle: bskyHandle, appPassword: bskyPassword },
-        }),
-      })
-      const body = await res.json()
-      if (!res.ok) throw new Error(body.error ?? 'Failed to connect')
-      setMessage('Bluesky account connected!')
-      setMessageType('success')
-      setBskyHandle('')
-      setBskyPassword('')
-      fetchAccounts()
-    } catch (err: any) {
-      setMessage(err.message)
-      setMessageType('error')
-    } finally {
-      setBskyConnecting(false)
+      const res = await fetch(`/api/v1/social/accounts/${id}/set-default`, { method: 'PUT' })
+      if (!res.ok) throw new Error(`Failed (${res.status})`)
+      setMessage('Default account updated.')
+      await fetchAccounts()
+    } catch {
+      setActionError('Failed to update default account.')
     }
   }
 
-  const connectedPlatformIds = new Set(accounts.filter(a => a.status !== 'disconnected').map(a => a.platform))
+  function dismissPicker() {
+    const params = new URLSearchParams(searchParams.toString())
+    params.delete('picker')
+    params.delete('platform')
+    const qs = params.toString()
+    router.replace(qs ? `/portal/social/accounts?${qs}` : '/portal/social/accounts')
+  }
+
+  function handlePickerConfirm() {
+    dismissPicker()
+    setMessage('Selected accounts connected.')
+    fetchAccounts()
+  }
+
+  const activeAccounts = useMemo(
+    () => accounts.filter((account) => account.status !== 'disconnected'),
+    [accounts],
+  )
+  const grouped = useMemo(() => {
+    return activeAccounts.reduce<Record<string, SocialAccount[]>>((acc, account) => {
+      if (!acc[account.platform]) acc[account.platform] = []
+      acc[account.platform].push(account)
+      return acc
+    }, {})
+  }, [activeAccounts])
+
+  const connectedPlatformIds = useMemo(
+    () => new Set(activeAccounts.map((account) => account.platform)),
+    [activeAccounts],
+  )
+  const unconnectedOAuth = OAUTH_PLATFORMS.filter((platform) => !connectedPlatformIds.has(platform))
+  const defaultCount = activeAccounts.filter((account) => account.isDefault).length
+  const needsAttentionCount = activeAccounts.filter((account) => account.status !== 'active').length
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="font-headline text-2xl font-bold tracking-tighter">Social Accounts</h1>
-        <p className="text-sm text-[var(--color-on-surface-variant)] mt-1">Connect and manage your social media accounts</p>
-      </div>
+      {pickerNonce && (
+        <PickerModal
+          nonce={pickerNonce}
+          platform={pickerPlatform}
+          onConfirm={handlePickerConfirm}
+          onSkip={dismissPicker}
+        />
+      )}
 
-      {message && (
-        <div className={`border p-4 text-sm ${messageType === 'success' ? 'border-green-400/40 text-green-300' : 'border-red-400/40 text-red-300'}`}>
-          {message}
-          <button onClick={() => setMessage('')} className="ml-3 text-[var(--color-on-surface-variant)] hover:text-[var(--color-on-surface)]">×</button>
+      <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div>
+          <p className="text-xs font-label uppercase tracking-widest text-[var(--color-pib-accent)]">Social media</p>
+          <h1 className="mt-1 font-headline text-3xl font-bold tracking-tight text-on-surface">Social Accounts</h1>
+          <p className="mt-2 max-w-2xl text-sm text-on-surface-variant">
+            Connect every profile or page you want Pip to publish to. Multiple accounts per platform are supported.
+          </p>
+        </div>
+        <a href="#connect-new-account" className="btn-pib-accent self-start md:self-auto">
+          <span className="material-symbols-outlined text-base">add_link</span>
+          Connect account
+        </a>
+      </header>
+
+      {(message || actionError) && (
+        <div
+          className={`flex items-center justify-between gap-3 rounded-md border px-4 py-3 text-sm ${
+            actionError
+              ? 'border-red-400/30 bg-red-400/10 text-red-300'
+              : 'border-green-400/30 bg-green-400/10 text-green-300'
+          }`}
+        >
+          <span>{actionError ?? message}</span>
+          <button
+            type="button"
+            onClick={() => {
+              setMessage(null)
+              setActionError(null)
+            }}
+            className="text-on-surface-variant hover:text-on-surface"
+            aria-label="Dismiss message"
+          >
+            x
+          </button>
         </div>
       )}
 
-      {/* Connected Accounts */}
-      <div>
-        <h2 className="text-xs font-label uppercase tracking-widest text-[var(--color-on-surface-variant)] mb-3">Connected Accounts</h2>
+      <section className="grid gap-3 sm:grid-cols-3">
+        <div className="pib-card px-4 py-3">
+          <p className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Connected</p>
+          <p className="mt-2 font-headline text-2xl font-bold text-on-surface">{activeAccounts.length}</p>
+        </div>
+        <div className="pib-card px-4 py-3">
+          <p className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Platforms</p>
+          <p className="mt-2 font-headline text-2xl font-bold text-on-surface">{connectedPlatformIds.size}</p>
+        </div>
+        <div className="pib-card px-4 py-3">
+          <p className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Defaults</p>
+          <p className="mt-2 font-headline text-2xl font-bold text-on-surface">
+            {defaultCount}
+            {needsAttentionCount > 0 && <span className="ml-2 align-middle text-xs font-label text-[#FBBF24]">{needsAttentionCount} need attention</span>}
+          </p>
+        </div>
+      </section>
+
+      <section>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Connected Accounts</h2>
+          <p className="text-xs text-on-surface-variant">Set one default account per platform for auto-posting.</p>
+        </div>
+
         {loading ? (
           <div className="space-y-3">
-            {[...Array(2)].map((_, i) => (
-              <div key={i} className="pib-skeleton p-5 h-20" />
+            {[...Array(3)].map((_, index) => (
+              <div key={index} className="pib-skeleton h-28 rounded-md" />
             ))}
           </div>
-        ) : accounts.filter(a => a.status !== 'disconnected').length === 0 ? (
-          <div className="pib-card text-center">
-            <p className="text-[var(--color-on-surface-variant)]">No accounts connected yet. Connect one below.</p>
+        ) : Object.keys(grouped).length === 0 ? (
+          <div className="pib-card py-14 text-center">
+            <span className="material-symbols-outlined text-4xl text-on-surface-variant">hub</span>
+            <h3 className="mt-3 font-headline text-xl font-bold text-on-surface">No accounts connected yet</h3>
+            <p className="mt-1 text-sm text-on-surface-variant">Connect your first account below so scheduled content has somewhere to publish.</p>
           </div>
         ) : (
           <div className="space-y-3">
-            {accounts.filter(a => a.status !== 'disconnected').map((acc: any) => {
-              const pcfg = PLATFORM_ICONS[acc.platform] ?? { bg: 'bg-gray-600', icon: null }
-              return (
-                <div key={acc.id} className="pib-card p-4 flex items-center gap-4">
-                  <span className={`${pcfg.bg} text-white w-7 h-7 flex items-center justify-center rounded`}>{pcfg.icon}</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-headline font-bold tracking-tight">{acc.displayName}</p>
-                    <p className="text-[var(--color-on-surface-variant)] text-xs">@{acc.username || acc.displayName}</p>
-                  </div>
-                  <span className={`text-xs font-label uppercase tracking-widest border px-2 py-0.5 ${STATUS_STYLES[acc.status] ?? 'border-[var(--color-outline-variant)] text-[var(--color-on-surface-variant)]'}`}>
-                    {acc.status === 'token_expired' ? 'Expired' : acc.status}
-                  </span>
-                  <button
-                    onClick={() => handleDisconnect(acc.id)}
-                    disabled={disconnecting === acc.id}
-                    className="px-3 py-1.5 text-xs font-label uppercase tracking-widest border border-red-400/30 text-red-300 hover:bg-red-400/10 transition-colors disabled:opacity-50"
-                  >
-                    {disconnecting === acc.id ? 'Disconnecting…' : 'Disconnect'}
-                  </button>
-                </div>
-              )
-            })}
+            {Object.entries(grouped).map(([platform, platformAccounts]) => (
+              <PlatformCard
+                key={platform}
+                platform={platform}
+                accounts={platformAccounts}
+                onDisconnect={handleDisconnect}
+                onSetDefault={handleSetDefault}
+                disconnectingId={disconnectingId}
+              />
+            ))}
           </div>
         )}
-      </div>
+      </section>
 
-      {/* Connect New Account */}
-      <div>
-        <h2 className="text-xs font-label uppercase tracking-widest text-[var(--color-on-surface-variant)] mb-3">Connect New Account</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {PLATFORMS.map(plat => {
-            const isConnected = connectedPlatformIds.has(plat.id)
-            if (plat.oauth) {
-              return (
-                <a
-                  key={plat.id}
-                  href={`/api/v1/social/oauth/${plat.id}?redirectUrl=/portal/social/accounts`}
-                  className={`pib-card p-4 flex items-center gap-3 transition-colors ${
-                    isConnected ? 'opacity-50 pointer-events-none' : 'pib-card-hover'
-                  }`}
-                >
-                  <span className={`${plat.bg} text-white w-7 h-7 flex items-center justify-center rounded`}>
-                    {PLATFORM_ICONS[plat.id]?.icon ?? <span className="text-[10px] font-bold">{plat.id.slice(0, 2).toUpperCase()}</span>}
-                  </span>
-                  <span className="flex-1 text-sm font-label">
-                    {isConnected ? `${plat.label} (connected)` : `Connect ${plat.label}`}
-                  </span>
-                  {!isConnected && <span className="text-[var(--color-on-surface-variant)] text-xs">→</span>}
-                </a>
-              )
-            }
-            return null
-          })}
+      <section id="connect-new-account" className="space-y-4 scroll-mt-24">
+        <div>
+          <h2 className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Connect New Account</h2>
+          <p className="mt-1 text-sm text-on-surface-variant">
+            OAuth platforms can return several pages or profiles. You can choose which ones to save after authorising.
+          </p>
         </div>
 
-        {/* Bluesky (App Password) */}
-        <div className="pib-card p-4 mt-3 space-y-3">
-          <div className="flex items-center gap-3">
-            <span className="bg-sky-500 text-white w-7 h-7 flex items-center justify-center rounded"><SiBluesky size={14} /></span>
-            <span className="text-sm font-label">Connect Bluesky</span>
-            <span className="text-xs text-[var(--color-on-surface-variant)]">(App Password)</span>
+        {unconnectedOAuth.length > 0 ? (
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            {unconnectedOAuth.map((platform) => (
+              <a
+                key={platform}
+                href={`/api/v1/social/oauth/${platform}?redirectUrl=/portal/social/accounts`}
+                className="pib-card pib-card-hover flex items-center gap-3 p-4"
+              >
+                <PlatformBadge platformId={platform} />
+                <span className="min-w-0 flex-1 text-sm font-semibold text-on-surface">
+                  Connect {PLATFORM_LABELS[platform] ?? platform}
+                </span>
+                <span className="material-symbols-outlined text-base text-on-surface-variant">arrow_forward</span>
+              </a>
+            ))}
           </div>
-          <div className="flex gap-3">
-            <input
-              type="text"
-              value={bskyHandle}
-              onChange={e => setBskyHandle(e.target.value)}
-              placeholder="handle.bsky.social"
-              className="flex-1 border border-[var(--color-outline-variant)] bg-transparent px-3 py-2 text-sm text-[var(--color-on-surface)] placeholder:text-[var(--color-on-surface-variant)] outline-none focus:border-[var(--color-on-surface-variant)]"
-            />
-            <input
-              type="password"
-              value={bskyPassword}
-              onChange={e => setBskyPassword(e.target.value)}
-              placeholder="App password"
-              className="flex-1 border border-[var(--color-outline-variant)] bg-transparent px-3 py-2 text-sm text-[var(--color-on-surface)] placeholder:text-[var(--color-on-surface-variant)] outline-none focus:border-[var(--color-on-surface-variant)]"
-            />
-            <button
-              onClick={handleBlueskyConnect}
-              disabled={bskyConnecting || !bskyHandle || !bskyPassword}
-              className="pib-btn-primary"
-            >
-              {bskyConnecting ? 'Connecting…' : 'Connect'}
-            </button>
+        ) : (
+          <div className="pib-card p-4 text-sm text-on-surface-variant">
+            All OAuth platforms have at least one connected account. Use Add account inside a platform card to connect another profile or page.
           </div>
-        </div>
-      </div>
+        )}
+
+        {!connectedPlatformIds.has('bluesky') && <BlueskyForm onSuccess={fetchAccounts} disabled={loading} />}
+      </section>
     </div>
   )
 }
