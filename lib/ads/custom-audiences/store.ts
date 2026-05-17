@@ -5,6 +5,7 @@ import type {
   AdCustomAudience,
   AdCustomAudienceStatus,
   AdCustomAudienceType,
+  AdPlatform,
   CreateAdCustomAudienceInput,
   UpdateAdCustomAudienceInput,
 } from '@/lib/ads/types'
@@ -15,6 +16,8 @@ const COLLECTION = 'custom_audiences'
 export async function createCustomAudience(args: {
   orgId: string
   createdBy: string
+  /** Which ad platform this audience belongs to. */
+  platform: AdPlatform
   input: CreateAdCustomAudienceInput
   /** Optional explicit ID — allows pre-generating an ID before upload. */
   id?: string
@@ -26,7 +29,7 @@ export async function createCustomAudience(args: {
     ...args.input,
     id,
     orgId: args.orgId,
-    platform: 'meta',
+    platform: args.platform,
     providerData: {},
     createdBy: args.createdBy,
     createdAt: now,

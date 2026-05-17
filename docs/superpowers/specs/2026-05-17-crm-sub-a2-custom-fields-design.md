@@ -1,0 +1,1 @@
+/Users/peetstander/Cowork/Cowork/agents/partners/wiki/2026-05-17-crm-sub-a2-custom-fields-design.md

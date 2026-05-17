@@ -14,6 +14,8 @@ export async function createSavedAudience(args: {
   orgId: string
   createdBy: string
   input: CreateAdSavedAudienceInput
+  /** Which ad platform this saved audience belongs to. Defaults to 'meta' for backwards compat. */
+  platform?: import('@/lib/ads/types').AdPlatform
   /** Optional explicit ID — allows callers to pre-generate IDs. */
   id?: string
 }): Promise<AdSavedAudience> {
@@ -24,7 +26,7 @@ export async function createSavedAudience(args: {
     ...args.input,
     id,
     orgId: args.orgId,
-    platform: 'meta',
+    platform: args.platform ?? 'meta',
     providerData: {},
     createdBy: args.createdBy,
     createdAt: now,

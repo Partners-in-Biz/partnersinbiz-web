@@ -176,6 +176,107 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
     return apiSuccess(canonicalDoc, 201)
   }
 
+  // ─── LinkedIn branch ──────────────────────────────────────────────────────
+  if (rawBody.platform === 'linkedin') {
+    const body = rawBody as {
+      platform: 'linkedin'
+      name?: string
+      description?: string
+      type?: 'CUSTOMER_LIST' | 'WEBSITE' | 'LOOKALIKE' | 'APP' | 'ENGAGEMENT'
+      providerData?: {
+        linkedin?: {
+          insightTagId?: string
+          websiteRules?: Array<{ matchType: 'CONTAINS' | 'EQUALS' | 'STARTS_WITH'; url: string }>
+          sourceSegmentUrn?: string
+          organizationUrn?: string
+          engagementType?: 'VISITORS' | 'FOLLOWERS' | 'VIDEO_VIEWERS'
+        }
+      }
+    }
+
+    if (!body.name) return apiError('name is required', 400)
+    if (!body.type) return apiError('type is required', 400)
+
+    const conn = await getConnection({ orgId, platform: 'linkedin' })
+    if (!conn) return apiError('No LinkedIn ads connection for org', 400)
+    const accessToken = decryptAccessToken(conn)
+    const linkedinMeta = ((conn.meta ?? {}) as Record<string, unknown>).linkedin as Record<string, unknown> | undefined
+    const accountUrn = typeof linkedinMeta?.selectedAdAccountUrn === 'string' ? linkedinMeta.selectedAdAccountUrn : undefined
+    if (!accountUrn) return apiError('No Ad Account URN set on LinkedIn connection', 400)
+
+    let result: { urn: string; id: string }
+    try {
+      switch (body.type) {
+        case 'CUSTOMER_LIST': {
+          const { createContactListAudience } = await import('@/lib/ads/providers/linkedin/audiences')
+          result = await createContactListAudience({ accountUrn, accessToken, name: body.name })
+          break
+        }
+        case 'WEBSITE': {
+          const insightTagId = body.providerData?.linkedin?.insightTagId
+          const rules = body.providerData?.linkedin?.websiteRules
+          if (!insightTagId || !Array.isArray(rules) || rules.length === 0) {
+            return apiError('WEBSITE requires providerData.linkedin.{insightTagId, websiteRules[]}', 400)
+          }
+          const { createWebsiteAudience } = await import('@/lib/ads/providers/linkedin/audiences')
+          result = await createWebsiteAudience({ accountUrn, accessToken, name: body.name, insightTagId, rules })
+          break
+        }
+        case 'LOOKALIKE': {
+          const sourceSegmentUrn = body.providerData?.linkedin?.sourceSegmentUrn
+          if (!sourceSegmentUrn) return apiError('LOOKALIKE requires providerData.linkedin.sourceSegmentUrn', 400)
+          const { createLookalikeAudience } = await import('@/lib/ads/providers/linkedin/audiences')
+          result = await createLookalikeAudience({ accountUrn, accessToken, name: body.name, sourceSegmentUrn })
+          break
+        }
+        case 'ENGAGEMENT': {
+          const organizationUrn = body.providerData?.linkedin?.organizationUrn
+          const engagementType = body.providerData?.linkedin?.engagementType
+          if (!organizationUrn || !engagementType) {
+            return apiError('ENGAGEMENT requires providerData.linkedin.{organizationUrn, engagementType}', 400)
+          }
+          const { createEngagementAudience } = await import('@/lib/ads/providers/linkedin/audiences')
+          result = await createEngagementAudience({ accountUrn, accessToken, name: body.name, organizationUrn, engagementType })
+          break
+        }
+        case 'APP': {
+          return apiError(
+            'LinkedIn does not support App audiences natively. ' +
+            'Workaround: create a CUSTOMER_LIST seeded by your app analytics events, then create a LOOKALIKE from that list.',
+            400,
+          )
+        }
+        default:
+          return apiError(`Unsupported LinkedIn audience type: ${(body as { type?: string }).type}`, 400)
+      }
+    } catch (err) {
+      return apiError(`LinkedIn audience create failed: ${(err as Error).message}`, 500)
+    }
+
+    const ca = await createCustomAudience({
+      orgId,
+      createdBy: (user as { uid?: string }).uid ?? 'unknown',
+      platform: 'linkedin',
+      input: {
+        name: body.name,
+        description: body.description ?? '',
+        type: body.type,
+        status: 'BUILDING',
+        source: { kind: 'CUSTOMER_LIST', csvStoragePath: '', hashCount: 0, uploadedAt: Timestamp.now() },
+      } as CreateAdCustomAudienceInput,
+    })
+
+    const linkedinProviderData = {
+      dmpSegmentUrn: result.urn,
+      ...body.providerData?.linkedin,
+    }
+    await adminDb.collection('custom_audiences').doc(ca.id).update({
+      providerData: { linkedin: linkedinProviderData },
+    })
+    const updated = await (await import('@/lib/ads/custom-audiences/store')).getCustomAudience(ca.id)
+    return apiSuccess(updated, 201)
+  }
+
   // ─── Meta branch (existing, unchanged) ────────────────────────────────────
   const ctx = await requireMetaContext(req)
   if (ctx instanceof Response) return ctx
@@ -189,6 +290,7 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
   const ca = await createCustomAudience({
     orgId: ctx.orgId,
     createdBy: (user as { uid?: string }).uid ?? 'unknown',
+    platform: 'meta',
     input: { ...body.input, status: initialStatus },
   })
 

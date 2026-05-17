@@ -53,6 +53,7 @@ async function main() {
     const ca = await createCustomAudience({
       orgId,
       createdBy: 'smoke-script',
+      platform: 'meta',
       input: {
         type: 'CUSTOMER_LIST',
         name: `[SMOKE-P4] CA ${new Date().toISOString()}`,

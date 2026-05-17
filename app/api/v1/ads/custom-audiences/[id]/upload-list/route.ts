@@ -7,6 +7,8 @@ import { getCustomAudience, updateCustomAudience } from '@/lib/ads/custom-audien
 import { requireMetaContext } from '@/lib/ads/api-helpers'
 import { metaProvider } from '@/lib/ads/providers/meta'
 import { logCustomAudienceActivity } from '@/lib/ads/activity'
+import { getConnection, decryptAccessToken } from '@/lib/ads/connections/store'
+import { Timestamp } from 'firebase-admin/firestore'
 
 /** Lowercase + trim + SHA-256 hex hash per Meta spec. */
 function hashField(raw: string): string {
@@ -25,13 +27,8 @@ export const POST = withAuth(
     const ca = await getCustomAudience(id)
     if (!ca || ca.orgId !== orgId) return apiError('Custom audience not found', 404)
     if (ca.type !== 'CUSTOMER_LIST') return apiError('Only CUSTOMER_LIST audiences support upload-list', 400)
-    const metaCaId = ca.providerData?.meta?.customAudienceId
-    if (!metaCaId) return apiError('Custom audience not yet synced to Meta', 400)
 
-    const ctx = await requireMetaContext(req)
-    if (ctx instanceof Response) return ctx
-
-    // Parse multipart form
+    // Parse multipart form (shared across platforms)
     const form = await req.formData()
     const file = form.get('file')
     const columnsStr = form.get('columns') as string | null
@@ -59,6 +56,70 @@ export const POST = withAuth(
     if (columnIndices.some((i) => i === -1)) {
       return apiError(`CSV missing required columns: ${columns.join(', ')}`, 400)
     }
+
+    // ─── LinkedIn branch ──────────────────────────────────────────────────────
+    if (ca.platform === 'linkedin') {
+      const linkedinData = (ca.providerData as Record<string, unknown>)?.linkedin as Record<string, unknown> | undefined
+      const segmentUrn = typeof linkedinData?.dmpSegmentUrn === 'string' ? linkedinData.dmpSegmentUrn : undefined
+      if (!segmentUrn) return apiError('Audience has no LinkedIn dmpSegmentUrn', 400)
+
+      const conn = await getConnection({ orgId, platform: 'linkedin' })
+      if (!conn) return apiError('No LinkedIn ads connection for org', 400)
+      const accessToken = decryptAccessToken(conn)
+
+      // Parse rows into {email?, phone?} objects
+      const emailIdx = header.indexOf('EMAIL')
+      const phoneIdx = header.indexOf('PHONE')
+      const rows: Array<{ email?: string; phone?: string }> = []
+      for (let i = 1; i < lines.length; i++) {
+        const cells = lines[i].split(',')
+        const row: { email?: string; phone?: string } = {}
+        if (emailIdx !== -1 && cells[emailIdx]?.trim()) row.email = cells[emailIdx].trim()
+        if (phoneIdx !== -1 && cells[phoneIdx]?.trim()) row.phone = cells[phoneIdx].trim()
+        if (row.email || row.phone) rows.push(row)
+      }
+      if (rows.length === 0) return apiError('No valid rows found in CSV', 400)
+
+      const { rowToMember, uploadAudienceMembers } = await import('@/lib/ads/providers/linkedin/audiences-hash')
+      const members = rows.map((r) => rowToMember({ email: r.email, phone: r.phone }))
+      const uploadResult = await uploadAudienceMembers({ accessToken, segmentUrn, members })
+
+      await updateCustomAudience(id, {
+        source: {
+          ...ca.source,
+          hashCount: uploadResult.totalMembers,
+          uploadedAt: Timestamp.now(),
+        },
+        status: 'BUILDING',
+      })
+
+      const actor = {
+        id: (user as { uid?: string }).uid ?? 'unknown',
+        name: (user as { email?: string }).email ?? 'Admin',
+        role: 'admin' as const,
+      }
+      await logCustomAudienceActivity({
+        orgId,
+        actor,
+        action: 'list_uploaded',
+        audienceId: id,
+        audienceName: ca.name,
+        audienceType: ca.type,
+      })
+
+      return apiSuccess({
+        uploaded: uploadResult.totalMembers,
+        chunksFailed: uploadResult.chunksFailed,
+        ...(uploadResult.firstError ? { firstError: uploadResult.firstError } : {}),
+      })
+    }
+
+    // ─── Meta branch ─────────────────────────────────────────────────────────
+    const metaCaId = ca.providerData?.meta?.customAudienceId
+    if (!metaCaId) return apiError('Custom audience not yet synced to Meta', 400)
+
+    const ctx = await requireMetaContext(req)
+    if (ctx instanceof Response) return ctx
 
     // Hash rows
     const hashedRows: string[][] = []

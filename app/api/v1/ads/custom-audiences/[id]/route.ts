@@ -55,7 +55,27 @@ export const DELETE = withAuth(
     if (!ca || ca.orgId !== orgId) return apiError('Custom audience not found', 404)
 
     // Best-effort provider delete first
-    if (ca.platform === 'google') {
+    if (ca.platform === 'linkedin') {
+      const providerData = ca.providerData as Record<string, unknown>
+      const linkedinData = providerData?.linkedin as Record<string, unknown> | undefined
+      const segmentUrn = typeof linkedinData?.dmpSegmentUrn === 'string' ? linkedinData.dmpSegmentUrn : undefined
+      if (segmentUrn) {
+        try {
+          const conn = await getConnection({ orgId, platform: 'linkedin' })
+          if (conn) {
+            const accessToken = decryptAccessToken(conn)
+            const linkedinMeta = ((conn.meta ?? {}) as Record<string, unknown>).linkedin as Record<string, unknown> | undefined
+            const accountUrn = typeof linkedinMeta?.selectedAdAccountUrn === 'string' ? linkedinMeta.selectedAdAccountUrn : undefined
+            if (accountUrn) {
+              const { archiveAudience } = await import('@/lib/ads/providers/linkedin/audiences')
+              await archiveAudience({ accountUrn, accessToken, segmentUrn })
+            }
+          }
+        } catch {
+          // swallow — local delete is source of truth
+        }
+      }
+    } else if (ca.platform === 'google') {
       // Google: dispatch to the appropriate remove helper based on subtype
       const providerData = ca.providerData as Record<string, unknown>
       const googleData = providerData?.google as Record<string, unknown> | undefined

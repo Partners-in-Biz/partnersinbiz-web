@@ -5,6 +5,7 @@ import { apiSuccess, apiError } from '@/lib/api/response'
 import { getCustomAudience, updateCustomAudience } from '@/lib/ads/custom-audiences/store'
 import { requireMetaContext } from '@/lib/ads/api-helpers'
 import { metaProvider } from '@/lib/ads/providers/meta'
+import { getConnection, decryptAccessToken } from '@/lib/ads/connections/store'
 import type { AdCustomAudienceStatus } from '@/lib/ads/types'
 
 export const POST = withAuth(
@@ -15,6 +16,39 @@ export const POST = withAuth(
     if (!orgId) return apiError('Missing X-Org-Id header', 400)
     const ca = await getCustomAudience(id)
     if (!ca || ca.orgId !== orgId) return apiError('Custom audience not found', 404)
+
+    // ─── LinkedIn branch ────────────────────────────────────────────────────
+    if (ca.platform === 'linkedin') {
+      const conn = await getConnection({ orgId, platform: 'linkedin' })
+      if (!conn) return apiError('No LinkedIn ads connection for org', 400)
+      const accessToken = decryptAccessToken(conn)
+      const linkedinMeta = ((conn.meta ?? {}) as Record<string, unknown>).linkedin as Record<string, unknown> | undefined
+      const accountUrn = typeof linkedinMeta?.selectedAdAccountUrn === 'string' ? linkedinMeta.selectedAdAccountUrn : undefined
+      if (!accountUrn) return apiError('No Ad Account URN set on LinkedIn connection', 400)
+
+      const linkedinData = (ca.providerData as Record<string, unknown>)?.linkedin as Record<string, unknown> | undefined
+      const segmentUrn = typeof linkedinData?.dmpSegmentUrn === 'string' ? linkedinData.dmpSegmentUrn : undefined
+      if (!segmentUrn) return apiError('Audience has no LinkedIn dmpSegmentUrn', 400)
+
+      const { getAudienceStatus } = await import('@/lib/ads/providers/linkedin/audiences')
+      const { status, approximateMemberCount } = await getAudienceStatus({ accountUrn, accessToken, segmentUrn })
+
+      // Map LinkedIn status → canonical
+      const canonicalStatus: AdCustomAudienceStatus =
+        status === 'READY' ? 'READY' :
+        status === 'BUILDING' ? 'BUILDING' :
+        status === 'ARCHIVED' ? 'ARCHIVED' :
+        'BUILDING'
+
+      await updateCustomAudience(ca.id, {
+        status: canonicalStatus,
+        approximateSize: approximateMemberCount ?? ca.approximateSize,
+      })
+
+      return apiSuccess({ status: canonicalStatus, memberCount: approximateMemberCount })
+    }
+
+    // ─── Meta branch (existing, unchanged) ─────────────────────────────────
     const metaCaId = ca.providerData?.meta?.customAudienceId
     if (!metaCaId) return apiError('Custom audience not yet synced to Meta', 400)
 
