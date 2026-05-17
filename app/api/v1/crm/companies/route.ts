@@ -22,6 +22,8 @@ import {
 } from '@/lib/companies/store'
 import { buildCompanyQuery, applyPostFilterSearch } from '@/lib/companies/filters'
 import type { Company, CompanyInput, CompanyListParams } from '@/lib/companies/types'
+import { getDefinitionsForResource } from '@/lib/customFields/store'
+import { validateCustomFields } from '@/lib/customFields/validation'
 
 // ── GET ─────────────────────────────────────────────────────────────────────────
 
@@ -127,6 +129,19 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
   }
 
   const sanitized = sanitizeCompanyForWrite(body)
+
+  // Custom field validation (best-effort — Firestore outage must not block core write)
+  if (body.customFields !== undefined && body.customFields !== null) {
+    try {
+      const defs = await getDefinitionsForResource(ctx.orgId, 'company')
+      const errs = validateCustomFields(defs, body.customFields as Record<string, unknown>)
+      if (errs.length > 0) {
+        return apiError(`Custom field validation failed: ${errs.map(e => `${e.key}: ${e.message}`).join('; ')}`, 400)
+      }
+    } catch (err) {
+      console.error('custom-field-validation-skipped', err)
+    }
+  }
 
   const now = Timestamp.now()
   const companyData: Record<string, unknown> = {

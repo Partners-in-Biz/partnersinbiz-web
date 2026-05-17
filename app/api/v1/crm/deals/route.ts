@@ -11,6 +11,8 @@ import type { Deal, DealStage, Currency, Contact } from '@/lib/crm/types'
 import { dispatchWebhook } from '@/lib/webhooks/dispatch'
 import { logActivity } from '@/lib/activity/log'
 import { loadCompany } from '@/lib/companies/store'
+import { getDefinitionsForResource } from '@/lib/customFields/store'
+import { validateCustomFields } from '@/lib/customFields/validation'
 
 async function deriveCompanyFromContact(contactId: string, orgId: string): Promise<{ companyId?: string; companyName?: string }> {
   try {
@@ -109,6 +111,19 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
     if (!loaded) return apiError('Invalid companyId', 400)
     dealData.companyId = body.companyId
     dealData.companyName = loaded.data.name
+  }
+
+  // Custom field validation (best-effort — Firestore outage must not block core write)
+  if (body.customFields !== undefined && body.customFields !== null) {
+    try {
+      const defs = await getDefinitionsForResource(ctx.orgId, 'deal')
+      const errs = validateCustomFields(defs, body.customFields as Record<string, unknown>)
+      if (errs.length > 0) {
+        return apiError(`Custom field validation failed: ${errs.map(e => `${e.key}: ${e.message}`).join('; ')}`, 400)
+      }
+    } catch (err) {
+      console.error('custom-field-validation-skipped', err)
+    }
   }
 
   // Firestore rejects undefined values — strip them before write

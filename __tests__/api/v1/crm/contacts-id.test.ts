@@ -22,6 +22,12 @@ jest.mock('@/lib/companies/store', () => ({
 }))
 import { loadCompany } from '@/lib/companies/store'
 
+// Mock custom fields store for validation tests
+jest.mock('@/lib/customFields/store', () => ({
+  getDefinitionsForResource: jest.fn().mockResolvedValue([]),
+}))
+import { getDefinitionsForResource } from '@/lib/customFields/store'
+
 function stageAuth(
   member: { uid: string; orgId: string; role: string; firstName?: string; lastName?: string },
   perms: Record<string, unknown> = {},
@@ -436,5 +442,41 @@ describe('PATCH companyId behavior', () => {
     const { PATCH } = await import('@/app/api/v1/crm/contacts/[id]/route')
     const res = await PATCH(req, { params: Promise.resolve({ id: 'c3' }) })
     expect(res.status).toBe(400)
+  })
+})
+
+describe('PATCH /api/v1/crm/contacts/:id — custom field validation', () => {
+  it('accepts write when customFields match definitions', async () => {
+    const member = seedOrgMember('org-cf-id', 'uid-cf-id-ok', { role: 'member' })
+    stageAuth(member, {}, {
+      contact: { id: 'cf-c1', data: { orgId: 'org-cf-id', name: 'CF Contact' } },
+    })
+    ;(getDefinitionsForResource as jest.Mock).mockResolvedValueOnce([
+      { id: 'd1', key: 'tier', type: 'dropdown', required: false, options: [{ value: 'gold', label: 'Gold' }], orgId: 'org-cf-id', resource: 'contact', label: 'Tier', order: 0, createdAt: null, updatedAt: null },
+    ])
+    const req = callAsMember(member, 'PATCH', '/api/v1/crm/contacts/cf-c1', {
+      customFields: { tier: 'gold' },
+    })
+    const { PATCH } = await import('@/app/api/v1/crm/contacts/[id]/route')
+    const res = await PATCH(req, { params: Promise.resolve({ id: 'cf-c1' }) })
+    expect(res.status).toBe(200)
+  })
+
+  it('rejects write with 400 when customFields violate definitions', async () => {
+    const member = seedOrgMember('org-cf-id', 'uid-cf-id-bad', { role: 'member' })
+    stageAuth(member, {}, {
+      contact: { id: 'cf-c2', data: { orgId: 'org-cf-id', name: 'CF Contact 2' } },
+    })
+    ;(getDefinitionsForResource as jest.Mock).mockResolvedValueOnce([
+      { id: 'd1', key: 'tier', type: 'dropdown', required: true, options: [{ value: 'gold', label: 'Gold' }], orgId: 'org-cf-id', resource: 'contact', label: 'Tier', order: 0, createdAt: null, updatedAt: null },
+    ])
+    const req = callAsMember(member, 'PATCH', '/api/v1/crm/contacts/cf-c2', {
+      customFields: { tier: 'unknown' },
+    })
+    const { PATCH } = await import('@/app/api/v1/crm/contacts/[id]/route')
+    const res = await PATCH(req, { params: Promise.resolve({ id: 'cf-c2' }) })
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body.error).toMatch(/custom field/i)
   })
 })

@@ -1,6 +1,6 @@
 'use client'
 
-import { FormEvent, useEffect, useMemo, useState, type Dispatch, type SetStateAction } from 'react'
+import { FormEvent, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import type { MailboxAccountSafe, MailboxFolder, MailboxMessageSafe } from '@/lib/mailbox/types'
 
 export const dynamic = 'force-dynamic'
@@ -11,6 +11,33 @@ const FOLDERS: Array<{ id: MailboxFolder; label: string; icon: string }> = [
   { id: 'drafts', label: 'Drafts', icon: 'draft' },
   { id: 'archive', label: 'Archive', icon: 'archive' },
   { id: 'trash', label: 'Trash', icon: 'delete' },
+]
+
+const EMAIL_TEMPLATES = [
+  {
+    id: 'quick-reply',
+    label: 'Quick reply',
+    subject: 'Re: ',
+    bodyHtml: '<p>Hi,</p><p>Thanks for the note. I will take a look and come back to you shortly.</p><p>Regards,</p>',
+  },
+  {
+    id: 'meeting-recap',
+    label: 'Meeting recap',
+    subject: 'Recap and next steps',
+    bodyHtml: '<p>Hi,</p><p>Thanks for the time today. Here is the short recap:</p><ul><li>Decision:</li><li>Next step:</li><li>Owner:</li></ul><p>Regards,</p>',
+  },
+  {
+    id: 'proposal-follow-up',
+    label: 'Proposal follow-up',
+    subject: 'Following up on the proposal',
+    bodyHtml: '<p>Hi,</p><p>I wanted to follow up on the proposal and check whether there are any questions I can clear up.</p><p>If the scope still looks right, I can prepare the next step from our side.</p><p>Regards,</p>',
+  },
+  {
+    id: 'welcome',
+    label: 'Welcome',
+    subject: 'Welcome',
+    bodyHtml: '<p>Hi,</p><p>Welcome. We are glad to have you here.</p><p>I will keep this thread clear and useful so the next steps are easy to follow.</p><p>Regards,</p>',
+  },
 ]
 
 type AccountForm = {
@@ -27,6 +54,16 @@ type AccountForm = {
   imapPassword: string
 }
 
+type ComposeState = {
+  accountId: string
+  to: string
+  cc: string
+  bcc: string
+  subject: string
+  bodyText: string
+  bodyHtml: string
+}
+
 const emptyAccountForm: AccountForm = {
   provider: 'smtp_imap',
   emailAddress: '',
@@ -41,13 +78,22 @@ const emptyAccountForm: AccountForm = {
   imapPassword: '',
 }
 
-const emptyCompose = {
+const emptyCompose: ComposeState = {
   accountId: '',
   to: '',
   cc: '',
   bcc: '',
   subject: '',
   bodyText: '',
+  bodyHtml: '',
+}
+
+function htmlToText(html: string): string {
+  if (!html) return ''
+  if (typeof window === 'undefined') return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+  const div = window.document.createElement('div')
+  div.innerHTML = html
+  return (div.textContent ?? '').replace(/\s+/g, ' ').trim()
 }
 
 export default function PortalEmailPage() {
@@ -59,8 +105,9 @@ export default function PortalEmailPage() {
   const [q, setQ] = useState('')
   const [loading, setLoading] = useState(true)
   const [showAccount, setShowAccount] = useState(false)
+  const [showComposer, setShowComposer] = useState(false)
   const [accountForm, setAccountForm] = useState<AccountForm>(emptyAccountForm)
-  const [compose, setCompose] = useState(emptyCompose)
+  const [compose, setCompose] = useState<ComposeState>(emptyCompose)
   const [notice, setNotice] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -100,6 +147,42 @@ export default function PortalEmailPage() {
 
   const selected = useMemo(() => messages.find((item) => item.id === selectedId) ?? null, [messages, selectedId])
   const unread = messages.filter((item) => !item.read).length
+  const defaultAccountId = compose.accountId || accounts.find((account) => account.isDefault)?.id || accounts[0]?.id || ''
+
+  function startCompose(prefill?: Partial<ComposeState>) {
+    setError(null)
+    setNotice(null)
+    setCompose({
+      ...emptyCompose,
+      accountId: defaultAccountId,
+      ...prefill,
+    })
+    setShowComposer(true)
+  }
+
+  function editDraft(message: MailboxMessageSafe) {
+    startCompose({
+      accountId: message.accountId,
+      to: message.to.join(', '),
+      cc: message.cc.join(', '),
+      bcc: message.bcc.join(', '),
+      subject: message.subject,
+      bodyText: message.bodyText,
+      bodyHtml: message.bodyHtml ?? message.bodyText.replace(/\n/g, '<br>'),
+    })
+  }
+
+  function applyTemplate(templateId: string) {
+    const template = EMAIL_TEMPLATES.find((item) => item.id === templateId)
+    if (!template) return
+    setCompose((prev) => ({
+      ...prev,
+      subject: template.subject,
+      bodyHtml: template.bodyHtml,
+      bodyText: htmlToText(template.bodyHtml),
+    }))
+    setShowComposer(true)
+  }
 
   async function saveAccount(event: FormEvent) {
     event.preventDefault()
@@ -140,7 +223,7 @@ export default function PortalEmailPage() {
       setError(body.error ?? 'Could not save account')
       return
     }
-    setNotice('Email account linked to this workspace profile.')
+    setNotice('Email account linked.')
     setAccountForm(emptyAccountForm)
     setShowAccount(false)
     await loadAccounts()
@@ -151,7 +234,12 @@ export default function PortalEmailPage() {
     const res = await fetch('/api/v1/portal/email/messages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...compose, action }),
+      body: JSON.stringify({
+        ...compose,
+        accountId: compose.accountId || defaultAccountId,
+        bodyText: compose.bodyText || htmlToText(compose.bodyHtml),
+        action,
+      }),
     })
     const body = await res.json()
     if (!res.ok) {
@@ -159,7 +247,8 @@ export default function PortalEmailPage() {
       return
     }
     setNotice(action === 'send' ? 'Message added to sent mail.' : 'Draft saved.')
-    setCompose({ ...emptyCompose, accountId: compose.accountId || accounts[0]?.id || '' })
+    setCompose({ ...emptyCompose, accountId: defaultAccountId })
+    setShowComposer(false)
     await loadMessages()
   }
 
@@ -178,23 +267,20 @@ export default function PortalEmailPage() {
   }
 
   return (
-    <div className="space-y-5">
-      <header className="flex flex-wrap items-start justify-between gap-4">
+    <div className="flex min-h-[calc(100dvh-5.5rem)] flex-col gap-4">
+      <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="eyebrow">Workspace email</p>
-          <h1 className="text-2xl md:text-3xl font-semibold">Email</h1>
-          <p className="text-sm text-[var(--color-pib-text-muted)] mt-1">
-            Accounts are linked to your profile inside this workspace, so each client workspace can have its own mailbox set.
-          </p>
+          <h1 className="text-2xl font-semibold">Email</h1>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <button type="button" className="btn-pib-secondary" onClick={() => setShowAccount((v) => !v)}>
             <span className="material-symbols-outlined text-[18px]">add_link</span>
             Link account
           </button>
-          <button type="button" className="btn-pib-primary" onClick={() => submitCompose('send')}>
-            <span className="material-symbols-outlined text-[18px]">send</span>
-            Send
+          <button type="button" className="btn-pib-primary" onClick={() => startCompose()}>
+            <span className="material-symbols-outlined text-[18px]">edit_square</span>
+            New email
           </button>
         </div>
       </header>
@@ -233,14 +319,17 @@ export default function PortalEmailPage() {
         </form>
       )}
 
-      <div className="grid lg:grid-cols-[220px_minmax(280px,360px)_1fr] gap-4 min-h-[620px]">
-        <aside className="bento-card !p-3 space-y-4">
+      <div className="grid flex-1 gap-3 lg:grid-cols-[210px_minmax(320px,430px)_minmax(0,1fr)]">
+        <aside className="bento-card !p-3 space-y-4 overflow-hidden">
           <div className="space-y-1">
             {FOLDERS.map((item) => (
               <button
                 key={item.id}
                 type="button"
-                onClick={() => setFolder(item.id)}
+                onClick={() => {
+                  setFolder(item.id)
+                  setShowComposer(false)
+                }}
                 className={`w-full flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-left ${folder === item.id ? 'bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent-hover)]' : 'text-[var(--color-pib-text-muted)] hover:bg-white/[0.04]'}`}
               >
                 <span className="material-symbols-outlined text-[18px]">{item.icon}</span>
@@ -257,12 +346,14 @@ export default function PortalEmailPage() {
                 <option key={account.id} value={account.id}>{account.emailAddress}</option>
               ))}
             </select>
-            {accounts.map((account) => (
-              <div key={account.id} className="rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-xs">
-                <p className="font-medium truncate">{account.displayName}</p>
-                <p className="text-[var(--color-pib-text-muted)] truncate">{account.emailAddress}</p>
-              </div>
-            ))}
+            <div className="space-y-2">
+              {accounts.map((account) => (
+                <div key={account.id} className="rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-xs">
+                  <p className="font-medium truncate">{account.displayName}</p>
+                  <p className="text-[var(--color-pib-text-muted)] truncate">{account.emailAddress}</p>
+                </div>
+              ))}
+            </div>
           </div>
         </aside>
 
@@ -270,7 +361,7 @@ export default function PortalEmailPage() {
           <div className="p-3 border-b border-[var(--color-pib-line)]">
             <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search mail" className="pib-input w-full" />
           </div>
-          <div className="max-h-[560px] overflow-y-auto">
+          <div className="h-[calc(100dvh-12rem)] min-h-[560px] overflow-y-auto">
             {loading ? (
               <div className="p-4 text-sm text-[var(--color-pib-text-muted)]">Loading mail...</div>
             ) : messages.length === 0 ? (
@@ -281,9 +372,10 @@ export default function PortalEmailPage() {
                 key={message.id}
                 onClick={() => {
                   setSelectedId(message.id)
+                  setShowComposer(false)
                   if (!message.read) void updateMessage(message.id, { read: true })
                 }}
-                className={`w-full text-left px-4 py-3 border-b border-[var(--color-pib-line)] hover:bg-white/[0.03] ${selectedId === message.id ? 'bg-white/[0.05]' : ''}`}
+                className={`w-full text-left px-4 py-3 border-b border-[var(--color-pib-line)] hover:bg-white/[0.03] ${selectedId === message.id && !showComposer ? 'bg-white/[0.05]' : ''}`}
               >
                 <div className="flex items-center gap-2">
                   <span className={`w-2 h-2 rounded-full ${message.read ? 'bg-transparent' : 'bg-[var(--color-pib-accent)]'}`} />
@@ -297,56 +389,211 @@ export default function PortalEmailPage() {
           </div>
         </section>
 
-        <section className="bento-card !p-0 overflow-hidden flex flex-col">
-          {selected ? (
-            <>
-              <div className="p-5 border-b border-[var(--color-pib-line)]">
-                <div className="flex items-start gap-3">
-                  <div className="flex-1 min-w-0">
-                    <h2 className="text-xl font-semibold truncate">{selected.subject || '(no subject)'}</h2>
-                    <p className="text-sm text-[var(--color-pib-text-muted)] mt-1">
-                      {selected.from} to {selected.to.join(', ') || selected.accountEmail}
-                    </p>
-                  </div>
-                  <button type="button" className="w-9 h-9 rounded-lg border border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.04]" title="Star" onClick={() => updateMessage(selected.id, { starred: !selected.starred })}>
-                    <span className="material-symbols-outlined text-[18px]">{selected.starred ? 'star' : 'star_outline'}</span>
-                  </button>
-                  <button type="button" className="w-9 h-9 rounded-lg border border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.04]" title="Archive" onClick={() => updateMessage(selected.id, { folder: 'archive' })}>
-                    <span className="material-symbols-outlined text-[18px]">archive</span>
-                  </button>
-                  <button type="button" className="w-9 h-9 rounded-lg border border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.04]" title="Delete" onClick={() => deleteMessage(selected.id)}>
-                    <span className="material-symbols-outlined text-[18px]">delete</span>
-                  </button>
-                </div>
-              </div>
-              <div className="p-5 text-sm leading-7 whitespace-pre-wrap flex-1 overflow-y-auto">{selected.bodyText}</div>
-            </>
+        <section className="bento-card !p-0 overflow-hidden flex min-h-[560px] flex-col">
+          {showComposer ? (
+            <ComposerPanel
+              accounts={accounts}
+              compose={compose}
+              setCompose={setCompose}
+              onClose={() => setShowComposer(false)}
+              onSend={() => submitCompose('send')}
+              onDraft={() => submitCompose('draft')}
+              onTemplate={applyTemplate}
+            />
+          ) : selected ? (
+            <MessagePane
+              message={selected}
+              onStar={() => updateMessage(selected.id, { starred: !selected.starred })}
+              onArchive={() => updateMessage(selected.id, { folder: 'archive' })}
+              onDelete={() => deleteMessage(selected.id)}
+              onEditDraft={() => editDraft(selected)}
+            />
           ) : (
-            <div className="p-8 text-sm text-[var(--color-pib-text-muted)]">Select a message to read it.</div>
+            <div className="flex h-full items-center justify-center p-8 text-sm text-[var(--color-pib-text-muted)]">Select a message to read it.</div>
           )}
-
-          <form onSubmit={(e) => { e.preventDefault(); void submitCompose('send') }} className="border-t border-[var(--color-pib-line)] p-4 space-y-3">
-            <div className="grid md:grid-cols-2 gap-2">
-              <select value={compose.accountId} onChange={(e) => setCompose((c) => ({ ...c, accountId: e.target.value }))} className="pib-input">
-                <option value="">Choose sending account</option>
-                {accounts.map((account) => <option key={account.id} value={account.id}>{account.emailAddress}</option>)}
-              </select>
-              <input value={compose.to} onChange={(e) => setCompose((c) => ({ ...c, to: e.target.value }))} placeholder="To" className="pib-input" />
-            </div>
-            <div className="grid md:grid-cols-2 gap-2">
-              <input value={compose.cc} onChange={(e) => setCompose((c) => ({ ...c, cc: e.target.value }))} placeholder="Cc" className="pib-input" />
-              <input value={compose.bcc} onChange={(e) => setCompose((c) => ({ ...c, bcc: e.target.value }))} placeholder="Bcc" className="pib-input" />
-            </div>
-            <input value={compose.subject} onChange={(e) => setCompose((c) => ({ ...c, subject: e.target.value }))} placeholder="Subject" className="pib-input w-full" />
-            <textarea value={compose.bodyText} onChange={(e) => setCompose((c) => ({ ...c, bodyText: e.target.value }))} placeholder="Write an email..." rows={5} className="pib-input w-full resize-y" />
-            <div className="flex justify-end gap-2">
-              <button type="button" onClick={() => submitCompose('draft')} className="btn-pib-secondary">Save draft</button>
-              <button type="submit" className="btn-pib-primary">Send</button>
-            </div>
-          </form>
         </section>
       </div>
     </div>
+  )
+}
+
+function MessagePane({
+  message,
+  onStar,
+  onArchive,
+  onDelete,
+  onEditDraft,
+}: {
+  message: MailboxMessageSafe
+  onStar: () => void
+  onArchive: () => void
+  onDelete: () => void
+  onEditDraft: () => void
+}) {
+  const isDraft = message.status === 'draft' || message.folder === 'drafts'
+  return (
+    <>
+      <div className="p-5 border-b border-[var(--color-pib-line)]">
+        <div className="flex items-start gap-3">
+          <div className="flex-1 min-w-0">
+            <h2 className="text-xl font-semibold truncate">{message.subject || '(no subject)'}</h2>
+            <p className="text-sm text-[var(--color-pib-text-muted)] mt-1">
+              {message.from} to {message.to.join(', ') || message.accountEmail}
+            </p>
+          </div>
+          {isDraft && (
+            <button type="button" className="btn-pib-secondary !py-2" onClick={onEditDraft}>
+              <span className="material-symbols-outlined text-[18px]">edit_square</span>
+              Edit
+            </button>
+          )}
+          <IconButton title="Star" icon={message.starred ? 'star' : 'star_outline'} onClick={onStar} />
+          <IconButton title="Archive" icon="archive" onClick={onArchive} />
+          <IconButton title="Delete" icon="delete" onClick={onDelete} />
+        </div>
+      </div>
+      <div className="flex-1 overflow-y-auto p-6 text-sm leading-7 whitespace-pre-wrap">{message.bodyText}</div>
+    </>
+  )
+}
+
+function ComposerPanel({
+  accounts,
+  compose,
+  setCompose,
+  onClose,
+  onSend,
+  onDraft,
+  onTemplate,
+}: {
+  accounts: MailboxAccountSafe[]
+  compose: ComposeState
+  setCompose: Dispatch<SetStateAction<ComposeState>>
+  onClose: () => void
+  onSend: () => void
+  onDraft: () => void
+  onTemplate: (templateId: string) => void
+}) {
+  return (
+    <form onSubmit={(e) => { e.preventDefault(); void onSend() }} className="flex h-full min-h-[560px] flex-col">
+      <div className="flex items-center justify-between gap-3 border-b border-[var(--color-pib-line)] px-5 py-4">
+        <div>
+          <p className="eyebrow !text-[10px]">Compose</p>
+          <h2 className="text-lg font-semibold">New email</h2>
+        </div>
+        <button type="button" className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]" onClick={onClose} title="Close compose">
+          <span className="material-symbols-outlined text-[20px]">close</span>
+        </button>
+      </div>
+
+      <div className="grid flex-1 overflow-hidden xl:grid-cols-[1fr_210px]">
+        <div className="flex min-w-0 flex-col overflow-y-auto p-5">
+          <div className="grid gap-2 md:grid-cols-[minmax(180px,260px)_1fr]">
+            <select value={compose.accountId} onChange={(e) => setCompose((c) => ({ ...c, accountId: e.target.value }))} className="pib-input">
+              <option value="">Choose sending account</option>
+              {accounts.map((account) => <option key={account.id} value={account.id}>{account.emailAddress}</option>)}
+            </select>
+            <input value={compose.to} onChange={(e) => setCompose((c) => ({ ...c, to: e.target.value }))} placeholder="To" className="pib-input" />
+          </div>
+          <div className="mt-2 grid gap-2 md:grid-cols-2">
+            <input value={compose.cc} onChange={(e) => setCompose((c) => ({ ...c, cc: e.target.value }))} placeholder="Cc" className="pib-input" />
+            <input value={compose.bcc} onChange={(e) => setCompose((c) => ({ ...c, bcc: e.target.value }))} placeholder="Bcc" className="pib-input" />
+          </div>
+          <input value={compose.subject} onChange={(e) => setCompose((c) => ({ ...c, subject: e.target.value }))} placeholder="Subject" className="pib-input mt-2 w-full" />
+          <RichComposer
+            value={compose.bodyHtml}
+            onChange={(bodyHtml) => setCompose((c) => ({ ...c, bodyHtml, bodyText: htmlToText(bodyHtml) }))}
+          />
+        </div>
+
+        <aside className="border-t border-[var(--color-pib-line)] p-4 xl:border-l xl:border-t-0">
+          <p className="eyebrow !text-[10px] mb-3">Templates</p>
+          <div className="space-y-2">
+            {EMAIL_TEMPLATES.map((template) => (
+              <button
+                key={template.id}
+                type="button"
+                onClick={() => onTemplate(template.id)}
+                className="w-full rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-left text-sm hover:border-[var(--color-pib-accent)]/50 hover:bg-white/[0.04]"
+              >
+                {template.label}
+              </button>
+            ))}
+          </div>
+        </aside>
+      </div>
+
+      <div className="flex justify-end gap-2 border-t border-[var(--color-pib-line)] px-5 py-4">
+        <button type="button" onClick={onDraft} className="btn-pib-secondary">Save draft</button>
+        <button type="submit" className="btn-pib-primary">
+          <span className="material-symbols-outlined text-[18px]">send</span>
+          Send
+        </button>
+      </div>
+    </form>
+  )
+}
+
+function RichComposer({ value, onChange }: { value: string; onChange: (html: string) => void }) {
+  const editorRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (editorRef.current && editorRef.current.innerHTML !== value) {
+      editorRef.current.innerHTML = value
+    }
+  }, [value])
+
+  function sync() {
+    onChange(editorRef.current?.innerHTML ?? '')
+  }
+
+  function exec(command: string, commandValue?: string) {
+    document.execCommand(command, false, commandValue)
+    editorRef.current?.focus()
+    sync()
+  }
+
+  function link() {
+    const url = window.prompt('URL', 'https://')
+    if (url) exec('createLink', url)
+  }
+
+  const buttonClass = 'h-8 min-w-8 rounded-md px-2 text-sm text-[var(--color-pib-text-muted)] hover:bg-white/[0.06] hover:text-[var(--color-pib-text)]'
+
+  return (
+    <div className="mt-3 flex min-h-[360px] flex-1 flex-col overflow-hidden rounded-lg border border-[var(--color-pib-line)] bg-white/[0.02]">
+      <div className="flex flex-wrap items-center gap-1 border-b border-[var(--color-pib-line)] px-2 py-2">
+        <button type="button" className={`${buttonClass} font-bold`} onMouseDown={(e) => { e.preventDefault(); exec('bold') }} title="Bold">B</button>
+        <button type="button" className={`${buttonClass} italic`} onMouseDown={(e) => { e.preventDefault(); exec('italic') }} title="Italic">I</button>
+        <button type="button" className={`${buttonClass} underline`} onMouseDown={(e) => { e.preventDefault(); exec('underline') }} title="Underline">U</button>
+        <span className="mx-1 h-5 w-px bg-[var(--color-pib-line)]" />
+        <button type="button" className={buttonClass} onMouseDown={(e) => { e.preventDefault(); exec('insertUnorderedList') }} title="Bulleted list">
+          <span className="material-symbols-outlined text-[18px]">format_list_bulleted</span>
+        </button>
+        <button type="button" className={buttonClass} onMouseDown={(e) => { e.preventDefault(); exec('insertOrderedList') }} title="Numbered list">
+          <span className="material-symbols-outlined text-[18px]">format_list_numbered</span>
+        </button>
+        <button type="button" className={buttonClass} onMouseDown={(e) => { e.preventDefault(); link() }} title="Insert link">
+          <span className="material-symbols-outlined text-[18px]">link</span>
+        </button>
+      </div>
+      <div
+        ref={editorRef}
+        contentEditable
+        suppressContentEditableWarning
+        onInput={sync}
+        className="min-h-[320px] flex-1 overflow-y-auto px-4 py-3 text-sm leading-7 outline-none"
+        style={{ wordBreak: 'break-word' }}
+      />
+    </div>
+  )
+}
+
+function IconButton({ title, icon, onClick }: { title: string; icon: string; onClick: () => void }) {
+  return (
+    <button type="button" className="flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:bg-white/[0.04] hover:text-[var(--color-pib-text)]" title={title} onClick={onClick}>
+      <span className="material-symbols-outlined text-[18px]">{icon}</span>
+    </button>
   )
 }
 

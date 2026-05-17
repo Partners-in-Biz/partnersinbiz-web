@@ -22,6 +22,12 @@ jest.mock('@/lib/companies/store', () => ({
 }))
 import { loadCompany } from '@/lib/companies/store'
 
+// Mock custom fields store for validation tests
+jest.mock('@/lib/customFields/store', () => ({
+  getDefinitionsForResource: jest.fn().mockResolvedValue([]),
+}))
+import { getDefinitionsForResource } from '@/lib/customFields/store'
+
 function stageAuth(
   member: { uid: string; orgId: string; role: string; firstName?: string; lastName?: string },
   perms: Record<string, unknown> = {},
@@ -322,5 +328,45 @@ describe('POST contacts with companyId', () => {
     expect(written.company).toBe('ACME String Only')
     expect(written.companyId).toBeUndefined() // not set in sanitized output
     expect(loadCompany).not.toHaveBeenCalled()
+  })
+})
+
+describe('POST /api/v1/crm/contacts — custom field validation', () => {
+  const validContact = {
+    name: 'CF Test',
+    email: 'cf@example.com',
+    source: 'manual' as const,
+  }
+
+  it('accepts write when customFields match definitions', async () => {
+    const member = seedOrgMember('org-cf', 'uid-cf-ok', { role: 'member' })
+    stageAuth(member)
+    ;(getDefinitionsForResource as jest.Mock).mockResolvedValueOnce([
+      { id: 'd1', key: 'tier', type: 'dropdown', required: false, options: [{ value: 'gold', label: 'Gold' }], orgId: 'org-cf', resource: 'contact', label: 'Tier', order: 0, createdAt: null, updatedAt: null },
+    ])
+    const req = callAsMember(member, 'POST', '/api/v1/crm/contacts', {
+      ...validContact,
+      customFields: { tier: 'gold' },
+    })
+    const { POST } = await import('@/app/api/v1/crm/contacts/route')
+    const res = await POST(req)
+    expect(res.status).toBe(201)
+  })
+
+  it('rejects write with 400 when customFields violate definitions', async () => {
+    const member = seedOrgMember('org-cf', 'uid-cf-bad', { role: 'member' })
+    stageAuth(member)
+    ;(getDefinitionsForResource as jest.Mock).mockResolvedValueOnce([
+      { id: 'd1', key: 'tier', type: 'dropdown', required: true, options: [{ value: 'gold', label: 'Gold' }], orgId: 'org-cf', resource: 'contact', label: 'Tier', order: 0, createdAt: null, updatedAt: null },
+    ])
+    const req = callAsMember(member, 'POST', '/api/v1/crm/contacts', {
+      ...validContact,
+      customFields: { tier: 'unknown' },
+    })
+    const { POST } = await import('@/app/api/v1/crm/contacts/route')
+    const res = await POST(req)
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body.error).toMatch(/custom field/i)
   })
 })

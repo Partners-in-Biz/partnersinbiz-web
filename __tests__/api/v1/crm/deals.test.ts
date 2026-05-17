@@ -17,6 +17,12 @@ jest.mock('@/lib/activity/log', () => ({ logActivity: jest.fn().mockResolvedValu
 jest.mock('@/lib/webhooks/dispatch', () => ({ dispatchWebhook: jest.fn().mockResolvedValue(undefined) }))
 jest.mock('@/lib/email-analytics/attribution-hooks', () => ({ tryAttributeDealWon: jest.fn().mockResolvedValue(undefined) }))
 
+// Mock custom fields store for validation tests
+jest.mock('@/lib/customFields/store', () => ({
+  getDefinitionsForResource: jest.fn().mockResolvedValue([]),
+}))
+import { getDefinitionsForResource } from '@/lib/customFields/store'
+
 const params = { params: Promise.resolve({ id: 'deal-1' }) }
 
 function stageAuth(
@@ -719,5 +725,41 @@ describe('DELETE /api/v1/crm/deals/[id]', () => {
     const { DELETE } = await import('@/app/api/v1/crm/deals/[id]/route')
     const res = await DELETE(req, routeCtx('d1'))
     expect(res.status).toBe(404)
+  })
+})
+
+describe('POST /api/v1/crm/deals — custom field validation', () => {
+  const validDeal = { contactId: 'c1', title: 'CF Deal', value: 1000, currency: 'ZAR', stage: 'discovery' }
+
+  it('accepts write when customFields match definitions', async () => {
+    const member = seedOrgMember('org-cf-deal', 'uid-cf-deal-ok', { role: 'member' })
+    stageAuth(member)
+    ;(getDefinitionsForResource as jest.Mock).mockResolvedValueOnce([
+      { id: 'd1', key: 'budget', type: 'currency', required: false, currencyCode: 'ZAR', orgId: 'org-cf-deal', resource: 'deal', label: 'Budget', order: 0, createdAt: null, updatedAt: null },
+    ])
+    const req = callAsMember(member, 'POST', '/api/v1/crm/deals', {
+      ...validDeal,
+      customFields: { budget: 5000 },
+    })
+    const { POST } = await import('@/app/api/v1/crm/deals/route')
+    const res = await POST(req)
+    expect(res.status).toBe(201)
+  })
+
+  it('rejects write with 400 when customFields violate definitions', async () => {
+    const member = seedOrgMember('org-cf-deal', 'uid-cf-deal-bad', { role: 'member' })
+    stageAuth(member)
+    ;(getDefinitionsForResource as jest.Mock).mockResolvedValueOnce([
+      { id: 'd1', key: 'budget', type: 'currency', required: true, currencyCode: 'ZAR', min: 0, orgId: 'org-cf-deal', resource: 'deal', label: 'Budget', order: 0, createdAt: null, updatedAt: null },
+    ])
+    const req = callAsMember(member, 'POST', '/api/v1/crm/deals', {
+      ...validDeal,
+      customFields: { budget: 'not-a-number' },
+    })
+    const { POST } = await import('@/app/api/v1/crm/deals/route')
+    const res = await POST(req)
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body.error).toMatch(/custom field/i)
   })
 })

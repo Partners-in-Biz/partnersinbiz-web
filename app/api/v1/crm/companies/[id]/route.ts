@@ -21,6 +21,8 @@ import {
   clearCompanyIdOnCollection,
   loadMemberRef,
 } from '@/lib/companies/store'
+import { getDefinitionsForResource } from '@/lib/customFields/store'
+import { validateCustomFields } from '@/lib/customFields/validation'
 
 type RouteCtx = { params: Promise<{ id: string }> }
 
@@ -77,6 +79,19 @@ async function handleUpdate(
   }
 
   const sanitized = sanitizeCompanyForWrite(body)
+
+  // Custom field validation (best-effort — Firestore outage must not block core write)
+  if (body.customFields !== undefined && body.customFields !== null) {
+    try {
+      const defs = await getDefinitionsForResource(ctx.orgId, 'company')
+      const errs = validateCustomFields(defs, body.customFields as Record<string, unknown>)
+      if (errs.length > 0) {
+        return apiError(`Custom field validation failed: ${errs.map(e => `${e.key}: ${e.message}`).join('; ')}`, 400)
+      }
+    } catch (err) {
+      console.error('custom-field-validation-skipped', err)
+    }
+  }
 
   const patch: Record<string, unknown> = {
     ...sanitized,
