@@ -13,6 +13,7 @@ import { dispatchWebhook } from '@/lib/webhooks/dispatch'
 import { logActivity } from '@/lib/activity/log'
 import { tryAttributeDealWon } from '@/lib/email-analytics/attribution-hooks'
 import { loadCompany } from '@/lib/companies/store'
+import { sanitizeDealForWrite } from '@/lib/crm/deals'
 import type { Contact } from '@/lib/crm/types'
 
 async function deriveCompanyFromContact(contactId: string, orgId: string): Promise<{ companyId?: string; companyName?: string }> {
@@ -57,8 +58,11 @@ async function handleDealUpdate(
   const newOwnerUid = typeof body.ownerUid === 'string' ? body.ownerUid : undefined
   const ownerChanged = newOwnerUid !== undefined && newOwnerUid !== (before.ownerUid ?? '')
 
+  // Strip NEVER_FROM_BODY fields (orgId, createdBy*, etc.) before spread —
+  // blocks cross-tenant write via body field injection. Mirrors the companies
+  // fix (commit 1907d8f).
   const patch: Record<string, unknown> = {
-    ...body,
+    ...sanitizeDealForWrite(body),
     updatedBy: ctx.isAgent ? undefined : ctx.actor.uid,
     updatedByRef: actorRef,
     updatedAt: FieldValue.serverTimestamp(),

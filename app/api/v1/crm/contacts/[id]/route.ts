@@ -18,6 +18,7 @@ import { apiSuccess, apiError } from '@/lib/api/response'
 import { dispatchWebhook } from '@/lib/webhooks/dispatch'
 import { logActivity } from '@/lib/activity/log'
 import { loadCompany } from '@/lib/companies/store'
+import { sanitizeContactForWrite } from '@/lib/crm/contacts'
 
 type RouteCtx = { params: Promise<{ id: string }> }
 
@@ -57,8 +58,11 @@ async function handleUpdate(
 
   const actorRef = ctx.actor
 
+  // Strip NEVER_FROM_BODY fields (orgId, createdBy*, etc.) before spread —
+  // blocks cross-tenant write via body field injection. Mirrors the companies
+  // fix (commit 1907d8f).
   const patch: Record<string, unknown> = {
-    ...body,
+    ...sanitizeContactForWrite(body),
     updatedBy: ctx.isAgent ? undefined : ctx.actor.uid,
     updatedByRef: actorRef,
     updatedAt: FieldValue.serverTimestamp(),

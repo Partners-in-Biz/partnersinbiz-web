@@ -402,6 +402,27 @@ describe('PATCH companyId behavior', () => {
     expect(loadCompany).not.toHaveBeenCalled()
   })
 
+  it('does NOT overwrite orgId when body injects { orgId: "org-other" }', async () => {
+    // Regression: body spread previously allowed `{ orgId }` to corrupt the
+    // tenant-scoped document. sanitizeContactForWrite must strip it.
+    const member = seedOrgMember('org-co', 'uid-co-inject', { role: 'member' })
+    const captured = jest.fn().mockResolvedValue(undefined)
+    stageAuth(member, {}, {
+      contact: { id: 'c4', data: { orgId: 'org-co', name: 'Victim' } },
+      capturedUpdate: captured,
+    })
+    const req = callAsMember(member, 'PATCH', '/api/v1/crm/contacts/c4', {
+      orgId: 'org-other',
+      firstName: 'Hacked',
+    })
+    const { PATCH } = await import('@/app/api/v1/crm/contacts/[id]/route')
+    const res = await PATCH(req, { params: Promise.resolve({ id: 'c4' }) })
+    expect(res.status).toBeLessThan(300)
+    const patch = captured.mock.calls[0][0]
+    expect(patch.orgId).toBeUndefined()
+    expect(patch.firstName).toBe('Hacked')
+  })
+
   it('returns 400 when PATCH provides non-existent cross-tenant companyId', async () => {
     const member = seedOrgMember('org-co', 'uid-co-bad', { role: 'member' })
     stageAuth(member, {}, {

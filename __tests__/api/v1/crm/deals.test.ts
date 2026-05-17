@@ -311,6 +311,21 @@ describe('PUT /api/v1/crm/deals/[id]', () => {
     expect(res.status).toBe(404)
   })
 
+  it('does NOT overwrite orgId when body injects { orgId: "org-other" }', async () => {
+    // Regression: body spread previously allowed `{ orgId }` to corrupt the
+    // tenant-scoped document. sanitizeDealForWrite must strip it.
+    const member = seedOrgMember('org-1', 'uid-1', { role: 'member' })
+    const captured = jest.fn().mockResolvedValue(undefined)
+    stageAuthWithDeal(member, { id: 'd1', data: { orgId: 'org-1', stage: 'discovery', title: 'Old' } }, {}, { capturedUpdate: captured })
+    const req = callAsMember(member, 'PUT', '/api/v1/crm/deals/d1', { orgId: 'org-other', title: 'Hacked' })
+    const { PUT } = await import('@/app/api/v1/crm/deals/[id]/route')
+    const res = await PUT(req, routeCtx('d1'))
+    expect(res.status).toBeLessThan(300)
+    const patch = captured.mock.calls[0][0]
+    expect(patch.orgId).toBeUndefined()
+    expect(patch.title).toBe('Hacked')
+  })
+
   it('writes ownerRef when PUT body has new ownerUid', async () => {
     const member = seedOrgMember('org-1', 'uid-1', { role: 'member' })
     const captured = jest.fn().mockResolvedValue(undefined)
