@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { PropertiesLaunchBanner } from '@/components/portal/PropertiesLaunchBanner'
 import { ProfileCompleteBanner } from '@/components/settings/ProfileCompleteBanner'
+import { TopCompaniesByPipelineTile } from '@/components/dashboard/TopCompaniesByPipelineTile'
 
 interface Kpis {
   total_revenue: number
@@ -255,6 +256,9 @@ export default function PortalDashboard() {
           </Link>
         </div>
       </section>
+
+      {/* CRM — Top companies tile (self-hides when no companies exist) */}
+      <TopCompaniesByPipelineTile />
 
       {loading && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
