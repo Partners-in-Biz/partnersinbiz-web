@@ -1,6 +1,7 @@
 // app/(admin)/admin/org/[slug]/ads/connections/page.tsx
 import { ConnectionsPanel } from '@/components/ads/ConnectionsPanel'
 import { GoogleConnectionsPanel } from '@/components/ads/GoogleConnectionsPanel'
+import { LinkedinConnectionsPanel } from '@/components/ads/LinkedinConnectionsPanel'
 import { listConnections } from '@/lib/ads/connections/store'
 import { resolveOrgIdBySlug } from '@/lib/organizations/resolve-by-slug'
 
@@ -25,6 +26,7 @@ export default async function ConnectionsPage({
     <div className="space-y-4">
       <ConnectionsPanel orgSlug={slug} orgId={orgId} connections={safe} />
       <GoogleConnectionsPanel orgSlug={slug} orgId={orgId} connections={safe} />
+      <LinkedinConnectionsPanel orgSlug={slug} orgId={orgId} connections={safe} />
     </div>
   )
 }
