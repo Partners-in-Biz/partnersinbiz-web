@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import type { SupportCategory, SupportMessage, SupportPriority, SupportTicket } from '@/lib/support/types'
 
 const CATEGORY_OPTIONS: Array<{ value: SupportCategory; label: string; icon: string }> = [
@@ -26,6 +27,7 @@ function ticketTime(ticket: SupportTicket) {
 
 export function SupportDrawer({ triggerClassName = '' }: { triggerClassName?: string }) {
   const [open, setOpen] = useState(false)
+  const [mounted, setMounted] = useState(false)
   const [tickets, setTickets] = useState<SupportTicket[]>([])
   const [selectedId, setSelectedId] = useState<string>('')
   const [messages, setMessages] = useState<SupportMessage[]>([])
@@ -41,6 +43,19 @@ export function SupportDrawer({ triggerClassName = '' }: { triggerClassName?: st
     () => tickets.find((ticket) => ticket.id === selectedId) ?? null,
     [tickets, selectedId],
   )
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  useEffect(() => {
+    if (!open) return
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = previousOverflow
+    }
+  }, [open])
 
   async function refreshTickets(nextSelectedId?: string) {
     setLoading(true)
@@ -134,36 +149,30 @@ export function SupportDrawer({ triggerClassName = '' }: { triggerClassName?: st
     }
   }
 
-  return (
-    <>
-      <button type="button" onClick={() => setOpen(true)} className={triggerClassName}>
-        <span className="material-symbols-outlined text-[18px]">support_agent</span>
-        <span>Need help?</span>
-      </button>
-
-      {open && (
-        <div className="fixed inset-0 z-[80]">
-          <button
-            type="button"
-            aria-label="Close support"
-            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
-            onClick={() => setOpen(false)}
-          />
-          <aside className="absolute right-0 top-0 h-full w-full max-w-[720px] overflow-y-auto border-l border-[var(--color-pib-line)] bg-[var(--color-pib-bg)] shadow-2xl">
-            <header className="sticky top-0 z-10 flex items-center justify-between border-b border-[var(--color-pib-line)] bg-[var(--color-pib-bg)]/95 px-5 py-4 backdrop-blur">
-              <div>
-                <p className="eyebrow !text-[10px]">Support</p>
-                <h2 className="font-display text-2xl">How can we help?</h2>
-              </div>
-              <button
-                type="button"
-                onClick={() => setOpen(false)}
-                className="flex h-9 w-9 items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.06] hover:text-[var(--color-pib-text)]"
-                aria-label="Close support"
-              >
-                <span className="material-symbols-outlined text-[20px]">close</span>
-              </button>
-            </header>
+  const drawer = mounted && open ? (
+    createPortal(
+      <div className="fixed inset-0 z-[999]">
+        <button
+          type="button"
+          aria-label="Close support"
+          className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+          onClick={() => setOpen(false)}
+        />
+        <aside className="absolute right-0 top-0 h-full w-full max-w-[720px] overflow-y-auto border-l border-[var(--color-pib-line)] bg-[var(--color-pib-bg)] shadow-2xl">
+          <header className="sticky top-0 z-10 flex items-center justify-between border-b border-[var(--color-pib-line)] bg-[var(--color-pib-bg)]/95 px-5 py-4 backdrop-blur">
+            <div>
+              <p className="eyebrow !text-[10px]">Support</p>
+              <h2 className="font-display text-2xl">How can we help?</h2>
+            </div>
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="flex h-9 w-9 items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.06] hover:text-[var(--color-pib-text)]"
+              aria-label="Close support"
+            >
+              <span className="material-symbols-outlined text-[20px]">close</span>
+            </button>
+          </header>
 
             <div className="grid gap-5 p-5 lg:grid-cols-[1fr_1.1fr]">
               <section className="space-y-4">
@@ -315,8 +324,19 @@ export function SupportDrawer({ triggerClassName = '' }: { triggerClassName?: st
             </div>
             {error && <p className="mx-5 mb-5 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">{error}</p>}
           </aside>
-        </div>
-      )}
+        </div>,
+      document.body,
+    )
+  ) : null
+
+  return (
+    <>
+      <button type="button" onClick={() => setOpen(true)} className={triggerClassName}>
+        <span className="material-symbols-outlined text-[18px]">support_agent</span>
+        <span>Need help?</span>
+      </button>
+
+      {drawer}
     </>
   )
 }
