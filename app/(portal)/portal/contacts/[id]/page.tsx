@@ -6,6 +6,8 @@ import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { fmtTimestamp } from '@/components/admin/email/fmtTimestamp'
 import { ContactDealsPanel } from '@/components/crm/ContactDealsPanel'
+import { CompanyPanel } from '@/components/crm/CompanyPanel'
+import { CompanyPicker } from '@/components/crm/CompanyPicker'
 
 interface ContactRecord {
   id?: string
@@ -13,6 +15,8 @@ interface ContactRecord {
   email?: string
   phone?: string
   company?: string
+  companyId?: string
+  companyName?: string
   website?: string
   source?: string
   type?: string
@@ -65,6 +69,9 @@ export default function PortalContactDetailPage() {
   // edit-in-place
   const [name, setName] = useState('')
   const [notes, setNotes] = useState('')
+  // companyId/companyName for the picker — undefined = not in edit mode yet, '' = clear intent
+  const [editCompanyId, setEditCompanyId] = useState<string | undefined>(undefined)
+  const [editCompanyName, setEditCompanyName] = useState<string | undefined>(undefined)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -77,6 +84,8 @@ export default function PortalContactDetailPage() {
         setContact(c)
         setName(c?.name ?? '')
         setNotes(c?.notes ?? '')
+        setEditCompanyId(c?.companyId ?? undefined)
+        setEditCompanyName(c?.companyName ?? undefined)
         setLoading(false)
       })
       .catch(() => setLoading(false))
@@ -108,16 +117,25 @@ export default function PortalContactDetailPage() {
     setSaving(true)
     setError('')
     try {
+      // Build payload — companyId: '' signals clear to the API (FieldValue.delete())
+      const payload: Record<string, unknown> = { name, notes }
+      if (editCompanyId !== undefined) {
+        payload.companyId = editCompanyId
+      }
       const res = await fetch(`/api/v1/crm/contacts/${id}`, {
         method: 'PUT',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ name, notes }),
+        body: JSON.stringify(payload),
       })
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
         throw new Error(err.error ?? 'Save failed')
       }
-      setContact((prev) => (prev ? { ...prev, name, notes } : prev))
+      setContact((prev) =>
+        prev
+          ? { ...prev, name, notes, companyId: editCompanyId, companyName: editCompanyName }
+          : prev,
+      )
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Save failed')
     } finally {
@@ -146,7 +164,10 @@ export default function PortalContactDetailPage() {
     )
   }
 
-  const dirty = (contact.name ?? '') !== name || (contact.notes ?? '') !== notes
+  const dirty =
+    (contact.name ?? '') !== name ||
+    (contact.notes ?? '') !== notes ||
+    editCompanyId !== (contact.companyId ?? undefined)
   const tags = Array.isArray(contact.tags) ? contact.tags : []
 
   return (
@@ -186,12 +207,21 @@ export default function PortalContactDetailPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left: Info */}
         <section className="lg:col-span-1 space-y-4">
+          {/* Company panel — shows linked company card (or fallback) */}
+          <div className="bento-card !p-5 space-y-3">
+            <p className="eyebrow !text-[10px]">Company</p>
+            <CompanyPanel
+              companyId={contact.companyId}
+              companyName={contact.companyName ?? contact.company}
+            />
+          </div>
+
           <div className="bento-card !p-5 space-y-3 text-sm">
             <p className="eyebrow !text-[10px]">Details</p>
             {[
               ['Email', contact.email],
               ['Phone', contact.phone],
-              ['Company', contact.company],
+              ['Company (legacy)', contact.company],
               ['Website', contact.website],
               ['Source', contact.source],
             ].map(([label, val]) =>
@@ -217,14 +247,36 @@ export default function PortalContactDetailPage() {
           </div>
 
           <div className="bento-card !p-5 space-y-2">
-            <p className="eyebrow !text-[10px]">Notes</p>
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={6}
-              placeholder="Add a note about this contact…"
-              className="pib-input resize-none w-full"
-            />
+            <p className="eyebrow !text-[10px]">Edit</p>
+
+            {/* Company picker — above legacy company string field */}
+            <div className="space-y-1">
+              <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">
+                Linked company
+              </p>
+              <CompanyPicker
+                currentCompanyId={editCompanyId}
+                currentCompanyName={editCompanyName}
+                onChange={({ companyId, companyName }) => {
+                  setEditCompanyId(companyId ?? '')
+                  setEditCompanyName(companyName ?? undefined)
+                }}
+              />
+            </div>
+
+            <div className="space-y-1 pt-1">
+              <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">
+                Notes
+              </p>
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                rows={5}
+                placeholder="Add a note about this contact…"
+                className="pib-input resize-none w-full"
+              />
+            </div>
+
             {error && (
               <p className="text-[11px]" style={{ color: 'var(--color-pib-danger, #FCA5A5)' }}>
                 {error}
