@@ -84,6 +84,9 @@ function DealCard({ deal }: DealCardProps) {
             </Link>
           )}
         </div>
+        {deal.companyName && (
+          <span className="text-xs text-gray-500 truncate mt-1 block">{deal.companyName}</span>
+        )}
       </div>
     </div>
   )
