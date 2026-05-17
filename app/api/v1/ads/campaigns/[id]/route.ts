@@ -46,7 +46,34 @@ export const PATCH = withAuth(
 
     const warnings: string[] = []
 
-    if (campaign.platform === 'google') {
+    if (campaign.platform === 'linkedin') {
+      const linkedinData = (campaign.providerData as Record<string, unknown>)?.linkedin as Record<string, unknown> | undefined
+      const groupUrn = typeof linkedinData?.campaignGroupUrn === 'string' ? linkedinData.campaignGroupUrn : undefined
+      if (groupUrn) {
+        const conn = await getConnection({ orgId, platform: 'linkedin' })
+        if (conn) {
+          const accessToken = decryptAccessToken(conn)
+          const linkedinMeta = ((conn.meta ?? {}) as Record<string, unknown>).linkedin as Record<string, unknown> | undefined
+          const accountUrn = typeof linkedinMeta?.selectedAdAccountUrn === 'string' ? linkedinMeta.selectedAdAccountUrn : undefined
+          if (accountUrn) {
+            try {
+              const { updateCampaignGroup } = await import('@/lib/ads/providers/linkedin/campaigns')
+              await updateCampaignGroup({
+                accountUrn,
+                accessToken,
+                groupUrn,
+                patch: {
+                  ...(patch.name ? { name: patch.name } : {}),
+                  ...(patch.status ? { status: patch.status === 'ACTIVE' ? 'ACTIVE' : patch.status === 'PAUSED' ? 'PAUSED' : 'ARCHIVED' } : {}),
+                },
+              })
+            } catch (err) {
+              warnings.push(`LinkedIn sync warning: ${(err as Error).message}`)
+            }
+          }
+        }
+      }
+    } else if (campaign.platform === 'google') {
       const googleData = (campaign.providerData as Record<string, unknown>)?.google as Record<string, unknown> | undefined
       const resourceName = typeof googleData?.campaignResourceName === 'string' ? googleData.campaignResourceName : undefined
       if (resourceName) {
@@ -110,7 +137,26 @@ export const DELETE = withAuth(
     const campaign = await getCampaign(id)
     if (!campaign || campaign.orgId !== orgId) return apiError('Campaign not found', 404)
 
-    if (campaign.platform === 'google') {
+    if (campaign.platform === 'linkedin') {
+      const linkedinData = (campaign.providerData as Record<string, unknown>)?.linkedin as Record<string, unknown> | undefined
+      const groupUrn = typeof linkedinData?.campaignGroupUrn === 'string' ? linkedinData.campaignGroupUrn : undefined
+      if (groupUrn) {
+        const conn = await getConnection({ orgId, platform: 'linkedin' })
+        if (conn) {
+          const accessToken = decryptAccessToken(conn)
+          const linkedinMeta = ((conn.meta ?? {}) as Record<string, unknown>).linkedin as Record<string, unknown> | undefined
+          const accountUrn = typeof linkedinMeta?.selectedAdAccountUrn === 'string' ? linkedinMeta.selectedAdAccountUrn : undefined
+          if (accountUrn) {
+            try {
+              const { archiveCampaignGroup } = await import('@/lib/ads/providers/linkedin/campaigns')
+              await archiveCampaignGroup({ accountUrn, accessToken, groupUrn })
+            } catch {
+              // swallow — local delete is source of truth
+            }
+          }
+        }
+      }
+    } else if (campaign.platform === 'google') {
       const googleData = (campaign.providerData as Record<string, unknown>)?.google as Record<string, unknown> | undefined
       const resourceName = typeof googleData?.campaignResourceName === 'string' ? googleData.campaignResourceName : undefined
       if (resourceName) {

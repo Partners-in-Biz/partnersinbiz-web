@@ -24,7 +24,21 @@ export const POST = withAuth(
     // Set status ACTIVE locally first
     await updateCampaign(id, { status: 'ACTIVE' })
 
-    if (campaign.platform === 'google') {
+    if (campaign.platform === 'linkedin') {
+      const linkedinData = (campaign.providerData as Record<string, unknown>)?.linkedin as Record<string, unknown> | undefined
+      const groupUrn = typeof linkedinData?.campaignGroupUrn === 'string' ? linkedinData.campaignGroupUrn : undefined
+      if (!groupUrn) return apiError('Campaign has no LinkedIn Campaign Group URN — create first', 400)
+
+      const conn = await getConnection({ orgId, platform: 'linkedin' })
+      if (!conn) return apiError('No LinkedIn ads connection for org', 400)
+      const accessToken = decryptAccessToken(conn)
+      const linkedinMeta = ((conn.meta ?? {}) as Record<string, unknown>).linkedin as Record<string, unknown> | undefined
+      const accountUrn = typeof linkedinMeta?.selectedAdAccountUrn === 'string' ? linkedinMeta.selectedAdAccountUrn : undefined
+      if (!accountUrn) return apiError('No Ad Account URN set on LinkedIn connection', 400)
+
+      const { resumeCampaignGroup } = await import('@/lib/ads/providers/linkedin/campaigns')
+      await resumeCampaignGroup({ accountUrn, accessToken, groupUrn })
+    } else if (campaign.platform === 'google') {
       const conn = await getConnection({ orgId, platform: 'google' })
       if (!conn) return apiError('No Google Ads connection for org', 400)
       const accessToken = decryptAccessToken(conn)

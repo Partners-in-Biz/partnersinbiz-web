@@ -38,6 +38,13 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
       campaignType?: 'SEARCH' | 'DISPLAY' | 'SHOPPING'
       shopping?: { merchantId?: string; feedLabel?: string }
     }
+    /** LinkedIn Campaign Group options (only used when platform === 'linkedin') */
+    linkedinAds?: {
+      /** Total budget cap in major currency units (e.g. 100.50). Optional. */
+      totalBudgetMajor?: number
+      /** ISO 4217 currency code. Default 'USD'. */
+      currencyCode?: string
+    }
   }
 
   if (!body.input?.name || !body.input?.objective) {
@@ -114,6 +121,35 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
       },
     } as any)
   }
+  if (platform === 'linkedin') {
+    const conn = await getConnection({ orgId: ctx.orgId, platform: 'linkedin' })
+    if (!conn) return apiError('No LinkedIn ads connection for org', 400)
+    const accessToken = decryptAccessToken(conn)
+    const linkedinMeta = ((conn.meta ?? {}) as Record<string, unknown>).linkedin as Record<string, unknown> | undefined
+    const accountUrn = typeof linkedinMeta?.selectedAdAccountUrn === 'string' ? linkedinMeta.selectedAdAccountUrn : undefined
+    if (!accountUrn) return apiError('No Ad Account URN set on LinkedIn connection', 400)
+
+    const { createCampaignGroup } = await import('@/lib/ads/providers/linkedin/campaigns')
+    const result = await createCampaignGroup({
+      accountUrn,
+      accessToken,
+      canonical: campaign,
+      totalBudgetMajor: body.linkedinAds?.totalBudgetMajor,
+      currencyCode: body.linkedinAds?.currencyCode,
+    })
+
+    await updateCampaign(campaign.id, {
+      providerData: {
+        ...(campaign.providerData ?? {}),
+        linkedin: {
+          ...((campaign.providerData as Record<string, unknown>)?.linkedin as Record<string, unknown> | undefined ?? {}),
+          campaignGroupUrn: result.urn,
+          liStatus: 'DRAFT',
+        },
+      },
+    } as any)
+  }
+
   // Meta: no provider push on POST — campaigns are pushed to Meta on /launch
 
   return apiSuccess(campaign, 201)

@@ -23,7 +23,27 @@ export const POST = withAuth(
 
     await updateCampaign(id, { status: 'PAUSED' })
 
-    if (campaign.platform === 'google') {
+    if (campaign.platform === 'linkedin') {
+      // Best-effort LinkedIn sync — only if campaign has been pushed to LinkedIn
+      const linkedinData = (campaign.providerData as Record<string, unknown>)?.linkedin as Record<string, unknown> | undefined
+      const groupUrn = typeof linkedinData?.campaignGroupUrn === 'string' ? linkedinData.campaignGroupUrn : undefined
+      if (groupUrn) {
+        const conn = await getConnection({ orgId, platform: 'linkedin' })
+        if (conn) {
+          const accessToken = decryptAccessToken(conn)
+          const linkedinMeta = ((conn.meta ?? {}) as Record<string, unknown>).linkedin as Record<string, unknown> | undefined
+          const accountUrn = typeof linkedinMeta?.selectedAdAccountUrn === 'string' ? linkedinMeta.selectedAdAccountUrn : undefined
+          if (accountUrn) {
+            try {
+              const { pauseCampaignGroup } = await import('@/lib/ads/providers/linkedin/campaigns')
+              await pauseCampaignGroup({ accountUrn, accessToken, groupUrn })
+            } catch {
+              // Status already updated locally; LinkedIn sync failure is non-blocking
+            }
+          }
+        }
+      }
+    } else if (campaign.platform === 'google') {
       // Best-effort Google sync — only if campaign has been pushed to Google
       const googleData = (campaign.providerData as Record<string, unknown>)?.google as Record<string, unknown> | undefined
       const resourceName = typeof googleData?.campaignResourceName === 'string' ? googleData.campaignResourceName : undefined
