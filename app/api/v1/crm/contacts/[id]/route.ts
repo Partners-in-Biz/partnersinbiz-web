@@ -17,6 +17,7 @@ import { resolveMemberRef } from '@/lib/orgMembers/memberRef'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { dispatchWebhook } from '@/lib/webhooks/dispatch'
 import { logActivity } from '@/lib/activity/log'
+import { loadCompany } from '@/lib/companies/store'
 
 type RouteCtx = { params: Promise<{ id: string }> }
 
@@ -66,6 +67,22 @@ async function handleUpdate(
   // Resolve assignedToRef when assignedTo changes (uses tolerant resolveMemberRef — never throws)
   if (typeof body.assignedTo === 'string' && body.assignedTo !== '') {
     patch.assignedToRef = await resolveMemberRef(ctx.orgId, body.assignedTo)
+  }
+
+  // Resolve companyId wiring (hybrid model — existing company string field untouched)
+  if ('companyId' in body) {
+    if (body.companyId === '' || body.companyId === null) {
+      // Explicit clear: remove both fields from Firestore document
+      patch.companyId = FieldValue.delete()
+      patch.companyName = FieldValue.delete()
+    } else if (typeof body.companyId === 'string') {
+      const loaded = await loadCompany(body.companyId, ctx.orgId)
+      if (!loaded) return apiError('Invalid companyId (not found or cross-tenant)', 400)
+      patch.companyId = body.companyId
+      patch.companyName = loaded.data.name
+    }
+    // Remove raw companyId from patch so it doesn't overwrite resolved value
+    // (patch.companyId is already set above; remove the body spread duplicate)
   }
 
   // Firestore rejects undefined values — strip them before write

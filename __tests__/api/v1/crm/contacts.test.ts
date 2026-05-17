@@ -16,6 +16,12 @@ process.env.SESSION_COOKIE_NAME = '__session'
 jest.mock('@/lib/activity/log', () => ({ logActivity: jest.fn().mockResolvedValue(undefined) }))
 jest.mock('@/lib/webhooks/dispatch', () => ({ dispatchWebhook: jest.fn().mockResolvedValue(undefined) }))
 
+// Mock loadCompany for companyId tests
+jest.mock('@/lib/companies/store', () => ({
+  loadCompany: jest.fn(),
+}))
+import { loadCompany } from '@/lib/companies/store'
+
 function stageAuth(
   member: { uid: string; orgId: string; role: string; firstName?: string; lastName?: string },
   perms: Record<string, unknown> = {},
@@ -246,5 +252,75 @@ describe('POST /api/v1/crm/contacts', () => {
     expect(writtenData.createdByRef.displayName).toBe('Alice B')
     expect(writtenData.createdByRef.kind).toBe('human')
     expect(writtenData.orgId).toBe('org-1')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// POST /api/v1/crm/contacts — companyId wiring tests
+// ---------------------------------------------------------------------------
+
+describe('POST contacts with companyId', () => {
+  beforeEach(() => {
+    ;(loadCompany as jest.Mock).mockReset()
+  })
+
+  it('writes companyId + companyName cache from valid company lookup', async () => {
+    const member = seedOrgMember('org-co', 'uid-co-member', { role: 'member' })
+    const capturedSet = jest.fn().mockResolvedValue(undefined)
+    stageAuth(member, {}, { capturedDocSet: capturedSet })
+    ;(loadCompany as jest.Mock).mockResolvedValue({ data: { name: 'ACME Corp' } })
+
+    const req = callAsMember(member, 'POST', '/api/v1/crm/contacts', {
+      name: 'Jane Linked',
+      email: 'jane-linked@acme.com',
+      source: 'manual',
+      companyId: 'co-acme-1',
+    })
+    const { POST } = await import('@/app/api/v1/crm/contacts/route')
+    const res = await POST(req)
+    expect(res.status).toBe(201)
+    const written = capturedSet.mock.calls[0][0]
+    expect(written.companyId).toBe('co-acme-1')
+    expect(written.companyName).toBe('ACME Corp')
+    expect(loadCompany).toHaveBeenCalledWith('co-acme-1', 'org-co')
+  })
+
+  it('returns 400 for cross-tenant or non-existent companyId', async () => {
+    const member = seedOrgMember('org-co', 'uid-co-member2', { role: 'member' })
+    stageAuth(member)
+    ;(loadCompany as jest.Mock).mockResolvedValue(null) // cross-tenant → null
+
+    const req = callAsMember(member, 'POST', '/api/v1/crm/contacts', {
+      name: 'Bad Company Link',
+      email: 'bad@example.com',
+      source: 'manual',
+      companyId: 'co-other-org',
+    })
+    const { POST } = await import('@/app/api/v1/crm/contacts/route')
+    const res = await POST(req)
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body.error).toMatch(/companyId/i)
+  })
+
+  it('hybrid mode: only company string set, no companyId written when omitted', async () => {
+    const member = seedOrgMember('org-co', 'uid-co-member3', { role: 'member' })
+    const capturedSet = jest.fn().mockResolvedValue(undefined)
+    stageAuth(member, {}, { capturedDocSet: capturedSet })
+    // loadCompany should NOT be called when companyId is absent
+
+    const req = callAsMember(member, 'POST', '/api/v1/crm/contacts', {
+      name: 'Hybrid Contact',
+      email: 'hybrid@example.com',
+      source: 'manual',
+      company: 'ACME String Only', // existing legacy field
+    })
+    const { POST } = await import('@/app/api/v1/crm/contacts/route')
+    const res = await POST(req)
+    expect(res.status).toBe(201)
+    const written = capturedSet.mock.calls[0][0]
+    expect(written.company).toBe('ACME String Only')
+    expect(written.companyId).toBeUndefined() // not set in sanitized output
+    expect(loadCompany).not.toHaveBeenCalled()
   })
 })

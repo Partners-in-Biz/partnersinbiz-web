@@ -16,6 +16,12 @@ process.env.SESSION_COOKIE_NAME = '__session'
 jest.mock('@/lib/activity/log', () => ({ logActivity: jest.fn().mockResolvedValue(undefined) }))
 jest.mock('@/lib/webhooks/dispatch', () => ({ dispatchWebhook: jest.fn().mockResolvedValue(undefined) }))
 
+// Mock loadCompany for companyId tests
+jest.mock('@/lib/companies/store', () => ({
+  loadCompany: jest.fn(),
+}))
+import { loadCompany } from '@/lib/companies/store'
+
 function stageAuth(
   member: { uid: string; orgId: string; role: string; firstName?: string; lastName?: string },
   perms: Record<string, unknown> = {},
@@ -341,5 +347,73 @@ describe('PATCH attribution & DELETE toggle', () => {
     const { DELETE } = await import('@/app/api/v1/crm/contacts/[id]/route')
     const res = await DELETE(req, { params: Promise.resolve({ id: 'a1' }) })
     expect(res.status).toBeLessThan(300)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// PATCH /api/v1/crm/contacts/:id — companyId wiring tests
+// ---------------------------------------------------------------------------
+
+describe('PATCH companyId behavior', () => {
+  beforeEach(() => {
+    ;(loadCompany as jest.Mock).mockReset()
+  })
+
+  it('writes companyId + companyName via lookup on PATCH', async () => {
+    const member = seedOrgMember('org-co', 'uid-co-patch', { role: 'member' })
+    const captured = jest.fn().mockResolvedValue(undefined)
+    stageAuth(member, {}, {
+      contact: { id: 'c1', data: { orgId: 'org-co', name: 'Existing Contact' } },
+      capturedUpdate: captured,
+    })
+    ;(loadCompany as jest.Mock).mockResolvedValue({ data: { name: 'Globex Inc' } })
+
+    const req = callAsMember(member, 'PATCH', '/api/v1/crm/contacts/c1', {
+      companyId: 'co-globex-1',
+    })
+    const { PATCH } = await import('@/app/api/v1/crm/contacts/[id]/route')
+    const res = await PATCH(req, { params: Promise.resolve({ id: 'c1' }) })
+    expect(res.status).toBeLessThan(300)
+    const patch = captured.mock.calls[0][0]
+    expect(patch.companyId).toBe('co-globex-1')
+    expect(patch.companyName).toBe('Globex Inc')
+    expect(loadCompany).toHaveBeenCalledWith('co-globex-1', 'org-co')
+  })
+
+  it("clears companyId + companyName when body has companyId: ''", async () => {
+    const member = seedOrgMember('org-co', 'uid-co-clear', { role: 'member' })
+    const captured = jest.fn().mockResolvedValue(undefined)
+    stageAuth(member, {}, {
+      contact: { id: 'c2', data: { orgId: 'org-co', name: 'Had Company', companyId: 'co-old', companyName: 'Old Corp' } },
+      capturedUpdate: captured,
+    })
+
+    const req = callAsMember(member, 'PATCH', '/api/v1/crm/contacts/c2', {
+      companyId: '',
+    })
+    const { PATCH } = await import('@/app/api/v1/crm/contacts/[id]/route')
+    const res = await PATCH(req, { params: Promise.resolve({ id: 'c2' }) })
+    expect(res.status).toBeLessThan(300)
+    const patch = captured.mock.calls[0][0]
+    // Both fields should be FieldValue.delete() — check they are not plain strings
+    expect(typeof patch.companyId).not.toBe('string')
+    expect(typeof patch.companyName).not.toBe('string')
+    // loadCompany should NOT be called for a clear operation
+    expect(loadCompany).not.toHaveBeenCalled()
+  })
+
+  it('returns 400 when PATCH provides non-existent cross-tenant companyId', async () => {
+    const member = seedOrgMember('org-co', 'uid-co-bad', { role: 'member' })
+    stageAuth(member, {}, {
+      contact: { id: 'c3', data: { orgId: 'org-co', name: 'Contact C3' } },
+    })
+    ;(loadCompany as jest.Mock).mockResolvedValue(null)
+
+    const req = callAsMember(member, 'PATCH', '/api/v1/crm/contacts/c3', {
+      companyId: 'co-from-other-org',
+    })
+    const { PATCH } = await import('@/app/api/v1/crm/contacts/[id]/route')
+    const res = await PATCH(req, { params: Promise.resolve({ id: 'c3' }) })
+    expect(res.status).toBe(400)
   })
 })

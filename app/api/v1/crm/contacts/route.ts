@@ -19,6 +19,7 @@ import type {
 } from '@/lib/crm/types'
 import { dispatchWebhook } from '@/lib/webhooks/dispatch'
 import { logActivity } from '@/lib/activity/log'
+import { loadCompany } from '@/lib/companies/store'
 
 const VALID_STAGES: ContactStage[] = [
   'new', 'contacted', 'replied', 'demo', 'proposal', 'won', 'lost',
@@ -120,6 +121,17 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
     assignedToRef = await resolveMemberRef(ctx.orgId, body.assignedTo)
   }
 
+  // Resolve companyId → companyName cache lookup (hybrid model — company string untouched)
+  const bodyWithCompany = body as ContactInput & { companyId?: string }
+  let resolvedCompanyId: string | undefined
+  let resolvedCompanyName: string | undefined
+  if (bodyWithCompany.companyId) {
+    const loaded = await loadCompany(bodyWithCompany.companyId, orgId)
+    if (!loaded) return apiError('Invalid companyId (not found or cross-tenant)', 400)
+    resolvedCompanyId = bodyWithCompany.companyId
+    resolvedCompanyName = loaded.data.name
+  }
+
   const contactData = {
     orgId,
     capturedFromId,
@@ -135,6 +147,8 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
     notes: body.notes?.trim() ?? '',
     assignedTo: body.assignedTo ?? '',
     assignedToRef,  // may be undefined; sanitize step will strip
+    companyId: resolvedCompanyId,     // undefined if not provided; sanitize strips
+    companyName: resolvedCompanyName, // undefined if not provided; sanitize strips
     deleted: false,
     subscribedAt: FieldValue.serverTimestamp(),
     unsubscribedAt: null,
