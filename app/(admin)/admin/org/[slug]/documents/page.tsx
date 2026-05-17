@@ -9,9 +9,10 @@ import type { ClientDocument, ClientDocumentStatus } from '@/lib/client-document
 
 const STATUS_TABS: Array<{ label: string; value: ClientDocumentStatus | 'all' }> = [
   { label: 'All', value: 'all' },
-  { label: 'Internal Draft', value: 'internal_draft' },
+  { label: 'Drafts', value: 'internal_draft' },
   { label: 'Internal Review', value: 'internal_review' },
   { label: 'Client Review', value: 'client_review' },
+  { label: 'Changes', value: 'changes_requested' },
   { label: 'Approved', value: 'approved' },
   { label: 'Accepted', value: 'accepted' },
   { label: 'Archived', value: 'archived' },
@@ -67,24 +68,25 @@ export default function OrgDocumentsPage() {
 
   return (
     <OrgThemedFrame orgId={orgId} className="-m-6 min-h-screen p-6">
-      <div className="space-y-6">
-        <header className="flex items-center justify-between">
+      <div className="space-y-8">
+        <header className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p className="text-xs uppercase tracking-[0.18em] text-on-surface-variant">{orgName}</p>
-            <h1 className="text-2xl font-semibold">Client Documents</h1>
-            <p className="text-sm text-[var(--color-pib-text-muted)]">
-              {documents.length} document{documents.length !== 1 ? 's' : ''}
+            <p className="eyebrow">{orgName || 'Client workspace'}</p>
+            <h1 className="pib-page-title mt-2">Client Documents</h1>
+            <p className="pib-page-sub mt-2 max-w-2xl">
+              Proposals, specs, strategies, and reports for this client. Use the tabs to move between the active review states.
             </p>
           </div>
           <Link
             href={`/admin/org/${slug}/documents/new`}
-            className="btn-primary inline-flex items-center gap-1.5 rounded px-4 py-2 text-sm font-medium"
+            className="btn-pib-accent"
           >
-            + New Document
+            <span className="material-symbols-outlined text-base">add</span>
+            New Document
           </Link>
         </header>
 
-        <nav className="flex gap-1 overflow-x-auto border-b border-[var(--color-outline)] pb-0">
+        <nav className="bento-card !p-2 flex gap-2 overflow-x-auto" aria-label="Document status filters">
           {STATUS_TABS.map((tab) => {
             const count =
               tab.value === 'all'
@@ -99,15 +101,17 @@ export default function OrgDocumentsPage() {
               <Link
                 key={tab.value}
                 href={href}
-                className={`whitespace-nowrap px-3 py-2 text-sm border-b-2 transition-colors ${
+                className={`inline-flex whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium transition-colors ${
                   isActive
-                    ? 'border-[var(--color-pib-accent)] text-[var(--color-pib-accent)]'
-                    : 'border-transparent text-on-surface-variant hover:text-on-surface'
+                    ? 'bg-[var(--color-pib-accent)] text-black'
+                    : 'text-[var(--color-pib-text-muted)] hover:bg-[var(--color-surface)] hover:text-on-surface'
                 }`}
               >
                 {tab.label}
                 {count > 0 && (
-                  <span className="ml-1.5 rounded-full bg-[var(--color-surface-variant)] px-1.5 py-0.5 text-[10px]">
+                  <span className={`ml-1.5 rounded-full px-1.5 py-0.5 text-[10px] ${
+                    isActive ? 'bg-black/15 text-black' : 'bg-[var(--color-surface-variant)] text-on-surface'
+                  }`}>
                     {count}
                   </span>
                 )}
