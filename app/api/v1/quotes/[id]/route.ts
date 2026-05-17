@@ -6,8 +6,24 @@ import { withCrmAuth, type CrmAuthContext } from '@/lib/auth/crm-middleware'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { generateInvoiceNumber } from '@/lib/invoices/invoice-number'
 import { dispatchWebhook } from '@/lib/webhooks/dispatch'
+import { loadCompany } from '@/lib/companies/store'
 import type { Quote } from '@/lib/quotes/types'
 import type { MemberRef } from '@/lib/orgMembers/memberRef'
+import type { Contact } from '@/lib/crm/types'
+
+async function deriveCompanyFromContact(contactId: string, orgId: string): Promise<{ companyId?: string; companyName?: string }> {
+  try {
+    const snap = await adminDb.collection('contacts').doc(contactId).get()
+    if (!snap.exists) return {}
+    const c = snap.data() as Contact
+    if (c.orgId !== orgId) return {}
+    if (!c.companyId) return {}
+    return { companyId: c.companyId, companyName: c.companyName }
+  } catch (e) {
+    console.error('deriveCompanyFromContact failed', e)
+    return {}
+  }
+}
 
 export const dynamic = 'force-dynamic'
 
@@ -43,7 +59,7 @@ export const GET = withCrmAuth<RouteCtx>('viewer', async (_req, ctx, routeCtx) =
 // ---------------------------------------------------------------------------
 
 // Allowlist of editable fields beyond the internal meta fields
-const EDITABLE_FIELDS = ['status', 'notes', 'validUntil', 'lineItems', 'subtotal', 'taxRate', 'taxAmount', 'total', 'currency', 'fromDetails', 'clientDetails'] as const
+const EDITABLE_FIELDS = ['status', 'notes', 'validUntil', 'lineItems', 'subtotal', 'taxRate', 'taxAmount', 'total', 'currency', 'fromDetails', 'clientDetails', 'contactId', 'companyId'] as const
 
 async function handleQuoteUpdate(
   req: NextRequest,
@@ -155,6 +171,26 @@ async function handleQuoteUpdate(
     }
   }
 
+  // Company association handling
+  // Explicit clear: { companyId: '' } → remove both fields via FieldValue.delete()
+  if (typeof body.companyId === 'string' && body.companyId === '') {
+    patch.companyId = FieldValue.delete()
+    patch.companyName = FieldValue.delete()
+  } else if (typeof body.companyId === 'string' && body.companyId) {
+    // Explicit set: validate and stamp companyName
+    const loaded = await loadCompany(body.companyId, ctx.orgId)
+    if (!loaded) return apiError('Invalid companyId', 400)
+    patch.companyId = body.companyId
+    patch.companyName = loaded.data.name
+  } else if (typeof body.contactId === 'string' && body.contactId && body.contactId !== before.contactId) {
+    // contactId changed: re-derive company from new contact
+    const derived = await deriveCompanyFromContact(body.contactId, ctx.orgId)
+    if (derived.companyId) {
+      patch.companyId = derived.companyId
+      patch.companyName = derived.companyName
+    }
+  }
+
   const fromStatus = before.status
   const toStatus = typeof body.status === 'string' ? body.status : undefined
   const statusChanged = toStatus !== undefined && toStatus !== fromStatus
@@ -182,6 +218,8 @@ async function handleQuoteUpdate(
           quoteNumber: before.quoteNumber,
           total: before.total,
           currency: before.currency,
+          companyId: before.companyId,
+          companyName: before.companyName,
           updatedByRef: actorRef,
         })
       } catch (err) {
@@ -194,6 +232,8 @@ async function handleQuoteUpdate(
           quoteNumber: before.quoteNumber,
           total: before.total,
           currency: before.currency,
+          companyId: before.companyId,
+          companyName: before.companyName,
           updatedByRef: actorRef,
         })
       } catch (err) {

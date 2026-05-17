@@ -13,9 +13,14 @@ jest.mock('@/lib/invoices/invoice-number', () => ({
   generateInvoiceNumber: jest.fn().mockResolvedValue('TES-001'),
 }))
 
+jest.mock('@/lib/companies/store', () => ({
+  loadCompany: jest.fn(),
+}))
+
 import { adminAuth, adminDb } from '@/lib/firebase/admin'
 import { dispatchWebhook } from '@/lib/webhooks/dispatch'
 import { generateInvoiceNumber } from '@/lib/invoices/invoice-number'
+import { loadCompany } from '@/lib/companies/store'
 import { seedOrgMember, callAsMember, callAsAgent } from '../../../helpers/crm'
 import { FieldValue } from 'firebase-admin/firestore'
 
@@ -38,6 +43,13 @@ interface InvoiceCapture {
 
 interface ActivitiesCapture {
   capturedAdd?: jest.Mock
+}
+
+interface ContactDoc {
+  orgId?: string
+  companyId?: string
+  companyName?: string
+  [key: string]: unknown
 }
 
 function makeQuoteDoc(id: string, partial: Record<string, unknown>): QuoteDoc {
@@ -67,6 +79,7 @@ function stageAuth(
     quotes?: QuoteDoc[]
     invoiceCapture?: InvoiceCapture
     activitiesCapture?: ActivitiesCapture
+    contactDoc?: ContactDoc | null
   },
 ) {
   ;(adminAuth.verifySessionCookie as jest.Mock).mockResolvedValue({ uid: member.uid })
@@ -152,6 +165,20 @@ function stageAuth(
       return {
         add: capturedAdd,
       }
+
+    if (name === 'contacts') {
+      const contactDoc = opts?.contactDoc ?? null
+      return {
+        doc: () => ({
+          get: () =>
+            Promise.resolve(
+              contactDoc
+                ? { exists: true, data: () => contactDoc }
+                : { exists: false },
+            ),
+        }),
+      }
+    }
 
     if (name === 'activities') {
       const activitiesAddFn = opts?.activitiesCapture?.capturedAdd ?? jest.fn().mockResolvedValue({ id: 'act-new' })
@@ -676,5 +703,122 @@ describe('agent PATCH uses AGENT_PIP_REF', () => {
     expect((capturedPatch.updatedByRef as any).kind).toBe('agent')
     // agent path: no updatedBy uid field
     expect(capturedPatch.updatedBy).toBeUndefined()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// PATCH /api/v1/quotes/:id — companyId wiring
+// ---------------------------------------------------------------------------
+
+describe('PATCH /api/v1/quotes/:id — companyId wiring', () => {
+  beforeEach(() => {
+    jest.clearAllMocks()
+    ;(loadCompany as jest.Mock).mockReset()
+  })
+
+  it('PATCH contactId change re-derives companyId from new contact', async () => {
+    const member = seedOrgMember('org-1', 'uid-m', { role: 'member', firstName: 'Jane', lastName: 'Doe' })
+    let capturedPatch: Record<string, unknown> = {}
+    stageAuth(member, {
+      quotes: [makeQuoteDoc('q-contact-change', { status: 'draft', contactId: 'c-old' })],
+      contactDoc: { orgId: 'org-1', companyId: 'co-new', companyName: 'New Corp' },
+    })
+    ;(loadCompany as jest.Mock).mockResolvedValue(null)
+
+    // Intercept the update to capture what was written
+    const origCollection = (adminDb.collection as jest.Mock).getMockImplementation()
+    ;(adminDb.collection as jest.Mock).mockImplementation((name: string) => {
+      const result = origCollection!(name)
+      if (name === 'quotes') {
+        return {
+          ...result,
+          doc: jest.fn((id?: string) => {
+            const orig = result.doc(id)
+            return {
+              ...orig,
+              update: jest.fn().mockImplementation((p: Record<string, unknown>) => {
+                capturedPatch = p
+                return Promise.resolve()
+              }),
+            }
+          }),
+        }
+      }
+      return result
+    })
+
+    const req = callAsMember(member, 'PATCH', '/api/v1/quotes/q-contact-change', { contactId: 'c-new' })
+    const { PATCH } = await import('@/app/api/v1/quotes/[id]/route')
+    const res = await PATCH(req, { params: Promise.resolve({ id: 'q-contact-change' }) })
+    expect(res.status).toBe(200)
+    expect(capturedPatch.companyId).toBe('co-new')
+    expect(capturedPatch.companyName).toBe('New Corp')
+  })
+
+  it('PATCH { companyId: "" } clears both fields via FieldValue.delete()', async () => {
+    const member = seedOrgMember('org-1', 'uid-m', { role: 'member', firstName: 'Jane', lastName: 'Doe' })
+    let capturedPatch: Record<string, unknown> = {}
+    stageAuth(member, {
+      quotes: [makeQuoteDoc('q-clear-co', { status: 'draft', companyId: 'co-existing', companyName: 'Old Corp' })],
+    })
+    ;(loadCompany as jest.Mock).mockResolvedValue(null)
+
+    const origCollection = (adminDb.collection as jest.Mock).getMockImplementation()
+    ;(adminDb.collection as jest.Mock).mockImplementation((name: string) => {
+      const result = origCollection!(name)
+      if (name === 'quotes') {
+        return {
+          ...result,
+          doc: jest.fn((id?: string) => {
+            const orig = result.doc(id)
+            return {
+              ...orig,
+              update: jest.fn().mockImplementation((p: Record<string, unknown>) => {
+                capturedPatch = p
+                return Promise.resolve()
+              }),
+            }
+          }),
+        }
+      }
+      return result
+    })
+
+    const req = callAsMember(member, 'PATCH', '/api/v1/quotes/q-clear-co', { companyId: '' })
+    const { PATCH } = await import('@/app/api/v1/quotes/[id]/route')
+    const res = await PATCH(req, { params: Promise.resolve({ id: 'q-clear-co' }) })
+    // companyId: '' counts as an editable field, so should not return 400
+    expect(res.status).toBe(200)
+    // Both companyId and companyName should be FieldValue.delete() sentinels
+    expect(capturedPatch.companyId).toBeDefined()
+    expect(capturedPatch.companyName).toBeDefined()
+    // FieldValue.delete() is an object, not a string — verify it's not a plain value
+    expect(typeof capturedPatch.companyId).not.toBe('string')
+  })
+
+  it('webhook quote.accepted payload includes companyId', async () => {
+    const member = seedOrgMember('org-1', 'uid-m', { role: 'member', firstName: 'Jane', lastName: 'Doe' })
+    stageAuth(member, {
+      quotes: [makeQuoteDoc('q-co-accepted', {
+        status: 'sent',
+        quoteNumber: 'Q-TES-099',
+        total: 3000,
+        currency: 'ZAR',
+        companyId: 'co-xyz',
+        companyName: 'XYZ Ltd',
+      })],
+    })
+    ;(loadCompany as jest.Mock).mockResolvedValue(null)
+    ;(dispatchWebhook as jest.Mock).mockClear()
+
+    const req = callAsMember(member, 'PATCH', '/api/v1/quotes/q-co-accepted', { status: 'accepted' })
+    const { PATCH } = await import('@/app/api/v1/quotes/[id]/route')
+    const res = await PATCH(req, { params: Promise.resolve({ id: 'q-co-accepted' }) })
+    expect(res.status).toBe(200)
+
+    const [, event, payload] = (dispatchWebhook as jest.Mock).mock.calls[0]
+    expect(event).toBe('quote.accepted')
+    expect(payload).toHaveProperty('companyId', 'co-xyz')
+    expect(payload).toHaveProperty('companyName', 'XYZ Ltd')
   })
 })

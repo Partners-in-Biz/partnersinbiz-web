@@ -9,8 +9,13 @@ jest.mock('@/lib/webhooks/dispatch', () => ({
   dispatchWebhook: jest.fn().mockResolvedValue({ queued: 0 }),
 }))
 
+jest.mock('@/lib/companies/store', () => ({
+  loadCompany: jest.fn(),
+}))
+
 import { adminAuth, adminDb } from '@/lib/firebase/admin'
 import { dispatchWebhook } from '@/lib/webhooks/dispatch'
+import { loadCompany } from '@/lib/companies/store'
 import { seedOrgMember, callAsMember, callAsAgent } from '../../../helpers/crm'
 
 const AI_API_KEY = 'test-ai-key'
@@ -27,6 +32,7 @@ function stageAuth(
     existingQuotes?: Array<{ id: string; data: Record<string, unknown> }>
     capturedSet?: jest.Mock
     capturedActivitiesAdd?: jest.Mock
+    contactDoc?: Record<string, unknown> | null
   },
 ) {
   ;(adminAuth.verifySessionCookie as jest.Mock).mockResolvedValue({ uid: member.uid })
@@ -94,6 +100,19 @@ function stageAuth(
         limit: jest.fn().mockReturnThis(),
         get: jest.fn().mockResolvedValue({ docs }),
         add: jest.fn().mockResolvedValue({ id: newDocId }),
+      }
+    }
+    if (name === 'contacts') {
+      const contactDoc = opts?.contactDoc ?? null
+      return {
+        doc: () => ({
+          get: () =>
+            Promise.resolve(
+              contactDoc
+                ? { exists: true, data: () => contactDoc }
+                : { exists: false },
+            ),
+        }),
       }
     }
     if (name === 'activities') {
@@ -345,5 +364,94 @@ describe('POST /api/v1/quotes', () => {
     expect(calledPayload).not.toHaveProperty('subtotal')
     expect(calledPayload).not.toHaveProperty('taxRate')
     expect(calledPayload).not.toHaveProperty('orgId')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// POST /api/v1/quotes — companyId wiring
+// ---------------------------------------------------------------------------
+
+describe('POST /api/v1/quotes — companyId wiring', () => {
+  beforeEach(() => {
+    jest.clearAllMocks()
+    ;(loadCompany as jest.Mock).mockReset()
+  })
+
+  it('POST auto-derives companyId from contactId when contact has companyId', async () => {
+    const member = seedOrgMember('org-1', 'uid-m', { role: 'member', firstName: 'Jane', lastName: 'Doe' })
+    const capturedSet = jest.fn().mockResolvedValue(undefined)
+    stageAuth(member, {
+      capturedSet,
+      contactDoc: { orgId: 'org-1', companyId: 'co-abc', companyName: 'Acme Corp' },
+    })
+    ;(loadCompany as jest.Mock).mockResolvedValue(null) // not called on this path
+
+    const req = callAsMember(member, 'POST', '/api/v1/quotes', {
+      lineItems: VALID_LINE_ITEMS,
+      contactId: 'c-with-company',
+    })
+    const { POST } = await import('@/app/api/v1/quotes/route')
+    const res = await POST(req)
+    expect(res.status).toBe(201)
+    const body = await res.json()
+    expect(body.data.companyId).toBe('co-abc')
+    expect(body.data.companyName).toBe('Acme Corp')
+  })
+
+  it('POST explicit companyId validates and stamps companyName', async () => {
+    const member = seedOrgMember('org-1', 'uid-m', { role: 'member', firstName: 'Jane', lastName: 'Doe' })
+    const capturedSet = jest.fn().mockResolvedValue(undefined)
+    stageAuth(member, { capturedSet })
+    ;(loadCompany as jest.Mock).mockResolvedValue({
+      ref: {},
+      data: { id: 'co-xyz', orgId: 'org-1', name: 'XYZ Ltd' },
+    })
+
+    const req = callAsMember(member, 'POST', '/api/v1/quotes', {
+      lineItems: VALID_LINE_ITEMS,
+      companyId: 'co-xyz',
+    })
+    const { POST } = await import('@/app/api/v1/quotes/route')
+    const res = await POST(req)
+    expect(res.status).toBe(201)
+    const body = await res.json()
+    expect(body.data.companyId).toBe('co-xyz')
+    expect(body.data.companyName).toBe('XYZ Ltd')
+  })
+
+  it('POST invalid companyId → 400', async () => {
+    const member = seedOrgMember('org-1', 'uid-m', { role: 'member' })
+    stageAuth(member)
+    ;(loadCompany as jest.Mock).mockResolvedValue(null)
+
+    const req = callAsMember(member, 'POST', '/api/v1/quotes', {
+      lineItems: VALID_LINE_ITEMS,
+      companyId: 'bad-co',
+    })
+    const { POST } = await import('@/app/api/v1/quotes/route')
+    const res = await POST(req)
+    expect(res.status).toBe(400)
+  })
+
+  it('webhook quote.created payload includes companyId after POST', async () => {
+    const member = seedOrgMember('org-1', 'uid-w', { role: 'member', firstName: 'Web', lastName: 'Hook' })
+    stageAuth(member)
+    ;(loadCompany as jest.Mock).mockResolvedValue({
+      ref: {},
+      data: { id: 'co-wh', orgId: 'org-1', name: 'Webhook Corp' },
+    })
+    ;(dispatchWebhook as jest.Mock).mockClear()
+
+    const req = callAsMember(member, 'POST', '/api/v1/quotes', {
+      lineItems: VALID_LINE_ITEMS,
+      companyId: 'co-wh',
+    })
+    const { POST } = await import('@/app/api/v1/quotes/route')
+    const res = await POST(req)
+    expect(res.status).toBe(201)
+
+    const [, , payload] = (dispatchWebhook as jest.Mock).mock.calls[0]
+    expect(payload).toHaveProperty('companyId', 'co-wh')
+    expect(payload).toHaveProperty('companyName', 'Webhook Corp')
   })
 })

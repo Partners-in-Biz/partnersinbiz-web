@@ -5,7 +5,23 @@ import { adminDb } from '@/lib/firebase/admin'
 import { withCrmAuth } from '@/lib/auth/crm-middleware'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { dispatchWebhook } from '@/lib/webhooks/dispatch'
+import { loadCompany } from '@/lib/companies/store'
 import type { Quote } from '@/lib/quotes/types'
+import type { Contact } from '@/lib/crm/types'
+
+async function deriveCompanyFromContact(contactId: string, orgId: string): Promise<{ companyId?: string; companyName?: string }> {
+  try {
+    const snap = await adminDb.collection('contacts').doc(contactId).get()
+    if (!snap.exists) return {}
+    const c = snap.data() as Contact
+    if (c.orgId !== orgId) return {}
+    if (!c.companyId) return {}
+    return { companyId: c.companyId, companyName: c.companyName }
+  } catch (e) {
+    console.error('deriveCompanyFromContact failed', e)
+    return {}
+  }
+}
 
 export const dynamic = 'force-dynamic'
 
@@ -97,6 +113,20 @@ export const POST = withCrmAuth('member', async (req: NextRequest, ctx) => {
   // Optional CRM contact link
   const contactId = typeof body.contactId === 'string' && body.contactId ? body.contactId : undefined
 
+  // Company association: explicit companyId wins; otherwise auto-derive from contact
+  let derivedCompanyId: string | undefined
+  let derivedCompanyName: string | undefined
+  if (body.companyId && typeof body.companyId === 'string') {
+    const loaded = await loadCompany(body.companyId, ctx.orgId)
+    if (!loaded) return apiError('Invalid companyId', 400)
+    derivedCompanyId = body.companyId
+    derivedCompanyName = loaded.data.name
+  } else if (contactId) {
+    const derived = await deriveCompanyFromContact(contactId, ctx.orgId)
+    derivedCompanyId = derived.companyId
+    derivedCompanyName = derived.companyName
+  }
+
   const quoteData: Record<string, unknown> = {
     orgId: ctx.orgId,
     quoteNumber,
@@ -120,6 +150,8 @@ export const POST = withCrmAuth('member', async (req: NextRequest, ctx) => {
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
     contactId,
+    companyId: derivedCompanyId,
+    companyName: derivedCompanyName,
   }
 
   // Omit createdBy / updatedBy uid for agent calls
@@ -143,6 +175,8 @@ export const POST = withCrmAuth('member', async (req: NextRequest, ctx) => {
       total,
       currency: sanitized.currency as string,
       validUntil: sanitized.validUntil ?? null,
+      companyId: sanitized.companyId as string | undefined,
+      companyName: sanitized.companyName as string | undefined,
       createdByRef: actorRef,
     })
   } catch (err) {
