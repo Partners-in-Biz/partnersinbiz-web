@@ -105,10 +105,11 @@ export async function uploadImageBytes(
     headers.Authorization = `Bearer ${args.accessToken}`
   }
 
-  // Normalise the body type to BodyInit
-  const body: BodyInit = args.bytes instanceof Uint8Array || args.bytes instanceof ArrayBuffer
+  // Fetch's DOM typings do not accept Node Buffer directly, so copy any
+  // ArrayBufferView into a plain Uint8Array backed by ArrayBuffer.
+  const body: BodyInit = args.bytes instanceof ArrayBuffer
     ? args.bytes
-    : (args.bytes as unknown as BodyInit)
+    : new Uint8Array(args.bytes)
 
   const res = await fetch(args.uploadUrl, {
     method: 'PUT',

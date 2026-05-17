@@ -61,10 +61,13 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
   // Validation
   if (!body.title?.trim()) return apiError('Title is required', 400)
   if (!body.contactId?.trim()) return apiError('contactId is required', 400)
+  const dealTitle = body.title.trim()
+  const contactId = body.contactId.trim()
   const stage = body.stage ?? 'discovery'
   if (!VALID_STAGES.includes(stage)) return apiError('Invalid stage', 400)
   const currency = body.currency ?? 'ZAR'
   if (!VALID_CURRENCIES.includes(currency)) return apiError('Invalid currency — use USD, EUR, or ZAR', 400)
+  const value = typeof body.value === 'number' ? body.value : 0
 
   // PR 3 pattern 1: use ctx.actor directly (no snapshotForWrite)
   const actorRef: MemberRef = ctx.actor
@@ -77,9 +80,9 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
 
   const dealData: Record<string, unknown> = {
     orgId: ctx.orgId,
-    contactId: body.contactId.trim(),
-    title: body.title.trim(),
-    value: typeof body.value === 'number' ? body.value : 0,
+    contactId,
+    title: dealTitle,
+    value,
     currency,
     stage,
     expectedCloseDate: body.expectedCloseDate ?? null,
@@ -118,10 +121,10 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
   try {
     await dispatchWebhook(ctx.orgId, 'deal.created', {
       id: docRef.id,
-      title: dealData.title,
-      value: dealData.value,
-      stage: dealData.stage,
-      contactId: dealData.contactId,
+      title: dealTitle,
+      value,
+      stage,
+      contactId,
       createdByRef: actorRef,
       ownerRef,
     })
@@ -135,10 +138,10 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
     actorId: ctx.actor.uid,
     actorName: ctx.actor.displayName,
     actorRole: ctx.isAgent ? 'ai' : ctx.role === 'admin' ? 'admin' : 'client',
-    description: `Created deal: "${dealData.title}"`,
+    description: `Created deal: "${dealTitle}"`,
     entityId: docRef.id,
     entityType: 'deal',
-    entityTitle: dealData.title,
+    entityTitle: dealTitle,
   }).catch(() => {})
 
   return apiSuccess({ id: docRef.id }, 201)

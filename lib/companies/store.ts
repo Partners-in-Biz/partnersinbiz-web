@@ -80,7 +80,7 @@ export async function loadMemberRef(orgId: string, uid: string | undefined): Pro
   if (!snap.exists) return null
   const data = snap.data() as { firstName?: string; lastName?: string; avatarUrl?: string; jobTitle?: string }
   const displayName = [data.firstName, data.lastName].filter(Boolean).join(' ') || uid
-  const ref: MemberRef = { uid, displayName }
+  const ref: MemberRef = { uid, displayName, kind: 'human' }
   if (data.avatarUrl) ref.avatarUrl = data.avatarUrl
   if (data.jobTitle) ref.jobTitle = data.jobTitle
   return ref
