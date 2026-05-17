@@ -2,6 +2,7 @@
 import { adminDb } from '@/lib/firebase/admin'
 import { FieldValue } from 'firebase-admin/firestore'
 import type { Company, CompanyInput } from './types'
+import type { MemberRef } from '@/lib/orgMembers/memberRef'
 
 const COMPANIES = 'companies'
 const ORG_MEMBERS = 'orgMembers'
@@ -70,6 +71,19 @@ export async function validateAccountManager(orgId: string, uid: string | undefi
   if (!uid) return true
   const snap = await adminDb.collection(ORG_MEMBERS).doc(`${orgId}_${uid}`).get()
   return snap.exists
+}
+
+/** Resolve the orgMembers doc for a uid into a MemberRef snapshot, or null on miss. */
+export async function loadMemberRef(orgId: string, uid: string | undefined): Promise<MemberRef | null> {
+  if (!uid) return null
+  const snap = await adminDb.collection(ORG_MEMBERS).doc(`${orgId}_${uid}`).get()
+  if (!snap.exists) return null
+  const data = snap.data() as { firstName?: string; lastName?: string; avatarUrl?: string; jobTitle?: string }
+  const displayName = [data.firstName, data.lastName].filter(Boolean).join(' ') || uid
+  const ref: MemberRef = { uid, displayName }
+  if (data.avatarUrl) ref.avatarUrl = data.avatarUrl
+  if (data.jobTitle) ref.jobTitle = data.jobTitle
+  return ref
 }
 
 export async function clearCompanyIdOnCollection(coll: string, orgId: string, companyId: string): Promise<number> {

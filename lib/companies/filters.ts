@@ -53,14 +53,17 @@ export function buildCompanyQuery(
   return q
 }
 
-/** In-memory substring match across name / domain / website / industry (case-insensitive). */
+/**
+ * In-memory substring match across name / domain / website (case-insensitive).
+ * Spec-aligned with `GET /api/v1/crm/companies?search=` contract.
+ * Note: industry is NOT matched here — use the explicit `?industry=` query param for exact equality.
+ */
 export function applyPostFilterSearch(companies: Company[], search: string): Company[] {
   if (!search.trim()) return companies
   const needle = search.toLowerCase().trim()
   return companies.filter(c =>
     c.name?.toLowerCase().includes(needle) ||
     c.domain?.toLowerCase().includes(needle) ||
-    c.website?.toLowerCase().includes(needle) ||
-    c.industry?.toLowerCase().includes(needle),
+    c.website?.toLowerCase().includes(needle),
   )
 }

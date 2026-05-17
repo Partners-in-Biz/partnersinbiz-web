@@ -31,6 +31,9 @@ jest.mock('@/lib/companies/store', () => ({
   validateParentChain: jest.fn().mockResolvedValue(true),
   validateAccountManager: jest.fn().mockResolvedValue(true),
   clearCompanyIdOnCollection: jest.fn().mockResolvedValue(0),
+  // Default: a valid AM resolves to a MemberRef. Tests that need invalid-AM
+  // override with mockResolvedValueOnce(null).
+  loadMemberRef: jest.fn().mockResolvedValue({ uid: 'am-uid', displayName: 'AM User' }),
 }))
 
 import { adminAuth, adminDb } from '@/lib/firebase/admin'
@@ -241,8 +244,8 @@ describe('POST /api/v1/crm/companies', () => {
   })
 
   it('validates invalid accountManagerUid and returns 400', async () => {
-    const { validateAccountManager } = await import('@/lib/companies/store')
-    ;(validateAccountManager as jest.Mock).mockResolvedValueOnce(false)
+    const { loadMemberRef } = await import('@/lib/companies/store')
+    ;(loadMemberRef as jest.Mock).mockResolvedValueOnce(null)
     const uid = uidFor('member5')
     const member = seedOrgMember('org-f', uid, { role: 'member' })
     stageAuth(member, {})

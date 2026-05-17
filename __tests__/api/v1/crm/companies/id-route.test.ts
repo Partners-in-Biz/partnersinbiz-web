@@ -31,6 +31,7 @@ jest.mock('@/lib/companies/store', () => ({
   validateParentChain: jest.fn().mockResolvedValue(true),
   validateAccountManager: jest.fn().mockResolvedValue(true),
   clearCompanyIdOnCollection: jest.fn().mockResolvedValue(0),
+  loadMemberRef: jest.fn().mockResolvedValue({ uid: 'am-uid', displayName: 'AM User' }),
 }))
 
 import { adminAuth, adminDb } from '@/lib/firebase/admin'

@@ -77,9 +77,9 @@ describe('applyPostFilterSearch', () => {
     const cos = [{ name: 'X', domain: 'foo.com', website: 'https://wow.io' }]
     expect(applyPostFilterSearch(cos as never, 'wow')).toEqual(cos)
   })
-  it('also matches industry', () => {
+  it('does NOT match industry (spec-aligned: use ?industry= for exact equality)', () => {
     const cos = [{ name: 'X', domain: 'foo.com', industry: 'SaaS Analytics' }]
-    expect(applyPostFilterSearch(cos as never, 'analytics')).toEqual(cos)
+    expect(applyPostFilterSearch(cos as never, 'analytics')).toEqual([])
   })
   it('returns all when search empty', () => {
     const cos = [{ name: 'A' }, { name: 'B' }] as never

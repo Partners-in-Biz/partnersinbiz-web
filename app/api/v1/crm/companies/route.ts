@@ -18,6 +18,7 @@ import {
   sanitizeCompanyForWrite,
   validateParentChain,
   validateAccountManager,
+  loadMemberRef,
 } from '@/lib/companies/store'
 import { buildCompanyQuery, applyPostFilterSearch } from '@/lib/companies/filters'
 import type { Company, CompanyInput, CompanyListParams } from '@/lib/companies/types'
@@ -62,7 +63,7 @@ export const GET = withCrmAuth('viewer', async (req, ctx) => {
 
   const snapshot = await query.get()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const companiesFromSnapshot: Company[] = snapshot.docs.map((doc: any) => ({ id: doc.id, ...doc.data() }))
+  const companiesFromSnapshot: Company[] = snapshot.docs.map((doc: any) => ({ ...doc.data(), id: doc.id }))
   let companies: Company[] = companiesFromSnapshot
 
   // Post-filter search (client-side substring match)
@@ -118,10 +119,11 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
     if (!validChain) return apiError('Invalid parentCompanyId: creates a cycle or crosses tenants', 400)
   }
 
-  // Validate account manager belongs to this org
+  // Validate account manager belongs to this org + resolve ref snapshot
+  let accountManagerRef = undefined
   if (body.accountManagerUid) {
-    const validAm = await validateAccountManager(ctx.orgId, body.accountManagerUid)
-    if (!validAm) return apiError('accountManagerUid does not belong to this workspace', 400)
+    accountManagerRef = await loadMemberRef(ctx.orgId, body.accountManagerUid)
+    if (!accountManagerRef) return apiError('accountManagerUid does not belong to this workspace', 400)
   }
 
   const sanitized = sanitizeCompanyForWrite(body)
@@ -130,6 +132,7 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
   const companyData: Record<string, unknown> = {
     orgId: ctx.orgId,
     ...sanitized,
+    accountManagerRef,
     ownerUid: body.ownerUid ?? ctx.actor.uid,
     ownerRef: ctx.actor,
     createdBy: ctx.isAgent ? undefined : ctx.actor.uid,

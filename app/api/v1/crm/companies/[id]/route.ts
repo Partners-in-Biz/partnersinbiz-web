@@ -19,6 +19,7 @@ import {
   validateParentChain,
   validateAccountManager,
   clearCompanyIdOnCollection,
+  loadMemberRef,
 } from '@/lib/companies/store'
 
 type RouteCtx = { params: Promise<{ id: string }> }
@@ -62,16 +63,24 @@ async function handleUpdate(
     if (!validChain) return apiError('Invalid parentCompanyId: creates a cycle or crosses tenants', 400)
   }
 
-  // Validate account manager if changing
-  if ('accountManagerUid' in body && body.accountManagerUid) {
-    const validAm = await validateAccountManager(ctx.orgId, body.accountManagerUid as string)
-    if (!validAm) return apiError('accountManagerUid does not belong to this workspace', 400)
+  // Validate account manager if changing + resolve ref snapshot
+  let accountManagerRefPatch: undefined | { accountManagerRef: unknown } = undefined
+  if ('accountManagerUid' in body) {
+    if (body.accountManagerUid === '' || body.accountManagerUid === null) {
+      // Explicit unset — clear both fields below via sanitized + FieldValue.delete on ref
+      accountManagerRefPatch = { accountManagerRef: (await import('firebase-admin/firestore')).FieldValue.delete() }
+    } else if (body.accountManagerUid) {
+      const ref = await loadMemberRef(ctx.orgId, body.accountManagerUid as string)
+      if (!ref) return apiError('accountManagerUid does not belong to this workspace', 400)
+      accountManagerRefPatch = { accountManagerRef: ref }
+    }
   }
 
   const sanitized = sanitizeCompanyForWrite(body)
 
   const patch: Record<string, unknown> = {
     ...sanitized,
+    ...(accountManagerRefPatch ?? {}),
     updatedBy: ctx.isAgent ? undefined : ctx.actor.uid,
     updatedByRef: ctx.actor,
     updatedAt: Timestamp.now(),
