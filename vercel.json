@@ -62,7 +62,7 @@
     },
     {
       "path": "/api/v1/ads/cron/process-refresh-queue",
-      "schedule": "* * * * *"
+      "schedule": "10 0 * * *"
     },
     {
       "path": "/api/v1/ads/cron/daily-insights-pull",
