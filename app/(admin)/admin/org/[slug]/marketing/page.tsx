@@ -39,6 +39,13 @@ export default function OrgMarketingPage() {
               eyebrow: 'Content',
             },
             {
+              label: 'Ads',
+              href: `/admin/org/${slug}/ads/campaigns`,
+              icon: 'ads_click',
+              description: 'Build, review, and monitor paid campaigns for this client.',
+              eyebrow: 'Paid',
+            },
+            {
               label: 'SEO sprint',
               href: `/admin/org/${slug}/seo`,
               icon: 'trending_up',
@@ -70,6 +77,13 @@ export default function OrgMarketingPage() {
               icon: 'calendar_month',
               description: 'See scheduled and planned posts across channels.',
               eyebrow: 'Schedule',
+            },
+            {
+              label: 'History',
+              href: '/admin/social/history',
+              icon: 'history',
+              description: 'Review published, failed, and cancelled social posts.',
+              eyebrow: 'Archive',
             },
             {
               label: 'Queue',
@@ -105,11 +119,25 @@ export default function OrgMarketingPage() {
               eyebrow: 'Comms',
             },
             {
+              label: 'Email analytics',
+              href: '/admin/email-analytics',
+              icon: 'query_stats',
+              description: 'Review email delivery, opens, clicks, and source performance.',
+              eyebrow: 'Reporting',
+            },
+            {
               label: 'Sequences',
               href: '/admin/sequences',
               icon: 'stacked_email',
               description: 'Maintain client nurture journeys.',
               eyebrow: 'Automation',
+            },
+            {
+              label: 'Contacts',
+              href: '/admin/crm/contacts',
+              icon: 'contacts',
+              description: 'Manage leads, prospects, clients, tags, and lifecycle stages.',
+              eyebrow: 'Audience',
             },
             {
               label: 'Capture sources',

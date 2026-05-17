@@ -33,6 +33,13 @@ export default function PortalMarketingPage() {
               eyebrow: 'Content',
             },
             {
+              label: 'Ads',
+              href: '/portal/ads',
+              icon: 'ads_click',
+              description: 'Review paid campaigns, approvals, and campaign activity.',
+              eyebrow: 'Paid',
+            },
+            {
               label: 'SEO',
               href: '/portal/seo',
               icon: 'trending_up',
@@ -57,6 +64,20 @@ export default function PortalMarketingPage() {
               icon: 'edit_square',
               description: 'Create a social post for review or publishing.',
               eyebrow: 'Create',
+            },
+            {
+              label: 'Calendar',
+              href: '/portal/social/calendar',
+              icon: 'calendar_month',
+              description: 'See scheduled and planned posts across your social channels.',
+              eyebrow: 'Schedule',
+            },
+            {
+              label: 'History',
+              href: '/portal/social/history',
+              icon: 'history',
+              description: 'Review scheduled, published, failed, draft, and cancelled social posts.',
+              eyebrow: 'Archive',
             },
             {
               label: 'Vault',
@@ -90,6 +111,13 @@ export default function PortalMarketingPage() {
               icon: 'contacts',
               description: 'View contacts and audience records.',
               eyebrow: 'Audience',
+            },
+            {
+              label: 'Email analytics',
+              href: '/portal/email-analytics',
+              icon: 'query_stats',
+              description: 'Track email delivery, opens, clicks, and engagement performance.',
+              eyebrow: 'Reporting',
             },
             {
               label: 'Capture sources',

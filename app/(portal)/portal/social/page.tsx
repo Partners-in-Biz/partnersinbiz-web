@@ -413,6 +413,10 @@ export default function PortalSocialDashboard() {
           <span className="material-symbols-outlined text-base">history</span>
           Post history
         </Link>
+        <Link href="/portal/social/calendar" className="btn-pib-secondary !py-2 !px-4 !text-sm">
+          <span className="material-symbols-outlined text-base">calendar_month</span>
+          Calendar
+        </Link>
         <Link href="/portal/social/accounts" className="btn-pib-secondary !py-2 !px-4 !text-sm">
           <span className="material-symbols-outlined text-base">link</span>
           Accounts
