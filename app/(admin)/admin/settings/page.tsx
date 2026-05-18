@@ -2,13 +2,39 @@
 'use client'
 
 import Link from 'next/link'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useOrg } from '@/lib/contexts/OrgContext'
 import { copyToClipboard } from '@/lib/utils/clipboard'
+
+interface SessionInfo {
+  isSuperAdmin?: boolean
+}
+
+const PLATFORM_ITEMS = [
+  { label: 'Platform Users', desc: 'Manage admin and operator user accounts', href: '/admin/platform-users', superAdminOnly: true },
+  { label: 'Platform Members', desc: 'View client logins and linked client accounts', href: '/admin/platform-members', superAdminOnly: true },
+  { label: 'API Keys', desc: 'Manage API keys for AI agents and integrations', href: '/admin/settings/api-keys' },
+]
 
 export default function SettingsPage() {
   const { selectedOrgId, orgName } = useOrg()
   const [copied, setCopied] = useState(false)
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/auth/verify')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((session: SessionInfo | null) => {
+        if (!cancelled) setIsSuperAdmin(Boolean(session?.isSuperAdmin))
+      })
+      .catch(() => {
+        if (!cancelled) setIsSuperAdmin(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   function copyOrgId() {
     if (!selectedOrgId) return
@@ -65,11 +91,7 @@ export default function SettingsPage() {
       {/* Platform */}
       <div className="pib-card space-y-2">
         <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-3">Platform</p>
-        {[
-          { label: 'Platform Users', desc: 'Manage admin and operator user accounts', href: '/admin/platform-users' },
-          { label: 'Platform Members', desc: 'View client logins and linked client accounts', href: '/admin/platform-members' },
-          { label: 'API Keys', desc: 'Manage API keys for AI agents and integrations', href: '/admin/settings/api-keys' },
-        ].map(item => (
+        {PLATFORM_ITEMS.filter((item) => !item.superAdminOnly || isSuperAdmin).map(item => (
           <Link key={item.href} href={item.href} className="flex items-center justify-between p-3 rounded-lg hover:bg-[var(--color-row-hover)] transition-colors">
             <div>
               <p className="text-sm font-medium text-on-surface">{item.label}</p>

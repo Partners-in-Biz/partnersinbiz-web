@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { adminAuth, adminDb } from '@/lib/firebase/admin'
+import { isSuperAdmin } from '@/lib/api/platformAdmin'
 
 const COOKIE_NAME = process.env.SESSION_COOKIE_NAME ?? '__session'
 
@@ -14,7 +15,15 @@ export async function GET(request: NextRequest) {
     const data = userDoc.exists ? userDoc.data() : null
     const role = data?.role ?? 'client'
     const name = typeof data?.name === 'string' ? data.name : null
-    return NextResponse.json({ uid: decoded.uid, role, name })
+    const allowedOrgIds = Array.isArray(data?.allowedOrgIds)
+      ? data.allowedOrgIds.filter((v: unknown): v is string => typeof v === 'string' && v.length > 0)
+      : undefined
+    return NextResponse.json({
+      uid: decoded.uid,
+      role,
+      name,
+      isSuperAdmin: isSuperAdmin({ uid: decoded.uid, role, allowedOrgIds }),
+    })
   } catch {
     return NextResponse.json({ error: 'Invalid session' }, { status: 401 })
   }
@@ -31,7 +40,15 @@ export async function POST(request: NextRequest) {
     const data = userDoc.exists ? userDoc.data() : null
     const role = data?.role ?? 'client'
     const name = typeof data?.name === 'string' ? data.name : null
-    return NextResponse.json({ uid: decoded.uid, role, name })
+    const allowedOrgIds = Array.isArray(data?.allowedOrgIds)
+      ? data.allowedOrgIds.filter((v: unknown): v is string => typeof v === 'string' && v.length > 0)
+      : undefined
+    return NextResponse.json({
+      uid: decoded.uid,
+      role,
+      name,
+      isSuperAdmin: isSuperAdmin({ uid: decoded.uid, role, allowedOrgIds }),
+    })
   } catch {
     return NextResponse.json({ error: 'Invalid session' }, { status: 401 })
   }
