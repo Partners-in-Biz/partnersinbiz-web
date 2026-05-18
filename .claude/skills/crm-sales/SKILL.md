@@ -1375,3 +1375,165 @@ All trigger calls are best-effort (dynamic import + try/catch) — automation fa
 | **Scoring config** | **GET config** | **trigger recompute (single contact)** | **PUT config, recompute-all** |
 
 See the Ads sub-project 1 design spec for full payload shape.
+
+---
+
+## C-phase — Email Sequences, AI Compose, Deduplication & Smart Suggestions
+
+### C1 — Email Sequences
+
+Sequences are multi-step drip campaigns. Contacts are enrolled per-sequence; the `process-sequences` cron sends due steps every 5 minutes.
+
+#### Sequence endpoints
+
+| Method | Route | Auth | Description |
+|--------|-------|------|-------------|
+| GET | `/api/v1/crm/sequences` | member | List sequences for org |
+| POST | `/api/v1/crm/sequences` | admin | Create sequence |
+| GET | `/api/v1/crm/sequences/[id]` | member | Fetch one sequence |
+| PUT | `/api/v1/crm/sequences/[id]` | admin | Update sequence |
+| DELETE | `/api/v1/crm/sequences/[id]` | admin | Soft-delete |
+
+Sequence body:
+```json
+{
+  "orgId": "org_xyz",
+  "name": "Onboarding drip",
+  "steps": [
+    { "delayDays": 0, "subject": "Welcome!", "body": "Hi {{name}}, ..." },
+    { "delayDays": 3, "subject": "Checking in", "body": "..." },
+    { "delayDays": 7, "subject": "Tips for success", "body": "..." }
+  ]
+}
+```
+
+#### Enrollment endpoints
+
+| Method | Route | Auth | Description |
+|--------|-------|------|-------------|
+| GET | `/api/v1/crm/sequences/[id]/enrollments` | member | List enrollments |
+| POST | `/api/v1/crm/sequences/[id]/enrollments` | member | Enroll contact(s) |
+| DELETE | `/api/v1/crm/sequences/[id]/enrollments/[enrollmentId]` | member | Unenroll |
+
+Enrollment body: `{ "contactId": "contact_abc" }`
+
+#### Cron
+
+`GET /api/v1/crm/cron/process-sequences` — Bearer CRON_SECRET, runs every 5 min via Vercel cron. Processes pending sequence steps where `scheduledAt ≤ now`. Sends email via platform mailer, advances enrollment to next step or marks complete.
+
+Activity logged on send: `type: 'sequence_enrolled'` or `type: 'sequence_completed'` on final step.
+
+---
+
+### C3 — AI Email Compose
+
+Generate a personalised email draft for a contact using LLM.
+
+#### `POST /api/v1/crm/ai/compose-email` — auth: member
+
+Body:
+```json
+{
+  "contactId": "contact_abc",
+  "purpose": "follow_up_after_demo",
+  "tone": "professional"
+}
+```
+
+- `purpose`: free string or well-known values — `follow_up_after_demo`, `send_proposal`, `check_in`, `re_engage`
+- `tone`: `professional` | `friendly` | `formal` | `casual`
+
+Response:
+```json
+{
+  "subject": "Following up on our call",
+  "body": "Hi Jane, ..."
+}
+```
+
+The route fetches the contact + recent activities to ground the draft. Output is a suggestion — the human reviews and sends via their email client or sequence step.
+
+---
+
+### C4 — Duplicate Detection & Merge
+
+#### `GET /api/v1/crm/contacts/duplicates` — auth: member
+
+Returns groups of suspected duplicate contacts (matched by fuzzy email + name).
+
+Response:
+```json
+{
+  "groups": [
+    {
+      "contacts": [
+        { "id": "contact_1", "name": "Jane Doe", "email": "jane@acme.com" },
+        { "id": "contact_2", "name": "Jane Doe", "email": "jane@acme.com " }
+      ],
+      "reason": "email_match"
+    }
+  ]
+}
+```
+
+#### `POST /api/v1/crm/contacts/merge` — auth: admin
+
+Merges two contacts. The winner keeps all its own fields; the loser's tags, activities, deals, and form submissions are re-linked to the winner. Loser is soft-deleted after merge.
+
+Body:
+```json
+{ "winnerId": "contact_1", "loserId": "contact_2" }
+```
+
+Response: `{ "id": "contact_1" }` (winner id).
+
+---
+
+### C5 — Smart Suggestions
+
+Rule-based next-action suggestions for a contact. No LLM — deterministic logic based on activity recency, stage, and deal state.
+
+#### `GET /api/v1/crm/contacts/[id]/suggestions` — auth: member
+
+Response:
+```json
+{
+  "suggestions": [
+    { "type": "follow_up", "reason": "No contact in 14 days", "priority": "high" },
+    { "type": "send_proposal", "reason": "Deal in proposal stage with no quote linked", "priority": "medium" }
+  ]
+}
+```
+
+Use to surface a prioritised to-do list in the contact detail panel. No side-effects — read-only.
+
+---
+
+### C6 — Sequence Enrollment Automation Action
+
+The `enroll_in_sequence` action type is available in automation rules (A6). When a trigger fires, it automatically enrolls the contact into a named sequence.
+
+Automation rule body with sequence action:
+```json
+{
+  "trigger": { "event": "contact.created" },
+  "actions": [
+    {
+      "type": "enroll_in_sequence",
+      "sequenceId": "seq_onboarding_abc"
+    }
+  ]
+}
+```
+
+This pairs naturally with the `contact.created` and `contact.lifecycle_changed` trigger events. The cron (`process-sequences`) handles step delivery from that point forward.
+
+**Role matrix additions (C-phase)**
+
+| Resource | viewer | member | admin |
+|---|---|---|---|
+| Sequences | GET list/detail | — | POST, PUT, DELETE |
+| Enrollments | GET list | POST (enroll) | DELETE (unenroll) |
+| AI compose | — | POST | — |
+| Duplicates | — | GET duplicates | POST merge |
+| Suggestions | — | GET suggestions | — |
