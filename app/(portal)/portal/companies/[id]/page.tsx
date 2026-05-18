@@ -5,11 +5,13 @@ import { useEffect, useState, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import type { Company } from '@/lib/companies/types'
+import type { CustomFieldDefinition } from '@/lib/customFields/types'
 import { CompanyHeader } from '@/components/crm/CompanyHeader'
 import { CompanyTabsBar } from '@/components/crm/CompanyTabsBar'
 import type { CompanyTab } from '@/components/crm/CompanyTabsBar'
 import { CompanyOverviewPanel } from '@/components/crm/CompanyOverviewPanel'
 import { CompanyEditDrawer } from '@/components/crm/CompanyEditDrawer'
+import { CustomFieldsSection } from '@/components/crm/CustomFieldsSection'
 
 // ── Skeleton ─────────────────────────────────────────────────────────────────
 
@@ -58,6 +60,14 @@ export default function CompanyDetailPage() {
 
   const [tab, setTab] = useState<CompanyTab>('overview')
   const [editOpen, setEditOpen] = useState(false)
+  const [customFieldDefs, setCustomFieldDefs] = useState<CustomFieldDefinition[]>([])
+
+  useEffect(() => {
+    fetch('/api/v1/crm/custom-fields?resource=company')
+      .then((r) => r.json())
+      .then((b) => setCustomFieldDefs(b.data?.definitions ?? b.definitions ?? []))
+      .catch(() => setCustomFieldDefs([]))
+  }, [])
 
   const fetchCompany = useCallback(async () => {
     if (!id) return
@@ -139,7 +149,21 @@ export default function CompanyDetailPage() {
 
       {/* Tab content */}
       <div role="tabpanel">
-        {tab === 'overview' && <CompanyOverviewPanel company={company} />}
+        {tab === 'overview' && (
+          <div className="space-y-6">
+            <CompanyOverviewPanel company={company} />
+            {customFieldDefs.length > 0 && (
+              <div className="bento-card p-5 space-y-3">
+                <p className="eyebrow !text-[10px]">Custom fields</p>
+                <CustomFieldsSection
+                  definitions={customFieldDefs}
+                  values={(company.customFields as Record<string, unknown>) ?? {}}
+                  mode="read"
+                />
+              </div>
+            )}
+          </div>
+        )}
         {tab === 'contacts' && <Wave3Placeholder label="Linked contacts" />}
         {tab === 'deals' && <Wave3Placeholder label="Linked deals" />}
         {tab === 'quotes' && <Wave3Placeholder label="Linked quotes" />}
@@ -153,6 +177,7 @@ export default function CompanyDetailPage() {
           mode="edit"
           onSave={handleSave}
           onClose={() => setEditOpen(false)}
+          customFieldDefinitions={customFieldDefs}
         />
       )}
     </div>

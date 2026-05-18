@@ -3,7 +3,9 @@
 import { useState } from 'react'
 import type { Company, CompanySize, CompanyTier, CompanyLifecycleStage } from '@/lib/companies/types'
 import type { Currency } from '@/lib/crm/types'
+import type { CustomFieldDefinition } from '@/lib/customFields/types'
 import { CompanyPicker } from '@/components/crm/CompanyPicker'
+import { CustomFieldsSection } from '@/components/crm/CustomFieldsSection'
 
 // ── Form state ────────────────────────────────────────────────────────────────
 
@@ -100,6 +102,8 @@ export interface CompanyEditDrawerProps {
   onSave: (data: Partial<Company>) => Promise<void>
   onClose: () => void
   mode: 'create' | 'edit'
+  /** Custom-field definitions for the `company` resource — when present, render the dynamic section. */
+  customFieldDefinitions?: CustomFieldDefinition[]
 }
 
 // ── Field component ───────────────────────────────────────────────────────────
@@ -134,8 +138,11 @@ function Section({ title }: { title: string }) {
 
 // ── Public component ──────────────────────────────────────────────────────────
 
-export function CompanyEditDrawer({ company, onSave, onClose, mode }: CompanyEditDrawerProps) {
+export function CompanyEditDrawer({ company, onSave, onClose, mode, customFieldDefinitions }: CompanyEditDrawerProps) {
   const [form, setForm] = useState<FormState>(() => companyToForm(company ?? {}))
+  const [customFields, setCustomFields] = useState<Record<string, unknown>>(
+    () => ((company?.customFields as Record<string, unknown>) ?? {}),
+  )
   const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({})
   const [saving, setSaving] = useState(false)
 
@@ -158,7 +165,14 @@ export function CompanyEditDrawer({ company, onSave, onClose, mode }: CompanyEdi
     if (!validate()) return
     setSaving(true)
     try {
-      await onSave(formToPartialCompany(form))
+      const partial = formToPartialCompany(form)
+      // Include customFields when definitions exist OR existing record had values
+      const hasDefs = (customFieldDefinitions?.length ?? 0) > 0
+      const hadExisting = Object.keys((company?.customFields as Record<string, unknown>) ?? {}).length > 0
+      if (hasDefs || hadExisting) {
+        ;(partial as Partial<Company> & { customFields?: Record<string, unknown> }).customFields = customFields
+      }
+      await onSave(partial)
       onClose()
     } finally {
       setSaving(false)
@@ -349,6 +363,19 @@ export function CompanyEditDrawer({ company, onSave, onClose, mode }: CompanyEdi
               className="pib-input w-full"
             />
           </Field>
+
+          {/* Custom fields (only when workspace has defined any) */}
+          {customFieldDefinitions && customFieldDefinitions.length > 0 && (
+            <>
+              <Section title="Custom Fields" />
+              <CustomFieldsSection
+                definitions={customFieldDefinitions}
+                values={customFields}
+                mode="edit"
+                onChange={setCustomFields}
+              />
+            </>
+          )}
 
           {/* Notes */}
           <Section title="Notes" />

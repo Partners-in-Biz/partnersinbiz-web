@@ -1025,6 +1025,53 @@ Auto-derive: POST with `contactId` → if contact has `companyId`, activity inhe
 
 ---
 
+## Custom Fields (A2 — per-workspace typed fields)
+
+Per-workspace, per-resource (contact / deal / company) typed field definitions. Validation runs on every CRM write whose body includes `customFields`. Values land in `Contact.customFields` / `Deal.customFields` / `Company.customFields` (`Record<string, unknown>`).
+
+### Field types (12)
+
+`text` · `longtext` · `number` · `currency` (`{amount, currency}`) · `date` (YYYY-MM-DD) · `datetime` (ISO) · `dropdown` · `multi_select` · `checkbox` · `url` · `email` · `phone`
+
+### Endpoints
+
+| Method | Path | Role |
+|---|---|---|
+| GET | `/api/v1/crm/custom-fields?resource=contact\|deal\|company` | viewer |
+| POST | `/api/v1/crm/custom-fields` | admin |
+| GET | `/api/v1/crm/custom-fields/[id]` | viewer |
+| PUT | `/api/v1/crm/custom-fields/[id]` | admin |
+| PATCH | `/api/v1/crm/custom-fields/[id]` | admin |
+| DELETE | `/api/v1/crm/custom-fields/[id]` | admin (soft) |
+| POST | `/api/v1/crm/custom-fields/reorder` | admin |
+
+### Constraints
+
+- `key` immutable after create (must match `^[a-z][a-z0-9_]{0,39}$`)
+- `type` immutable after create (would corrupt stored values across existing records)
+- `resource` immutable
+- dropdown / multi_select require non-empty `options[]` with unique `value`
+- Per-type optional constraints: text/longtext (`minLength` / `maxLength`), number/currency (`min` / `max`), currency (`currencyCode`)
+
+### Validation contract
+
+When `contacts`, `deals`, or `companies` receive a POST/PATCH/PUT whose body contains `customFields`, the route fetches the workspace's definitions for the resource and runs `validateCustomFields`. On failure → 400 with message `Custom field validation failed: <key>: <message>; <key>: <message>; ...`. Wrapped in best-effort try/catch around the LOOKUP (not the validation) — Firestore outage must not block core CRM writes.
+
+Required fields → empty / null / undefined / empty array all return an error. Orphan keys (values present but no matching definition) are silently ignored (legacy support) and rendered with a "(legacy)" hint in the UI's read view.
+
+### Cross-entity coverage
+
+- **Contact**, **Deal**, **Company** carry `customFields?` and run validation on writes
+- **Activity**, **Quote** custom-field validation deferred to a future A2-extension
+
+### UI
+
+- Admin settings page: `/portal/settings/custom-fields` — 3 resource tabs, add/edit/delete/reorder
+- Detail pages mount `<CustomFieldsSection>` from `components/crm/` in both read and edit modes
+- `CompanyEditDrawer` accepts a `customFieldDefinitions?` prop; when populated, the section appears between Relationships and Notes
+
+---
+
 ## Role matrix
 
 | Resource | viewer (GET) | member (write) | admin (delete/bulk-admin) |
@@ -1038,5 +1085,6 @@ Auto-derive: POST with `contactId` → if contact has `companyId`, activity inhe
 | Integrations | GET list/detail | — | POST, PUT, DELETE, sync |
 | Capture sources | GET list/detail | — | POST, PUT, DELETE |
 | **Companies** | **GET list/detail/contacts/deals/quotes/activities** | **POST, PUT, PATCH, bulk, upload-logo** | **DELETE, migrate-from-contacts** |
+| **Custom Fields** | **GET list/detail** | **—** | **POST, PUT, PATCH, DELETE, reorder** |
 
 See the Ads sub-project 1 design spec for full payload shape.

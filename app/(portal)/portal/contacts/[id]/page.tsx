@@ -8,6 +8,8 @@ import { fmtTimestamp } from '@/components/admin/email/fmtTimestamp'
 import { ContactDealsPanel } from '@/components/crm/ContactDealsPanel'
 import { CompanyPanel } from '@/components/crm/CompanyPanel'
 import { CompanyPicker } from '@/components/crm/CompanyPicker'
+import { CustomFieldsSection } from '@/components/crm/CustomFieldsSection'
+import type { CustomFieldDefinition } from '@/lib/customFields/types'
 
 interface ContactRecord {
   id?: string
@@ -72,6 +74,9 @@ export default function PortalContactDetailPage() {
   // companyId/companyName for the picker — undefined = not in edit mode yet, '' = clear intent
   const [editCompanyId, setEditCompanyId] = useState<string | undefined>(undefined)
   const [editCompanyName, setEditCompanyName] = useState<string | undefined>(undefined)
+  // Custom fields — definitions cached for the page lifecycle; values are part of the edit form
+  const [customFieldDefs, setCustomFieldDefs] = useState<CustomFieldDefinition[]>([])
+  const [editCustomFields, setEditCustomFields] = useState<Record<string, unknown>>({})
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -86,10 +91,19 @@ export default function PortalContactDetailPage() {
         setNotes(c?.notes ?? '')
         setEditCompanyId(c?.companyId ?? undefined)
         setEditCompanyName(c?.companyName ?? undefined)
+        setEditCustomFields((c?.customFields as Record<string, unknown>) ?? {})
         setLoading(false)
       })
       .catch(() => setLoading(false))
   }, [id])
+
+  useEffect(() => {
+    // Fetch custom field definitions once per page mount
+    fetch('/api/v1/crm/custom-fields?resource=contact')
+      .then((r) => r.json())
+      .then((b) => setCustomFieldDefs(b.data?.definitions ?? b.definitions ?? []))
+      .catch(() => setCustomFieldDefs([]))
+  }, [])
 
   useEffect(() => {
     if (!id) return
@@ -122,6 +136,10 @@ export default function PortalContactDetailPage() {
       if (editCompanyId !== undefined) {
         payload.companyId = editCompanyId
       }
+      // Always send customFields if we have definitions (server validates against per-workspace defs)
+      if (customFieldDefs.length > 0) {
+        payload.customFields = editCustomFields
+      }
       const res = await fetch(`/api/v1/crm/contacts/${id}`, {
         method: 'PUT',
         headers: { 'content-type': 'application/json' },
@@ -133,7 +151,7 @@ export default function PortalContactDetailPage() {
       }
       setContact((prev) =>
         prev
-          ? { ...prev, name, notes, companyId: editCompanyId, companyName: editCompanyName }
+          ? { ...prev, name, notes, companyId: editCompanyId, companyName: editCompanyName, customFields: editCustomFields }
           : prev,
       )
     } catch (err: unknown) {
@@ -164,10 +182,12 @@ export default function PortalContactDetailPage() {
     )
   }
 
+  const storedCustomFields = (contact.customFields as Record<string, unknown>) ?? {}
   const dirty =
     (contact.name ?? '') !== name ||
     (contact.notes ?? '') !== notes ||
-    editCompanyId !== (contact.companyId ?? undefined)
+    editCompanyId !== (contact.companyId ?? undefined) ||
+    JSON.stringify(editCustomFields) !== JSON.stringify(storedCustomFields)
   const tags = Array.isArray(contact.tags) ? contact.tags : []
 
   return (
@@ -246,6 +266,17 @@ export default function PortalContactDetailPage() {
             ) : null}
           </div>
 
+          {customFieldDefs.length > 0 && (
+            <div className="bento-card !p-5 space-y-3 text-sm">
+              <p className="eyebrow !text-[10px]">Custom fields</p>
+              <CustomFieldsSection
+                definitions={customFieldDefs}
+                values={storedCustomFields}
+                mode="read"
+              />
+            </div>
+          )}
+
           <div className="bento-card !p-5 space-y-2">
             <p className="eyebrow !text-[10px]">Edit</p>
 
@@ -276,6 +307,20 @@ export default function PortalContactDetailPage() {
                 className="pib-input resize-none w-full"
               />
             </div>
+
+            {customFieldDefs.length > 0 && (
+              <div className="space-y-1 pt-1">
+                <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">
+                  Custom fields
+                </p>
+                <CustomFieldsSection
+                  definitions={customFieldDefs}
+                  values={editCustomFields}
+                  mode="edit"
+                  onChange={setEditCustomFields}
+                />
+              </div>
+            )}
 
             {error && (
               <p className="text-[11px]" style={{ color: 'var(--color-pib-danger, #FCA5A5)' }}>
