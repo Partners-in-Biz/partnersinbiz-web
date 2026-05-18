@@ -79,12 +79,8 @@ export type ContactInput = Omit<Contact, 'id' | 'createdAt' | 'updatedAt'>
 
 // ── Deals ────────────────────────────────────────────────────────────────────
 
-export type DealStage =
-  | 'discovery'
-  | 'proposal'
-  | 'negotiation'
-  | 'won'
-  | 'lost'
+// NOTE: DealStage type removed in A3 W2-F. Deals now use pipelineId + stageId
+// referencing a Pipeline document's stages array. See lib/pipelines/types.ts.
 
 export type Currency = 'USD' | 'EUR' | 'ZAR'
 
@@ -101,7 +97,10 @@ export interface Deal {
   title: string
   value: number
   currency: Currency
-  stage: DealStage
+  /** Pipeline this deal belongs to. Required. */
+  pipelineId: string
+  /** Stage within the pipeline. Required. */
+  stageId: string
   expectedCloseDate: Timestamp | null
   notes: string
   createdAt: Timestamp | null
@@ -161,7 +160,8 @@ export interface ContactListParams {
 
 export interface DealListParams {
   orgId?: string
-  stage?: DealStage
+  pipelineId?: string
+  stageId?: string
   contactId?: string
   limit?: number
   page?: number
