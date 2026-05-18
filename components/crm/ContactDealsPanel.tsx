@@ -3,12 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import type { Deal } from '@/lib/crm/types'
-
-// A3 W2-F: DealStage removed. Deals now carry pipelineId + stageId.
-// Stage label and colour resolution requires the pipeline document.
-// For ContactDealsPanel we display stageId as a chip; pretty labels and
-// per-stage colours are deferred to W3-H which will fetch the pipeline and
-// resolve stage metadata for the full portal UI.
+import type { Pipeline, PipelineStage } from '@/lib/pipelines/types'
 
 function fmtCloseDate(ts: unknown): string {
   if (!ts || typeof ts !== 'object') return ''
@@ -31,32 +26,64 @@ function fmtValue(deal: Deal): string {
   }
 }
 
+/** Resolve stage label + chip color for a deal, given a map of pipelines. */
+function resolveStage(
+  deal: Deal,
+  pipelinesById: Map<string, Pipeline>,
+): { label: string; color: string } {
+  const pipeline = pipelinesById.get(deal.pipelineId)
+  const stage: PipelineStage | undefined = pipeline?.stages.find(s => s.id === deal.stageId)
+  if (!stage) {
+    // Fallback: raw stageId string, neutral color
+    return { label: deal.stageId ?? '—', color: '#6b7280' }
+  }
+  const color = stage.color ?? kindColor(stage.kind)
+  return { label: stage.label, color }
+}
+
+function kindColor(kind: string): string {
+  if (kind === 'won')  return '#4ade80'
+  if (kind === 'lost') return '#ef4444'
+  return '#60a5fa'
+}
+
 interface Props {
   contactId: string
 }
 
 export function ContactDealsPanel({ contactId }: Props) {
   const [deals, setDeals] = useState<Deal[]>([])
+  const [pipelinesById, setPipelinesById] = useState<Map<string, Pipeline>>(new Map())
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     if (!contactId) return
     let cancelled = false
-    fetch(`/api/v1/crm/deals?contactId=${encodeURIComponent(contactId)}&limit=100`)
-      .then((r) => r.json())
-      .then((b) => {
+
+    // Fetch deals and pipelines in parallel
+    Promise.all([
+      fetch(`/api/v1/crm/deals?contactId=${encodeURIComponent(contactId)}&limit=100`).then(r => r.json()),
+      fetch('/api/v1/crm/pipelines').then(r => r.json()),
+    ])
+      .then(([dealsBody, pipelinesBody]) => {
         if (cancelled) return
-        const raw: Deal[] = b.data ?? []
-        // Sort by updatedAt DESC (pipeline-aware stage ordering deferred to W3-H)
+
+        const raw: Deal[] = dealsBody.data ?? []
         const sorted = [...raw].sort((a, b) => {
           const aTs = (a.updatedAt as Record<string, number> | null)?._seconds ?? 0
           const bTs = (b.updatedAt as Record<string, number> | null)?._seconds ?? 0
           return bTs - aTs
         })
         setDeals(sorted)
+
+        const pipelines: Pipeline[] = pipelinesBody.data ?? []
+        const byId = new Map(pipelines.map((p: Pipeline) => [p.id, p]))
+        setPipelinesById(byId)
+
         setLoading(false)
       })
       .catch(() => setLoading(false))
+
     return () => { cancelled = true }
   }, [contactId])
 
@@ -88,8 +115,7 @@ export function ContactDealsPanel({ contactId }: Props) {
         <div className="divide-y divide-[var(--color-pib-line)]">
           {deals.map((deal) => {
             const closeDate = fmtCloseDate(deal.expectedCloseDate)
-            // TODO (W3-H): resolve stageId -> stage label + colour via pipeline fetch
-            const stageChip = deal.stageId ?? '—'
+            const { label: stageLabel, color: stageColor } = resolveStage(deal, pipelinesById)
             return (
               <div key={deal.id} className="px-5 py-3 flex items-center gap-4">
                 <span
@@ -110,9 +136,13 @@ export function ContactDealsPanel({ contactId }: Props) {
                   </p>
                 </div>
                 <span
-                  className="text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full shrink-0 bg-[var(--color-surface-container)] text-[var(--color-on-surface-variant)]"
+                  className="text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full shrink-0"
+                  style={{
+                    background: `${stageColor}20`,
+                    color: stageColor,
+                  }}
                 >
-                  {stageChip}
+                  {stageLabel}
                 </span>
               </div>
             )
