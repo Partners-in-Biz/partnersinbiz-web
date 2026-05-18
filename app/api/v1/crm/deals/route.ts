@@ -7,12 +7,13 @@ import { adminDb } from '@/lib/firebase/admin'
 import { withCrmAuth } from '@/lib/auth/crm-middleware'
 import { resolveMemberRef, type MemberRef } from '@/lib/orgMembers/memberRef'
 import { apiSuccess, apiError } from '@/lib/api/response'
-import type { Deal, DealStage, Currency, Contact } from '@/lib/crm/types'
+import type { Deal, Currency, Contact } from '@/lib/crm/types'
 import { dispatchWebhook } from '@/lib/webhooks/dispatch'
 import { logActivity } from '@/lib/activity/log'
 import { loadCompany } from '@/lib/companies/store'
 import { getDefinitionsForResource } from '@/lib/customFields/store'
 import { validateCustomFields } from '@/lib/customFields/validation'
+import { loadPipeline, getDefaultPipelineForOrg } from '@/lib/pipelines/store'
 
 async function deriveCompanyFromContact(contactId: string, orgId: string): Promise<{ companyId?: string; companyName?: string }> {
   try {
@@ -28,13 +29,13 @@ async function deriveCompanyFromContact(contactId: string, orgId: string): Promi
   }
 }
 
-const VALID_STAGES: DealStage[] = ['discovery', 'proposal', 'negotiation', 'won', 'lost']
 const VALID_CURRENCIES: Currency[] = ['USD', 'EUR', 'ZAR']
 
 export const GET = withCrmAuth('viewer', async (req, ctx) => {
   const { searchParams } = new URL(req.url)
   const { orgId } = ctx
-  const stage = searchParams.get('stage') as DealStage | null
+  const pipelineId = searchParams.get('pipelineId')
+  const stageId = searchParams.get('stageId')
   const contactId = searchParams.get('contactId')
   const limit = Math.min(parseInt(searchParams.get('limit') ?? '100'), 500)
   const page = Math.max(parseInt(searchParams.get('page') ?? '1'), 1)
@@ -42,7 +43,8 @@ export const GET = withCrmAuth('viewer', async (req, ctx) => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let query: any = adminDb.collection('deals').orderBy('createdAt', 'desc')
   if (orgId) query = query.where('orgId', '==', orgId)
-  if (stage && VALID_STAGES.includes(stage)) query = query.where('stage', '==', stage)
+  if (pipelineId) query = query.where('pipelineId', '==', pipelineId)
+  if (stageId) query = query.where('stageId', '==', stageId)
   if (contactId) query = query.where('contactId', '==', contactId)
 
   const snapshot = await query
@@ -65,11 +67,34 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
   if (!body.contactId?.trim()) return apiError('contactId is required', 400)
   const dealTitle = body.title.trim()
   const contactId = body.contactId.trim()
-  const stage = body.stage ?? 'discovery'
-  if (!VALID_STAGES.includes(stage)) return apiError('Invalid stage', 400)
   const currency = body.currency ?? 'ZAR'
   if (!VALID_CURRENCIES.includes(currency)) return apiError('Invalid currency — use USD, EUR, or ZAR', 400)
   const value = typeof body.value === 'number' ? body.value : 0
+
+  // Resolve pipeline: explicit or default
+  let pipelineId: string = body.pipelineId ?? ''
+  if (!pipelineId) {
+    const defaultPl = await getDefaultPipelineForOrg(ctx.orgId)
+    if (!defaultPl) {
+      return apiError('No pipeline configured for this workspace; create one first', 400)
+    }
+    pipelineId = defaultPl.id
+  }
+
+  // Validate pipelineId belongs to org
+  const loaded = await loadPipeline(pipelineId, ctx.orgId)
+  if (!loaded) return apiError('Invalid pipelineId', 400)
+  const pipeline = loaded.data
+
+  // Resolve stageId: explicit or first open stage (fallback: first stage)
+  let stageId: string = body.stageId ?? ''
+  if (!stageId) {
+    const firstOpen = pipeline.stages.find(s => s.kind === 'open')
+    stageId = firstOpen ? firstOpen.id : (pipeline.stages[0]?.id ?? '')
+  } else {
+    const stageExists = pipeline.stages.some(s => s.id === stageId)
+    if (!stageExists) return apiError('Invalid stageId for pipeline', 400)
+  }
 
   // PR 3 pattern 1: use ctx.actor directly (no snapshotForWrite)
   const actorRef: MemberRef = ctx.actor
@@ -86,7 +111,8 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
     title: dealTitle,
     value,
     currency,
-    stage,
+    pipelineId,
+    stageId,
     expectedCloseDate: body.expectedCloseDate ?? null,
     notes: typeof body.notes === 'string' ? body.notes.trim() : '',
     deleted: false,
@@ -107,10 +133,10 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
   }
   // Explicit companyId in body always wins — validate and use it
   if (body.companyId) {
-    const loaded = await loadCompany(body.companyId, ctx.orgId)
-    if (!loaded) return apiError('Invalid companyId', 400)
+    const loadedCompany = await loadCompany(body.companyId, ctx.orgId)
+    if (!loadedCompany) return apiError('Invalid companyId', 400)
     dealData.companyId = body.companyId
-    dealData.companyName = loaded.data.name
+    dealData.companyName = loadedCompany.data.name
   }
 
   // Custom field validation (best-effort — Firestore outage must not block core write)
@@ -138,7 +164,8 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
       id: docRef.id,
       title: dealTitle,
       value,
-      stage,
+      pipelineId,
+      stageId,
       contactId,
       createdByRef: actorRef,
       ownerRef,

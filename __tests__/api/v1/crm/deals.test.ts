@@ -23,7 +23,42 @@ jest.mock('@/lib/customFields/store', () => ({
 }))
 import { getDefinitionsForResource } from '@/lib/customFields/store'
 
-const params = { params: Promise.resolve({ id: 'deal-1' }) }
+// ── Pipeline mock setup ────────────────────────────────────────────────────────
+// Default test pipeline used across all tests
+const DEFAULT_PIPELINE_ID = 'pl-default'
+const DEFAULT_PIPELINE = {
+  id: DEFAULT_PIPELINE_ID,
+  orgId: 'org-test',
+  name: 'Test Pipeline',
+  isDefault: true,
+  archived: false,
+  deleted: false,
+  stages: [
+    { id: 'discovery',   label: 'Discovery',   kind: 'open', order: 0, probability: 10 },
+    { id: 'proposal',    label: 'Proposal',    kind: 'open', order: 1, probability: 30 },
+    { id: 'negotiation', label: 'Negotiation', kind: 'open', order: 2, probability: 70 },
+    { id: 'won',         label: 'Won',         kind: 'won',  order: 3, probability: 100 },
+    { id: 'lost',        label: 'Lost',        kind: 'lost', order: 4, probability: 0 },
+  ],
+  createdAt: null,
+  updatedAt: null,
+}
+
+// Mock pipelines store so route tests don't need real Firestore for pipeline lookups
+jest.mock('@/lib/pipelines/store', () => ({
+  loadPipeline: jest.fn(),
+  getDefaultPipelineForOrg: jest.fn(),
+}))
+import { loadPipeline, getDefaultPipelineForOrg } from '@/lib/pipelines/store'
+
+/** Default pipeline mock — covers the happy path for most tests */
+function setupDefaultPipelineMock(orgId = 'org-test', pipelineId = DEFAULT_PIPELINE_ID) {
+  const pl = { ...DEFAULT_PIPELINE, id: pipelineId, orgId }
+  ;(getDefaultPipelineForOrg as jest.Mock).mockResolvedValue(pl)
+  ;(loadPipeline as jest.Mock).mockResolvedValue({ ref: {}, data: pl })
+}
+
+// ── Firestore collection mock helpers ──────────────────────────────────────────
 
 function stageAuth(
   member: { uid: string; orgId: string; role: string; firstName?: string; lastName?: string },
@@ -100,11 +135,15 @@ function stageAuthWithDeal(
 
 const routeCtx = (id: string) => ({ params: Promise.resolve({ id }) })
 
+// ── GET ────────────────────────────────────────────────────────────────────────
+
 describe('GET /api/v1/crm/deals', () => {
+  beforeEach(() => { jest.clearAllMocks(); setupDefaultPipelineMock() })
+
   it('returns list of deals', async () => {
     const member = seedOrgMember('org-test', 'uid-viewer', { role: 'viewer' })
     stageAuth(member, {}, {
-      existingDeals: [{ id: 'd1', data: { title: 'Big deal', stage: 'discovery', deleted: false } }],
+      existingDeals: [{ id: 'd1', data: { title: 'Big deal', pipelineId: DEFAULT_PIPELINE_ID, stageId: 'discovery', deleted: false } }],
     })
     const req = callAsMember(member, 'GET', '/api/v1/crm/deals')
     const { GET } = await import('@/app/api/v1/crm/deals/route')
@@ -149,13 +188,19 @@ describe('GET /api/v1/crm/deals', () => {
   })
 })
 
+// ── POST ───────────────────────────────────────────────────────────────────────
+
 describe('POST /api/v1/crm/deals', () => {
+  beforeEach(() => { jest.clearAllMocks(); setupDefaultPipelineMock() })
+
+  // Valid deal body — uses pipelineId/stageId, not stage
   const validDeal = {
     contactId: 'c1',
     title: 'New Website',
     value: 5000,
     currency: 'USD',
-    stage: 'discovery',
+    pipelineId: DEFAULT_PIPELINE_ID,
+    stageId: 'discovery',
     notes: '',
   }
 
@@ -168,6 +213,64 @@ describe('POST /api/v1/crm/deals', () => {
     expect(res.status).toBe(201)
     const body = await res.json()
     expect(body.data.id).toBe('auto-deal-id')
+  })
+
+  it('creates deal with default pipeline when pipelineId omitted', async () => {
+    const member = seedOrgMember('org-test', 'uid-member', { role: 'member' })
+    const captured = jest.fn().mockResolvedValue(undefined)
+    stageAuth(member, {}, { capturedDealSet: captured })
+    // omit pipelineId — route should fall back to getDefaultPipelineForOrg
+    const req = callAsMember(member, 'POST', '/api/v1/crm/deals', {
+      contactId: 'c1', title: 'No Pipeline', value: 100, currency: 'ZAR',
+    })
+    const { POST } = await import('@/app/api/v1/crm/deals/route')
+    const res = await POST(req)
+    expect(res.status).toBe(201)
+    const data = captured.mock.calls[0][0]
+    expect(data.pipelineId).toBe(DEFAULT_PIPELINE_ID)
+    expect(data.stageId).toBe('discovery') // first open stage
+  })
+
+  it('returns 400 when no pipeline configured for org', async () => {
+    const member = seedOrgMember('org-test', 'uid-member', { role: 'member' })
+    stageAuth(member)
+    ;(getDefaultPipelineForOrg as jest.Mock).mockResolvedValue(null)
+    const req = callAsMember(member, 'POST', '/api/v1/crm/deals', {
+      contactId: 'c1', title: 'No Pipeline', value: 0, currency: 'ZAR',
+    })
+    const { POST } = await import('@/app/api/v1/crm/deals/route')
+    const res = await POST(req)
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body.error).toMatch(/no pipeline/i)
+  })
+
+  it('returns 400 when explicit pipelineId is invalid', async () => {
+    const member = seedOrgMember('org-test', 'uid-member', { role: 'member' })
+    stageAuth(member)
+    ;(loadPipeline as jest.Mock).mockResolvedValue(null)
+    const req = callAsMember(member, 'POST', '/api/v1/crm/deals', {
+      contactId: 'c1', title: 'Bad Pipeline', value: 0, currency: 'ZAR', pipelineId: 'bad-pl',
+    })
+    const { POST } = await import('@/app/api/v1/crm/deals/route')
+    const res = await POST(req)
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body.error).toMatch(/invalid pipelineid/i)
+  })
+
+  it('returns 400 when stageId not found in pipeline', async () => {
+    const member = seedOrgMember('org-test', 'uid-member', { role: 'member' })
+    stageAuth(member)
+    const req = callAsMember(member, 'POST', '/api/v1/crm/deals', {
+      contactId: 'c1', title: 'Bad Stage', value: 0, currency: 'ZAR',
+      pipelineId: DEFAULT_PIPELINE_ID, stageId: 'nonexistent',
+    })
+    const { POST } = await import('@/app/api/v1/crm/deals/route')
+    const res = await POST(req)
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body.error).toMatch(/invalid stageid/i)
   })
 
   it('returns 400 when title is missing', async () => {
@@ -199,10 +302,12 @@ describe('POST /api/v1/crm/deals', () => {
 
   it('writes createdByRef and updatedByRef on POST (member)', async () => {
     const member = seedOrgMember('org-1', 'uid-1', { role: 'member', firstName: 'Alice', lastName: 'B' })
+    setupDefaultPipelineMock('org-1')
     const captured = jest.fn().mockResolvedValue(undefined)
     stageAuth(member, {}, { capturedDealSet: captured })
     const req = callAsMember(member, 'POST', '/api/v1/crm/deals', {
-      contactId: 'contact-1', title: 'Big deal', value: 1000, currency: 'ZAR', stage: 'discovery',
+      contactId: 'contact-1', title: 'Big deal', value: 1000, currency: 'ZAR',
+      pipelineId: DEFAULT_PIPELINE_ID, stageId: 'discovery',
     })
     const { POST } = await import('@/app/api/v1/crm/deals/route')
     const res = await POST(req)
@@ -212,10 +317,13 @@ describe('POST /api/v1/crm/deals', () => {
     expect(data.createdByRef.kind).toBe('human')
     expect(data.updatedByRef.displayName).toBe('Alice B')
     expect(data.orgId).toBe('org-1')
+    expect(data.pipelineId).toBe(DEFAULT_PIPELINE_ID)
+    expect(data.stageId).toBe('discovery')
   })
 
   it('writes ownerRef when POST body has ownerUid', async () => {
     const member = seedOrgMember('org-1', 'uid-1', { role: 'member', firstName: 'Alice', lastName: 'B' })
+    setupDefaultPipelineMock('org-1')
     const captured = jest.fn().mockResolvedValue(undefined)
     ;(adminAuth.verifySessionCookie as jest.Mock).mockResolvedValue({ uid: member.uid })
     ;(adminDb.collection as jest.Mock).mockImplementation((name: string) => {
@@ -236,7 +344,9 @@ describe('POST /api/v1/crm/deals', () => {
       return { doc: () => ({ get: () => Promise.resolve({ exists: false }) }) }
     })
     const req = callAsMember(member, 'POST', '/api/v1/crm/deals', {
-      contactId: 'c1', title: 'D', value: 0, currency: 'ZAR', stage: 'discovery', ownerUid: 'uid-2',
+      contactId: 'c1', title: 'D', value: 0, currency: 'ZAR',
+      pipelineId: DEFAULT_PIPELINE_ID, stageId: 'discovery',
+      ownerUid: 'uid-2',
     })
     const { POST } = await import('@/app/api/v1/crm/deals/route')
     const res = await POST(req)
@@ -248,10 +358,12 @@ describe('POST /api/v1/crm/deals', () => {
 
   it('agent POST uses AGENT_PIP_REF and omits createdBy uid', async () => {
     const member = seedOrgMember('org-1', 'uid-1', { role: 'member' })
+    setupDefaultPipelineMock('org-1')
     const captured = jest.fn().mockResolvedValue(undefined)
     stageAuth(member, {}, { capturedDealSet: captured })
     const req = callAsAgent('org-1', 'POST', '/api/v1/crm/deals', {
-      contactId: 'c1', title: 'Agent deal', value: 0, currency: 'ZAR', stage: 'discovery',
+      contactId: 'c1', title: 'Agent deal', value: 0, currency: 'ZAR',
+      pipelineId: DEFAULT_PIPELINE_ID, stageId: 'discovery',
     })
     const { POST } = await import('@/app/api/v1/crm/deals/route')
     const res = await POST(req)
@@ -262,19 +374,21 @@ describe('POST /api/v1/crm/deals', () => {
     expect(data.createdBy).toBeUndefined()
   })
 
-  it('webhook deal.created payload uses explicit fields (no body spread)', async () => {
+  it('webhook deal.created payload contains pipelineId/stageId (no stage)', async () => {
     jest.mock('@/lib/webhooks/dispatch', () => ({
       dispatchWebhook: jest.fn().mockResolvedValue(undefined),
     }))
     const member = seedOrgMember('org-1', 'uid-1', { role: 'member', firstName: 'Alice', lastName: 'B' })
+    setupDefaultPipelineMock('org-1')
     const captured = jest.fn().mockResolvedValue(undefined)
     stageAuth(member, {}, { capturedDealSet: captured })
     const { dispatchWebhook } = await import('@/lib/webhooks/dispatch')
     ;(dispatchWebhook as jest.Mock).mockClear()
 
     const req = callAsMember(member, 'POST', '/api/v1/crm/deals', {
-      contactId: 'c1', title: 'WH test', value: 500, currency: 'USD', stage: 'discovery',
-      sneaky_extra_field: 'leaked',  // should NOT appear in webhook payload
+      contactId: 'c1', title: 'WH test', value: 500, currency: 'USD',
+      pipelineId: DEFAULT_PIPELINE_ID, stageId: 'discovery',
+      sneaky_extra_field: 'leaked',
     })
     const { POST } = await import('@/app/api/v1/crm/deals/route')
     await POST(req)
@@ -283,21 +397,25 @@ describe('POST /api/v1/crm/deals', () => {
       'deal.created',
       expect.not.objectContaining({ sneaky_extra_field: expect.anything() }),
     )
-    // Also verify the keys present
     const payload = (dispatchWebhook as jest.Mock).mock.calls[0][2]
-    expect(Object.keys(payload).sort()).toEqual(
-      expect.arrayContaining(['id', 'title', 'value', 'stage', 'contactId', 'createdByRef'])
-    )
+    expect(payload.pipelineId).toBe(DEFAULT_PIPELINE_ID)
+    expect(payload.stageId).toBe('discovery')
+    // stage field must NOT appear in webhook payload
+    expect(payload.stage).toBeUndefined()
   })
 })
 
+// ── PUT/PATCH ─────────────────────────────────────────────────────────────────
+
 describe('PUT /api/v1/crm/deals/[id]', () => {
-  beforeEach(() => jest.clearAllMocks())
+  beforeEach(() => { jest.clearAllMocks(); setupDefaultPipelineMock() })
 
   it('member can update deal title in own org', async () => {
     const member = seedOrgMember('org-1', 'uid-1', { role: 'member', firstName: 'Alice', lastName: 'B' })
     const captured = jest.fn().mockResolvedValue(undefined)
-    stageAuthWithDeal(member, { id: 'd1', data: { orgId: 'org-1', stage: 'discovery', title: 'Old', value: 100 } }, {}, { capturedUpdate: captured })
+    stageAuthWithDeal(member, {
+      id: 'd1', data: { orgId: 'org-1', pipelineId: DEFAULT_PIPELINE_ID, stageId: 'discovery', title: 'Old', value: 100 },
+    }, {}, { capturedUpdate: captured })
     const req = callAsMember(member, 'PUT', '/api/v1/crm/deals/d1', { title: 'New' })
     const { PUT } = await import('@/app/api/v1/crm/deals/[id]/route')
     const res = await PUT(req, routeCtx('d1'))
@@ -318,11 +436,11 @@ describe('PUT /api/v1/crm/deals/[id]', () => {
   })
 
   it('does NOT overwrite orgId when body injects { orgId: "org-other" }', async () => {
-    // Regression: body spread previously allowed `{ orgId }` to corrupt the
-    // tenant-scoped document. sanitizeDealForWrite must strip it.
     const member = seedOrgMember('org-1', 'uid-1', { role: 'member' })
     const captured = jest.fn().mockResolvedValue(undefined)
-    stageAuthWithDeal(member, { id: 'd1', data: { orgId: 'org-1', stage: 'discovery', title: 'Old' } }, {}, { capturedUpdate: captured })
+    stageAuthWithDeal(member, {
+      id: 'd1', data: { orgId: 'org-1', pipelineId: DEFAULT_PIPELINE_ID, stageId: 'discovery', title: 'Old' },
+    }, {}, { capturedUpdate: captured })
     const req = callAsMember(member, 'PUT', '/api/v1/crm/deals/d1', { orgId: 'org-other', title: 'Hacked' })
     const { PUT } = await import('@/app/api/v1/crm/deals/[id]/route')
     const res = await PUT(req, routeCtx('d1'))
@@ -335,7 +453,9 @@ describe('PUT /api/v1/crm/deals/[id]', () => {
   it('writes ownerRef when PUT body has new ownerUid', async () => {
     const member = seedOrgMember('org-1', 'uid-1', { role: 'member' })
     const captured = jest.fn().mockResolvedValue(undefined)
-    stageAuthWithDeal(member, { id: 'd1', data: { orgId: 'org-1', stage: 'discovery', ownerUid: '' } }, {}, {
+    stageAuthWithDeal(member, {
+      id: 'd1', data: { orgId: 'org-1', pipelineId: DEFAULT_PIPELINE_ID, stageId: 'discovery', ownerUid: '' },
+    }, {}, {
       capturedUpdate: captured,
       ownerLookup: { 'uid-2': { firstName: 'Bob', lastName: 'C' } },
     })
@@ -351,7 +471,9 @@ describe('PUT /api/v1/crm/deals/[id]', () => {
   it('agent PUT uses AGENT_PIP_REF for updatedByRef, omits updatedBy', async () => {
     const member = seedOrgMember('org-1', 'uid-1', { role: 'member' })
     const captured = jest.fn().mockResolvedValue(undefined)
-    stageAuthWithDeal(member, { id: 'd1', data: { orgId: 'org-1', stage: 'discovery' } }, {}, { capturedUpdate: captured })
+    stageAuthWithDeal(member, {
+      id: 'd1', data: { orgId: 'org-1', pipelineId: DEFAULT_PIPELINE_ID, stageId: 'discovery' },
+    }, {}, { capturedUpdate: captured })
     const req = callAsAgent('org-1', 'PUT', '/api/v1/crm/deals/d1', { notes: 'agent updated' })
     const { PUT } = await import('@/app/api/v1/crm/deals/[id]/route')
     const res = await PUT(req, routeCtx('d1'))
@@ -362,14 +484,46 @@ describe('PUT /api/v1/crm/deals/[id]', () => {
     expect(patch.updatedBy).toBeUndefined()
   })
 
-  it('PUT stage change fires deal.stage_changed webhook with explicit fields', async () => {
+  it('PATCH cross-pipeline without stageId → 400', async () => {
     const member = seedOrgMember('org-1', 'uid-1', { role: 'member' })
-    stageAuthWithDeal(member, { id: 'd1', data: { orgId: 'org-1', stage: 'discovery', value: 100, title: 'D' } })
+    stageAuthWithDeal(member, {
+      id: 'd1', data: { orgId: 'org-1', pipelineId: DEFAULT_PIPELINE_ID, stageId: 'discovery', title: 'D', value: 100 },
+    })
+    const req = callAsMember(member, 'PATCH', '/api/v1/crm/deals/d1', { pipelineId: 'pl-other' })
+    const { PATCH } = await import('@/app/api/v1/crm/deals/[id]/route')
+    const res = await PATCH(req, routeCtx('d1'))
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body.error).toMatch(/requires explicit stageid/i)
+  })
+
+  it('PATCH cross-pipeline with stageId validates new pipeline', async () => {
+    const member = seedOrgMember('org-1', 'uid-1', { role: 'member' })
+    stageAuthWithDeal(member, {
+      id: 'd1', data: { orgId: 'org-1', pipelineId: DEFAULT_PIPELINE_ID, stageId: 'discovery', title: 'D', value: 100 },
+    })
+    // New pipeline doesn't belong to org
+    ;(loadPipeline as jest.Mock).mockResolvedValue(null)
+    const req = callAsMember(member, 'PATCH', '/api/v1/crm/deals/d1', { pipelineId: 'pl-other', stageId: 'open-1' })
+    const { PATCH } = await import('@/app/api/v1/crm/deals/[id]/route')
+    const res = await PATCH(req, routeCtx('d1'))
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body.error).toMatch(/invalid pipelineid/i)
+  })
+
+  it('PUT stageId change fires deal.stage_changed webhook with new fields', async () => {
+    const member = seedOrgMember('org-1', 'uid-1', { role: 'member' })
+    stageAuthWithDeal(member, {
+      id: 'd1', data: { orgId: 'org-1', pipelineId: DEFAULT_PIPELINE_ID, stageId: 'discovery', value: 100, title: 'D' },
+    })
     const { dispatchWebhook } = await import('@/lib/webhooks/dispatch')
     const { logActivity } = await import('@/lib/activity/log')
     ;(dispatchWebhook as jest.Mock).mockClear()
     ;(logActivity as jest.Mock).mockClear()
-    const req = callAsMember(member, 'PUT', '/api/v1/crm/deals/d1', { stage: 'proposal', notes: 'moved', sneaky: 'leak' })
+    const req = callAsMember(member, 'PUT', '/api/v1/crm/deals/d1', {
+      stageId: 'proposal', notes: 'moved', sneaky: 'leak',
+    })
     const { PUT } = await import('@/app/api/v1/crm/deals/[id]/route')
     await PUT(req, routeCtx('d1'))
     expect(dispatchWebhook).toHaveBeenCalledWith(
@@ -378,9 +532,16 @@ describe('PUT /api/v1/crm/deals/[id]', () => {
       expect.not.objectContaining({ sneaky: expect.anything() }),
     )
     const payload = (dispatchWebhook as jest.Mock).mock.calls.find((c: unknown[]) => c[1] === 'deal.stage_changed')[2]
-    expect(payload.fromStage).toBe('discovery')
-    expect(payload.toStage).toBe('proposal')
+    expect(payload.previousStageId).toBe('discovery')
+    expect(payload.stageId).toBe('proposal')
     expect(payload.id).toBe('d1')
+    expect(payload.pipelineId).toBe(DEFAULT_PIPELINE_ID)
+    expect(payload.stageLabel).toBe('Proposal')
+    expect(payload.stageKind).toBe('open')
+    expect(payload.previousStageLabel).toBe('Discovery')
+    // stage (old field) must NOT appear
+    expect(payload.fromStage).toBeUndefined()
+    expect(payload.toStage).toBeUndefined()
     expect(logActivity).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'crm_deal_updated' })
     )
@@ -390,7 +551,7 @@ describe('PUT /api/v1/crm/deals/[id]', () => {
     const member = seedOrgMember('org-1', 'uid-1', { role: 'member' })
     const captured = jest.fn().mockResolvedValue(undefined)
     stageAuthWithDeal(member,
-      { id: 'd1', data: { orgId: 'org-1', stage: 'discovery', ownerUid: 'uid-old' } },
+      { id: 'd1', data: { orgId: 'org-1', pipelineId: DEFAULT_PIPELINE_ID, stageId: 'discovery', ownerUid: 'uid-old' } },
       {},
       { capturedUpdate: captured },
     )
@@ -400,16 +561,15 @@ describe('PUT /api/v1/crm/deals/[id]', () => {
     expect(res.status).toBeLessThan(300)
     const patch = captured.mock.calls[0][0]
     expect(patch.ownerUid).toBe('')
-    // FieldValue.delete() returns a sentinel — assert it's present and is a sentinel-like value
     expect(patch.ownerRef).toBeDefined()
-    // Firebase Admin SDK sentinels: check via toString or by sniffing properties
-    // Simplest: assert the field is in the patch (the FieldValue.delete sentinel is truthy but not a MemberRef)
-    expect(typeof (patch.ownerRef as any).displayName).toBe('undefined')  // proves it's NOT a MemberRef
+    expect(typeof (patch.ownerRef as any).displayName).toBe('undefined')
   })
 
-  it('PUT stage → won fires deal.won + tryAttributeDealWon + crm_deal_won activity', async () => {
+  it('PUT stageId → won (kind=won) fires deal.won + tryAttributeDealWon + crm_deal_won', async () => {
     const member = seedOrgMember('org-1', 'uid-1', { role: 'member' })
-    stageAuthWithDeal(member, { id: 'd1', data: { orgId: 'org-1', stage: 'negotiation', value: 5000, title: 'Big', contactId: 'c1', currency: 'ZAR' } })
+    stageAuthWithDeal(member, {
+      id: 'd1', data: { orgId: 'org-1', pipelineId: DEFAULT_PIPELINE_ID, stageId: 'negotiation', value: 5000, title: 'Big', contactId: 'c1', currency: 'ZAR' },
+    })
     const { dispatchWebhook } = await import('@/lib/webhooks/dispatch')
     const { logActivity } = await import('@/lib/activity/log')
     const { tryAttributeDealWon } = await import('@/lib/email-analytics/attribution-hooks')
@@ -417,7 +577,7 @@ describe('PUT /api/v1/crm/deals/[id]', () => {
     ;(logActivity as jest.Mock).mockClear()
     ;(tryAttributeDealWon as jest.Mock).mockClear()
 
-    const req = callAsMember(member, 'PUT', '/api/v1/crm/deals/d1', { stage: 'won' })
+    const req = callAsMember(member, 'PUT', '/api/v1/crm/deals/d1', { stageId: 'won' })
     const { PUT } = await import('@/app/api/v1/crm/deals/[id]/route')
     await PUT(req, routeCtx('d1'))
 
@@ -427,15 +587,17 @@ describe('PUT /api/v1/crm/deals/[id]', () => {
     expect(logActivity).toHaveBeenCalledWith(expect.objectContaining({ type: 'crm_deal_won' }))
   })
 
-  it('PUT stage → lost fires deal.lost + crm_deal_lost activity', async () => {
+  it('PUT stageId → lost (kind=lost) fires deal.lost + crm_deal_lost', async () => {
     const member = seedOrgMember('org-1', 'uid-1', { role: 'member' })
-    stageAuthWithDeal(member, { id: 'd1', data: { orgId: 'org-1', stage: 'negotiation', value: 1000, title: 'X' } })
+    stageAuthWithDeal(member, {
+      id: 'd1', data: { orgId: 'org-1', pipelineId: DEFAULT_PIPELINE_ID, stageId: 'negotiation', value: 1000, title: 'X' },
+    })
     const { dispatchWebhook } = await import('@/lib/webhooks/dispatch')
     const { logActivity } = await import('@/lib/activity/log')
     ;(dispatchWebhook as jest.Mock).mockClear()
     ;(logActivity as jest.Mock).mockClear()
 
-    const req = callAsMember(member, 'PUT', '/api/v1/crm/deals/d1', { stage: 'lost' })
+    const req = callAsMember(member, 'PUT', '/api/v1/crm/deals/d1', { stageId: 'lost' })
     const { PUT } = await import('@/app/api/v1/crm/deals/[id]/route')
     await PUT(req, routeCtx('d1'))
 
@@ -443,9 +605,11 @@ describe('PUT /api/v1/crm/deals/[id]', () => {
     expect(logActivity).toHaveBeenCalledWith(expect.objectContaining({ type: 'crm_deal_lost' }))
   })
 
-  it('PUT without stage change does NOT fire stage_changed webhook', async () => {
+  it('PUT without stageId change does NOT fire stage_changed webhook', async () => {
     const member = seedOrgMember('org-1', 'uid-1', { role: 'member' })
-    stageAuthWithDeal(member, { id: 'd1', data: { orgId: 'org-1', stage: 'discovery', value: 100 } })
+    stageAuthWithDeal(member, {
+      id: 'd1', data: { orgId: 'org-1', pipelineId: DEFAULT_PIPELINE_ID, stageId: 'discovery', value: 100 },
+    })
     const { dispatchWebhook } = await import('@/lib/webhooks/dispatch')
     ;(dispatchWebhook as jest.Mock).mockClear()
 
@@ -457,16 +621,16 @@ describe('PUT /api/v1/crm/deals/[id]', () => {
     expect(stageChangeCalls).toHaveLength(0)
   })
 
-  it('stage change with contactId writes activities entry with type stage_change', async () => {
+  it('stageId change with contactId writes activities entry with type stage_change', async () => {
     const member = seedOrgMember('org-1', 'uid-1', { role: 'member' })
     const capturedActivitiesAdd = jest.fn().mockResolvedValue({ id: 'act-1' })
     stageAuthWithDeal(
       member,
-      { id: 'd1', data: { orgId: 'org-1', stage: 'discovery', value: 100, title: 'Deal A', contactId: 'c-1' } },
+      { id: 'd1', data: { orgId: 'org-1', pipelineId: DEFAULT_PIPELINE_ID, stageId: 'discovery', value: 100, title: 'Deal A', contactId: 'c-1' } },
       {},
       { capturedActivitiesAdd },
     )
-    const req = callAsMember(member, 'PUT', '/api/v1/crm/deals/d1', { stage: 'proposal' })
+    const req = callAsMember(member, 'PUT', '/api/v1/crm/deals/d1', { stageId: 'proposal' })
     const { PUT } = await import('@/app/api/v1/crm/deals/[id]/route')
     const res = await PUT(req, routeCtx('d1'))
     expect(res.status).toBeLessThan(300)
@@ -476,24 +640,23 @@ describe('PUT /api/v1/crm/deals/[id]', () => {
         contactId: 'c-1',
         dealId: 'd1',
         type: 'stage_change',
-        summary: 'Deal moved: discovery → proposal',
+        summary: 'Deal moved: Discovery → Proposal',
       }),
     )
   })
 
-  it('stage → won with contactId writes stage_change + deal won note to activities', async () => {
+  it('stageId → won with contactId writes stage_change + deal won note to activities', async () => {
     const member = seedOrgMember('org-1', 'uid-1', { role: 'member' })
     const capturedActivitiesAdd = jest.fn().mockResolvedValue({ id: 'act-1' })
     stageAuthWithDeal(
       member,
-      { id: 'd1', data: { orgId: 'org-1', stage: 'negotiation', value: 5000, title: 'Big Deal', contactId: 'c-1', currency: 'ZAR' } },
+      { id: 'd1', data: { orgId: 'org-1', pipelineId: DEFAULT_PIPELINE_ID, stageId: 'negotiation', value: 5000, title: 'Big Deal', contactId: 'c-1', currency: 'ZAR' } },
       {},
       { capturedActivitiesAdd },
     )
-    const req = callAsMember(member, 'PUT', '/api/v1/crm/deals/d1', { stage: 'won' })
+    const req = callAsMember(member, 'PUT', '/api/v1/crm/deals/d1', { stageId: 'won' })
     const { PUT } = await import('@/app/api/v1/crm/deals/[id]/route')
     await PUT(req, routeCtx('d1'))
-    // activities.add should be called at least twice: stage_change + deal won note
     const calls = capturedActivitiesAdd.mock.calls
     expect(calls.length).toBeGreaterThanOrEqual(2)
     const stageCall = calls.find((c: unknown[]) => (c[0] as any).type === 'stage_change')
@@ -503,16 +666,16 @@ describe('PUT /api/v1/crm/deals/[id]', () => {
     expect((wonCall![0] as any).summary).toContain('Big Deal')
   })
 
-  it('stage → lost with contactId writes stage_change + deal lost note to activities', async () => {
+  it('stageId → lost with contactId writes stage_change + deal lost note to activities', async () => {
     const member = seedOrgMember('org-1', 'uid-1', { role: 'member' })
     const capturedActivitiesAdd = jest.fn().mockResolvedValue({ id: 'act-1' })
     stageAuthWithDeal(
       member,
-      { id: 'd1', data: { orgId: 'org-1', stage: 'negotiation', value: 500, title: 'Lost Deal', contactId: 'c-1' } },
+      { id: 'd1', data: { orgId: 'org-1', pipelineId: DEFAULT_PIPELINE_ID, stageId: 'negotiation', value: 500, title: 'Lost Deal', contactId: 'c-1' } },
       {},
       { capturedActivitiesAdd },
     )
-    const req = callAsMember(member, 'PUT', '/api/v1/crm/deals/d1', { stage: 'lost' })
+    const req = callAsMember(member, 'PUT', '/api/v1/crm/deals/d1', { stageId: 'lost' })
     const { PUT } = await import('@/app/api/v1/crm/deals/[id]/route')
     await PUT(req, routeCtx('d1'))
     const calls = capturedActivitiesAdd.mock.calls
@@ -522,24 +685,26 @@ describe('PUT /api/v1/crm/deals/[id]', () => {
     expect((lostCall![0] as any).summary).toContain('Lost Deal')
   })
 
-  it('stage change WITHOUT contactId does NOT call activities.add', async () => {
+  it('stageId change WITHOUT contactId does NOT call activities.add', async () => {
     const member = seedOrgMember('org-1', 'uid-1', { role: 'member' })
     const capturedActivitiesAdd = jest.fn().mockResolvedValue({ id: 'act-1' })
     stageAuthWithDeal(
       member,
-      { id: 'd1', data: { orgId: 'org-1', stage: 'discovery', value: 100, title: 'No Contact Deal' } },  // no contactId
+      { id: 'd1', data: { orgId: 'org-1', pipelineId: DEFAULT_PIPELINE_ID, stageId: 'discovery', value: 100, title: 'No Contact Deal' } },
       {},
       { capturedActivitiesAdd },
     )
-    const req = callAsMember(member, 'PUT', '/api/v1/crm/deals/d1', { stage: 'proposal' })
+    const req = callAsMember(member, 'PUT', '/api/v1/crm/deals/d1', { stageId: 'proposal' })
     const { PUT } = await import('@/app/api/v1/crm/deals/[id]/route')
     await PUT(req, routeCtx('d1'))
     expect(capturedActivitiesAdd).not.toHaveBeenCalled()
   })
 })
 
+// ── POST: company derivation ───────────────────────────────────────────────────
+
 describe('POST deals with company derivation', () => {
-  beforeEach(() => jest.clearAllMocks())
+  beforeEach(() => { jest.clearAllMocks(); setupDefaultPipelineMock('org-1') })
 
   it('auto-populates companyId+companyName from contact.companyId when contactId set', async () => {
     const member = seedOrgMember('org-1', 'uid-1', { role: 'member' })
@@ -556,7 +721,8 @@ describe('POST deals with company derivation', () => {
       return { doc: () => ({ get: () => Promise.resolve({ exists: false }) }) }
     })
     const req = callAsMember(member, 'POST', '/api/v1/crm/deals', {
-      contactId: 'c-1', title: 'Auto Derive Test', value: 0, currency: 'ZAR', stage: 'discovery',
+      contactId: 'c-1', title: 'Auto Derive Test', value: 0, currency: 'ZAR',
+      pipelineId: DEFAULT_PIPELINE_ID, stageId: 'discovery',
     })
     const { POST } = await import('@/app/api/v1/crm/deals/route')
     const res = await POST(req)
@@ -584,7 +750,8 @@ describe('POST deals with company derivation', () => {
       return { doc: () => ({ get: () => Promise.resolve({ exists: false }) }) }
     })
     const req = callAsMember(member, 'POST', '/api/v1/crm/deals', {
-      contactId: 'c-1', title: 'Explicit Override', value: 0, currency: 'ZAR', stage: 'discovery',
+      contactId: 'c-1', title: 'Explicit Override', value: 0, currency: 'ZAR',
+      pipelineId: DEFAULT_PIPELINE_ID, stageId: 'discovery',
       companyId: 'comp-explicit',
     })
     const { POST } = await import('@/app/api/v1/crm/deals/route')
@@ -610,19 +777,21 @@ describe('POST deals with company derivation', () => {
       return { doc: () => ({ get: () => Promise.resolve({ exists: false }) }) }
     })
     const req = callAsMember(member, 'POST', '/api/v1/crm/deals', {
-      contactId: 'c-err', title: 'Resilient Deal', value: 0, currency: 'ZAR', stage: 'discovery',
+      contactId: 'c-err', title: 'Resilient Deal', value: 0, currency: 'ZAR',
+      pipelineId: DEFAULT_PIPELINE_ID, stageId: 'discovery',
     })
     const { POST } = await import('@/app/api/v1/crm/deals/route')
     const res = await POST(req)
-    // Should succeed — derivation failure is swallowed
     expect(res.status).toBe(201)
     const data = captured.mock.calls[0][0]
     expect(data.companyId).toBeUndefined()
   })
 })
 
+// ── PATCH: companyId ──────────────────────────────────────────────────────────
+
 describe('PATCH deals companyId', () => {
-  beforeEach(() => jest.clearAllMocks())
+  beforeEach(() => { jest.clearAllMocks(); setupDefaultPipelineMock('org-1') })
 
   it('PATCH contactId change repopulates companyId from new contact', async () => {
     const member = seedOrgMember('org-1', 'uid-1', { role: 'member' })
@@ -642,7 +811,7 @@ describe('PATCH deals companyId', () => {
           get: jest.fn().mockResolvedValue({
             exists: true,
             id: 'd1',
-            data: () => ({ orgId: 'org-1', contactId: 'c-old', stage: 'discovery', title: 'T' }),
+            data: () => ({ orgId: 'org-1', contactId: 'c-old', pipelineId: DEFAULT_PIPELINE_ID, stageId: 'discovery', title: 'T' }),
           }),
           update: captured,
         }),
@@ -673,7 +842,7 @@ describe('PATCH deals companyId', () => {
           get: jest.fn().mockResolvedValue({
             exists: true,
             id: 'd1',
-            data: () => ({ orgId: 'org-1', contactId: 'c1', stage: 'discovery', title: 'T', companyId: 'comp-1', companyName: 'Old Corp' }),
+            data: () => ({ orgId: 'org-1', contactId: 'c1', pipelineId: DEFAULT_PIPELINE_ID, stageId: 'discovery', title: 'T', companyId: 'comp-1', companyName: 'Old Corp' }),
           }),
           update: captured,
         }),
@@ -685,16 +854,16 @@ describe('PATCH deals companyId', () => {
     const res = await PATCH(req, { params: Promise.resolve({ id: 'd1' }) })
     expect(res.status).toBeLessThan(300)
     const patch = captured.mock.calls[0][0]
-    // FieldValue.delete() sentinel — not a plain string, and both fields set
     expect(patch.companyId).toBeDefined()
     expect(patch.companyName).toBeDefined()
-    // Verify it's a sentinel (not a string)
     expect(typeof patch.companyId).not.toBe('string')
   })
 })
 
+// ── DELETE ─────────────────────────────────────────────────────────────────────
+
 describe('DELETE /api/v1/crm/deals/[id]', () => {
-  beforeEach(() => jest.clearAllMocks())
+  beforeEach(() => { jest.clearAllMocks(); setupDefaultPipelineMock() })
 
   it('admin can delete (soft-delete with updatedByRef)', async () => {
     const admin = seedOrgMember('org-1', 'uid-admin', { role: 'admin', firstName: 'Adm', lastName: 'In' })
@@ -728,11 +897,19 @@ describe('DELETE /api/v1/crm/deals/[id]', () => {
   })
 })
 
+// ── Custom field validation ────────────────────────────────────────────────────
+
 describe('POST /api/v1/crm/deals — custom field validation', () => {
-  const validDeal = { contactId: 'c1', title: 'CF Deal', value: 1000, currency: 'ZAR', stage: 'discovery' }
+  beforeEach(() => { jest.clearAllMocks(); setupDefaultPipelineMock() })
+
+  const validDeal = {
+    contactId: 'c1', title: 'CF Deal', value: 1000, currency: 'ZAR',
+    pipelineId: DEFAULT_PIPELINE_ID, stageId: 'discovery',
+  }
 
   it('accepts write when customFields match definitions', async () => {
     const member = seedOrgMember('org-cf-deal', 'uid-cf-deal-ok', { role: 'member' })
+    setupDefaultPipelineMock('org-cf-deal')
     stageAuth(member)
     ;(getDefinitionsForResource as jest.Mock).mockResolvedValueOnce([
       { id: 'd1', key: 'closed_on', type: 'date', required: false, orgId: 'org-cf-deal', resource: 'deal', label: 'Closed On', order: 0, createdAt: null, updatedAt: null },
@@ -748,6 +925,7 @@ describe('POST /api/v1/crm/deals — custom field validation', () => {
 
   it('rejects write with 400 when customFields violate definitions', async () => {
     const member = seedOrgMember('org-cf-deal', 'uid-cf-deal-bad', { role: 'member' })
+    setupDefaultPipelineMock('org-cf-deal')
     stageAuth(member)
     ;(getDefinitionsForResource as jest.Mock).mockResolvedValueOnce([
       { id: 'd1', key: 'closed_on', type: 'date', required: true, orgId: 'org-cf-deal', resource: 'deal', label: 'Closed On', order: 0, createdAt: null, updatedAt: null },

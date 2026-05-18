@@ -16,6 +16,7 @@ import { loadCompany } from '@/lib/companies/store'
 import { sanitizeDealForWrite } from '@/lib/crm/deals'
 import { getDefinitionsForResource } from '@/lib/customFields/store'
 import { validateCustomFields } from '@/lib/customFields/validation'
+import { loadPipeline } from '@/lib/pipelines/store'
 import type { Contact } from '@/lib/crm/types'
 
 async function deriveCompanyFromContact(contactId: string, orgId: string): Promise<{ companyId?: string; companyName?: string }> {
@@ -113,13 +114,51 @@ async function handleDealUpdate(
     }
   }
 
+  // ── Stage-change detection (A3 W2-F) ──────────────────────────────────────
+  // Deals no longer have a monolithic `stage` field — they use pipelineId + stageId.
+  // A pipeline change requires an explicit stageId to avoid ambiguity.
+
+  const fromPipelineId: string = typeof before.pipelineId === 'string' ? before.pipelineId : ''
+  const fromStageId: string = typeof before.stageId === 'string' ? before.stageId : ''
+  const toPipelineId: string = typeof body.pipelineId === 'string' ? body.pipelineId : fromPipelineId
+  const toStageId: string = typeof body.stageId === 'string' ? body.stageId : fromStageId
+
+  // Reject pipeline change without an explicit stageId — otherwise we'd land on an
+  // arbitrary stage in the new pipeline which is almost certainly wrong.
+  if (body.pipelineId && body.pipelineId !== fromPipelineId && !body.stageId) {
+    return apiError('Changing pipelineId requires explicit stageId', 400)
+  }
+
+  const stageChanged = toPipelineId !== fromPipelineId || toStageId !== fromStageId
+
+  // Resolve stage metadata for webhook payload and kind-based logic
+  type StageInfo = { id: string; label: string; kind: string } | undefined
+  let fromStage: StageInfo
+  let toStage: StageInfo
+
+  if (stageChanged) {
+    const toLoaded = await loadPipeline(toPipelineId, ctx.orgId)
+    if (!toLoaded) return apiError('Invalid pipelineId', 400)
+    const toPipeline = toLoaded.data
+    const toStageDoc = toPipeline.stages.find(s => s.id === toStageId)
+    if (!toStageDoc) return apiError(`Stage "${toStageId}" not in pipeline`, 400)
+    toStage = { id: toStageDoc.id, label: toStageDoc.label, kind: toStageDoc.kind }
+
+    // fromStage lookup: if pipeline changed, fetch the old pipeline
+    if (toPipelineId === fromPipelineId) {
+      const fromStageDoc = toPipeline.stages.find(s => s.id === fromStageId)
+      if (fromStageDoc) fromStage = { id: fromStageDoc.id, label: fromStageDoc.label, kind: fromStageDoc.kind }
+    } else if (fromPipelineId) {
+      const fromLoaded = await loadPipeline(fromPipelineId, ctx.orgId)
+      const fromStageDoc = fromLoaded?.data.stages.find(s => s.id === fromStageId)
+      if (fromStageDoc) fromStage = { id: fromStageDoc.id, label: fromStageDoc.label, kind: fromStageDoc.kind }
+    }
+  }
+
   // Firestore rejects undefined values — strip them before write
   const sanitized = Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined))
   await ref.update(sanitized)
 
-  const fromStage = before.stage
-  const toStage = typeof body.stage === 'string' ? body.stage : undefined
-  const stageChanged = toStage !== undefined && toStage !== fromStage
   const dealValue = typeof body.value === 'number' ? body.value : before.value
   const dealTitle = typeof before.title === 'string' ? before.title : (id as string)
   const actorRole = ctx.isAgent ? 'ai' : ctx.role === 'admin' ? 'admin' : 'client'
@@ -129,8 +168,14 @@ async function handleDealUpdate(
     try {
       await dispatchWebhook(ctx.orgId, 'deal.stage_changed', {
         id,
-        fromStage,
-        toStage,
+        orgId: ctx.orgId,
+        pipelineId: toPipelineId,
+        stageId: toStageId,
+        stageLabel: toStage?.label,
+        stageKind: toStage?.kind,
+        previousStageId: fromStageId,
+        previousStageLabel: fromStage?.label,
+        previousStageKind: fromStage?.kind,
         value: dealValue,
         updatedByRef: actorRef,
         ownerRef: ownerRef ?? before.ownerRef,
@@ -153,8 +198,16 @@ async function handleDealUpdate(
           contactId,
           dealId: id,
           type: 'stage_change',
-          summary: `Deal moved: ${fromStage} → ${toStage}`,
-          metadata: { fromStage, toStage, dealTitle },
+          summary: `Deal moved: ${fromStage?.label ?? fromStageId} → ${toStage?.label ?? toStageId}`,
+          metadata: {
+            fromPipelineId,
+            fromStageId,
+            fromStageLabel: fromStage?.label,
+            toPipelineId,
+            toStageId,
+            toStageLabel: toStage?.label,
+            dealTitle,
+          },
           createdBy: ctx.isAgent ? undefined : ctx.actor.uid,
           createdByRef: actorRef,
           createdAt: FieldValue.serverTimestamp(),
@@ -165,7 +218,8 @@ async function handleDealUpdate(
       }
     }
 
-    if (toStage === 'won') {
+    // won/lost special handling keyed off stage.kind (A3 W2-F)
+    if (toStage?.kind === 'won' && fromStage?.kind !== 'won') {
       try {
         await dispatchWebhook(ctx.orgId, 'deal.won', {
           id,
@@ -232,7 +286,7 @@ async function handleDealUpdate(
           console.error('[activities] timeline write failed (deal.won)', e)
         }
       }
-    } else if (toStage === 'lost') {
+    } else if (toStage?.kind === 'lost' && fromStage?.kind !== 'lost') {
       try {
         await dispatchWebhook(ctx.orgId, 'deal.lost', {
           id,

@@ -10,6 +10,35 @@ jest.mock('@/lib/webhooks/dispatch', () => ({ dispatchWebhook: jest.fn().mockRes
 jest.mock('@/lib/activity/log', () => ({ logActivity: jest.fn().mockResolvedValue(undefined) }))
 jest.mock('@/lib/email-analytics/attribution-hooks', () => ({ tryAttributeDealWon: jest.fn().mockResolvedValue(undefined) }))
 
+// Mock pipelines store — tenant isolation tests don't test pipeline logic
+jest.mock('@/lib/pipelines/store', () => ({
+  loadPipeline: jest.fn().mockImplementation((_id: string, orgId: string) =>
+    Promise.resolve({
+      ref: {},
+      data: {
+        id: 'pl-default', orgId,
+        stages: [
+          { id: 'discovery', label: 'Discovery', kind: 'open', order: 0, probability: 10 },
+          { id: 'proposal',  label: 'Proposal',  kind: 'open', order: 1, probability: 30 },
+          { id: 'won',       label: 'Won',        kind: 'won',  order: 3, probability: 100 },
+          { id: 'lost',      label: 'Lost',       kind: 'lost', order: 4, probability: 0 },
+        ],
+      },
+    })
+  ),
+  getDefaultPipelineForOrg: jest.fn().mockImplementation((orgId: string) =>
+    Promise.resolve({
+      id: 'pl-default', orgId,
+      stages: [
+        { id: 'discovery', label: 'Discovery', kind: 'open', order: 0, probability: 10 },
+        { id: 'proposal',  label: 'Proposal',  kind: 'open', order: 1, probability: 30 },
+        { id: 'won',       label: 'Won',        kind: 'won',  order: 3, probability: 100 },
+        { id: 'lost',      label: 'Lost',       kind: 'lost', order: 4, probability: 0 },
+      ],
+    })
+  ),
+}))
+
 import { adminAuth, adminDb } from '@/lib/firebase/admin'
 import { seedOrgMember, seedDeal, callAsMember, callAsAgent } from '../../../helpers/crm'
 
@@ -21,8 +50,8 @@ const memberA = seedOrgMember('org-a', 'uid-a', { role: 'member', firstName: 'A'
 const memberB = seedOrgMember('org-b', 'uid-b', { role: 'member', firstName: 'B', lastName: 'B' })
 const adminA = seedOrgMember('org-a', 'uid-admin-a', { role: 'admin', firstName: 'Adm', lastName: 'A' })
 
-const dealA = seedDeal('org-a', { id: 'a1', title: 'Deal A', stage: 'discovery', value: 100 })
-const dealB = seedDeal('org-b', { id: 'b1', title: 'Deal B', stage: 'discovery', value: 200 })
+const dealA = seedDeal('org-a', { id: 'a1', title: 'Deal A', pipelineId: 'pl-default', stageId: 'discovery', value: 100 })
+const dealB = seedDeal('org-b', { id: 'b1', title: 'Deal B', pipelineId: 'pl-default', stageId: 'discovery', value: 200 })
 
 /**
  * PR 3 pattern 3: `deals.where('orgId').get()` mock RESPECTS the filter.
@@ -144,7 +173,8 @@ describe('cross-tenant isolation: deals (consolidated)', () => {
   it('member of A POST writes createdByRef.displayName=A A scoped to org-a', async () => {
     const captured = setupIsolationFixtures()
     const req = callAsMember(memberA, 'POST', '/api/v1/crm/deals', {
-      contactId: 'c1', title: 'New deal', value: 50, currency: 'ZAR', stage: 'discovery',
+      contactId: 'c1', title: 'New deal', value: 50, currency: 'ZAR',
+      pipelineId: 'pl-default', stageId: 'discovery',
     })
     const { POST } = await import('@/app/api/v1/crm/deals/route')
     const res = await POST(req)
@@ -158,7 +188,8 @@ describe('cross-tenant isolation: deals (consolidated)', () => {
   it('Bearer with X-Org-Id=org-a POST writes AGENT_PIP_REF scoped to org-a', async () => {
     const captured = setupIsolationFixtures()
     const req = callAsAgent('org-a', 'POST', '/api/v1/crm/deals', {
-      contactId: 'c1', title: 'A deal', value: 0, currency: 'ZAR', stage: 'discovery',
+      contactId: 'c1', title: 'A deal', value: 0, currency: 'ZAR',
+      pipelineId: 'pl-default', stageId: 'discovery',
     })
     const { POST } = await import('@/app/api/v1/crm/deals/route')
     const res = await POST(req)
@@ -218,11 +249,11 @@ describe('cross-tenant isolation: deals (consolidated)', () => {
     expect(res.status).toBe(404)
   })
 
-  it('member PUT setting stage to won fires deal.won webhook', async () => {
+  it('member PUT stageId to won fires deal.won webhook', async () => {
     setupIsolationFixtures()
     const { dispatchWebhook } = await import('@/lib/webhooks/dispatch')
     ;(dispatchWebhook as jest.Mock).mockClear()
-    const req = callAsMember(memberA, 'PUT', '/api/v1/crm/deals/a1', { stage: 'won' })
+    const req = callAsMember(memberA, 'PUT', '/api/v1/crm/deals/a1', { stageId: 'won' })
     const { PUT } = await import('@/app/api/v1/crm/deals/[id]/route')
     const res = await PUT(req, routeCtx('a1'))
     expect(res.status).toBeLessThan(300)
