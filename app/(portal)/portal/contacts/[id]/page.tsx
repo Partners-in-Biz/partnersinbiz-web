@@ -11,6 +11,7 @@ import { CompanyPicker } from '@/components/crm/CompanyPicker'
 import { CustomFieldsSection } from '@/components/crm/CustomFieldsSection'
 import { ScoreChip } from '@/components/crm/ScoreChip'
 import type { CustomFieldDefinition } from '@/lib/customFields/types'
+import type { MemberRef } from '@/lib/orgMembers/memberRef'
 
 interface ContactRecord {
   id?: string
@@ -49,8 +50,10 @@ interface ActivityRecord {
   id: string
   type?: string
   summary?: string
+  notes?: string
   createdAt?: unknown
   metadata?: Record<string, unknown>
+  createdByRef?: MemberRef
 }
 
 const ACTIVITY_ICONS: Record<string, string> = {
@@ -84,6 +87,15 @@ export default function PortalContactDetailPage() {
   const [editCustomFields, setEditCustomFields] = useState<Record<string, unknown>>({})
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+
+  // B2: Log activity quick actions
+  const [logType, setLogType] = useState<string | null>(null)
+  const [logSummary, setLogSummary] = useState('')
+  const [logSaving, setLogSaving] = useState(false)
+  const [logError, setLogError] = useState<string | null>(null)
+
+  // B1: Activity page for load-more
+  const [activityPage, setActivityPage] = useState(1)
 
   useEffect(() => {
     if (!id) return
@@ -126,7 +138,7 @@ export default function PortalContactDetailPage() {
     fetch(`/api/v1/crm/activities?contactId=${id}&limit=50`)
       .then((r) => r.json())
       .then((b) => {
-        setActivities(b.data ?? [])
+        setActivities(b.data?.activities ?? b.data ?? [])
         setActivitiesLoading(false)
       })
       .catch(() => setActivitiesLoading(false))
@@ -163,6 +175,50 @@ export default function PortalContactDetailPage() {
       setError(err instanceof Error ? err.message : 'Save failed')
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function loadMoreActivities() {
+    const nextPage = activityPage + 1
+    try {
+      const r = await fetch(`/api/v1/crm/activities?contactId=${id}&limit=50&page=${nextPage}`)
+      const b = await r.json()
+      const more: ActivityRecord[] = b.data?.activities ?? b.data ?? []
+      setActivities((prev) => [...prev, ...more])
+      setActivityPage(nextPage)
+    } catch {
+      // silent — user can retry by clicking again
+    }
+  }
+
+  async function handleLogActivity() {
+    if (!logSummary.trim()) return
+    setLogSaving(true)
+    setLogError(null)
+    try {
+      const res = await fetch('/api/v1/crm/activities', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contactId: id,
+          type: logType,
+          summary: logSummary.trim(),
+        }),
+      })
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}))
+        throw new Error((errBody as { error?: string }).error ?? 'Failed to log activity')
+      }
+      const body = await res.json() as { data?: ActivityRecord; success?: boolean }
+      const newActivity: ActivityRecord = body.data ?? { id: Date.now().toString(), type: logType ?? undefined, summary: logSummary.trim(), createdAt: new Date() }
+      setActivities((prev) => [newActivity, ...prev])
+      setLogType(null)
+      setLogSummary('')
+      setLogError(null)
+    } catch (err) {
+      setLogError(err instanceof Error ? err.message : 'Failed to log activity')
+    } finally {
+      setLogSaving(false)
     }
   }
 
@@ -407,6 +463,56 @@ export default function PortalContactDetailPage() {
                 {activitiesLoading ? '…' : `${activities.length} record${activities.length === 1 ? '' : 's'}`}
               </span>
             </div>
+
+            {/* B2: Log activity quick actions */}
+            <div className="px-5 pt-4">
+              <div className="flex gap-2 mb-3 flex-wrap">
+                {([
+                  { type: 'call', icon: 'call', label: 'Call' },
+                  { type: 'email_sent', icon: 'mail', label: 'Email' },
+                  { type: 'note', icon: 'notes', label: 'Note' },
+                ] as const).map(({ type, icon, label }) => (
+                  <button
+                    key={type}
+                    onClick={() => setLogType(logType === type ? null : type)}
+                    className={`btn-pib-secondary text-xs flex items-center gap-1 ${logType === type ? 'ring-1 ring-[var(--color-pib-accent)]' : ''}`}
+                  >
+                    <span className="material-symbols-outlined text-[14px]">{icon}</span>
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              {logType && (
+                <div className="bento-card !p-4 mb-4 space-y-3">
+                  <textarea
+                    rows={3}
+                    placeholder={`Add ${logType} notes…`}
+                    value={logSummary}
+                    onChange={(e) => setLogSummary(e.target.value)}
+                    className="w-full text-sm bg-transparent border border-[var(--color-pib-line)] rounded-lg p-2 resize-none"
+                  />
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={handleLogActivity}
+                      disabled={logSaving || !logSummary.trim()}
+                      className="btn-pib-accent text-xs disabled:opacity-50"
+                    >
+                      {logSaving ? 'Saving…' : 'Save'}
+                    </button>
+                    <button
+                      onClick={() => { setLogType(null); setLogSummary(''); setLogError(null) }}
+                      className="text-xs text-[var(--color-pib-text-muted)]"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                  {logError && <p className="text-xs text-red-400">{logError}</p>}
+                </div>
+              )}
+            </div>
+
+            {/* B1: Activity timeline */}
             {activitiesLoading ? (
               <div className="p-5 space-y-2">
                 {[...Array(3)].map((_, i) => (
@@ -423,33 +529,41 @@ export default function PortalContactDetailPage() {
                 </p>
               </div>
             ) : (
-              <div className="divide-y divide-[var(--color-pib-line)]">
-                {activities.map((a) => {
-                  const icon = ACTIVITY_ICONS[String(a.type ?? '')] ?? 'circle'
-                  const campaignId = (a.metadata as { campaignId?: string } | undefined)?.campaignId
-                  return (
-                    <div key={a.id} className="px-5 py-3 flex items-center gap-4">
-                      <span
-                        className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)] shrink-0"
-                        title={a.type || 'activity'}
-                      >
-                        {icon}
+              <div className="px-5 pb-4">
+                {activities.map((a) => (
+                  <div key={a.id} className="flex gap-3 py-3 border-b border-[var(--color-pib-line)] last:border-0">
+                    {/* Icon */}
+                    <div className="shrink-0 w-8 h-8 rounded-full bg-[var(--color-pib-surface)] border border-[var(--color-pib-line)] flex items-center justify-center">
+                      <span className="material-symbols-outlined text-[14px] text-[var(--color-pib-text-muted)]">
+                        {ACTIVITY_ICONS[String(a.type ?? '')] ?? 'circle'}
                       </span>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm truncate">{a.summary || a.type || '(activity)'}</p>
-                        <p className="text-[11px] text-[var(--color-pib-text-muted)] font-mono mt-0.5">
-                          {fmtTimestamp(a.createdAt) || ''}
-                          {campaignId ? ` · Campaign: ${campaignId}` : ''}
-                        </p>
-                      </div>
                     </div>
-                  )
-                })}
+                    {/* Content */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-[var(--color-pib-text)]">{a.summary ?? a.notes ?? a.type}</p>
+                      <p className="text-xs text-[var(--color-pib-text-muted)] mt-0.5">
+                        {a.createdByRef?.displayName ?? 'System'} · {fmtTimestamp(a.createdAt)}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+                {activities.length === 50 && (
+                  <button
+                    onClick={loadMoreActivities}
+                    className="text-sm text-[var(--color-pib-text-muted)] w-full py-2 hover:text-[var(--color-pib-text)]"
+                  >
+                    Load more
+                  </button>
+                )}
               </div>
             )}
           </div>
 
-          <ContactDealsPanel contactId={id} />
+          <ContactDealsPanel
+            contactId={id}
+            contactName={contact.name}
+            orgId={typeof contact.orgId === 'string' ? contact.orgId : ''}
+          />
         </section>
       </div>
     </div>

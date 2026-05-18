@@ -7,7 +7,7 @@
  *
  * type supports comma-separated values: type=note,email_sent (up to 10)
  */
-import { FieldValue } from 'firebase-admin/firestore'
+import { FieldValue, Timestamp } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { withCrmAuth } from '@/lib/auth/crm-middleware'
 import { apiSuccess, apiError } from '@/lib/api/response'
@@ -120,6 +120,16 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
     if (derived.companyId) resolvedCompanyId = derived.companyId
   }
 
+  // occurredAt: caller-supplied timestamp for when the activity actually happened.
+  // Falls back to server timestamp so existing callers are unaffected.
+  let occurredAt: Timestamp | ReturnType<typeof FieldValue.serverTimestamp>
+  if (body.occurredAt && typeof body.occurredAt === 'string') {
+    const d = new Date(body.occurredAt)
+    occurredAt = isNaN(d.getTime()) ? FieldValue.serverTimestamp() : Timestamp.fromDate(d)
+  } else {
+    occurredAt = FieldValue.serverTimestamp()
+  }
+
   const docData = {
     orgId: ctx.orgId,
     contactId,
@@ -131,6 +141,7 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
     createdBy: ctx.isAgent ? undefined : ctx.actor.uid,
     createdByRef: actorRef,
     createdAt: FieldValue.serverTimestamp(),
+    occurredAt,
   }
 
   // Firestore rejects undefined values — strip them before write

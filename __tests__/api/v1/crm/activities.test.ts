@@ -9,6 +9,22 @@ jest.mock('@/lib/companies/store', () => ({
   loadCompany: jest.fn(),
 }))
 
+jest.mock('firebase-admin/firestore', () => {
+  const serverTimestampSentinel = { _type: 'serverTimestamp' }
+  return {
+    FieldValue: {
+      serverTimestamp: () => serverTimestampSentinel,
+      delete: () => ({ _type: 'deleteField' }),
+      arrayUnion: (...vals: unknown[]) => ({ _type: 'arrayUnion', vals }),
+      arrayRemove: (...vals: unknown[]) => ({ _type: 'arrayRemove', vals }),
+    },
+    Timestamp: {
+      fromDate: (d: Date) => ({ _type: 'timestamp', isoString: d.toISOString(), seconds: Math.floor(d.getTime() / 1000), nanoseconds: 0 }),
+      now: () => ({ _type: 'timestamp', seconds: 0, nanoseconds: 0 }),
+    },
+  }
+})
+
 import { adminAuth, adminDb } from '@/lib/firebase/admin'
 import { loadCompany } from '@/lib/companies/store'
 import { seedOrgMember, callAsMember, callAsAgent } from '../../../helpers/crm'
@@ -218,5 +234,70 @@ describe('POST /api/v1/crm/activities — companyId wiring (A1 W3-K)', () => {
     expect(res.status).toBe(201)
     const written = captured.mock.calls[0][0]
     expect(written.companyId).toBeUndefined()
+  })
+})
+
+describe('POST /api/v1/crm/activities — occurredAt field', () => {
+  beforeEach(() => {
+    jest.clearAllMocks()
+    ;(loadCompany as jest.Mock).mockReset()
+  })
+
+  it('stores occurredAt as Timestamp when valid ISO date is provided', async () => {
+    const member = seedOrgMember('org-occ', 'uid-occ-1', { role: 'member' })
+    const captured = jest.fn().mockResolvedValue({ id: 'act-occ-1' })
+    stageAuth(member, {}, { capturedActivityAdd: captured })
+
+    const occurredAt = '2025-03-15T10:30:00.000Z'
+    const req = callAsMember(member, 'POST', '/api/v1/crm/activities', {
+      contactId: 'c1',
+      type: 'call',
+      summary: 'Called on a specific date',
+      occurredAt,
+    })
+    const { POST } = await import('@/app/api/v1/crm/activities/route')
+    const res = await POST(req)
+    expect(res.status).toBe(201)
+    const written = captured.mock.calls[0][0]
+    // occurredAt should be a Timestamp sentinel, not serverTimestamp
+    expect(written.occurredAt._type).toBe('timestamp')
+    expect(written.occurredAt.isoString).toBe(occurredAt)
+    // createdAt remains the server timestamp
+    expect(written.createdAt._type).toBe('serverTimestamp')
+  })
+
+  it('falls back to serverTimestamp for occurredAt when field is omitted', async () => {
+    const member = seedOrgMember('org-occ', 'uid-occ-2', { role: 'member' })
+    const captured = jest.fn().mockResolvedValue({ id: 'act-occ-2' })
+    stageAuth(member, {}, { capturedActivityAdd: captured })
+
+    const req = callAsMember(member, 'POST', '/api/v1/crm/activities', {
+      contactId: 'c1',
+      type: 'note',
+      summary: 'No occurredAt supplied',
+    })
+    const { POST } = await import('@/app/api/v1/crm/activities/route')
+    const res = await POST(req)
+    expect(res.status).toBe(201)
+    const written = captured.mock.calls[0][0]
+    expect(written.occurredAt._type).toBe('serverTimestamp')
+  })
+
+  it('falls back to serverTimestamp when occurredAt is an invalid date string', async () => {
+    const member = seedOrgMember('org-occ', 'uid-occ-3', { role: 'member' })
+    const captured = jest.fn().mockResolvedValue({ id: 'act-occ-3' })
+    stageAuth(member, {}, { capturedActivityAdd: captured })
+
+    const req = callAsMember(member, 'POST', '/api/v1/crm/activities', {
+      contactId: 'c1',
+      type: 'note',
+      summary: 'Bad date',
+      occurredAt: 'not-a-date',
+    })
+    const { POST } = await import('@/app/api/v1/crm/activities/route')
+    const res = await POST(req)
+    expect(res.status).toBe(201)
+    const written = captured.mock.calls[0][0]
+    expect(written.occurredAt._type).toBe('serverTimestamp')
   })
 })

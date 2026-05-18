@@ -37,6 +37,7 @@ export const GET = withCrmAuth('viewer', async (req, ctx) => {
   const pipelineId = searchParams.get('pipelineId')
   const stageId = searchParams.get('stageId')
   const contactId = searchParams.get('contactId')
+  const search = searchParams.get('search') ?? ''
   const limit = Math.min(parseInt(searchParams.get('limit') ?? '100'), 500)
   const page = Math.max(parseInt(searchParams.get('page') ?? '1'), 1)
 
@@ -52,10 +53,16 @@ export const GET = withCrmAuth('viewer', async (req, ctx) => {
     .offset((page - 1) * limit)
     .get()
 
-  const deals: Deal[] = snapshot.docs
+  let deals: Deal[] = snapshot.docs
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .map((doc: any) => ({ id: doc.id, ...doc.data() }))
     .filter((d: Deal) => d.deleted !== true)
+
+  if (search) {
+    const q = search.toLowerCase()
+    deals = deals.filter((d) => d.title?.toLowerCase().includes(q))
+  }
+
   return apiSuccess(deals, 200, { total: deals.length, page, limit })
 })
 

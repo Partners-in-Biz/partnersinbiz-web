@@ -484,4 +484,164 @@ describe('POST /api/v1/crm/contacts/bulk', () => {
     const res = await POST(req)
     expect(res.status).toBe(401)
   })
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // DELETE action
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  describe('DELETE action', () => {
+    beforeEach(() => {
+      jest.clearAllMocks()
+    })
+
+    it('soft-deletes all matching own-org contacts → updated: 3, skipped: 0', async () => {
+      const member = seedOrgMember('org-A', 'uid-del1', { role: 'member' })
+      const ids = ['d1', 'd2', 'd3']
+      const { batchUpdateMock, batchCommitMock } = stageAuth(member, orgContacts('org-A', ids))
+
+      const req = callAsMember(member, 'POST', '/api/v1/crm/contacts/bulk', {
+        ids,
+        patch: { delete: true },
+      })
+      const { POST } = await import('@/app/api/v1/crm/contacts/bulk/route')
+      const res = await POST(req)
+      expect(res.status).toBe(200)
+      const body = await res.json()
+      expect(body.success).toBe(true)
+      expect(body.data.updated).toBe(3)
+      expect(body.data.skipped).toBe(0)
+      expect(body.data.failed).toHaveLength(0)
+      expect(batchUpdateMock).toHaveBeenCalledTimes(3)
+      expect(batchCommitMock).toHaveBeenCalledTimes(1)
+      // Each update should set deleted: true
+      for (const call of batchUpdateMock.mock.calls) {
+        expect(call[1].deleted).toBe(true)
+        expect(call[1].updatedAt._type).toBe('serverTimestamp')
+      }
+    })
+
+    it('skips contacts belonging to another org', async () => {
+      const member = seedOrgMember('org-A', 'uid-del2', { role: 'member' })
+      const ownId = 'd-own'
+      const crossId = 'd-cross'
+      const docs: ContactDocMap = {
+        [ownId]: makeContactSnap(ownId, 'org-A'),
+        [crossId]: makeContactSnap(crossId, 'org-B'),
+      }
+      const { batchUpdateMock } = stageAuth(member, docs)
+
+      const req = callAsMember(member, 'POST', '/api/v1/crm/contacts/bulk', {
+        ids: [ownId, crossId],
+        patch: { delete: true },
+      })
+      const { POST } = await import('@/app/api/v1/crm/contacts/bulk/route')
+      const res = await POST(req)
+      const body = await res.json()
+      expect(res.status).toBe(200)
+      expect(body.data.updated).toBe(1)
+      expect(body.data.skipped).toBe(1)
+      expect(batchUpdateMock).toHaveBeenCalledTimes(1)
+    })
+
+    it('skips already-deleted contacts', async () => {
+      const member = seedOrgMember('org-A', 'uid-del3', { role: 'member' })
+      const activeId = 'd-active'
+      const alreadyDelId = 'd-already-deleted'
+      const docs: ContactDocMap = {
+        [activeId]: makeContactSnap(activeId, 'org-A'),
+        [alreadyDelId]: makeContactSnap(alreadyDelId, 'org-A', { deleted: true }),
+      }
+      const { batchUpdateMock } = stageAuth(member, docs)
+
+      const req = callAsMember(member, 'POST', '/api/v1/crm/contacts/bulk', {
+        ids: [activeId, alreadyDelId],
+        patch: { delete: true },
+      })
+      const { POST } = await import('@/app/api/v1/crm/contacts/bulk/route')
+      const res = await POST(req)
+      const body = await res.json()
+      expect(res.status).toBe(200)
+      expect(body.data.updated).toBe(1)
+      expect(body.data.skipped).toBe(1)
+      expect(batchUpdateMock).toHaveBeenCalledTimes(1)
+    })
+
+    it('returns correct updated/skipped counts across mixed contacts', async () => {
+      const member = seedOrgMember('org-A', 'uid-del4', { role: 'member' })
+      const docs: ContactDocMap = {
+        'dm1': makeContactSnap('dm1', 'org-A'),
+        'dm2': makeContactSnap('dm2', 'org-A'),
+        'dm3': makeContactSnap('dm3', 'org-B'),         // cross-org
+        'dm4': makeContactSnap('dm4', 'org-A', { deleted: true }), // already deleted
+        'dm5': missingSnap('dm5'),                       // missing
+      }
+      stageAuth(member, docs)
+
+      const req = callAsMember(member, 'POST', '/api/v1/crm/contacts/bulk', {
+        ids: ['dm1', 'dm2', 'dm3', 'dm4', 'dm5'],
+        patch: { delete: true },
+      })
+      const { POST } = await import('@/app/api/v1/crm/contacts/bulk/route')
+      const res = await POST(req)
+      const body = await res.json()
+      expect(res.status).toBe(200)
+      expect(body.data.updated).toBe(2)   // dm1, dm2
+      expect(body.data.skipped).toBe(3)   // dm3 (cross-org), dm4 (deleted), dm5 (missing)
+    })
+
+    it('returns 400 when delete is combined with stage', async () => {
+      const member = seedOrgMember('org-A', 'uid-del5', { role: 'member' })
+      stageAuth(member, orgContacts('org-A', ['d1']))
+
+      const req = callAsMember(member, 'POST', '/api/v1/crm/contacts/bulk', {
+        ids: ['d1'],
+        patch: { delete: true, stage: 'won' },
+      })
+      const { POST } = await import('@/app/api/v1/crm/contacts/bulk/route')
+      const res = await POST(req)
+      expect(res.status).toBe(400)
+      expect((await res.json()).error).toMatch(/cannot be combined/i)
+    })
+
+    it('returns 400 when delete is combined with assignedTo', async () => {
+      const member = seedOrgMember('org-A', 'uid-del6', { role: 'member' })
+      stageAuth(member, orgContacts('org-A', ['d1']))
+
+      const req = callAsMember(member, 'POST', '/api/v1/crm/contacts/bulk', {
+        ids: ['d1'],
+        patch: { delete: true, assignedTo: 'uid-other' },
+      })
+      const { POST } = await import('@/app/api/v1/crm/contacts/bulk/route')
+      const res = await POST(req)
+      expect(res.status).toBe(400)
+      expect((await res.json()).error).toMatch(/cannot be combined/i)
+    })
+
+    it('returns 400 for empty ids array with delete action', async () => {
+      const member = seedOrgMember('org-A', 'uid-del7', { role: 'member' })
+      stageAuth(member)
+
+      const req = callAsMember(member, 'POST', '/api/v1/crm/contacts/bulk', {
+        ids: [],
+        patch: { delete: true },
+      })
+      const { POST } = await import('@/app/api/v1/crm/contacts/bulk/route')
+      const res = await POST(req)
+      expect(res.status).toBe(400)
+      expect((await res.json()).error).toMatch(/non-empty/i)
+    })
+
+    it('viewer gets 403 for delete action', async () => {
+      const viewer = seedOrgMember('org-A', 'uid-del-viewer', { role: 'viewer' })
+      stageAuth(viewer, orgContacts('org-A', ['d1']))
+
+      const req = callAsMember(viewer, 'POST', '/api/v1/crm/contacts/bulk', {
+        ids: ['d1'],
+        patch: { delete: true },
+      })
+      const { POST } = await import('@/app/api/v1/crm/contacts/bulk/route')
+      const res = await POST(req)
+      expect(res.status).toBe(403)
+    })
+  })
 })

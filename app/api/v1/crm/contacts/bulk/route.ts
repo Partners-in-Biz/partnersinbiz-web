@@ -9,6 +9,7 @@
  *       stage?: ContactStage
  *       type?: ContactType
  *       tags?: { add?: string[], remove?: string[] }   // arrayUnion / arrayRemove
+ *       delete?: true             // soft-delete — cannot be mixed with other patch fields
  *     }
  *   }
  *
@@ -19,6 +20,7 @@
  * Notes:
  * - Contacts that don't exist, belong to a different org, or are soft-deleted are skipped (not failed).
  * - tags.add and tags.remove cannot both be set in the same request (400).
+ * - patch.delete cannot be combined with any other patch field (400).
  * - No webhooks / activity writes for bulk ops (volume concerns; deferred).
  */
 import { FieldValue } from 'firebase-admin/firestore'
@@ -71,6 +73,59 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
   // ── Validate patch ────────────────────────────────────────────────────────
   const patch = body.patch
   if (!patch || typeof patch !== 'object') return apiError('patch object required', 400)
+
+  // ── Delete action — mutually exclusive with all other patch fields ─────────
+  if (patch.delete === true) {
+    if (patch.assignedTo !== undefined || patch.stage !== undefined || patch.type !== undefined || patch.tags !== undefined) {
+      return apiError('patch.delete cannot be combined with other patch fields', 400)
+    }
+
+    // Soft-delete path — bypass normal patch processing entirely
+    const updated: string[] = []
+    const skipped: string[] = []
+    const failed: string[] = []
+
+    for (let i = 0; i < ids.length; i += IN_CHUNK) {
+      const chunk = ids.slice(i, i + IN_CHUNK)
+      const docs = await Promise.all(
+        chunk.map((id) => adminDb.collection('contacts').doc(id).get()),
+      )
+
+      const batch = adminDb.batch()
+      let inBatch = 0
+      const batchIds: string[] = []
+
+      for (let j = 0; j < docs.length; j++) {
+        const snap = docs[j]
+        const id = chunk[j]
+
+        if (!snap.exists) { skipped.push(id); continue }
+        const data = snap.data()!
+        if (data.orgId !== ctx.orgId) { skipped.push(id); continue }
+        if (data.deleted === true) { skipped.push(id); continue }
+
+        batch.update(snap.ref, {
+          deleted: true,
+          updatedAt: FieldValue.serverTimestamp(),
+          updatedByRef: ctx.actor,
+        })
+        inBatch++
+        batchIds.push(id)
+      }
+
+      if (inBatch > 0) {
+        try {
+          await batch.commit()
+          updated.push(...batchIds)
+        } catch (e) {
+          console.error('[bulk-delete] batch commit failed for chunk', i, e)
+          failed.push(...batchIds)
+        }
+      }
+    }
+
+    return apiSuccess({ updated: updated.length, skipped: skipped.length, failed })
+  }
 
   // Build the per-document update payload
   const updateData: Record<string, unknown> = {}

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import type { Deal } from '@/lib/crm/types'
 import type { Pipeline, PipelineStage } from '@/lib/pipelines/types'
+import { DealDrawer } from './DealDrawer'
 
 function fmtCloseDate(ts: unknown): string {
   if (!ts || typeof ts !== 'object') return ''
@@ -49,12 +50,15 @@ function kindColor(kind: string): string {
 
 interface Props {
   contactId: string
+  contactName?: string
+  orgId?: string
 }
 
-export function ContactDealsPanel({ contactId }: Props) {
+export function ContactDealsPanel({ contactId, contactName: _contactName, orgId = '' }: Props) {
   const [deals, setDeals] = useState<Deal[]>([])
   const [pipelinesById, setPipelinesById] = useState<Map<string, Pipeline>>(new Map())
   const [loading, setLoading] = useState(true)
+  const [showDealDrawer, setShowDealDrawer] = useState(false)
 
   useEffect(() => {
     if (!contactId) return
@@ -91,9 +95,18 @@ export function ContactDealsPanel({ contactId }: Props) {
     <div className="pib-card-section">
       <div className="px-5 py-3.5 border-b border-[var(--color-pib-line)] bg-white/[0.02] flex items-center justify-between">
         <p className="eyebrow !text-[10px]">Deals</p>
-        <span className="text-[11px] text-[var(--color-pib-text-muted)] font-mono">
-          {loading ? '…' : `${deals.length} record${deals.length === 1 ? '' : 's'}`}
-        </span>
+        <div className="flex items-center gap-3">
+          <span className="text-[11px] text-[var(--color-pib-text-muted)] font-mono">
+            {loading ? '…' : `${deals.length} record${deals.length === 1 ? '' : 's'}`}
+          </span>
+          <button
+            onClick={() => setShowDealDrawer(true)}
+            className="btn-pib-secondary text-xs flex items-center gap-1"
+          >
+            <span className="material-symbols-outlined text-[14px]">add</span>
+            New deal
+          </button>
+        </div>
       </div>
 
       {loading ? (
@@ -148,6 +161,33 @@ export function ContactDealsPanel({ contactId }: Props) {
             )
           })}
         </div>
+      )}
+
+      {showDealDrawer && (
+        <DealDrawer
+          defaultContactId={contactId}
+          orgId={orgId}
+          onSaved={(dealId) => {
+            setShowDealDrawer(false)
+            // Fetch the newly created deal and prepend it to the list
+            fetch(`/api/v1/crm/deals/${dealId}`)
+              .then(r => r.json())
+              .then(b => {
+                const newDeal = b.data as Deal | undefined
+                if (newDeal) {
+                  setDeals(prev => [newDeal, ...prev])
+                }
+              })
+              .catch(() => {
+                // Fallback: reload all deals for this contact
+                fetch(`/api/v1/crm/deals?contactId=${encodeURIComponent(contactId)}&limit=100`)
+                  .then(r => r.json())
+                  .then(b => setDeals(b.data ?? []))
+                  .catch(() => undefined)
+              })
+          }}
+          onClose={() => setShowDealDrawer(false)}
+        />
       )}
     </div>
   )
