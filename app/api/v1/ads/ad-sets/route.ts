@@ -11,6 +11,7 @@ import { createAdGroup } from '@/lib/ads/providers/google/adgroups'
 import { updateAdSet } from '@/lib/ads/adsets/store'
 import type { CreateAdSetInput, AdEntityStatus, AdPlatform } from '@/lib/ads/types'
 import type { LinkedinAdSetExtension } from '@/lib/ads/providers/linkedin/types'
+import type { TiktokOptimizationGoal } from '@/lib/ads/providers/tiktok/types'
 
 export const GET = withAuth('admin', async (req: NextRequest) => {
   const orgId = req.headers.get('X-Org-Id')
@@ -42,6 +43,19 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
       costType?: LinkedinAdSetExtension['liCostType']
       dailyBudgetMajor?: number
       currencyCode?: string
+    }
+    /** TikTok AdGroup options (only used when platform === 'tiktok') */
+    tiktokAds?: {
+      optimizationGoal?: TiktokOptimizationGoal
+      billingEvent?: 'CPC' | 'CPM' | 'OCPM' | 'CPV'
+      bidType?: 'BID_TYPE_NO_BID' | 'BID_TYPE_CUSTOM'
+      bidPriceMajor?: number
+      budgetMajor?: number
+      budgetMode?: 'BUDGET_MODE_DAY' | 'BUDGET_MODE_TOTAL' | 'BUDGET_MODE_INFINITE'
+      pacing?: 'PACING_MODE_SMOOTH' | 'PACING_MODE_FAST'
+      placements?: ('PLACEMENT_TIKTOK' | 'PLACEMENT_PANGLE' | 'PLACEMENT_TOPBUZZ')[]
+      scheduleStartTime?: string
+      scheduleEndTime?: string
     }
   }
 
@@ -134,6 +148,53 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
       },
     } as any)
   }
+  if (platform === 'tiktok') {
+    const conn = await getConnection({ orgId: ctx.orgId, platform: 'tiktok' })
+    if (!conn) return apiError('No TikTok ads connection for org', 400)
+    const accessToken = decryptAccessToken(conn)
+    const tiktokMeta = ((conn.meta ?? {}) as Record<string, unknown>).tiktok as Record<string, unknown> | undefined
+    const advertiserId = typeof tiktokMeta?.selectedAdvertiserId === 'string' ? tiktokMeta.selectedAdvertiserId : undefined
+    if (!advertiserId) return apiError('No advertiserId set on TikTok connection', 400)
+
+    const tiktokCampaignData = (campaign.providerData as Record<string, unknown>)?.tiktok as Record<string, unknown> | undefined
+    const campaignId = typeof tiktokCampaignData?.campaignId === 'string' ? tiktokCampaignData.campaignId : undefined
+    if (!campaignId) return apiError('Parent campaign has no TikTok campaign id', 400)
+
+    const { tiktokObjectiveFromCanonical } = await import('@/lib/ads/providers/tiktok/mappers')
+    const objective = tiktokObjectiveFromCanonical(campaign.objective)
+
+    const { createAdGroup: tiktokCreateAdGroup } = await import('@/lib/ads/providers/tiktok/adgroups')
+    const result = await tiktokCreateAdGroup({
+      advertiserId,
+      accessToken,
+      canonical: adSet,
+      campaignId,
+      objective,
+      optimizationGoal: body.tiktokAds?.optimizationGoal,
+      billingEvent: body.tiktokAds?.billingEvent,
+      bidType: body.tiktokAds?.bidType,
+      bidPriceMajor: body.tiktokAds?.bidPriceMajor,
+      budgetMajor: body.tiktokAds?.budgetMajor,
+      budgetMode: body.tiktokAds?.budgetMode,
+      pacing: body.tiktokAds?.pacing,
+      placements: body.tiktokAds?.placements,
+      scheduleStartTime: body.tiktokAds?.scheduleStartTime,
+      scheduleEndTime: body.tiktokAds?.scheduleEndTime,
+    })
+
+    await updateAdSet(adSet.id, {
+      providerData: {
+        ...(adSet.providerData ?? {}),
+        tiktok: {
+          ...((adSet.providerData as Record<string, unknown>)?.tiktok as Record<string, unknown> | undefined ?? {}),
+          adgroupId: result.adgroupId,
+          campaignId,
+          tkStatus: 'DISABLE',
+        },
+      },
+    } as any)
+  }
+
   // Meta: no provider push on POST — ad sets are pushed to Meta on /launch
 
   return apiSuccess(adSet, 201)

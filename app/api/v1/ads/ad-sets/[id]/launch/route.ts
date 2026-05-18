@@ -6,6 +6,7 @@ import { getAdSet, updateAdSet, setAdSetMetaId } from '@/lib/ads/adsets/store'
 import { getCampaign } from '@/lib/ads/campaigns/store'
 import { requireMetaContext } from '@/lib/ads/api-helpers'
 import { metaProvider } from '@/lib/ads/providers/meta'
+import { getConnection, decryptAccessToken } from '@/lib/ads/connections/store'
 import { logAdSetActivity } from '@/lib/ads/activity'
 
 export const POST = withAuth(
@@ -18,28 +19,44 @@ export const POST = withAuth(
     const adSet = await getAdSet(id)
     if (!adSet || adSet.orgId !== orgId) return apiError('Ad set not found', 404)
 
-    const ctx = await requireMetaContext(req)
-    if (ctx instanceof Response) return ctx
-
-    // Resolve parent campaign's Meta ID — required for Meta ad set creation
-    const campaign = await getCampaign(adSet.campaignId)
-    const metaCampaignId = (campaign?.providerData?.meta as { id?: string } | undefined)?.id
-    if (!metaCampaignId) {
-      return apiError('Parent campaign not yet on Meta — launch the campaign first', 400)
-    }
-
-    // Set status ACTIVE locally; metaProvider.upsertAdSet will create OR update
+    // Set status ACTIVE locally
     await updateAdSet(id, { status: 'ACTIVE' })
 
-    const result = (await metaProvider.upsertAdSet!({
-      accessToken: ctx.accessToken,
-      adAccountId: ctx.adAccountId,
-      adSet: { ...adSet, status: 'ACTIVE' } as any,
-      metaCampaignId,
-    })) as { metaAdSetId: string; created: boolean }
+    if (adSet.platform === 'tiktok') {
+      const tiktokData = (adSet.providerData as Record<string, unknown>)?.tiktok as Record<string, unknown> | undefined
+      const adgroupId = typeof tiktokData?.adgroupId === 'string' ? tiktokData.adgroupId : undefined
+      if (!adgroupId) return apiError('Ad set has no TikTok adgroup id — create first', 400)
 
-    if (result.created) {
-      await setAdSetMetaId(id, result.metaAdSetId)
+      const conn = await getConnection({ orgId, platform: 'tiktok' })
+      if (!conn) return apiError('No TikTok ads connection for org', 400)
+      const accessToken = decryptAccessToken(conn)
+      const tiktokMeta = ((conn.meta ?? {}) as Record<string, unknown>).tiktok as Record<string, unknown> | undefined
+      const advertiserId = typeof tiktokMeta?.selectedAdvertiserId === 'string' ? tiktokMeta.selectedAdvertiserId : undefined
+      if (!advertiserId) return apiError('No advertiserId set on TikTok connection', 400)
+
+      const { resumeAdGroup: tiktokResumeAdGroup } = await import('@/lib/ads/providers/tiktok/adgroups')
+      await tiktokResumeAdGroup({ advertiserId, accessToken, adgroupId })
+    } else {
+      const ctx = await requireMetaContext(req)
+      if (ctx instanceof Response) return ctx
+
+      // Resolve parent campaign's Meta ID — required for Meta ad set creation
+      const campaign = await getCampaign(adSet.campaignId)
+      const metaCampaignId = (campaign?.providerData?.meta as { id?: string } | undefined)?.id
+      if (!metaCampaignId) {
+        return apiError('Parent campaign not yet on Meta — launch the campaign first', 400)
+      }
+
+      const result = (await metaProvider.upsertAdSet!({
+        accessToken: ctx.accessToken,
+        adAccountId: ctx.adAccountId,
+        adSet: { ...adSet, status: 'ACTIVE' } as any,
+        metaCampaignId,
+      })) as { metaAdSetId: string; created: boolean }
+
+      if (result.created) {
+        await setAdSetMetaId(id, result.metaAdSetId)
+      }
     }
 
     const actor = {
@@ -53,7 +70,6 @@ export const POST = withAuth(
       action: 'launched',
       adSetId: id,
       adSetName: adSet.name,
-      campaignName: campaign?.name,
     })
 
     const updated = await getAdSet(id)

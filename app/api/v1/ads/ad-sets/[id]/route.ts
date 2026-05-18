@@ -75,6 +75,32 @@ export const PATCH = withAuth(
           }
         }
       }
+    } else if (adSet.platform === 'tiktok') {
+      const tiktokData = (adSet.providerData as Record<string, unknown>)?.tiktok as Record<string, unknown> | undefined
+      const adgroupId = typeof tiktokData?.adgroupId === 'string' ? tiktokData.adgroupId : undefined
+      if (adgroupId) {
+        const conn = await getConnection({ orgId, platform: 'tiktok' })
+        if (conn) {
+          const accessToken = decryptAccessToken(conn)
+          const tiktokMeta = ((conn.meta ?? {}) as Record<string, unknown>).tiktok as Record<string, unknown> | undefined
+          const advertiserId = typeof tiktokMeta?.selectedAdvertiserId === 'string' ? tiktokMeta.selectedAdvertiserId : undefined
+          if (advertiserId) {
+            try {
+              const { updateAdGroup: tiktokUpdateAdGroup } = await import('@/lib/ads/providers/tiktok/adgroups')
+              await tiktokUpdateAdGroup({
+                advertiserId,
+                accessToken,
+                adgroupId,
+                patch: {
+                  ...(patch.name ? { name: patch.name } : {}),
+                },
+              })
+            } catch (err) {
+              warnings.push(`TikTok Ads sync warning: ${(err as Error).message}`)
+            }
+          }
+        }
+      }
     } else if (adSet.platform === 'linkedin') {
       const linkedinData = (adSet.providerData as Record<string, unknown>)?.linkedin as Record<string, unknown> | undefined
       const campaignUrn = typeof linkedinData?.campaignUrn === 'string' ? linkedinData.campaignUrn : undefined
@@ -141,7 +167,26 @@ export const DELETE = withAuth(
     const adSet = await getAdSet(id)
     if (!adSet || adSet.orgId !== orgId) return apiError('Ad set not found', 404)
 
-    if (adSet.platform === 'google') {
+    if (adSet.platform === 'tiktok') {
+      const tiktokData = (adSet.providerData as Record<string, unknown>)?.tiktok as Record<string, unknown> | undefined
+      const adgroupId = typeof tiktokData?.adgroupId === 'string' ? tiktokData.adgroupId : undefined
+      if (adgroupId) {
+        const conn = await getConnection({ orgId, platform: 'tiktok' })
+        if (conn) {
+          const accessToken = decryptAccessToken(conn)
+          const tiktokMeta = ((conn.meta ?? {}) as Record<string, unknown>).tiktok as Record<string, unknown> | undefined
+          const advertiserId = typeof tiktokMeta?.selectedAdvertiserId === 'string' ? tiktokMeta.selectedAdvertiserId : undefined
+          if (advertiserId) {
+            try {
+              const { archiveAdGroup: tiktokArchiveAdGroup } = await import('@/lib/ads/providers/tiktok/adgroups')
+              await tiktokArchiveAdGroup({ advertiserId, accessToken, adgroupId })
+            } catch {
+              // swallow — local delete is source of truth
+            }
+          }
+        }
+      }
+    } else if (adSet.platform === 'google') {
       const googleData = (adSet.providerData as Record<string, unknown>)?.google as Record<string, unknown> | undefined
       const resourceName = typeof googleData?.adGroupResourceName === 'string' ? googleData.adGroupResourceName : undefined
       if (resourceName) {

@@ -45,6 +45,12 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
       /** ISO 4217 currency code. Default 'USD'. */
       currencyCode?: string
     }
+    /** TikTok Campaign options (only used when platform === 'tiktok') */
+    tiktokAds?: {
+      /** Campaign-level budget in major currency units. Optional — omit for INFINITE. */
+      budgetMajor?: number
+      budgetMode?: 'BUDGET_MODE_INFINITE' | 'BUDGET_MODE_DAY' | 'BUDGET_MODE_TOTAL'
+    }
   }
 
   if (!body.input?.name || !body.input?.objective) {
@@ -145,6 +151,35 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
           ...((campaign.providerData as Record<string, unknown>)?.linkedin as Record<string, unknown> | undefined ?? {}),
           campaignGroupUrn: result.urn,
           liStatus: 'DRAFT',
+        },
+      },
+    } as any)
+  }
+
+  if (platform === 'tiktok') {
+    const conn = await getConnection({ orgId: ctx.orgId, platform: 'tiktok' })
+    if (!conn) return apiError('No TikTok ads connection for org', 400)
+    const accessToken = decryptAccessToken(conn)
+    const tiktokMeta = ((conn.meta ?? {}) as Record<string, unknown>).tiktok as Record<string, unknown> | undefined
+    const advertiserId = typeof tiktokMeta?.selectedAdvertiserId === 'string' ? tiktokMeta.selectedAdvertiserId : undefined
+    if (!advertiserId) return apiError('No advertiserId set on TikTok connection', 400)
+
+    const { createCampaign: tiktokCreateCampaign } = await import('@/lib/ads/providers/tiktok/campaigns')
+    const result = await tiktokCreateCampaign({
+      advertiserId,
+      accessToken,
+      canonical: campaign,
+      budgetMajor: body.tiktokAds?.budgetMajor,
+      budgetMode: body.tiktokAds?.budgetMode,
+    })
+
+    await updateCampaign(campaign.id, {
+      providerData: {
+        ...(campaign.providerData ?? {}),
+        tiktok: {
+          ...((campaign.providerData as Record<string, unknown>)?.tiktok as Record<string, unknown> | undefined ?? {}),
+          campaignId: result.campaignId,
+          tkStatus: 'DISABLE',
         },
       },
     } as any)

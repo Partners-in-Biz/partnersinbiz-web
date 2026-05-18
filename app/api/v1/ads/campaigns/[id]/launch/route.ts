@@ -24,7 +24,21 @@ export const POST = withAuth(
     // Set status ACTIVE locally first
     await updateCampaign(id, { status: 'ACTIVE' })
 
-    if (campaign.platform === 'linkedin') {
+    if (campaign.platform === 'tiktok') {
+      const tiktokData = (campaign.providerData as Record<string, unknown>)?.tiktok as Record<string, unknown> | undefined
+      const campaignId = typeof tiktokData?.campaignId === 'string' ? tiktokData.campaignId : undefined
+      if (!campaignId) return apiError('Campaign has no TikTok campaign id — create first', 400)
+
+      const conn = await getConnection({ orgId, platform: 'tiktok' })
+      if (!conn) return apiError('No TikTok ads connection for org', 400)
+      const accessToken = decryptAccessToken(conn)
+      const tiktokMeta = ((conn.meta ?? {}) as Record<string, unknown>).tiktok as Record<string, unknown> | undefined
+      const advertiserId = typeof tiktokMeta?.selectedAdvertiserId === 'string' ? tiktokMeta.selectedAdvertiserId : undefined
+      if (!advertiserId) return apiError('No advertiserId set on TikTok connection', 400)
+
+      const { resumeCampaign: tiktokResumeCampaign } = await import('@/lib/ads/providers/tiktok/campaigns')
+      await tiktokResumeCampaign({ advertiserId, accessToken, campaignId })
+    } else if (campaign.platform === 'linkedin') {
       const linkedinData = (campaign.providerData as Record<string, unknown>)?.linkedin as Record<string, unknown> | undefined
       const groupUrn = typeof linkedinData?.campaignGroupUrn === 'string' ? linkedinData.campaignGroupUrn : undefined
       if (!groupUrn) return apiError('Campaign has no LinkedIn Campaign Group URN — create first', 400)

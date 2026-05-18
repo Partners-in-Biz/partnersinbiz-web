@@ -44,6 +44,17 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
     linkedinAds?: {
       referenceUrn: string
     }
+    /** TikTok Ad options (only used when platform === 'tiktok') */
+    tiktokAds?: {
+      identityId: string
+      identityType: 'AUTH_CODE' | 'CUSTOMIZED_USER' | 'TT_USER'
+      adText: string
+      callToAction: string
+      landingPageUrl: string
+      displayName?: string
+      imageIds?: string[]
+      videoId?: string
+    }
   }
 
   if (!body.input?.name || !body.input?.adSetId) {
@@ -158,6 +169,53 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
       },
     } as any)
   }
+  if (platform === 'tiktok') {
+    const { identityId, identityType, adText, callToAction, landingPageUrl } = body.tiktokAds ?? {}
+    if (!identityId || !identityType || !adText || !callToAction || !landingPageUrl) {
+      return apiError('TikTok ads require tiktokAds.{identityId, identityType, adText, callToAction, landingPageUrl}', 400)
+    }
+
+    const conn = await getConnection({ orgId: ctx.orgId, platform: 'tiktok' })
+    if (!conn) return apiError('No TikTok ads connection for org', 400)
+    const accessToken = decryptAccessToken(conn)
+    const tiktokMeta = ((conn.meta ?? {}) as Record<string, unknown>).tiktok as Record<string, unknown> | undefined
+    const advertiserId = typeof tiktokMeta?.selectedAdvertiserId === 'string' ? tiktokMeta.selectedAdvertiserId : undefined
+    if (!advertiserId) return apiError('No advertiserId set on TikTok connection', 400)
+
+    const tiktokAdSetData = (adSet.providerData as Record<string, unknown>)?.tiktok as Record<string, unknown> | undefined
+    const adgroupId = typeof tiktokAdSetData?.adgroupId === 'string' ? tiktokAdSetData.adgroupId : undefined
+    if (!adgroupId) return apiError('Parent ad-set has no TikTok adgroup id', 400)
+
+    const { createAd: tiktokCreateAd } = await import('@/lib/ads/providers/tiktok/ads')
+    const result = await tiktokCreateAd({
+      advertiserId,
+      accessToken,
+      canonical: ad,
+      adgroupId,
+      identityId,
+      identityType,
+      adText,
+      callToAction: callToAction as any,
+      landingPageUrl,
+      displayName: body.tiktokAds?.displayName,
+      imageIds: body.tiktokAds?.imageIds,
+      videoId: body.tiktokAds?.videoId,
+    })
+
+    await updateAd(ad.id, {
+      providerData: {
+        ...(ad.providerData ?? {}),
+        tiktok: {
+          ...((ad.providerData as Record<string, unknown>)?.tiktok as Record<string, unknown> | undefined ?? {}),
+          adId: result.adId,
+          adgroupId,
+          identityId: result.identityId ?? identityId,
+          identityType: result.identityType ?? identityType,
+        },
+      },
+    } as any)
+  }
+
   // Meta: no provider push on POST — ads are pushed to Meta on /launch
 
   return apiSuccess(ad, 201)

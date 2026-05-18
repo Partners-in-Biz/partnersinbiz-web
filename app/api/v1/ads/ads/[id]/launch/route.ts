@@ -6,6 +6,7 @@ import { getAd, updateAd, setAdMetaIds } from '@/lib/ads/ads/store'
 import { getAdSet } from '@/lib/ads/adsets/store'
 import { requireMetaContext } from '@/lib/ads/api-helpers'
 import { metaProvider } from '@/lib/ads/providers/meta'
+import { getConnection, decryptAccessToken } from '@/lib/ads/connections/store'
 import { logAdActivity } from '@/lib/ads/activity'
 
 export const POST = withAuth(
@@ -18,39 +19,55 @@ export const POST = withAuth(
     const ad = await getAd(id)
     if (!ad || ad.orgId !== orgId) return apiError('Ad not found', 404)
 
-    const ctx = await requireMetaContext(req)
-    if (ctx instanceof Response) return ctx
-
-    // Phase 2: caller must supply pageId via X-Page-Id header
-    // Phase 3+ will move this to org-level config
-    const pageId = req.headers.get('X-Page-Id')
-    if (!pageId) {
-      return apiError('Missing X-Page-Id header — required for ad creative', 400)
-    }
-
-    // Resolve parent ad set's Meta ID — required for Meta ad creation
-    const adSet = await getAdSet(ad.adSetId)
-    const metaAdSetId = (adSet?.providerData?.meta as { id?: string } | undefined)?.id
-    if (!metaAdSetId) {
-      return apiError('Parent ad set not yet on Meta — launch the ad set first', 400)
-    }
-
-    // Set status ACTIVE locally; metaProvider.upsertAd will create OR update
+    // Set status ACTIVE locally
     await updateAd(id, { status: 'ACTIVE' })
 
-    const result = (await metaProvider.upsertAd!({
-      accessToken: ctx.accessToken,
-      adAccountId: ctx.adAccountId,
-      ad: { ...ad, status: 'ACTIVE' } as any,
-      metaAdSetId,
-      pageId,
-    })) as { metaAdId: string; metaCreativeId?: string; created: boolean }
+    if (ad.platform === 'tiktok') {
+      const tiktokData = (ad.providerData as Record<string, unknown>)?.tiktok as Record<string, unknown> | undefined
+      const adId = typeof tiktokData?.adId === 'string' ? tiktokData.adId : undefined
+      if (!adId) return apiError('Ad has no TikTok ad id — create first', 400)
 
-    if (result.created) {
-      await setAdMetaIds(id, {
-        metaAdId: result.metaAdId,
-        metaCreativeId: result.metaCreativeId ?? '',
-      })
+      const conn = await getConnection({ orgId, platform: 'tiktok' })
+      if (!conn) return apiError('No TikTok ads connection for org', 400)
+      const accessToken = decryptAccessToken(conn)
+      const tiktokMeta = ((conn.meta ?? {}) as Record<string, unknown>).tiktok as Record<string, unknown> | undefined
+      const advertiserId = typeof tiktokMeta?.selectedAdvertiserId === 'string' ? tiktokMeta.selectedAdvertiserId : undefined
+      if (!advertiserId) return apiError('No advertiserId set on TikTok connection', 400)
+
+      const { resumeAd: tiktokResumeAd } = await import('@/lib/ads/providers/tiktok/ads')
+      await tiktokResumeAd({ advertiserId, accessToken, adId })
+    } else {
+      const ctx = await requireMetaContext(req)
+      if (ctx instanceof Response) return ctx
+
+      // Phase 2: caller must supply pageId via X-Page-Id header
+      // Phase 3+ will move this to org-level config
+      const pageId = req.headers.get('X-Page-Id')
+      if (!pageId) {
+        return apiError('Missing X-Page-Id header — required for ad creative', 400)
+      }
+
+      // Resolve parent ad set's Meta ID — required for Meta ad creation
+      const adSet = await getAdSet(ad.adSetId)
+      const metaAdSetId = (adSet?.providerData?.meta as { id?: string } | undefined)?.id
+      if (!metaAdSetId) {
+        return apiError('Parent ad set not yet on Meta — launch the ad set first', 400)
+      }
+
+      const result = (await metaProvider.upsertAd!({
+        accessToken: ctx.accessToken,
+        adAccountId: ctx.adAccountId,
+        ad: { ...ad, status: 'ACTIVE' } as any,
+        metaAdSetId,
+        pageId,
+      })) as { metaAdId: string; metaCreativeId?: string; created: boolean }
+
+      if (result.created) {
+        await setAdMetaIds(id, {
+          metaAdId: result.metaAdId,
+          metaCreativeId: result.metaCreativeId ?? '',
+        })
+      }
     }
 
     const actor = {

@@ -23,7 +23,26 @@ export const POST = withAuth(
 
     await updateCampaign(id, { status: 'PAUSED' })
 
-    if (campaign.platform === 'linkedin') {
+    if (campaign.platform === 'tiktok') {
+      const tiktokData = (campaign.providerData as Record<string, unknown>)?.tiktok as Record<string, unknown> | undefined
+      const campaignId = typeof tiktokData?.campaignId === 'string' ? tiktokData.campaignId : undefined
+      if (campaignId) {
+        const conn = await getConnection({ orgId, platform: 'tiktok' })
+        if (conn) {
+          const accessToken = decryptAccessToken(conn)
+          const tiktokMeta = ((conn.meta ?? {}) as Record<string, unknown>).tiktok as Record<string, unknown> | undefined
+          const advertiserId = typeof tiktokMeta?.selectedAdvertiserId === 'string' ? tiktokMeta.selectedAdvertiserId : undefined
+          if (advertiserId) {
+            try {
+              const { pauseCampaign: tiktokPauseCampaign } = await import('@/lib/ads/providers/tiktok/campaigns')
+              await tiktokPauseCampaign({ advertiserId, accessToken, campaignId })
+            } catch {
+              // Status already updated locally; TikTok sync failure is non-blocking
+            }
+          }
+        }
+      }
+    } else if (campaign.platform === 'linkedin') {
       // Best-effort LinkedIn sync — only if campaign has been pushed to LinkedIn
       const linkedinData = (campaign.providerData as Record<string, unknown>)?.linkedin as Record<string, unknown> | undefined
       const groupUrn = typeof linkedinData?.campaignGroupUrn === 'string' ? linkedinData.campaignGroupUrn : undefined

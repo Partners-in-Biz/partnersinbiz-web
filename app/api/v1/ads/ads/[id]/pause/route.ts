@@ -6,6 +6,7 @@ import { getAd, updateAd } from '@/lib/ads/ads/store'
 import { getAdSet } from '@/lib/ads/adsets/store'
 import { requireMetaContext } from '@/lib/ads/api-helpers'
 import { metaProvider } from '@/lib/ads/providers/meta'
+import { getConnection, decryptAccessToken } from '@/lib/ads/connections/store'
 import { logAdActivity } from '@/lib/ads/activity'
 
 export const POST = withAuth(
@@ -19,6 +20,27 @@ export const POST = withAuth(
     if (!ad || ad.orgId !== orgId) return apiError('Ad not found', 404)
 
     await updateAd(id, { status: 'PAUSED' })
+
+    if (ad.platform === 'tiktok') {
+      const tiktokData = (ad.providerData as Record<string, unknown>)?.tiktok as Record<string, unknown> | undefined
+      const adId = typeof tiktokData?.adId === 'string' ? tiktokData.adId : undefined
+      if (adId) {
+        const conn = await getConnection({ orgId, platform: 'tiktok' })
+        if (conn) {
+          const accessToken = decryptAccessToken(conn)
+          const tiktokMeta = ((conn.meta ?? {}) as Record<string, unknown>).tiktok as Record<string, unknown> | undefined
+          const advertiserId = typeof tiktokMeta?.selectedAdvertiserId === 'string' ? tiktokMeta.selectedAdvertiserId : undefined
+          if (advertiserId) {
+            try {
+              const { pauseAd: tiktokPauseAd } = await import('@/lib/ads/providers/tiktok/ads')
+              await tiktokPauseAd({ advertiserId, accessToken, adId })
+            } catch {
+              // Status already updated locally; TikTok sync failure is non-blocking
+            }
+          }
+        }
+      }
+    }
 
     // Best-effort Meta sync — only if ad is already pushed to Meta
     const metaId = (ad.providerData?.meta as { id?: string } | undefined)?.id
