@@ -21,11 +21,13 @@ export function buildCompanyQuery(
 ) {
   let q: FirebaseFirestore.Query = adminDb.collection('companies').where('orgId', '==', orgId)
 
-  // Soft-delete filter (default: exclude). When applied, `deleted` must be
-  // the first orderBy field per Firestore's inequality+orderBy rule.
+  // Soft-delete filter (default: exclude).
+  // Use equality (== false) rather than inequality (!= true) so Firestore does NOT
+  // require `deleted` as the first orderBy field. All company documents created
+  // through this API explicitly set `deleted: false`, so equality is safe.
   const excludeDeleted = !opts.includeDeleted
   if (excludeDeleted) {
-    q = q.where('deleted', '!=', true)
+    q = q.where('deleted', '==', false)
   }
 
   if (params.industry)          q = q.where('industry', '==', params.industry)
@@ -37,16 +39,13 @@ export function buildCompanyQuery(
     q = q.where('tags', 'array-contains-any', params.tags.slice(0, 10))
   }
 
-  // Ordering: when soft-delete filter is active, `deleted` must come first.
+  // Ordering: no forced `deleted` prefix needed with equality filter.
   const orderField = params.orderBy === 'name-asc'
     ? 'name'
     : params.orderBy === 'updatedAt-desc'
       ? 'updatedAt'
       : 'createdAt'
   const orderDir: FirebaseFirestore.OrderByDirection = params.orderBy === 'name-asc' ? 'asc' : 'desc'
-  if (excludeDeleted) {
-    q = q.orderBy('deleted')
-  }
   q = q.orderBy(orderField, orderDir)
 
   q = q.limit(Math.min(params.limit ?? 50, 200))
