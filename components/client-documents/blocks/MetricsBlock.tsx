@@ -1,10 +1,10 @@
 import type { DocumentBlock } from '@/lib/client-documents/types'
 import { BlockFrame } from './BlockFrame'
 
-type MetricItem = { label: string; value?: string; target?: string; description?: string }
+type MetricItem = { label: string; value?: string | number; target?: string | number; description?: string }
 
-function parseNumeric(s: string): number {
-  return Number(s.replace(/[^\d.]/g, ''))
+function parseNumeric(s: string | number): number {
+  return Number(String(s).replace(/[^\d.]/g, ''))
 }
 
 function MiniRing({ value, max }: { value: number; max: number }) {

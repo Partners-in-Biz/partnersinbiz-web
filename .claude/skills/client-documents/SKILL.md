@@ -436,9 +436,9 @@ Copy-paste-ready examples for every block type. Each block is one element of the
   "title": "Success metrics — 90 days",
   "content": {
     "items": [
-      { "label": "Qualified leads", "value": 0, "target": 180, "description": "Form fills with valid contact details" },
-      { "label": "Cost per lead", "value": 0, "target": 220, "description": "Target CPL in ZAR" },
-      { "label": "ROAS", "value": 0, "target": 4, "description": "Revenue / ad spend" }
+      { "label": "Qualified leads", "value": "0", "target": "180", "description": "Form fills with valid contact details" },
+      { "label": "Cost per lead", "value": "0", "target": "220", "description": "Target CPL in ZAR" },
+      { "label": "ROAS", "value": "0", "target": "4", "description": "Revenue / ad spend" }
     ]
   },
   "required": true,
@@ -699,7 +699,7 @@ Default proposals are fine. *Standout* proposals close. When generating a `sales
 3. **Use pricing_toggle for upsells / optional add-ons.** The client toggles add-ons live and watches the total update — it makes optional spend feel like a choice, not a push. Always mark the base package `required: true, default: true`.
 4. **Use an faq block** to pre-empt the top 3–5 objections **before** the approval block. Common ones: "what if it doesn't work?", "who owns the IP?", "can we pause?", "why not in-house?". Answering them in writing removes the last reason to delay.
 5. **Investment block auto-renders an allocation chart** when there are 2+ line items — so just put 5 line items in and it'll look great with no extra effort. Aim for: setup, monthly fee, ad spend, creative, reporting.
-6. **Metrics block auto-renders progress rings** when both `value` and `target` are numeric. Use this for "current vs target" stat displays (e.g. `value: 0, target: 180`) — perfect for the "what we'll hit" section.
+6. **Metrics block auto-renders progress rings** when both `value` and `target` are set. Use this for "current vs target" stat displays — perfect for the "what we'll hit" section. **IMPORTANT: `value` and `target` MUST be strings (`"0"`, `"180"`), NOT integers (`0`, `180`). The renderer calls `.replace()` on these values and will crash with `TypeError: e.replace is not a function` if you pass integers.**
 7. **Set `motion: 'counter'` on metrics blocks** so numbers animate from 0 → final value on scroll. Set `motion: 'reveal'` on prose blocks (summary, problem, scope, deliverables, callout, risk). Set `motion: 'timeline'` on the timeline block for sequential phase reveal.
 
 **Recommended order for a standout sales proposal:**
