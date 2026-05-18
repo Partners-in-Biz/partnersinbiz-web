@@ -8,6 +8,8 @@ import { DealDetailDrawer } from '@/components/crm/DealDetailDrawer'
 import type { Deal, Currency } from '@/lib/crm/types'
 import type { Pipeline, PipelineStage } from '@/lib/pipelines/types'
 
+type ViewMode = 'board' | 'list' | 'forecast'
+
 function Skeleton({ className = '' }: { className?: string }) {
   return <div className={`pib-skeleton ${className}`} />
 }
@@ -72,6 +74,70 @@ function PipelineSummary({ deals, stages }: PipelineSummaryProps) {
   )
 }
 
+// ── Forecast helpers ───────────────────────────────────────────────────────────
+
+function fmtDealValue(value: number | undefined, currency?: string) {
+  if (!value) return '—'
+  try {
+    return new Intl.NumberFormat('en-ZA', {
+      style: 'currency', currency: currency ?? 'ZAR', maximumFractionDigits: 0,
+    }).format(value)
+  } catch {
+    return `${currency ?? 'ZAR'} ${value.toFixed(0)}`
+  }
+}
+
+function formatDealsTotal(deals: Deal[], mode: 'value' | 'weighted') {
+  const total = deals.reduce((s, d) => {
+    if (mode === 'weighted') return s + (d.value ?? 0) * ((d.probability ?? 50) / 100)
+    return s + (d.value ?? 0)
+  }, 0)
+  return fmtDealValue(total, deals.find(d => d.currency)?.currency)
+}
+
+function fmtRelativeDate(ts: unknown): string {
+  const date = ts && typeof ts === 'object' && 'toDate' in ts
+    ? (ts as { toDate: () => Date }).toDate()
+    : new Date(ts as string)
+  if (isNaN(date.getTime())) return '—'
+  const diffDays = Math.round((date.getTime() - Date.now()) / 86400000)
+  if (diffDays === 0) return 'Today'
+  if (diffDays < 0) return `${Math.abs(diffDays)}d overdue`
+  return `in ${diffDays}d`
+}
+
+function ProbabilityInput({ deal, onUpdate }: { deal: Deal; onUpdate: (id: string, prob: number) => void }) {
+  const [editing, setEditing] = useState(false)
+  const [val, setVal] = useState(String(deal.probability ?? 50))
+
+  if (!editing) return (
+    <button
+      onClick={() => setEditing(true)}
+      className="hover:underline text-right w-full cursor-pointer"
+    >
+      {deal.probability ?? 50}%
+    </button>
+  )
+
+  return (
+    <input
+      type="number"
+      min={0}
+      max={100}
+      value={val}
+      onChange={e => setVal(e.target.value)}
+      onBlur={() => {
+        const n = Math.max(0, Math.min(100, Number(val)))
+        onUpdate(deal.id, n)
+        setEditing(false)
+      }}
+      onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+      className="w-14 text-right border border-[var(--color-pib-accent)] rounded px-1 bg-transparent"
+      autoFocus
+    />
+  )
+}
+
 // ── Page ───────────────────────────────────────────────────────────────────────
 
 export default function DealsPage() {
@@ -82,7 +148,7 @@ export default function DealsPage() {
   const [pipelinesLoading, setPipelinesLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [stageFilter, setStageFilter] = useState<string>('all')
-  const [viewMode, setViewMode] = useState<'board' | 'list'>('board')
+  const [viewMode, setViewMode] = useState<ViewMode>('board')
 
   // A5: drawer state
   const [showCreateDrawer, setShowCreateDrawer] = useState(false)
@@ -176,7 +242,39 @@ export default function DealsPage() {
     }
   }, [selectedPipelineId])
 
+  const handleProbabilityUpdate = useCallback(async (dealId: string, probability: number) => {
+    // Optimistic update
+    setDeals(prev => prev.map(d => d.id === dealId ? { ...d, probability } : d))
+    // Persist best-effort
+    await fetch(`/api/v1/crm/deals/${dealId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ probability }),
+    }).catch(() => {})
+  }, [])
+
   const filteredDeals = stageFilter === 'all' ? deals : deals.filter(d => d.stageId === stageFilter)
+
+  // Open deals for forecast view: exclude lost-stage deals
+  const lostStageIds = new Set(stages.filter(s => s.kind === 'lost').map(s => s.id))
+  const wonStageIds = new Set(stages.filter(s => s.kind === 'won').map(s => s.id))
+  const openDeals = deals
+    .filter(d => !lostStageIds.has(d.stageId) && !wonStageIds.has(d.stageId))
+    .slice()
+    .sort((a, b) => {
+      const aDate = a.expectedCloseDate
+      const bDate = b.expectedCloseDate
+      if (!aDate && !bDate) return 0
+      if (!aDate) return 1
+      if (!bDate) return -1
+      const aMs = typeof aDate === 'object' && 'toDate' in aDate
+        ? (aDate as { toDate: () => Date }).toDate().getTime()
+        : new Date(aDate as unknown as string).getTime()
+      const bMs = typeof bDate === 'object' && 'toDate' in bDate
+        ? (bDate as { toDate: () => Date }).toDate().getTime()
+        : new Date(bDate as unknown as string).getTime()
+      return aMs - bMs
+    })
 
   const isReady = !pipelinesLoading && !loading
 
@@ -214,21 +312,23 @@ export default function DealsPage() {
             className="flex rounded-[var(--radius-btn)] overflow-hidden border"
             style={{ borderColor: 'var(--color-outline)' }}
           >
-            {(['board', 'list'] as const).map(mode => (
+            {([
+              { id: 'board', label: 'Board', icon: 'view_kanban' },
+              { id: 'list', label: 'List', icon: 'list' },
+              { id: 'forecast', label: 'Forecast', icon: 'trending_up' },
+            ] as const).map(({ id, label, icon }) => (
               <button
-                key={mode}
-                onClick={() => setViewMode(mode)}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-label capitalize transition-colors"
+                key={id}
+                onClick={() => setViewMode(id)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-label capitalize transition-colors cursor-pointer"
                 style={
-                  viewMode === mode
+                  viewMode === id
                     ? { background: 'var(--color-accent-v2)', color: '#000' }
                     : { background: 'transparent', color: 'var(--color-on-surface-variant)' }
                 }
               >
-                <span className="material-symbols-outlined text-[14px]">
-                  {mode === 'board' ? 'view_kanban' : 'list'}
-                </span>
-                {mode}
+                <span className="material-symbols-outlined text-[14px]">{icon}</span>
+                {label}
               </button>
             ))}
           </div>
@@ -391,6 +491,76 @@ export default function DealsPage() {
           </div>
         )
       )}
+      {/* Forecast view */}
+      {!error && viewMode === 'forecast' && (
+        loading ? (
+          <div className="space-y-2">
+            {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-14" />)}
+          </div>
+        ) : (
+          <div className="bento-card !p-0 overflow-hidden">
+            {/* Summary bar */}
+            <div className="flex gap-6 px-5 py-3 border-b border-[var(--color-pib-line)] bg-[var(--color-pib-surface)]">
+              <div>
+                <span className="text-xs text-[var(--color-pib-text-muted)]">Total value</span>
+                <span className="ml-2 text-sm font-semibold">{formatDealsTotal(openDeals, 'value')}</span>
+              </div>
+              <div>
+                <span className="text-xs text-[var(--color-pib-text-muted)]">Weighted</span>
+                <span className="ml-2 text-sm font-semibold text-[var(--color-pib-accent)]">{formatDealsTotal(openDeals, 'weighted')}</span>
+              </div>
+            </div>
+
+            {/* Table */}
+            <table className="w-full text-sm">
+              <thead className="text-xs text-[var(--color-pib-text-muted)] border-b border-[var(--color-pib-line)]">
+                <tr>
+                  <th className="text-left px-4 py-2">Deal</th>
+                  <th className="text-left px-4 py-2 hidden md:table-cell">Stage</th>
+                  <th className="text-right px-4 py-2">Value</th>
+                  <th className="text-right px-4 py-2">Prob %</th>
+                  <th className="text-right px-4 py-2">Weighted</th>
+                  <th className="text-right px-4 py-2 hidden lg:table-cell">Close Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {openDeals.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-8 text-center text-[var(--color-pib-text-muted)]">No open deals</td>
+                  </tr>
+                ) : (
+                  openDeals.map(deal => {
+                    const stage = stages.find(s => s.id === deal.stageId)
+                    const stageLabel = stage?.label ?? deal.stageId
+                    const prob = deal.probability ?? stage?.probability ?? 50
+                    const weighted = (deal.value ?? 0) * (prob / 100)
+                    return (
+                      <tr
+                        key={deal.id}
+                        className="border-b border-[var(--color-pib-line)] last:border-0 hover:bg-[var(--color-pib-surface)] transition-colors"
+                      >
+                        <td className="px-4 py-3 font-medium">{deal.title}</td>
+                        <td className="px-4 py-3 text-[var(--color-pib-text-muted)] hidden md:table-cell">{stageLabel}</td>
+                        <td className="px-4 py-3 text-right">{fmtDealValue(deal.value, deal.currency)}</td>
+                        <td className="px-4 py-3 text-right">
+                          <ProbabilityInput deal={deal} onUpdate={handleProbabilityUpdate} />
+                        </td>
+                        <td className="px-4 py-3 text-right text-[var(--color-pib-accent)]">
+                          {fmtDealValue(weighted, deal.currency)}
+                        </td>
+                        <td className="px-4 py-3 text-right text-[var(--color-pib-text-muted)] hidden lg:table-cell">
+                          {deal.expectedCloseDate ? fmtRelativeDate(deal.expectedCloseDate) : '—'}
+                        </td>
+                      </tr>
+                    )
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        )
+      )}
+
       {/* A5: Create deal drawer */}
       {showCreateDrawer && (
         <DealDrawer

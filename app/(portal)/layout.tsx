@@ -13,6 +13,7 @@ import { clearLastPath } from '@/lib/pwa/lastPath'
 import { WelcomeFlashHandler } from '@/components/ui/WelcomeFlashHandler'
 import { SettingsNav } from '@/components/settings/SettingsNav'
 import { SupportDrawer } from '@/components/support/SupportDrawer'
+import { CrmSearchBar } from '@/components/crm/CrmSearchBar'
 
 interface NavItem {
   href: string
@@ -506,6 +507,9 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
           />
         ) : (
           <nav className={['flex-1 overflow-y-auto py-4', collapsed ? 'px-2 space-y-1' : 'px-3 space-y-5'].join(' ')}>
+            {!collapsed && (
+              <CrmSearchBar className="mb-1" />
+            )}
             {collapsed
               ? navWithBadges.map(item => <NavLink key={item.href} item={item} pathname={pathname} collapsed />)
               : grouped.map(({ group, items }) => (

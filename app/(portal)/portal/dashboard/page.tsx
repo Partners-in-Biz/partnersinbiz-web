@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { PropertiesLaunchBanner } from '@/components/portal/PropertiesLaunchBanner'
 import { ProfileCompleteBanner } from '@/components/settings/ProfileCompleteBanner'
 import { TopCompaniesByPipelineTile } from '@/components/dashboard/TopCompaniesByPipelineTile'
+import { fmtTimestamp } from '@/components/admin/email/fmtTimestamp'
 
 interface Kpis {
   total_revenue: number
@@ -53,6 +54,22 @@ interface DashboardData {
   reports: PortalReport[]
 }
 
+interface CrmDashboardData {
+  openDealsCount: number
+  openDealsValue: number
+  weightedPipelineValue: number
+  wonThisMonth: { count: number; value: number }
+  lostThisMonth: { count: number }
+  recentActivities: Array<{
+    id: string; type?: string; summary?: string; createdAt?: unknown;
+    createdByRef?: { displayName?: string }; contactId?: string
+  }>
+  topOpenDeals: Array<{
+    id: string; title?: string; value?: number; currency?: string;
+    probability?: number; stageId?: string
+  }>
+}
+
 const fmtZar = new Intl.NumberFormat('en-ZA', {
   style: 'currency', currency: 'ZAR', maximumFractionDigits: 0,
 })
@@ -68,6 +85,24 @@ function deltaClass(p: number | null) {
   if (p > 0) return 'text-[var(--color-pib-success)]'
   if (p < 0) return 'text-[#FCA5A5]'
   return 'text-[var(--color-pib-text-muted)]'
+}
+
+function formatCurrency(value: number, currency = 'ZAR') {
+  try {
+    return new Intl.NumberFormat('en-ZA', { style: 'currency', currency, maximumFractionDigits: 0 }).format(value)
+  } catch {
+    return `${currency} ${value.toFixed(0)}`
+  }
+}
+
+function activityIcon(type?: string): string {
+  if (!type) return 'info'
+  if (type.startsWith('email')) return 'mail'
+  if (type === 'call') return 'call'
+  if (type === 'note') return 'sticky_note_2'
+  if (type === 'stage_change') return 'swap_horiz'
+  if (type.startsWith('sequence')) return 'send'
+  return 'info'
 }
 
 function Tile({
@@ -128,12 +163,22 @@ export default function PortalDashboard() {
     activeCampaigns: null,
     captureSources: null,
   })
+  const [crmData, setCrmData] = useState<CrmDashboardData | null>(null)
+  const [crmLoading, setCrmLoading] = useState(true)
 
   useEffect(() => {
     fetch('/api/v1/portal/dashboard')
       .then((r) => r.json())
       .then((b) => { setData(b); setLoading(false) })
       .catch(() => setLoading(false))
+  }, [])
+
+  useEffect(() => {
+    fetch('/api/v1/crm/dashboard')
+      .then(r => r.json())
+      .then(b => setCrmData(b.data ?? b))
+      .catch(() => {})
+      .finally(() => setCrmLoading(false))
   }, [])
 
   useEffect(() => {
@@ -259,6 +304,100 @@ export default function PortalDashboard() {
 
       {/* CRM — Top companies tile (self-hides when no companies exist) */}
       <TopCompaniesByPipelineTile />
+
+      {/* Pipeline / CRM section */}
+      {!crmLoading && crmData && (
+        <section>
+          <div className="flex items-baseline justify-between mb-4">
+            <h2 className="eyebrow">Pipeline</h2>
+            <Link
+              href="/portal/deals"
+              className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] inline-flex items-center gap-1 transition-colors"
+            >
+              View deals
+              <span className="material-symbols-outlined text-sm">arrow_outward</span>
+            </Link>
+          </div>
+
+          {/* 4 metric cards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+            <div className="bento-card !p-4">
+              <p className="eyebrow !text-[10px] mb-1">Open Deals</p>
+              <p className="text-2xl font-bold">{crmData.openDealsCount}</p>
+              <p className="text-xs text-[var(--color-pib-text-muted)]">{formatCurrency(crmData.openDealsValue)}</p>
+            </div>
+            <div className="bento-card !p-4">
+              <p className="eyebrow !text-[10px] mb-1">Weighted Pipeline</p>
+              <p className="text-2xl font-bold">{formatCurrency(crmData.weightedPipelineValue)}</p>
+            </div>
+            <div className="bento-card !p-4">
+              <p className="eyebrow !text-[10px] mb-1">Won This Month</p>
+              <p className="text-2xl font-bold text-emerald-400">{crmData.wonThisMonth.count}</p>
+              <p className="text-xs text-[var(--color-pib-text-muted)]">{formatCurrency(crmData.wonThisMonth.value)}</p>
+            </div>
+            <div className="bento-card !p-4">
+              <p className="eyebrow !text-[10px] mb-1">Lost This Month</p>
+              <p className="text-2xl font-bold text-red-400">{crmData.lostThisMonth.count}</p>
+            </div>
+          </div>
+
+          {/* Activity feed + top deals row */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Recent activity feed */}
+            <div className="bento-card !p-5">
+              <p className="eyebrow !text-[10px] mb-4">Recent Activity</p>
+              {crmData.recentActivities.length === 0 ? (
+                <p className="text-sm text-[var(--color-pib-text-muted)]">No recent activity.</p>
+              ) : (
+                crmData.recentActivities.map(a => (
+                  <div key={a.id} className="flex items-start gap-2 py-2 border-b border-[var(--color-pib-line)] last:border-0">
+                    <span className="material-symbols-outlined text-[14px] text-[var(--color-pib-text-muted)] mt-0.5">
+                      {activityIcon(a.type)}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm truncate">{a.summary ?? a.type}</p>
+                      <p className="text-xs text-[var(--color-pib-text-muted)]">
+                        {a.createdByRef?.displayName ?? ''}
+                        {a.createdByRef?.displayName && a.createdAt ? ' · ' : ''}
+                        {fmtTimestamp(a.createdAt)}
+                      </p>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Top open deals mini-table */}
+            <div className="bento-card !p-5">
+              <p className="eyebrow !text-[10px] mb-4">Top Open Deals</p>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-xs text-[var(--color-pib-text-muted)] border-b border-[var(--color-pib-line)]">
+                    <th className="text-left pb-2">Deal</th>
+                    <th className="text-right pb-2">Value</th>
+                    <th className="text-right pb-2">Prob</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {crmData.topOpenDeals.length === 0 ? (
+                    <tr>
+                      <td colSpan={3} className="py-4 text-center text-[var(--color-pib-text-muted)]">No open deals</td>
+                    </tr>
+                  ) : (
+                    crmData.topOpenDeals.map(d => (
+                      <tr key={d.id} className="border-b border-[var(--color-pib-line)] last:border-0">
+                        <td className="py-2">{d.title ?? '—'}</td>
+                        <td className="py-2 text-right">{formatCurrency(d.value ?? 0, d.currency)}</td>
+                        <td className="py-2 text-right text-[var(--color-pib-text-muted)]">{d.probability ?? '—'}%</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      )}
 
       {loading && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

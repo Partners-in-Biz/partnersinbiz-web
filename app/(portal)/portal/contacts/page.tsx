@@ -202,6 +202,33 @@ export default function PortalContactsPage() {
     }
   }
 
+  async function handleBulkDelete() {
+    if (selectedIds.size === 0) return
+    const count = selectedIds.size
+    if (!confirm(`Delete ${count} contact${count === 1 ? '' : 's'}? This cannot be undone.`)) return
+
+    setBulkPending(true)
+    try {
+      const res = await fetch('/api/v1/crm/contacts/bulk', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ ids: Array.from(selectedIds), patch: { delete: true } }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        pushToast((err as { error?: string }).error ?? 'Delete failed', 'error')
+        return
+      }
+      setContacts(prev => prev.filter(c => !selectedIds.has(c.id)))
+      setSelectedIds(new Set())
+      pushToast(`${count} contact${count === 1 ? '' : 's'} deleted`, 'success')
+    } catch {
+      pushToast('Network error — delete failed', 'error')
+    } finally {
+      setBulkPending(false)
+    }
+  }
+
   async function applyBulk() {
     if (selectedIds.size === 0) return
 
@@ -417,6 +444,17 @@ export default function PortalContactsPage() {
             className="btn-pib-accent !py-1.5 !text-sm shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {bulkPending ? 'Applying…' : 'Apply'}
+          </button>
+
+          <div className="h-4 w-px bg-[var(--color-pib-line)] shrink-0" />
+
+          <button
+            onClick={handleBulkDelete}
+            disabled={bulkPending}
+            className="text-sm text-red-400 hover:text-red-300 flex items-center gap-1.5 px-3 py-2 rounded-lg hover:bg-red-400/10 transition-colors shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <span className="material-symbols-outlined text-[16px]">delete</span>
+            Delete selected ({selectedIds.size})
           </button>
         </div>
       )}
