@@ -16,6 +16,7 @@ interface TaskComposerProps {
 }
 
 const PRIORITIES = ['urgent', 'high', 'medium', 'low'] as const
+type AssignmentMode = 'people' | 'agent' | 'orchestration'
 
 function cleanList(value: string): string[] {
   return value
@@ -49,6 +50,18 @@ function memberLabel(member: TeamMember): string {
 
 function agentLabel(agent?: AgentMember): string {
   return agent?.name || agent?.agentId || 'Agent'
+}
+
+function activeAgents(agents: AgentMember[]): AgentMember[] {
+  return agents.filter((agent) => agent.enabled !== false)
+}
+
+function buildAgentSpec(title: string, description: string, checklist: ChecklistItem[]): string {
+  return [
+    title.trim(),
+    description.trim(),
+    checklist.length ? `Checklist:\n${checklist.map((item) => `- ${item.text}`).join('\n')}` : '',
+  ].filter(Boolean).join('\n\n')
 }
 
 export async function uploadTaskFile(file: File, projectId: string, orgId?: string): Promise<Attachment> {
@@ -85,6 +98,7 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
   const [estimateHours, setEstimateHours] = useState('')
   const [assigneeIds, setAssigneeIds] = useState<string[]>([])
   const [assigneeAgentId, setAssigneeAgentId] = useState<AgentId | ''>('')
+  const [assignmentMode, setAssignmentMode] = useState<AssignmentMode>('people')
   const [mentionIds, setMentionIds] = useState<string[]>([])
   const [checklistText, setChecklistText] = useState('')
   const [files, setFiles] = useState<File[]>([])
@@ -120,6 +134,7 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
     setEstimateHours('')
     setAssigneeIds([])
     setAssigneeAgentId('')
+    setAssignmentMode('people')
     setMentionIds([])
     setChecklistText('')
     setFiles([])
@@ -138,6 +153,11 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
       const estimate = Number.parseFloat(estimateHours)
       const checklist = newChecklist(checklistText)
       const order = Date.now()
+      const effectiveMode = hideAgentSection ? 'people' : assignmentMode
+      const agentId = effectiveMode === 'orchestration' ? 'pip' : effectiveMode === 'agent' ? assigneeAgentId : ''
+      const peopleIds = effectiveMode === 'people' ? assigneeIds : []
+      const selectedMentionIds = effectiveMode === 'people' ? mentionIds : []
+      const spec = buildAgentSpec(title, description, checklist)
       const taskPayload = {
         title: title.trim(),
         description: description.trim(),
@@ -145,20 +165,35 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
         priority,
         order,
         labels: cleanList(labels),
-        assigneeId: assigneeIds[0] ?? null,
-        assigneeIds,
-        assigneeAgentId: assigneeAgentId || null,
-        agentInput: assigneeAgentId
+        assigneeId: peopleIds[0] ?? null,
+        assigneeIds: peopleIds,
+        assigneeAgentId: agentId || null,
+        agentInput: agentId
           ? {
-              spec: [
-                title.trim(),
-                description.trim(),
-                checklist.length ? `Checklist:\n${checklist.map((item) => `- ${item.text}`).join('\n')}` : '',
-              ].filter(Boolean).join('\n\n'),
-              context: { projectId, orgId: orgId ?? null, columnId: column.id },
+              spec,
+              context: {
+                projectId,
+                orgId: orgId ?? null,
+                columnId: column.id,
+                assignmentMode: effectiveMode,
+                ...(effectiveMode === 'orchestration'
+                  ? {
+                      orchestrationMode: 'pip-orchestrator',
+                      requestedAgentIds: activeAgents(agents).map((agent) => agent.agentId).filter((id) => id !== 'pip'),
+                    }
+                  : {}),
+              },
+              ...(effectiveMode === 'orchestration'
+                ? {
+                    constraints: [
+                      'Pip owns orchestration for this task.',
+                      'Break the work into agent-ready subtasks when needed and route them to the right agents.',
+                    ],
+                  }
+                : {}),
             }
           : null,
-        mentionIds,
+        mentionIds: selectedMentionIds,
         dueDate: dueDate || null,
         startDate: startDate || null,
         estimateMinutes: Number.isFinite(estimate) && estimate > 0 ? Math.round(estimate * 60) : null,
@@ -364,7 +399,35 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
             </label>
 
             <div>
-              <p className="mb-2 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">People</p>
+              <p className="mb-2 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Assignment</p>
+              {!hideAgentSection && (
+                <div className="mb-2 grid grid-cols-3 gap-1 rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)] p-1">
+                  {(['people', 'agent', 'orchestration'] as const).map((mode) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      onClick={() => {
+                        setAssignmentMode(mode)
+                        if (mode === 'people') setAssigneeAgentId('')
+                        else {
+                          setAssigneeIds([])
+                          setMentionIds([])
+                          if (mode === 'orchestration') setAssigneeAgentId('pip')
+                          if (mode === 'agent' && !assigneeAgentId) setAssigneeAgentId(activeAgents(agents)[0]?.agentId ?? '')
+                        }
+                      }}
+                      className={`rounded px-2 py-1.5 text-[11px] font-label capitalize transition-colors ${
+                        assignmentMode === mode
+                          ? 'bg-[var(--color-accent-v2)] text-black'
+                          : 'text-on-surface-variant hover:bg-[var(--color-surface-container)] hover:text-on-surface'
+                      }`}
+                    >
+                      {mode}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {assignmentMode === 'people' || hideAgentSection ? (
               <div className="max-h-40 space-y-1 overflow-y-auto rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)] p-2">
                 {members.length === 0 ? (
                   <p className="px-2 py-3 text-xs text-on-surface-variant">No team members found.</p>
@@ -382,6 +445,46 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
                   ))
                 )}
               </div>
+              ) : assignmentMode === 'agent' ? (
+                <div className="space-y-1 rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)] p-2">
+                  {activeAgents(agents).length === 0 ? (
+                    <p className="px-2 py-2 text-xs text-on-surface-variant">No agents available.</p>
+                  ) : (
+                    activeAgents(agents).map((agent) => (
+                      <label key={agent.agentId} className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 hover:bg-[var(--color-surface-container)]">
+                        <input
+                          type="radio"
+                          checked={assigneeAgentId === agent.agentId}
+                          onChange={() => setAssigneeAgentId(agent.agentId)}
+                          className="accent-[var(--color-accent-v2)]"
+                        />
+                        <span className="material-symbols-outlined text-[16px] text-on-surface-variant">
+                          {agent.iconKey ?? 'smart_toy'}
+                        </span>
+                        <span className="min-w-0 flex-1 truncate text-sm text-on-surface">{agentLabel(agent)}</span>
+                        {agent.lastHealthStatus && (
+                          <span className={`h-1.5 w-1.5 rounded-full ${
+                            agent.lastHealthStatus === 'ok' ? 'bg-emerald-400' : agent.lastHealthStatus === 'degraded' ? 'bg-amber-400' : 'bg-red-400'
+                          }`} />
+                        )}
+                      </label>
+                    ))
+                  )}
+                </div>
+              ) : (
+                <div className="rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)] p-2">
+                  <label className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5">
+                    <input
+                      type="radio"
+                      checked
+                      readOnly
+                      className="accent-[var(--color-accent-v2)]"
+                    />
+                    <span className="material-symbols-outlined text-[16px] text-on-surface-variant">hub</span>
+                    <span className="min-w-0 flex-1 truncate text-sm text-on-surface">Pip orchestration</span>
+                  </label>
+                </div>
+              )}
               {selectedMembers.length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-1">
                   {selectedMembers.map((member) => (
@@ -401,46 +504,6 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
                 </div>
               )}
             </div>
-
-            {!hideAgentSection && (
-            <div>
-              <p className="mb-2 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Agent</p>
-              <div className="space-y-1 rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)] p-2">
-                <label className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 hover:bg-[var(--color-surface-container)]">
-                  <input
-                    type="radio"
-                    checked={!assigneeAgentId}
-                    onChange={() => setAssigneeAgentId('')}
-                    className="accent-[var(--color-accent-v2)]"
-                  />
-                  <span className="text-sm text-on-surface">No agent</span>
-                </label>
-                {agents.length === 0 ? (
-                  <p className="px-2 py-2 text-xs text-on-surface-variant">No agents available.</p>
-                ) : (
-                  agents.map((agent) => (
-                    <label key={agent.agentId} className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 hover:bg-[var(--color-surface-container)]">
-                      <input
-                        type="radio"
-                        checked={assigneeAgentId === agent.agentId}
-                        onChange={() => setAssigneeAgentId(agent.agentId)}
-                        className="accent-[var(--color-accent-v2)]"
-                      />
-                      <span className="material-symbols-outlined text-[16px] text-on-surface-variant">
-                        {agent.iconKey ?? 'smart_toy'}
-                      </span>
-                      <span className="min-w-0 flex-1 truncate text-sm text-on-surface">{agentLabel(agent)}</span>
-                      {agent.lastHealthStatus && (
-                        <span className={`h-1.5 w-1.5 rounded-full ${
-                          agent.lastHealthStatus === 'ok' ? 'bg-emerald-400' : agent.lastHealthStatus === 'degraded' ? 'bg-amber-400' : 'bg-red-400'
-                        }`} />
-                      )}
-                    </label>
-                  ))
-                )}
-              </div>
-            </div>
-            )}
           </aside>
         </div>
 

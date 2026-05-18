@@ -558,6 +558,7 @@ export default function ProjectDetailPage() {
           orgId={project?.orgId}
           members={members}
           agents={agents}
+          hideAgentSection
           onClose={() => setSelectedTask(null)}
           onUpdate={handleTaskUpdate}
           onDelete={handleTaskDelete}

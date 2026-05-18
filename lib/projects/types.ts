@@ -46,7 +46,7 @@ export interface Attachment {
   type: string
 }
 
-export type AgentId = 'pip' | 'theo' | 'maya' | 'sage' | 'nora'
+export type AgentId = string
 
 export type AgentStatus =
   | 'pending'           // waiting for an agent to claim it

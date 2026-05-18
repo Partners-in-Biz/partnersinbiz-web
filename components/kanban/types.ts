@@ -23,7 +23,7 @@ export interface TeamMember {
   photoURL?: string
 }
 
-export type AgentId = 'pip' | 'theo' | 'maya' | 'sage' | 'nora'
+export type AgentId = string
 
 export type AgentStatus =
   | 'pending'

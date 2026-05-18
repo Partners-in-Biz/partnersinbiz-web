@@ -23,12 +23,14 @@ interface TaskDetailPanelProps {
   orgId?: string
   members?: TeamMember[]
   agents?: AgentMember[]
+  hideAgentSection?: boolean
   onClose: () => void
   onUpdate: (taskId: string, updates: Partial<Task>) => Promise<void>
   onDelete: (taskId: string) => Promise<void>
 }
 
 const PRIORITIES = ['urgent', 'high', 'medium', 'low']
+type AssignmentMode = 'people' | 'agent' | 'orchestration'
 const PRIORITY_COLORS: Record<string, string> = {
   urgent: '#ef4444',
   high: 'var(--color-accent-v2)',
@@ -65,6 +67,28 @@ function agentLabel(agent?: AgentMember, agentId?: string | null): string {
   return agent?.name || agentId || 'Agent'
 }
 
+function activeAgents(agents: AgentMember[]): AgentMember[] {
+  return agents.filter((agent) => agent.enabled !== false)
+}
+
+function isOrchestrationTask(task?: Task | null): boolean {
+  return task?.agentInput?.context?.orchestrationMode === 'pip-orchestrator'
+}
+
+function assignmentModeForTask(task?: Task | null): AssignmentMode {
+  if (isOrchestrationTask(task)) return 'orchestration'
+  if (task?.assigneeAgentId) return 'agent'
+  return 'people'
+}
+
+function buildAgentSpec(title: string, description: string, checklist: ChecklistItem[]): string {
+  return [
+    title.trim(),
+    description.trim(),
+    checklist.length ? `Checklist:\n${checklist.map((item) => `- ${item.text}`).join('\n')}` : '',
+  ].filter(Boolean).join('\n\n')
+}
+
 function formatSize(size?: number): string {
   if (!size) return ''
   if (size < 1024 * 1024) return `${Math.max(1, Math.round(size / 1024))} KB`
@@ -84,7 +108,7 @@ function isAgentStale(heartbeatAt: unknown, staleMinutes = 5): boolean {
   return Date.now() - ms > staleMinutes * 60 * 1000
 }
 
-export function TaskDetailPanel({ task, columnName, projectId, orgId, members = [], agents = [], onClose, onUpdate, onDelete }: TaskDetailPanelProps) {
+export function TaskDetailPanel({ task, columnName, projectId, orgId, members = [], agents = [], hideAgentSection = false, onClose, onUpdate, onDelete }: TaskDetailPanelProps) {
   const router = useRouter()
   const pathname = usePathname()
   // Extract org slug from current URL: /admin/org/[slug]/...
@@ -95,6 +119,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
   const [labelsText, setLabelsText] = useState(task?.labels?.join(', ') ?? '')
   const [assigneeIds, setAssigneeIds] = useState<string[]>(task?.assigneeIds ?? (task?.assigneeId ? [task.assigneeId] : []))
   const [assigneeAgentId, setAssigneeAgentId] = useState<AgentId | ''>((task?.assigneeAgentId as AgentId | null) ?? '')
+  const [assignmentMode, setAssignmentMode] = useState<AssignmentMode>(assignmentModeForTask(task))
   const [mentionIds, setMentionIds] = useState<string[]>(task?.mentionIds ?? [])
   const [dueDate, setDueDate] = useState(dateInputValue(task?.dueDate))
   const [startDate, setStartDate] = useState(dateInputValue(task?.startDate))
@@ -124,6 +149,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
     setLabelsText(task?.labels?.join(', ') ?? '')
     setAssigneeIds(task?.assigneeIds ?? (task?.assigneeId ? [task.assigneeId] : []))
     setAssigneeAgentId((task?.assigneeAgentId as AgentId | null) ?? '')
+    setAssignmentMode(assignmentModeForTask(task))
     setMentionIds(task?.mentionIds ?? [])
     setDueDate(dateInputValue(task?.dueDate))
     setStartDate(dateInputValue(task?.startDate))
@@ -155,24 +181,44 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
     if (!task) return
     setSaving(true)
     const estimate = Number.parseFloat(estimateHours)
+    const effectiveMode = hideAgentSection ? 'people' : assignmentMode
+    const agentId = effectiveMode === 'orchestration' ? 'pip' : effectiveMode === 'agent' ? assigneeAgentId : ''
+    const peopleIds = effectiveMode === 'people' ? assigneeIds : []
+    const selectedMentionIds = effectiveMode === 'people' ? mentionIds : []
+    const spec = buildAgentSpec(title, description, checklist)
     await onUpdate(task.id, {
       title: title.trim(),
       description: description.trim(),
       labels: cleanList(labelsText),
-      assigneeId: assigneeIds[0] ?? null,
-      assigneeIds,
-      assigneeAgentId: assigneeAgentId || null,
-      agentInput: assigneeAgentId
+      assigneeId: peopleIds[0] ?? null,
+      assigneeIds: peopleIds,
+      assigneeAgentId: agentId || null,
+      agentInput: agentId
         ? {
-            spec: [
-              title.trim(),
-              description.trim(),
-              checklist.length ? `Checklist:\n${checklist.map((item) => `- ${item.text}`).join('\n')}` : '',
-            ].filter(Boolean).join('\n\n'),
-            context: { projectId, orgId: orgId ?? null, columnId: task.columnId },
+            spec,
+            context: {
+              projectId,
+              orgId: orgId ?? null,
+              columnId: task.columnId,
+              assignmentMode: effectiveMode,
+              ...(effectiveMode === 'orchestration'
+                ? {
+                    orchestrationMode: 'pip-orchestrator',
+                    requestedAgentIds: activeAgents(agents).map((agent) => agent.agentId).filter((id) => id !== 'pip'),
+                  }
+                : {}),
+            },
+            ...(effectiveMode === 'orchestration'
+              ? {
+                  constraints: [
+                    'Pip owns orchestration for this task.',
+                    'Break the work into agent-ready subtasks when needed and route them to the right agents.',
+                  ],
+                }
+              : {}),
           }
         : null,
-      mentionIds,
+      mentionIds: selectedMentionIds,
       dueDate: dueDate || null,
       startDate: startDate || null,
       estimateMinutes: Number.isFinite(estimate) && estimate > 0 ? Math.round(estimate * 60) : null,
@@ -559,7 +605,36 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
           </div>
 
           <div>
-            <p className="text-[9px] font-label uppercase tracking-widest text-on-surface-variant mb-2">People</p>
+            <p className="text-[9px] font-label uppercase tracking-widest text-on-surface-variant mb-2">Assignment</p>
+            {!hideAgentSection && (
+              <div className="mb-2 grid grid-cols-3 gap-1 rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-card)] p-1">
+                {(['people', 'agent', 'orchestration'] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => {
+                      setAssignmentMode(mode)
+                      setEditing(true)
+                      if (mode === 'people') setAssigneeAgentId('')
+                      else {
+                        setAssigneeIds([])
+                        setMentionIds([])
+                        if (mode === 'orchestration') setAssigneeAgentId('pip')
+                        if (mode === 'agent' && !assigneeAgentId) setAssigneeAgentId(activeAgents(agents)[0]?.agentId ?? '')
+                      }
+                    }}
+                    className={`rounded px-1.5 py-1.5 text-[10px] font-label capitalize transition-colors ${
+                      assignmentMode === mode
+                        ? 'bg-[var(--color-accent-v2)] text-black'
+                        : 'text-on-surface-variant hover:bg-[var(--color-surface-container)] hover:text-on-surface'
+                    }`}
+                  >
+                    {mode}
+                  </button>
+                ))}
+              </div>
+            )}
+            {assignmentMode === 'people' || hideAgentSection ? (
             <div className="space-y-1 rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-card)] p-2">
               {members.length === 0 ? (
                 <p className="text-xs text-on-surface-variant">No team members found.</p>
@@ -595,27 +670,12 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
                 ))
               )}
             </div>
-          </div>
-
-          <div>
-            <p className="text-[9px] font-label uppercase tracking-widest text-on-surface-variant mb-2">Agent</p>
+            ) : assignmentMode === 'agent' ? (
             <div className="space-y-1 rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-card)] p-2">
-              <label className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 hover:bg-[var(--color-surface-container)]">
-                <input
-                  type="radio"
-                  checked={!assigneeAgentId}
-                  onChange={() => {
-                    setAssigneeAgentId('')
-                    setEditing(true)
-                  }}
-                  className="accent-[var(--color-accent-v2)]"
-                />
-                <span className="text-xs text-on-surface">No agent</span>
-              </label>
-              {agents.length === 0 ? (
+              {activeAgents(agents).length === 0 ? (
                 <p className="text-xs text-on-surface-variant">No agents available.</p>
               ) : (
-                agents.map(agent => (
+                activeAgents(agents).map(agent => (
                   <label key={agent.agentId} className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 hover:bg-[var(--color-surface-container)]">
                     <input
                       type="radio"
@@ -637,6 +697,20 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
                 ))
               )}
             </div>
+            ) : (
+              <div className="rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-card)] p-2">
+                <label className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1">
+                  <input
+                    type="radio"
+                    checked
+                    readOnly
+                    className="accent-[var(--color-accent-v2)]"
+                  />
+                  <span className="material-symbols-outlined text-[15px] text-on-surface-variant">hub</span>
+                  <span className="min-w-0 flex-1 truncate text-xs text-on-surface">Pip orchestration</span>
+                </label>
+              </div>
+            )}
             {task.agentStatus && (() => {
               const STATUS_STYLE: Record<string, { label: string; className: string }> = {
                 'pending':        { label: 'Waiting',   className: 'bg-white/10 text-on-surface-variant' },

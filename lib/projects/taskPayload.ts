@@ -1,10 +1,10 @@
+import { isValidAgentId } from '@/lib/agents/types'
+
 type PayloadResult<T> =
   | { ok: true; value: T }
   | { ok: false; error: string; status?: number }
 
 const VALID_PRIORITIES = ['urgent', 'high', 'medium', 'normal', 'low'] as const
-
-const VALID_AGENT_IDS = ['pip', 'theo', 'maya', 'sage', 'nora'] as const
 
 const VALID_AGENT_STATUSES = [
   'pending',
@@ -116,8 +116,8 @@ function cleanChecklist(value: unknown): PayloadResult<Record<string, unknown>[]
 function cleanAgentId(value: unknown): PayloadResult<string | null> {
   if (value === undefined) return { ok: true, value: null }
   if (value === null || value === '') return { ok: true, value: null }
-  if (typeof value !== 'string' || !VALID_AGENT_IDS.includes(value as (typeof VALID_AGENT_IDS)[number])) {
-    return { ok: false, error: `Invalid assigneeAgentId; expected one of ${VALID_AGENT_IDS.join(' | ')}`, status: 400 }
+  if (!isValidAgentId(value)) {
+    return { ok: false, error: 'Invalid assigneeAgentId; expected a valid agent id', status: 400 }
   }
   return { ok: true, value }
 }
