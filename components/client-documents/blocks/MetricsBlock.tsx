@@ -41,6 +41,8 @@ export function MetricsBlock({ block, index }: { block: DocumentBlock; index: nu
       )}
       <div className="grid gap-4 md:grid-cols-3">
         {items.map((item, i) => {
+          const value = item.value == null ? '' : String(item.value)
+          const target = item.target == null ? '' : String(item.target)
           const valueNum = item.value ? parseNumeric(item.value) : NaN
           const targetNum = item.target ? parseNumeric(item.target) : NaN
           const showRing =
@@ -49,8 +51,8 @@ export function MetricsBlock({ block, index }: { block: DocumentBlock; index: nu
             isFinite(valueNum) &&
             isFinite(targetNum) &&
             targetNum > 0 &&
-            /^\D*\d/.test(item.value) &&
-            /^\D*\d/.test(item.target)
+            /^\D*\d/.test(value) &&
+            /^\D*\d/.test(target)
           return (
             <div
               key={i}
