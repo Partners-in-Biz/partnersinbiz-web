@@ -277,6 +277,110 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
     return apiSuccess(updated, 201)
   }
 
+  // ─── TikTok branch ───────────────────────────────────────────────────────
+  if (rawBody.platform === 'tiktok') {
+    const body = rawBody as {
+      platform: 'tiktok'
+      name?: string
+      description?: string
+      type?: 'CUSTOMER_LIST' | 'WEBSITE' | 'LOOKALIKE' | 'APP' | 'ENGAGEMENT'
+      providerData?: {
+        tiktok?: {
+          sourceCustomAudienceId?: string
+          locationIds?: number[]
+          lookalikeSpec?: 'BALANCE' | 'EXPAND' | 'PRECISION'
+        }
+      }
+    }
+
+    if (!body.name) return apiError('name is required', 400)
+    if (!body.type) return apiError('type is required', 400)
+
+    const conn = await getConnection({ orgId, platform: 'tiktok' })
+    if (!conn) return apiError('No TikTok ads connection for org', 400)
+    const accessToken = decryptAccessToken(conn)
+    const tiktokMeta = ((conn.meta ?? {}) as Record<string, unknown>).tiktok as
+      | Record<string, unknown>
+      | undefined
+    const advertiserId =
+      typeof tiktokMeta?.selectedAdvertiserId === 'string'
+        ? tiktokMeta.selectedAdvertiserId
+        : undefined
+    if (!advertiserId) return apiError('No advertiserId set on TikTok connection', 400)
+
+    let result: { customAudienceId: string }
+    try {
+      if (body.type === 'LOOKALIKE') {
+        const source = body.providerData?.tiktok?.sourceCustomAudienceId
+        const locationIds = body.providerData?.tiktok?.locationIds
+        if (!source || !Array.isArray(locationIds) || locationIds.length === 0) {
+          return apiError(
+            'LOOKALIKE requires providerData.tiktok.{sourceCustomAudienceId, locationIds[]}',
+            400,
+          )
+        }
+        const { createLookalikeAudience } = await import(
+          '@/lib/ads/providers/tiktok/audiences'
+        )
+        result = await createLookalikeAudience({
+          advertiserId,
+          accessToken,
+          name: body.name,
+          sourceCustomAudienceId: source,
+          locationIds,
+          lookalikeSpec: body.providerData?.tiktok?.lookalikeSpec,
+        })
+      } else {
+        const audienceType =
+          body.type === 'CUSTOMER_LIST'
+            ? 'CUSTOMER_FILE'
+            : body.type === 'APP'
+              ? 'APP_ACTIVITY'
+              : 'ENGAGEMENT' // WEBSITE + ENGAGEMENT both map to ENGAGEMENT
+        const { createAudience } = await import('@/lib/ads/providers/tiktok/audiences')
+        result = await createAudience({
+          advertiserId,
+          accessToken,
+          name: body.name,
+          audienceType: audienceType as 'CUSTOMER_FILE' | 'ENGAGEMENT' | 'APP_ACTIVITY',
+          description: body.description,
+        })
+      }
+    } catch (err) {
+      return apiError(`TikTok audience create failed: ${(err as Error).message}`, 500)
+    }
+
+    const ca = await createCustomAudience({
+      orgId,
+      createdBy: (user as { uid?: string }).uid ?? 'unknown',
+      platform: 'tiktok',
+      input: {
+        name: body.name,
+        description: body.description ?? '',
+        type: body.type,
+        status: 'BUILDING',
+        source: {
+          kind: 'CUSTOMER_LIST',
+          csvStoragePath: '',
+          hashCount: 0,
+          uploadedAt: Timestamp.now(),
+        },
+      } as CreateAdCustomAudienceInput,
+    })
+    await adminDb.collection('custom_audiences').doc(ca.id).update({
+      providerData: {
+        tiktok: {
+          customAudienceId: result.customAudienceId,
+          ...body.providerData?.tiktok,
+        },
+      },
+    })
+    const updated = await (
+      await import('@/lib/ads/custom-audiences/store')
+    ).getCustomAudience(ca.id)
+    return apiSuccess(updated, 201)
+  }
+
   // ─── Meta branch (existing, unchanged) ────────────────────────────────────
   const ctx = await requireMetaContext(req)
   if (ctx instanceof Response) return ctx

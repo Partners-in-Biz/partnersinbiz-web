@@ -88,7 +88,7 @@ export const POST = withAuth(
       // Update status via store (only mutable fields); update source directly via adminDb
       await updateCustomAudience(id, { status: 'BUILDING' })
       await adminDb.collection('custom_audiences').doc(id).update({
-        'source.hashCount': uploadResult.totalMembers,
+        'source.hashCount': members.length,
         'source.uploadedAt': Timestamp.now(),
         updatedAt: Timestamp.now(),
       })
@@ -112,6 +112,86 @@ export const POST = withAuth(
         chunksFailed: uploadResult.chunksFailed,
         ...(uploadResult.firstError ? { firstError: uploadResult.firstError } : {}),
       })
+    }
+
+    // ─── TikTok branch ───────────────────────────────────────────────────────
+    if (ca.platform === 'tiktok') {
+      const tiktokData = (ca.providerData as Record<string, unknown>)?.tiktok as
+        | Record<string, unknown>
+        | undefined
+      const customAudienceId =
+        typeof tiktokData?.customAudienceId === 'string'
+          ? tiktokData.customAudienceId
+          : undefined
+      if (!customAudienceId) return apiError('Audience has no TikTok customAudienceId', 400)
+
+      const emailIdx = header.indexOf('EMAIL')
+      const phoneIdx = header.indexOf('PHONE')
+      const rows: Array<{ email?: string; phone?: string }> = []
+      for (let i = 1; i < lines.length; i++) {
+        const cells = lines[i].split(',')
+        const row: { email?: string; phone?: string } = {}
+        if (emailIdx !== -1 && cells[emailIdx]?.trim()) row.email = cells[emailIdx].trim()
+        if (phoneIdx !== -1 && cells[phoneIdx]?.trim()) row.phone = cells[phoneIdx].trim()
+        if (row.email || row.phone) rows.push(row)
+      }
+      if (rows.length === 0) return apiError('No valid rows found in CSV', 400)
+
+      const { rowsToTiktokPayload } = await import(
+        '@/lib/ads/providers/tiktok/audiences-hash'
+      )
+      const payload = rowsToTiktokPayload(rows)
+
+      const conn = await getConnection({ orgId, platform: 'tiktok' })
+      if (!conn) return apiError('No TikTok ads connection for org', 400)
+      const accessToken = decryptAccessToken(conn)
+      const tiktokMeta = ((conn.meta ?? {}) as Record<string, unknown>).tiktok as
+        | Record<string, unknown>
+        | undefined
+      const advertiserId =
+        typeof tiktokMeta?.selectedAdvertiserId === 'string'
+          ? tiktokMeta.selectedAdvertiserId
+          : undefined
+      if (!advertiserId) return apiError('No advertiserId on TikTok connection', 400)
+
+      const { uploadAudienceFile, applyAudienceFile } = await import(
+        '@/lib/ads/providers/tiktok/audiences'
+      )
+      const uploadResult = await uploadAudienceFile({
+        advertiserId,
+        accessToken,
+        customAudienceId,
+        payload,
+      })
+      await applyAudienceFile({
+        advertiserId,
+        accessToken,
+        customAudienceId,
+        filePaths: [uploadResult.filePath],
+      })
+
+      await updateCustomAudience(id, { status: 'BUILDING' })
+      await adminDb.collection('custom_audiences').doc(id).update({
+        'source.hashCount': rows.length,
+        'source.uploadedAt': Timestamp.now(),
+        updatedAt: Timestamp.now(),
+      })
+
+      const actor = {
+        id: (user as { uid?: string }).uid ?? 'unknown',
+        name: (user as { email?: string }).email ?? 'Admin',
+        role: 'admin' as const,
+      }
+      await logCustomAudienceActivity({
+        orgId,
+        actor,
+        action: 'list_uploaded',
+        audienceId: id,
+        audienceName: ca.name,
+        audienceType: ca.type,
+      })
+
+      return apiSuccess({ uploaded: rows.length, filePath: uploadResult.filePath })
     }
 
     // ─── Meta branch ─────────────────────────────────────────────────────────
