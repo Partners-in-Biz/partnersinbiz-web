@@ -12,7 +12,7 @@ import { type QueryDocumentSnapshot, type DocumentData } from 'firebase-admin/fi
 import { withAuth } from '@/lib/api/auth'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import { adminDb } from '@/lib/firebase/admin'
-import { AGENT_IDS, type AgentId } from '@/lib/agents/types'
+import { isValidAgentId, type AgentId } from '@/lib/agents/types'
 
 export const dynamic = 'force-dynamic'
 
@@ -20,7 +20,7 @@ type Ctx = { params: Promise<{ agentId: string }> }
 
 export const GET = withAuth('admin', async (req: NextRequest, _user, ctx) => {
   const { agentId } = await (ctx as Ctx).params
-  if (!AGENT_IDS.includes(agentId as AgentId)) return apiError('Invalid agentId', 400)
+  if (!isValidAgentId(agentId)) return apiError('Invalid agentId', 400)
 
   const limitParam = Number(req.nextUrl.searchParams.get('limit') ?? '30')
   const limit = Math.min(Math.max(1, limitParam), 100)

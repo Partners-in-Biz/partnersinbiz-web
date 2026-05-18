@@ -28,7 +28,7 @@ const HEALTH_PILL: Record<HealthStatus, { label: string; className: string }> = 
   loading:     { label: 'Checking…',   className: 'bg-white/10 text-on-surface-variant' },
 }
 
-const TABS = ['overview', 'skills', 'cron', 'env', 'config', 'logs', 'edit'] as const
+const TABS = ['overview', 'skills', 'cron', 'env', 'config', 'soul', 'files', 'logs', 'edit'] as const
 type Tab = typeof TABS[number]
 const TAB_LABELS: Record<Tab, string> = {
   overview: 'Overview',
@@ -36,6 +36,8 @@ const TAB_LABELS: Record<Tab, string> = {
   cron:     'Cron',
   env:      'Env',
   config:   'Config',
+  soul:     'Soul',
+  files:    'Files',
   logs:     'Logs',
   edit:     'Edit',
 }
@@ -91,6 +93,17 @@ type EnvEntry = {
   advanced?: boolean
 }
 
+type ProfileFile = {
+  path: string
+  absolutePath?: string
+  exists: boolean
+  editable: boolean
+  kind?: string
+  sizeBytes?: number | null
+  updatedAt?: string | null
+  content?: string
+}
+
 function formatBytes(n: number): string {
   if (n < 1024) return n + ' B'
   if (n < 1048576) return (n / 1024).toFixed(1) + ' KB'
@@ -142,6 +155,19 @@ export function AgentDetailPanel({ agent, onClose, onSaved }: AgentDetailPanelPr
   const [configData, setConfigData]       = useState<unknown>(null)
   const [configLoading, setConfigLoading] = useState(false)
   const [configError, setConfigError]     = useState<string | null>(null)
+  const [configText, setConfigText]       = useState('')
+  const [configSaving, setConfigSaving]   = useState(false)
+  const [configMessage, setConfigMessage] = useState<string | null>(null)
+
+  // Profile files / soul state
+  const [profileFiles, setProfileFiles]       = useState<ProfileFile[] | null>(null)
+  const [filesLoading, setFilesLoading]       = useState(false)
+  const [filesError, setFilesError]           = useState<string | null>(null)
+  const [selectedFilePath, setSelectedFilePath] = useState('SOUL.md')
+  const [fileContent, setFileContent]         = useState('')
+  const [fileMeta, setFileMeta]               = useState<ProfileFile | null>(null)
+  const [fileSaving, setFileSaving]           = useState(false)
+  const [fileMessage, setFileMessage]         = useState<string | null>(null)
 
   // Logs tab state
   const [logsData, setLogsData]       = useState<LogRun[] | null>(null)
@@ -157,6 +183,8 @@ export function AgentDetailPanel({ agent, onClose, onSaved }: AgentDetailPanelPr
   const [cronName, setCronName]           = useState('')
   const [cronPrompt, setCronPrompt]       = useState('')
   const [cronSchedule, setCronSchedule]   = useState('0 9 * * *')
+  const [cronProvider, setCronProvider]   = useState('')
+  const [cronModel, setCronModel]         = useState('')
   const [cronCreating, setCronCreating]   = useState(false)
   const [showCronForm, setShowCronForm]   = useState(false)
 
@@ -165,6 +193,10 @@ export function AgentDetailPanel({ agent, onClose, onSaved }: AgentDetailPanelPr
   const [envSupported, setEnvSupported]   = useState<boolean | null>(null)
   const [envLoading, setEnvLoading]       = useState(false)
   const [envError, setEnvError]           = useState<string | null>(null)
+  const [envKey, setEnvKey]               = useState('')
+  const [envValue, setEnvValue]           = useState('')
+  const [envSaving, setEnvSaving]         = useState(false)
+  const [envMessage, setEnvMessage]       = useState<string | null>(null)
 
   // Lazy-load tracking: which tabs have been loaded for the current agent
   const loadedTabs = useRef<Set<Tab>>(new Set())
@@ -185,6 +217,14 @@ export function AgentDetailPanel({ agent, onClose, onSaved }: AgentDetailPanelPr
     setSkillsMessage(null)
     setConfigData(null)
     setConfigError(null)
+    setConfigText('')
+    setConfigMessage(null)
+    setProfileFiles(null)
+    setFilesError(null)
+    setSelectedFilePath('SOUL.md')
+    setFileContent('')
+    setFileMeta(null)
+    setFileMessage(null)
     setLogsData(null)
     setLogsError(null)
     setCronJobs([])
@@ -195,11 +235,16 @@ export function AgentDetailPanel({ agent, onClose, onSaved }: AgentDetailPanelPr
     setCronName('')
     setCronPrompt('')
     setCronSchedule('0 9 * * *')
+    setCronProvider('')
+    setCronModel('')
     setEnvData(null)
     setEnvSupported(null)
     setEnvError(null)
+    setEnvKey('')
+    setEnvValue('')
+    setEnvMessage(null)
     loadedTabs.current = new Set()
-  }, [agent?.agentId])
+  }, [agent])
 
   const loadSkills = useCallback(async (agentId: string) => {
     setSkillsLoading(true)
@@ -223,7 +268,13 @@ export function AgentDetailPanel({ agent, onClose, onSaved }: AgentDetailPanelPr
       const res = await fetch(`/api/v1/admin/agents/${agentId}/config`)
       const body = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(body.error || `Failed to load config (${res.status})`)
-      setConfigData(body.data ?? body)
+      const nextData = body.data ?? body
+      setConfigData(nextData)
+      const dataObj = nextData && typeof nextData === 'object' ? nextData as Record<string, unknown> : {}
+      const liveConfig = dataObj.liveConfig
+      const liveObj = liveConfig && typeof liveConfig === 'object' ? liveConfig as Record<string, unknown> : null
+      const editableConfig = liveObj && 'config' in liveObj ? liveObj.config : liveConfig
+      setConfigText(JSON.stringify(editableConfig ?? {}, null, 2))
     } catch (e) {
       setConfigError(e instanceof Error ? e.message : 'Failed to load config')
     } finally {
@@ -289,6 +340,30 @@ export function AgentDetailPanel({ agent, onClose, onSaved }: AgentDetailPanelPr
     }
   }, [])
 
+  const loadProfileFiles = useCallback(async (agentId: string, path = selectedFilePath) => {
+    setFilesLoading(true)
+    setFilesError(null)
+    try {
+      const res = await fetch(`/api/v1/admin/agents/${agentId}/files`)
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(body.error || `Failed to load profile files (${res.status})`)
+      const files = body.data?.files ?? body.data ?? []
+      setProfileFiles(Array.isArray(files) ? files : [])
+      const targetPath = path || 'SOUL.md'
+      const fileRes = await fetch(`/api/v1/admin/agents/${agentId}/files/${targetPath.split('/').map(encodeURIComponent).join('/')}`)
+      const fileBody = await fileRes.json().catch(() => ({}))
+      if (!fileRes.ok) throw new Error(fileBody.error || `Failed to read ${targetPath} (${fileRes.status})`)
+      const nextFile = fileBody.data ?? fileBody
+      setSelectedFilePath(targetPath)
+      setFileMeta(nextFile)
+      setFileContent(typeof nextFile.content === 'string' ? nextFile.content : '')
+    } catch (e) {
+      setFilesError(e instanceof Error ? e.message : 'Failed to load profile files')
+    } finally {
+      setFilesLoading(false)
+    }
+  }, [selectedFilePath])
+
   // Activate tab and lazy-load its data
   function activateTab(tab: Tab) {
     setActiveTab(tab)
@@ -301,6 +376,10 @@ export function AgentDetailPanel({ agent, onClose, onSaved }: AgentDetailPanelPr
     if (tab === 'config' && !loadedTabs.current.has('config')) {
       loadedTabs.current.add('config')
       loadConfig(agentId)
+    }
+    if ((tab === 'soul' || tab === 'files') && !loadedTabs.current.has(tab)) {
+      loadedTabs.current.add(tab)
+      loadProfileFiles(agentId, tab === 'soul' ? 'SOUL.md' : selectedFilePath)
     }
     if (tab === 'logs' && !loadedTabs.current.has('logs')) {
       loadedTabs.current.add('logs')
@@ -414,6 +493,116 @@ export function AgentDetailPanel({ agent, onClose, onSaved }: AgentDetailPanelPr
     }
   }
 
+  async function saveLiveConfig() {
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(configText)
+    } catch (err) {
+      setConfigError(err instanceof Error ? err.message : 'Config must be valid JSON')
+      return
+    }
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      setConfigError('Config must be a JSON object.')
+      return
+    }
+    setConfigSaving(true)
+    setConfigError(null)
+    setConfigMessage(null)
+    try {
+      const res = await fetch(`/api/v1/admin/agents/${agentId}/config`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ config: parsed }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(body.error || `Failed to save config (${res.status})`)
+      setConfigMessage('Config saved. Gateway restarting...')
+      setTimeout(() => loadConfig(agentId), 3000)
+    } catch (err) {
+      setConfigError(err instanceof Error ? err.message : 'Failed to save config')
+    } finally {
+      setConfigSaving(false)
+    }
+  }
+
+  async function saveEnvKey(e: React.FormEvent) {
+    e.preventDefault()
+    const key = envKey.trim().toUpperCase()
+    if (!key || !envValue) return
+    setEnvSaving(true)
+    setEnvError(null)
+    setEnvMessage(null)
+    try {
+      const res = await fetch(`/api/v1/admin/agents/${agentId}/env`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ set: { [key]: envValue } }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(body.error || `Failed to update env (${res.status})`)
+      setEnvMessage(`${key} saved. Gateway restarting...`)
+      setEnvKey('')
+      setEnvValue('')
+      setTimeout(() => loadEnv(agentId), 3000)
+    } catch (err) {
+      setEnvError(err instanceof Error ? err.message : 'Failed to update env')
+    } finally {
+      setEnvSaving(false)
+    }
+  }
+
+  async function unsetEnvKey(key: string) {
+    if (!confirm(`Unset ${key} for ${agent?.name ?? 'this agent'}?`)) return
+    setEnvSaving(true)
+    setEnvError(null)
+    setEnvMessage(null)
+    try {
+      const res = await fetch(`/api/v1/admin/agents/${agentId}/env`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ unset: [key] }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(body.error || `Failed to unset env (${res.status})`)
+      setEnvMessage(`${key} unset. Gateway restarting...`)
+      setTimeout(() => loadEnv(agentId), 3000)
+    } catch (err) {
+      setEnvError(err instanceof Error ? err.message : 'Failed to unset env')
+    } finally {
+      setEnvSaving(false)
+    }
+  }
+
+  async function selectProfileFile(path: string) {
+    if (!agent) return
+    setSelectedFilePath(path)
+    setFileMessage(null)
+    await loadProfileFiles(agent.agentId, path)
+  }
+
+  async function saveProfileFile() {
+    if (!agent || !fileMeta?.editable) return
+    setFileSaving(true)
+    setFilesError(null)
+    setFileMessage(null)
+    try {
+      const encoded = selectedFilePath.split('/').map(encodeURIComponent).join('/')
+      const res = await fetch(`/api/v1/admin/agents/${agent.agentId}/files/${encoded}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: fileContent }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(body.error || `Failed to save ${selectedFilePath} (${res.status})`)
+      setFileMessage(`${selectedFilePath} saved. Gateway restarting...`)
+      setTimeout(() => loadProfileFiles(agent.agentId, selectedFilePath), 3000)
+    } catch (err) {
+      setFilesError(err instanceof Error ? err.message : 'Failed to save profile file')
+    } finally {
+      setFileSaving(false)
+    }
+  }
+
   const healthPill = healthResult ? HEALTH_PILL[healthResult.status] : null
 
   // Config summary extraction — API returns flat Firestore fields
@@ -423,6 +612,10 @@ export function AgentDetailPanel({ agent, onClose, onSaved }: AgentDetailPanelPr
   const configPersona      = configObj?.persona as string | undefined
   const configEnabled      = configObj?.enabled as boolean | undefined
   const configModels       = configObj?.models  // optional /v1/models probe result
+  const liveConfigObj      = configObj?.liveConfig && typeof configObj.liveConfig === 'object'
+    ? configObj.liveConfig as Record<string, unknown>
+    : null
+  const liveConfigPath     = liveConfigObj?.path as string | undefined
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -640,8 +833,11 @@ export function AgentDetailPanel({ agent, onClose, onSaved }: AgentDetailPanelPr
             {configError && (
               <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-300">{configError}</div>
             )}
+            {configMessage && (
+              <div className="rounded-lg border border-green-500/30 bg-green-500/10 p-3 text-xs text-green-300">{configMessage}</div>
+            )}
 
-            {!configLoading && !configError && configData !== null && (
+            {!configLoading && configData !== null && (
               <div className="space-y-3">
                 <div className="grid grid-cols-2 gap-2">
                   {configModelDefault && (
@@ -668,9 +864,38 @@ export function AgentDetailPanel({ agent, onClose, onSaved }: AgentDetailPanelPr
                   {configModels !== undefined && configModels !== null && (
                     <div className="pib-card p-3 col-span-2">
                       <p className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant mb-1">Live models (VPS)</p>
-                      <code className="text-xs font-mono text-on-surface-variant/80">{JSON.stringify(configModels)}</code>
+                      <pre className="max-h-32 overflow-auto whitespace-pre-wrap break-words text-xs font-mono text-on-surface-variant/80">
+                        {JSON.stringify(configModels, null, 2)}
+                      </pre>
                     </div>
                   )}
+                </div>
+                <div className="pib-card p-3 space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant">Live config JSON</p>
+                      {liveConfigPath && <p className="mt-1 text-[10px] font-mono text-on-surface-variant/50 break-all">{liveConfigPath}</p>}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={saveLiveConfig}
+                      disabled={configSaving || !configText.trim()}
+                      className="pib-btn-primary text-xs font-label disabled:opacity-50"
+                    >
+                      {configSaving ? 'Saving...' : 'Save config'}
+                    </button>
+                  </div>
+                  <textarea
+                    value={configText}
+                    onChange={(e) => setConfigText(e.target.value)}
+                    spellCheck={false}
+                    rows={18}
+                    className="pib-input w-full resize-y font-mono text-xs leading-relaxed"
+                    placeholder='{ "model": { "provider": "openai-codex", "default": "gpt-5.5" } }'
+                  />
+                  <p className="text-[10px] text-on-surface-variant/60">
+                    Provider and model live under <code className="font-mono">model.provider</code>, <code className="font-mono">model.default</code>, and <code className="font-mono">fallback_providers</code>. Saving writes the VPS config and restarts this agent.
+                  </p>
                 </div>
                 {configPersona && (
                   <div className="pib-card p-3">
@@ -680,6 +905,119 @@ export function AgentDetailPanel({ agent, onClose, onSaved }: AgentDetailPanelPr
                 )}
               </div>
             )}
+          </div>
+        )}
+
+        {/* SOUL TAB */}
+        {activeTab === 'soul' && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between gap-4">
+              <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+                SOUL.md
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => loadProfileFiles(agentId, 'SOUL.md')}
+                  disabled={filesLoading}
+                  className="pib-btn-ghost text-xs font-label flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  <span className="material-symbols-outlined text-[14px]">refresh</span>
+                  {filesLoading ? 'Loading...' : 'Refresh'}
+                </button>
+                <button
+                  type="button"
+                  onClick={saveProfileFile}
+                  disabled={fileSaving || filesLoading || !fileMeta?.editable}
+                  className="pib-btn-primary text-xs font-label disabled:opacity-50"
+                >
+                  {fileSaving ? 'Saving...' : 'Save Soul'}
+                </button>
+              </div>
+            </div>
+            {filesError && <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-300">{filesError}</div>}
+            {fileMessage && <div className="rounded-lg border border-green-500/30 bg-green-500/10 p-3 text-xs text-green-300">{fileMessage}</div>}
+            {fileMeta?.absolutePath && <p className="text-[10px] font-mono text-on-surface-variant/50 break-all">{fileMeta.absolutePath}</p>}
+            <textarea
+              value={fileContent}
+              onChange={(e) => setFileContent(e.target.value)}
+              spellCheck={false}
+              rows={28}
+              className="pib-input w-full resize-y font-mono text-xs leading-relaxed"
+              placeholder="This profile does not have a SOUL.md yet."
+            />
+          </div>
+        )}
+
+        {/* FILES TAB */}
+        {activeTab === 'files' && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between gap-4">
+              <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+                Profile Files
+              </p>
+              <button
+                type="button"
+                onClick={() => loadProfileFiles(agentId, selectedFilePath)}
+                disabled={filesLoading}
+                className="pib-btn-ghost text-xs font-label flex items-center gap-1.5 disabled:opacity-50"
+              >
+                <span className="material-symbols-outlined text-[14px]">refresh</span>
+                {filesLoading ? 'Loading...' : 'Refresh'}
+              </button>
+            </div>
+            {filesError && <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-300">{filesError}</div>}
+            {fileMessage && <div className="rounded-lg border border-green-500/30 bg-green-500/10 p-3 text-xs text-green-300">{fileMessage}</div>}
+            <div className="grid gap-3 lg:grid-cols-[220px_minmax(0,1fr)]">
+              <div className="space-y-1">
+                {(profileFiles ?? []).map((file) => (
+                  <button
+                    key={file.path}
+                    type="button"
+                    onClick={() => selectProfileFile(file.path)}
+                    className={`w-full rounded-lg border px-3 py-2 text-left transition-colors ${
+                      selectedFilePath === file.path
+                        ? 'border-primary/60 bg-primary/10 text-on-surface'
+                        : 'border-white/10 bg-white/5 text-on-surface-variant hover:text-on-surface'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <code className="text-[11px] font-mono truncate">{file.path}</code>
+                      <span className={`text-[9px] font-label uppercase ${file.editable ? 'text-emerald-400' : 'text-on-surface-variant/50'}`}>
+                        {file.editable ? 'edit' : 'read'}
+                      </span>
+                    </div>
+                    <div className="mt-1 text-[10px] text-on-surface-variant/50">
+                      {file.exists ? `${formatBytes(file.sizeBytes ?? 0)} · ${file.kind ?? 'file'}` : 'missing'}
+                    </div>
+                  </button>
+                ))}
+              </div>
+              <div className="pib-card p-3 space-y-3 min-w-0">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant">{selectedFilePath}</p>
+                    {fileMeta?.absolutePath && <p className="mt-1 text-[10px] font-mono text-on-surface-variant/50 break-all">{fileMeta.absolutePath}</p>}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={saveProfileFile}
+                    disabled={fileSaving || !fileMeta?.editable}
+                    className="pib-btn-primary text-xs font-label disabled:opacity-50"
+                  >
+                    {fileSaving ? 'Saving...' : 'Save'}
+                  </button>
+                </div>
+                <textarea
+                  value={fileContent}
+                  onChange={(e) => setFileContent(e.target.value)}
+                  readOnly={!fileMeta?.editable}
+                  spellCheck={false}
+                  rows={24}
+                  className="pib-input w-full resize-y font-mono text-xs leading-relaxed disabled:opacity-70"
+                />
+              </div>
+            </div>
           </div>
         )}
 
@@ -803,6 +1141,8 @@ export function AgentDetailPanel({ agent, onClose, onSaved }: AgentDetailPanelPr
                         name: cronName.trim() || undefined,
                         prompt: cronPrompt.trim(),
                         schedule: cronSchedule.trim(),
+                        provider: cronProvider.trim() || undefined,
+                        model: cronModel.trim() || undefined,
                       }),
                     })
                     const body = await res.json().catch(() => ({}))
@@ -811,6 +1151,8 @@ export function AgentDetailPanel({ agent, onClose, onSaved }: AgentDetailPanelPr
                     setCronName('')
                     setCronPrompt('')
                     setCronSchedule('0 9 * * *')
+                    setCronProvider('')
+                    setCronModel('')
                     setShowCronForm(false)
                     loadedTabs.current.delete('cron')
                     loadCron(agentId)
@@ -846,6 +1188,22 @@ export function AgentDetailPanel({ agent, onClose, onSaved }: AgentDetailPanelPr
                     required
                     className="pib-input w-full text-sm font-mono"
                   />
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <input
+                      type="text"
+                      placeholder="Provider override (optional)"
+                      value={cronProvider}
+                      onChange={(e) => setCronProvider(e.target.value)}
+                      className="pib-input w-full text-sm font-mono"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Model override (optional)"
+                      value={cronModel}
+                      onChange={(e) => setCronModel(e.target.value)}
+                      className="pib-input w-full text-sm font-mono"
+                    />
+                  </div>
                 </div>
                 <div className="flex justify-end gap-2 pt-1">
                   <button type="button" onClick={() => setShowCronForm(false)} className="pib-btn-ghost text-xs font-label">Cancel</button>
@@ -978,16 +1336,51 @@ export function AgentDetailPanel({ agent, onClose, onSaved }: AgentDetailPanelPr
             {envError && (
               <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-300">{envError}</div>
             )}
+            {envMessage && (
+              <div className="rounded-lg border border-green-500/30 bg-green-500/10 p-3 text-xs text-green-300">{envMessage}</div>
+            )}
 
-            {!envLoading && !envError && envSupported === false && (
+            {!envLoading && envSupported === false && (
               <div className="text-sm text-on-surface-variant text-center py-8 space-y-1">
                 <p>This agent&apos;s gateway doesn&apos;t expose the env API.</p>
                 <p className="text-[11px] text-on-surface-variant/50">Env inspection requires Hermes with the full dashboard enabled.</p>
               </div>
             )}
 
-            {!envLoading && !envError && envData !== null && envSupported !== false && (
-              <div className="space-y-1.5">
+            {!envLoading && envData !== null && envSupported !== false && (
+              <div className="space-y-3">
+                <form onSubmit={saveEnvKey} className="pib-card p-3 space-y-3">
+                  <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Add or update key</p>
+                  <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_auto]">
+                    <input
+                      type="text"
+                      value={envKey}
+                      onChange={(e) => setEnvKey(e.target.value)}
+                      placeholder="OPENAI_API_KEY"
+                      className="pib-input w-full text-sm font-mono uppercase"
+                      pattern="[A-Za-z0-9_]+"
+                      required
+                    />
+                    <input
+                      type="password"
+                      value={envValue}
+                      onChange={(e) => setEnvValue(e.target.value)}
+                      placeholder="New value"
+                      className="pib-input w-full text-sm font-mono"
+                      autoComplete="new-password"
+                      required
+                    />
+                    <button
+                      type="submit"
+                      disabled={envSaving}
+                      className="pib-btn-primary text-xs font-label disabled:opacity-50"
+                    >
+                      {envSaving ? 'Saving...' : 'Save'}
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-on-surface-variant/60">Values stay redacted after saving. Saving restarts this agent on the VPS.</p>
+                </form>
+
                 {envData.filter((e) => !e.advanced).length > 0 && (
                   <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mt-2 mb-1">Providers</p>
                 )}
@@ -1017,6 +1410,15 @@ export function AgentDetailPanel({ agent, onClose, onSaved }: AgentDetailPanelPr
                         </div>
                       )}
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => unsetEnvKey(entry.key)}
+                      disabled={envSaving}
+                      title={`Unset ${entry.key}`}
+                      className="p-1.5 rounded hover:bg-red-500/10 text-on-surface-variant hover:text-red-400 transition-colors disabled:opacity-50"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">delete</span>
+                    </button>
                   </div>
                 ))}
               </div>

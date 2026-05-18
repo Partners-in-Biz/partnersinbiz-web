@@ -1,7 +1,7 @@
 'use client'
 
 export interface AgentTeamDoc {
-  agentId: 'pip' | 'theo' | 'maya' | 'sage' | 'nora'
+  agentId: string
   name: string
   role: string
   persona: string

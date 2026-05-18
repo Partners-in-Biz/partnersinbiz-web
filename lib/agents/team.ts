@@ -125,8 +125,12 @@ export async function getAgentDecryptedKey(agentId: AgentId): Promise<string | n
 }
 
 type UpdateableFields = Partial<
-  Pick<AgentTeamDoc, 'enabled' | 'name' | 'persona' | 'baseUrl' | 'apiKey' | 'defaultModel'>
+  Pick<AgentTeamDoc, 'enabled' | 'name' | 'role' | 'persona' | 'baseUrl' | 'apiKey' | 'defaultModel' | 'iconKey' | 'colorKey'>
 >
+
+type CreateAgentInput = Pick<AgentTeamDoc, 'agentId' | 'name' | 'role' | 'persona' | 'defaultModel' | 'iconKey' | 'colorKey' | 'enabled' | 'baseUrl'> & {
+  apiKey: string
+}
 
 /**
  * Update an agent doc. If `apiKey` is included in the patch it is re-encrypted
@@ -183,6 +187,43 @@ export async function updateAgent(agentId: AgentId, patch: UpdateableFields): Pr
   // Return the fresh doc (with mask)
   const updated = await ref.get()
   return toPublicDoc(updated.data() as AgentTeamStoredDoc)
+}
+
+export async function createAgent(input: CreateAgentInput): Promise<AgentTeamDoc> {
+  const ref = adminDb.collection(COLLECTION).doc(input.agentId)
+  const existing = await ref.get()
+  if (existing.exists) throw new Error(`agent_team/${input.agentId} already exists`)
+
+  const now = FieldValue.serverTimestamp()
+  const encryptedKey = encryptAgentApiKey(input.apiKey)
+  await ref.set({
+    agentId: input.agentId,
+    name: input.name,
+    role: input.role,
+    persona: input.persona,
+    defaultModel: input.defaultModel,
+    iconKey: input.iconKey,
+    colorKey: input.colorKey,
+    enabled: input.enabled,
+    baseUrl: input.baseUrl.replace(/\/+$/, ''),
+    apiKey: encryptedKey,
+    createdAt: now,
+    updatedAt: now,
+  })
+
+  const baseUrl = input.baseUrl.replace(/\/+$/, '')
+  await adminDb.collection('agent_dispatch_configs').doc(input.agentId).set({
+    agentId: input.agentId,
+    baseUrl,
+    endpoint: `${baseUrl}/v1/runs`,
+    apiKey: input.apiKey,
+    enabled: input.enabled,
+    createdAt: now,
+    updatedAt: now,
+  }, { merge: true })
+
+  const snap = await ref.get()
+  return toPublicDoc(snap.data() as AgentTeamStoredDoc)
 }
 
 /**

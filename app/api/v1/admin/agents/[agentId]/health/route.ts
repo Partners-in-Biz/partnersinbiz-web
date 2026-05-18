@@ -12,7 +12,7 @@ import { NextRequest } from 'next/server'
 import { withAuth } from '@/lib/api/auth'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import { pingAgentHealth } from '@/lib/agents/team'
-import { AGENT_IDS, type AgentId } from '@/lib/agents/types'
+import { isValidAgentId, type AgentId } from '@/lib/agents/types'
 
 export const dynamic = 'force-dynamic'
 
@@ -21,8 +21,8 @@ export const GET = withAuth(
   async (_req: NextRequest, _user, context?: { params?: Promise<{ agentId?: string }> | { agentId?: string } }) => {
     const params = context?.params ? await context.params : {}
     const agentId = (params as { agentId?: string }).agentId as string | undefined
-    if (!agentId || !AGENT_IDS.includes(agentId as AgentId)) {
-      return apiError(`Invalid agentId; expected one of ${AGENT_IDS.join(' | ')}`, 400)
+    if (!agentId || !isValidAgentId(agentId)) {
+      return apiError('Invalid agentId', 400)
     }
 
     const result = await pingAgentHealth(agentId as AgentId)

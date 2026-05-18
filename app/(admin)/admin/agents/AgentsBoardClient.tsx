@@ -17,26 +17,15 @@ export default function AgentsBoardClient() {
   const [healthMap, setHealthMap]     = useState<Record<string, HealthStatus>>({})
   const [selected, setSelected]       = useState<AgentTeamDoc | null>(null)
   const [panelOpen, setPanelOpen]     = useState(false)
-
-  async function loadAgents() {
-    setLoading(true)
-    setTopError(null)
-    try {
-      const res  = await fetch('/api/v1/admin/agents')
-      const body = await res.json()
-      if (!res.ok) {
-        setTopError(body?.error ?? 'Failed to load agents')
-        return
-      }
-      const data: AgentTeamDoc[] = body.data ?? []
-      setAgents(data)
-      pingAllHealth(data)
-    } catch (err) {
-      setTopError(err instanceof Error ? err.message : 'Failed to load agents')
-    } finally {
-      setLoading(false)
-    }
-  }
+  const [showCreate, setShowCreate]   = useState(false)
+  const [creating, setCreating]       = useState(false)
+  const [createError, setCreateError] = useState<string | null>(null)
+  const [newAgentId, setNewAgentId]   = useState('')
+  const [newName, setNewName]         = useState('')
+  const [newRole, setNewRole]         = useState('Specialist')
+  const [newPersona, setNewPersona]   = useState('')
+  const [newModel, setNewModel]       = useState('gpt-5.5')
+  const [newProvider, setNewProvider] = useState('openai-codex')
 
   const pingAllHealth = useCallback(async (agentList: AgentTeamDoc[]) => {
     // Set all to loading first
@@ -59,9 +48,29 @@ export default function AgentsBoardClient() {
     )
   }, [])
 
+  const loadAgents = useCallback(async () => {
+    setLoading(true)
+    setTopError(null)
+    try {
+      const res  = await fetch('/api/v1/admin/agents')
+      const body = await res.json()
+      if (!res.ok) {
+        setTopError(body?.error ?? 'Failed to load agents')
+        return
+      }
+      const data: AgentTeamDoc[] = body.data ?? []
+      setAgents(data)
+      pingAllHealth(data)
+    } catch (err) {
+      setTopError(err instanceof Error ? err.message : 'Failed to load agents')
+    } finally {
+      setLoading(false)
+    }
+  }, [pingAllHealth])
+
   useEffect(() => {
     loadAgents()
-  }, [])
+  }, [loadAgents])
 
   function openPanel(agent: AgentTeamDoc) {
     setSelected(agent)
@@ -79,6 +88,44 @@ export default function AgentsBoardClient() {
     setSelected(updated)
   }
 
+  async function createAgent(e: React.FormEvent) {
+    e.preventDefault()
+    setCreating(true)
+    setCreateError(null)
+    try {
+      const res = await fetch('/api/v1/admin/agents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          agentId: newAgentId,
+          name: newName,
+          role: newRole,
+          persona: newPersona,
+          defaultModel: newModel,
+          provider: newProvider,
+        }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(body.error || `Failed to create agent (${res.status})`)
+      const created = body.data?.agent as AgentTeamDoc
+      setAgents((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)))
+      setHealthMap((prev) => ({ ...prev, [created.agentId]: 'loading' }))
+      setShowCreate(false)
+      setNewAgentId('')
+      setNewName('')
+      setNewRole('Specialist')
+      setNewPersona('')
+      setNewModel('gpt-5.5')
+      setNewProvider('openai-codex')
+      openPanel(created)
+      setTimeout(() => pingAllHealth([created]), 3000)
+    } catch (err) {
+      setCreateError(err instanceof Error ? err.message : 'Failed to create agent')
+    } finally {
+      setCreating(false)
+    }
+  }
+
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
       {/* Page header */}
@@ -92,15 +139,61 @@ export default function AgentsBoardClient() {
             Manage the 5 specialist agents that serve your clients.
           </p>
         </div>
-        <button
-          onClick={() => loadAgents()}
-          className="pib-btn-ghost text-sm font-label flex items-center gap-1.5 shrink-0"
-          title="Refresh"
-        >
-          <span className="material-symbols-outlined text-[16px]">refresh</span>
-          Refresh
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={() => setShowCreate((v) => !v)}
+            className="pib-btn-primary text-sm font-label flex items-center gap-1.5"
+          >
+            <span className="material-symbols-outlined text-[16px]">add</span>
+            New Agent
+          </button>
+          <button
+            onClick={() => loadAgents()}
+            className="pib-btn-ghost text-sm font-label flex items-center gap-1.5"
+            title="Refresh"
+          >
+            <span className="material-symbols-outlined text-[16px]">refresh</span>
+            Refresh
+          </button>
+        </div>
       </div>
+
+      {showCreate && (
+        <form onSubmit={createAgent} className="pib-card p-4 space-y-4">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="space-y-1">
+              <span className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant">Agent ID</span>
+              <input className="pib-input w-full font-mono text-sm" value={newAgentId} onChange={(e) => setNewAgentId(e.target.value.toLowerCase())} placeholder="zara" required />
+            </label>
+            <label className="space-y-1">
+              <span className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant">Name</span>
+              <input className="pib-input w-full text-sm" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Zara" required />
+            </label>
+            <label className="space-y-1">
+              <span className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant">Role</span>
+              <input className="pib-input w-full text-sm" value={newRole} onChange={(e) => setNewRole(e.target.value)} required />
+            </label>
+            <label className="space-y-1">
+              <span className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant">Provider / model</span>
+              <div className="grid grid-cols-2 gap-2">
+                <input className="pib-input w-full font-mono text-sm" value={newProvider} onChange={(e) => setNewProvider(e.target.value)} required />
+                <input className="pib-input w-full font-mono text-sm" value={newModel} onChange={(e) => setNewModel(e.target.value)} required />
+              </div>
+            </label>
+          </div>
+          <label className="space-y-1 block">
+            <span className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant">Persona / SOUL seed</span>
+            <textarea className="pib-input w-full min-h-24 resize-y text-sm" value={newPersona} onChange={(e) => setNewPersona(e.target.value)} placeholder="What this agent owns, how it behaves, and when Pip should use it." required />
+          </label>
+          {createError && <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-300">{createError}</div>}
+          <div className="flex justify-end gap-2">
+            <button type="button" onClick={() => setShowCreate(false)} className="pib-btn-ghost text-xs font-label">Cancel</button>
+            <button type="submit" disabled={creating} className="pib-btn-primary text-xs font-label disabled:opacity-50">
+              {creating ? 'Provisioning...' : 'Create on VPS'}
+            </button>
+          </div>
+        </form>
+      )}
 
       {topError && (
         <div className="pib-card border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-red-400">

@@ -14,7 +14,7 @@ import { NextRequest } from 'next/server'
 import { withAuth } from '@/lib/api/auth'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import { callAgentPath } from '@/lib/agents/team'
-import { AGENT_IDS, type AgentId } from '@/lib/agents/types'
+import { isValidAgentId, type AgentId } from '@/lib/agents/types'
 
 export const dynamic = 'force-dynamic'
 
@@ -46,7 +46,7 @@ async function listSkills(agentId: AgentId) {
 
 export const GET = withAuth('admin', async (_req: NextRequest, _user, ctx) => {
   const { agentId } = await (ctx as Ctx).params
-  if (!AGENT_IDS.includes(agentId as AgentId)) return apiError('Invalid agentId', 400)
+  if (!isValidAgentId(agentId)) return apiError('Invalid agentId', 400)
   try {
     const result = await listSkills(agentId as AgentId)
     if (!result) return apiError('Failed to list skills from agent', 502)
@@ -58,7 +58,7 @@ export const GET = withAuth('admin', async (_req: NextRequest, _user, ctx) => {
 
 export const POST = withAuth('admin', async (req: NextRequest, _user, ctx) => {
   const { agentId } = await (ctx as Ctx).params
-  if (!AGENT_IDS.includes(agentId as AgentId)) return apiError('Invalid agentId', 400)
+  if (!isValidAgentId(agentId)) return apiError('Invalid agentId', 400)
   const formData = await req.formData()
   const file = formData.get('file')
   if (!file || typeof file === 'string') return apiError('file is required', 400)
