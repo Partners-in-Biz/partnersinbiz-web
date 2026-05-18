@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 
 import type { ClientDocument, ClientDocumentStatus, ClientDocumentType } from '@/lib/client-documents/types'
@@ -64,11 +65,50 @@ function formatDate(value: unknown) {
 export function DocumentIndex({
   documents,
   basePath,
+  canDelete = false,
+  onDeleted,
 }: {
   documents: ClientDocument[]
   basePath: string
+  canDelete?: boolean
+  onDeleted?: (documentId: string) => void
 }) {
-  if (documents.length === 0) {
+  const [visibleDocuments, setVisibleDocuments] = useState(documents)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+
+  useEffect(() => {
+    setVisibleDocuments(documents)
+  }, [documents])
+
+  async function deleteDocument(document: ClientDocument) {
+    if (deletingId) return
+
+    const confirmed = window.confirm(
+      `Delete "${document.title}"? This archives it and removes it from active client document views.`,
+    )
+    if (!confirmed) return
+
+    setDeletingId(document.id)
+    setDeleteError(null)
+
+    try {
+      const res = await fetch(`/api/v1/client-documents/${document.id}`, { method: 'DELETE' })
+      if (!res.ok) {
+        const body = await res.json().catch(() => null)
+        throw new Error(body?.error ?? 'Could not delete document')
+      }
+
+      setVisibleDocuments((current) => current.filter((item) => item.id !== document.id))
+      onDeleted?.(document.id)
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : 'Could not delete document')
+    } finally {
+      setDeletingId(null)
+    }
+  }
+
+  if (visibleDocuments.length === 0) {
     return (
       <div className="bento-card p-10 text-center">
         <span className="material-symbols-outlined text-4xl text-[var(--color-pib-accent)]">description</span>
@@ -81,55 +121,78 @@ export function DocumentIndex({
   }
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-      {documents.map((document) => (
-        <article key={document.id} className="bento-card flex min-h-[230px] flex-col gap-5">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0 space-y-2">
-              <p className="text-xs uppercase tracking-[0.18em] text-[var(--color-pib-text-muted)]">
-                {TYPE_LABELS[document.type] ?? readable(document.type)}
-              </p>
-              <h2 className="font-display text-xl leading-snug">
-                <Link href={`${basePath}/${document.id}`} className="hover:text-[var(--color-pib-accent)]">
-                  {document.title}
+    <div className="space-y-3">
+      {deleteError && (
+        <div className="rounded-md border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+          {deleteError}
+        </div>
+      )}
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        {visibleDocuments.map((document) => (
+          <article key={document.id} className="bento-card flex min-h-[230px] flex-col gap-5">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 space-y-2">
+                <p className="text-xs uppercase tracking-[0.18em] text-[var(--color-pib-text-muted)]">
+                  {TYPE_LABELS[document.type] ?? readable(document.type)}
+                </p>
+                <h2 className="font-display text-xl leading-snug">
+                  <Link href={`${basePath}/${document.id}`} className="hover:text-[var(--color-pib-accent)]">
+                    {document.title}
+                  </Link>
+                </h2>
+              </div>
+              <span className="material-symbols-outlined shrink-0 text-[var(--color-pib-accent)]">description</span>
+            </div>
+
+            <dl className="grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <dt className="eyebrow !text-[9px]">Status</dt>
+                <dd className="mt-1">
+                  <span className={STATUS_PILL[document.status] ?? 'pib-pill'}>
+                    {STATUS_LABELS[document.status] ?? readable(document.status)}
+                  </span>
+                </dd>
+              </div>
+              <div>
+                <dt className="eyebrow !text-[9px]">Updated</dt>
+                <dd className="mt-1 text-[var(--color-pib-text-muted)]">
+                  {formatDate(document.updatedAt ?? document.createdAt)}
+                </dd>
+              </div>
+              <div className="col-span-2">
+                <dt className="eyebrow !text-[9px]">Linked</dt>
+                <dd className="mt-1 text-[var(--color-pib-text-muted)]">{linkedLabel(document)}</dd>
+              </div>
+            </dl>
+
+            <div className="mt-auto flex items-center justify-between gap-3 border-t border-[var(--color-outline)] pt-4">
+              <span className="text-xs text-[var(--color-pib-text-muted)]">
+                {document.approvalMode === 'none' ? 'Review document' : readable(document.approvalMode)}
+              </span>
+              <div className="flex items-center gap-2">
+                {canDelete && (
+                  <button
+                    type="button"
+                    onClick={() => deleteDocument(document)}
+                    disabled={deletingId === document.id}
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-red-500/30 text-red-300 transition hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-50"
+                    aria-label={`Delete ${document.title}`}
+                    title="Delete document"
+                  >
+                    <span className="material-symbols-outlined text-base">
+                      {deletingId === document.id ? 'progress_activity' : 'delete'}
+                    </span>
+                  </button>
+                )}
+                <Link href={`${basePath}/${document.id}`} className="btn-pib-accent !px-3 !py-1.5 !text-sm">
+                  Open
+                  <span className="material-symbols-outlined text-base">arrow_forward</span>
                 </Link>
-              </h2>
+              </div>
             </div>
-            <span className="material-symbols-outlined shrink-0 text-[var(--color-pib-accent)]">description</span>
-          </div>
-
-          <dl className="grid grid-cols-2 gap-3 text-sm">
-            <div>
-              <dt className="eyebrow !text-[9px]">Status</dt>
-              <dd className="mt-1">
-                <span className={STATUS_PILL[document.status] ?? 'pib-pill'}>
-                  {STATUS_LABELS[document.status] ?? readable(document.status)}
-                </span>
-              </dd>
-            </div>
-            <div>
-              <dt className="eyebrow !text-[9px]">Updated</dt>
-              <dd className="mt-1 text-[var(--color-pib-text-muted)]">
-                {formatDate(document.updatedAt ?? document.createdAt)}
-              </dd>
-            </div>
-            <div className="col-span-2">
-              <dt className="eyebrow !text-[9px]">Linked</dt>
-              <dd className="mt-1 text-[var(--color-pib-text-muted)]">{linkedLabel(document)}</dd>
-            </div>
-          </dl>
-
-          <div className="mt-auto flex items-center justify-between gap-3 border-t border-[var(--color-outline)] pt-4">
-            <span className="text-xs text-[var(--color-pib-text-muted)]">
-              {document.approvalMode === 'none' ? 'Review document' : readable(document.approvalMode)}
-            </span>
-            <Link href={`${basePath}/${document.id}`} className="btn-pib-accent !px-3 !py-1.5 !text-sm">
-              Open
-              <span className="material-symbols-outlined text-base">arrow_forward</span>
-            </Link>
-          </div>
-        </article>
-      ))}
+          </article>
+        ))}
+      </div>
     </div>
   )
 }

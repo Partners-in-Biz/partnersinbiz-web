@@ -127,7 +127,12 @@ export default function OrgDocumentsPage() {
             ))}
           </div>
         ) : (
-          <DocumentIndex documents={filtered} basePath={`/admin/org/${slug}/documents`} />
+          <DocumentIndex
+            documents={filtered}
+            basePath={`/admin/org/${slug}/documents`}
+            canDelete
+            onDeleted={(documentId) => setDocuments((current) => current.filter((doc) => doc.id !== documentId))}
+          />
         )}
       </div>
     </OrgThemedFrame>

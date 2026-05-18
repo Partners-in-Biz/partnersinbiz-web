@@ -532,6 +532,31 @@ describe('client documents API', () => {
     )
   })
 
+  it('deletes an accessible document through the canonical document route', async () => {
+    mockTransactionGet.mockResolvedValueOnce({
+      exists: true,
+      id: 'doc-1',
+      data: () => ({ orgId: 'org-1', title: 'Proposal', deleted: false }),
+    })
+
+    const { DELETE } = await import('@/app/api/v1/client-documents/[id]/route')
+    const req = new NextRequest('http://localhost/api/v1/client-documents/doc-1', { method: 'DELETE' })
+    const res = await DELETE(req, adminUser, { params: Promise.resolve({ id: 'doc-1' }) })
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.data).toEqual({ id: 'doc-1', status: 'archived' })
+    expect(mockTransactionUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'doc-1' }),
+      expect.objectContaining({
+        status: 'archived',
+        deleted: true,
+        updatedBy: 'admin-1',
+        updatedByType: 'user',
+      }),
+    )
+  })
+
   it('blocks clients from archiving documents', async () => {
     const { POST } = await import('@/app/api/v1/client-documents/[id]/archive/route')
     const req = new NextRequest('http://localhost/api/v1/client-documents/doc-1/archive', { method: 'POST' })

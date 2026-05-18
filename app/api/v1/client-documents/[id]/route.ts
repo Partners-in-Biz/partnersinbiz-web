@@ -203,3 +203,32 @@ export const PATCH = withAuth('admin', async (req: NextRequest, user: ApiUser, c
 
   return apiSuccess({ id, updated: Object.keys(update) })
 })
+
+export const DELETE = withAuth('admin', async (_req: NextRequest, user: ApiUser, ctx: RouteContext) => {
+  const { id } = await ctx.params
+  const documentRef = adminDb.collection(CLIENT_DOCUMENTS_COLLECTION).doc(id)
+
+  const result = await adminDb.runTransaction(async (transaction) => {
+    const snap = await transaction.get(documentRef)
+    if (!snap.exists || snap.data()?.deleted === true) {
+      return { ok: false as const, response: apiError('Document not found', 404) }
+    }
+
+    const access = assertDocumentDataAccess(snap.data() as Partial<ClientDocument>, user)
+    if (!access.ok) return access
+
+    transaction.update(documentRef, {
+      status: 'archived',
+      deleted: true,
+      updatedAt: FieldValue.serverTimestamp(),
+      updatedBy: user.uid,
+      updatedByType: actorType(user),
+    })
+
+    return { ok: true as const }
+  })
+
+  if (!result.ok) return result.response
+
+  return apiSuccess({ id, status: 'archived' })
+})

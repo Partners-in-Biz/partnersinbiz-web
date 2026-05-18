@@ -107,7 +107,7 @@ export default async function DocumentsIndexPage({
         })}
       </nav>
 
-      <DocumentIndex documents={documents} basePath="/admin/documents" />
+      <DocumentIndex documents={documents} basePath="/admin/documents" canDelete />
     </div>
   )
 }
