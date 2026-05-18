@@ -28,15 +28,17 @@ describe('buildCompanyQuery', () => {
     expect(mockWhere).toHaveBeenCalledWith('orgId', '==', 'org-a')
   })
 
-  it('excludes soft-deleted by default (where deleted != true)', () => {
+  it('excludes soft-deleted by default using equality filter (deleted == false)', () => {
     buildCompanyQuery('org-a', {})
-    expect(mockWhere).toHaveBeenCalledWith('deleted', '!=', true)
-    // Must orderBy('deleted') first when filtering by deleted inequality
-    expect(mockOrderBy).toHaveBeenCalledWith('deleted')
+    // Use == false (equality) not != true (inequality) so Firestore does NOT require
+    // orderBy('deleted') as the mandatory first orderBy field.
+    expect(mockWhere).toHaveBeenCalledWith('deleted', '==', false)
+    expect(mockOrderBy).not.toHaveBeenCalledWith('deleted')
   })
 
   it('does NOT apply soft-delete filter when includeDeleted: true', () => {
     buildCompanyQuery('org-a', {}, { includeDeleted: true })
+    expect(mockWhere).not.toHaveBeenCalledWith('deleted', '==', false)
     expect(mockWhere).not.toHaveBeenCalledWith('deleted', '!=', true)
     expect(mockOrderBy).not.toHaveBeenCalledWith('deleted')
   })
