@@ -1,3 +1,8 @@
 {
-  "crons": []
+  "crons": [
+    {
+      "path": "/api/v1/crm/cron/process-automations",
+      "schedule": "*/5 * * * *"
+    }
+  ]
 }

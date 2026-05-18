@@ -1279,6 +1279,44 @@ Response:
 
 ---
 
+## A6 — Lifecycle Automation Triggers
+
+### Automation Rules endpoints
+| Method | Route | Auth | Description |
+|--------|-------|------|-------------|
+| GET | `/api/v1/crm/automations` | member | List workspace automation rules |
+| POST | `/api/v1/crm/automations` | admin | Create rule |
+| PUT | `/api/v1/crm/automations/[id]` | admin | Update rule |
+| DELETE | `/api/v1/crm/automations/[id]` | admin | Soft-delete rule |
+
+### Cron
+- `GET /api/v1/crm/cron/process-automations` — Bearer CRON_SECRET, runs every 5 min via Vercel cron. Processes `pending_automations` where `scheduledAt ≤ now && status === 'pending'`. Batch of 100, 55s budget.
+
+### AutomationRule fields
+- `trigger.event`: `'deal.created' | 'deal.stage_changed' | 'deal.won' | 'deal.lost' | 'contact.created' | 'contact.lifecycle_changed'`
+- `trigger.toStageId?`: filter — only fire when deal moves to this specific stage
+- `trigger.pipelineId?`: filter — only fire for this pipeline
+- `delayMinutes?`: 0 or absent = immediate; >0 = writes PendingAutomation doc, cron executes later
+- `actions[]`: one or more of `send_email | send_notification | assign_owner | dispatch_webhook`
+- `enabled: boolean`: toggle without deleting
+
+### Trigger wiring
+Events fire automatically after successful CRM writes:
+- `deal.created` — POST /crm/deals
+- `deal.stage_changed` + `deal.won` / `deal.lost` — PUT /crm/deals/[id] on stage change
+- `contact.created` — POST /crm/contacts
+- `contact.lifecycle_changed` — PUT /crm/contacts/[id] when `type` field changes
+
+All trigger calls are best-effort (dynamic import + try/catch) — automation failures never block the primary write.
+
+### Key patterns
+- `fireTrigger` always wrapped in try/catch — never throws to caller
+- Executor: each action individually try/caught — one failure doesn't abort others
+- Dynamic import in routes (`await import('@/lib/automations/trigger')`) avoids circular deps and keeps existing tests green
+- Time-delayed actions: cron fires every 5min, processes `pending_automations` collection
+
+---
+
 ## Role matrix
 
 | Resource | viewer (GET) | member (write) | admin (delete/bulk-admin) |
