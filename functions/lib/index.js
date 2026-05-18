@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.checkStaleTokens = exports.runCrmScoreRecompute = exports.runAdsExperimentSignificance = exports.runAdsBudgetPacing = exports.runAdsDailyInsights = exports.runAdsRefreshQueue = exports.runSeoWeekly = exports.runSeoDaily = exports.runAnomalyChecks = exports.runMonthlyReports = exports.runCrmIntegrationSync = exports.runIntegrationSync = exports.runWebhookQueue = exports.runRecurringInvoices = exports.runSocialInboxPoll = exports.runSocialAnalytics = exports.runSocialRss = exports.runEmailBroadcasts = exports.runEmailQueue = exports.runEmailSequences = exports.publishSocialQueue = void 0;
+exports.checkStaleTokens = exports.runCrmSequenceQueue = exports.runCrmAutomationQueue = exports.runCrmScoreRecompute = exports.runAdsExperimentSignificance = exports.runAdsBudgetPacing = exports.runAdsDailyInsights = exports.runAdsRefreshQueue = exports.runSeoWeekly = exports.runSeoDaily = exports.runAnomalyChecks = exports.runMonthlyReports = exports.runCrmIntegrationSync = exports.runIntegrationSync = exports.runWebhookQueue = exports.runRecurringInvoices = exports.runSocialInboxPoll = exports.runSocialAnalytics = exports.runSocialRss = exports.runEmailBroadcasts = exports.runEmailQueue = exports.runEmailSequences = exports.publishSocialQueue = void 0;
 const scheduler_1 = require("firebase-functions/v2/scheduler");
 const admin = __importStar(require("firebase-admin"));
 // Initialize Firebase Admin (only once)
@@ -139,6 +139,8 @@ exports.runAdsDailyInsights = scheduledCron("ads-daily-insights", "/api/v1/ads/c
 exports.runAdsBudgetPacing = scheduledCron("ads-budget-pacing", "/api/v1/ads/cron/budget-pacing-check", "0 */6 * * *");
 exports.runAdsExperimentSignificance = scheduledCron("ads-experiment-significance", "/api/v1/ads/cron/experiment-significance-check", "0 */6 * * *");
 exports.runCrmScoreRecompute = scheduledCron("crm-score-recompute", "/api/v1/crm/cron/recompute-scores", "0 2 * * *");
+exports.runCrmAutomationQueue = scheduledCron("crm-automation-queue", "/api/v1/crm/cron/process-automations", "every 5 minutes");
+exports.runCrmSequenceQueue = scheduledCron("crm-sequence-queue", "/api/v1/crm/cron/process-sequences", "every 5 minutes");
 /**
  * Scheduled function: daily check for stale social account tokens.
  * Runs at 3 AM UTC. The actual refresh is handled during publish attempts.

@@ -226,6 +226,18 @@ export const runCrmScoreRecompute = scheduledCron(
   "0 2 * * *"
 );
 
+export const runCrmAutomationQueue = scheduledCron(
+  "crm-automation-queue",
+  "/api/v1/crm/cron/process-automations",
+  "every 5 minutes"
+);
+
+export const runCrmSequenceQueue = scheduledCron(
+  "crm-sequence-queue",
+  "/api/v1/crm/cron/process-sequences",
+  "every 5 minutes"
+);
+
 /**
  * Scheduled function: daily check for stale social account tokens.
  * Runs at 3 AM UTC. The actual refresh is handled during publish attempts.
