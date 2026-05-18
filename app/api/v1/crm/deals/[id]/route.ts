@@ -391,6 +391,29 @@ async function handleDealUpdate(
     }
   }
 
+  // ── Automation triggers (A6) — best-effort, never throw to caller ────────────
+  if (stageChanged) {
+    try {
+      const { fireTrigger } = await import('@/lib/automations/trigger')
+      const contactId =
+        (typeof body?.contactId === 'string' && body.contactId) ||
+        (typeof before.contactId === 'string' && before.contactId) ||
+        undefined
+
+      const triggerCtx = {
+        orgId: ctx.orgId,
+        dealId: id,
+        contactId,
+        toStageId: toStageId,
+        pipelineId: toPipelineId,
+      }
+
+      await fireTrigger('deal.stage_changed', triggerCtx)
+      if (toStage?.kind === 'won') await fireTrigger('deal.won', triggerCtx)
+      if (toStage?.kind === 'lost') await fireTrigger('deal.lost', triggerCtx)
+    } catch { /* never break the deal update */ }
+  }
+
   return apiSuccess({ deal: { id, ...before, ...sanitized } })
 }
 

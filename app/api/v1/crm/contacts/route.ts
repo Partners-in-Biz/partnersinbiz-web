@@ -212,5 +212,15 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
     entityTitle: body.name.trim(),
   }).catch(() => {})
 
+  // ── Automation trigger (A6) — best-effort ──────────────────────────────────
+  try {
+    const { fireTrigger } = await import('@/lib/automations/trigger')
+    await fireTrigger('contact.created', {
+      orgId,
+      contactId: docRef.id,
+      contactEmail: body.email.trim().toLowerCase(),
+    })
+  } catch { /* best-effort */ }
+
   return apiSuccess({ id: docRef.id }, 201)
 })

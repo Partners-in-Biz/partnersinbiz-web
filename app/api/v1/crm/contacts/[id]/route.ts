@@ -117,6 +117,22 @@ async function handleUpdate(
     console.error('[webhook-dispatch-error] contact.updated', err)
   }
 
+  // ── Automation trigger (A6) — best-effort ──────────────────────────────────
+  const typeChanged =
+    typeof body.type === 'string' && body.type !== existing.type
+  if (typeChanged) {
+    try {
+      const { fireTrigger } = await import('@/lib/automations/trigger')
+      const contactEmail =
+        typeof existing.email === 'string' ? existing.email : undefined
+      await fireTrigger('contact.lifecycle_changed', {
+        orgId: ctx.orgId,
+        contactId: id,
+        contactEmail,
+      })
+    } catch { /* best-effort */ }
+  }
+
   logActivity({
     orgId: ctx.orgId,
     type: 'crm_contact_updated',

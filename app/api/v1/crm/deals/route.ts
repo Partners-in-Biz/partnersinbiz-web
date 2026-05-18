@@ -186,5 +186,15 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
     entityTitle: dealTitle,
   }).catch(() => {})
 
+  // ── Automation trigger (A6) — best-effort ──────────────────────────────────
+  try {
+    const { fireTrigger } = await import('@/lib/automations/trigger')
+    await fireTrigger('deal.created', {
+      orgId: ctx.orgId,
+      dealId: docRef.id,
+      contactId,
+    })
+  } catch { /* best-effort */ }
+
   return apiSuccess({ id: docRef.id }, 201)
 })
