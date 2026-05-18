@@ -1,0 +1,1 @@
+/Users/peetstander/Cowork/Cowork/agents/partners/wiki/2026-05-18-crm-sub-a4-lead-icp-scoring-design.md
