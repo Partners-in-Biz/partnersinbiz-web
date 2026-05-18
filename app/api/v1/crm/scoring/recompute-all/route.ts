@@ -50,8 +50,7 @@ export const POST = withCrmAuth('admin', async (req, ctx) => {
   }
 
   // Query contacts: scope to org, exclude deleted, oldest stale first
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const snapshot = await (adminDb.collection('contacts') as any)
+  const snapshot = await adminDb.collection('contacts')
     .where('orgId', '==', ctx.orgId)
     .where('deleted', '!=', true)
     .orderBy('deleted')
@@ -59,7 +58,7 @@ export const POST = withCrmAuth('admin', async (req, ctx) => {
     .limit(limit)
     .get()
 
-  const contactIds: string[] = snapshot.docs.map((doc: any) => doc.id)
+  const contactIds: string[] = snapshot.docs.map((doc) => doc.id)
 
   let processed = 0
   let succeeded = 0

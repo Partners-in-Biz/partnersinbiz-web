@@ -11,7 +11,6 @@
 import { Timestamp } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { withCrmAuth } from '@/lib/auth/crm-middleware'
-import { resolveMemberRef } from '@/lib/orgMembers/memberRef'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { getOrBootstrapConfig, sanitizeConfigForWrite } from '@/lib/scoring/store'
 
@@ -34,7 +33,6 @@ export const GET = withCrmAuth('viewer', async (_req, ctx) => {
 
 export const PUT = withCrmAuth('admin', async (req, ctx) => {
   // Empty-body guard
-  const contentLength = req.headers.get('content-length')
   const bodyText = await req.text()
   if (!bodyText || bodyText === '{}' || bodyText.trim() === '') {
     return apiError('Request body is required', 400)
@@ -54,7 +52,7 @@ export const PUT = withCrmAuth('admin', async (req, ctx) => {
   // Strip NEVER_FROM_BODY fields
   const sanitized = sanitizeConfigForWrite(body)
 
-  const actorRef = resolveMemberRef(ctx.actor)
+  const actorRef = ctx.actor
   const docRef = adminDb.collection(CONFIG_COLLECTION).doc(ctx.orgId)
 
   // Check if this is a first write (to stamp createdAt)
@@ -75,7 +73,7 @@ export const PUT = withCrmAuth('admin', async (req, ctx) => {
     writePayload.createdByRef = actorRef
   }
 
-  await (docRef as any).set(writePayload, { merge: true })
+  await docRef.set(writePayload, { merge: true })
 
   // Return the merged config
   const updated = await getOrBootstrapConfig(ctx.orgId)
