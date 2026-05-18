@@ -1,0 +1,1 @@
+/Users/peetstander/Cowork/Cowork/agents/partners/wiki/2026-05-18-crm-sub-a3-multi-pipeline-design.md
