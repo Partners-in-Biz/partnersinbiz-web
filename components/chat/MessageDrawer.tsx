@@ -24,6 +24,7 @@ export function MessageDrawer({
 }: MessageDrawerProps) {
   const [open, setOpen] = useState(false)
   const disabled = !orgId
+  const drawerWidth = 'clamp(420px, 34vw, 560px)'
 
   useEffect(() => {
     if (!open) return
@@ -34,30 +35,54 @@ export function MessageDrawer({
     return () => document.removeEventListener('keydown', onKeyDown)
   }, [open])
 
+  useEffect(() => {
+    if (!open) return
+
+    const previousPadding = document.body.style.paddingRight
+    const previousTransition = document.body.style.transition
+    const media = window.matchMedia('(min-width: 768px)')
+
+    function syncPageInset() {
+      document.body.style.paddingRight = open && media.matches ? drawerWidth : previousPadding
+    }
+
+    if (!previousTransition) {
+      document.body.style.transition = 'padding-right 180ms ease'
+    }
+    syncPageInset()
+    media.addEventListener('change', syncPageInset)
+
+    return () => {
+      media.removeEventListener('change', syncPageInset)
+      document.body.style.paddingRight = previousPadding
+      document.body.style.transition = previousTransition
+    }
+  }, [drawerWidth, open])
+
   return (
     <>
       <button
         type="button"
         onClick={() => {
-          if (!disabled) setOpen(true)
+          if (!disabled) setOpen((value) => !value)
         }}
         disabled={disabled}
-        title={disabled ? disabledReason ?? 'Select a workspace first' : 'Open messages'}
-        aria-label="Open messages"
-        className="relative flex h-8 w-8 items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.05] hover:text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-40"
+        title={disabled ? disabledReason ?? 'Select a workspace first' : open ? 'Close messages' : 'Open messages'}
+        aria-label={open ? 'Close messages' : 'Open messages'}
+        aria-pressed={open}
+        className={[
+          'relative flex h-8 w-8 items-center justify-center rounded-lg transition-colors disabled:cursor-not-allowed disabled:opacity-40',
+          open
+            ? 'bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent-hover)]'
+            : 'text-[var(--color-pib-text-muted)] hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]',
+        ].join(' ')}
       >
         <span className="material-symbols-outlined text-[20px]">forum</span>
       </button>
 
       {open && orgId && (
-        <div className="fixed inset-0 z-[80]">
-          <button
-            type="button"
-            aria-label="Close messages"
-            className="absolute inset-0 h-full w-full cursor-default bg-black/55 backdrop-blur-[2px]"
-            onClick={() => setOpen(false)}
-          />
-          <aside className="absolute right-0 top-0 flex h-dvh w-full max-w-[560px] flex-col border-l border-[var(--color-pib-line)] bg-[var(--color-pib-bg)] shadow-2xl sm:w-[min(560px,92vw)]">
+        <div className="fixed right-0 top-0 z-[80] h-dvh w-full md:w-[clamp(420px,34vw,560px)]">
+          <aside className="flex h-full min-h-0 w-full flex-col border-l border-[var(--color-pib-line)] bg-[var(--color-pib-bg)] shadow-2xl">
             <div className="flex h-14 shrink-0 items-center gap-3 border-b border-[var(--color-pib-line)] px-4">
               <div className="flex-1 min-w-0">
                 <p className="eyebrow !text-[10px]">Messages</p>
@@ -74,7 +99,7 @@ export function MessageDrawer({
                 <span className="material-symbols-outlined text-[20px]">close</span>
               </button>
             </div>
-            <div className="min-h-0 flex-1">
+            <div className="flex min-h-0 flex-1 overflow-hidden">
               <UnifiedChat
                 orgId={orgId}
                 currentUserUid={currentUserUid}

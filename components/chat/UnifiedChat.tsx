@@ -646,14 +646,14 @@ export default function UnifiedChat({
     <div
       className={
         compact
-          ? 'flex flex-1 min-h-0 overflow-hidden'
+          ? 'flex h-full min-h-0 flex-1 overflow-hidden'
           : 'flex lg:grid lg:gap-4 lg:grid-cols-[280px_1fr] flex-1 min-h-0 overflow-hidden'
       }
     >
       {/* ── Left: conversation list ─────────────────────────────────────── */}
       <aside
         className={[
-          'pib-card flex-col gap-2 p-3 overflow-hidden flex-1',
+          'pib-card min-h-0 flex-col gap-2 overflow-hidden flex-1 p-3',
           compact ? '!rounded-none !border-0 !bg-transparent' : 'lg:flex max-lg:!rounded-none max-lg:!border-0 max-lg:!bg-transparent',
           showListOnMobile ? 'flex' : 'hidden',
         ].join(' ')}
@@ -669,7 +669,7 @@ export default function UnifiedChat({
 
         <div className="text-xs text-on-surface-variant mt-2 px-1">Conversations</div>
 
-        <div className="flex flex-col gap-0.5 overflow-y-auto flex-1 lg:max-h-[520px]">
+        <div className={['flex flex-col gap-0.5 overflow-y-auto flex-1 min-h-0', compact ? '' : 'lg:max-h-[520px]'].join(' ')}>
           {conversations.length === 0 && (
             <div className="text-xs text-on-surface-variant px-2 py-3">
               No conversations yet. Start one.
@@ -792,7 +792,7 @@ export default function UnifiedChat({
       >
         {/* Header — mobile style (back / title+subtitle / ⋯) on small,
             keeps original sticky look on desktop */}
-        <div className="border-b border-[var(--color-card-border)] px-3 py-2.5 lg:px-4 lg:py-3">
+        <div className="shrink-0 border-b border-[var(--color-card-border)] px-3 py-2.5 lg:px-4 lg:py-3">
           <div className="flex items-center gap-2">
             {/* Back arrow — mobile only */}
             <button
@@ -983,7 +983,7 @@ export default function UnifiedChat({
         {/* Input */}
         <form
           onSubmit={send}
-          className="flex flex-col gap-2 border-t border-[var(--color-card-border)] p-3"
+          className="shrink-0 flex flex-col gap-2 border-t border-[var(--color-card-border)] p-3"
         >
           {/* Attachment chips */}
           {attachments.length > 0 && (
