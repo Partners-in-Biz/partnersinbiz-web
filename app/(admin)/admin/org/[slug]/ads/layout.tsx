@@ -22,6 +22,7 @@ export default async function AdsAdminLayout({
         <Link href={`/admin/org/${slug}/ads/pixel-config`}>Pixel &amp; CAPI</Link>
         <Link href={`/admin/org/${slug}/ads/campaigns`}>Campaigns</Link>
         <Link href={`/admin/org/${slug}/ads/budgets`}>Budgets</Link>
+        <Link href={`/admin/org/${slug}/ads/experiments`}>Experiments</Link>
       </nav>
       {children}
     </div>
