@@ -35,8 +35,14 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
     platform?: AdPlatform
     googleAds?: {
       dailyBudgetMajor?: number
-      campaignType?: 'SEARCH' | 'DISPLAY' | 'SHOPPING' | 'VIDEO' | 'PERFORMANCE_MAX'
+      campaignType?: 'SEARCH' | 'DISPLAY' | 'SHOPPING' | 'VIDEO' | 'PERFORMANCE_MAX' | 'SMART_SHOPPING'
       shopping?: { merchantId?: string; feedLabel?: string }
+      smartShopping?: {
+        biddingStrategy?: 'MAXIMIZE_CONVERSIONS' | 'MAXIMIZE_CONVERSION_VALUE' | 'TARGET_CPA' | 'TARGET_ROAS'
+        targetCpaMajor?: number
+        targetRoas?: number
+        salesCountry?: string
+      }
       video?: {
         /** Optional Target CPA in major currency units (e.g. 5.00). When set, maximizeConversions.targetCpaMicros is populated. */
         targetCpaMajor?: number
@@ -91,9 +97,30 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
     const customerId = loginCustomerId
     if (!customerId) return apiError('No Customer ID set on Google connection', 400)
 
-    const campaignType = body.googleAds?.campaignType  // 'SEARCH' | 'DISPLAY' | 'SHOPPING' | 'VIDEO' | 'PERFORMANCE_MAX' (default 'SEARCH')
+    const campaignType = body.googleAds?.campaignType  // 'SEARCH' | 'DISPLAY' | 'SHOPPING' | 'VIDEO' | 'PERFORMANCE_MAX' | 'SMART_SHOPPING' (default 'SEARCH')
     let result
-    if (campaignType === 'PERFORMANCE_MAX') {
+    if (campaignType === 'SMART_SHOPPING') {
+      const merchantId = body.googleAds?.shopping?.merchantId
+      const feedLabel = body.googleAds?.shopping?.feedLabel
+      if (!merchantId || !feedLabel) {
+        return apiError('SMART_SHOPPING requires googleAds.shopping.{merchantId, feedLabel}', 400)
+      }
+      const { createSmartShoppingCampaign } = await import('@/lib/ads/providers/google/campaigns-pmax')
+      result = await createSmartShoppingCampaign({
+        customerId,
+        accessToken,
+        developerToken,
+        loginCustomerId,
+        canonical: campaign,
+        dailyBudgetMajor: body.googleAds?.dailyBudgetMajor,
+        biddingStrategy: body.googleAds?.smartShopping?.biddingStrategy,
+        targetCpaMajor: body.googleAds?.smartShopping?.targetCpaMajor,
+        targetRoas: body.googleAds?.smartShopping?.targetRoas,
+        merchantId,
+        feedLabel,
+        salesCountry: body.googleAds?.smartShopping?.salesCountry,
+      })
+    } else if (campaignType === 'PERFORMANCE_MAX') {
       const { createPmaxCampaign } = await import('@/lib/ads/providers/google/campaigns-pmax')
       result = await createPmaxCampaign({
         customerId,

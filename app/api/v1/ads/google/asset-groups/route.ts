@@ -34,6 +34,7 @@ import { getConnection, decryptAccessToken } from '@/lib/ads/connections/store'
 import { readDeveloperToken } from '@/lib/integrations/google_ads/oauth'
 import { createAssetGroup, createTextAssets } from '@/lib/ads/providers/google/asset-groups'
 import type { AssetFieldType, AssetGroupAssetLink } from '@/lib/ads/providers/google/asset-groups'
+import { createDefaultListingGroup } from '@/lib/ads/providers/google/listing-groups'
 
 export const POST = withAuth('admin', async (req: NextRequest) => {
   const orgId = req.headers.get('X-Org-Id')
@@ -138,5 +139,17 @@ export const POST = withAuth('admin', async (req: NextRequest) => {
     assetLinks,
   })
 
-  return apiSuccess(result, 201)
+  // Auto-create default listing group if the parent campaign is Smart Shopping
+  const campaignSubType = typeof googleProviderData?.campaignSubType === 'string'
+    ? googleProviderData.campaignSubType
+    : undefined
+  let listingGroups: { rootResourceName: string; unitResourceName: string } | undefined
+  if (campaignSubType === 'SMART_SHOPPING') {
+    listingGroups = await createDefaultListingGroup({
+      ...callArgs,
+      assetGroupResourceName: result.resourceName,
+    })
+  }
+
+  return apiSuccess({ ...result, ...(listingGroups ? { listingGroups } : {}) }, 201)
 })

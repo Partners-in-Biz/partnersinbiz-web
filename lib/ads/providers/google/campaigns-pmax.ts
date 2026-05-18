@@ -53,24 +53,17 @@ export type PmaxBiddingStrategy =
   | 'TARGET_CPA'
   | 'TARGET_ROAS'
 
-/** Create a Performance Max campaign. Returns Google resource name + id. */
-export async function createPmaxCampaign(
-  args: CallArgs & {
-    canonical: AdCampaign
-    dailyBudgetMajor?: number
-    biddingStrategy?: PmaxBiddingStrategy
-    /** Applies to MAXIMIZE_CONVERSIONS or TARGET_CPA bidding; converted to micros. */
-    targetCpaMajor?: number
-    /** Applies to MAXIMIZE_CONVERSION_VALUE or TARGET_ROAS; fractional (e.g. 4.0 = 400%). */
-    targetRoas?: number
-  },
-): Promise<GoogleMutateResult> {
-  // Step 1: Create a campaign budget (required before campaign creation)
+// ─── Shared internal helpers ──────────────────────────────────────────────────
+
+/** Create a campaign budget and return its resourceName. */
+async function createCampaignBudget(
+  args: CallArgs & { campaignName: string; dailyBudgetMajor?: number },
+): Promise<string> {
   const budgetBody = {
     operations: [
       {
         create: {
-          name: `${args.canonical.name} budget`,
+          name: `${args.campaignName} budget`,
           amountMicros: microsFromMajor(args.dailyBudgetMajor ?? 10),  // default $10/day
           deliveryMethod: 'STANDARD',
         },
@@ -84,23 +77,55 @@ export async function createPmaxCampaign(
   })
   const budgetResourceName = budgetRes.results[0]?.resourceName
   if (!budgetResourceName) throw new Error('Pmax budget creation returned no resourceName')
+  return budgetResourceName
+}
+
+/** Build the bidding strategy payload for a Pmax-style campaign. */
+function buildBiddingPayload(
+  strategy: PmaxBiddingStrategy,
+  targetCpaMajor?: number,
+  targetRoas?: number,
+): Record<string, unknown> {
+  const biddingPayload: Record<string, unknown> = {}
+  if (strategy === 'MAXIMIZE_CONVERSIONS') {
+    biddingPayload.maximizeConversions = targetCpaMajor !== undefined
+      ? { targetCpaMicros: microsFromMajor(targetCpaMajor) }
+      : {}
+  } else if (strategy === 'MAXIMIZE_CONVERSION_VALUE') {
+    biddingPayload.maximizeConversionValue = targetRoas !== undefined
+      ? { targetRoas }
+      : {}
+  } else if (strategy === 'TARGET_CPA') {
+    biddingPayload.targetCpa = { targetCpaMicros: microsFromMajor(targetCpaMajor ?? 10) }
+  } else if (strategy === 'TARGET_ROAS') {
+    biddingPayload.targetRoas = { targetRoas: targetRoas ?? 1.0 }
+  }
+  return biddingPayload
+}
+
+// ─── Public helpers ───────────────────────────────────────────────────────────
+
+/** Create a Performance Max campaign. Returns Google resource name + id. */
+export async function createPmaxCampaign(
+  args: CallArgs & {
+    canonical: AdCampaign
+    dailyBudgetMajor?: number
+    biddingStrategy?: PmaxBiddingStrategy
+    /** Applies to MAXIMIZE_CONVERSIONS or TARGET_CPA bidding; converted to micros. */
+    targetCpaMajor?: number
+    /** Applies to MAXIMIZE_CONVERSION_VALUE or TARGET_ROAS; fractional (e.g. 4.0 = 400%). */
+    targetRoas?: number
+  },
+): Promise<GoogleMutateResult> {
+  // Step 1: Create a campaign budget (required before campaign creation)
+  const budgetResourceName = await createCampaignBudget({
+    ...args,
+    campaignName: args.canonical.name,
+  })
 
   // Step 2: Build bidding strategy payload
   const strategy = args.biddingStrategy ?? 'MAXIMIZE_CONVERSIONS'
-  const biddingPayload: Record<string, unknown> = {}
-  if (strategy === 'MAXIMIZE_CONVERSIONS') {
-    biddingPayload.maximizeConversions = args.targetCpaMajor !== undefined
-      ? { targetCpaMicros: microsFromMajor(args.targetCpaMajor) }
-      : {}
-  } else if (strategy === 'MAXIMIZE_CONVERSION_VALUE') {
-    biddingPayload.maximizeConversionValue = args.targetRoas !== undefined
-      ? { targetRoas: args.targetRoas }
-      : {}
-  } else if (strategy === 'TARGET_CPA') {
-    biddingPayload.targetCpa = { targetCpaMicros: microsFromMajor(args.targetCpaMajor ?? 10) }
-  } else if (strategy === 'TARGET_ROAS') {
-    biddingPayload.targetRoas = { targetRoas: args.targetRoas ?? 1.0 }
-  }
+  const biddingPayload = buildBiddingPayload(strategy, args.targetCpaMajor, args.targetRoas)
 
   // Step 3: Create the Pmax campaign — no advertisingChannelSubType, no networkSettings
   const campaignBody = {
@@ -123,6 +148,62 @@ export async function createPmaxCampaign(
   })
   const resourceName = campaignRes.results[0]?.resourceName
   if (!resourceName) throw new Error('Pmax campaign creation returned no resourceName')
+  return { resourceName, id: extractId(resourceName) }
+}
+
+/** Create a Pmax campaign configured for retail with Merchant Center feed (Smart Shopping). */
+export async function createSmartShoppingCampaign(
+  args: CallArgs & {
+    canonical: AdCampaign
+    dailyBudgetMajor?: number
+    /** Default MAXIMIZE_CONVERSION_VALUE for Smart Shopping. */
+    biddingStrategy?: PmaxBiddingStrategy
+    targetCpaMajor?: number
+    /** Default 4.0 (400% ROAS) for Smart Shopping. */
+    targetRoas?: number
+    /** Required — Merchant Center account numeric id. */
+    merchantId: string
+    /** Required — Merchant Center feed label (region label, e.g. 'US'). */
+    feedLabel: string
+    /** Optional ISO 3166-1 alpha-2 sales country (e.g. 'US'). */
+    salesCountry?: string
+  },
+): Promise<GoogleMutateResult> {
+  // Step 1: Budget
+  const budgetResourceName = await createCampaignBudget({
+    ...args,
+    campaignName: args.canonical.name,
+  })
+
+  // Step 2: Bidding — Smart Shopping defaults to MAXIMIZE_CONVERSION_VALUE + targetRoas=4.0
+  const strategy = args.biddingStrategy ?? 'MAXIMIZE_CONVERSION_VALUE'
+  const targetRoas = args.targetRoas ?? (strategy === 'MAXIMIZE_CONVERSION_VALUE' ? 4.0 : undefined)
+  const biddingPayload = buildBiddingPayload(strategy, args.targetCpaMajor, targetRoas)
+
+  // Step 3: Campaign with shoppingSetting to link Merchant Center
+  const campaignBody = {
+    operations: [{
+      create: {
+        name: args.canonical.name,
+        status: googleEntityStatusFromCanonical(args.canonical.status),
+        advertisingChannelType: 'PERFORMANCE_MAX',
+        campaignBudget: budgetResourceName,
+        shoppingSetting: {
+          merchantId: args.merchantId,
+          feedLabel: args.feedLabel,
+          ...(args.salesCountry ? { salesCountry: args.salesCountry } : {}),
+        },
+        ...biddingPayload,
+      },
+    }],
+  }
+  const campaignRes = await googleMutate<{ results: Array<{ resourceName: string }> }>({
+    ...args,
+    resource: 'campaigns',
+    body: campaignBody,
+  })
+  const resourceName = campaignRes.results[0]?.resourceName
+  if (!resourceName) throw new Error('Smart Shopping campaign creation returned no resourceName')
   return { resourceName, id: extractId(resourceName) }
 }
 
