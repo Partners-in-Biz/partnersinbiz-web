@@ -2,12 +2,14 @@
 import { metaProvider } from '@/lib/ads/providers/meta'
 import { fetchInsights as fetchGoogleInsights } from '@/lib/ads/providers/google/insights'
 import { pullInsights as pullLinkedinInsights } from '@/lib/ads/providers/linkedin/insights'
+import { pullInsights as pullTiktokInsights } from '@/lib/ads/providers/tiktok/insights'
 import { readDeveloperToken } from '@/lib/integrations/google_ads/oauth'
 import { adminDb } from '@/lib/firebase/admin'
 import { Timestamp } from 'firebase-admin/firestore'
 import type { MetaInsightRow, InsightLevel } from '@/lib/ads/providers/meta/insights'
 import type { DailyInsightRow, GoogleInsightsLevel } from '@/lib/ads/providers/google/insights'
 import type { LinkedinInsightLevel, LinkedinDailyInsightRow } from '@/lib/ads/providers/linkedin/insights'
+import type { TiktokInsightLevel, TiktokDailyInsightRow } from '@/lib/ads/providers/tiktok/insights'
 
 // ─── Shared arg types ─────────────────────────────────────────────────────────
 
@@ -47,8 +49,19 @@ export interface LinkedinRefreshArgs extends RefreshArgsBase {
   currencyCode: string
 }
 
+export interface TiktokRefreshArgs extends RefreshArgsBase {
+  platform: 'tiktok'
+  /** TikTok advertiser_id for the connected ad account. */
+  advertiserId: string
+  /** TikTok-side numeric entity id (campaign_id / adgroup_id / ad_id). */
+  tiktokEntityId: string
+  level: TiktokInsightLevel
+  /** ISO 4217 currency code from the connected ad account. */
+  currencyCode: string
+}
+
 /** Union — callers pass `platform` to select the provider path. */
-export type RefreshArgs = MetaRefreshArgs | GoogleRefreshArgs | LinkedinRefreshArgs
+export type RefreshArgs = MetaRefreshArgs | GoogleRefreshArgs | LinkedinRefreshArgs | TiktokRefreshArgs
 
 /**
  * Legacy form kept for backward-compat with existing callers that do not pass `platform`.
@@ -72,6 +85,10 @@ export async function refreshEntityInsights(args: RefreshArgs | LegacyRefreshArg
   const untilStr = today.toISOString().slice(0, 10)
 
   // ── Platform dispatch ────────────────────────────────────────────────────
+  if ((args as RefreshArgs).platform === 'tiktok') {
+    return _refreshTiktok(args as TiktokRefreshArgs, sinceStr, untilStr)
+  }
+
   if ((args as RefreshArgs).platform === 'linkedin') {
     return _refreshLinkedin(args as LinkedinRefreshArgs, sinceStr, untilStr)
   }
@@ -277,6 +294,72 @@ export function mapGoogleInsightRow(row: DailyInsightRow): Record<string, number
     conversions_value: row.conversions_value ?? null,
     roas: row.roas ?? null,
     // cpm is not returned by Google Ads searchStream — intentionally omitted
+  }
+}
+
+// ─── TikTok path ──────────────────────────────────────────────────────────────
+
+async function _refreshTiktok(
+  args: TiktokRefreshArgs,
+  sinceStr: string,
+  untilStr: string,
+): Promise<{ rowsWritten: number; daysProcessed: number }> {
+  const rows = await pullTiktokInsights({
+    advertiserId: args.advertiserId,
+    accessToken: args.accessToken,
+    level: args.level,
+    ids: [args.tiktokEntityId],
+    dateRange: { start: sinceStr, end: untilStr },
+    currencyCode: args.currencyCode,
+  })
+
+  let rowsWritten = 0
+  const batch = adminDb.batch()
+
+  for (const row of rows) {
+    const metrics = mapTiktokInsightRow(row)
+    for (const [metric, value] of Object.entries(metrics)) {
+      if (value == null) continue
+      const docId = `tiktok_ads_${args.orgId}_${args.level}_${args.pibEntityId}_${row.date}_${metric}`
+      batch.set(adminDb.collection('metrics').doc(docId), {
+        orgId: args.orgId,
+        source: 'tiktok_ads',
+        level: args.level,
+        dimensionId: args.pibEntityId,
+        date: row.date,
+        metric,
+        value,
+        updatedAt: Timestamp.now(),
+      })
+      rowsWritten++
+    }
+  }
+
+  await batch.commit()
+
+  const collection =
+    args.level === 'campaign' ? 'ad_campaigns' : args.level === 'adset' ? 'ad_sets' : 'ads'
+  await adminDb.collection(collection).doc(args.pibEntityId).update({
+    lastRefreshedAt: Timestamp.now(),
+  })
+
+  return { rowsWritten, daysProcessed: rows.length }
+}
+
+/**
+ * Map a TikTok daily insight row to canonical metric values.
+ * Exported for testing.
+ */
+export function mapTiktokInsightRow(row: TiktokDailyInsightRow): Record<string, number | null | undefined> {
+  return {
+    impressions: row.impressions,
+    clicks: row.clicks,
+    spend_cents: row.spendCents,
+    conversions: row.conversions,
+    cpc_cents: Math.round(row.cpc * 100),
+    cpm_cents: Math.round(row.cpm * 100),
+    ctr: row.ctr,
+    reach: row.reach,
   }
 }
 

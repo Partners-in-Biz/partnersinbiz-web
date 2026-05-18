@@ -239,6 +239,73 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // ── TikTok: walk all active TikTok connections ────────────────────────────
+  const tiktokConnsSnap = await adminDb
+    .collection('ad_connections')
+    .where('platform', '==', 'tiktok')
+    .where('status', '==', 'active')
+    .get()
+
+  for (const connDoc of tiktokConnsSnap.docs) {
+    const connRaw = connDoc.data() as AdConnection
+    const orgId = connRaw.orgId
+    try {
+      const allConns = await listConnections({ orgId })
+      const tiktok = allConns.find((c) => c.platform === 'tiktok')
+      if (!tiktok) continue
+
+      const accessToken = decryptAccessToken(tiktok)
+
+      // advertiserId is stored in defaultAdAccountId
+      const advertiserId = tiktok.defaultAdAccountId
+      if (!advertiserId) {
+        errors.push(`TikTok org ${orgId}: no defaultAdAccountId — skipping`)
+        continue
+      }
+
+      // Read currency from connection meta (fall back to USD)
+      const tiktokMeta = (
+        (tiktok.meta as { tiktok?: { currencyCode?: string } } | undefined)?.tiktok
+      )
+      const currencyCode = tiktokMeta?.currencyCode ?? 'USD'
+
+      // Fetch campaigns tagged as TikTok
+      const campaigns = await listCampaigns({ orgId, platform: 'tiktok' })
+
+      for (const campaign of campaigns.filter(
+        (c) => c.status === 'ACTIVE' || c.status === 'PAUSED',
+      )) {
+        const tiktokData = (
+          campaign.providerData as { tiktok?: { campaignId?: string } } | undefined
+        )?.tiktok
+        const tiktokCampaignId = tiktokData?.campaignId
+        if (!tiktokCampaignId) continue
+
+        try {
+          await refreshEntityInsights({
+            platform: 'tiktok',
+            orgId,
+            accessToken,
+            pibEntityId: campaign.id,
+            advertiserId,
+            tiktokEntityId: tiktokCampaignId,
+            level: 'campaign',
+            currencyCode,
+            daysBack: 2,
+          })
+          totalProcessed++
+        } catch (err) {
+          totalFailed++
+          errors.push(
+            `TikTok ${orgId}/campaign/${campaign.id}: ${(err as Error).message}`,
+          )
+        }
+      }
+    } catch (err) {
+      errors.push(`TikTok org ${orgId} setup: ${(err as Error).message}`)
+    }
+  }
+
   return apiSuccess({
     processed: totalProcessed,
     failed: totalFailed,
