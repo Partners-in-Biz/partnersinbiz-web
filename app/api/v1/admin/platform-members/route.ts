@@ -5,6 +5,7 @@
  * This is super-admin only because it exposes cross-client identity data.
  */
 import { adminAuth, adminDb } from '@/lib/firebase/admin'
+import { FieldValue, Timestamp } from 'firebase-admin/firestore'
 import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { isSuperAdmin } from '@/lib/api/platformAdmin'
@@ -133,4 +134,136 @@ export const GET = withAuth('admin', async (_req, user) => {
     page: 1,
     limit: members.length,
   })
+})
+
+const VALID_ORG_ROLES: OrgRole[] = ['owner', 'admin', 'member', 'viewer']
+
+export const POST = withAuth('admin', async (req, user) => {
+  if (!isSuperAdmin(user)) {
+    return apiError('Only super admins can create platform members', 403)
+  }
+
+  const body = await req.json().catch(() => ({}))
+  const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : ''
+  const name = typeof body.name === 'string' ? body.name.trim() : ''
+  const password = typeof body.password === 'string' ? body.password : ''
+  const orgId = typeof body.orgId === 'string' ? body.orgId.trim() : ''
+  const role = (typeof body.role === 'string' ? body.role : 'member') as OrgRole
+
+  if (!email) return apiError('email is required', 400)
+  if (!name) return apiError('name is required', 400)
+  if (!orgId) return apiError('orgId is required', 400)
+  if (password.length < 8) return apiError('password must be at least 8 characters', 400)
+  if (!VALID_ORG_ROLES.includes(role)) {
+    return apiError(`role must be one of: ${VALID_ORG_ROLES.join(', ')}`, 400)
+  }
+
+  const orgRef = adminDb.collection('organizations').doc(orgId)
+  const orgDoc = await orgRef.get()
+  if (!orgDoc.exists) return apiError('Organisation not found', 404)
+  const org = orgDoc.data() as Organization
+  if (org.active === false || org.status === 'churned') {
+    return apiError('Cannot add members to an inactive organisation', 400)
+  }
+
+  let uid: string
+  let createdAuthUser = false
+  try {
+    const existing = await adminAuth.getUserByEmail(email)
+    uid = existing.uid
+  } catch (err: unknown) {
+    const code = (err as { code?: string } | null)?.code
+    if (code !== 'auth/user-not-found') throw err
+    const created = await adminAuth.createUser({ email, displayName: name, password })
+    uid = created.uid
+    createdAuthUser = true
+  }
+
+  const alreadyMember = (org.members ?? []).some((member) => member.userId === uid)
+  if (alreadyMember) {
+    if (createdAuthUser) {
+      await adminAuth.deleteUser(uid).catch(() => undefined)
+    }
+    return apiError('This user is already a member of this organisation', 409)
+  }
+
+  if (!createdAuthUser) {
+    await adminAuth.updateUser(uid, { displayName: name, password })
+  }
+
+  const userRef = adminDb.collection('users').doc(uid)
+  const existingUserDoc = await userRef.get()
+  const existingUser = existingUserDoc.data() ?? {}
+  const existingRole = typeof existingUser.role === 'string' ? existingUser.role : undefined
+  if (existingRole && existingRole !== 'client') {
+    if (createdAuthUser) {
+      await adminAuth.deleteUser(uid).catch(() => undefined)
+    }
+    return apiError(
+      `A user with this email already exists as role "${existingRole}". Resolve that account first.`,
+      409,
+    )
+  }
+
+  const existingOrgIds = stringArray(existingUser.orgIds)
+  const primaryOrgId = typeof existingUser.orgId === 'string' ? existingUser.orgId : undefined
+  if (primaryOrgId && !existingOrgIds.includes(primaryOrgId)) existingOrgIds.unshift(primaryOrgId)
+  if (!existingOrgIds.includes(orgId)) existingOrgIds.push(orgId)
+
+  await userRef.set(
+    {
+      uid,
+      email,
+      displayName: name,
+      role: 'client',
+      orgId: primaryOrgId ?? orgId,
+      orgIds: existingOrgIds,
+      createdAt: existingUserDoc.exists ? existingUser.createdAt ?? FieldValue.serverTimestamp() : FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    },
+    { merge: true },
+  )
+
+  await orgRef.update({
+    members: [
+      ...(org.members ?? []),
+      {
+        userId: uid,
+        role,
+        joinedAt: Timestamp.now(),
+        invitedBy: user.uid,
+      },
+    ],
+    updatedAt: FieldValue.serverTimestamp(),
+  })
+
+  await adminDb
+    .collection('orgMembers')
+    .doc(`${orgId}_${uid}`)
+    .set(
+      {
+        orgId,
+        uid,
+        firstName: name.split(' ')[0] ?? '',
+        lastName: name.split(' ').slice(1).join(' '),
+        jobTitle: '',
+        phone: '',
+        avatarUrl: '',
+        role,
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    )
+
+  return apiSuccess(
+    {
+      uid,
+      email,
+      displayName: name,
+      role,
+      orgId,
+    },
+    201,
+  )
 })

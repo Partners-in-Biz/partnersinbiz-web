@@ -31,6 +31,13 @@ interface PlatformMember {
   lastSignInTime?: string | null
 }
 
+interface OrgOption {
+  id: string
+  name: string
+  slug: string
+  type?: string
+}
+
 function Skeleton({ className = '' }: { className?: string }) {
   return <div className={`pib-skeleton ${className}`} />
 }
@@ -72,6 +79,7 @@ function RoleBadge({ role }: { role?: OrgRole }) {
 
 export default function PlatformMembersPage() {
   const [members, setMembers] = useState<PlatformMember[]>([])
+  const [orgs, setOrgs] = useState<OrgOption[]>([])
   const [loading, setLoading] = useState(true)
   const [topError, setTopError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
@@ -81,19 +89,37 @@ export default function PlatformMembersPage() {
   const [newPassword, setNewPassword] = useState('')
   const [passwordError, setPasswordError] = useState<string | null>(null)
   const [setupLinkByUid, setSetupLinkByUid] = useState<Record<string, string>>({})
+  const [showCreate, setShowCreate] = useState(false)
+  const [creating, setCreating] = useState(false)
+  const [createName, setCreateName] = useState('')
+  const [createEmail, setCreateEmail] = useState('')
+  const [createOrgId, setCreateOrgId] = useState('')
+  const [createRole, setCreateRole] = useState<OrgRole>('member')
+  const [createPassword, setCreatePassword] = useState('')
+  const [createError, setCreateError] = useState<string | null>(null)
+
+  const clientOrgs = useMemo(
+    () => orgs.filter((org) => org.type !== 'platform_owner'),
+    [orgs],
+  )
 
   async function load() {
     setLoading(true)
     setTopError(null)
     try {
-      const res = await fetch('/api/v1/admin/platform-members')
-      const body = await res.json()
-      if (!res.ok) {
-        setTopError(body?.error ?? 'Failed to load platform members')
+      const [membersRes, orgsRes] = await Promise.all([
+        fetch('/api/v1/admin/platform-members'),
+        fetch('/api/v1/organizations'),
+      ])
+      const membersBody = await membersRes.json()
+      const orgsBody = await orgsRes.json()
+      if (!membersRes.ok) {
+        setTopError(membersBody?.error ?? 'Failed to load platform members')
         setMembers([])
       } else {
-        setMembers(body.data ?? [])
+        setMembers(membersBody.data ?? [])
       }
+      if (orgsRes.ok) setOrgs(orgsBody.data ?? [])
     } catch (err) {
       setTopError(err instanceof Error ? err.message : 'Failed to load platform members')
     } finally {
@@ -175,6 +201,58 @@ export default function PlatformMembersPage() {
     }
   }
 
+  async function handleCreate(e: React.FormEvent) {
+    e.preventDefault()
+    setCreateError(null)
+    setTopError(null)
+    setNotice(null)
+    if (!createName.trim() || !createEmail.trim()) {
+      setCreateError('Name and email are required')
+      return
+    }
+    if (!createOrgId) {
+      setCreateError('Choose the client account this login belongs to')
+      return
+    }
+    if (createPassword.length < 8) {
+      setCreateError('Password must be at least 8 characters')
+      return
+    }
+
+    setCreating(true)
+    try {
+      const res = await fetch('/api/v1/admin/platform-members', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          name: createName.trim(),
+          email: createEmail.trim(),
+          orgId: createOrgId,
+          role: createRole,
+          password: createPassword,
+        }),
+      })
+      const body = await res.json()
+      if (!res.ok) {
+        setCreateError(body?.error ?? 'Failed to add platform member')
+        return
+      }
+
+      setNotice(`Member created for ${createEmail.trim()}.`)
+      setCreateName('')
+      setCreateEmail('')
+      setCreateOrgId('')
+      setCreateRole('member')
+      setCreatePassword('')
+      setShowCreate(false)
+      await load()
+    } catch (err) {
+      setCreateError(err instanceof Error ? err.message : 'Failed to add platform member')
+    } finally {
+      setCreating(false)
+    }
+  }
+
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
@@ -187,9 +265,17 @@ export default function PlatformMembersPage() {
             Client portal logins and the client accounts each person is linked to.
           </p>
         </div>
-        <Link href="/admin/settings" className="pib-btn-ghost text-sm font-label self-start md:self-auto">
-          Back to settings
-        </Link>
+        <div className="flex flex-wrap gap-2 self-start md:self-auto">
+          <button
+            onClick={() => setShowCreate((value) => !value)}
+            className="pib-btn-primary text-sm font-label"
+          >
+            {showCreate ? 'Cancel' : '+ Add member'}
+          </button>
+          <Link href="/admin/settings" className="pib-btn-ghost text-sm font-label">
+            Back to settings
+          </Link>
+        </div>
       </div>
 
       {topError && (
@@ -202,6 +288,97 @@ export default function PlatformMembersPage() {
         <div className="pib-card border border-green-500/30 bg-green-500/5 px-4 py-3 text-sm text-green-400">
           {notice}
         </div>
+      )}
+
+      {showCreate && (
+        <form onSubmit={handleCreate} className="pib-card p-5 space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <label className="block">
+              <span className="text-xs font-label uppercase tracking-wide text-on-surface-variant">
+                Name
+              </span>
+              <input
+                type="text"
+                value={createName}
+                onChange={(e) => setCreateName(e.target.value)}
+                placeholder="Jane Doe"
+                className="pib-input w-full mt-1"
+                required
+              />
+            </label>
+            <label className="block">
+              <span className="text-xs font-label uppercase tracking-wide text-on-surface-variant">
+                Email
+              </span>
+              <input
+                type="email"
+                value={createEmail}
+                onChange={(e) => setCreateEmail(e.target.value)}
+                placeholder="jane@client.co.za"
+                className="pib-input w-full mt-1"
+                required
+              />
+            </label>
+            <label className="block">
+              <span className="text-xs font-label uppercase tracking-wide text-on-surface-variant">
+                Client account
+              </span>
+              <select
+                value={createOrgId}
+                onChange={(e) => setCreateOrgId(e.target.value)}
+                className="pib-input w-full mt-1"
+                required
+              >
+                <option value="">Choose client account...</option>
+                {clientOrgs.map((org) => (
+                  <option key={org.id} value={org.id}>
+                    {org.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block">
+              <span className="text-xs font-label uppercase tracking-wide text-on-surface-variant">
+                Workspace role
+              </span>
+              <select
+                value={createRole}
+                onChange={(e) => setCreateRole(e.target.value as OrgRole)}
+                className="pib-input w-full mt-1"
+              >
+                <option value="owner">Owner</option>
+                <option value="admin">Admin</option>
+                <option value="member">Member</option>
+                <option value="viewer">Viewer</option>
+              </select>
+            </label>
+            <label className="block md:col-span-2">
+              <span className="text-xs font-label uppercase tracking-wide text-on-surface-variant">
+                Password
+              </span>
+              <input
+                type="password"
+                value={createPassword}
+                onChange={(e) => setCreatePassword(e.target.value)}
+                placeholder="Set their first password, minimum 8 characters"
+                className="pib-input w-full mt-1"
+                autoComplete="new-password"
+                minLength={8}
+                required
+              />
+            </label>
+          </div>
+          {createError && <p className="text-xs text-red-400">{createError}</p>}
+          <div className="flex justify-end">
+            <button
+              type="submit"
+              disabled={creating || createPassword.length < 8}
+              className="pib-btn-primary text-sm font-label"
+            >
+              {creating ? 'Adding...' : 'Add member'}
+            </button>
+          </div>
+        </form>
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
