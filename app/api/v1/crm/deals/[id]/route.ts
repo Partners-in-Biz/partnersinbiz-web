@@ -17,7 +17,7 @@ import { sanitizeDealForWrite } from '@/lib/crm/deals'
 import { getDefinitionsForResource } from '@/lib/customFields/store'
 import { validateCustomFields } from '@/lib/customFields/validation'
 import { loadPipeline } from '@/lib/pipelines/store'
-import type { Contact } from '@/lib/crm/types'
+import type { Contact, DealLineItem } from '@/lib/crm/types'
 
 async function deriveCompanyFromContact(contactId: string, orgId: string): Promise<{ companyId?: string; companyName?: string }> {
   try {
@@ -153,6 +153,29 @@ async function handleDealUpdate(
       const fromStageDoc = fromLoaded?.data.stages.find(s => s.id === fromStageId)
       if (fromStageDoc) fromStage = { id: fromStageDoc.id, label: fromStageDoc.label, kind: fromStageDoc.kind }
     }
+
+    // ── Auto-probability (A5) ──────────────────────────────────────────────────
+    // Derive from stage.probability unless body provides an explicit override.
+    if (!('probability' in body)) {
+      patch.probability = toStageDoc.probability
+    }
+
+    // ── lostReason (A5) ───────────────────────────────────────────────────────
+    // Save lostReason when stage name contains "lost" (case-insensitive).
+    // Otherwise always clear it — even if not provided in body.
+    const stageLabelIsLost = toStageDoc.label.toLowerCase().includes('lost')
+    if (stageLabelIsLost && typeof body.lostReason === 'string') {
+      patch.lostReason = body.lostReason
+    } else {
+      patch.lostReason = null
+    }
+  }
+
+  // ── lineItems (A5) ────────────────────────────────────────────────────────────
+  // Passed through as-is (sanitizeDealForWrite already lets it through).
+  // Explicit undefined check: only touch the field when provided.
+  if (Array.isArray(body.lineItems)) {
+    patch.lineItems = body.lineItems as DealLineItem[]
   }
 
   // Firestore rejects undefined values — strip them before write

@@ -3,7 +3,9 @@
 import { useEffect, useState, useCallback } from 'react'
 import { DealKanban } from '@/components/crm/DealKanban'
 import { PipelineSelector } from '@/components/crm/PipelineSelector'
-import type { Deal } from '@/lib/crm/types'
+import { DealDrawer } from '@/components/crm/DealDrawer'
+import { DealDetailDrawer } from '@/components/crm/DealDetailDrawer'
+import type { Deal, Currency } from '@/lib/crm/types'
 import type { Pipeline, PipelineStage } from '@/lib/pipelines/types'
 
 function Skeleton({ className = '' }: { className?: string }) {
@@ -21,6 +23,16 @@ function PipelineSummary({ deals, stages }: PipelineSummaryProps) {
   const wonStageIds = new Set(stages.filter(s => s.kind === 'won').map(s => s.id))
   const lostStageIds = new Set(stages.filter(s => s.kind === 'lost').map(s => s.id))
 
+  const primaryCurrency: Currency = (deals.find(d => d.currency)?.currency) ?? 'ZAR'
+
+  function fmt(v: number) {
+    try {
+      return new Intl.NumberFormat('en-ZA', { style: 'currency', currency: primaryCurrency, maximumFractionDigits: 0 }).format(v)
+    } catch {
+      return v.toFixed(0)
+    }
+  }
+
   const total = deals
     .filter(d => !lostStageIds.has(d.stageId))
     .reduce((sum, d) => sum + (d.value ?? 0), 0)
@@ -29,19 +41,20 @@ function PipelineSummary({ deals, stages }: PipelineSummaryProps) {
     .reduce((sum, d) => sum + (d.value ?? 0), 0)
   const open = deals.filter(d => !wonStageIds.has(d.stageId) && !lostStageIds.has(d.stageId)).length
 
-  function fmt(v: number) {
-    try {
-      const primary = deals.find(d => d.currency)?.currency ?? 'ZAR'
-      return new Intl.NumberFormat('en-ZA', { style: 'currency', currency: primary, maximumFractionDigits: 0 }).format(v)
-    } catch {
-      return v.toFixed(0)
-    }
-  }
+  // A5: weighted pipeline — sum of (value × probability / 100) for non-lost deals
+  const weightedTotal = deals
+    .filter(d => !lostStageIds.has(d.stageId))
+    .reduce((sum, d) => {
+      const stage = stages.find(s => s.id === d.stageId)
+      const prob = d.probability ?? stage?.probability ?? 100
+      return sum + (d.value ?? 0) * (prob / 100)
+    }, 0)
 
   return (
     <div className="flex gap-4 flex-wrap">
       {[
         { label: 'Pipeline value', value: fmt(total), sub: 'excl. lost' },
+        { label: 'Weighted pipeline', value: fmt(weightedTotal), sub: 'prob-adjusted' },
         { label: 'Won',            value: fmt(won),   sub: 'all time' },
         { label: 'Open deals',     value: String(open), sub: 'active' },
         { label: 'Total deals',    value: String(deals.length), sub: 'all stages' },
@@ -70,6 +83,11 @@ export default function DealsPage() {
   const [error, setError] = useState<string | null>(null)
   const [stageFilter, setStageFilter] = useState<string>('all')
   const [viewMode, setViewMode] = useState<'board' | 'list'>('board')
+
+  // A5: drawer state
+  const [showCreateDrawer, setShowCreateDrawer] = useState(false)
+  const [editingDeal, setEditingDeal] = useState<Deal | null>(null)
+  const [viewingDeal, setViewingDeal] = useState<Deal | null>(null)
 
   // Fetch pipelines once on mount
   useEffect(() => {
@@ -143,6 +161,21 @@ export default function DealsPage() {
     setError(null)
   }, [])
 
+  // A5: deal saved callback — refresh the deal list
+  const handleDealSaved = useCallback((_dealId: string) => {
+    setShowCreateDrawer(false)
+    setEditingDeal(null)
+    setViewingDeal(null)
+    if (selectedPipelineId) {
+      setLoading(true)
+      fetch(`/api/v1/crm/deals?pipelineId=${encodeURIComponent(selectedPipelineId)}&limit=200`)
+        .then(r => r.json())
+        .then(body => { if (body.success) setDeals(body.data ?? []) })
+        .catch(() => {})
+        .finally(() => setLoading(false))
+    }
+  }, [selectedPipelineId])
+
   const filteredDeals = stageFilter === 'all' ? deals : deals.filter(d => d.stageId === stageFilter)
 
   const isReady = !pipelinesLoading && !loading
@@ -166,6 +199,15 @@ export default function DealsPage() {
               className="w-48"
             />
           )}
+
+          {/* New deal button */}
+          <button
+            onClick={() => setShowCreateDrawer(true)}
+            className="cursor-pointer btn-pib-accent flex items-center gap-1.5 text-sm"
+          >
+            <span className="material-symbols-outlined text-[16px]">add</span>
+            New deal
+          </button>
 
           {/* View toggle */}
           <div
@@ -276,7 +318,7 @@ export default function DealsPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b" style={{ borderColor: 'var(--color-card-border)' }}>
-                  {['Deal', 'Stage', 'Value', 'Contact'].map(h => (
+                  {['Deal', 'Stage', 'Value', 'Prob', 'Weighted', 'Contact'].map(h => (
                     <th
                       key={h}
                       className="text-left text-[10px] font-label uppercase tracking-widest text-on-surface-variant px-4 py-2.5"
@@ -291,11 +333,14 @@ export default function DealsPage() {
                   const stage = stages.find(s => s.id === deal.stageId)
                   const stageColor = stage?.color ?? stageColorByKind(stage?.kind)
                   const stageLabel = stage?.label ?? deal.stageId
+                  const prob = deal.probability ?? stage?.probability ?? 100
+                  const weighted = (deal.value ?? 0) * (prob / 100)
                   return (
                     <tr
                       key={deal.id}
-                      className="border-b transition-colors hover:bg-[var(--color-surface-container)]"
+                      className="border-b transition-colors hover:bg-[var(--color-surface-container)] cursor-pointer"
                       style={{ borderColor: 'var(--color-card-border)' }}
+                      onClick={() => setViewingDeal(deal)}
                     >
                       <td className="px-4 py-3 font-medium text-on-surface">{deal.title}</td>
                       <td className="px-4 py-3">
@@ -312,7 +357,21 @@ export default function DealsPage() {
                       <td className="px-4 py-3 font-mono text-on-surface-variant text-xs">
                         {deal.currency} {deal.value?.toFixed(0)}
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3 font-mono text-xs">
+                        <span
+                          className="px-1.5 py-0.5 rounded-full text-[10px]"
+                          style={{
+                            background: prob >= 70 ? '#4ade8020' : prob >= 40 ? '#facc1520' : '#f8717120',
+                            color: prob >= 70 ? '#4ade80' : prob >= 40 ? '#facc15' : '#f87171',
+                          }}
+                        >
+                          {prob}%
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 font-mono text-on-surface-variant text-xs">
+                        {deal.currency} {weighted.toFixed(0)}
+                      </td>
+                      <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
                         {deal.contactId ? (
                           <a
                             href={`/portal/crm/contacts/${deal.contactId}`}
@@ -331,6 +390,36 @@ export default function DealsPage() {
             </table>
           </div>
         )
+      )}
+      {/* A5: Create deal drawer */}
+      {showCreateDrawer && (
+        <DealDrawer
+          defaultPipelineId={selectedPipelineId}
+          onSaved={handleDealSaved}
+          onClose={() => setShowCreateDrawer(false)}
+          orgId={''}
+        />
+      )}
+
+      {/* A5: Edit deal drawer */}
+      {editingDeal && (
+        <DealDrawer
+          deal={editingDeal}
+          onSaved={handleDealSaved}
+          onClose={() => setEditingDeal(null)}
+          orgId={''}
+        />
+      )}
+
+      {/* A5: Deal detail drawer */}
+      {viewingDeal && !editingDeal && (
+        <DealDetailDrawer
+          deal={viewingDeal}
+          stages={stages}
+          orgId={''}
+          onClose={() => setViewingDeal(null)}
+          onEdit={() => { setEditingDeal(viewingDeal); setViewingDeal(null) }}
+        />
       )}
     </div>
   )

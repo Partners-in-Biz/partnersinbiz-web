@@ -90,6 +90,16 @@ export type ContactInput = Omit<Contact, 'id' | 'createdAt' | 'updatedAt'>
 
 export type Currency = 'USD' | 'EUR' | 'ZAR'
 
+export interface DealLineItem {
+  productId?: string    // soft reference; absent for ad-hoc items
+  name: string
+  qty: number
+  unitPrice: number
+  discount?: number     // percentage 0–100
+  total: number
+  currency: Currency
+}
+
 export interface Deal {
   id: string
   orgId: string
@@ -112,6 +122,9 @@ export interface Deal {
   createdAt: Timestamp | null
   updatedAt: Timestamp | null
   deleted?: boolean
+  probability?: number      // 0–100; auto-set from stage.probability, overridable
+  lostReason?: string       // freetext; surfaced on "lost" stages
+  lineItems?: DealLineItem[]
   companyId?: string
   companyName?: string
 }
