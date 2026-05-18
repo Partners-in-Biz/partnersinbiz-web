@@ -39,8 +39,35 @@ interface PeopleListResponse {
   nextPageToken?: string
 }
 
+interface GmailMessageListItem {
+  id?: string
+  threadId?: string
+}
+
+interface GmailMessageListResponse {
+  messages?: GmailMessageListItem[]
+  nextPageToken?: string
+}
+
+interface GmailHeader {
+  name?: string
+  value?: string
+}
+
+interface GmailMessage {
+  id?: string
+  threadId?: string
+  internalDate?: string
+  payload?: {
+    headers?: GmailHeader[]
+  }
+  snippet?: string
+}
+
 const PAGE_SIZE = 1000
 const MAX_PAGES = 100
+const GMAIL_MESSAGE_PAGE_SIZE = 50
+const GMAIL_MAX_PAGES = 10
 
 async function refreshAccessToken(
   refreshToken: string,
@@ -142,6 +169,8 @@ export async function syncGmail(integration: CrmIntegration): Promise<GmailSyncR
     if (!pageData.nextPageToken) break
     pageToken = pageData.nextPageToken
   }
+
+  await syncInboundGmailActivities(integration, accessToken, stats)
 
   return { ok: true, stats }
 }
@@ -265,4 +294,190 @@ async function upsertContact(
   }
 
   return 'created'
+}
+
+async function syncInboundGmailActivities(
+  integration: CrmIntegration,
+  accessToken: string,
+  stats: CrmIntegrationSyncStats,
+): Promise<void> {
+  const baseUrl = 'https://gmail.googleapis.com/gmail/v1/users/me/messages'
+  const query = integration.config.gmailQuery?.trim() || 'in:inbox newer_than:30d'
+
+  let pageToken: string | undefined
+  for (let page = 0; page < GMAIL_MAX_PAGES; page++) {
+    const params = new URLSearchParams({
+      q: query,
+      maxResults: String(GMAIL_MESSAGE_PAGE_SIZE),
+    })
+    if (pageToken) params.set('pageToken', pageToken)
+
+    let pageData: GmailMessageListResponse
+    try {
+      const res = await fetch(`${baseUrl}?${params}`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      })
+      if (!res.ok) {
+        const body = await res.text().catch(() => '')
+        console.warn('[gmail-sync] Gmail API list failed', res.status, body.slice(0, 200))
+        stats.errored++
+        return
+      }
+      pageData = await res.json() as GmailMessageListResponse
+    } catch (err) {
+      console.error('[gmail-sync] Gmail API list failed', err)
+      stats.errored++
+      return
+    }
+
+    for (const item of pageData.messages ?? []) {
+      if (!item.id) {
+        stats.skipped++
+        continue
+      }
+
+      try {
+        const result = await syncInboundGmailMessage(integration, accessToken, item)
+        if (result === 'skipped') stats.skipped++
+      } catch (err) {
+        console.error('[gmail-sync] inbound message sync failed', { messageId: item.id }, err)
+        stats.errored++
+      }
+    }
+
+    if (!pageData.nextPageToken) break
+    pageToken = pageData.nextPageToken
+  }
+}
+
+async function syncInboundGmailMessage(
+  integration: CrmIntegration,
+  accessToken: string,
+  item: GmailMessageListItem,
+): Promise<'created' | 'skipped'> {
+  const message = await fetchGmailMessage(accessToken, item.id!)
+  const headers = indexGmailHeaders(message.payload?.headers ?? [])
+  const fromEmail = extractEmailAddress(headers.from ?? '')
+  if (!fromEmail) return 'skipped'
+
+  const contact = await findContactByEmail(integration.orgId, fromEmail)
+  if (!contact) return 'skipped'
+
+  const messageId = message.id ?? item.id!
+  const threadId = message.threadId ?? item.threadId ?? ''
+  const alreadyLogged = await hasGmailActivityMarker(integration.orgId, contact.id, messageId)
+  if (alreadyLogged) return 'skipped'
+
+  const subject = headers.subject || '(no subject)'
+  const sentAt = parseGmailDate(headers.date, message.internalDate)
+
+  await adminDb.collection('activities').add({
+    orgId: integration.orgId,
+    contactId: contact.id,
+    dealId: '',
+    type: 'email_received',
+    summary: `Email received: ${subject}`,
+    metadata: {
+      integrationId: integration.id,
+      provider: 'gmail',
+      gmailMessageId: messageId,
+      gmailThreadId: threadId,
+      messageId: headers['message-id'] ?? '',
+      from: headers.from ?? '',
+      fromEmail,
+      subject,
+      snippet: message.snippet ?? '',
+    },
+    createdBy: 'integration-sync',
+    createdAt: FieldValue.serverTimestamp(),
+    occurredAt: sentAt ? Timestamp.fromDate(sentAt) : FieldValue.serverTimestamp(),
+    deleted: false,
+  })
+
+  return 'created'
+}
+
+async function fetchGmailMessage(accessToken: string, messageId: string): Promise<GmailMessage> {
+  const params = new URLSearchParams({
+    format: 'metadata',
+    metadataHeaders: 'From',
+  })
+  params.append('metadataHeaders', 'Subject')
+  params.append('metadataHeaders', 'Date')
+  params.append('metadataHeaders', 'Message-ID')
+
+  const res = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${encodeURIComponent(messageId)}?${params}`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  })
+  if (!res.ok) {
+    const body = await res.text().catch(() => '')
+    throw new Error(`Gmail API message ${res.status}: ${body.slice(0, 200)}`)
+  }
+  return await res.json() as GmailMessage
+}
+
+function indexGmailHeaders(headers: GmailHeader[]): Record<string, string> {
+  const indexed: Record<string, string> = {}
+  for (const header of headers) {
+    const name = header.name?.trim().toLowerCase()
+    if (!name || typeof header.value !== 'string') continue
+    indexed[name] = header.value
+  }
+  return indexed
+}
+
+function extractEmailAddress(value: string): string {
+  const match = value.match(/<([^<>@\s]+@[^<>@\s]+)>/) ?? value.match(/([^<>\s]+@[^<>\s]+)/)
+  return (match?.[1] ?? '').trim().toLowerCase()
+}
+
+function parseGmailDate(dateHeader?: string, internalDate?: string): Date | null {
+  if (dateHeader) {
+    const parsed = new Date(dateHeader)
+    if (!Number.isNaN(parsed.getTime())) return parsed
+  }
+
+  if (internalDate) {
+    const ms = Number(internalDate)
+    if (Number.isFinite(ms)) return new Date(ms)
+  }
+
+  return null
+}
+
+async function findContactByEmail(
+  orgId: string,
+  email: string,
+): Promise<{ id: string } | null> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const snap = await (adminDb.collection('contacts') as any)
+    .where('orgId', '==', orgId)
+    .where('email', '==', email)
+    .limit(1)
+    .get()
+
+  if (snap.empty) return null
+
+  const doc = snap.docs[0]
+  const data = doc.data() as { deleted?: boolean }
+  if (data.deleted) return null
+
+  return { id: doc.id }
+}
+
+async function hasGmailActivityMarker(
+  orgId: string,
+  contactId: string,
+  gmailMessageId: string,
+): Promise<boolean> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const snap = await (adminDb.collection('activities') as any)
+    .where('orgId', '==', orgId)
+    .where('contactId', '==', contactId)
+    .where('type', '==', 'email_received')
+    .where('metadata.gmailMessageId', '==', gmailMessageId)
+    .limit(1)
+    .get()
+
+  return !snap.empty
 }

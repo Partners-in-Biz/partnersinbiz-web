@@ -21,11 +21,13 @@ const WORKSPACE_LINKS = [
   { href: '/portal/settings/profile', label: 'My profile', icon: 'person', minRole: null },
   { href: '/portal/settings/team', label: 'Team', icon: 'group', minRole: 'admin' },
   { href: '/portal/settings/custom-fields', label: 'Custom fields', icon: 'tune', minRole: 'admin' },
+  { href: '/portal/settings/crm-setup', label: 'CRM setup', icon: 'rocket_launch', minRole: 'admin' },
   { href: '/portal/settings/pipelines', label: 'Pipelines', icon: 'sync_alt', minRole: 'admin' },
   { href: '/portal/settings/scoring', label: 'Scoring', icon: 'star_rate', minRole: 'admin' },
   { href: '/portal/settings/products', label: 'Products', icon: 'inventory_2', minRole: 'admin' },
   { href: '/portal/settings/automations', label: 'Automations', icon: 'bolt', minRole: 'admin' },
   { href: '/portal/settings/sequences', label: 'Sequences', icon: 'route', minRole: 'admin' },
+  { href: '/portal/settings/webhooks', label: 'Webhooks', icon: 'webhook', minRole: 'admin' },
   { href: '/portal/settings/permissions', label: 'Permissions', icon: 'shield', minRole: 'owner' },
 ]
 

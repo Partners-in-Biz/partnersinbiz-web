@@ -77,6 +77,39 @@ function mockFetch(tokenOk: boolean, responses: unknown[]) {
   })
 }
 
+function mockGmailFetch(messages: unknown[], messageDetails: Record<string, unknown>) {
+  let callIndex = 0
+  global.fetch = jest.fn().mockImplementation((url: string) => {
+    callIndex++
+    if (callIndex === 1) {
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ access_token: 'access-token-abc' }),
+      })
+    }
+    if (url.startsWith('https://people.googleapis.com/')) {
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ connections: [] }),
+      })
+    }
+    if (url.startsWith('https://gmail.googleapis.com/gmail/v1/users/me/messages/')) {
+      const messageId = decodeURIComponent(url.split('/messages/')[1].split('?')[0])
+      return Promise.resolve({
+        ok: true,
+        json: async () => messageDetails[messageId],
+      })
+    }
+    if (url.startsWith('https://gmail.googleapis.com/gmail/v1/users/me/messages')) {
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ messages }),
+      })
+    }
+    throw new Error(`Unexpected fetch URL: ${url}`)
+  })
+}
+
 beforeEach(() => {
   jest.clearAllMocks()
   const chainable = {
@@ -145,7 +178,7 @@ describe('syncGmail', () => {
     expect(result.ok).toBe(true)
     expect(result.stats.imported).toBe(2)
     expect(result.stats.created).toBe(2)
-    expect(call).toBe(3)
+    expect(call).toBe(4)
   })
 
   it('creates new contact with correct orgId, tags, and name', async () => {
@@ -159,9 +192,6 @@ describe('syncGmail', () => {
     expect(result.ok).toBe(true)
     expect(result.stats.created).toBe(1)
 
-    const contactPayload = mockAdd.mock.calls.find(
-      (c) => mockCollection.mock.calls.some((cc) => cc[0] === 'contacts'),
-    )
     // Verify add was called on contacts collection
     expect(mockAdd).toHaveBeenCalled()
     const addCall = mockAdd.mock.calls[0][0]
@@ -239,5 +269,146 @@ describe('syncGmail', () => {
     expect(result.ok).toBe(true)
     expect(result.stats.skipped).toBe(1)
     expect(mockUpdate).not.toHaveBeenCalled()
+  })
+
+  it('creates an email_received activity for a matched inbound Gmail message', async () => {
+    mockGmailFetch(
+      [{ id: 'gmail-msg-1', threadId: 'thread-1' }],
+      {
+        'gmail-msg-1': {
+          id: 'gmail-msg-1',
+          threadId: 'thread-1',
+          internalDate: '1747303200000',
+          snippet: 'Can we talk about the proposal?',
+          payload: {
+            headers: [
+              { name: 'From', value: 'Jane Doe <jane@example.com>' },
+              { name: 'Subject', value: 'Proposal question' },
+              { name: 'Date', value: 'Thu, 15 May 2025 10:00:00 +0000' },
+              { name: 'Message-ID', value: '<abc123@mail.example.com>' },
+            ],
+          },
+        },
+      },
+    )
+    mockGet
+      .mockResolvedValueOnce({
+        empty: false,
+        docs: [{ id: 'contact-1', data: () => ({ orgId: 'org-1', email: 'jane@example.com', deleted: false }) }],
+      })
+      .mockResolvedValueOnce({ empty: true, docs: [] })
+    mockAdd.mockResolvedValue({ id: 'activity-1' })
+
+    const { syncGmail } = await import('@/lib/crm/integrations/handlers/gmail')
+    const result = await syncGmail(BASE_INTEGRATION)
+
+    expect(result.ok).toBe(true)
+    expect(mockCollection).toHaveBeenCalledWith('activities')
+    expect(mockAdd).toHaveBeenCalledTimes(1)
+    expect(mockAdd.mock.calls[0][0]).toMatchObject({
+      orgId: 'org-1',
+      contactId: 'contact-1',
+      dealId: '',
+      type: 'email_received',
+      summary: 'Email received: Proposal question',
+      createdBy: 'integration-sync',
+      deleted: false,
+      metadata: {
+        integrationId: 'int-1',
+        provider: 'gmail',
+        gmailMessageId: 'gmail-msg-1',
+        gmailThreadId: 'thread-1',
+        fromEmail: 'jane@example.com',
+        subject: 'Proposal question',
+      },
+    })
+  })
+
+  it('skips an inbound Gmail message when the sender is unknown', async () => {
+    mockGmailFetch(
+      [{ id: 'gmail-msg-unknown', threadId: 'thread-unknown' }],
+      {
+        'gmail-msg-unknown': {
+          id: 'gmail-msg-unknown',
+          threadId: 'thread-unknown',
+          payload: {
+            headers: [
+              { name: 'From', value: 'Unknown <unknown@example.com>' },
+              { name: 'Subject', value: 'Hello' },
+            ],
+          },
+        },
+      },
+    )
+    mockGet.mockResolvedValueOnce({ empty: true, docs: [] })
+
+    const { syncGmail } = await import('@/lib/crm/integrations/handlers/gmail')
+    const result = await syncGmail(BASE_INTEGRATION)
+
+    expect(result.ok).toBe(true)
+    expect(result.stats.skipped).toBe(1)
+    expect(mockAdd).not.toHaveBeenCalled()
+  })
+
+  it('does not duplicate a Gmail message when an activity marker already exists', async () => {
+    mockGmailFetch(
+      [{ id: 'gmail-msg-1', threadId: 'thread-1' }],
+      {
+        'gmail-msg-1': {
+          id: 'gmail-msg-1',
+          threadId: 'thread-1',
+          payload: {
+            headers: [
+              { name: 'From', value: 'Jane Doe <jane@example.com>' },
+              { name: 'Subject', value: 'Already logged' },
+            ],
+          },
+        },
+      },
+    )
+    mockGet
+      .mockResolvedValueOnce({
+        empty: false,
+        docs: [{ id: 'contact-1', data: () => ({ orgId: 'org-1', email: 'jane@example.com', deleted: false }) }],
+      })
+      .mockResolvedValueOnce({
+        empty: false,
+        docs: [{ id: 'activity-existing', data: () => ({ metadata: { gmailMessageId: 'gmail-msg-1' } }) }],
+      })
+
+    const { syncGmail } = await import('@/lib/crm/integrations/handlers/gmail')
+    const result = await syncGmail(BASE_INTEGRATION)
+
+    expect(result.ok).toBe(true)
+    expect(result.stats.skipped).toBe(1)
+    expect(mockAdd).not.toHaveBeenCalled()
+  })
+
+  it('does not match Gmail senders across organizations', async () => {
+    mockGmailFetch(
+      [{ id: 'gmail-msg-cross-org', threadId: 'thread-cross-org' }],
+      {
+        'gmail-msg-cross-org': {
+          id: 'gmail-msg-cross-org',
+          threadId: 'thread-cross-org',
+          payload: {
+            headers: [
+              { name: 'From', value: 'Jane Doe <jane@example.com>' },
+              { name: 'Subject', value: 'Wrong tenant' },
+            ],
+          },
+        },
+      },
+    )
+    mockGet.mockResolvedValueOnce({ empty: true, docs: [] })
+
+    const { syncGmail } = await import('@/lib/crm/integrations/handlers/gmail')
+    const result = await syncGmail(BASE_INTEGRATION)
+
+    expect(result.ok).toBe(true)
+    expect(result.stats.skipped).toBe(1)
+    expect(mockWhere).toHaveBeenCalledWith('orgId', '==', 'org-1')
+    expect(mockWhere).toHaveBeenCalledWith('email', '==', 'jane@example.com')
+    expect(mockAdd).not.toHaveBeenCalled()
   })
 })

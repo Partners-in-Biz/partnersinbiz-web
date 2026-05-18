@@ -64,7 +64,13 @@ const ACTIVITY_ICONS: Record<string, string> = {
   sequence_completed: 'route',
   contact_captured: 'add_circle',
   call: 'call',
+  meeting_scheduled: 'event',
   stage_change: 'swap_horiz',
+}
+
+function toDateTimeLocalValue(date: Date): string {
+  const offsetMs = date.getTimezoneOffset() * 60_000
+  return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16)
 }
 
 export default function PortalContactDetailPage() {
@@ -92,6 +98,10 @@ export default function PortalContactDetailPage() {
   const [logType, setLogType] = useState<string | null>(null)
   const [logSummary, setLogSummary] = useState('')
   const [logEmailSubject, setLogEmailSubject] = useState('')
+  const [meetingTitle, setMeetingTitle] = useState('')
+  const [meetingStartAt, setMeetingStartAt] = useState('')
+  const [meetingEndAt, setMeetingEndAt] = useState('')
+  const [meetingUrl, setMeetingUrl] = useState('')
   const [logSaving, setLogSaving] = useState(false)
   const [logError, setLogError] = useState<string | null>(null)
 
@@ -291,6 +301,40 @@ export default function PortalContactDetailPage() {
         setActivities((prev) => [optimistic, ...prev])
         setLogType(null)
         setLogSummary('')
+        setLogError(null)
+      } else if (logType === 'meeting') {
+        if (!meetingStartAt || !meetingEndAt) return
+        const start = new Date(meetingStartAt)
+        const end = new Date(meetingEndAt)
+        const title = meetingTitle.trim() || `Meeting with ${contact?.name ?? 'contact'}`
+        const res = await fetch(`/api/v1/crm/contacts/${id}/schedule-meeting`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title,
+            description: logSummary.trim(),
+            startAt: start.toISOString(),
+            endAt: end.toISOString(),
+            meetingUrl: meetingUrl.trim(),
+          }),
+        })
+        if (!res.ok) {
+          const errBody = await res.json().catch(() => ({}))
+          throw new Error((errBody as { error?: string }).error ?? 'Failed to schedule meeting')
+        }
+        const optimistic: ActivityRecord = {
+          id: Date.now().toString(),
+          type: 'meeting_scheduled',
+          summary: `Meeting scheduled: ${title}`,
+          createdAt: new Date(),
+        }
+        setActivities((prev) => [optimistic, ...prev])
+        setLogType(null)
+        setLogSummary('')
+        setMeetingTitle('')
+        setMeetingStartAt('')
+        setMeetingEndAt('')
+        setMeetingUrl('')
         setLogError(null)
       } else {
         if (!logSummary.trim()) return
@@ -661,10 +705,24 @@ export default function PortalContactDetailPage() {
                   { type: 'email_sent', icon: 'mail', label: 'Email' },
                   { type: 'note', icon: 'notes', label: 'Note' },
                   { type: 'sms', icon: 'sms', label: 'SMS' },
+                  { type: 'meeting', icon: 'event', label: 'Meeting' },
                 ] as const).map(({ type, icon, label }) => (
                   <button
                     key={type}
-                    onClick={() => setLogType(logType === type ? null : type)}
+                    onClick={() => {
+                      if (logType === type) {
+                        setLogType(null)
+                        return
+                      }
+                      if (type === 'meeting' && !meetingStartAt) {
+                        const start = new Date(Date.now() + 60 * 60 * 1000)
+                        const end = new Date(start.getTime() + 30 * 60 * 1000)
+                        setMeetingStartAt(toDateTimeLocalValue(start))
+                        setMeetingEndAt(toDateTimeLocalValue(end))
+                        setMeetingTitle(contact?.name ? `Meeting with ${contact.name}` : '')
+                      }
+                      setLogType(type)
+                    }}
                     className={`btn-pib-secondary text-xs flex items-center gap-1 ${logType === type ? 'ring-1 ring-[var(--color-pib-accent)]' : ''}`}
                   >
                     <span className="material-symbols-outlined text-[14px]">{icon}</span>
@@ -703,6 +761,48 @@ export default function PortalContactDetailPage() {
                       onChange={(e) => setLogSummary(e.target.value)}
                       className="w-full text-sm bg-transparent border border-[var(--color-pib-line)] rounded-lg p-2 resize-none"
                     />
+                  ) : logType === 'meeting' ? (
+                    <>
+                      <input
+                        placeholder="Meeting title…"
+                        value={meetingTitle}
+                        onChange={(e) => setMeetingTitle(e.target.value)}
+                        className="w-full text-sm border border-[var(--color-pib-line)] rounded-lg p-2 bg-transparent"
+                      />
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <label className="space-y-1">
+                          <span className="block text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">Starts</span>
+                          <input
+                            type="datetime-local"
+                            value={meetingStartAt}
+                            onChange={(e) => setMeetingStartAt(e.target.value)}
+                            className="w-full text-sm border border-[var(--color-pib-line)] rounded-lg p-2 bg-transparent"
+                          />
+                        </label>
+                        <label className="space-y-1">
+                          <span className="block text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">Ends</span>
+                          <input
+                            type="datetime-local"
+                            value={meetingEndAt}
+                            onChange={(e) => setMeetingEndAt(e.target.value)}
+                            className="w-full text-sm border border-[var(--color-pib-line)] rounded-lg p-2 bg-transparent"
+                          />
+                        </label>
+                      </div>
+                      <input
+                        placeholder="Meeting link (optional)…"
+                        value={meetingUrl}
+                        onChange={(e) => setMeetingUrl(e.target.value)}
+                        className="w-full text-sm border border-[var(--color-pib-line)] rounded-lg p-2 bg-transparent"
+                      />
+                      <textarea
+                        rows={3}
+                        placeholder="Agenda or notes…"
+                        value={logSummary}
+                        onChange={(e) => setLogSummary(e.target.value)}
+                        className="w-full text-sm bg-transparent border border-[var(--color-pib-line)] rounded-lg p-2 resize-none"
+                      />
+                    </>
                   ) : (
                     <textarea
                       rows={3}
@@ -719,6 +819,8 @@ export default function PortalContactDetailPage() {
                         logSaving ||
                         (logType === 'email_sent'
                           ? !logEmailSubject.trim() || !logSummary.trim()
+                          : logType === 'meeting'
+                          ? !meetingStartAt || !meetingEndAt
                           : !logSummary.trim())
                       }
                       className="btn-pib-accent text-xs disabled:opacity-50"
@@ -729,10 +831,12 @@ export default function PortalContactDetailPage() {
                         ? 'Send email'
                         : logType === 'sms'
                         ? 'Send SMS'
+                        : logType === 'meeting'
+                        ? 'Schedule'
                         : 'Save'}
                     </button>
                     <button
-                      onClick={() => { setLogType(null); setLogSummary(''); setLogEmailSubject(''); setLogError(null) }}
+                      onClick={() => { setLogType(null); setLogSummary(''); setLogEmailSubject(''); setMeetingTitle(''); setMeetingStartAt(''); setMeetingEndAt(''); setMeetingUrl(''); setLogError(null) }}
                       className="text-xs text-[var(--color-pib-text-muted)]"
                     >
                       Cancel
