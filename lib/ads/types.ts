@@ -705,7 +705,7 @@ export type AdConversionCategory =
   | 'STORE_VISIT' | 'STORE_SALE'
   | 'QUALIFIED_LEAD' | 'CONVERTED_LEAD' | 'OTHER'
 
-export type AdConversionPlatform = 'meta' | 'google' | 'linkedin'
+export type AdConversionPlatform = 'meta' | 'google' | 'linkedin' | 'tiktok'
 
 export type AdConversionCountingType = 'ONE_PER_CLICK' | 'MANY_PER_CLICK'
 
@@ -736,6 +736,14 @@ export interface AdConversionAction {
       conversionUrn?: string
       /** Bare numeric partner conversion ID — used when URN is not yet composed. */
       partnerConversionId?: string
+    }
+    tiktok?: {
+      /**
+       * TikTok standard event name to fire.
+       * Examples: 'Purchase' | 'CompletePayment' | 'AddToCart' | 'Subscribe' |
+       *           'Lead' | 'CompleteRegistration' | 'ViewContent'
+       */
+      eventName?: string
     }
   }
   createdAt: Timestamp

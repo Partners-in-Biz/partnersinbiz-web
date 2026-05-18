@@ -367,3 +367,56 @@ LinkedIn requests a specific test member URN to grant `VIEWER` access on. Provid
 - [ ] Verify Vercel env has `LINKEDIN_ADS_CLIENT_ID` + `LINKEDIN_ADS_CLIENT_SECRET` set for production + preview
 - [ ] Confirm redirect URI registered: `https://partnersinbiz.online/api/v1/ads/linkedin/oauth/callback`
 - [ ] Run all 5 phase smokes (`smoke-ads-sub3b-phase{1,2,3,4,5}.ts`) green against the test account
+
+---
+
+## TikTok — For Business Marketing API Application
+
+### Scopes requested
+
+Marketing API app on TikTok For Business with numeric scopes:
+
+| Code | Name | Purpose |
+|---|---|---|
+| 1 | ads_read | Read campaigns, ad groups, ads, insights |
+| 4 | ads_management | Create/update/delete campaigns, ad groups, ads, identities |
+| 7 | events_api | Server-side conversion events via `/pixel/track/` |
+| 8 | audiences | Create and manage custom audiences (Customer File, Lookalike) |
+| 100 | reporting | Pull integrated insights at campaign/adset/ad level |
+
+This is a **SEPARATE** TikTok For Business Marketing API app from any existing TikTok-for-posting OAuth app (which uses different scopes on a different app). Env vars: `TIKTOK_ADS_CLIENT_ID` (app_id) + `TIKTOK_ADS_CLIENT_SECRET` (secret).
+
+### Redirect URI
+
+- Production: `https://partnersinbiz.online/api/v1/ads/tiktok/oauth/callback`
+- Development: `http://localhost:3000/api/v1/ads/tiktok/oauth/callback`
+
+Both must be registered in the TikTok For Business app's OAuth settings.
+
+### Demo workflow
+
+A TikTok reviewer can verify the full PiB integration end-to-end:
+
+1. **Connect** at `/admin/org/{slug}/ads/connections` — OAuth dialog with `rid` + `state`, TikTok returns `auth_code` (not `code`) which PiB exchanges for an access + refresh token via `/oauth2/access_token/`.
+2. **Pick advertiser** — advertiser list comes from `/oauth2/advertiser/get/` (which uses `app_id` + `secret` as query params, unlike the rest of the API which uses `Access-Token` header + `advertiser_id` body param).
+3. **Create Campaign → AdGroup → Ad** — 3-step wizard fires `/campaign/create/`, `/adgroup/create/`, `/ad/create/` in sequence. Ad creation requires `identity_id` from `/identity/get/`.
+4. **Create Matched Audience** — `/dmp/custom_audience/create/` then `/dmp/custom_audience/file/upload/` (multipart form with SHA-256 hashed rows, one per line) + `/dmp/custom_audience/apply/` to bind the audience to an advertiser. Customer File is the primary subtype; Lookalike calls `/dmp/lookalike_audience/create/` with a source audience ID.
+5. **Upload Creative** — `/file/image/ad/upload/` returns `image_id` used in Ad creation.
+6. **Pull insights** — `/report/integrated/get/` at all 3 levels (`AUCTION_CAMPAIGN` / `AUCTION_ADGROUP` / `AUCTION_AD`) with `dimensions` + `metrics` arrays.
+7. **Send conversion** — `/pixel/track/` server-side event with SHA-256 hashed email/phone + raw `ttclid` (from URL parameter) + `event_id` for dedupe against pixel-side browser events.
+
+### Data handling disclosure
+
+- Access + refresh + Events API tokens encrypted via AES-256-GCM (`SOCIAL_TOKEN_MASTER_KEY`).
+- Customer-file audiences: emails/phones SHA-256 hashed (lowercase-trim normalisation) server-side, newline-delimited file uploaded multipart, source CSV purged from Firebase Storage within 24h via existing lifecycle policy.
+- `ttclid` (TikTok click ID) and `ttp` (TikTok first-party cookie) are sent **raw** to the Events API per TikTok spec — they are opaque tokens, not PII.
+- Hashed identifiers (`email`, `phone_number`, `external_id`) sent in `context.user`; `ttclid` sent in `context.ad.callback`.
+- Tenant isolation enforced via `orgId` on every Firestore doc + `withAuth('admin')` middleware on all admin API routes.
+
+### Submission checklist
+
+- [ ] Screencast (under 3 minutes) walking the demo workflow above
+- [ ] TikTok For Business Marketing API app approved with all 5 scopes (codes 1, 4, 7, 8, 100) — including Events API scope 7
+- [ ] Vercel env: `TIKTOK_ADS_CLIENT_ID` + `TIKTOK_ADS_CLIENT_SECRET` set for production + preview
+- [ ] OAuth redirect URIs registered (production + localhost)
+- [ ] All 6 phase smokes (`smoke-ads-sub3c-phase{1..6}.ts`) run green against the test advertiser once credentials are live

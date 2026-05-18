@@ -14,11 +14,20 @@ export async function trackConversion(input: ConversionEventInput): Promise<Conv
   const existing = await dedupeRef.get()
   if (existing.exists) {
     const prior = existing.data() as ConversionFanoutResult & { firstSeenAt?: unknown }
-    return {
-      meta: prior.meta === 'sent' ? 'sent' : prior.meta === 'failed' ? 'failed' : 'skipped',
-      google: prior.google === 'sent' ? 'sent' : prior.google === 'failed' ? 'failed' : 'skipped',
-      linkedin: prior.linkedin === 'sent' ? 'sent' : prior.linkedin === 'failed' ? 'failed' : 'skipped',
+    const dedupeResult: ConversionFanoutResult = {}
+    if (prior.meta !== undefined) {
+      dedupeResult.meta = prior.meta === 'sent' ? 'sent' : prior.meta === 'failed' ? 'failed' : 'skipped'
     }
+    if (prior.google !== undefined) {
+      dedupeResult.google = prior.google === 'sent' ? 'sent' : prior.google === 'failed' ? 'failed' : 'skipped'
+    }
+    if (prior.linkedin !== undefined) {
+      dedupeResult.linkedin = prior.linkedin === 'sent' ? 'sent' : prior.linkedin === 'failed' ? 'failed' : 'skipped'
+    }
+    if (prior.tiktok !== undefined) {
+      dedupeResult.tiktok = prior.tiktok === 'sent' ? 'sent' : prior.tiktok === 'failed' ? 'failed' : 'skipped'
+    }
+    return dedupeResult
   }
 
   // 2. Look up canonical Conversion Action
@@ -190,7 +199,67 @@ export async function trackConversion(input: ConversionEventInput): Promise<Conv
     }
   }
 
-  // 6. Persist dedupe record (best-effort — failure here doesn't reset the fanout)
+  // 6. TikTok branch
+  if (action.platform === 'tiktok') {
+    try {
+      const tiktokData = action.providerData?.tiktok as { eventName?: string } | undefined
+      const eventName = tiktokData?.eventName
+      if (!eventName) {
+        throw new Error(
+          'TikTok conversion action missing providerData.tiktok.eventName — set the TikTok standard event name on the action',
+        )
+      }
+
+      const { listPixelConfigs, decryptPlatformCapiToken } = await import('@/lib/ads/pixel-configs/store')
+      const configs = await listPixelConfigs({ orgId: input.orgId })
+      // Prefer a config that has a TikTok CAPI token; fall back to first config
+      const pixelConfig = configs.find((c) => c.tiktok?.capiTokenEnc) ?? configs[0]
+      const tiktokPixel = pixelConfig?.tiktok as
+        | { pixelId?: string; capiTokenEnc?: unknown; testEventCode?: string }
+        | undefined
+
+      if (!tiktokPixel?.pixelId) {
+        throw new Error(
+          'TikTok pixel config missing pixelCode — admin must set the Pixel ID in the Events API config',
+        )
+      }
+      if (!tiktokPixel.capiTokenEnc) {
+        throw new Error(
+          'TikTok pixel config missing capiTokenEnc — admin must set the Events API token in the pixel config',
+        )
+      }
+
+      const capiAccessToken = decryptPlatformCapiToken(pixelConfig, 'tiktok')
+
+      const { trackConversion: tiktokTrackConversion } = await import('@/lib/ads/providers/tiktok/capi')
+      await tiktokTrackConversion({
+        capiAccessToken,
+        testEventCode: tiktokPixel.testEventCode,
+        input: {
+          pixelCode: tiktokPixel.pixelId,
+          eventName,
+          eventId: input.eventId,
+          eventTimeIso: input.eventTime.toISOString(),
+          user: {
+            email: input.user.email,
+            phone: input.user.phone,
+            ttclid: input.ttclid,
+            ttp: input.ttp,
+            externalId: input.user.externalId,
+          },
+          value: input.value,
+          currency: input.currency,
+        },
+      })
+      result.tiktok = 'sent'
+    } catch (err) {
+      result.tiktok = 'failed'
+      result.tiktokError = (err as Error).message
+      console.error('[trackConversion] TikTok fanout failed:', err)
+    }
+  }
+
+  // 7. Persist dedupe record (best-effort — failure here doesn't reset the fanout)
   try {
     await dedupeRef.set({
       ...result,
