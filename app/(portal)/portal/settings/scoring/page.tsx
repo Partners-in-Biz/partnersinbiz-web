@@ -16,8 +16,8 @@ interface ScoringConfig {
   aiEnabled: boolean
   aiModel?: string
   aiCacheHours?: number
-  updatedAt: unknown
-  createdAt: unknown
+  updatedAt?: string | number | null
+  createdAt?: string | number | null
 }
 
 type Tab = 'icp' | 'weights'
