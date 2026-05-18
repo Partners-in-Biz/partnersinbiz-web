@@ -9,6 +9,7 @@ import { ContactDealsPanel } from '@/components/crm/ContactDealsPanel'
 import { CompanyPanel } from '@/components/crm/CompanyPanel'
 import { CompanyPicker } from '@/components/crm/CompanyPicker'
 import { CustomFieldsSection } from '@/components/crm/CustomFieldsSection'
+import { ScoreChip } from '@/components/crm/ScoreChip'
 import type { CustomFieldDefinition } from '@/lib/customFields/types'
 
 interface ContactRecord {
@@ -27,6 +28,10 @@ interface ContactRecord {
   tags?: string[]
   lastContactedAt?: unknown
   createdAt?: unknown
+  leadScore?: number
+  icpScore?: number
+  aiLeadScore?: number
+  scoreUpdatedAt?: unknown
   [key: string]: unknown
 }
 
@@ -222,6 +227,15 @@ export default function PortalContactDetailPage() {
             </span>
           ))}
         </div>
+        {(contact.leadScore !== undefined || contact.icpScore !== undefined || contact.aiLeadScore !== undefined) && (
+          <div className="flex items-center gap-2">
+            <ScoreChip score={contact.leadScore} kind="lead" label="Lead score (formula)" size="sm" />
+            <ScoreChip score={contact.icpScore} kind="icp" label="ICP match score" size="sm" />
+            {contact.aiLeadScore !== undefined && (
+              <ScoreChip score={contact.aiLeadScore} kind="ai" label="AI lead score" size="sm" />
+            )}
+          </div>
+        )}
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
