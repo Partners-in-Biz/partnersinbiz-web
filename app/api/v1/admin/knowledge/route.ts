@@ -2,15 +2,12 @@ import { NextRequest } from 'next/server'
 import { withAuth } from '@/lib/api/auth'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import { callAgentPath } from '@/lib/agents/team'
+import { resolveKnowledgeAgent, SAFE_KNOWLEDGE_AGENT } from '@/lib/knowledge/agents'
 import type { KnowledgeScope, KnowledgeSection } from '@/lib/knowledge/types'
 
 export const dynamic = 'force-dynamic'
 
 const KNOWLEDGE_AGENT = 'pip'
-const SAFE_AGENT = /^[a-z0-9][a-z0-9-]{0,63}$/
-const AGENT_ALIASES: Record<string, string> = {
-  'partners-in-biz': 'partners',
-}
 
 function readScope(searchParams: URLSearchParams): KnowledgeScope | null {
   const scope = searchParams.get('scope')
@@ -33,11 +30,6 @@ function appendQuery(path: string, params: Record<string, string | undefined>) {
   return qs ? `${path}?${qs}` : path
 }
 
-function resolveKnowledgeAgent(agent: string | undefined) {
-  if (!agent) return undefined
-  return AGENT_ALIASES[agent] ?? agent
-}
-
 export const GET = withAuth('admin', async (req: NextRequest) => {
   const scope = readScope(req.nextUrl.searchParams)
   if (!scope) return apiError('scope must be shared or agent', 400)
@@ -46,7 +38,7 @@ export const GET = withAuth('admin', async (req: NextRequest) => {
   const requestedAgent = req.nextUrl.searchParams.get('agent')?.trim() || undefined
   const agent = resolveKnowledgeAgent(requestedAgent)
   const path = req.nextUrl.searchParams.get('path')?.trim() || undefined
-  if (scope === 'agent' && (!agent || !SAFE_AGENT.test(agent))) {
+  if (scope === 'agent' && (!agent || !SAFE_KNOWLEDGE_AGENT.test(agent))) {
     return apiError('agent is required for client knowledge', 400)
   }
 
@@ -82,7 +74,7 @@ export const POST = withAuth('admin', async (req: NextRequest) => {
   if (body.section && !['index', 'wiki', 'raw', 'logs'].includes(body.section)) {
     return apiError('section must be index, wiki, raw, or logs', 400)
   }
-  if (body.scope === 'agent' && (!body.agent || !SAFE_AGENT.test(body.agent))) {
+  if (body.scope === 'agent' && (!body.agent || !SAFE_KNOWLEDGE_AGENT.test(body.agent))) {
     return apiError('agent is required for client knowledge', 400)
   }
   if (!body.path || typeof body.path !== 'string') return apiError('path is required', 400)

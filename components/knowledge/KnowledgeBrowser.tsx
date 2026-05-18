@@ -15,6 +15,9 @@ type Props = {
   title: string
   eyebrow: string
   description: string
+  apiPath?: string
+  readOnly?: boolean
+  sections?: KnowledgeSection[]
 }
 
 type ApiEnvelope<T> = { success: boolean; data?: T; error?: string; upstream?: unknown }
@@ -362,7 +365,16 @@ function MarkdownPreview({ content }: { content: string }) {
   return <div className="space-y-3">{nodes}</div>
 }
 
-export function KnowledgeBrowser({ scope, agent, title, eyebrow, description }: Props) {
+export function KnowledgeBrowser({
+  scope,
+  agent,
+  title,
+  eyebrow,
+  description,
+  apiPath = '/api/v1/admin/knowledge',
+  readOnly = false,
+  sections,
+}: Props) {
   const [items, setItems] = useState<KnowledgeItem[]>([])
   const [selectedPath, setSelectedPath] = useState<string | null>(null)
   const [note, setNote] = useState<KnowledgeNote | null>(null)
@@ -378,6 +390,11 @@ export function KnowledgeBrowser({ scope, agent, title, eyebrow, description }: 
   const [graphLoading, setGraphLoading] = useState(false)
   const listRequestRef = useRef(0)
   const noteRequestRef = useRef(0)
+  const visibleSections = useMemo(
+    () => SECTIONS.filter((tab) => !sections || sections.includes(tab.value)),
+    [sections],
+  )
+  const graphSections = useMemo(() => sections && sections.length > 0 ? sections : GRAPH_SECTIONS, [sections])
 
   const queryBase = useMemo(() => {
     const params = new URLSearchParams({ scope })
@@ -390,7 +407,7 @@ export function KnowledgeBrowser({ scope, agent, title, eyebrow, description }: 
     const requestId = ++listRequestRef.current
     setLoading(true)
     setError(null)
-    const res = await fetch(`/api/v1/admin/knowledge?${queryBase.toString()}`)
+    const res = await fetch(`${apiPath}?${queryBase.toString()}`)
     const body = await res.json() as ApiEnvelope<KnowledgeListing>
     if (requestId !== listRequestRef.current) return
     if (!res.ok || !body.success || !body.data) {
@@ -412,7 +429,7 @@ export function KnowledgeBrowser({ scope, agent, title, eyebrow, description }: 
     setError(null)
     const params = new URLSearchParams(queryBase)
     params.set('path', path)
-    const res = await fetch(`/api/v1/admin/knowledge?${params.toString()}`)
+    const res = await fetch(`${apiPath}?${params.toString()}`)
     const body = await res.json() as ApiEnvelope<KnowledgeNote>
     if (requestId !== noteRequestRef.current) return
     if (!res.ok || !body.success || !body.data) {
@@ -429,10 +446,10 @@ export function KnowledgeBrowser({ scope, agent, title, eyebrow, description }: 
     setError(null)
     try {
       const notes: GraphNote[] = []
-      for (const graphSection of GRAPH_SECTIONS) {
+      for (const graphSection of graphSections) {
         const listParams = new URLSearchParams({ scope, section: graphSection })
         if (agent) listParams.set('agent', agent)
-        const listRes = await fetch(`/api/v1/admin/knowledge?${listParams.toString()}`)
+        const listRes = await fetch(`${apiPath}?${listParams.toString()}`)
         const listBody = await listRes.json() as ApiEnvelope<KnowledgeListing>
         if (!listRes.ok || !listBody.success || !listBody.data) throw new Error(listBody.error || `Could not load ${graphSection}`)
         const files = listBody.data.items.filter((item) => item.type === 'file')
@@ -440,7 +457,7 @@ export function KnowledgeBrowser({ scope, agent, title, eyebrow, description }: 
           files.map(async (item) => {
             const params = new URLSearchParams(listParams)
             params.set('path', item.path)
-            const res = await fetch(`/api/v1/admin/knowledge?${params.toString()}`)
+            const res = await fetch(`${apiPath}?${params.toString()}`)
             const body = await res.json() as ApiEnvelope<KnowledgeNote>
             if (!res.ok || !body.success || !body.data) throw new Error(body.error || `Could not load ${graphSection}/${item.path}`)
             return { ...body.data, section: graphSection }
@@ -459,7 +476,8 @@ export function KnowledgeBrowser({ scope, agent, title, eyebrow, description }: 
   async function saveNote(path: string, content: string) {
     setSaving(true)
     setError(null)
-    const res = await fetch('/api/v1/admin/knowledge', {
+    if (readOnly) return false
+    const res = await fetch(apiPath, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ scope, section, agent, path, content }),
@@ -533,7 +551,7 @@ export function KnowledgeBrowser({ scope, agent, title, eyebrow, description }: 
         <aside className="bento-card space-y-4">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2" aria-label="Knowledge sections">
-              {SECTIONS.map((tab) => {
+              {visibleSections.map((tab) => {
                 const active = section === tab.value
                 return (
                   <button
@@ -590,7 +608,7 @@ export function KnowledgeBrowser({ scope, agent, title, eyebrow, description }: 
             </span>
           </div>
 
-          {section !== 'index' && (
+          {!readOnly && section !== 'index' && (
             <div className="flex gap-2">
               <input
                 value={newTitle}
@@ -674,28 +692,30 @@ export function KnowledgeBrowser({ scope, agent, title, eyebrow, description }: 
                     {note.path}{note.updatedAt ? ` · Updated ${formatDate(note.updatedAt)}` : ''}
                   </p>
                 </div>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setMode(mode === 'preview' ? 'edit' : 'preview')}
-                    className="pib-btn-secondary"
-                  >
-                    <span className="material-symbols-outlined text-base">{mode === 'preview' ? 'edit' : 'visibility'}</span>
-                    {mode === 'preview' ? 'Edit' : 'Preview'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => saveNote(note.path, draft)}
-                    disabled={saving}
-                    className="btn-pib-accent disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    <span className="material-symbols-outlined text-base">save</span>
-                    {saving ? 'Saving...' : 'Save'}
-                  </button>
-                </div>
+                {!readOnly && (
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setMode(mode === 'preview' ? 'edit' : 'preview')}
+                      className="pib-btn-secondary"
+                    >
+                      <span className="material-symbols-outlined text-base">{mode === 'preview' ? 'edit' : 'visibility'}</span>
+                      {mode === 'preview' ? 'Edit' : 'Preview'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => saveNote(note.path, draft)}
+                      disabled={saving}
+                      className="btn-pib-accent disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <span className="material-symbols-outlined text-base">save</span>
+                      {saving ? 'Saving...' : 'Save'}
+                    </button>
+                  </div>
+                )}
               </div>
 
-              {mode === 'edit' ? (
+              {mode === 'edit' && !readOnly ? (
                 <textarea
                   value={draft}
                   onChange={(event) => setDraft(event.target.value)}
