@@ -3,6 +3,8 @@
 export const dynamic = 'force-dynamic'
 
 import { useEffect, useMemo, useState } from 'react'
+import { resetPassword } from '@/lib/firebase/auth'
+import { copyToClipboard } from '@/lib/utils/clipboard'
 
 interface PlatformUser {
   uid: string
@@ -69,6 +71,12 @@ export default function PlatformUsersPage() {
   const [orgs, setOrgs] = useState<OrgOption[]>([])
   const [loading, setLoading] = useState(true)
   const [topError, setTopError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
+  const [busyUid, setBusyUid] = useState<string | null>(null)
+  const [setupLinkByUid, setSetupLinkByUid] = useState<Record<string, string>>({})
+  const [passwordUid, setPasswordUid] = useState<string | null>(null)
+  const [newPassword, setNewPassword] = useState('')
+  const [passwordError, setPasswordError] = useState<string | null>(null)
 
   // Create form
   const [creating, setCreating] = useState(false)
@@ -238,6 +246,64 @@ export default function PlatformUsersPage() {
     }
   }
 
+  async function sendFirebaseReset(u: PlatformUser) {
+    setBusyUid(u.uid)
+    setNotice(null)
+    setTopError(null)
+    try {
+      await resetPassword(u.email)
+      setNotice(`Firebase reset email sent to ${u.email}.`)
+    } catch (err) {
+      setTopError(err instanceof Error ? err.message : 'Failed to send Firebase reset email')
+    } finally {
+      setBusyUid(null)
+    }
+  }
+
+  async function createSetupLink(u: PlatformUser) {
+    setBusyUid(u.uid)
+    setNotice(null)
+    setTopError(null)
+    try {
+      const res = await fetch(`/api/v1/admin/platform-users/${u.uid}/reset`, { method: 'POST' })
+      const body = await res.json()
+      if (!res.ok) throw new Error(body?.error ?? 'Failed to create setup link')
+      const link = body.data?.setupLink
+      if (link) {
+        setSetupLinkByUid((prev) => ({ ...prev, [u.uid]: link }))
+        await copyToClipboard(link)
+        setNotice(`Setup link copied for ${u.email}.`)
+      }
+    } catch (err) {
+      setTopError(err instanceof Error ? err.message : 'Failed to create setup link')
+    } finally {
+      setBusyUid(null)
+    }
+  }
+
+  async function savePassword(u: PlatformUser) {
+    setBusyUid(u.uid)
+    setPasswordError(null)
+    setNotice(null)
+    try {
+      const res = await fetch(`/api/v1/admin/platform-users/${u.uid}/password`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ password: newPassword }),
+      })
+      const body = await res.json()
+      if (!res.ok) throw new Error(body?.error ?? 'Failed to set password')
+      setNotice(`Password updated for ${u.email}.`)
+      setPasswordUid(null)
+      setNewPassword('')
+      await load()
+    } catch (err) {
+      setPasswordError(err instanceof Error ? err.message : 'Failed to set password')
+    } finally {
+      setBusyUid(null)
+    }
+  }
+
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
       {/* Header */}
@@ -259,6 +325,12 @@ export default function PlatformUsersPage() {
       {topError && (
         <div className="pib-card border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-red-400">
           {topError}
+        </div>
+      )}
+
+      {notice && (
+        <div className="pib-card border border-green-500/30 bg-green-500/5 px-4 py-3 text-sm text-green-400">
+          {notice}
         </div>
       )}
 
@@ -400,29 +472,58 @@ export default function PlatformUsersPage() {
         <ul className="space-y-2">
           {filtered.map((u) => {
             const isEditing = editingUid === u.uid
+            const showPassword = passwordUid === u.uid
+            const busy = busyUid === u.uid
             return (
               <li key={u.uid} className="pib-card p-4">
-                <div className="flex items-center gap-3">
-                  <Avatar name={u.displayName || u.email} />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-semibold text-on-surface truncate">
-                        {u.displayName || '(no name)'}
-                      </span>
-                      <ScopeBadge user={u} />
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <Avatar name={u.displayName || u.email} />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-semibold text-on-surface truncate">
+                          {u.displayName || '(no name)'}
+                        </span>
+                        <ScopeBadge user={u} />
+                      </div>
+                      <p className="text-xs text-on-surface-variant truncate">{u.email}</p>
+                      {u.lastSignInTime ? (
+                        <p className="text-[11px] text-on-surface-variant/60 mt-0.5">
+                          Last login: {new Date(u.lastSignInTime).toLocaleString()}
+                        </p>
+                      ) : (
+                        <p className="text-[11px] text-on-surface-variant/40 mt-0.5">Never signed in</p>
+                      )}
                     </div>
-                    <p className="text-xs text-on-surface-variant truncate">{u.email}</p>
-                    {u.lastSignInTime ? (
-                      <p className="text-[11px] text-on-surface-variant/60 mt-0.5">
-                        Last login: {new Date(u.lastSignInTime).toLocaleString()}
-                      </p>
-                    ) : (
-                      <p className="text-[11px] text-on-surface-variant/40 mt-0.5">Never signed in</p>
-                    )}
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2 lg:justify-end">
                     {!isEditing && (
                       <>
+                        <button
+                          onClick={() => sendFirebaseReset(u)}
+                          disabled={busy || !u.email}
+                          className="pib-btn-secondary text-xs font-label"
+                        >
+                          {busy ? 'Working...' : 'Send reset email'}
+                        </button>
+                        <button
+                          onClick={() => createSetupLink(u)}
+                          disabled={busy || !u.email}
+                          className="pib-btn-ghost text-xs font-label"
+                        >
+                          Setup link
+                        </button>
+                        <button
+                          onClick={() => {
+                            setPasswordUid(showPassword ? null : u.uid)
+                            setNewPassword('')
+                            setPasswordError(null)
+                          }}
+                          disabled={busy}
+                          className="pib-btn-ghost text-xs font-label"
+                        >
+                          {showPassword ? 'Cancel' : 'Set password'}
+                        </button>
                         <button
                           onClick={() => startEdit(u)}
                           className="pib-btn-ghost text-xs font-label"
@@ -441,6 +542,40 @@ export default function PlatformUsersPage() {
                     )}
                   </div>
                 </div>
+
+                {setupLinkByUid[u.uid] && (
+                  <div className="mt-3 rounded-md border border-on-surface/10 bg-on-surface/5 p-3">
+                    <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">
+                      Setup link
+                    </p>
+                    <code className="block text-[11px] break-all text-on-surface-variant">
+                      {setupLinkByUid[u.uid]}
+                    </code>
+                  </div>
+                )}
+
+                {showPassword && (
+                  <div className="mt-4 rounded-md border border-on-surface/10 bg-on-surface/5 p-3">
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <input
+                        type="password"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        placeholder="New password, minimum 8 characters"
+                        className="pib-input flex-1"
+                        autoComplete="new-password"
+                      />
+                      <button
+                        onClick={() => savePassword(u)}
+                        disabled={busy || newPassword.length < 8}
+                        className="pib-btn-primary text-sm font-label"
+                      >
+                        Save password
+                      </button>
+                    </div>
+                    {passwordError && <p className="text-xs text-red-400 mt-2">{passwordError}</p>}
+                  </div>
+                )}
 
                 {/* Org list */}
                 {!isEditing && !u.isSuperAdmin && (

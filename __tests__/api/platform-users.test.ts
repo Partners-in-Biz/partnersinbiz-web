@@ -28,7 +28,7 @@ jest.mock('@/lib/firebase/admin', () => ({
     createUser: (data: unknown) => mockCreateUser(data),
     updateUser: (uid: string, data: unknown) => mockUpdateUser(uid, data),
     deleteUser: (uid: string) => mockDeleteUser(uid),
-    generatePasswordResetLink: (email: string) => mockGenerateLink(email),
+    generatePasswordResetLink: (email: string, options?: unknown) => mockGenerateLink(email, options),
   },
 }))
 
@@ -264,6 +264,72 @@ describe('PATCH /api/v1/admin/platform-users/[uid]', () => {
     })
     const res = await PATCH(req, { params: Promise.resolve({ uid: 'client-1' }) })
     expect(res.status).toBe(404)
+  })
+})
+
+// ── POST /api/v1/admin/platform-users/[uid]/reset ───────────────────────────
+describe('POST /api/v1/admin/platform-users/[uid]/reset', () => {
+  it('creates a wrapped Firebase setup link for a platform admin', async () => {
+    const { POST } = await import('@/app/api/v1/admin/platform-users/[uid]/reset/route')
+    mockUserGet.mockResolvedValue({
+      exists: true,
+      data: () => ({ role: 'admin', email: 'admin@example.com' }),
+    })
+
+    const req = new NextRequest('http://localhost/api/v1/admin/platform-users/admin-1/reset', {
+      method: 'POST',
+    })
+    const res = await POST(req, { params: Promise.resolve({ uid: 'admin-1' }) })
+    expect(res.status).toBe(200)
+    const body = await readJson(res)
+    expect(mockGenerateLink).toHaveBeenCalledWith('admin@example.com', {
+      url: 'https://partnersinbiz.online/admin',
+    })
+    expect(body.data.setupLink).toContain('/auth/reset?link=')
+  })
+
+  it('rejects non-admin targets', async () => {
+    const { POST } = await import('@/app/api/v1/admin/platform-users/[uid]/reset/route')
+    mockUserGet.mockResolvedValue({
+      exists: true,
+      data: () => ({ role: 'client', email: 'client@example.com' }),
+    })
+
+    const req = new NextRequest('http://localhost/api/v1/admin/platform-users/client-1/reset', {
+      method: 'POST',
+    })
+    const res = await POST(req, { params: Promise.resolve({ uid: 'client-1' }) })
+    expect(res.status).toBe(404)
+  })
+})
+
+// ── PATCH /api/v1/admin/platform-users/[uid]/password ───────────────────────
+describe('PATCH /api/v1/admin/platform-users/[uid]/password', () => {
+  it('sets a Firebase password for a platform admin', async () => {
+    const { PATCH } = await import('@/app/api/v1/admin/platform-users/[uid]/password/route')
+    mockUserGet.mockResolvedValue({
+      exists: true,
+      data: () => ({ role: 'admin', email: 'admin@example.com' }),
+    })
+
+    const req = new NextRequest('http://localhost/api/v1/admin/platform-users/admin-1/password', {
+      method: 'PATCH',
+      body: JSON.stringify({ password: 'new-password-123' }),
+    })
+    const res = await PATCH(req, { params: Promise.resolve({ uid: 'admin-1' }) })
+    expect(res.status).toBe(200)
+    expect(mockUpdateUser).toHaveBeenCalledWith('admin-1', { password: 'new-password-123' })
+    expect(mockUserSet).toHaveBeenCalledWith({ updatedAt: 'SERVER_TIMESTAMP' }, { merge: true })
+  })
+
+  it('rejects short passwords', async () => {
+    const { PATCH } = await import('@/app/api/v1/admin/platform-users/[uid]/password/route')
+    const req = new NextRequest('http://localhost/api/v1/admin/platform-users/admin-1/password', {
+      method: 'PATCH',
+      body: JSON.stringify({ password: 'short' }),
+    })
+    const res = await PATCH(req, { params: Promise.resolve({ uid: 'admin-1' }) })
+    expect(res.status).toBe(400)
   })
 })
 
