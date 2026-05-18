@@ -2,6 +2,7 @@
 import { ConnectionsPanel } from '@/components/ads/ConnectionsPanel'
 import { GoogleConnectionsPanel } from '@/components/ads/GoogleConnectionsPanel'
 import { LinkedinConnectionsPanel } from '@/components/ads/LinkedinConnectionsPanel'
+import { TiktokConnectionsPanel } from '@/components/ads/TiktokConnectionsPanel'
 import { listConnections } from '@/lib/ads/connections/store'
 import { resolveOrgIdBySlug } from '@/lib/organizations/resolve-by-slug'
 
@@ -27,6 +28,7 @@ export default async function ConnectionsPage({
       <ConnectionsPanel orgSlug={slug} orgId={orgId} connections={safe} />
       <GoogleConnectionsPanel orgSlug={slug} orgId={orgId} connections={safe} />
       <LinkedinConnectionsPanel orgSlug={slug} orgId={orgId} connections={safe} />
+      <TiktokConnectionsPanel orgSlug={slug} orgId={orgId} connections={safe} />
     </div>
   )
 }

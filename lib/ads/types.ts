@@ -681,6 +681,19 @@ export interface LinkedinAdConnectionData {
   refreshTokenExpiresAt?: Timestamp
 }
 
+// ─── TikTok Ads provider extensions (Sub-3c) ──────────────────────────────────
+
+export interface TiktokAdConnectionData {
+  /** TikTok advertiser ID (numeric string). The currently selected default. */
+  selectedAdvertiserId?: string
+  /** All advertiser IDs the OAuth grant gave access to (cached at connect time). */
+  advertiserIds?: string[]
+  /** Granted scopes (numeric codes — 1=ads_read, 4=ads_management, 7=events_api, 8=audiences, 100=reporting) */
+  tokenScope?: string[]
+  /** Refresh token expiry (TikTok refresh tokens have a TTL, typically 365 days) */
+  refreshTokenExpiresAt?: Timestamp
+}
+
 // ─── Cross-platform Conversion Actions (Sub-3a Phase 6) ───────────────────────
 
 export type AdConversionCategory =
