@@ -26,7 +26,7 @@ jobs:
           # The hermes-deploy user has group-write but isn't the owner of the
           # destination dirs, so utime() fails ("Operation not permitted").
           # We only need content + filenames; times/perms aren't load-bearing here.
-          for skill in analytics billing-finance client-manager content-engine crm-sales email-outreach platform-ops project-management properties seo-sprint-manager social-media-manager; do
+          for skill in analytics billing-finance client-documents client-manager content-engine crm-sales email-outreach platform-ops project-management properties seo-sprint-manager social-media-manager; do
             if [ -d ".claude/skills/$skill" ]; then
               echo "-> rsyncing $skill"
               rsync -rlz --delete --omit-dir-times --no-perms \
