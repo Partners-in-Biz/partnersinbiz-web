@@ -125,6 +125,6 @@ export const POST = withCrmAuth('admin', async (req, ctx) => {
     }
   }
 
-  const pipeline: Pipeline = { ...(toWrite as Pipeline), id: ref.id }
+  const pipeline = { ...(toWrite as unknown as Pipeline), id: ref.id }
   return apiSuccess({ pipeline }, 201)
 })

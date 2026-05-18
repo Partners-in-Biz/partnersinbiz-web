@@ -41,12 +41,15 @@ export const GET = withAuth('admin', async (req: NextRequest, _user: ApiUser, co
 
   // Resolve stage labels + kinds for each deal via their pipeline documents.
   // Collect unique pipelineIds, fetch each pipeline once, build a stageMap.
-  const uniquePipelineIds = [...new Set(deals.map((d: any) => d.pipelineId).filter(Boolean))]
+  const rawPipelineIds: string[] = deals
+    .map((d: any) => d.pipelineId)
+    .filter((p: unknown): p is string => typeof p === 'string' && p.length > 0)
+  const uniquePipelineIds: string[] = Array.from(new Set<string>(rawPipelineIds))
   const pipelineMap = new Map<string, Map<string, { label: string; kind: string }>>()
 
   if (uniquePipelineIds.length > 0) {
     await Promise.all(
-      uniquePipelineIds.map(async (pid) => {
+      uniquePipelineIds.map(async (pid: string) => {
         const snap = await (adminDb.doc(`pipelines/${pid}`) as any).get()
         if (!snap.exists) return
         const pipeline = snap.data()
