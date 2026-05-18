@@ -9,6 +9,7 @@ import { NextRequest } from 'next/server'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { computeScoresForContact } from '@/lib/scoring/compute'
 import { getOrBootstrapConfig } from '@/lib/scoring/store'
+import { adminDb } from '@/lib/firebase/admin'
 import type { MemberRef } from '@/lib/orgMembers/memberRef'
 
 export const dynamic = 'force-dynamic'
@@ -36,8 +37,6 @@ export async function GET(req: NextRequest) {
   }
 
   // ── Init ────────────────────────────────────────────────────────────────────
-  const { adminDb } = await import('@/lib/firebase/admin')
-
   const startedAt = Date.now()
   let orgsProcessed = 0
   let contactsProcessed = 0
@@ -52,11 +51,6 @@ export async function GET(req: NextRequest) {
 
   // ── Per-org processing ───────────────────────────────────────────────────────
   for (const orgDoc of orgsSnap.docs) {
-    // Time budget: stop if we've used >55 s
-    if (Date.now() - startedAt > TIME_BUDGET_MS) {
-      break
-    }
-
     const orgId = orgDoc.id
 
     try {
@@ -101,6 +95,11 @@ export async function GET(req: NextRequest) {
       const msg = `org ${orgId} setup: ${(err as Error).message}`
       console.error('[recompute-scores]', msg)
       errors.push(msg)
+    }
+
+    // Time budget: stop before Vercel's 60 s hard limit
+    if (Date.now() - startedAt > TIME_BUDGET_MS) {
+      break
     }
   }
 
