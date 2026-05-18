@@ -12,7 +12,7 @@ const KNOWLEDGE_AGENT = 'pip'
 
 function readSection(searchParams: URLSearchParams): KnowledgeSection {
   const section = searchParams.get('section')
-  return section === 'wiki' ? section : 'wiki'
+  return section === 'wiki' || section === 'logs' ? section : 'wiki'
 }
 
 function appendQuery(path: string, params: Record<string, string | undefined>) {

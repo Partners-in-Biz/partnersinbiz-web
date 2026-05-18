@@ -129,7 +129,6 @@ export function workspaceNav(slug: string): NavItem[] {
     },
     { label: 'Team',     href: `/admin/org/${slug}/team`,     icon: 'groups' },
     { label: 'Billing',  href: `/admin/org/${slug}/billing`,  icon: 'payments', activePatterns: ['/admin/invoicing', '/admin/quotes'] },
-    { label: 'Agent',    href: `/admin/org/${slug}/agent`,    icon: 'smart_toy' },
     { label: 'Settings', href: `/admin/org/${slug}/settings`, icon: 'settings' },
   ]
 }

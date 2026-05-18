@@ -183,11 +183,19 @@ export const POST = withAuth(
             runId,
             ...(runResult.runDocId ? { runDocId: runResult.runDocId } : {}),
           })
+        } else {
+          await messagesCollection(convId).doc(assistantMessage.id).update({
+            content: '',
+            status: 'failed',
+            error: 'Agent gateway did not return a run id',
+          })
         }
         return apiSuccess(
           {
             message,
-            assistantMessage: { ...assistantMessage, runId },
+            assistantMessage: runId
+              ? { ...assistantMessage, runId }
+              : { ...assistantMessage, status: 'failed', error: 'Agent gateway did not return a run id' },
             runId,
             runDocId: runResult.runDocId,
           },
@@ -195,8 +203,20 @@ export const POST = withAuth(
         )
       }
 
-      // Run dispatch failed — return user message + pending placeholder without runId
-      return apiSuccess({ message, assistantMessage }, 201)
+      await messagesCollection(convId).doc(assistantMessage.id).update({
+        content: '',
+        status: 'failed',
+        error: 'Agent run could not be started on the gateway',
+      })
+
+      return apiSuccess({
+        message,
+        assistantMessage: {
+          ...assistantMessage,
+          status: 'failed',
+          error: 'Agent run could not be started on the gateway',
+        },
+      }, 201)
     }
 
     return apiSuccess({ message }, 201)

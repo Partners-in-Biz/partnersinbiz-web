@@ -37,6 +37,7 @@ interface MessageBubbleProps {
   agentColorKey?: string
   agentIconKey?: string
   liveEvents?: ChatEvent[]
+  onStopRun?: () => void
 }
 
 function initials(name: string): string {
@@ -50,13 +51,21 @@ function initials(name: string): string {
 
 function useElapsed(active: boolean): number {
   const [secs, setSecs] = useState(0)
+
   useEffect(() => {
-    if (!active) { setSecs(0); return }
-    setSecs(0)
-    const t = setInterval(() => setSecs((s) => s + 1), 1000)
-    return () => clearInterval(t)
+    if (!active) return
+    const startedAt = Date.now()
+    const reset = setTimeout(() => setSecs(0), 0)
+    const tick = setInterval(() => {
+      setSecs(Math.floor((Date.now() - startedAt) / 1000))
+    }, 1000)
+    return () => {
+      clearTimeout(reset)
+      clearInterval(tick)
+    }
   }, [active])
-  return secs
+
+  return active ? secs : 0
 }
 
 // Categorize tool-call events into a short human summary like
@@ -92,6 +101,7 @@ export default function MessageBubble({
   agentColorKey,
   agentIconKey,
   liveEvents = [],
+  onStopRun,
 }: MessageBubbleProps) {
   const isMine = m.authorId === currentUserUid
   const isTool = m.role === 'tool'
@@ -183,6 +193,16 @@ export default function MessageBubble({
                 {ev.preview && <span className="truncate opacity-70">{ev.preview}</span>}
               </div>
             ))}
+            {onStopRun && m.runId && (
+              <button
+                type="button"
+                onClick={onStopRun}
+                className="mt-1 inline-flex items-center gap-1 rounded-md border border-red-500/30 px-2 py-1 text-[11px] font-medium text-red-200 hover:bg-red-500/10"
+              >
+                <span className="material-symbols-outlined text-[13px]">stop_circle</span>
+                Stop run
+              </button>
+            )}
           </div>
         )}
 

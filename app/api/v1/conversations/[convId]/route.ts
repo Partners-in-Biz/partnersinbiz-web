@@ -1,6 +1,7 @@
 /**
  * GET   /api/v1/conversations/[convId] — fetch a single conversation
  * PATCH /api/v1/conversations/[convId] — update title or archived flag
+ * DELETE /api/v1/conversations/[convId] — permanently delete a conversation
  *
  * Auth: participant in the conversation OR admin role
  */
@@ -8,6 +9,7 @@ import { NextRequest } from 'next/server'
 import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import {
+  deleteConversation,
   getConversation,
   patchConversation,
 } from '@/lib/conversations/conversations'
@@ -71,5 +73,21 @@ export const PATCH = withAuth(
     // Return the updated doc
     const updated = await getConversation(convId)
     return apiSuccess({ conversation: updated })
+  },
+)
+
+export const DELETE = withAuth(
+  'admin',
+  async (_req: NextRequest, user: ApiUser, context?: unknown) => {
+    const { convId } = await (context as Params).params
+    const conversation = await getConversation(convId)
+    if (!conversation) return apiError('Conversation not found', 404)
+
+    if (!canAccess(user, conversation.participantUids)) {
+      return apiError('Forbidden', 403)
+    }
+
+    await deleteConversation(convId)
+    return apiSuccess({ id: convId })
   },
 )

@@ -8,10 +8,10 @@ export default function PortalWikiPage() {
       scope="agent"
       apiPath="/api/v1/portal/knowledge"
       readOnly
-      sections={['wiki']}
+      sections={['wiki', 'logs']}
       eyebrow="Workspace"
       title="Wiki"
-      description="Read-only knowledge notes shared with your workspace."
+      description="Read-only knowledge notes and activity logs shared with your workspace."
     />
   )
 }

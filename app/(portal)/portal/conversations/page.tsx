@@ -97,7 +97,7 @@ export default function ConversationsPage() {
       <header className="hidden lg:block">
         <p className="eyebrow">Direct line to your team</p>
         <h1 className="pib-page-title mt-2">Conversations</h1>
-        <p className="pib-page-sub">Chat with your team and AI agents in one place.</p>
+        <p className="pib-page-sub">Chat with your team and the Partners in Biz team in one place.</p>
       </header>
 
       <UnifiedChat
@@ -105,6 +105,7 @@ export default function ConversationsPage() {
         currentUserUid={user.uid}
         currentUserDisplayName={user.name}
         orgName={org.name}
+        allowAgentParticipants={false}
       />
     </div>
   )

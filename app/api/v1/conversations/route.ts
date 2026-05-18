@@ -50,6 +50,21 @@ export const POST = withAuth(
       ? (configDoc.data() as { visibleAgents?: { admin?: AgentId[]; client?: AgentId[] } })
       : null
     const allowedAgentIds = new Set<AgentId>(resolveVisibleAgents(config, callerRole))
+    const orgDoc = await adminDb.collection('organizations').doc(scope.orgId).get()
+    if (!orgDoc.exists) return apiError('Organisation not found', 404)
+    const orgData = orgDoc.data() as { members?: Array<{ userId: string }> }
+    const orgMemberUids = new Set((orgData.members ?? []).map((member) => member.userId))
+    const platformAdminUids = new Set<string>()
+    if (callerRole === 'client') {
+      const adminsSnap = await adminDb.collection('users').where('role', '==', 'admin').get()
+      adminsSnap.docs.forEach((doc) => {
+        const data = doc.data()
+        const adminOrgId = data.orgId
+        if (adminOrgId === undefined || adminOrgId === null || adminOrgId === '') {
+          platformAdminUids.add(doc.id)
+        }
+      })
+    }
 
     // Validate + normalise participant list
     const participants: Participant[] = []
@@ -66,12 +81,9 @@ export const POST = withAuth(
         if (seenUids.has(uid)) continue // deduplicate
         seenUids.add(uid)
 
-        // Verify the uid belongs to this org or is the caller
-        // (For simplicity: trust admin, verify client's participants are org members)
+        // Clients may start conversations with their team or platform admins.
         if (callerRole === 'client' && uid !== user.uid) {
-          const userDoc = await adminDb.collection('users').doc(uid).get()
-          const userData = userDoc.data()
-          if (!userDoc.exists || userData?.orgId !== scope.orgId) {
+          if (!orgMemberUids.has(uid) && !platformAdminUids.has(uid)) {
             return apiError(`User ${uid} is not a member of this organisation`, 400)
           }
         }
@@ -89,6 +101,9 @@ export const POST = withAuth(
           email: userData.email as string | undefined,
         })
       } else if (p.kind === 'agent') {
+        if (callerRole === 'client') {
+          return apiError('Client conversations can only be started with people', 403)
+        }
         const agentId = p.agentId as AgentId | undefined
         if (!agentId || !VALID_AGENT_IDS.includes(agentId)) {
           return apiError(`Invalid agent agentId: ${agentId}`, 400)

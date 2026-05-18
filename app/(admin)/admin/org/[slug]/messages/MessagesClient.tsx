@@ -31,6 +31,7 @@ export default function MessagesClient({ orgId, uid, displayName, initialConvId 
         currentUserUid={uid}
         currentUserDisplayName={displayName}
         initialConvId={initialConvId}
+        allowDeleteConversations
       />
     </div>
   )

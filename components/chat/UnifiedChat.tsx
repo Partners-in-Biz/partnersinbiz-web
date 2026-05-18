@@ -32,6 +32,8 @@ export interface UnifiedChatProps {
   scope?: 'general' | 'project' | 'task' | 'campaign'
   scopeRefId?: string
   initialConvId?: string
+  allowDeleteConversations?: boolean
+  allowAgentParticipants?: boolean
 }
 
 const POLL_INTERVAL = 1500
@@ -52,6 +54,8 @@ export default function UnifiedChat({
   scope,
   scopeRefId,
   initialConvId,
+  allowDeleteConversations = false,
+  allowAgentParticipants = true,
 }: UnifiedChatProps) {
   // ── State ─────────────────────────────────────────────────────────────────
   const [conversations, setConversations] = useState<Conversation[]>([])
@@ -151,7 +155,7 @@ export default function UnifiedChat({
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load conversations')
     }
-  }, [listQuery, activeId])
+  }, [listQuery, activeId, initialConvId])
 
   // ── Load messages ─────────────────────────────────────────────────────────
   const loadMessages = useCallback(async (convId: string) => {
@@ -418,6 +422,56 @@ export default function UnifiedChat({
       }).catch(() => {})
     },
     [activeId],
+  )
+
+  // ── Delete conversation ──────────────────────────────────────────────────
+  const deleteConversation = useCallback(
+    async (convId: string) => {
+      if (!allowDeleteConversations) return
+      const conv = conversations.find((c) => c.id === convId)
+      const label = conv?.title || 'this conversation'
+      if (!window.confirm(`Delete "${label}" permanently? This cannot be undone.`)) return
+
+      setMenuOpenId(null)
+      setMenuPosition(null)
+      setConversations((prev) => prev.filter((c) => c.id !== convId))
+      if (activeId === convId) {
+        setActiveId(null)
+        setMessages([])
+      }
+
+      const res = await fetch(`/api/v1/conversations/${convId}`, { method: 'DELETE' })
+      if (!res.ok) {
+        await loadConversations()
+        if (activeId === convId) await loadMessages(convId).catch(() => {})
+        setError(`Delete failed: ${res.status}`)
+      }
+    },
+    [activeId, allowDeleteConversations, conversations, loadConversations, loadMessages],
+  )
+
+  // ── Stop agent run ───────────────────────────────────────────────────────
+  const stopAgentRun = useCallback(
+    async (convId: string, msgId: string) => {
+      if (!allowDeleteConversations) return
+      closeEventStream(msgId)
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === msgId
+            ? { ...m, status: 'failed', error: 'Stopping agent run...', content: '' }
+            : m,
+        ),
+      )
+      const res = await fetch(`/api/v1/conversations/${convId}/messages/${msgId}/stop`, {
+        method: 'POST',
+      })
+      if (!res.ok) {
+        setError(`Stop failed: ${res.status}`)
+      }
+      await loadMessages(convId)
+      await loadConversations()
+    },
+    [allowDeleteConversations, closeEventStream, loadConversations, loadMessages],
   )
 
   // ── Create new conversation (from modal) ──────────────────────────────────
@@ -706,6 +760,16 @@ export default function UnifiedChat({
             <span className="material-symbols-outlined text-[14px]">archive</span>
             Archive
           </button>
+          {allowDeleteConversations && (
+            <button
+              type="button"
+              className="w-full text-left px-3 py-2 text-xs text-red-300 hover:bg-[var(--color-card-hover,rgba(255,255,255,0.06))] flex items-center gap-2"
+              onClick={() => deleteConversation(menuOpenId)}
+            >
+              <span className="material-symbols-outlined text-[14px]">delete</span>
+              Delete
+            </button>
+          )}
         </div>
       )}
 
@@ -781,6 +845,20 @@ export default function UnifiedChat({
                       <span className="material-symbols-outlined text-[16px]">archive</span>
                       Archive
                     </button>
+                    {allowDeleteConversations && (
+                      <button
+                        type="button"
+                        className="w-full text-left px-3 py-2 text-sm text-red-300 hover:bg-[var(--color-card-hover,rgba(255,255,255,0.06))] flex items-center gap-2"
+                        onClick={() => {
+                          setHeaderMenuOpen(false)
+                          deleteConversation(activeConversation.id)
+                          setMobilePane('list')
+                        }}
+                      >
+                        <span className="material-symbols-outlined text-[16px]">delete</span>
+                        Delete
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
@@ -832,6 +910,11 @@ export default function UnifiedChat({
                     agentColorKey={agentDoc?.colorKey}
                     agentIconKey={agentDoc?.iconKey}
                     liveEvents={isPending ? (liveEvents[m.id] ?? []) : []}
+                    onStopRun={
+                      allowDeleteConversations && isPending && m.runId && activeId
+                        ? () => stopAgentRun(activeId, m.id)
+                        : undefined
+                    }
                   />
 
                   {/* Approval card */}
@@ -1022,6 +1105,7 @@ export default function UnifiedChat({
                   <ParticipantPicker
                     orgId={orgId}
                     onSelect={setNewParticipants}
+                    showAgents={allowAgentParticipants}
                   />
                 </div>
               </div>

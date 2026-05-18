@@ -10,6 +10,8 @@ import { adminDb } from '@/lib/firebase/admin'
 import type { AgentId, Conversation, ConversationMessage, Participant } from './types'
 
 export const CONVERSATIONS_COLLECTION = 'conversations'
+const RUN_DISPATCH_GRACE_MS = 2 * 60 * 1000
+const RUN_STALE_TIMEOUT_MS = 30 * 60 * 1000
 
 // ---------------------------------------------------------------------------
 // Document / collection refs
@@ -114,7 +116,39 @@ export async function listMessages(convId: string, limit = 200): Promise<Convers
     .orderBy('createdAt', 'asc')
     .limit(limit)
     .get()
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as ConversationMessage)
+  const now = Date.now()
+  const messages: ConversationMessage[] = []
+  const staleUpdates: Promise<unknown>[] = []
+
+  for (const doc of snap.docs) {
+    const data = doc.data()
+    const message = { id: doc.id, ...data } as ConversationMessage
+    const status = message.status
+    const createdAtMs = data.createdAt?.toMillis?.() ?? 0
+    const ageMs = createdAtMs ? now - createdAtMs : 0
+    const isPending = status === 'pending' || status === 'streaming'
+    const missingRun = isPending && !message.runId && ageMs > RUN_DISPATCH_GRACE_MS
+    const staleRun = isPending && !!message.runId && ageMs > RUN_STALE_TIMEOUT_MS
+
+    if (missingRun || staleRun) {
+      const error = missingRun
+        ? 'Agent run was not started on the gateway'
+        : 'Agent run timed out after 30 minutes'
+      message.status = 'failed'
+      message.error = error
+      message.content = ''
+      staleUpdates.push(doc.ref.update({
+        content: '',
+        status: 'failed',
+        error,
+      }))
+    }
+
+    messages.push(message)
+  }
+
+  if (staleUpdates.length > 0) await Promise.allSettled(staleUpdates)
+  return messages
 }
 
 // ---------------------------------------------------------------------------
@@ -131,6 +165,19 @@ export async function patchConversation(
   if (patch.title !== undefined) updates.title = patch.title.trim()
   if (patch.archived !== undefined) updates.archived = patch.archived
   await convDoc(convId).update(updates)
+}
+
+/** Delete a conversation and its message subcollection. */
+export async function deleteConversation(convId: string): Promise<void> {
+  const ref = convDoc(convId)
+  while (true) {
+    const messagesSnap = await messagesCollection(convId).limit(500).get()
+    if (messagesSnap.empty) break
+    const batch = adminDb.batch()
+    messagesSnap.docs.forEach((doc) => batch.delete(doc.ref))
+    await batch.commit()
+  }
+  await ref.delete()
 }
 
 /** Bump lastMessage* denorm fields and increment messageCount after a new message. */

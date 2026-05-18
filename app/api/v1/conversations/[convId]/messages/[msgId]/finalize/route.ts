@@ -43,6 +43,7 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
   // Verify message exists
   const msgDoc = await messagesCollection(convId).doc(msgId).get()
   if (!msgDoc.exists) return apiError('Message not found', 404)
+  const msgData = msgDoc.data() ?? {}
 
   const body = await req.json().catch(() => ({})) as Record<string, unknown>
   const runId = typeof body.runId === 'string' ? body.runId.trim() : ''
@@ -52,6 +53,16 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
   if (!agentId) return apiError('agentId is required', 400)
 
   const events: ChatEvent[] = Array.isArray(body.events) ? body.events as ChatEvent[] : []
+  const createdAtMs = msgData.createdAt?.toMillis?.() ?? 0
+  if (createdAtMs && Date.now() - createdAtMs > 30 * 60 * 1000) {
+    await messagesCollection(convId).doc(msgId).update({
+      content: '',
+      status: 'failed',
+      error: 'Agent run timed out after 30 minutes',
+      runId,
+    })
+    return apiSuccess({ status: 'failed', content: '', runId })
+  }
 
   // Read agent doc to get baseUrl + name
   const agentSnap = await adminDb.collection('agent_team').doc(agentId).get()

@@ -54,11 +54,12 @@ interface ParticipantPickerProps {
   orgId: string
   onSelect: (selected: SelectedParticipant[]) => void
   className?: string
+  showAgents?: boolean
 }
 
 const MAX_SELECTIONS = 5
 
-export default function ParticipantPicker({ orgId, onSelect, className = '' }: ParticipantPickerProps) {
+export default function ParticipantPicker({ orgId, onSelect, className = '', showAgents = true }: ParticipantPickerProps) {
   const [agents, setAgents] = useState<AgentTeamDoc[]>([])
   const [contacts, setContacts] = useState<OrgContact[]>([])
   const [selected, setSelected] = useState<SelectedParticipant[]>([])
@@ -68,7 +69,9 @@ export default function ParticipantPicker({ orgId, onSelect, className = '' }: P
   useEffect(() => {
     let cancelled = false
     Promise.all([
-      fetch(`/api/v1/orgs/${orgId}/visible-agents`).then((r) => r.json()),
+      showAgents
+        ? fetch(`/api/v1/orgs/${orgId}/visible-agents`).then((r) => r.json())
+        : Promise.resolve({ data: [] }),
       fetch(`/api/v1/orgs/${orgId}/contacts`).then((r) => r.json()),
     ])
       .then(([agentBody, contactBody]) => {
@@ -85,7 +88,7 @@ export default function ParticipantPicker({ orgId, onSelect, className = '' }: P
     return () => {
       cancelled = true
     }
-  }, [orgId])
+  }, [orgId, showAgents])
 
   // Notify parent whenever selection changes
   useEffect(() => {
@@ -165,7 +168,7 @@ export default function ParticipantPicker({ orgId, onSelect, className = '' }: P
       )}
 
       {/* Agents section */}
-      {agents.length > 0 && (
+      {showAgents && agents.length > 0 && (
         <div>
           <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-2 px-1">Agents</p>
           <div className="space-y-1">
