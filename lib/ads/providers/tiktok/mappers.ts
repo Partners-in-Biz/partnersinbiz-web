@@ -11,6 +11,8 @@ import type {
   TiktokTargeting,
 } from './types'
 
+export type { TiktokEntityStatus }
+
 // ─── Status ───────────────────────────────────────────────────────────────────
 
 /** canonical → TikTok campaign/adgroup/ad status */
