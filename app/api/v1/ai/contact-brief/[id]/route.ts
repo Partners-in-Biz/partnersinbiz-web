@@ -37,15 +37,41 @@ export const GET = withAuth('admin', async (req: NextRequest, _user: ApiUser, co
 
   const activities = activitiesSnap.docs.map((d: any) => d.data())
   const emails = emailsSnap.docs.map((d: any) => d.data())
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const deals = dealsSnap.docs.map((d: any) => d.data()).filter((d: any) => d.deleted !== true)
+
+  // Resolve stage labels + kinds for each deal via their pipeline documents.
+  // Collect unique pipelineIds, fetch each pipeline once, build a stageMap.
+  const uniquePipelineIds = [...new Set(deals.map((d: any) => d.pipelineId).filter(Boolean))]
+  const pipelineMap = new Map<string, Map<string, { label: string; kind: string }>>()
+
+  if (uniquePipelineIds.length > 0) {
+    await Promise.all(
+      uniquePipelineIds.map(async (pid) => {
+        const snap = await (adminDb.doc(`pipelines/${pid}`) as any).get()
+        if (!snap.exists) return
+        const pipeline = snap.data()
+        if (!Array.isArray(pipeline.stages)) return
+        const stagesById = new Map<string, { label: string; kind: string }>(
+          pipeline.stages.map((s: any) => [s.id, { label: s.label, kind: s.kind }]),
+        )
+        pipelineMap.set(pid, stagesById)
+      }),
+    )
+  }
+
+  function resolveStageLabel(deal: any): string {
+    const stages = pipelineMap.get(deal.pipelineId)
+    const stage = stages?.get(deal.stageId)
+    if (!stage) return deal.stageId ?? 'unknown'
+    return `${stage.label} (${stage.kind})`
+  }
 
   const context_str = [
     `Contact: ${contact.name} (${contact.email}) at ${contact.company ?? 'unknown company'}`,
     `Stage: ${contact.stage ?? 'none'}, Type: ${contact.type ?? 'none'}`,
     contact.notes ? `Notes: ${contact.notes}` : '',
     deals.length > 0
-      ? `Deals: ${deals.map((d: any) => `${d.name} ($${d.value}, ${d.stage})`).join('; ')}`
+      ? `Deals: ${deals.map((d: any) => `${d.title ?? d.name} ($${d.value}, stage: ${resolveStageLabel(d)})`).join('; ')}`
       : 'No active deals.',
     activities.length > 0
       ? `Recent activity: ${activities.slice(0, 5).map((a: any) => `${a.type}: ${a.note}`).join('; ')}`

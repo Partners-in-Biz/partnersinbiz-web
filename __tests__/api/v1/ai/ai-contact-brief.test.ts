@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 
 const mockGet = jest.fn()
+const mockDocGet = jest.fn()
 const mockDoc = jest.fn()
 const mockCollection = jest.fn()
 const mockWhere = jest.fn()
@@ -45,13 +46,32 @@ describe('GET /api/v1/ai/contact-brief/[id]', () => {
     expect(res.status).toBe(404)
   })
 
-  it('returns AI-generated brief for an existing contact', async () => {
-    mockDoc.mockReturnValue({
-      get: jest.fn().mockResolvedValue({
-        exists: true,
-        data: () => ({ name: 'Alice Smith', email: 'alice@example.com', company: 'Acme', stage: 'proposal' }),
+  it('returns AI-generated brief with resolved stage label from pipeline', async () => {
+    // Contact doc
+    const contactDocGet = jest.fn().mockResolvedValue({
+      exists: true,
+      data: () => ({ name: 'Alice Smith', email: 'alice@example.com', company: 'Acme', stage: 'proposal' }),
+    })
+
+    // Pipeline doc — called by adminDb.collection('pipelines').doc('pl-1')
+    const pipelineDocGet = jest.fn().mockResolvedValue({
+      exists: true,
+      data: () => ({
+        id: 'pl-1',
+        stages: [
+          { id: 'proposal', label: 'Proposal', kind: 'open', order: 1, probability: 30 },
+          { id: 'won',      label: 'Won',       kind: 'won',  order: 3, probability: 100 },
+        ],
       }),
     })
+
+    // mockDoc returns different mocks based on the path
+    mockDoc.mockImplementation((path: string) => {
+      if (path.startsWith('pipelines/')) return { get: pipelineDocGet }
+      return { get: contactDocGet }
+    })
+
+    // collection().where().orderBy().limit().get() calls for activities, emails, deals
     mockGet
       .mockResolvedValueOnce({ docs: [
         { data: () => ({ type: 'email_sent', note: 'Sent intro email', createdAt: null }) },
@@ -60,18 +80,56 @@ describe('GET /api/v1/ai/contact-brief/[id]', () => {
         { data: () => ({ subject: 'Intro', bodyText: 'Hello!', status: 'opened', createdAt: null }) },
       ]})
       .mockResolvedValueOnce({ docs: [
-        { data: () => ({ name: 'Acme website', value: 5000, stage: 'proposal' }) },
+        { data: () => ({ title: 'Acme website', value: 5000, pipelineId: 'pl-1', stageId: 'proposal' }) },
       ]})
 
-    mockGenerateText.mockResolvedValue({ text: 'Alice Smith is a prospect at Acme in proposal stage.' })
+    mockGenerateText.mockResolvedValue({ text: 'Alice Smith is a prospect at Acme.' })
 
+    jest.resetModules()
     const { GET } = await import('@/app/api/v1/ai/contact-brief/[id]/route')
     const req = new NextRequest('http://localhost/api/v1/ai/contact-brief/c1')
     const ctx: Params = { params: Promise.resolve({ id: 'c1' }) }
     const res = await GET(req, ctx)
     expect(res.status).toBe(200)
     const body = await res.json()
-    expect(body.data.brief).toBe('Alice Smith is a prospect at Acme in proposal stage.')
+    expect(body.data.brief).toBe('Alice Smith is a prospect at Acme.')
     expect(mockGenerateText).toHaveBeenCalledTimes(1)
+
+    // The prompt should include "Proposal (open)" not a raw stageId
+    const promptArg = mockGenerateText.mock.calls[0][0].prompt as string
+    expect(promptArg).toContain('Proposal (open)')
+  })
+
+  it('falls back to raw stageId when pipeline is not found', async () => {
+    const contactDocGet = jest.fn().mockResolvedValue({
+      exists: true,
+      data: () => ({ name: 'Bob', email: 'bob@example.com', company: 'Foo' }),
+    })
+    const pipelineDocGet = jest.fn().mockResolvedValue({ exists: false })
+
+    mockDoc.mockImplementation((path: string) => {
+      if (path.startsWith('pipelines/')) return { get: pipelineDocGet }
+      return { get: contactDocGet }
+    })
+
+    mockGet
+      .mockResolvedValueOnce({ docs: [] }) // activities
+      .mockResolvedValueOnce({ docs: [] }) // emails
+      .mockResolvedValueOnce({ docs: [
+        { data: () => ({ title: 'Bob deal', value: 1000, pipelineId: 'pl-missing', stageId: 'some_stage' }) },
+      ]})
+
+    mockGenerateText.mockResolvedValue({ text: 'Bob is a lead.' })
+
+    jest.resetModules()
+    const { GET } = await import('@/app/api/v1/ai/contact-brief/[id]/route')
+    const req = new NextRequest('http://localhost/api/v1/ai/contact-brief/bob')
+    const ctx: Params = { params: Promise.resolve({ id: 'bob' }) }
+    const res = await GET(req, ctx)
+    expect(res.status).toBe(200)
+
+    // Prompt should fall back to raw stageId
+    const promptArg = mockGenerateText.mock.calls[0][0].prompt as string
+    expect(promptArg).toContain('some_stage')
   })
 })
