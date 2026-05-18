@@ -24,7 +24,9 @@ const makeDeal = (overrides: Partial<Deal> = {}): Deal => ({
   title: 'Test Deal',
   value: 5000,
   currency: 'ZAR',
-  stage: 'discovery',
+  // A3 W2-F: pipelineId + stageId replace the old stage field
+  pipelineId: 'pl-default',
+  stageId: 'discovery',
   expectedCloseDate: null,
   notes: '',
   createdAt: null,
@@ -46,11 +48,11 @@ beforeEach(() => {
 })
 
 describe('ContactDealsPanel', () => {
-  it('renders deal titles, stages, and values', async () => {
+  it('renders deal titles and values', async () => {
     const deals: Deal[] = [
-      makeDeal({ id: 'd1', title: 'Alpha Deal', stage: 'discovery',   value: 10000, currency: 'ZAR' }),
-      makeDeal({ id: 'd2', title: 'Beta Deal',  stage: 'proposal',    value: 25000, currency: 'ZAR' }),
-      makeDeal({ id: 'd3', title: 'Gamma Deal', stage: 'won',         value:  5000, currency: 'ZAR' }),
+      makeDeal({ id: 'd1', title: 'Alpha Deal', stageId: 'discovery', value: 10000, currency: 'ZAR' }),
+      makeDeal({ id: 'd2', title: 'Beta Deal',  stageId: 'proposal',  value: 25000, currency: 'ZAR' }),
+      makeDeal({ id: 'd3', title: 'Gamma Deal', stageId: 'won',       value:  5000, currency: 'ZAR' }),
     ]
     mockFetch.mockReturnValue(apiResponse(deals))
 
@@ -62,10 +64,10 @@ describe('ContactDealsPanel', () => {
       expect(screen.getByText('Gamma Deal')).toBeInTheDocument()
     })
 
-    // Stage chips
-    expect(screen.getByText('Discovery')).toBeInTheDocument()
-    expect(screen.getByText('Proposal')).toBeInTheDocument()
-    expect(screen.getByText('Won')).toBeInTheDocument()
+    // Stage chips show stageId text (W3-H will resolve to pretty labels)
+    expect(screen.getByText('discovery')).toBeInTheDocument()
+    expect(screen.getByText('proposal')).toBeInTheDocument()
+    expect(screen.getByText('won')).toBeInTheDocument()
 
     // Values
     expect(screen.getAllByText(/10[\s ,.]?000/).length).toBeGreaterThan(0)
@@ -99,8 +101,8 @@ describe('ContactDealsPanel', () => {
 
   it('renders deal count in the panel header', async () => {
     const deals = [
-      makeDeal({ id: 'd1', title: 'Deal One', stage: 'proposal' }),
-      makeDeal({ id: 'd2', title: 'Deal Two', stage: 'negotiation' }),
+      makeDeal({ id: 'd1', title: 'Deal One', stageId: 'proposal' }),
+      makeDeal({ id: 'd2', title: 'Deal Two', stageId: 'negotiation' }),
     ]
     mockFetch.mockReturnValue(apiResponse(deals))
     render(<ContactDealsPanel contactId="contact-1" />)
@@ -110,7 +112,7 @@ describe('ContactDealsPanel', () => {
   })
 
   it('links each deal title to the deals page with a focus param', async () => {
-    const deal = makeDeal({ id: 'deal-99', title: 'Linked Deal', stage: 'discovery' })
+    const deal = makeDeal({ id: 'deal-99', title: 'Linked Deal', stageId: 'discovery' })
     mockFetch.mockReturnValue(apiResponse([deal]))
     render(<ContactDealsPanel contactId="contact-1" />)
     await waitFor(() => {
