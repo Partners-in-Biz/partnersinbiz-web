@@ -2,29 +2,13 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import type { Deal, DealStage } from '@/lib/crm/types'
-import { STAGE_LABELS } from '@/components/crm/DealKanban'
+import type { Deal } from '@/lib/crm/types'
 
-// Stage order for sorting (lower index = earlier in funnel)
-const STAGE_ORDER: Record<DealStage, number> = {
-  discovery:   0,
-  proposal:    1,
-  negotiation: 2,
-  won:         3,
-  lost:        4,
-}
-
-// Colour per stage — matches the stageColorHex used on the deals list page
-function stageColorHex(stage: DealStage): string {
-  const map: Record<DealStage, string> = {
-    discovery:   '#60a5fa',
-    proposal:    '#a78bfa',
-    negotiation: '#c084fc',
-    won:         '#4ade80',
-    lost:        '#ef4444',
-  }
-  return map[stage] ?? '#6b7280'
-}
+// A3 W2-F: DealStage removed. Deals now carry pipelineId + stageId.
+// Stage label and colour resolution requires the pipeline document.
+// For ContactDealsPanel we display stageId as a chip; pretty labels and
+// per-stage colours are deferred to W3-H which will fetch the pipeline and
+// resolve stage metadata for the full portal UI.
 
 function fmtCloseDate(ts: unknown): string {
   if (!ts || typeof ts !== 'object') return ''
@@ -63,10 +47,8 @@ export function ContactDealsPanel({ contactId }: Props) {
       .then((b) => {
         if (cancelled) return
         const raw: Deal[] = b.data ?? []
-        // Sort by stage order, then by updatedAt DESC within each stage
+        // Sort by updatedAt DESC (pipeline-aware stage ordering deferred to W3-H)
         const sorted = [...raw].sort((a, b) => {
-          const stageDiff = STAGE_ORDER[a.stage] - STAGE_ORDER[b.stage]
-          if (stageDiff !== 0) return stageDiff
           const aTs = (a.updatedAt as Record<string, number> | null)?._seconds ?? 0
           const bTs = (b.updatedAt as Record<string, number> | null)?._seconds ?? 0
           return bTs - aTs
@@ -105,13 +87,13 @@ export function ContactDealsPanel({ contactId }: Props) {
       ) : (
         <div className="divide-y divide-[var(--color-pib-line)]">
           {deals.map((deal) => {
-            const hex = stageColorHex(deal.stage)
             const closeDate = fmtCloseDate(deal.expectedCloseDate)
+            // TODO (W3-H): resolve stageId -> stage label + colour via pipeline fetch
+            const stageChip = deal.stageId ?? '—'
             return (
               <div key={deal.id} className="px-5 py-3 flex items-center gap-4">
                 <span
-                  className="material-symbols-outlined text-[18px] shrink-0"
-                  style={{ color: hex }}
+                  className="material-symbols-outlined text-[18px] shrink-0 text-[var(--color-pib-text-muted)]"
                 >
                   monetization_on
                 </span>
@@ -128,10 +110,9 @@ export function ContactDealsPanel({ contactId }: Props) {
                   </p>
                 </div>
                 <span
-                  className="text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full shrink-0"
-                  style={{ background: `${hex}20`, color: hex }}
+                  className="text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full shrink-0 bg-[var(--color-surface-container)] text-[var(--color-on-surface-variant)]"
                 >
-                  {STAGE_LABELS[deal.stage]}
+                  {stageChip}
                 </span>
               </div>
             )

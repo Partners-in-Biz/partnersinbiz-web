@@ -1,5 +1,13 @@
 'use client'
 
+// A3 W2-F: DealStage type removed. This component is scheduled for full
+// refactor in W3-H which will fetch the pipeline document and build columns
+// dynamically from pipeline.stages rather than hard-coded DealStage values.
+//
+// For now, the kanban renders a read-only flat list of deals grouped by stageId
+// (string). The onStageChange callback signature is updated to take stageId string.
+// The full drag-and-drop per-pipeline-column UX is W3-H's responsibility.
+
 import { useState, useCallback } from 'react'
 import {
   DndContext,
@@ -17,27 +25,8 @@ import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalList
 import { CSS } from '@dnd-kit/utilities'
 import { useDroppable } from '@dnd-kit/core'
 import Link from 'next/link'
-import type { Deal, DealStage } from '@/lib/crm/types'
-
-// ── Stage constants ────────────────────────────────────────────────────────────
-
-export const DEAL_STAGES: DealStage[] = ['discovery', 'proposal', 'negotiation', 'won', 'lost']
-
-export const STAGE_LABELS: Record<DealStage, string> = {
-  discovery:   'Discovery',
-  proposal:    'Proposal',
-  negotiation: 'Negotiation',
-  won:         'Won',
-  lost:        'Lost',
-}
-
-const STAGE_COLORS: Record<DealStage, string> = {
-  discovery:   '#60a5fa',
-  proposal:    'var(--color-accent-v2)',
-  negotiation: '#c084fc',
-  won:         '#4ade80',
-  lost:        '#ef4444',
-}
+import type { Deal } from '@/lib/crm/types'
+import type { PipelineStage } from '@/lib/pipelines/types'
 
 // ── Internal deal card ─────────────────────────────────────────────────────────
 
@@ -51,9 +40,10 @@ function formatValue(value: number, currency: string): string {
 
 interface DealCardProps {
   deal: Deal
+  stageColor?: string
 }
 
-function DealCard({ deal }: DealCardProps) {
+function DealCard({ deal, stageColor = '#6b7280' }: DealCardProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: deal.id })
 
   return (
@@ -65,7 +55,7 @@ function DealCard({ deal }: DealCardProps) {
     >
       <div
         className="pib-card cursor-pointer select-none transition-all duration-150 hover:border-[var(--color-accent-v2)]"
-        style={{ padding: '10px', borderLeft: `3px solid ${STAGE_COLORS[deal.stage]}` }}
+        style={{ padding: '10px', borderLeft: `3px solid ${stageColor}` }}
       >
         <p className="text-sm font-medium text-on-surface mb-2 leading-snug">{deal.title}</p>
         <div className="flex items-center justify-between gap-2">
@@ -95,14 +85,14 @@ function DealCard({ deal }: DealCardProps) {
 // ── Column ─────────────────────────────────────────────────────────────────────
 
 interface DealColumnProps {
-  stage: DealStage
+  stage: PipelineStage
   deals: Deal[]
 }
 
 function DealColumn({ stage, deals }: DealColumnProps) {
   const dealIds = deals.map(d => d.id)
-  const { setNodeRef, isOver } = useDroppable({ id: stage })
-  const color = STAGE_COLORS[stage]
+  const { setNodeRef, isOver } = useDroppable({ id: stage.id })
+  const color = stage.color ?? '#6b7280'
 
   return (
     <div className="flex flex-col w-64 shrink-0">
@@ -110,7 +100,7 @@ function DealColumn({ stage, deals }: DealColumnProps) {
       <div className="flex items-center gap-2 mb-3 px-1">
         <div className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
         <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant">
-          {STAGE_LABELS[stage]}
+          {stage.label}
         </span>
         <span
           className="text-[9px] font-label px-1.5 py-0.5 rounded-full ml-auto"
@@ -128,7 +118,7 @@ function DealColumn({ stage, deals }: DealColumnProps) {
           style={isOver ? { background: 'color-mix(in oklab, var(--color-accent-v2) 8%, transparent)' } : undefined}
         >
           {deals.map(deal => (
-            <DealCard key={deal.id} deal={deal} />
+            <DealCard key={deal.id} deal={deal} stageColor={color} />
           ))}
           {deals.length === 0 && (
             <div
@@ -146,11 +136,11 @@ function DealColumn({ stage, deals }: DealColumnProps) {
 
 // ── Overlay card (dragging ghost) ──────────────────────────────────────────────
 
-function DragGhost({ deal }: { deal: Deal }) {
+function DragGhost({ deal, stageColor = '#6b7280' }: { deal: Deal; stageColor?: string }) {
   return (
     <div
       className="pib-card select-none w-64"
-      style={{ padding: '10px', borderLeft: `3px solid ${STAGE_COLORS[deal.stage]}`, opacity: 0.9 }}
+      style={{ padding: '10px', borderLeft: `3px solid ${stageColor}`, opacity: 0.9 }}
     >
       <p className="text-sm font-medium text-on-surface mb-2 leading-snug">{deal.title}</p>
       <span className="text-xs font-mono text-on-surface-variant font-semibold">
@@ -164,22 +154,23 @@ function DragGhost({ deal }: { deal: Deal }) {
 
 export interface DealKanbanProps {
   deals: Deal[]
+  stages: PipelineStage[]   // W3-H: pass pipeline.stages from the parent
   loading?: boolean
-  onStageChange: (dealId: string, newStage: DealStage) => Promise<void>
+  onStageChange: (dealId: string, newStageId: string) => Promise<void>
 }
 
 function Skeleton() {
   return <div className="pib-skeleton h-16 rounded-lg" />
 }
 
-export function DealKanban({ deals: initialDeals, loading = false, onStageChange }: DealKanbanProps) {
+export function DealKanban({ deals: initialDeals, stages, loading = false, onStageChange }: DealKanbanProps) {
   const [deals, setDeals] = useState<Deal[]>(initialDeals)
   const [activeId, setActiveId] = useState<string | null>(null)
 
   // Keep local state in sync when parent re-fetches
   // (only update if not currently dragging to avoid jitter)
   const [isDragging, setIsDragging] = useState(false)
-  if (!isDragging && JSON.stringify(deals.map(d => d.id + d.stage)) !== JSON.stringify(initialDeals.map(d => d.id + d.stage))) {
+  if (!isDragging && JSON.stringify(deals.map(d => d.id + d.stageId)) !== JSON.stringify(initialDeals.map(d => d.id + d.stageId))) {
     setDeals(initialDeals)
   }
 
@@ -189,11 +180,12 @@ export function DealKanban({ deals: initialDeals, loading = false, onStageChange
   )
 
   const getDealsForStage = useCallback(
-    (stage: DealStage) => deals.filter(d => d.stage === stage),
+    (stageId: string) => deals.filter(d => d.stageId === stageId),
     [deals],
   )
 
   const activeDeal = activeId ? deals.find(d => d.id === activeId) ?? null : null
+  const activeStage = activeDeal ? stages.find(s => s.id === activeDeal.stageId) : undefined
 
   function handleDragStart(event: DragStartEvent) {
     setActiveId(String(event.active.id))
@@ -206,10 +198,10 @@ export function DealKanban({ deals: initialDeals, loading = false, onStageChange
     const activeDeal = deals.find(d => d.id === active.id)
     if (!activeDeal) return
     const overDeal = deals.find(d => d.id === over.id)
-    const overStage = DEAL_STAGES.find(s => s === over.id)
-    const targetStage: DealStage = overDeal ? overDeal.stage : overStage ?? activeDeal.stage
-    if (activeDeal.stage !== targetStage) {
-      setDeals(prev => prev.map(d => d.id === active.id ? { ...d, stage: targetStage } : d))
+    const overStage = stages.find(s => s.id === over.id)
+    const targetStageId: string = overDeal ? overDeal.stageId : overStage?.id ?? activeDeal.stageId
+    if (activeDeal.stageId !== targetStageId) {
+      setDeals(prev => prev.map(d => d.id === active.id ? { ...d, stageId: targetStageId } : d))
     }
   }
 
@@ -223,18 +215,18 @@ export function DealKanban({ deals: initialDeals, loading = false, onStageChange
     if (!movedDeal) return
 
     const overDeal = deals.find(d => d.id === over.id)
-    const overStage = DEAL_STAGES.find(s => s === over.id)
-    const targetStage: DealStage = overDeal ? overDeal.stage : overStage ?? movedDeal.stage
+    const overStage = stages.find(s => s.id === over.id)
+    const targetStageId: string = overDeal ? overDeal.stageId : overStage?.id ?? movedDeal.stageId
 
-    if (movedDeal.stage === targetStage) return
+    if (movedDeal.stageId === targetStageId) return
 
     // Optimistic update already applied in handleDragOver
-    const previousStage = initialDeals.find(d => d.id === movedDeal.id)?.stage ?? movedDeal.stage
+    const previousStageId = initialDeals.find(d => d.id === movedDeal.id)?.stageId ?? movedDeal.stageId
     try {
-      await onStageChange(movedDeal.id, targetStage)
+      await onStageChange(movedDeal.id, targetStageId)
     } catch {
       // Roll back on error
-      setDeals(prev => prev.map(d => d.id === movedDeal.id ? { ...d, stage: previousStage } : d))
+      setDeals(prev => prev.map(d => d.id === movedDeal.id ? { ...d, stageId: previousStageId } : d))
     }
   }
 
@@ -247,13 +239,13 @@ export function DealKanban({ deals: initialDeals, loading = false, onStageChange
       onDragEnd={handleDragEnd}
     >
       <div className="flex gap-4 overflow-x-auto pb-4" style={{ minHeight: 400 }}>
-        {DEAL_STAGES.map(stage =>
+        {stages.map(stage =>
           loading ? (
-            <div key={stage} className="flex flex-col w-64 shrink-0">
+            <div key={stage.id} className="flex flex-col w-64 shrink-0">
               <div className="flex items-center gap-2 mb-3 px-1">
-                <div className="w-2 h-2 rounded-full" style={{ background: STAGE_COLORS[stage] }} />
+                <div className="w-2 h-2 rounded-full" style={{ background: stage.color ?? '#6b7280' }} />
                 <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant">
-                  {STAGE_LABELS[stage]}
+                  {stage.label}
                 </span>
               </div>
               <div className="flex flex-col gap-2">
@@ -261,13 +253,13 @@ export function DealKanban({ deals: initialDeals, loading = false, onStageChange
               </div>
             </div>
           ) : (
-            <DealColumn key={stage} stage={stage} deals={getDealsForStage(stage)} />
+            <DealColumn key={stage.id} stage={stage} deals={getDealsForStage(stage.id)} />
           ),
         )}
       </div>
 
       <DragOverlay>
-        {activeDeal ? <DragGhost deal={activeDeal} /> : null}
+        {activeDeal ? <DragGhost deal={activeDeal} stageColor={activeStage?.color ?? '#6b7280'} /> : null}
       </DragOverlay>
     </DndContext>
   )
