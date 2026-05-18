@@ -1,6 +1,8 @@
 import { cookies } from 'next/headers'
 import { redirect, notFound } from 'next/navigation'
 import { adminAuth, adminDb } from '@/lib/firebase/admin'
+import { getCurrentAdminUserFromCookies } from '@/lib/api/currentAdmin'
+import { canAccessOrg, isSuperAdmin } from '@/lib/api/platformAdmin'
 import { DocumentRenderer } from '@/components/client-documents/DocumentRenderer'
 import { PreviewFrame } from '@/components/client-documents/PreviewFrame'
 import { deserializeBlocksFromFirestore } from '@/lib/client-documents/firestore-blocks'
@@ -20,11 +22,18 @@ export default async function PreviewPage({ params }: { params: Promise<{ id: st
   } catch {
     redirect('/login')
   }
+  const user = await getCurrentAdminUserFromCookies()
+  if (!user) redirect('/login')
 
   const docSnap = await adminDb.collection('client_documents').doc(id).get()
   if (!docSnap.exists) notFound()
   const doc = { id: docSnap.id, ...docSnap.data() } as ClientDocument
   if (doc.deleted) notFound()
+  if (doc.orgId) {
+    if (!canAccessOrg(user, doc.orgId)) notFound()
+  } else if (!isSuperAdmin(user)) {
+    notFound()
+  }
 
   const versionSnap = await adminDb
     .collection('client_documents')

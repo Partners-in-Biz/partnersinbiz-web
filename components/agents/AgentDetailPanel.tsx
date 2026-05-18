@@ -46,6 +46,7 @@ interface AgentDetailPanelProps {
   agent: AgentTeamDoc | null
   onClose: () => void
   onSaved: (updated: AgentTeamDoc) => void
+  canEdit?: boolean
 }
 
 interface HealthResult {
@@ -121,7 +122,7 @@ function FieldRow({ label, children }: { label: string; children: React.ReactNod
   )
 }
 
-export function AgentDetailPanel({ agent, onClose, onSaved }: AgentDetailPanelProps) {
+export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: AgentDetailPanelProps) {
   const { success: toastSuccess, error: toastError } = useToast()
 
   // Tab state
@@ -246,6 +247,10 @@ export function AgentDetailPanel({ agent, onClose, onSaved }: AgentDetailPanelPr
     loadedTabs.current = new Set()
   }, [agent])
 
+  useEffect(() => {
+    if (!canEdit && activeTab === 'edit') setActiveTab('overview')
+  }, [activeTab, canEdit])
+
   const loadSkills = useCallback(async (agentId: string) => {
     setSkillsLoading(true)
     setSkillsError(null)
@@ -366,6 +371,7 @@ export function AgentDetailPanel({ agent, onClose, onSaved }: AgentDetailPanelPr
 
   // Activate tab and lazy-load its data
   function activateTab(tab: Tab) {
+    if (!canEdit && tab === 'edit') return
     setActiveTab(tab)
     if (!agent) return
     const { agentId } = agent
@@ -424,6 +430,10 @@ export function AgentDetailPanel({ agent, onClose, onSaved }: AgentDetailPanelPr
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
+    if (!canEdit) {
+      toastError('Only super admins can edit agents.')
+      return
+    }
     setSaving(true)
     try {
       const payload: Record<string, unknown> = {
@@ -457,6 +467,10 @@ export function AgentDetailPanel({ agent, onClose, onSaved }: AgentDetailPanelPr
   }
 
   async function uploadSkill(file: File) {
+    if (!canEdit) {
+      setSkillsError('Only super admins can install skills.')
+      return
+    }
     if (!file.name.endsWith('.zip')) {
       setSkillsError('File must be a .zip')
       return
@@ -480,6 +494,10 @@ export function AgentDetailPanel({ agent, onClose, onSaved }: AgentDetailPanelPr
   }
 
   async function removeSkill(name: string) {
+    if (!canEdit) {
+      setSkillsError('Only super admins can remove skills.')
+      return
+    }
     if (!confirm(`Delete skill "${name}"? This will remove it from the VPS and restart the gateway.`)) return
     setSkillsError(null)
     try {
@@ -494,6 +512,10 @@ export function AgentDetailPanel({ agent, onClose, onSaved }: AgentDetailPanelPr
   }
 
   async function saveLiveConfig() {
+    if (!canEdit) {
+      setConfigError('Only super admins can edit agent config.')
+      return
+    }
     let parsed: unknown
     try {
       parsed = JSON.parse(configText)
@@ -527,6 +549,10 @@ export function AgentDetailPanel({ agent, onClose, onSaved }: AgentDetailPanelPr
 
   async function saveEnvKey(e: React.FormEvent) {
     e.preventDefault()
+    if (!canEdit) {
+      setEnvError('Only super admins can edit agent environment keys.')
+      return
+    }
     const key = envKey.trim().toUpperCase()
     if (!key || !envValue) return
     setEnvSaving(true)
@@ -552,6 +578,10 @@ export function AgentDetailPanel({ agent, onClose, onSaved }: AgentDetailPanelPr
   }
 
   async function unsetEnvKey(key: string) {
+    if (!canEdit) {
+      setEnvError('Only super admins can edit agent environment keys.')
+      return
+    }
     if (!confirm(`Unset ${key} for ${agent?.name ?? 'this agent'}?`)) return
     setEnvSaving(true)
     setEnvError(null)
@@ -581,6 +611,10 @@ export function AgentDetailPanel({ agent, onClose, onSaved }: AgentDetailPanelPr
   }
 
   async function saveProfileFile() {
+    if (!canEdit) {
+      setFilesError('Only super admins can edit agent profile files.')
+      return
+    }
     if (!agent || !fileMeta?.editable) return
     setFileSaving(true)
     setFilesError(null)
@@ -616,6 +650,7 @@ export function AgentDetailPanel({ agent, onClose, onSaved }: AgentDetailPanelPr
     ? configObj.liveConfig as Record<string, unknown>
     : null
   const liveConfigPath     = liveConfigObj?.path as string | undefined
+  const visibleTabs = canEdit ? TABS : TABS.filter((tab) => tab !== 'edit')
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -639,7 +674,7 @@ export function AgentDetailPanel({ agent, onClose, onSaved }: AgentDetailPanelPr
 
       {/* Tab bar */}
       <div className="shrink-0 flex items-center gap-1 px-4 py-2 border-b border-white/10 overflow-x-auto">
-        {TABS.map((tab) => (
+        {visibleTabs.map((tab) => (
           <button
             key={tab}
             onClick={() => activateTab(tab)}
@@ -739,40 +774,41 @@ export function AgentDetailPanel({ agent, onClose, onSaved }: AgentDetailPanelPr
               </button>
             </div>
 
-            {/* Upload zone */}
-            <div
-              onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
-              onDragLeave={() => setDragOver(false)}
-              onDrop={(e) => {
-                e.preventDefault()
-                setDragOver(false)
-                const f = e.dataTransfer.files?.[0]
-                if (f) uploadSkill(f)
-              }}
-              onClick={() => skillInputRef.current?.click()}
-              className={`flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-6 cursor-pointer transition-colors ${
-                dragOver
-                  ? 'border-primary bg-primary/5'
-                  : 'border-[var(--color-card-border)] hover:border-primary/50'
-              }`}
-            >
-              <span className="material-symbols-outlined text-3xl text-on-surface-variant">cloud_upload</span>
-              <div className="text-sm text-on-surface text-center">
-                {uploading ? 'Uploading…' : 'Drop a skill .zip here, or click to choose'}
-              </div>
-              <div className="text-xs text-on-surface-variant">Max 50 MB. Gateway auto-restarts after install.</div>
-              <input
-                ref={skillInputRef}
-                type="file"
-                accept=".zip"
-                className="hidden"
-                onChange={(e) => {
-                  const f = e.target.files?.[0]
+            {canEdit && (
+              <div
+                onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+                onDragLeave={() => setDragOver(false)}
+                onDrop={(e) => {
+                  e.preventDefault()
+                  setDragOver(false)
+                  const f = e.dataTransfer.files?.[0]
                   if (f) uploadSkill(f)
-                  e.target.value = ''
                 }}
-              />
-            </div>
+                onClick={() => skillInputRef.current?.click()}
+                className={`flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-6 cursor-pointer transition-colors ${
+                  dragOver
+                    ? 'border-primary bg-primary/5'
+                    : 'border-[var(--color-card-border)] hover:border-primary/50'
+                }`}
+              >
+                <span className="material-symbols-outlined text-3xl text-on-surface-variant">cloud_upload</span>
+                <div className="text-sm text-on-surface text-center">
+                  {uploading ? 'Uploading…' : 'Drop a skill .zip here, or click to choose'}
+                </div>
+                <div className="text-xs text-on-surface-variant">Max 50 MB. Gateway auto-restarts after install.</div>
+                <input
+                  ref={skillInputRef}
+                  type="file"
+                  accept=".zip"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0]
+                    if (f) uploadSkill(f)
+                    e.target.value = ''
+                  }}
+                />
+              </div>
+            )}
 
             {skillsError   && <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-300">{skillsError}</div>}
             {skillsMessage && <div className="rounded-lg border border-green-500/30 bg-green-500/10 p-3 text-xs text-green-300">{skillsMessage}</div>}
@@ -789,14 +825,16 @@ export function AgentDetailPanel({ agent, onClose, onSaved }: AgentDetailPanelPr
                       {s.description && <div className="text-xs text-on-surface-variant mt-0.5 line-clamp-2">{s.description}</div>}
                       <div className="text-xs text-on-surface-variant mt-1">{s.fileCount} files · {formatBytes(s.sizeBytes)}</div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => removeSkill(s.name)}
-                      className="text-xs text-red-400 hover:text-red-300 px-2 py-1 rounded hover:bg-red-500/10"
-                      title="Delete skill"
-                    >
-                      <span className="material-symbols-outlined text-[16px]">delete</span>
-                    </button>
+                    {canEdit && (
+                      <button
+                        type="button"
+                        onClick={() => removeSkill(s.name)}
+                        className="text-xs text-red-400 hover:text-red-300 px-2 py-1 rounded hover:bg-red-500/10"
+                        title="Delete skill"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">delete</span>
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}
@@ -876,18 +914,21 @@ export function AgentDetailPanel({ agent, onClose, onSaved }: AgentDetailPanelPr
                       <p className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant">Live config JSON</p>
                       {liveConfigPath && <p className="mt-1 text-[10px] font-mono text-on-surface-variant/50 break-all">{liveConfigPath}</p>}
                     </div>
-                    <button
-                      type="button"
-                      onClick={saveLiveConfig}
-                      disabled={configSaving || !configText.trim()}
-                      className="pib-btn-primary text-xs font-label disabled:opacity-50"
-                    >
-                      {configSaving ? 'Saving...' : 'Save config'}
-                    </button>
+                    {canEdit && (
+                      <button
+                        type="button"
+                        onClick={saveLiveConfig}
+                        disabled={configSaving || !configText.trim()}
+                        className="pib-btn-primary text-xs font-label disabled:opacity-50"
+                      >
+                        {configSaving ? 'Saving...' : 'Save config'}
+                      </button>
+                    )}
                   </div>
                   <textarea
                     value={configText}
                     onChange={(e) => setConfigText(e.target.value)}
+                    readOnly={!canEdit}
                     spellCheck={false}
                     rows={18}
                     className="pib-input w-full resize-y font-mono text-xs leading-relaxed"
@@ -925,14 +966,16 @@ export function AgentDetailPanel({ agent, onClose, onSaved }: AgentDetailPanelPr
                   <span className="material-symbols-outlined text-[14px]">refresh</span>
                   {filesLoading ? 'Loading...' : 'Refresh'}
                 </button>
-                <button
-                  type="button"
-                  onClick={saveProfileFile}
-                  disabled={fileSaving || filesLoading || !fileMeta?.editable}
-                  className="pib-btn-primary text-xs font-label disabled:opacity-50"
-                >
-                  {fileSaving ? 'Saving...' : 'Save Soul'}
-                </button>
+                {canEdit && (
+                  <button
+                    type="button"
+                    onClick={saveProfileFile}
+                    disabled={fileSaving || filesLoading || !fileMeta?.editable}
+                    className="pib-btn-primary text-xs font-label disabled:opacity-50"
+                  >
+                    {fileSaving ? 'Saving...' : 'Save Soul'}
+                  </button>
+                )}
               </div>
             </div>
             {filesError && <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-300">{filesError}</div>}
@@ -941,6 +984,7 @@ export function AgentDetailPanel({ agent, onClose, onSaved }: AgentDetailPanelPr
             <textarea
               value={fileContent}
               onChange={(e) => setFileContent(e.target.value)}
+              readOnly={!canEdit}
               spellCheck={false}
               rows={28}
               className="pib-input w-full resize-y font-mono text-xs leading-relaxed"
@@ -999,19 +1043,21 @@ export function AgentDetailPanel({ agent, onClose, onSaved }: AgentDetailPanelPr
                     <p className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant">{selectedFilePath}</p>
                     {fileMeta?.absolutePath && <p className="mt-1 text-[10px] font-mono text-on-surface-variant/50 break-all">{fileMeta.absolutePath}</p>}
                   </div>
-                  <button
-                    type="button"
-                    onClick={saveProfileFile}
-                    disabled={fileSaving || !fileMeta?.editable}
-                    className="pib-btn-primary text-xs font-label disabled:opacity-50"
-                  >
-                    {fileSaving ? 'Saving...' : 'Save'}
-                  </button>
+                  {canEdit && (
+                    <button
+                      type="button"
+                      onClick={saveProfileFile}
+                      disabled={fileSaving || !fileMeta?.editable}
+                      className="pib-btn-primary text-xs font-label disabled:opacity-50"
+                    >
+                      {fileSaving ? 'Saving...' : 'Save'}
+                    </button>
+                  )}
                 </div>
                 <textarea
                   value={fileContent}
                   onChange={(e) => setFileContent(e.target.value)}
-                  readOnly={!fileMeta?.editable}
+                  readOnly={!canEdit || !fileMeta?.editable}
                   spellCheck={false}
                   rows={24}
                   className="pib-input w-full resize-y font-mono text-xs leading-relaxed disabled:opacity-70"
@@ -1101,7 +1147,7 @@ export function AgentDetailPanel({ agent, onClose, onSaved }: AgentDetailPanelPr
                 Scheduled Jobs ({cronJobs.length})
               </p>
               <div className="flex items-center gap-2">
-                {cronSupported !== false && (
+                {canEdit && cronSupported !== false && (
                   <button
                     type="button"
                     onClick={() => setShowCronForm((v) => !v)}
@@ -1124,7 +1170,7 @@ export function AgentDetailPanel({ agent, onClose, onSaved }: AgentDetailPanelPr
             </div>
 
             {/* New job form */}
-            {showCronForm && (
+            {canEdit && showCronForm && (
               <form
                 className="pib-card p-4 space-y-3"
                 onSubmit={async (e) => {
@@ -1257,52 +1303,53 @@ export function AgentDetailPanel({ agent, onClose, onSaved }: AgentDetailPanelPr
                       {job.next_run && <span>Next: {new Date(job.next_run).toLocaleString()}</span>}
                     </div>
                   </div>
-                  {/* Actions */}
-                  <div className="flex items-center gap-1 shrink-0">
-                    <button
-                      type="button"
-                      title="Trigger now"
-                      onClick={async () => {
-                        setCronMessage(null); setCronError(null)
-                        const res = await fetch(`/api/v1/admin/agents/${agentId}/cron/${job.id}?action=trigger`, { method: 'POST' })
-                        const b = await res.json().catch(() => ({}))
-                        if (res.ok) { setCronMessage('Job triggered.') } else { setCronError(b.error || 'Failed to trigger') }
-                      }}
-                      className="p-1.5 rounded hover:bg-white/10 text-on-surface-variant hover:text-on-surface transition-colors"
-                    >
-                      <span className="material-symbols-outlined text-[16px]">play_arrow</span>
-                    </button>
-                    <button
-                      type="button"
-                      title={job.status === 'paused' ? 'Resume' : 'Pause'}
-                      onClick={async () => {
-                        const action = job.status === 'paused' ? 'resume' : 'pause'
-                        setCronMessage(null); setCronError(null)
-                        const res = await fetch(`/api/v1/admin/agents/${agentId}/cron/${job.id}?action=${action}`, { method: 'POST' })
-                        const b = await res.json().catch(() => ({}))
-                        if (res.ok) { setCronMessage(`Job ${action}d.`); loadedTabs.current.delete('cron'); loadCron(agentId) }
-                        else { setCronError(b.error || `Failed to ${action}`) }
-                      }}
-                      className="p-1.5 rounded hover:bg-white/10 text-on-surface-variant hover:text-on-surface transition-colors"
-                    >
-                      <span className="material-symbols-outlined text-[16px]">{job.status === 'paused' ? 'play_circle' : 'pause'}</span>
-                    </button>
-                    <button
-                      type="button"
-                      title="Delete job"
-                      onClick={async () => {
-                        if (!confirm(`Delete cron job "${job.name || job.id}"?`)) return
-                        setCronMessage(null); setCronError(null)
-                        const res = await fetch(`/api/v1/admin/agents/${agentId}/cron/${job.id}`, { method: 'DELETE' })
-                        const b = await res.json().catch(() => ({}))
-                        if (res.ok) { setCronMessage('Job deleted.'); loadedTabs.current.delete('cron'); loadCron(agentId) }
-                        else { setCronError(b.error || 'Failed to delete') }
-                      }}
-                      className="p-1.5 rounded hover:bg-red-500/10 text-on-surface-variant hover:text-red-400 transition-colors"
-                    >
-                      <span className="material-symbols-outlined text-[16px]">delete</span>
-                    </button>
-                  </div>
+                  {canEdit && (
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        title="Trigger now"
+                        onClick={async () => {
+                          setCronMessage(null); setCronError(null)
+                          const res = await fetch(`/api/v1/admin/agents/${agentId}/cron/${job.id}?action=trigger`, { method: 'POST' })
+                          const b = await res.json().catch(() => ({}))
+                          if (res.ok) { setCronMessage('Job triggered.') } else { setCronError(b.error || 'Failed to trigger') }
+                        }}
+                        className="p-1.5 rounded hover:bg-white/10 text-on-surface-variant hover:text-on-surface transition-colors"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">play_arrow</span>
+                      </button>
+                      <button
+                        type="button"
+                        title={job.status === 'paused' ? 'Resume' : 'Pause'}
+                        onClick={async () => {
+                          const action = job.status === 'paused' ? 'resume' : 'pause'
+                          setCronMessage(null); setCronError(null)
+                          const res = await fetch(`/api/v1/admin/agents/${agentId}/cron/${job.id}?action=${action}`, { method: 'POST' })
+                          const b = await res.json().catch(() => ({}))
+                          if (res.ok) { setCronMessage(`Job ${action}d.`); loadedTabs.current.delete('cron'); loadCron(agentId) }
+                          else { setCronError(b.error || `Failed to ${action}`) }
+                        }}
+                        className="p-1.5 rounded hover:bg-white/10 text-on-surface-variant hover:text-on-surface transition-colors"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">{job.status === 'paused' ? 'play_circle' : 'pause'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        title="Delete job"
+                        onClick={async () => {
+                          if (!confirm(`Delete cron job "${job.name || job.id}"?`)) return
+                          setCronMessage(null); setCronError(null)
+                          const res = await fetch(`/api/v1/admin/agents/${agentId}/cron/${job.id}`, { method: 'DELETE' })
+                          const b = await res.json().catch(() => ({}))
+                          if (res.ok) { setCronMessage('Job deleted.'); loadedTabs.current.delete('cron'); loadCron(agentId) }
+                          else { setCronError(b.error || 'Failed to delete') }
+                        }}
+                        className="p-1.5 rounded hover:bg-red-500/10 text-on-surface-variant hover:text-red-400 transition-colors"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">delete</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
@@ -1349,37 +1396,39 @@ export function AgentDetailPanel({ agent, onClose, onSaved }: AgentDetailPanelPr
 
             {!envLoading && envData !== null && envSupported !== false && (
               <div className="space-y-3">
-                <form onSubmit={saveEnvKey} className="pib-card p-3 space-y-3">
-                  <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Add or update key</p>
-                  <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_auto]">
-                    <input
-                      type="text"
-                      value={envKey}
-                      onChange={(e) => setEnvKey(e.target.value)}
-                      placeholder="OPENAI_API_KEY"
-                      className="pib-input w-full text-sm font-mono uppercase"
-                      pattern="[A-Za-z0-9_]+"
-                      required
-                    />
-                    <input
-                      type="password"
-                      value={envValue}
-                      onChange={(e) => setEnvValue(e.target.value)}
-                      placeholder="New value"
-                      className="pib-input w-full text-sm font-mono"
-                      autoComplete="new-password"
-                      required
-                    />
-                    <button
-                      type="submit"
-                      disabled={envSaving}
-                      className="pib-btn-primary text-xs font-label disabled:opacity-50"
-                    >
-                      {envSaving ? 'Saving...' : 'Save'}
-                    </button>
-                  </div>
-                  <p className="text-[10px] text-on-surface-variant/60">Values stay redacted after saving. Saving restarts this agent on the VPS.</p>
-                </form>
+                {canEdit && (
+                  <form onSubmit={saveEnvKey} className="pib-card p-3 space-y-3">
+                    <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Add or update key</p>
+                    <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_auto]">
+                      <input
+                        type="text"
+                        value={envKey}
+                        onChange={(e) => setEnvKey(e.target.value)}
+                        placeholder="OPENAI_API_KEY"
+                        className="pib-input w-full text-sm font-mono uppercase"
+                        pattern="[A-Za-z0-9_]+"
+                        required
+                      />
+                      <input
+                        type="password"
+                        value={envValue}
+                        onChange={(e) => setEnvValue(e.target.value)}
+                        placeholder="New value"
+                        className="pib-input w-full text-sm font-mono"
+                        autoComplete="new-password"
+                        required
+                      />
+                      <button
+                        type="submit"
+                        disabled={envSaving}
+                        className="pib-btn-primary text-xs font-label disabled:opacity-50"
+                      >
+                        {envSaving ? 'Saving...' : 'Save'}
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-on-surface-variant/60">Values stay redacted after saving. Saving restarts this agent on the VPS.</p>
+                  </form>
+                )}
 
                 {envData.filter((e) => !e.advanced).length > 0 && (
                   <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mt-2 mb-1">Providers</p>
@@ -1410,15 +1459,17 @@ export function AgentDetailPanel({ agent, onClose, onSaved }: AgentDetailPanelPr
                         </div>
                       )}
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => unsetEnvKey(entry.key)}
-                      disabled={envSaving}
-                      title={`Unset ${entry.key}`}
-                      className="p-1.5 rounded hover:bg-red-500/10 text-on-surface-variant hover:text-red-400 transition-colors disabled:opacity-50"
-                    >
-                      <span className="material-symbols-outlined text-[16px]">delete</span>
-                    </button>
+                    {canEdit && (
+                      <button
+                        type="button"
+                        onClick={() => unsetEnvKey(entry.key)}
+                        disabled={envSaving}
+                        title={`Unset ${entry.key}`}
+                        className="p-1.5 rounded hover:bg-red-500/10 text-on-surface-variant hover:text-red-400 transition-colors disabled:opacity-50"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">delete</span>
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>

@@ -7,6 +7,7 @@ import {
   buildHumanRef,
   type MemberRef,
 } from '@/lib/orgMembers/memberRef'
+import { canAccessOrg } from '@/lib/api/platformAdmin'
 
 export type CrmRole = OrgRole | 'system'
 
@@ -105,6 +106,16 @@ export function withCrmAuth<RouteCtx = unknown>(
         (userData.orgId as string | undefined) ??
         '') as string
     if (!orgId) return apiError('No active workspace', 400)
+    if (userData.role === 'admin' && !canAccessOrg({
+      uid,
+      role: 'admin',
+      orgId: typeof userData.orgId === 'string' ? userData.orgId : undefined,
+      allowedOrgIds: Array.isArray(userData.allowedOrgIds)
+        ? userData.allowedOrgIds.filter((v: unknown): v is string => typeof v === 'string' && v.length > 0)
+        : undefined,
+    }, orgId)) {
+      return apiError('You do not have access to this organisation', 403)
+    }
 
     const memberSnap = await adminDb.collection('orgMembers').doc(`${orgId}_${uid}`).get()
     let role: OrgRole | null = null

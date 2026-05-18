@@ -19,6 +19,7 @@ import { getResendClient, FROM_ADDRESS } from '@/lib/email/resend'
 import { invoiceSentEmail } from '@/lib/email/templates'
 import { dispatchWebhook } from '@/lib/webhooks/dispatch'
 import { logActivity } from '@/lib/activity/log'
+import { requireInvoiceAccess } from '@/lib/invoices/access'
 
 export const dynamic = 'force-dynamic'
 
@@ -31,10 +32,10 @@ const PUBLIC_BASE_URL =
 
 export const POST = withAuth('admin', async (req, user, ctx) => {
   const { id } = await (ctx as RouteContext).params
-  const ref = adminDb.collection('invoices').doc(id)
-  const snap = await ref.get()
-  if (!snap.exists) return apiError('Invoice not found', 404)
-  const invoice = snap.data() ?? {}
+  const access = await requireInvoiceAccess(user, id)
+  if (!access.ok) return access.response
+  const ref = access.ref
+  const invoice = access.data
 
   if (invoice.status !== 'draft') {
     return apiError(`Invoice cannot be sent from status '${invoice.status}'`, 400)

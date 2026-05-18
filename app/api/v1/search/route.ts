@@ -3,6 +3,7 @@ import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import type { ApiUser } from '@/lib/api/types'
+import { canAccessOrg } from '@/lib/api/platformAdmin'
 
 export const dynamic = 'force-dynamic'
 
@@ -20,7 +21,7 @@ function matchesQuery(text: string | undefined, q: string): boolean {
   return text.toLowerCase().includes(q.toLowerCase())
 }
 
-export const GET = withAuth('admin', async (req: NextRequest, _user: ApiUser) => {
+export const GET = withAuth('admin', async (req: NextRequest, user: ApiUser) => {
   const { searchParams } = new URL(req.url)
   const q = searchParams.get('q')?.trim()
   const limit = Math.min(parseInt(searchParams.get('limit') ?? '5'), 20)
@@ -45,6 +46,8 @@ export const GET = withAuth('admin', async (req: NextRequest, _user: ApiUser) =>
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .filter((d: any) => d.deleted !== true)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .filter((d: any) => canAccessOrg(user, d.orgId))
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .filter((d: any) =>
       matchesQuery(d.name, q) ||
       matchesQuery(d.email, q) ||
@@ -68,6 +71,8 @@ export const GET = withAuth('admin', async (req: NextRequest, _user: ApiUser) =>
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .filter((d: any) => d.deleted !== true)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .filter((d: any) => canAccessOrg(user, d.orgId))
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .filter((d: any) =>
       matchesQuery(d.name, q) ||
       matchesQuery(d.description, q)
@@ -86,6 +91,8 @@ export const GET = withAuth('admin', async (req: NextRequest, _user: ApiUser) =>
     })
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .filter((d: any) => d.deleted !== true)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .filter((d: any) => canAccessOrg(user, d.orgId))
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .filter((d: any) =>
       matchesQuery(d.title, q) ||
@@ -156,6 +163,8 @@ export const GET = withAuth('admin', async (req: NextRequest, _user: ApiUser) =>
     .map((d: any) => ({ id: d.id, ...d.data() }))
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .filter((d: any) => d.deleted !== true)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .filter((d: any) => canAccessOrg(user, d.orgId))
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .filter((d: any) =>
       matchesQuery(d.invoiceNumber, q) ||

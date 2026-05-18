@@ -11,6 +11,7 @@ import { withIdempotency } from '@/lib/api/idempotency'
 import { actorFrom } from '@/lib/api/actor'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { logActivity } from '@/lib/activity/log'
+import { canAccessOrg } from '@/lib/api/platformAdmin'
 import {
   VALID_TASK_STATUSES,
   VALID_TASK_PRIORITIES,
@@ -28,11 +29,12 @@ import {
 
 export const dynamic = 'force-dynamic'
 
-export const GET = withAuth('admin', async (req) => {
+export const GET = withAuth('admin', async (req, user) => {
   const { searchParams } = new URL(req.url)
 
   const orgId = searchParams.get('orgId')
   if (!orgId) return apiError('orgId is required; pass it as a query param')
+  if (!canAccessOrg(user, orgId)) return apiError('Forbidden', 403)
 
   const status = searchParams.get('status') as TaskStatus | null
   const priority = searchParams.get('priority') as TaskPriority | null
@@ -105,6 +107,7 @@ export const POST = withAuth(
 
     if (!body.orgId?.trim()) return apiError('orgId is required')
     if (!body.title?.trim()) return apiError('Title is required')
+    if (!canAccessOrg(user, body.orgId.trim())) return apiError('Forbidden', 403)
 
     if (body.status && !VALID_TASK_STATUSES.includes(body.status)) {
       return apiError('Invalid status; expected todo | in_progress | done | cancelled')

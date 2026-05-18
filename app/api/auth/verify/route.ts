@@ -15,6 +15,7 @@ export async function GET(request: NextRequest) {
     const data = userDoc.exists ? userDoc.data() : null
     const role = data?.role ?? 'client'
     const name = typeof data?.name === 'string' ? data.name : null
+    const email = typeof data?.email === 'string' ? data.email : decoded.email ?? null
     const allowedOrgIds = Array.isArray(data?.allowedOrgIds)
       ? data.allowedOrgIds.filter((v: unknown): v is string => typeof v === 'string' && v.length > 0)
       : undefined
@@ -22,6 +23,7 @@ export async function GET(request: NextRequest) {
       uid: decoded.uid,
       role,
       name,
+      email,
       isSuperAdmin: isSuperAdmin({ uid: decoded.uid, role, allowedOrgIds }),
     })
   } catch {
@@ -40,6 +42,7 @@ export async function POST(request: NextRequest) {
     const data = userDoc.exists ? userDoc.data() : null
     const role = data?.role ?? 'client'
     const name = typeof data?.name === 'string' ? data.name : null
+    const email = typeof data?.email === 'string' ? data.email : decoded.email ?? null
     const allowedOrgIds = Array.isArray(data?.allowedOrgIds)
       ? data.allowedOrgIds.filter((v: unknown): v is string => typeof v === 'string' && v.length > 0)
       : undefined
@@ -47,6 +50,7 @@ export async function POST(request: NextRequest) {
       uid: decoded.uid,
       role,
       name,
+      email,
       isSuperAdmin: isSuperAdmin({ uid: decoded.uid, role, allowedOrgIds }),
     })
   } catch {

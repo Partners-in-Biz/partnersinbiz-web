@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 
-type MockUser = { uid: string; role: 'admin' | 'client'; orgId?: string }
+type MockUser = { uid: string; role: 'admin' | 'client'; orgId?: string; allowedOrgIds?: string[] }
 type MockHandler = (req: NextRequest, user: MockUser, ctx?: unknown) => Promise<Response>
 
 const mockCollection = jest.fn()
@@ -161,6 +161,35 @@ describe('GET /api/v1/invoices', () => {
     const body = await res.json()
     expect(body.data.map((invoice: { id: string }) => invoice.id)).toEqual(['right-biller'])
   })
+
+  it('limits restricted admins to assigned org invoices when no org filter is provided', async () => {
+    mockUser = { uid: 'admin-1', role: 'admin', allowedOrgIds: ['org-1'] }
+    mockInvoiceGet.mockResolvedValue({
+      docs: [
+        { id: 'allowed', data: () => ({ orgId: 'org-1', invoiceNumber: 'INV-001', createdAt: { seconds: 20 } }) },
+      ],
+    })
+
+    const { GET } = await import('@/app/api/v1/invoices/route')
+    const req = new NextRequest('http://localhost/api/v1/invoices')
+    const res = await GET(req)
+
+    expect(res.status).toBe(200)
+    expect(mockInvoiceWhere).toHaveBeenCalledWith('orgId', 'in', ['org-1'])
+    const body = await res.json()
+    expect(body.data.map((invoice: { id: string }) => invoice.id)).toEqual(['allowed'])
+  })
+
+  it('rejects restricted admins when they request an unassigned org', async () => {
+    mockUser = { uid: 'admin-1', role: 'admin', allowedOrgIds: ['org-1'] }
+
+    const { GET } = await import('@/app/api/v1/invoices/route')
+    const req = new NextRequest('http://localhost/api/v1/invoices?orgId=org-2')
+    const res = await GET(req)
+
+    expect(res.status).toBe(403)
+    expect(mockInvoiceGet).not.toHaveBeenCalled()
+  })
 })
 
 describe('POST /api/v1/invoices', () => {
@@ -204,5 +233,25 @@ describe('POST /api/v1/invoices', () => {
     expect(hasUndefined(writtenInvoice)).toBe(false)
     expect(writtenInvoice.fromDetails).toEqual({ companyName: 'Partners in Biz' })
     expect(writtenInvoice.clientDetails).toEqual({ name: 'Bare Client' })
+  })
+
+  it('rejects restricted admins creating invoices for unassigned orgs', async () => {
+    mockUser = { uid: 'admin-1', role: 'admin', allowedOrgIds: ['org-1'] }
+
+    const { POST } = await import('@/app/api/v1/invoices/route')
+    const req = new NextRequest('http://localhost/api/v1/invoices', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        orgId: 'org-2',
+        lineItems: [{ description: 'Hosting', quantity: 1, unitPrice: 650 }],
+      }),
+    })
+
+    const res = await POST(req)
+
+    expect(res.status).toBe(403)
+    expect(mockClientOrgGet).not.toHaveBeenCalled()
+    expect(mockInvoiceAdd).not.toHaveBeenCalled()
   })
 })

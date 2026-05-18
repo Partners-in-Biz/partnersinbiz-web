@@ -1,6 +1,10 @@
 import Link from 'next/link'
 import { Timestamp } from 'firebase-admin/firestore'
+import type * as FirebaseFirestore from 'firebase-admin/firestore'
+import { redirect } from 'next/navigation'
 import { adminDb } from '@/lib/firebase/admin'
+import { getCurrentAdminUserFromCookies } from '@/lib/api/currentAdmin'
+import { restrictedAdminOrgIds } from '@/lib/api/platformAdmin'
 
 export const dynamic = 'force-dynamic'
 
@@ -27,14 +31,26 @@ const STATUS_PILL: Record<string, string> = {
 }
 
 export default async function CampaignsIndexPage() {
-  const snap = await adminDb
-    .collection('campaigns')
-    .where('deleted', '==', false)
-    .get()
+  const user = await getCurrentAdminUserFromCookies()
+  if (!user) redirect('/login')
+  const allowedOrgIds = restrictedAdminOrgIds(user)
+
+  let query: FirebaseFirestore.Query = adminDb.collection('campaigns')
+  if (allowedOrgIds.length > 0 && allowedOrgIds.length <= 30) {
+    query = query.where('orgId', 'in', allowedOrgIds)
+  } else {
+    query = query.where('deleted', '==', false)
+  }
+
+  const snap = await query.get()
 
   const campaigns = snap.docs
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .map((d) => serialize({ id: d.id, ...(d.data() as any) }))
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .filter((c: any) => c.deleted !== true)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .filter((c: any) => allowedOrgIds.length === 0 || allowedOrgIds.includes(String(c.orgId ?? '')))
     // Only content-engine campaigns (have clientType + brandIdentity OR research). Filter out legacy email-program campaigns sharing the collection.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .filter((c: any) => c.clientType || c.brandIdentity || c.research)

@@ -6,6 +6,7 @@ import { apiSuccess, apiError } from '@/lib/api/response'
 import { notifyInvoiceSent } from '@/lib/notifications/notify'
 import { logActivity } from '@/lib/activity/log'
 import { tryAttributeInvoicePaid } from '@/lib/email-analytics/attribution-hooks'
+import { requireInvoiceAccess } from '@/lib/invoices/access'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,17 +14,18 @@ type RouteContext = { params: Promise<{ id: string }> }
 
 export const GET = withAuth('admin', async (req, user, ctx) => {
   const { id } = await (ctx as RouteContext).params
-  const doc = await adminDb.collection('invoices').doc(id).get()
-  if (!doc.exists) return apiError('Invoice not found', 404)
-  return apiSuccess({ id: doc.id, ...doc.data() })
+  const access = await requireInvoiceAccess(user, id)
+  if (!access.ok) return access.response
+  return apiSuccess({ id: access.snap.id, ...access.data })
 })
 
 export const PATCH = withAuth('admin', async (req, user, ctx) => {
   const { id } = await (ctx as RouteContext).params
   const body = await req.json().catch(() => ({}))
-  const ref = adminDb.collection('invoices').doc(id)
-  const doc = await ref.get()
-  if (!doc.exists) return apiError('Invoice not found', 404)
+  const access = await requireInvoiceAccess(user, id)
+  if (!access.ok) return access.response
+  const ref = access.ref
+  const doc = access.snap
 
   // Recalculate totals if line items changed
   let updates: Record<string, any> = { ...body, updatedAt: FieldValue.serverTimestamp() }
@@ -114,6 +116,8 @@ export const PATCH = withAuth('admin', async (req, user, ctx) => {
 
 export const DELETE = withAuth('admin', async (req, user, ctx) => {
   const { id } = await (ctx as RouteContext).params
-  await adminDb.collection('invoices').doc(id).delete()
+  const access = await requireInvoiceAccess(user, id)
+  if (!access.ok) return access.response
+  await access.ref.delete()
   return apiSuccess({ deleted: true })
 })

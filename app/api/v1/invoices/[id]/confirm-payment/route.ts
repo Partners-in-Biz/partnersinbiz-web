@@ -19,6 +19,7 @@ import { apiSuccess, apiError } from '@/lib/api/response'
 import { actorFrom, lastActorFrom } from '@/lib/api/actor'
 import { dispatchWebhook } from '@/lib/webhooks/dispatch'
 import { tryAttributeInvoicePaid } from '@/lib/email-analytics/attribution-hooks'
+import { requireInvoiceAccess } from '@/lib/invoices/access'
 
 export const dynamic = 'force-dynamic'
 
@@ -31,10 +32,10 @@ export const POST = withAuth('admin', async (req, user, ctx) => {
   const { id } = await (ctx as RouteContext).params
   const body = await req.json().catch(() => ({}))
 
-  const ref = adminDb.collection('invoices').doc(id)
-  const snap = await ref.get()
-  if (!snap.exists) return apiError('Invoice not found', 404)
-  const invoice = snap.data() ?? {}
+  const access = await requireInvoiceAccess(user, id)
+  if (!access.ok) return access.response
+  const ref = access.ref
+  const invoice = access.data
   const invoiceNumber: string = invoice.invoiceNumber ?? id
   const orgId: string | undefined = invoice.orgId
   const createdBy: string | undefined = invoice.createdBy

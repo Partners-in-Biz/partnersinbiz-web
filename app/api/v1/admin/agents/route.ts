@@ -10,6 +10,7 @@ import { withAuth } from '@/lib/api/auth'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import { callAgentPath, createAgent, listAgents } from '@/lib/agents/team'
 import { isValidAgentId } from '@/lib/agents/types'
+import { isSuperAdmin } from '@/lib/api/platformAdmin'
 
 export const dynamic = 'force-dynamic'
 
@@ -18,7 +19,9 @@ export const GET = withAuth('admin', async () => {
   return apiSuccess(agents)
 })
 
-export const POST = withAuth('admin', async (req: NextRequest) => {
+export const POST = withAuth('admin', async (req: NextRequest, user) => {
+  if (!isSuperAdmin(user)) return apiError('Only super admins can create agents', 403)
+
   let body: Record<string, unknown>
   try {
     body = (await req.json()) as Record<string, unknown>

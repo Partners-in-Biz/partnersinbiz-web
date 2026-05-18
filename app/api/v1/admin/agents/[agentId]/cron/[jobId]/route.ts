@@ -7,6 +7,7 @@ import { withAuth } from '@/lib/api/auth'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import { callAgentPath } from '@/lib/agents/team'
 import { isValidAgentId, type AgentId } from '@/lib/agents/types'
+import { isSuperAdmin } from '@/lib/api/platformAdmin'
 
 export const dynamic = 'force-dynamic'
 
@@ -14,7 +15,9 @@ type Ctx = { params: Promise<{ agentId: string; jobId: string }> }
 
 const VALID_ACTIONS = ['pause', 'resume', 'trigger'] as const
 
-export const DELETE = withAuth('admin', async (_req: NextRequest, _user, ctx) => {
+export const DELETE = withAuth('admin', async (_req: NextRequest, user, ctx) => {
+  if (!isSuperAdmin(user)) return apiError('Only super admins can delete agent cron jobs', 403)
+
   const { agentId, jobId } = await (ctx as Ctx).params
   if (!isValidAgentId(agentId)) return apiError('Invalid agentId', 400)
   try {
@@ -26,7 +29,9 @@ export const DELETE = withAuth('admin', async (_req: NextRequest, _user, ctx) =>
   }
 })
 
-export const POST = withAuth('admin', async (req: NextRequest, _user, ctx) => {
+export const POST = withAuth('admin', async (req: NextRequest, user, ctx) => {
+  if (!isSuperAdmin(user)) return apiError('Only super admins can update agent cron jobs', 403)
+
   const { agentId, jobId } = await (ctx as Ctx).params
   if (!isValidAgentId(agentId)) return apiError('Invalid agentId', 400)
   const action = req.nextUrl.searchParams.get('action') as typeof VALID_ACTIONS[number] | null

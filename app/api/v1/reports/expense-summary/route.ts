@@ -19,6 +19,7 @@
 import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
+import { canAccessOrg } from '@/lib/api/platformAdmin'
 
 export const dynamic = 'force-dynamic'
 
@@ -47,10 +48,11 @@ function toDateSafe(v: unknown): Date | null {
   return null
 }
 
-export const GET = withAuth('admin', async (req) => {
+export const GET = withAuth('admin', async (req, user) => {
   const { searchParams } = new URL(req.url)
   const orgId = searchParams.get('orgId')
   if (!orgId) return apiError('orgId is required; pass it as a query param', 400)
+  if (!canAccessOrg(user, orgId)) return apiError('Forbidden', 403)
 
   const groupByRaw = (searchParams.get('groupBy') ?? 'category') as GroupBy
   if (!VALID_GROUP_BY.includes(groupByRaw)) {

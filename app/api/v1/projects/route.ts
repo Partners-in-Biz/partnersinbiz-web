@@ -10,6 +10,7 @@ import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import type { ApiUser } from '@/lib/api/types'
 import { logActivity } from '@/lib/activity/log'
+import { canAccessOrg, restrictedAdminOrgIds } from '@/lib/api/platformAdmin'
 
 const VALID_STATUSES = [
   'discovery',
@@ -72,12 +73,13 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
     }
 
     const orgId = orgSnapshot.docs[0].id
-    if (user.allowedOrgIds?.length && !user.allowedOrgIds.includes(orgId)) {
+    if (!canAccessOrg(user, orgId)) {
       return apiError('Forbidden', 403)
     }
     query = query.where('orgId', '==', orgId)
-  } else if (user.role === 'admin' && user.allowedOrgIds?.length) {
-    query = query.where('orgId', 'in', user.allowedOrgIds.slice(0, 30))
+  } else if (user.role === 'admin') {
+    const allowedOrgIds = restrictedAdminOrgIds(user)
+    if (allowedOrgIds.length > 0) query = query.where('orgId', 'in', allowedOrgIds.slice(0, 30))
   }
 
   const snapshot = await query.get()
@@ -115,7 +117,7 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) =
   }
 
   if (!orgId) return apiError('Organization is required', 400)
-  if (user.role === 'admin' && user.allowedOrgIds?.length && !user.allowedOrgIds.includes(orgId)) {
+  if (!canAccessOrg(user, orgId)) {
     return apiError('Forbidden', 403)
   }
 
@@ -162,7 +164,7 @@ export const DELETE = withAuth('admin', async (req: NextRequest, user: ApiUser) 
   const snap = await docRef.get()
   if (!snap.exists) return apiError('Project not found', 404)
   const orgId = snap.data()?.orgId
-  if (user.allowedOrgIds?.length && typeof orgId === 'string' && !user.allowedOrgIds.includes(orgId)) {
+  if (!canAccessOrg(user, orgId)) {
     return apiError('Forbidden', 403)
   }
 

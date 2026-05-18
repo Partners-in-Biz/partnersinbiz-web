@@ -16,12 +16,15 @@ import { withAuth } from '@/lib/api/auth'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import { updateAgent } from '@/lib/agents/team'
 import { isValidAgentId, type AgentId } from '@/lib/agents/types'
+import { isSuperAdmin } from '@/lib/api/platformAdmin'
 
 export const dynamic = 'force-dynamic'
 
 export const PUT = withAuth(
   'admin',
-  async (req: NextRequest, _user, context?: { params?: Promise<{ agentId?: string }> | { agentId?: string } }) => {
+  async (req: NextRequest, user, context?: { params?: Promise<{ agentId?: string }> | { agentId?: string } }) => {
+    if (!isSuperAdmin(user)) return apiError('Only super admins can edit agents', 403)
+
     const params = context?.params ? await context.params : {}
     const agentId = (params as { agentId?: string }).agentId as string | undefined
     if (!agentId || !isValidAgentId(agentId)) {

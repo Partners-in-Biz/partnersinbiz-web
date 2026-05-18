@@ -1,6 +1,8 @@
 import Link from 'next/link'
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import { adminDb } from '@/lib/firebase/admin'
+import { getCurrentAdminUserFromCookies } from '@/lib/api/currentAdmin'
+import { canAccessOrg } from '@/lib/api/platformAdmin'
 
 export const dynamic = 'force-dynamic'
 
@@ -31,11 +33,15 @@ export default async function CampaignLayout({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
+  const user = await getCurrentAdminUserFromCookies()
+  if (!user) redirect('/login')
+
   const snap = await adminDb.collection('campaigns').doc(id).get()
   if (!snap.exists) notFound()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const c = snap.data() as any
   if (c.deleted) notFound()
+  if (!canAccessOrg(user, c.orgId)) notFound()
 
   return (
     <div className="space-y-6">

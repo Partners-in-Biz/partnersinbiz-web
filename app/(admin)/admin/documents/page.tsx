@@ -1,6 +1,10 @@
 import Link from 'next/link'
 import { Timestamp } from 'firebase-admin/firestore'
+import type * as FirebaseFirestore from 'firebase-admin/firestore'
+import { redirect } from 'next/navigation'
 import { adminDb } from '@/lib/firebase/admin'
+import { getCurrentAdminUserFromCookies } from '@/lib/api/currentAdmin'
+import { restrictedAdminOrgIds } from '@/lib/api/platformAdmin'
 import { DocumentIndex } from '@/components/client-documents/DocumentIndex'
 import type { ClientDocument, ClientDocumentStatus } from '@/lib/client-documents/types'
 
@@ -38,15 +42,24 @@ export default async function DocumentsIndexPage({
 }) {
   const params = await searchParams
   const activeStatus = (params.status ?? 'all') as ClientDocumentStatus | 'all'
+  const user = await getCurrentAdminUserFromCookies()
+  if (!user) redirect('/login')
+  const allowedOrgIds = restrictedAdminOrgIds(user)
 
-  const snap = await adminDb
-    .collection('client_documents')
-    .where('deleted', '==', false)
-    .get()
+  let query: FirebaseFirestore.Query = adminDb.collection('client_documents')
+  if (allowedOrgIds.length > 0 && allowedOrgIds.length <= 30) {
+    query = query.where('orgId', 'in', allowedOrgIds)
+  } else {
+    query = query.where('deleted', '==', false)
+  }
+
+  const snap = await query.get()
 
   const allDocuments = snap.docs
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .map((d) => serialize({ id: d.id, ...(d.data() as any) }) as ClientDocument)
+    .filter((d) => d.deleted !== true)
+    .filter((d) => allowedOrgIds.length === 0 || allowedOrgIds.includes(String(d.orgId ?? '')))
     .sort((a, b) => {
       const at = a.createdAt ? new Date(a.createdAt as string).getTime() : 0
       const bt = b.createdAt ? new Date(b.createdAt as string).getTime() : 0

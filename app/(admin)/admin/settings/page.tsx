@@ -7,6 +7,8 @@ import { useOrg } from '@/lib/contexts/OrgContext'
 import { copyToClipboard } from '@/lib/utils/clipboard'
 
 interface SessionInfo {
+  email?: string | null
+  role?: string
   isSuperAdmin?: boolean
 }
 
@@ -20,16 +22,23 @@ export default function SettingsPage() {
   const { selectedOrgId, orgName } = useOrg()
   const [copied, setCopied] = useState(false)
   const [isSuperAdmin, setIsSuperAdmin] = useState(false)
+  const [session, setSession] = useState<SessionInfo | null>(null)
 
   useEffect(() => {
     let cancelled = false
     fetch('/api/auth/verify')
       .then((res) => (res.ok ? res.json() : null))
       .then((session: SessionInfo | null) => {
-        if (!cancelled) setIsSuperAdmin(Boolean(session?.isSuperAdmin))
+        if (!cancelled) {
+          setSession(session)
+          setIsSuperAdmin(Boolean(session?.isSuperAdmin))
+        }
       })
       .catch(() => {
-        if (!cancelled) setIsSuperAdmin(false)
+        if (!cancelled) {
+          setSession(null)
+          setIsSuperAdmin(false)
+        }
       })
     return () => {
       cancelled = true
@@ -112,13 +121,13 @@ export default function SettingsPage() {
         <div className="pib-card-section-row">
           <span className="text-sm text-on-surface-variant">Email</span>
           <span className="text-sm text-on-surface font-medium">
-            peet.stander@partnersinbiz.online
+            {session?.email ?? 'Signed-in user'}
           </span>
         </div>
         <div className="pib-card-section-row">
           <span className="text-sm text-on-surface-variant">Role</span>
           <span className="text-[10px] font-label uppercase tracking-widest px-2.5 py-1 rounded-full bg-green-500/10 text-green-400 border border-green-500/20">
-            Admin
+            {session?.role ?? 'Admin'}
           </span>
         </div>
       </div>

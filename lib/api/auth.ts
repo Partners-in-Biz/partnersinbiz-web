@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { adminAuth, adminDb } from '@/lib/firebase/admin'
 import { apiError, apiErrorFromException } from './response'
 import type { ApiRole, ApiUser } from './types'
+import { canAccessOrg } from './platformAdmin'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type RouteHandler = (req: NextRequest, user: ApiUser, context?: any) => Promise<Response>
@@ -35,6 +36,14 @@ export function withAuth(requiredRole: 'admin' | 'client', handler: RouteHandler
       (requiredRole === 'client' && user.role === 'client')
 
     if (!roleOk) return apiError('Forbidden', 403)
+
+    if (user.role === 'admin') {
+      const url = new URL(req.url)
+      const scopedOrgId = url.searchParams.get('orgId') ?? req.headers.get('x-org-id')
+      if (scopedOrgId && !canAccessOrg(user, scopedOrgId)) {
+        return apiError('Forbidden', 403)
+      }
+    }
 
     try {
       return await handler(req, user, context)

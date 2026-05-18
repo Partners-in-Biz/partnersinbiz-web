@@ -17,6 +17,7 @@ import { actorFrom, lastActorFrom } from '@/lib/api/actor'
 import { capturePayPalOrder } from '@/lib/payments/paypal'
 import { dispatchWebhook } from '@/lib/webhooks/dispatch'
 import { tryAttributeInvoicePaid } from '@/lib/email-analytics/attribution-hooks'
+import { requireInvoiceAccess } from '@/lib/invoices/access'
 
 export const dynamic = 'force-dynamic'
 
@@ -32,10 +33,10 @@ export const POST = withAuth('admin', async (req, user, ctx) => {
   const orderId = typeof body.orderId === 'string' ? body.orderId : null
   if (!orderId) return apiError('orderId is required', 400)
 
-  const ref = adminDb.collection('invoices').doc(id)
-  const snap = await ref.get()
-  if (!snap.exists) return apiError('Invoice not found', 404)
-  const invoice = snap.data() ?? {}
+  const access = await requireInvoiceAccess(user, id)
+  if (!access.ok) return access.response
+  const ref = access.ref
+  const invoice = access.data
 
   if (invoice.paypalOrderId && invoice.paypalOrderId !== orderId) {
     return apiError('orderId does not match invoice.paypalOrderId', 400)

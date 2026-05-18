@@ -19,6 +19,7 @@
 import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
+import { canAccessOrg } from '@/lib/api/platformAdmin'
 
 export const dynamic = 'force-dynamic'
 
@@ -44,10 +45,11 @@ type UserAgg = {
   utilizationPct: number
 }
 
-export const GET = withAuth('admin', async (req) => {
+export const GET = withAuth('admin', async (req, user) => {
   const { searchParams } = new URL(req.url)
   const orgId = searchParams.get('orgId')
   if (!orgId) return apiError('orgId is required; pass it as a query param', 400)
+  if (!canAccessOrg(user, orgId)) return apiError('Forbidden', 403)
 
   const now = new Date()
   const defaultFrom = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)

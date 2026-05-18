@@ -7,14 +7,16 @@ import { generateReport, listReports } from '@/lib/reports/generate'
 import { lastCompletedMonth, monthPeriod } from '@/lib/reports/snapshot'
 import type { ReportType } from '@/lib/reports/types'
 import { adminDb } from '@/lib/firebase/admin'
+import { canAccessOrg } from '@/lib/api/platformAdmin'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
-export const GET = withAuth('admin', async (req: NextRequest) => {
+export const GET = withAuth('admin', async (req: NextRequest, user) => {
   const url = new URL(req.url)
   const orgId = url.searchParams.get('orgId')
   if (!orgId) return NextResponse.json({ error: 'orgId required' }, { status: 400 })
+  if (!canAccessOrg(user, orgId)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   const limit = Math.max(1, Math.min(100, parseInt(url.searchParams.get('limit') ?? '24', 10)))
   const reports = await listReports(orgId, limit)
   return NextResponse.json({ ok: true, reports })
@@ -37,6 +39,7 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
   if (!body.orgId) {
     return NextResponse.json({ error: 'orgId required' }, { status: 400 })
   }
+  if (!canAccessOrg(user, body.orgId)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   // Resolve org timezone (default UTC).
   const orgDoc = await adminDb.collection('organizations').doc(body.orgId).get()

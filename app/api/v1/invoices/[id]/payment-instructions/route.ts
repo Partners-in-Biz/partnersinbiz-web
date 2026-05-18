@@ -18,6 +18,7 @@ import { adminDb } from '@/lib/firebase/admin'
 import { resolveUser } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { buildPaymentInstructions } from '@/lib/payments/eft'
+import { canAccessOrg } from '@/lib/api/platformAdmin'
 
 export const dynamic = 'force-dynamic'
 
@@ -41,6 +42,7 @@ export async function GET(req: NextRequest, ctx: unknown): Promise<NextResponse>
     const user = await resolveUser(req)
     const hasAdmin = user && (user.role === 'admin' || user.role === 'ai')
     if (!hasAdmin) return apiError('Unauthorized — pass Bearer token or ?token=<publicToken>', 401)
+    if (!canAccessOrg(user, invoice.orgId)) return apiError('Forbidden', 403)
   }
 
   let publicToken = invoice.publicToken as string | undefined

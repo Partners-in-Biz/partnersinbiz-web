@@ -6,6 +6,7 @@ import { apiSuccess, apiError } from '@/lib/api/response'
 import { generateInvoiceNumber } from '@/lib/invoices/invoice-number'
 import { dispatchWebhook } from '@/lib/webhooks/dispatch'
 import { logActivity } from '@/lib/activity/log'
+import { canAccessOrg, restrictedAdminOrgIds } from '@/lib/api/platformAdmin'
 
 export const dynamic = 'force-dynamic'
 
@@ -60,6 +61,7 @@ export const GET = withAuth('client', async (req, user) => {
 
   let query: FirebaseFirestore.Query = adminDb.collection('invoices')
   let billingOrgIdFilter: string | null = null
+  let orgAccessFilter: string[] | null = null
 
   if (user.role === 'client') {
     // Clients can only see invoices issued to their own org.
@@ -71,7 +73,19 @@ export const GET = withAuth('client', async (req, user) => {
     // Admin / AI can filter freely by orgId / billingOrgId query params.
     const orgId = searchParams.get('orgId')
     const billingOrgId = searchParams.get('billingOrgId')
-    if (orgId) query = query.where('orgId', '==', orgId)
+    if (orgId) {
+      if (!canAccessOrg(user, orgId)) return apiError('Forbidden', 403)
+      query = query.where('orgId', '==', orgId)
+    } else if (user.role === 'admin') {
+      const allowedOrgIds = restrictedAdminOrgIds(user)
+      if (allowedOrgIds.length > 0) {
+        if (allowedOrgIds.length <= 30 && !billingOrgId) {
+          query = query.where('orgId', 'in', allowedOrgIds)
+        } else {
+          orgAccessFilter = allowedOrgIds
+        }
+      }
+    }
     if (billingOrgId) {
       if (orgId) {
         billingOrgIdFilter = billingOrgId
@@ -84,6 +98,7 @@ export const GET = withAuth('client', async (req, user) => {
   const snapshot = await query.get()
   const invoices = snapshot.docs
     .map((doc): InvoiceListItem => ({ id: doc.id, ...doc.data() }))
+    .filter((invoice) => !orgAccessFilter || orgAccessFilter.includes(String(invoice.orgId ?? '')))
     .filter((invoice) => !billingOrgIdFilter || invoice.billingOrgId === billingOrgIdFilter)
     .sort((a, b) => createdAtMillis(b.createdAt) - createdAtMillis(a.createdAt))
     .slice(0, 50)
@@ -95,6 +110,7 @@ export const POST = withAuth('admin', async (req, user) => {
   const body = await req.json().catch(() => ({}))
   if (!body.orgId) return apiError('orgId is required', 400)
   if (!body.lineItems?.length) return apiError('At least one line item is required', 400)
+  if (!canAccessOrg(user, body.orgId)) return apiError('Forbidden', 403)
 
   // Fetch client org for name + billing details snapshot
   const clientOrgDoc = await adminDb.collection('organizations').doc(body.orgId).get()

@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
 import { generateInvoiceHtml } from '@/lib/invoices/html-generator'
+import { apiError } from '@/lib/api/response'
+import { canAccessOrg } from '@/lib/api/platformAdmin'
 
 export const dynamic = 'force-dynamic'
 
@@ -12,7 +14,7 @@ export const dynamic = 'force-dynamic'
  * Accepts an invoice-like payload and returns rendered HTML for preview.
  * Does NOT create an invoice — purely for preview purposes.
  */
-export const POST = withAuth('admin', async (req) => {
+export const POST = withAuth('admin', async (req, user) => {
   const body = await req.json().catch(() => ({}))
 
   // If orgId provided, enrich with real org billing data
@@ -20,6 +22,8 @@ export const POST = withAuth('admin', async (req) => {
   let clientDetails = body.clientDetails ?? { name: body.orgId ?? 'Client' }
 
   if (body.orgId) {
+    if (!canAccessOrg(user, body.orgId)) return apiError('Forbidden', 403)
+
     // Fetch client org details
     const clientDoc = await adminDb.collection('organizations').doc(body.orgId).get()
     if (clientDoc.exists) {

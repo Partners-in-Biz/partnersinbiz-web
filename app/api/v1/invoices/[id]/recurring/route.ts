@@ -5,6 +5,7 @@ import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { calculateNextDueAt, RecurrenceInterval } from '@/lib/invoices/recurring'
+import { requireInvoiceAccess } from '@/lib/invoices/access'
 
 export const dynamic = 'force-dynamic'
 
@@ -30,9 +31,9 @@ export const POST = withAuth('admin', async (req: NextRequest, user, ctx) => {
     if (isNaN(endDate.getTime())) return apiError('endDate is not a valid date', 400)
   }
 
-  const invoiceDoc = await adminDb.collection('invoices').doc(id).get()
-  if (!invoiceDoc.exists) return apiError('Invoice not found', 404)
-  const invoice = invoiceDoc.data()!
+  const access = await requireInvoiceAccess(user, id)
+  if (!access.ok) return access.response
+  const invoice = access.data
 
   // Check for existing active/paused schedule
   const existing = await (adminDb.collection('recurring_schedules') as any)
@@ -60,8 +61,10 @@ export const POST = withAuth('admin', async (req: NextRequest, user, ctx) => {
   return apiSuccess({ id: ref.id }, 201)
 })
 
-export const DELETE = withAuth('admin', async (_req: NextRequest, _user, ctx) => {
+export const DELETE = withAuth('admin', async (_req: NextRequest, user, ctx) => {
   const { id } = await (ctx as RouteContext).params
+  const access = await requireInvoiceAccess(user, id)
+  if (!access.ok) return access.response
 
   const snap = await (adminDb.collection('recurring_schedules') as any)
     .where('invoiceId', '==', id)

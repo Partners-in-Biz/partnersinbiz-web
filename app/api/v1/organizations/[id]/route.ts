@@ -9,6 +9,7 @@ import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { slugify, isMember, isOwnerOrAdmin, isOwner } from '@/lib/organizations/helpers'
+import { canAccessOrg } from '@/lib/api/platformAdmin'
 
 export const dynamic = 'force-dynamic'
 
@@ -20,6 +21,7 @@ export const GET = withAuth('admin', async (req, user, ctx) => {
   if (!doc.exists) return apiError('Organisation not found', 404)
 
   const data = doc.data()!
+  if (!canAccessOrg(user, id)) return apiError('Forbidden', 403)
   // This guard is unreachable with current roles ('admin', 'client', 'ai') because withAuth('admin') blocks clients.
   // Kept intentionally for when lower-privilege roles are introduced.
   // Non-admin roles must be a member
@@ -36,6 +38,7 @@ export const PUT = withAuth('admin', async (req, user, ctx) => {
   if (!doc.exists) return apiError('Organisation not found', 404)
 
   const data = doc.data()!
+  if (!canAccessOrg(user, id)) return apiError('Forbidden', 403)
   // This guard is unreachable with current roles ('admin', 'client', 'ai') because withAuth('admin') blocks clients.
   // Kept intentionally for when lower-privilege roles are introduced.
   if (user.role !== 'admin' && user.role !== 'ai') {
@@ -93,6 +96,7 @@ export const DELETE = withAuth('admin', async (req, user, ctx) => {
   if (!doc.exists) return apiError('Organisation not found', 404)
 
   const data = doc.data()!
+  if (!canAccessOrg(user, id)) return apiError('Forbidden', 403)
   // This guard is unreachable with current roles ('admin', 'client', 'ai') because withAuth('admin') blocks clients.
   // Kept intentionally for when lower-privilege roles are introduced.
   if (user.role !== 'admin' && user.role !== 'ai') {

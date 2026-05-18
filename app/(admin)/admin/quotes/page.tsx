@@ -12,10 +12,12 @@ interface Quote {
   status: QuoteStatus
   total: number
   currency: string
-  issueDate?: any
-  validUntil?: any
+  issueDate?: DateLike
+  validUntil?: DateLike
   convertedInvoiceId?: string
 }
+
+type DateLike = string | number | Date | { _seconds?: number; seconds?: number } | null | undefined
 
 const STATUS_MAP: Record<QuoteStatus, { label: string; color: string }> = {
   draft:     { label: 'Draft',     color: 'var(--color-outline)' },
@@ -31,10 +33,34 @@ function formatCurrency(amount: number, currency: string) {
   return new Intl.NumberFormat(locales[currency] || 'en-US', { style: 'currency', currency }).format(amount)
 }
 
-function formatDate(ts: any) {
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === 'object')
+}
+
+function formatDate(ts: DateLike) {
   if (!ts) return '—'
-  const d = ts._seconds ? new Date(ts._seconds * 1000) : new Date(ts)
+  const seconds = isRecord(ts) && typeof ts._seconds === 'number'
+    ? ts._seconds
+    : isRecord(ts) && typeof ts.seconds === 'number'
+      ? ts.seconds
+      : null
+  const d = seconds ? new Date(seconds * 1000) : new Date(ts as string | number | Date)
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+function extractQuotes(body: unknown): Quote[] {
+  const data = isRecord(body) ? body.data : undefined
+  if (Array.isArray(data)) return data
+  if (isRecord(data) && Array.isArray(data.quotes)) return data.quotes as Quote[]
+  return []
+}
+
+function extractOrgs(body: unknown): Array<{ id: string; name: string }> {
+  const data = isRecord(body) ? body.data : undefined
+  if (Array.isArray(data)) return data
+  if (isRecord(data) && Array.isArray(data.organizations)) return data.organizations as Array<{ id: string; name: string }>
+  if (isRecord(data) && Array.isArray(data.orgs)) return data.orgs as Array<{ id: string; name: string }>
+  return []
 }
 
 export default function QuotesPage() {
@@ -48,9 +74,9 @@ export default function QuotesPage() {
       fetch('/api/v1/quotes').then(r => r.json()),
       fetch('/api/v1/organizations').then(r => r.json()),
     ]).then(([quotesBody, orgsBody]) => {
-      setQuotes(quotesBody.data ?? [])
+      setQuotes(extractQuotes(quotesBody))
       const map: Record<string, string> = {}
-      for (const org of orgsBody.data ?? []) map[org.id] = org.name
+      for (const org of extractOrgs(orgsBody)) map[org.id] = org.name
       setOrgMap(map)
       setLoading(false)
     }).catch(() => setLoading(false))

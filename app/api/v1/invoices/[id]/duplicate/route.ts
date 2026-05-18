@@ -4,6 +4,7 @@ import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { generateInvoiceNumber } from '@/lib/invoices/invoice-number'
+import { requireInvoiceAccess } from '@/lib/invoices/access'
 
 export const dynamic = 'force-dynamic'
 
@@ -12,9 +13,9 @@ type RouteContext = { params: Promise<{ id: string }> }
 export const POST = withAuth('admin', async (_req: NextRequest, user, ctx) => {
   const { id } = await (ctx as RouteContext).params
 
-  const sourceDoc = await adminDb.collection('invoices').doc(id).get()
-  if (!sourceDoc.exists) return apiError('Invoice not found', 404)
-  const source = sourceDoc.data()!
+  const access = await requireInvoiceAccess(user, id)
+  if (!access.ok) return access.response
+  const source = access.data
 
   const invoiceNumber = await generateInvoiceNumber(source.orgId, source.clientDetails?.name ?? source.orgId)
 

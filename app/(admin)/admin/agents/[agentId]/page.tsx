@@ -10,6 +10,10 @@ import { useParams, useRouter } from 'next/navigation'
 import { AgentDetailPanel } from '@/components/agents/AgentDetailPanel'
 import type { AgentTeamDoc } from '@/components/agents/AgentCard'
 
+interface SessionInfo {
+  isSuperAdmin?: boolean
+}
+
 function Skeleton({ className = '' }: { className?: string }) {
   return <div className={`pib-skeleton ${className}`} />
 }
@@ -22,10 +26,10 @@ export default function AgentDeepLinkPage() {
   const [agent, setAgent]     = useState<AgentTeamDoc | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError]     = useState<string | null>(null)
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false)
 
   useEffect(() => {
     if (!agentId) return
-    setLoading(true)
     fetch('/api/v1/admin/agents')
       .then((r) => r.json())
       .then((body) => {
@@ -42,6 +46,21 @@ export default function AgentDeepLinkPage() {
       })
       .finally(() => setLoading(false))
   }, [agentId])
+
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/auth/verify')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((session: SessionInfo | null) => {
+        if (!cancelled) setIsSuperAdmin(Boolean(session?.isSuperAdmin))
+      })
+      .catch(() => {
+        if (!cancelled) setIsSuperAdmin(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   function handleSaved(updated: AgentTeamDoc) {
     setAgent(updated)
@@ -72,6 +91,7 @@ export default function AgentDeepLinkPage() {
             agent={agent}
             onClose={handleClose}
             onSaved={handleSaved}
+            canEdit={isSuperAdmin}
           />
         </div>
       )}

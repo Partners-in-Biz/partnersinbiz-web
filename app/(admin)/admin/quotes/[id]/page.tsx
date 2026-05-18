@@ -18,11 +18,13 @@ interface Quote {
   currency: string
   lineItems: { description: string; quantity: number; unitPrice: number; amount: number }[]
   notes?: string
-  issueDate?: any
-  validUntil?: any
+  issueDate?: DateLike
+  validUntil?: DateLike
   clientDetails?: { name: string }
   convertedInvoiceId?: string
 }
+
+type DateLike = string | number | Date | { _seconds?: number; seconds?: number } | null | undefined
 
 const STATUS_MAP: Record<QuoteStatus, { label: string; color: string }> = {
   draft:     { label: 'Draft',     color: 'var(--color-outline)' },
@@ -41,10 +43,26 @@ function fmtCurrency(amount: number, currency: string): string {
   }).format(amount)
 }
 
-function formatDate(ts: any) {
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === 'object')
+}
+
+function formatDate(ts: DateLike) {
   if (!ts) return '—'
-  const d = ts._seconds ? new Date(ts._seconds * 1000) : new Date(ts)
+  const seconds = isRecord(ts) && typeof ts._seconds === 'number'
+    ? ts._seconds
+    : isRecord(ts) && typeof ts.seconds === 'number'
+      ? ts.seconds
+      : null
+  const d = seconds ? new Date(seconds * 1000) : new Date(ts as string | number | Date)
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+function extractQuote(body: unknown): Quote | null {
+  const data = isRecord(body) ? body.data : undefined
+  if (isRecord(data) && data.quote) return data.quote as unknown as Quote
+  if (isRecord(data) && (data.id || data.quoteNumber)) return data as unknown as Quote
+  return null
 }
 
 export default function QuoteDetailPage() {
@@ -60,7 +78,7 @@ export default function QuoteDetailPage() {
   useEffect(() => {
     fetch(`/api/v1/quotes/${id}`)
       .then(r => r.json())
-      .then(body => { setQuote(body.data); setLoading(false) })
+      .then(body => { setQuote(extractQuote(body)); setLoading(false) })
       .catch(() => setLoading(false))
   }, [id])
 

@@ -13,6 +13,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { adminDb } from '@/lib/firebase/admin'
 import { apiError } from './response'
 import type { ApiUser } from './types'
+import { canAccessOrg, restrictedAdminOrgIds } from './platformAdmin'
 
 /** The default orgId for single-tenant / admin operations */
 export const DEFAULT_ORG_ID = 'default'
@@ -50,9 +51,13 @@ async function resolveOrgId(req: NextRequest, user: ApiUser): Promise<string | n
     }
 
     case 'admin': {
-      // Admin can optionally specify orgId, defaults to 'default'
+      // Super admins can optionally specify orgId. Restricted admins are
+      // always scoped to their assigned client orgs.
       const { searchParams } = new URL(req.url)
-      return searchParams.get('orgId') ?? DEFAULT_ORG_ID
+      const requestedOrgId = searchParams.get('orgId')
+      if (requestedOrgId) return canAccessOrg(user, requestedOrgId) ? requestedOrgId : null
+      const allowed = restrictedAdminOrgIds(user)
+      return allowed[0] ?? DEFAULT_ORG_ID
     }
 
     case 'client': {

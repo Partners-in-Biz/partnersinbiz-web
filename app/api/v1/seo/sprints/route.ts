@@ -7,6 +7,7 @@ import { actorFrom } from '@/lib/api/actor'
 import { FieldValue } from 'firebase-admin/firestore'
 import { OUTRANK_90 } from '@/lib/seo/templates/outrank-90'
 import type { ApiUser } from '@/lib/api/types'
+import { canAccessOrg, restrictedAdminOrgIds } from '@/lib/api/platformAdmin'
 
 export const dynamic = 'force-dynamic'
 
@@ -37,6 +38,13 @@ export const GET = withAuth('admin', async (req: NextRequest, user: ApiUser) => 
   let q: any = adminDb.collection('seo_sprints')
   // Admins and ai see all sprints; client role is locked to their own org.
   if (user.role === 'client' && user.orgId) q = q.where('orgId', '==', user.orgId)
+  if (user.role === 'admin') {
+    const allowedOrgIds = restrictedAdminOrgIds(user)
+    if (clientId && !canAccessOrg(user, clientId)) return apiError('Forbidden', 403)
+    if (!clientId && allowedOrgIds.length > 0 && allowedOrgIds.length <= 30) {
+      q = q.where('orgId', 'in', allowedOrgIds)
+    }
+  }
   if (status) q = q.where('status', '==', status)
   if (clientId) q = q.where('clientId', '==', clientId)
   const snap = await q.get()
@@ -46,6 +54,8 @@ export const GET = withAuth('admin', async (req: NextRequest, user: ApiUser) => 
     .map((d: any) => ({ id: d.id, ...d.data() }))
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .filter((d: any) => !d.deleted)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .filter((d: any) => user.role !== 'admin' || canAccessOrg(user, d.orgId))
   return apiSuccess(data, 200, { total: data.length, page: 1, limit: data.length })
 })
 
@@ -64,6 +74,7 @@ export const POST = withAuth(
         ? (body.orgId ?? body.clientId ?? user.orgId)
         : user.orgId
     if (!orgId) return apiError('orgId is required (no user.orgId set)', 400)
+    if (!canAccessOrg(user, orgId)) return apiError('Forbidden', 403)
 
     const startDate = body.startDate ?? new Date().toISOString()
     const sprintRef = await adminDb.collection('seo_sprints').add({

@@ -12,6 +12,7 @@
 //   - If neither side supplies an orgId, return 400 with a helpful message.
 
 import type { ApiUser } from './types'
+import { canAccessOrg } from './platformAdmin'
 
 export interface OrgScopeOk {
   ok: true
@@ -42,12 +43,8 @@ export function resolveOrgScope(user: ApiUser, requestedOrgId: string | null): O
     // Restricted platform admins can only access orgs in their allowedOrgIds
     // list (or their home orgId). Super admins (no allowedOrgIds) are
     // unrestricted. AI agents are always unrestricted.
-    if (user.role === 'admin' && Array.isArray(user.allowedOrgIds) && user.allowedOrgIds.length > 0) {
-      const allowed = new Set<string>(user.allowedOrgIds)
-      if (user.orgId) allowed.add(user.orgId)
-      if (!allowed.has(requestedOrgId)) {
-        return { ok: false, status: 403, error: 'You do not have access to this organisation' }
-      }
+    if (!canAccessOrg(user, requestedOrgId)) {
+      return { ok: false, status: 403, error: 'You do not have access to this organisation' }
     }
     return { ok: true, orgId: requestedOrgId }
   }

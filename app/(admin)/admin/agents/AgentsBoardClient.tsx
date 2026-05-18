@@ -6,6 +6,10 @@ import { AgentDetailPanel } from '@/components/agents/AgentDetailPanel'
 import type { AgentTeamDoc } from '@/components/agents/AgentCard'
 import type { HealthStatus } from '@/components/agents/AgentCard'
 
+interface SessionInfo {
+  isSuperAdmin?: boolean
+}
+
 function Skeleton({ className = '' }: { className?: string }) {
   return <div className={`pib-skeleton ${className}`} />
 }
@@ -26,6 +30,7 @@ export default function AgentsBoardClient() {
   const [newPersona, setNewPersona]   = useState('')
   const [newModel, setNewModel]       = useState('gpt-5.5')
   const [newProvider, setNewProvider] = useState('openai-codex')
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false)
 
   const pingAllHealth = useCallback(async (agentList: AgentTeamDoc[]) => {
     // Set all to loading first
@@ -71,6 +76,21 @@ export default function AgentsBoardClient() {
   useEffect(() => {
     loadAgents()
   }, [loadAgents])
+
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/auth/verify')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((session: SessionInfo | null) => {
+        if (!cancelled) setIsSuperAdmin(Boolean(session?.isSuperAdmin))
+      })
+      .catch(() => {
+        if (!cancelled) setIsSuperAdmin(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   function openPanel(agent: AgentTeamDoc) {
     setSelected(agent)
@@ -140,13 +160,15 @@ export default function AgentsBoardClient() {
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <button
-            onClick={() => setShowCreate((v) => !v)}
-            className="pib-btn-primary text-sm font-label flex items-center gap-1.5"
-          >
-            <span className="material-symbols-outlined text-[16px]">add</span>
-            New Agent
-          </button>
+          {isSuperAdmin && (
+            <button
+              onClick={() => setShowCreate((v) => !v)}
+              className="pib-btn-primary text-sm font-label flex items-center gap-1.5"
+            >
+              <span className="material-symbols-outlined text-[16px]">add</span>
+              New Agent
+            </button>
+          )}
           <button
             onClick={() => loadAgents()}
             className="pib-btn-ghost text-sm font-label flex items-center gap-1.5"
@@ -158,7 +180,7 @@ export default function AgentsBoardClient() {
         </div>
       </div>
 
-      {showCreate && (
+      {isSuperAdmin && showCreate && (
         <form onSubmit={createAgent} className="pib-card p-4 space-y-4">
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="space-y-1">
@@ -244,6 +266,7 @@ export default function AgentsBoardClient() {
               agent={selected}
               onClose={closePanel}
               onSaved={handleSaved}
+              canEdit={isSuperAdmin}
             />
           </div>
         </>
