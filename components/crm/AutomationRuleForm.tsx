@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import type {
   AutomationRule,
   AutomationAction,
@@ -8,6 +8,31 @@ import type {
   ActionType,
   TriggerEvent,
 } from '@/lib/automations/types'
+
+// ── SequencePickerInline ───────────────────────────────────────────────────────
+
+function SequencePickerInline({ value, onChange }: { value: string; onChange: (id: string, name: string) => void }) {
+  const [sequences, setSequences] = useState<{ id: string; name: string }[]>([])
+  useEffect(() => {
+    fetch('/api/v1/crm/sequences')
+      .then(r => r.json())
+      .then(b => setSequences(b.data?.sequences ?? b.data ?? []))
+      .catch(() => {})
+  }, [])
+  return (
+    <select
+      value={value}
+      onChange={e => {
+        const seq = sequences.find(s => s.id === e.target.value)
+        onChange(e.target.value, seq?.name ?? '')
+      }}
+      className="pib-input text-sm"
+    >
+      <option value="">Select sequence…</option>
+      {sequences.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+    </select>
+  )
+}
 
 // ── ActionRow ─────────────────────────────────────────────────────────────────
 
@@ -32,6 +57,7 @@ function ActionRow({
           <option value="send_notification">Send notification</option>
           <option value="assign_owner">Assign owner</option>
           <option value="dispatch_webhook">Dispatch webhook</option>
+          <option value="enroll_in_sequence">Enroll in sequence</option>
         </select>
         <button
           type="button"
@@ -109,6 +135,13 @@ function ActionRow({
           value={action.webhookUrl ?? ''}
           onChange={(e) => onChange({ ...action, webhookUrl: e.target.value })}
           className="text-sm px-3 py-2 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] text-[var(--color-pib-text)] placeholder-[var(--color-pib-text-muted)] focus:outline-none focus:ring-1 focus:ring-[var(--color-pib-accent)]"
+        />
+      )}
+
+      {action.type === 'enroll_in_sequence' && (
+        <SequencePickerInline
+          value={action.sequenceId ?? ''}
+          onChange={(id, name) => onChange({ ...action, sequenceId: id, sequenceName: name })}
         />
       )}
     </div>

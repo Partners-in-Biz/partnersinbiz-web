@@ -118,6 +118,13 @@ export async function executeActions(
         case 'dispatch_webhook':
           await executeDispatchWebhook(action, context)
           break
+        case 'enroll_in_sequence': {
+          if (!action.sequenceId || !context.contactId) break
+          const { enrollContact } = await import('@/lib/sequences/enrollment')
+          const SYSTEM_ACTOR = { uid: 'system', displayName: 'System', email: '' }
+          await enrollContact(context.orgId, action.sequenceId, context.contactId, SYSTEM_ACTOR, 0)
+          break
+        }
         default: {
           const _exhaustive: never = action.type
           throw new Error(`Unknown action type: ${_exhaustive}`)

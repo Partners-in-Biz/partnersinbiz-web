@@ -21,6 +21,7 @@ export type ActionType =
   | 'send_notification'
   | 'assign_owner'
   | 'dispatch_webhook'
+  | 'enroll_in_sequence'
 
 export interface AutomationAction {
   type: ActionType
@@ -36,6 +37,9 @@ export interface AutomationAction {
   ownerDisplayName?: string
   // dispatch_webhook
   webhookUrl?: string
+  // enroll_in_sequence
+  sequenceId?: string
+  sequenceName?: string   // display only
 }
 
 export interface AutomationRule {
