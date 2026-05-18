@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { ContactForm } from '@/components/admin/crm/ContactForm'
 import { fmtTimestamp } from '@/components/admin/email/fmtTimestamp'
 import { SavedViewsBar } from '@/components/crm/SavedViewsBar'
+import { ScoreChip } from '@/components/crm/ScoreChip'
 
 const STAGES = ['new', 'contacted', 'replied', 'demo', 'proposal', 'won', 'lost']
 const TYPES = ['lead', 'prospect', 'client', 'churned']
@@ -28,6 +29,9 @@ interface Contact {
   stage: string
   lastContactedAt?: unknown
   tags?: string[]
+  leadScore?: number
+  icpScore?: number
+  aiLeadScore?: number
 }
 
 interface TeamMember {
@@ -439,7 +443,7 @@ export default function PortalContactsPage() {
       ) : (
         <div className="pib-card-section">
           {/* Table header */}
-          <div className="hidden md:grid grid-cols-12 gap-4 px-5 py-3.5 border-b border-[var(--color-pib-line)] bg-white/[0.02]">
+          <div className="hidden md:grid grid-cols-15 gap-4 px-5 py-3.5 border-b border-[var(--color-pib-line)] bg-white/[0.02]">
             {/* Checkbox cell — 1 col */}
             <div className="col-span-1 flex items-center">
               <input
@@ -457,6 +461,9 @@ export default function PortalContactsPage() {
             <p className="col-span-1 eyebrow !text-[10px]">Type</p>
             <p className="col-span-1 eyebrow !text-[10px]">Stage</p>
             <p className="col-span-2 eyebrow !text-[10px]">Last contacted</p>
+            <p className="col-span-1 eyebrow !text-[10px]">Lead</p>
+            <p className="col-span-1 eyebrow !text-[10px]">ICP</p>
+            <p className="col-span-1 eyebrow !text-[10px]">AI</p>
           </div>
           <div className="divide-y divide-[var(--color-pib-line)]">
             {contacts.map((c) => {
@@ -464,7 +471,7 @@ export default function PortalContactsPage() {
               return (
                 <div
                   key={c.id}
-                  className="grid grid-cols-2 md:grid-cols-12 gap-3 md:gap-4 items-center px-5 py-4 hover:bg-[var(--color-pib-surface-2)] transition-colors"
+                  className="grid grid-cols-2 md:grid-cols-15 gap-3 md:gap-4 items-center px-5 py-4 hover:bg-[var(--color-pib-surface-2)] transition-colors"
                   style={isSelected ? { background: 'var(--color-pib-accent, #7c3aed)10' } : undefined}
                 >
                   {/* Checkbox */}
@@ -480,7 +487,7 @@ export default function PortalContactsPage() {
                   {/* Rest of the row — wrapped in Link */}
                   <Link
                     href={`/portal/contacts/${c.id}`}
-                    className="col-span-1 md:col-span-11 grid grid-cols-1 md:grid-cols-11 gap-3 md:gap-4 items-center"
+                    className="col-span-1 md:col-span-14 grid grid-cols-1 md:grid-cols-14 gap-3 md:gap-4 items-center"
                     onClick={e => { if (selectedIds.size > 0) e.preventDefault(); toggleSelect(c.id) }}
                   >
                     <div className="md:col-span-2">
@@ -505,6 +512,15 @@ export default function PortalContactsPage() {
                     </div>
                     <div className="md:col-span-2 text-xs text-[var(--color-pib-text-muted)] font-mono">
                       {fmtTimestamp(c.lastContactedAt) || '—'}
+                    </div>
+                    <div className="md:col-span-1">
+                      <ScoreChip score={c.leadScore} kind="lead" label="Lead score (formula)" size="sm" />
+                    </div>
+                    <div className="md:col-span-1">
+                      <ScoreChip score={c.icpScore} kind="icp" label="ICP match score" size="sm" />
+                    </div>
+                    <div className="md:col-span-1">
+                      <ScoreChip score={c.aiLeadScore} kind="ai" label="AI lead score" size="sm" />
                     </div>
                   </Link>
                 </div>

@@ -73,6 +73,12 @@ export interface Contact {
   deleted?: boolean
   companyId?: string
   companyName?: string
+  // A4 scoring fields (additive — never required)
+  leadScore?: number          // 0-100, formula-based engagement
+  icpScore?: number           // 0-100, ICP-match (company attrs vs ICP profile)
+  aiLeadScore?: number        // 0-100, LLM-based (only set if scoringConfig.aiEnabled)
+  scoreUpdatedAt?: Timestamp  // last computed
+  scoreSignals?: Record<string, number>  // per-signal contribution (debug)
 }
 
 export type ContactInput = Omit<Contact, 'id' | 'createdAt' | 'updatedAt'>
