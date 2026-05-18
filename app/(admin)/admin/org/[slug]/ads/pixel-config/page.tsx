@@ -1,6 +1,7 @@
 import { resolveOrgIdBySlug } from '@/lib/organizations/resolve-by-slug'
 import { listPixelConfigs } from '@/lib/ads/pixel-configs/store'
 import { PixelConfigPanel } from '@/components/ads/PixelConfigPanel'
+import { LinkedinPixelConfigPanel } from '@/components/ads/LinkedinPixelConfigPanel'
 
 interface Params { slug: string }
 
@@ -15,5 +16,28 @@ export default async function PixelConfigPage({ params }: { params: Promise<Para
     if (safe.meta) delete (safe.meta as Record<string, unknown>).capiTokenEnc
     return safe
   })
-  return <PixelConfigPanel orgId={orgId} orgSlug={slug} initialConfigs={configs} />
+
+  // Find the first org-wide config (no propertyId) to surface as the LinkedIn panel;
+  // fall back to the first config if all have a propertyId.
+  const linkedinSourceConfig =
+    rawConfigs.find((c) => !c.propertyId) ?? rawConfigs[0] ?? null
+
+  return (
+    <div className="space-y-8">
+      <PixelConfigPanel orgId={orgId} orgSlug={slug} initialConfigs={configs} />
+
+      {linkedinSourceConfig && (
+        <LinkedinPixelConfigPanel
+          orgId={orgId}
+          orgSlug={slug}
+          configId={linkedinSourceConfig.id}
+          initial={{
+            pixelId: linkedinSourceConfig.linkedin?.pixelId,
+            hasCapiToken: !!linkedinSourceConfig.linkedin?.capiTokenEnc,
+            testEventCode: linkedinSourceConfig.linkedin?.testEventCode,
+          }}
+        />
+      )}
+    </div>
+  )
 }
