@@ -91,10 +91,15 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
       await messagesCollection(convId).doc(msgId).update({
         content: '',
         status: 'failed',
-        error: 'Run expired or not found on agent gateway',
+        error: 'The agent gateway no longer has this run. Please send the message again.',
         runId,
       })
-      return apiSuccess({ status: 'failed', content: '', runId })
+      return apiSuccess({
+        status: 'failed',
+        content: '',
+        error: 'The agent gateway no longer has this run. Please send the message again.',
+        runId,
+      })
     }
     return apiError('Failed to fetch Hermes run', response.status || 502, { hermes: data })
   }

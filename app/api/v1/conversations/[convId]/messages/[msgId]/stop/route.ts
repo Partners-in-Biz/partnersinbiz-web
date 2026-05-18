@@ -57,7 +57,7 @@ export const POST = withAuth('admin', async (_req: NextRequest, user: ApiUser, c
     content: '',
     status: 'failed',
     error: upstream.response.status === 404
-      ? 'Run expired or not found on agent gateway'
+      ? 'The agent gateway no longer has this run.'
       : 'Agent run stopped by admin',
     runId,
   })

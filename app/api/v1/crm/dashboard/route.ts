@@ -10,6 +10,18 @@ import type { Deal } from '@/lib/crm/types'
 
 export const dynamic = 'force-dynamic'
 
+type DashboardActivity = { id: string; createdAt?: unknown } & Record<string, unknown>
+
+function toDate(value: unknown): Date | null {
+  if (!value) return null
+  if (value instanceof Date) return value
+  const maybeTimestamp = value as { toDate?: () => Date; _seconds?: number; seconds?: number }
+  if (typeof maybeTimestamp.toDate === 'function') return maybeTimestamp.toDate()
+  const seconds = maybeTimestamp._seconds ?? maybeTimestamp.seconds
+  if (typeof seconds === 'number') return new Date(seconds * 1000)
+  return null
+}
+
 export const GET = withCrmAuth('member', async (_req, ctx) => {
   const { orgId } = ctx
 
@@ -17,23 +29,24 @@ export const GET = withCrmAuth('member', async (_req, ctx) => {
     const now = new Date()
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
 
-    // Fetch all non-deleted deals and recent activities in parallel
+    // Keep these reads index-light. The dashboard is a summary surface, so it is
+    // safer to filter/sort the bounded tenant result in memory than to require
+    // every fresh workspace to have composite indexes deployed first.
     const [dealsSnap, activitiesSnap] = await Promise.all([
       adminDb
         .collection('deals')
         .where('orgId', '==', orgId)
-        .where('deleted', '!=', true)
         .limit(1000)
         .get(),
       adminDb
         .collection('activities')
         .where('orgId', '==', orgId)
-        .orderBy('createdAt', 'desc')
-        .limit(10)
+        .limit(100)
         .get(),
     ])
 
-    const deals = dealsSnap.docs.map((d) => ({ id: d.id, ...d.data() })) as Deal[]
+    const deals = (dealsSnap.docs.map((d) => ({ id: d.id, ...d.data() })) as Array<Deal & { deleted?: boolean }>)
+      .filter((d) => d.deleted !== true)
 
     // Classify deals using probability heuristic:
     //   - probability === 100 → won
@@ -42,12 +55,12 @@ export const GET = withCrmAuth('member', async (_req, ctx) => {
     const open = deals.filter((d) => !d.lostReason && (d.probability ?? 50) < 100)
 
     const wonThisMonth = deals.filter((d) => {
-      const updatedAt = (d.updatedAt as unknown as { toDate?: () => Date } | null)?.toDate?.() ?? null
+      const updatedAt = toDate(d.updatedAt)
       return d.probability === 100 && updatedAt !== null && updatedAt >= monthStart
     })
 
     const lostThisMonth = deals.filter((d) => {
-      const updatedAt = (d.updatedAt as unknown as { toDate?: () => Date } | null)?.toDate?.() ?? null
+      const updatedAt = toDate(d.updatedAt)
       return !!d.lostReason && updatedAt !== null && updatedAt >= monthStart
     })
 
@@ -61,7 +74,10 @@ export const GET = withCrmAuth('member', async (_req, ctx) => {
       .sort((a, b) => (b.value ?? 0) - (a.value ?? 0))
       .slice(0, 5)
 
-    const recentActivities = activitiesSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
+    const recentActivities = activitiesSnap.docs
+      .map((d): DashboardActivity => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => (toDate(b.createdAt)?.getTime() ?? 0) - (toDate(a.createdAt)?.getTime() ?? 0))
+      .slice(0, 10)
 
     return apiSuccess({
       openDealsCount,

@@ -13,6 +13,15 @@ export const dynamic = 'force-dynamic'
 const DEFAULT_LIMIT = 20
 const MAX_LIMIT = 100
 
+function toMillis(value: unknown): number {
+  if (!value) return 0
+  if (value instanceof Date) return value.getTime()
+  const maybeTimestamp = value as { toDate?: () => Date; _seconds?: number; seconds?: number }
+  if (typeof maybeTimestamp.toDate === 'function') return maybeTimestamp.toDate().getTime()
+  const seconds = maybeTimestamp._seconds ?? maybeTimestamp.seconds
+  return typeof seconds === 'number' ? seconds * 1000 : 0
+}
+
 async function handler(req: NextRequest, ctx: CrmAuthContext): Promise<Response> {
   const { searchParams } = new URL(req.url)
   const rawLimit = parseInt(searchParams.get('limit') ?? `${DEFAULT_LIMIT}`, 10)
@@ -23,40 +32,29 @@ async function handler(req: NextRequest, ctx: CrmAuthContext): Promise<Response>
 
   const uid = ctx.actor.uid
 
-  // Fetch notifications for this org filtered to this user or org-wide (userId == null)
-  // Uses the existing index: orgId ASC, userId ASC, status ASC, createdAt DESC
-  let snap
   try {
-    snap = await adminDb
+    const snap = await adminDb
       .collection('notifications')
       .where('orgId', '==', ctx.orgId)
-      .where('userId', '==', uid)
-      .orderBy('createdAt', 'desc')
-      .limit(limit)
+      .limit(Math.max(limit * 5, 50))
       .get()
-  } catch {
-    // Fallback: query without userId filter if index not available yet
-    try {
-      snap = await adminDb
-        .collection('notifications')
-        .where('orgId', '==', ctx.orgId)
-        .orderBy('createdAt', 'desc')
-        .limit(limit)
-        .get()
-    } catch (err) {
-      console.error('notifications query failed', err)
-      return apiError('Failed to load notifications', 500)
-    }
+
+    const notifications: (Notification & { id: string })[] = snap.docs
+      .map(doc => ({
+        id: doc.id,
+        ...(doc.data() as Omit<Notification, 'id'>),
+      }))
+      .filter((n) => n.userId === uid || n.userId === null || typeof n.userId === 'undefined')
+      .sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt))
+      .slice(0, limit)
+
+    const unreadCount = notifications.filter(n => n.status === 'unread').length
+
+    return apiSuccess({ notifications, unreadCount })
+  } catch (err) {
+    console.error('notifications query failed', err)
+    return apiError('Failed to load notifications', 500)
   }
-
-  const notifications: (Notification & { id: string })[] = snap.docs.map(doc => ({
-    id: doc.id,
-    ...(doc.data() as Omit<Notification, 'id'>),
-  }))
-
-  const unreadCount = notifications.filter(n => n.status === 'unread').length
-
-  return apiSuccess({ notifications, unreadCount })
 }
 
 export const GET = withCrmAuth('viewer', handler)

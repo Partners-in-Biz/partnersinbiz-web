@@ -70,6 +70,39 @@ interface CrmDashboardData {
   }>
 }
 
+const EMPTY_CRM_DASHBOARD: CrmDashboardData = {
+  openDealsCount: 0,
+  openDealsValue: 0,
+  weightedPipelineValue: 0,
+  wonThisMonth: { count: 0, value: 0 },
+  lostThisMonth: { count: 0 },
+  recentActivities: [],
+  topOpenDeals: [],
+}
+
+function normalizeCrmDashboardPayload(body: unknown): CrmDashboardData | null {
+  const payload = body as { success?: boolean; data?: Partial<CrmDashboardData> } | Partial<CrmDashboardData> | null
+  if (!payload) return null
+  if ('success' in payload && payload.success === false) return null
+  const data = (('data' in payload ? payload.data : payload) ?? {}) as Partial<CrmDashboardData>
+  if (typeof data !== 'object') return null
+
+  return {
+    openDealsCount: typeof data.openDealsCount === 'number' ? data.openDealsCount : 0,
+    openDealsValue: typeof data.openDealsValue === 'number' ? data.openDealsValue : 0,
+    weightedPipelineValue: typeof data.weightedPipelineValue === 'number' ? data.weightedPipelineValue : 0,
+    wonThisMonth: {
+      count: typeof data.wonThisMonth?.count === 'number' ? data.wonThisMonth.count : 0,
+      value: typeof data.wonThisMonth?.value === 'number' ? data.wonThisMonth.value : 0,
+    },
+    lostThisMonth: {
+      count: typeof data.lostThisMonth?.count === 'number' ? data.lostThisMonth.count : 0,
+    },
+    recentActivities: Array.isArray(data.recentActivities) ? data.recentActivities : [],
+    topOpenDeals: Array.isArray(data.topOpenDeals) ? data.topOpenDeals : [],
+  }
+}
+
 const fmtZar = new Intl.NumberFormat('en-ZA', {
   style: 'currency', currency: 'ZAR', maximumFractionDigits: 0,
 })
@@ -175,9 +208,12 @@ export default function PortalDashboard() {
 
   useEffect(() => {
     fetch('/api/v1/crm/dashboard')
-      .then(r => r.json())
-      .then(b => setCrmData(b.data ?? b))
-      .catch(() => {})
+      .then(async r => {
+        const body = await r.json().catch(() => null)
+        return r.ok ? normalizeCrmDashboardPayload(body) : null
+      })
+      .then(data => setCrmData(data ?? EMPTY_CRM_DASHBOARD))
+      .catch(() => setCrmData(EMPTY_CRM_DASHBOARD))
       .finally(() => setCrmLoading(false))
   }, [])
 

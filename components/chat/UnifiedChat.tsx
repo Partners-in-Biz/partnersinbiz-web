@@ -108,6 +108,14 @@ export default function UnifiedChat({
 
   // Refs
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const pollFailuresRef = useRef<Record<string, number>>({})
+  const pollFinalizeRef = useRef<((
+    convId: string,
+    msgId: string,
+    runId: string,
+    agentId: AgentId,
+    attempts?: number
+  ) => void) | null>(null)
   const eventSourcesRef = useRef<Record<string, EventSource>>({})
   const messagesContainerRef = useRef<HTMLDivElement | null>(null)
   // Tracks which assistant message IDs we've already started polling for (prevents duplicates)
@@ -252,6 +260,20 @@ export default function UnifiedChat({
     delete eventSourcesRef.current[msgId]
   }, [])
 
+  const scheduleFinalizePoll = useCallback((
+    convId: string,
+    msgId: string,
+    runId: string,
+    agentId: AgentId,
+    attempts: number,
+    delay = POLL_INTERVAL,
+  ) => {
+    pollRef.current = setTimeout(
+      () => pollFinalizeRef.current?.(convId, msgId, runId, agentId, attempts + 1),
+      delay,
+    )
+  }, [])
+
   // ── Polling finalize ──────────────────────────────────────────────────────
   const pollFinalize = useCallback(
     async (convId: string, msgId: string, runId: string, agentId: AgentId, attempts = 0) => {
@@ -291,18 +313,13 @@ export default function UnifiedChat({
 
         // Non-2xx from finalize API (e.g. 502 upstream) — keep polling, don't bail
         if (!res.ok && status !== 'failed') {
-          pollRef.current = setTimeout(
-            () => pollFinalize(convId, msgId, runId, agentId, attempts + 1),
-            POLL_INTERVAL,
-          )
+          scheduleFinalizePoll(convId, msgId, runId, agentId, attempts)
           return
         }
 
         if (!status || status === 'running') {
-          pollRef.current = setTimeout(
-            () => pollFinalize(convId, msgId, runId, agentId, attempts + 1),
-            POLL_INTERVAL,
-          )
+          pollFailuresRef.current[msgId] = 0
+          scheduleFinalizePoll(convId, msgId, runId, agentId, attempts)
           return
         }
 
@@ -322,12 +339,41 @@ export default function UnifiedChat({
         closeEventStream(msgId)
         await loadMessages(convId)
         await loadConversations()
-      } catch (e) {
-        setError(e instanceof Error ? e.message : 'Finalize failed')
+      } catch {
+        const failures = (pollFailuresRef.current[msgId] ?? 0) + 1
+        pollFailuresRef.current[msgId] = failures
+        if (failures < 8) {
+          scheduleFinalizePoll(
+            convId,
+            msgId,
+            runId,
+            agentId,
+            attempts,
+            Math.min(POLL_INTERVAL * failures, 10_000),
+          )
+          return
+        }
+        closeEventStream(msgId)
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === msgId
+              ? {
+                  ...m,
+                  status: 'failed',
+                  error: 'Lost connection while checking the agent run. Refresh or send the message again.',
+                  content: '',
+                }
+              : m,
+          ),
+        )
       }
     },
-    [loadMessages, loadConversations, closeEventStream],
+    [loadMessages, loadConversations, closeEventStream, scheduleFinalizePoll],
   )
+
+  useEffect(() => {
+    pollFinalizeRef.current = pollFinalize
+  }, [pollFinalize])
 
   // ── Auto-resume polling for pending messages (e.g. from previous sessions) ─
   // Must be after startEventStream + pollFinalize to avoid TDZ

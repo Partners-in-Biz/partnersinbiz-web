@@ -40,25 +40,26 @@ export function MessageDrawer({
 
     const pushRoot = document.querySelector<HTMLElement>('[data-message-push-root]')
     if (!pushRoot) return
+    const pageRoot = pushRoot
 
-    const previousMargin = pushRoot.style.marginRight
-    const previousTransition = pushRoot.style.transition
+    const previousMargin = pageRoot.style.marginRight
+    const previousTransition = pageRoot.style.transition
     const media = window.matchMedia('(min-width: 768px)')
 
     function syncPageInset() {
-      pushRoot.style.marginRight = open && media.matches ? drawerWidth : previousMargin
+      pageRoot.style.marginRight = open && media.matches ? drawerWidth : previousMargin
     }
 
     if (!previousTransition) {
-      pushRoot.style.transition = 'margin-right 180ms ease'
+      pageRoot.style.transition = 'margin-right 180ms ease'
     }
     syncPageInset()
     media.addEventListener('change', syncPageInset)
 
     return () => {
       media.removeEventListener('change', syncPageInset)
-      pushRoot.style.marginRight = previousMargin
-      pushRoot.style.transition = previousTransition
+      pageRoot.style.marginRight = previousMargin
+      pageRoot.style.transition = previousTransition
     }
   }, [drawerWidth, open])
 
