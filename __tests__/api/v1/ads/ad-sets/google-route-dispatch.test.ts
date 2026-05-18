@@ -10,6 +10,10 @@ jest.mock('@/lib/api/auth', () => ({ withAuth: (_r: string, h: any) => h }))
 // ─── requireMetaContext ──────────────────────────────────────────────────────
 jest.mock('@/lib/ads/api-helpers', () => ({
   requireMetaContext: jest.fn(),
+  resolveGoogleAdsCustomerContext: jest.fn((conn: any) => ({
+    customerId: conn.defaultAdAccountId,
+    loginCustomerId: conn.meta?.google?.loginCustomerId,
+  })),
 }))
 
 // ─── AdSet + Campaign stores ─────────────────────────────────────────────────
@@ -53,7 +57,7 @@ const fakeCampaign = {
   providerData: { google: { campaignResourceName: 'customers/1234567890/campaigns/555' } },
 }
 const fakeAdSet = { id: 'adset-001', orgId: 'org-001', status: 'DRAFT', providerData: {} }
-const fakeConn = { meta: { google: { loginCustomerId: '1234567890' } }, accessTokenEnc: {} }
+const fakeConn = { defaultAdAccountId: '1234567890', meta: { google: { loginCustomerId: '9999999999' } }, accessTokenEnc: {} }
 const fakeResult = { resourceName: 'customers/1234567890/adGroups/444', id: '444' }
 
 function makeReq(body: object) {
@@ -95,6 +99,7 @@ describe('POST /api/v1/ads/ad-sets — Google adgroup type passthrough', () => {
     expect(call.type).toBe('DISPLAY_STANDARD')
     expect(call.defaultCpcBidMajor).toBe(0.75)
     expect(call.customerId).toBe('1234567890')
+    expect(call.loginCustomerId).toBe('9999999999')
     expect(call.campaignResourceName).toBe('customers/1234567890/campaigns/555')
   })
 

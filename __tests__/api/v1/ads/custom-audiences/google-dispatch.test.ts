@@ -10,6 +10,10 @@ jest.mock('@/lib/api/auth', () => ({ withAuth: (_r: string, h: any) => h }))
 // ─── requireMetaContext — not used for Google branch ────────────────────────
 jest.mock('@/lib/ads/api-helpers', () => ({
   requireMetaContext: jest.fn(),
+  resolveGoogleAdsCustomerContext: jest.fn((conn: any) => ({
+    customerId: conn.defaultAdAccountId,
+    loginCustomerId: conn.meta?.google?.loginCustomerId,
+  })),
 }))
 
 // ─── Custom audience store ────────────────────────────────────────────────────
@@ -83,7 +87,8 @@ const { createCustomSegment } = jest.requireMock('@/lib/ads/providers/google/aud
 
 // ─── Shared stubs ─────────────────────────────────────────────────────────────
 const fakeConn = {
-  meta: { google: { loginCustomerId: '1234567890' } },
+  defaultAdAccountId: '1234567890',
+  meta: { google: { loginCustomerId: '9999999999' } },
   accessTokenEnc: {},
 }
 const fakeResult = { resourceName: 'customers/1234567890/userLists/42', id: '42' }
@@ -130,6 +135,7 @@ describe('POST /api/v1/ads/custom-audiences — Google dispatch', () => {
     expect(createCustomerMatchList).toHaveBeenCalledTimes(1)
     const call = createCustomerMatchList.mock.calls[0][0]
     expect(call.customerId).toBe('1234567890')
+    expect(call.loginCustomerId).toBe('9999999999')
     expect(call.name).toBe('My CRM List')
     expect(call.uploadKeyType).toBe('CONTACT_INFO')
 
@@ -160,6 +166,7 @@ describe('POST /api/v1/ads/custom-audiences — Google dispatch', () => {
     expect(createRemarketingList).toHaveBeenCalledTimes(1)
     const call = createRemarketingList.mock.calls[0][0]
     expect(call.customerId).toBe('1234567890')
+    expect(call.loginCustomerId).toBe('9999999999')
     expect(call.name).toBe('Site Visitors')
     expect(call.membershipLifeSpanDays).toBe(30)
     expect(call.rule).toEqual({ kind: 'URL_CONTAINS', value: '/checkout' })

@@ -19,7 +19,7 @@ jest.mock('@/lib/ads/insights/queue', () => ({
 const mockRefreshEntityInsights = jest.fn<Promise<{ rowsWritten: number; daysProcessed: number }>, [unknown]>()
 
 jest.mock('@/lib/ads/insights/refresh', () => ({
-  refreshEntityInsights: (...args: unknown[]) => mockRefreshEntityInsights(...args),
+  refreshEntityInsights: (...args: unknown[]) => mockRefreshEntityInsights(...(args as [unknown])),
 }))
 
 const mockListConnections = jest.fn<Promise<AdConnection[]>, [{ orgId: string }]>()
@@ -58,7 +58,7 @@ function makeMetaConn(orgId: string): AdConnection {
     scopes: [],
     adAccounts: [],
     tokenType: 'user',
-    accessTokenEnc: 'enc_tok',
+    accessTokenEnc: 'enc_tok' as unknown as AdConnection['accessTokenEnc'],
     expiresAt: { toMillis: () => Date.now() + 86400000 } as unknown as import('firebase-admin/firestore').Timestamp,
     createdAt: { toMillis: () => Date.now() } as unknown as import('firebase-admin/firestore').Timestamp,
     updatedAt: { toMillis: () => Date.now() } as unknown as import('firebase-admin/firestore').Timestamp,

@@ -12,6 +12,13 @@ export interface MetaContext {
   adAccountId: string
 }
 
+export interface GoogleAdsCustomerContext {
+  /** Google Ads customer/account ID used in resource paths. */
+  customerId: string
+  /** Optional MCC manager customer ID used only as login-customer-id header. */
+  loginCustomerId?: string
+}
+
 /**
  * Resolves the per-org Meta connection + default ad account + decrypts the token.
  * Returns either a MetaContext OR an apiError Response to short-circuit the route.
@@ -43,6 +50,25 @@ export async function requireMetaContext(
     adAccountId: conn.defaultAdAccountId,
   }
   return ctx
+}
+
+export function resolveGoogleAdsCustomerContext(conn: AdConnection): GoogleAdsCustomerContext | Response {
+  const meta = (conn.meta ?? {}) as Record<string, unknown>
+  const googleMeta = (meta.google as Record<string, unknown> | undefined) ?? {}
+  const customerId =
+    typeof conn.defaultAdAccountId === 'string' && conn.defaultAdAccountId.trim()
+      ? conn.defaultAdAccountId.trim()
+      : undefined
+  const loginCustomerId =
+    typeof googleMeta.loginCustomerId === 'string' && googleMeta.loginCustomerId.trim()
+      ? googleMeta.loginCustomerId.trim()
+      : undefined
+
+  if (!customerId) {
+    return apiError('No Google Ads customer account selected on connection', 400)
+  }
+
+  return { customerId, loginCustomerId }
 }
 
 /** Strip server-managed fields from doc before client serialization. */

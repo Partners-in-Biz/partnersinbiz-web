@@ -110,7 +110,7 @@ describe('adToMetaCreativeSpec', () => {
     expect(spec.object_story_spec.link_data.message).toBe('Buy')
     expect(spec.object_story_spec.link_data.name).toBe('Sale')
     expect(spec.object_story_spec.link_data.description).toBe('Now')
-    expect(spec.object_story_spec.link_data.call_to_action.type).toBe('SHOP_NOW')
+    expect(spec.object_story_spec.link_data.call_to_action!.type).toBe('SHOP_NOW')
   })
 
   it('builds child_attachments for CAROUSEL', () => {
@@ -128,7 +128,7 @@ describe('adToMetaCreativeSpec', () => {
     const spec = adToMetaCreativeSpec(ad as Ad, 'page_123', ['h1', 'h2'])
     const attachments = spec.object_story_spec.link_data.child_attachments
     expect(attachments).toHaveLength(2)
-    expect(attachments[0].image_hash).toBe('h1')
-    expect(attachments[1].image_hash).toBe('h2')
+    expect(attachments![0].image_hash).toBe('h1')
+    expect(attachments![1].image_hash).toBe('h2')
   })
 })

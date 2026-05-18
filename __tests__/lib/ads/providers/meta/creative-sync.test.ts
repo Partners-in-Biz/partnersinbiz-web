@@ -1,4 +1,5 @@
 import { syncImageCreative, syncVideoCreative, ensureSynced } from '@/lib/ads/providers/meta/creative-sync'
+import type { AdCreative } from '@/lib/ads/types'
 
 jest.mock('@/lib/ads/providers/meta/image-upload', () => ({
   uploadImageFromUrl: jest.fn(),
@@ -18,7 +19,7 @@ beforeEach(() => {
   global.fetch = jest.fn() as unknown as typeof fetch
 })
 
-function makeImageCreative(over: Partial<any> = {}) {
+function makeImageCreative(over: Partial<AdCreative> = {}): AdCreative {
   return {
     id: 'crv_1',
     orgId: 'org_1',
@@ -34,7 +35,7 @@ function makeImageCreative(over: Partial<any> = {}) {
     createdAt: {} as any,
     updatedAt: {} as any,
     ...over,
-  }
+  } as AdCreative
 }
 
 describe('syncImageCreative', () => {

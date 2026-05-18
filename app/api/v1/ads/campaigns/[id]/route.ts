@@ -3,7 +3,7 @@ import { NextRequest } from 'next/server'
 import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { getCampaign, updateCampaign, deleteCampaign } from '@/lib/ads/campaigns/store'
-import { requireMetaContext } from '@/lib/ads/api-helpers'
+import { requireMetaContext, resolveGoogleAdsCustomerContext } from '@/lib/ads/api-helpers'
 import { metaProvider } from '@/lib/ads/providers/meta'
 import { deleteCampaign as metaDeleteCampaign } from '@/lib/ads/providers/meta/campaigns'
 import { getConnection, decryptAccessToken } from '@/lib/ads/connections/store'
@@ -82,15 +82,14 @@ export const PATCH = withAuth(
           const accessToken = decryptAccessToken(conn)
           const developerToken = readDeveloperToken()
           if (developerToken) {
-            const googleMeta = ((conn.meta ?? {}) as Record<string, unknown>).google as Record<string, unknown> | undefined
-            const loginCustomerId = typeof googleMeta?.loginCustomerId === 'string' ? googleMeta.loginCustomerId : undefined
-            if (loginCustomerId) {
+            const customerCtx = resolveGoogleAdsCustomerContext(conn)
+            if (!(customerCtx instanceof Response)) {
               try {
                 await googleUpdateCampaign({
-                  customerId: loginCustomerId,
+                  customerId: customerCtx.customerId,
                   accessToken,
                   developerToken,
-                  loginCustomerId,
+                  loginCustomerId: customerCtx.loginCustomerId,
                   resourceName,
                   name: patch.name,
                   status: patch.status,
@@ -165,15 +164,14 @@ export const DELETE = withAuth(
           const accessToken = decryptAccessToken(conn)
           const developerToken = readDeveloperToken()
           if (developerToken) {
-            const googleMeta = ((conn.meta ?? {}) as Record<string, unknown>).google as Record<string, unknown> | undefined
-            const loginCustomerId = typeof googleMeta?.loginCustomerId === 'string' ? googleMeta.loginCustomerId : undefined
-            if (loginCustomerId) {
+            const customerCtx = resolveGoogleAdsCustomerContext(conn)
+            if (!(customerCtx instanceof Response)) {
               try {
                 await googleRemoveCampaign({
-                  customerId: loginCustomerId,
+                  customerId: customerCtx.customerId,
                   accessToken,
                   developerToken,
-                  loginCustomerId,
+                  loginCustomerId: customerCtx.loginCustomerId,
                   resourceName,
                 })
               } catch {

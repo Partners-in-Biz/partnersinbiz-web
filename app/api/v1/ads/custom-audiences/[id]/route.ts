@@ -3,7 +3,7 @@ import { NextRequest } from 'next/server'
 import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { getCustomAudience, updateCustomAudience, deleteCustomAudience } from '@/lib/ads/custom-audiences/store'
-import { requireMetaContext } from '@/lib/ads/api-helpers'
+import { requireMetaContext, resolveGoogleAdsCustomerContext } from '@/lib/ads/api-helpers'
 import { metaProvider } from '@/lib/ads/providers/meta'
 import type { UpdateAdCustomAudienceInput } from '@/lib/ads/types'
 import { logCustomAudienceActivity } from '@/lib/ads/activity'
@@ -91,14 +91,10 @@ export const DELETE = withAuth(
           if (conn) {
             const accessToken = decryptAccessToken(conn)
             const developerToken = readDeveloperToken()
-            const meta = (conn.meta ?? {}) as Record<string, unknown>
-            const googleMeta = (meta.google as Record<string, unknown> | undefined) ?? {}
-            const loginCustomerId =
-              typeof googleMeta.loginCustomerId === 'string' ? googleMeta.loginCustomerId : undefined
-            const customerId = loginCustomerId
+            const customerCtx = resolveGoogleAdsCustomerContext(conn)
 
-            if (customerId && developerToken) {
-              const callArgs = { customerId, accessToken, developerToken, loginCustomerId, resourceName: userListResourceName }
+            if (!(customerCtx instanceof Response) && developerToken) {
+              const callArgs = { ...customerCtx, accessToken, developerToken, resourceName: userListResourceName }
               if (subtype === 'CUSTOMER_MATCH') {
                 const { removeCustomerMatchList } = await import('@/lib/ads/providers/google/audiences/customer-match')
                 await removeCustomerMatchList(callArgs)

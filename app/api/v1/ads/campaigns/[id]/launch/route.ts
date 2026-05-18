@@ -3,7 +3,7 @@ import { NextRequest } from 'next/server'
 import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { getCampaign, updateCampaign, setCampaignMetaId } from '@/lib/ads/campaigns/store'
-import { requireMetaContext } from '@/lib/ads/api-helpers'
+import { requireMetaContext, resolveGoogleAdsCustomerContext } from '@/lib/ads/api-helpers'
 import { metaProvider } from '@/lib/ads/providers/meta'
 import { getConnection, decryptAccessToken } from '@/lib/ads/connections/store'
 import { readDeveloperToken } from '@/lib/integrations/google_ads/oauth'
@@ -58,16 +58,16 @@ export const POST = withAuth(
       const accessToken = decryptAccessToken(conn)
       const developerToken = readDeveloperToken()
       if (!developerToken) return apiError('Google Ads developer token not configured', 500)
-      const googleMeta = ((conn.meta ?? {}) as Record<string, unknown>).google as Record<string, unknown> | undefined
-      const loginCustomerId = typeof googleMeta?.loginCustomerId === 'string' ? googleMeta.loginCustomerId : undefined
-      if (!loginCustomerId) return apiError('No Customer ID set on Google connection', 400)
+      const customerCtx = resolveGoogleAdsCustomerContext(conn)
+      if (customerCtx instanceof Response) return customerCtx
+      const { customerId, loginCustomerId } = customerCtx
 
       const googleData = (campaign.providerData as Record<string, unknown>)?.google as Record<string, unknown> | undefined
       const resourceName = typeof googleData?.campaignResourceName === 'string' ? googleData.campaignResourceName : undefined
       if (!resourceName) return apiError('Campaign has no Google resource name — create first', 400)
 
       await googleResumeCampaign({
-        customerId: loginCustomerId,
+        customerId,
         accessToken,
         developerToken,
         loginCustomerId,

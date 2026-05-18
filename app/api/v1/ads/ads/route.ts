@@ -4,7 +4,7 @@ import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { listAds, createAd, updateAd } from '@/lib/ads/ads/store'
 import { getAdSet } from '@/lib/ads/adsets/store'
-import { requireMetaContext } from '@/lib/ads/api-helpers'
+import { requireMetaContext, resolveGoogleAdsCustomerContext } from '@/lib/ads/api-helpers'
 import { getConnection, decryptAccessToken } from '@/lib/ads/connections/store'
 import { readDeveloperToken } from '@/lib/integrations/google_ads/oauth'
 import { createResponsiveSearchAd } from '@/lib/ads/providers/google/ads'
@@ -89,9 +89,9 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
     const accessToken = decryptAccessToken(conn)
     const developerToken = readDeveloperToken()
     if (!developerToken) return apiError('Google Ads developer token not configured', 500)
-    const googleMeta = ((conn.meta ?? {}) as Record<string, unknown>).google as Record<string, unknown> | undefined
-    const loginCustomerId = typeof googleMeta?.loginCustomerId === 'string' ? googleMeta.loginCustomerId : undefined
-    if (!loginCustomerId) return apiError('No Customer ID set on Google connection', 400)
+    const customerCtx = resolveGoogleAdsCustomerContext(conn)
+    if (customerCtx instanceof Response) return customerCtx
+    const { customerId, loginCustomerId } = customerCtx
 
     const googleAdSetData = (adSet.providerData as Record<string, unknown>)?.google as Record<string, unknown> | undefined
     const adGroupResourceName = typeof googleAdSetData?.adGroupResourceName === 'string' ? googleAdSetData.adGroupResourceName : undefined
@@ -101,7 +101,7 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
     if (body.productAd === true) {
       const { createProductAd } = await import('@/lib/ads/providers/google/shopping-ads')
       result = await createProductAd({
-        customerId: loginCustomerId,
+        customerId,
         accessToken,
         developerToken,
         loginCustomerId,
@@ -111,7 +111,7 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
     } else if (body.rdaAssets) {
       const { createResponsiveDisplayAd } = await import('@/lib/ads/providers/google/display-ads')
       result = await createResponsiveDisplayAd({
-        customerId: loginCustomerId,
+        customerId,
         accessToken,
         developerToken,
         loginCustomerId,
@@ -122,7 +122,7 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
     } else if (body.googleAds?.videoAd) {
       const { createResponsiveVideoAd } = await import('@/lib/ads/providers/google/video-ads')
       result = await createResponsiveVideoAd({
-        customerId: loginCustomerId,
+        customerId,
         accessToken,
         developerToken,
         loginCustomerId,
@@ -132,7 +132,7 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
       })
     } else {
       result = await createResponsiveSearchAd({
-        customerId: loginCustomerId,
+        customerId,
         accessToken,
         developerToken,
         loginCustomerId,

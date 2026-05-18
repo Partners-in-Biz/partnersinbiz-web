@@ -8,7 +8,7 @@ import { refreshEntityInsights } from '@/lib/ads/insights/refresh'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import type { AdConnection } from '@/lib/ads/types'
 
-export async function POST(req: NextRequest) {
+async function runDailyInsightsPull(req: NextRequest) {
   // Vercel Cron sends CRON_SECRET in the Authorization header
   const auth = req.headers.get('authorization')
   if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -311,4 +311,12 @@ export async function POST(req: NextRequest) {
     failed: totalFailed,
     errors: errors.slice(0, 20),
   })
+}
+
+export async function GET(req: NextRequest) {
+  return runDailyInsightsPull(req)
+}
+
+export async function POST(req: NextRequest) {
+  return runDailyInsightsPull(req)
 }

@@ -31,7 +31,8 @@ const { listAffinityAudiences, listInMarketAudiences, listDetailedDemographics }
 
 // ─── Shared stubs ─────────────────────────────────────────────────────────────
 const fakeConn = {
-  meta: { google: { loginCustomerId: '1234567890' } },
+  defaultAdAccountId: '1234567890',
+  meta: { google: { loginCustomerId: '9999999999' } },
   accessTokenEnc: {},
 }
 const fakeAffinityAudiences = [
@@ -78,6 +79,7 @@ describe('GET /api/v1/ads/google/audiences/browse', () => {
 
     const call = listAffinityAudiences.mock.calls[0][0]
     expect(call.customerId).toBe('1234567890')
+    expect(call.loginCustomerId).toBe('9999999999')
     expect(call.accessToken).toBe('access-token')
     expect(call.developerToken).toBe('dev-token')
 

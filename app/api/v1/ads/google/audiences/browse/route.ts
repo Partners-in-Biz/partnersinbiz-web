@@ -6,6 +6,7 @@ import { NextRequest } from 'next/server'
 import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { getConnection, decryptAccessToken } from '@/lib/ads/connections/store'
+import { resolveGoogleAdsCustomerContext } from '@/lib/ads/api-helpers'
 import { readDeveloperToken } from '@/lib/integrations/google_ads/oauth'
 
 export const dynamic = 'force-dynamic'
@@ -30,14 +31,10 @@ export const GET = withAuth('admin', async (req: NextRequest) => {
   const developerToken = readDeveloperToken()
   if (!developerToken) return apiError('GOOGLE_ADS_DEVELOPER_TOKEN not configured', 500)
 
-  const meta = (conn.meta ?? {}) as Record<string, unknown>
-  const googleMeta = (meta.google as Record<string, unknown> | undefined) ?? {}
-  const loginCustomerId =
-    typeof googleMeta.loginCustomerId === 'string' ? googleMeta.loginCustomerId : undefined
-  const customerId = loginCustomerId
-  if (!customerId) return apiError('No Customer ID set on Google connection', 400)
+  const customerCtx = resolveGoogleAdsCustomerContext(conn)
+  if (customerCtx instanceof Response) return customerCtx
 
-  const callArgs = { customerId, accessToken, developerToken, loginCustomerId }
+  const callArgs = { ...customerCtx, accessToken, developerToken }
 
   try {
     let audiences

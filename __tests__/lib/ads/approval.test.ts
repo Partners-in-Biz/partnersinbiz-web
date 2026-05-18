@@ -60,7 +60,7 @@ describe('setReviewState — submitted (DRAFT → PENDING_REVIEW + awaiting)', (
 
     // arrayUnion should have been called with the entry
     expect(mockArrayUnion).toHaveBeenCalledTimes(1)
-    const [entry] = mockArrayUnion.mock.calls[0]
+    const [entry] = mockArrayUnion.mock.calls[0] as [Record<string, unknown>]
     expect(entry).toMatchObject({
       state: 'submitted',
       actorUid: 'admin_uid_1',
@@ -94,7 +94,7 @@ describe('setReviewState — approved (PENDING_REVIEW stays + reviewState approv
     expect(patch.approvedBy).toBe('portal_uid_1')
 
     expect(mockArrayUnion).toHaveBeenCalledTimes(1)
-    const [entry] = mockArrayUnion.mock.calls[0]
+    const [entry] = mockArrayUnion.mock.calls[0] as [Record<string, unknown>]
     expect(entry).toMatchObject({
       state: 'approved',
       actorUid: 'portal_uid_1',

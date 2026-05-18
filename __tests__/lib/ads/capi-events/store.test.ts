@@ -9,10 +9,17 @@ import {
 let nowMillis = 1_700_000_000_000
 
 jest.mock('firebase-admin/firestore', () => {
+  const makeTimestamp = (ms: number) => ({
+    seconds: Math.floor(ms / 1000),
+    nanoseconds: 0,
+    toMillis: () => ms,
+    toDate: () => new Date(ms),
+    isEqual: (other: { toMillis?: () => number }) => other.toMillis?.() === ms,
+  })
   return {
     Timestamp: {
-      now: () => ({ seconds: Math.floor(nowMillis / 1000), nanoseconds: 0, toMillis: () => nowMillis }),
-      fromMillis: (ms: number) => ({ seconds: Math.floor(ms / 1000), nanoseconds: 0, toMillis: () => ms }),
+      now: () => makeTimestamp(nowMillis),
+      fromMillis: (ms: number) => makeTimestamp(ms),
     },
   }
 })
@@ -105,10 +112,16 @@ jest.mock('@/lib/firebase/admin', () => {
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function ts(ms: number) {
-  return { seconds: Math.floor(ms / 1000), nanoseconds: 0, toMillis: () => ms }
+  return {
+    seconds: Math.floor(ms / 1000),
+    nanoseconds: 0,
+    toMillis: () => ms,
+    toDate: () => new Date(ms),
+    isEqual: (other: { toMillis?: () => number }) => other.toMillis?.() === ms,
+  } as unknown as import('firebase-admin/firestore').Timestamp
 }
 
-function baseArgs(overrides: Partial<Parameters<typeof recordCapiEvent>[0]> = {}) {
+function baseArgs(overrides: Partial<Parameters<typeof recordCapiEvent>[0]> = {}): Parameters<typeof recordCapiEvent>[0] {
   return {
     event_id: 'evt_abc123',
     orgId: 'org_1',

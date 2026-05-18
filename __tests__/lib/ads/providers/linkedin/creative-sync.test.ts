@@ -147,8 +147,8 @@ describe('LinkedIn creative-sync — asset register + upload', () => {
     expect(headers['Content-Type']).toBe('image/jpeg')
     expect(headers.Authorization).toBe('Bearer test-token')
 
-    // Body is the bytes
-    expect(init.body).toBe(bytes)
+    // Body preserves the bytes, though uploadImageBytes may copy the view.
+    expect(Array.from(init.body as Uint8Array)).toEqual(Array.from(bytes))
 
     // Now test that it throws on non-OK
     ;(global.fetch as jest.Mock).mockResolvedValueOnce({
@@ -195,6 +195,6 @@ describe('LinkedIn creative-sync — asset register + upload', () => {
     const [uploadUrl, uploadInit] = (global.fetch as jest.Mock).mock.calls[1]
     expect(uploadUrl).toBe(MOCK_UPLOAD_URL)
     expect(uploadInit.method).toBe('PUT')
-    expect(uploadInit.body).toBe(bytes)
+    expect(Array.from(uploadInit.body as Uint8Array)).toEqual(Array.from(bytes))
   })
 })

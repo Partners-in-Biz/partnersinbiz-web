@@ -13,6 +13,7 @@ import { NextRequest } from 'next/server'
 import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { getConnection, decryptAccessToken } from '@/lib/ads/connections/store'
+import { resolveGoogleAdsCustomerContext } from '@/lib/ads/api-helpers'
 import { readDeveloperToken } from '@/lib/integrations/google_ads/oauth'
 import { createYoutubeVideoAsset } from '@/lib/ads/providers/google/video-assets'
 
@@ -33,15 +34,14 @@ export const POST = withAuth('admin', async (req: NextRequest) => {
   const developerToken = readDeveloperToken()
   if (!developerToken) return apiError('Google Ads developer token not configured', 500)
 
-  const googleMeta = ((conn.meta ?? {}) as Record<string, unknown>).google as Record<string, unknown> | undefined
-  const loginCustomerId = typeof googleMeta?.loginCustomerId === 'string' ? googleMeta.loginCustomerId : undefined
-  if (!loginCustomerId) return apiError('No Customer ID set on Google connection', 400)
+  const customerCtx = resolveGoogleAdsCustomerContext(conn)
+  if (customerCtx instanceof Response) return customerCtx
 
   const result = await createYoutubeVideoAsset({
-    customerId: loginCustomerId,
+    customerId: customerCtx.customerId,
     accessToken,
     developerToken,
-    loginCustomerId,
+    loginCustomerId: customerCtx.loginCustomerId,
     youtubeVideoId: body.youtubeVideoId,
     name: body.name,
   })

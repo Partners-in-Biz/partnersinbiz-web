@@ -10,6 +10,10 @@ jest.mock('@/lib/api/auth', () => ({ withAuth: (_r: string, h: any) => h }))
 // ─── requireMetaContext — always returns a valid meta context ────────────────
 jest.mock('@/lib/ads/api-helpers', () => ({
   requireMetaContext: jest.fn(),
+  resolveGoogleAdsCustomerContext: jest.fn((conn: any) => ({
+    customerId: conn.defaultAdAccountId,
+    loginCustomerId: conn.meta?.google?.loginCustomerId,
+  })),
 }))
 
 // ─── Campaign store ──────────────────────────────────────────────────────────
@@ -63,7 +67,8 @@ const fakeCampaign = {
   orgId: 'org-001',
 }
 const fakeConn = {
-  meta: { google: { loginCustomerId: '1234567890' } },
+  defaultAdAccountId: '1234567890',
+  meta: { google: { loginCustomerId: '9999999999' } },
   accessTokenEnc: {},
 }
 const fakeResult = { resourceName: 'customers/1234567890/campaigns/999', id: '999' }
@@ -107,6 +112,7 @@ describe('POST /api/v1/ads/campaigns — Google dispatch branching', () => {
 
     const call = createDisplayCampaign.mock.calls[0][0]
     expect(call.customerId).toBe('1234567890')
+    expect(call.loginCustomerId).toBe('9999999999')
     expect(call.dailyBudgetMajor).toBe(20)
     expect(call.canonical).toEqual(fakeCampaign)
   })
@@ -167,6 +173,7 @@ describe('POST /api/v1/ads/campaigns — Google dispatch branching', () => {
 
     const call = createShoppingCampaign.mock.calls[0][0]
     expect(call.customerId).toBe('1234567890')
+    expect(call.loginCustomerId).toBe('9999999999')
     expect(call.merchantId).toBe('merch-123')
     expect(call.feedLabel).toBe('US')
     expect(call.dailyBudgetMajor).toBe(15)

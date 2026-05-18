@@ -4,7 +4,7 @@ import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { listAdSets, createAdSet } from '@/lib/ads/adsets/store'
 import { getCampaign } from '@/lib/ads/campaigns/store'
-import { requireMetaContext } from '@/lib/ads/api-helpers'
+import { requireMetaContext, resolveGoogleAdsCustomerContext } from '@/lib/ads/api-helpers'
 import { getConnection, decryptAccessToken } from '@/lib/ads/connections/store'
 import { readDeveloperToken } from '@/lib/integrations/google_ads/oauth'
 import { createAdGroup } from '@/lib/ads/providers/google/adgroups'
@@ -83,16 +83,16 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
     const accessToken = decryptAccessToken(conn)
     const developerToken = readDeveloperToken()
     if (!developerToken) return apiError('Google Ads developer token not configured', 500)
-    const googleMeta = ((conn.meta ?? {}) as Record<string, unknown>).google as Record<string, unknown> | undefined
-    const loginCustomerId = typeof googleMeta?.loginCustomerId === 'string' ? googleMeta.loginCustomerId : undefined
-    if (!loginCustomerId) return apiError('No Customer ID set on Google connection', 400)
+    const customerCtx = resolveGoogleAdsCustomerContext(conn)
+    if (customerCtx instanceof Response) return customerCtx
+    const { customerId, loginCustomerId } = customerCtx
 
     const googleCampaignData = (campaign.providerData as Record<string, unknown>)?.google as Record<string, unknown> | undefined
     const campaignResourceName = typeof googleCampaignData?.campaignResourceName === 'string' ? googleCampaignData.campaignResourceName : undefined
     if (!campaignResourceName) return apiError('Parent campaign has no Google resource name', 400)
 
     const result = await createAdGroup({
-      customerId: loginCustomerId,
+      customerId,
       accessToken,
       developerToken,
       loginCustomerId,

@@ -7,10 +7,10 @@
 //
 // Flow:
 //   - No connection → "Connect Google Ads" button → POST authorize → redirect
-//   - Connection without loginCustomerId → fetch accessible customers
+//   - Connection without defaultAdAccountId → fetch accessible customers
 //     (`GET /api/v1/ads/google/customers`) → render <select> picker →
-//     submit PATCHes `loginCustomerId` then router.refresh()
-//   - Connection with loginCustomerId → status pill + disconnect button
+//     submit PATCHes `customerId` then router.refresh()
+//   - Connection with defaultAdAccountId → status pill + disconnect button
 //
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -35,10 +35,16 @@ function getLoginCustomerId(conn: AdConnection | undefined): string | undefined 
   return typeof v === 'string' && v.length > 0 ? v : undefined
 }
 
+function getCustomerId(conn: AdConnection | undefined): string | undefined {
+  const v = conn?.defaultAdAccountId
+  return typeof v === 'string' && v.length > 0 ? v : undefined
+}
+
 export function GoogleConnectionsPanel({ orgSlug, orgId, connections }: Props) {
   const router = useRouter()
   const google = connections.find((c) => c.platform === 'google')
   const loginCustomerId = getLoginCustomerId(google)
+  const customerId = getCustomerId(google)
 
   const [connecting, setConnecting] = useState(false)
   const [disconnecting, setDisconnecting] = useState(false)
@@ -46,9 +52,10 @@ export function GoogleConnectionsPanel({ orgSlug, orgId, connections }: Props) {
   const [customersLoading, setCustomersLoading] = useState(false)
   const [customersError, setCustomersError] = useState<string | null>(null)
   const [selected, setSelected] = useState<string>('')
+  const [managerCustomerId, setManagerCustomerId] = useState(loginCustomerId ?? '')
   const [saving, setSaving] = useState(false)
 
-  const needsCustomerPicker = !!google && !loginCustomerId
+  const needsCustomerPicker = !!google && !customerId
 
   // Load accessible customers when we have a connection but no chosen ID yet.
   useEffect(() => {
@@ -111,7 +118,10 @@ export function GoogleConnectionsPanel({ orgSlug, orgId, connections }: Props) {
             'X-Org-Id': orgId,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ loginCustomerId: selected }),
+              body: JSON.stringify({
+                customerId: selected,
+                ...(managerCustomerId.trim() ? { loginCustomerId: managerCustomerId.trim() } : {}),
+              }),
         },
       )
       const body = await res.json()
@@ -150,8 +160,8 @@ export function GoogleConnectionsPanel({ orgSlug, orgId, connections }: Props) {
           <h2 className="font-medium">Google Ads</h2>
           <p className="text-xs text-white/50">
             {google
-              ? loginCustomerId
-                ? `Connected · Customer ${loginCustomerId}`
+              ? customerId
+                ? `Connected · Customer ${customerId}`
                 : 'Connected · pick a Customer ID below'
               : 'Not connected'}
           </p>
@@ -175,11 +185,16 @@ export function GoogleConnectionsPanel({ orgSlug, orgId, connections }: Props) {
         )}
       </div>
 
-      {google && loginCustomerId && (
+      {google && customerId && (
         <div className="mt-4">
           <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-medium uppercase tracking-wide text-emerald-300">
-            Customer {loginCustomerId}
+            Customer {customerId}
           </span>
+          {loginCustomerId && (
+            <span className="ml-2 inline-flex items-center rounded-full bg-white/5 px-3 py-1 text-xs font-medium uppercase tracking-wide text-white/50">
+              Manager {loginCustomerId}
+            </span>
+          )}
         </div>
       )}
 
@@ -215,6 +230,14 @@ export function GoogleConnectionsPanel({ orgSlug, orgId, connections }: Props) {
                   </option>
                 ))}
               </select>
+              <input
+                aria-label="Manager customer ID"
+                className="rounded border border-white/10 bg-black/40 px-3 py-2 text-sm text-white"
+                placeholder="Manager ID optional"
+                value={managerCustomerId}
+                onChange={(e) => setManagerCustomerId(e.target.value)}
+                disabled={saving}
+              />
               <button
                 className="btn-pib-accent text-sm"
                 onClick={saveCustomerId}

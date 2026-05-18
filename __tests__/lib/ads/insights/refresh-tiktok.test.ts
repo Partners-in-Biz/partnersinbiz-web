@@ -19,7 +19,7 @@ const mockBatch = jest.fn(() => ({ set: mockBatchSet, commit: mockBatchCommit })
 
 const mockDocUpdate = jest.fn().mockResolvedValue(undefined)
 const mockDocRef = jest.fn(() => ({ update: mockDocUpdate }))
-const mockCollRef = jest.fn(() => ({ doc: mockDocRef }))
+const mockCollRef = jest.fn((_name: string) => ({ doc: mockDocRef }))
 
 jest.mock('@/lib/firebase/admin', () => ({
   adminDb: {

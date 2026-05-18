@@ -120,7 +120,7 @@ describe('CRM integration config encryption', () => {
         provider: 'mailchimp',
         name: 'My list',
         config: PLAIN_CONFIG,
-      }) as Request,
+      }) as Parameters<typeof POST>[0],
     )
 
     expect(mockAdd).toHaveBeenCalledTimes(1)
@@ -170,10 +170,10 @@ describe('CRM integration config encryption', () => {
 
     const req = {
       url: `https://example.com/api/v1/crm/integrations?orgId=${ORG_ID}`,
-    } as Request
+    } as Parameters<typeof GET>[0]
 
     const response = await GET(req)
-    const publicViews = (response as { _data: unknown })._data as Array<Record<string, unknown>>
+    const publicViews = ((response as unknown) as { _data: unknown })._data as Array<Record<string, unknown>>
 
     expect(Array.isArray(publicViews)).toBe(true)
     expect(publicViews).toHaveLength(1)
@@ -218,7 +218,7 @@ describe('CRM integration config encryption', () => {
     mockDocRef.update.mockResolvedValueOnce(undefined)
 
     await PUT(
-      makeRequest({ config: newConfig }) as Request,
+      makeRequest({ config: newConfig }) as Parameters<typeof PUT>[0],
       mockContext,
     )
 

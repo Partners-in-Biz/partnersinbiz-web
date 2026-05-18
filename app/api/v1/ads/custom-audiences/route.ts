@@ -3,7 +3,7 @@ import { NextRequest } from 'next/server'
 import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { listCustomAudiences, createCustomAudience, setCustomAudienceMetaId } from '@/lib/ads/custom-audiences/store'
-import { requireMetaContext } from '@/lib/ads/api-helpers'
+import { requireMetaContext, resolveGoogleAdsCustomerContext } from '@/lib/ads/api-helpers'
 import { metaProvider } from '@/lib/ads/providers/meta'
 import type { AdCustomAudienceType, AdCustomAudienceStatus, CreateAdCustomAudienceInput } from '@/lib/ads/types'
 import { logCustomAudienceActivity } from '@/lib/ads/activity'
@@ -72,11 +72,9 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
     const developerToken = readDeveloperToken()
     if (!developerToken) return apiError('GOOGLE_ADS_DEVELOPER_TOKEN not configured', 500)
 
-    const meta = (conn.meta ?? {}) as Record<string, unknown>
-    const googleMeta = (meta.google as Record<string, unknown> | undefined) ?? {}
-    const loginCustomerId = typeof googleMeta.loginCustomerId === 'string' ? googleMeta.loginCustomerId : undefined
-    const customerId = loginCustomerId
-    if (!customerId) return apiError('No Customer ID set on Google connection', 400)
+    const customerCtx = resolveGoogleAdsCustomerContext(conn)
+    if (customerCtx instanceof Response) return customerCtx
+    const { customerId, loginCustomerId } = customerCtx
 
     let result: { resourceName: string; id: string }
 

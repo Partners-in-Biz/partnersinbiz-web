@@ -3,7 +3,7 @@ import { NextRequest } from 'next/server'
 import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { listCampaigns, createCampaign, updateCampaign } from '@/lib/ads/campaigns/store'
-import { requireMetaContext } from '@/lib/ads/api-helpers'
+import { requireMetaContext, resolveGoogleAdsCustomerContext } from '@/lib/ads/api-helpers'
 import { getConnection, decryptAccessToken } from '@/lib/ads/connections/store'
 import { readDeveloperToken } from '@/lib/integrations/google_ads/oauth'
 import { createSearchCampaign } from '@/lib/ads/providers/google/campaigns'
@@ -92,10 +92,9 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
     const accessToken = decryptAccessToken(conn)
     const developerToken = readDeveloperToken()
     if (!developerToken) return apiError('Google Ads developer token not configured', 500)
-    const googleMeta = ((conn.meta ?? {}) as Record<string, unknown>).google as Record<string, unknown> | undefined
-    const loginCustomerId = typeof googleMeta?.loginCustomerId === 'string' ? googleMeta.loginCustomerId : undefined
-    const customerId = loginCustomerId
-    if (!customerId) return apiError('No Customer ID set on Google connection', 400)
+    const customerCtx = resolveGoogleAdsCustomerContext(conn)
+    if (customerCtx instanceof Response) return customerCtx
+    const { customerId, loginCustomerId } = customerCtx
 
     const campaignType = body.googleAds?.campaignType  // 'SEARCH' | 'DISPLAY' | 'SHOPPING' | 'VIDEO' | 'PERFORMANCE_MAX' | 'SMART_SHOPPING' (default 'SEARCH')
     let result

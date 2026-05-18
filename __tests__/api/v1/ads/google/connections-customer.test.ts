@@ -32,21 +32,23 @@ describe('PATCH /api/v1/ads/google/connections/[id]/customer', () => {
     mockUpdateConnection.mockReset()
   })
 
-  it('updates loginCustomerId on the matching connection', async () => {
+  it('updates defaultAdAccountId on the matching connection', async () => {
     mockGet.mockResolvedValue({
       exists: true,
       data: () => ({ id: 'c1', orgId: 'org-1', platform: 'google', meta: {} }),
     })
     mockUpdateConnection.mockResolvedValue(undefined)
 
-    const req = makeReq({ loginCustomerId: '1234567890' })
+    const req = makeReq({ customerId: '1234567890', loginCustomerId: '9876543210' })
     const res: any = await PATCH(req, null as any, { params: Promise.resolve({ id: 'c1' }) } as any)
     const body = await res.json()
 
     expect(body.success).toBe(true)
-    expect(body.data.loginCustomerId).toBe('1234567890')
+    expect(body.data.customerId).toBe('1234567890')
+    expect(body.data.loginCustomerId).toBe('9876543210')
     expect(mockUpdateConnection).toHaveBeenCalledWith('c1', expect.objectContaining({
-      meta: expect.objectContaining({ google: expect.objectContaining({ loginCustomerId: '1234567890' }) }),
+      defaultAdAccountId: '1234567890',
+      meta: expect.objectContaining({ google: expect.objectContaining({ loginCustomerId: '9876543210' }) }),
     }))
   })
 
@@ -57,12 +59,12 @@ describe('PATCH /api/v1/ads/google/connections/[id]/customer', () => {
     })
     mockUpdateConnection.mockResolvedValue(undefined)
 
-    const req = makeReq({ loginCustomerId: '123-456-7890' })
+    const req = makeReq({ customerId: '123-456-7890' })
     const res: any = await PATCH(req, null as any, { params: Promise.resolve({ id: 'c1' }) } as any)
     const body = await res.json()
 
     expect(body.success).toBe(true)
-    expect(body.data.loginCustomerId).toBe('1234567890')
+    expect(body.data.customerId).toBe('1234567890')
   })
 
   it('returns 404 when connection belongs to another org', async () => {
@@ -71,7 +73,7 @@ describe('PATCH /api/v1/ads/google/connections/[id]/customer', () => {
       data: () => ({ id: 'c1', orgId: 'other-org', platform: 'google', meta: {} }),
     })
 
-    const req = makeReq({ loginCustomerId: '1234567890' }, 'org-1')
+    const req = makeReq({ customerId: '1234567890' }, 'org-1')
     const res: any = await PATCH(req, null as any, { params: Promise.resolve({ id: 'c1' }) } as any)
     const body = await res.json()
 
@@ -80,8 +82,8 @@ describe('PATCH /api/v1/ads/google/connections/[id]/customer', () => {
     expect(mockUpdateConnection).not.toHaveBeenCalled()
   })
 
-  it('returns 400 on invalid loginCustomerId shape', async () => {
-    const req = makeReq({ loginCustomerId: 'not-numeric' })
+  it('returns 400 on invalid customerId shape', async () => {
+    const req = makeReq({ customerId: 'not-numeric' })
     const res: any = await PATCH(req, null as any, { params: Promise.resolve({ id: 'c1' }) } as any)
     const body = await res.json()
 
@@ -92,7 +94,7 @@ describe('PATCH /api/v1/ads/google/connections/[id]/customer', () => {
   it('returns 400 on missing X-Org-Id header', async () => {
     const req = {
       headers: { get: () => null },
-      json: async () => ({ loginCustomerId: '1234567890' }),
+      json: async () => ({ customerId: '1234567890' }),
     }
     const res: any = await PATCH(req as any, null as any, { params: Promise.resolve({ id: 'c1' }) } as any)
     const body = await res.json()

@@ -37,6 +37,7 @@ jest.mock('firebase-admin/firestore', () => ({
 
 // ─── Imports after mocks ──────────────────────────────────────────────────────
 import { GET } from '@/app/api/v1/ads/cron/budget-pacing-check/route'
+import type { NextRequest } from 'next/server'
 
 const {
   computeWindowStart,
@@ -77,10 +78,10 @@ function makeBudget(overrides: Partial<Record<string, unknown>> = {}) {
   }
 }
 
-function makeReq(secret?: string): Request {
+function makeReq(secret?: string): NextRequest {
   const headers: Record<string, string> = {}
   if (secret) headers['authorization'] = `Bearer ${secret}`
-  return new Request('http://localhost/api/v1/ads/cron/budget-pacing-check', { headers })
+  return new Request('http://localhost/api/v1/ads/cron/budget-pacing-check', { headers }) as NextRequest
 }
 
 beforeEach(() => {
@@ -119,7 +120,7 @@ describe('GET /api/v1/ads/cron/budget-pacing-check', () => {
       docs: [b1, b2, b3].map((b) => ({ data: () => b })),
     })
 
-    const res = await GET(makeReq() as Request)
+    const res = await GET(makeReq())
     expect(res.status).toBe(200)
     const body = await res.json()
     // Only 2 non-archived budgets processed
@@ -139,7 +140,7 @@ describe('GET /api/v1/ads/cron/budget-pacing-check', () => {
     }
     computeWindowStart.mockReturnValue(futureTs)
 
-    const res = await GET(makeReq() as Request)
+    const res = await GET(makeReq())
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.data.results[0].rollover).toBe(true)
@@ -167,7 +168,7 @@ describe('GET /api/v1/ads/cron/budget-pacing-check', () => {
       .mockResolvedValueOnce(10_000) // b1 succeeds
       .mockRejectedValueOnce(new Error('Firestore unavailable')) // b2 throws
 
-    const res = await GET(makeReq() as Request)
+    const res = await GET(makeReq())
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.data.processed).toBe(2)
@@ -182,17 +183,17 @@ describe('GET /api/v1/ads/cron/budget-pacing-check', () => {
   it('returns 401 when CRON_SECRET is set and authorization header is wrong', async () => {
     process.env.CRON_SECRET = 'super-secret-token'
 
-    const resNoAuth = await GET(makeReq() as Request)
+    const resNoAuth = await GET(makeReq())
     expect(resNoAuth.status).toBe(401)
 
-    const resWrongAuth = await GET(makeReq('wrong-token') as Request)
+    const resWrongAuth = await GET(makeReq('wrong-token'))
     expect(resWrongAuth.status).toBe(401)
   })
 
   it('accepts correct CRON_SECRET Bearer token', async () => {
     process.env.CRON_SECRET = 'correct-token'
 
-    const res = await GET(makeReq('correct-token') as Request)
+    const res = await GET(makeReq('correct-token'))
     expect(res.status).toBe(200)
   })
 })

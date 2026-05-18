@@ -17,7 +17,7 @@ const mockCollectionFn = jest.fn(() => ({ doc: mockDocFn }))
 
 jest.mock('@/lib/firebase/admin', () => ({
   adminDb: {
-    collection: (...args: unknown[]) => mockCollectionFn(...args),
+    collection: (...args: unknown[]) => mockCollectionFn(...(args as [])),
   },
 }))
 

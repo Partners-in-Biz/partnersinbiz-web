@@ -1,6 +1,6 @@
 // app/api/v1/ads/google/connections/[id]/customer/route.ts
 //
-// Sets the `loginCustomerId` on a Google Ads connection. Called by the admin
+// Sets the Google Ads customer account on a Google Ads connection. Called by the admin
 // connections UI after the user picks a Customer ID from the
 // `customers:listAccessibleCustomers` response.
 //
@@ -31,22 +31,33 @@ export const PATCH = withAuth(
     const { id } = await ctx.params
     if (!id) return apiError('Missing connection id', 400)
 
-    let body: { loginCustomerId?: unknown }
+    let body: { customerId?: unknown; loginCustomerId?: unknown }
     try {
-      body = (await req.json()) as { loginCustomerId?: unknown }
+      body = (await req.json()) as { customerId?: unknown; loginCustomerId?: unknown }
     } catch {
       return apiError('Invalid JSON body', 400)
     }
 
-    const raw = body.loginCustomerId
-    if (typeof raw !== 'string' || raw.trim().length === 0) {
-      return apiError('loginCustomerId must be a non-empty string', 400)
+    const rawCustomerId = body.customerId ?? body.loginCustomerId
+    if (typeof rawCustomerId !== 'string' || rawCustomerId.trim().length === 0) {
+      return apiError('customerId must be a non-empty string', 400)
     }
     // Google customer IDs are 10 digits, sometimes copy/pasted as
     // 'XXX-XXX-XXXX'. Strip dashes/whitespace to normalise.
-    const loginCustomerId = raw.replace(/[-\s]/g, '')
-    if (!/^\d{8,12}$/.test(loginCustomerId)) {
-      return apiError('loginCustomerId must be a 10-digit numeric customer id', 400)
+    const customerId = rawCustomerId.replace(/[-\s]/g, '')
+    if (!/^\d{8,12}$/.test(customerId)) {
+      return apiError('customerId must be a 10-digit numeric customer id', 400)
+    }
+
+    let loginCustomerId: string | undefined
+    if (body.loginCustomerId !== undefined && body.loginCustomerId !== null && body.loginCustomerId !== '') {
+      if (typeof body.loginCustomerId !== 'string') {
+        return apiError('loginCustomerId must be a string when provided', 400)
+      }
+      loginCustomerId = body.loginCustomerId.replace(/[-\s]/g, '')
+      if (!/^\d{8,12}$/.test(loginCustomerId)) {
+        return apiError('loginCustomerId must be a 10-digit numeric customer id', 400)
+      }
     }
 
     const snap = await adminDb.collection(COLLECTION).doc(id).get()
@@ -69,12 +80,12 @@ export const PATCH = withAuth(
       ...existingMeta,
       google: {
         ...existingGoogle,
-        loginCustomerId,
+        ...(loginCustomerId ? { loginCustomerId } : {}),
       },
     }
 
-    await updateConnection(conn.id, { meta: nextMeta })
+    await updateConnection(conn.id, { defaultAdAccountId: customerId, meta: nextMeta })
 
-    return apiSuccess({ id: conn.id, loginCustomerId })
+    return apiSuccess({ id: conn.id, customerId, loginCustomerId })
   },
 )

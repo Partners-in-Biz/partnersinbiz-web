@@ -6,6 +6,52 @@ if (!admin.apps.length) {
   admin.initializeApp();
 }
 
+const APP_URL = "https://partnersinbiz.online";
+
+async function callCronEndpoint(path: string, label: string, init: RequestInit = {}) {
+  const cronSecret = process.env.CRON_SECRET;
+  if (!cronSecret) {
+    console.error(`[${label}] CRON_SECRET not set in function env`);
+    return;
+  }
+
+  const response = await fetch(`${APP_URL}${path}`, {
+    method: init.method ?? "GET",
+    ...init,
+    headers: {
+      Authorization: `Bearer ${cronSecret}`,
+      ...(init.headers ?? {}),
+    },
+  });
+
+  if (!response.ok) {
+    const body = await response.text();
+    console.error(`[${label}] HTTP ${response.status}: ${body}`);
+    return;
+  }
+
+  const body = await response.text();
+  console.log(`[${label}] OK ${response.status}${body ? ` ${body.slice(0, 500)}` : ""}`);
+}
+
+function scheduledCron(
+  name: string,
+  path: string,
+  schedule: string,
+  init: RequestInit = {},
+) {
+  return onSchedule(
+    {
+      schedule,
+      timeZone: "UTC",
+      secrets: ["CRON_SECRET"],
+    },
+    async () => {
+      await callCronEndpoint(path, name, init);
+    }
+  );
+}
+
 /**
  * Scheduled function: runs every 5 minutes to process the social post queue.
  *
@@ -28,8 +74,7 @@ export const publishSocialQueue = onSchedule(
       return;
     }
 
-    const appUrl = "https://partnersinbiz.online";
-    const url = `${appUrl}/api/cron/social`;
+    const url = `${APP_URL}/api/cron/social`;
 
     try {
       const response = await fetch(url, {
@@ -65,6 +110,120 @@ export const publishSocialQueue = onSchedule(
       console.error("[social-cron] Fetch error:", err);
     }
   }
+);
+
+export const runEmailSequences = scheduledCron(
+  "email-sequences",
+  "/api/cron/sequences",
+  "0 6 * * *"
+);
+
+export const runEmailQueue = scheduledCron(
+  "email-queue",
+  "/api/cron/emails",
+  "0 6 * * *"
+);
+
+export const runEmailBroadcasts = scheduledCron(
+  "email-broadcasts",
+  "/api/cron/broadcasts",
+  "0 6 * * *"
+);
+
+export const runSocialRss = scheduledCron(
+  "social-rss",
+  "/api/cron/social-rss",
+  "0 8 * * *"
+);
+
+export const runSocialAnalytics = scheduledCron(
+  "social-analytics",
+  "/api/cron/social-analytics",
+  "0 9 * * *"
+);
+
+export const runSocialInboxPoll = scheduledCron(
+  "social-inbox-poll",
+  "/api/cron/social-inbox-poll",
+  "0 10 * * *"
+);
+
+export const runRecurringInvoices = scheduledCron(
+  "recurring-invoices",
+  "/api/cron/invoices",
+  "0 2 * * *"
+);
+
+export const runWebhookQueue = scheduledCron(
+  "webhook-queue",
+  "/api/cron/webhooks",
+  "0 0 * * *"
+);
+
+export const runIntegrationSync = scheduledCron(
+  "integration-sync",
+  "/api/cron/integrations",
+  "0 3 * * *"
+);
+
+export const runCrmIntegrationSync = scheduledCron(
+  "crm-integration-sync",
+  "/api/cron/crm-integrations",
+  "0 5 * * *"
+);
+
+export const runMonthlyReports = scheduledCron(
+  "monthly-reports",
+  "/api/cron/reports",
+  "0 6 1 * *"
+);
+
+export const runAnomalyChecks = scheduledCron(
+  "anomaly-checks",
+  "/api/cron/anomalies",
+  "30 6 * * *"
+);
+
+export const runSeoDaily = scheduledCron(
+  "seo-daily",
+  "/api/cron/seo-daily",
+  "0 4 * * *"
+);
+
+export const runSeoWeekly = scheduledCron(
+  "seo-weekly",
+  "/api/cron/seo-weekly",
+  "0 5 * * 1"
+);
+
+export const runAdsRefreshQueue = scheduledCron(
+  "ads-refresh-queue",
+  "/api/v1/ads/cron/process-refresh-queue",
+  "every 5 minutes"
+);
+
+export const runAdsDailyInsights = scheduledCron(
+  "ads-daily-insights",
+  "/api/v1/ads/cron/daily-insights-pull",
+  "30 0 * * *"
+);
+
+export const runAdsBudgetPacing = scheduledCron(
+  "ads-budget-pacing",
+  "/api/v1/ads/cron/budget-pacing-check",
+  "0 */6 * * *"
+);
+
+export const runAdsExperimentSignificance = scheduledCron(
+  "ads-experiment-significance",
+  "/api/v1/ads/cron/experiment-significance-check",
+  "0 */6 * * *"
+);
+
+export const runCrmScoreRecompute = scheduledCron(
+  "crm-score-recompute",
+  "/api/v1/crm/cron/recompute-scores",
+  "0 2 * * *"
 );
 
 /**

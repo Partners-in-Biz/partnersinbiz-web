@@ -58,10 +58,17 @@ jest.mock('@/lib/firebase/admin', () => {
 })
 
 const BASE_TARGETING = {
-  geoLocations: [{ type: 'country' as const, key: 'ZA', name: 'South Africa' }],
-  ageMin: 25,
-  ageMax: 55,
-  genders: ['male', 'female'] as any,
+  geo: {
+    countries: ['ZA'],
+    regions: [],
+    cities: [],
+    zips: [],
+  },
+  demographics: {
+    ageMin: 25,
+    ageMax: 55,
+    genders: ['male', 'female'] as Array<'male' | 'female'>,
+  },
 }
 
 const BASE_INPUT = {
@@ -127,12 +134,15 @@ describe('saved-audiences store', () => {
       input: BASE_INPUT,
     })
 
-    const newTargeting = { ...BASE_TARGETING, ageMin: 30 }
+    const newTargeting = {
+      ...BASE_TARGETING,
+      demographics: { ...BASE_TARGETING.demographics, ageMin: 30 },
+    }
     await updateSavedAudience(sa.id, { name: 'Updated Audience', targeting: newTargeting })
 
     const fetched = await getSavedAudience(sa.id)
     expect(fetched?.name).toBe('Updated Audience')
-    expect(fetched?.targeting?.ageMin).toBe(30)
+    expect(fetched?.targeting?.demographics.ageMin).toBe(30)
     expect(fetched?.updatedAt).toBeDefined()
   })
 

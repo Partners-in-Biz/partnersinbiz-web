@@ -10,6 +10,10 @@ jest.mock('@/lib/api/auth', () => ({ withAuth: (_r: string, h: any) => h }))
 // ─── requireMetaContext ──────────────────────────────────────────────────────
 jest.mock('@/lib/ads/api-helpers', () => ({
   requireMetaContext: jest.fn(),
+  resolveGoogleAdsCustomerContext: jest.fn((conn: any) => ({
+    customerId: conn.defaultAdAccountId,
+    loginCustomerId: conn.meta?.google?.loginCustomerId,
+  })),
 }))
 
 // ─── Ad + AdSet stores ───────────────────────────────────────────────────────
@@ -67,7 +71,8 @@ const fakeAd = {
   providerData: {},
 }
 const fakeConn = {
-  meta: { google: { loginCustomerId: '1234567890' } },
+  defaultAdAccountId: '1234567890',
+  meta: { google: { loginCustomerId: '9999999999' } },
   accessTokenEnc: {},
 }
 const fakeResult = { resourceName: 'customers/1234567890/adGroupAds/888', id: '888' }
@@ -128,6 +133,7 @@ describe('POST /api/v1/ads/ads — Google dispatch branching', () => {
 
     const call = createResponsiveDisplayAd.mock.calls[0][0]
     expect(call.customerId).toBe('1234567890')
+    expect(call.loginCustomerId).toBe('9999999999')
     expect(call.adGroupResourceName).toBe('customers/1234567890/adGroups/777')
     expect(call.rdaAssets).toEqual(validRdaAssets)
   })
@@ -186,6 +192,7 @@ describe('POST /api/v1/ads/ads — Google dispatch branching', () => {
 
     const call = createProductAd.mock.calls[0][0]
     expect(call.customerId).toBe('1234567890')
+    expect(call.loginCustomerId).toBe('9999999999')
     expect(call.adGroupResourceName).toBe('customers/1234567890/adGroups/777')
     expect(call.canonical).toEqual(fakeAd)
   })

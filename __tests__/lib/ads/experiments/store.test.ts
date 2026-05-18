@@ -91,8 +91,14 @@ import type { AdExperimentResult } from '@/lib/ads/experiments/types'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function makeFakeTimestamp(seconds = 1716000000) {
-  return { seconds, nanoseconds: 0, toDate: () => new Date(seconds * 1000) }
+function makeFakeTimestamp(seconds = 1716000000): import('firebase-admin/firestore').Timestamp {
+  return {
+    seconds,
+    nanoseconds: 0,
+    toDate: () => new Date(seconds * 1000),
+    toMillis: () => seconds * 1000,
+    isEqual: (other: { toMillis?: () => number }) => other.toMillis?.() === seconds * 1000,
+  } as unknown as import('firebase-admin/firestore').Timestamp
 }
 
 function baseVariants() {

@@ -31,6 +31,7 @@ import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { getCampaign } from '@/lib/ads/campaigns/store'
 import { getConnection, decryptAccessToken } from '@/lib/ads/connections/store'
+import { resolveGoogleAdsCustomerContext } from '@/lib/ads/api-helpers'
 import { readDeveloperToken } from '@/lib/integrations/google_ads/oauth'
 import { createAssetGroup, createTextAssets } from '@/lib/ads/providers/google/asset-groups'
 import type { AssetFieldType, AssetGroupAssetLink } from '@/lib/ads/providers/google/asset-groups'
@@ -89,11 +90,10 @@ export const POST = withAuth('admin', async (req: NextRequest) => {
   const accessToken = decryptAccessToken(conn)
   const developerToken = readDeveloperToken()
   if (!developerToken) return apiError('Google Ads developer token not configured', 500)
-  const googleMeta = ((conn.meta ?? {}) as Record<string, unknown>).google as Record<string, unknown> | undefined
-  const loginCustomerId = typeof googleMeta?.loginCustomerId === 'string' ? googleMeta.loginCustomerId : undefined
-  if (!loginCustomerId) return apiError('No Customer ID set on Google connection', 400)
+  const customerCtx = resolveGoogleAdsCustomerContext(conn)
+  if (customerCtx instanceof Response) return customerCtx
 
-  const callArgs = { customerId: loginCustomerId, accessToken, developerToken, loginCustomerId }
+  const callArgs = { ...customerCtx, accessToken, developerToken }
 
   // Build text asset lists: headline, longHeadline, description, businessName, CTA
   const headlines = body.texts?.headlines ?? []

@@ -89,6 +89,8 @@ interface PostFixture {
   requiresApproval?: boolean
   deliveryMode?: 'auto_publish' | 'download_only' | 'both'
   scheduledAt?: unknown
+  platform?: string
+  accountIds?: string[]
   approval?: Record<string, unknown>
 }
 
