@@ -3,6 +3,7 @@ import { NextRequest } from 'next/server'
 import { GET, POST } from '@/app/api/v1/organizations/route'
 import { GET as getById, PUT, DELETE } from '@/app/api/v1/organizations/[id]/route'
 import { POST as addMember } from '@/app/api/v1/organizations/[id]/members/route'
+import { GET as searchClientMembers, POST as addClientMember } from '@/app/api/v1/organizations/[id]/members/client/route'
 import { POST as createLogin } from '@/app/api/v1/organizations/[id]/create-login/route'
 import { DELETE as removeMember } from '@/app/api/v1/organizations/[id]/members/[userId]/route'
 import { POST as linkClient } from '@/app/api/v1/organizations/[id]/link-client/route'
@@ -332,6 +333,147 @@ describe('POST /api/v1/organizations/[id]/members', () => {
       { params: Promise.resolve({ id: 'ghost' }) } as any,
     )
     expect(res.status).toBe(404)
+  })
+})
+
+describe('GET /api/v1/organizations/[id]/members/client', () => {
+  const mockOrgGet = jest.fn()
+  const mockUsersGet = jest.fn()
+
+  beforeEach(() => {
+    jest.clearAllMocks()
+    mockOrgGet.mockResolvedValue({
+      exists: true,
+      id: 'org-1',
+      data: () => ({
+        name: 'Lumen',
+        slug: 'lumen',
+        active: true,
+        members: [{ userId: 'existing-client', role: 'member' }],
+        description: '',
+        logoUrl: '',
+        website: '',
+        createdBy: 'ai-agent',
+        linkedClientId: '',
+      }),
+    })
+    mockUsersGet.mockResolvedValue({
+      docs: [
+        { id: 'client-1', data: () => ({ role: 'client', displayName: 'Jane Client', email: 'jane@example.com' }) },
+        { id: 'existing-client', data: () => ({ role: 'client', displayName: 'Existing Client', email: 'existing@example.com' }) },
+      ],
+    })
+    mockWhere.mockReturnValue({ get: mockUsersGet })
+    mockCollection.mockImplementation((collName: string) => {
+      if (collName === 'organizations') return { doc: jest.fn().mockReturnValue({ get: mockOrgGet }) }
+      if (collName === 'users') return { where: mockWhere }
+      throw new Error(`Unexpected collection: ${collName}`)
+    })
+  })
+
+  it('searches existing client users and excludes current org members', async () => {
+    const req = adminReq('GET', undefined, 'http://localhost/api/v1/organizations/org-1/members/client?q=jane')
+    const res = await searchClientMembers(req, { params: Promise.resolve({ id: 'org-1' }) } as any)
+
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.data).toEqual([
+      expect.objectContaining({
+        uid: 'client-1',
+        email: 'jane@example.com',
+        displayName: 'Jane Client',
+      }),
+    ])
+    expect(mockWhere).toHaveBeenCalledWith('role', '==', 'client')
+  })
+})
+
+describe('POST /api/v1/organizations/[id]/members/client', () => {
+  const mockOrgGet = jest.fn()
+  const mockOrgUpdate = jest.fn()
+  const mockUserGet = jest.fn()
+  const mockUserSet = jest.fn()
+
+  beforeEach(() => {
+    jest.clearAllMocks()
+    mockOrgGet.mockResolvedValue({
+      exists: true,
+      id: 'org-1',
+      data: () => ({
+        name: 'Lumen',
+        slug: 'lumen',
+        active: true,
+        members: [{ userId: 'ai-agent', role: 'owner' }],
+        description: '',
+        logoUrl: '',
+        website: '',
+        createdBy: 'ai-agent',
+        linkedClientId: '',
+      }),
+    })
+    mockOrgUpdate.mockResolvedValue(undefined)
+    mockUserGet.mockResolvedValue({
+      exists: true,
+      id: 'client-1',
+      data: () => ({ role: 'client', displayName: 'Jane Client', email: 'jane@example.com', orgIds: ['other-org'] }),
+    })
+    mockUserSet.mockResolvedValue(undefined)
+    mockCollection.mockImplementation((collName: string) => {
+      if (collName === 'organizations') {
+        return { doc: jest.fn().mockReturnValue({ get: mockOrgGet, update: mockOrgUpdate }) }
+      }
+      if (collName === 'users') {
+        return { doc: jest.fn().mockReturnValue({ get: mockUserGet, set: mockUserSet }) }
+      }
+      throw new Error(`Unexpected collection: ${collName}`)
+    })
+  })
+
+  it('adds an existing client user as an org member', async () => {
+    const res = await addClientMember(
+      adminReq('POST', { uid: 'client-1' }, 'http://localhost/api/v1/organizations/org-1/members/client'),
+      { params: Promise.resolve({ id: 'org-1' }) } as any,
+    )
+
+    expect(res.status).toBe(201)
+    const body = await res.json()
+    expect(body.data).toEqual(expect.objectContaining({
+      userId: 'client-1',
+      role: 'member',
+      email: 'jane@example.com',
+      joinedAt: '__NOW_TS__',
+    }))
+    expect(mockOrgUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      members: expect.arrayContaining([
+        expect.objectContaining({ userId: 'client-1', role: 'member' }),
+      ]),
+      updatedAt: '__SERVER_TS__',
+    }))
+    expect(mockUserSet).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orgIds: ['other-org', 'org-1'],
+        orgId: 'org-1',
+        updatedAt: '__SERVER_TS__',
+      }),
+      { merge: true },
+    )
+  })
+
+  it('rejects non-client users', async () => {
+    mockUserGet.mockResolvedValue({
+      exists: true,
+      id: 'admin-1',
+      data: () => ({ role: 'admin', displayName: 'Staff User', email: 'staff@example.com' }),
+    })
+
+    const res = await addClientMember(
+      adminReq('POST', { uid: 'admin-1' }, 'http://localhost/api/v1/organizations/org-1/members/client'),
+      { params: Promise.resolve({ id: 'org-1' }) } as any,
+    )
+
+    expect(res.status).toBe(400)
+    expect(mockOrgUpdate).not.toHaveBeenCalled()
+    expect(mockUserSet).not.toHaveBeenCalled()
   })
 })
 

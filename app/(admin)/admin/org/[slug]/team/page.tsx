@@ -24,6 +24,13 @@ interface PlatformUser {
   displayName: string
 }
 
+interface ClientCandidate {
+  uid: string
+  email: string
+  displayName: string
+  photoURL?: string
+}
+
 function Skeleton({ className = '' }: { className?: string }) {
   return <div className={`pib-skeleton ${className}`} />
 }
@@ -91,6 +98,16 @@ export default function TeamPage() {
   const [createError, setCreateError] = useState<string | null>(null)
   const [setupLink, setSetupLink] = useState<string | null>(null)
 
+  // Add existing client form state
+  const [addingClient, setAddingClient] = useState(false)
+  const [clientSearch, setClientSearch] = useState('')
+  const [clientUid, setClientUid] = useState('')
+  const [clientCandidates, setClientCandidates] = useState<ClientCandidate[]>([])
+  const [clientDropdownOpen, setClientDropdownOpen] = useState(false)
+  const [clientSearchLoading, setClientSearchLoading] = useState(false)
+  const [clientError, setClientError] = useState<string | null>(null)
+  const clientSearchRef = useRef<HTMLDivElement>(null)
+
   // Add member form state
   const [addingMember, setAddingMember] = useState(false)
   const [addEmail, setAddEmail] = useState('')
@@ -119,10 +136,50 @@ export default function TeamPage() {
       if (addSearchRef.current && !addSearchRef.current.contains(e.target as Node)) {
         setShowDropdown(false)
       }
+      if (clientSearchRef.current && !clientSearchRef.current.contains(e.target as Node)) {
+        setClientDropdownOpen(false)
+      }
     }
     document.addEventListener('mousedown', handleClick)
     return () => document.removeEventListener('mousedown', handleClick)
   }, [])
+
+  // Search existing client accounts for this organization.
+  useEffect(() => {
+    if (!org) return
+
+    const q = clientSearch.trim()
+    if (q.length < 2 || clientUid) {
+      setClientCandidates([])
+      setClientSearchLoading(false)
+      return
+    }
+
+    const controller = new AbortController()
+    const timer = window.setTimeout(async () => {
+      try {
+        setClientSearchLoading(true)
+        const res = await fetch(
+          `/api/v1/organizations/${org.id}/members/client?q=${encodeURIComponent(q)}`,
+          { signal: controller.signal },
+        )
+        const body = await res.json()
+        if (!res.ok) throw new Error(body.error || 'Failed to search clients')
+        setClientCandidates(body.data ?? [])
+        setClientDropdownOpen(true)
+      } catch (e) {
+        if (e instanceof DOMException && e.name === 'AbortError') return
+        setClientCandidates([])
+      } finally {
+        if (!controller.signal.aborted) setClientSearchLoading(false)
+      }
+    }, 200)
+
+    return () => {
+      controller.abort()
+      window.clearTimeout(timer)
+    }
+  }, [org, clientSearch, clientUid])
 
   // Load organization and members
   useEffect(() => {
@@ -136,7 +193,8 @@ export default function TeamPage() {
         if (!orgsRes.ok) throw new Error('Failed to fetch organizations')
 
         const orgsBody = await orgsRes.json()
-        const foundOrg = orgsBody.data?.find((o: any) => o.slug === slug)
+        const orgs = Array.isArray(orgsBody.data) ? (orgsBody.data as Organization[]) : []
+        const foundOrg = orgs.find((o) => o.slug === slug)
         if (!foundOrg) throw new Error('Organization not found')
 
         setOrg(foundOrg)
@@ -217,6 +275,38 @@ export default function TeamPage() {
     }
   }
 
+  const handleAddClient = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!org || !clientUid) return
+
+    try {
+      setClientError(null)
+      setAddingClient(true)
+
+      const res = await fetch(`/api/v1/organizations/${org.id}/members/client`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uid: clientUid }),
+      })
+
+      const body = await res.json()
+
+      if (!res.ok) {
+        throw new Error(body.error || 'Failed to add client')
+      }
+
+      setMembers([...members, body.data])
+      setClientUid('')
+      setClientSearch('')
+      setClientCandidates([])
+      setClientDropdownOpen(false)
+    } catch (e) {
+      setClientError(e instanceof Error ? e.message : 'An error occurred')
+    } finally {
+      setAddingClient(false)
+    }
+  }
+
   const handleChangeRole = async (userId: string, newRole: string) => {
     if (!org) return
 
@@ -238,7 +328,9 @@ export default function TeamPage() {
 
       // Update local state
       setMembers(
-        members.map((m) => (m.userId === userId ? { ...m, role: newRole as any } : m)),
+        members.map((m) => (
+          m.userId === userId ? { ...m, role: newRole as OrgMember['role'] } : m
+        )),
       )
     } catch (e) {
       setUpdatingError(e instanceof Error ? e.message : 'An error occurred')
@@ -354,6 +446,87 @@ export default function TeamPage() {
                 </button>
               </div>
             </div>
+          )}
+        </div>
+      )}
+
+      {/* Add Existing Client */}
+      {!loading && org && (
+        <div className="pib-card">
+          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">
+            Add Existing Client
+          </p>
+          <p className="text-xs text-on-surface-variant mb-3">
+            Search client accounts already on the system and add them to this organisation as client members.
+          </p>
+          <form onSubmit={handleAddClient} className="flex gap-2 flex-wrap">
+            <div ref={clientSearchRef} className="relative flex-1 min-w-[240px]">
+              <input
+                type="text"
+                placeholder="Search existing client by name or email..."
+                value={clientSearch}
+                onChange={(e) => {
+                  setClientSearch(e.target.value)
+                  setClientUid('')
+                  setClientDropdownOpen(true)
+                }}
+                onFocus={() => {
+                  if (clientSearch.trim().length >= 2) setClientDropdownOpen(true)
+                }}
+                className="w-full px-3 py-2 rounded-md text-sm"
+                style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-outline)' }}
+                disabled={addingClient}
+                autoComplete="off"
+              />
+              {clientDropdownOpen && clientSearch.trim().length >= 2 && (
+                <div
+                  className="absolute z-20 top-full mt-1 w-full rounded-md shadow-lg overflow-hidden"
+                  style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-outline)' }}
+                >
+                  {clientSearchLoading ? (
+                    <div className="px-3 py-2 text-xs text-on-surface-variant">
+                      Searching clients...
+                    </div>
+                  ) : clientCandidates.length > 0 ? (
+                    <ul>
+                      {clientCandidates.map((client) => (
+                        <li
+                          key={client.uid}
+                          className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-on-surface/5 text-sm"
+                          onMouseDown={(e) => {
+                            e.preventDefault()
+                            setClientUid(client.uid)
+                            setClientSearch(`${client.displayName} (${client.email})`)
+                            setClientCandidates([])
+                            setClientDropdownOpen(false)
+                          }}
+                        >
+                          <Avatar name={client.displayName || client.email} photoURL={client.photoURL} />
+                          <div className="min-w-0">
+                            <p className="text-on-surface font-medium truncate">{client.displayName}</p>
+                            <p className="text-on-surface-variant text-xs truncate">{client.email}</p>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <div className="px-3 py-2 text-xs text-on-surface-variant">
+                      No matching client accounts found
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            <button
+              type="submit"
+              className="pib-btn-primary text-sm font-label"
+              disabled={addingClient || !clientUid}
+            >
+              {addingClient ? 'Adding...' : 'Add Client'}
+            </button>
+          </form>
+          {clientError && (
+            <p className="text-xs text-[#ef4444] mt-2">{clientError}</p>
           )}
         </div>
       )}
