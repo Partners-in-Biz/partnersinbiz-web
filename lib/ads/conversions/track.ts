@@ -15,8 +15,9 @@ export async function trackConversion(input: ConversionEventInput): Promise<Conv
   if (existing.exists) {
     const prior = existing.data() as ConversionFanoutResult & { firstSeenAt?: unknown }
     return {
-      meta: prior.meta === 'sent' ? 'sent' : 'skipped',
-      google: prior.google === 'sent' ? 'sent' : 'skipped',
+      meta: prior.meta === 'sent' ? 'sent' : prior.meta === 'failed' ? 'failed' : 'skipped',
+      google: prior.google === 'sent' ? 'sent' : prior.google === 'failed' ? 'failed' : 'skipped',
+      linkedin: prior.linkedin === 'sent' ? 'sent' : prior.linkedin === 'failed' ? 'failed' : 'skipped',
     }
   }
 
@@ -139,7 +140,57 @@ export async function trackConversion(input: ConversionEventInput): Promise<Conv
     }
   }
 
-  // 5. Persist dedupe record (best-effort — failure here doesn't reset the fanout)
+  // 5. LinkedIn branch
+  if (action.platform === 'linkedin') {
+    try {
+      const linkedinProviderData = action.providerData?.linkedin
+      const conversionIdOrUrn = linkedinProviderData?.conversionUrn ?? linkedinProviderData?.partnerConversionId
+      if (!conversionIdOrUrn) {
+        throw new Error(
+          'LinkedIn conversion action missing providerData.linkedin.{conversionUrn|partnerConversionId}',
+        )
+      }
+
+      // Resolve pixel config to get the rw_conversions-scoped CAPI token
+      const { listPixelConfigs, decryptPlatformCapiToken } = await import('@/lib/ads/pixel-configs/store')
+      const pixelConfigs = await listPixelConfigs({ orgId: input.orgId })
+      const pixelConfig = pixelConfigs.find((c) => c.linkedin?.capiTokenEnc) ?? pixelConfigs[0]
+      if (!pixelConfig?.linkedin?.capiTokenEnc) {
+        throw new Error(
+          'LinkedIn pixel config missing capiTokenEnc — admin must set the rw_conversions token in the Insight Tag config',
+        )
+      }
+
+      const capiAccessToken = decryptPlatformCapiToken(pixelConfig, 'linkedin')
+
+      const { trackConversion: linkedinTrackConversion } = await import('@/lib/ads/providers/linkedin/capi')
+      await linkedinTrackConversion({
+        capiAccessToken,
+        testEventCode: pixelConfig.linkedin.testEventCode,
+        input: {
+          conversionId: conversionIdOrUrn,
+          eventTimeMs: input.eventTime.getTime(),
+          user: {
+            email: input.user.email,
+            phone: input.user.phone,
+            liFatId: input.liFatId,
+          },
+          value:
+            input.value !== undefined
+              ? { amount: input.value, currencyCode: input.currency ?? 'USD' }
+              : undefined,
+          eventId: input.eventId,
+        },
+      })
+      result.linkedin = 'sent'
+    } catch (err) {
+      result.linkedin = 'failed'
+      result.linkedinError = (err as Error).message
+      console.error('[trackConversion] LinkedIn fanout failed:', err)
+    }
+  }
+
+  // 6. Persist dedupe record (best-effort — failure here doesn't reset the fanout)
   try {
     await dedupeRef.set({
       ...result,

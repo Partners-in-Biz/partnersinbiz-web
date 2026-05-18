@@ -692,7 +692,7 @@ export type AdConversionCategory =
   | 'STORE_VISIT' | 'STORE_SALE'
   | 'QUALIFIED_LEAD' | 'CONVERTED_LEAD' | 'OTHER'
 
-export type AdConversionPlatform = 'meta' | 'google'
+export type AdConversionPlatform = 'meta' | 'google' | 'linkedin'
 
 export type AdConversionCountingType = 'ONE_PER_CLICK' | 'MANY_PER_CLICK'
 
@@ -718,6 +718,12 @@ export interface AdConversionAction {
   providerData?: {
     google?: { conversionActionResourceName: string }
     meta?: { customEventType?: string; pixelId?: string }
+    linkedin?: {
+      /** LinkedIn conversion URN: 'urn:lla:llaPartnerConversion:{id}' — preferred. */
+      conversionUrn?: string
+      /** Bare numeric partner conversion ID — used when URN is not yet composed. */
+      partnerConversionId?: string
+    }
   }
   createdAt: Timestamp
   updatedAt: Timestamp
