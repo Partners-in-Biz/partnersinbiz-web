@@ -36,6 +36,7 @@ export const OPERATOR_NAV: NavItem[] = [
     activePatterns: ['/admin/invoicing', '/admin/quotes'],
   },
   { label: 'Documents', href: '/admin/documents', icon: 'description' },
+  { label: 'Knowledge', href: '/admin/knowledge', icon: 'menu_book' },
   { label: 'Support',   href: '/admin/support',   icon: 'support_agent' },
   { label: 'Agents',   href: '/admin/agents',   icon: 'group_work' },
   { label: 'Settings', href: '/admin/settings', icon: 'settings', activePatterns: ['/admin/platform-users', '/admin/platform-members'] },
@@ -78,6 +79,7 @@ export const OPERATOR_NAV_TOPBAR: NavItem[] = [
     ],
     activePatterns: ['/admin/invoicing', '/admin/quotes'],
   },
+  { label: 'Knowledge', href: '/admin/knowledge', icon: 'menu_book' },
   { label: 'Support',  href: '/admin/support',  icon: 'support_agent' },
   { label: 'Agents',   href: '/admin/agents',   icon: 'group_work' },
   {
@@ -99,6 +101,7 @@ export function workspaceNav(slug: string): NavItem[] {
     { label: 'Overview', href: `/admin/org/${slug}/dashboard`, icon: 'space_dashboard' },
     { label: 'Projects',  href: `/admin/org/${slug}/projects`,   icon: 'rocket_launch' },
     { label: 'Documents', href: `/admin/org/${slug}/documents`, icon: 'description' },
+    { label: 'Wiki', href: `/admin/org/${slug}/wiki`, icon: 'menu_book' },
     {
       label: 'Marketing',
       href: `/admin/org/${slug}/marketing`,
