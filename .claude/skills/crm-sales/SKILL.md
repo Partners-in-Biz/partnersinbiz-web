@@ -1259,6 +1259,26 @@ Response:
 
 ---
 
+## A5 — Products & Deal Extensions
+
+### Product Catalog endpoints
+| Method | Route | Auth | Description |
+|--------|-------|------|-------------|
+| GET | `/api/v1/crm/products` | member | List active products |
+| POST | `/api/v1/crm/products` | admin | Create product |
+| PUT | `/api/v1/crm/products/[id]` | admin | Update product |
+| DELETE | `/api/v1/crm/products/[id]` | admin | Soft-delete |
+
+### Deal extended fields (A5)
+- `probability?: number` — 0–100; auto-set from `stage.probability` when stageId changes; overridable
+- `lostReason?: string` — freetext; only surfaced/persisted on stages whose name contains "lost"
+- `lineItems?: DealLineItem[]` — snapshot array; each item: `{ productId?, name, qty, unitPrice, discount?, total, currency }`
+
+### Quote pre-fill
+- `POST /api/v1/quotes` accepts optional `dealId` — pre-populates lineItems from the deal
+
+---
+
 ## Role matrix
 
 | Resource | viewer (GET) | member (write) | admin (delete/bulk-admin) |

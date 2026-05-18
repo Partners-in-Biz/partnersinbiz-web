@@ -7,7 +7,8 @@ import { apiSuccess, apiError } from '@/lib/api/response'
 import { dispatchWebhook } from '@/lib/webhooks/dispatch'
 import { loadCompany } from '@/lib/companies/store'
 import type { Quote } from '@/lib/quotes/types'
-import type { Contact } from '@/lib/crm/types'
+import type { Contact, DealLineItem } from '@/lib/crm/types'
+import type { LineItem } from '@/lib/invoices/types'
 
 async function deriveCompanyFromContact(contactId: string, orgId: string): Promise<{ companyId?: string; companyName?: string }> {
   try {
@@ -37,9 +38,50 @@ export const GET = withCrmAuth('viewer', async (_req: NextRequest, ctx) => {
   return apiSuccess({ quotes })
 })
 
+/** Map DealLineItem[] → quote LineItem[] */
+function mapDealLineItems(dealItems: DealLineItem[]): LineItem[] {
+  return dealItems.map((item) => ({
+    description: item.name,
+    quantity: item.qty,
+    unitPrice: item.unitPrice,
+    amount: item.total,
+  }))
+}
+
+/** Best-effort: fetch deal and return pre-filled line items. Returns null on any failure. */
+async function prefillFromDeal(dealId: string, orgId: string): Promise<LineItem[] | null> {
+  try {
+    const dealSnap = await adminDb.collection('deals').doc(dealId).get()
+    if (!dealSnap.exists) return null
+    const deal = dealSnap.data()!
+    if (deal.orgId !== orgId) {
+      console.warn('[quote-prefill] cross-tenant dealId rejected', dealId)
+      return null
+    }
+    if (!deal.lineItems?.length) return null
+    return mapDealLineItems(deal.lineItems as DealLineItem[])
+  } catch (e) {
+    console.error('[quote-prefill] deal lookup failed', e)
+    return null
+  }
+}
+
 export const POST = withCrmAuth('member', async (req: NextRequest, ctx) => {
   const body = await req.json().catch(() => ({}))
-  if (!body.lineItems?.length) return apiError('At least one line item is required', 400)
+
+  // A5: optional dealId — pre-fill lineItems from the deal (best-effort)
+  let resolvedLineItems = body.lineItems as LineItem[] | undefined
+  if (body.dealId && typeof body.dealId === 'string') {
+    const dealItems = await prefillFromDeal(body.dealId, ctx.orgId)
+    if (dealItems) {
+      // Deal items take precedence when body has no lineItems (or empty)
+      if (!resolvedLineItems?.length) {
+        resolvedLineItems = dealItems
+      }
+    }
+  }
+
+  if (!resolvedLineItems?.length) return apiError('At least one line item is required', 400)
 
   // Fetch client org for prefix + billing + currency
   const clientOrgDoc = await adminDb.collection('organizations').doc(ctx.orgId).get()
@@ -97,7 +139,7 @@ export const POST = withCrmAuth('member', async (req: NextRequest, ctx) => {
   const quoteNumber = `Q-${prefix}-${String(quoteCount).padStart(3, '0')}`
 
   // Calculate totals
-  const lineItems = body.lineItems.map((item: any) => ({
+  const lineItems = (resolvedLineItems as LineItem[]).map((item) => ({
     description: item.description,
     quantity: Number(item.quantity),
     unitPrice: Number(item.unitPrice),

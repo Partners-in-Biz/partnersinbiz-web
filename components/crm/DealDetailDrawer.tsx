@@ -4,8 +4,10 @@
  * DealDetailDrawer — read-only deal detail panel
  *
  * A5: shows probability badge + weighted value, lost reason, and line items.
+ * A5 final: "Convert to quote" button pre-fills lineItems from the deal.
  */
 
+import { useState } from 'react'
 import type { Deal, Currency } from '@/lib/crm/types'
 import type { PipelineStage } from '@/lib/pipelines/types'
 import { DealLineItemsEditor } from './DealLineItemsEditor'
@@ -45,6 +47,34 @@ export function DealDetailDrawer({ deal, stages, orgId, onClose, onEdit }: DealD
 
   const labelCls = 'block text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1'
 
+  // Convert to quote state
+  const [convertingQuote, setConvertingQuote] = useState(false)
+  const [quoteResult, setQuoteResult] = useState<{ quoteNumber: string; id: string } | null>(null)
+  const [quoteError, setQuoteError] = useState<string | null>(null)
+
+  async function handleConvertToQuote() {
+    setConvertingQuote(true)
+    setQuoteError(null)
+    setQuoteResult(null)
+    try {
+      const res = await fetch('/api/v1/quotes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dealId: deal.id }),
+      })
+      const json = await res.json()
+      if (!res.ok || !json.success) {
+        throw new Error(json.error ?? 'Failed to create quote')
+      }
+      const data = json.data ?? json
+      setQuoteResult({ quoteNumber: data.quoteNumber, id: data.id })
+    } catch (e: unknown) {
+      setQuoteError(e instanceof Error ? e.message : 'Unknown error')
+    } finally {
+      setConvertingQuote(false)
+    }
+  }
+
   return (
     <div
       className="fixed inset-0 z-40 flex items-start justify-end"
@@ -77,6 +107,16 @@ export function DealDetailDrawer({ deal, stages, orgId, onClose, onEdit }: DealD
             )}
           </div>
           <div className="flex items-center gap-2 shrink-0">
+            {/* Convert to quote */}
+            <button
+              type="button"
+              onClick={handleConvertToQuote}
+              disabled={convertingQuote}
+              className="cursor-pointer text-[10px] font-label uppercase tracking-wide px-2 py-1 rounded border border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:border-[var(--color-pib-text-muted)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Convert to quote"
+            >
+              {convertingQuote ? 'Creating…' : 'Quote'}
+            </button>
             {onEdit && (
               <button
                 type="button"
@@ -99,6 +139,34 @@ export function DealDetailDrawer({ deal, stages, orgId, onClose, onEdit }: DealD
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto px-5 py-5 space-y-5">
+          {/* Quote conversion feedback */}
+          {quoteResult && (
+            <div
+              className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm"
+              style={{ background: '#4ade8020', border: '1px solid #4ade8040', color: '#4ade80' }}
+            >
+              <span className="material-symbols-outlined text-[16px]">check_circle</span>
+              <span>
+                Quote {quoteResult.quoteNumber} created — view in{' '}
+                <a
+                  href="/portal/quotes"
+                  className="underline font-semibold"
+                  onClick={onClose}
+                >
+                  Quotes
+                </a>
+              </span>
+            </div>
+          )}
+          {quoteError && (
+            <div
+              className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm"
+              style={{ background: '#f8717120', border: '1px solid #f8717140', color: '#f87171' }}
+            >
+              <span className="material-symbols-outlined text-[16px]">error</span>
+              <span>{quoteError}</span>
+            </div>
+          )}
           {/* Value + weighted value */}
           <div className="flex items-center gap-4 flex-wrap">
             <div>
