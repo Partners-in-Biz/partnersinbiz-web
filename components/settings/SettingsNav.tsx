@@ -24,6 +24,7 @@ const WORKSPACE_LINKS = [
   { href: '/portal/settings/pipelines', label: 'Pipelines', icon: 'sync_alt', minRole: 'admin' },
   { href: '/portal/settings/scoring', label: 'Scoring', icon: 'star_rate', minRole: 'admin' },
   { href: '/portal/settings/products', label: 'Products', icon: 'inventory_2', minRole: 'admin' },
+  { href: '/portal/settings/automations', label: 'Automations', icon: 'bolt', minRole: 'admin' },
   { href: '/portal/settings/permissions', label: 'Permissions', icon: 'shield', minRole: 'owner' },
 ]
 
