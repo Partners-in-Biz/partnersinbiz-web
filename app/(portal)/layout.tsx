@@ -320,7 +320,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
   // ── Topbar mode ────────────────────────────────────────────────────────────
   if (layoutMode === 'topbar') {
     return (
-      <div className="flex flex-col min-h-screen bg-[var(--color-pib-bg)] text-[var(--color-pib-text)]">
+      <div data-message-push-root className="flex flex-col min-h-screen bg-[var(--color-pib-bg)] text-[var(--color-pib-text)]">
         {tracker}
         <header className="h-14 sticky top-0 z-30 bg-[var(--color-pib-bg)]/95 backdrop-blur-md border-b border-[var(--color-pib-line)] shrink-0">
           <div className="flex items-center h-full px-4 gap-2">
@@ -465,7 +465,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
 
   // ── Sidebar mode ───────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-[var(--color-pib-bg)] text-[var(--color-pib-text)] flex">
+    <div data-message-push-root className="min-h-screen bg-[var(--color-pib-bg)] text-[var(--color-pib-text)] flex">
       {tracker}
       {/* Mobile backdrop */}
       <div

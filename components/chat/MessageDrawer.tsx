@@ -38,24 +38,27 @@ export function MessageDrawer({
   useEffect(() => {
     if (!open) return
 
-    const previousPadding = document.body.style.paddingRight
-    const previousTransition = document.body.style.transition
+    const pushRoot = document.querySelector<HTMLElement>('[data-message-push-root]')
+    if (!pushRoot) return
+
+    const previousMargin = pushRoot.style.marginRight
+    const previousTransition = pushRoot.style.transition
     const media = window.matchMedia('(min-width: 768px)')
 
     function syncPageInset() {
-      document.body.style.paddingRight = open && media.matches ? drawerWidth : previousPadding
+      pushRoot.style.marginRight = open && media.matches ? drawerWidth : previousMargin
     }
 
     if (!previousTransition) {
-      document.body.style.transition = 'padding-right 180ms ease'
+      pushRoot.style.transition = 'margin-right 180ms ease'
     }
     syncPageInset()
     media.addEventListener('change', syncPageInset)
 
     return () => {
       media.removeEventListener('change', syncPageInset)
-      document.body.style.paddingRight = previousPadding
-      document.body.style.transition = previousTransition
+      pushRoot.style.marginRight = previousMargin
+      pushRoot.style.transition = previousTransition
     }
   }, [drawerWidth, open])
 

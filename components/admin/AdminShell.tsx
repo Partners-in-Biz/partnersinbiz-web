@@ -66,7 +66,7 @@ export function AdminShell({ userEmail, userUid, children }: AdminShellProps) {
 
   if (layoutMode === 'topbar') {
     return (
-      <div className="flex flex-col h-screen overflow-hidden bg-[var(--color-pib-bg)] text-[var(--color-pib-text)]">
+      <div data-message-push-root className="flex flex-col h-screen overflow-hidden bg-[var(--color-pib-bg)] text-[var(--color-pib-text)]">
         <WelcomeFlashHandler />
         <AdminTopbarNav userEmail={userEmail} onToggleLayout={toggleLayout} messageAction={messageAction} />
         <main className="flex-1 overflow-y-auto px-4 md:px-8 py-8">
@@ -79,7 +79,7 @@ export function AdminShell({ userEmail, userUid, children }: AdminShellProps) {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[var(--color-pib-bg)] text-[var(--color-pib-text)]">
+    <div data-message-push-root className="flex h-screen overflow-hidden bg-[var(--color-pib-bg)] text-[var(--color-pib-text)]">
       <WelcomeFlashHandler />
       <AdminSidebar open={open} onClose={() => setOpen(false)} collapsed={collapsed} onToggleCollapsed={toggleCollapsed} />
       <div className="flex flex-col flex-1 overflow-hidden min-w-0">
