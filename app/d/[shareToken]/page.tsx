@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 
 import { DocumentRenderer } from '@/components/client-documents'
+import { deserializeBlocksFromFirestore } from '@/lib/client-documents/firestore-blocks'
 import { CLIENT_DOCUMENTS_COLLECTION } from '@/lib/client-documents/store'
 import { stripPrivateDocumentFields } from '@/lib/client-documents/public'
 import type { ClientDocument, ClientDocumentVersion } from '@/lib/client-documents/types'
@@ -34,9 +35,14 @@ async function loadSharedDocument(shareToken: string) {
 
   if (!versionSnap.exists) return null
 
+  const versionData = versionSnap.data()!
   return {
     document: stripPrivateDocumentFields(document) as ClientDocument,
-    version: stripPrivateDocumentFields({ id: versionSnap.id, ...versionSnap.data() }) as ClientDocumentVersion,
+    version: stripPrivateDocumentFields({
+      id: versionSnap.id,
+      ...versionData,
+      blocks: deserializeBlocksFromFirestore(versionData.blocks),
+    }) as ClientDocumentVersion,
   }
 }
 

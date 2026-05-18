@@ -4,6 +4,7 @@ import { withAuth } from '@/lib/api/auth'
 import { resolveOrgScope } from '@/lib/api/orgScope'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import type { ApiUser } from '@/lib/api/types'
+import { deserializeBlocksFromFirestore } from '@/lib/client-documents/firestore-blocks'
 import { CLIENT_DOCUMENTS_COLLECTION, getClientDocument } from '@/lib/client-documents/store'
 import type { ClientDocument } from '@/lib/client-documents/types'
 import { adminDb } from '@/lib/firebase/admin'
@@ -42,5 +43,6 @@ export const GET = withAuth('client', async (_req: NextRequest, user: ApiUser, c
   const snap = await adminDb.collection(CLIENT_DOCUMENTS_COLLECTION).doc(id).collection('versions').doc(versionId).get()
   if (!snap.exists) return apiError('Version not found', 404)
 
-  return apiSuccess({ id: snap.id, ...snap.data() })
+  const data = snap.data()!
+  return apiSuccess({ id: snap.id, ...data, blocks: deserializeBlocksFromFirestore(data.blocks) })
 })

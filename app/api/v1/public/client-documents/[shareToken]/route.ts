@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 import { apiError, apiSuccess } from '@/lib/api/response'
+import { deserializeBlocksFromFirestore } from '@/lib/client-documents/firestore-blocks'
 import { CLIENT_DOCUMENTS_COLLECTION } from '@/lib/client-documents/store'
 import { stripPrivateDocumentFields } from '@/lib/client-documents/public'
 import type { ClientDocument } from '@/lib/client-documents/types'
@@ -40,7 +41,8 @@ export async function GET(_req: NextRequest, context: RouteContext): Promise<Nex
 
     if (!versionSnap.exists) return apiError('Published version not found', 404)
 
-    const version = { id: versionSnap.id, ...versionSnap.data() }
+    const versionData = versionSnap.data()!
+    const version = { id: versionSnap.id, ...versionData, blocks: deserializeBlocksFromFirestore(versionData.blocks) }
     return apiSuccess({
       document: stripPrivateDocumentFields(document),
       version: stripPrivateDocumentFields(version),

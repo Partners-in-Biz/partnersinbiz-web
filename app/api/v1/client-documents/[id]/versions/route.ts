@@ -5,6 +5,7 @@ import { withAuth } from '@/lib/api/auth'
 import { resolveOrgScope } from '@/lib/api/orgScope'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import type { ApiUser } from '@/lib/api/types'
+import { deserializeBlocksFromFirestore, serializeBlocksForFirestore } from '@/lib/client-documents/firestore-blocks'
 import { CLIENT_DOCUMENTS_COLLECTION, getClientDocument } from '@/lib/client-documents/store'
 import type { ClientDocument, DocumentBlock, DocumentBlockType, DocumentTheme } from '@/lib/client-documents/types'
 import { adminDb } from '@/lib/firebase/admin'
@@ -126,6 +127,31 @@ function validateBlocks(value: unknown): { ok: true; value: DocumentBlock[] } | 
     if (display.motion !== undefined && (typeof display.motion !== 'string' || !MOTIONS.has(display.motion))) {
       return { ok: false, error: `blocks[${index}].display.motion is invalid` }
     }
+
+    if (row.type === 'table') {
+      if (!row.content || typeof row.content !== 'object' || Array.isArray(row.content)) {
+        return { ok: false, error: `blocks[${index}].content must be an object` }
+      }
+      const content = row.content as Record<string, unknown>
+      if (content.headers !== undefined) {
+        if (!Array.isArray(content.headers) || !content.headers.every((h) => typeof h === 'string')) {
+          return { ok: false, error: `blocks[${index}].content.headers must be an array of strings` }
+        }
+      }
+      if (content.rows !== undefined) {
+        if (!Array.isArray(content.rows)) {
+          return { ok: false, error: `blocks[${index}].content.rows must be an array` }
+        }
+        for (const [rowIndex, tableRow] of content.rows.entries()) {
+          if (!Array.isArray(tableRow) || !tableRow.every((cell) => typeof cell === 'string')) {
+            return {
+              ok: false,
+              error: `blocks[${index}].content.rows[${rowIndex}] must be an array of strings`,
+            }
+          }
+        }
+      }
+    }
   }
 
   return { ok: true, value: value as DocumentBlock[] }
@@ -177,7 +203,10 @@ export const GET = withAuth('client', async (_req: NextRequest, user: ApiUser, c
   if (!access.ok) return access.response
 
   const snap = await adminDb.collection(CLIENT_DOCUMENTS_COLLECTION).doc(id).collection('versions').get()
-  const versions = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }))
+  const versions = snap.docs.map((doc) => {
+    const data = doc.data()
+    return { id: doc.id, ...data, blocks: deserializeBlocksFromFirestore(data.blocks) }
+  })
 
   return apiSuccess(versions)
 })
@@ -205,35 +234,43 @@ export const POST = withAuth('admin', async (req: NextRequest, user: ApiUser, ct
   const versionRef = documentRef.collection('versions').doc()
   const inputActorType = actorType(user)
 
-  const result = await adminDb.runTransaction(async (transaction) => {
-    const snap = await transaction.get(documentRef)
-    if (!snap.exists || snap.data()?.deleted === true) {
-      return { ok: false as const, response: apiError('Document not found', 404) }
-    }
+  const storedBlocks = serializeBlocksForFirestore(blocks.value)
 
-    const access = assertDocumentDataAccess(snap.data() as Partial<ClientDocument>, user)
-    if (!access.ok) return access
+  let result: { ok: true } | { ok: false; response: ReturnType<typeof apiError> }
+  try {
+    result = await adminDb.runTransaction(async (transaction) => {
+      const snap = await transaction.get(documentRef)
+      if (!snap.exists || snap.data()?.deleted === true) {
+        return { ok: false as const, response: apiError('Document not found', 404) }
+      }
 
-    transaction.set(versionRef, {
-      documentId: id,
-      versionNumber: body.versionNumber ?? Date.now(),
-      status: 'draft',
-      blocks: blocks.value,
-      theme: theme.value,
-      createdAt: FieldValue.serverTimestamp(),
-      createdBy: user.uid,
-      createdByType: inputActorType,
-      changeSummary: typeof body.changeSummary === 'string' ? body.changeSummary.trim() || 'Draft update' : 'Draft update',
+      const access = assertDocumentDataAccess(snap.data() as Partial<ClientDocument>, user)
+      if (!access.ok) return access
+
+      transaction.set(versionRef, {
+        documentId: id,
+        versionNumber: body.versionNumber ?? Date.now(),
+        status: 'draft',
+        blocks: storedBlocks,
+        theme: theme.value,
+        createdAt: FieldValue.serverTimestamp(),
+        createdBy: user.uid,
+        createdByType: inputActorType,
+        changeSummary: typeof body.changeSummary === 'string' ? body.changeSummary.trim() || 'Draft update' : 'Draft update',
+      })
+      transaction.update(documentRef, {
+        currentVersionId: versionRef.id,
+        updatedAt: FieldValue.serverTimestamp(),
+        updatedBy: user.uid,
+        updatedByType: inputActorType,
+      })
+
+      return { ok: true as const }
     })
-    transaction.update(documentRef, {
-      currentVersionId: versionRef.id,
-      updatedAt: FieldValue.serverTimestamp(),
-      updatedBy: user.uid,
-      updatedByType: inputActorType,
-    })
-
-    return { ok: true as const }
-  })
+  } catch (err) {
+    console.error('[client-documents/versions] POST failed', { documentId: id, error: err })
+    return apiError('Internal Server Error', 500)
+  }
 
   if (!result.ok) return result.response
 

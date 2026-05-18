@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 import { apiError, apiSuccess } from '@/lib/api/response'
+import { deserializeBlocksFromFirestore } from '@/lib/client-documents/firestore-blocks'
 import { adminAuth, adminDb } from '@/lib/firebase/admin'
 
 export const dynamic = 'force-dynamic'
@@ -51,7 +52,8 @@ export async function GET(req: NextRequest, ctx: RouteContext): Promise<NextResp
     .get()
   if (!versionSnap.exists) return apiError('Document missing version', 500)
 
-  const version = { id: versionSnap.id, ...versionSnap.data() }
+  const versionData = versionSnap.data()!
+  const version = { id: versionSnap.id, ...versionData, blocks: deserializeBlocksFromFirestore(versionData.blocks) }
 
   return apiSuccess({
     document: doc,

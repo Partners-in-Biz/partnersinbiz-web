@@ -4,6 +4,7 @@ import { adminAuth, adminDb } from '@/lib/firebase/admin'
 import { DocumentRenderer } from '@/components/client-documents/DocumentRenderer'
 import { PreviewFrame } from '@/components/client-documents/PreviewFrame'
 import { OrgThemedFrame } from '@/components/admin/OrgThemedFrame'
+import { deserializeBlocksFromFirestore } from '@/lib/client-documents/firestore-blocks'
 import { serializeForClient } from '@/lib/client-documents/serialize'
 import type { ClientDocument, ClientDocumentVersion } from '@/lib/client-documents/types'
 
@@ -42,7 +43,12 @@ export default async function OrgPreviewPage({
     .doc(doc.currentVersionId)
     .get()
   if (!versionSnap.exists) notFound()
-  const version = { id: versionSnap.id, ...versionSnap.data() } as ClientDocumentVersion
+  const versionData = versionSnap.data()!
+  const version = {
+    id: versionSnap.id,
+    ...versionData,
+    blocks: deserializeBlocksFromFirestore(versionData.blocks),
+  } as ClientDocumentVersion
 
   const versionLabel = `${doc.status === 'internal_draft' ? 'Draft' : doc.status} · v${version.versionNumber}`
   const shareUrl = doc.shareEnabled && doc.shareToken

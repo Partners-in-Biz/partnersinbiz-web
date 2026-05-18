@@ -4,6 +4,7 @@ import { FieldValue } from 'firebase-admin/firestore'
 import type { ApiUser } from '@/lib/api/types'
 import { adminDb } from '@/lib/firebase/admin'
 
+import { serializeBlocksForFirestore } from './firestore-blocks'
 import { createBlocksFromTemplate, getClientDocumentTemplate } from './templates'
 import type {
   ClientDocument,
@@ -116,7 +117,7 @@ export async function createClientDocument(input: {
     documentId: documentRef.id,
     versionNumber: 1,
     status: 'draft',
-    blocks: createBlocksFromTemplate(input.type),
+    blocks: serializeBlocksForFirestore(createBlocksFromTemplate(input.type)),
     theme: input.theme ?? DEFAULT_THEME,
     createdAt: FieldValue.serverTimestamp(),
     createdBy: input.user.uid,
