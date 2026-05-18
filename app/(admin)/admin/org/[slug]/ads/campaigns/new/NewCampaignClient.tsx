@@ -5,6 +5,7 @@
 // Sub-3a Phase 3 Batch 2 Agent D — extended to 3-way picker (+ Google Display).
 // Sub-3a Phase 4 Batch 2 Agent D — extended to 4-way picker (+ Google Shopping).
 // Sub-3b Phase 2 Batch 3C — extended to 5-way picker (+ LinkedIn).
+// Sub-3c Phase 2 Batch 3B — extended to 6-way picker (+ TikTok).
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -13,8 +14,9 @@ import { SearchCampaignBuilder } from '@/components/ads/google/SearchCampaignBui
 import { DisplayCampaignBuilder } from '@/components/ads/google/DisplayCampaignBuilder'
 import { ShoppingCampaignBuilder } from '@/components/ads/google/ShoppingCampaignBuilder'
 import { LinkedinCampaignBuilder } from '@/components/ads/LinkedinCampaignBuilder'
+import { TiktokCampaignBuilder } from '@/components/ads/TiktokCampaignBuilder'
 
-type Platform = 'meta' | 'google-search' | 'google-display' | 'google-shopping' | 'linkedin'
+type Platform = 'meta' | 'google-search' | 'google-display' | 'google-shopping' | 'linkedin' | 'tiktok'
 
 const PLATFORM_OPTIONS: { value: Platform; label: string; description?: string }[] = [
   { value: 'meta', label: 'Meta (Facebook / Instagram)' },
@@ -22,6 +24,7 @@ const PLATFORM_OPTIONS: { value: Platform; label: string; description?: string }
   { value: 'google-display', label: 'Google Display' },
   { value: 'google-shopping', label: 'Google Shopping', description: 'Shopping ads from your Merchant Center product feed.' },
   { value: 'linkedin', label: 'LinkedIn', description: 'Sponsored Content, Text Ads, and Message Ads on LinkedIn.' },
+  { value: 'tiktok', label: 'TikTok', description: 'In-Feed Ads, TopView, and Spark Ads on TikTok.' },
 ]
 
 interface Props {
@@ -102,6 +105,18 @@ export function NewCampaignClient({ orgId, orgSlug, currency }: Props) {
 
       {platform === 'linkedin' && (
         <LinkedinCampaignBuilder
+          orgId={orgId}
+          orgSlug={orgSlug}
+          currency={currency}
+          onComplete={(r) => {
+            router.push(`/admin/org/${orgSlug}/ads/campaigns/${r.campaignId}?created=1`)
+          }}
+          onCancel={() => router.push(`/admin/org/${orgSlug}/ads/campaigns`)}
+        />
+      )}
+
+      {platform === 'tiktok' && (
+        <TiktokCampaignBuilder
           orgId={orgId}
           orgSlug={orgSlug}
           currency={currency}
