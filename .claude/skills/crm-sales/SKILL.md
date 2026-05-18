@@ -170,24 +170,33 @@ Update communication preferences. Partial updates accepted — only supplied fie
 
 ### Deals
 
+> **Breaking change — A3 strict cutover:** `Deal.stage: DealStage` has been **removed**. Deals now carry `pipelineId: string` + `stageId: string`. Any external integration that reads `deal.stage` must be updated to resolve stage via `pipelineId` + `pipeline.stages.find(s => s.id === stageId)` for label / kind / color / probability.
+
 #### `GET /crm/deals` — auth: viewer
-Filters: `stage`, `contactId`, `page`, `limit`.
+Filters: `pipelineId`, `stageId`, `contactId`, `page`, `limit`.
 
 Response: array of `Deal`:
 ```json
 { "id": "deal_xyz", "orgId": "org_abc", "contactId": "contact_abc",
   "title": "Acme - Pro Plan - Annual", "value": 12000, "currency": "ZAR",
-  "stage": "proposal", "expectedCloseDate": "2026-05-30", "notes": "...",
+  "pipelineId": "pipe_abc", "stageId": "stage_open_1",
+  "expectedCloseDate": "2026-05-30", "notes": "...",
   "createdAt": "...", "updatedAt": "...", "deleted": false }
 ```
 
 #### `POST /crm/deals` — auth: member
-Required: `orgId`, `title`, `contactId`. Defaults: `value=0`, `currency='USD'`, `stage='discovery'`.
-Currencies: `USD`, `EUR`, `ZAR`. `orgId` is **required** — 400 if missing. Dispatches `deal.created`.
+Required: `orgId`, `title`, `contactId`. Defaults: `value=0`, `currency='USD'`.
+- `pipelineId` defaults to the org's default pipeline (auto-resolved).
+- `stageId` defaults to the first `kind: 'open'` stage in that pipeline.
+- Currencies: `USD`, `EUR`, `ZAR`. `orgId` is **required** — 400 if missing. Dispatches `deal.created`.
 
 #### `GET /crm/deals/[id]` — auth: viewer
-#### `PUT /crm/deals/[id]` — auth: member
-PUT dispatches `deal.stage_changed` when `stage` changes; if new stage is `won` → also `deal.won`; if `lost` → also `deal.lost`.
+#### `PUT /crm/deals/[id]` / `PATCH /crm/deals/[id]` — auth: member
+- Changing `pipelineId` requires an explicit `stageId` in the same call (else 400).
+- Cross-pipeline `stageId` (stageId that does not belong to the supplied `pipelineId`) → 400.
+- Stage-change dispatches `deal.stage_changed`; payload now carries `pipelineId`, `stageId`, `stageLabel`, `stageKind`, `previousStageId`, `previousStageLabel`, `previousStageKind`.
+- If new stage has `kind: 'won'` → also dispatches `deal.won`; `kind: 'lost'` → `deal.lost`.
+- `tryAttributeDealWon` is keyed off `stage.kind === 'won'` (not a legacy stage string).
 #### `DELETE /crm/deals/[id]` — auth: admin
 
 ### CRM activities (cross-cutting)
@@ -1072,6 +1081,80 @@ Required fields → empty / null / undefined / empty array all return an error. 
 
 ---
 
+## Pipelines (A3 — multi-pipeline support)
+
+> **Breaking change — A3 strict cutover:** `Deal.stage: DealStage` has been **removed**. Deals now carry `pipelineId: string` + `stageId: string`. Any external integration that reads `deal.stage` must be updated before deploying. The one-shot migration script must be run BEFORE the A3 deploy or all deal writes will return 400.
+
+### Pipeline entity field reference
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | string | Firestore doc ID |
+| `orgId` | string | Tenant scope — always enforced |
+| `name` | string | Required |
+| `description` | string? | Optional |
+| `stages` | PipelineStage[] | Min 3 stages; exactly 1 `won` + 1 `lost` required |
+| `isDefault` | boolean | One pipeline per org is default; atomic swap via `set-default` |
+| `archived` | boolean | Archived pipelines are hidden from normal views |
+| `attribution` | object? | Internal tracking metadata |
+
+### PipelineStage field reference
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | string | Must match `^[a-z][a-z0-9_]{0,39}$`; immutable after create |
+| `label` | string | Display name |
+| `kind` | `'open'\|'won'\|'lost'` | Immutable after create; drives attribution + webhooks |
+| `order` | number | Display sort order (ascending) |
+| `probability` | number | 0–100; used for weighted pipeline value |
+| `color` | string? | Hex colour for kanban column |
+
+### Validation rules
+
+- `stages` must have length ≥ 3
+- Exactly **1** stage with `kind: 'won'` and **1** stage with `kind: 'lost'` required
+- Stage `id` values must be unique within the pipeline
+- Stage `kind` and `id` are immutable after creation (would corrupt existing deals)
+
+### Endpoints
+
+| Method | Path | Min role | Notes |
+|---|---|---|---|
+| GET | `/api/v1/crm/pipelines?archived=false` | viewer | Lists pipelines; pass `?archived=true` to include archived |
+| POST | `/api/v1/crm/pipelines` | admin | Creates a pipeline |
+| GET | `/api/v1/crm/pipelines/[id]` | viewer | Full pipeline with stages |
+| PUT | `/api/v1/crm/pipelines/[id]` | admin | Full replace |
+| PATCH | `/api/v1/crm/pipelines/[id]` | admin | Partial update |
+| DELETE | `/api/v1/crm/pipelines/[id]` | admin | Soft-delete; returns 400 if live deals are attached |
+| POST | `/api/v1/crm/pipelines/[id]/set-default` | admin | Atomically marks this pipeline as default (clears old default) |
+| GET | `/api/v1/crm/pipelines/default` | viewer | Returns the org's default pipeline; bootstraps a "Sales" pipeline if none exists for `member+` callers |
+
+### Deal POST/PATCH contract
+
+- **POST** — `pipelineId` defaults to org's default pipeline; `stageId` defaults to first `kind: 'open'` stage in that pipeline.
+- **PATCH** — changing `pipelineId` requires an explicit `stageId` in the same call (else 400). A `stageId` that does not belong to the supplied `pipelineId` is rejected with 400.
+- Stage-change webhook payload now carries: `pipelineId`, `stageId`, `stageLabel`, `stageKind`, `previousStageId`, `previousStageLabel`, `previousStageKind`.
+- `tryAttributeDealWon` is keyed off `stage.kind === 'won'` — **not** a legacy stage string.
+
+### Migration
+
+**One-shot script:** `scripts/crm-migrate-multi-pipeline.ts`
+
+- Idempotent — safe to run multiple times
+- Flags: `--dry-run` (preview changes) + `--commit` (write to Firestore)
+- Creates a default "Sales" pipeline per org
+- Populates `pipelineId` + `stageId` on all existing deals from the legacy `stage` string
+- Drops the legacy `stage` field
+
+**This script must be run BEFORE deploying A3.** Deploying without migrating means all deal writes return 400.
+
+### UI
+
+- Admin settings page: `/portal/settings/pipelines` — create, edit, reorder, archive, set-default
+- Kanban uses `<PipelineSelector>` to switch between pipelines
+
+---
+
 ## Role matrix
 
 | Resource | viewer (GET) | member (write) | admin (delete/bulk-admin) |
@@ -1086,5 +1169,6 @@ Required fields → empty / null / undefined / empty array all return an error. 
 | Capture sources | GET list/detail | — | POST, PUT, DELETE |
 | **Companies** | **GET list/detail/contacts/deals/quotes/activities** | **POST, PUT, PATCH, bulk, upload-logo** | **DELETE, migrate-from-contacts** |
 | **Custom Fields** | **GET list/detail** | **—** | **POST, PUT, PATCH, DELETE, reorder** |
+| **Pipelines** | **GET list/detail/default** | **—** | **POST, PUT, PATCH, DELETE, set-default** |
 
 See the Ads sub-project 1 design spec for full payload shape.
