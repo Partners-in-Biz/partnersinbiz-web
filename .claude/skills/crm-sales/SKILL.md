@@ -1317,6 +1317,46 @@ All trigger calls are best-effort (dynamic import + try/catch) — automation fa
 
 ---
 
+## B-phase — CRM UI Completeness
+
+### New endpoints
+| Method | Route | Auth | Description |
+|--------|-------|------|-------------|
+| GET | `/api/v1/crm/dashboard` | member | Pipeline metrics: open deals, weighted pipeline, won/lost this month, top deals, recent activities |
+
+### Extended endpoints
+- `POST /api/v1/crm/contacts/bulk` — now accepts `patch: { delete: true }` for soft-bulk-delete (cannot combine with other patch fields)
+- `GET /api/v1/crm/deals` — now accepts `?search=` param (post-filter on title)
+- `POST /api/v1/crm/activities` — now accepts `occurredAt` ISO string (optional; defaults to server timestamp)
+
+### Dashboard response shape
+```json
+{
+  "openDealsCount": 12,
+  "openDealsValue": 450000,
+  "weightedPipelineValue": 225000,
+  "wonThisMonth": { "count": 3, "value": 95000 },
+  "lostThisMonth": { "count": 1 },
+  "recentActivities": [...],
+  "topOpenDeals": [...]
+}
+```
+
+### UI additions (B-phase)
+- **CrmSearchBar** — debounced cross-entity search (contacts + companies + deals), wired into portal sidebar
+- **Contact detail** — activity timeline with icons + actor names + load-more; log-activity quick actions (Call/Email/Note); + New deal button in ContactDealsPanel
+- **Contacts list** — bulk delete action added (confirms before executing)
+- **Portal dashboard** — Pipeline section with 4 metric cards + activity feed + top deals table
+- **Deals page** — Forecast tab with probability-weighted table, inline probability editor, relative close-date
+
+### Key patterns
+- Activity POST field: `summary` (required), not `notes`
+- Bulk delete: `{ ids, patch: { delete: true } }` — exclusive, cannot mix with other patch ops
+- Dashboard fetch: silent-fail — automation failure never breaks the parent page
+- Probability inline edit: optimistic update + best-effort PUT
+
+---
+
 ## Role matrix
 
 | Resource | viewer (GET) | member (write) | admin (delete/bulk-admin) |
