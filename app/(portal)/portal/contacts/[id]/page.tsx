@@ -97,6 +97,38 @@ export default function PortalContactDetailPage() {
   // B1: Activity page for load-more
   const [activityPage, setActivityPage] = useState(1)
 
+  // C1: Smart next-action suggestions
+  interface SuggestionItem {
+    action: string
+    reason: string
+    urgency: 'high' | 'medium' | 'low'
+  }
+  const [suggestions, setSuggestions] = useState<SuggestionItem[]>([])
+
+  // C2: AI email composer
+  const [showAiComposer, setShowAiComposer] = useState(false)
+  const [aiPurpose, setAiPurpose] = useState('')
+  const [aiTone, setAiTone] = useState<'professional' | 'friendly' | 'bold'>('professional')
+  const [aiDraft, setAiDraft] = useState<{ subject: string; bodyText: string } | null>(null)
+  const [aiLoading, setAiLoading] = useState(false)
+  const [aiError, setAiError] = useState<string | null>(null)
+
+  // C3: Sequence enrollment panel
+  interface EnrollmentRecord {
+    id: string
+    sequenceId?: string
+    sequenceName?: string
+    status?: string
+    currentStep?: number
+    nextSendAt?: unknown
+  }
+  const [enrollments, setEnrollments] = useState<EnrollmentRecord[]>([])
+  const [enrollmentsLoading, setEnrollmentsLoading] = useState(true)
+  const [showEnrollModal, setShowEnrollModal] = useState(false)
+  const [sequences, setSequences] = useState<{ id: string; name: string }[]>([])
+  const [enrollingSequenceId, setEnrollingSequenceId] = useState('')
+  const [enrolling, setEnrolling] = useState(false)
+
   useEffect(() => {
     if (!id) return
     fetch(`/api/v1/crm/contacts/${id}`)
@@ -142,6 +174,27 @@ export default function PortalContactDetailPage() {
         setActivitiesLoading(false)
       })
       .catch(() => setActivitiesLoading(false))
+  }, [id])
+
+  // C1: Fetch smart suggestions (silent fail)
+  useEffect(() => {
+    if (!id) return
+    fetch(`/api/v1/crm/contacts/${id}/suggestions`)
+      .then((r) => r.json())
+      .then((b) => setSuggestions(b.data?.suggestions ?? []))
+      .catch(() => setSuggestions([]))
+  }, [id])
+
+  // C3: Fetch enrollments
+  useEffect(() => {
+    if (!id) return
+    fetch(`/api/v1/crm/contacts/${id}/enrollments`)
+      .then((r) => r.json())
+      .then((b) => {
+        setEnrollments(b.data?.enrollments ?? [])
+        setEnrollmentsLoading(false)
+      })
+      .catch(() => setEnrollmentsLoading(false))
   }, [id])
 
   async function saveChanges() {
@@ -219,6 +272,71 @@ export default function PortalContactDetailPage() {
       setLogError(err instanceof Error ? err.message : 'Failed to log activity')
     } finally {
       setLogSaving(false)
+    }
+  }
+
+  // C2: AI email composer handler
+  async function handleAiGenerate() {
+    setAiLoading(true)
+    setAiError(null)
+    setAiDraft(null)
+    try {
+      const res = await fetch('/api/v1/crm/ai/compose-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contactId: id, purpose: aiPurpose, tone: aiTone }),
+      })
+      const body = await res.json()
+      if (!res.ok) throw new Error((body as { error?: string }).error ?? 'AI generation failed')
+      setAiDraft((body as { data?: { subject: string; bodyText: string } }).data ?? (body as { subject: string; bodyText: string }))
+    } catch (err) {
+      setAiError(err instanceof Error ? err.message : 'AI generation failed')
+    } finally {
+      setAiLoading(false)
+    }
+  }
+
+  // C3: Enrollment handlers
+  async function handleOpenEnrollModal() {
+    const r = await fetch('/api/v1/crm/sequences')
+    const b = await r.json()
+    const list = (b.data?.sequences ?? b.data ?? []) as { id: string; name: string }[]
+    setSequences(list)
+    setEnrollingSequenceId('')
+    setShowEnrollModal(true)
+  }
+
+  async function handleEnroll() {
+    if (!enrollingSequenceId) return
+    setEnrolling(true)
+    try {
+      const res = await fetch(`/api/v1/crm/sequences/${enrollingSequenceId}/enrollments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contactId: id }),
+      })
+      const body = await res.json()
+      if (!res.ok) throw new Error((body as { error?: string }).error ?? 'Enrollment failed')
+      const newEnrollment = (body as { data?: EnrollmentRecord }).data ?? (body as EnrollmentRecord)
+      setEnrollments((prev) => [newEnrollment, ...prev])
+      setShowEnrollModal(false)
+    } catch {
+      // silent — modal stays open; user can retry
+    } finally {
+      setEnrolling(false)
+    }
+  }
+
+  async function handleUnenroll(enrollmentId: string) {
+    const enrollment = enrollments.find((e) => e.id === enrollmentId)
+    if (!enrollment?.sequenceId) return
+    try {
+      await fetch(`/api/v1/crm/sequences/${enrollment.sequenceId}/enrollments/${enrollmentId}`, {
+        method: 'DELETE',
+      })
+      setEnrollments((prev) => prev.filter((e) => e.id !== enrollmentId))
+    } catch {
+      // silent
     }
   }
 
@@ -456,6 +574,31 @@ export default function PortalContactDetailPage() {
             )}
           </div>
 
+          {/* C1: Smart next-action suggestions */}
+          {suggestions.length > 0 && (
+            <div className="bento-card !p-4">
+              <p className="eyebrow !text-[10px] mb-3 flex items-center gap-1.5">
+                <span className="material-symbols-outlined text-[14px]">tips_and_updates</span>
+                Suggested actions
+              </p>
+              <div className="flex flex-col gap-2">
+                {suggestions.map((s, i) => (
+                  <div key={i} className="flex items-start gap-3">
+                    <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${
+                      s.urgency === 'high' ? 'bg-red-500/20 text-red-400' :
+                      s.urgency === 'medium' ? 'bg-yellow-500/20 text-yellow-400' :
+                      'bg-[var(--color-pib-surface)] text-[var(--color-pib-text-muted)]'
+                    }`}>{s.urgency}</span>
+                    <div>
+                      <p className="text-sm font-medium">{s.action}</p>
+                      <p className="text-xs text-[var(--color-pib-text-muted)]">{s.reason}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="pib-card-section">
             <div className="px-5 py-3.5 border-b border-[var(--color-pib-line)] bg-white/[0.02] flex items-center justify-between">
               <p className="eyebrow !text-[10px]">Activity</p>
@@ -481,6 +624,10 @@ export default function PortalContactDetailPage() {
                     {label}
                   </button>
                 ))}
+                <button onClick={() => setShowAiComposer((v) => !v)} className="btn-pib-secondary text-xs flex items-center gap-1">
+                  <span className="material-symbols-outlined text-[14px]">auto_awesome</span>
+                  AI draft
+                </button>
               </div>
 
               {logType && (
@@ -508,6 +655,53 @@ export default function PortalContactDetailPage() {
                     </button>
                   </div>
                   {logError && <p className="text-xs text-red-400">{logError}</p>}
+                </div>
+              )}
+
+              {/* C2: AI email composer */}
+              {showAiComposer && (
+                <div className="bento-card !p-4 mb-4 space-y-3">
+                  <p className="text-xs font-medium">AI email composer</p>
+                  <input
+                    placeholder="Purpose (e.g. Follow up after demo)"
+                    value={aiPurpose}
+                    onChange={(e) => setAiPurpose(e.target.value)}
+                    className="w-full text-sm border border-[var(--color-pib-line)] rounded-lg p-2 bg-transparent"
+                  />
+                  <select
+                    value={aiTone}
+                    onChange={(e) => setAiTone(e.target.value as 'professional' | 'friendly' | 'bold')}
+                    className="text-sm border border-[var(--color-pib-line)] rounded p-1 bg-transparent"
+                  >
+                    <option value="professional">Professional</option>
+                    <option value="friendly">Friendly</option>
+                    <option value="bold">Bold</option>
+                  </select>
+                  <button
+                    onClick={handleAiGenerate}
+                    disabled={aiLoading || !aiPurpose.trim()}
+                    className="btn-pib-accent text-xs disabled:opacity-50"
+                  >
+                    {aiLoading ? 'Generating…' : 'Generate'}
+                  </button>
+                  {aiError && <p className="text-xs text-red-400">{aiError}</p>}
+                  {aiDraft && (
+                    <div className="space-y-2 mt-2">
+                      <p className="text-xs font-medium text-[var(--color-pib-text-muted)]">Subject:</p>
+                      <p className="text-sm font-medium">{aiDraft.subject}</p>
+                      <p className="text-xs font-medium text-[var(--color-pib-text-muted)]">Body:</p>
+                      <p className="text-sm whitespace-pre-wrap">{aiDraft.bodyText}</p>
+                      <button
+                        onClick={() => {
+                          void navigator.clipboard.writeText(`Subject: ${aiDraft!.subject}\n\n${aiDraft!.bodyText}`)
+                        }}
+                        className="btn-pib-secondary text-xs flex items-center gap-1"
+                      >
+                        <span className="material-symbols-outlined text-[14px]">content_copy</span>
+                        Copy to clipboard
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -564,8 +758,73 @@ export default function PortalContactDetailPage() {
             contactName={contact.name}
             orgId={typeof contact.orgId === 'string' ? contact.orgId : ''}
           />
+
+          {/* C3: Sequence enrollment panel */}
+          <div className="bento-card !p-5">
+            <div className="flex items-center justify-between mb-4">
+              <p className="eyebrow !text-[10px]">Sequences</p>
+              <button onClick={handleOpenEnrollModal} className="btn-pib-secondary text-xs flex items-center gap-1">
+                <span className="material-symbols-outlined text-[14px]">add</span>
+                Enroll
+              </button>
+            </div>
+            {enrollmentsLoading ? (
+              <p className="text-sm text-[var(--color-pib-text-muted)]">Loading…</p>
+            ) : enrollments.length === 0 ? (
+              <p className="text-sm text-[var(--color-pib-text-muted)]">Not enrolled in any sequences.</p>
+            ) : (
+              enrollments.map((e) => (
+                <div key={e.id} className="flex items-center justify-between py-2 border-b border-[var(--color-pib-line)] last:border-0">
+                  <div>
+                    <p className="text-sm font-medium">{e.sequenceName ?? e.sequenceId ?? 'Sequence'}</p>
+                    <p className="text-xs text-[var(--color-pib-text-muted)]">Step {(e.currentStep ?? 0) + 1} · {e.status}</p>
+                  </div>
+                  <button
+                    onClick={() => handleUnenroll(e.id)}
+                    className="text-xs text-[var(--color-pib-text-muted)] hover:text-red-400"
+                  >
+                    Unenroll
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
         </section>
       </div>
+
+      {/* C3: Enroll modal */}
+      {showEnrollModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bento-card !p-6 w-full max-w-sm space-y-4">
+            <p className="text-sm font-semibold">Enroll in sequence</p>
+            <select
+              value={enrollingSequenceId}
+              onChange={(e) => setEnrollingSequenceId(e.target.value)}
+              className="w-full text-sm border border-[var(--color-pib-line)] rounded p-2 bg-transparent"
+            >
+              <option value="">Choose a sequence…</option>
+              {sequences.map((s) => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
+            <div className="flex gap-2">
+              <button
+                onClick={handleEnroll}
+                disabled={!enrollingSequenceId || enrolling}
+                className="btn-pib-accent text-sm disabled:opacity-50"
+              >
+                {enrolling ? 'Enrolling…' : 'Enroll'}
+              </button>
+              <button
+                onClick={() => setShowEnrollModal(false)}
+                className="btn-pib-secondary text-sm"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

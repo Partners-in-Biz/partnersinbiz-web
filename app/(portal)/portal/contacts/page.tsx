@@ -8,6 +8,86 @@ import { fmtTimestamp } from '@/components/admin/email/fmtTimestamp'
 import { SavedViewsBar } from '@/components/crm/SavedViewsBar'
 import { ScoreChip } from '@/components/crm/ScoreChip'
 
+interface DuplicateContact {
+  id: string
+  name?: string
+  email?: string
+  company?: string
+  stage?: string
+}
+
+interface DuplicateGroup {
+  contacts: DuplicateContact[]
+  reason: 'email' | 'name'
+}
+
+function DuplicateGroupCard({
+  group,
+  isMerging,
+  onMerge,
+}: {
+  group: DuplicateGroup
+  isMerging: boolean
+  onMerge: (winnerId: string, loserId: string) => void
+}) {
+  const [winnerId, setWinnerId] = useState(group.contacts[0]?.id ?? '')
+
+  return (
+    <div className="border border-[var(--color-pib-line)] rounded-xl p-4 space-y-3">
+      <p className="text-xs text-[var(--color-pib-text-muted)]">
+        Matched by: <span className="font-medium">{group.reason}</span>
+        {' · '}{group.contacts.length} contacts
+      </p>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {group.contacts.map(c => (
+          <label
+            key={c.id}
+            className={`flex items-start gap-2 p-3 rounded-lg border cursor-pointer transition-colors ${
+              winnerId === c.id
+                ? 'border-[var(--color-pib-accent)] bg-[var(--color-pib-accent)]/5'
+                : 'border-[var(--color-pib-line)] hover:border-[var(--color-pib-line-strong)]'
+            }`}
+          >
+            <input
+              type="radio"
+              name={`winner-${group.contacts.map(x => x.id).join('-')}`}
+              value={c.id}
+              checked={winnerId === c.id}
+              onChange={() => setWinnerId(c.id)}
+              className="mt-0.5"
+            />
+            <div className="min-w-0">
+              <p className="text-sm font-medium truncate">{c.name ?? '—'}</p>
+              <p className="text-xs text-[var(--color-pib-text-muted)] truncate">{c.email ?? '—'}</p>
+              {c.company && (
+                <p className="text-xs text-[var(--color-pib-text-muted)] truncate">{c.company}</p>
+              )}
+              {winnerId === c.id && (
+                <span className="text-xs text-[var(--color-pib-accent)] font-medium">Keep this one</span>
+              )}
+            </div>
+          </label>
+        ))}
+      </div>
+
+      <div className="flex justify-end">
+        <button
+          onClick={() => {
+            const losers = group.contacts.filter(c => c.id !== winnerId)
+            if (losers.length > 0) onMerge(winnerId, losers[0].id)
+          }}
+          disabled={isMerging}
+          className="btn-pib-accent text-xs disabled:opacity-50 flex items-center gap-1"
+        >
+          <span className="material-symbols-outlined text-[14px]">merge</span>
+          {isMerging ? 'Merging…' : 'Merge'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 const STAGES = ['new', 'contacted', 'replied', 'demo', 'proposal', 'won', 'lost']
 const TYPES = ['lead', 'prospect', 'client', 'churned']
 const BULK_ACTIONS = ['assign', 'stage', 'type', 'add-tags', 'remove-tags'] as const
@@ -139,6 +219,13 @@ export default function PortalContactsPage() {
 
   // Team members for assign dropdown
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([])
+
+  // Duplicates state
+  const [showDuplicatesModal, setShowDuplicatesModal] = useState(false)
+  const [duplicateGroups, setDuplicateGroups] = useState<DuplicateGroup[]>([])
+  const [duplicatesLoading, setDuplicatesLoading] = useState(false)
+  const [duplicatesError, setDuplicatesError] = useState<string | null>(null)
+  const [mergingGroup, setMergingGroup] = useState<string | null>(null)
 
   const { push: pushToast, node: toastNode } = useInlineToast()
 
@@ -284,6 +371,44 @@ export default function PortalContactsPage() {
     }
   }
 
+  async function handleFindDuplicates() {
+    setDuplicatesLoading(true)
+    setDuplicatesError(null)
+    try {
+      const res = await fetch('/api/v1/crm/contacts/duplicates')
+      const body = (await res.json()) as { error?: string; data?: DuplicateGroup[] | { groups?: DuplicateGroup[] } }
+      if (!res.ok) throw new Error(body.error ?? 'Failed to fetch duplicates')
+      const raw = body.data
+      const groups: DuplicateGroup[] = Array.isArray(raw)
+        ? raw
+        : (raw as { groups?: DuplicateGroup[] } | undefined)?.groups ?? []
+      setDuplicateGroups(groups)
+      setShowDuplicatesModal(true)
+    } catch (err) {
+      setDuplicatesError(err instanceof Error ? err.message : 'Failed')
+    } finally {
+      setDuplicatesLoading(false)
+    }
+  }
+
+  async function handleMerge(groupIndex: number, winnerId: string, loserId: string) {
+    setMergingGroup(String(groupIndex))
+    try {
+      const res = await fetch('/api/v1/crm/contacts/merge', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ winnerId, loserId }),
+      })
+      if (!res.ok) throw new Error('Merge failed')
+      setDuplicateGroups(prev => prev.filter((_, i) => i !== groupIndex))
+      setContacts(prev => prev.filter(c => c.id !== loserId))
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Merge failed')
+    } finally {
+      setMergingGroup(null)
+    }
+  }
+
   const allSelected = contacts.length > 0 && selectedIds.size === contacts.length
   const someSelected = selectedIds.size > 0 && !allSelected
 
@@ -300,10 +425,20 @@ export default function PortalContactsPage() {
               {loading ? 'Loading…' : `${contacts.length} contact${contacts.length === 1 ? '' : 's'}`} in your audience.
             </p>
           </div>
-          <button onClick={() => setShowNew(true)} className="btn-pib-accent">
-            <span className="material-symbols-outlined text-base">add</span>
-            New contact
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleFindDuplicates}
+              disabled={duplicatesLoading}
+              className="btn-pib-secondary text-xs flex items-center gap-1.5 disabled:opacity-50"
+            >
+              <span className="material-symbols-outlined text-[14px]">merge</span>
+              {duplicatesLoading ? 'Scanning…' : 'Find duplicates'}
+            </button>
+            <button onClick={() => setShowNew(true)} className="btn-pib-accent">
+              <span className="material-symbols-outlined text-base">add</span>
+              New contact
+            </button>
+          </div>
         </div>
       </header>
 
@@ -564,6 +699,41 @@ export default function PortalContactsPage() {
                 </div>
               )
             })}
+          </div>
+        </div>
+      )}
+
+      {/* Duplicates error inline */}
+      {duplicatesError && (
+        <p className="text-sm text-red-400">{duplicatesError}</p>
+      )}
+
+      {/* Duplicates modal */}
+      {showDuplicatesModal && (
+        <div className="fixed inset-0 bg-black/60 flex items-start justify-center pt-16 z-50 overflow-y-auto">
+          <div className="bento-card !p-6 w-full max-w-2xl mx-4 mb-8 space-y-4">
+            <div className="flex items-center justify-between">
+              <p className="text-base font-semibold">Duplicate contacts</p>
+              <button onClick={() => setShowDuplicatesModal(false)}>
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+
+            {duplicateGroups.length === 0 ? (
+              <p className="text-sm text-[var(--color-pib-text-muted)] py-4 text-center">
+                <span className="material-symbols-outlined text-3xl block mb-2">check_circle</span>
+                No duplicates found.
+              </p>
+            ) : (
+              duplicateGroups.map((group, gi) => (
+                <DuplicateGroupCard
+                  key={gi}
+                  group={group}
+                  isMerging={mergingGroup === String(gi)}
+                  onMerge={(winnerId, loserId) => handleMerge(gi, winnerId, loserId)}
+                />
+              ))
+            )}
           </div>
         </div>
       )}
