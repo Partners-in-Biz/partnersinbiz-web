@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import UnifiedChat from './UnifiedChat'
 
 interface MessageDrawerProps {
@@ -25,6 +26,7 @@ export function MessageDrawer({
   const [open, setOpen] = useState(false)
   const disabled = !orgId
   const drawerWidth = 'clamp(420px, 34vw, 560px)'
+  const drawerPortalTarget = typeof document === 'undefined' ? null : document.body
 
   useEffect(() => {
     if (!open) return
@@ -84,7 +86,7 @@ export function MessageDrawer({
         <span className="material-symbols-outlined text-[20px]">forum</span>
       </button>
 
-      {open && orgId && (
+      {open && orgId && drawerPortalTarget && createPortal(
         <div className="fixed right-0 top-0 z-[80] h-dvh w-full md:w-[clamp(420px,34vw,560px)]">
           <aside className="flex h-full min-h-0 w-full flex-col border-l border-[var(--color-pib-line)] bg-[var(--color-pib-bg)] shadow-2xl">
             <div className="flex h-14 shrink-0 items-center gap-3 border-b border-[var(--color-pib-line)] px-4">
@@ -115,7 +117,8 @@ export function MessageDrawer({
               />
             </div>
           </aside>
-        </div>
+        </div>,
+        drawerPortalTarget,
       )}
     </>
   )
