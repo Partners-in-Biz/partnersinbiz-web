@@ -121,8 +121,8 @@ export async function executeActions(
         case 'enroll_in_sequence': {
           if (!action.sequenceId || !context.contactId) break
           const { enrollContact } = await import('@/lib/sequences/enrollment')
-          const SYSTEM_ACTOR = { uid: 'system', displayName: 'System', email: '' }
-          await enrollContact(context.orgId, action.sequenceId, context.contactId, SYSTEM_ACTOR, 0)
+          const { AGENT_PIP_REF } = await import('@/lib/orgMembers/memberRef')
+          await enrollContact(context.orgId, action.sequenceId, context.contactId, AGENT_PIP_REF, 0)
           break
         }
         default: {
