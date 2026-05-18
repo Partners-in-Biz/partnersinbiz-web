@@ -73,7 +73,9 @@ export function seedDeal(orgId: string, overrides: Partial<Deal> = {}): Deal {
     title: 'Test Deal',
     value: 0,
     currency: 'ZAR',
-    stage: 'discovery',
+    // A3 W2-F: pipelineId + stageId replace the old stage: DealStage field
+    pipelineId: 'pl-default',
+    stageId: 'discovery',
     expectedCloseDate: null,
     notes: '',
     createdAt: now,
