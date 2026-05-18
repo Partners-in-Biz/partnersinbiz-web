@@ -11,6 +11,7 @@ import { createResponsiveSearchAd } from '@/lib/ads/providers/google/ads'
 import type { CreateAdInput, AdEntityStatus, AdPlatform } from '@/lib/ads/types'
 import type { RsaAssets } from '@/lib/ads/providers/google/ads'
 import type { RdaAssets } from '@/lib/ads/providers/google/display-types'
+import type { VideoAdAssets } from '@/lib/ads/providers/google/video-ads'
 
 export const GET = withAuth('admin', async (req: NextRequest) => {
   const orgId = req.headers.get('X-Org-Id')
@@ -41,6 +42,10 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
     rsaAssets?: RsaAssets
     rdaAssets?: RdaAssets
     productAd?: boolean
+    /** Google Ads — Video creative assets. When present, dispatches createResponsiveVideoAd. */
+    googleAds?: {
+      videoAd?: VideoAdAssets
+    }
     linkedinAds?: {
       referenceUrn: string
     }
@@ -76,8 +81,8 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
   })
 
   if (platform === 'google') {
-    if (!body.rdaAssets && !body.rsaAssets && !body.productAd) {
-      return apiError('Google ads require rsaAssets (Search), rdaAssets (Display), or productAd: true (Shopping)', 400)
+    if (!body.rdaAssets && !body.rsaAssets && !body.productAd && !body.googleAds?.videoAd) {
+      return apiError('Google ads require rsaAssets (Search), rdaAssets (Display), productAd: true (Shopping), or googleAds.videoAd (YouTube)', 400)
     }
     const conn = await getConnection({ orgId: ctx.orgId, platform: 'google' })
     if (!conn) return apiError('No Google Ads connection for org', 400)
@@ -113,6 +118,17 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
         adGroupResourceName,
         canonical: ad,
         rdaAssets: body.rdaAssets,
+      })
+    } else if (body.googleAds?.videoAd) {
+      const { createResponsiveVideoAd } = await import('@/lib/ads/providers/google/video-ads')
+      result = await createResponsiveVideoAd({
+        customerId: loginCustomerId,
+        accessToken,
+        developerToken,
+        loginCustomerId,
+        adGroupResourceName,
+        canonical: ad,
+        videoAssets: body.googleAds.videoAd,
       })
     } else {
       result = await createResponsiveSearchAd({
