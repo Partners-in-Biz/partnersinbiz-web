@@ -201,6 +201,7 @@ GET    /api/v1/ads/custom-audiences/[id]
 DELETE /api/v1/ads/custom-audiences/[id]                     — archive + cascade-delete platform-side
 
 POST   /api/v1/ads/custom-audiences/[id]/upload-list         — multipart CSV (raw email/phone — server SHA-256 hashes per platform)
+POST   /api/v1/ads/custom-audiences/[id]/sync/[platform]     — push audience to a specific platform (meta|google|linkedin|tiktok)
 POST   /api/v1/ads/custom-audiences/[id]/refresh-size        — pull approximate member count from platform
 ```
 
@@ -450,15 +451,17 @@ Admin creates and configures campaigns, then submits for client review. Client s
 ```
 POST   /api/v1/portal/ads/campaigns/[id]/approve             — client approves → returns to admin to launch
 POST   /api/v1/portal/ads/campaigns/[id]/reject              — body: { reason } → flips back to DRAFT
-POST   /api/v1/portal/ads/bulk-approve                       — body: { campaignIds: ['camp_a', 'camp_b'] }
+POST   /api/v1/portal/ads/campaigns/bulk-approve              — body: { campaignIds: ['camp_a', 'camp_b'] }
 ```
 
 ### Per-ad comments + notifications
 
+Comments are portal-scoped — only authenticated portal users (clients) can post/edit/delete.
 ```
-GET    /api/v1/ads/ads/[id]/comments                        — list threaded comments
-POST   /api/v1/ads/ads/[id]/comments                        — body: { text, anchor? }
-DELETE /api/v1/ads/ads/[id]/comments/[commentId]
+GET    /api/v1/portal/ads/ads/[id]/comments                 — list threaded comments
+POST   /api/v1/portal/ads/ads/[id]/comments                 — body: { text, anchor? }
+PATCH  /api/v1/portal/ads/ads/[id]/comments/[commentId]     — edit comment text
+DELETE /api/v1/portal/ads/ads/[id]/comments/[commentId]     — delete comment
 ```
 
 Push notifications are fanned out per-event (submit, approve, reject, comment) to all org members with the relevant role.
