@@ -35,8 +35,19 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
     platform?: AdPlatform
     googleAds?: {
       dailyBudgetMajor?: number
-      campaignType?: 'SEARCH' | 'DISPLAY' | 'SHOPPING'
+      campaignType?: 'SEARCH' | 'DISPLAY' | 'SHOPPING' | 'VIDEO' | 'PERFORMANCE_MAX'
       shopping?: { merchantId?: string; feedLabel?: string }
+      video?: {
+        /** Optional Target CPA in major currency units (e.g. 5.00). When set, maximizeConversions.targetCpaMicros is populated. */
+        targetCpaMajor?: number
+      }
+      pmax?: {
+        biddingStrategy?: 'MAXIMIZE_CONVERSIONS' | 'MAXIMIZE_CONVERSION_VALUE' | 'TARGET_CPA' | 'TARGET_ROAS'
+        /** Target CPA in major currency units — applies to MAXIMIZE_CONVERSIONS or TARGET_CPA. */
+        targetCpaMajor?: number
+        /** Fractional ROAS goal (e.g. 4.0 = 400%) — applies to MAXIMIZE_CONVERSION_VALUE or TARGET_ROAS. */
+        targetRoas?: number
+      }
     }
     /** LinkedIn Campaign Group options (only used when platform === 'linkedin') */
     linkedinAds?: {
@@ -80,9 +91,22 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
     const customerId = loginCustomerId
     if (!customerId) return apiError('No Customer ID set on Google connection', 400)
 
-    const campaignType = body.googleAds?.campaignType  // 'SEARCH' | 'DISPLAY' | 'SHOPPING' (default 'SEARCH')
+    const campaignType = body.googleAds?.campaignType  // 'SEARCH' | 'DISPLAY' | 'SHOPPING' | 'VIDEO' | 'PERFORMANCE_MAX' (default 'SEARCH')
     let result
-    if (campaignType === 'SHOPPING') {
+    if (campaignType === 'PERFORMANCE_MAX') {
+      const { createPmaxCampaign } = await import('@/lib/ads/providers/google/campaigns-pmax')
+      result = await createPmaxCampaign({
+        customerId,
+        accessToken,
+        developerToken,
+        loginCustomerId,
+        canonical: campaign,
+        dailyBudgetMajor: body.googleAds?.dailyBudgetMajor,
+        biddingStrategy: body.googleAds?.pmax?.biddingStrategy,
+        targetCpaMajor: body.googleAds?.pmax?.targetCpaMajor,
+        targetRoas: body.googleAds?.pmax?.targetRoas,
+      })
+    } else if (campaignType === 'SHOPPING') {
       const merchantId = body.googleAds?.shopping?.merchantId
       const feedLabel = body.googleAds?.shopping?.feedLabel
       if (!merchantId || !feedLabel) {
@@ -109,6 +133,17 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
         canonical: campaign,
         dailyBudgetMajor: body.googleAds?.dailyBudgetMajor,
       })
+    } else if (campaignType === 'VIDEO') {
+      const { createVideoCampaign } = await import('@/lib/ads/providers/google/campaigns-youtube')
+      result = await createVideoCampaign({
+        customerId,
+        accessToken,
+        developerToken,
+        loginCustomerId,
+        canonical: campaign,
+        dailyBudgetMajor: body.googleAds?.dailyBudgetMajor,
+        targetCpaMajor: body.googleAds?.video?.targetCpaMajor,
+      })
     } else {
       result = await createSearchCampaign({
         customerId,
@@ -123,7 +158,12 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
     await updateCampaign(campaign.id, {
       providerData: {
         ...(campaign.providerData ?? {}),
-        google: { ...((campaign.providerData as Record<string, unknown>)?.google as Record<string, unknown> | undefined ?? {}), campaignResourceName: result.resourceName, googleCampaignId: result.id },
+        google: {
+          ...((campaign.providerData as Record<string, unknown>)?.google as Record<string, unknown> | undefined ?? {}),
+          campaignResourceName: result.resourceName,
+          googleCampaignId: result.id,
+          ...(campaignType ? { campaignSubType: campaignType } : {}),
+        },
       },
     } as any)
   }

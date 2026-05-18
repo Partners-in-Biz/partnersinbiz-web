@@ -2050,7 +2050,12 @@
         { "fieldPath": "resource", "order": "ASCENDING" },
         { "fieldPath": "key", "order": "ASCENDING" }
       ]
-    }
+    },
+    { "collectionGroup": "pipelines", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "orgId", "order": "ASCENDING" }, { "fieldPath": "isDefault", "order": "DESCENDING" }, { "fieldPath": "createdAt", "order": "DESCENDING" }] },
+    { "collectionGroup": "pipelines", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "orgId", "order": "ASCENDING" }, { "fieldPath": "archived", "order": "ASCENDING" }, { "fieldPath": "name", "order": "ASCENDING" }] },
+    { "collectionGroup": "pipelines", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "orgId", "order": "ASCENDING" }, { "fieldPath": "deleted", "order": "ASCENDING" }, { "fieldPath": "updatedAt", "order": "DESCENDING" }] },
+    { "collectionGroup": "deals", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "orgId", "order": "ASCENDING" }, { "fieldPath": "pipelineId", "order": "ASCENDING" }, { "fieldPath": "updatedAt", "order": "DESCENDING" }] },
+    { "collectionGroup": "deals", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "orgId", "order": "ASCENDING" }, { "fieldPath": "pipelineId", "order": "ASCENDING" }, { "fieldPath": "stageId", "order": "ASCENDING" }, { "fieldPath": "updatedAt", "order": "DESCENDING" }] }
   ],
   "fieldOverrides": []
 }
