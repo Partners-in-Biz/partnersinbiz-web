@@ -321,3 +321,49 @@ Add a narration note: "All campaigns created in the screencast remain PAUSED; no
 - Run `vercel env pull` and verify no trailing newline corruption (see [[Vercel env trailing-newline gotcha]])
 - Test a live insert from the daily cron: `POST https://partnersinbiz.online/api/v1/ads/cron/daily-insights-pull` with `Authorization: Bearer $CRON_SECRET`
 - Monitor Firestore `metrics` collection for `source: 'google_ads'` documents
+
+---
+
+## LinkedIn — Marketing Developer Platform Application
+
+### Products requested
+
+| Product | Scopes | Purpose |
+|---|---|---|
+| Marketing Developer Platform | `r_ads`, `rw_ads`, `r_ads_reporting` | Read/write LinkedIn ad accounts, campaigns, creatives, audiences; pull insights via /rest/adAnalytics. |
+| Conversions API | `rw_conversions` | Send server-side conversion events to /rest/conversionEvents, dedupe with Insight Tag client events via shared eventId. |
+
+LinkedIn requires a **separate** OAuth app from PiB's existing social-posting LinkedIn app. Env vars are namespaced accordingly: `LINKEDIN_ADS_CLIENT_ID` / `LINKEDIN_ADS_CLIENT_SECRET`. Redirect URI: `https://partnersinbiz.online/api/v1/ads/linkedin/oauth/callback` (production) + the localhost equivalent for dev.
+
+### Demo workflow
+
+A LinkedIn reviewer can verify PiB's use of the platform end-to-end via these steps using PiB's demo org credentials:
+
+1. **Connect a LinkedIn ad account** at `/admin/org/{slug}/ads/connections`. OAuth dialog grants all four scopes. The connection persists encrypted access + refresh tokens via `SOCIAL_TOKEN_MASTER_KEY` (AES-256-GCM).
+2. **Pick a default ad account** from the list returned by `/rest/adAccounts?q=search`. The PATCH endpoint at `/api/v1/ads/linkedin/connections/[id]/account` persists the URN.
+3. **Create a Campaign Group → Campaign → Creative** via the 3-step wizard at `/admin/org/{slug}/ads/campaigns/new` with `platform: 'linkedin'`. The wizard invokes `POST /rest/adAccounts/{id}/adCampaignGroups`, `/adCampaigns`, and `/creatives` in sequence, persisting the LinkedIn URNs in canonical doc `providerData.linkedin`.
+4. **Create a Matched Audience** at `/admin/org/{slug}/ads/audiences/new` — choose LinkedIn tab, pick a subtype (Customer List / Website / Lookalike / Engagement). The Customer List path also exercises hashed-CSV upload via `/api/v1/ads/custom-audiences/[id]/upload-list`, which chunks SHA-256-hashed rows to `/rest/dmpSegments/{id}/users`.
+5. **Refresh insights** by triggering `/api/v1/ads/insights?platform=linkedin` or waiting for the daily cron at 00:30 UTC (`/api/v1/ads/cron/daily-insights-pull`). PiB queries `/rest/adAnalytics` with pivot=CAMPAIGN_GROUP/CAMPAIGN/CREATIVE and chunked date ranges.
+6. **Send a test conversion** by configuring the Insight Tag at `/admin/org/{slug}/ads/pixel-config` (Insight Tag Partner ID + rw_conversions CAPI token + optional test event code), then POST `/api/v1/ads/conversions/track` with the eventId. PiB fans out to LinkedIn's `/rest/conversionEvents` with SHA-256 hashed email/phone + raw `li_fat_id`.
+
+### Data handling disclosure
+
+- **Tokens at rest:** all LinkedIn access + refresh + CAPI tokens are encrypted via AES-256-GCM with a per-environment master key (`SOCIAL_TOKEN_MASTER_KEY`). Never logged.
+- **Customer-list audience CSVs:** uploaded files are hashed (SHA-256 lowercase-trimmed) server-side, posted to LinkedIn DMP Segments, then the source CSV is purged from Firebase Storage within 24h via the existing lifecycle policy.
+- **PII normalisation:** emails lowercase-trim → SHA-256 hex; phones strip non-digits (preserve leading `+`) → SHA-256 hex. Same normalisation used for the Meta CAPI module.
+- **`li_fat_id`** (LinkedIn first-party tracking cookie) is sent raw to the Conversions API per LinkedIn's spec — it's an opaque token, not PII.
+- **Disconnect:** `DELETE /api/v1/ads/connections/linkedin` revokes the connection locally; clients can also revoke directly from their LinkedIn account settings.
+- **Tenant isolation:** every Firestore doc (`ad_connections`, `ad_campaigns`, `ad_sets`, `ads`, `custom_audiences`, `saved_audiences`, `ad_pixel_configs`, `ad_conversion_events`, `metrics`) carries `orgId` and is read-write gated by `withAuth('admin')` + header-resolved `orgId`. No cross-tenant data leakage.
+
+### Reviewer access
+
+LinkedIn requests a specific test member URN to grant `VIEWER` access on. Provide the PiB demo organisation's LinkedIn member URN (Peet to supply post-LMDP approval) so reviewers can log in via their own LinkedIn account and exercise the flow.
+
+### Submission checklist
+
+- [ ] Screencast (under 3 minutes) walking the demo workflow above
+- [ ] LinkedIn member URN for VIEWER grant
+- [ ] Verify all 4 scopes appear approved on the app's Products tab
+- [ ] Verify Vercel env has `LINKEDIN_ADS_CLIENT_ID` + `LINKEDIN_ADS_CLIENT_SECRET` set for production + preview
+- [ ] Confirm redirect URI registered: `https://partnersinbiz.online/api/v1/ads/linkedin/oauth/callback`
+- [ ] Run all 5 phase smokes (`smoke-ads-sub3b-phase{1,2,3,4,5}.ts`) green against the test account
