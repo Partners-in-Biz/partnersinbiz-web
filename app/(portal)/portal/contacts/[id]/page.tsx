@@ -91,6 +91,7 @@ export default function PortalContactDetailPage() {
   // B2: Log activity quick actions
   const [logType, setLogType] = useState<string | null>(null)
   const [logSummary, setLogSummary] = useState('')
+  const [logEmailSubject, setLogEmailSubject] = useState('')
   const [logSaving, setLogSaving] = useState(false)
   const [logError, setLogError] = useState<string | null>(null)
 
@@ -245,31 +246,76 @@ export default function PortalContactDetailPage() {
   }
 
   async function handleLogActivity() {
-    if (!logSummary.trim()) return
     setLogSaving(true)
     setLogError(null)
     try {
-      const res = await fetch('/api/v1/crm/activities', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contactId: id,
-          type: logType,
+      if (logType === 'email_sent') {
+        if (!logEmailSubject.trim() || !logSummary.trim()) return
+        const res = await fetch(`/api/v1/crm/contacts/${id}/send-email`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ subject: logEmailSubject.trim(), bodyText: logSummary.trim() }),
+        })
+        if (!res.ok) {
+          const errBody = await res.json().catch(() => ({}))
+          throw new Error((errBody as { error?: string }).error ?? 'Failed to send email')
+        }
+        const optimistic: ActivityRecord = {
+          id: Date.now().toString(),
+          type: 'email_sent',
+          summary: logEmailSubject.trim(),
+          createdAt: new Date(),
+        }
+        setActivities((prev) => [optimistic, ...prev])
+        setLogType(null)
+        setLogSummary('')
+        setLogEmailSubject('')
+        setLogError(null)
+      } else if (logType === 'sms') {
+        if (!logSummary.trim()) return
+        const res = await fetch(`/api/v1/crm/contacts/${id}/send-sms`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: logSummary.trim() }),
+        })
+        if (!res.ok) {
+          const errBody = await res.json().catch(() => ({}))
+          throw new Error((errBody as { error?: string }).error ?? 'Failed to send SMS')
+        }
+        const optimistic: ActivityRecord = {
+          id: Date.now().toString(),
+          type: 'sms_sent',
           summary: logSummary.trim(),
-        }),
-      })
-      if (!res.ok) {
-        const errBody = await res.json().catch(() => ({}))
-        throw new Error((errBody as { error?: string }).error ?? 'Failed to log activity')
+          createdAt: new Date(),
+        }
+        setActivities((prev) => [optimistic, ...prev])
+        setLogType(null)
+        setLogSummary('')
+        setLogError(null)
+      } else {
+        if (!logSummary.trim()) return
+        const res = await fetch('/api/v1/crm/activities', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contactId: id,
+            type: logType,
+            summary: logSummary.trim(),
+          }),
+        })
+        if (!res.ok) {
+          const errBody = await res.json().catch(() => ({}))
+          throw new Error((errBody as { error?: string }).error ?? 'Failed to log activity')
+        }
+        const body = await res.json() as { data?: ActivityRecord; success?: boolean }
+        const newActivity: ActivityRecord = body.data ?? { id: Date.now().toString(), type: logType ?? undefined, summary: logSummary.trim(), createdAt: new Date() }
+        setActivities((prev) => [newActivity, ...prev])
+        setLogType(null)
+        setLogSummary('')
+        setLogError(null)
       }
-      const body = await res.json() as { data?: ActivityRecord; success?: boolean }
-      const newActivity: ActivityRecord = body.data ?? { id: Date.now().toString(), type: logType ?? undefined, summary: logSummary.trim(), createdAt: new Date() }
-      setActivities((prev) => [newActivity, ...prev])
-      setLogType(null)
-      setLogSummary('')
-      setLogError(null)
     } catch (err) {
-      setLogError(err instanceof Error ? err.message : 'Failed to log activity')
+      setLogError(err instanceof Error ? err.message : 'Failed')
     } finally {
       setLogSaving(false)
     }
@@ -614,6 +660,7 @@ export default function PortalContactDetailPage() {
                   { type: 'call', icon: 'call', label: 'Call' },
                   { type: 'email_sent', icon: 'mail', label: 'Email' },
                   { type: 'note', icon: 'notes', label: 'Note' },
+                  { type: 'sms', icon: 'sms', label: 'SMS' },
                 ] as const).map(({ type, icon, label }) => (
                   <button
                     key={type}
@@ -632,23 +679,60 @@ export default function PortalContactDetailPage() {
 
               {logType && (
                 <div className="bento-card !p-4 mb-4 space-y-3">
-                  <textarea
-                    rows={3}
-                    placeholder={`Add ${logType} notes…`}
-                    value={logSummary}
-                    onChange={(e) => setLogSummary(e.target.value)}
-                    className="w-full text-sm bg-transparent border border-[var(--color-pib-line)] rounded-lg p-2 resize-none"
-                  />
+                  {logType === 'email_sent' ? (
+                    <>
+                      <input
+                        placeholder="Subject…"
+                        value={logEmailSubject}
+                        onChange={(e) => setLogEmailSubject(e.target.value)}
+                        className="w-full text-sm border border-[var(--color-pib-line)] rounded-lg p-2 bg-transparent"
+                      />
+                      <textarea
+                        rows={3}
+                        placeholder="Message…"
+                        value={logSummary}
+                        onChange={(e) => setLogSummary(e.target.value)}
+                        className="w-full text-sm bg-transparent border border-[var(--color-pib-line)] rounded-lg p-2 resize-none"
+                      />
+                    </>
+                  ) : logType === 'sms' ? (
+                    <textarea
+                      rows={3}
+                      placeholder="SMS message…"
+                      value={logSummary}
+                      onChange={(e) => setLogSummary(e.target.value)}
+                      className="w-full text-sm bg-transparent border border-[var(--color-pib-line)] rounded-lg p-2 resize-none"
+                    />
+                  ) : (
+                    <textarea
+                      rows={3}
+                      placeholder={`Add ${logType} notes…`}
+                      value={logSummary}
+                      onChange={(e) => setLogSummary(e.target.value)}
+                      className="w-full text-sm bg-transparent border border-[var(--color-pib-line)] rounded-lg p-2 resize-none"
+                    />
+                  )}
                   <div className="flex items-center gap-3">
                     <button
                       onClick={handleLogActivity}
-                      disabled={logSaving || !logSummary.trim()}
+                      disabled={
+                        logSaving ||
+                        (logType === 'email_sent'
+                          ? !logEmailSubject.trim() || !logSummary.trim()
+                          : !logSummary.trim())
+                      }
                       className="btn-pib-accent text-xs disabled:opacity-50"
                     >
-                      {logSaving ? 'Saving…' : 'Save'}
+                      {logSaving
+                        ? 'Sending…'
+                        : logType === 'email_sent'
+                        ? 'Send email'
+                        : logType === 'sms'
+                        ? 'Send SMS'
+                        : 'Save'}
                     </button>
                     <button
-                      onClick={() => { setLogType(null); setLogSummary(''); setLogError(null) }}
+                      onClick={() => { setLogType(null); setLogSummary(''); setLogEmailSubject(''); setLogError(null) }}
                       className="text-xs text-[var(--color-pib-text-muted)]"
                     >
                       Cancel

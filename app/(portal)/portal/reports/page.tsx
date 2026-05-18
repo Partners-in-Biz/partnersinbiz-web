@@ -52,6 +52,24 @@ export default function PortalReports() {
         </p>
       </header>
 
+      {/* Quick links to sub-reports */}
+      <section>
+        <p className="eyebrow mb-3">Analytics</p>
+        <div className="flex flex-wrap gap-3">
+          <Link
+            href="/portal/reports/crm"
+            className="bento-card !p-4 flex items-center gap-3 hover:border-[var(--color-pib-accent)] transition-colors group min-w-[200px]"
+          >
+            <span className="material-symbols-outlined text-[22px] text-[var(--color-pib-accent)]">contacts</span>
+            <div>
+              <p className="text-sm font-medium text-[var(--color-pib-text)]">CRM Reports</p>
+              <p className="text-xs text-[var(--color-pib-text-muted)]">Pipeline · Forecast · Activity</p>
+            </div>
+            <span className="material-symbols-outlined text-[16px] text-[var(--color-pib-text-muted)] group-hover:text-[var(--color-pib-accent)] ml-auto transition-colors">arrow_outward</span>
+          </Link>
+        </div>
+      </section>
+
       {loading ? (
         <div className="space-y-3">
           {Array.from({ length: 3 }).map((_, i) => (

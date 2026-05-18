@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import Link from 'next/link'
 import { DealKanban } from '@/components/crm/DealKanban'
 import { PipelineSelector } from '@/components/crm/PipelineSelector'
 import { DealDrawer } from '@/components/crm/DealDrawer'
@@ -442,7 +443,15 @@ export default function DealsPage() {
                       style={{ borderColor: 'var(--color-card-border)' }}
                       onClick={() => setViewingDeal(deal)}
                     >
-                      <td className="px-4 py-3 font-medium text-on-surface">{deal.title}</td>
+                      <td className="px-4 py-3 font-medium text-on-surface">
+                        <Link
+                          href={`/portal/deals/${deal.id}`}
+                          className="hover:text-[var(--color-pib-accent)] transition-colors font-medium"
+                          onClick={e => e.stopPropagation()}
+                        >
+                          {deal.title}
+                        </Link>
+                      </td>
                       <td className="px-4 py-3">
                         <span
                           className="text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full"
@@ -539,7 +548,14 @@ export default function DealsPage() {
                         key={deal.id}
                         className="border-b border-[var(--color-pib-line)] last:border-0 hover:bg-[var(--color-pib-surface)] transition-colors"
                       >
-                        <td className="px-4 py-3 font-medium">{deal.title}</td>
+                        <td className="px-4 py-3 font-medium">
+                          <Link
+                            href={`/portal/deals/${deal.id}`}
+                            className="hover:text-[var(--color-pib-accent)] transition-colors"
+                          >
+                            {deal.title}
+                          </Link>
+                        </td>
                         <td className="px-4 py-3 text-[var(--color-pib-text-muted)] hidden md:table-cell">{stageLabel}</td>
                         <td className="px-4 py-3 text-right">{fmtDealValue(deal.value, deal.currency)}</td>
                         <td className="px-4 py-3 text-right">

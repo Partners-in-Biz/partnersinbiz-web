@@ -14,6 +14,7 @@ import { WelcomeFlashHandler } from '@/components/ui/WelcomeFlashHandler'
 import { SettingsNav } from '@/components/settings/SettingsNav'
 import { SupportDrawer } from '@/components/support/SupportDrawer'
 import { CrmSearchBar } from '@/components/crm/CrmSearchBar'
+import { NotificationBell } from '@/components/crm/NotificationBell'
 
 interface NavItem {
   href: string
@@ -81,7 +82,14 @@ const NAV_LINKS: NavItem[] = [
     label: 'Reports',
     icon: 'analytics',
     group: 'data',
-    activePatterns: ['/portal/properties', '/portal/data'],
+    activePatterns: ['/portal/properties', '/portal/data', '/portal/reports/crm'],
+  },
+  {
+    href: '/portal/reports/crm',
+    label: 'CRM Reports',
+    icon: 'contacts',
+    group: 'data',
+    activePatterns: ['/portal/reports/crm'],
   },
   { href: '/portal/payments', label: 'Billing', icon: 'payments', group: 'comms' },
 ]
@@ -350,6 +358,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
 
             {/* Right side */}
             <div className="flex items-center gap-2 ml-auto shrink-0">
+              <NotificationBell />
               <button
                 onClick={toggleLayout}
                 title="Switch to sidebar layout"
@@ -635,6 +644,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
             {NAV_LINKS.find(n => active(pathname, n))?.label ?? 'Overview'}
           </span>
           <div className="ml-auto flex items-center gap-3">
+            <NotificationBell />
             {/* Switch to topbar layout */}
             <button
               onClick={toggleLayout}
