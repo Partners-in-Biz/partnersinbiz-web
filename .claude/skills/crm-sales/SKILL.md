@@ -1155,6 +1155,110 @@ Required fields → empty / null / undefined / empty array all return an error. 
 
 ---
 
+## Scoring (A4 — contact lead scoring)
+
+Formula-based, ICP-match, and optional AI scoring for every contact. Scores are stored directly on the `Contact` document and recomputed on demand or nightly via cron.
+
+### Contact fields added (additive)
+
+| Field | Type | Notes |
+|---|---|---|
+| `leadScore` | `number?` | 0-100. Weighted sum of signal weights (email opens, clicks, replies, etc.) |
+| `icpScore` | `number?` | 0-100. How closely the contact's company matches the org's ICP profile |
+| `aiLeadScore` | `number?` | 0-100. LLM-based score via AI Gateway; only set when `aiEnabled: true` |
+| `scoreUpdatedAt` | `Timestamp?` | When scores were last computed |
+| `scoreSignals` | `Record<string, number>?` | Per-signal contribution map used to explain the score |
+
+### Key types
+
+```ts
+interface ScoringConfig {
+  icp: IcpProfile
+  leadWeights: LeadSignalsWeights
+  aiEnabled: boolean        // master AI toggle (default false)
+  aiModel?: string          // default 'gpt-4o-mini'
+  aiCacheHours?: number     // default 24
+}
+
+interface IcpProfile {
+  industries?: string[]
+  sizes?: CompanySize[]     // '1-10' | '11-50' | '51-200' | '201-1000' | '1000+'
+  tiers?: CompanyTier[]     // 'enterprise' | 'mid-market' | 'smb'
+  regions?: { country?: string; state?: string }[]
+  minEmployeeCount?: number
+  maxEmployeeCount?: number
+  minAnnualRevenue?: number
+  maxAnnualRevenue?: number
+}
+
+interface LeadSignalsWeights {
+  emailOpens?: number         // default 2
+  emailClicks?: number        // default 5
+  emailReplies?: number       // default 15
+  sequenceCompleted?: number  // default 10
+  recentContact?: number      // default 10
+  formSubmission?: number     // default 8
+}
+```
+
+### Endpoints
+
+#### `GET /crm/scoring/config` — auth: viewer
+Returns the org's scoring configuration, bootstrapping defaults if absent.
+
+Response: `{ config: ScoringConfig }`
+
+#### `PUT /crm/scoring/config` — auth: admin
+Update ICP profile, lead signal weights, and/or the AI toggle.
+
+Body (all fields optional):
+```json
+{
+  "icp": {
+    "industries": ["SaaS", "Fintech"],
+    "sizes": ["11-50", "51-200"],
+    "tiers": ["smb", "mid-market"]
+  },
+  "leadWeights": {
+    "emailReplies": 20,
+    "emailClicks": 8
+  },
+  "aiEnabled": false
+}
+```
+
+Response: `{ config: ScoringConfig }` (updated)
+
+#### `POST /crm/contacts/[id]/recompute-score` — auth: admin
+Manually recompute all scores for one contact. AI scoring runs unless `includeAi: false` or `aiEnabled` is off.
+
+Body:
+```json
+{ "includeAi": true }
+```
+
+Response: `{ update: ScoreUpdate }` — includes the new `leadScore`, `icpScore`, `aiLeadScore`, and `scoreSignals`.
+
+#### `POST /crm/scoring/recompute-all` — auth: admin
+Bulk recompute scores across all org contacts. Use after changing the scoring config.
+
+Body:
+```json
+{ "includeAi": false, "limit": 500 }
+```
+
+- `limit` — max 500 contacts per call. Paginate if org has more.
+- `includeAi` — default `true`; set `false` to skip AI scoring on the bulk run.
+
+Response:
+```json
+{ "processed": 312, "succeeded": 310, "failed": 2, "errors": ["contact_abc: ..."] }
+```
+
+> The nightly cron `GET /crm/cron/recompute-scores` is internal (system/CRON_SECRET). It runs at 02:00 UTC and processes all orgs. Do not call it from skill code.
+
+---
+
 ## Role matrix
 
 | Resource | viewer (GET) | member (write) | admin (delete/bulk-admin) |
@@ -1170,5 +1274,6 @@ Required fields → empty / null / undefined / empty array all return an error. 
 | **Companies** | **GET list/detail/contacts/deals/quotes/activities** | **POST, PUT, PATCH, bulk, upload-logo** | **DELETE, migrate-from-contacts** |
 | **Custom Fields** | **GET list/detail** | **—** | **POST, PUT, PATCH, DELETE, reorder** |
 | **Pipelines** | **GET list/detail/default** | **—** | **POST, PUT, PATCH, DELETE, set-default** |
+| **Scoring config** | **GET config** | **trigger recompute (single contact)** | **PUT config, recompute-all** |
 
 See the Ads sub-project 1 design spec for full payload shape.
