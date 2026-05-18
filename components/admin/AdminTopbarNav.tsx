@@ -4,6 +4,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { useState, useEffect, useRef } from 'react'
+import type { ReactNode } from 'react'
 import { useOrg } from '@/lib/contexts/OrgContext'
 import { OrgSwitcher } from './OrgSwitcher'
 import {
@@ -15,6 +16,7 @@ import {
 interface AdminTopbarNavProps {
   userEmail: string
   onToggleLayout: () => void
+  messageAction?: ReactNode
 }
 
 // ── Dropdown nav item ───────────────────────────────────────────────────────
@@ -119,7 +121,7 @@ function NavItemRenderer({ item, pathname }: { item: NavItem; pathname: string }
 
 // ── Main topbar nav ─────────────────────────────────────────────────────────
 
-export function AdminTopbarNav({ userEmail, onToggleLayout }: AdminTopbarNavProps) {
+export function AdminTopbarNav({ userEmail, onToggleLayout, messageAction }: AdminTopbarNavProps) {
   const pathname = usePathname()
   const { selectedOrgId, orgs } = useOrg()
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -165,6 +167,7 @@ export function AdminTopbarNav({ userEmail, onToggleLayout }: AdminTopbarNavProp
 
           {/* Right side */}
           <div className="flex items-center gap-2 ml-auto shrink-0">
+            {messageAction}
             <button
               onClick={onToggleLayout}
               title="Switch to sidebar layout"

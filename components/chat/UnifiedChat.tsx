@@ -34,6 +34,7 @@ export interface UnifiedChatProps {
   initialConvId?: string
   allowDeleteConversations?: boolean
   allowAgentParticipants?: boolean
+  compact?: boolean
 }
 
 const POLL_INTERVAL = 1500
@@ -56,6 +57,7 @@ export default function UnifiedChat({
   initialConvId,
   allowDeleteConversations = false,
   allowAgentParticipants = true,
+  compact = false,
 }: UnifiedChatProps) {
   // ── State ─────────────────────────────────────────────────────────────────
   const [conversations, setConversations] = useState<Conversation[]>([])
@@ -641,12 +643,18 @@ export default function UnifiedChat({
   const showListOnMobile = mobilePane === 'list'
 
   return (
-    <div className="flex lg:grid lg:gap-4 lg:grid-cols-[280px_1fr] flex-1 min-h-0 overflow-hidden">
+    <div
+      className={
+        compact
+          ? 'flex flex-1 min-h-0 overflow-hidden'
+          : 'flex lg:grid lg:gap-4 lg:grid-cols-[280px_1fr] flex-1 min-h-0 overflow-hidden'
+      }
+    >
       {/* ── Left: conversation list ─────────────────────────────────────── */}
       <aside
         className={[
-          'pib-card flex-col gap-2 p-3 overflow-hidden flex-1 lg:flex',
-          'max-lg:!rounded-none max-lg:!border-0 max-lg:!bg-transparent',
+          'pib-card flex-col gap-2 p-3 overflow-hidden flex-1',
+          compact ? '!rounded-none !border-0 !bg-transparent' : 'lg:flex max-lg:!rounded-none max-lg:!border-0 max-lg:!bg-transparent',
           showListOnMobile ? 'flex' : 'hidden',
         ].join(' ')}
       >
@@ -777,8 +785,8 @@ export default function UnifiedChat({
       {/* ── Right: active conversation ──────────────────────────────────── */}
       <section
         className={[
-          'pib-card flex-col overflow-hidden min-h-0 flex-1 lg:flex',
-          'max-lg:!p-0 max-lg:!rounded-none max-lg:!border-0 max-lg:!bg-transparent',
+          'pib-card flex-col overflow-hidden min-h-0 flex-1',
+          compact ? '!p-0 !rounded-none !border-0 !bg-transparent' : 'lg:flex max-lg:!p-0 max-lg:!rounded-none max-lg:!border-0 max-lg:!bg-transparent',
           showListOnMobile ? 'hidden' : 'flex',
         ].join(' ')}
       >
@@ -791,7 +799,10 @@ export default function UnifiedChat({
               type="button"
               onClick={() => setMobilePane('list')}
               aria-label="Back to conversations"
-              className="lg:hidden -ml-1 flex items-center justify-center w-9 h-9 rounded-full hover:bg-white/[0.06] active:bg-white/[0.1] text-on-surface-variant transition-colors shrink-0"
+              className={[
+                '-ml-1 items-center justify-center w-9 h-9 rounded-full hover:bg-white/[0.06] active:bg-white/[0.1] text-on-surface-variant transition-colors shrink-0',
+                compact ? 'flex' : 'lg:hidden flex',
+              ].join(' ')}
             >
               <span className="material-symbols-outlined text-[22px]">arrow_back_ios_new</span>
             </button>
@@ -867,7 +878,7 @@ export default function UnifiedChat({
           </div>
 
           {/* Participant bar — desktop only (kept) */}
-          {activeConversation?.participants && activeConversation.participants.length > 0 && (
+          {activeConversation?.participants && activeConversation.participants.length > 0 && !compact && (
             <div className="hidden lg:block mt-1.5">
               <ParticipantBar participants={activeConversation.participants} />
             </div>
@@ -1001,7 +1012,12 @@ export default function UnifiedChat({
           )}
 
           {/* Mobile: pill-style composer; Desktop: keep flat textarea + button */}
-          <div className="flex items-end gap-2 rounded-3xl border border-[var(--color-card-border)] bg-[var(--color-card)] px-2 py-1.5 lg:rounded-lg lg:border-0 lg:bg-transparent lg:px-0 lg:py-0">
+          <div
+            className={[
+              'flex items-end gap-2 rounded-3xl border border-[var(--color-card-border)] bg-[var(--color-card)] px-2 py-1.5',
+              compact ? '' : 'lg:rounded-lg lg:border-0 lg:bg-transparent lg:px-0 lg:py-0',
+            ].join(' ')}
+          >
             <input
               ref={fileInputRef}
               type="file"
@@ -1042,18 +1058,24 @@ export default function UnifiedChat({
               }
               disabled={sending}
               rows={1}
-              className="flex-1 resize-none bg-transparent px-1 py-2 text-[15px] lg:text-sm placeholder:text-on-surface-variant disabled:opacity-60 focus:outline-none min-h-[40px] max-h-[160px] lg:rounded-lg lg:border lg:border-[var(--color-card-border)] lg:bg-[var(--color-card)] lg:px-3 lg:py-2 lg:min-h-0"
+              className={[
+                'flex-1 resize-none bg-transparent px-1 py-2 text-[15px] placeholder:text-on-surface-variant disabled:opacity-60 focus:outline-none min-h-[40px] max-h-[160px]',
+                compact ? '' : 'lg:text-sm lg:rounded-lg lg:border lg:border-[var(--color-card-border)] lg:bg-[var(--color-card)] lg:px-3 lg:py-2 lg:min-h-0',
+              ].join(' ')}
             />
             <button
               type="submit"
               disabled={sending || (!input.trim() && attachments.length === 0)}
               aria-label="Send message"
-              className="self-end flex items-center justify-center w-9 h-9 rounded-full bg-primary text-on-primary disabled:opacity-40 hover:opacity-90 transition-opacity shrink-0 lg:w-auto lg:h-auto lg:rounded-lg lg:px-4 lg:py-2 lg:text-sm lg:font-medium"
+              className={[
+                'self-end flex items-center justify-center w-9 h-9 rounded-full bg-primary text-on-primary disabled:opacity-40 hover:opacity-90 transition-opacity shrink-0',
+                compact ? '' : 'lg:w-auto lg:h-auto lg:rounded-lg lg:px-4 lg:py-2 lg:text-sm lg:font-medium',
+              ].join(' ')}
             >
-              <span className="material-symbols-outlined text-[20px] lg:hidden">
+              <span className={['material-symbols-outlined text-[20px]', compact ? '' : 'lg:hidden'].join(' ')}>
                 {sending ? 'hourglass_empty' : 'arrow_upward'}
               </span>
-              <span className="hidden lg:inline">{sending ? 'Sending…' : 'Send'}</span>
+              {!compact && <span className="hidden lg:inline">{sending ? 'Sending…' : 'Send'}</span>}
             </button>
           </div>
         </form>

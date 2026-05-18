@@ -1,10 +1,13 @@
+import type { ReactNode } from 'react'
+
 interface AdminTopbarProps {
   userEmail: string
   onMenuClick?: () => void
   onToggleLayout?: () => void
+  messageAction?: ReactNode
 }
 
-export function AdminTopbar({ userEmail, onMenuClick, onToggleLayout }: AdminTopbarProps) {
+export function AdminTopbar({ userEmail, onMenuClick, onToggleLayout, messageAction }: AdminTopbarProps) {
   const initials = userEmail.split(/[.\s@]/).filter(Boolean).slice(0, 2).map((s) => s[0]?.toUpperCase()).join('')
 
   return (
@@ -27,6 +30,7 @@ export function AdminTopbar({ userEmail, onMenuClick, onToggleLayout }: AdminTop
         </span>
       </div>
       <div className="flex items-center gap-3 md:gap-4">
+        {messageAction}
         <button
           onClick={onToggleLayout}
           title="Switch to topbar layout"

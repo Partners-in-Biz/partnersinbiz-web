@@ -15,6 +15,7 @@ import { SettingsNav } from '@/components/settings/SettingsNav'
 import { SupportDrawer } from '@/components/support/SupportDrawer'
 import { CrmSearchBar } from '@/components/crm/CrmSearchBar'
 import { NotificationBell } from '@/components/crm/NotificationBell'
+import { MessageDrawer } from '@/components/chat/MessageDrawer'
 
 interface NavItem {
   href: string
@@ -145,6 +146,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
 
   const [email, setEmail]       = useState('')
   const [name, setName]         = useState('')
+  const [uid, setUid]           = useState('')
   const [orgName, setOrgName]   = useState('')
   const [checking, setChecking] = useState(true)
   const [drawerOpen, setDrawerOpen] = useState(false)
@@ -188,11 +190,15 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
           router.push('/login')
         } else {
           setEmail(user.email ?? '')
+          setUid(user.uid)
           setName(user.displayName ?? user.email?.split('@')[0] ?? '')
           setChecking(false)
           fetch('/api/v1/portal/org')
             .then(r => r.ok ? r.json() : null)
-            .then(d => { if (d?.org?.name) setOrgName(d.org.name) })
+            .then(d => {
+              if (d?.org?.name) setOrgName(d.org.name)
+              if (d?.org?.id) setActiveOrgId(d.org.id)
+            })
             .catch(() => {})
           fetch('/api/v1/portal/orgs')
             .then(r => r.ok ? r.json() : null)
@@ -359,6 +365,13 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
             {/* Right side */}
             <div className="flex items-center gap-2 ml-auto shrink-0">
               <NotificationBell />
+              <MessageDrawer
+                orgId={activeOrgId}
+                orgName={orgName}
+                currentUserUid={uid}
+                currentUserDisplayName={profileName || name || email}
+                allowAgentParticipants={false}
+              />
               <button
                 onClick={toggleLayout}
                 title="Switch to sidebar layout"
@@ -645,6 +658,13 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
           </span>
           <div className="ml-auto flex items-center gap-3">
             <NotificationBell />
+            <MessageDrawer
+              orgId={activeOrgId}
+              orgName={orgName}
+              currentUserUid={uid}
+              currentUserDisplayName={profileName || name || email}
+              allowAgentParticipants={false}
+            />
             {/* Switch to topbar layout */}
             <button
               onClick={toggleLayout}

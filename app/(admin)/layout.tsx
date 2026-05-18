@@ -36,7 +36,7 @@ export default async function AdminLayout({
       <Suspense fallback={null}>
         <LastPathTracker />
       </Suspense>
-      <AdminShell userEmail={email}>{children}</AdminShell>
+      <AdminShell userEmail={email} userUid={uid}>{children}</AdminShell>
     </OrgProvider>
   )
 }
