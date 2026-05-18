@@ -4,8 +4,8 @@
  *
  * Auth: participant in the conversation OR admin role
  *
- * Phase 2: dispatches a Hermes run for the first agent participant and stores
- * the runId on the pending assistant message. Frontend polls /finalize.
+ * Phase 2: dispatches a Hermes run and stores the runId on the pending
+ * assistant message. Multi-agent conversations route through Pip as orchestrator.
  */
 import { NextRequest } from 'next/server'
 import { adminDb } from '@/lib/firebase/admin'
@@ -23,7 +23,7 @@ import { getAgentDecryptedKey } from '@/lib/agents/team'
 import type { HermesProfileLink } from '@/lib/hermes/types'
 import type { ApiUser } from '@/lib/api/types'
 import type { AgentTeamDoc } from '@/lib/agents/types'
-import type { Conversation } from '@/lib/conversations/types'
+import type { AgentId, Conversation } from '@/lib/conversations/types'
 
 export const dynamic = 'force-dynamic'
 
@@ -76,6 +76,46 @@ function buildConversationContext(conversation: Conversation, callerDisplayName:
   return `[Conversation — convId: ${conversation.id}, participants: ${participants}, initiated by: ${callerDisplayName}]\n\n`
 }
 
+function buildOrchestrationContext(conversation: Conversation, dispatchAgentId: AgentId): string {
+  const requestedAgentIds =
+    conversation.orchestration?.requestedAgentIds?.length
+      ? conversation.orchestration.requestedAgentIds
+      : conversation.participantAgentIds
+
+  if (requestedAgentIds.length <= 1 || dispatchAgentId !== 'pip') return ''
+
+  const agentNames = conversation.participants
+    .filter((p): p is Extract<Conversation['participants'][number], { kind: 'agent' }> => p.kind === 'agent')
+    .filter((p) => requestedAgentIds.includes(p.agentId))
+    .map((p) => `${p.name} (${p.agentId})`)
+    .join(', ')
+
+  return [
+    '[Multi-agent orchestration]',
+    'You are Pip, the operator/orchestrator for this conversation.',
+    `The admin selected these agents for the work: ${agentNames || requestedAgentIds.join(', ')}.`,
+    'Do not make every selected agent answer separately by default.',
+    'First decide whether this is simple enough to answer directly.',
+    'For substantial or cross-domain work, create or describe clear task-bus work for the relevant specialists and synthesize the outcome for the user.',
+    'Use the selected agents as routing intent: Theo=engineering, Maya=marketing/creative, Sage=research, Nora=operations/finance/admin.',
+    'When you hand work off, keep the chat response concise and include what each specialist should own plus any board/session links you create.',
+    '---',
+    '',
+  ].join('\n')
+}
+
+async function resolveDispatchAgentId(conversation: Conversation): Promise<AgentId | null> {
+  if (conversation.participantAgentIds.length === 0) return null
+  if (conversation.participantAgentIds.length === 1) return conversation.participantAgentIds[0]
+
+  const orchestrator = conversation.orchestration?.dispatcherAgentId ?? 'pip'
+  const orchestratorSnap = await adminDb.collection('agent_team').doc(orchestrator).get()
+  const orchestratorData = orchestratorSnap.data()
+  if (orchestratorSnap.exists && orchestratorData?.enabled) return orchestrator
+
+  return conversation.participantAgentIds[0]
+}
+
 export const POST = withAuth(
   'client',
   async (req: NextRequest, user: ApiUser, context?: unknown) => {
@@ -118,9 +158,10 @@ export const POST = withAuth(
     // Update the conversation's denorm fields
     await touchConversation(convId, content, 'user')
 
-    // Phase 2: dispatch a Hermes run for the first agent participant
-    if (conversation.participantAgentIds.length > 0) {
-      const agentId = conversation.participantAgentIds[0]
+    // Phase 2: dispatch a Hermes run. Multi-agent conversations route via Pip.
+    const dispatchAgentId = await resolveDispatchAgentId(conversation)
+    if (dispatchAgentId) {
+      const agentId = dispatchAgentId
 
       // Read agent doc from Firestore
       const agentSnap = await adminDb.collection('agent_team').doc(agentId).get()
@@ -146,7 +187,8 @@ export const POST = withAuth(
       // Build context string (org + conversation participants)
       const orgContext = await buildOrgContext(conversation.orgId)
       const convContext = buildConversationContext(conversation, authorDisplayName)
-      const hermesInput = orgContext + convContext + content
+      const orchestrationContext = buildOrchestrationContext(conversation, agentId)
+      const hermesInput = orgContext + convContext + orchestrationContext + content
 
       // Create pending assistant message first
       const assistantMessage = await createMessage(convId, {
@@ -156,6 +198,7 @@ export const POST = withAuth(
         authorKind: 'agent',
         authorId: agentId,
         authorDisplayName: agentData.name,
+        dispatchAgentId: agentId,
         status: 'pending',
       })
 
@@ -167,6 +210,9 @@ export const POST = withAuth(
           conversationId: convId,
           messageId: assistantMessage.id,
           orgId: conversation.orgId,
+          dispatchAgentId: agentId,
+          requestedAgentIds: conversation.orchestration?.requestedAgentIds ?? conversation.participantAgentIds,
+          orchestrationMode: conversation.orchestration?.mode ?? (conversation.participantAgentIds.length > 1 ? 'pip-orchestrator' : 'direct'),
           source: 'pib-unified-chat',
         },
       })
@@ -181,6 +227,7 @@ export const POST = withAuth(
         if (runId) {
           await messagesCollection(convId).doc(assistantMessage.id).update({
             runId,
+            dispatchAgentId: agentId,
             ...(runResult.runDocId ? { runDocId: runResult.runDocId } : {}),
           })
         } else {
@@ -194,9 +241,10 @@ export const POST = withAuth(
           {
             message,
             assistantMessage: runId
-              ? { ...assistantMessage, runId }
+              ? { ...assistantMessage, runId, dispatchAgentId: agentId }
               : { ...assistantMessage, status: 'failed', error: 'Agent gateway did not return a run id' },
             runId,
+            dispatchAgentId: agentId,
             runDocId: runResult.runDocId,
           },
           201,

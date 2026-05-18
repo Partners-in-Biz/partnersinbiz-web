@@ -594,6 +594,7 @@ export default function UnifiedChat({
         const newAssistantId: string | undefined = body.data?.assistantMessage?.id
         const runId: string | undefined = body.data?.runId
         const runDocId: string | undefined = body.data?.runDocId
+        const dispatchAgentId: AgentId | undefined = body.data?.dispatchAgentId
 
         // Reload real messages (replaces optimistic)
         await loadMessages(convId)
@@ -603,7 +604,7 @@ export default function UnifiedChat({
             .find((c) => c.id === convId)
             ?.participants.find((p) => p.kind === 'agent')
           const agentId: AgentId =
-            agentParticipant?.kind === 'agent' ? agentParticipant.agentId : 'pip'
+            dispatchAgentId ?? (agentParticipant?.kind === 'agent' ? agentParticipant.agentId : 'pip')
           void runDocId
           // Open SSE stream to receive live tool-call events
           startEventStream(newAssistantId, runId, agentId)

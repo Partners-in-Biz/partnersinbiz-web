@@ -15,7 +15,7 @@ import {
   orgChatConfigDoc,
   resolveVisibleAgents,
 } from '@/lib/conversations/conversations'
-import type { AgentId, Participant, ConversationScope } from '@/lib/conversations/types'
+import type { AgentId, Participant, Conversation, ConversationScope } from '@/lib/conversations/types'
 import type { ApiUser } from '@/lib/api/types'
 
 export const dynamic = 'force-dynamic'
@@ -144,6 +144,34 @@ export const POST = withAuth(
       })
     }
 
+    let orchestration: Conversation['orchestration']
+    const selectedAgentIds = Array.from(seenAgents)
+    if (
+      callerRole === 'admin' &&
+      selectedAgentIds.length > 1 &&
+      !seenAgents.has('pip') &&
+      allowedAgentIds.has('pip')
+    ) {
+      const pipDoc = await adminDb.collection('agent_team').doc('pip').get()
+      const pipData = pipDoc.data()
+      if (pipDoc.exists && pipData?.enabled) {
+        seenAgents.add('pip')
+        participants.push({
+          kind: 'agent',
+          agentId: 'pip',
+          name: pipData.name as string,
+        })
+      }
+    }
+
+    if (callerRole === 'admin' && selectedAgentIds.length > 1) {
+      orchestration = {
+        mode: 'pip-orchestrator',
+        dispatcherAgentId: 'pip',
+        requestedAgentIds: selectedAgentIds,
+      }
+    }
+
     // Optional fields
     const title = typeof body.title === 'string' ? body.title.trim() : undefined
     const rawScope = body.scope
@@ -157,6 +185,7 @@ export const POST = withAuth(
       orgId: scope.orgId,
       startedBy: user.uid,
       participants,
+      orchestration,
       title,
       scope: convScope,
       scopeRefId,

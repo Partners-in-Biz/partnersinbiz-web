@@ -55,6 +55,11 @@ export interface Conversation {
   participants: Participant[]
   participantUids: string[]
   participantAgentIds: AgentId[]
+  orchestration?: {
+    mode: 'pip-orchestrator'
+    dispatcherAgentId: AgentId
+    requestedAgentIds: AgentId[]
+  }
   startedBy: string
   title: string
   scope?: ConversationScope
@@ -82,5 +87,6 @@ export interface ConversationMessage {
   authorKind: 'user' | 'agent' | 'system'
   authorId: string
   authorDisplayName: string
+  dispatchAgentId?: AgentId
   createdAt?: Timestamp
 }

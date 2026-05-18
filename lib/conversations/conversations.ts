@@ -33,6 +33,7 @@ export async function createConversation(input: {
   orgId: string
   startedBy: string
   participants: Participant[]
+  orchestration?: Conversation['orchestration']
   title?: string
   scope?: Conversation['scope']
   scopeRefId?: string
@@ -53,6 +54,7 @@ export async function createConversation(input: {
     participants: input.participants,
     participantUids,
     participantAgentIds,
+    ...(input.orchestration ? { orchestration: input.orchestration } : {}),
     startedBy: input.startedBy,
     title: input.title?.trim() || 'New conversation',
     messageCount: 0,

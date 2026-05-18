@@ -12,6 +12,11 @@ export interface Conversation {
   participants: Participant[]
   participantUids: string[]
   participantAgentIds: AgentId[]
+  orchestration?: {
+    mode: 'pip-orchestrator'
+    dispatcherAgentId: AgentId
+    requestedAgentIds: AgentId[]
+  }
   startedBy: string
   title: string
   scope?: string
@@ -114,6 +119,15 @@ export default function ConversationListItem({
           })}
           {c.participants.length > 4 && (
             <span className="text-[10px] text-on-surface-variant">+{c.participants.length - 4}</span>
+          )}
+          {c.orchestration?.mode === 'pip-orchestrator' && (
+            <span
+              className="inline-flex items-center gap-1 text-[10px] text-primary"
+              title="Pip is routing this multi-agent conversation"
+            >
+              <span className="material-symbols-outlined text-[12px]">hub</span>
+              Orchestrated
+            </span>
           )}
         </div>
       )}
