@@ -4,7 +4,7 @@
  * DELETE /api/v1/crm/deals/:id  — soft delete (admin+)
  */
 import { NextRequest } from 'next/server'
-import { FieldValue } from 'firebase-admin/firestore'
+import { FieldValue, Timestamp } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { withCrmAuth, type CrmAuthContext } from '@/lib/auth/crm-middleware'
 import { resolveMemberRef, type MemberRef } from '@/lib/orgMembers/memberRef'
@@ -159,6 +159,13 @@ async function handleDealUpdate(
     if (!('probability' in body)) {
       patch.probability = toStageDoc.probability
     }
+
+    patch.stageHistory = FieldValue.arrayUnion({
+      pipelineId: toPipelineId,
+      stageId: toStageId,
+      enteredAt: Timestamp.now(),
+      enteredByRef: actorRef,
+    })
 
     // ── lostReason (A5) ───────────────────────────────────────────────────────
     // Save lostReason when stage name contains "lost" (case-insensitive).

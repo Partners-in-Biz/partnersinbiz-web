@@ -12,15 +12,14 @@
 import { Timestamp } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { withCrmAuth } from '@/lib/auth/crm-middleware'
-import { apiSuccess, apiError } from '@/lib/api/response'
+import { apiSuccess, apiError, apiErrorFromException } from '@/lib/api/response'
 import {
   loadCompany,
   sanitizeCompanyForWrite,
   validateParentChain,
-  validateAccountManager,
   loadMemberRef,
 } from '@/lib/companies/store'
-import { buildCompanyQuery, applyPostFilterSearch } from '@/lib/companies/filters'
+import { applyPostFilterSearch } from '@/lib/companies/filters'
 import type { Company, CompanyInput, CompanyListParams } from '@/lib/companies/types'
 import { getDefinitionsForResource } from '@/lib/customFields/store'
 import { validateCustomFields } from '@/lib/customFields/validation'
@@ -28,79 +27,115 @@ import { validateCustomFields } from '@/lib/customFields/validation'
 // ── GET ─────────────────────────────────────────────────────────────────────────
 
 export const GET = withCrmAuth('viewer', async (req, ctx) => {
-  const { searchParams } = new URL(req.url)
+  try {
+    const { searchParams } = new URL(req.url)
 
-  const params: CompanyListParams = {
-    orgId:             ctx.orgId,
-    search:            searchParams.get('search') ?? undefined,
-    industry:          searchParams.get('industry') ?? undefined,
-    size:              (searchParams.get('size') as CompanyListParams['size']) ?? undefined,
-    tier:              (searchParams.get('tier') as CompanyListParams['tier']) ?? undefined,
-    lifecycleStage:    (searchParams.get('lifecycleStage') as CompanyListParams['lifecycleStage']) ?? undefined,
-    accountManagerUid: searchParams.get('accountManagerUid') ?? undefined,
-    hasOpenDeals:      searchParams.get('hasOpenDeals') === 'true' ? true : undefined,
-    limit:             Math.min(parseInt(searchParams.get('limit') ?? '50'), 200),
-    cursor:            searchParams.get('cursor') ?? undefined,
-    orderBy:           (searchParams.get('orderBy') as CompanyListParams['orderBy']) ?? 'createdAt-desc',
-  }
-
-  const tagsParam = searchParams.get('tags') ?? ''
-  if (tagsParam) {
-    params.tags = tagsParam.split(',').map(t => t.trim()).filter(Boolean)
-  }
-
-  const limit = Math.min(params.limit ?? 50, 200)
-  const baseQuery = buildCompanyQuery(ctx.orgId, params)
-
-  // Cursor-based pagination
-  let query: FirebaseFirestore.Query = baseQuery
-  if (params.cursor) {
-    try {
-      const cursorSnap = await adminDb.collection('companies').doc(params.cursor).get()
-      if (cursorSnap.exists) query = query.startAfter(cursorSnap)
-    } catch {
-      // Invalid cursor — ignore and start from beginning
+    const parsedLimit = Number.parseInt(searchParams.get('limit') ?? '50', 10)
+    const params: CompanyListParams = {
+      orgId:             ctx.orgId,
+      search:            searchParams.get('search') ?? undefined,
+      industry:          searchParams.get('industry') ?? undefined,
+      size:              (searchParams.get('size') as CompanyListParams['size']) ?? undefined,
+      tier:              (searchParams.get('tier') as CompanyListParams['tier']) ?? undefined,
+      lifecycleStage:    (searchParams.get('lifecycleStage') as CompanyListParams['lifecycleStage']) ?? undefined,
+      accountManagerUid: searchParams.get('accountManagerUid') ?? undefined,
+      hasOpenDeals:      searchParams.get('hasOpenDeals') === 'true' ? true : undefined,
+      limit:             Number.isFinite(parsedLimit) ? Math.min(parsedLimit, 200) : 50,
+      cursor:            searchParams.get('cursor') ?? undefined,
+      orderBy:           (searchParams.get('orderBy') as CompanyListParams['orderBy']) ?? 'createdAt-desc',
     }
+
+    const tagsParam = searchParams.get('tags') ?? ''
+    if (tagsParam) {
+      params.tags = tagsParam.split(',').map(t => t.trim()).filter(Boolean)
+    }
+
+    const limit = Math.min(params.limit ?? 50, 200)
+
+    // Keep the list route index-safe. Production workspaces can land before the
+    // newest composite indexes are deployed, so query only by tenant and do the
+    // small dashboard/list filters in memory.
+    const snapshot = await adminDb.collection('companies')
+      .where('orgId', '==', ctx.orgId)
+      .limit(1000)
+      .get()
+
+    let companies: Company[] = snapshot.docs
+      .map((doc) => ({ ...(doc.data() as Company), id: doc.id }))
+      .filter((company) => company.deleted !== true)
+
+    if (params.industry) {
+      companies = companies.filter((company) => company.industry === params.industry)
+    }
+    if (params.size) {
+      companies = companies.filter((company) => company.size === params.size)
+    }
+    if (params.tier) {
+      companies = companies.filter((company) => company.tier === params.tier)
+    }
+    if (params.lifecycleStage) {
+      companies = companies.filter((company) => company.lifecycleStage === params.lifecycleStage)
+    }
+    if (params.accountManagerUid) {
+      companies = companies.filter((company) => company.accountManagerUid === params.accountManagerUid)
+    }
+    if (params.tags && params.tags.length > 0) {
+      companies = companies.filter((company) => {
+        const tags = Array.isArray(company.tags) ? company.tags : []
+        return params.tags?.some((tag) => tags.includes(tag))
+      })
+    }
+
+    if (params.search) {
+      companies = applyPostFilterSearch(companies, params.search)
+    }
+
+    if (params.hasOpenDeals) {
+      const dealSnap = await adminDb.collection('deals')
+        .where('orgId', '==', ctx.orgId)
+        .limit(1000)
+        .get()
+
+      const companyIdsWithOpenDeals = new Set(
+        dealSnap.docs
+          .map((doc) => doc.data() as { companyId?: string; deleted?: boolean; lostReason?: string; probability?: number })
+          .filter((deal) => deal.deleted !== true)
+          .filter((deal) => deal.companyId && !deal.lostReason && (deal.probability ?? 50) < 100)
+          .map((deal) => deal.companyId as string),
+      )
+      companies = companies.filter((company) => companyIdsWithOpenDeals.has(company.id))
+    }
+
+    const toMillis = (value: unknown): number => {
+      if (!value) return 0
+      if (value instanceof Date) return value.getTime()
+      const maybeTimestamp = value as { toDate?: () => Date; _seconds?: number; seconds?: number }
+      if (typeof maybeTimestamp.toDate === 'function') return maybeTimestamp.toDate().getTime()
+      const seconds = maybeTimestamp._seconds ?? maybeTimestamp.seconds
+      return typeof seconds === 'number' ? seconds * 1000 : 0
+    }
+
+    companies = [...companies].sort((a, b) => {
+      if (params.orderBy === 'name-asc') {
+        return (a.name ?? '').localeCompare(b.name ?? '')
+      }
+      if (params.orderBy === 'updatedAt-desc') {
+        return toMillis(b.updatedAt) - toMillis(a.updatedAt)
+      }
+      return toMillis(b.createdAt) - toMillis(a.createdAt)
+    })
+
+    const cursorIndex = params.cursor
+      ? companies.findIndex((company) => company.id === params.cursor)
+      : -1
+    const start = cursorIndex >= 0 ? cursorIndex + 1 : 0
+    const page = companies.slice(start, start + limit)
+    const nextCursor = start + limit < companies.length ? page[page.length - 1]?.id : undefined
+
+    return apiSuccess({ companies: page, nextCursor })
+  } catch (err) {
+    return apiErrorFromException(err)
   }
-
-  const snapshot = await query.get()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const companiesFromSnapshot: Company[] = snapshot.docs.map((doc: any) => ({ ...doc.data(), id: doc.id }))
-  let companies: Company[] = companiesFromSnapshot
-
-  // Post-filter search (client-side substring match)
-  if (params.search) {
-    companies = applyPostFilterSearch(companies, params.search)
-  }
-
-  // hasOpenDeals filter: post-fetch check via count aggregation
-  if (params.hasOpenDeals) {
-    const openStages = ['discovery', 'proposal', 'negotiation']
-    const withDeals: typeof companies = []
-    await Promise.all(
-      companies.map(async (company) => {
-        try {
-          const dealSnap = await adminDb.collection('deals')
-            .where('orgId', '==', ctx.orgId)
-            .where('companyId', '==', company.id)
-            .where('stage', 'in', openStages)
-            .limit(1)
-            .get()
-          if (!dealSnap.empty) withDeals.push(company)
-        } catch {
-          // Ignore index errors — include company by default
-          withDeals.push(company)
-        }
-      }),
-    )
-    companies = withDeals
-  }
-
-  const nextCursor = snapshot.docs.length === limit
-    ? snapshot.docs[snapshot.docs.length - 1]?.id
-    : undefined
-
-  return apiSuccess({ companies, nextCursor })
 })
 
 // ── POST ────────────────────────────────────────────────────────────────────────

@@ -134,6 +134,7 @@ function stageAuthWithDeal(
 }
 
 const routeCtx = (id: string) => ({ params: Promise.resolve({ id }) })
+type ActivityWrite = { type?: string; summary?: string }
 
 // ── GET ────────────────────────────────────────────────────────────────────────
 
@@ -319,6 +320,12 @@ describe('POST /api/v1/crm/deals', () => {
     expect(data.orgId).toBe('org-1')
     expect(data.pipelineId).toBe(DEFAULT_PIPELINE_ID)
     expect(data.stageId).toBe('discovery')
+    expect(data.stageHistory).toHaveLength(1)
+    expect(data.stageHistory[0]).toEqual(expect.objectContaining({
+      pipelineId: DEFAULT_PIPELINE_ID,
+      stageId: 'discovery',
+      enteredByRef: expect.objectContaining({ uid: 'uid-1' }),
+    }))
   })
 
   it('writes ownerRef when POST body has ownerUid', async () => {
@@ -562,7 +569,7 @@ describe('PUT /api/v1/crm/deals/[id]', () => {
     const patch = captured.mock.calls[0][0]
     expect(patch.ownerUid).toBe('')
     expect(patch.ownerRef).toBeDefined()
-    expect(typeof (patch.ownerRef as any).displayName).toBe('undefined')
+    expect(typeof (patch.ownerRef as { displayName?: unknown }).displayName).toBe('undefined')
   })
 
   it('PUT stageId → won (kind=won) fires deal.won + tryAttributeDealWon + crm_deal_won', async () => {
@@ -659,11 +666,11 @@ describe('PUT /api/v1/crm/deals/[id]', () => {
     await PUT(req, routeCtx('d1'))
     const calls = capturedActivitiesAdd.mock.calls
     expect(calls.length).toBeGreaterThanOrEqual(2)
-    const stageCall = calls.find((c: unknown[]) => (c[0] as any).type === 'stage_change')
-    const wonCall = calls.find((c: unknown[]) => (c[0] as any).type === 'note' && (c[0] as any).summary?.includes('Deal won'))
+    const stageCall = calls.find((c: [ActivityWrite]) => c[0].type === 'stage_change')
+    const wonCall = calls.find((c: [ActivityWrite]) => c[0].type === 'note' && c[0].summary?.includes('Deal won'))
     expect(stageCall).toBeDefined()
     expect(wonCall).toBeDefined()
-    expect((wonCall![0] as any).summary).toContain('Big Deal')
+    expect(wonCall![0].summary).toContain('Big Deal')
   })
 
   it('stageId → lost with contactId writes stage_change + deal lost note to activities', async () => {
@@ -680,9 +687,9 @@ describe('PUT /api/v1/crm/deals/[id]', () => {
     await PUT(req, routeCtx('d1'))
     const calls = capturedActivitiesAdd.mock.calls
     expect(calls.length).toBeGreaterThanOrEqual(2)
-    const lostCall = calls.find((c: unknown[]) => (c[0] as any).type === 'note' && (c[0] as any).summary?.includes('Deal lost'))
+    const lostCall = calls.find((c: [ActivityWrite]) => c[0].type === 'note' && c[0].summary?.includes('Deal lost'))
     expect(lostCall).toBeDefined()
-    expect((lostCall![0] as any).summary).toContain('Lost Deal')
+    expect(lostCall![0].summary).toContain('Lost Deal')
   })
 
   it('stageId change WITHOUT contactId does NOT call activities.add', async () => {
@@ -918,6 +925,7 @@ describe('PUT /api/v1/crm/deals/[id] — A5 extensions', () => {
     expect(res.status).toBeLessThan(300)
     const patch = captured.mock.calls[0][0]
     expect(patch.probability).toBe(30)
+    expect(patch.stageHistory).toBeDefined()
   })
 
   it('PUT stageId change WITH explicit probability → explicit value wins, stage probability ignored', async () => {

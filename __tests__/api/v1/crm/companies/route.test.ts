@@ -44,7 +44,7 @@ import { getDefinitionsForResource } from '@/lib/customFields/store'
 
 import { adminAuth, adminDb } from '@/lib/firebase/admin'
 import { seedOrgMember, callAsMember, callAsAgent } from '../../../../helpers/crm'
-import { buildCompany, uidFor, buildMemberDoc } from './_fixtures'
+import { buildCompany, uidFor } from './_fixtures'
 
 const AI_API_KEY = 'test-ai-key-companies-root'
 process.env.AI_API_KEY = AI_API_KEY
@@ -137,6 +137,66 @@ describe('GET /api/v1/crm/companies', () => {
     const body = await res.json()
     expect(body.data.companies).toHaveLength(1)
     expect(body.data.companies[0].name).toBe('Acme')
+  })
+
+  it('lists companies without requiring composite-index orderBy shapes', async () => {
+    const uid = uidFor('viewer-index-safe')
+    const member = seedOrgMember('org-index-safe', uid, { role: 'viewer' })
+    const visible = buildCompany({ id: 'co-visible', orgId: 'org-index-safe', name: 'Visible Co' })
+    const legacyNoDeleted = buildCompany({ id: 'co-legacy', orgId: 'org-index-safe', name: 'Legacy Co' })
+    delete (legacyNoDeleted as { deleted?: boolean }).deleted
+    const deleted = buildCompany({ id: 'co-deleted', orgId: 'org-index-safe', name: 'Deleted Co', deleted: true })
+
+    ;(adminAuth.verifySessionCookie as jest.Mock).mockResolvedValue({ uid: member.uid })
+    ;(adminDb.collection as jest.Mock).mockImplementation((name: string) => {
+      if (name === 'users') {
+        return {
+          doc: () => ({
+            get: () => Promise.resolve({ exists: true, data: () => ({ activeOrgId: member.orgId }) }),
+          }),
+        }
+      }
+      if (name === 'orgMembers') {
+        return {
+          doc: () => ({
+            get: () => Promise.resolve({ exists: true, data: () => member }),
+          }),
+        }
+      }
+      if (name === 'organizations') {
+        return {
+          doc: () => ({
+            get: () => Promise.resolve({ exists: true, data: () => ({ settings: { permissions: {} } }) }),
+          }),
+        }
+      }
+      if (name === 'companies') {
+        const query = {
+          where: jest.fn().mockReturnThis(),
+          orderBy: jest.fn(() => { throw new Error('orderBy should not be called') }),
+          limit: jest.fn().mockReturnThis(),
+          get: jest.fn().mockResolvedValue({
+            docs: [
+              { id: 'co-visible', data: () => visible },
+              { id: 'co-legacy', data: () => legacyNoDeleted },
+              { id: 'co-deleted', data: () => deleted },
+            ],
+          }),
+        }
+        return query
+      }
+      return { doc: () => ({ get: () => Promise.resolve({ exists: false }) }) }
+    })
+
+    const req = callAsMember(member, 'GET', '/api/v1/crm/companies?')
+    const { GET } = await import('@/app/api/v1/crm/companies/route')
+    const res = await GET(req)
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.data.companies.map((company: { id: string }) => company.id)).toEqual([
+      'co-visible',
+      'co-legacy',
+    ])
   })
 
   it('returns 401 without auth', async () => {

@@ -47,6 +47,46 @@ interface ActivityData {
   days: number
 }
 
+interface PipelineVelocityStage {
+  pipelineId: string
+  stageId: string
+  dealCount: number
+  avgDays: number
+  maxDays: number
+  bottleneck: boolean
+}
+
+interface PipelineVelocityData {
+  stages: PipelineVelocityStage[]
+  summary: {
+    stageCount: number
+    bottleneckCount: number
+    slowestStage: PipelineVelocityStage | null
+  }
+}
+
+interface RepPerformanceRow {
+  uid: string
+  displayName: string
+  openDeals: number
+  wonDeals: number
+  lostDeals: number
+  openValue: number
+  wonValue: number
+  activities: number
+  winRate: number | null
+}
+
+interface RepPerformanceData {
+  reps: RepPerformanceRow[]
+  summary: {
+    repCount: number
+    totalWonValue: number
+    totalOpenValue: number
+    totalActivities: number
+  }
+}
+
 // ── Formatters ─────────────────────────────────────────────────────────────────
 
 function fmtZar(value: number): string {
@@ -181,21 +221,26 @@ export default function CrmReportsPage() {
   const [funnel, setFunnel] = useState<FunnelData | null>(null)
   const [forecast, setForecast] = useState<ForecastData | null>(null)
   const [activity, setActivity] = useState<ActivityData | null>(null)
+  const [velocity, setVelocity] = useState<PipelineVelocityData | null>(null)
+  const [repPerformance, setRepPerformance] = useState<RepPerformanceData | null>(null)
   const [loading, setLoading] = useState(true)
   const [activityLoading, setActivityLoading] = useState(false)
   const [days, setDays] = useState<DaysOption>(30)
 
-  // Initial fetch — all 3 in parallel
+  // Initial fetch — all reports in parallel
   useEffect(() => {
-    setLoading(true)
     Promise.all([
       fetch('/api/v1/crm/reports/funnel').then((r) => r.json()),
       fetch('/api/v1/crm/reports/forecast').then((r) => r.json()),
+      fetch('/api/v1/crm/reports/pipeline-velocity').then((r) => r.json()),
+      fetch('/api/v1/crm/reports/rep-performance').then((r) => r.json()),
       fetch(`/api/v1/crm/reports/activity-summary?days=30`).then((r) => r.json()),
     ])
-      .then(([funnelBody, forecastBody, activityBody]) => {
+      .then(([funnelBody, forecastBody, velocityBody, repBody, activityBody]) => {
         setFunnel(funnelBody.data ?? funnelBody)
         setForecast(forecastBody.data ?? forecastBody)
+        setVelocity(velocityBody.data ?? velocityBody)
+        setRepPerformance(repBody.data ?? repBody)
         setActivity(activityBody.data ?? activityBody)
       })
       .catch(() => {})
@@ -257,6 +302,14 @@ export default function CrmReportsPage() {
             {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-20 w-32" />)}
           </div>
           <Skeleton className="h-56" />
+        </div>
+        <div className="space-y-5">
+          <div className="pib-skeleton h-4 w-44" />
+          <Skeleton className="h-44" />
+        </div>
+        <div className="space-y-5">
+          <div className="pib-skeleton h-4 w-44" />
+          <Skeleton className="h-44" />
         </div>
         {/* Activity skeleton */}
         <div className="space-y-5">
@@ -354,7 +407,105 @@ export default function CrmReportsPage() {
         )}
       </Section>
 
-      {/* ── Section 3: Activity ─────────────────────────────────────────────── */}
+      {/* ── Section 3: Pipeline velocity ───────────────────────────────────── */}
+      <Section eyebrow="Pipeline velocity">
+        {!velocity || velocity.stages.length === 0 ? (
+          <div className="bento-card p-10 text-center">
+            <span className="material-symbols-outlined text-4xl text-[var(--color-pib-accent)]">speed</span>
+            <p className="text-sm text-[var(--color-pib-text-muted)] mt-4">No time-in-stage data yet.</p>
+          </div>
+        ) : (
+          <div className="grid lg:grid-cols-[260px_1fr] gap-4">
+            <div className="pib-stat-card">
+              <p className="eyebrow !text-[10px]">Bottlenecks</p>
+              <p className="mt-3 font-display tracking-tight leading-none text-4xl text-[var(--color-pib-text)]">
+                {fmtNum(velocity.summary.bottleneckCount)}
+              </p>
+              <p className="mt-3 text-xs text-[var(--color-pib-text-muted)]">
+                {velocity.summary.slowestStage
+                  ? `${velocity.summary.slowestStage.stageId} averages ${velocity.summary.slowestStage.avgDays.toFixed(1)} days`
+                  : 'No slow stages yet'}
+              </p>
+            </div>
+
+            <div className="bento-card !p-0 overflow-hidden">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-[var(--color-pib-line)] bg-[var(--color-pib-surface)]">
+                    {['Stage', 'Open deals', 'Avg days', 'Max days', 'Status'].map((h) => (
+                      <th
+                        key={h}
+                        className={`px-4 py-3 text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] ${h === 'Stage' ? 'text-left' : 'text-right'}`}
+                      >
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {velocity.stages.slice(0, 8).map((stage) => (
+                    <tr key={`${stage.pipelineId}:${stage.stageId}`} className="border-b border-[var(--color-pib-line)] last:border-0">
+                      <td className="px-4 py-3 text-sm font-medium text-[var(--color-pib-text)]">{stage.stageId}</td>
+                      <td className="px-4 py-3 text-sm text-right font-mono text-[var(--color-pib-text)]">{fmtNum(stage.dealCount)}</td>
+                      <td className="px-4 py-3 text-sm text-right font-mono text-[var(--color-pib-text)]">{stage.avgDays.toFixed(1)}</td>
+                      <td className="px-4 py-3 text-sm text-right font-mono text-[var(--color-pib-text)]">{stage.maxDays.toFixed(1)}</td>
+                      <td className="px-4 py-3 text-right">
+                        <span className={`inline-flex rounded-full px-2 py-1 text-[11px] font-medium ${stage.bottleneck ? 'bg-red-500/10 text-red-300' : 'bg-emerald-500/10 text-emerald-300'}`}>
+                          {stage.bottleneck ? 'Bottleneck' : 'Healthy'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </Section>
+
+      {/* ── Section 4: Rep performance ─────────────────────────────────────── */}
+      <Section eyebrow="Rep performance">
+        {!repPerformance || repPerformance.reps.length === 0 ? (
+          <div className="bento-card p-10 text-center">
+            <span className="material-symbols-outlined text-4xl text-[var(--color-pib-accent)]">groups</span>
+            <p className="text-sm text-[var(--color-pib-text-muted)] mt-4">No rep performance data yet.</p>
+          </div>
+        ) : (
+          <div className="bento-card !p-0 overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-[var(--color-pib-line)] bg-[var(--color-pib-surface)]">
+                  {['Rep', 'Won', 'Open', 'Lost', 'Won value', 'Activities', 'Win rate'].map((h) => (
+                    <th
+                      key={h}
+                      className={`px-4 py-3 text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] ${h === 'Rep' ? 'text-left' : 'text-right'}`}
+                    >
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {repPerformance.reps.slice(0, 8).map((rep) => (
+                  <tr key={rep.uid} className="border-b border-[var(--color-pib-line)] last:border-0">
+                    <td className="px-4 py-3 text-sm font-medium text-[var(--color-pib-text)]">{rep.displayName}</td>
+                    <td className="px-4 py-3 text-sm text-right font-mono text-[var(--color-pib-text)]">{fmtNum(rep.wonDeals)}</td>
+                    <td className="px-4 py-3 text-sm text-right font-mono text-[var(--color-pib-text)]">{fmtNum(rep.openDeals)}</td>
+                    <td className="px-4 py-3 text-sm text-right font-mono text-[var(--color-pib-text)]">{fmtNum(rep.lostDeals)}</td>
+                    <td className="px-4 py-3 text-sm text-right font-mono text-[var(--color-pib-accent)]">{fmtZar(rep.wonValue)}</td>
+                    <td className="px-4 py-3 text-sm text-right font-mono text-[var(--color-pib-text)]">{fmtNum(rep.activities)}</td>
+                    <td className="px-4 py-3 text-sm text-right font-mono text-[var(--color-pib-text)]">
+                      {rep.winRate === null ? '—' : `${Math.round(rep.winRate * 100)}%`}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Section>
+
+      {/* ── Section 5: Activity ─────────────────────────────────────────────── */}
       <Section
         eyebrow={
           <span className="flex items-center gap-3 flex-wrap">

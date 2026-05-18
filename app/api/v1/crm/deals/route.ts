@@ -2,7 +2,7 @@
  * GET  /api/v1/crm/deals  — list deals
  * POST /api/v1/crm/deals  — create deal
  */
-import { FieldValue } from 'firebase-admin/firestore'
+import { FieldValue, Timestamp } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { withCrmAuth } from '@/lib/auth/crm-middleware'
 import { resolveMemberRef, type MemberRef } from '@/lib/orgMembers/memberRef'
@@ -131,6 +131,12 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
     updatedByRef: actorRef,
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
+    stageHistory: [{
+      pipelineId,
+      stageId,
+      enteredAt: Timestamp.now(),
+      enteredByRef: actorRef,
+    }],
   }
 
   // Auto-derive companyId from contact when not explicitly provided

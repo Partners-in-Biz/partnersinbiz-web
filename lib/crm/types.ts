@@ -100,6 +100,13 @@ export interface DealLineItem {
   currency: Currency
 }
 
+export interface DealStageHistoryEntry {
+  pipelineId: string
+  stageId: string
+  enteredAt: Timestamp | null
+  enteredByRef?: MemberRef
+}
+
 export interface Deal {
   id: string
   orgId: string
@@ -125,6 +132,7 @@ export interface Deal {
   probability?: number      // 0–100; auto-set from stage.probability, overridable
   lostReason?: string       // freetext; surfaced on "lost" stages
   lineItems?: DealLineItem[]
+  stageHistory?: DealStageHistoryEntry[]
   companyId?: string
   companyName?: string
 }
