@@ -154,10 +154,10 @@ function ProjectCard({ project, slug }: { project: Project; slug: string }) {
         <div className="flex items-start justify-between gap-4">
           <div className="flex min-w-0 items-start gap-3">
             <span
-              className="material-symbols-outlined mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-[20px]"
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md"
               style={{ color: meta.color, background: `${meta.color}14`, border: `1px solid ${meta.color}24` }}
             >
-              {meta.icon}
+              <span className="material-symbols-outlined block text-[20px] leading-none">{meta.icon}</span>
             </span>
             <div className="min-w-0">
               <h3 className="line-clamp-2 text-base font-headline font-semibold leading-snug text-on-surface group-hover/card:text-[var(--color-pib-accent-hover)]">
@@ -379,8 +379,8 @@ export default function ProjectsPage() {
         </div>
       ) : filtered.length === 0 ? (
         <div className="rounded-lg border border-dashed border-[var(--color-card-border)] bg-[var(--color-card)] px-6 py-12 text-center">
-          <span className="material-symbols-outlined mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-md bg-[var(--color-pib-accent-soft)] text-[22px] text-[var(--color-pib-accent)]">
-            folder_managed
+          <span className="mx-auto mb-3 inline-flex h-10 w-10 items-center justify-center rounded-md bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent)]">
+            <span className="material-symbols-outlined block text-[22px] leading-none">folder_managed</span>
           </span>
           <p className="font-medium text-on-surface">No projects found</p>
           <p className="mt-1 text-sm text-on-surface-variant">Try another stage filter or create a new client project.</p>
