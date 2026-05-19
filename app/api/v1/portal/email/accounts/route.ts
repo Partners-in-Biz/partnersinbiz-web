@@ -58,13 +58,13 @@ export const POST = withPortalAuthAndRole('member', async (req: NextRequest, uid
     if (!emailAddress || !emailAddress.includes('@')) return apiError('A valid email address is required', 400)
 
     const provider = body.provider === 'google' ? 'google' : 'smtp_imap'
+    if (provider === 'google') {
+      return apiError('Google mailbox accounts must be connected through OAuth.', 400)
+    }
     const displayName = typeof body.displayName === 'string' && body.displayName.trim() ? body.displayName.trim() : emailAddress
     const profileId = `${orgId}_${uid}`
     const smtp = provider === 'smtp_imap' ? buildServerConfig(body.smtp) : null
     const imap = provider === 'smtp_imap' ? buildServerConfig(body.imap) : null
-    const google = provider === 'google' && body.googleOAuth
-      ? { linked: true, emailAddress, connectedAt: new Date().toISOString() }
-      : null
 
     const ownedAccounts = await adminDb.collection('mailbox_accounts').where('orgId', '==', orgId).where('uid', '==', uid).get()
     const activeOwnedAccounts = ownedAccounts.docs.filter((doc) => !doc.data().deletedAt)
@@ -81,14 +81,13 @@ export const POST = withPortalAuthAndRole('member', async (req: NextRequest, uid
       provider,
       emailAddress,
       displayName,
-      status: smtp || imap || google ? 'connected' : 'needs_setup',
+      status: smtp || imap ? 'connected' : 'needs_setup',
       isDefault: shouldDefault,
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
     }
     if (smtp) payload.smtpEnc = encryptCredentials(smtp, orgId)
     if (imap) payload.imapEnc = encryptCredentials(imap, orgId)
-    if (google) payload.googleEnc = encryptCredentials(google, orgId)
 
     const ref = await adminDb.collection('mailbox_accounts').add(payload)
     const fresh = await ref.get()

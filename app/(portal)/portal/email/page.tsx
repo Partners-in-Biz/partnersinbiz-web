@@ -1,6 +1,7 @@
 'use client'
 
 import { FormEvent, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react'
+import { useSearchParams } from 'next/navigation'
 import type { MailboxAccountSafe, MailboxFolder, MailboxMessageSafe } from '@/lib/mailbox/types'
 
 export const dynamic = 'force-dynamic'
@@ -97,6 +98,7 @@ function htmlToText(html: string): string {
 }
 
 export default function PortalEmailPage() {
+  const searchParams = useSearchParams()
   const [accounts, setAccounts] = useState<MailboxAccountSafe[]>([])
   const [messages, setMessages] = useState<MailboxMessageSafe[]>([])
   const [folder, setFolder] = useState<MailboxFolder>('inbox')
@@ -136,6 +138,13 @@ export default function PortalEmailPage() {
     loadAccounts().catch((err) => setError(err.message))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  useEffect(() => {
+    const status = searchParams.get('emailStatus')
+    const message = searchParams.get('message')
+    if (status === 'connected') setNotice('Google mailbox connected.')
+    if (status === 'error') setError(message ? `Google mailbox connection failed: ${message}` : 'Google mailbox connection failed.')
+  }, [searchParams])
 
   useEffect(() => {
     loadMessages().catch((err) => {
@@ -187,32 +196,32 @@ export default function PortalEmailPage() {
   async function saveAccount(event: FormEvent) {
     event.preventDefault()
     setError(null)
-    const payload = accountForm.provider === 'google'
-      ? {
-          provider: 'google',
-          emailAddress: accountForm.emailAddress,
-          displayName: accountForm.displayName,
-          googleOAuth: true,
-        }
-      : {
-          provider: 'smtp_imap',
-          emailAddress: accountForm.emailAddress,
-          displayName: accountForm.displayName,
-          smtp: {
-            host: accountForm.smtpHost,
-            port: Number(accountForm.smtpPort),
-            username: accountForm.smtpUser,
-            password: accountForm.smtpPassword,
-            secure: true,
-          },
-          imap: {
-            host: accountForm.imapHost,
-            port: Number(accountForm.imapPort),
-            username: accountForm.imapUser,
-            password: accountForm.imapPassword,
-            secure: true,
-          },
-        }
+    if (accountForm.provider === 'google') {
+      const params = new URLSearchParams()
+      if (accountForm.emailAddress.trim()) params.set('emailAddress', accountForm.emailAddress.trim())
+      if (accountForm.displayName.trim()) params.set('displayName', accountForm.displayName.trim())
+      window.location.href = `/api/v1/portal/email/google/authorize?${params.toString()}`
+      return
+    }
+    const payload = {
+      provider: 'smtp_imap',
+      emailAddress: accountForm.emailAddress,
+      displayName: accountForm.displayName,
+      smtp: {
+        host: accountForm.smtpHost,
+        port: Number(accountForm.smtpPort),
+        username: accountForm.smtpUser,
+        password: accountForm.smtpPassword,
+        secure: true,
+      },
+      imap: {
+        host: accountForm.imapHost,
+        port: Number(accountForm.imapPort),
+        username: accountForm.imapUser,
+        password: accountForm.imapPassword,
+        secure: true,
+      },
+    }
     const res = await fetch('/api/v1/portal/email/accounts', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -312,10 +321,12 @@ export default function PortalEmailPage() {
             </div>
           ) : (
             <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-4 text-sm text-[var(--color-pib-text-muted)]">
-              Google mailbox records are stored per profile now. OAuth can be connected to this account record when the Google app credentials are ready.
+              Continue with Google to approve mailbox access. PiB stores the OAuth token on this workspace profile after Google returns you here.
             </div>
           )}
-          <button type="submit" className="btn-pib-primary">Save account</button>
+          <button type="submit" className="btn-pib-primary">
+            {accountForm.provider === 'google' ? 'Continue with Google' : 'Save account'}
+          </button>
         </form>
       )}
 
@@ -349,8 +360,16 @@ export default function PortalEmailPage() {
             <div className="space-y-2">
               {accounts.map((account) => (
                 <div key={account.id} className="rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-xs">
-                  <p className="font-medium truncate">{account.displayName}</p>
-                  <p className="text-[var(--color-pib-text-muted)] truncate">{account.emailAddress}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="min-w-0 flex-1 truncate font-medium">{account.displayName}</p>
+                    <span className={`rounded-full px-1.5 py-0.5 text-[9px] uppercase tracking-wide ${account.status === 'connected' ? 'bg-emerald-500/10 text-emerald-200' : 'bg-amber-500/10 text-amber-200'}`}>
+                      {account.provider === 'google' ? 'Google' : 'IMAP'}
+                    </span>
+                  </div>
+                  <p className="mt-1 truncate text-[var(--color-pib-text-muted)]">{account.emailAddress}</p>
+                  {account.status !== 'connected' ? (
+                    <p className="mt-1 text-[var(--color-pib-text-muted)]">Needs connection</p>
+                  ) : null}
                 </div>
               ))}
             </div>
