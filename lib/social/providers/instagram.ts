@@ -173,7 +173,7 @@ export class InstagramProvider extends SocialProvider {
     return lower.includes('.mp4') || lower.includes('.mov') || lower.includes('.avi') || lower.includes('video')
   }
 
-  async deletePost(_platformPostId: string): Promise<void> {
+  async deletePost(): Promise<void> {
     throw new Error('Instagram does not support post deletion via API')
   }
 
