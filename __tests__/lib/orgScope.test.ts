@@ -85,6 +85,19 @@ describe('resolveOrgScope', () => {
         orgId: 'pib-platform-owner',
       })
     })
+
+    it('allows restricted admins into the internal platform workspace even for older users without orgId', () => {
+      const user: ApiUser = {
+        uid: 'a1',
+        role: 'admin',
+        allowedOrgIds: ['org-a'],
+      }
+
+      expect(resolveOrgScope(user, 'pib-platform-owner')).toEqual({
+        ok: true,
+        orgId: 'pib-platform-owner',
+      })
+    })
   })
 
   describe('ai role', () => {

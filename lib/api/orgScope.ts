@@ -13,6 +13,7 @@
 
 import type { ApiUser } from './types'
 import { canAccessOrg } from './platformAdmin'
+import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
 
 export interface OrgScopeOk {
   ok: true
@@ -39,6 +40,9 @@ export function resolveOrgScope(user: ApiUser, requestedOrgId: string | null): O
   if (user.role === 'admin' || user.role === 'ai') {
     if (!requestedOrgId) {
       return { ok: false, status: 400, error: 'orgId is required (admin role must scope explicitly)' }
+    }
+    if (user.role === 'admin' && requestedOrgId === PIB_PLATFORM_ORG_ID) {
+      return { ok: true, orgId: requestedOrgId }
     }
     // Restricted platform admins can only access orgs in their allowedOrgIds
     // list (or their home orgId). Super admins (no allowedOrgIds) are

@@ -588,11 +588,15 @@ export default function UnifiedChat({
       let convId = activeId
 
       try {
-        // Auto-create a bare conversation if none selected
+        // Auto-create a conversation if none selected.
+        let createdWithAgent = false
         if (!convId) {
+          const participants = allowAgentParticipants
+            ? [{ kind: 'agent' as const, agentId: 'pip' as const }]
+            : []
           const payload: Record<string, unknown> = {
             orgId,
-            participants: [],
+            participants,
             title: input.slice(0, 80),
           }
           if (scope) payload.scope = scope
@@ -605,6 +609,7 @@ export default function UnifiedChat({
           const b = await r.json()
           convId = b.data?.conversation?.id as string | undefined ?? null
           if (!convId) throw new Error('Failed to create conversation')
+          createdWithAgent = participants.length > 0
           setConversations((prev) => [b.data.conversation, ...prev])
           setActiveId(convId)
           setMobilePane('conversation')
@@ -620,6 +625,7 @@ export default function UnifiedChat({
         setAttachments([])
         const nowSec = Date.now() / 1000
         const shouldExpectAgentReply =
+          createdWithAgent ||
           (activeConversation?.participantAgentIds?.length ?? 0) > 0
 
         // Optimistic messages
@@ -687,6 +693,7 @@ export default function UnifiedChat({
       input,
       attachments,
       sending,
+      allowAgentParticipants,
       orgId,
       currentUserUid,
       currentUserDisplayName,
@@ -1119,7 +1126,9 @@ export default function UnifiedChat({
               placeholder={
                 activeConversation
                   ? 'Send a message'
-                  : 'Create or select a conversation first'
+                  : allowAgentParticipants
+                    ? 'Message Pip'
+                    : 'Create or select a conversation first'
               }
               disabled={sending}
               rows={1}

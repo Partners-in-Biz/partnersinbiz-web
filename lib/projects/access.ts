@@ -1,6 +1,7 @@
 import type { DocumentData, DocumentSnapshot } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import type { ApiUser } from '@/lib/api/types'
+import { canAccessOrg, isSuperAdmin } from '@/lib/api/platformAdmin'
 
 export type ProjectAccessResult =
   | { ok: true; doc: DocumentSnapshot<DocumentData> }
@@ -14,14 +15,10 @@ function projectOrgIds(data: DocumentData): string[] {
 
 export function canAccessProject(user: ApiUser, data: DocumentData): boolean {
   if (user.role === 'ai') return true
+  if (isSuperAdmin(user)) return true
 
   const ids = projectOrgIds(data)
-  if (user.role === 'admin') {
-    if (!user.allowedOrgIds?.length) return true
-    return ids.some(id => user.allowedOrgIds?.includes(id))
-  }
-
-  return Boolean(user.orgId && ids.includes(user.orgId))
+  return ids.some((id) => canAccessOrg(user, id))
 }
 
 export async function getProjectForUser(projectId: string, user: ApiUser): Promise<ProjectAccessResult> {
