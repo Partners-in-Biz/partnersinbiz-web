@@ -48,6 +48,7 @@ function setupActivities(activities: DocData[]) {
     if (name === 'activities') {
       return {
         where: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockReturnThis(),
         get: jest.fn().mockResolvedValue({
           docs: activities.map((a, i) => ({ id: `act${i}`, data: () => a })),
         }),
@@ -117,22 +118,44 @@ describe('GET /api/v1/crm/reports/activity-summary', () => {
           }),
         }
       }
-      return { where: whereMock, get: getMock }
+      return { where: whereMock, limit: jest.fn().mockReturnThis(), get: getMock }
     })
     await GET(makeReq(ORG_B))
     expect(whereMock).toHaveBeenCalledWith('orgId', '==', ORG_B)
   })
 
-  it('only includes activities returned by Firestore (since filter applied at query level)', async () => {
-    // Firestore enforces the `createdAt >= since` filter — the route trusts those results.
-    // This test confirms that activities returned are included in counts, not filtered again.
+  it('avoids composite-index-sensitive createdAt filters in Firestore', async () => {
+    const whereMock = jest.fn().mockReturnThis()
+    const getMock = jest.fn().mockResolvedValue({ docs: [] })
+    ;(adminDb.collection as jest.Mock).mockImplementation((name: string) => {
+      if (name === 'organizations') {
+        return {
+          doc: jest.fn().mockReturnValue({
+            get: jest.fn().mockResolvedValue({ exists: true, data: () => ({ settings: {} }) }),
+          }),
+        }
+      }
+      return { where: whereMock, limit: jest.fn().mockReturnThis(), get: getMock }
+    })
+
+    await GET(makeReq(ORG_A, 30))
+
+    expect(whereMock).toHaveBeenCalledTimes(1)
+    expect(whereMock).toHaveBeenCalledWith('orgId', '==', ORG_A)
+  })
+
+  it('filters activities to the requested date window in memory', async () => {
     const now = new Date()
+    const old = new Date(now.getTime() - 120 * 86_400_000)
     setupActivities([
       { orgId: ORG_A, type: 'stage_change', createdAt: ts(now) },
+      { orgId: ORG_A, type: 'note', createdAt: ts(old) },
     ])
+
     const res = await GET(makeReq(ORG_A, 30))
     const body = await res.json()
     expect(body.data.total).toBe(1)
     expect(body.data.byType.stage_change).toBe(1)
+    expect(body.data.byType.note).toBeUndefined()
   })
 })

@@ -87,6 +87,45 @@ interface RepPerformanceData {
   }
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+async function fetchReport<T>(
+  url: string,
+  validate: (value: unknown) => value is T,
+): Promise<T | null> {
+  try {
+    const response = await fetch(url)
+    if (!response.ok) return null
+    const body = await response.json()
+    const data = isRecord(body) && 'data' in body ? body.data : body
+    return validate(data) ? data : null
+  } catch {
+    return null
+  }
+}
+
+function isFunnelData(value: unknown): value is FunnelData {
+  return isRecord(value) && isRecord(value.byType) && isRecord(value.byStage) && typeof value.total === 'number'
+}
+
+function isForecastData(value: unknown): value is ForecastData {
+  return isRecord(value) && isRecord(value.periods) && isRecord(value.summary)
+}
+
+function isActivityData(value: unknown): value is ActivityData {
+  return isRecord(value) && isRecord(value.byType) && Array.isArray(value.perDay) && typeof value.total === 'number'
+}
+
+function isPipelineVelocityData(value: unknown): value is PipelineVelocityData {
+  return isRecord(value) && Array.isArray(value.stages) && isRecord(value.summary)
+}
+
+function isRepPerformanceData(value: unknown): value is RepPerformanceData {
+  return isRecord(value) && Array.isArray(value.reps) && isRecord(value.summary)
+}
+
 // ── Formatters ─────────────────────────────────────────────────────────────────
 
 function fmtZar(value: number): string {
@@ -230,18 +269,18 @@ export default function CrmReportsPage() {
   // Initial fetch — all reports in parallel
   useEffect(() => {
     Promise.all([
-      fetch('/api/v1/crm/reports/funnel').then((r) => r.json()),
-      fetch('/api/v1/crm/reports/forecast').then((r) => r.json()),
-      fetch('/api/v1/crm/reports/pipeline-velocity').then((r) => r.json()),
-      fetch('/api/v1/crm/reports/rep-performance').then((r) => r.json()),
-      fetch(`/api/v1/crm/reports/activity-summary?days=30`).then((r) => r.json()),
+      fetchReport('/api/v1/crm/reports/funnel', isFunnelData),
+      fetchReport('/api/v1/crm/reports/forecast', isForecastData),
+      fetchReport('/api/v1/crm/reports/pipeline-velocity', isPipelineVelocityData),
+      fetchReport('/api/v1/crm/reports/rep-performance', isRepPerformanceData),
+      fetchReport(`/api/v1/crm/reports/activity-summary?days=30`, isActivityData),
     ])
       .then(([funnelBody, forecastBody, velocityBody, repBody, activityBody]) => {
-        setFunnel(funnelBody.data ?? funnelBody)
-        setForecast(forecastBody.data ?? forecastBody)
-        setVelocity(velocityBody.data ?? velocityBody)
-        setRepPerformance(repBody.data ?? repBody)
-        setActivity(activityBody.data ?? activityBody)
+        setFunnel(funnelBody)
+        setForecast(forecastBody)
+        setVelocity(velocityBody)
+        setRepPerformance(repBody)
+        setActivity(activityBody)
       })
       .catch(() => {})
       .finally(() => setLoading(false))
@@ -251,9 +290,8 @@ export default function CrmReportsPage() {
   const fetchActivity = useCallback(
     (d: DaysOption) => {
       setActivityLoading(true)
-      fetch(`/api/v1/crm/reports/activity-summary?days=${d}`)
-        .then((r) => r.json())
-        .then((b) => setActivity(b.data ?? b))
+      fetchReport(`/api/v1/crm/reports/activity-summary?days=${d}`, isActivityData)
+        .then((nextActivity) => setActivity(nextActivity))
         .catch(() => {})
         .finally(() => setActivityLoading(false))
     },
@@ -269,13 +307,13 @@ export default function CrmReportsPage() {
   // ── Funnel derived values ────────────────────────────────────────────────────
 
   const byStageEntries: [string, number][] = funnel
-    ? Object.entries(funnel.byStage).sort((a, b) => b[1] - a[1])
+    ? Object.entries(funnel.byStage ?? {}).sort((a, b) => b[1] - a[1])
     : []
 
   // ── Activity derived values ──────────────────────────────────────────────────
 
   const byTypeEntries: [string, number][] = activity
-    ? Object.entries(activity.byType).sort((a, b) => b[1] - a[1])
+    ? Object.entries(activity.byType ?? {}).sort((a, b) => b[1] - a[1])
     : []
 
   // ── Loading state ────────────────────────────────────────────────────────────
@@ -344,10 +382,10 @@ export default function CrmReportsPage() {
             <div>
               <p className="text-xs text-[var(--color-pib-text-muted)] mb-3 font-medium">By type</p>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <StatCard label="Leads" value={fmtNum(funnel.byType.lead)} sub="top of funnel" icon="person_add" />
-                <StatCard label="Prospects" value={fmtNum(funnel.byType.prospect)} sub="being evaluated" icon="manage_accounts" />
-                <StatCard label="Clients" value={fmtNum(funnel.byType.client)} sub="active" icon="handshake" />
-                <StatCard label="Churned" value={fmtNum(funnel.byType.churned)} sub="lost" icon="person_remove" />
+                <StatCard label="Leads" value={fmtNum(funnel.byType.lead ?? 0)} sub="top of funnel" icon="person_add" />
+                <StatCard label="Prospects" value={fmtNum(funnel.byType.prospect ?? 0)} sub="being evaluated" icon="manage_accounts" />
+                <StatCard label="Clients" value={fmtNum(funnel.byType.client ?? 0)} sub="active" icon="handshake" />
+                <StatCard label="Churned" value={fmtNum(funnel.byType.churned ?? 0)} sub="lost" icon="person_remove" />
               </div>
             </div>
 

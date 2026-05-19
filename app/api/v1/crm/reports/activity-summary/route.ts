@@ -4,7 +4,6 @@
  * Auth: member+
  */
 import { adminDb } from '@/lib/firebase/admin'
-import { Timestamp } from 'firebase-admin/firestore'
 import { withCrmAuth } from '@/lib/auth/crm-middleware'
 import { apiSuccess, apiErrorFromException } from '@/lib/api/response'
 import type { Activity } from '@/lib/crm/types'
@@ -12,14 +11,16 @@ import { NextRequest } from 'next/server'
 
 export const dynamic = 'force-dynamic'
 
-function toDateString(ts: Activity['createdAt']): string {
-  if (!ts) return 'unknown'
-  let date: Date
-  if (typeof (ts as unknown as { toDate?: unknown }).toDate === 'function') {
-    date = (ts as unknown as { toDate: () => Date }).toDate()
-  } else {
-    date = new Date(ts as unknown as string)
-  }
+function toDate(ts: Activity['createdAt']): Date | null {
+  if (!ts) return null
+  const date = typeof (ts as unknown as { toDate?: unknown }).toDate === 'function'
+    ? (ts as unknown as { toDate: () => Date }).toDate()
+    : new Date(ts as unknown as string)
+
+  return Number.isNaN(date.getTime()) ? null : date
+}
+
+function toDateString(date: Date): string {
   // YYYY-MM-DD
   return date.toISOString().slice(0, 10)
 }
@@ -29,27 +30,32 @@ export const GET = withCrmAuth('member', async (req: NextRequest, ctx) => {
 
   try {
     const { searchParams } = new URL(req.url)
-    const days = Math.min(parseInt(searchParams.get('days') ?? '30', 10), 90)
+    const parsedDays = parseInt(searchParams.get('days') ?? '30', 10)
+    const days = Number.isFinite(parsedDays) ? Math.min(Math.max(parsedDays, 1), 90) : 30
     const since = new Date(Date.now() - days * 86_400_000)
 
     const snap = await adminDb
       .collection('activities')
       .where('orgId', '==', orgId)
-      .where('createdAt', '>=', Timestamp.fromDate(since))
+      .limit(2000)
       .get()
 
-    const activities = snap.docs.map((d) => ({ id: d.id, ...d.data() })) as Activity[]
+    const activities = (snap.docs
+      .map((d) => ({ id: d.id, ...d.data() })) as Activity[])
+      .map((activity) => ({ activity, createdAt: toDate(activity.createdAt) }))
+      .filter(({ createdAt }) => createdAt !== null && createdAt >= since)
 
     // Group by type
     const byType: Record<string, number> = {}
     // Group by YYYY-MM-DD
     const perDayMap: Record<string, number> = {}
 
-    for (const a of activities) {
-      const type = a.type ?? 'unknown'
+    for (const { activity, createdAt } of activities) {
+      if (!createdAt) continue
+      const type = activity.type ?? 'unknown'
       byType[type] = (byType[type] ?? 0) + 1
 
-      const day = toDateString(a.createdAt)
+      const day = toDateString(createdAt)
       perDayMap[day] = (perDayMap[day] ?? 0) + 1
     }
 

@@ -169,6 +169,26 @@ describe('GET /api/v1/crm/reports/forecast', () => {
     expect(whereMock).toHaveBeenCalledWith('orgId', '==', ORG_B)
   })
 
+  it('avoids composite-index-sensitive deleted filters in Firestore', async () => {
+    const whereMock = jest.fn().mockReturnThis()
+    const getMock = jest.fn().mockResolvedValue({ docs: [] })
+    ;(adminDb.collection as jest.Mock).mockImplementation((name: string) => {
+      if (name === 'organizations') {
+        return {
+          doc: jest.fn().mockReturnValue({
+            get: jest.fn().mockResolvedValue({ exists: true, data: () => ({ settings: {} }) }),
+          }),
+        }
+      }
+      return { where: whereMock, limit: jest.fn().mockReturnThis(), get: getMock }
+    })
+
+    await GET(makeReq(ORG_A))
+
+    expect(whereMock).toHaveBeenCalledTimes(1)
+    expect(whereMock).toHaveBeenCalledWith('orgId', '==', ORG_A)
+  })
+
   it('handles ISO string expectedCloseDate', async () => {
     const now = new Date()
     const isoDate = thisMonthDate(now).toISOString()

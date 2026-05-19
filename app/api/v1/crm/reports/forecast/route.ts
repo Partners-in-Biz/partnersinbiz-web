@@ -78,14 +78,14 @@ export const GET = withCrmAuth('member', async (_req, ctx) => {
     const snap = await adminDb
       .collection('deals')
       .where('orgId', '==', orgId)
-      .where('deleted', '!=', true)
       .limit(2000)
       .get()
 
-    const deals = snap.docs.map((d) => ({ id: d.id, ...d.data() })) as Deal[]
+    const deals = snap.docs
+      .map((d) => ({ id: d.id, ...d.data() })) as Deal[]
 
     // Classify open deals — same heuristic as dashboard
-    const open = deals.filter((d) => !d.lostReason && (d.probability ?? 50) < 100)
+    const open = deals.filter((d) => d.deleted !== true && !d.lostReason && (d.probability ?? 50) < 100)
 
     const now = new Date()
 
