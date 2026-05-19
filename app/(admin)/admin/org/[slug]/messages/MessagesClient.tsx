@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import UnifiedChat from '@/components/chat/UnifiedChat'
 import AgentRunSession from '@/components/agents/AgentRunSession'
 
@@ -26,6 +27,13 @@ export default function MessagesClient({
   initialTaskId,
   initialTaskTitle,
 }: MessagesClientProps) {
+  const [showIntro, setShowIntro] = useState(true)
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setShowIntro(false), 3000)
+    return () => window.clearTimeout(timer)
+  }, [])
+
   if (initialAgentId && initialRunId) {
     return (
       <AgentRunSession
@@ -45,9 +53,12 @@ export default function MessagesClient({
   // Desktop: keeps the page header and respects main's py-8 (64px) + topbar (56px).
   return (
     <div
-      className="flex flex-col gap-0 lg:gap-4 overflow-hidden -mx-4 -my-8 lg:mx-0 lg:my-0 h-[calc(100dvh-56px)] lg:h-[calc(100dvh-120px)]"
+      className="flex flex-col overflow-hidden -mx-4 -my-8 lg:mx-0 lg:my-0 h-[calc(100dvh-56px)] lg:h-[calc(100dvh-120px)]"
     >
-      <div className="hidden lg:block shrink-0">
+      <div className={[
+        'hidden shrink-0 overflow-hidden transition-all duration-700 ease-out lg:block',
+        showIntro ? 'mb-4 max-h-24 translate-y-0 opacity-100' : 'mb-0 max-h-0 -translate-y-2 opacity-0',
+      ].join(' ')}>
         <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">
           Workspace / Messages
         </p>
