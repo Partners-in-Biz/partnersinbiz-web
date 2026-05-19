@@ -11,6 +11,7 @@ import { NextRequest } from 'next/server'
 import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
+import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
 import {
   getConversation,
   createMessage,
@@ -35,6 +36,18 @@ function canAccess(user: ApiUser, participantUids: string[]): boolean {
 }
 
 async function buildOrgContext(orgId: string): Promise<string> {
+  if (orgId === PIB_PLATFORM_ORG_ID) {
+    return [
+      '[Platform context - you are working in the top-level Partners in Biz workspace]',
+      `orgId: ${PIB_PLATFORM_ORG_ID}`,
+      'name: Partners in Biz',
+      'This is not a client organisation. Treat it like the parent workspace above all client folders: internal operations, planning, cross-client coordination, and platform-level decisions belong here.',
+      'When a task needs client data or client-scoped API calls, ask for or infer the client workspace before acting on that client.',
+      '---',
+      '',
+    ].join('\n')
+  }
+
   try {
     const orgDoc = await adminDb.collection('organizations').doc(orgId).get()
     if (!orgDoc.exists) return ''

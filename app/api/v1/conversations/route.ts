@@ -9,6 +9,7 @@ import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
 import { resolveOrgScope } from '@/lib/api/orgScope'
 import { apiSuccess, apiError } from '@/lib/api/response'
+import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
 import {
   createConversation,
   listConversations,
@@ -22,6 +23,7 @@ export const dynamic = 'force-dynamic'
 
 const VALID_AGENT_IDS: AgentId[] = ['pip', 'theo', 'maya', 'sage', 'nora']
 const VALID_SCOPES: ConversationScope[] = ['general', 'project', 'task', 'campaign']
+const isPlatformWorkspace = (orgId: string) => orgId === PIB_PLATFORM_ORG_ID
 
 export const POST = withAuth(
   'client',
@@ -50,10 +52,13 @@ export const POST = withAuth(
       ? (configDoc.data() as { visibleAgents?: { admin?: AgentId[]; client?: AgentId[] } })
       : null
     const allowedAgentIds = new Set<AgentId>(resolveVisibleAgents(config, callerRole))
-    const orgDoc = await adminDb.collection('organizations').doc(scope.orgId).get()
-    if (!orgDoc.exists) return apiError('Organisation not found', 404)
-    const orgData = orgDoc.data() as { members?: Array<{ userId: string }> }
-    const orgMemberUids = new Set((orgData.members ?? []).map((member) => member.userId))
+    const orgMemberUids = new Set<string>()
+    if (!isPlatformWorkspace(scope.orgId)) {
+      const orgDoc = await adminDb.collection('organizations').doc(scope.orgId).get()
+      if (!orgDoc.exists) return apiError('Organisation not found', 404)
+      const orgData = orgDoc.data() as { members?: Array<{ userId: string }> }
+      ;(orgData.members ?? []).forEach((member) => orgMemberUids.add(member.userId))
+    }
     const platformAdminUids = new Set<string>()
     if (callerRole === 'client') {
       const adminsSnap = await adminDb.collection('users').where('role', '==', 'admin').get()
@@ -92,6 +97,9 @@ export const POST = withAuth(
         const userData = userDoc.data() ?? {}
         const userRole: 'admin' | 'client' =
           userData.role === 'admin' ? 'admin' : 'client'
+        if (isPlatformWorkspace(scope.orgId) && callerRole === 'admin' && userRole !== 'admin') {
+          return apiError(`User ${uid} is not a platform admin`, 400)
+        }
 
         participants.push({
           kind: 'user',

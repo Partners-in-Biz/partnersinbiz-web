@@ -16,6 +16,7 @@ import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
 import { resolveOrgScope } from '@/lib/api/orgScope'
 import { apiSuccess, apiError } from '@/lib/api/response'
+import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
 import type { Organization, OrgMember } from '@/lib/organizations/types'
 import type { ApiUser } from '@/lib/api/types'
 
@@ -75,6 +76,11 @@ export const GET = withAuth(
     if (!scope.ok) return apiError(scope.error, scope.status)
 
     const callerIsAdmin = user.role === 'admin' || user.role === 'ai'
+
+    if (scope.orgId === PIB_PLATFORM_ORG_ID && callerIsAdmin) {
+      const contacts = (await listPlatformAdmins()).filter((admin) => admin.uid !== user.uid)
+      return apiSuccess(contacts)
+    }
 
     const contacts: ContactEntry[] = []
     const orgDoc = await adminDb.collection('organizations').doc(scope.orgId).get()

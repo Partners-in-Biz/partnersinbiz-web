@@ -8,6 +8,7 @@ import { AdminTopbarNav } from './AdminTopbarNav'
 import { WelcomeFlashHandler } from '@/components/ui/WelcomeFlashHandler'
 import { MessageDrawer } from '@/components/chat/MessageDrawer'
 import { useOrg } from '@/lib/contexts/OrgContext'
+import { PIB_PLATFORM_ORG_ID, SHARED_SENDER_NAME } from '@/lib/platform/constants'
 
 interface AdminShellProps {
   userEmail: string
@@ -50,8 +51,8 @@ export function AdminShell({ userEmail, userUid, children }: AdminShellProps) {
   const routeOrg = routeOrgSlug ? orgs.find((org) => org.slug === routeOrgSlug) : undefined
   const selectedOrg = orgs.find((org) => org.id === selectedOrgId)
   const drawerOrg = routeOrg ?? selectedOrg
-  const drawerOrgId = drawerOrg?.id ?? selectedOrgId
-  const drawerOrgName = drawerOrg?.name ?? orgName
+  const drawerOrgId = (drawerOrg?.id ?? selectedOrgId) || PIB_PLATFORM_ORG_ID
+  const drawerOrgName = (drawerOrg?.name ?? orgName) || SHARED_SENDER_NAME
   const messageAction = (
     <MessageDrawer
       orgId={drawerOrgId}
@@ -60,7 +61,7 @@ export function AdminShell({ userEmail, userUid, children }: AdminShellProps) {
       currentUserDisplayName={userEmail}
       allowAgentParticipants
       allowDeleteConversations
-      disabledReason="Select a client workspace first"
+      disabledReason="Messages unavailable"
     />
   )
 
