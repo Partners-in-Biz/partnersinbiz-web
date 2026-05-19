@@ -10,7 +10,7 @@ import {
 import { SiThreads, SiBluesky } from 'react-icons/si'
 
 type AccountStatus = 'active' | 'token_expired' | 'disconnected' | 'rate_limited'
-type SubAccountType = 'personal' | 'page'
+type SubAccountType = 'personal' | 'business' | 'page' | 'group'
 type TimestampLike = { _seconds?: number; seconds?: number } | string | null | undefined
 
 interface SocialAccount {
@@ -23,6 +23,7 @@ interface SocialAccount {
   subAccountType?: SubAccountType
   accountType?: SubAccountType
   avatarUrl?: string
+  platformAccountId?: string
   lastUsedAt?: TimestampLike
   lastUsed?: TimestampLike
   tokenExpiresAt?: TimestampLike
@@ -151,15 +152,23 @@ function SubAccountRow({
 }) {
   const days = daysUntil(account.tokenExpiresAt)
   const subAccountType = account.subAccountType ?? account.accountType
-  const username = account.username || account.displayName
+  const hasPlaceholderIdentity =
+    account.platform === 'instagram' &&
+    (!account.username || account.platformAccountId === 'unknown' || account.displayName.toLowerCase() === 'instagram')
+  const accountName = hasPlaceholderIdentity ? 'Instagram reconnect required' : account.displayName
+  const username = hasPlaceholderIdentity
+    ? 'account identity missing'
+    : account.username || account.displayName || account.platformAccountId || 'unknown account'
 
   return (
     <div className="grid gap-3 border-t border-[var(--color-card-border)] px-4 py-3 sm:grid-cols-[auto_1fr_auto] sm:items-center">
       <div className="flex min-w-0 items-center gap-3">
         <AccountAvatar account={account} />
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-on-surface">{account.displayName}</p>
-          <p className="truncate text-xs text-on-surface-variant">@{username}</p>
+          <p className="truncate text-sm font-semibold text-on-surface">{accountName}</p>
+          <p className="truncate text-xs text-on-surface-variant">
+            {hasPlaceholderIdentity ? username : `@${username}`}
+          </p>
           <p className="mt-1 text-[11px] text-on-surface-variant">Last used: {formatLastUsed(account.lastUsedAt ?? account.lastUsed)}</p>
           {days !== null && days <= 7 && (
             <p className={`mt-1 text-[11px] ${days <= 0 ? 'text-[#FCA5A5]' : 'text-[#FBBF24]'}`}>

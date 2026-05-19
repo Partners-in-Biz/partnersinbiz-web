@@ -14,7 +14,7 @@ import { SiThreads, SiBluesky } from 'react-icons/si'
 /* ------------------------------------------------------------------ */
 
 type AccountStatus = 'active' | 'token_expired' | 'disconnected' | 'rate_limited'
-type SubAccountType = 'personal' | 'page'
+type SubAccountType = 'personal' | 'business' | 'page' | 'group'
 
 interface SocialAccount {
   id: string
@@ -24,6 +24,8 @@ interface SocialAccount {
   status: AccountStatus
   isDefault?: boolean
   subAccountType?: SubAccountType
+  accountType?: SubAccountType
+  platformAccountId?: string
   lastUsedAt: { _seconds?: number; seconds?: number } | string | null
   tokenExpiresAt: { _seconds?: number; seconds?: number } | string | null
   platformMeta?: Record<string, unknown>
@@ -103,28 +105,38 @@ function SubAccountRow({
   disconnecting: boolean
 }) {
   const days = daysUntil(account.tokenExpiresAt)
+  const subAccountType = account.subAccountType ?? account.accountType
+  const hasPlaceholderIdentity =
+    account.platform === 'instagram' &&
+    (!account.username || account.platformAccountId === 'unknown' || account.displayName.toLowerCase() === 'instagram')
+  const accountName = hasPlaceholderIdentity ? 'Instagram reconnect required' : account.displayName
+  const username = hasPlaceholderIdentity
+    ? 'account identity missing'
+    : account.username || account.displayName || account.platformAccountId || 'unknown account'
 
   return (
     <div className="flex items-center gap-3 px-4 py-3 border-t border-surface-container-high">
       <div className="w-8 h-8 rounded-full bg-surface-container-high flex items-center justify-center text-on-surface-variant text-xs font-semibold">
-        {account.displayName.slice(0, 2).toUpperCase()}
+        {accountName.slice(0, 2).toUpperCase()}
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-on-surface truncate">{account.displayName}</p>
-        <p className="text-xs text-on-surface-variant truncate">@{account.username}</p>
+        <p className="text-sm font-medium text-on-surface truncate">{accountName}</p>
+        <p className="text-xs text-on-surface-variant truncate">
+          {hasPlaceholderIdentity ? username : `@${username}`}
+        </p>
         {days !== null && days <= 7 && (
           <p className={`text-[10px] ${days <= 0 ? 'text-red-400' : 'text-yellow-400'}`}>
             {days <= 0 ? 'Token expired' : `Expires in ${days}d`}
           </p>
         )}
       </div>
-      {account.subAccountType && (
+      {subAccountType && (
         <span className={`text-[10px] px-2 py-0.5 rounded font-semibold ${
-          account.subAccountType === 'personal'
+          subAccountType === 'personal'
             ? 'bg-blue-900/30 text-blue-400'
             : 'bg-green-900/30 text-green-400'
         }`}>
-          {account.subAccountType.toUpperCase()}
+          {subAccountType.toUpperCase()}
         </span>
       )}
       <button
