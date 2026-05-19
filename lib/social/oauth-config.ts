@@ -3,6 +3,8 @@
  */
 import type { SocialPlatformType } from './providers/types'
 
+export type LinkedInOAuthMode = 'personal' | 'organization'
+
 export interface OAuthConfig {
   platform: SocialPlatformType
   authUrl: string
@@ -16,6 +18,10 @@ export interface OAuthConfig {
   extraAuthParams?: Record<string, string>
 }
 
+interface OAuthOptions {
+  linkedinMode?: LinkedInOAuthMode
+}
+
 function getAppUrl(): string {
   if (process.env.NEXT_PUBLIC_APP_URL) return process.env.NEXT_PUBLIC_APP_URL
   if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`
@@ -26,7 +32,7 @@ export function getCallbackUrl(platform: SocialPlatformType): string {
   return `${getAppUrl()}/api/v1/social/oauth/${platform}/callback`
 }
 
-export function getOAuthConfig(platform: SocialPlatformType): OAuthConfig | null {
+export function getOAuthConfig(platform: SocialPlatformType, options: OAuthOptions = {}): OAuthConfig | null {
   switch (platform) {
     case 'facebook':
       return {
@@ -43,13 +49,20 @@ export function getOAuthConfig(platform: SocialPlatformType): OAuthConfig | null
         scopes: ['instagram_business_basic', 'instagram_business_manage_messages', 'instagram_business_manage_comments', 'instagram_business_content_publish', 'instagram_business_manage_insights'],
       }
     case 'linkedin':
+      if (options.linkedinMode === 'organization') {
+        return {
+          platform: 'linkedin',
+          authUrl: 'https://www.linkedin.com/oauth/v2/authorization',
+          tokenUrl: 'https://www.linkedin.com/oauth/v2/accessToken',
+          // Dedicated Community Management API app for company-page posting.
+          scopes: ['w_organization_social'],
+        }
+      }
       return {
         platform: 'linkedin',
         authUrl: 'https://www.linkedin.com/oauth/v2/authorization',
         tokenUrl: 'https://www.linkedin.com/oauth/v2/accessToken',
-        // Production uses the dedicated Community Management API app for
-        // company-page posting. That app must not request member/OIDC scopes.
-        scopes: ['w_organization_social'],
+        scopes: ['w_member_social', 'openid', 'profile'],
       }
     case 'reddit':
       return {
@@ -131,7 +144,7 @@ export function getOAuthConfig(platform: SocialPlatformType): OAuthConfig | null
 /**
  * Get the client credentials (client_id, client_secret) for a platform from env.
  */
-export function getClientCredentials(platform: SocialPlatformType): { clientId: string; clientSecret: string } | null {
+export function getClientCredentials(platform: SocialPlatformType, options: OAuthOptions = {}): { clientId: string; clientSecret: string } | null {
   // Twitter OAuth 2.0 uses TWITTER_CLIENT_ID / TWITTER_CLIENT_SECRET
   if (platform === 'twitter') {
     const clientId = process.env.TWITTER_CLIENT_ID?.trim()
@@ -143,6 +156,19 @@ export function getClientCredentials(platform: SocialPlatformType): { clientId: 
   if (platform === 'tiktok') {
     const clientId = process.env.TIKTOK_CLIENT_KEY?.trim()
     const clientSecret = process.env.TIKTOK_CLIENT_SECRET?.trim()
+    if (!clientId || !clientSecret) return null
+    return { clientId, clientSecret }
+  }
+  if (platform === 'linkedin') {
+    if (options.linkedinMode === 'organization') {
+      const clientId = process.env.LINKEDIN_ORGANIZATION_CLIENT_ID?.trim() ?? process.env.LINKEDIN_CLIENT_ID?.trim()
+      const clientSecret = process.env.LINKEDIN_ORGANIZATION_CLIENT_SECRET?.trim() ?? process.env.LINKEDIN_CLIENT_SECRET?.trim()
+      if (!clientId || !clientSecret) return null
+      return { clientId, clientSecret }
+    }
+
+    const clientId = process.env.LINKEDIN_PERSONAL_CLIENT_ID?.trim()
+    const clientSecret = process.env.LINKEDIN_PERSONAL_CLIENT_SECRET?.trim()
     if (!clientId || !clientSecret) return null
     return { clientId, clientSecret }
   }

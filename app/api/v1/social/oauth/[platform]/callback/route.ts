@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { adminDb } from '@/lib/firebase/admin'
 import { Timestamp } from 'firebase-admin/firestore'
 import { getOAuthConfig, getClientCredentials, getCallbackUrl } from '@/lib/social/oauth-config'
+import type { LinkedInOAuthMode } from '@/lib/social/oauth-config'
 import { encryptTokenBlock } from '@/lib/social/encryption'
 import { getProvider } from '@/lib/social/providers/registry'
 import { exchangeInstagramLongLivedToken } from '@/lib/social/instagram-oauth'
@@ -42,6 +43,10 @@ export async function GET(req: NextRequest) {
     // Decode and verify state
     const stateData = JSON.parse(Buffer.from(stateToken, 'base64url').toString())
     const { orgId, nonce, redirectUrl: savedRedirect } = stateData
+    const linkedinMode: LinkedInOAuthMode =
+      platform === 'linkedin' && stateData.linkedinMode === 'organization'
+        ? 'organization'
+        : 'personal'
     redirectUrl = savedRedirect ?? redirectUrl
 
     // Verify state in Firestore
@@ -69,8 +74,8 @@ export async function GET(req: NextRequest) {
     await adminDb.collection('social_oauth_states').doc(nonce).delete()
 
     // Exchange code for tokens
-    const config = getOAuthConfig(platform)
-    const clientCreds = getClientCredentials(platform)
+    const config = getOAuthConfig(platform, { linkedinMode })
+    const clientCreds = getClientCredentials(platform, { linkedinMode })
     if (!config || !clientCreds) {
       return NextResponse.redirect(new URL(`${redirectUrl}?status=error&message=Platform+not+configured`, url.origin))
     }

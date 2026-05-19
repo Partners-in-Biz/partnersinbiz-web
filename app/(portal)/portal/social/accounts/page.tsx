@@ -227,6 +227,8 @@ function PlatformCard({
 }) {
   const label = PLATFORM_LABELS[platform] ?? platform
   const oauthUrl = `/api/v1/social/oauth/${platform}?redirectUrl=/portal/social/accounts`
+  const linkedInPersonalUrl = `${oauthUrl}&linkedinMode=personal`
+  const linkedInOrganizationUrl = `${oauthUrl}&linkedinMode=organization`
   const defaultAccount = accounts.find((account) => account.isDefault)
 
   return (
@@ -239,7 +241,18 @@ function PlatformCard({
             {accounts.length} connected{defaultAccount ? ` · default: ${defaultAccount.displayName}` : ''}
           </p>
         </div>
-        {OAUTH_PLATFORMS.includes(platform) && (
+        {platform === 'linkedin' ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <a href={linkedInPersonalUrl} className="btn-pib-secondary !px-3 !py-2 !text-xs">
+              <span className="material-symbols-outlined text-base">person_add</span>
+              Personal
+            </a>
+            <a href={linkedInOrganizationUrl} className="btn-pib-secondary !px-3 !py-2 !text-xs">
+              <span className="material-symbols-outlined text-base">business</span>
+              Company page
+            </a>
+          </div>
+        ) : OAUTH_PLATFORMS.includes(platform) && (
           <a href={oauthUrl} className="btn-pib-secondary !px-3 !py-2 !text-xs">
             <span className="material-symbols-outlined text-base">add</span>
             Add account
@@ -722,7 +735,7 @@ export default function PortalAccountsPage() {
             {unconnectedOAuth.map((platform) => (
               <a
                 key={platform}
-                href={`/api/v1/social/oauth/${platform}?redirectUrl=/portal/social/accounts`}
+                href={`/api/v1/social/oauth/${platform}?redirectUrl=/portal/social/accounts${platform === 'linkedin' ? '&linkedinMode=personal' : ''}`}
                 className="pib-card pib-card-hover flex items-center gap-3 p-4"
               >
                 <PlatformBadge platformId={platform} />

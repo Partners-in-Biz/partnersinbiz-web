@@ -179,6 +179,8 @@ function PlatformCard({
 }) {
   const label = PLATFORM_LABELS[platform] ?? platform
   const oauthUrl = `/api/v1/social/oauth/${platform}?redirectUrl=/admin/social/accounts&orgId=${encodeURIComponent(orgId)}`
+  const linkedInPersonalUrl = `${oauthUrl}&linkedinMode=personal`
+  const linkedInOrganizationUrl = `${oauthUrl}&linkedinMode=organization`
 
   return (
     <div className="rounded-xl bg-surface-container overflow-hidden">
@@ -186,7 +188,22 @@ function PlatformCard({
         <PlatformBadge platformId={platform} />
         <span className="text-sm font-semibold text-on-surface flex-1">{label}</span>
         <span className="text-xs text-on-surface-variant">{accounts.length} connected</span>
-        {OAUTH_PLATFORMS.includes(platform) && (
+        {platform === 'linkedin' ? (
+          <div className="flex items-center gap-2">
+            <a
+              href={linkedInPersonalUrl}
+              className="text-xs text-on-surface-variant border border-surface-container-high rounded px-2 py-1 hover:bg-surface-container-high transition-colors"
+            >
+              + Personal
+            </a>
+            <a
+              href={linkedInOrganizationUrl}
+              className="text-xs text-on-surface-variant border border-surface-container-high rounded px-2 py-1 hover:bg-surface-container-high transition-colors"
+            >
+              + Company page
+            </a>
+          </div>
+        ) : OAUTH_PLATFORMS.includes(platform) && (
           <a
             href={oauthUrl}
             className="text-xs text-on-surface-variant border border-surface-container-high rounded px-2 py-1 hover:bg-surface-container-high transition-colors"
@@ -632,7 +649,7 @@ export default function AccountsPage() {
               {unconnectedOAuth.map(p => (
                 <a
                   key={p}
-                  href={`/api/v1/social/oauth/${p}?redirectUrl=/admin/social/accounts&orgId=${encodeURIComponent(orgId)}`}
+                  href={`/api/v1/social/oauth/${p}?redirectUrl=/admin/social/accounts&orgId=${encodeURIComponent(orgId)}${p === 'linkedin' ? '&linkedinMode=personal' : ''}`}
                   className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white text-black font-label text-sm font-medium hover:bg-white/90 transition-colors"
                 >
                   <span className={`${PLATFORM_ICONS[p]?.color ?? 'bg-gray-600'} text-white w-6 h-6 flex items-center justify-center rounded`}>

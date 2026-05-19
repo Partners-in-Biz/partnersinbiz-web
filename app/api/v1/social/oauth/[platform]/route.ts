@@ -13,6 +13,7 @@ import { withTenant } from '@/lib/api/tenant'
 import { apiError } from '@/lib/api/response'
 import { adminDb } from '@/lib/firebase/admin'
 import { getOAuthConfig, getClientCredentials, getCallbackUrl } from '@/lib/social/oauth-config'
+import type { LinkedInOAuthMode } from '@/lib/social/oauth-config'
 import type { SocialPlatformType } from '@/lib/social/providers/types'
 import { Timestamp } from 'firebase-admin/firestore'
 
@@ -21,25 +22,32 @@ export const GET = withAuth('client', withTenant(async (req: NextRequest, _user,
   const rawPlatform = url.pathname.split('/').slice(-1)[0]
   const platform = (rawPlatform === 'x' ? 'twitter' : rawPlatform) as SocialPlatformType
   const redirectUrl = url.searchParams.get('redirectUrl') ?? '/admin/social'
+  const linkedinMode: LinkedInOAuthMode =
+    platform === 'linkedin' && url.searchParams.get('linkedinMode') === 'organization'
+      ? 'organization'
+      : 'personal'
 
   // Special handling for non-OAuth platforms
   if (platform === 'bluesky') {
     return apiError('Bluesky uses app passwords, not OAuth. Use the account creation endpoint directly.', 400)
   }
 
-  const config = getOAuthConfig(platform)
+  const config = getOAuthConfig(platform, { linkedinMode })
   if (!config) {
     return apiError(`OAuth not supported for platform: ${platform}`, 400)
   }
 
-  const creds = getClientCredentials(platform)
+  const creds = getClientCredentials(platform, { linkedinMode })
   if (!creds) {
-    return apiError(`Missing client credentials for ${platform}. Set ${platform.toUpperCase()}_CLIENT_ID and ${platform.toUpperCase()}_CLIENT_SECRET.`, 500)
+    const envHint = platform === 'linkedin' && linkedinMode === 'personal'
+      ? 'Set LINKEDIN_PERSONAL_CLIENT_ID and LINKEDIN_PERSONAL_CLIENT_SECRET.'
+      : `Set ${platform.toUpperCase()}_CLIENT_ID and ${platform.toUpperCase()}_CLIENT_SECRET.`
+    return apiError(`Missing client credentials for ${platform}. ${envHint}`, 500)
   }
 
   // Generate state token
   const nonce = crypto.randomBytes(16).toString('hex')
-  const stateData = { orgId, platform, nonce, redirectUrl }
+  const stateData = { orgId, platform, nonce, redirectUrl, ...(platform === 'linkedin' ? { linkedinMode } : {}) }
   const stateToken = Buffer.from(JSON.stringify(stateData)).toString('base64url')
 
   // Generate PKCE code_verifier if platform requires it
