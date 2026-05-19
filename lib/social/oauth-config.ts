@@ -47,7 +47,9 @@ export function getOAuthConfig(platform: SocialPlatformType): OAuthConfig | null
         platform: 'linkedin',
         authUrl: 'https://www.linkedin.com/oauth/v2/authorization',
         tokenUrl: 'https://www.linkedin.com/oauth/v2/accessToken',
-        scopes: ['w_member_social', 'openid', 'profile'],
+        // Production uses the dedicated Community Management API app for
+        // company-page posting. That app must not request member/OIDC scopes.
+        scopes: ['w_organization_social'],
       }
     case 'reddit':
       return {
