@@ -15,6 +15,7 @@ import {
 } from '@/lib/social/account-resolver'
 import type { SocialPlatformType } from '@/lib/social/providers'
 import { hasFinalApproval } from '@/lib/social/scheduling'
+import { validatePublishReadyText } from '@/lib/social/publish-text'
 import crypto from 'crypto'
 
 /** Backoff schedule in seconds: 1min, 5min, 15min, 1hr */
@@ -155,8 +156,18 @@ export async function processQueue(): Promise<QueueProcessResult> {
     const platformType = toPlatformType(post.platform)
     if (!platformType) { await failQueueEntry(lockRef, entry, `Unsupported platform: ${post.platform}`); result.failed++; result.errors.push({ postId: entry.postId, error: `Unsupported: ${post.platform}` }); continue }
 
-    const text = typeof post.content === 'string' ? post.content : post.content?.text
-    if (!text) { await failQueueEntry(lockRef, entry, 'No content'); result.failed++; result.errors.push({ postId: entry.postId, error: 'No content' }); continue }
+    const rawText = typeof post.content === 'string' ? post.content : post.content?.text
+    if (!rawText) { await failQueueEntry(lockRef, entry, 'No content'); result.failed++; result.errors.push({ postId: entry.postId, error: 'No content' }); continue }
+
+    const publishText = validatePublishReadyText(rawText, [platformType])
+    if (!publishText.valid) {
+      const message = publishText.errors.map(e => e.message).join('; ')
+      await failQueueEntry(lockRef, entry, message)
+      result.failed++
+      result.errors.push({ postId: entry.postId, error: message })
+      continue
+    }
+    const text = publishText.text
 
     try {
       const orgId = post.orgId ?? entry.orgId

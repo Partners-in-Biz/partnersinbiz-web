@@ -16,6 +16,7 @@ import {
 import { logAudit } from '@/lib/social/audit'
 import { logActivity } from '@/lib/activity/log'
 import { hasFinalApproval } from '@/lib/social/scheduling'
+import { validatePublishReadyText } from '@/lib/social/publish-text'
 
 export const dynamic = 'force-dynamic'
 
@@ -36,8 +37,14 @@ export const POST = withAuth('admin', withTenant(async (_req, user, orgId, conte
   const platformType = toPlatformType(post.platform)
   if (!platformType) return apiError(`Unsupported platform: ${post.platform}`, 400)
 
-  const text = typeof post.content === 'string' ? post.content : post.content?.text
-  if (!text) return apiError('Post has no content', 400)
+  const rawText = typeof post.content === 'string' ? post.content : post.content?.text
+  if (!rawText) return apiError('Post has no content', 400)
+
+  const publishText = validatePublishReadyText(rawText, [platformType])
+  if (!publishText.valid) {
+    return apiError(`Post is not publish-ready: ${publishText.errors.map(e => e.message).join('; ')}`, 400)
+  }
+  const text = publishText.text
 
   const mediaUrls: string[] | undefined = Array.isArray(post.media) && post.media.length > 0
     ? (post.media as Array<{ url?: string }>).map((m) => m.url).filter((u): u is string => Boolean(u))

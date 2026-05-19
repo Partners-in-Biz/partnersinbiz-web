@@ -5,6 +5,7 @@
  */
 import { getConstraints } from '@/lib/social/providers'
 import type { SocialPlatformType, ValidationResult, ValidationError } from '@/lib/social/providers'
+import { detectPublishBlockingArtifacts } from '@/lib/social/publish-text'
 
 /**
  * Validate post content against the constraints of all target platforms.
@@ -26,6 +27,8 @@ export function validatePostContent(
     errors.push({ field: 'content.text', message: 'Content text is required' })
     return { valid: false, errors, warnings }
   }
+
+  errors.push(...detectPublishBlockingArtifacts(text))
 
   for (const platform of platforms) {
     const constraints = getConstraints(platform)
