@@ -2,11 +2,15 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import UnifiedChat from '@/components/chat/UnifiedChat'
 
 interface AgentRunSessionProps {
   agentId: string
   runId: string
+  orgId: string
   orgSlug: string
+  currentUserUid: string
+  currentUserDisplayName: string
   taskId?: string
   taskTitle?: string
 }
@@ -75,7 +79,16 @@ function parseEventPayload(raw: string): unknown {
   }
 }
 
-export default function AgentRunSession({ agentId, runId, orgSlug, taskId, taskTitle }: AgentRunSessionProps) {
+export default function AgentRunSession({
+  agentId,
+  runId,
+  orgId,
+  orgSlug,
+  currentUserUid,
+  currentUserDisplayName,
+  taskId,
+  taskTitle,
+}: AgentRunSessionProps) {
   const [run, setRun] = useState<unknown>(null)
   const [events, setEvents] = useState<SessionEvent[]>([])
   const [loading, setLoading] = useState(true)
@@ -191,8 +204,32 @@ export default function AgentRunSession({ agentId, runId, orgSlug, taskId, taskT
         </div>
       )}
 
-      <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[minmax(0,1fr)_420px]">
         <section className="min-h-0 overflow-hidden rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)]">
+          <div className="flex items-center justify-between border-b border-[var(--color-card-border)] px-4 py-3">
+            <div>
+              <h2 className="text-sm font-semibold text-on-surface">Ticket chat</h2>
+              <p className="mt-0.5 text-xs text-on-surface-variant">Direct conversation scoped to this ticket.</p>
+            </div>
+          </div>
+          <div className="h-[calc(100%-57px)] min-h-0">
+            <UnifiedChat
+              orgId={orgId}
+              currentUserUid={currentUserUid}
+              currentUserDisplayName={currentUserDisplayName}
+              scope="task"
+              scopeRefId={taskId}
+              initialAgentId={agentId as 'pip' | 'theo' | 'maya' | 'sage' | 'nora'}
+              autoCreateScopedConversation={Boolean(taskId)}
+              autoCreateTitle={taskTitle ? `Ticket: ${taskTitle}` : 'Ticket conversation'}
+              allowDeleteConversations
+              compact
+            />
+          </div>
+        </section>
+
+        <aside className="grid min-h-0 gap-4 lg:grid-rows-[minmax(0,1fr)_auto]">
+          <section className="min-h-0 overflow-hidden rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)]">
           <div className="flex items-center justify-between border-b border-[var(--color-card-border)] px-4 py-3">
             <h2 className="text-sm font-semibold text-on-surface">Session events</h2>
             <span className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant">
@@ -224,9 +261,9 @@ export default function AgentRunSession({ agentId, runId, orgSlug, taskId, taskT
               </div>
             )}
           </div>
-        </section>
+          </section>
 
-        <aside className="min-h-0 overflow-y-auto rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-4">
+          <section className="max-h-[36vh] min-h-[220px] overflow-y-auto rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-4">
           <h2 className="text-sm font-semibold text-on-surface">Run result</h2>
           <p className="mt-1 text-xs text-on-surface-variant">
             Status and final output returned by the selected agent gateway.
@@ -249,6 +286,7 @@ export default function AgentRunSession({ agentId, runId, orgSlug, taskId, taskT
               )}
             </div>
           </div>
+          </section>
         </aside>
       </div>
     </div>

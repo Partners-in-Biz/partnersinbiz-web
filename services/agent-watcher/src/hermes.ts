@@ -7,6 +7,7 @@ import { logger } from './logger'
 
 const POLL_INTERVAL_MS = 2_000
 const RUN_TIMEOUT_MS = 5 * 60 * 1_000
+const MAX_NOT_FOUND_POLLS = 3
 
 const TERMINAL_STATUSES = new Set(['completed', 'failed', 'succeeded', 'success', 'error', 'cancelled', 'canceled'])
 const FAILURE_STATUSES = new Set(['failed', 'error', 'cancelled', 'canceled'])
@@ -116,6 +117,7 @@ async function postRun(cfg: AgentConfig, input: TaskDispatchInput): Promise<{ ru
 async function pollRun(cfg: AgentConfig, runId: string, signal: { aborted: boolean }): Promise<Record<string, unknown>> {
   const url = joinUrl(cfg.baseUrl, `/v1/runs/${encodeURIComponent(runId)}`)
   const deadline = Date.now() + RUN_TIMEOUT_MS
+  let notFoundPolls = 0
 
   while (!signal.aborted) {
     if (Date.now() > deadline) {
@@ -148,11 +150,21 @@ async function pollRun(cfg: AgentConfig, runId: string, signal: { aborted: boole
     }
 
     if (!res.ok) {
-      // 404 mid-poll can happen briefly; tolerate a couple of cycles before giving up.
+      // A brief 404 can happen directly after dispatch. Repeated 404s mean Hermes
+      // has lost/expired the run, so stop heartbeating the ticket as "working".
+      if (res.status === 404) {
+        notFoundPolls += 1
+        if (notFoundPolls >= MAX_NOT_FOUND_POLLS) {
+          throw new Error(`Hermes run ${runId} was not found on the agent gateway`)
+        }
+      } else {
+        notFoundPolls = 0
+      }
       logger.warn('Hermes poll returned non-OK', { runId, status: res.status })
       await sleep(POLL_INTERVAL_MS)
       continue
     }
+    notFoundPolls = 0
 
     const status = extractStatus(data)
     if (status && TERMINAL_STATUSES.has(status)) {

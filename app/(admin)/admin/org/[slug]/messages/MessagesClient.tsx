@@ -31,7 +31,10 @@ export default function MessagesClient({
       <AgentRunSession
         agentId={initialAgentId}
         runId={initialRunId}
+        orgId={orgId}
         orgSlug={orgSlug}
+        currentUserUid={uid}
+        currentUserDisplayName={displayName}
         taskId={initialTaskId}
         taskTitle={initialTaskTitle}
       />

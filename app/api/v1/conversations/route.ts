@@ -208,12 +208,22 @@ export const GET = withAuth(
   async (req: NextRequest, user: ApiUser) => {
     const { searchParams } = new URL(req.url)
     const orgIdParam = searchParams.get('orgId')
+    const scopeParam = searchParams.get('scope')
+    const convScope = scopeParam && VALID_SCOPES.includes(scopeParam as ConversationScope)
+      ? (scopeParam as ConversationScope)
+      : undefined
+    const scopeRefId = searchParams.get('scopeRefId')?.trim() || undefined
+    const projectId = searchParams.get('projectId')?.trim() || undefined
 
-    const scope = resolveOrgScope(user, orgIdParam)
-    if (!scope.ok) return apiError(scope.error, scope.status)
+    const orgScope = resolveOrgScope(user, orgIdParam)
+    if (!orgScope.ok) return apiError(orgScope.error, orgScope.status)
 
     const limit = Math.min(parseInt(searchParams.get('limit') ?? '30'), 100)
-    const conversations = await listConversations(scope.orgId, user.uid, limit)
+    const conversations = await listConversations(orgScope.orgId, user.uid, limit, {
+      scope: convScope,
+      scopeRefId,
+      projectId,
+    })
 
     return apiSuccess({ conversations })
   },

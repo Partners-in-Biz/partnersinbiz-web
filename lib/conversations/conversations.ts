@@ -84,16 +84,32 @@ export async function listConversations(
   orgId: string,
   uid: string,
   limit = 30,
+  filters?: {
+    scope?: Conversation['scope']
+    scopeRefId?: string
+    projectId?: string
+  },
 ): Promise<Conversation[]> {
+  const readLimit = filters?.scope || filters?.scopeRefId || filters?.projectId
+    ? Math.max(limit, 100)
+    : limit
   const snap = await adminDb
     .collection(CONVERSATIONS_COLLECTION)
     .where('orgId', '==', orgId)
     .where('participantUids', 'array-contains', uid)
     .orderBy('updatedAt', 'desc')
-    .limit(limit)
+    .limit(readLimit)
     .get()
 
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Conversation)
+  return snap.docs
+    .map((d) => ({ id: d.id, ...d.data() }) as Conversation)
+    .filter((conversation) => {
+      if (filters?.scope && conversation.scope !== filters.scope) return false
+      if (filters?.scopeRefId && conversation.scopeRefId !== filters.scopeRefId) return false
+      if (filters?.projectId && conversation.scopeRefId !== filters.projectId) return false
+      return true
+    })
+    .slice(0, limit)
 }
 
 // ---------------------------------------------------------------------------

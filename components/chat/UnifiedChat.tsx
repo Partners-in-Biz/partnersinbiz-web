@@ -32,6 +32,9 @@ export interface UnifiedChatProps {
   scope?: 'general' | 'project' | 'task' | 'campaign'
   scopeRefId?: string
   initialConvId?: string
+  initialAgentId?: AgentId
+  autoCreateScopedConversation?: boolean
+  autoCreateTitle?: string
   allowDeleteConversations?: boolean
   allowAgentParticipants?: boolean
   compact?: boolean
@@ -79,6 +82,9 @@ export default function UnifiedChat({
   scope,
   scopeRefId,
   initialConvId,
+  initialAgentId,
+  autoCreateScopedConversation = false,
+  autoCreateTitle,
   allowDeleteConversations = false,
   allowAgentParticipants = true,
   compact = false,
@@ -144,6 +150,7 @@ export default function UnifiedChat({
   const messagesContainerRef = useRef<HTMLDivElement | null>(null)
   // Tracks which assistant message IDs we've already started polling for (prevents duplicates)
   const resumedRunsRef = useRef<Set<string>>(new Set())
+  const autoCreateRef = useRef(false)
 
   // ── Derived ───────────────────────────────────────────────────────────────
   const activeConversation = useMemo(
@@ -185,11 +192,52 @@ export default function UnifiedChat({
       if (!activeId && list.length) {
         const preferred = initialConvId && list.find((c) => c.id === initialConvId)
         setActiveId(preferred ? initialConvId! : list[0].id)
+      } else if (
+        !activeId &&
+        list.length === 0 &&
+        autoCreateScopedConversation &&
+        initialAgentId &&
+        scope &&
+        scopeRefId &&
+        !autoCreateRef.current
+      ) {
+        autoCreateRef.current = true
+        const createRes = await fetch('/api/v1/conversations', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            orgId,
+            participants: [{ kind: 'agent', agentId: initialAgentId }],
+            title: autoCreateTitle?.trim() || 'Ticket conversation',
+            scope,
+            scopeRefId,
+          }),
+        })
+        const createBody = await createRes.json().catch(() => null)
+        if (!createRes.ok) {
+          throw new Error(createBody?.error ?? `create conversation: ${createRes.status}`)
+        }
+        const conv: Conversation | undefined = createBody?.data?.conversation
+        if (conv) {
+          setConversations([conv])
+          setActiveId(conv.id)
+          setMobilePane('conversation')
+        }
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load conversations')
     }
-  }, [listQuery, activeId, initialConvId])
+  }, [
+    listQuery,
+    activeId,
+    initialConvId,
+    autoCreateScopedConversation,
+    initialAgentId,
+    scope,
+    scopeRefId,
+    orgId,
+    autoCreateTitle,
+  ])
 
   // ── Load messages ─────────────────────────────────────────────────────────
   const loadMessages = useCallback(async (convId: string, options?: { silent?: boolean }) => {
