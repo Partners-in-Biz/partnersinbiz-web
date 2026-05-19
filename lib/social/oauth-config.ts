@@ -39,7 +39,7 @@ export function getOAuthConfig(platform: SocialPlatformType, options: OAuthOptio
         platform: 'facebook',
         authUrl: 'https://www.facebook.com/v19.0/dialog/oauth',
         tokenUrl: 'https://graph.facebook.com/v19.0/oauth/access_token',
-        scopes: ['pages_manage_posts', 'pages_read_engagement', 'pages_show_list'],
+        scopes: ['pages_manage_posts', 'pages_read_engagement', 'pages_show_list', 'instagram_basic', 'instagram_content_publish'],
       }
     case 'instagram':
       return {
@@ -47,6 +47,7 @@ export function getOAuthConfig(platform: SocialPlatformType, options: OAuthOptio
         authUrl: 'https://www.instagram.com/oauth/authorize',
         tokenUrl: 'https://api.instagram.com/oauth/access_token',
         scopes: ['instagram_business_basic', 'instagram_business_manage_messages', 'instagram_business_manage_comments', 'instagram_business_content_publish', 'instagram_business_manage_insights'],
+        extraAuthParams: { enable_fb_login: '0', force_reauth: 'true' },
       }
     case 'linkedin':
       if (options.linkedinMode === 'organization') {

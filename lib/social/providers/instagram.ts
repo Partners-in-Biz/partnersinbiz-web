@@ -1,23 +1,25 @@
 /**
  * Instagram Provider — Instagram Business Login API.
  *
- * Uses the Instagram Graph API (graph.instagram.com v21.0) for publishing,
+ * Uses the Instagram Graph API for publishing,
  * profile retrieval, and analytics. Publishing uses a 2-step container API:
  * create container, then publish container.
  */
 import { SocialProvider, type ProviderCredentials, type PublishOptions } from './base'
 import type { PublishResult, ProfileInfo, AnalyticsData } from './types'
 
-const GRAPH_API_BASE = 'https://graph.instagram.com/v21.0'
+const DEFAULT_GRAPH_API_BASE = 'https://graph.instagram.com/v25.0'
 
 export class InstagramProvider extends SocialProvider {
   private igUserId: string
+  private graphApiBase: string
 
   constructor(credentials: ProviderCredentials) {
     super('instagram', credentials)
     if (!credentials.accessToken) throw new Error('InstagramProvider requires accessToken')
     if (!credentials.personUrn) throw new Error('InstagramProvider requires personUrn (Instagram business account ID)')
     this.igUserId = credentials.personUrn
+    this.graphApiBase = (credentials.instanceUrl || DEFAULT_GRAPH_API_BASE).replace(/\/$/, '')
   }
 
   /** Create from environment variables (for the default account) */
@@ -26,7 +28,11 @@ export class InstagramProvider extends SocialProvider {
     const personUrn = process.env.INSTAGRAM_USER_ID
     if (!accessToken) throw new Error('Missing env var: INSTAGRAM_ACCESS_TOKEN')
     if (!personUrn) throw new Error('Missing env var: INSTAGRAM_USER_ID')
-    return new InstagramProvider({ accessToken, personUrn })
+    return new InstagramProvider({
+      accessToken,
+      personUrn,
+      instanceUrl: process.env.INSTAGRAM_GRAPH_API_BASE_URL,
+    })
   }
 
   async publishPost(options: PublishOptions): Promise<PublishResult> {
@@ -61,7 +67,7 @@ export class InstagramProvider extends SocialProvider {
       containerBody.set('image_url', mediaUrl)
     }
 
-    const containerResponse = await fetch(`${GRAPH_API_BASE}/${this.igUserId}/media`, {
+    const containerResponse = await fetch(`${this.graphApiBase}/${this.igUserId}/media`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: containerBody.toString(),
@@ -102,7 +108,7 @@ export class InstagramProvider extends SocialProvider {
         itemBody.set('image_url', mediaUrl)
       }
 
-      const itemResponse = await fetch(`${GRAPH_API_BASE}/${this.igUserId}/media`, {
+      const itemResponse = await fetch(`${this.graphApiBase}/${this.igUserId}/media`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: itemBody.toString(),
@@ -119,7 +125,7 @@ export class InstagramProvider extends SocialProvider {
     }
 
     // Step 2: Create carousel container
-    const carouselResponse = await fetch(`${GRAPH_API_BASE}/${this.igUserId}/media`, {
+    const carouselResponse = await fetch(`${this.graphApiBase}/${this.igUserId}/media`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
@@ -148,7 +154,7 @@ export class InstagramProvider extends SocialProvider {
   }
 
   private async publishContainer(containerId: string): Promise<string> {
-    const publishResponse = await fetch(`${GRAPH_API_BASE}/${this.igUserId}/media_publish`, {
+    const publishResponse = await fetch(`${this.graphApiBase}/${this.igUserId}/media_publish`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
@@ -178,7 +184,7 @@ export class InstagramProvider extends SocialProvider {
   }
 
   async getProfile(): Promise<ProfileInfo> {
-    const url = `${GRAPH_API_BASE}/${this.igUserId}?fields=id,username,name,profile_picture_url,followers_count,media_count&access_token=${this.credentials.accessToken}`
+    const url = `${this.graphApiBase}/${this.igUserId}?fields=id,username,name,profile_picture_url,followers_count,media_count&access_token=${this.credentials.accessToken}`
     const response = await fetch(url, {
       headers: { 'Content-Type': 'application/json' },
     })
@@ -221,7 +227,7 @@ export class InstagramProvider extends SocialProvider {
   async refreshToken(): Promise<ProviderCredentials | null> {
     // Instagram Business Login long-lived tokens are refreshed directly (no app secret needed)
     // Tokens must be refreshed within 60 days of last refresh
-    const url = `${GRAPH_API_BASE}/refresh_access_token?grant_type=ig_refresh_token&access_token=${this.credentials.accessToken}`
+    const url = `${DEFAULT_GRAPH_API_BASE}/refresh_access_token?grant_type=ig_refresh_token&access_token=${this.credentials.accessToken}`
     const response = await fetch(url)
 
     if (!response.ok) {
@@ -240,7 +246,7 @@ export class InstagramProvider extends SocialProvider {
   }
 
   async getAnalytics(platformPostId: string): Promise<AnalyticsData | null> {
-    const url = `${GRAPH_API_BASE}/${platformPostId}/insights?metric=impressions,reach,engagement,saved&access_token=${this.credentials.accessToken}`
+    const url = `${this.graphApiBase}/${platformPostId}/insights?metric=impressions,reach,engagement,saved&access_token=${this.credentials.accessToken}`
     const response = await fetch(url)
 
     if (!response.ok) {
