@@ -588,13 +588,16 @@ async function exchangeInstagramLongLivedToken(
   shortLivedToken: string,
   clientSecret: string,
 ): Promise<{ accessToken: string; expiresIn: number }> {
-  const params = new URLSearchParams({
+  const body = new URLSearchParams({
     grant_type: 'ig_exchange_token',
     client_secret: clientSecret,
     access_token: shortLivedToken,
   })
-  // Meta's ig_exchange_token endpoint is GET-only; params go in the query string
-  const res = await fetch(`https://graph.instagram.com/access_token?${params.toString()}`)
+  const res = await fetch('https://graph.instagram.com/access_token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: body.toString(),
+  })
   if (!res.ok) throw new Error(`Instagram long-lived token exchange failed: ${await res.text()}`)
   const data = await res.json() as { access_token: string; token_type: string; expires_in: number }
   return { accessToken: data.access_token, expiresIn: data.expires_in }
