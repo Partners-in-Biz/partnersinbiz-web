@@ -2,8 +2,9 @@
 
 /* eslint-disable @next/next/no-img-element -- Conversation attachments use arbitrary Firebase Storage URLs. */
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { ChatEvent } from '@/lib/hermes/types'
+import { copyToClipboard } from '@/lib/utils/clipboard'
 
 // Matches Phase 1 ConversationMessage shape
 export interface ConversationMessage {
@@ -50,6 +51,7 @@ interface MessageBubbleProps {
   agentIconKey?: string
   liveEvents?: ChatEvent[]
   onStopRun?: () => void
+  onQuoteSelection?: (text: string) => void
 }
 
 function initials(name: string): string {
@@ -193,6 +195,10 @@ function formatBytes(bytes: number): string {
   return `${Math.max(1, Math.round(bytes / 1024))} KB`
 }
 
+function copyableText(message: ConversationMessage): string {
+  return message.content || message.error || ''
+}
+
 export default function MessageBubble({
   message: m,
   currentUserUid,
@@ -200,14 +206,116 @@ export default function MessageBubble({
   agentIconKey,
   liveEvents = [],
   onStopRun,
+  onQuoteSelection,
 }: MessageBubbleProps) {
   const [previewAttachment, setPreviewAttachment] = useState<ConversationAttachment | null>(null)
+  const [copied, setCopied] = useState(false)
+  const [selectionAction, setSelectionAction] = useState<{
+    text: string
+    left: number
+    top: number
+  } | null>(null)
+  const contentRef = useRef<HTMLDivElement | null>(null)
   const isMine = m.authorId === currentUserUid
   const isTool = m.role === 'tool'
   const isPending = m.status === 'pending' || m.status === 'streaming'
   const isWaiting = m.status === 'waiting_approval'
   const isFailed = m.status === 'failed'
   const elapsed = useElapsed(isPending || isWaiting)
+  const textToCopy = copyableText(m)
+
+  const copyMessage = async () => {
+    if (!textToCopy.trim()) return
+    await copyToClipboard(textToCopy)
+    setCopied(true)
+    window.setTimeout(() => setCopied(false), 1200)
+  }
+
+  useEffect(() => {
+    if (!selectionAction) return
+
+    const dismiss = (event: MouseEvent | TouchEvent) => {
+      const target = event.target as Node | null
+      if (target && contentRef.current?.contains(target)) return
+      setSelectionAction(null)
+    }
+    const dismissOnKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setSelectionAction(null)
+    }
+
+    document.addEventListener('mousedown', dismiss)
+    document.addEventListener('touchstart', dismiss)
+    document.addEventListener('keyup', dismissOnKey)
+    return () => {
+      document.removeEventListener('mousedown', dismiss)
+      document.removeEventListener('touchstart', dismiss)
+      document.removeEventListener('keyup', dismissOnKey)
+    }
+  }, [selectionAction])
+
+  const handleTextSelection = () => {
+    if (!onQuoteSelection || !contentRef.current) return
+    const selection = window.getSelection()
+    const selectedText = selection?.toString().trim()
+    if (!selection || !selectedText) {
+      setSelectionAction(null)
+      return
+    }
+    const range = selection.rangeCount > 0 ? selection.getRangeAt(0) : null
+    if (!range || !contentRef.current.contains(range.commonAncestorContainer)) {
+      setSelectionAction(null)
+      return
+    }
+    const rect = range.getBoundingClientRect()
+    const hostRect = contentRef.current.getBoundingClientRect()
+    setSelectionAction({
+      text: selectedText,
+      left: Math.max(54, rect.left - hostRect.left + rect.width / 2),
+      top: Math.max(6, rect.top - hostRect.top - 42),
+    })
+  }
+
+  const addSelectionToChat = () => {
+    if (!selectionAction) return
+    onQuoteSelection?.(selectionAction.text)
+    setSelectionAction(null)
+    window.getSelection()?.removeAllRanges()
+  }
+
+  const copyAction = textToCopy.trim() ? (
+    <button
+      type="button"
+      onClick={copyMessage}
+      className={[
+        'mt-1 inline-flex items-center gap-1 rounded-full border border-white/10 bg-black/30 px-2 py-1 text-[11px]',
+        'text-on-surface-variant opacity-0 shadow-sm backdrop-blur transition group-hover/message:opacity-100',
+        'hover:border-primary/50 hover:text-on-surface focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-primary/50',
+      ].join(' ')}
+      aria-label="Copy message"
+      title="Copy message"
+    >
+      <span className="material-symbols-outlined text-[13px]">
+        {copied ? 'check' : 'content_copy'}
+      </span>
+      <span>{copied ? 'Copied' : 'Copy'}</span>
+    </button>
+  ) : null
+
+  const selectionPopover = selectionAction ? (
+    <button
+      type="button"
+      onPointerDown={(event) => {
+        event.preventDefault()
+        event.stopPropagation()
+        addSelectionToChat()
+      }}
+      className="absolute z-20 inline-flex -translate-x-1/2 items-center gap-1.5 rounded-full border border-white/10 bg-[#2d2d2d] px-3 py-1.5 text-xs font-medium text-white shadow-lg shadow-black/30 transition hover:bg-[#3a3a3a] focus:outline-none focus:ring-2 focus:ring-primary/60"
+      style={{ left: selectionAction.left, top: selectionAction.top }}
+    >
+      <span className="material-symbols-outlined text-[14px]">add_comment</span>
+      Add to chat
+    </button>
+  ) : null
 
   // Tool pill — no avatar, compact
   if (isTool) {
@@ -310,11 +418,18 @@ export default function MessageBubble({
     return (
       <>
         <div className="flex justify-end">
-          <div className="max-w-[85%] lg:max-w-[80%]">
-            <div className="rounded-2xl rounded-br-md px-4 py-2.5 text-[15px] lg:text-sm whitespace-pre-wrap bg-[var(--color-card-active,rgba(255,255,255,0.08))] lg:bg-primary lg:text-on-primary text-on-surface">
+          <div className="group/message max-w-[85%] lg:max-w-[80%] text-right">
+            <div ref={contentRef} className="relative inline-block text-left">
+              {selectionPopover}
+              <div
+                onMouseUp={handleTextSelection}
+                className="rounded-2xl rounded-br-md px-4 py-2.5 text-[15px] lg:text-sm whitespace-pre-wrap bg-[var(--color-card-active,rgba(255,255,255,0.08))] lg:bg-primary lg:text-on-primary text-on-surface"
+              >
               {m.content}
               {attachmentList}
+              </div>
             </div>
+            <div className="flex justify-end">{copyAction}</div>
           </div>
         </div>
         {previewDialog}
@@ -344,7 +459,7 @@ export default function MessageBubble({
       </div>
 
       {/* Bubble content */}
-      <div className="max-w-full lg:max-w-[78%] flex-1 min-w-0">
+      <div className="group/message max-w-full lg:max-w-[78%] flex-1 min-w-0">
         {/* Author label — hidden on mobile */}
         <p className={`hidden lg:block text-[10px] font-medium mb-1 ${isAgent ? color.text : 'text-on-surface-variant'}`}>
           {m.authorDisplayName}
@@ -407,19 +522,32 @@ export default function MessageBubble({
                 </details>
               )}
             </div>
-            {displayEvents.slice(-6).map((ev, i) => (
-              <div
-                key={i}
-                className="flex items-baseline gap-2 rounded-md bg-[var(--color-card,rgba(255,255,255,0.03))] px-2 py-1 text-xs text-on-surface-variant"
-              >
-                <span className="material-symbols-outlined text-[12px] text-primary/70 shrink-0">
-                  {ev.event === 'assistant.text_delta' ? 'edit_note' : ev.event === 'heartbeat' ? 'sync' : 'build'}
-                </span>
-                {ev.tool && <span className="text-primary font-mono shrink-0">{ev.tool}</span>}
-                <span className="font-mono opacity-50 shrink-0">{ev.event ?? 'event'}</span>
-                {(ev.preview || ev.delta) && <span className="truncate opacity-70">{ev.preview ?? ev.delta}</span>}
-              </div>
-            ))}
+            {displayEvents.length > 0 && (
+              <details className="text-on-surface-variant group/details">
+                <summary className="cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden inline-flex items-center gap-1.5 rounded-md px-1 py-0.5 text-[11px] hover:bg-white/[0.04]">
+                  <span className="material-symbols-outlined text-[13px] opacity-70 transition-transform group-open/details:rotate-90">chevron_right</span>
+                  <span>Tool activity</span>
+                  <span className="rounded-full bg-white/8 px-1.5 py-0.5 font-mono text-[10px] opacity-70">
+                    {displayEvents.length}
+                  </span>
+                </summary>
+                <div className="mt-1 space-y-1">
+                  {displayEvents.slice(-8).map((ev, i) => (
+                    <div
+                      key={i}
+                      className="flex items-baseline gap-2 rounded-md bg-[var(--color-card,rgba(255,255,255,0.03))] px-2 py-1 text-xs text-on-surface-variant"
+                    >
+                      <span className="material-symbols-outlined text-[12px] text-primary/70 shrink-0">
+                        {ev.event === 'assistant.text_delta' ? 'edit_note' : ev.event === 'heartbeat' ? 'sync' : 'build'}
+                      </span>
+                      {ev.tool && <span className="text-primary font-mono shrink-0">{ev.tool}</span>}
+                      <span className="font-mono opacity-50 shrink-0">{ev.event ?? 'event'}</span>
+                      {(ev.preview || ev.delta) && <span className="truncate opacity-70">{ev.preview ?? ev.delta}</span>}
+                    </div>
+                  ))}
+                </div>
+              </details>
+            )}
             {onStopRun && m.runId && (
               <button
                 type="button"
@@ -461,27 +589,32 @@ export default function MessageBubble({
         )}
 
         {/* The bubble itself — plain prose on mobile, bubble on desktop */}
-        <div
-          className={
-            isFailed
-              ? 'rounded-2xl rounded-tl-md px-4 py-2.5 text-sm whitespace-pre-wrap bg-red-500/15 text-red-200 border border-red-500/40'
-              : [
-                  // Mobile: plain prose, no background, larger readable text
-                  'text-[15px] leading-relaxed text-on-surface whitespace-pre-wrap',
-                  // Desktop: keep the bubble look
-                  'lg:rounded-2xl lg:rounded-tl-md lg:px-4 lg:py-2.5 lg:text-sm lg:bg-[var(--color-card-active,rgba(255,255,255,0.06))]',
-                ].join(' ')
-          }
-        >
-          {isPending && !m.content && (
-            <span className="opacity-40 italic text-xs">Waiting for agent activity...</span>
-          )}
-          {isWaiting && !m.content && (
-            <span className="opacity-70 italic">Paused — awaiting tool approval…</span>
-          )}
-          {m.content || (isFailed && m.error) || null}
-          {attachmentList}
+        <div ref={contentRef} className="relative">
+          {selectionPopover}
+          <div
+            onMouseUp={handleTextSelection}
+            className={
+              isFailed
+                ? 'rounded-2xl rounded-tl-md px-4 py-2.5 text-sm whitespace-pre-wrap bg-red-500/15 text-red-200 border border-red-500/40'
+                : [
+                    // Mobile: plain prose, no background, larger readable text
+                    'text-[15px] leading-relaxed text-on-surface whitespace-pre-wrap',
+                    // Desktop: keep the bubble look
+                    'lg:rounded-2xl lg:rounded-tl-md lg:px-4 lg:py-2.5 lg:text-sm lg:bg-[var(--color-card-active,rgba(255,255,255,0.06))]',
+                  ].join(' ')
+            }
+          >
+            {isPending && !m.content && (
+              <span className="opacity-40 italic text-xs">Waiting for agent activity...</span>
+            )}
+            {isWaiting && !m.content && (
+              <span className="opacity-70 italic">Paused — awaiting tool approval…</span>
+            )}
+            {m.content || (isFailed && m.error) || null}
+            {attachmentList}
+          </div>
         </div>
+        {copyAction}
       </div>
       {previewDialog}
     </div>

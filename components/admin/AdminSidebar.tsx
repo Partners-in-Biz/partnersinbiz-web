@@ -5,7 +5,7 @@ import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { useEffect } from 'react'
 import { OrgSwitcher } from './OrgSwitcher'
-import GlobalSearch from './GlobalSearch'
+// import GlobalSearch from './GlobalSearch'
 import { useOrg } from '@/lib/contexts/OrgContext'
 import { OPERATOR_NAV, workspaceNav, type NavItem } from './navConfig'
 
@@ -164,12 +164,13 @@ export function AdminSidebar({ open = false, onClose, collapsed = false, onToggl
           {!collapsed && <span className="ml-auto text-[10px] opacity-50">collapse</span>}
         </button>
 
-        {/* Search */}
+        {/* Search - temporarily hidden while behavior is being revisited.
         {!collapsed && (
           <div className="px-3 pt-4 pb-3">
             <GlobalSearch />
           </div>
         )}
+        */}
 
         {/* Org Switcher */}
         {!collapsed && (

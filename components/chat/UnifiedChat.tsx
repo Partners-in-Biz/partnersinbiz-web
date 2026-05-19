@@ -148,6 +148,7 @@ export default function UnifiedChat({
   ) => void) | null>(null)
   const eventSourcesRef = useRef<Record<string, EventSource>>({})
   const messagesContainerRef = useRef<HTMLDivElement | null>(null)
+  const composerRef = useRef<HTMLTextAreaElement | null>(null)
   // Tracks which assistant message IDs we've already started polling for (prevents duplicates)
   const resumedRunsRef = useRef<Set<string>>(new Set())
   const autoCreateRef = useRef(false)
@@ -526,6 +527,21 @@ export default function UnifiedChat({
     },
     [approvalPending, activeId, pollFinalize, startEventStream],
   )
+
+  const addSelectionToComposer = useCallback((selectedText: string) => {
+    const cleaned = selectedText.trim()
+    if (!cleaned) return
+    const quoted = cleaned
+      .split(/\r?\n/)
+      .map((line) => `> ${line}`)
+      .join('\n')
+    setInput((prev) => (prev.trim() ? `${prev.trimEnd()}\n\n${quoted}\n\n` : `${quoted}\n\n`))
+    requestAnimationFrame(() => {
+      composerRef.current?.focus()
+      const length = composerRef.current?.value.length ?? 0
+      composerRef.current?.setSelectionRange(length, length)
+    })
+  }, [])
 
   // ── Rename conversation ───────────────────────────────────────────────────
   const renameConversation = useCallback(async (convId: string, title: string) => {
@@ -1080,6 +1096,7 @@ export default function UnifiedChat({
                         ? () => stopAgentRun(activeId, m.id)
                         : undefined
                     }
+                    onQuoteSelection={addSelectionToComposer}
                   />
 
                   {/* Approval card */}
@@ -1196,6 +1213,7 @@ export default function UnifiedChat({
             </button>
 
             <textarea
+              ref={composerRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => {

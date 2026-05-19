@@ -121,7 +121,7 @@ function NavItemRenderer({ item, pathname }: { item: NavItem; pathname: string }
 
 // ── Main topbar nav ─────────────────────────────────────────────────────────
 
-export function AdminTopbarNav({ userEmail, onToggleLayout, messageAction }: AdminTopbarNavProps) {
+export function AdminTopbarNav({ userEmail, messageAction }: AdminTopbarNavProps) {
   const pathname = usePathname()
   const { selectedOrgId, orgs } = useOrg()
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -168,6 +168,7 @@ export function AdminTopbarNav({ userEmail, onToggleLayout, messageAction }: Adm
           {/* Right side */}
           <div className="flex items-center gap-2 ml-auto shrink-0">
             {messageAction}
+            {/* Temporarily hidden while the admin layout switcher is being revisited.
             <button
               onClick={onToggleLayout}
               title="Switch to sidebar layout"
@@ -175,6 +176,7 @@ export function AdminTopbarNav({ userEmail, onToggleLayout, messageAction }: Adm
             >
               <span className="material-symbols-outlined text-[18px]">dock_to_right</span>
             </button>
+            */}
             <span className="hidden lg:inline text-xs font-mono text-[var(--color-pib-text-muted)] truncate max-w-[180px]">
               {userEmail}
             </span>
@@ -213,6 +215,7 @@ export function AdminTopbarNav({ userEmail, onToggleLayout, messageAction }: Adm
             {navItems.map((item) => (
               <MobileNavItem key={item.href} item={item} pathname={pathname} />
             ))}
+            {/* Temporarily hidden while the admin layout switcher is being revisited.
             <div className="h-px bg-[var(--color-pib-line)] my-2" />
             <button
               onClick={onToggleLayout}
@@ -221,6 +224,7 @@ export function AdminTopbarNav({ userEmail, onToggleLayout, messageAction }: Adm
               <span className="material-symbols-outlined text-[18px]">dock_to_right</span>
               Switch to sidebar layout
             </button>
+            */}
           </div>
         </div>
       )}

@@ -7,7 +7,7 @@ interface AdminTopbarProps {
   messageAction?: ReactNode
 }
 
-export function AdminTopbar({ userEmail, onMenuClick, onToggleLayout, messageAction }: AdminTopbarProps) {
+export function AdminTopbar({ userEmail, onMenuClick, messageAction }: AdminTopbarProps) {
   const initials = userEmail.split(/[.\s@]/).filter(Boolean).slice(0, 2).map((s) => s[0]?.toUpperCase()).join('')
 
   return (
@@ -31,6 +31,7 @@ export function AdminTopbar({ userEmail, onMenuClick, onToggleLayout, messageAct
       </div>
       <div className="flex items-center gap-3 md:gap-4">
         {messageAction}
+        {/* Temporarily hidden while the admin layout switcher is being revisited.
         <button
           onClick={onToggleLayout}
           title="Switch to topbar layout"
@@ -38,6 +39,7 @@ export function AdminTopbar({ userEmail, onMenuClick, onToggleLayout, messageAct
         >
           <span className="material-symbols-outlined text-[18px]">dock_to_right</span>
         </button>
+        */}
         <span className="hidden sm:inline text-xs font-mono text-[var(--color-pib-text-muted)] truncate max-w-[200px]">
           {userEmail}
         </span>
