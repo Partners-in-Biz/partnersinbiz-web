@@ -154,11 +154,11 @@ function SubAccountRow({
   const subAccountType = account.subAccountType ?? account.accountType
   const hasPlaceholderIdentity =
     account.platform === 'instagram' &&
-    (!account.username || account.platformAccountId === 'unknown' || account.displayName.toLowerCase() === 'instagram')
+    (!account.platformAccountId || account.platformAccountId === 'unknown' || account.displayName.toLowerCase() === 'instagram')
   const accountName = hasPlaceholderIdentity ? 'Instagram reconnect required' : account.displayName
   const username = hasPlaceholderIdentity
     ? 'account identity missing'
-    : account.username || account.displayName || account.platformAccountId || 'unknown account'
+    : account.username || account.platformAccountId || account.displayName || 'unknown account'
 
   return (
     <div className="grid gap-3 border-t border-[var(--color-card-border)] px-4 py-3 sm:grid-cols-[auto_1fr_auto] sm:items-center">
