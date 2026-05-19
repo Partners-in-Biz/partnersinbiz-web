@@ -24,17 +24,10 @@ import {
   type MessagePayload,
   type Messaging,
 } from 'firebase/messaging'
+import { getPublicFirebaseConfig, getPublicFirebaseVapidKey } from './publicConfig'
 
-const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-}
-
-const VAPID_KEY = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY
+const firebaseConfig = getPublicFirebaseConfig()
+const VAPID_KEY = getPublicFirebaseVapidKey()
 const FCM_SW_URL = '/firebase-messaging-sw.js'
 const LOCAL_TOKEN_KEY = 'pib.fcmToken'
 

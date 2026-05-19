@@ -18,25 +18,40 @@ importScripts('https://www.gstatic.com/firebasejs/10.13.2/firebase-messaging-com
 self.addEventListener('install', () => self.skipWaiting())
 self.addEventListener('activate', (event) => event.waitUntil(self.clients.claim()))
 
+function cleanConfigValue(value) {
+  return String(value || '').replace(/\\n/g, '\n').trim().replace(/^['"]|['"]$/g, '').trim()
+}
+
+function cleanFirebaseConfig(config) {
+  return {
+    apiKey: cleanConfigValue(config.apiKey),
+    authDomain: cleanConfigValue(config.authDomain),
+    projectId: cleanConfigValue(config.projectId),
+    storageBucket: cleanConfigValue(config.storageBucket),
+    messagingSenderId: cleanConfigValue(config.messagingSenderId),
+    appId: cleanConfigValue(config.appId),
+  }
+}
+
 async function getFirebaseConfig() {
   try {
     const res = await fetch('/api/v1/firebase-config', { credentials: 'omit' })
     if (res.ok) {
       const body = await res.json()
-      if (body?.success && body.data?.apiKey) return body.data
+      if (body?.success && body.data?.apiKey) return cleanFirebaseConfig(body.data)
     }
   } catch {
     // network unavailable — fall back to URL params injected at registration
   }
   const params = new URL(self.location.href).searchParams
-  return {
+  return cleanFirebaseConfig({
     apiKey: params.get('apiKey') || '',
     authDomain: params.get('authDomain') || '',
     projectId: params.get('projectId') || '',
     storageBucket: params.get('storageBucket') || '',
     messagingSenderId: params.get('messagingSenderId') || '',
     appId: params.get('appId') || '',
-  }
+  })
 }
 
 let messagingPromise = null
