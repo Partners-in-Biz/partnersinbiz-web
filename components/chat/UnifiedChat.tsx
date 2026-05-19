@@ -102,7 +102,7 @@ export default function UnifiedChat({
 
   // Approval state keyed by message id
   const [approvalPending, setApprovalPending] = useState<
-    Record<string, { runId: string; toolName?: string }>
+    Record<string, { runId: string; agentId: AgentId; toolName?: string }>
   >({})
 
   // Conversation context menu
@@ -365,7 +365,7 @@ export default function UnifiedChat({
           )
           setApprovalPending((prev) => ({
             ...prev,
-            [msgId]: { runId, toolName: lastEvent?.tool },
+            [msgId]: { runId, agentId, toolName: lastEvent?.tool },
           }))
           return
         }
@@ -443,7 +443,7 @@ export default function UnifiedChat({
       if (!pending) return
       try {
         const res = await fetch(
-          `/api/v1/admin/hermes/profiles/${orgId}/runs/${encodeURIComponent(pending.runId)}/approval`,
+          `/api/v1/admin/agents/${pending.agentId}/runs/${encodeURIComponent(pending.runId)}/approval`,
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -459,21 +459,15 @@ export default function UnifiedChat({
         setMessages((prev) =>
           prev.map((m) => (m.id === msgId ? { ...m, status: 'pending' } : m)),
         )
-        // Figure out which agentId to use — find from participants or default pip
-        const agentParticipant = activeConversation?.participants.find(
-          (p) => p.kind === 'agent',
-        )
-        const agentId: AgentId =
-          agentParticipant?.kind === 'agent' ? agentParticipant.agentId : 'pip'
         if (activeId) {
-          startEventStream(msgId, pending.runId, agentId)
-          pollFinalize(activeId, msgId, pending.runId, agentId)
+          startEventStream(msgId, pending.runId, pending.agentId)
+          pollFinalize(activeId, msgId, pending.runId, pending.agentId)
         }
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Approval failed')
       }
     },
-    [approvalPending, orgId, activeId, activeConversation, pollFinalize, startEventStream],
+    [approvalPending, activeId, pollFinalize, startEventStream],
   )
 
   // ── Rename conversation ───────────────────────────────────────────────────

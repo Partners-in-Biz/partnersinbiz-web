@@ -26,6 +26,10 @@ function routeCtx(agentId = 'pip') {
   return { params: Promise.resolve({ agentId }) }
 }
 
+function runRouteCtx(agentId = 'pip', runId = 'run-1') {
+  return { params: Promise.resolve({ agentId, runId }) }
+}
+
 async function readJson(res: Response) {
   return JSON.parse(await res.text())
 }
@@ -114,5 +118,41 @@ describe('admin agent permissions', () => {
 
     expect(res.status).toBe(403)
     expect(mockUpdateAgent).not.toHaveBeenCalled()
+  })
+
+  it('proxies run approvals to the selected agent gateway', async () => {
+    mockCallAgentPath.mockResolvedValue({
+      response: { ok: true, status: 200 },
+      data: { object: 'hermes.run.approval_response', run_id: 'run-1', choice: 'once', resolved: 1 },
+    })
+
+    const { POST } = await import('@/app/api/v1/admin/agents/[agentId]/runs/[runId]/approval/route')
+    const res = await POST(new NextRequest('http://localhost/api/v1/admin/agents/theo/runs/run-1/approval', {
+      method: 'POST',
+      body: JSON.stringify({ choice: 'once' }),
+    }), runRouteCtx('theo', 'run-1'))
+
+    expect(res.status).toBe(200)
+    expect(await readJson(res)).toMatchObject({ choice: 'once', resolved: 1 })
+    expect(mockCallAgentPath).toHaveBeenCalledWith(
+      'theo',
+      '/v1/runs/run-1/approval',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ choice: 'once' }),
+        headers: expect.objectContaining({ 'Content-Type': 'application/json' }),
+      }),
+    )
+  })
+
+  it('rejects invalid agent approval choices before proxying', async () => {
+    const { POST } = await import('@/app/api/v1/admin/agents/[agentId]/runs/[runId]/approval/route')
+    const res = await POST(new NextRequest('http://localhost/api/v1/admin/agents/theo/runs/run-1/approval', {
+      method: 'POST',
+      body: JSON.stringify({ choice: 'maybe' }),
+    }), runRouteCtx('theo', 'run-1'))
+
+    expect(res.status).toBe(400)
+    expect(mockCallAgentPath).not.toHaveBeenCalled()
   })
 })
