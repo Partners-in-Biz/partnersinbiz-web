@@ -12,6 +12,18 @@ test('renders back-to-editor link and children', () => {
   expect(screen.getByTestId('content')).not.toBeNull()
 })
 
+test('keeps preview controls in the page flow instead of overlaying the admin chrome', () => {
+  render(
+    <PreviewFrame backHref="/admin/documents/abc" versionLabel="Draft · v3">
+      <div />
+    </PreviewFrame>,
+  )
+
+  const toolbar = screen.getByTestId('document-preview-toolbar')
+  expect(toolbar.className).toContain('sticky')
+  expect(toolbar.className).not.toContain('fixed')
+})
+
 test('shows shareUrl link when published prop is true', () => {
   render(
     <PreviewFrame backHref="/admin/documents/abc" versionLabel="v3" shareUrl="https://partnersinbiz.online/d/xyz">

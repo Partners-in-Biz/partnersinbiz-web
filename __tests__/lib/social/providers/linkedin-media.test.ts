@@ -58,7 +58,7 @@ describe('LinkedInProvider publishPost with image', () => {
     expect(result.platformPostId).toBe('urn:li:share:999')
     const postBody = JSON.parse(mockFetch.mock.calls[3][1].body)
     expect(postBody.content.media.id).toBe('urn:li:image:12345')
-    expect(postBody.mediaCategory).toBe('IMAGE')
+    expect(postBody.mediaCategory).toBeUndefined()
     expect(postBody.commentary).toBe('Check this out')
   })
 

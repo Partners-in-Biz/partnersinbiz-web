@@ -130,17 +130,14 @@ export class LinkedInProvider extends SocialProvider {
 
   async publishPost(options: PublishOptions): Promise<PublishResult> {
     let mediaUrn: string | null = null
-    let mediaCategory: 'IMAGE' | 'VIDEO' | null = null
 
     if (options.mediaUrls && options.mediaUrls.length > 0) {
       const url = options.mediaUrls[0]
       const mimeType = this.guessMimeType(url)
       if (mimeType.startsWith('video/')) {
         mediaUrn = await this.uploadVideoFromUrl(url)
-        mediaCategory = 'VIDEO'
       } else {
         mediaUrn = await this.uploadImageFromUrl(url)
-        mediaCategory = 'IMAGE'
       }
     }
 
@@ -157,9 +154,8 @@ export class LinkedInProvider extends SocialProvider {
       isReshareDisabledByAuthor: false,
     }
 
-    if (mediaUrn && mediaCategory) {
+    if (mediaUrn) {
       body.content = { media: { id: mediaUrn, title: 'Media' } }
-      body.mediaCategory = mediaCategory
     }
 
     const response = await fetch(LINKEDIN_POSTS_URL, {

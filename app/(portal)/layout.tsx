@@ -13,7 +13,6 @@ import { clearLastPath } from '@/lib/pwa/lastPath'
 import { WelcomeFlashHandler } from '@/components/ui/WelcomeFlashHandler'
 import { SettingsNav } from '@/components/settings/SettingsNav'
 import { SupportDrawer } from '@/components/support/SupportDrawer'
-import { CrmSearchBar } from '@/components/crm/CrmSearchBar'
 import { NotificationBell } from '@/components/crm/NotificationBell'
 import { MessageDrawer } from '@/components/chat/MessageDrawer'
 
@@ -30,30 +29,31 @@ const NAV_LINKS: NavItem[] = [
   { href: '/portal/dashboard', label: 'Overview',  icon: 'space_dashboard', group: 'work' },
   { href: '/portal/projects',  label: 'Projects',  icon: 'rocket_launch',   group: 'work' },
   { href: '/portal/documents', label: 'Documents', icon: 'description',     group: 'work' },
-  { href: '/portal/wiki',      label: 'Wiki',      icon: 'menu_book',       group: 'work' },
-  {
-    href: '/portal/crm',
-    label: 'CRM',
-    icon: 'contacts',
-    group: 'work',
-    activePatterns: [
-      '/portal/contacts',
-      '/portal/companies',
-      '/portal/deals',
-      '/portal/segments',
-      '/portal/capture-sources',
-      '/portal/integrations',
-      '/portal/reports/crm',
-      '/portal/settings/crm-setup',
-      '/portal/settings/custom-fields',
-      '/portal/settings/pipelines',
-      '/portal/settings/scoring',
-      '/portal/settings/products',
-      '/portal/settings/automations',
-      '/portal/settings/sequences',
-      '/portal/settings/webhooks',
-    ],
-  },
+  // CRM is still behind the scenes for now. Keep the route, but do not expose
+  // the unfinished workspace from the client navigation.
+  // {
+  //   href: '/portal/crm',
+  //   label: 'CRM',
+  //   icon: 'contacts',
+  //   group: 'work',
+  //   activePatterns: [
+  //     '/portal/contacts',
+  //     '/portal/companies',
+  //     '/portal/deals',
+  //     '/portal/segments',
+  //     '/portal/capture-sources',
+  //     '/portal/integrations',
+  //     '/portal/reports/crm',
+  //     '/portal/settings/crm-setup',
+  //     '/portal/settings/custom-fields',
+  //     '/portal/settings/pipelines',
+  //     '/portal/settings/scoring',
+  //     '/portal/settings/products',
+  //     '/portal/settings/automations',
+  //     '/portal/settings/sequences',
+  //     '/portal/settings/webhooks',
+  //   ],
+  // },
   {
     href: '/portal/marketing',
     label: 'Marketing',
@@ -91,6 +91,7 @@ const NAV_LINKS: NavItem[] = [
     group: 'data',
     activePatterns: ['/portal/properties', '/portal/data', '/portal/reports/crm'],
   },
+  { href: '/portal/wiki',      label: 'Wiki',      icon: 'menu_book',       group: 'data' },
   { href: '/portal/payments', label: 'Billing', icon: 'payments', group: 'comms' },
 ]
 
@@ -151,7 +152,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [collapsed, setCollapsed]   = useState(false)
   const [layoutMode, setLayoutMode] = useState<LayoutMode>('sidebar')
-  const [unresolvedDocs, setUnresolvedDocs] = useState(0)
+  const [documentCount, setDocumentCount] = useState(0)
   const [orgs, setOrgs] = useState<{ id: string; name: string; logoUrl: string }[]>([])
   const [activeOrgId, setActiveOrgId] = useState('')
   const [orgSwitching, setOrgSwitching] = useState(false)
@@ -227,17 +228,17 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
     setDrawerOpen(false)
   }, [pathname])
 
-  // Unresolved comments badge — refresh on mount, on route change, and every 60s
+  // Document badge — refresh on mount, on route change, and every 60s.
   useEffect(() => {
     if (checking) return
     let cancelled = false
     async function refresh() {
       try {
-        const res = await fetch('/api/v1/portal/documents/unresolved-count')
+        const res = await fetch('/api/v1/portal/documents/count')
         if (!res.ok) return
         const body = await res.json()
         const count = body?.data?.count ?? 0
-        if (!cancelled) setUnresolvedDocs(typeof count === 'number' ? count : 0)
+        if (!cancelled) setDocumentCount(typeof count === 'number' ? count : 0)
       } catch {}
     }
     refresh()
@@ -297,7 +298,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
   }
 
   const navWithBadges: NavItem[] = NAV_LINKS.map((item) =>
-    item.href === '/portal/documents' ? { ...item, badge: unresolvedDocs } : item,
+    item.href === '/portal/documents' ? { ...item, badge: documentCount } : item,
   )
 
   const grouped = (['work', 'data', 'comms'] as const).map(g => ({
@@ -528,9 +529,6 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
           />
         ) : (
           <nav className={['flex-1 overflow-y-auto py-4', collapsed ? 'px-2 space-y-1' : 'px-3 space-y-5'].join(' ')}>
-            {!collapsed && (
-              <CrmSearchBar className="mb-1" />
-            )}
             {collapsed
               ? navWithBadges.map(item => <NavLink key={item.href} item={item} pathname={pathname} collapsed />)
               : grouped.map(({ group, items }) => (
