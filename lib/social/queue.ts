@@ -112,6 +112,8 @@ export async function processQueue(): Promise<QueueProcessResult> {
 
     const lockRef = adminDb.collection('social_queue').doc(queueDoc.id)
 
+    let resolvedAccountId: string | null = null
+
     try {
       const locked = await adminDb.runTransaction(async (txn) => {
         const freshDoc = await txn.get(lockRef)
@@ -165,7 +167,8 @@ export async function processQueue(): Promise<QueueProcessResult> {
         continue
       }
       const { provider, accountId } = await resolveProvider(post, orgId, platformType)
-      if (!accountId) {
+      resolvedAccountId = accountId
+      if (!resolvedAccountId) {
         await failQueueEntry(lockRef, entry, 'No active connected social account for this org/platform')
         result.failed++
         result.errors.push({ postId: entry.postId, error: 'No connected account' })
@@ -174,7 +177,7 @@ export async function processQueue(): Promise<QueueProcessResult> {
       const mediaUrls: string[] | undefined = Array.isArray(post.media) && post.media.length > 0
         ? (post.media as Array<{ url?: string }>).map(m => m.url).filter((u): u is string => Boolean(u))
         : undefined
-      const externalId = await publishWithRefresh(provider, text, post.threadParts, mediaUrls, accountId, orgId, platformType)
+      const externalId = await publishWithRefresh(provider, text, post.threadParts, mediaUrls, resolvedAccountId, orgId, platformType)
 
       await adminDb.collection('social_posts').doc(entry.postId).update({
         status: 'published', publishedAt: FieldValue.serverTimestamp(), externalId, error: null, updatedAt: FieldValue.serverTimestamp(),
@@ -183,8 +186,8 @@ export async function processQueue(): Promise<QueueProcessResult> {
       result.processed++
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error'
-      if (accountId && isTokenExpiredError(message)) {
-        await markAccountTokenExpired(accountId, message).catch(() => {})
+      if (resolvedAccountId && isTokenExpiredError(message)) {
+        await markAccountTokenExpired(resolvedAccountId, message).catch(() => {})
       }
       const attempts = (entry.attempts ?? 0) + 1
       const maxAttempts = entry.maxAttempts ?? 5
