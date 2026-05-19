@@ -23,6 +23,7 @@ interface SessionEvent {
 }
 
 type StreamState = 'connecting' | 'live' | 'closed' | 'error'
+type RunLoadState = 'loading' | 'loaded' | 'missing' | 'error'
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -94,6 +95,7 @@ export default function AgentRunSession({
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [streamState, setStreamState] = useState<StreamState>('connecting')
+  const [runLoadState, setRunLoadState] = useState<RunLoadState>('loading')
 
   useEffect(() => {
     let cancelled = false
@@ -101,17 +103,34 @@ export default function AgentRunSession({
     async function loadRun() {
       setLoading(true)
       setError(null)
+      setRun(null)
+      setRunLoadState('loading')
       try {
         const res = await fetch(`/api/v1/admin/agents/${encodeURIComponent(agentId)}/runs/${encodeURIComponent(runId)}`, {
           cache: 'no-store',
         })
         const data = await res.json().catch(() => null)
         if (!res.ok) {
-          throw new Error(isRecord(data) && typeof data.error === 'string' ? data.error : `Run load failed (${res.status})`)
+          const message = isRecord(data) && typeof data.error === 'string'
+            ? data.error
+            : `Run load failed (${res.status})`
+          if (!cancelled) {
+            setError(res.status === 404
+              ? `This Hermes run is no longer available on ${agentId}. The ticket chat below is still usable.`
+              : message)
+            setRunLoadState(res.status === 404 ? 'missing' : 'error')
+          }
+          return
         }
-        if (!cancelled) setRun(data)
+        if (!cancelled) {
+          setRun(data)
+          setRunLoadState('loaded')
+        }
       } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load run')
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : 'Failed to load run')
+          setRunLoadState('error')
+        }
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -122,6 +141,10 @@ export default function AgentRunSession({
   }, [agentId, runId])
 
   useEffect(() => {
+    if (runLoadState !== 'loaded') {
+      setStreamState(runLoadState === 'loading' ? 'connecting' : 'closed')
+      return
+    }
     setStreamState('connecting')
     const source = new EventSource(`/api/v1/admin/agents/${encodeURIComponent(agentId)}/runs/${encodeURIComponent(runId)}/events`)
 
@@ -144,7 +167,7 @@ export default function AgentRunSession({
     }
 
     return () => source.close()
-  }, [agentId, runId])
+  }, [agentId, runId, runLoadState])
 
   const status = useMemo(() => extractStatus(run), [run])
   const output = useMemo(() => extractOutput(run), [run])
@@ -187,8 +210,13 @@ export default function AgentRunSession({
           <span className="rounded bg-sky-500/10 px-2 py-1 text-[10px] font-label uppercase tracking-wide text-sky-300">
             {streamState}
           </span>
-          <span className="rounded bg-emerald-500/10 px-2 py-1 text-[10px] font-label uppercase tracking-wide text-emerald-300">
-            {loading ? 'loading' : status}
+          <span className={[
+            'rounded px-2 py-1 text-[10px] font-label uppercase tracking-wide',
+            runLoadState === 'missing' || runLoadState === 'error'
+              ? 'bg-red-500/10 text-red-300'
+              : 'bg-emerald-500/10 text-emerald-300',
+          ].join(' ')}>
+            {loading ? 'loading' : runLoadState === 'missing' ? 'run missing' : status}
           </span>
           {taskId && (
             <span className="rounded bg-white/5 px-2 py-1 font-mono text-[10px] text-on-surface-variant">
@@ -230,62 +258,68 @@ export default function AgentRunSession({
 
         <aside className="grid min-h-0 gap-4 lg:grid-rows-[minmax(0,1fr)_auto]">
           <section className="min-h-0 overflow-hidden rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)]">
-          <div className="flex items-center justify-between border-b border-[var(--color-card-border)] px-4 py-3">
-            <h2 className="text-sm font-semibold text-on-surface">Session events</h2>
-            <span className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant">
-              {events.length} event{events.length === 1 ? '' : 's'}
-            </span>
-          </div>
-          <div className="h-full overflow-y-auto p-4 pb-20">
-            {events.length > 0 ? (
-              <div className="space-y-3">
-                {events.map((event) => (
-                  <article key={event.id} className="rounded border border-[var(--color-card-border)] bg-black/20 p-3">
-                    <div className="mb-2 flex items-center justify-between gap-3">
-                      <span className="text-[10px] font-label uppercase tracking-wide text-[var(--color-accent-v2)]">
-                        {event.type}
-                      </span>
-                      <time className="text-[10px] text-on-surface-variant">
-                        {new Date(event.receivedAt).toLocaleTimeString()}
-                      </time>
-                    </div>
-                    <pre className="whitespace-pre-wrap break-words text-xs leading-relaxed text-on-surface-variant">
-                      {formatPayload(event.payload)}
-                    </pre>
-                  </article>
-                ))}
-              </div>
-            ) : (
-              <div className="flex h-full min-h-[260px] items-center justify-center rounded border border-dashed border-[var(--color-card-border)] text-center text-sm text-on-surface-variant">
-                {loading ? 'Loading the agent run...' : 'No live events received yet. The final run payload is shown on the right.'}
-              </div>
-            )}
-          </div>
+            <div className="flex items-center justify-between border-b border-[var(--color-card-border)] px-4 py-3">
+              <h2 className="text-sm font-semibold text-on-surface">Session events</h2>
+              <span className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant">
+                {events.length} event{events.length === 1 ? '' : 's'}
+              </span>
+            </div>
+            <div className="h-full overflow-y-auto p-4 pb-20">
+              {events.length > 0 ? (
+                <div className="space-y-3">
+                  {events.map((event) => (
+                    <article key={event.id} className="rounded border border-[var(--color-card-border)] bg-black/20 p-3">
+                      <div className="mb-2 flex items-center justify-between gap-3">
+                        <span className="text-[10px] font-label uppercase tracking-wide text-[var(--color-accent-v2)]">
+                          {event.type}
+                        </span>
+                        <time className="text-[10px] text-on-surface-variant">
+                          {new Date(event.receivedAt).toLocaleTimeString()}
+                        </time>
+                      </div>
+                      <pre className="whitespace-pre-wrap break-words text-xs leading-relaxed text-on-surface-variant">
+                        {formatPayload(event.payload)}
+                      </pre>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex h-full min-h-[260px] items-center justify-center rounded border border-dashed border-[var(--color-card-border)] px-4 text-center text-sm text-on-surface-variant">
+                  {loading
+                    ? 'Loading the agent run...'
+                    : runLoadState === 'missing'
+                      ? 'This run is no longer available on the Hermes gateway. Use the ticket chat to continue.'
+                      : 'No live events received yet. The final run payload is shown below.'}
+                </div>
+              )}
+            </div>
           </section>
 
           <section className="max-h-[36vh] min-h-[220px] overflow-y-auto rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-4">
-          <h2 className="text-sm font-semibold text-on-surface">Run result</h2>
-          <p className="mt-1 text-xs text-on-surface-variant">
-            Status and final output returned by the selected agent gateway.
-          </p>
-          <div className="mt-4 space-y-4">
-            <div>
-              <p className="mb-1 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Status</p>
-              <p className="text-sm text-on-surface">{loading ? 'Loading...' : status}</p>
+            <h2 className="text-sm font-semibold text-on-surface">Run result</h2>
+            <p className="mt-1 text-xs text-on-surface-variant">
+              Status and final output returned by the selected agent gateway.
+            </p>
+            <div className="mt-4 space-y-4">
+              <div>
+                <p className="mb-1 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Status</p>
+                <p className="text-sm text-on-surface">{loading ? 'Loading...' : runLoadState === 'missing' ? 'Run missing' : status}</p>
+              </div>
+              <div>
+                <p className="mb-1 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Output</p>
+                {outputText ? (
+                  <pre className="max-h-[38vh] overflow-auto whitespace-pre-wrap break-words rounded border border-[var(--color-card-border)] bg-black/20 p-3 text-xs leading-relaxed text-on-surface-variant">
+                    {outputText}
+                  </pre>
+                ) : (
+                  <p className="rounded border border-dashed border-[var(--color-card-border)] p-3 text-xs text-on-surface-variant">
+                    {runLoadState === 'missing'
+                      ? 'Hermes no longer has this run. Continue from the ticket chat.'
+                      : 'No final output returned yet.'}
+                  </p>
+                )}
+              </div>
             </div>
-            <div>
-              <p className="mb-1 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Output</p>
-              {outputText ? (
-                <pre className="max-h-[38vh] overflow-auto whitespace-pre-wrap break-words rounded border border-[var(--color-card-border)] bg-black/20 p-3 text-xs leading-relaxed text-on-surface-variant">
-                  {outputText}
-                </pre>
-              ) : (
-                <p className="rounded border border-dashed border-[var(--color-card-border)] p-3 text-xs text-on-surface-variant">
-                  No final output returned yet.
-                </p>
-              )}
-            </div>
-          </div>
           </section>
         </aside>
       </div>
