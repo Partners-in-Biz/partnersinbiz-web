@@ -372,16 +372,54 @@ async function exchangeCode(
     throw new Error(`Token exchange failed for ${config.platform}: ${response.status} ${text}`)
   }
 
-  const data = await response.json()
+  const rawData = await response.json() as unknown
+  const data = normalizeTokenPayload(config.platform, rawData)
+  const accessToken = readString(data, 'access_token') ?? readString(data, 'accessToken')
+  if (!accessToken) {
+    throw new Error(`Token exchange failed for ${config.platform}: missing access token`)
+  }
 
   // Normalize response (different platforms use different field names)
   return {
-    accessToken: data.access_token ?? data.accessToken,
-    refreshToken: data.refresh_token ?? data.refreshToken ?? null,
-    tokenType: data.token_type ?? 'Bearer',
-    expiresIn: data.expires_in ?? data.expiresIn ?? null,
-    platformAccountId: data.user_id !== undefined ? String(data.user_id) : data.userId !== undefined ? String(data.userId) : undefined,
+    accessToken,
+    refreshToken: readString(data, 'refresh_token') ?? readString(data, 'refreshToken') ?? null,
+    tokenType: readString(data, 'token_type') ?? 'Bearer',
+    expiresIn: readNumber(data, 'expires_in') ?? readNumber(data, 'expiresIn') ?? null,
+    platformAccountId:
+      readString(data, 'user_id') ??
+      readString(data, 'userId') ??
+      readString(data, 'id') ??
+      undefined,
   }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === 'object' && !Array.isArray(value))
+}
+
+function readString(record: Record<string, unknown>, key: string): string | null {
+  const value = record[key]
+  if (typeof value === 'string' && value.trim()) return value
+  if (typeof value === 'number') return String(value)
+  return null
+}
+
+function readNumber(record: Record<string, unknown>, key: string): number | null {
+  const value = record[key]
+  return typeof value === 'number' ? value : null
+}
+
+function normalizeTokenPayload(platform: SocialPlatformType, rawData: unknown): Record<string, unknown> {
+  if (
+    platform === 'instagram' &&
+    isRecord(rawData) &&
+    Array.isArray(rawData.data) &&
+    isRecord(rawData.data[0])
+  ) {
+    return rawData.data[0]
+  }
+  if (isRecord(rawData)) return rawData
+  return {}
 }
 
 // --- Platform-specific profile helpers ---
@@ -442,19 +480,52 @@ async function fetchAllFacebookAccounts(userAccessToken: string): Promise<Facebo
 }
 
 async function fetchInstagramProfile(accessToken: string, platformAccountId?: string) {
-  // Fetch minimal fields first; followers_count and profile_picture_url are optional
-  const target = platformAccountId ? encodeURIComponent(platformAccountId) : 'me'
-  const res = await fetch(
-    `https://graph.instagram.com/v21.0/${target}?fields=id,username,account_type,media_count&access_token=${accessToken}`,
-  )
-  if (!res.ok) throw new Error(`Failed to fetch Instagram profile: ${await res.text()}`)
-  const data = await res.json() as {
-    id: string
-    username: string
+  const targets = Array.from(new Set(['me', platformAccountId].filter(Boolean) as string[]))
+  let lastError = ''
+  let data: {
+    id?: string
+    user_id?: string
+    username?: string
     account_type?: string
     media_count?: number
+  } | null = null
+  let resolvedTarget = 'me'
+
+  for (const rawTarget of targets) {
+    const target = encodeURIComponent(rawTarget)
+    const res = await fetch(
+      `https://graph.instagram.com/v21.0/${target}?fields=id,user_id,username,account_type,media_count&access_token=${accessToken}`,
+    )
+    if (res.ok) {
+      data = await res.json() as {
+        id?: string
+        user_id?: string
+        username?: string
+        account_type?: string
+        media_count?: number
+      }
+      resolvedTarget = rawTarget
+      break
+    }
+    lastError = await res.text()
   }
-  const accountId = data.id || platformAccountId
+
+  if (!data) {
+    if (platformAccountId && lastError.toLowerCase().includes('method type: get')) {
+      return {
+        platformAccountId,
+        displayName: 'Instagram account',
+        username: '',
+        avatarUrl: '',
+        profileUrl: '',
+        accountType: 'business' as const,
+        meta: { profileLookupSkipped: true, profileLookupError: lastError },
+      }
+    }
+    throw new Error(`Failed to fetch Instagram profile: ${lastError}`)
+  }
+
+  const accountId = data.id || data.user_id || platformAccountId
   if (!accountId || accountId === 'unknown') {
     throw new Error('Instagram did not return a usable account id.')
   }
@@ -467,7 +538,7 @@ async function fetchInstagramProfile(accessToken: string, platformAccountId?: st
   let followersCount: number | undefined
   try {
     const extRes = await fetch(
-      `https://graph.instagram.com/v21.0/${target}?fields=profile_picture_url,followers_count&access_token=${accessToken}`,
+      `https://graph.instagram.com/v21.0/${encodeURIComponent(resolvedTarget)}?fields=profile_picture_url,followers_count&access_token=${accessToken}`,
     )
     if (extRes.ok) {
       const ext = await extRes.json() as { profile_picture_url?: string; followers_count?: number }
