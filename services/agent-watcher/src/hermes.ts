@@ -6,7 +6,7 @@ import type { AgentConfig } from './config'
 import { logger } from './logger'
 
 const POLL_INTERVAL_MS = 2_000
-const RUN_TIMEOUT_MS = 5 * 60 * 1_000
+const RUN_TIMEOUT_MS = 30 * 60 * 1_000
 const MAX_NOT_FOUND_POLLS = 3
 
 const TERMINAL_STATUSES = new Set(['completed', 'failed', 'succeeded', 'success', 'error', 'cancelled', 'canceled'])

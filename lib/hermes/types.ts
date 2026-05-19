@@ -53,4 +53,15 @@ export type ChatEvent = {
   tool?: string
   preview?: string
   timestamp?: number
+  runId?: string
+  run_id?: string
+  delta?: string
+  text?: string
+  activity?: string
+  title?: string
+  status?: string
+  duration?: number
+  error?: boolean | string
+  choices?: string[]
+  todos?: unknown[]
 }

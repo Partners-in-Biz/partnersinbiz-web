@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { withAuth } from '@/lib/api/auth'
 import { requireHermesProfileAccess, callHermesStream } from '@/lib/hermes/server'
 import { apiError } from '@/lib/api/response'
+import { createNormalizedHermesSseStream } from '@/lib/hermes/progress-events'
 
 type RouteContext = { params: Promise<{ orgId: string; runId: string }> }
 
@@ -16,25 +17,11 @@ export const GET = withAuth('admin', async (_req: NextRequest, user, ctx) => {
 
   try {
     const hermesRes = await callHermesStream(link, `/v1/runs/${encodeURIComponent(runId)}/events`)
-    const reader = hermesRes.body!.getReader()
+    if (!hermesRes.ok || !hermesRes.body) {
+      return apiError(`Hermes stream returned ${hermesRes.status}`, 502)
+    }
 
-    const stream = new ReadableStream({
-      async pull(controller) {
-        try {
-          const { done, value } = await reader.read()
-          if (done) {
-            controller.close()
-            return
-          }
-          controller.enqueue(value)
-        } catch (err) {
-          controller.error(err)
-        }
-      },
-      cancel() {
-        reader.cancel()
-      },
-    })
+    const stream = createNormalizedHermesSseStream(hermesRes.body, { runId })
 
     return new Response(stream, {
       status: 200,

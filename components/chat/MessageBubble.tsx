@@ -107,6 +107,82 @@ function summarizeEvents(events: ChatEvent[]): string {
   return joined.charAt(0).toUpperCase() + joined.slice(1)
 }
 
+function eventLabel(event: ChatEvent): string {
+  switch (event.event) {
+    case 'assistant.text_delta':
+      return 'Drafting response'
+    case 'tool.started':
+      return event.activity ?? 'Using a tool'
+    case 'tool.completed':
+      return event.error ? 'Tool returned an error' : 'Tool completed'
+    case 'task.created':
+      return 'Planning work'
+    case 'task.updated':
+      return event.title ? `Updating ${event.title}` : 'Updating task list'
+    case 'approval.required':
+      return 'Waiting for approval'
+    case 'reasoning.summary':
+      return 'Reasoning summary available'
+    case 'heartbeat':
+      return 'Still polling run'
+    case 'run.completed':
+      return 'Finalising response'
+    case 'run.failed':
+      return 'Run failed'
+    default:
+      return event.activity ?? event.preview ?? 'Working'
+  }
+}
+
+function currentActivity(events: ChatEvent[], elapsed: number): { label: string; detail?: string } {
+  const meaningful = events.filter((event) => event.event !== 'assistant.text_delta')
+  const latest = meaningful.at(-1) ?? events.at(-1)
+  if (!latest) {
+    return elapsed >= 90
+      ? { label: 'No event for 90s', detail: 'Still polling run...' }
+      : { label: 'Planning work', detail: 'Waiting for the first agent event...' }
+  }
+  const timestamp = latest.timestamp && latest.timestamp > 10_000_000_000
+    ? latest.timestamp / 1000
+    : latest.timestamp
+  const age = timestamp ? Math.max(0, Math.floor(Date.now() / 1000 - timestamp)) : 0
+  if (age >= 90) return { label: 'No event for 90s', detail: 'Still polling run...' }
+  return {
+    label: eventLabel(latest),
+    detail: latest.tool ?? latest.preview,
+  }
+}
+
+function taskRows(events: ChatEvent[]): Array<{ key: string; title: string; status: string }> {
+  const rows = new Map<string, { key: string; title: string; status: string }>()
+  for (const event of events) {
+    if (event.event !== 'task.created' && event.event !== 'task.updated') continue
+    const todos = Array.isArray(event.todos) ? event.todos : []
+    if (todos.length > 0) {
+      todos.forEach((todo, index) => {
+        const record = todo && typeof todo === 'object' ? todo as Record<string, unknown> : {}
+        const title = typeof record.content === 'string'
+          ? record.content
+          : typeof record.title === 'string'
+            ? record.title
+            : `Task ${index + 1}`
+        const status = typeof record.status === 'string' ? record.status : 'pending'
+        rows.set(`${index}:${title}`, { key: `${index}:${title}`, title, status })
+      })
+      continue
+    }
+    const title = event.title ?? event.preview
+    if (!title) continue
+    rows.set(title, { key: title, title, status: event.status ?? 'in_progress' })
+  }
+  return Array.from(rows.values()).slice(0, 6)
+}
+
+function reasoningSummary(events: ChatEvent[]): string | null {
+  const event = [...events].reverse().find((item) => item.event === 'reasoning.summary' && (item.text || item.preview))
+  return event?.text ?? event?.preview ?? null
+}
+
 function isImageAttachment(attachment: ConversationAttachment): boolean {
   return attachment.contentType.toLowerCase().startsWith('image/')
 }
@@ -150,6 +226,9 @@ export default function MessageBubble({
   const displayEvents: ChatEvent[] = liveEvents.length
     ? liveEvents
     : ((m.events ?? []) as ChatEvent[])
+  const activity = currentActivity(displayEvents, elapsed)
+  const tasks = taskRows(displayEvents)
+  const safeReasoning = reasoningSummary(displayEvents)
   const attachments = m.attachments ?? []
   const attachmentList = attachments.length > 0 ? (
     <div className="mt-2 grid gap-2">
@@ -274,25 +353,71 @@ export default function MessageBubble({
         {/* Live events (while pending/streaming/waiting) */}
         {(isPending || isWaiting) && (
           <div className="mb-1 space-y-1">
-            {/* Elapsed timer */}
-            <div className="flex items-center gap-2 text-[10px] text-on-surface-variant/60 px-1">
-              <span className="inline-flex gap-0.5">
-                <span className="animate-bounce [animation-delay:0ms]">·</span>
-                <span className="animate-bounce [animation-delay:150ms]">·</span>
-                <span className="animate-bounce [animation-delay:300ms]">·</span>
-              </span>
-              {elapsed > 0 && <span>{elapsed}s</span>}
-              {elapsed > 60 && <span className="text-amber-400/70">still working…</span>}
+            <div className="rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 text-[10px] font-label uppercase tracking-wide text-on-surface-variant">
+                    <span className="inline-flex gap-0.5 text-primary">
+                      <span className="animate-bounce [animation-delay:0ms]">·</span>
+                      <span className="animate-bounce [animation-delay:150ms]">·</span>
+                      <span className="animate-bounce [animation-delay:300ms]">·</span>
+                    </span>
+                    Current activity
+                  </div>
+                  <p className="mt-1 truncate text-xs font-medium text-on-surface">
+                    {activity.label}
+                  </p>
+                  {activity.detail && (
+                    <p className="mt-0.5 truncate text-[11px] text-on-surface-variant">
+                      {activity.detail}
+                    </p>
+                  )}
+                </div>
+                {elapsed > 0 && (
+                  <span className="shrink-0 rounded bg-black/20 px-1.5 py-0.5 font-mono text-[10px] text-on-surface-variant">
+                    {elapsed}s
+                  </span>
+                )}
+              </div>
+
+              {tasks.length > 0 && (
+                <div className="mt-2 space-y-1 border-t border-white/10 pt-2">
+                  {tasks.map((task) => {
+                    const done = /done|completed|complete/i.test(task.status)
+                    const active = /progress|doing|active|running/i.test(task.status)
+                    return (
+                      <div key={task.key} className="flex items-center gap-2 text-[11px] text-on-surface-variant">
+                        <span className={[
+                          'material-symbols-outlined text-[13px]',
+                          done ? 'text-emerald-300' : active ? 'text-primary' : 'text-on-surface-variant/60',
+                        ].join(' ')}>
+                          {done ? 'check_circle' : active ? 'radio_button_checked' : 'radio_button_unchecked'}
+                        </span>
+                        <span className="min-w-0 flex-1 truncate">{task.title}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+
+              {safeReasoning && (
+                <details className="mt-2 border-t border-white/10 pt-2 text-[11px] text-on-surface-variant">
+                  <summary className="cursor-pointer select-none text-on-surface">Reasoning summary</summary>
+                  <p className="mt-1 whitespace-pre-wrap leading-relaxed">{safeReasoning}</p>
+                </details>
+              )}
             </div>
             {displayEvents.slice(-6).map((ev, i) => (
               <div
                 key={i}
                 className="flex items-baseline gap-2 rounded-md bg-[var(--color-card,rgba(255,255,255,0.03))] px-2 py-1 text-xs text-on-surface-variant"
               >
-                <span className="material-symbols-outlined text-[12px] text-primary/70 shrink-0">build</span>
+                <span className="material-symbols-outlined text-[12px] text-primary/70 shrink-0">
+                  {ev.event === 'assistant.text_delta' ? 'edit_note' : ev.event === 'heartbeat' ? 'sync' : 'build'}
+                </span>
                 {ev.tool && <span className="text-primary font-mono shrink-0">{ev.tool}</span>}
                 <span className="font-mono opacity-50 shrink-0">{ev.event ?? 'event'}</span>
-                {ev.preview && <span className="truncate opacity-70">{ev.preview}</span>}
+                {(ev.preview || ev.delta) && <span className="truncate opacity-70">{ev.preview ?? ev.delta}</span>}
               </div>
             ))}
             {onStopRun && m.runId && (
@@ -349,7 +474,7 @@ export default function MessageBubble({
           }
         >
           {isPending && !m.content && (
-            <span className="opacity-40 italic text-xs">Thinking…</span>
+            <span className="opacity-40 italic text-xs">Waiting for agent activity...</span>
           )}
           {isWaiting && !m.content && (
             <span className="opacity-70 italic">Paused — awaiting tool approval…</span>

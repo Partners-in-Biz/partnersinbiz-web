@@ -326,6 +326,15 @@ export default function UnifiedChat({
             ...prev,
             [msgId]: [...(prev[msgId] ?? []), data],
           }))
+          if (data.event === 'assistant.text_delta' && data.delta) {
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === msgId
+                  ? { ...m, status: 'streaming', content: `${m.content ?? ''}${data.delta}` }
+                  : m,
+              ),
+            )
+          }
         } catch { /* ignore parse errors */ }
       }
       es.onerror = () => {

@@ -9,6 +9,7 @@ import { withAuth } from '@/lib/api/auth'
 import { apiError } from '@/lib/api/response'
 import { callAgentStream } from '@/lib/agents/team'
 import { isValidAgentId, type AgentId } from '@/lib/agents/types'
+import { createNormalizedHermesSseStream } from '@/lib/hermes/progress-events'
 
 export const dynamic = 'force-dynamic'
 
@@ -24,19 +25,7 @@ export const GET = withAuth('admin', async (_req: NextRequest, _user, ctx) => {
       return apiError(`Agent gateway returned ${upstream.status}`, 502)
     }
 
-    const reader = upstream.body.getReader()
-    const stream = new ReadableStream({
-      async pull(controller) {
-        try {
-          const { done, value } = await reader.read()
-          if (done) { controller.close(); return }
-          controller.enqueue(value)
-        } catch (err) {
-          controller.error(err)
-        }
-      },
-      cancel() { reader.cancel() },
-    })
+    const stream = createNormalizedHermesSseStream(upstream.body, { runId })
 
     return new Response(stream, {
       status: 200,

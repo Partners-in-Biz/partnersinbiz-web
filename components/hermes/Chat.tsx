@@ -157,6 +157,15 @@ export default function HermesChat({ orgId, profileEnabled, projectId, projectNa
         try {
           const ev: ChatEvent = JSON.parse(e.data)
           setLiveEvents((prev) => ({ ...prev, [msgId]: [...(prev[msgId] || []), ev] }))
+          if (ev.event === 'assistant.text_delta' && ev.delta) {
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === msgId
+                  ? { ...m, status: 'streaming', content: `${m.content ?? ''}${ev.delta}` }
+                  : m,
+              ),
+            )
+          }
         } catch {}
       }
       es.onerror = () => {
