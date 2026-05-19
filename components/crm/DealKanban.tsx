@@ -64,7 +64,7 @@ function DealCard({ deal, stageColor = '#6b7280' }: DealCardProps) {
           </span>
           {deal.contactId && (
             <Link
-              href={`/portal/crm/contacts/${deal.contactId}`}
+              href={`/portal/contacts/${deal.contactId}`}
               onClick={e => e.stopPropagation()}
               className="text-[10px] font-label px-2 py-0.5 rounded-full truncate max-w-[120px]"
               style={{ background: 'var(--color-surface-container)', color: 'var(--color-on-surface-variant)' }}

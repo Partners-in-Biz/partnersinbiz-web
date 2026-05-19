@@ -483,7 +483,7 @@ export default function DealsPage() {
                       <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
                         {deal.contactId ? (
                           <a
-                            href={`/portal/crm/contacts/${deal.contactId}`}
+                            href={`/portal/contacts/${deal.contactId}`}
                             className="text-xs text-[var(--color-accent-v2)] hover:underline"
                           >
                             View
