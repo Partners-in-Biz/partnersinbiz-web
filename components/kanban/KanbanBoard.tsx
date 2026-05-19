@@ -216,9 +216,9 @@ function TaskCard({
             </span>
           )}
         </div>
-        <div className="flex items-center gap-1 shrink-0">
+        <div className="flex items-center gap-2 shrink-0">
           {attachmentCount > 0 && (
-            <span className="inline-flex items-center gap-0.5">
+            <span className="inline-flex items-center gap-1">
               <span className="material-symbols-outlined text-[14px]">
                 {kind === 'video' ? 'movie' : kind === 'image' ? 'image' : 'attach_file'}
               </span>
@@ -230,7 +230,7 @@ function TaskCard({
           ))}
           {peopleIds.length > 3 && <span>+{peopleIds.length - 3}</span>}
           {task.assigneeAgentId && (
-            <span className="inline-flex items-center gap-1">
+            <span className="inline-flex items-center gap-1.5">
               <span
                 title={assignedAgent?.name || task.assigneeAgentId}
                 className={`inline-flex h-5 w-5 items-center justify-center rounded-full border border-[var(--color-card-border)] text-white ${AGENT_DEFAULT_COLOR[task.assigneeAgentId] ?? 'bg-white/40'}`}
