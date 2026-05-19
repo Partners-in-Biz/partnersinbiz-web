@@ -6,7 +6,13 @@
  */
 import { FieldValue, Timestamp } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
-import { toPlatformType, resolveProvider, refreshAccountToken } from '@/lib/social/account-resolver'
+import {
+  isTokenExpiredError,
+  markAccountTokenExpired,
+  refreshAccountToken,
+  resolveProvider,
+  toPlatformType,
+} from '@/lib/social/account-resolver'
 import type { SocialPlatformType } from '@/lib/social/providers'
 import { hasFinalApproval } from '@/lib/social/scheduling'
 import crypto from 'crypto'
@@ -177,6 +183,9 @@ export async function processQueue(): Promise<QueueProcessResult> {
       result.processed++
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error'
+      if (accountId && isTokenExpiredError(message)) {
+        await markAccountTokenExpired(accountId, message).catch(() => {})
+      }
       const attempts = (entry.attempts ?? 0) + 1
       const maxAttempts = entry.maxAttempts ?? 5
 

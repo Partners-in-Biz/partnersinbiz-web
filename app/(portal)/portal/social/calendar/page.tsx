@@ -30,6 +30,8 @@ interface SocialPost {
   scheduledFor?: SerializableTimestamp
   scheduledAt?: SerializableTimestamp
   status: SocialPostStatus
+  error?: string | null
+  externalId?: string | null
   category?: string
   tags?: string[]
   media?: Array<{
@@ -149,6 +151,11 @@ function formatDateTime(date: Date) {
   })
 }
 
+function toDatetimeLocalValue(date: Date) {
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000)
+  return local.toISOString().slice(0, 16)
+}
+
 function PlatformIcon({ platform }: { platform: string }) {
   const cfg = PLATFORM_ICONS[platform.toLowerCase()]
   if (!cfg) return null
@@ -183,9 +190,79 @@ function PostChip({ post, onSelect }: { post: SocialPost; onSelect: (post: Socia
   )
 }
 
-function PostPanel({ post, onClose }: { post: SocialPost; onClose: () => void }) {
+function PostPanel({
+  post,
+  onClose,
+  onPostUpdated,
+}: {
+  post: SocialPost
+  onClose: () => void
+  onPostUpdated: (post: SocialPost) => void
+}) {
   const scheduledDate = getScheduledDate(post)
   const platforms = getPostPlatforms(post)
+  const [rescheduleValue, setRescheduleValue] = useState(() => toDatetimeLocalValue(scheduledDate ?? new Date()))
+  const [busyAction, setBusyAction] = useState<'reschedule' | 'publish' | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
+  const [actionMessage, setActionMessage] = useState<string | null>(null)
+  const canAct = post.status !== 'published' && post.status !== 'cancelled'
+
+  async function handleReschedule() {
+    setBusyAction('reschedule')
+    setActionError(null)
+    setActionMessage(null)
+    try {
+      const scheduledAt = new Date(rescheduleValue).toISOString()
+      const res = await fetch(`/api/v1/portal/social/posts/${post.id}/reschedule`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scheduledAt }),
+      })
+      const body = await res.json().catch(() => null)
+      if (!res.ok) throw new Error(body?.error ?? 'Reschedule failed')
+      const nextPost = {
+        ...post,
+        status: 'scheduled' as SocialPostStatus,
+        scheduledAt,
+        scheduledFor: scheduledAt,
+        error: null,
+      }
+      onPostUpdated(nextPost)
+      setActionMessage('Post rescheduled.')
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Reschedule failed')
+    } finally {
+      setBusyAction(null)
+    }
+  }
+
+  async function handlePublishNow() {
+    setBusyAction('publish')
+    setActionError(null)
+    setActionMessage(null)
+    try {
+      const res = await fetch(`/api/v1/portal/social/posts/${post.id}/publish-now`, {
+        method: 'POST',
+      })
+      const body = await res.json().catch(() => null)
+      if (!res.ok) throw new Error(body?.error ?? 'Publish failed')
+      const nextPost = {
+        ...post,
+        status: 'published' as SocialPostStatus,
+        error: null,
+        externalId: body?.data?.externalId ?? post.externalId ?? null,
+      }
+      onPostUpdated(nextPost)
+      setActionMessage('Post published.')
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Publish failed'
+      setActionError(message)
+      onPostUpdated({ ...post, status: 'failed', error: message })
+    } finally {
+      setBusyAction(null)
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-40 flex justify-end">
       <button className="absolute inset-0 bg-black/40" type="button" aria-label="Close post details" onClick={onClose} />
@@ -206,6 +283,45 @@ function PostPanel({ post, onClose }: { post: SocialPost; onClose: () => void })
             </span>
           </div>
 
+          {canAct && (
+            <div className="rounded-lg border border-outline-variant bg-surface-container-high p-3">
+              <p className="mb-3 text-xs font-medium uppercase tracking-wide text-on-surface-variant">Actions</p>
+              <div className="space-y-3">
+                <label className="block">
+                  <span className="mb-1 block text-xs text-on-surface-variant">New scheduled time</span>
+                  <input
+                    type="datetime-local"
+                    value={rescheduleValue}
+                    onChange={(event) => setRescheduleValue(event.target.value)}
+                    className="w-full rounded-lg border border-outline-variant bg-surface px-3 py-2 text-sm text-on-surface outline-none transition-colors focus:border-[var(--color-pib-accent)]"
+                  />
+                </label>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={handleReschedule}
+                    disabled={busyAction !== null || !rescheduleValue}
+                    className="btn-pib-secondary justify-center !py-2 !text-xs disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <span className="material-symbols-outlined text-base">event_repeat</span>
+                    {busyAction === 'reschedule' ? 'Rescheduling...' : 'Reschedule'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handlePublishNow}
+                    disabled={busyAction !== null}
+                    className="btn-pib-accent justify-center !py-2 !text-xs disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <span className="material-symbols-outlined text-base">send</span>
+                    {busyAction === 'publish' ? 'Posting...' : 'Post now'}
+                  </button>
+                </div>
+              </div>
+              {actionMessage && <p className="mt-3 text-xs text-green-300">{actionMessage}</p>}
+              {actionError && <p className="mt-3 text-xs leading-relaxed text-red-300">{actionError}</p>}
+            </div>
+          )}
+
           {scheduledDate && (
             <div>
               <p className="mb-1 text-xs font-medium uppercase tracking-wide text-on-surface-variant">Scheduled for</p>
@@ -217,6 +333,15 @@ function PostPanel({ post, onClose }: { post: SocialPost; onClose: () => void })
             <p className="mb-1 text-xs font-medium uppercase tracking-wide text-on-surface-variant">Content</p>
             <p className="whitespace-pre-wrap text-sm leading-relaxed text-on-surface">{getPostText(post)}</p>
           </div>
+
+          {post.error && (
+            <div>
+              <p className="mb-1 text-xs font-medium uppercase tracking-wide text-on-surface-variant">Last error</p>
+              <p className="rounded-lg border border-red-500/30 bg-red-950/20 p-3 text-xs leading-relaxed text-red-200">
+                {post.error}
+              </p>
+            </div>
+          )}
 
           {post.media?.length ? (
             <div>
@@ -286,6 +411,11 @@ export default function PortalSocialCalendarPage() {
       return scheduledDate ? isSameDay(scheduledDate, day) : false
     })
 
+  const handlePostUpdated = (updatedPost: SocialPost) => {
+    setPosts((current) => current.map((post) => (post.id === updatedPost.id ? updatedPost : post)))
+    setSelectedPost(updatedPost)
+  }
+
   const goPrev = () => {
     if (viewMode === 'month') {
       if (month === 0) {
@@ -346,7 +476,7 @@ export default function PortalSocialCalendarPage() {
 
   return (
     <div className="space-y-6">
-      {selectedPost && <PostPanel post={selectedPost} onClose={() => setSelectedPost(null)} />}
+      {selectedPost && <PostPanel post={selectedPost} onClose={() => setSelectedPost(null)} onPostUpdated={handlePostUpdated} />}
 
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>

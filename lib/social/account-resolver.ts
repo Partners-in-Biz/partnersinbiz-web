@@ -22,6 +22,23 @@ export interface ResolvedAccount {
   accountId: string | null
 }
 
+export function isTokenExpiredError(message: string): boolean {
+  const normalized = message.toLowerCase()
+  return (
+    normalized.includes('error validating access token') ||
+    normalized.includes('session has expired') ||
+    normalized.includes('oauth') && normalized.includes('code') && normalized.includes('190')
+  )
+}
+
+export async function markAccountTokenExpired(accountId: string, error: string): Promise<void> {
+  await adminDb.collection('social_accounts').doc(accountId).update({
+    status: 'token_expired',
+    lastError: error,
+    updatedAt: FieldValue.serverTimestamp(),
+  })
+}
+
 /** Map provider type to the platform string stored in social_accounts */
 const platformMap: Record<string, string[]> = {
   twitter: ['twitter'],
