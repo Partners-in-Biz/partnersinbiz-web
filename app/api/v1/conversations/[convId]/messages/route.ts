@@ -24,7 +24,7 @@ import { getAgentDecryptedKey } from '@/lib/agents/team'
 import type { HermesProfileLink } from '@/lib/hermes/types'
 import type { ApiUser } from '@/lib/api/types'
 import type { AgentTeamDoc } from '@/lib/agents/types'
-import type { AgentId, Conversation } from '@/lib/conversations/types'
+import type { AgentId, Conversation, ConversationAttachment } from '@/lib/conversations/types'
 
 export const dynamic = 'force-dynamic'
 
@@ -33,6 +33,45 @@ type Params = { params: Promise<{ convId: string }> }
 function canAccess(user: ApiUser, participantUids: string[]): boolean {
   if (user.role === 'admin' || user.role === 'ai') return true
   return participantUids.includes(user.uid)
+}
+
+function sanitizeAttachments(value: unknown): ConversationAttachment[] {
+  if (!Array.isArray(value)) return []
+  return value.slice(0, 5).flatMap((item) => {
+    if (!item || typeof item !== 'object') return []
+    const raw = item as Record<string, unknown>
+    const id = typeof raw.id === 'string' ? raw.id.trim() : ''
+    const name = typeof raw.name === 'string' ? raw.name.trim() : ''
+    const url = typeof raw.url === 'string' ? raw.url.trim() : ''
+    const contentType = typeof raw.contentType === 'string'
+      ? raw.contentType.trim().toLowerCase()
+      : typeof raw.mimeType === 'string'
+        ? raw.mimeType.trim().toLowerCase()
+        : ''
+    const sizeBytes = typeof raw.sizeBytes === 'number'
+      ? raw.sizeBytes
+      : typeof raw.size === 'number'
+        ? raw.size
+        : 0
+    const storagePath = typeof raw.storagePath === 'string' ? raw.storagePath.trim() : ''
+
+    if (!id || !name || !url || !contentType || !Number.isFinite(sizeBytes) || sizeBytes < 0) return []
+    try {
+      const parsed = new URL(url)
+      if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return []
+    } catch {
+      return []
+    }
+
+    return [{
+      id,
+      name,
+      url,
+      contentType,
+      sizeBytes,
+      ...(storagePath ? { storagePath } : {}),
+    }]
+  })
 }
 
 async function buildOrgContext(orgId: string): Promise<string> {
@@ -144,7 +183,8 @@ export const POST = withAuth(
     if (!body || typeof body !== 'object') return apiError('Invalid JSON body', 400)
 
     const content = typeof body.content === 'string' ? body.content.trim() : ''
-    if (!content) return apiError('content is required and must be a non-empty string', 400)
+    const attachments = sanitizeAttachments((body as Record<string, unknown>).attachments)
+    if (!content && attachments.length === 0) return apiError('content or attachments are required', 400)
 
     // Resolve author display name from Firestore
     let authorDisplayName = user.uid
@@ -162,6 +202,7 @@ export const POST = withAuth(
       conversationId: convId,
       role: 'user',
       content,
+      ...(attachments.length > 0 ? { attachments } : {}),
       authorKind: 'user',
       authorId: user.uid,
       authorDisplayName,
@@ -169,7 +210,8 @@ export const POST = withAuth(
     })
 
     // Update the conversation's denorm fields
-    await touchConversation(convId, content, 'user')
+    const preview = content || attachments.map((attachment) => attachment.name).join(', ')
+    await touchConversation(convId, preview, 'user')
 
     // Phase 2: dispatch a Hermes run. Multi-agent conversations route via Pip.
     const dispatchAgentId = await resolveDispatchAgentId(conversation)
@@ -201,7 +243,10 @@ export const POST = withAuth(
       const orgContext = await buildOrgContext(conversation.orgId)
       const convContext = buildConversationContext(conversation, authorDisplayName)
       const orchestrationContext = buildOrchestrationContext(conversation, agentId)
-      const hermesInput = orgContext + convContext + orchestrationContext + content
+      const attachmentContext = attachments.length > 0
+        ? `\n\n[Attachments]\n${attachments.map((attachment) => `- ${attachment.name}: ${attachment.url} (${attachment.contentType}, ${attachment.sizeBytes} bytes)`).join('\n')}`
+        : ''
+      const hermesInput = orgContext + convContext + orchestrationContext + content + attachmentContext
 
       // Create pending assistant message first
       const assistantMessage = await createMessage(convId, {

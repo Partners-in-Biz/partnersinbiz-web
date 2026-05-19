@@ -2,7 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ChatEvent } from '@/lib/hermes/types'
-import MessageBubble, { type ConversationMessage } from './MessageBubble'
+import MessageBubble, { type ConversationAttachment, type ConversationMessage } from './MessageBubble'
 import ParticipantBar from './ParticipantBar'
 import ParticipantPicker, { type SelectedParticipant } from './ParticipantPicker'
 import ConversationListItem, { type Conversation } from './ConversationListItem'
@@ -39,6 +39,29 @@ export interface UnifiedChatProps {
 
 const POLL_INTERVAL = 1500
 const HUMAN_CHAT_REFRESH_INTERVAL = 3000
+
+async function uploadConversationAttachment(convId: string, file: File): Promise<ConversationAttachment> {
+  const form = new FormData()
+  form.append('file', file)
+
+  const res = await fetch(`/api/v1/conversations/${convId}/attachments`, {
+    method: 'POST',
+    body: form,
+  })
+  const body = await res.json().catch(() => ({}))
+  if (!res.ok || !body.data?.url) {
+    throw new Error(body.error || `Upload failed: ${file.name}`)
+  }
+
+  return {
+    id: body.data.id,
+    name: body.data.name ?? file.name,
+    url: body.data.url,
+    contentType: body.data.contentType ?? file.type,
+    sizeBytes: body.data.sizeBytes ?? file.size,
+    ...(body.data.storagePath ? { storagePath: body.data.storagePath } : {}),
+  }
+}
 
 function tsSeconds(ts: ConversationMessage['createdAt']): number {
   if (!ts) return 0
@@ -615,10 +638,16 @@ export default function UnifiedChat({
           setMobilePane('conversation')
         }
 
-        // Build content — append attachment filenames as context notes
+        const uploadedAttachments = attachments.length > 0
+          ? await Promise.all(attachments.map((file) => uploadConversationAttachment(convId!, file)))
+          : []
+
+        // Build content: keep file names in the text preview, store URLs separately.
         let content = input
-        if (attachments.length > 0) {
-          const attNote = attachments.map((f) => `📎 ${f.name} (${(f.size / 1024).toFixed(1)} KB)`).join('\n')
+        if (uploadedAttachments.length > 0) {
+          const attNote = uploadedAttachments
+            .map((attachment) => `Attachment: ${attachment.name} (${(attachment.sizeBytes / 1024).toFixed(1)} KB)`)
+            .join('\n')
           content = content.trim() ? `${content}\n\n${attNote}` : attNote
         }
         setInput('')
@@ -637,6 +666,7 @@ export default function UnifiedChat({
           authorKind: 'user',
           authorId: currentUserUid,
           authorDisplayName: currentUserDisplayName,
+          ...(uploadedAttachments.length > 0 ? { attachments: uploadedAttachments } : {}),
           status: 'completed',
           createdAt: { seconds: nowSec },
         }
@@ -658,7 +688,7 @@ export default function UnifiedChat({
         const res = await fetch(`/api/v1/conversations/${convId}/messages`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ content }),
+          body: JSON.stringify({ content, attachments: uploadedAttachments }),
         })
         const body = await res.json()
         if (!res.ok) throw new Error(body.error ?? 'Send failed')

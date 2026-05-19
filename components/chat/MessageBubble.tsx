@@ -1,5 +1,7 @@
 'use client'
 
+/* eslint-disable @next/next/no-img-element -- Conversation attachments use arbitrary Firebase Storage URLs. */
+
 import { useEffect, useState } from 'react'
 import type { ChatEvent } from '@/lib/hermes/types'
 
@@ -9,6 +11,7 @@ export interface ConversationMessage {
   conversationId: string
   role: string
   content: string
+  attachments?: ConversationAttachment[]
   runId?: string
   status?: string
   error?: string
@@ -18,6 +21,15 @@ export interface ConversationMessage {
   authorId: string
   authorDisplayName: string
   createdAt?: { seconds?: number; _seconds?: number } | string
+}
+
+export interface ConversationAttachment {
+  id: string
+  name: string
+  url: string
+  contentType: string
+  sizeBytes: number
+  storagePath?: string
 }
 
 // colorKey → tailwind background + text classes
@@ -95,6 +107,16 @@ function summarizeEvents(events: ChatEvent[]): string {
   return joined.charAt(0).toUpperCase() + joined.slice(1)
 }
 
+function isImageAttachment(attachment: ConversationAttachment): boolean {
+  return attachment.contentType.toLowerCase().startsWith('image/')
+}
+
+function formatBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) return ''
+  if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`
+  return `${Math.max(1, Math.round(bytes / 1024))} KB`
+}
+
 export default function MessageBubble({
   message: m,
   currentUserUid,
@@ -103,6 +125,7 @@ export default function MessageBubble({
   liveEvents = [],
   onStopRun,
 }: MessageBubbleProps) {
+  const [previewAttachment, setPreviewAttachment] = useState<ConversationAttachment | null>(null)
   const isMine = m.authorId === currentUserUid
   const isTool = m.role === 'tool'
   const isPending = m.status === 'pending' || m.status === 'streaming'
@@ -127,17 +150,96 @@ export default function MessageBubble({
   const displayEvents: ChatEvent[] = liveEvents.length
     ? liveEvents
     : ((m.events ?? []) as ChatEvent[])
+  const attachments = m.attachments ?? []
+  const attachmentList = attachments.length > 0 ? (
+    <div className="mt-2 grid gap-2">
+      {attachments.map((attachment) => {
+        const image = isImageAttachment(attachment)
+        const size = formatBytes(attachment.sizeBytes)
+        if (image) {
+          return (
+            <button
+              key={attachment.id}
+              type="button"
+              aria-label={`Open ${attachment.name}`}
+              onClick={() => setPreviewAttachment(attachment)}
+              className="group relative block overflow-hidden rounded-xl border border-white/15 bg-black/20 text-left transition hover:border-primary/70 focus:outline-none focus:ring-2 focus:ring-primary/60"
+            >
+              <img
+                src={attachment.url}
+                alt={attachment.name}
+                className="max-h-52 w-full min-w-[220px] object-cover"
+              />
+              <span className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-3 bg-black/70 px-3 py-2 text-xs text-white opacity-0 transition group-hover:opacity-100 group-focus:opacity-100">
+                <span className="min-w-0 truncate">{attachment.name}</span>
+                {size && <span className="shrink-0 text-white/70">{size}</span>}
+              </span>
+            </button>
+          )
+        }
+
+        return (
+          <a
+            key={attachment.id}
+            href={attachment.url}
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center gap-2 rounded-xl border border-white/15 bg-black/10 px-3 py-2 text-xs transition hover:border-primary/70"
+          >
+            <span className="material-symbols-outlined text-[16px]">attach_file</span>
+            <span className="min-w-0 flex-1 truncate">{attachment.name}</span>
+            {size && <span className="shrink-0 opacity-60">{size}</span>}
+          </a>
+        )
+      })}
+    </div>
+  ) : null
+  const previewDialog = previewAttachment ? (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={previewAttachment.name}
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4"
+      onClick={() => setPreviewAttachment(null)}
+    >
+      <div className="max-h-full max-w-5xl" onClick={(event) => event.stopPropagation()}>
+        <div className="mb-2 flex items-center justify-between gap-3 text-white">
+          <div className="min-w-0">
+            <p className="truncate text-sm font-medium">{previewAttachment.name}</p>
+            <p className="text-xs text-white/60">{formatBytes(previewAttachment.sizeBytes)}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setPreviewAttachment(null)}
+            aria-label="Close image preview"
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20"
+          >
+            <span className="material-symbols-outlined text-[20px]">close</span>
+          </button>
+        </div>
+        <img
+          src={previewAttachment.url}
+          alt={previewAttachment.name}
+          className="max-h-[82vh] max-w-full rounded-lg object-contain"
+        />
+      </div>
+    </div>
+  ) : null
 
   // User's own message — float right, no avatar
   if (isMine) {
     return (
-      <div className="flex justify-end">
-        <div className="max-w-[85%] lg:max-w-[80%]">
-          <div className="rounded-2xl rounded-br-md px-4 py-2.5 text-[15px] lg:text-sm whitespace-pre-wrap bg-[var(--color-card-active,rgba(255,255,255,0.08))] lg:bg-primary lg:text-on-primary text-on-surface">
-            {m.content}
+      <>
+        <div className="flex justify-end">
+          <div className="max-w-[85%] lg:max-w-[80%]">
+            <div className="rounded-2xl rounded-br-md px-4 py-2.5 text-[15px] lg:text-sm whitespace-pre-wrap bg-[var(--color-card-active,rgba(255,255,255,0.08))] lg:bg-primary lg:text-on-primary text-on-surface">
+              {m.content}
+              {attachmentList}
+            </div>
           </div>
         </div>
-      </div>
+        {previewDialog}
+      </>
     )
   }
 
@@ -253,8 +355,10 @@ export default function MessageBubble({
             <span className="opacity-70 italic">Paused — awaiting tool approval…</span>
           )}
           {m.content || (isFailed && m.error) || null}
+          {attachmentList}
         </div>
       </div>
+      {previewDialog}
     </div>
   )
 }

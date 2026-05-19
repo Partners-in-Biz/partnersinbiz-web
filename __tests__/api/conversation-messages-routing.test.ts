@@ -104,6 +104,24 @@ function req() {
   })
 }
 
+function reqWithAttachments() {
+  return new NextRequest('http://localhost/api/v1/conversations/conv-1/messages', {
+    method: 'POST',
+    body: JSON.stringify({
+      content: 'image',
+      attachments: [
+        {
+          id: 'upload-1',
+          name: 'Screenshot.png',
+          url: 'https://cdn.example.com/screenshot.png',
+          contentType: 'image/png',
+          sizeBytes: 1234,
+        },
+      ],
+    }),
+  })
+}
+
 async function readJson(res: Response) {
   return JSON.parse(await res.text())
 }
@@ -152,5 +170,34 @@ describe('unified conversation message routing', () => {
     expect(body.data.assistantMessage.id).toBe('assistant-1')
     expect(body.data.runId).toBe('run-1')
     expect(body.data.dispatchAgentId).toBe('pip')
+  })
+
+  it('stores validated message attachments with the user message', async () => {
+    mockGetConversation.mockResolvedValue({
+      id: 'conv-1',
+      orgId: 'pib-platform-owner',
+      participantUids: ['client-1', 'admin-1'],
+      participantAgentIds: [],
+      participants: [
+        { kind: 'user', uid: 'client-1', role: 'client', displayName: 'Client User' },
+        { kind: 'user', uid: 'admin-1', role: 'admin', displayName: 'Admin User' },
+      ],
+    })
+    const { POST } = await import('@/app/api/v1/conversations/[convId]/messages/route')
+
+    const res = await POST(reqWithAttachments(), { params: Promise.resolve({ convId: 'conv-1' }) })
+
+    expect(res.status).toBe(201)
+    expect(mockCreateMessage).toHaveBeenCalledWith('conv-1', expect.objectContaining({
+      attachments: [
+        {
+          id: 'upload-1',
+          name: 'Screenshot.png',
+          url: 'https://cdn.example.com/screenshot.png',
+          contentType: 'image/png',
+          sizeBytes: 1234,
+        },
+      ],
+    }))
   })
 })

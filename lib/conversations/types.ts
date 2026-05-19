@@ -49,6 +49,15 @@ export type Participant = HumanParticipant | AgentParticipant
 
 export type ConversationScope = 'general' | 'project' | 'task' | 'campaign'
 
+export interface ConversationAttachment {
+  id: string
+  name: string
+  url: string
+  contentType: string
+  sizeBytes: number
+  storagePath?: string
+}
+
 export interface Conversation {
   id: string
   orgId: string
@@ -79,6 +88,7 @@ export interface ConversationMessage {
   conversationId: string
   role: 'user' | 'assistant' | 'system' | 'tool'
   content: string
+  attachments?: ConversationAttachment[]
   runId?: string
   status?: 'pending' | 'streaming' | 'completed' | 'failed' | 'waiting_approval'
   error?: string
