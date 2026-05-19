@@ -34,13 +34,9 @@ export function OrgSwitcher() {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
-  const [recentIds, setRecentIds] = useState<string[]>([])
+  const [recentIds, setRecentIds] = useState<string[]>(() => (typeof window === 'undefined' ? [] : loadRecents()))
   const ref = useRef<HTMLDivElement>(null)
   const searchRef = useRef<HTMLInputElement>(null)
-
-  useEffect(() => {
-    setRecentIds(loadRecents())
-  }, [])
 
   useEffect(() => {
     function handler(e: MouseEvent) {
@@ -55,8 +51,14 @@ export function OrgSwitcher() {
 
   useEffect(() => {
     if (open) setTimeout(() => searchRef.current?.focus(), 50)
-    else setSearch('')
   }, [open])
+
+  function toggleOpen() {
+    setOpen((current) => {
+      if (current) setSearch('')
+      return !current
+    })
+  }
 
   function selectOrg(org: OrganizationSummary) {
     const next = pushRecent(recentIds, org.id)
@@ -70,6 +72,13 @@ export function OrgSwitcher() {
     const orgMatch = pathname.match(/^\/admin\/org\/[^/]+\/([^/]+)/)
     const section = orgMatch ? `/${orgMatch[1]}` : '/dashboard'
     router.push(`/admin/org/${org.slug}${section}`)
+  }
+
+  function selectAllOrgs() {
+    clearOrg()
+    setOpen(false)
+    setSearch('')
+    router.push('/admin/dashboard')
   }
 
   const label = orgName || selectedOrgId || 'All orgs'
@@ -86,7 +95,7 @@ export function OrgSwitcher() {
   return (
     <div ref={ref} className="relative px-3">
       <button
-        onClick={() => setOpen((o) => !o)}
+        onClick={toggleOpen}
         className="w-full flex items-center gap-2.5 px-3 py-2 text-sm bg-[var(--color-pib-surface)] border border-[var(--color-pib-line)] rounded-lg text-[var(--color-pib-text)] hover:border-[var(--color-pib-line-strong)] transition-colors"
         aria-haspopup="listbox"
         aria-expanded={open}
@@ -102,7 +111,7 @@ export function OrgSwitcher() {
         <div className="absolute left-3 right-3 mt-1.5 z-50 bg-[var(--color-pib-surface)] border border-[var(--color-pib-line-strong)] rounded-xl shadow-2xl overflow-hidden">
           {/* All orgs */}
           <button
-            onClick={() => { clearOrg(); setOpen(false); setSearch('') }}
+            onClick={selectAllOrgs}
             className="w-full text-left px-3 py-2.5 text-sm text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.03] transition-colors border-b border-[var(--color-pib-line)] flex items-center gap-2"
           >
             <span className="material-symbols-outlined text-[18px]">grid_view</span>
@@ -170,7 +179,7 @@ export function OrgSwitcher() {
               </button>
             ))}
             {filtered.length === 0 && (
-              <p className="px-3 py-2.5 text-xs text-[var(--color-pib-text-muted)]">No orgs match "{search}"</p>
+              <p className="px-3 py-2.5 text-xs text-[var(--color-pib-text-muted)]">No orgs match &quot;{search}&quot;</p>
             )}
             {contextOrgs.length === 0 && !search && (
               <p className="px-3 py-2.5 text-xs text-[var(--color-pib-text-muted)]">No organisations yet</p>
