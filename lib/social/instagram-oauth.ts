@@ -17,6 +17,12 @@ type ExchangeAttempt =
   | { ok: true; accessToken: string; expiresIn: number }
   | { ok: false; message: string; methodTypeError: boolean }
 
+export type InstagramLongLivedTokenResult = {
+  accessToken: string
+  expiresIn: number | null
+  exchanged: boolean
+}
+
 function normalizeInstagramError(method: 'GET' | 'POST', status: number, body: unknown): string {
   if (
     body &&
@@ -79,13 +85,16 @@ async function attemptInstagramLongLivedExchange(
 export async function exchangeInstagramLongLivedToken(
   shortLivedToken: string,
   clientSecret: string,
-): Promise<{ accessToken: string; expiresIn: number }> {
+): Promise<InstagramLongLivedTokenResult> {
   const getAttempt = await attemptInstagramLongLivedExchange('GET', shortLivedToken, clientSecret)
-  if (getAttempt.ok) return { accessToken: getAttempt.accessToken, expiresIn: getAttempt.expiresIn }
+  if (getAttempt.ok) return { accessToken: getAttempt.accessToken, expiresIn: getAttempt.expiresIn, exchanged: true }
 
   if (getAttempt.methodTypeError) {
     const postAttempt = await attemptInstagramLongLivedExchange('POST', shortLivedToken, clientSecret)
-    if (postAttempt.ok) return { accessToken: postAttempt.accessToken, expiresIn: postAttempt.expiresIn }
+    if (postAttempt.ok) return { accessToken: postAttempt.accessToken, expiresIn: postAttempt.expiresIn, exchanged: true }
+    if (postAttempt.methodTypeError) {
+      return { accessToken: shortLivedToken, expiresIn: null, exchanged: false }
+    }
     throw new Error(
       `Instagram long-lived token exchange failed: GET failed (${getAttempt.message}); POST fallback failed (${postAttempt.message})`,
     )

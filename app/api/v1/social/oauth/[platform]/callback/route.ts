@@ -97,8 +97,9 @@ export async function GET(req: NextRequest) {
       apiKeySecret: clientCreds.clientSecret,
     }
 
-    // Instagram Login returns a short-lived token first. Exchange immediately so
-    // scheduled publishing is not broken by the initial token expiring.
+    // Instagram Login normally returns a short-lived token first. Some Meta app
+    // states reject both documented exchange methods with a method-type error,
+    // but still allow the returned token to identify the account.
     if (platform === 'instagram') {
       const longLived = await exchangeInstagramLongLivedToken(
         tokenResponse.accessToken,
@@ -106,7 +107,9 @@ export async function GET(req: NextRequest) {
       )
       providerCreds.accessToken = longLived.accessToken
       tokenResponse.accessToken = longLived.accessToken
-      tokenResponse.expiresIn = longLived.expiresIn
+      if (longLived.exchanged) {
+        tokenResponse.expiresIn = longLived.expiresIn
+      }
     }
 
     // Threads: exchange short-lived token (1h) for long-lived token (60 days)
@@ -521,18 +524,19 @@ async function fetchAllLinkedInAccounts(accessToken: string): Promise<LinkedInAc
   }
 
   try {
-    // versioned REST API (/rest/ not /v2/) — requires w_organization_social scope
+    // versioned REST API (/rest/ not /v2/) — requires LinkedIn organization admin scope
     const orgAclsRes = await fetch(
       'https://api.linkedin.com/rest/organizationAcls?q=roleAssignee&state=APPROVED&count=10',
       { headers },
     )
     if (orgAclsRes.ok) {
       const orgAcls = await orgAclsRes.json() as {
-        elements?: Array<{ organization: string; role: string; state: string }>
+        elements?: Array<{ organization?: string; organizationTarget?: string; role: string; state: string }>
       }
       const approvedOrgs = orgAcls.elements ?? []
       for (const org of approvedOrgs) {
-        const orgUrn = org.organization
+        const orgUrn = org.organization ?? org.organizationTarget
+        if (!orgUrn) continue
         const orgNumId = orgUrn.split(':').pop()!
         try {
           const orgRes = await fetch(

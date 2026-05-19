@@ -55,7 +55,7 @@ export function getOAuthConfig(platform: SocialPlatformType, options: OAuthOptio
           authUrl: 'https://www.linkedin.com/oauth/v2/authorization',
           tokenUrl: 'https://www.linkedin.com/oauth/v2/accessToken',
           // Dedicated Community Management API app for company-page posting.
-          scopes: ['w_organization_social'],
+          scopes: ['rw_organization_admin', 'w_organization_social_feed'],
         }
       }
       return {

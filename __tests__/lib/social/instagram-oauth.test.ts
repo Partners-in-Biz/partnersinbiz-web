@@ -24,7 +24,7 @@ describe('exchangeInstagramLongLivedToken', () => {
 
     const result = await exchangeInstagramLongLivedToken('IGQV_short', 'secret')
 
-    expect(result).toEqual({ accessToken: 'IGQV_long', expiresIn: 5184000 })
+    expect(result).toEqual({ accessToken: 'IGQV_long', expiresIn: 5184000, exchanged: true })
     expect(global.fetch).toHaveBeenCalledTimes(1)
     const url = (global.fetch as jest.Mock).mock.calls[0][0] as string
     expect(url).toContain('https://graph.instagram.com/access_token?')
@@ -58,7 +58,7 @@ describe('exchangeInstagramLongLivedToken', () => {
 
     const result = await exchangeInstagramLongLivedToken('IGQV_short', 'secret')
 
-    expect(result).toEqual({ accessToken: 'IGQV_long_post', expiresIn: 5184000 })
+    expect(result).toEqual({ accessToken: 'IGQV_long_post', expiresIn: 5184000, exchanged: true })
     expect(global.fetch).toHaveBeenCalledTimes(2)
     expect((global.fetch as jest.Mock).mock.calls[1][0]).toBe('https://graph.instagram.com/access_token')
     expect((global.fetch as jest.Mock).mock.calls[1][1]).toMatchObject({
@@ -88,5 +88,36 @@ describe('exchangeInstagramLongLivedToken', () => {
       /Instagram long-lived token exchange failed: Invalid OAuth access token/,
     )
     expect(global.fetch).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps the original Instagram token when both exchange methods are unsupported', async () => {
+    ;(global.fetch as jest.Mock)
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 400,
+        text: async () => JSON.stringify({
+          error: {
+            message: 'Unsupported request - method type: get',
+            type: 'IGApiException',
+            code: 100,
+          },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 400,
+        text: async () => JSON.stringify({
+          error: {
+            message: 'Unsupported request - method type: post',
+            type: 'IGApiException',
+            code: 100,
+          },
+        }),
+      })
+
+    const result = await exchangeInstagramLongLivedToken('IGQV_short', 'secret')
+
+    expect(result).toEqual({ accessToken: 'IGQV_short', expiresIn: null, exchanged: false })
+    expect(global.fetch).toHaveBeenCalledTimes(2)
   })
 })
