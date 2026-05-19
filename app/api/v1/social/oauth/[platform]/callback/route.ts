@@ -13,6 +13,7 @@ import { Timestamp } from 'firebase-admin/firestore'
 import { getOAuthConfig, getClientCredentials, getCallbackUrl } from '@/lib/social/oauth-config'
 import { encryptTokenBlock } from '@/lib/social/encryption'
 import { getProvider } from '@/lib/social/providers/registry'
+import { exchangeInstagramLongLivedToken } from '@/lib/social/instagram-oauth'
 import { logAudit } from '@/lib/social/audit'
 import type { SocialPlatformType } from '@/lib/social/providers/types'
 
@@ -582,25 +583,6 @@ async function fetchTwitterProfile(accessToken: string) {
       followingCount: d.public_metrics?.following_count,
     },
   }
-}
-
-async function exchangeInstagramLongLivedToken(
-  shortLivedToken: string,
-  clientSecret: string,
-): Promise<{ accessToken: string; expiresIn: number }> {
-  const body = new URLSearchParams({
-    grant_type: 'ig_exchange_token',
-    client_secret: clientSecret,
-    access_token: shortLivedToken,
-  })
-  const res = await fetch('https://graph.instagram.com/access_token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: body.toString(),
-  })
-  if (!res.ok) throw new Error(`Instagram long-lived token exchange failed: ${await res.text()}`)
-  const data = await res.json() as { access_token: string; token_type: string; expires_in: number }
-  return { accessToken: data.access_token, expiresIn: data.expires_in }
 }
 
 async function exchangeThreadsLongLivedToken(
