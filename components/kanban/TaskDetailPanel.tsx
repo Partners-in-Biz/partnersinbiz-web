@@ -756,8 +756,11 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
                           onClick={() => {
                             const base = `/admin/org/${orgSlug}/messages`
                             const qs = new URLSearchParams({ agent: task.assigneeAgentId! })
-                            if (task.agentConversationId) qs.set('convId', task.agentConversationId)
-                            else { qs.set('taskId', task.id); qs.set('taskTitle', String(task.title ?? '')) }
+                            if (task.agentConversationId) {
+                              qs.set('runId', task.agentConversationId)
+                              qs.set('taskId', task.id)
+                              qs.set('taskTitle', String(task.title ?? ''))
+                            } else { qs.set('taskId', task.id); qs.set('taskTitle', String(task.title ?? '')) }
                             router.push(`${base}?${qs.toString()}`)
                           }}
                           className="inline-flex items-center gap-1 text-[10px] font-label uppercase tracking-wide px-2 py-1 rounded bg-[var(--color-accent-v2)]/10 text-[var(--color-accent-v2)] hover:bg-[var(--color-accent-v2)]/20 transition-colors"
@@ -818,7 +821,15 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
                 <span className="h-1.5 w-1.5 rounded-full bg-sky-400 animate-pulse" />
                 <button
                   type="button"
-                  onClick={() => router.push(`/admin/org/${orgSlug}/messages?convId=${task.agentConversationId}`)}
+                  onClick={() => {
+                    const qs = new URLSearchParams({
+                      runId: task.agentConversationId!,
+                      taskId: task.id,
+                      taskTitle: String(task.title ?? ''),
+                    })
+                    if (task.assigneeAgentId) qs.set('agent', task.assigneeAgentId)
+                    router.push(`/admin/org/${orgSlug}/messages?${qs.toString()}`)
+                  }}
                   className="text-[10px] text-sky-400 hover:underline"
                 >
                   Live session →

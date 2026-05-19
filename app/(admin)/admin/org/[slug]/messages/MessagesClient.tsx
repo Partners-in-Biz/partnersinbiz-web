@@ -1,15 +1,43 @@
 'use client'
 
 import UnifiedChat from '@/components/chat/UnifiedChat'
+import AgentRunSession from '@/components/agents/AgentRunSession'
 
 interface MessagesClientProps {
   orgId: string
   uid: string
   displayName: string
+  orgSlug: string
   initialConvId?: string
+  initialAgentId?: string
+  initialRunId?: string
+  initialTaskId?: string
+  initialTaskTitle?: string
 }
 
-export default function MessagesClient({ orgId, uid, displayName, initialConvId }: MessagesClientProps) {
+export default function MessagesClient({
+  orgId,
+  uid,
+  displayName,
+  orgSlug,
+  initialConvId,
+  initialAgentId,
+  initialRunId,
+  initialTaskId,
+  initialTaskTitle,
+}: MessagesClientProps) {
+  if (initialAgentId && initialRunId) {
+    return (
+      <AgentRunSession
+        agentId={initialAgentId}
+        runId={initialRunId}
+        orgSlug={orgSlug}
+        taskId={initialTaskId}
+        taskTitle={initialTaskTitle}
+      />
+    )
+  }
+
   // Mobile: edge-to-edge, fills viewport below the 56px admin topbar.
   // Desktop: keeps the page header and respects main's py-8 (64px) + topbar (56px).
   return (

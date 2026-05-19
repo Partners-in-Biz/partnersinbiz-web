@@ -7,6 +7,7 @@ export interface NavItem {
   label: string
   href: string
   icon: string
+  group?: 'work' | 'data' | 'comms'
   children?: SubLink[]
   activePatterns?: string[]
 }
@@ -14,32 +15,35 @@ export interface NavItem {
 // ── Operator nav ────────────────────────────────────────────────────────────
 
 export const OPERATOR_NAV: NavItem[] = [
-  { label: 'Home',         href: '/admin/dashboard',    icon: 'space_dashboard' },
-  { label: 'Clients',      href: '/admin/clients',      icon: 'groups', activePatterns: ['/admin/organizations'] },
-  { label: 'Pipeline',     href: '/admin/crm/contacts', icon: 'view_kanban', activePatterns: ['/admin/crm'] },
+  { label: 'Home',         href: '/admin/dashboard',    icon: 'space_dashboard', group: 'work' },
+  { label: 'Clients',      href: '/admin/clients',      icon: 'groups', group: 'work', activePatterns: ['/admin/organizations'] },
+  { label: 'Pipeline',     href: '/admin/crm/contacts', icon: 'view_kanban', group: 'work', activePatterns: ['/admin/crm'] },
   {
     label: 'Marketing',
     href: '/admin/marketing',
     icon: 'campaign',
+    group: 'data',
     activePatterns: ['/admin/social', '/admin/campaigns', '/admin/broadcasts', '/admin/email', '/admin/sequences', '/admin/seo', '/admin/capture-sources'],
   },
   {
     label: 'Intelligence',
     href: '/admin/intelligence',
     icon: 'analytics',
+    group: 'data',
     activePatterns: ['/admin/analytics', '/admin/properties', '/admin/reports', '/admin/email-analytics'],
   },
   {
     label: 'Finance',
     href: '/admin/finance',
     icon: 'receipt_long',
+    group: 'comms',
     activePatterns: ['/admin/invoicing', '/admin/quotes'],
   },
-  { label: 'Documents', href: '/admin/documents', icon: 'description' },
-  { label: 'Knowledge', href: '/admin/knowledge', icon: 'menu_book' },
-  { label: 'Support',   href: '/admin/support',   icon: 'support_agent' },
-  { label: 'Agents',   href: '/admin/agents',   icon: 'group_work' },
-  { label: 'Settings', href: '/admin/settings', icon: 'settings', activePatterns: ['/admin/platform-users', '/admin/platform-members'] },
+  { label: 'Documents', href: '/admin/documents', icon: 'description', group: 'work' },
+  { label: 'Knowledge', href: '/admin/knowledge', icon: 'menu_book', group: 'data' },
+  { label: 'Support',   href: '/admin/support',   icon: 'support_agent', group: 'comms' },
+  { label: 'Agents',   href: '/admin/agents',   icon: 'group_work', group: 'comms' },
+  { label: 'Settings', href: '/admin/settings', icon: 'settings', group: 'comms', activePatterns: ['/admin/platform-users', '/admin/platform-members'] },
 ]
 
 export const OPERATOR_NAV_TOPBAR: NavItem[] = [
@@ -98,14 +102,14 @@ export const OPERATOR_NAV_TOPBAR: NavItem[] = [
 
 export function workspaceNav(slug: string): NavItem[] {
   return [
-    { label: 'Overview', href: `/admin/org/${slug}/dashboard`, icon: 'space_dashboard' },
-    { label: 'Projects',  href: `/admin/org/${slug}/projects`,   icon: 'rocket_launch' },
-    { label: 'Documents', href: `/admin/org/${slug}/documents`, icon: 'description' },
-    { label: 'Wiki', href: `/admin/org/${slug}/wiki`, icon: 'menu_book' },
+    { label: 'Overview', href: `/admin/org/${slug}/dashboard`, icon: 'space_dashboard', group: 'work' },
+    { label: 'Projects',  href: `/admin/org/${slug}/projects`,   icon: 'rocket_launch', group: 'work' },
+    { label: 'Documents', href: `/admin/org/${slug}/documents`, icon: 'description', group: 'work' },
     {
       label: 'Marketing',
       href: `/admin/org/${slug}/marketing`,
       icon: 'campaign',
+      group: 'work',
       activePatterns: [
         `/admin/org/${slug}/brand`,
         `/admin/org/${slug}/social`,
@@ -120,15 +124,17 @@ export function workspaceNav(slug: string): NavItem[] {
         '/admin/seo',
       ],
     },
-    { label: 'Messages', href: `/admin/org/${slug}/messages`, icon: 'forum' },
+    { label: 'Messages', href: `/admin/org/${slug}/messages`, icon: 'forum', group: 'work' },
     {
       label: 'Reports',
       href: `/admin/org/${slug}/intelligence`,
       icon: 'analytics',
+      group: 'data',
       activePatterns: [`/admin/org/${slug}/activity`, '/admin/analytics', '/admin/properties', '/admin/reports'],
     },
-    { label: 'Team',     href: `/admin/org/${slug}/team`,     icon: 'groups' },
-    { label: 'Billing',  href: `/admin/org/${slug}/billing`,  icon: 'payments', activePatterns: ['/admin/invoicing', '/admin/quotes'] },
-    { label: 'Settings', href: `/admin/org/${slug}/settings`, icon: 'settings' },
+    { label: 'Wiki', href: `/admin/org/${slug}/wiki`, icon: 'menu_book', group: 'data' },
+    { label: 'Team',     href: `/admin/org/${slug}/team`,     icon: 'groups', group: 'comms' },
+    { label: 'Billing',  href: `/admin/org/${slug}/billing`,  icon: 'payments', group: 'comms', activePatterns: ['/admin/invoicing', '/admin/quotes'] },
+    { label: 'Settings', href: `/admin/org/${slug}/settings`, icon: 'settings', group: 'comms' },
   ]
 }

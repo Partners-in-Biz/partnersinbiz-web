@@ -9,6 +9,18 @@ import GlobalSearch from './GlobalSearch'
 import { useOrg } from '@/lib/contexts/OrgContext'
 import { OPERATOR_NAV, workspaceNav, type NavItem } from './navConfig'
 
+const WORKSPACE_GROUP_LABELS: Record<NonNullable<NavItem['group']>, string> = {
+  work: 'Workspace',
+  data: 'Insights',
+  comms: 'Account',
+}
+
+const OPERATOR_GROUP_LABELS: Record<NonNullable<NavItem['group']>, string> = {
+  work: 'Platform',
+  data: 'Growth',
+  comms: 'Operations',
+}
+
 // ── Sidebar nav item ───────────────────────────────────────────────────────
 
 function isItemActive(item: NavItem, pathname: string) {
@@ -57,11 +69,30 @@ export function AdminSidebar({ open = false, onClose, collapsed = false, onToggl
   const pathname = usePathname()
   const { selectedOrgId, orgs } = useOrg()
 
-  const selectedOrg = orgs.find((o) => o.id === selectedOrgId)
-  const isWorkspaceMode = !!selectedOrgId && !!selectedOrg
+  const routeOrgSlug = pathname.match(/^\/admin\/org\/([^/]+)/)?.[1]
+  const routeOrg = routeOrgSlug ? orgs.find((o) => o.slug === routeOrgSlug) : undefined
+  const selectedOrg = routeOrg ?? orgs.find((o) => o.id === selectedOrgId)
+  const workspaceSlug = routeOrgSlug ?? selectedOrg?.slug
+  const isWorkspaceMode = !!workspaceSlug
 
-  const navItems = isWorkspaceMode ? workspaceNav(selectedOrg.slug) : OPERATOR_NAV
-  const favoriteOrgs = orgs.slice(0, 4)
+  const navItems = isWorkspaceMode ? workspaceNav(workspaceSlug) : OPERATOR_NAV
+  const groupedNav = (['work', 'data', 'comms'] as const).map((group) => ({
+    group,
+    items: navItems.filter((item) => item.group === group),
+  })).filter(({ items }) => items.length > 0)
+  const groupLabels = isWorkspaceMode ? WORKSPACE_GROUP_LABELS : OPERATOR_GROUP_LABELS
+  const navContent = collapsed
+    ? navItems.map((item) => (
+        <NavLink key={item.href} item={item} pathname={pathname} collapsed={collapsed} />
+      ))
+    : groupedNav.map(({ group, items }) => (
+        <div key={group} className="space-y-1 pb-3 last:pb-0">
+          <p className="eyebrow !text-[10px] px-3 mb-2">{groupLabels[group]}</p>
+          {items.map((item) => (
+            <NavLink key={item.href} item={item} pathname={pathname} />
+          ))}
+        </div>
+      ))
 
   useEffect(() => {
     onClose?.()
@@ -103,7 +134,14 @@ export function AdminSidebar({ open = false, onClose, collapsed = false, onToggl
           <Image src="/pib-logo-512.png" alt="Partners in Biz" width={28} height={28} className="rounded-md object-contain shrink-0" />
           {!collapsed && (
             <>
-              <span className="font-display text-lg leading-none">Partners in Biz</span>
+              <div className="flex flex-col min-w-0">
+                <span className="font-display text-lg leading-none">Partners in Biz</span>
+                {isWorkspaceMode && selectedOrg?.name && (
+                  <span className="text-[11px] text-[var(--color-pib-text-muted)] truncate leading-tight mt-1">
+                    {selectedOrg.name}
+                  </span>
+                )}
+              </div>
               <span className={['ml-auto pill !text-[10px] !py-0.5 !px-2', isWorkspaceMode ? 'pill-accent' : ''].join(' ')}>
                 {isWorkspaceMode ? 'Client' : 'Admin'}
               </span>
@@ -144,32 +182,12 @@ export function AdminSidebar({ open = false, onClose, collapsed = false, onToggl
         {/* Navigation */}
         {!collapsed && (
           <div className="px-3 pt-3 pb-1">
-            <p className="eyebrow !text-[9px] px-2 mb-2">Navigation</p>
+            <p className="eyebrow !text-[9px] px-2 mb-2">{isWorkspaceMode ? 'Client view' : 'Navigation'}</p>
           </div>
         )}
         <nav className={['flex-1 space-y-1', collapsed ? 'px-2 pt-3' : 'px-3'].join(' ')}>
-          {navItems.map((item) => (
-            <NavLink key={item.href} item={item} pathname={pathname} collapsed={collapsed} />
-          ))}
+          {navContent}
         </nav>
-
-        {!isWorkspaceMode && !collapsed && favoriteOrgs.length > 0 && (
-          <div className="border-t border-[var(--color-pib-line)] px-3 py-3 space-y-1">
-            <p className="eyebrow !text-[9px] px-2 pb-1">Favorites</p>
-            {favoriteOrgs.map((org) => (
-              <Link
-                key={org.id}
-                href={`/admin/org/${org.slug}/dashboard`}
-                className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.03] transition-colors"
-              >
-                <span className="w-6 h-6 rounded-md bg-[var(--color-pib-surface-2)] border border-[var(--color-pib-line)] flex items-center justify-center text-[10px] font-bold text-[var(--color-pib-text-muted)] shrink-0">
-                  {org.name?.[0]?.toUpperCase() ?? '?'}
-                </span>
-                <span className="truncate">{org.name}</span>
-              </Link>
-            ))}
-          </div>
-        )}
       </aside>
     </>
   )

@@ -12,6 +12,10 @@ export default async function MessagesPage({ params, searchParams }: PageProps) 
   const { slug } = await params
   const sp = await searchParams
   const initialConvId = typeof sp.convId === 'string' ? sp.convId : undefined
+  const initialAgentId = typeof sp.agent === 'string' ? sp.agent : undefined
+  const initialRunId = typeof sp.runId === 'string' ? sp.runId : undefined
+  const initialTaskId = typeof sp.taskId === 'string' ? sp.taskId : undefined
+  const initialTaskTitle = typeof sp.taskTitle === 'string' ? sp.taskTitle : undefined
 
   // Auth — same pattern as WorkspaceLayout
   const cookieStore = await cookies()
@@ -42,7 +46,12 @@ export default async function MessagesPage({ params, searchParams }: PageProps) 
       orgId={orgId}
       uid={uid}
       displayName={displayName}
+      orgSlug={slug}
       initialConvId={initialConvId}
+      initialAgentId={initialAgentId}
+      initialRunId={initialRunId}
+      initialTaskId={initialTaskId}
+      initialTaskTitle={initialTaskTitle}
     />
   )
 }

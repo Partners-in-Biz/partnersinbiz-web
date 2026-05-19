@@ -94,6 +94,38 @@ function memberInitials(member?: TeamMember): string {
     .join('') || '?'
 }
 
+function findMember(members: TeamMember[] | undefined, id: string): TeamMember | undefined {
+  const normalized = id.toLowerCase()
+  return members?.find((member) =>
+    member.userId === id ||
+    member.email?.toLowerCase() === normalized,
+  )
+}
+
+function MemberAvatar({ member, fallbackId }: { member?: TeamMember; fallbackId: string }) {
+  const [imageFailed, setImageFailed] = useState(false)
+  const title = member?.displayName || member?.email || fallbackId
+
+  return (
+    <span
+      title={title}
+      className="-ml-1 first:ml-0 inline-flex h-5 w-5 items-center justify-center overflow-hidden rounded-full border border-[var(--color-card-border)] bg-[var(--color-surface-container)] text-[9px] font-semibold leading-none text-on-surface"
+    >
+      {member?.photoURL && !imageFailed ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={member.photoURL}
+          alt=""
+          className="h-full w-full rounded-full object-cover"
+          onError={() => setImageFailed(true)}
+        />
+      ) : (
+        memberInitials(member)
+      )}
+    </span>
+  )
+}
+
 const AGENT_DEFAULT_COLOR: Record<string, string> = {
   pip: 'bg-violet-400',
   theo: 'bg-sky-400',
@@ -131,6 +163,7 @@ function TaskCard({
   const dueLabel = formatDueDate(task.dueDate)
   const kind = attachmentKind(task)
   const assigneeIds = task.assigneeIds?.length ? task.assigneeIds : task.assigneeId ? [task.assigneeId] : []
+  const peopleIds = Array.from(new Set([...assigneeIds, ...(task.mentionIds ?? [])]))
   const assignedAgent = task.assigneeAgentId ? agents?.find((agent) => agent.agentId === task.assigneeAgentId) : undefined
   const checklistDone = task.checklist?.filter((item) => item.done).length ?? 0
   const checklistTotal = task.checklist?.length ?? 0
@@ -192,31 +225,17 @@ function TaskCard({
               {attachmentCount}
             </span>
           )}
-          {assigneeIds.slice(0, 3).map((id) => {
-            const member = members?.find((m) => m.userId === id)
-            return (
-              <span
-                key={id}
-                title={member?.displayName || member?.email || id}
-                className="-ml-1 first:ml-0 grid h-5 w-5 place-items-center rounded-full border border-[var(--color-card-border)] bg-[var(--color-surface-container)] text-[9px] font-semibold text-on-surface"
-              >
-                {member?.photoURL ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={member.photoURL} alt="" className="h-full w-full rounded-full object-cover" />
-                ) : (
-                  memberInitials(member)
-                )}
-              </span>
-            )
-          })}
-          {assigneeIds.length > 3 && <span>+{assigneeIds.length - 3}</span>}
+          {peopleIds.slice(0, 3).map((id) => (
+            <MemberAvatar key={id} member={findMember(members, id)} fallbackId={id} />
+          ))}
+          {peopleIds.length > 3 && <span>+{peopleIds.length - 3}</span>}
           {task.assigneeAgentId && (
             <span className="inline-flex items-center gap-1">
               <span
                 title={assignedAgent?.name || task.assigneeAgentId}
-                className={`grid h-5 w-5 place-items-center rounded-full border border-[var(--color-card-border)] text-[13px] text-white ${AGENT_DEFAULT_COLOR[task.assigneeAgentId] ?? 'bg-white/40'}`}
+                className={`inline-flex h-5 w-5 items-center justify-center rounded-full border border-[var(--color-card-border)] text-white ${AGENT_DEFAULT_COLOR[task.assigneeAgentId] ?? 'bg-white/40'}`}
               >
-                <span className="material-symbols-outlined text-[13px]">{assignedAgent?.iconKey ?? 'smart_toy'}</span>
+                <span className="material-symbols-outlined block text-[13px] leading-none">{assignedAgent?.iconKey ?? 'smart_toy'}</span>
               </span>
               {task.agentStatus && AGENT_STATUS_STYLE[task.agentStatus] && (
                 <span className={`text-[9px] font-label uppercase tracking-wide px-1.5 py-0.5 rounded ${AGENT_STATUS_STYLE[task.agentStatus].className}`}>
