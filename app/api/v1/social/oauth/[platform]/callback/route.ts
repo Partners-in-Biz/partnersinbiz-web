@@ -91,8 +91,17 @@ export async function GET(req: NextRequest) {
       apiKeySecret: clientCreds.clientSecret,
     }
 
-    // Instagram Business Login tokens are valid immediately from api.instagram.com/oauth/access_token.
-    // The ig_exchange_token endpoint is for the legacy Basic Display API only and is not used here.
+    // Instagram Login returns a short-lived token first. Exchange immediately so
+    // scheduled publishing is not broken by the initial token expiring.
+    if (platform === 'instagram') {
+      const longLived = await exchangeInstagramLongLivedToken(
+        tokenResponse.accessToken,
+        clientCreds.clientSecret,
+      )
+      providerCreds.accessToken = longLived.accessToken
+      tokenResponse.accessToken = longLived.accessToken
+      tokenResponse.expiresIn = longLived.expiresIn
+    }
 
     // Threads: exchange short-lived token (1h) for long-lived token (60 days)
     if (platform === 'threads') {
@@ -169,7 +178,7 @@ export async function GET(req: NextRequest) {
     let profile
     try {
       if (platform === 'instagram') {
-        profile = await fetchInstagramProfile(providerCreds.accessToken)
+        profile = await fetchInstagramProfile(providerCreds.accessToken, tokenResponse.platformAccountId)
       } else if (platform === 'twitter') {
         profile = await fetchTwitterProfile(tokenResponse.accessToken)
       } else {
@@ -179,7 +188,11 @@ export async function GET(req: NextRequest) {
         })
         profile = await provider.getProfile()
       }
-    } catch {
+    } catch (profileErr) {
+      if (platform === 'instagram') {
+        const message = profileErr instanceof Error ? profileErr.message : 'Instagram profile lookup failed'
+        throw new Error(`Instagram connected, but PiB could not identify the account. ${message}`)
+      }
       // Profile fetch failed — store account anyway with minimal info
       profile = {
         platformAccountId: 'unknown',
@@ -291,6 +304,7 @@ interface TokenResponse {
   refreshToken: string | null
   tokenType: string
   expiresIn: number | null
+  platformAccountId?: string
 }
 
 async function exchangeCode(
@@ -357,6 +371,7 @@ async function exchangeCode(
     refreshToken: data.refresh_token ?? data.refreshToken ?? null,
     tokenType: data.token_type ?? 'Bearer',
     expiresIn: data.expires_in ?? data.expiresIn ?? null,
+    platformAccountId: data.user_id !== undefined ? String(data.user_id) : data.userId !== undefined ? String(data.userId) : undefined,
   }
 }
 
@@ -417,16 +432,25 @@ async function fetchAllFacebookAccounts(userAccessToken: string): Promise<Facebo
   return accounts
 }
 
-async function fetchInstagramProfile(accessToken: string) {
+async function fetchInstagramProfile(accessToken: string, platformAccountId?: string) {
   // Fetch minimal fields first; followers_count and profile_picture_url are optional
+  const target = platformAccountId ? encodeURIComponent(platformAccountId) : 'me'
   const res = await fetch(
-    `https://graph.instagram.com/v21.0/me?fields=id,username,name&access_token=${accessToken}`,
+    `https://graph.instagram.com/v21.0/${target}?fields=id,username,account_type,media_count&access_token=${accessToken}`,
   )
   if (!res.ok) throw new Error(`Failed to fetch Instagram profile: ${await res.text()}`)
   const data = await res.json() as {
     id: string
     username: string
-    name?: string
+    account_type?: string
+    media_count?: number
+  }
+  const accountId = data.id || platformAccountId
+  if (!accountId || accountId === 'unknown') {
+    throw new Error('Instagram did not return a usable account id.')
+  }
+  if (!data.username) {
+    throw new Error('Instagram did not return a username for the connected account.')
   }
 
   // Attempt to fetch optional fields separately so a missing permission doesn't break the whole profile
@@ -434,7 +458,7 @@ async function fetchInstagramProfile(accessToken: string) {
   let followersCount: number | undefined
   try {
     const extRes = await fetch(
-      `https://graph.instagram.com/v21.0/me?fields=profile_picture_url,followers_count&access_token=${accessToken}`,
+      `https://graph.instagram.com/v21.0/${target}?fields=profile_picture_url,followers_count&access_token=${accessToken}`,
     )
     if (extRes.ok) {
       const ext = await extRes.json() as { profile_picture_url?: string; followers_count?: number }
@@ -444,13 +468,13 @@ async function fetchInstagramProfile(accessToken: string) {
   } catch { /* optional — ignore */ }
 
   return {
-    platformAccountId: data.id,
-    displayName: data.name ?? data.username,
+    platformAccountId: accountId,
+    displayName: data.username,
     username: data.username,
     avatarUrl,
     profileUrl: `https://www.instagram.com/${data.username}/`,
     accountType: 'business' as const,
-    meta: { followersCount },
+    meta: { accountType: data.account_type, followersCount, mediaCount: data.media_count },
   }
 }
 
