@@ -100,6 +100,23 @@ function buildProviderFromAccount(
   return getProvider(platformType, credentials)
 }
 
+function hasUsablePlatformAccountId(account: FirebaseFirestore.DocumentData): boolean {
+  const value = typeof account.platformAccountId === 'string' ? account.platformAccountId.trim() : ''
+  return value.length > 0 && value !== 'unknown'
+}
+
+function isPublishableAccount(
+  account: FirebaseFirestore.DocumentData,
+  platformNames: string[],
+): boolean {
+  return (
+    account.status === 'active' &&
+    platformNames.includes(account.platform) &&
+    hasUsablePlatformAccountId(account) &&
+    Boolean(account.encryptedTokens)
+  )
+}
+
 /**
  * Find the default active account for a given org + platform.
  * Returns the Firestore doc ID and account data, or null.
@@ -122,7 +139,7 @@ export async function findDefaultAccount(
 
   for (const doc of defaultSnap.docs) {
     const data = doc.data()
-    if (platformNames.includes(data.platform)) {
+    if (isPublishableAccount(data, platformNames)) {
       return { id: doc.id, data }
     }
   }
@@ -137,7 +154,7 @@ export async function findDefaultAccount(
 
   for (const doc of snap.docs) {
     const data = doc.data()
-    if (platformNames.includes(data.platform)) {
+    if (isPublishableAccount(data, platformNames)) {
       return { id: doc.id, data }
     }
   }
@@ -165,6 +182,10 @@ export async function resolveProvider(
     const accountDoc = await adminDb.collection('social_accounts').doc(explicitId).get()
     if (accountDoc.exists && accountDoc.data()?.orgId === orgId) {
       const account = accountDoc.data()!
+      const platformNames = platformMap[platformType] ?? []
+      if (!isPublishableAccount(account, platformNames)) {
+        throw new Error(`Selected ${platformType} account is not publishable. Reconnect it from Social Accounts and try again.`)
+      }
       const provider = buildProviderFromAccount(account, orgId, platformType)
       return { provider, accountId: explicitId }
     }

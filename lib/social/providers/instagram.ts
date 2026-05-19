@@ -46,24 +46,25 @@ export class InstagramProvider extends SocialProvider {
     const mediaUrl = mediaUrls[0]
     const isVideo = this.isVideoUrl(mediaUrl)
 
-    // Step 1: Create media container
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const containerBody: any = {
+    // Step 1: Create media container.
+    // Meta's Instagram endpoints are more reliable with form-encoded POST bodies
+    // than JSON bodies, especially through graph.instagram.com.
+    const containerBody = new URLSearchParams({
       caption: text,
       access_token: this.credentials.accessToken,
-    }
+    })
 
     if (isVideo) {
-      containerBody.video_url = mediaUrl
-      containerBody.media_type = 'REELS'
+      containerBody.set('video_url', mediaUrl)
+      containerBody.set('media_type', 'REELS')
     } else {
-      containerBody.image_url = mediaUrl
+      containerBody.set('image_url', mediaUrl)
     }
 
     const containerResponse = await fetch(`${GRAPH_API_BASE}/${this.igUserId}/media`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(containerBody),
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: containerBody.toString(),
     })
 
     if (!containerResponse.ok) {
@@ -89,23 +90,22 @@ export class InstagramProvider extends SocialProvider {
 
     for (const mediaUrl of mediaUrls) {
       const isVideo = this.isVideoUrl(mediaUrl)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const itemBody: any = {
-        is_carousel_item: true,
+      const itemBody = new URLSearchParams({
+        is_carousel_item: 'true',
         access_token: this.credentials.accessToken,
-      }
+      })
 
       if (isVideo) {
-        itemBody.video_url = mediaUrl
-        itemBody.media_type = 'VIDEO'
+        itemBody.set('video_url', mediaUrl)
+        itemBody.set('media_type', 'VIDEO')
       } else {
-        itemBody.image_url = mediaUrl
+        itemBody.set('image_url', mediaUrl)
       }
 
       const itemResponse = await fetch(`${GRAPH_API_BASE}/${this.igUserId}/media`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(itemBody),
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: itemBody.toString(),
       })
 
       if (!itemResponse.ok) {
@@ -121,13 +121,13 @@ export class InstagramProvider extends SocialProvider {
     // Step 2: Create carousel container
     const carouselResponse = await fetch(`${GRAPH_API_BASE}/${this.igUserId}/media`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
         media_type: 'CAROUSEL',
         caption: text,
-        children: childIds,
+        children: childIds.join(','),
         access_token: this.credentials.accessToken,
-      }),
+      }).toString(),
     })
 
     if (!carouselResponse.ok) {
@@ -150,11 +150,11 @@ export class InstagramProvider extends SocialProvider {
   private async publishContainer(containerId: string): Promise<string> {
     const publishResponse = await fetch(`${GRAPH_API_BASE}/${this.igUserId}/media_publish`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
         creation_id: containerId,
         access_token: this.credentials.accessToken,
-      }),
+      }).toString(),
     })
 
     if (!publishResponse.ok) {
