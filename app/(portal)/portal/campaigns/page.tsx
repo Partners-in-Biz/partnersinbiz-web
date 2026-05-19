@@ -5,6 +5,7 @@ import { adminAuth, adminDb } from '@/lib/firebase/admin'
 import { getBrandKitForOrg } from '@/lib/brand-kit/store'
 import { serializeForClient } from '@/lib/campaigns/serialize'
 import { CampaignRequestPanel } from './CampaignRequestPanel'
+import type { Sequence } from '@/lib/sequences/types'
 
 export const dynamic = 'force-dynamic'
 
@@ -90,6 +91,22 @@ export default async function PortalCampaignsIndex() {
     getBrandKitForOrg(user.orgId),
   ])
 
+  const [sequencesSnap, enrollmentsSnap, emailsSnap] = await Promise.all([
+    adminDb
+      .collection('sequences')
+      .where('orgId', '==', user.orgId)
+      .get(),
+    adminDb
+      .collection('sequence_enrollments')
+      .where('orgId', '==', user.orgId)
+      .get(),
+    adminDb
+      .collection('emails')
+      .where('orgId', '==', user.orgId)
+      .limit(1000)
+      .get(),
+  ])
+
   const allCampaigns = campaignsSnap.docs
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .map((d) => serializeForClient({ id: d.id, ...(d.data() as any) }))
@@ -115,12 +132,84 @@ export default async function PortalCampaignsIndex() {
   const contentCampaigns = allCampaigns.filter(isContentCampaign)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const emailCampaigns = allCampaigns.filter((c: any) => !isContentCampaign(c))
+  const campaignSequenceIds = new Set(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    emailCampaigns.map((c: any) => c.sequenceId).filter(Boolean)
+  )
+
+  const sequenceStats = new Map<
+    string,
+    { enrolled: number; sent: number; delivered: number; opened: number; clicked: number }
+  >()
+  for (const doc of enrollmentsSnap.docs) {
+    const data = doc.data()
+    const sequenceId = typeof data.sequenceId === 'string' ? data.sequenceId : ''
+    if (!sequenceId) continue
+    const stats = sequenceStats.get(sequenceId) ?? {
+      enrolled: 0,
+      sent: 0,
+      delivered: 0,
+      opened: 0,
+      clicked: 0,
+    }
+    stats.enrolled += 1
+    sequenceStats.set(sequenceId, stats)
+  }
+  for (const doc of emailsSnap.docs) {
+    const data = doc.data()
+    const sequenceId = typeof data.sequenceId === 'string' ? data.sequenceId : ''
+    if (!sequenceId) continue
+    const status = typeof data.status === 'string' ? data.status : ''
+    const stats = sequenceStats.get(sequenceId) ?? {
+      enrolled: 0,
+      sent: 0,
+      delivered: 0,
+      opened: 0,
+      clicked: 0,
+    }
+    if (status === 'sent' || status === 'opened' || status === 'clicked' || data.sentAt) stats.sent += 1
+    if ((status === 'sent' || status === 'opened' || status === 'clicked') && !data.bouncedAt) stats.delivered += 1
+    if (status === 'opened' || status === 'clicked' || data.openedAt) stats.opened += 1
+    if (status === 'clicked' || data.clickedAt) stats.clicked += 1
+    sequenceStats.set(sequenceId, stats)
+  }
+
+  const sequencePrograms = sequencesSnap.docs
+    .map((d) => serializeForClient({ ...(d.data() as Sequence), id: d.id }))
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .filter((s: any) => s.deleted !== true && !campaignSequenceIds.has(s.id))
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .map((s: any) => ({
+      ...s,
+      kind: 'sequence',
+      stats: sequenceStats.get(s.id) ?? {
+        enrolled: 0,
+        sent: 0,
+        delivered: 0,
+        opened: 0,
+        clicked: 0,
+      },
+    }))
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .sort((a: any, b: any) => {
+      const at = a.updatedAt ? new Date(a.updatedAt).getTime() : 0
+      const bt = b.updatedAt ? new Date(b.updatedAt).getTime() : 0
+      return bt - at
+    })
+
+  const emailPrograms = [
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ...emailCampaigns.map((c: any) => ({ ...c, kind: 'campaign' })),
+    ...sequencePrograms,
+  ]
 
   // Stats row
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const totalActive = allCampaigns.filter((c: any) => c.status === 'active').length
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     + allBroadcasts.filter((b: any) => b.status === 'sending').length
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    + sequencePrograms.filter((s: any) => s.status === 'active').length
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const awaitingReview = contentCampaigns.filter((c: any) =>
@@ -133,7 +222,7 @@ export default async function PortalCampaignsIndex() {
   let openSum = 0
   let openCount = 0
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  ;[...emailCampaigns, ...allBroadcasts].forEach((x: any) => {
+  ;[...emailPrograms, ...allBroadcasts].forEach((x: any) => {
     const s = x.stats ?? {}
     const delivered = Number(s.delivered ?? 0)
     const opened = Number(s.opened ?? 0)
@@ -208,19 +297,19 @@ export default async function PortalCampaignsIndex() {
         <div className="space-y-4">
           <div className="flex items-baseline justify-between">
             <h3 className="font-headline text-lg font-semibold tracking-tight">
-              Programs <span className="text-[var(--color-pib-text-muted)] font-normal">· {emailCampaigns.length}</span>
+              Programs <span className="text-[var(--color-pib-text-muted)] font-normal">· {emailPrograms.length}</span>
             </h3>
             <p className="text-xs text-[var(--color-pib-text-muted)]">Sequence-driven, ongoing</p>
           </div>
 
-          {emailCampaigns.length === 0 ? (
+          {emailPrograms.length === 0 ? (
             <div className="pib-card p-6 text-sm text-[var(--color-pib-text-muted)] text-center">
               No ongoing email programs yet.
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-              {emailCampaigns.map((c: any) => (
+              {emailPrograms.map((c: any) => (
                 <EmailCampaignCard key={c.id} c={c} />
               ))}
             </div>
@@ -236,7 +325,7 @@ export default async function PortalCampaignsIndex() {
             <p className="text-xs text-[var(--color-pib-text-muted)]">One-off blasts</p>
           </div>
 
-          {allBroadcasts.length === 0 && emailCampaigns.length === 0 ? (
+          {allBroadcasts.length === 0 && emailPrograms.length === 0 ? (
             <EmptyState
               icon="mail"
               title="No email programs yet."
@@ -448,7 +537,7 @@ function EmailCampaignCard({ c }: { c: any }) {
 
   return (
     <Link
-      href={`/portal/campaigns/email/${c.id}`}
+      href={c.kind === 'sequence' ? `/portal/settings/sequences/${c.id}/edit` : `/portal/campaigns/email/${c.id}`}
       className="pib-card pib-card-hover block !p-5"
     >
       <div className="flex items-start justify-between gap-3">

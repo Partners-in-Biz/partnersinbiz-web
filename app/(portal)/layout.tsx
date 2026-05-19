@@ -662,14 +662,6 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
               currentUserDisplayName={profileName || name || email}
               allowAgentParticipants={false}
             />
-            {/* Switch to topbar layout */}
-            <button
-              onClick={toggleLayout}
-              title="Switch to topbar layout"
-              className="hidden md:flex items-center justify-center w-8 h-8 rounded-lg text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.05] transition-colors"
-            >
-              <span className="material-symbols-outlined text-[18px]">top_panel_open</span>
-            </button>
             <SupportDrawer triggerClassName="hidden sm:inline-flex items-center gap-1.5 text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors" />
           </div>
         </header>

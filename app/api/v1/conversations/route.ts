@@ -53,7 +53,7 @@ export const POST = withAuth(
       : null
     const allowedAgentIds = new Set<AgentId>(resolveVisibleAgents(config, callerRole))
     const orgMemberUids = new Set<string>()
-    if (!isPlatformWorkspace(scope.orgId)) {
+    if (callerRole === 'client' || !isPlatformWorkspace(scope.orgId)) {
       const orgDoc = await adminDb.collection('organizations').doc(scope.orgId).get()
       if (!orgDoc.exists) return apiError('Organisation not found', 404)
       const orgData = orgDoc.data() as { members?: Array<{ userId: string }> }

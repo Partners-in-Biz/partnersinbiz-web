@@ -74,7 +74,19 @@ beforeEach(() => {
       }
     }
     if (name === 'organizations') {
-      throw new Error('Platform conversations should not require an organization document')
+      return {
+        doc: (orgId: string) => ({
+          get: async () => ({
+            exists: orgId === 'pib-platform-owner',
+            data: () => ({
+              members: [
+                { userId: 'client-1', role: 'member' },
+                { userId: 'admin-2', role: 'member' },
+              ],
+            }),
+          }),
+        }),
+      }
     }
     throw new Error(`Unexpected collection: ${name}`)
   })
@@ -114,6 +126,29 @@ describe('platform-scoped unified conversations', () => {
 
     expect(res.status).toBe(200)
     expect(mockListConversations).toHaveBeenCalledWith('pib-platform-owner', 'admin-1', 30)
+  })
+
+  it('lets a client start a platform-workspace conversation with listed org members', async () => {
+    mockUser = { uid: 'client-1', role: 'client', orgId: 'pib-platform-owner' }
+    const { POST } = await import('@/app/api/v1/conversations/route')
+
+    const res = await POST(new NextRequest('http://localhost/api/v1/conversations', {
+      method: 'POST',
+      body: JSON.stringify({
+        orgId: 'pib-platform-owner',
+        participants: [{ kind: 'user', uid: 'admin-2' }],
+      }),
+    }))
+
+    expect(res.status).toBe(201)
+    expect(mockCreateConversation).toHaveBeenCalledWith(expect.objectContaining({
+      orgId: 'pib-platform-owner',
+      startedBy: 'client-1',
+      participants: expect.arrayContaining([
+        expect.objectContaining({ kind: 'user', uid: 'client-1' }),
+        expect.objectContaining({ kind: 'user', uid: 'admin-2' }),
+      ]),
+    }))
   })
 
   it('returns platform admins as people for the top-level participant picker', async () => {

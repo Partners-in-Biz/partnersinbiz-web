@@ -38,6 +38,7 @@ export interface UnifiedChatProps {
 }
 
 const POLL_INTERVAL = 1500
+const HUMAN_CHAT_REFRESH_INTERVAL = 3000
 
 function tsSeconds(ts: ConversationMessage['createdAt']): number {
   if (!ts) return 0
@@ -168,8 +169,8 @@ export default function UnifiedChat({
   }, [listQuery, activeId, initialConvId])
 
   // ── Load messages ─────────────────────────────────────────────────────────
-  const loadMessages = useCallback(async (convId: string) => {
-    setLoading(true)
+  const loadMessages = useCallback(async (convId: string, options?: { silent?: boolean }) => {
+    if (!options?.silent) setLoading(true)
     try {
       const res = await fetch(`/api/v1/conversations/${convId}/messages`)
       if (!res.ok) throw new Error(`load messages: ${res.status}`)
@@ -178,7 +179,7 @@ export default function UnifiedChat({
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load messages')
     } finally {
-      setLoading(false)
+      if (!options?.silent) setLoading(false)
     }
   }, [])
 
@@ -188,6 +189,17 @@ export default function UnifiedChat({
   useEffect(() => {
     if (activeId) loadMessages(activeId)
   }, [activeId, loadMessages])
+
+  useEffect(() => {
+    if (!activeId) return
+    if ((activeConversation?.participantAgentIds?.length ?? 0) > 0) return
+
+    const interval = window.setInterval(() => {
+      void loadMessages(activeId, { silent: true })
+    }, HUMAN_CHAT_REFRESH_INTERVAL)
+
+    return () => window.clearInterval(interval)
+  }, [activeConversation?.participantAgentIds?.length, activeId, loadMessages])
 
   // Auto-scroll on new messages
   useEffect(() => {
@@ -547,8 +559,10 @@ export default function UnifiedChat({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       })
-      if (!res.ok) throw new Error(`create conversation: ${res.status}`)
       const body = await res.json()
+      if (!res.ok) {
+        throw new Error(body.error ?? `create conversation: ${res.status}`)
+      }
       const conv: Conversation = body.data?.conversation
       setConversations((prev) => [conv, ...prev])
       setActiveId(conv.id)
@@ -605,6 +619,8 @@ export default function UnifiedChat({
         setInput('')
         setAttachments([])
         const nowSec = Date.now() / 1000
+        const shouldExpectAgentReply =
+          (activeConversation?.participantAgentIds?.length ?? 0) > 0
 
         // Optimistic messages
         const optimisticUser: ConversationMessage = {
@@ -618,18 +634,20 @@ export default function UnifiedChat({
           status: 'completed',
           createdAt: { seconds: nowSec },
         }
-        const optimisticAssistant: ConversationMessage = {
-          id: `tmp-assistant-${Date.now()}`,
-          conversationId: convId,
-          role: 'assistant',
-          content: '',
-          authorKind: 'agent',
-          authorId: 'pending',
-          authorDisplayName: 'Agent',
-          status: 'pending',
-          createdAt: { seconds: nowSec + 0.001 },
-        }
-        setMessages((prev) => [...prev, optimisticUser, optimisticAssistant])
+        const optimisticAgent: ConversationMessage[] = shouldExpectAgentReply
+          ? [{
+              id: `tmp-assistant-${Date.now()}`,
+              conversationId: convId,
+              role: 'assistant',
+              content: '',
+              authorKind: 'agent',
+              authorId: 'pending',
+              authorDisplayName: 'Agent',
+              status: 'pending',
+              createdAt: { seconds: nowSec + 0.001 },
+            }]
+          : []
+        setMessages((prev) => [...prev, optimisticUser, ...optimisticAgent])
 
         const res = await fetch(`/api/v1/conversations/${convId}/messages`, {
           method: 'POST',
@@ -678,6 +696,7 @@ export default function UnifiedChat({
       pollFinalize,
       startEventStream,
       conversations,
+      activeConversation?.participantAgentIds?.length,
     ],
   )
 
@@ -1178,6 +1197,12 @@ export default function UnifiedChat({
                   />
                 </div>
               </div>
+
+              {error && (
+                <div className="rounded-lg border border-red-400/25 bg-red-500/10 px-3 py-2 text-xs text-red-200">
+                  {error}
+                </div>
+              )}
             </div>
 
             {/* Modal footer */}

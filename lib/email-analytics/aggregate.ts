@@ -268,18 +268,38 @@ async function fetchEmailsInRange(orgId: string, range: DateRange): Promise<Emai
 
   const all: Email[] = []
   for (const w of windows) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const snap: any = await (adminDb.collection('emails') as any)
-      .where('orgId', '==', orgId)
-      .where('sentAt', '>=', Timestamp.fromDate(w.from))
-      .where('sentAt', '<', Timestamp.fromDate(w.to))
-      .limit(MAX_EMAILS_PER_QUERY)
-      .get()
-     
-    for (const doc of snap.docs) {
-      const data = doc.data() as Email
-      if (data.deleted === true) continue
-      all.push({ ...data, id: doc.id })
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const snap: any = await (adminDb.collection('emails') as any)
+        .where('orgId', '==', orgId)
+        .where('sentAt', '>=', Timestamp.fromDate(w.from))
+        .where('sentAt', '<', Timestamp.fromDate(w.to))
+        .limit(MAX_EMAILS_PER_QUERY)
+        .get()
+
+      for (const doc of snap.docs) {
+        const data = doc.data() as Email
+        if (data.deleted === true) continue
+        all.push({ ...data, id: doc.id })
+      }
+    } catch {
+      // Some deployed/client workspaces do not have the composite
+      // `emails(orgId, sentAt)` index yet. Fall back to a tenant-only read and
+      // filter by sentAt in memory so analytics still works.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const snap: any = await (adminDb.collection('emails') as any)
+        .where('orgId', '==', orgId)
+        .limit(MAX_EMAILS_PER_QUERY)
+        .get()
+
+      for (const doc of snap.docs) {
+        const data = doc.data() as Email
+        if (data.deleted === true) continue
+        const sentMs = tsToMs(data.sentAt)
+        if (sentMs === null || sentMs < fromMs || sentMs >= toMs) continue
+        all.push({ ...data, id: doc.id })
+      }
+      break
     }
   }
   return all
@@ -1133,7 +1153,6 @@ export async function getBroadcastHeatmap(
   const linksSnap: any = await (adminDb.collection('shortened_links') as any)
     .where('orgId', '==', orgId)
     .get()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const referencedLinks = linksSnap.docs
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .map((d: any) => ({ id: d.id, ...d.data() }))
@@ -1164,7 +1183,6 @@ export async function getBroadcastHeatmap(
     .limit(MAX_EMAILS_PER_QUERY)
     .get()
   const recipientIds = new Set<string>()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   for (const doc of emailsSnap.docs) {
     const e = { id: doc.id, ...doc.data() } as Email
     if (e.deleted === true) continue
@@ -1184,7 +1202,6 @@ export async function getBroadcastHeatmap(
   }
 
   // Pull per-link click subcollection for each referenced shortened link.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   for (const link of referencedLinks) {
     const url = (link.originalUrl as string) ?? ''
     if (!url) continue
@@ -1193,12 +1210,11 @@ export async function getBroadcastHeatmap(
       const clicksSnap: any = await (adminDb
         .collection('shortened_links')
         .doc(link.id)
-        .collection('clicks') as any)
+        .collection('clicks'))
         .where('timestamp', '>=', Timestamp.fromDate(new Date(startMs)))
         .where('timestamp', '<', Timestamp.fromDate(new Date(windowEndMs)))
         .limit(MAX_EMAILS_PER_QUERY)
         .get()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       for (const c of clicksSnap.docs) {
         const data = c.data()
         const cid: string | undefined = data?.contactId
@@ -1223,7 +1239,6 @@ export async function getBroadcastHeatmap(
   // first `<a href>` we find in the body.
   if (perUrl.size === 0 && positions.size > 0) {
     let totalClickedEmails = 0
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     for (const doc of emailsSnap.docs) {
       const e = { id: doc.id, ...doc.data() } as Email
       if (e.deleted === true) continue
