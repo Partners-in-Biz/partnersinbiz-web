@@ -6,6 +6,7 @@ import MessageBubble, { type ConversationAttachment, type ConversationMessage } 
 import ParticipantBar from './ParticipantBar'
 import ParticipantPicker, { type SelectedParticipant } from './ParticipantPicker'
 import ConversationListItem, { type Conversation } from './ConversationListItem'
+import VoiceInputButton from './VoiceInputButton'
 
 type AgentId = 'pip' | 'theo' | 'maya' | 'sage' | 'nora'
 
@@ -536,6 +537,17 @@ export default function UnifiedChat({
       .map((line) => `> ${line}`)
       .join('\n')
     setInput((prev) => (prev.trim() ? `${prev.trimEnd()}\n\n${quoted}\n\n` : `${quoted}\n\n`))
+    requestAnimationFrame(() => {
+      composerRef.current?.focus()
+      const length = composerRef.current?.value.length ?? 0
+      composerRef.current?.setSelectionRange(length, length)
+    })
+  }, [])
+
+  const addVoiceTranscriptToComposer = useCallback((transcript: string) => {
+    const cleaned = transcript.trim()
+    if (!cleaned) return
+    setInput((prev) => (prev.trim() ? `${prev.trimEnd()} ${cleaned}` : cleaned))
     requestAnimationFrame(() => {
       composerRef.current?.focus()
       const length = composerRef.current?.value.length ?? 0
@@ -1211,6 +1223,12 @@ export default function UnifiedChat({
             >
               <span className="material-symbols-outlined text-[20px]">attach_file</span>
             </button>
+
+            <VoiceInputButton
+              disabled={sending || !activeConversation}
+              onTranscript={addVoiceTranscriptToComposer}
+              className="self-end"
+            />
 
             <textarea
               ref={composerRef}
