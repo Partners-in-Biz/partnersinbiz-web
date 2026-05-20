@@ -123,4 +123,39 @@ describe('finalize route', () => {
     expect(body.data.pending).toBe(true)
     expect(mockUpdateMessage).not.toHaveBeenCalled()
   })
+
+  it('marks interrupted Hermes runs as failed with the preserved reason', async () => {
+    mockCallHermesJson.mockResolvedValue({
+      response: { ok: true },
+      data: { status: 'interrupted', error: 'gateway restarted while run was active' },
+    })
+
+    const { POST } = await import(
+      '@/app/api/v1/admin/hermes/profiles/[orgId]/conversations/[convId]/messages/[msgId]/finalize/route'
+    )
+    const res = await POST(
+      makeRequest({ runId: 'run-1', events: [{ event: 'run.interrupted', timestamp: 1000 }] }),
+      { params: Promise.resolve({ orgId: 'org1', convId: 'conv1', msgId: 'msg1' }) },
+    )
+    const body = await res.json()
+
+    expect(body.data.status).toBe('interrupted')
+    expect(mockUpdateMessage).toHaveBeenCalledWith(
+      'conv1', 'msg1',
+      expect.objectContaining({
+        content: 'gateway restarted while run was active',
+        status: 'failed',
+        error: 'gateway restarted while run was active',
+        runId: 'run-1',
+        events: [{ event: 'run.interrupted', timestamp: 1000 }],
+      }),
+    )
+    expect(mockTouchConversation).toHaveBeenCalledWith(
+      'conv1',
+      expect.objectContaining({
+        lastMessagePreview: '[run interrupted] gateway restarted while run was active',
+        lastMessageRole: 'assistant',
+      }),
+    )
+  })
 })
