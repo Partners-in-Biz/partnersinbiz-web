@@ -7,13 +7,15 @@ interface Props {
   delay?: number
   className?: string
   as?: 'div' | 'section' | 'article' | 'li' | 'span'
+  eager?: boolean
 }
 
-export function Reveal({ children, delay = 0, className = '', as: Tag = 'div' }: Props) {
+export function Reveal({ children, delay = 0, className = '', as: Tag = 'div', eager = false }: Props) {
   const ref = useRef<HTMLElement | null>(null)
-  const [shown, setShown] = useState(false)
+  const [shown, setShown] = useState(eager)
 
   useEffect(() => {
+    if (eager) return
     const el = ref.current
     if (!el) return
     const obs = new IntersectionObserver(
@@ -29,7 +31,7 @@ export function Reveal({ children, delay = 0, className = '', as: Tag = 'div' }:
     )
     obs.observe(el)
     return () => obs.disconnect()
-  }, [])
+  }, [eager])
 
   return (
     <Tag

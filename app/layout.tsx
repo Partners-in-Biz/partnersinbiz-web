@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next'
-import { Inter, Space_Grotesk, Geist, Geist_Mono, Instrument_Serif } from 'next/font/google'
+import { Geist, Geist_Mono, Instrument_Serif } from 'next/font/google'
 import Script from 'next/script'
 import { Analytics } from '@vercel/analytics/react'
 import { SITE } from '@/lib/seo/site'
@@ -11,8 +11,6 @@ import { PWAReturnGate } from '@/components/pwa/PWAReturnGate'
 import { ToastProvider } from '@/components/ui/Toast'
 import './globals.css'
 
-const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' })
-const spaceGrotesk = Space_Grotesk({ subsets: ['latin'], variable: '--font-space-grotesk', display: 'swap' })
 const geistSans = Geist({ subsets: ['latin'], variable: '--font-sans', display: 'swap' })
 const geistMono = Geist_Mono({ subsets: ['latin'], variable: '--font-mono', display: 'swap' })
 const instrumentSerif = Instrument_Serif({
@@ -116,7 +114,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
           rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"
+          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap&icon_names=add,arrow_back,arrow_forward,arrow_outward,auto_awesome,autorenew,bolt,calendar_month,chat,check,check_circle,dashboard,delete,event,event_available,expand_more,mail,phone_iphone,public,send,stars,trending_up,tune"
         />
         {process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID && (
           <>
@@ -136,7 +134,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         )}
       </head>
       <body
-        className={`${inter.variable} ${spaceGrotesk.variable} ${geistSans.variable} ${geistMono.variable} ${instrumentSerif.variable} bg-[var(--pib-bg)] text-[var(--pib-text)] font-sans antialiased selection:bg-[var(--pib-accent)] selection:text-black`}
+        className={`${geistSans.variable} ${geistMono.variable} ${instrumentSerif.variable} bg-[var(--pib-bg)] text-[var(--pib-text)] font-sans antialiased selection:bg-[var(--pib-accent)] selection:text-black`}
       >
         <JsonLd data={organizationGraph} />
         <PwaRegistrar />
