@@ -298,6 +298,11 @@ export function buildProjectTaskUpdateData(body: Record<string, unknown>): Paylo
     const agentStatus = cleanAgentStatus(body.agentStatus)
     if (!agentStatus.ok) return agentStatus
     updates.agentStatus = agentStatus.value
+    if (body.columnId === undefined && agentStatus.value === 'done') {
+      updates.columnId = 'done'
+    } else if (body.columnId === undefined && agentStatus.value === 'blocked') {
+      updates.columnId = 'blocked'
+    }
   }
   if (body.agentInput !== undefined) {
     const agentInput = cleanAgentInput(body.agentInput)
