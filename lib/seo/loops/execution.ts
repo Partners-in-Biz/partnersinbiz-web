@@ -2,7 +2,11 @@ import { adminDb } from '@/lib/firebase/admin'
 import { FieldValue } from 'firebase-admin/firestore'
 import type { ApiUser } from '@/lib/api/types'
 import { lastActorFrom } from '@/lib/api/actor'
-import { ensureSeoBlockerHandoff, resolveSeoBlockerHandoff } from '@/lib/seo/blocker-handoff'
+import {
+  ensureSeoBlockerHandoff,
+  ensureSeoQueuedAgentHandoff,
+  resolveSeoBlockerHandoff,
+} from '@/lib/seo/blocker-handoff'
 
 export interface ExecutorResult {
   status: 'done' | 'queued' | 'blocked'
@@ -87,6 +91,11 @@ export async function runExecutionLoopForSprint(
   done: string[]
   queued: string[]
   blocked: { taskId: string; reason: string }[]
+  agentHandoff?: {
+    projectId: string | null
+    projectTaskId: string | null
+    taskIds: string[]
+  } | null
 }> {
   await ensureExecutorsLoaded()
   const sprintSnap = await adminDb.collection('seo_sprints').doc(sprintId).get()
@@ -95,7 +104,16 @@ export async function runExecutionLoopForSprint(
   const data = sprintSnap.data() as any
   const plan = data.todayPlan
   const ids = [...(plan?.due ?? []), ...(plan?.inProgress ?? [])]
-  const out = {
+  const out: {
+    done: string[]
+    queued: string[]
+    blocked: { taskId: string; reason: string }[]
+    agentHandoff?: {
+      projectId: string | null
+      projectTaskId: string | null
+      taskIds: string[]
+    } | null
+  } = {
     done: [] as string[],
     queued: [] as string[],
     blocked: [] as { taskId: string; reason: string }[],
@@ -132,6 +150,14 @@ export async function runExecutionLoopForSprint(
         actor: user,
       })
     }
+  }
+  if (out.queued.length > 0) {
+    const agentHandoff = await ensureSeoQueuedAgentHandoff({
+      sprintId,
+      taskIds: out.queued,
+      actor: user,
+    })
+    if (agentHandoff) out.agentHandoff = agentHandoff
   }
   return out
 }

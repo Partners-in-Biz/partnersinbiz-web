@@ -17,6 +17,7 @@ type SeoSprintRecord = {
   orgId?: string
   siteName?: string
   siteUrl?: string
+  timezone?: string
 }
 
 type AdminRecipient = {
@@ -105,7 +106,7 @@ async function adminRecipientsForOrg(orgId: string): Promise<AdminRecipient[]> {
   return recipients
 }
 
-async function ensureSeoProject(args: {
+export async function ensureSeoProject(args: {
   orgId: string
   sprintId: string
   sprint: SeoSprintRecord
@@ -144,6 +145,179 @@ async function ensureSeoProject(args: {
     sourceSprintId: args.sprintId,
   })
   return ref
+}
+
+function localDateKey(timezone?: string): string {
+  try {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: text(timezone) ?? 'Africa/Johannesburg',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(new Date())
+    const year = parts.find((part) => part.type === 'year')?.value
+    const month = parts.find((part) => part.type === 'month')?.value
+    const day = parts.find((part) => part.type === 'day')?.value
+    if (year && month && day) return `${year}-${month}-${day}`
+  } catch {
+    // Fall back to UTC if a stored sprint timezone is invalid.
+  }
+  return new Date().toISOString().slice(0, 10)
+}
+
+function queuedAgentTaskDescription(args: {
+  sprintId: string
+  sprint: SeoSprintRecord
+  tasks: Array<SeoTaskRecord & { id: string }>
+  runDate: string
+}) {
+  const sprintUrl = `/admin/seo/sprints/${args.sprintId}`
+  const taskLines = args.tasks.map((task, index) => {
+    const label = text(task.title) ?? task.id
+    const taskType = text(task.taskType) ?? 'unknown'
+    return `${index + 1}. ${label} (${task.id}, ${taskType})`
+  })
+
+  return [
+    `Run today's queued SEO work for ${text(args.sprint.siteName) ?? 'this sprint'}.`,
+    '',
+    `Sprint: ${args.sprintId}`,
+    `Run date: ${args.runDate}`,
+    `Site: ${text(args.sprint.siteUrl) ?? 'unknown URL'}`,
+    '',
+    'Queued SEO tasks:',
+    ...taskLines,
+    '',
+    'Instructions:',
+    '- Treat this as the Pip orchestration entrypoint for the SEO sprint run.',
+    '- Complete what can be done directly through the PiB SEO APIs and existing tools.',
+    '- Break work into specialist subtasks only where it is useful.',
+    '- Update the relevant seo_tasks records, artifacts, and notes as work is completed.',
+    '- If a task needs human/client/admin input, create or update a project task blocker and keep the SEO sprint as the client-visible ledger.',
+    '',
+    `Sprint link: ${sprintUrl}`,
+  ].join('\n')
+}
+
+export async function ensureSeoQueuedAgentHandoff(args: {
+  sprintId: string
+  taskIds: string[]
+  actor: ApiUser
+}) {
+  const uniqueTaskIds = Array.from(new Set(args.taskIds.filter((id) => text(id))))
+  if (uniqueTaskIds.length === 0) return null
+
+  const sprintSnap = await adminDb.collection('seo_sprints').doc(args.sprintId).get()
+  if (!sprintSnap.exists) return null
+  const sprint = sprintSnap.data() as SeoSprintRecord
+  const orgId = text(sprint.orgId)
+  if (!orgId) return null
+
+  const taskSnaps = await Promise.all(
+    uniqueTaskIds.map((taskId) => adminDb.collection('seo_tasks').doc(taskId).get())
+  )
+  const tasks = taskSnaps
+    .filter((snap) => snap.exists)
+    .map((snap) => ({ id: snap.id, ...(snap.data() as SeoTaskRecord) }))
+    .filter((task) => text(task.sprintId) === args.sprintId)
+  if (tasks.length === 0) return null
+
+  const projectRef = await ensureSeoProject({ orgId, sprintId: args.sprintId, sprint, actor: args.actor })
+  const runDate = localDateKey(sprint.timezone)
+  const projectTaskRef = projectRef.collection('tasks').doc(`seo-run-${args.sprintId}-${runDate}`)
+  const existingProjectTask = await projectTaskRef.get()
+  const existingProjectTaskData = existingProjectTask.exists
+    ? existingProjectTask.data() as Record<string, unknown>
+    : null
+  const currentAgentStatus = text(existingProjectTaskData?.agentStatus)
+  const shouldQueueAgent = !currentAgentStatus || currentAgentStatus === 'done' || currentAgentStatus === 'blocked'
+  const title = `Pip orchestration: today's SEO run - ${text(sprint.siteName) ?? args.sprintId}`
+  const description = queuedAgentTaskDescription({
+    sprintId: args.sprintId,
+    sprint,
+    tasks,
+    runDate,
+  })
+
+  const projectTaskData: Record<string, unknown> = {
+    orgId,
+    projectId: projectRef.id,
+    columnId: 'in_progress',
+    title,
+    description,
+    priority: 'high',
+    assigneeId: null,
+    assigneeIds: [],
+    mentionIds: [],
+    labels: [
+      'seo',
+      'seo-run',
+      'agent-orchestration',
+      `seo-sprint:${args.sprintId}`,
+      `run-date:${runDate}`,
+    ],
+    checklist: tasks.map((task) => ({
+      id: `seo-${task.id}`,
+      text: text(task.title) ?? task.id,
+      done: false,
+    })),
+    dueDate: null,
+    startDate: null,
+    estimateMinutes: null,
+    order: Date.now(),
+    source: 'seo-run-orchestration',
+    sourceSprintId: args.sprintId,
+    sourceSeoTaskIds: tasks.map((task) => task.id),
+    reporterId: args.actor.uid,
+    createdBy: args.actor.uid,
+    updatedAt: FieldValue.serverTimestamp(),
+    assigneeAgentId: 'pip',
+    agentInput: {
+      spec: description,
+      context: {
+        assignmentMode: 'orchestration',
+        orchestrationMode: 'pip-orchestrator',
+        source: 'seo-sprint-run',
+        sprintId: args.sprintId,
+        orgId,
+        runDate,
+        queuedSeoTaskIds: tasks.map((task) => task.id),
+        requestedAgentIds: ['theo', 'maya', 'sage', 'nora'],
+      },
+      constraints: [
+        'Pip owns orchestration for this SEO sprint run.',
+        'Keep seo_tasks and the sprint progress ledger updated as work is completed.',
+        'Create blocker handoffs for any task that needs human, client, admin, or credential input.',
+      ],
+    },
+  }
+  if (!existingProjectTask.exists) projectTaskData.createdAt = FieldValue.serverTimestamp()
+  if (shouldQueueAgent) projectTaskData.agentStatus = 'pending'
+  await projectTaskRef.set(projectTaskData, { merge: true })
+
+  await adminDb.collection('seo_agent_handoffs').doc(`${args.sprintId}_${runDate}`).set({
+    orgId,
+    sprintId: args.sprintId,
+    runDate,
+    status: shouldQueueAgent ? 'queued' : currentAgentStatus,
+    projectId: projectRef.id,
+    projectTaskId: projectTaskRef.id,
+    seoTaskIds: tasks.map((task) => task.id),
+    updatedAt: FieldValue.serverTimestamp(),
+    createdAt: FieldValue.serverTimestamp(),
+  }, { merge: true })
+
+  await Promise.all(tasks.map((task) => adminDb.collection('seo_tasks').doc(task.id).set({
+    agentProjectId: projectRef.id,
+    agentProjectTaskId: projectTaskRef.id,
+    agentQueuedAt: FieldValue.serverTimestamp(),
+  }, { merge: true })))
+
+  return {
+    projectId: projectRef.id,
+    projectTaskId: projectTaskRef.id,
+    taskIds: tasks.map((task) => task.id),
+  }
 }
 
 export async function ensureSeoBlockerHandoff(args: {
