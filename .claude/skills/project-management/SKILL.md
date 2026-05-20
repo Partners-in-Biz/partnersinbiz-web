@@ -35,6 +35,41 @@ Authorization: Bearer <AI_API_KEY>
 
 Pick the system that fits: use project-nested when a project is the clear container; use standalone for personal todos or deal-linked tasks.
 
+## Cross-app handoff rule
+
+Projects are the canonical task bus whenever work crosses module boundaries, agents,
+Peet, Partners in Biz staff, or client action.
+
+Domain modules still own their own progress records:
+
+- SEO work must update the SEO sprint.
+- Social work must update the campaign/social queue.
+- Ads work must update the ads campaign/ad records.
+- Documents work must update the document/review surface.
+- CRM work must update the CRM record, activity, or automation state.
+
+Projects carry the execution handoff: who needs to do what, by when, what it blocks,
+which agent owns it, and where the evidence lives.
+
+When an agent discovers human work it cannot complete:
+
+1. First update the domain record with the finding, current status, and blocker.
+2. Find the active client/workstream project.
+3. If no suitable project exists, create one with `POST /projects`.
+4. Create a project-nested task with enough context for the assignee to act without
+   reading the whole chat.
+5. Assign or mention the responsible person if their user id is known.
+6. If the responsible person cannot be resolved, leave the task unassigned, add a
+   clear owner prefix in the title (`Peet action:`, `Client action:`, `Team action:`),
+   and include `needs-assignment` in `labels`.
+7. Add labels that tie the ticket back to the source module and record id, for example
+   `seo`, `seo-sprint:<id>`, `ads-campaign:<id>`, `document:<id>`, `crm:<entityId>`.
+8. Link the project task id or URL back into the domain record's notes/blocker field
+   where the API allows it.
+
+If there is no project yet, create it first. Do not leave actionable blockers only in
+the final chat response, repo PR, or wiki.
+
 ## Collaboration primitives
 
 - **Idempotency** on `POST /projects`, `POST /tasks`, `POST /time-entries`, `POST /time-entries/start`, `POST /calendar/events`

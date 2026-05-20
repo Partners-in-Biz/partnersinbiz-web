@@ -57,6 +57,65 @@ Loop C generates work weekly. The sprint never "ends" until archived.
 
 When creating a sprint via the UI in workspace mode, the form pre-fills `orgId`/`clientId` from the URL query params (`?orgId=X&siteName=Y`) which the per-org page passes through. When in operator mode the user picks the org from a dropdown.
 
+## Non-negotiable operating rule: the sprint is the client-visible ledger
+
+Any SEO work done for a client must end in the Partners in Biz SEO sprint, not only in
+the client's app repo, GitHub PR, or wiki. The website/code PR is the implementation
+record, the wiki is the internal knowledge record, and the SEO sprint is the
+client-facing progress record.
+
+For every SEO pass:
+
+1. Resolve the client org id and active SEO sprint.
+2. Read today's plan and overdue tasks before choosing work.
+3. Match the work performed to existing sprint tasks where possible.
+4. Mark completed sprint tasks done with notes/evidence:
+   - GitHub PR/commit links
+   - build/check evidence
+   - audit/artifact references
+   - exact findings or before/after notes
+5. Move partly handled tasks to `in_progress` with the remaining work described.
+6. Move blocked tasks to `blocked` with a concrete blocker reason.
+7. Add an audit, artifact, content row, optimization, keyword, or backlink row when the work produced one.
+8. Finish with a digest that includes sprint task ids/statuses, blockers, and any human tickets created.
+
+Do not report "SEO done" if the client-visible sprint still shows the work as due.
+
+## Human blockers and cross-app handoff
+
+When a task needs Peet, a Partners in Biz team member, or the client to do something
+the agent cannot do, create a Partners in Biz project ticket instead of leaving the
+request only in chat or a wiki note.
+
+Canonical flow:
+
+1. Look for an active client project for the workstream, for example
+   `AHS Law - SEO 90-day Sprint`.
+2. If no suitable project exists, create one with `POST /projects`:
+   - `orgId`: the client's org id
+   - `clientId` / `clientOrgId`: the same client org id unless a separate billing org is known
+   - `name`: `<Client> - SEO 90-day Sprint`
+   - `status`: `development` while work is actively being executed, or `discovery` during setup
+   - `brief`: include the sprint id, site URL, goals, and the rule that this project tracks human/agent work related to the SEO sprint.
+3. Create a project-nested task with `POST /projects/{projectId}/tasks`.
+4. Label the task so it remains tied to the module:
+   - `seo`
+   - `seo-sprint:<sprintId>`
+   - `client-action`, `peet-action`, or `team-action`
+   - `blocked` when it blocks sprint progress
+5. Link the task back from the SEO sprint task by adding the project/task URL or id to
+   the SEO task description or blocker reason.
+6. If the exact human user id is known, assign or mention them (`assigneeIds` /
+   `mentionIds`). If not, leave it unassigned but make ownership explicit in the
+   title, for example `Client action: confirm public business address`, and add the
+   `needs-assignment` label.
+7. Do not mark the SEO task done until the human blocker is resolved and proof is
+   recorded in the sprint.
+
+Use this pattern across app workstreams too: the domain-specific module records its
+own progress, while the Projects task carries cross-team execution, ownership,
+mentions, dependencies, and agent handoff.
+
 ## Auth
 
 ```
