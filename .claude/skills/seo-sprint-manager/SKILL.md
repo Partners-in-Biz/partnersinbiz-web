@@ -186,6 +186,24 @@ That project task is what the VPS `agent-watcher` dispatches to Hermes. Do not t
 `queued` as dispatched unless the response has `agentHandoff` or the relevant
 `seo_tasks` have `agentProjectTaskId`.
 
+### Closing SEO handoff project tasks
+
+When Hermes/Pip receives a `seo-run-orchestration` project task, the project task is
+only the orchestration wrapper. The source of truth is still the SEO sprint ledger.
+Before marking the project task `agentStatus: done`, always sync the wrapper back to
+the child `seo_tasks`:
+
+1. Re-read every id in `agentInput.context.queuedSeoTaskIds` or `sourceSeoTaskIds`.
+2. Set each checklist item done only when the matching `seo_tasks/{id}.status` is `done`.
+3. Leave blocked SEO tasks as unchecked and make sure each has a concrete `blockerReason`.
+4. If all reachable work is complete and only blocker tickets remain, move the wrapper
+   project task to `columnId: done` and set `agentStatus: done`.
+5. If the agent itself is blocked and cannot complete the orchestration, set
+   `columnId: blocked`, `agentStatus: blocked`, and write the exact recovery action.
+6. Never leave a project task with `agentStatus: done` in an active kanban column, and
+   never report "SEO done" when its checklist still shows unfinished child SEO tasks
+   without explaining that they are blockers or pending release.
+
 Pip's natural-language flow when Peet says "do today's SEO":
 
 1. Find active sprints (filter by client if mentioned)
@@ -279,6 +297,12 @@ Hermes/Pip should review each proposal, approve useful proposals via
 `POST /seo/optimizations/[id]/approve`, run the generated tasks where appropriate,
 reject weak/duplicate proposals, and report optimization ids, generated task ids,
 completed task ids, blockers, and evidence.
+
+When closing a `seo-optimization-orchestration` project task, apply the same wrapper
+rule: re-read every `optimizationId`, update the project checklist from the actual
+optimization/task outcomes, move the wrapper to Done only when the orchestration work
+is finished, and keep unresolved human/client/admin actions as separate blocker or
+review tasks.
 
 ### In-house SEO toolkit
 ```
