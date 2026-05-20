@@ -12,6 +12,7 @@
 import type { DocumentReference, Firestore } from 'firebase-admin/firestore'
 import { db, FieldValue, Timestamp } from './firestore'
 import { logger } from './logger'
+import { agentStatusUpdate } from './task-updates'
 
 const STALE_THRESHOLD_MS = 5 * 60 * 1_000
 const SWEEP_INTERVAL_MS = 60 * 1_000
@@ -26,7 +27,7 @@ export async function claimTask(taskRef: DocumentReference): Promise<boolean> {
       if (data.agentStatus !== 'pending') return false
 
       tx.update(taskRef, {
-        agentStatus: 'picked-up',
+        ...agentStatusUpdate('picked-up'),
         agentHeartbeatAt: FieldValue.serverTimestamp(),
         updatedAt: FieldValue.serverTimestamp(),
       })
@@ -81,7 +82,7 @@ export function startStaleSweeper(): () => void {
       let opsInBatch = 0
       for (const doc of snap.docs) {
         batch.update(doc.ref, {
-          agentStatus: 'pending',
+          ...agentStatusUpdate('pending'),
           agentHeartbeatAt: FieldValue.delete(),
           updatedAt: FieldValue.serverTimestamp(),
         })

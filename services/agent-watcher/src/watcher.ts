@@ -14,6 +14,7 @@ import { AGENT_IDS, getAgentConfig, type AgentId } from './config'
 import { claimTask, startHeartbeat } from './claim'
 import { runAndPoll, type TaskDispatchInput } from './hermes'
 import { logger } from './logger'
+import { agentStatusUpdate } from './task-updates'
 
 const MAX_CONCURRENT_PER_AGENT = 5
 
@@ -98,7 +99,7 @@ async function dispatchTask(taskRef: DocumentReference, taskData: TaskData): Pro
     if (!cfg || !cfg.enabled) {
       logger.warn('agent has no enabled dispatch config — marking task blocked', { taskId, agentId })
       await taskRef.update({
-        agentStatus: 'blocked',
+        ...agentStatusUpdate('blocked'),
         agentOutput: {
           summary: `Watcher error: agent '${agentId}' has no enabled dispatch config in agent_dispatch_configs.`,
           completedAt: FieldValue.serverTimestamp(),
@@ -110,7 +111,7 @@ async function dispatchTask(taskRef: DocumentReference, taskData: TaskData): Pro
 
     // Move to in-progress + start heartbeat
     await taskRef.update({
-      agentStatus: 'in-progress',
+      ...agentStatusUpdate('in-progress'),
       agentHeartbeatAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
     })
@@ -151,7 +152,7 @@ async function dispatchTask(taskRef: DocumentReference, taskData: TaskData): Pro
     if (result.error) {
       logger.warn('Hermes run failed — marking blocked', { taskId, agentId, error: result.error })
       await taskRef.update({
-        agentStatus: 'blocked',
+        ...agentStatusUpdate('blocked'),
         agentOutput: {
           summary: `Watcher error: ${result.error}`,
           completedAt: FieldValue.serverTimestamp(),
@@ -163,7 +164,7 @@ async function dispatchTask(taskRef: DocumentReference, taskData: TaskData): Pro
 
     const summary = (result.output ?? '').slice(0, 4_000) || 'Hermes returned no output.'
     await taskRef.update({
-      agentStatus: 'done',
+      ...agentStatusUpdate('done'),
       agentOutput: {
         summary,
         completedAt: FieldValue.serverTimestamp(),
@@ -176,7 +177,7 @@ async function dispatchTask(taskRef: DocumentReference, taskData: TaskData): Pro
     logger.error('dispatchTask threw', { taskId, agentId, error: message })
     try {
       await taskRef.update({
-        agentStatus: 'blocked',
+        ...agentStatusUpdate('blocked'),
         agentOutput: {
           summary: `Watcher error: ${message}`,
           completedAt: FieldValue.serverTimestamp(),
