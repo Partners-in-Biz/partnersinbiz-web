@@ -29,12 +29,26 @@ jobs:
           # The hermes-deploy user has group-write but isn't the owner of the
           # destination dirs, so utime() fails ("Operation not permitted").
           # We only need content + filenames; times/perms aren't load-bearing here.
+          remote_base="/var/lib/hermes/pib-skills/partnersinbiz"
           for skill in analytics billing-finance client-documents client-manager content-engine crm-sales email-outreach platform-ops project-management properties seo-sprint-manager social-media-manager; do
             if [ -d ".claude/skills/$skill" ]; then
               echo "-> rsyncing $skill"
-              rsync -rlz --delete --omit-dir-times --no-perms \
+              tmp_dir="$remote_base/.sync-$skill-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+              dest_dir="$remote_base/$skill"
+              stale_dir="$remote_base/.stale-$skill-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+              ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "rm -rf '$tmp_dir' && mkdir -p '$tmp_dir'"
+              rsync -rlz --delete --omit-dir-times --no-perms --no-owner --no-group \
                 ".claude/skills/$skill/" \
-                "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/var/lib/hermes/pib-skills/partnersinbiz/$skill/"
+                "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:$tmp_dir/"
+              ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
+                set -e
+                if [ -e '$dest_dir' ]; then
+                  mv '$dest_dir' '$stale_dir'
+                fi
+                mv '$tmp_dir' '$dest_dir'
+                chmod -R g+rwX '$dest_dir' || true
+                rm -rf '$stale_dir' 2>/dev/null || true
+              "
             else
               echo "-- skipping $skill (not found in repo)"
             fi
