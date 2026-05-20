@@ -112,10 +112,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap&icon_names=add,arrow_back,arrow_forward,arrow_outward,auto_awesome,autorenew,bolt,calendar_month,chat,check,check_circle,dashboard,delete,event,event_available,expand_more,mail,phone_iphone,public,send,stars,trending_up,tune"
-        />
         {process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID && (
           <>
             <Script

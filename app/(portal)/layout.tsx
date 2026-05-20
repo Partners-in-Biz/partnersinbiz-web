@@ -16,6 +16,9 @@ import { SupportDrawer } from '@/components/support/SupportDrawer'
 import { NotificationBell } from '@/components/crm/NotificationBell'
 import { MessageDrawer } from '@/components/chat/MessageDrawer'
 
+const PORTAL_MATERIAL_SYMBOLS =
+  'https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap'
+
 interface NavItem {
   href: string
   label: string
@@ -288,12 +291,15 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
 
   if (checking) {
     return (
-      <div className="min-h-screen bg-[var(--color-pib-bg)] flex items-center justify-center">
-        <span className="relative flex h-3 w-3">
-          <span className="absolute inset-0 rounded-full bg-[var(--color-pib-accent)] opacity-75 animate-ping" />
-          <span className="relative inline-flex rounded-full h-3 w-3 bg-[var(--color-pib-accent)]" />
-        </span>
-      </div>
+      <>
+        <link rel="stylesheet" href={PORTAL_MATERIAL_SYMBOLS} />
+        <div className="min-h-screen bg-[var(--color-pib-bg)] flex items-center justify-center">
+          <span className="relative flex h-3 w-3">
+            <span className="absolute inset-0 rounded-full bg-[var(--color-pib-accent)] opacity-75 animate-ping" />
+            <span className="relative inline-flex rounded-full h-3 w-3 bg-[var(--color-pib-accent)]" />
+          </span>
+        </div>
+      </>
     )
   }
 
@@ -320,9 +326,11 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
   // ── Topbar mode ────────────────────────────────────────────────────────────
   if (layoutMode === 'topbar') {
     return (
-      <div data-message-push-root className="flex flex-col min-h-screen bg-[var(--color-pib-bg)] text-[var(--color-pib-text)]">
-        {tracker}
-        <header className="h-14 sticky top-0 z-30 bg-[var(--color-pib-bg)]/95 backdrop-blur-md border-b border-[var(--color-pib-line)] shrink-0">
+      <>
+        <link rel="stylesheet" href={PORTAL_MATERIAL_SYMBOLS} />
+        <div data-message-push-root className="flex flex-col min-h-screen bg-[var(--color-pib-bg)] text-[var(--color-pib-text)]">
+          {tracker}
+          <header className="h-14 sticky top-0 z-30 bg-[var(--color-pib-bg)]/95 backdrop-blur-md border-b border-[var(--color-pib-line)] shrink-0">
           <div className="flex items-center h-full px-4 gap-2">
             {/* Brand */}
             <Link href="/portal/dashboard" className="flex items-center gap-2 shrink-0 mr-2">
@@ -459,14 +467,17 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
             </div>
           </footer>
         )}
-      </div>
+        </div>
+      </>
     )
   }
 
   // ── Sidebar mode ───────────────────────────────────────────────────────────
   return (
-    <div data-message-push-root className="min-h-screen bg-[var(--color-pib-bg)] text-[var(--color-pib-text)] flex">
-      {tracker}
+    <>
+      <link rel="stylesheet" href={PORTAL_MATERIAL_SYMBOLS} />
+      <div data-message-push-root className="min-h-screen bg-[var(--color-pib-bg)] text-[var(--color-pib-text)] flex">
+        {tracker}
       {/* Mobile backdrop */}
       <div
         onClick={() => setDrawerOpen(false)}
@@ -681,6 +692,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
           </footer>
         )}
       </div>
-    </div>
+      </div>
+    </>
   )
 }
