@@ -62,7 +62,9 @@ When creating a sprint via the UI in workspace mode, the form pre-fills `orgId`/
 Any SEO work done for a client must end in the Partners in Biz SEO sprint, not only in
 the client's app repo, GitHub PR, or wiki. The website/code PR is the implementation
 record, the wiki is the internal knowledge record, and the SEO sprint is the
-client-facing progress record.
+client-facing progress record. This applies equally when a client-specific agent is
+working in another app repository and only uses Partners in Biz as the growth
+platform.
 
 For every SEO pass:
 
