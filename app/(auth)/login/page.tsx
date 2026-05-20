@@ -2,7 +2,6 @@
 export const dynamic = 'force-dynamic'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
 import { loginWithEmail, resetPassword } from '@/lib/firebase/auth'
@@ -31,7 +30,6 @@ function EyeOffIcon() {
 }
 
 export default function LoginPage() {
-  const router = useRouter()
   const { error: errorToast } = useToast()
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -50,8 +48,13 @@ export default function LoginPage() {
     const email = form.get('email') as string
     try {
       const user = await loginWithEmail(email, form.get('password') as string)
-      const verifyRes = await fetch('/api/auth/verify')
-      const verifyData = verifyRes.ok ? await verifyRes.json() : null
+      const verifyRes = await fetch('/api/auth/verify', { cache: 'no-store' })
+      if (!verifyRes.ok) {
+        const error = new Error('Could not verify login session') as Error & { code?: string }
+        error.code = 'app/session-verify-failed'
+        throw error
+      }
+      const verifyData = await verifyRes.json()
       const role = verifyData?.role
       const rawName = user?.displayName?.trim() || verifyData?.name?.trim() || ''
       const displayName =
@@ -66,7 +69,7 @@ export default function LoginPage() {
           ? saved
           : fallback
       setWelcomeFlash({ name: displayName, email })
-      router.push(target)
+      window.location.assign(target)
     } catch (err: unknown) {
       const code = (err as { code?: string })?.code ?? ''
       let message: string
@@ -80,6 +83,8 @@ export default function LoginPage() {
         message = 'Sign-in is not authorised from this domain. Contact support.'
       } else if (code === 'auth/network-request-failed') {
         message = 'Network error. Check your connection.'
+      } else if (code === 'app/session-cookie-failed' || code === 'app/session-verify-failed') {
+        message = 'Signed in, but the portal session could not be created. Please refresh and try again.'
       } else {
         message = `Sign-in failed (${code || 'unknown error'}).`
       }

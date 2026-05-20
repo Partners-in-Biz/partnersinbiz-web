@@ -52,7 +52,6 @@ next-env.d.ts
 !.claude/skills/**
 dogfood-output/
 skills-lock.json
-AGENTS.md
 CLAUDE.md
 
 # firebase secrets

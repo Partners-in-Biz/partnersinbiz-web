@@ -7,15 +7,25 @@ import {
 import { doc, setDoc } from 'firebase/firestore'
 import { auth, db, waitForPersistence } from './config'
 
-export async function loginWithEmail(email: string, password: string) {
-  await waitForPersistence()
-  const credential = await signInWithEmailAndPassword(auth, email, password)
-  const idToken = await credential.user.getIdToken()
-  await fetch('/api/auth/session', {
+async function createSessionCookie(idToken: string) {
+  const response = await fetch('/api/auth/session', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ idToken }),
   })
+  if (!response.ok) {
+    const body = await response.json().catch(() => null)
+    const error = new Error(body?.error ?? 'Could not create login session') as Error & { code?: string }
+    error.code = 'app/session-cookie-failed'
+    throw error
+  }
+}
+
+export async function loginWithEmail(email: string, password: string) {
+  await waitForPersistence()
+  const credential = await signInWithEmailAndPassword(auth, email, password)
+  const idToken = await credential.user.getIdToken()
+  await createSessionCookie(idToken)
   return credential.user
 }
 
@@ -29,11 +39,7 @@ export async function registerWithEmail(email: string, password: string, name: s
     createdAt: new Date(),
   }, { merge: true })
   const idToken = await credential.user.getIdToken()
-  await fetch('/api/auth/session', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ idToken }),
-  })
+  await createSessionCookie(idToken)
   return credential.user
 }
 

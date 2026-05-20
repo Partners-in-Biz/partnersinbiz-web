@@ -201,6 +201,31 @@ export default function PlatformMembersPage() {
     }
   }
 
+  async function removeOrgLink(member: PlatformMember, org: LinkedClientOrg) {
+    const label = member.displayName || member.email || member.uid
+    const confirmed = window.confirm(
+      `Remove ${label} from ${org.name}? This removes their client portal access for that organisation.`,
+    )
+    if (!confirmed) return
+
+    setBusyUid(member.uid)
+    setTopError(null)
+    setNotice(null)
+    try {
+      const res = await fetch(`/api/v1/organizations/${org.id}/members/${member.uid}`, {
+        method: 'DELETE',
+      })
+      const body = await res.json()
+      if (!res.ok) throw new Error(body?.error ?? 'Failed to remove organisation link')
+      setNotice(`Removed ${label} from ${org.name}.`)
+      await load()
+    } catch (err) {
+      setTopError(err instanceof Error ? err.message : 'Failed to remove organisation link')
+    } finally {
+      setBusyUid(null)
+    }
+  }
+
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault()
     setCreateError(null)
@@ -492,15 +517,33 @@ export default function PlatformMembersPage() {
                     <span className="text-xs text-on-surface-variant">No linked client accounts</span>
                   ) : (
                     member.linkedOrgs.map((org) => (
-                      <Link
+                      <span
                         key={`${member.uid}-${org.id}`}
-                        href={`/admin/org/${org.slug}/dashboard`}
-                        className="inline-flex items-center gap-2 rounded-full bg-on-surface/10 px-3 py-1 text-xs text-on-surface-variant hover:text-on-surface transition-colors"
+                        className="inline-flex items-center overflow-hidden rounded-full bg-on-surface/10 text-xs text-on-surface-variant"
                         title={org.source === 'user' ? 'Linked from user profile' : 'Linked from organisation members'}
                       >
-                        <span>{org.name}</span>
-                        <RoleBadge role={org.role} />
-                      </Link>
+                        <Link
+                          href={`/admin/org/${org.slug}/dashboard`}
+                          className="inline-flex items-center gap-2 px-3 py-1 hover:text-on-surface transition-colors"
+                        >
+                          <span>{org.name}</span>
+                          <RoleBadge role={org.role} />
+                          {org.source === 'user' && (
+                            <span className="text-[10px] font-label uppercase tracking-wide text-amber-400">
+                              profile
+                            </span>
+                          )}
+                        </Link>
+                        <button
+                          type="button"
+                          onClick={() => removeOrgLink(member, org)}
+                          disabled={busy}
+                          className="border-l border-on-surface/10 px-2 py-1 text-[10px] font-label uppercase tracking-wide text-on-surface-variant hover:bg-red-500/10 hover:text-red-300 disabled:opacity-50"
+                          title={`Remove ${member.email || member.displayName || member.uid} from ${org.name}`}
+                        >
+                          Remove
+                        </button>
+                      </span>
                     ))
                   )}
                 </div>

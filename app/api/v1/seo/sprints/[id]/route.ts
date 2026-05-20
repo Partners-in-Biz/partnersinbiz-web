@@ -4,6 +4,7 @@ import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { lastActorFrom } from '@/lib/api/actor'
 import type { ApiUser } from '@/lib/api/types'
+import { canAccessOrg } from '@/lib/api/platformAdmin'
 
 export const dynamic = 'force-dynamic'
 
@@ -24,8 +25,7 @@ export const GET = withAuth(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const data = snap.data() as any
     if (data.deleted) return apiError('Sprint not found', 404)
-    const canAccess = user.role === 'ai' || (user as { isSuperAdmin?: boolean }).isSuperAdmin || data.orgId === user.orgId
-    if (!canAccess) return apiError('Access denied', 403)
+    if (!canAccessOrg(user, data.orgId)) return apiError('Access denied', 403)
     return apiSuccess({ id: snap.id, ...data })
   },
 )
@@ -41,8 +41,7 @@ export const PATCH = withAuth(
     if (!snap.exists) return apiError('Sprint not found', 404)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const data = snap.data() as any
-    const canAccess = user.role === 'ai' || (user as { isSuperAdmin?: boolean }).isSuperAdmin || data.orgId === user.orgId
-    if (!canAccess) return apiError('Access denied', 403)
+    if (!canAccessOrg(user, data.orgId)) return apiError('Access denied', 403)
     const update: Record<string, unknown> = { ...lastActorFrom(user) }
     for (const k of ALLOWED_PATCH_FIELDS) if (k in body) update[k] = body[k]
     await ref.update(update)

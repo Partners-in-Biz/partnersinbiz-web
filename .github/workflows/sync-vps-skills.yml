@@ -1,7 +1,8 @@
 name: Sync VPS platform skills
+# Runs from development so VPS agents consume the same branch they work on.
 on:
   push:
-    branches: [main]
+    branches: [development]
     paths:
       - '.claude/skills/**'
       - '.github/workflows/sync-vps-skills.yml'
@@ -12,6 +13,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: development
 
       - name: Set up SSH
         run: |

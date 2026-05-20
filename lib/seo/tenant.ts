@@ -1,5 +1,6 @@
 import { adminDb } from '@/lib/firebase/admin'
 import type { ApiUser } from '@/lib/api/types'
+import { canAccessOrg } from '@/lib/api/platformAdmin'
 
 export async function sprintIdsForUser(user: ApiUser): Promise<string[]> {
   if (!user.orgId) return []
@@ -13,7 +14,7 @@ export async function requireSprintAccess(sprintId: string, user: ApiUser) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const data = snap.data() as any
   if (data.deleted) throw new Error('Sprint not found')
-  if (user.role !== 'ai' && data.orgId !== user.orgId) {
+  if (!canAccessOrg(user, data.orgId)) {
     throw new Error('Sprint access denied')
   }
   return { id: snap.id, ...data }

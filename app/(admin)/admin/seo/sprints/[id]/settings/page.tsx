@@ -11,13 +11,23 @@ export default function SettingsTab() {
   const [sprint, setSprint] = useState<any | null>(null)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const justConnectedGsc = searchParams.get('gsc') === 'connected'
 
   useEffect(() => {
     void (async () => {
-      const res = await fetch(`/api/v1/seo/sprints/${id}`)
-      const json = await res.json()
-      if (json.success) setSprint(json.data)
+      setLoadError(null)
+      try {
+        const res = await fetch(`/api/v1/seo/sprints/${id}`)
+        const json = await res.json().catch(() => null)
+        if (res.ok && json?.success) {
+          setSprint(json.data)
+        } else {
+          setLoadError(json?.error ?? `Failed to load sprint settings (${res.status})`)
+        }
+      } catch (err) {
+        setLoadError(err instanceof Error ? err.message : 'Failed to load sprint settings')
+      }
     })()
   }, [id])
 
@@ -44,6 +54,15 @@ export default function SettingsTab() {
     const res = await fetch(`/api/v1/seo/integrations/gsc/auth-url?sprintId=${id}`)
     const json = await res.json()
     if (json.success) window.location.href = json.data.url
+  }
+
+  if (loadError) {
+    return (
+      <div className="card p-5 max-w-2xl border-red-500/40 bg-red-500/10 text-sm text-red-100">
+        <div className="font-semibold text-red-50">Could not load sprint settings</div>
+        <p className="mt-2 text-red-100/80">{loadError}</p>
+      </div>
+    )
   }
 
   if (!sprint) return <div className="text-sm">Loading…</div>
