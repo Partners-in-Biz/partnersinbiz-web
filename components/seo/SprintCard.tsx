@@ -34,7 +34,7 @@ export function SprintCard({ sprint }: { sprint: any }) {
   }
 
   return (
-    <div className="card p-5 space-y-3">
+    <div className="pib-card group p-5 space-y-3 transition-colors hover:border-[var(--color-pib-accent)] hover:bg-white/[0.03]">
       <div className="flex items-start justify-between">
         <div>
           <h3 className="font-semibold text-base leading-tight">
