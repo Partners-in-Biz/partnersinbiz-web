@@ -8,6 +8,7 @@ import { POST as createLogin } from '@/app/api/v1/organizations/[id]/create-logi
 import { DELETE as removeMember } from '@/app/api/v1/organizations/[id]/members/[userId]/route'
 import { POST as linkClient } from '@/app/api/v1/organizations/[id]/link-client/route'
 import { GET as getOrgAccounts } from '@/app/api/v1/organizations/[id]/accounts/route'
+import { provisionFullClientOnVps } from '@/lib/client-provisioning/vps'
 
 jest.mock('firebase-admin/firestore', () => ({
   FieldValue: {
@@ -25,9 +26,14 @@ process.env.SESSION_COOKIE_NAME = '__session'
 
 const mockGet = jest.fn()
 const mockAdd = jest.fn()
+const mockSet = jest.fn()
 const mockWhere = jest.fn()
 const mockOrderBy = jest.fn()
 const mockCollection = jest.fn()
+
+jest.mock('@/lib/client-provisioning/vps', () => ({
+  provisionFullClientOnVps: jest.fn(),
+}))
 
 jest.mock('@/lib/firebase/admin', () => ({
   adminAuth: {
@@ -81,9 +87,14 @@ describe('POST /api/v1/organizations', () => {
     jest.clearAllMocks()
     mockGet.mockResolvedValue({ empty: true, docs: [] })
     mockWhere.mockReturnValue({ get: mockGet })
-    mockAdd.mockResolvedValue({ id: 'new-org-id' })
+    mockSet.mockResolvedValue(undefined)
+    mockAdd.mockResolvedValue({ id: 'new-org-id', set: mockSet })
     mockCollection.mockReturnValue({ where: mockWhere, add: mockAdd, orderBy: mockOrderBy, get: mockGet })
     mockOrderBy.mockReturnValue({ get: mockGet })
+    ;(provisionFullClientOnVps as jest.Mock).mockResolvedValue({
+      profile: { agentId: 'velox' },
+      workspace: { directoriesCreated: [] },
+    })
   })
 
   it('creates an org and returns 201', async () => {
@@ -92,6 +103,31 @@ describe('POST /api/v1/organizations', () => {
     const body = await res.json()
     expect(body.success).toBe(true)
     expect(body.data.id).toBe('new-org-id')
+  })
+
+  it('requests full VPS client provisioning by default for client orgs', async () => {
+    const res = await POST(adminReq('POST', { name: 'Velox', agentName: 'Vee' }))
+    expect(res.status).toBe(201)
+    expect(provisionFullClientOnVps).toHaveBeenCalledWith({
+      clientName: 'Velox',
+      domain: 'velox',
+      orgId: 'new-org-id',
+      agentName: 'Vee',
+    })
+    expect(mockSet).toHaveBeenCalledWith(
+      expect.objectContaining({
+        provisioning: expect.objectContaining({ status: 'complete', domain: 'velox', agentName: 'Vee' }),
+      }),
+      { merge: true },
+    )
+  })
+
+  it('can skip workspace provisioning for Firebase-only org creation', async () => {
+    const res = await POST(adminReq('POST', { name: 'Velox', provisionWorkspace: false }))
+    const body = await res.json()
+    expect(res.status).toBe(201)
+    expect(body.data.provisioning.status).toBe('skipped')
+    expect(provisionFullClientOnVps).not.toHaveBeenCalled()
   })
 
   it('returns 400 when name is missing', async () => {

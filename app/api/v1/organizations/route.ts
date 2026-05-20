@@ -2,15 +2,22 @@
  * GET  /api/v1/organizations — list orgs the current user has access to
  * POST /api/v1/organizations — create a new organization
  */
-import { NextRequest } from 'next/server'
 import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
+import { inferAgentName } from '@/lib/client-provisioning/provisioner'
+import { provisionFullClientOnVps } from '@/lib/client-provisioning/vps'
 import { slugify, isMember } from '@/lib/organizations/helpers'
 import type { Organization, OrgMember, OrganizationSummary } from '@/lib/organizations/types'
 
 export const dynamic = 'force-dynamic'
+
+function timestampSeconds(value: unknown): number {
+  if (!value || typeof value !== 'object') return 0
+  const seconds = (value as { _seconds?: unknown })._seconds
+  return typeof seconds === 'number' ? seconds : 0
+}
 
 export const GET = withAuth('client', async (req, user) => {
   // Single-field filter only — avoids requiring a composite Firestore index.
@@ -26,8 +33,8 @@ export const GET = withAuth('client', async (req, user) => {
       return { id: doc.id, ...data }
     })
     .sort((a, b) => {
-      const aTs = (a.createdAt as any)?._seconds ?? 0
-      const bTs = (b.createdAt as any)?._seconds ?? 0
+      const aTs = timestampSeconds(a.createdAt)
+      const bTs = timestampSeconds(b.createdAt)
       return bTs - aTs
     })
     .filter((org) => {
@@ -99,5 +106,48 @@ export const POST = withAuth('admin', async (req, user) => {
 
   const docRef = await adminDb.collection('organizations').add(doc)
 
-  return apiSuccess({ id: docRef.id, slug }, 201)
+  const shouldProvisionWorkspace = doc.type === 'client' && body.provisionWorkspace !== false
+  if (!shouldProvisionWorkspace) {
+    return apiSuccess({ id: docRef.id, slug, provisioning: { status: 'skipped' } }, 201)
+  }
+
+  const agentName = typeof body.agentName === 'string' && body.agentName.trim()
+    ? body.agentName.trim()
+    : inferAgentName(name)
+
+  try {
+    const provisioning = await provisionFullClientOnVps({
+      clientName: name,
+      domain: slug,
+      orgId: docRef.id,
+      agentName,
+    })
+
+    await docRef.set({
+      provisioning: {
+        status: 'complete',
+        domain: slug,
+        agentName,
+        updatedAt: FieldValue.serverTimestamp(),
+        result: provisioning,
+      },
+      updatedAt: FieldValue.serverTimestamp(),
+    }, { merge: true })
+
+    return apiSuccess({ id: docRef.id, slug, provisioning }, 201)
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Client workspace provisioning failed'
+    await docRef.set({
+      provisioning: {
+        status: 'failed',
+        domain: slug,
+        agentName,
+        error: message,
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      updatedAt: FieldValue.serverTimestamp(),
+    }, { merge: true })
+
+    return apiError(`Organization created, but workspace provisioning failed: ${message}`, 500, { id: docRef.id, slug })
+  }
 })

@@ -344,6 +344,20 @@ Client-related types: `client.created`, `member.invited`, `member.removed`, `enq
 
 When the user says "create a new Cowork space" or "add a new client", do ALL of these steps. Missing any one of them leaves the space half-functional.
 
+**Admin UI path:** `/admin/clients/new` now defaults to this full provisioning flow for VPS/server-side setup. It creates the PiB/Firebase org, provisions a Hermes profile through Pip, then calls the VPS sidecar to create the mirrored Cowork workspace, Obsidian agent domain, project instructions, SOUL wiring, and global Cowork mapping. Uncheck "Create full client workspace" only when you deliberately want a Firebase org shell.
+
+**Path convention:** local Mac paths use `/Users/peetstander/Cowork/...`; VPS paths mirror the same structure under `/var/lib/hermes/Cowork/...`. For example:
+
+```text
+Mac: /Users/peetstander/Cowork/<CLIENT_NAME>
+VPS: /var/lib/hermes/Cowork/<CLIENT_NAME>
+
+Mac wiki: /Users/peetstander/Cowork/Cowork/agents/<DOMAIN>
+VPS wiki: /var/lib/hermes/Cowork/Cowork/agents/<DOMAIN>
+```
+
+The VPS path `/var/lib/hermes/Cowork/Cowork` is a symlink to `/var/lib/hermes/cowork-wiki`.
+
 **Variables used below:**
 - `CLIENT_NAME` — display name, e.g. `Deidre Ras Biokinetics`
 - `DOMAIN` — kebab-case slug, e.g. `deidre-ras-biokinetics`
