@@ -125,7 +125,7 @@ describe('project task payload helpers', () => {
 
     it('rejects an unknown agent id', () => {
       const result = buildProjectTaskCreateData(
-        { title: 't', assigneeAgentId: 'rogue' },
+        { title: 't', assigneeAgentId: '1-rogue' },
         'project-1',
         'org-1',
       )
@@ -169,6 +169,25 @@ describe('project task payload helpers', () => {
       expect(result.ok).toBe(true)
       if (!result.ok) return
       expect(result.value).toEqual({ assigneeAgentId: 'theo', agentStatus: 'in-progress' })
+    })
+
+    it('PATCH: done or blocked agent status moves the kanban column when no column is supplied', () => {
+      const done = buildProjectTaskUpdateData({ agentStatus: 'done' })
+      expect(done.ok).toBe(true)
+      if (!done.ok) return
+      expect(done.value).toEqual({ agentStatus: 'done', columnId: 'done' })
+
+      const blocked = buildProjectTaskUpdateData({ agentStatus: 'blocked' })
+      expect(blocked.ok).toBe(true)
+      if (!blocked.ok) return
+      expect(blocked.value).toEqual({ agentStatus: 'blocked', columnId: 'blocked' })
+    })
+
+    it('PATCH: explicit column wins over agent status column automation', () => {
+      const result = buildProjectTaskUpdateData({ agentStatus: 'done', columnId: 'review' })
+      expect(result.ok).toBe(true)
+      if (!result.ok) return
+      expect(result.value).toEqual({ agentStatus: 'done', columnId: 'review' })
     })
 
     it('PATCH: rejects unknown agentStatus', () => {

@@ -171,14 +171,46 @@ GET  /seo/sprints/[id]/today                         # what's due today
 POST /seo/sprints/[id]/run                           # execute Loop B end-to-end
 ```
 
-`/run` returns `{ done: [taskIds], queued: [taskIds], blocked: [{taskId, reason}] }`.
+`/run` returns `{ done: [taskIds], queued: [taskIds], blocked: [{taskId, reason}], agentHandoff? }`.
+
+When `/run` queues work for Hermes, the platform creates or updates a watcher-visible
+project task assigned to Pip:
+
+- `assigneeAgentId: "pip"`
+- `agentStatus: "pending"`
+- `source: "seo-run-orchestration"`
+- `agentInput.context.orchestrationMode: "pip-orchestrator"`
+- `agentInput.context.queuedSeoTaskIds: [...]`
+
+That project task is what the VPS `agent-watcher` dispatches to Hermes. Do not treat
+`queued` as dispatched unless the response has `agentHandoff` or the relevant
+`seo_tasks` have `agentProjectTaskId`.
+
+### Closing SEO handoff project tasks
+
+When Hermes/Pip receives a `seo-run-orchestration` project task, the project task is
+only the orchestration wrapper. The source of truth is still the SEO sprint ledger.
+Before marking the project task `agentStatus: done`, always sync the wrapper back to
+the child `seo_tasks`:
+
+1. Re-read every id in `agentInput.context.queuedSeoTaskIds` or `sourceSeoTaskIds`.
+2. Set each checklist item done only when the matching `seo_tasks/{id}.status` is `done`.
+3. Leave blocked SEO tasks as unchecked and make sure each has a concrete `blockerReason`.
+4. If all reachable work is complete and only blocker tickets remain, move the wrapper
+   project task to `columnId: done` and set `agentStatus: done`.
+5. If the agent itself is blocked and cannot complete the orchestration, set
+   `columnId: blocked`, `agentStatus: blocked`, and write the exact recovery action.
+6. Never leave a project task with `agentStatus: done` in an active kanban column, and
+   never report "SEO done" when its checklist still shows unfinished child SEO tasks
+   without explaining that they are blockers or pending release.
 
 Pip's natural-language flow when Peet says "do today's SEO":
 
 1. Find active sprints (filter by client if mentioned)
 2. For each, GET today's plan
 3. POST /run to execute autopilot tasks + queue the rest
-4. Report a short digest: "Did 4, queued 2 for your review, 1 blocked on GSC reconnect"
+4. If `agentHandoff` is present, include the project/task id so the user can see the Hermes handoff.
+5. Report a short digest: "Did 4, queued 2 to Pip/Hermes, 1 blocked on GSC reconnect"
 
 ## Endpoints
 
@@ -250,6 +282,27 @@ POST   /seo/optimizations/[id]/approve               turn proposal → tasks
 POST   /seo/optimizations/[id]/reject
 POST   /seo/optimizations/[id]/measure               re-measure outcome (win/loss/no-change)
 ```
+
+`POST /seo/sprints/[id]/optimize` returns `{ signalsFound, proposalsCreated, agentHandoff? }`.
+When proposals are created, the platform creates or updates a watcher-visible project
+task assigned to Pip:
+
+- `assigneeAgentId: "pip"`
+- `agentStatus: "pending"`
+- `source: "seo-optimization-orchestration"`
+- `agentInput.context.orchestrationMode: "pip-orchestrator"`
+- `agentInput.context.optimizationIds: [...]`
+
+Hermes/Pip should review each proposal, approve useful proposals via
+`POST /seo/optimizations/[id]/approve`, run the generated tasks where appropriate,
+reject weak/duplicate proposals, and report optimization ids, generated task ids,
+completed task ids, blockers, and evidence.
+
+When closing a `seo-optimization-orchestration` project task, apply the same wrapper
+rule: re-read every `optimizationId`, update the project checklist from the actual
+optimization/task outcomes, move the wrapper to Done only when the orchestration work
+is finished, and keep unresolved human/client/admin actions as separate blocker or
+review tasks.
 
 ### In-house SEO toolkit
 ```

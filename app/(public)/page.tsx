@@ -359,7 +359,13 @@ export default function HomePage() {
                 {TESTIMONIALS[0].quote}
               </blockquote>
               <footer className="mt-8 pt-6 border-t border-[var(--color-pib-line)] flex items-center gap-4">
-                <Image src={TESTIMONIALS[0].avatar} alt="" width={48} height={48} className="rounded-full object-cover" />
+                <Image
+                  src={TESTIMONIALS[0].avatar}
+                  alt={`${TESTIMONIALS[0].author} testimonial portrait`}
+                  width={48}
+                  height={48}
+                  className="rounded-full object-cover"
+                />
                 <div>
                   <div className="font-medium">{TESTIMONIALS[0].author}</div>
                   <div className="text-sm text-[var(--color-pib-text-muted)]">{TESTIMONIALS[0].role}</div>
@@ -371,7 +377,13 @@ export default function HomePage() {
                 <div key={t.author} className="bento-card">
                   <p className="text-[var(--color-pib-text)] text-pretty">&ldquo;{t.quote}&rdquo;</p>
                   <footer className="mt-4 pt-4 border-t border-[var(--color-pib-line)] flex items-center gap-3 text-sm">
-                    <Image src={t.avatar} alt="" width={32} height={32} className="rounded-full object-cover" />
+                    <Image
+                      src={t.avatar}
+                      alt={`${t.author} testimonial portrait`}
+                      width={32}
+                      height={32}
+                      className="rounded-full object-cover"
+                    />
                     <div>
                       <div className="font-medium">{t.author}</div>
                       <div className="text-[var(--color-pib-text-muted)] text-xs">{t.role}</div>
