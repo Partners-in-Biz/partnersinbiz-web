@@ -9,9 +9,9 @@ export const dynamic = 'force-dynamic'
 
 export const POST = withAuth(
   'admin',
-  withIdempotency(async (_req: NextRequest, _user: ApiUser, ctx: { params: Promise<{ id: string }> }) => {
+  withIdempotency(async (_req: NextRequest, user: ApiUser, ctx: { params: Promise<{ id: string }> }) => {
     const { id } = await ctx.params
-    const result = await runOptimizationLoopForSprint(id)
+    const result = await runOptimizationLoopForSprint(id, user)
     return apiSuccess(result)
   }),
 )

@@ -129,4 +129,107 @@ describe('ensureSeoQueuedAgentHandoff', () => {
     }), { merge: true })
     expect(taskSet).toHaveBeenCalledTimes(2)
   })
+
+  it('creates a watcher-visible Pip orchestration task for optimization proposals', async () => {
+    const projectTaskSet = jest.fn()
+    const handoffSet = jest.fn()
+    const optimizationSet = jest.fn()
+    const projectRef = {
+      id: 'project-1',
+      collection: jest.fn(() => ({
+        doc: jest.fn(() => ({
+          id: 'seo-optimization-sprint-1-2026-05-20',
+          get: jest.fn().mockResolvedValue(docSnap('seo-optimization-sprint-1-2026-05-20', null)),
+          set: projectTaskSet,
+        })),
+      })),
+    }
+
+    mockCollection.mockImplementation((name: string) => {
+      if (name === 'seo_sprints') {
+        return {
+          doc: jest.fn(() => ({
+            get: jest.fn().mockResolvedValue(docSnap('sprint-1', {
+              orgId: 'org-1',
+              siteName: 'Partners in Biz',
+              siteUrl: 'https://partnersinbiz.online',
+              timezone: 'Africa/Johannesburg',
+            })),
+          })),
+        }
+      }
+      if (name === 'seo_optimizations') {
+        return {
+          doc: jest.fn((id: string) => ({
+            get: jest.fn().mockResolvedValue(docSnap(id, {
+              sprintId: 'sprint-1',
+              orgId: 'org-1',
+              hypothesis: id === 'opt-1' ? 'Page lacks depth' : 'Pillar needs more internal links',
+              hypothesisType: id === 'opt-1' ? 'stuck_page:depth-faq' : 'orphan:cluster',
+              proposedAction: id === 'opt-1' ? 'Rewrite the target page' : 'Add inbound links',
+            })),
+            set: optimizationSet,
+          })),
+        }
+      }
+      if (name === 'projects') {
+        return {
+          where: jest.fn(() => ({
+            get: jest.fn().mockResolvedValue({
+              docs: [
+                {
+                  data: () => ({ name: 'Partners in Biz - SEO 90-day Sprint' }),
+                  ref: projectRef,
+                },
+              ],
+            }),
+          })),
+          doc: jest.fn(() => projectRef),
+        }
+      }
+      if (name === 'seo_agent_handoffs') {
+        return {
+          doc: jest.fn(() => ({
+            set: handoffSet,
+          })),
+        }
+      }
+      throw new Error(`Unexpected collection ${name}`)
+    })
+
+    const { ensureSeoOptimizationAgentHandoff } = await import('@/lib/seo/blocker-handoff')
+    const result = await ensureSeoOptimizationAgentHandoff({
+      sprintId: 'sprint-1',
+      optimizationIds: ['opt-1', 'opt-2'],
+      actor: { uid: 'admin-1', role: 'admin', orgId: 'org-1' },
+    })
+
+    expect(result).toEqual({
+      projectId: 'project-1',
+      projectTaskId: 'seo-optimization-sprint-1-2026-05-20',
+      optimizationIds: ['opt-1', 'opt-2'],
+    })
+    expect(projectTaskSet).toHaveBeenCalledWith(expect.objectContaining({
+      assigneeAgentId: 'pip',
+      agentStatus: 'pending',
+      source: 'seo-optimization-orchestration',
+      sourceOptimizationIds: ['opt-1', 'opt-2'],
+      agentInput: expect.objectContaining({
+        context: expect.objectContaining({
+          orchestrationMode: 'pip-orchestrator',
+          source: 'seo-optimization-loop',
+          optimizationIds: ['opt-1', 'opt-2'],
+          requestedAgentIds: ['theo', 'maya', 'sage', 'nora'],
+        }),
+      }),
+    }), { merge: true })
+    expect(handoffSet).toHaveBeenCalledWith(expect.objectContaining({
+      kind: 'optimization',
+      status: 'queued',
+      projectId: 'project-1',
+      projectTaskId: 'seo-optimization-sprint-1-2026-05-20',
+      optimizationIds: ['opt-1', 'opt-2'],
+    }), { merge: true })
+    expect(optimizationSet).toHaveBeenCalledTimes(2)
+  })
 })

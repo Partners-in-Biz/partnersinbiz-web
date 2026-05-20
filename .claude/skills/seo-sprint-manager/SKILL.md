@@ -171,14 +171,28 @@ GET  /seo/sprints/[id]/today                         # what's due today
 POST /seo/sprints/[id]/run                           # execute Loop B end-to-end
 ```
 
-`/run` returns `{ done: [taskIds], queued: [taskIds], blocked: [{taskId, reason}] }`.
+`/run` returns `{ done: [taskIds], queued: [taskIds], blocked: [{taskId, reason}], agentHandoff? }`.
+
+When `/run` queues work for Hermes, the platform creates or updates a watcher-visible
+project task assigned to Pip:
+
+- `assigneeAgentId: "pip"`
+- `agentStatus: "pending"`
+- `source: "seo-run-orchestration"`
+- `agentInput.context.orchestrationMode: "pip-orchestrator"`
+- `agentInput.context.queuedSeoTaskIds: [...]`
+
+That project task is what the VPS `agent-watcher` dispatches to Hermes. Do not treat
+`queued` as dispatched unless the response has `agentHandoff` or the relevant
+`seo_tasks` have `agentProjectTaskId`.
 
 Pip's natural-language flow when Peet says "do today's SEO":
 
 1. Find active sprints (filter by client if mentioned)
 2. For each, GET today's plan
 3. POST /run to execute autopilot tasks + queue the rest
-4. Report a short digest: "Did 4, queued 2 for your review, 1 blocked on GSC reconnect"
+4. If `agentHandoff` is present, include the project/task id so the user can see the Hermes handoff.
+5. Report a short digest: "Did 4, queued 2 to Pip/Hermes, 1 blocked on GSC reconnect"
 
 ## Endpoints
 
@@ -250,6 +264,21 @@ POST   /seo/optimizations/[id]/approve               turn proposal → tasks
 POST   /seo/optimizations/[id]/reject
 POST   /seo/optimizations/[id]/measure               re-measure outcome (win/loss/no-change)
 ```
+
+`POST /seo/sprints/[id]/optimize` returns `{ signalsFound, proposalsCreated, agentHandoff? }`.
+When proposals are created, the platform creates or updates a watcher-visible project
+task assigned to Pip:
+
+- `assigneeAgentId: "pip"`
+- `agentStatus: "pending"`
+- `source: "seo-optimization-orchestration"`
+- `agentInput.context.orchestrationMode: "pip-orchestrator"`
+- `agentInput.context.optimizationIds: [...]`
+
+Hermes/Pip should review each proposal, approve useful proposals via
+`POST /seo/optimizations/[id]/approve`, run the generated tasks where appropriate,
+reject weak/duplicate proposals, and report optimization ids, generated task ids,
+completed task ids, blockers, and evidence.
 
 ### In-house SEO toolkit
 ```
