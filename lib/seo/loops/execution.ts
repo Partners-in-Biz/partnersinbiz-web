@@ -2,6 +2,7 @@ import { adminDb } from '@/lib/firebase/admin'
 import { FieldValue } from 'firebase-admin/firestore'
 import type { ApiUser } from '@/lib/api/types'
 import { lastActorFrom } from '@/lib/api/actor'
+import { ensureSeoBlockerHandoff, resolveSeoBlockerHandoff } from '@/lib/seo/blocker-handoff'
 
 export interface ExecutorResult {
   status: 'done' | 'queued' | 'blocked'
@@ -110,6 +111,7 @@ export async function runExecutionLoopForSprint(
         outputArtifactId: r.artifactId ?? null,
         ...lastActorFrom(user),
       })
+      await resolveSeoBlockerHandoff(id, user)
     } else if (r.status === 'queued') {
       out.queued.push(id)
       await adminDb.collection('seo_tasks').doc(id).update({
@@ -123,6 +125,11 @@ export async function runExecutionLoopForSprint(
         status: 'blocked',
         blockerReason: r.blockerReason ?? null,
         ...lastActorFrom(user),
+      })
+      await ensureSeoBlockerHandoff({
+        taskId: id,
+        reason: r.blockerReason,
+        actor: user,
       })
     }
   }

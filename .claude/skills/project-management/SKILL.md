@@ -70,6 +70,17 @@ When an agent discovers human work it cannot complete:
 If there is no project yet, create it first. Do not leave actionable blockers only in
 the final chat response, repo PR, or wiki.
 
+Every blocker task must explain:
+
+- what is wrong
+- how to fix it
+- what evidence/proof is required
+- what message should be sent back to the agent when the blocker is resolved
+
+For SEO blockers, the SEO module now creates/reuses the client SEO project, creates
+the project task, and notifies matching admins automatically when the SEO task is
+marked `blocked`. The agent remains responsible for writing a useful blocker reason.
+
 ## Collaboration primitives
 
 - **Idempotency** on `POST /projects`, `POST /tasks`, `POST /time-entries`, `POST /time-entries/start`, `POST /calendar/events`

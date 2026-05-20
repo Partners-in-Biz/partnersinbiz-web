@@ -14,11 +14,17 @@ describe('seo/tenant', () => {
     expect(mockWhere).toHaveBeenCalledWith('orgId', '==', 'o1')
   })
 
-  it('requireSprintAccess throws when sprint orgId mismatch', async () => {
+  it('requireSprintAccess throws when restricted admin org access mismatches', async () => {
     mockGet.mockResolvedValueOnce({ exists: true, data: () => ({ orgId: 'other-org', deleted: false }) })
     await expect(
-      requireSprintAccess('s1', { uid: 'u1', role: 'admin', orgId: 'o1' } as any),
+      requireSprintAccess('s1', { uid: 'u1', role: 'admin', orgId: 'o1', allowedOrgIds: ['o1'] } as any),
     ).rejects.toThrow(/access/i)
+  })
+
+  it('requireSprintAccess allows super admins across orgs', async () => {
+    mockGet.mockResolvedValueOnce({ exists: true, data: () => ({ orgId: 'other-org', deleted: false, siteName: 'Y' }) })
+    const sprint = await requireSprintAccess('s1', { uid: 'u1', role: 'admin', orgId: 'o1' } as any)
+    expect(sprint.siteName).toBe('Y')
   })
 
   it('requireSprintAccess returns sprint when orgId matches', async () => {

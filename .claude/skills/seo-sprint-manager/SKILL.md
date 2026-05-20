@@ -83,6 +83,18 @@ For every SEO pass:
 
 Do not report "SEO done" if the client-visible sprint still shows the work as due.
 
+When an SEO task is blocked, the blocker reason must be detailed enough for an
+admin or client to act. Include:
+
+- what is wrong
+- how to fix it
+- what proof is needed
+- the exact instruction to send the agent after the blocker is resolved
+
+The platform creates/reuses the client SEO project, creates a blocker task, and
+notifies matching admins when an SEO task is marked `blocked`. Agents should still
+make the blocker reason useful; the platform cannot infer missing context.
+
 ## Human blockers and cross-app handoff
 
 When a task needs Peet, a Partners in Biz team member, or the client to do something
