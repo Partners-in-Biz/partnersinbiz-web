@@ -1,4 +1,5 @@
 name: Sync VPS platform skills
+# Runs from development so VPS agents consume the same branch they work on.
 on:
   push:
     branches: [development]
