@@ -453,12 +453,12 @@ Artifact status: deployment docs/scripts created under `docs/deploy/` and `scrip
 ## Open questions
 
 1. Which PiB users should be allowed to trigger agents: Peet/super-admin only, PiB staff admins, or clients too?
-2. Should client profiles be allowed to run terminal/file tools, or should some profiles be locked down to safer toolsets?
+2. Should named agent profiles be allowed to run terminal/file tools, or should some profiles be locked down to safer toolsets?
 3. Should Hermes outputs be allowed to directly publish/send changes, or should every external side effect require review?
-4. Do we want a separate Hermes profile per PiB organization forever, or only for high-value clients while smaller clients share a restricted pool profile?
-5. Which dashboard features are required in v1: cron, model selection, env keys, tools/skills, sessions/logs, profile creation?
-6. Should PiB create/manage Hermes profiles automatically when creating a new client, or should profile provisioning stay manual at first?
-7. For VPS: do we prefer many long-running profile processes, or an on-demand daemon that starts profiles as needed?
+4. Which dashboard features are required in v1: cron, model selection, env keys, tools/skills, sessions/logs, profile creation?
+5. For VPS: do we prefer long-running named agent processes (`pip`, `theo`, `maya`, `sage`, `nora`) or an on-demand daemon that starts agents as needed?
+
+Note: the later multi-agent architecture supersedes the earlier "Hermes profile per client" assumption. Client/org context is passed into named agents per conversation/task; PiB should not create a Hermes Agent profile automatically for each new client.
 
 ## Recommended decision
 

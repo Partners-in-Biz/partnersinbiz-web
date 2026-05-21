@@ -1,11 +1,13 @@
 # Hermes VPS deployment runbook for Partners in Biz
 
-Status: Phase 5 deployment artifact
-Scope: running multiple Hermes profile API servers for PiB client organizations on a VPS
+Status: Legacy Phase 5 deployment artifact; superseded by the named-agent VPS topology (`pip`, `theo`, `maya`, `sage`, `nora`)
+Scope: historical runbook for running multiple Hermes profile API servers on a VPS
+
+This document predates the multi-agent architecture. Do not use it to provision one Hermes Agent profile per client. Current PiB architecture keeps a small fixed set of named agent profiles and passes `orgId`/client context per conversation or task.
 
 ## Target architecture
 
-Recommended first VPS shape: one long-running Hermes API server process per client profile, managed by systemd.
+Historical first VPS shape: one long-running Hermes API server process per profile, managed by systemd. Current target shape is one long-running process per named agent profile, not per client organization.
 
 ```text
 partnersinbiz-web API routes
