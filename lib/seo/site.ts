@@ -153,6 +153,7 @@ export const CASE_STUDIES = [
     cover: '/images/case-ahs-law-cover.jpg',
     stack: ['Vite', 'React', 'Firebase Auth'],
     href: '/work/ahs-law',
+    liveUrl: 'https://www.ahslaw.co.za/',
   },
   {
     slug: 'scrolledbrain',

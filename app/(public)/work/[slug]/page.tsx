@@ -241,6 +241,22 @@ export default async function CaseStudyPage({
                     <div className="font-display text-xl md:text-2xl">{item.v}</div>
                   </div>
                 ))}
+                {'liveUrl' in study && study.liveUrl ? (
+                  <a
+                    href={study.liveUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="bg-[var(--color-pib-surface)] p-5 md:p-6 transition-colors hover:bg-[var(--color-pib-surface-2)]"
+                  >
+                    <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--color-pib-text-muted)] mb-2">
+                      Live site
+                    </div>
+                    <div className="inline-flex items-center gap-2 font-display text-xl md:text-2xl text-[var(--color-pib-text)]">
+                      Visit AHS Law
+                      <span className="material-symbols-outlined text-xl">arrow_outward</span>
+                    </div>
+                  </a>
+                ) : null}
               </div>
             </Reveal>
           </div>
