@@ -17,12 +17,10 @@ export const GET = withAuth(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let data = snap.data() as any
     if (user.role !== 'ai' && data.orgId !== user.orgId) return apiError('Access denied', 403)
-    if (!data.todayPlan) {
-      await refreshTodayPlan(id, data.currentWeek ?? 0)
-      snap = await ref.get()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      data = snap.data() as any
-    }
+    await refreshTodayPlan(id, data.currentWeek ?? 0)
+    snap = await ref.get()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    data = snap.data() as any
     return apiSuccess(data.todayPlan ?? null)
   },
 )
