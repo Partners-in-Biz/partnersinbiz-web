@@ -34,6 +34,7 @@ const DEFAULT_SAFE_TASK_TYPES = new Set([
   'cwv-check',
   'canonical-check',
   'gsc-index-check',
+  'sitemap-submit',
   'keyword-record',
   'directory-submission',
   'audit-snapshot',

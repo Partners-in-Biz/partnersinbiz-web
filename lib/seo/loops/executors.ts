@@ -11,7 +11,7 @@ import { runCrawlerSim } from '@/lib/seo/tools/crawler-sim'
 import { runInternalLinkAudit } from '@/lib/seo/tools/internal-link-audit'
 import { generateAuditSnapshot } from '@/lib/seo/audits'
 import { pullDailyPagespeedForSprint } from '@/lib/seo/integrations/pagespeed'
-import { pullDailyGscForSprint, fetchSearchAnalytics, refreshGscClient } from '@/lib/seo/integrations/gsc'
+import { pullDailyGscForSprint, fetchSearchAnalytics, refreshGscClient, submitSitemap } from '@/lib/seo/integrations/gsc'
 import { decryptCredentials } from '@/lib/integrations/crypto'
 
 let registered = false
@@ -105,6 +105,28 @@ export function registerAllExecutors() {
     return { status: 'done', notes: 'GSC pull triggered' }
   })
 
+  registerExecutor('sitemap-submit', async (_taskId, sprintId) => {
+    const sprint = await getSprint(sprintId)
+    if (!sprint) return { status: 'blocked', blockerReason: 'no sprint' }
+    const gsc = sprint.integrations?.gsc
+    if (!gsc?.connected || !gsc?.tokens || !gsc?.propertyUrl) {
+      return { status: 'blocked', blockerReason: 'GSC not connected or property not selected' }
+    }
+    let refreshToken: string | undefined
+    try {
+      const decrypted = decryptCredentials<{ refresh_token?: string }>(gsc.tokens, sprint.orgId)
+      refreshToken = decrypted.refresh_token
+    } catch {
+      return { status: 'blocked', blockerReason: 'tokens corrupted' }
+    }
+    if (!refreshToken) return { status: 'blocked', blockerReason: 'no refresh_token' }
+    const sitemapUrl = `${sprint.siteUrl.replace(/\/$/, '')}/sitemap.xml`
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const auth = refreshGscClient(refreshToken) as any
+    await submitSitemap(auth, gsc.propertyUrl, sitemapUrl)
+    return { status: 'done', notes: `Submitted ${sitemapUrl} to ${gsc.propertyUrl}` }
+  })
+
   registerExecutor('keyword-record', async () => {
     return { status: 'done', notes: 'no-op (manual entry)' }
   })
@@ -136,7 +158,7 @@ export function registerAllExecutors() {
     return { status: 'done', notes: `${count} directories marked submitted` }
   })
 
-  registerExecutor('audit-snapshot', async (taskId, sprintId, _user) => {
+  registerExecutor('audit-snapshot', async (taskId, sprintId) => {
     const sprint = await getSprint(sprintId)
     if (!sprint) return { status: 'blocked', blockerReason: 'no sprint' }
     const auditId = await generateAuditSnapshot(sprintId, sprint.currentDay ?? 0)
@@ -154,7 +176,7 @@ export function registerAllExecutors() {
   registerExecutor('internal-link-add', async (taskId, sprintId) => {
     const sprint = await getSprint(sprintId)
     if (!sprint) return { status: 'blocked', blockerReason: 'no sprint' }
-    let sitemapUrl = `${sprint.siteUrl.replace(/\/$/, '')}/sitemap.xml`
+    const sitemapUrl = `${sprint.siteUrl.replace(/\/$/, '')}/sitemap.xml`
     try {
       const result = await runInternalLinkAudit(sitemapUrl)
       const artifactId = await saveArtifact(sprintId, sprint.orgId, taskId, 'internal-link-audit', result)
@@ -224,7 +246,7 @@ export function registerAllExecutors() {
   })
 
   // Phase D.4 — full-mode autopilot
-  registerExecutor('post-publish', async (taskId, sprintId, user) => {
+  registerExecutor('post-publish', async (taskId, sprintId) => {
     const sprint = await getSprint(sprintId)
     if (!sprint) return { status: 'blocked', blockerReason: 'no sprint' }
     if (sprint.autopilotMode !== 'full') {

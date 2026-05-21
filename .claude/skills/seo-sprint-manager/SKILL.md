@@ -330,9 +330,56 @@ POST   /seo/integrations/gsc/connect/[sprintId]      pick GSC property
 POST   /seo/integrations/gsc/disconnect/[sprintId]
 POST   /seo/integrations/gsc/pull/[sprintId]         on-demand pull
 GET    /seo/integrations/gsc/properties/[sprintId]   list GSC properties for connected account
+POST   /seo/integrations/gsc/sitemaps/submit/[sprintId] submit sitemap.xml or {sitemapUrl}
 POST   /seo/integrations/bing/connect/[sprintId]     {siteUrl}
 POST   /seo/integrations/pagespeed/run/[sprintId]    on-demand pull
 ```
+
+### GSC API capability map
+
+Agents must be precise about what the connected Google Search Console API can and
+cannot do.
+
+**Current OAuth scope**
+
+PiB requests `https://www.googleapis.com/auth/webmasters`, not readonly. This is the
+Search Console read/write scope and is needed for sitemap submission. Existing
+connections made before this scope change may only have
+`https://www.googleapis.com/auth/webmasters.readonly`; if sitemap submit returns an
+insufficient-scope error, reconnect GSC from the sprint Settings tab, select the
+property again, then retry.
+
+**Can do through the PiB API**
+
+- List verified GSC properties:
+  `GET /seo/integrations/gsc/properties/[sprintId]`.
+- Select the property used by the sprint:
+  `POST /seo/integrations/gsc/connect/[sprintId]` with `{ "propertyUrl": "sc-domain:example.com" }`.
+- Pull Search Analytics data for keyword/page tracking:
+  `POST /seo/integrations/gsc/pull/[sprintId]`.
+- Inspect known URL status from Search Console through executors/tools that call
+  Google's URL Inspection API. This reads Google's URL-level state; it does not
+  request indexing.
+- Submit a sitemap:
+  `POST /seo/integrations/gsc/sitemaps/submit/[sprintId]`.
+  Body is optional; omit it to submit `${siteUrl}/sitemap.xml`, or send
+  `{ "sitemapUrl": "https://example.com/sitemap.xml" }`.
+
+**Cannot do through any normal GSC API**
+
+- The Search Console UI's **Request indexing** action for ordinary pages is not
+  exposed as a Search Console API method. Keep `gsc-request-index` tasks manual:
+  a verified user must open URL Inspection in the Search Console UI, inspect the
+  page, and click Request indexing.
+- Google's separate Indexing API is not a general replacement. It is only for
+  pages with `JobPosting` structured data or livestream `BroadcastEvent` content
+  embedded in `VideoObject`. Do not use it for standard Partners/client landing,
+  service, blog, or pricing pages.
+
+When closing SEO blockers, mark sitemap submission as agent-actionable if the sprint
+has a write-scoped GSC token and selected property. Keep URL Inspection request
+indexing as a human/client action unless the page is genuinely eligible for Google's
+special Indexing API.
 
 ## Examples
 
@@ -397,6 +444,13 @@ curl -X POST "$BASE/sprints/$ID/audits" \
   -H "Authorization: Bearer $AI_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"snapshotDay":30}'
+```
+
+### Submit the sprint sitemap to GSC
+```bash
+curl -X POST "$BASE/integrations/gsc/sitemaps/submit/$ID" \
+  -H "Authorization: Bearer $AI_API_KEY" \
+  -H "Idempotency-Key: sitemap-$ID-$(date +%s)"
 ```
 
 ## Cross-skill handoffs
