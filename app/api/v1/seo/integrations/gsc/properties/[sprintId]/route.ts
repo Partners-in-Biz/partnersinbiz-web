@@ -3,6 +3,7 @@ import { google } from 'googleapis'
 import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
+import { canAccessOrg } from '@/lib/api/platformAdmin'
 import { refreshGscClient } from '@/lib/seo/integrations/gsc'
 import { decryptCredentials } from '@/lib/integrations/crypto'
 import type { ApiUser } from '@/lib/api/types'
@@ -17,7 +18,7 @@ export const GET = withAuth(
     if (!snap.exists) return apiError('Sprint not found', 404)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const data = snap.data() as any
-    if (user.role !== 'ai' && data.orgId !== user.orgId) return apiError('Access denied', 403)
+    if (!canAccessOrg(user, data.orgId)) return apiError('Access denied', 403)
     const tokens = data.integrations?.gsc?.tokens
     if (!tokens) return apiError('GSC not connected', 400)
     const decrypted = decryptCredentials<{ refresh_token?: string }>(tokens, data.orgId)

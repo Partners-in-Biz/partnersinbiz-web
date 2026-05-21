@@ -3,6 +3,7 @@ import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
 import { withIdempotency } from '@/lib/api/idempotency'
 import { apiSuccess, apiError } from '@/lib/api/response'
+import { canAccessOrg } from '@/lib/api/platformAdmin'
 import type { ApiUser } from '@/lib/api/types'
 
 export const dynamic = 'force-dynamic'
@@ -18,7 +19,7 @@ export const POST = withAuth(
     if (!snap.exists) return apiError('Sprint not found', 404)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const data = snap.data() as any
-    if (user.role !== 'ai' && data.orgId !== user.orgId) return apiError('Access denied', 403)
+    if (!canAccessOrg(user, data.orgId)) return apiError('Access denied', 403)
     await ref.update({ 'integrations.gsc.propertyUrl': body.propertyUrl })
     return apiSuccess({ sprintId, propertyUrl: body.propertyUrl })
   }),
