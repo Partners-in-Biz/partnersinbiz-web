@@ -99,6 +99,11 @@ describe('admin agent permissions', () => {
         name: 'Zara',
         role: 'Specialist',
         persona: 'Helps',
+        responsibilities: ['does specialist work'],
+        skills: ['partnersinbiz/project-management'],
+        cronWatchLoops: ['daily queue check'],
+        allowedScopes: ['projects'],
+        exampleTaskTypes: ['triage a project'],
       }),
     }))
 
@@ -125,6 +130,11 @@ describe('admin agent permissions', () => {
       agentId: 'zara',
       baseUrl: 'https://agent.test',
       apiKey: 'plain-key',
+      responsibilities: ['does specialist work'],
+      skills: ['partnersinbiz/project-management'],
+      cronWatchLoops: ['daily queue check'],
+      allowedScopes: ['projects'],
+      exampleTaskTypes: ['triage a project'],
     }))
   })
 
