@@ -12,6 +12,7 @@ interface MessageDrawerProps {
   allowAgentParticipants?: boolean
   allowDeleteConversations?: boolean
   disabledReason?: string
+  onOpen?: () => void
 }
 
 export function MessageDrawer({
@@ -22,6 +23,7 @@ export function MessageDrawer({
   allowAgentParticipants = true,
   allowDeleteConversations = false,
   disabledReason,
+  onOpen,
 }: MessageDrawerProps) {
   const [open, setOpen] = useState(false)
   const disabled = !orgId
@@ -70,7 +72,9 @@ export function MessageDrawer({
       <button
         type="button"
         onClick={() => {
-          if (!disabled) setOpen((value) => !value)
+          if (disabled) return
+          if (!open) onOpen?.()
+          setOpen((value) => !value)
         }}
         disabled={disabled}
         title={disabled ? disabledReason ?? 'Select a workspace first' : open ? 'Close messages' : 'Open messages'}

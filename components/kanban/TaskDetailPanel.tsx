@@ -462,7 +462,10 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--color-card-border)] shrink-0">
+        <div
+          data-task-detail-header
+          className="sticky top-0 z-10 flex items-center justify-between px-6 py-4 border-b border-[var(--color-card-border)] shrink-0 bg-[var(--color-sidebar)]"
+        >
           <div>
             <span
               className="text-[9px] font-label uppercase tracking-widest px-2 py-0.5 rounded"
@@ -474,12 +477,18 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
           </div>
           <div className="flex items-center gap-2">
             <button
+              type="button"
               onClick={handleDelete}
               className="text-xs text-on-surface-variant hover:text-red-400 transition-colors font-label"
             >
               Delete
             </button>
-            <button onClick={onClose} className="text-on-surface-variant hover:text-on-surface transition-colors text-lg">
+            <button
+              type="button"
+              aria-label="Close task details"
+              onClick={onClose}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full text-2xl leading-none text-on-surface-variant hover:bg-[var(--color-surface-container)] hover:text-on-surface transition-colors"
+            >
               ×
             </button>
           </div>
