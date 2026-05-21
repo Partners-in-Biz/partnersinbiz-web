@@ -156,7 +156,7 @@ export default function AgentsBoardClient() {
           </p>
           <h1 className="text-2xl font-headline font-bold text-on-surface">Agent Team</h1>
           <p className="text-sm text-on-surface-variant mt-1">
-            Manage the 5 specialist agents that serve your clients.
+            Manage the specialist agents that serve your clients. New agents are provisioned through Pip automatically.
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -182,6 +182,9 @@ export default function AgentsBoardClient() {
 
       {isSuperAdmin && showCreate && (
         <form onSubmit={createAgent} className="pib-card p-4 space-y-4">
+          <div className="rounded-lg border border-outline/60 bg-surface-variant/30 p-3 text-xs text-on-surface-variant">
+            Creating an agent here asks Pip to provision the VPS profile, then registers the new profile with the platform dispatch config. You only need to ask Pip manually if this provisioning step fails or the agent needs a non-standard setup.
+          </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="space-y-1">
               <span className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant">Agent ID</span>
@@ -211,7 +214,7 @@ export default function AgentsBoardClient() {
           <div className="flex justify-end gap-2">
             <button type="button" onClick={() => setShowCreate(false)} className="pib-btn-ghost text-xs font-label">Cancel</button>
             <button type="submit" disabled={creating} className="pib-btn-primary text-xs font-label disabled:opacity-50">
-              {creating ? 'Provisioning...' : 'Create on VPS'}
+              {creating ? 'Provisioning via Pip...' : 'Provision via Pip'}
             </button>
           </div>
         </form>

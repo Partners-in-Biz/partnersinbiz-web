@@ -105,7 +105,27 @@ describe('admin agent permissions', () => {
     expect(res.status).toBe(200)
     const body = await readJson(res)
     expect(body.success).toBe(true)
-    expect(mockCreateAgent).toHaveBeenCalled()
+    expect(mockCallAgentPath).toHaveBeenCalledWith(
+      'pip',
+      '/admin/profiles',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({
+          agentId: 'zara',
+          name: 'Zara',
+          role: 'Specialist',
+          persona: 'Helps',
+          defaultModel: 'gpt-5.5',
+          provider: 'openai-codex',
+        }),
+      }),
+    )
+    expect(mockCreateAgent).toHaveBeenCalledWith(expect.objectContaining({
+      agentId: 'zara',
+      baseUrl: 'https://agent.test',
+      apiKey: 'plain-key',
+    }))
   })
 
   it('rejects restricted admins editing agent details', async () => {
