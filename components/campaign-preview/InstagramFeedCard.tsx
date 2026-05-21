@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react'
 import type { PreviewSocialPost, PreviewBrand } from './types'
-import { PreviewImage, getFirstImage, compactCount, HighlightedText, withHashtags } from './utils'
+import { PreviewImage, getFirstImage, compactCount, HighlightedText, readableAccentOnDark, withHashtags } from './utils'
 
 export interface InstagramFeedCardProps {
   post: PreviewSocialPost
@@ -17,7 +17,7 @@ export function InstagramFeedCard({ post, brand }: InstagramFeedCardProps) {
   const fullCaption = withHashtags(post.content, post.hashtags)
   const isLong = fullCaption.length > 90
   const caption = !expanded && isLong ? fullCaption.slice(0, 90).trimEnd() : fullCaption
-  const accent = brand?.palette.accent || '#0095F6'
+  const accent = readableAccentOnDark(brand?.palette.accent, '#0095F6')
 
   return (
     <div
