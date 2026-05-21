@@ -40,6 +40,8 @@ Pick the system that fits: use project-nested when a project is the clear contai
 Projects are the canonical task bus whenever work crosses module boundaries, agents,
 Peet, Partners in Biz staff, or client action.
 
+For substantial client work, start with an internal/client document for the spec, then use Projects/Kanban as the execution bus. If the spec is not approved yet, create a Pip approval-gate task and hold specialist agent tasks at `agentStatus='awaiting-input'` with `dependsOn` until approval. When approval lands, release those tasks to `pending` so the kanban watcher picks them up automatically.
+
 Domain modules still own their own progress records:
 
 - SEO work must update the SEO sprint.
