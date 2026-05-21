@@ -40,6 +40,8 @@ Pick the system that fits: use project-nested when a project is the clear contai
 Projects are the canonical task bus whenever work crosses module boundaries, agents,
 Peet, Partners in Biz staff, or client action.
 
+For substantial client work, start with an internal/client document for the spec, then use Projects/Kanban as the execution bus. If the spec is not approved yet, create a Pip approval-gate task and hold specialist agent tasks at `agentStatus='awaiting-input'` with `dependsOn` until approval. When approval lands, release those tasks to `pending` so the kanban watcher picks them up automatically.
+
 Domain modules still own their own progress records:
 
 - SEO work must update the SEO sprint.
@@ -150,8 +152,9 @@ Tasks can be assigned to a named agent in the Partners-in-Biz team (Pip, Theo, M
 }
 ```
 
-- **`assigneeAgentId`** — one of `pip` | `theo` | `maya` | `sage` | `nora` (or omit/null for a human task). Setting this auto-initialises `agentStatus` to `pending`.
-- **`agentStatus`** — `pending` | `picked-up` | `in-progress` | `awaiting-input` | `done` | `blocked`. On reassignment, status resets to `pending` unless explicitly overridden.
+- **`assigneeAgentId`** — one of `pip` | `theo` | `maya` | `sage` | `nora` (or omit/null for a human task). Setting this on create auto-initialises `agentStatus` to `pending`.
+- **`agentStatus`** — `pending` | `picked-up` | `in-progress` | `awaiting-input` | `done` | `blocked`. On reassignment, status resets to `pending` unless explicitly overridden on update.
+  - **Approval-gated task gotcha:** `POST /projects/[projectId]/tasks` currently resets agent-assigned tasks to `agentStatus='pending'` even when the create payload includes `agentStatus:'awaiting-input'`. If you are creating future/approval-gated agent tasks, immediately `PATCH /projects/[projectId]/tasks/[taskId]` with `{ "agentStatus": "awaiting-input" }` after creation, then verify with `GET /projects/[projectId]/tasks` before telling Peet the tasks are gated. Otherwise the watcher can pick them up too early.
 - **`agentInput`** — `{ spec: string, context?: object, constraints?: string[] }`. `spec` is required.
 - **`agentOutput`** — written when the agent completes: `{ summary: string, artifacts?: [{ type, ref, label? }], completedAt }`. `artifacts.type` is `url` | `file` | `commit` | `message-thread` | `doc`.
 - **`dependsOn`** — array of task IDs that must reach `agentStatus='done'` before this one becomes eligible for pickup.

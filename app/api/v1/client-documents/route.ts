@@ -23,6 +23,7 @@ const VALID_TYPES: ClientDocumentType[] = [
   'build_spec',
   'social_strategy',
   'content_campaign_plan',
+  'geo_seo_strategy',
   'monthly_report',
   'launch_signoff',
   'change_request',
@@ -37,8 +38,8 @@ const VALID_STATUSES: ClientDocumentStatus[] = [
   'accepted',
   'archived',
 ]
-const LINKED_STRING_FIELDS = new Set(['projectId', 'campaignId', 'reportId', 'dealId', 'seoSprintId', 'invoiceId'])
-const LINKED_FIELDS = new Set([...LINKED_STRING_FIELDS, 'socialPostIds'])
+const LINKED_STRING_FIELDS = new Set(['projectId', 'campaignId', 'reportId', 'dealId', 'seoSprintId', 'geoWorkspaceId', 'geoAuditId', 'invoiceId'])
+const LINKED_FIELDS = new Set([...LINKED_STRING_FIELDS, 'socialPostIds', 'geoTaskIds'])
 const ASSUMPTION_CREATE_FIELDS = new Set(['text', 'severity', 'blockId'])
 const ASSUMPTION_SEVERITIES = new Set(['info', 'needs_review', 'blocks_publish'])
 
@@ -76,6 +77,13 @@ function validateCreateLinked(
     (!Array.isArray(linked.socialPostIds) || linked.socialPostIds.some((postId) => typeof postId !== 'string'))
   ) {
     return { ok: false, error: 'linked.socialPostIds must be an array of strings' }
+  }
+
+  if (
+    'geoTaskIds' in linked &&
+    (!Array.isArray(linked.geoTaskIds) || linked.geoTaskIds.some((taskId) => typeof taskId !== 'string'))
+  ) {
+    return { ok: false, error: 'linked.geoTaskIds must be an array of strings' }
   }
 
   return { ok: true, value: linked as ClientDocumentLinkSet }

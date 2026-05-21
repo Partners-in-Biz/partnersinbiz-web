@@ -13,6 +13,11 @@ export interface AgentTeamDoc {
   apiKey: string
   lastHealthCheck?: string
   lastHealthStatus?: 'ok' | 'degraded' | 'unreachable'
+  responsibilities: string[]
+  skills: string[]
+  cronWatchLoops: string[]
+  allowedScopes: string[]
+  exampleTaskTypes: string[]
 }
 
 export type HealthStatus = 'ok' | 'degraded' | 'unreachable' | 'loading'
@@ -84,6 +89,12 @@ export function AgentCard({ agent, onClick, healthStatus = 'loading' }: AgentCar
       <p className="text-xs text-on-surface-variant mt-3 leading-relaxed line-clamp-2">
         {agent.persona}
       </p>
+
+      {agent.exampleTaskTypes?.length > 0 && (
+        <p className="mt-2 text-[10px] text-on-surface-variant/70 line-clamp-1">
+          Example: {agent.exampleTaskTypes[0]}
+        </p>
+      )}
 
       {/* Footer row */}
       <div className="mt-3 flex items-center gap-2">

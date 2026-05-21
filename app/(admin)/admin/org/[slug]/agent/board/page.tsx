@@ -4,6 +4,14 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import type { AgentId, AgentTaskCard } from '@/lib/agent-board/types'
+import {
+  AGENT_BOARD_OPERATIONAL_VIEWS,
+  getAgentBoardBadges,
+  getAgentBoardFilterCounts,
+  matchesAgentBoardView,
+  type AgentBoardBadgeTone,
+  type AgentBoardOperationalView,
+} from '@/lib/agent-board/filters'
 import { TaskDetailModal } from '@/components/agent-board/TaskDetailModal'
 import { EmptyState } from '@/components/agent-board/EmptyState'
 
@@ -13,6 +21,7 @@ type BoardResponse = {
   orgId: string
   orgSlug: string | null
   orgName: string | null
+  orgNames?: Record<string, string>
   total: number
   byStatus: Record<string, number>
   statusOrder: string[]
@@ -47,6 +56,15 @@ const AGENT_COLORS: Record<AgentId, string> = {
   nora: 'bg-slate-300/15 text-slate-200 border border-slate-300/30',
 }
 
+const BADGE_TONE_CLASSES: Record<AgentBoardBadgeTone, string> = {
+  agent: 'bg-white/10 text-on-surface border-white/15 capitalize',
+  danger: 'bg-rose-500/15 text-rose-200 border-rose-400/30',
+  warning: 'bg-orange-500/15 text-orange-200 border-orange-400/30',
+  info: 'bg-sky-500/15 text-sky-200 border-sky-400/30',
+  purple: 'bg-purple-500/15 text-purple-200 border-purple-400/30',
+  neutral: 'bg-slate-400/15 text-slate-200 border-slate-300/30',
+}
+
 function formatRel(iso: string | null): string {
   if (!iso) return ''
   const t = new Date(iso).getTime()
@@ -70,6 +88,7 @@ export default function AgentBoardPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [agentFilter, setAgentFilter] = useState<AgentId | 'all'>('all')
+  const [viewFilter, setViewFilter] = useState<AgentBoardOperationalView>('all')
   const [selected, setSelected] = useState<AgentTaskCard | null>(null)
 
   const load = useCallback(async () => {
@@ -114,19 +133,24 @@ export default function AgentBoardPage() {
     }
   }, [slug, load])
 
+  const filteredCards = useMemo(() => data?.cards.filter((card) => matchesAgentBoardView(card, viewFilter)) ?? [], [data, viewFilter])
+  const viewCounts = useMemo(() => getAgentBoardFilterCounts(data?.cards ?? []), [data])
+  const orgNames = data?.orgNames ?? {}
+  const currentOrgId = data?.orgId ?? null
+
   const columns = useMemo(() => {
     if (!data) return []
     const cols = data.statusOrder.map((status) => ({
       status,
       label: STATUS_LABELS[status] ?? status,
-      cards: data.cards.filter((c) => c.agentStatus === status),
+      cards: filteredCards.filter((c) => c.agentStatus === status),
     }))
-    const unstarted = data.cards.filter((c) => !c.agentStatus || !data.statusOrder.includes(c.agentStatus))
+    const unstarted = filteredCards.filter((c) => !c.agentStatus || !data.statusOrder.includes(c.agentStatus))
     if (unstarted.length > 0) {
       cols.unshift({ status: 'unstarted', label: STATUS_LABELS.unstarted, cards: unstarted })
     }
     return cols
-  }, [data])
+  }, [data, filteredCards])
 
   return (
     <div className="flex flex-col gap-4 p-6">
@@ -178,20 +202,48 @@ export default function AgentBoardPage() {
       )}
 
       {data && (
-        <div className="flex items-center gap-2 text-xs text-on-surface-variant">
-          <span className="text-on-surface font-medium">{data.total}</span> agent-touched tasks
-          <span className="opacity-50">·</span>
-          {Object.entries(data.byStatus)
-            .filter(([, n]) => n > 0)
-            .map(([k, n]) => (
-              <span key={k}>
-                {STATUS_LABELS[k] ?? k} <span className="font-medium text-on-surface">{n}</span>
-              </span>
-            ))
-            .reduce<React.ReactNode[]>(
-              (acc, el, i) => (i === 0 ? [el] : [...acc, <span key={`sep-${i}`} className="opacity-50">·</span>, el]),
-              [],
-            )}
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center gap-2 text-xs text-on-surface-variant">
+            <span className="text-on-surface font-medium">{filteredCards.length}</span>
+            shown
+            <span className="opacity-50">/</span>
+            <span className="text-on-surface font-medium">{data.total}</span> agent-touched tasks
+            <span className="opacity-50">·</span>
+            {Object.entries(data.byStatus)
+              .filter(([, n]) => n > 0)
+              .map(([k, n]) => (
+                <span key={k}>
+                  {STATUS_LABELS[k] ?? k} <span className="font-medium text-on-surface">{n}</span>
+                </span>
+              ))
+              .reduce<React.ReactNode[]>(
+                (acc, el, i) => (i === 0 ? [el] : [...acc, <span key={`sep-${i}`} className="opacity-50">·</span>, el]),
+                [],
+              )}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[11px] uppercase tracking-wider text-on-surface-variant/70">Operational view</span>
+            <div className="flex flex-wrap items-center gap-1 rounded-lg border border-white/10 bg-white/[0.02] p-1">
+              {AGENT_BOARD_OPERATIONAL_VIEWS.map((view) => {
+                const active = viewFilter === view.id
+                return (
+                  <button
+                    key={view.id}
+                    type="button"
+                    onClick={() => setViewFilter(view.id)}
+                    className={`text-xs px-2.5 py-1 rounded-md transition ${
+                      active ? 'bg-white/15 text-on-surface' : 'text-on-surface-variant hover:text-on-surface hover:bg-white/[0.06]'
+                    }`}
+                    title={view.label}
+                  >
+                    <span>{view.shortLabel}</span>
+                    <span className="ml-1.5 text-[10px] opacity-70">{viewCounts[view.id] ?? 0}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
         </div>
       )}
 
@@ -212,16 +264,26 @@ export default function AgentBoardPage() {
                 <div className="text-center text-xs text-on-surface-variant/60 py-6">No cards</div>
               )}
               {col.cards.map((card) => {
+                const badges = getAgentBoardBadges(card)
                 const cardInner = (
                   <>
                     <div className="flex items-start justify-between gap-2">
                       <h3 className="text-sm font-medium text-on-surface leading-snug">{card.title}</h3>
-                      {card.assigneeAgentId && (
-                        <span className={`text-[10px] px-2 py-0.5 rounded-full capitalize shrink-0 ${AGENT_COLORS[card.assigneeAgentId]}`}>
-                          {card.assigneeAgentId}
-                        </span>
-                      )}
                     </div>
+
+                    {badges.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {badges.map((badge) => (
+                          <span
+                            key={badge.id}
+                            title={badge.title}
+                            className={`text-[10px] px-1.5 py-0.5 rounded-full border ${BADGE_TONE_CLASSES[badge.tone]}`}
+                          >
+                            {badge.label}
+                          </span>
+                        ))}
+                      </div>
+                    )}
 
                     {card.agentInputSpec && (
                       <p className="mt-1.5 text-xs text-on-surface-variant line-clamp-2">{card.agentInputSpec}</p>
@@ -243,6 +305,12 @@ export default function AgentBoardPage() {
                       ) : (
                         <span className="px-1.5 py-0.5 rounded bg-white/5 border border-white/10 opacity-70">
                           standalone
+                        </span>
+                      )}
+                      {orgNames[card.orgId] && card.orgId !== currentOrgId && (
+                        <span className="px-1.5 py-0.5 rounded bg-purple-500/10 border border-purple-400/20 text-purple-100">
+                          <span className="opacity-60">org · </span>
+                          {orgNames[card.orgId]}
                         </span>
                       )}
                       {card.priority && card.priority !== 'normal' && card.priority !== 'medium' && (

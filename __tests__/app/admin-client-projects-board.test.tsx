@@ -11,6 +11,8 @@ jest.mock('next/navigation', () => ({
 
 jest.mock('firebase/firestore', () => ({
   collection: jest.fn((...segments: string[]) => segments),
+  query: jest.fn((ref, ...clauses) => ({ ref, clauses })),
+  where: jest.fn((field, op, value) => ({ field, op, value })),
   onSnapshot: jest.fn((_ref, onNext) => {
     snapshotCallback = onNext
     return unsubscribe
@@ -51,7 +53,7 @@ describe('Admin client projects board view', () => {
       if (url === '/api/v1/projects?orgSlug=acme-client') {
         return Promise.resolve({
           ok: true,
-          json: async () => ({ data: [{ id: 'project-1', name: 'Client Website', status: 'development' }] }),
+          json: async () => ({ data: [{ id: 'project-1', orgId: 'org-acme', name: 'Client Website', status: 'development' }] }),
         } as Response)
       }
       if (url === '/api/v1/projects/project-1/tasks') {
@@ -80,5 +82,20 @@ describe('Admin client projects board view', () => {
 
     expect(screen.getByTestId('cross-project-board')).toBeInTheDocument()
     expect(screen.getByText('Live admin task — Client Website')).toBeInTheDocument()
+  })
+
+  it('updates client project cards when Firestore project snapshots change', async () => {
+    render(<ProjectsPage />)
+
+    await waitFor(() => expect(screen.getByText('Client Website')).toBeInTheDocument())
+
+    mockSnapshotChange('modified', 'project-1', {
+      name: 'Client Website Live',
+      status: 'review',
+      description: 'This status changed live',
+    })
+
+    expect(screen.getByText('Client Website Live')).toBeInTheDocument()
+    expect(screen.getByText('This status changed live')).toBeInTheDocument()
   })
 })

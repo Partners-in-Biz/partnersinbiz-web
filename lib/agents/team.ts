@@ -12,7 +12,8 @@
 import crypto from 'crypto'
 import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
-import type { AgentId, AgentTeamDoc, AgentTeamStoredDoc } from './types'
+import { mergeAgentRegistry, normalizeAgentRegistryInput } from './registry'
+import type { AgentId, AgentRegistryEntry, AgentTeamDoc, AgentTeamStoredDoc } from './types'
 
 // ---------------------------------------------------------------------------
 // Encryption — AES-256-GCM, same algorithm as lib/social/encryption.ts.
@@ -91,7 +92,11 @@ function toPublicDoc(stored: AgentTeamStoredDoc & { id?: string }): AgentTeamDoc
     // Decryption fails when the doc was seeded with a different master key
     // (e.g. local key vs production key). Caller must update the key via PUT.
   }
-  return { ...stored, apiKey: masked }
+  return {
+    ...stored,
+    ...mergeAgentRegistry(stored.agentId, stored),
+    apiKey: masked,
+  }
 }
 
 async function getRaw(agentId: AgentId): Promise<AgentTeamStoredDoc | null> {
@@ -126,11 +131,11 @@ export async function getAgentDecryptedKey(agentId: AgentId): Promise<string | n
 
 type UpdateableFields = Partial<
   Pick<AgentTeamDoc, 'enabled' | 'name' | 'role' | 'persona' | 'baseUrl' | 'apiKey' | 'defaultModel' | 'iconKey' | 'colorKey'>
->
+> & Partial<AgentRegistryEntry>
 
 type CreateAgentInput = Pick<AgentTeamDoc, 'agentId' | 'name' | 'role' | 'persona' | 'defaultModel' | 'iconKey' | 'colorKey' | 'enabled' | 'baseUrl'> & {
   apiKey: string
-}
+} & Partial<AgentRegistryEntry>
 
 /**
  * Update an agent doc. If `apiKey` is included in the patch it is re-encrypted
@@ -155,10 +160,12 @@ export async function updateAgent(agentId: AgentId, patch: UpdateableFields): Pr
       const plainKey = v as string
       plaintextKey = plainKey
       writePayload.apiKey = encryptAgentApiKey(plainKey)
-    } else {
+    } else if (!['responsibilities', 'skills', 'cronWatchLoops', 'allowedScopes', 'exampleTaskTypes'].includes(k)) {
       writePayload[k] = v
     }
   }
+
+  Object.assign(writePayload, normalizeAgentRegistryInput(patch))
 
   await ref.update(writePayload)
 
@@ -196,6 +203,7 @@ export async function createAgent(input: CreateAgentInput): Promise<AgentTeamDoc
 
   const now = FieldValue.serverTimestamp()
   const encryptedKey = encryptAgentApiKey(input.apiKey)
+  const registry = mergeAgentRegistry(input.agentId, input)
   await ref.set({
     agentId: input.agentId,
     name: input.name,
@@ -207,6 +215,7 @@ export async function createAgent(input: CreateAgentInput): Promise<AgentTeamDoc
     enabled: input.enabled,
     baseUrl: input.baseUrl.replace(/\/+$/, ''),
     apiKey: encryptedKey,
+    ...registry,
     createdAt: now,
     updatedAt: now,
   })

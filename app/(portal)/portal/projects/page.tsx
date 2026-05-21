@@ -63,6 +63,33 @@ export default function ProjectsPage() {
       .catch(() => setLoading(false))
   }, [])
 
+  useEffect(() => {
+    const unsubscribe = onSnapshot(
+      collection(getClientDb(), 'projects'),
+      (snap) => {
+        snap.docChanges().forEach(change => {
+          if (change.type === 'removed') {
+            setProjects(prev => prev.filter(project => project.id !== change.doc.id))
+            return
+          }
+
+          const liveProject = { id: change.doc.id, ...change.doc.data() } as Project
+          setProjects(prev => {
+            const idx = prev.findIndex(project => project.id === liveProject.id)
+            if (idx >= 0) {
+              const next = [...prev]
+              next[idx] = { ...next[idx], ...liveProject }
+              return next
+            }
+            return [liveProject, ...prev]
+          })
+        })
+      },
+      () => {} // REST remains the fallback if client Firestore auth/listening fails.
+    )
+    return () => unsubscribe()
+  }, [])
+
   const filtered = useMemo(
     () => filter === 'all' ? projects : projects.filter(p => p.status === filter),
     [projects, filter],

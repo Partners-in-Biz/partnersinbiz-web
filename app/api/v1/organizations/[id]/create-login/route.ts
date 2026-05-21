@@ -10,12 +10,17 @@ import { FieldValue, Timestamp } from 'firebase-admin/firestore'
 import { adminAuth, adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
-import type { Organization, OrgMember } from '@/lib/organizations/types'
+import type { Organization, OrgMember, OrgRole } from '@/lib/organizations/types'
 import { getResendClient, FROM_ADDRESS } from '@/lib/email/resend'
 
 export const dynamic = 'force-dynamic'
 
 type Params = { params: Promise<{ id: string }> }
+
+function splitName(displayName: string) {
+  const [firstName = '', ...rest] = displayName.trim().split(/\s+/).filter(Boolean)
+  return { firstName, lastName: rest.join(' ') }
+}
 
 export const POST = withAuth('admin', async (req: NextRequest, user, ctx) => {
   const { id } = await (ctx as Params).params
@@ -46,8 +51,8 @@ export const POST = withAuth('admin', async (req: NextRequest, user, ctx) => {
     // User exists in Auth — check if already in org
     const alreadyMember = (org.members ?? []).some((m) => m.userId === uid)
     if (alreadyMember) return apiError('This user is already a member of this organisation', 409)
-  } catch (err: any) {
-    if (err?.code !== 'auth/user-not-found') throw err
+  } catch (err: unknown) {
+    if (!(typeof err === 'object' && err && 'code' in err && err.code === 'auth/user-not-found')) throw err
 
     // Create new Firebase Auth user (no password — they'll set it via the reset link)
     const created = await adminAuth.createUser({ email, displayName: name })
@@ -84,14 +89,29 @@ export const POST = withAuth('admin', async (req: NextRequest, user, ctx) => {
   // Add to organisation members
   const newMember: OrgMember = {
     userId: uid,
-    role: role as any,
-    joinedAt: Timestamp.now() as any,
+    role: role as OrgRole,
+    joinedAt: Timestamp.now(),
     invitedBy: user.uid,
   }
   await adminDb.collection('organizations').doc(id).update({
     members: [...(org.members ?? []), newMember],
     updatedAt: FieldValue.serverTimestamp(),
   })
+
+  const { firstName, lastName } = splitName(name)
+  await adminDb.collection('orgMembers').doc(`${id}_${uid}`).set(
+    {
+      orgId: id,
+      uid,
+      firstName,
+      lastName,
+      avatarUrl: existingData.photoURL ?? '',
+      role,
+      updatedAt: FieldValue.serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
+    },
+    { merge: true },
+  )
 
   // Generate a password-setup link wrapped in a proxy page.
   // The proxy page (/auth/reset?link=...) shows a button the user must click,

@@ -63,6 +63,16 @@ export const PATCH = withAuth('admin', async (req, user, ctx) => {
     updatedAt: FieldValue.serverTimestamp(),
   })
 
+  await adminDb.collection('orgMembers').doc(`${id}_${targetUserId}`).set(
+    {
+      orgId: id,
+      uid: targetUserId,
+      role: newRole,
+      updatedAt: FieldValue.serverTimestamp(),
+    },
+    { merge: true },
+  )
+
   return apiSuccess({ ...updatedMembers[memberIndex] }, 200)
 })
 

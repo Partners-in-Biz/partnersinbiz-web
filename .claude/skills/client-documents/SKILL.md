@@ -193,6 +193,32 @@ All responses: `{ success: boolean, data: ... }` — always unwrap `body.data ??
 
 ## Default Agent Workflow
 
+### Internal system/spec document → approval-gated kanban breakdown
+
+Use this for substantial client work when Peet says to plan/spec something before implementation, especially coding, multi-agent work, operational setup, or anything that affects cost, timeline, scope, or the client's live assets.
+
+1. Resolve the active client org first. Do not use `pib-platform-owner` for client-scoped work unless the task is truly internal platform work.
+2. Create the client document as `internal_draft` or `internal_review`, linked to the active project with `linked.projectId` when a project exists.
+3. Record assumptions on the document. Any assumption that changes scope, price, timeline, legal terms, final deliverables, or implementation direction must be `severity: "blocks_publish"`.
+4. If there is any `blocks_publish` assumption, do not ask Peet to approve or publish the spec as ready. Return the admin URL and the blocking assumption(s) to resolve first.
+5. Create a Pip approval-gate kanban task linked to the document/spec.
+6. Break specialist work into project tasks only after the spec is approved, or create the tasks early but hold every agent task at `agentStatus: "awaiting-input"` with `dependsOn: [approvalTaskId]`.
+7. Important gotcha: project task creation may initialise agent tasks as `pending` even if `awaiting-input` was sent. Immediately PATCH each gated agent task back to `awaiting-input`, then verify with `GET /projects/[projectId]/tasks` before telling Peet the task fan-out is gated.
+8. When Peet/PiB approves the spec, release the dependent agent tasks by patching them to `agentStatus: "pending"`; the kanban watcher then picks them up automatically. Do not manually start implementation before the approval gate is cleared.
+9. After the document is sent to the client, fetch open comments and suggestions before acting on an approval. Treat unresolved client feedback as input to a new document version or a change-request task, not as noise.
+10. Only release implementation tasks after client feedback is either incorporated, explicitly rejected with a reason, or converted into a blocker/change-request task.
+
+### Client comments/suggestions → revised spec loop
+
+When a shared spec has client feedback:
+
+1. `GET /api/v1/client-documents/[id]/comments?status=open`
+2. `GET /api/v1/client-documents/[id]/suggestions?status=open`
+3. Summarise the feedback into: accepted changes, rejected changes with reasons, open blockers, and questions for Peet/client.
+4. Create a new document version for accepted changes with `changeSummary` explaining the review pass.
+5. Resolve comments only after the relevant document version or task exists.
+6. If feedback changes implementation scope, update/hold/recreate kanban tasks before releasing agents.
+
 ### "Make a proposal for [Client]"
 
 1. **Resolve org:** `GET /api/v1/organizations?search=[client_name]` → get `orgId` and `slug`

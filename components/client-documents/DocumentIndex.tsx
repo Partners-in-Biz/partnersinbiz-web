@@ -10,6 +10,7 @@ const TYPE_LABELS: Record<ClientDocumentType, string> = {
   build_spec: 'Build Spec',
   social_strategy: 'Social Strategy',
   content_campaign_plan: 'Content Campaign Plan',
+  geo_seo_strategy: 'GEO SEO Agent Workflow',
   monthly_report: 'Monthly Report',
   launch_signoff: 'Launch Sign-off',
   change_request: 'Change Request',

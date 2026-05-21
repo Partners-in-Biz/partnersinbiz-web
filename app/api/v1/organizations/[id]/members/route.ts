@@ -2,13 +2,12 @@
  * GET  /api/v1/organizations/[id]/members — list members with user details
  * POST /api/v1/organizations/[id]/members — add a member by email
  */
-import { NextRequest } from 'next/server'
 import { FieldValue, Timestamp } from 'firebase-admin/firestore'
 import { adminDb, adminAuth } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { logActivity } from '@/lib/activity/log'
-import type { Organization, OrgMember } from '@/lib/organizations/types'
+import type { Organization, OrgMember, OrgRole } from '@/lib/organizations/types'
 
 export const dynamic = 'force-dynamic'
 
@@ -20,6 +19,18 @@ interface MemberWithDetails extends OrgMember {
   photoURL?: string
 }
 
+type StoredMember = OrgMember & {
+  uid?: string
+  displayName?: string
+  email?: string
+  photoURL?: string
+}
+
+function splitName(displayName: string) {
+  const [firstName = '', ...rest] = displayName.trim().split(/\s+/).filter(Boolean)
+  return { firstName, lastName: rest.join(' ') }
+}
+
 export const GET = withAuth('admin', async (req, user, ctx) => {
   const { id } = await (ctx as Params).params
 
@@ -28,22 +39,24 @@ export const GET = withAuth('admin', async (req, user, ctx) => {
   if (!orgDoc.exists) return apiError('Organisation not found', 404)
 
   const org = orgDoc.data() as Organization
-  const members = org.members ?? []
+  const members = (org.members ?? []) as StoredMember[]
 
-  // Fetch user details for each member — Firestore first, Auth fallback
+  // Fetch user details for each member — embedded details, Firestore, then Auth fallback.
+  // Some older records used `uid` instead of `userId`, which made the UI render "Unknown".
   const membersWithDetails: MemberWithDetails[] = await Promise.all(
     members.map(async (member) => {
-      const userDoc = await adminDb.collection('users').doc(member.userId).get()
-      const userData = userDoc.data()
+      const userId = member.userId || member.uid || ''
+      const userDoc = userId ? await adminDb.collection('users').doc(userId).get() : null
+      const userData = userDoc?.data()
 
-      let displayName = userData?.displayName as string | undefined
-      let email = userData?.email as string | undefined
-      const photoURL = userData?.photoURL as string | undefined
+      let displayName = (member.displayName || userData?.displayName) as string | undefined
+      let email = (member.email || userData?.email) as string | undefined
+      const photoURL = (member.photoURL || userData?.photoURL) as string | undefined
 
       // Fall back to Firebase Auth when the Firestore doc is missing or incomplete
-      if (!displayName || !email) {
+      if (userId && (!displayName || !email)) {
         try {
-          const authUser = await adminAuth.getUser(member.userId)
+          const authUser = await adminAuth.getUser(userId)
           displayName = displayName || authUser.displayName || undefined
           email = email || authUser.email || undefined
         } catch {
@@ -51,7 +64,7 @@ export const GET = withAuth('admin', async (req, user, ctx) => {
         }
       }
 
-      return { ...member, displayName, email, photoURL }
+      return { ...member, userId, displayName, email, photoURL }
     }),
   )
 
@@ -110,8 +123,8 @@ export const POST = withAuth('admin', async (req, user, ctx) => {
   // Add member
   const newMember: OrgMember = {
     userId,
-    role: role as any,
-    joinedAt: Timestamp.now() as any,
+    role: role as OrgRole,
+    joinedAt: Timestamp.now(),
     invitedBy: user.uid,
   }
 
@@ -135,6 +148,22 @@ export const POST = withAuth('admin', async (req, user, ctx) => {
       console.error('[members.add] failed to mirror orgId on user doc', err)
     }
   }
+
+  const displayName = (userData.displayName as string | undefined) ?? ''
+  const { firstName, lastName } = splitName(displayName)
+  await adminDb.collection('orgMembers').doc(`${id}_${userId}`).set(
+    {
+      orgId: id,
+      uid: userId,
+      firstName,
+      lastName,
+      avatarUrl: userData.photoURL ?? '',
+      role,
+      updatedAt: FieldValue.serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
+    },
+    { merge: true },
+  )
 
   logActivity({
     orgId: id,

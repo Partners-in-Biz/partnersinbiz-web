@@ -11,7 +11,15 @@ export function isValidAgentId(value: unknown): value is AgentId {
   return typeof value === 'string' && AGENT_ID_RE.test(value)
 }
 
-export interface AgentTeamDoc {
+export interface AgentRegistryEntry {
+  responsibilities: string[]
+  skills: string[]
+  cronWatchLoops: string[]
+  allowedScopes: string[]
+  exampleTaskTypes: string[]
+}
+
+export interface AgentTeamDoc extends AgentRegistryEntry {
   agentId: AgentId
   name: string
   role: string

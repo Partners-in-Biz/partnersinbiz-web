@@ -38,7 +38,19 @@ export const PUT = withAuth(
       return apiError('Invalid JSON body', 400)
     }
 
-    const ALLOWED_FIELDS = ['enabled', 'name', 'persona', 'baseUrl', 'apiKey', 'defaultModel'] as const
+    const ALLOWED_FIELDS = [
+      'enabled',
+      'name',
+      'persona',
+      'baseUrl',
+      'apiKey',
+      'defaultModel',
+      'responsibilities',
+      'skills',
+      'cronWatchLoops',
+      'allowedScopes',
+      'exampleTaskTypes',
+    ] as const
     type AllowedField = (typeof ALLOWED_FIELDS)[number]
 
     const patch: Partial<Record<AllowedField, unknown>> = {}
@@ -57,6 +69,11 @@ export const PUT = withAuth(
     for (const strField of ['name', 'persona', 'baseUrl', 'apiKey', 'defaultModel'] as const) {
       if (strField in patch && typeof patch[strField] !== 'string') {
         return apiError(`${strField} must be a string`, 400)
+      }
+    }
+    for (const arrayField of ['responsibilities', 'skills', 'cronWatchLoops', 'allowedScopes', 'exampleTaskTypes'] as const) {
+      if (arrayField in patch && (!Array.isArray(patch[arrayField]) || !(patch[arrayField] as unknown[]).every((item) => typeof item === 'string'))) {
+        return apiError(`${arrayField} must be an array of strings`, 400)
       }
     }
 

@@ -122,6 +122,23 @@ function FieldRow({ label, children }: { label: string; children: React.ReactNod
   )
 }
 
+function RegistryList({ title, items }: { title: string; items?: string[] }) {
+  if (!items || items.length === 0) return null
+  return (
+    <div className="pib-card p-3">
+      <p className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant mb-2">{title}</p>
+      <ul className="space-y-1.5 text-xs text-on-surface-variant leading-relaxed">
+        {items.map((item) => (
+          <li key={item} className="flex gap-2">
+            <span className="mt-1 h-1 w-1 shrink-0 rounded-full bg-primary/70" />
+            <span>{item}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
 export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: AgentDetailPanelProps) {
   const { success: toastSuccess, error: toastError } = useToast()
 
@@ -724,6 +741,21 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
               <div className="pib-card p-3">
                 <p className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant mb-1">Base URL</p>
                 <code className="text-xs font-mono text-on-surface break-all">{agent.baseUrl}</code>
+              </div>
+
+              <div className="space-y-3">
+                <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+                  Registry
+                </p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <RegistryList title="Responsibilities" items={agent.responsibilities} />
+                  <RegistryList title="Advertised skills" items={agent.skills} />
+                  <RegistryList title="Cron / watch loops" items={agent.cronWatchLoops} />
+                  <RegistryList title="Allowed scopes" items={agent.allowedScopes} />
+                  <div className="sm:col-span-2">
+                    <RegistryList title="Example task types" items={agent.exampleTaskTypes} />
+                  </div>
+                </div>
               </div>
             </section>
 

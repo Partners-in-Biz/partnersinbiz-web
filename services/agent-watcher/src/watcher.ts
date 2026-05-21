@@ -8,13 +8,13 @@
  * Concurrency cap: 5 active dispatches per agent.
  */
 import type { DocumentReference, DocumentSnapshot, QuerySnapshot } from 'firebase-admin/firestore'
-import { FieldPath } from 'firebase-admin/firestore'
 import { db, FieldValue } from './firestore'
 import { AGENT_IDS, getAgentConfig, type AgentId } from './config'
 import { claimReviewTask, claimTask, startHeartbeat } from './claim'
 import { runAndPoll, type TaskDispatchInput } from './hermes'
 import { logger } from './logger'
 import { agentStatusUpdate } from './task-updates'
+import { getTaskDispatchBlocker, isDependencyResolved } from './eligibility'
 
 const MAX_CONCURRENT_PER_AGENT = 5
 
@@ -41,35 +41,50 @@ interface TaskData {
   reviewerAgentId?: string
   reviewStatus?: string
   agentOutput?: { summary?: string }
+  status?: string
+  deleted?: boolean
+  requiresApproval?: boolean
+  approvalStatus?: string
+  approvalGate?: { status?: string }
 }
 
-async function dependenciesResolved(deps: string[] | undefined): Promise<{ ok: boolean; blockers: string[] }> {
+async function dependenciesResolved(
+  taskRef: DocumentReference,
+  deps: string[] | undefined,
+): Promise<{ ok: boolean; blockers: string[] }> {
   if (!deps || deps.length === 0) return { ok: true, blockers: [] }
   const blockers: string[] = []
   for (const dep of deps) {
     if (!dep) continue
     try {
-      // Tasks live in a subcollection — we don't know the projectId here, so collectionGroup
-      // by document ID is the most reliable lookup.
-      const snap = await db.collectionGroup('tasks').where(FieldPath.documentId(), '==', dep).limit(1).get()
-      if (snap.empty) {
+      // Dependencies normally live beside the task in the same project's tasks subcollection.
+      // Do not use collectionGroup + FieldPath.documentId() with bare IDs: Firestore rejects
+      // those queries for collection groups because __name__ must be a valid relative path.
+      const depSnap = await taskRef.parent.doc(dep).get()
+      if (!depSnap.exists) {
         blockers.push(dep)
         continue
       }
-      const data = snap.docs[0].data() as TaskData
-      if (data.columnId !== 'done') blockers.push(dep)
-    } catch {
+      const data = depSnap.data() as TaskData
+      if (!isDependencyResolved(data)) blockers.push(dep)
+    } catch (err) {
+      logger.warn('dependency lookup failed', {
+        taskId: taskRef.id,
+        dependencyId: dep,
+        error: err instanceof Error ? err.message : String(err),
+      })
       blockers.push(dep)
     }
   }
   return { ok: blockers.length === 0, blockers }
 }
 
-async function dispatchTask(taskRef: DocumentReference, taskData: TaskData): Promise<void> {
+export async function dispatchTask(taskRef: DocumentReference, taskData: TaskData): Promise<void> {
   const taskId = taskRef.id
   const agentId = taskData.assigneeAgentId as AgentId | undefined
+  const blocker = getTaskDispatchBlocker(taskData, AGENT_IDS as readonly string[])
+  if (blocker) return
   if (!agentId || !AGENT_IDS.includes(agentId)) return
-  if (taskData.columnId !== 'todo') return
 
   if (inFlight.has(taskRef.path)) return
   if ((perAgentInFlight.get(agentId) ?? 0) >= MAX_CONCURRENT_PER_AGENT) {
@@ -78,7 +93,7 @@ async function dispatchTask(taskRef: DocumentReference, taskData: TaskData): Pro
   }
 
   // Dependency gating
-  const deps = await dependenciesResolved(taskData.dependsOn)
+  const deps = await dependenciesResolved(taskRef, taskData.dependsOn)
   if (!deps.ok) {
     logger.info('task deferred — dependencies not resolved', {
       taskId,
@@ -90,10 +105,12 @@ async function dispatchTask(taskRef: DocumentReference, taskData: TaskData): Pro
 
   inFlight.add(taskRef.path)
   incAgent(agentId)
+  let stopHeartbeat: (() => void) | null = null
+  let activeRunId: string | null = null
 
   try {
     // Transactional claim
-    const claimed = await claimTask(taskRef)
+    const claimed = await claimTask(taskRef, agentId)
     if (!claimed) {
       logger.info('claim lost (another watcher or status changed)', { taskId, agentId })
       return
@@ -120,7 +137,7 @@ async function dispatchTask(taskRef: DocumentReference, taskData: TaskData): Pro
       agentHeartbeatAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
     })
-    const stopHeartbeat = startHeartbeat(taskRef)
+    stopHeartbeat = startHeartbeat(taskRef)
 
     const spec = taskData.agentInput?.spec?.trim() || taskData.title || `Task ${taskId}`
     const dispatchInput: TaskDispatchInput = {
@@ -134,30 +151,35 @@ async function dispatchTask(taskRef: DocumentReference, taskData: TaskData): Pro
 
     // Callback: fires as soon as the Hermes run is created (before polling completes).
     // Writes agentConversationId so the PiB UI can show a "Live session →" link immediately.
-    const onRunCreated = (runId: string): void => {
-      void taskRef.update({
-        agentConversationId: runId,
-        updatedAt: FieldValue.serverTimestamp(),
-      }).then(() => {
+    const onRunCreated = async (runId: string): Promise<void> => {
+      activeRunId = runId
+      try {
+        await taskRef.update({
+          agentConversationId: runId,
+          updatedAt: FieldValue.serverTimestamp(),
+        })
         logger.info('wrote agentConversationId', { taskId, agentId, runId })
-      }).catch((err: unknown) => {
+      } catch (err) {
         logger.warn('failed to write agentConversationId', {
           taskId,
           agentId,
           runId,
           error: err instanceof Error ? err.message : String(err),
         })
-      })
+      }
     }
 
     logger.info('dispatching task to Hermes', { taskId, agentId, orgId: dispatchInput.orgId })
     const result = await runAndPoll(cfg, dispatchInput, onRunCreated)
-    stopHeartbeat()
+    activeRunId = result.runId ?? activeRunId
+    stopHeartbeat?.()
+    stopHeartbeat = null
 
     if (result.error) {
       logger.warn('Hermes run failed — marking blocked', { taskId, agentId, error: result.error })
       await taskRef.update({
         ...agentStatusUpdate('blocked'),
+        ...(activeRunId ? { agentConversationId: activeRunId } : {}),
         agentOutput: {
           summary: `Watcher error: ${result.error}`,
           completedAt: FieldValue.serverTimestamp(),
@@ -170,6 +192,7 @@ async function dispatchTask(taskRef: DocumentReference, taskData: TaskData): Pro
     const summary = (result.output ?? '').slice(0, 4_000) || 'Hermes returned no output.'
     await taskRef.update({
       ...agentStatusUpdate('done'),
+      ...(activeRunId ? { agentConversationId: activeRunId } : {}),
       agentOutput: {
         summary,
         completedAt: FieldValue.serverTimestamp(),
@@ -183,6 +206,7 @@ async function dispatchTask(taskRef: DocumentReference, taskData: TaskData): Pro
     try {
       await taskRef.update({
         ...agentStatusUpdate('blocked'),
+        ...(activeRunId ? { agentConversationId: activeRunId } : {}),
         agentOutput: {
           summary: `Watcher error: ${message}`,
           completedAt: FieldValue.serverTimestamp(),
@@ -196,6 +220,7 @@ async function dispatchTask(taskRef: DocumentReference, taskData: TaskData): Pro
       })
     }
   } finally {
+    stopHeartbeat?.()
     inFlight.delete(taskRef.path)
     decAgent(agentId)
   }
@@ -321,6 +346,7 @@ export function startWatcher(): () => void {
     .collectionGroup('tasks')
     .where('assigneeAgentId', 'in', AGENT_IDS as unknown as string[])
     .where('agentStatus', '==', 'pending')
+    .where('columnId', '==', 'todo')
     .onSnapshot(
       (snap: QuerySnapshot) => {
         snap.docChanges().forEach((change) => {

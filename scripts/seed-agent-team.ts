@@ -10,6 +10,7 @@
 
 import { readFileSync, existsSync } from 'fs'
 import { resolve } from 'path'
+import { mergeAgentRegistry } from '@/lib/agents/registry'
 
 // ---------------------------------------------------------------------------
 // Load .env.local before importing firebase-admin (mirrors seed-agent-dispatch-configs.ts)
@@ -175,6 +176,7 @@ async function main() {
 
     const baseUrl = `https://hermes-api.partnersinbiz.online/profiles/${agent.agentId}`
     const encryptedKey = encryptAgentApiKey(PLACEHOLDER_API_KEY)
+    const registry = mergeAgentRegistry(agent.agentId)
 
     await ref.set({
       agentId: agent.agentId,
@@ -187,6 +189,7 @@ async function main() {
       enabled: true,
       baseUrl,
       apiKey: encryptedKey,
+      ...registry,
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
     })
