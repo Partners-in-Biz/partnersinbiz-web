@@ -3,6 +3,7 @@ export type ClientDocumentType =
   | 'build_spec'
   | 'social_strategy'
   | 'content_campaign_plan'
+  | 'geo_seo_strategy'
   | 'monthly_report'
   | 'launch_signoff'
   | 'change_request'
@@ -53,6 +54,9 @@ export interface ClientDocumentLinkSet {
   reportId?: string
   dealId?: string
   seoSprintId?: string
+  geoWorkspaceId?: string
+  geoAuditId?: string
+  geoTaskIds?: string[]
   socialPostIds?: string[]
   invoiceId?: string
 }
@@ -219,6 +223,18 @@ export interface ClientDocumentTemplate {
   clientPermissions: ClientDocumentPermissions
   requiredBlockTypes: DocumentBlockType[]
   defaultBlocks: DocumentBlock[]
+  agentWorkflowTasks?: ClientDocumentAgentWorkflowTask[]
+}
+
+export interface ClientDocumentAgentWorkflowTask {
+  key: string
+  title: string
+  description: string
+  sectionId: string
+  assigneeAgentId?: 'pip' | 'theo' | 'maya' | 'sage' | 'nora'
+  dependsOn?: string[]
+  priority?: 'urgent' | 'high' | 'medium' | 'normal' | 'low'
+  labels?: string[]
 }
 
 export interface MagicLink {
