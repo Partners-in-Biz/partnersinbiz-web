@@ -150,8 +150,9 @@ Tasks can be assigned to a named agent in the Partners-in-Biz team (Pip, Theo, M
 }
 ```
 
-- **`assigneeAgentId`** — one of `pip` | `theo` | `maya` | `sage` | `nora` (or omit/null for a human task). Setting this auto-initialises `agentStatus` to `pending`.
-- **`agentStatus`** — `pending` | `picked-up` | `in-progress` | `awaiting-input` | `done` | `blocked`. On reassignment, status resets to `pending` unless explicitly overridden.
+- **`assigneeAgentId`** — one of `pip` | `theo` | `maya` | `sage` | `nora` (or omit/null for a human task). Setting this on create auto-initialises `agentStatus` to `pending`.
+- **`agentStatus`** — `pending` | `picked-up` | `in-progress` | `awaiting-input` | `done` | `blocked`. On reassignment, status resets to `pending` unless explicitly overridden on update.
+  - **Approval-gated task gotcha:** `POST /projects/[projectId]/tasks` currently resets agent-assigned tasks to `agentStatus='pending'` even when the create payload includes `agentStatus:'awaiting-input'`. If you are creating future/approval-gated agent tasks, immediately `PATCH /projects/[projectId]/tasks/[taskId]` with `{ "agentStatus": "awaiting-input" }` after creation, then verify with `GET /projects/[projectId]/tasks` before telling Peet the tasks are gated. Otherwise the watcher can pick them up too early.
 - **`agentInput`** — `{ spec: string, context?: object, constraints?: string[] }`. `spec` is required.
 - **`agentOutput`** — written when the agent completes: `{ summary: string, artifacts?: [{ type, ref, label? }], completedAt }`. `artifacts.type` is `url` | `file` | `commit` | `message-thread` | `doc`.
 - **`dependsOn`** — array of task IDs that must reach `agentStatus='done'` before this one becomes eligible for pickup.
