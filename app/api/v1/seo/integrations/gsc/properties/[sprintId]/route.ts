@@ -25,7 +25,20 @@ export const GET = withAuth(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const auth = refreshGscClient(decrypted.refresh_token) as any
     const wm = google.webmasters({ version: 'v3', auth })
-    const sites = await wm.sites.list()
+    let sites
+    try {
+      sites = await wm.sites.list()
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      if (/Search Console API has not been used|searchconsole\.googleapis\.com|disabled/i.test(message)) {
+        return apiError(
+          'Google Search Console API is disabled for the connected Google Cloud project. Enable searchconsole.googleapis.com, then retry property selection.',
+          424,
+          { code: 'GSC_API_DISABLED' },
+        )
+      }
+      throw err
+    }
     const properties = (sites.data.siteEntry ?? []).map((s) => ({
       siteUrl: s.siteUrl,
       permissionLevel: s.permissionLevel,
