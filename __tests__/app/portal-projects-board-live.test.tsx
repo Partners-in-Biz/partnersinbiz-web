@@ -77,4 +77,19 @@ describe('Portal projects board live data', () => {
 
     expect(screen.getByText('Live task from Firestore — Launch Site')).toBeInTheDocument()
   })
+
+  it('updates project cards when Firestore project snapshots change', async () => {
+    render(<ProjectsPage />)
+
+    await waitFor(() => expect(screen.getByText('Launch Site')).toBeInTheDocument())
+
+    mockSnapshotChange('modified', 'project-1', {
+      name: 'Launch Site Live',
+      status: 'review',
+      description: 'QA changed this without a refresh',
+    })
+
+    expect(screen.getByText('Launch Site Live')).toBeInTheDocument()
+    expect(screen.getByText('QA changed this without a refresh')).toBeInTheDocument()
+  })
 })

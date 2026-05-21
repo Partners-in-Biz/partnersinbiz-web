@@ -3,13 +3,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
-import { collection, onSnapshot } from 'firebase/firestore'
+import { collection, onSnapshot, query, where } from 'firebase/firestore'
 import { getClientDb } from '@/lib/firebase/config'
 import { CrossProjectBoard } from '@/components/projects/CrossProjectBoard'
 import type { BoardTask } from '@/components/projects/CrossProjectBoard'
 
 interface Project {
   id: string
+  orgId?: string
   name: string
   status: string
   description?: string
@@ -230,6 +231,37 @@ export default function ProjectsPage() {
       .then(body => { setProjects(body.data ?? []); setLoading(false) })
       .catch(() => setLoading(false))
   }, [slug])
+
+  const liveOrgId = useMemo(() => projects.find(project => project.orgId)?.orgId, [projects])
+
+  useEffect(() => {
+    if (!liveOrgId) return
+    const unsubscribe = onSnapshot(
+      query(collection(getClientDb(), 'projects'), where('orgId', '==', liveOrgId)),
+      (snap) => {
+        snap.docChanges().forEach(change => {
+          if (change.type === 'removed') {
+            setProjects(prev => prev.filter(project => project.id !== change.doc.id))
+            return
+          }
+
+          const liveProject = { id: change.doc.id, ...change.doc.data() } as Project
+          setProjects(prev => {
+            const idx = prev.findIndex(project => project.id === liveProject.id)
+            if (idx >= 0) {
+              const next = [...prev]
+              next[idx] = { ...next[idx], ...liveProject }
+              return next
+            }
+
+            return [liveProject, ...prev]
+          })
+        })
+      },
+      () => {} // REST remains the fallback if client Firestore auth/listening fails.
+    )
+    return () => unsubscribe()
+  }, [liveOrgId])
 
   const filtered = useMemo(
     () => filter === 'all' ? projects : projects.filter(p => p.status === filter),
