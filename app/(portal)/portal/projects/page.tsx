@@ -2,6 +2,8 @@
 
 import { useEffect, useState, useMemo, useCallback } from 'react'
 import Link from 'next/link'
+import { collection, onSnapshot } from 'firebase/firestore'
+import { getClientDb } from '@/lib/firebase/config'
 import { CrossProjectBoard } from '@/components/projects/CrossProjectBoard'
 import type { BoardTask } from '@/components/projects/CrossProjectBoard'
 
@@ -67,11 +69,52 @@ export default function ProjectsPage() {
   )
 
   useEffect(() => {
-    if (viewMode !== 'board' || filtered.length === 0) return
+    if (viewMode !== 'board') return
+    if (filtered.length === 0) {
+      setBoardTasks([])
+      setFailedProjectIds([])
+      setBoardLoading(false)
+      return
+    }
 
     let cancelled = false
+    const unsubscribers: Array<() => void> = []
     setBoardLoading(true)
     setFailedProjectIds([])
+
+    for (const project of filtered) {
+      const unsubscribe = onSnapshot(
+        collection(getClientDb(), 'projects', project.id, 'tasks'),
+        (snap) => {
+          snap.docChanges().forEach(change => {
+            if (cancelled) return
+            const liveTask = {
+              id: change.doc.id,
+              ...change.doc.data(),
+              projectId: project.id,
+              projectName: project.name,
+            } as BoardTask
+
+            if (change.type === 'removed') {
+              setBoardTasks(prev => prev.filter(task => task.id !== change.doc.id))
+              return
+            }
+
+            setBoardTasks(prev => {
+              const idx = prev.findIndex(task => task.id === liveTask.id)
+              if (idx >= 0) {
+                const next = [...prev]
+                next[idx] = liveTask
+                return next
+              }
+              return [...prev, liveTask]
+            })
+          })
+        },
+        () => {} // REST remains the fallback if client Firestore auth/listening fails.
+      )
+      unsubscribers.push(unsubscribe)
+    }
 
     const fetches = filtered.map(project =>
       fetch(`/api/v1/projects/${project.id}/tasks`)
@@ -103,7 +146,10 @@ export default function ProjectsPage() {
       setBoardLoading(false)
     })
 
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+      unsubscribers.forEach(unsubscribe => unsubscribe())
+    }
   }, [viewMode, filtered])
 
   const handleCreateProject = async (e: React.FormEvent) => {

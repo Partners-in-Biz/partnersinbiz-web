@@ -7,6 +7,7 @@ import {
   getFirstImage,
   getFirstVideo,
   HighlightedText,
+  readableAccentOnDark,
   withHashtags,
   relativeTime,
   compactCount,
@@ -21,7 +22,6 @@ function Tweet({
   body,
   index,
   total,
-  brand,
   showMedia,
   image,
   video,
@@ -35,7 +35,6 @@ function Tweet({
   body: string
   index?: number
   total?: number
-  brand?: PreviewBrand
   showMedia: boolean
   image: ReturnType<typeof getFirstImage>
   video: ReturnType<typeof getFirstVideo>
@@ -115,7 +114,7 @@ export function TwitterPostCard({ post, brand }: TwitterPostCardProps) {
   const handle = post.authorHandle || brand?.name?.toLowerCase().replace(/\s+/g, '') || 'yourbrand'
   const avatar = post.authorAvatarUrl || brand?.logoUrl
   const time = relativeTime(post.scheduledFor)
-  const accent = brand?.palette.accent || '#1D9BF0'
+  const accent = readableAccentOnDark(brand?.palette.accent, '#1D9BF0')
   const fullCaption = withHashtags(post.content, post.hashtags)
   const isThread = Array.isArray(post.thread) && post.thread.length > 1
   const tweets = isThread ? post.thread! : [fullCaption]
@@ -147,7 +146,6 @@ export function TwitterPostCard({ post, brand }: TwitterPostCardProps) {
           avatar={avatar}
           time={time}
           post={post}
-          brand={brand}
         />
       ))}
     </div>

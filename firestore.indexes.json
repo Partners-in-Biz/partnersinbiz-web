@@ -2111,6 +2111,33 @@
         { "fieldPath": "contactId", "order": "ASCENDING" },
         { "fieldPath": "status", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "tasks",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "assigneeAgentId", "order": "ASCENDING" },
+        { "fieldPath": "agentStatus", "order": "ASCENDING" },
+        { "fieldPath": "columnId", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "tasks",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "reviewerAgentId", "order": "ASCENDING" },
+        { "fieldPath": "columnId", "order": "ASCENDING" },
+        { "fieldPath": "reviewStatus", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "tasks",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "dependsOn", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "agentStatus", "order": "ASCENDING" },
+        { "fieldPath": "columnId", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

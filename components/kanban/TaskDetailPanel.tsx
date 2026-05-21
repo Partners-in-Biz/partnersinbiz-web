@@ -121,6 +121,8 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
   const [assigneeAgentId, setAssigneeAgentId] = useState<AgentId | ''>((task?.assigneeAgentId as AgentId | null) ?? '')
   const [assignmentMode, setAssignmentMode] = useState<AssignmentMode>(assignmentModeForTask(task))
   const [mentionIds, setMentionIds] = useState<string[]>(task?.mentionIds ?? [])
+  const [reviewerIds, setReviewerIds] = useState<string[]>(task?.reviewerIds ?? [])
+  const [reviewerAgentId, setReviewerAgentId] = useState<AgentId | ''>((task?.reviewerAgentId as AgentId | null) ?? '')
   const [dueDate, setDueDate] = useState(dateInputValue(task?.dueDate))
   const [startDate, setStartDate] = useState(dateInputValue(task?.startDate))
   const [estimateHours, setEstimateHours] = useState(task?.estimateMinutes ? String(task.estimateMinutes / 60) : '')
@@ -151,6 +153,8 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
     setAssigneeAgentId((task?.assigneeAgentId as AgentId | null) ?? '')
     setAssignmentMode(assignmentModeForTask(task))
     setMentionIds(task?.mentionIds ?? [])
+    setReviewerIds(task?.reviewerIds ?? [])
+    setReviewerAgentId((task?.reviewerAgentId as AgentId | null) ?? '')
     setDueDate(dateInputValue(task?.dueDate))
     setStartDate(dateInputValue(task?.startDate))
     setEstimateHours(task?.estimateMinutes ? String(task.estimateMinutes / 60) : '')
@@ -219,6 +223,8 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
           }
         : null,
       mentionIds: selectedMentionIds,
+      reviewerIds,
+      reviewerAgentId: reviewerAgentId || null,
       dueDate: dueDate || null,
       startDate: startDate || null,
       estimateMinutes: Number.isFinite(estimate) && estimate > 0 ? Math.round(estimate * 60) : null,
@@ -254,7 +260,9 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
         : `Revision requested: ${revisionNote.trim()}`
 
       await onUpdate(task.id, {
+        columnId: 'todo',
         agentStatus: 'pending',
+        reviewStatus: 'changes-requested',
         agentInput: { ...task.agentInput, spec: updatedSpec },
       })
 
@@ -265,6 +273,23 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
     } finally {
       setSubmittingRevision(false)
     }
+  }
+
+  async function handleRetryTask() {
+    if (!task?.id) return
+    await onUpdate(task.id, {
+      columnId: 'todo',
+      agentStatus: task.assigneeAgentId ? 'pending' : task.agentStatus,
+      reviewStatus: null,
+    })
+  }
+
+  async function handleApproveReview() {
+    if (!task?.id) return
+    await onUpdate(task.id, {
+      columnId: 'done',
+      reviewStatus: 'approved',
+    })
   }
 
   async function handleSubmitComment() {
@@ -462,7 +487,10 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--color-card-border)] shrink-0">
+        <div
+          data-task-detail-header
+          className="sticky top-0 z-10 flex items-center justify-between px-6 py-4 border-b border-[var(--color-card-border)] shrink-0 bg-[var(--color-sidebar)]"
+        >
           <div>
             <span
               className="text-[9px] font-label uppercase tracking-widest px-2 py-0.5 rounded"
@@ -474,12 +502,18 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
           </div>
           <div className="flex items-center gap-2">
             <button
+              type="button"
               onClick={handleDelete}
               className="text-xs text-on-surface-variant hover:text-red-400 transition-colors font-label"
             >
               Delete
             </button>
-            <button onClick={onClose} className="text-on-surface-variant hover:text-on-surface transition-colors text-lg">
+            <button
+              type="button"
+              aria-label="Close task details"
+              onClick={onClose}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full text-2xl leading-none text-on-surface-variant hover:bg-[var(--color-surface-container)] hover:text-on-surface transition-colors"
+            >
               ×
             </button>
           </div>
@@ -740,6 +774,26 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
                           Retry
                         </button>
                       )}
+                      {(['blocked', 'awaiting-input'].includes(String(task.agentStatus)) || task.columnId === 'blocked') && (
+                        <button
+                          type="button"
+                          onClick={handleRetryTask}
+                          className="text-[10px] font-label uppercase tracking-wide px-2 py-1 rounded bg-orange-500/20 text-orange-400 hover:bg-orange-500/30 transition-colors"
+                          title="Move back to To Do and let it be tried again"
+                        >
+                          Try again
+                        </button>
+                      )}
+                      {task.columnId === 'review' && task.agentStatus === 'done' && (
+                        <button
+                          type="button"
+                          onClick={handleApproveReview}
+                          className="inline-flex items-center gap-1 text-[10px] font-label uppercase tracking-wide px-2 py-1 rounded bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-colors"
+                        >
+                          <span className="material-symbols-outlined text-[12px]">check_circle</span>
+                          Approve
+                        </button>
+                      )}
                       {task.agentStatus === 'done' && !showRevisionForm && (
                         <button
                           type="button"
@@ -810,6 +864,38 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
                 </div>
               )
             })()}
+            <div className="mt-3">
+              <p className="text-[9px] font-label uppercase tracking-widest text-on-surface-variant mb-2">Review by</p>
+              <div className="space-y-1 rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-card)] p-2">
+                {members.map(member => (
+                  <label key={member.userId} className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 hover:bg-[var(--color-surface-container)]">
+                    <input
+                      type="checkbox"
+                      checked={reviewerIds.includes(member.userId)}
+                      onChange={() => { setReviewerIds(current => toggleValue(current, member.userId)); setEditing(true) }}
+                      className="accent-[var(--color-accent-v2)]"
+                    />
+                    <span className="min-w-0 flex-1 truncate text-xs text-on-surface">{memberLabel(member)}</span>
+                  </label>
+                ))}
+                {!hideAgentSection && activeAgents(agents).map(agent => (
+                  <label key={agent.agentId} className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 hover:bg-[var(--color-surface-container)]">
+                    <input
+                      type="radio"
+                      name="detailReviewerAgent"
+                      checked={reviewerAgentId === agent.agentId}
+                      onChange={() => { setReviewerAgentId(agent.agentId); setEditing(true) }}
+                      className="accent-[var(--color-accent-v2)]"
+                    />
+                    <span className="material-symbols-outlined text-[15px] text-on-surface-variant">{agent.iconKey ?? 'rate_review'}</span>
+                    <span className="min-w-0 flex-1 truncate text-xs text-on-surface">{agentLabel(agent, agent.agentId)}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+            {task.reviewStatus && (
+              <p className="mt-2 text-[10px] text-on-surface-variant">Review status: {task.reviewStatus}</p>
+            )}
             {task.agentOutput?.summary && (
               <div className="mt-2 rounded border border-[var(--color-card-border)] bg-[var(--color-surface-container)] p-2 text-xs text-on-surface-variant">
                 <p className="text-[9px] font-label uppercase tracking-widest text-on-surface-variant mb-1">Agent output</p>

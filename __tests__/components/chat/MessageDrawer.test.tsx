@@ -45,4 +45,22 @@ describe('MessageDrawer', () => {
       marginRight: 'clamp(420px, 34vw, 560px)',
     })
   })
+
+  it('notifies the shell when messages are opened so other navigation can close', () => {
+    const handleOpen = jest.fn()
+
+    render(
+      <MessageDrawer
+        orgId="org_1"
+        orgName="Acme"
+        currentUserUid="user_1"
+        currentUserDisplayName="Peet"
+        onOpen={handleOpen}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open messages' }))
+
+    expect(handleOpen).toHaveBeenCalledTimes(1)
+  })
 })

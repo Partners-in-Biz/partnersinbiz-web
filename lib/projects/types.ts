@@ -1,5 +1,3 @@
-import type { Timestamp } from 'firebase-admin/firestore'
-
 export type ProjectStatus = 'active' | 'on_hold' | 'completed' | 'archived'
 export type TaskPriority = 'urgent' | 'high' | 'medium' | 'low'
 
@@ -97,7 +95,10 @@ export interface Task {
   agentOutput?: AgentOutput
   agentConversationId?: string | null  // Hermes run/conversation ID written at pickup; used to embed live session
   agentHeartbeatAt?: unknown   // last time the claiming agent reported alive; lets us reclaim stale picks
-  dependsOn?: string[]         // task IDs that must reach agentStatus='done' first
+  dependsOn?: string[]         // task IDs that must reach columnId='done' first
+  reviewerIds?: string[]       // human reviewers selected for review column
+  reviewerAgentId?: AgentId | null
+  reviewStatus?: 'pending' | 'in-progress' | 'approved' | 'changes-requested' | null
 
   createdAt?: unknown
   updatedAt?: unknown

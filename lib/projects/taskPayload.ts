@@ -113,13 +113,13 @@ function cleanChecklist(value: unknown): PayloadResult<Record<string, unknown>[]
   return { ok: true, value: checklist }
 }
 
-function cleanAgentId(value: unknown): PayloadResult<string | null> {
+function cleanAgentId(value: unknown, fieldName = 'assigneeAgentId'): PayloadResult<string | null> {
   if (value === undefined) return { ok: true, value: null }
   if (value === null || value === '') return { ok: true, value: null }
   if (!isValidAgentId(value)) {
-    return { ok: false, error: 'Invalid assigneeAgentId; expected a valid agent id', status: 400 }
+    return { ok: false, error: `Invalid ${fieldName}; expected a valid agent id`, status: 400 }
   }
-  return { ok: true, value }
+  return { ok: true, value: value as string }
 }
 
 function cleanAgentStatus(value: unknown): PayloadResult<string | null> {
@@ -191,7 +191,7 @@ export function buildProjectTaskCreateData(
   const title = cleanString(body.title)
   if (!title) return { ok: false, error: 'title is required', status: 400 }
 
-  const columnId = cleanString(body.columnId) ?? 'backlog'
+  const columnId = cleanString(body.columnId) ?? 'todo'
   const priority = cleanPriority(body.priority)
   if (!priority.ok) return priority
   const order = cleanOrder(body.order)
@@ -235,6 +235,11 @@ export function buildProjectTaskCreateData(
   }
   if (agentInput.value) value.agentInput = agentInput.value
   if (dependsOn.value.length > 0) value.dependsOn = dependsOn.value
+  const reviewerIds = cleanStringArray(body.reviewerIds)
+  const reviewerAgentId = cleanAgentId(body.reviewerAgentId, 'reviewerAgentId')
+  if (!reviewerAgentId.ok) return reviewerAgentId
+  if (reviewerIds.length > 0) value.reviewerIds = reviewerIds
+  if (reviewerAgentId.value) value.reviewerAgentId = reviewerAgentId.value
 
   return { ok: true, value }
 }
@@ -248,7 +253,7 @@ export function buildProjectTaskUpdateData(body: Record<string, unknown>): Paylo
     updates.title = title
   }
   if (body.description !== undefined) updates.description = typeof body.description === 'string' ? body.description.trim() : ''
-  if (body.columnId !== undefined) updates.columnId = cleanString(body.columnId) ?? 'backlog'
+  if (body.columnId !== undefined) updates.columnId = cleanString(body.columnId) ?? 'todo'
   if (body.priority !== undefined) {
     const priority = cleanPriority(body.priority)
     if (!priority.ok) return priority
@@ -299,7 +304,8 @@ export function buildProjectTaskUpdateData(body: Record<string, unknown>): Paylo
     if (!agentStatus.ok) return agentStatus
     updates.agentStatus = agentStatus.value
     if (body.columnId === undefined && agentStatus.value === 'done') {
-      updates.columnId = 'done'
+      updates.columnId = 'review'
+      updates.reviewStatus = 'pending'
     } else if (body.columnId === undefined && agentStatus.value === 'blocked') {
       updates.columnId = 'blocked'
     }
@@ -318,6 +324,19 @@ export function buildProjectTaskUpdateData(body: Record<string, unknown>): Paylo
     const dependsOn = cleanDependsOn(body.dependsOn)
     if (!dependsOn.ok) return dependsOn
     updates.dependsOn = dependsOn.value
+  }
+  if (body.reviewerIds !== undefined) updates.reviewerIds = cleanStringArray(body.reviewerIds)
+  if (body.reviewerAgentId !== undefined) {
+    const reviewerAgentId = cleanAgentId(body.reviewerAgentId, 'reviewerAgentId')
+    if (!reviewerAgentId.ok) return reviewerAgentId
+    updates.reviewerAgentId = reviewerAgentId.value
+  }
+  if (body.reviewStatus !== undefined) {
+    const reviewStatus = cleanString(body.reviewStatus)
+    if (reviewStatus && !['pending', 'in-progress', 'approved', 'changes-requested'].includes(reviewStatus)) {
+      return { ok: false, error: 'Invalid reviewStatus; expected pending | in-progress | approved | changes-requested', status: 400 }
+    }
+    updates.reviewStatus = reviewStatus
   }
   if (body.agentConversationId !== undefined) {
     updates.agentConversationId =

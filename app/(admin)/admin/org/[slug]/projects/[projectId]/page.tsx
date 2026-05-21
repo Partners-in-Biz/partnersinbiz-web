@@ -18,8 +18,9 @@ const DEFAULT_COLUMNS: Column[] = [
   { id: 'backlog',     name: 'Backlog',     color: 'var(--color-outline)',    order: 0 },
   { id: 'todo',        name: 'To Do',       color: '#60a5fa',                 order: 1 },
   { id: 'in_progress', name: 'In Progress', color: 'var(--color-accent-v2)', order: 2 },
-  { id: 'review',      name: 'Review',      color: '#c084fc',                 order: 3 },
-  { id: 'done',        name: 'Done',        color: '#4ade80',                 order: 4 },
+  { id: 'blocked',     name: 'Blocked',     color: '#ef4444',                 order: 3 },
+  { id: 'review',      name: 'Review',      color: '#c084fc',                 order: 4 },
+  { id: 'done',        name: 'Done',        color: '#4ade80',                 order: 5 },
 ]
 
 const TYPE_COLORS: Record<string, string> = {
@@ -280,7 +281,7 @@ export default function ProjectDetailPage() {
         </div>
         {activeTab === 'kanban' && (
           <button
-            onClick={() => setShowNewTask('backlog')}
+            onClick={() => setShowNewTask('todo')}
             className="pib-btn-primary text-sm font-label"
           >
             <span className="material-symbols-outlined text-[17px]">add_task</span>
@@ -628,6 +629,7 @@ export default function ProjectDetailPage() {
         orgId={project?.orgId}
         members={members}
         agents={agents}
+        existingTasks={tasks}
         onClose={() => setShowNewTask(null)}
         onCreated={handleTaskCreated}
       />

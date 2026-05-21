@@ -67,6 +67,9 @@ export interface Task {
   agentConversationId?: string | null
   agentHeartbeatAt?: unknown
   dependsOn?: string[]
+  reviewerIds?: string[]
+  reviewerAgentId?: AgentId | null
+  reviewStatus?: 'pending' | 'in-progress' | 'approved' | 'changes-requested' | null
   mentionIds?: string[]
   attachments?: Attachment[]
   checklist?: ChecklistItem[]

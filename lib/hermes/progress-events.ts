@@ -14,6 +14,10 @@ function cleanString(value: unknown): string | undefined {
   return trimmed || undefined
 }
 
+function rawString(value: unknown): string | undefined {
+  return typeof value === 'string' ? value : undefined
+}
+
 function numericTimestamp(value: unknown): number {
   if (typeof value === 'number' && Number.isFinite(value)) return value
   return Date.now() / 1000
@@ -35,11 +39,11 @@ export function normalizeHermesEvent(input: unknown, fallbackRunId?: string): Ch
   }
 
   if (rawEvent === 'message.delta') {
-    const delta = cleanString(raw.delta) ?? cleanString(raw.text)
+    const delta = rawString(raw.delta) ?? rawString(raw.text)
     return [{
       ...base,
       event: 'assistant.text_delta',
-      ...(delta ? { delta, text: delta, preview: delta } : {}),
+      ...(delta !== undefined ? { delta, text: delta, preview: delta } : {}),
     }]
   }
 
