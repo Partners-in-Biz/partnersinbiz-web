@@ -2,7 +2,7 @@ process.env.GOOGLE_OAUTH_CLIENT_ID = 'cid'
 process.env.GOOGLE_OAUTH_CLIENT_SECRET = 'csec'
 process.env.GSC_REDIRECT_URI = 'https://x/api/integrations/gsc/callback'
 
-import { gscAuthUrl } from '@/lib/seo/integrations/gsc/auth'
+import { GSC_SCOPES, gscAuthUrl } from '@/lib/seo/integrations/gsc/auth'
 
 describe('gsc/auth', () => {
   afterEach(() => {
@@ -11,14 +11,19 @@ describe('gsc/auth', () => {
     process.env.GSC_REDIRECT_URI = 'https://x/api/integrations/gsc/callback'
   })
 
-  it('builds auth URL with webmasters.readonly scope', () => {
+  it('builds auth URL with Search Console write scope', () => {
     const url = gscAuthUrl('state-123')
     expect(url).toContain('client_id=cid')
     expect(url).toContain('redirect_uri=')
-    expect(url).toContain('webmasters.readonly')
+    expect(url).toContain('webmasters')
+    expect(url).not.toContain('webmasters.readonly')
     expect(url).toContain('state=state-123')
     expect(url).toContain('access_type=offline')
     expect(url).toContain('prompt=consent')
+  })
+
+  it('requests the scope needed for sitemap submission', () => {
+    expect(GSC_SCOPES).toEqual(['https://www.googleapis.com/auth/webmasters'])
   })
 
   it('trims copied env values before building the auth URL', () => {

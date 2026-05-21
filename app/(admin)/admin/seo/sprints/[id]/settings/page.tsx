@@ -3,6 +3,11 @@
 import { useEffect, useState } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
 
+type GscProperty = {
+  siteUrl: string
+  permissionLevel?: string
+}
+
 export default function SettingsTab() {
   const params = useParams<{ id: string }>()
   const searchParams = useSearchParams()
@@ -12,6 +17,9 @@ export default function SettingsTab() {
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [gscProperties, setGscProperties] = useState<GscProperty[]>([])
+  const [gscLoading, setGscLoading] = useState(false)
+  const [gscError, setGscError] = useState<string | null>(null)
   const justConnectedGsc = searchParams.get('gsc') === 'connected'
 
   useEffect(() => {
@@ -30,6 +38,29 @@ export default function SettingsTab() {
       }
     })()
   }, [id])
+
+  useEffect(() => {
+    if (!sprint?.integrations?.gsc?.connected) return
+    void (async () => {
+      setGscLoading(true)
+      setGscError(null)
+      try {
+        const res = await fetch(`/api/v1/seo/integrations/gsc/properties/${id}`)
+        const json = await res.json().catch(() => null)
+        if (res.ok && json?.success) {
+          setGscProperties(Array.isArray(json.data) ? json.data : [])
+        } else {
+          setGscProperties([])
+          setGscError(json?.error ?? `Could not load GSC properties (${res.status})`)
+        }
+      } catch (err) {
+        setGscProperties([])
+        setGscError(err instanceof Error ? err.message : 'Could not load GSC properties')
+      } finally {
+        setGscLoading(false)
+      }
+    })()
+  }, [id, sprint?.integrations?.gsc?.connected])
 
   async function update(patch: Record<string, unknown>) {
     setSaving(true)
@@ -54,6 +85,37 @@ export default function SettingsTab() {
     const res = await fetch(`/api/v1/seo/integrations/gsc/auth-url?sprintId=${id}`)
     const json = await res.json()
     if (json.success) window.location.href = json.data.url
+  }
+
+  async function selectGscProperty(propertyUrl: string) {
+    if (!propertyUrl) return
+    setSaving(true)
+    setMessage(null)
+    try {
+      const res = await fetch(`/api/v1/seo/integrations/gsc/connect/${id}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ propertyUrl }),
+      })
+      const json = await res.json().catch(() => null)
+      if (res.ok && json?.success) {
+        setMessage('GSC property selected')
+        setSprint({
+          ...sprint,
+          integrations: {
+            ...sprint.integrations,
+            gsc: {
+              ...sprint.integrations?.gsc,
+              propertyUrl,
+            },
+          },
+        })
+      } else {
+        setMessage(json?.error ?? `Could not select GSC property (${res.status})`)
+      }
+    } finally {
+      setSaving(false)
+    }
   }
 
   if (loadError) {
@@ -114,6 +176,29 @@ export default function SettingsTab() {
             {sprint.integrations?.gsc?.connected ? 'Reconnect' : 'Connect'}
           </button>
         </div>
+        {sprint.integrations?.gsc?.connected && (
+          <div className="rounded border border-[var(--color-pib-border)] p-3 text-sm">
+            <label className="block text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="gsc-property">
+              Search Console property
+            </label>
+            <select
+              id="gsc-property"
+              value={sprint.integrations?.gsc?.propertyUrl ?? ''}
+              onChange={(e) => selectGscProperty(e.target.value)}
+              disabled={saving || gscLoading || gscProperties.length === 0}
+              className="mt-2 w-full rounded border border-[var(--color-pib-border)] bg-transparent px-3 py-2 text-sm"
+            >
+              <option value="">{gscLoading ? 'Loading properties...' : 'Select property'}</option>
+              {gscProperties.map((property) => (
+                <option key={property.siteUrl} value={property.siteUrl}>
+                  {property.siteUrl}
+                  {property.permissionLevel ? ` - ${property.permissionLevel}` : ''}
+                </option>
+              ))}
+            </select>
+            {gscError && <p className="mt-2 text-xs text-red-500">{gscError}</p>}
+          </div>
+        )}
         <div className="flex justify-between items-center text-sm">
           <div>
             <div className="font-medium">PageSpeed Insights</div>

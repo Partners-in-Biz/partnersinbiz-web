@@ -1,6 +1,6 @@
 import { google } from 'googleapis'
 
-const SCOPES = ['https://www.googleapis.com/auth/webmasters.readonly']
+export const GSC_SCOPES = ['https://www.googleapis.com/auth/webmasters']
 
 function readEnv(name: string): string | undefined {
   return process.env[name]?.trim()
@@ -18,7 +18,7 @@ export function gscAuthUrl(state: string): string {
   return client().generateAuthUrl({
     access_type: 'offline',
     prompt: 'consent',
-    scope: SCOPES,
+    scope: GSC_SCOPES,
     state,
   })
 }
