@@ -50,32 +50,36 @@ export default async function SeoIndexPage() {
 
   return (
     <div className="space-y-6">
-      <header className="flex items-center justify-between">
+      <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">SEO Sprints</h1>
-          <p className="text-sm text-[var(--color-pib-text-muted)]">
+          <p className="pib-label mb-2">Growth operations</p>
+          <h1 className="pib-page-title">SEO Sprints</h1>
+          <p className="pib-page-sub max-w-2xl">
             90-day sprints per client site. Daily pulls + weekly optimization loop.
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <PipPresencePill lastRunAt={lastRun} />
+        <div className="flex flex-wrap items-center gap-3">
+          <PipPresencePill lastRunAt={lastRun} nowAt={new Date().toISOString()} />
           <Link
             href="/admin/seo/sprints/new"
-            className="text-sm px-4 py-2 rounded bg-black text-white hover:bg-gray-800"
+            className="pib-btn-primary text-sm"
           >
-            + New Sprint
+            <span className="material-symbols-outlined text-[18px]">add</span>
+            New sprint
           </Link>
-          <Link href="/admin/seo/tools" className="text-sm px-4 py-2 rounded border hover:bg-gray-50">
+          <Link href="/admin/seo/tools" className="pib-btn-secondary text-sm">
+            <span className="material-symbols-outlined text-[18px]">construction</span>
             Tools
           </Link>
         </div>
       </header>
       {sprints.length === 0 ? (
-        <div className="card p-10 text-center">
+        <div className="pib-card py-12 text-center">
+          <span className="material-symbols-outlined text-4xl text-[var(--color-pib-text-muted)]">travel_explore</span>
           <p className="text-[var(--color-pib-text-muted)] mb-4">No sprints yet.</p>
           <Link
             href="/admin/seo/sprints/new"
-            className="text-sm px-4 py-2 rounded bg-black text-white hover:bg-gray-800"
+            className="pib-btn-primary text-sm"
           >
             Create the first sprint
           </Link>

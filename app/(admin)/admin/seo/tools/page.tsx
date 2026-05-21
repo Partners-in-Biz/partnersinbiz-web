@@ -79,7 +79,7 @@ function ToolCard({ tool, expanded, onToggle }: { tool: ToolDef; expanded: boole
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <h3 className="text-sm font-semibold leading-tight">{tool.label}</h3>
-              <span className="rounded-full border border-[var(--color-pib-line)] px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)]">
+              <span className="pib-pill !px-2 !py-0.5">
                 {tool.tag}
               </span>
             </div>
@@ -111,7 +111,7 @@ function ToolCard({ tool, expanded, onToggle }: { tool: ToolDef; expanded: boole
             <button
               onClick={run}
               disabled={busy}
-              className="btn-pib-accent !px-4 !py-2 !text-sm disabled:cursor-not-allowed disabled:opacity-50"
+              className="pib-btn-primary text-sm disabled:cursor-not-allowed disabled:opacity-50"
             >
               {busy ? (
                 <>

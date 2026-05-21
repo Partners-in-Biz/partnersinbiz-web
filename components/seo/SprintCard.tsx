@@ -34,7 +34,7 @@ export function SprintCard({ sprint }: { sprint: any }) {
   }
 
   return (
-    <div className="pib-card group p-5 space-y-3 transition-colors hover:border-[var(--color-pib-accent)] hover:bg-white/[0.03]">
+    <div className="pib-card group space-y-4 transition-colors hover:border-[var(--color-pib-accent)] hover:bg-white/[0.03]">
       <div className="flex items-start justify-between">
         <div>
           <h3 className="font-semibold text-base leading-tight">
@@ -46,29 +46,31 @@ export function SprintCard({ sprint }: { sprint: any }) {
         </div>
         <HealthBadge score={sprint.health?.score} signalsCount={sprint.health?.signals?.length ?? 0} />
       </div>
-      <div className="text-sm">
+      <div className="rounded-2xl border border-[var(--color-pib-line)] bg-white/[0.02] p-3 text-sm">
         <div className="font-medium">
           {phase === 4 ? `Phase 4 — Compounding · Day ${day}` : `Day ${day} of 90`}
         </div>
         <div className="text-xs text-[var(--color-pib-text-muted)]">{phaseLabels[phase]}</div>
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <Link
           href={`/admin/seo/sprints/${sprint.id}`}
-          className="text-xs px-3 py-1.5 rounded bg-[var(--color-pib-line)] hover:bg-[var(--color-pib-line-strong)]"
+          className="pib-btn-secondary !px-3 !py-1.5 text-xs"
         >
+          <span className="material-symbols-outlined text-base">open_in_new</span>
           Open
         </Link>
         <button
           onClick={runToday}
           disabled={running}
-          className="text-xs px-3 py-1.5 rounded bg-black text-white hover:bg-gray-800 disabled:opacity-50"
+          className="pib-btn-primary !px-3 !py-1.5 text-xs disabled:opacity-50"
         >
+          <span className="material-symbols-outlined text-base">{running ? 'autorenew' : 'play_arrow'}</span>
           {running ? 'Running…' : "Run today's SEO"}
         </button>
       </div>
       {result && (
-        <p className="text-xs text-[var(--color-pib-text-muted)]">
+        <p className="pib-pill">
           {result.done} done · {result.queued} queued · {result.blocked} blocked
         </p>
       )}

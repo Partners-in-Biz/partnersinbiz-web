@@ -3,12 +3,12 @@ import { adminDb } from '@/lib/firebase/admin'
 export const dynamic = 'force-dynamic'
 
 const STATUS_COLORS: Record<string, string> = {
-  not_started: 'bg-gray-100 text-gray-700',
-  in_progress: 'bg-blue-100 text-blue-800',
-  blocked: 'bg-red-100 text-red-800',
-  done: 'bg-green-100 text-green-800',
-  skipped: 'bg-amber-100 text-amber-800',
-  na: 'bg-gray-100 text-gray-500',
+  not_started: 'pib-pill',
+  in_progress: 'pib-pill pib-pill-info',
+  blocked: 'pib-pill pib-pill-danger',
+  done: 'pib-pill pib-pill-success',
+  skipped: 'pib-pill pib-pill-warn',
+  na: 'pib-pill',
 }
 
 export default async function TasksTab({ params }: { params: Promise<{ id: string }> }) {
@@ -32,36 +32,45 @@ export default async function TasksTab({ params }: { params: Promise<{ id: strin
 
   return (
     <div className="space-y-6">
-      <header className="flex justify-between items-center">
-        <h2 className="text-lg font-semibold">Tasks ({tasks.length})</h2>
-        <p className="text-xs text-[var(--color-pib-text-muted)]">
-          {tasks.filter((t) => t.status === 'done').length} done ·{' '}
-          {tasks.filter((t) => t.status === 'in_progress').length} in flight ·{' '}
-          {tasks.filter((t) => t.status === 'blocked').length} blocked
-        </p>
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="pib-label mb-2">Sprint ledger</p>
+          <h2 className="text-2xl font-semibold text-[var(--color-pib-text)]">Tasks</h2>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <span className="pib-pill pib-pill-success">{tasks.filter((t) => t.status === 'done').length} done</span>
+          <span className="pib-pill pib-pill-info">{tasks.filter((t) => t.status === 'in_progress').length} in flight</span>
+          <span className="pib-pill pib-pill-danger">{tasks.filter((t) => t.status === 'blocked').length} blocked</span>
+        </div>
       </header>
 
       {Object.entries(byWeek).map(([week, items]) => (
-        <div key={week} className="space-y-2">
-          <h3 className="text-sm font-medium">Week {week}</h3>
-          <div className="card divide-y">
+        <section key={week} className="pib-card-section">
+          <div className="pib-card-section-header flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">Week {week}</h3>
+              <p className="text-xs text-[var(--color-pib-text-muted)]">{items.length} sprint tasks</p>
+            </div>
+            <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">view_list</span>
+          </div>
+          <div className="divide-y divide-[var(--color-pib-line)]">
             {items.map((t) => (
-              <div key={t.id} className="px-4 py-3 flex items-start gap-3">
-                <span className={`text-xs px-2 py-0.5 rounded ${STATUS_COLORS[t.status] ?? STATUS_COLORS.not_started}`}>
+              <div key={t.id} className="flex items-start gap-3 px-4 py-3 transition-colors hover:bg-white/[0.03] sm:px-5">
+                <span className={STATUS_COLORS[t.status] ?? STATUS_COLORS.not_started}>
                   {t.status}
                 </span>
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium">{t.title}</div>
-                  <div className="text-xs text-[var(--color-pib-text-muted)]">
+                  <div className="text-sm font-medium text-[var(--color-pib-text)]">{t.title}</div>
+                  <div className="mt-1 flex flex-wrap gap-x-2 gap-y-1 text-xs text-[var(--color-pib-text-muted)]">
                     {t.focus} · {t.taskType}
-                    {t.autopilotEligible && ' · 🤖'}
-                    {t.source === 'optimization' && ' · 🧪 optimization'}
+                    {t.autopilotEligible && ' · autopilot'}
+                    {t.source === 'optimization' && ' · optimization'}
                   </div>
                 </div>
               </div>
             ))}
           </div>
-        </div>
+        </section>
       ))}
     </div>
   )
