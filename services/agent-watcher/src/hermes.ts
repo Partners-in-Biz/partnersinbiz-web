@@ -184,7 +184,7 @@ function sleep(ms: number): Promise<void> {
 export async function runAndPoll(
   cfg: AgentConfig,
   input: TaskDispatchInput,
-  onRunCreated?: (runId: string) => void,
+  onRunCreated?: (runId: string) => void | Promise<void>,
 ): Promise<RunResult> {
   const signal = { aborted: false }
   let capturedRunId: string | null = null
@@ -196,7 +196,7 @@ export async function runAndPoll(
     // Notify caller of runId immediately so it can persist agentConversationId before polling.
     if (onRunCreated) {
       try {
-        onRunCreated(runId)
+        await onRunCreated(runId)
       } catch (cbErr) {
         logger.warn('onRunCreated callback threw', {
           runId,

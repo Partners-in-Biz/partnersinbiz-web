@@ -50,6 +50,7 @@ export interface Task {
   contactId: string | null
   dealId: string | null
   tags: string[]
+  columnId?: string | null
   createdBy: string
   createdByType: 'user' | 'agent' | 'system'
   createdAt: unknown
@@ -65,6 +66,9 @@ export interface Task {
   agentConversationId?: string | null
   agentHeartbeatAt?: unknown
   dependsOn?: string[]
+  reviewerIds?: string[]
+  reviewerAgentId?: AgentId | null
+  reviewStatus?: 'pending' | 'in-progress' | 'approved' | 'changes-requested' | null
 }
 
 export interface TaskInput {
@@ -78,12 +82,16 @@ export interface TaskInput {
   contactId?: string
   dealId?: string
   tags?: string[]
+  columnId?: string | null
   assigneeAgentId?: AgentId | null
   agentStatus?: AgentStatus
   agentInput?: AgentInput
   agentOutput?: AgentOutput
   agentConversationId?: string | null
   dependsOn?: string[]
+  reviewerIds?: string[]
+  reviewerAgentId?: AgentId | null
+  reviewStatus?: 'pending' | 'in-progress' | 'approved' | 'changes-requested' | null
 }
 
 export const VALID_TASK_STATUSES: TaskStatus[] = [

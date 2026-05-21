@@ -19,7 +19,9 @@ import { Timestamp } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
 import { apiError, apiSuccess } from '@/lib/api/response'
+import { isSuperAdmin } from '@/lib/api/platformAdmin'
 import { VALID_AGENT_IDS, type AgentId, type AgentStatus } from '@/lib/tasks/types'
+import { matchesAgentBoardView, type AgentBoardOperationalView } from '@/lib/agent-board/filters'
 
 export const dynamic = 'force-dynamic'
 
@@ -36,6 +38,20 @@ type AgentTaskCard = {
   agentOutputSummary: string | null
   priority: string | null
   tags: string[]
+  labels: string[]
+  columnId: string | null
+  dependsOn: string[]
+  dependencyStatuses: Record<string, string | null>
+  linkedDocumentId: string | null
+  linkedDocumentIds: string[]
+  linkedDocuments: Array<string | { id?: string | null; ref?: string | null; type?: string | null }>
+  clientDocumentId: string | null
+  documentId: string | null
+  sourceOrigin: string | null
+  origin: string | null
+  originType: string | null
+  createdBy: string | null
+  clientOrgId: string | null
   updatedAt: string | null
   createdAt: string | null
   href: string
@@ -51,13 +67,58 @@ function tsToIso(value: unknown): string | null {
   return null
 }
 
-export const GET = withAuth('admin', async (req: NextRequest) => {
+const OPERATIONAL_VIEWS: AgentBoardOperationalView[] = [
+  'all',
+  'blocked',
+  'awaiting-input',
+  'document-linked',
+  'dependency-blocked',
+  'cron-origin',
+  'cross-client',
+]
+
+function stringArray(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string' && item.length > 0) : []
+}
+
+function nullableString(value: unknown): string | null {
+  return typeof value === 'string' && value.length > 0 ? value : null
+}
+
+function stringRecord(value: unknown): Record<string, string | null> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {}
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>)
+      .filter(([key]) => key.length > 0)
+      .map(([key, val]) => [key, nullableString(val)]),
+  )
+}
+
+function linkedDocuments(value: unknown): AgentTaskCard['linkedDocuments'] {
+  if (!Array.isArray(value)) return []
+  return value.filter((item): item is string | { id?: string | null; ref?: string | null; type?: string | null } => {
+    if (typeof item === 'string') return item.length > 0
+    return Boolean(item && typeof item === 'object')
+  })
+}
+
+export const GET = withAuth('admin', async (req: NextRequest, user) => {
   const { searchParams } = new URL(req.url)
   let orgId = searchParams.get('orgId')?.trim() ?? null
   const orgSlug = searchParams.get('orgSlug')?.trim() ?? null
   const agentFilter = searchParams.get('assigneeAgentId')?.trim() as AgentId | null
+  const operationalView = (searchParams.get('view')?.trim() ?? 'all') as AgentBoardOperationalView
 
-  if (!orgId && !orgSlug) {
+  if (!OPERATIONAL_VIEWS.includes(operationalView)) {
+    return apiError(`Invalid view; expected one of ${OPERATIONAL_VIEWS.join(' | ')}`, 400)
+  }
+
+  const crossClientScope = !orgId && !orgSlug
+  if (crossClientScope && !isSuperAdmin(user)) {
+    return apiError('orgId or orgSlug query param is required', 400)
+  }
+
+  if (!crossClientScope && !orgId && !orgSlug) {
     return apiError('orgId or orgSlug query param is required', 400)
   }
 
@@ -77,7 +138,7 @@ export const GET = withAuth('admin', async (req: NextRequest) => {
       orgSlugResolved = (orgDoc.data()?.slug as string) ?? orgSlugResolved
     }
   }
-  if (!orgId) return apiError('Could not resolve org', 404)
+  if (!crossClientScope && !orgId) return apiError('Could not resolve org', 404)
 
   // Validate agent filter if supplied.
   if (agentFilter && !VALID_AGENT_IDS.includes(agentFilter)) {
@@ -86,7 +147,8 @@ export const GET = withAuth('admin', async (req: NextRequest) => {
 
   // CollectionGroup query — returns both project-nested AND standalone tasks
   // since both live in collections named "tasks". Filter by orgId + agent.
-  let q = adminDb.collectionGroup('tasks').where('orgId', '==', orgId)
+  let q = adminDb.collectionGroup('tasks')
+  if (orgId) q = q.where('orgId', '==', orgId)
   if (agentFilter) {
     q = q.where('assigneeAgentId', '==', agentFilter)
   } else {
@@ -105,6 +167,7 @@ export const GET = withAuth('admin', async (req: NextRequest) => {
   })
 
   const projectNames = new Map<string, string>()
+  const projectClientOrgIds = new Map<string, string | null>()
   if (projectIds.size > 0) {
     const refs = Array.from(projectIds).map((id) => adminDb.collection('projects').doc(id))
     const projDocs = await adminDb.getAll(...refs)
@@ -112,11 +175,22 @@ export const GET = withAuth('admin', async (req: NextRequest) => {
       if (p.exists) {
         const name = (p.data()?.name as string) ?? null
         if (name) projectNames.set(p.id, name)
+        projectClientOrgIds.set(p.id, nullableString(p.data()?.clientOrgId))
       }
     })
   }
 
   const slug = orgSlugResolved ?? orgId
+  const orgNames = new Map<string, string>()
+  if (crossClientScope) {
+    const orgIds = Array.from(new Set(snap.docs.map((d) => nullableString((d.data() as Record<string, unknown>).orgId)).filter((id): id is string => Boolean(id))))
+    if (orgIds.length > 0) {
+      const orgDocs = await adminDb.getAll(...orgIds.map((id) => adminDb.collection('organizations').doc(id)))
+      orgDocs.forEach((org) => {
+        if (org.exists) orgNames.set(org.id, nullableString(org.data()?.name) ?? org.id)
+      })
+    }
+  }
 
   const cards: AgentTaskCard[] = snap.docs.map((d) => {
     const data = d.data() as Record<string, unknown>
@@ -135,11 +209,12 @@ export const GET = withAuth('admin', async (req: NextRequest) => {
     const href = isProjectNested && projectId
       ? `/admin/org/${slug}/projects/${projectId}?task=${d.id}`
       : `/admin/org/${slug}/agent/board?task=${d.id}`
+    const cardOrgId = nullableString(data.orgId) ?? orgId!
 
     return {
       id: d.id,
       source: isProjectNested ? 'project' : 'standalone',
-      orgId: orgId!,
+      orgId: cardOrgId,
       title: (data.title as string) ?? '(untitled)',
       projectId,
       projectName,
@@ -149,11 +224,25 @@ export const GET = withAuth('admin', async (req: NextRequest) => {
       agentOutputSummary: typeof ao?.summary === 'string' ? ao.summary : null,
       priority: typeof data.priority === 'string' ? data.priority : null,
       tags,
+      labels,
+      columnId: nullableString(data.columnId),
+      dependsOn: stringArray(data.dependsOn),
+      dependencyStatuses: stringRecord(data.dependencyStatuses),
+      linkedDocumentId: nullableString(data.linkedDocumentId),
+      linkedDocumentIds: stringArray(data.linkedDocumentIds),
+      linkedDocuments: linkedDocuments(data.linkedDocuments),
+      clientDocumentId: nullableString(data.clientDocumentId),
+      documentId: nullableString(data.documentId),
+      sourceOrigin: nullableString(data.sourceOrigin),
+      origin: nullableString(data.origin),
+      originType: nullableString(data.originType),
+      createdBy: nullableString(data.createdBy),
+      clientOrgId: nullableString(data.clientOrgId) ?? (projectId ? projectClientOrgIds.get(projectId) ?? null : null),
       updatedAt: tsToIso(data.updatedAt),
       createdAt: tsToIso(data.createdAt),
       href,
     }
-  })
+  }).filter((card) => matchesAgentBoardView(card, operationalView))
 
   // Group counts by status for the page header.
   const STATUS_ORDER: AgentStatus[] = ['pending', 'picked-up', 'in-progress', 'awaiting-input', 'done', 'blocked']
@@ -169,6 +258,8 @@ export const GET = withAuth('admin', async (req: NextRequest) => {
     orgId,
     orgSlug: orgSlugResolved,
     orgName,
+    orgNames: Object.fromEntries(orgNames),
+    operationalView,
     total: cards.length,
     byStatus,
     statusOrder: STATUS_ORDER,
