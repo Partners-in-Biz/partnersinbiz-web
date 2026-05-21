@@ -10,7 +10,7 @@ const REGISTRY_KEYS = [
 
 type RegistryKey = (typeof REGISTRY_KEYS)[number]
 
-export const AGENT_REGISTRY = {
+export const AGENT_REGISTRY: Record<string, AgentRegistryEntry> = {
   pip: {
     responsibilities: [
       'Front-door operator for Partners in Biz client requests',
@@ -165,7 +165,7 @@ export const AGENT_REGISTRY = {
       'Create operational blocker tasks with exact required evidence',
     ],
   },
-} satisfies Record<string, AgentRegistryEntry>
+}
 
 export function getAgentRegistryEntry(agentId: AgentId): AgentRegistryEntry | undefined {
   return AGENT_REGISTRY[agentId]

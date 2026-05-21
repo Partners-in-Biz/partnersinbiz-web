@@ -15,7 +15,7 @@
  */
 
 import { NextRequest } from 'next/server'
-import { Timestamp } from 'firebase-admin/firestore'
+import { Query, Timestamp } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
 import { apiError, apiSuccess } from '@/lib/api/response'
@@ -147,7 +147,7 @@ export const GET = withAuth('admin', async (req: NextRequest, user) => {
 
   // CollectionGroup query — returns both project-nested AND standalone tasks
   // since both live in collections named "tasks". Filter by orgId + agent.
-  let q = adminDb.collectionGroup('tasks')
+  let q: Query = adminDb.collectionGroup('tasks')
   if (orgId) q = q.where('orgId', '==', orgId)
   if (agentFilter) {
     q = q.where('assigneeAgentId', '==', agentFilter)
@@ -192,7 +192,7 @@ export const GET = withAuth('admin', async (req: NextRequest, user) => {
     }
   }
 
-  const cards: AgentTaskCard[] = snap.docs.map((d) => {
+  const cards = snap.docs.map<AgentTaskCard>((d) => {
     const data = d.data() as Record<string, unknown>
     const parentDoc = d.ref.parent.parent
     const isProjectNested = !!parentDoc && parentDoc.parent.id === 'projects'

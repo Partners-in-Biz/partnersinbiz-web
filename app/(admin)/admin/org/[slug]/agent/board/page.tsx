@@ -135,6 +135,8 @@ export default function AgentBoardPage() {
 
   const filteredCards = useMemo(() => data?.cards.filter((card) => matchesAgentBoardView(card, viewFilter)) ?? [], [data, viewFilter])
   const viewCounts = useMemo(() => getAgentBoardFilterCounts(data?.cards ?? []), [data])
+  const orgNames = data?.orgNames ?? {}
+  const currentOrgId = data?.orgId ?? null
 
   const columns = useMemo(() => {
     if (!data) return []
@@ -305,10 +307,10 @@ export default function AgentBoardPage() {
                           standalone
                         </span>
                       )}
-                      {data.orgNames?.[card.orgId] && card.orgId !== data.orgId && (
+                      {orgNames[card.orgId] && card.orgId !== currentOrgId && (
                         <span className="px-1.5 py-0.5 rounded bg-purple-500/10 border border-purple-400/20 text-purple-100">
                           <span className="opacity-60">org · </span>
-                          {data.orgNames[card.orgId]}
+                          {orgNames[card.orgId]}
                         </span>
                       )}
                       {card.priority && card.priority !== 'normal' && card.priority !== 'medium' && (
