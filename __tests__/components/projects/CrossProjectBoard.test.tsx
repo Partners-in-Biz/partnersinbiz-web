@@ -52,7 +52,7 @@ describe('CrossProjectBoard', () => {
   it('shows skeleton cards when loading', () => {
     const { container } = render(<CrossProjectBoard tasks={[]} loading={true} onTaskUpdate={jest.fn()} />)
     const skeletons = container.querySelectorAll('.pib-skeleton')
-    expect(skeletons.length).toBe(15)
+    expect(skeletons.length).toBe(18)
   })
 
   it('renders a task in the correct column', () => {

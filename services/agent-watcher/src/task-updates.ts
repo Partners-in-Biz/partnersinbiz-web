@@ -3,7 +3,7 @@ export type AgentTaskStatus = 'pending' | 'picked-up' | 'in-progress' | 'awaitin
 export function columnForAgentStatus(status: AgentTaskStatus): string {
   switch (status) {
     case 'pending':
-      return 'backlog'
+      return 'todo'
     case 'picked-up':
     case 'in-progress':
       return 'in_progress'
@@ -11,13 +11,14 @@ export function columnForAgentStatus(status: AgentTaskStatus): string {
     case 'blocked':
       return 'blocked'
     case 'done':
-      return 'done'
+      return 'review'
   }
 }
 
-export function agentStatusUpdate(status: AgentTaskStatus): { agentStatus: AgentTaskStatus; columnId: string } {
+export function agentStatusUpdate(status: AgentTaskStatus): { agentStatus: AgentTaskStatus; columnId: string; reviewStatus?: 'pending' } {
   return {
     agentStatus: status,
     columnId: columnForAgentStatus(status),
+    ...(status === 'done' ? { reviewStatus: 'pending' as const } : {}),
   }
 }

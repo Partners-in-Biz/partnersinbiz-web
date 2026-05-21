@@ -56,6 +56,14 @@ describe('project task payload helpers', () => {
     ])
   })
 
+
+  it('defaults new project tasks into todo instead of backlog', () => {
+    const result = buildProjectTaskCreateData({ title: 'Ready task' }, 'project-1', 'org-1')
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.value.columnId).toBe('todo')
+  })
+
   it('rejects attachment objects without a persisted url and name', () => {
     const result = buildProjectTaskCreateData(
       {
@@ -109,6 +117,8 @@ describe('project task payload helpers', () => {
           assigneeAgentId: 'theo',
           agentInput: { spec: 'Build a /pricing page using the existing design system' },
           dependsOn: ['task-abc'],
+          reviewerIds: ['reviewer-1'],
+          reviewerAgentId: 'sage',
         },
         'project-1',
         'org-1',
@@ -120,6 +130,8 @@ describe('project task payload helpers', () => {
         agentStatus: 'pending',
         agentInput: { spec: 'Build a /pricing page using the existing design system' },
         dependsOn: ['task-abc'],
+        reviewerIds: ['reviewer-1'],
+        reviewerAgentId: 'sage',
       }))
     })
 
@@ -171,11 +183,11 @@ describe('project task payload helpers', () => {
       expect(result.value).toEqual({ assigneeAgentId: 'theo', agentStatus: 'in-progress' })
     })
 
-    it('PATCH: done or blocked agent status moves the kanban column when no column is supplied', () => {
+    it('PATCH: done moves to review and blocked moves to blocked when no column is supplied', () => {
       const done = buildProjectTaskUpdateData({ agentStatus: 'done' })
       expect(done.ok).toBe(true)
       if (!done.ok) return
-      expect(done.value).toEqual({ agentStatus: 'done', columnId: 'done' })
+      expect(done.value).toEqual({ agentStatus: 'done', columnId: 'review', reviewStatus: 'pending' })
 
       const blocked = buildProjectTaskUpdateData({ agentStatus: 'blocked' })
       expect(blocked.ok).toBe(true)

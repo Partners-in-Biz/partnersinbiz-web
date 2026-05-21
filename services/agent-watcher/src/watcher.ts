@@ -11,7 +11,7 @@ import type { DocumentReference, DocumentSnapshot, QuerySnapshot } from 'firebas
 import { FieldPath } from 'firebase-admin/firestore'
 import { db, FieldValue } from './firestore'
 import { AGENT_IDS, getAgentConfig, type AgentId } from './config'
-import { claimTask, startHeartbeat } from './claim'
+import { claimReviewTask, claimTask, startHeartbeat } from './claim'
 import { runAndPoll, type TaskDispatchInput } from './hermes'
 import { logger } from './logger'
 import { agentStatusUpdate } from './task-updates'
@@ -37,6 +37,10 @@ interface TaskData {
   agentInput?: { spec?: string; context?: Record<string, unknown>; constraints?: string[] }
   dependsOn?: string[]
   title?: string
+  columnId?: string
+  reviewerAgentId?: string
+  reviewStatus?: string
+  agentOutput?: { summary?: string }
 }
 
 async function dependenciesResolved(deps: string[] | undefined): Promise<{ ok: boolean; blockers: string[] }> {
@@ -53,7 +57,7 @@ async function dependenciesResolved(deps: string[] | undefined): Promise<{ ok: b
         continue
       }
       const data = snap.docs[0].data() as TaskData
-      if (data.agentStatus !== 'done') blockers.push(dep)
+      if (data.columnId !== 'done') blockers.push(dep)
     } catch {
       blockers.push(dep)
     }
@@ -65,6 +69,7 @@ async function dispatchTask(taskRef: DocumentReference, taskData: TaskData): Pro
   const taskId = taskRef.id
   const agentId = taskData.assigneeAgentId as AgentId | undefined
   if (!agentId || !AGENT_IDS.includes(agentId)) return
+  if (taskData.columnId !== 'todo') return
 
   if (inFlight.has(taskRef.path)) return
   if ((perAgentInFlight.get(agentId) ?? 0) >= MAX_CONCURRENT_PER_AGENT) {
@@ -196,6 +201,115 @@ async function dispatchTask(taskRef: DocumentReference, taskData: TaskData): Pro
   }
 }
 
+
+async function addAgentReviewComment(taskRef: DocumentReference, agentId: AgentId, text: string): Promise<void> {
+  await taskRef.collection('comments').add({
+    text,
+    userId: `agent:${agentId}`,
+    userName: agentId.charAt(0).toUpperCase() + agentId.slice(1),
+    userRole: 'ai',
+    createdAt: FieldValue.serverTimestamp(),
+    agentPickedUp: false,
+    agentPickedUpAt: null,
+  })
+}
+
+function reviewFailed(output: string): boolean {
+  return /\b(changes[_ -]?requested|fail(?:ed)?|reject(?:ed)?|not approved)\b/i.test(output)
+}
+
+function reviewApproved(output: string): boolean {
+  return /^\s*APPROVED\b/i.test(output) && !reviewFailed(output)
+}
+
+async function dispatchReview(taskRef: DocumentReference, taskData: TaskData): Promise<void> {
+  const taskId = taskRef.id
+  const agentId = taskData.reviewerAgentId as AgentId | undefined
+  if (!agentId || !AGENT_IDS.includes(agentId)) return
+  if (taskData.columnId !== 'review' || taskData.reviewStatus !== 'pending') return
+  if (inFlight.has(`${taskRef.path}:review`)) return
+  if ((perAgentInFlight.get(agentId) ?? 0) >= MAX_CONCURRENT_PER_AGENT) return
+
+  inFlight.add(`${taskRef.path}:review`)
+  incAgent(agentId)
+  try {
+    const claimed = await claimReviewTask(taskRef, agentId)
+    if (!claimed) {
+      logger.info('review claim lost (another watcher or status changed)', { taskId, agentId })
+      return
+    }
+
+    const cfg = await getAgentConfig(agentId)
+    if (!cfg || !cfg.enabled) {
+      await addAgentReviewComment(taskRef, agentId, `Review could not run: reviewer agent '${agentId}' has no enabled dispatch config.`)
+      await taskRef.update({ reviewStatus: 'changes-requested', updatedAt: FieldValue.serverTimestamp() })
+      return
+    }
+    const spec = [
+      `Review this completed task. Return APPROVED if it passes, or CHANGES_REQUESTED followed by clear feedback if it fails.`,
+      `Task: ${taskData.title ?? taskId}`,
+      taskData.agentOutput?.summary ? `Implementation summary:\n${taskData.agentOutput.summary}` : '',
+    ].filter(Boolean).join('\n\n')
+    const result = await runAndPoll(cfg, {
+      taskId,
+      orgId: taskData.orgId ?? '',
+      agentId,
+      spec,
+      context: { reviewTask: true, projectId: taskData.projectId ?? null },
+      constraints: ['Be strict. If changes are needed, start with CHANGES_REQUESTED and explain exactly what to fix.'],
+    })
+    const output = (result.error ? `Reviewer error: ${result.error}` : result.output ?? '').slice(0, 4_000)
+    if (result.error || reviewFailed(output) || !reviewApproved(output)) {
+      await addAgentReviewComment(taskRef, agentId, output || 'CHANGES_REQUESTED: Review failed without details.')
+      await taskRef.update({
+        columnId: 'todo',
+        agentStatus: 'pending',
+        reviewStatus: 'changes-requested',
+        agentHeartbeatAt: FieldValue.delete(),
+        updatedAt: FieldValue.serverTimestamp(),
+      })
+      return
+    }
+    await addAgentReviewComment(taskRef, agentId, output || 'APPROVED')
+    await taskRef.update({
+      columnId: 'done',
+      reviewStatus: 'approved',
+      updatedAt: FieldValue.serverTimestamp(),
+    })
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    logger.error('dispatchReview threw', { taskId, agentId, error: message })
+    try {
+      await addAgentReviewComment(taskRef, agentId, `Reviewer error: ${message}`)
+      await taskRef.update({ reviewStatus: 'pending', updatedAt: FieldValue.serverTimestamp() })
+    } catch {}
+  } finally {
+    inFlight.delete(`${taskRef.path}:review`)
+    decAgent(agentId)
+  }
+}
+
+async function dispatchDependents(completedTaskId: string): Promise<void> {
+  try {
+    const snap = await db
+      .collectionGroup('tasks')
+      .where('dependsOn', 'array-contains', completedTaskId)
+      .where('agentStatus', '==', 'pending')
+      .where('columnId', '==', 'todo')
+      .get()
+
+    snap.docs.forEach((doc) => {
+      const data = (doc.data() ?? {}) as TaskData
+      void dispatchTask(doc.ref, data)
+    })
+  } catch (err) {
+    logger.error('dependent task dispatch query failed', {
+      completedTaskId,
+      error: err instanceof Error ? err.message : String(err),
+    })
+  }
+}
+
 export function inFlightCount(): number {
   return inFlight.size
 }
@@ -223,9 +337,41 @@ export function startWatcher(): () => void {
       },
     )
 
+  const reviewUnsubscribe = db
+    .collectionGroup('tasks')
+    .where('reviewerAgentId', 'in', AGENT_IDS as unknown as string[])
+    .where('columnId', '==', 'review')
+    .where('reviewStatus', '==', 'pending')
+    .onSnapshot(
+      (snap: QuerySnapshot) => {
+        snap.docChanges().forEach((change) => {
+          if (change.type !== 'added' && change.type !== 'modified') return
+          const doc: DocumentSnapshot = change.doc
+          const data = (doc.data() ?? {}) as TaskData
+          void dispatchReview(doc.ref, data)
+        })
+      },
+      (err: Error) => logger.error('Firestore review snapshot listener error', { error: err.message }),
+    )
+
+  const dependencyUnsubscribe = db
+    .collectionGroup('tasks')
+    .where('columnId', '==', 'done')
+    .onSnapshot(
+      (snap: QuerySnapshot) => {
+        snap.docChanges().forEach((change) => {
+          if (change.type !== 'added' && change.type !== 'modified') return
+          void dispatchDependents(change.doc.id)
+        })
+      },
+      (err: Error) => logger.error('Firestore dependency snapshot listener error', { error: err.message }),
+    )
+
   return () => {
     try {
       unsubscribe()
+      reviewUnsubscribe()
+      dependencyUnsubscribe()
     } catch (err) {
       logger.warn('unsubscribe threw', { error: err instanceof Error ? err.message : String(err) })
     }

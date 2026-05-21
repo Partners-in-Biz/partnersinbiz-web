@@ -27,8 +27,9 @@ const BOARD_COLUMNS: Column[] = [
   { id: 'backlog',     name: 'Backlog',     color: 'var(--color-outline)',    order: 0 },
   { id: 'todo',        name: 'To Do',       color: '#60a5fa',                 order: 1 },
   { id: 'in_progress', name: 'In Progress', color: 'var(--color-accent-v2)', order: 2 },
-  { id: 'review',      name: 'Review',      color: '#c084fc',                 order: 3 },
-  { id: 'done',        name: 'Done',        color: '#4ade80',                 order: 4 },
+  { id: 'blocked',     name: 'Blocked',     color: '#ef4444',                 order: 3 },
+  { id: 'review',      name: 'Review',      color: '#c084fc',                 order: 4 },
+  { id: 'done',        name: 'Done',        color: '#4ade80',                 order: 5 },
 ]
 
 function normalizeColumnId(columnId: string): string {
@@ -51,6 +52,8 @@ export function CrossProjectBoard({ tasks: initialTasks, loading, onTaskUpdate }
   const [selectedTask, setSelectedTask] = useState<BoardTask | null>(null)
 
   useEffect(() => {
+    // Keep the optimistic drag/drop copy in sync with live Firestore task props.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setTasks(initialTasks.map(t => ({ ...t, columnId: normalizeColumnId(t.columnId) })))
   }, [initialTasks])
 

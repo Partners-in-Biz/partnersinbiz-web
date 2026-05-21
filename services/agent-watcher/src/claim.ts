@@ -25,6 +25,7 @@ export async function claimTask(taskRef: DocumentReference): Promise<boolean> {
       if (!snap.exists) return false
       const data = snap.data() ?? {}
       if (data.agentStatus !== 'pending') return false
+      if (data.columnId !== 'todo') return false
 
       tx.update(taskRef, {
         ...agentStatusUpdate('picked-up'),
@@ -35,6 +36,32 @@ export async function claimTask(taskRef: DocumentReference): Promise<boolean> {
     })
   } catch (err) {
     logger.warn('claimTask transaction failed', {
+      path: taskRef.path,
+      error: err instanceof Error ? err.message : String(err),
+    })
+    return false
+  }
+}
+
+export async function claimReviewTask(taskRef: DocumentReference, reviewerAgentId: string): Promise<boolean> {
+  try {
+    return await (db as Firestore).runTransaction(async (tx) => {
+      const snap = await tx.get(taskRef)
+      if (!snap.exists) return false
+      const data = snap.data() ?? {}
+      if (data.columnId !== 'review') return false
+      if (data.reviewStatus !== 'pending') return false
+      if (data.agentStatus !== 'done') return false
+      if (data.reviewerAgentId !== reviewerAgentId) return false
+
+      tx.update(taskRef, {
+        reviewStatus: 'in-progress',
+        updatedAt: FieldValue.serverTimestamp(),
+      })
+      return true
+    })
+  } catch (err) {
+    logger.warn('claimReviewTask transaction failed', {
       path: taskRef.path,
       error: err instanceof Error ? err.message : String(err),
     })
