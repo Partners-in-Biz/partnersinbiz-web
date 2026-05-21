@@ -404,9 +404,9 @@ platform: https://partnersinbiz.online
 mkdir -p ~/Cowork/<CLIENT_NAME>/{docs,briefs,assets,marketing,research,operations,deliverables,inbox,archive}
 ```
 
-#### Step 4 — Workspace CLAUDE.md
+#### Step 4 — Workspace AGENTS.md plus legacy CLAUDE.md mirror
 
-Write `~/Cowork/<CLIENT_NAME>/CLAUDE.md` using this template (substitute all placeholders):
+Write `~/Cowork/<CLIENT_NAME>/AGENTS.md` using this template (substitute all placeholders), then write the same content to `~/Cowork/<CLIENT_NAME>/CLAUDE.md` as a legacy mirror for older tooling:
 
 ```markdown
 # <CLIENT_NAME> — Project Instructions
@@ -468,13 +468,13 @@ Everything you create goes inside `/Users/peetstander/Cowork/<CLIENT_NAME>`. Nev
 - Peet acts as the board — high-level goals and direction. You execute and recommend
 - Default to action over asking permission when the next step is obvious
 - When in doubt, create the logical subfolder and put things there
-- Do not guess project facts. If the relevant CLAUDE.md or Obsidian notes can be read, read them first
+- Do not guess project facts. If the relevant AGENTS.md, CLAUDE.md, or Obsidian notes can be read, read them first
 - The Hermes profile for this project is `<DOMAIN>`; its SOUL.md is at `/Users/peetstander/.hermes/profiles/<DOMAIN>/SOUL.md`
 ```
 
-#### Step 5 — Register in global CLAUDE.md
+#### Step 5 — Register in global Cowork context
 
-Add a line to the `### Project-to-Domain Mapping:` section in `~/Cowork/CLAUDE.md`:
+Add a line to the `Project → Domain Mapping` section in the global Cowork context (`/var/lib/hermes/Cowork/Cowork/global-context.md` on VPS; synced from the Mac-side global instructions):
 ```
 - <CLIENT_NAME> → `agents/<DOMAIN>/`
 ```
@@ -508,8 +508,8 @@ Focus: Strategy, research, planning, writing, content, operations, documentation
 
 ## Startup Routine
 
-1. Read the global Cowork instructions: `/Users/peetstander/Cowork/CLAUDE.md`.
-2. Read the project instructions: `/Users/peetstander/Cowork/<CLIENT_NAME>/CLAUDE.md`.
+1. Read the global Cowork instructions: `/var/lib/hermes/Cowork/Cowork/global-context.md` on VPS, or the synced Mac-side global instructions locally.
+2. Read the project instructions: `/Users/peetstander/Cowork/<CLIENT_NAME>/AGENTS.md` on Mac, or `/var/lib/hermes/Cowork/<CLIENT_NAME>/AGENTS.md` on VPS.
 3. Read the hot cache and index if they exist.
 4. Check recent logs when continuity matters.
 
@@ -524,12 +524,12 @@ Focus: Strategy, research, planning, writing, content, operations, documentation
 ## Project Folder Rules
 
 Everything created for this project must live under `/Users/peetstander/Cowork/<CLIENT_NAME>`.
-Same folder structure as CLAUDE.md: docs/, briefs/, assets/, marketing/, research/, operations/, deliverables/, inbox/, archive/.
+Same folder structure as AGENTS.md: docs/, briefs/, assets/, marketing/, research/, operations/, deliverables/, inbox/, archive/.
 
 ## Behaviour
 
 - Be direct and action-oriented.
-- Do not guess project context when CLAUDE.md, SOUL.md, or Obsidian files can be read.
+- Do not guess project context when AGENTS.md, CLAUDE.md, SOUL.md, or Obsidian files can be read.
 - Persist useful knowledge to the <CLIENT_NAME> Obsidian domain.
 ```
 
@@ -543,8 +543,9 @@ Add the new client to the completed items in `~/Cowork/Cowork/agents/cowork/wiki
 - [ ] Obsidian domain created: `agents/<DOMAIN>/` with wiki/, logs/, raw/, index.md
 - [ ] Workspace folder created: `~/Cowork/<CLIENT_NAME>/`
 - [ ] Workspace subfolders created (docs, briefs, assets, marketing, research, operations, deliverables, inbox, archive)
-- [ ] `CLAUDE.md` written to workspace root
-- [ ] `~/Cowork/CLAUDE.md` Project-to-Domain Mapping updated
+- [ ] `AGENTS.md` written to workspace root
+- [ ] `CLAUDE.md` written to workspace root as a legacy mirror
+- [ ] Global Cowork Project-to-Domain Mapping updated
 - [ ] Hermes profile created: `~/.hermes/profiles/<DOMAIN>/` with config.yaml + SOUL.md
 - [ ] `cowork/wiki/hot.md` updated
 
