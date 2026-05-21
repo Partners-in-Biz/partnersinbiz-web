@@ -3,12 +3,12 @@ import { adminDb } from '@/lib/firebase/admin'
 export const dynamic = 'force-dynamic'
 
 const STATUS_PILL: Record<string, string> = {
-  top_3: 'bg-green-100 text-green-800',
-  top_10: 'bg-blue-100 text-blue-800',
-  ranking: 'bg-amber-100 text-amber-800',
-  not_yet: 'bg-gray-100 text-gray-700',
-  in_progress: 'bg-purple-100 text-purple-800',
-  lost: 'bg-red-100 text-red-800',
+  top_3: 'pib-pill pib-pill-success',
+  top_10: 'pib-pill pib-pill-info',
+  ranking: 'pib-pill pib-pill-warn',
+  not_yet: 'pib-pill',
+  in_progress: 'pib-pill pib-pill-accent',
+  lost: 'pib-pill pib-pill-danger',
 }
 
 export default async function KeywordsTab({ params }: { params: Promise<{ id: string }> }) {
@@ -23,13 +23,18 @@ export default async function KeywordsTab({ params }: { params: Promise<{ id: st
   keywords.sort((a, b) => (a.currentPosition ?? 999) - (b.currentPosition ?? 999))
 
   return (
-    <div className="space-y-4">
-      <header className="flex justify-between items-center">
-        <h2 className="text-lg font-semibold">Keywords ({keywords.length})</h2>
+    <div className="space-y-5">
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="pib-label mb-2">Search demand</p>
+          <h2 className="text-2xl font-semibold text-[var(--color-pib-text)]">Keywords</h2>
+        </div>
+        <span className="pib-pill">{keywords.length} tracked</span>
       </header>
 
       {keywords.length === 0 ? (
-        <div className="card p-6 text-center text-sm text-[var(--color-pib-text-muted)]">
+        <div className="pib-card py-10 text-center text-sm text-[var(--color-pib-text-muted)]">
+          <span className="material-symbols-outlined mb-2 block text-3xl">manage_search</span>
           No keywords yet. Add via <code>POST /api/v1/seo/sprints/{id}/keywords</code> or use{' '}
           <a href="/admin/seo/tools" className="underline">
             keyword discovery
@@ -37,32 +42,32 @@ export default async function KeywordsTab({ params }: { params: Promise<{ id: st
           .
         </div>
       ) : (
-        <div className="card overflow-x-auto">
+        <div className="pib-card overflow-x-auto !p-0">
           <table className="w-full text-sm">
-            <thead className="text-xs text-left border-b bg-gray-50">
+            <thead className="border-b border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] text-left text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)]">
               <tr>
-                <th className="px-4 py-2">Keyword</th>
-                <th className="px-4 py-2">Vol</th>
-                <th className="px-4 py-2">Top-3 DR</th>
-                <th className="px-4 py-2">Intent</th>
-                <th className="px-4 py-2">Position</th>
-                <th className="px-4 py-2">Impr</th>
-                <th className="px-4 py-2">Clicks</th>
-                <th className="px-4 py-2">Status</th>
+                <th className="px-4 py-3">Keyword</th>
+                <th className="px-4 py-3">Vol</th>
+                <th className="px-4 py-3">Top-3 DR</th>
+                <th className="px-4 py-3">Intent</th>
+                <th className="px-4 py-3">Position</th>
+                <th className="px-4 py-3">Impr</th>
+                <th className="px-4 py-3">Clicks</th>
+                <th className="px-4 py-3">Status</th>
               </tr>
             </thead>
-            <tbody className="divide-y">
+            <tbody className="divide-y divide-[var(--color-pib-line)]">
               {keywords.map((k) => (
-                <tr key={k.id}>
-                  <td className="px-4 py-2 font-medium">{k.keyword}</td>
-                  <td className="px-4 py-2">{k.volume ?? '—'}</td>
-                  <td className="px-4 py-2">{k.topThreeDR ?? '—'}</td>
-                  <td className="px-4 py-2 text-xs">{k.intentBucket}</td>
-                  <td className="px-4 py-2">{k.currentPosition ? k.currentPosition.toFixed(1) : '—'}</td>
-                  <td className="px-4 py-2">{k.currentImpressions ?? 0}</td>
-                  <td className="px-4 py-2">{k.currentClicks ?? 0}</td>
-                  <td className="px-4 py-2">
-                    <span className={`text-xs px-2 py-0.5 rounded ${STATUS_PILL[k.status] ?? ''}`}>{k.status}</span>
+                <tr key={k.id} className="transition-colors hover:bg-white/[0.03]">
+                  <td className="px-4 py-3 font-medium text-[var(--color-pib-text)]">{k.keyword}</td>
+                  <td className="px-4 py-3">{k.volume ?? '—'}</td>
+                  <td className="px-4 py-3">{k.topThreeDR ?? '—'}</td>
+                  <td className="px-4 py-3 text-xs text-[var(--color-pib-text-muted)]">{k.intentBucket}</td>
+                  <td className="px-4 py-3">{k.currentPosition ? k.currentPosition.toFixed(1) : '—'}</td>
+                  <td className="px-4 py-3">{k.currentImpressions ?? 0}</td>
+                  <td className="px-4 py-3">{k.currentClicks ?? 0}</td>
+                  <td className="px-4 py-3">
+                    <span className={STATUS_PILL[k.status] ?? 'pib-pill'}>{k.status}</span>
                   </td>
                 </tr>
               ))}

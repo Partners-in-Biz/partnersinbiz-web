@@ -50,28 +50,35 @@ export default async function ContentTab({ params }: { params: Promise<{ id: str
   }
 
   return (
-    <div className="space-y-4">
-      <h2 className="text-lg font-semibold">Content ({items.length})</h2>
+    <div className="space-y-5">
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="pib-label mb-2">Content engine</p>
+          <h2 className="text-2xl font-semibold text-[var(--color-pib-text)]">Content</h2>
+        </div>
+        <span className="pib-pill">{items.length} items</span>
+      </header>
       {items.length === 0 ? (
-        <div className="card p-6 text-center text-sm text-[var(--color-pib-text-muted)]">
+        <div className="pib-card py-10 text-center text-sm text-[var(--color-pib-text-muted)]">
+          <span className="material-symbols-outlined mb-2 block text-3xl">article</span>
           No content yet. Add via <code>POST /api/v1/seo/sprints/{id}/content</code>.
         </div>
       ) : (
-        <div className="card overflow-hidden">
+        <div className="pib-card overflow-x-auto !p-0">
           <table className="w-full text-sm">
-            <thead className="text-xs text-left border-b border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text-muted)] uppercase tracking-wide">
+            <thead className="border-b border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] text-left text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)]">
               <tr>
-                <th className="px-4 py-2 w-8"></th>
-                <th className="px-4 py-2">Title</th>
-                <th className="px-4 py-2">Keyword</th>
-                <th className="px-4 py-2">Phase</th>
-                <th className="px-4 py-2">Type</th>
-                <th className="px-4 py-2">Status</th>
-                <th className="px-4 py-2">Publish date</th>
-                <th className="px-4 py-2">URL</th>
+                <th className="w-8 px-4 py-3"></th>
+                <th className="px-4 py-3">Title</th>
+                <th className="px-4 py-3">Keyword</th>
+                <th className="px-4 py-3">Phase</th>
+                <th className="px-4 py-3">Type</th>
+                <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3">Publish date</th>
+                <th className="px-4 py-3">URL</th>
               </tr>
             </thead>
-            <tbody className="divide-y">
+            <tbody className="divide-y divide-[var(--color-pib-line)]">
               {items.map((c) => (
                 <ContentRow
                   key={c.id}

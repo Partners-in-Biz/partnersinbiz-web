@@ -70,7 +70,6 @@ function NewSprintForm() {
 
     if (qSiteName) setSiteName(qSiteName)
     if (qSiteUrl) setSiteUrl(qSiteUrl)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, selectedOrgId])
 
   // When the selected client changes, auto-fill siteName from the org if not
@@ -120,107 +119,140 @@ function NewSprintForm() {
   }
 
   const selectedOrg = orgs.find((o) => o.id === clientId)
+  const modeOptions = [
+    ['off', 'edit_note', 'Off', 'Pip drafts only. You approve everything.'],
+    ['safe', 'shield', 'Safe', 'Default mode. Pip runs low-risk drafts and queues publishing work.'],
+    ['full', 'rocket_launch', 'Full', 'Pip can publish blog posts and repurpose approved content.'],
+  ] as const
 
   return (
-    <div className="max-w-xl space-y-6">
-      <header>
-        <h1 className="text-2xl font-semibold">New SEO Sprint</h1>
-        <p className="text-sm text-[var(--color-pib-text-muted)]">
+    <div className="max-w-4xl space-y-6">
+      <header className="flex flex-col gap-2">
+        <p className="pib-label">Growth setup</p>
+        <h1 className="pib-page-title">New SEO Sprint</h1>
+        <p className="pib-page-sub max-w-2xl">
           Creates a 90-day sprint seeded from the Outrank-90 template (42 tasks + 15 directories).
         </p>
       </header>
 
-      <form onSubmit={submit} className="space-y-4">
-        <label className="block">
-          <span className="text-sm font-medium">Client</span>
-          <select
-            value={clientId}
-            onChange={(e) => setClientId(e.target.value)}
-            className="mt-1 w-full border rounded px-3 py-2 text-sm"
-            required
-          >
-            <option value="">— pick client —</option>
-            {orgs.map((o) => (
-              <option key={o.id} value={o.id}>
-                {o.name}
-              </option>
-            ))}
-          </select>
-          {selectedOrg && (
-            <p className="text-xs text-[var(--color-pib-text-muted)] mt-1">
-              Pre-filled from workspace context.
-            </p>
-          )}
-        </label>
+      <form onSubmit={submit} className="pib-card-section">
+        <div className="pib-card-section-header">
+          <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">Sprint details</h2>
+          <p className="text-xs text-[var(--color-pib-text-muted)]">Map the sprint to a client workspace and canonical site URL.</p>
+        </div>
+        <div className="grid gap-4 p-4 sm:grid-cols-2">
+          <label className="block sm:col-span-2">
+            <span className="pib-label">Client</span>
+            <select
+              value={clientId}
+              onChange={(e) => setClientId(e.target.value)}
+              className="pib-select"
+              required
+            >
+              <option value="">Pick client</option>
+              {orgs.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.name}
+                </option>
+              ))}
+            </select>
+            {selectedOrg && (
+              <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">
+                Pre-filled from workspace context.
+              </p>
+            )}
+          </label>
 
-        <label className="block">
-          <span className="text-sm font-medium">Site URL</span>
-          <input
-            type="url"
-            value={siteUrl}
-            onChange={(e) => setSiteUrl(e.target.value)}
-            placeholder="https://example.com"
-            className="mt-1 w-full border rounded px-3 py-2 text-sm"
-            required
-          />
-        </label>
+          <label className="block">
+            <span className="pib-label">Site URL</span>
+            <input
+              type="url"
+              value={siteUrl}
+              onChange={(e) => setSiteUrl(e.target.value)}
+              placeholder="https://example.com"
+              className="pib-input"
+              required
+            />
+          </label>
 
-        <label className="block">
-          <span className="text-sm font-medium">Site name</span>
-          <input
-            type="text"
-            value={siteName}
-            onChange={(e) => setSiteName(e.target.value)}
-            placeholder="Example Co."
-            className="mt-1 w-full border rounded px-3 py-2 text-sm"
-            required
-          />
-        </label>
+          <label className="block">
+            <span className="pib-label">Site name</span>
+            <input
+              type="text"
+              value={siteName}
+              onChange={(e) => setSiteName(e.target.value)}
+              placeholder="Example Co."
+              className="pib-input"
+              required
+            />
+          </label>
+        </div>
 
-        <fieldset className="space-y-2">
-          <legend className="text-sm font-medium">Autopilot mode</legend>
-          {(
-            [
-              ['off', 'Off — Pip drafts only, you approve everything'],
-              ['safe', 'Safe (default) — Pip auto-executes drafts; queues anything that publishes'],
-              ['full', 'Full — Pip publishes blog posts, repurposes to social, etc.'],
-            ] as const
-          ).map(([val, desc]) => (
-            <label key={val} className="flex items-start gap-2 text-sm">
-              <input
-                type="radio"
-                name="autopilot"
-                value={val}
-                checked={autopilotMode === val}
-                onChange={() => setAutopilotMode(val)}
-                className="mt-1"
-              />
-              <span>{desc}</span>
-            </label>
-          ))}
+        <fieldset className="border-t border-[var(--color-pib-line)] p-4">
+          <legend className="sr-only">Autopilot mode</legend>
+          <div className="mb-3">
+            <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">Autopilot mode</h3>
+            <p className="text-xs text-[var(--color-pib-text-muted)]">Choose the execution boundary for the new sprint.</p>
+          </div>
+          <div className="grid gap-3 md:grid-cols-3">
+            {modeOptions.map(([val, icon, label, desc]) => {
+              const selected = autopilotMode === val
+              return (
+                <button
+                  key={val}
+                  type="button"
+                  onClick={() => setAutopilotMode(val)}
+                  aria-pressed={selected}
+                  className={[
+                    'rounded-2xl border p-4 text-left transition',
+                    selected
+                      ? 'border-[var(--color-pib-accent)] bg-[var(--color-pib-accent-soft)]'
+                      : 'border-[var(--color-pib-line)] bg-white/[0.02] hover:border-[var(--color-pib-line-strong)]',
+                  ].join(' ')}
+                >
+                  <span className="material-symbols-outlined text-[20px] text-[var(--color-pib-accent)]">{icon}</span>
+                  <div className="mt-3 flex items-center justify-between gap-2">
+                    <span className="text-sm font-semibold text-[var(--color-pib-text)]">{label}</span>
+                    {selected && <span className="pib-pill pib-pill-accent !px-2 !py-0.5">Active</span>}
+                  </div>
+                  <p className="mt-2 text-xs leading-5 text-[var(--color-pib-text-muted)]">{desc}</p>
+                </button>
+              )
+            })}
+          </div>
         </fieldset>
 
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={pagespeedEnabled}
-            onChange={(e) => setPagespeedEnabled(e.target.checked)}
-          />
-          Enable PageSpeed Insights (Core Web Vitals)
-        </label>
+        <div className="flex flex-col gap-4 border-t border-[var(--color-pib-line)] p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">PageSpeed Insights</h3>
+            <p className="text-xs text-[var(--color-pib-text-muted)]">Enable Core Web Vitals checks for this sprint.</p>
+          </div>
+          <label className="inline-flex cursor-pointer items-center gap-3 rounded-full border border-[var(--color-pib-line)] bg-white/[0.02] px-3 py-2 text-xs text-[var(--color-pib-text-muted)]">
+            <input
+              type="checkbox"
+              checked={pagespeedEnabled}
+              onChange={(e) => setPagespeedEnabled(e.target.checked)}
+              className="sr-only"
+            />
+            <span className={pagespeedEnabled ? 'pib-pill pib-pill-info' : 'pib-pill'}>{pagespeedEnabled ? 'Enabled' : 'Disabled'}</span>
+          </label>
+        </div>
 
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {error && <p className="mx-4 mb-4 rounded-2xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300">{error}</p>}
 
-        <button
-          type="submit"
-          disabled={submitting}
-          className="w-full px-4 py-2.5 rounded bg-black text-white text-sm font-medium hover:bg-gray-800 disabled:opacity-50"
-        >
-          {submitting ? 'Creating…' : 'Create sprint'}
-        </button>
-        <p className="text-xs text-[var(--color-pib-text-muted)]">
-          After creating, you can connect Google Search Console and Bing Webmaster Tools from the sprint settings.
-        </p>
+        <div className="flex flex-col gap-3 border-t border-[var(--color-pib-line)] p-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-xs text-[var(--color-pib-text-muted)]">
+            After creating, connect Google Search Console and Bing Webmaster Tools from sprint settings.
+          </p>
+          <button
+            type="submit"
+            disabled={submitting}
+            className="pib-btn-primary justify-center text-sm disabled:opacity-50"
+          >
+            <span className="material-symbols-outlined text-[18px]">{submitting ? 'autorenew' : 'add'}</span>
+            {submitting ? 'Creating…' : 'Create sprint'}
+          </button>
+        </div>
       </form>
     </div>
   )
