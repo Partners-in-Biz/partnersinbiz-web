@@ -6,6 +6,7 @@ const mockApprovalDoc = jest.fn()
 const mockBatchSet = jest.fn()
 const mockBatchUpdate = jest.fn()
 const mockBatchCommit = jest.fn()
+const mockGenerateApprovedDocumentProjectTasks = jest.fn()
 
 jest.mock('firebase-admin/firestore', () => ({
   FieldValue: {
@@ -41,6 +42,10 @@ jest.mock('@/lib/api/auth', () => ({
   },
 }))
 
+jest.mock('@/lib/client-documents/taskGeneration', () => ({
+  generateApprovedDocumentProjectTasks: mockGenerateApprovedDocumentProjectTasks,
+}))
+
 const clientUser = { uid: 'client-1', role: 'client' as const, orgId: 'org-1' }
 const aiUser = { uid: 'ai-agent', role: 'ai' as const }
 
@@ -56,6 +61,7 @@ beforeEach(() => {
   jest.clearAllMocks()
   mockDocumentGet.mockReset()
   mockBatchCommit.mockResolvedValue(undefined)
+  mockGenerateApprovedDocumentProjectTasks.mockResolvedValue({ ok: true, projectId: 'project-1', tasks: [], createdTaskIds: [] })
 
   const approvalRef = { id: 'approval-1' }
   const approvalsCollection = {
@@ -244,6 +250,55 @@ describe('client document approvals API', () => {
       expect.objectContaining({ actorRole: 'ai', actorId: 'ai-agent' }),
     )
     expect(mockBatchUpdate).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ updatedByType: 'agent' }))
+  })
+
+  it('can generate linked project tasks from an approved internal system document task plan', async () => {
+    mockDocumentGet.mockResolvedValueOnce({
+      exists: true,
+      id: 'doc-1',
+      data: () => ({
+        id: 'doc-1',
+        orgId: 'org-1',
+        title: 'Internal System Spec',
+        approvalMode: 'operational',
+        latestPublishedVersionId: 'version-1',
+        linked: { projectId: 'project-1' },
+        deleted: false,
+      }),
+    })
+    mockGenerateApprovedDocumentProjectTasks.mockResolvedValueOnce({
+      ok: true,
+      projectId: 'project-1',
+      tasks: [],
+      createdTaskIds: ['task-1', 'task-2'],
+    })
+
+    const { POST } = await import('@/app/api/v1/client-documents/[id]/approve/route')
+    const plan = {
+      tasks: [
+        { key: 'backend', sectionId: 'backend', title: 'Build backend', assigneeAgentId: 'theo' },
+        { key: 'qa', sectionId: 'qa', title: 'QA flow', assigneeAgentId: 'pip', dependsOn: ['backend'] },
+      ],
+    }
+    const req = jsonRequest('http://localhost/api/v1/client-documents/doc-1/approve', {
+      actorName: 'Pip',
+      generateProjectTasks: plan,
+    })
+    const res = await POST(req, aiUser, { params: Promise.resolve({ id: 'doc-1' }) })
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.data).toEqual({
+      id: 'approval-1',
+      versionId: 'version-1',
+      generatedProjectTasks: { projectId: 'project-1', taskIds: ['task-1', 'task-2'] },
+    })
+    expect(mockGenerateApprovedDocumentProjectTasks).toHaveBeenCalledWith({
+      document: expect.objectContaining({ id: 'doc-1', linked: { projectId: 'project-1' } }),
+      approvalId: 'approval-1',
+      actorId: 'ai-agent',
+      plan,
+    })
   })
 })
 
