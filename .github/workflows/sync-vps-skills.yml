@@ -45,10 +45,11 @@ jobs:
           for skill in "${sync_skills[@]}"; do
             if [ -d ".claude/skills/$skill" ]; then
               echo "-> rsyncing $skill"
-              tmp_dir="$remote_base/.sync-$skill-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+              safe_skill="${skill//\//__}"
+              tmp_dir="$remote_base/.sync-$safe_skill-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
               dest_dir="$remote_base/$skill"
-              stale_dir="$remote_base/.stale-$skill-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-              ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "rm -rf '$tmp_dir' && mkdir -p '$tmp_dir' \"\$(dirname '$dest_dir')\""
+              stale_dir="$remote_base/.stale-$safe_skill-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+              ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "rm -rf '$tmp_dir' '$stale_dir' && mkdir -p '$tmp_dir' \"\$(dirname '$dest_dir')\""
               rsync -rlz --delete --omit-dir-times --no-perms --no-owner --no-group \
                 ".claude/skills/$skill/" \
                 "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:$tmp_dir/"
