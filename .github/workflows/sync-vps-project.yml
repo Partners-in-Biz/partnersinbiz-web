@@ -106,8 +106,13 @@ jobs:
             git commit -m "chore(agent): checkpoint existing local work before sync" || true
           fi
 
-          git fetch origin development
+          git -c http.extraHeader="AUTHORIZATION: bearer ${{ github.token }}" \
+            fetch https://github.com/Partners-in-Biz/partnersinbiz-web.git \
+            development:refs/remotes/origin/development
           git rebase origin/development
+          git -c http.extraHeader="AUTHORIZATION: bearer ${{ github.token }}" \
+            push https://github.com/Partners-in-Biz/partnersinbiz-web.git \
+            HEAD:development
 
           echo "== After active worktree sync =="
           git status --short --branch
