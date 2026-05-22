@@ -199,12 +199,31 @@ Returns everything an agent needs to work on a project in one call:
 {
   "project": { "name": "...", "status": "...", "description": "...", "brief": "...", "orgId": "..." },
   "documents": [{ "title": "...", "content": "...", "type": "..." }],
-  "tasks": [{ "title": "...", "status": "...", "assignedTo": "..." }],
+  "tasks": [{
+    "id": "task_abc",
+    "orgId": "org_abc",
+    "projectId": "proj_xyz",
+    "title": "...",
+    "description": "...",
+    "priority": "high",
+    "columnId": "review",
+    "status": "in_progress",
+    "assigneeAgentId": "theo",
+    "agentStatus": "done",
+    "agentInput": { "spec": "...", "context": {} },
+    "agentOutput": { "summary": "...", "artifacts": [{ "type": "commit", "ref": "abc123" }] },
+    "dependsOn": ["task_previous"],
+    "labels": ["qc", "handoff"],
+    "reviewStatus": "pending",
+    "agentConversationId": "run_...",
+    "agentHeartbeatAt": "...",
+    "attachments": []
+  }],
   "recentComments": [...]
 }
 ```
 
-**Use this first** whenever an agent is asked to work on a project. Avoids multiple roundtrips.
+**Use this first** whenever an agent is asked to work on a project. It is the gold endpoint for project handoff/QC because it exposes task ids, org/project scope, kanban column/status, agent dispatch input/output, artifact refs, dependencies, labels, review status, and safe agent conversation/heartbeat metadata in one response.
 
 ### Standalone tasks
 
