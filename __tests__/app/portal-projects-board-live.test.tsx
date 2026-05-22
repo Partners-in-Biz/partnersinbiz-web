@@ -78,6 +78,43 @@ describe('Portal projects board live data', () => {
     expect(screen.getByText('Live task from Firestore — Launch Site')).toBeInTheDocument()
   })
 
+  it('keeps live task changes that arrive before the REST fallback finishes', async () => {
+    let resolveTasks: (response: Response) => void = () => {}
+    global.fetch = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/projects') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: [{ id: 'project-1', name: 'Launch Site', status: 'development' }] }),
+        } as Response)
+      }
+      if (url === '/api/v1/projects/project-1/tasks') {
+        return new Promise<Response>(resolve => { resolveTasks = resolve })
+      }
+      return Promise.resolve({ ok: true, json: async () => ({ data: [] }) } as Response)
+    }) as jest.Mock
+
+    render(<ProjectsPage />)
+
+    await waitFor(() => expect(screen.getByRole('button', { name: /board/i })).toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: /board/i }))
+
+    await waitFor(() => expect(snapshotCallback).toBeTruthy())
+    mockSnapshotChange('added', 'task-live-1', {
+      title: 'Live task survives fallback',
+      columnId: 'todo',
+      order: 1,
+      projectId: 'project-1',
+    })
+
+    await act(async () => {
+      resolveTasks({ ok: true, json: async () => ({ data: [] }) } as Response)
+    })
+
+    expect(screen.getByText('Live task survives fallback — Launch Site')).toBeInTheDocument()
+  })
+
+
   it('updates project cards when Firestore project snapshots change', async () => {
     render(<ProjectsPage />)
 

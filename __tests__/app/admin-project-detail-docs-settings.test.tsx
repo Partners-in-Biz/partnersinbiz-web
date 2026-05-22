@@ -1,7 +1,8 @@
 import React from 'react'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import ProjectDetailPage from '@/app/(admin)/admin/org/[slug]/projects/[projectId]/page'
 
+let snapshotCallback: ((snap: { docChanges: () => Array<{ type: 'added' | 'modified' | 'removed'; doc: { id: string; data: () => Record<string, unknown> } }> }) => void) | null = null
 const unsubscribe = jest.fn()
 
 jest.mock('next/navigation', () => ({
@@ -10,7 +11,10 @@ jest.mock('next/navigation', () => ({
 
 jest.mock('firebase/firestore', () => ({
   collection: jest.fn((...segments: string[]) => segments),
-  onSnapshot: jest.fn((_ref, _onNext, _onError) => unsubscribe),
+  onSnapshot: jest.fn((_ref, onNext) => {
+    snapshotCallback = onNext
+    return unsubscribe
+  }),
 }))
 
 jest.mock('@/lib/firebase/config', () => ({
@@ -18,7 +22,11 @@ jest.mock('@/lib/firebase/config', () => ({
 }))
 
 jest.mock('@/components/kanban/KanbanBoard', () => ({
-  KanbanBoard: () => <div data-testid="kanban-board" />,
+  KanbanBoard: ({ tasks }: { tasks: Array<{ title: string }> }) => (
+    <div data-testid="kanban-board">
+      {tasks.map(task => <div key={task.title}>{task.title}</div>)}
+    </div>
+  ),
 }))
 
 jest.mock('@/components/kanban/TaskDetailPanel', () => ({
@@ -35,6 +43,20 @@ jest.mock('@/components/hermes/Chat', () => ({
 }))
 
 const longDocContent = `Intro ${'context '.repeat(40)}Unique full ending`
+
+
+function mockSnapshotChange(type: 'added' | 'modified' | 'removed', id: string, data: Record<string, unknown>) {
+  act(() => {
+    snapshotCallback?.({
+      docChanges: () => [
+        {
+          type,
+          doc: { id, data: () => data },
+        },
+      ],
+    })
+  })
+}
 
 function mockFetch() {
   global.fetch = jest.fn((input: RequestInfo | URL) => {
@@ -98,6 +120,7 @@ function mockFetch() {
 
 describe('Admin project docs and settings tabs', () => {
   beforeEach(() => {
+    snapshotCallback = null
     unsubscribe.mockClear()
     Object.defineProperty(window, 'matchMedia', {
       writable: true,
@@ -157,6 +180,39 @@ describe('Admin project docs and settings tabs', () => {
     expect(screen.queryByTestId('kanban-board')).not.toBeInTheDocument()
     expect(screen.getAllByText('Due').length).toBeGreaterThan(0)
   })
+
+  it('keeps live kanban task changes that arrive before the REST fallback finishes', async () => {
+    let resolveTasks: (response: Response) => void = () => {}
+    global.fetch = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/projects/project-1') {
+        return Promise.resolve({ ok: true, json: async () => ({ data: { id: 'project-1', orgId: 'org-acme', name: 'Client Website', description: 'Initial board description', brief: 'Existing project brief', status: 'development', columns: [] } }) } as Response)
+      }
+      if (url === '/api/v1/projects/project-1/docs') {
+        return Promise.resolve({ ok: true, json: async () => ({ data: [] }) } as Response)
+      }
+      if (url === '/api/v1/projects/project-1/tasks') {
+        return new Promise<Response>(resolve => { resolveTasks = resolve })
+      }
+      return Promise.resolve({ ok: true, json: async () => ({ data: [] }) } as Response)
+    }) as jest.Mock
+
+    render(<ProjectDetailPage />)
+
+    await waitFor(() => expect(snapshotCallback).toBeTruthy())
+    mockSnapshotChange('added', 'task-live-1', {
+      title: 'Live kanban task survives fallback',
+      columnId: 'todo',
+      order: 1,
+    })
+
+    await act(async () => {
+      resolveTasks({ ok: true, json: async () => ({ data: [] }) } as Response)
+    })
+
+    expect(screen.getByText('Live kanban task survives fallback')).toBeInTheDocument()
+  })
+
 
 })
 

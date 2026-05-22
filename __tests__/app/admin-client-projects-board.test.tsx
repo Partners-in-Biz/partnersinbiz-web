@@ -84,6 +84,42 @@ describe('Admin client projects board view', () => {
     expect(screen.getByText('Live admin task — Client Website')).toBeInTheDocument()
   })
 
+  it('keeps live task changes that arrive before the REST fallback finishes', async () => {
+    let resolveTasks: (response: Response) => void = () => {}
+    global.fetch = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/projects?orgSlug=acme-client') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: [{ id: 'project-1', orgId: 'org-acme', name: 'Client Website', status: 'development' }] }),
+        } as Response)
+      }
+      if (url === '/api/v1/projects/project-1/tasks') {
+        return new Promise<Response>(resolve => { resolveTasks = resolve })
+      }
+      return Promise.resolve({ ok: true, json: async () => ({ data: [] }) } as Response)
+    }) as jest.Mock
+
+    render(<ProjectsPage />)
+
+    await waitFor(() => expect(screen.getByRole('button', { name: /board/i })).toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: /board/i }))
+
+    await waitFor(() => expect(snapshotCallback).toBeTruthy())
+    mockSnapshotChange('added', 'task-live-1', {
+      title: 'Live task survives fallback',
+      columnId: 'todo',
+      order: 1,
+    })
+
+    await act(async () => {
+      resolveTasks({ ok: true, json: async () => ({ data: [] }) } as Response)
+    })
+
+    expect(screen.getByText('Live task survives fallback — Client Website')).toBeInTheDocument()
+  })
+
+
   it('updates client project cards when Firestore project snapshots change', async () => {
     render(<ProjectsPage />)
 

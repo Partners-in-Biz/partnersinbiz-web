@@ -14,6 +14,13 @@ import type { AgentMember, Column, Task, TeamMember } from '@/components/kanban/
 interface ProjectDoc { id: string; title: string; content: string; type: 'brief' | 'requirements' | 'notes' | 'reference'; createdBy: string; updatedBy?: string; createdAt?: unknown; updatedAt?: unknown }
 interface Project { id: string; orgId?: string; name: string; description?: string; brief?: string; status?: string; columns: Column[] }
 
+function mergeLiveTasks(restTasks: Task[], currentTasks: Task[]) {
+  const merged = new Map<string, Task>()
+  restTasks.forEach(task => merged.set(task.id, task))
+  currentTasks.forEach(task => merged.set(task.id, task))
+  return Array.from(merged.values())
+}
+
 const DEFAULT_COLUMNS: Column[] = [
   { id: 'backlog',     name: 'Backlog',     color: 'var(--color-outline)',    order: 0 },
   { id: 'todo',        name: 'To Do',       color: '#60a5fa',                 order: 1 },
@@ -101,7 +108,10 @@ export default function ProjectDetailPage() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   const [showNewTask, setShowNewTask] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<'kanban' | 'docs' | 'agent' | 'settings'>('kanban')
-  const [viewMode, setViewMode] = useState<'board' | 'list'>('board')
+  const [viewMode, setViewMode] = useState<'board' | 'list'>(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return 'board'
+    return window.matchMedia('(max-width: 767px)').matches ? 'list' : 'board'
+  })
   const [editingBrief, setEditingBrief] = useState(false)
   const [briefValue, setBriefValue] = useState('')
   const [editingDoc, setEditingDoc] = useState<ProjectDoc | null>(null)
@@ -130,7 +140,7 @@ export default function ProjectDetailPage() {
 
     // Initial tasks load via REST — always reliable regardless of client auth
     fetch(`/api/v1/projects/${projectId}/tasks`).then(r => r.json())
-      .then(body => setTasks(body.data ?? []))
+      .then(body => setTasks(prev => mergeLiveTasks(body.data ?? [], prev)))
       .catch(() => {})
 
     // Live patches via Firestore — only applies incremental changes on top of
@@ -173,12 +183,6 @@ export default function ProjectDetailPage() {
       .then(body => setAgents(body.data ?? []))
       .catch(() => setAgents([]))
   }, [project?.orgId])
-
-  useEffect(() => {
-    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return
-    const mobileQuery = window.matchMedia('(max-width: 767px)')
-    if (mobileQuery.matches) setViewMode('list')
-  }, [])
 
   const handleTaskMove = useCallback(async (taskId: string, newColumnId: string, newOrder: number) => {
     setTasks(prev => prev.map(t => t.id === taskId ? { ...t, columnId: newColumnId, order: newOrder } : t))

@@ -132,6 +132,13 @@ function timestampLabel(value: unknown) {
   return `Updated ${new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(date)}`
 }
 
+function mergeLiveTasks(restTasks: BoardTask[], currentTasks: BoardTask[]) {
+  const merged = new Map<string, BoardTask>()
+  restTasks.forEach(task => merged.set(task.id, task))
+  currentTasks.forEach(task => merged.set(task.id, task))
+  return Array.from(merged.values())
+}
+
 function StatusBadge({ status }: { status: string }) {
   const s = STATUS_META[status] ?? { label: status.replace(/_/g, ' '), color: 'var(--color-outline)' }
   return (
@@ -341,7 +348,7 @@ export default function ProjectsPage() {
           all.push(...tasks)
         }
       }
-      setBoardTasks(all)
+      setBoardTasks(prev => mergeLiveTasks(all, prev))
       setFailedProjectIds(failed)
       setBoardLoading(false)
     })

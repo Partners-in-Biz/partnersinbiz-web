@@ -39,6 +39,13 @@ function StatusBadge({ status }: { status: string }) {
   )
 }
 
+function mergeLiveTasks(restTasks: BoardTask[], currentTasks: BoardTask[]) {
+  const merged = new Map<string, BoardTask>()
+  restTasks.forEach(task => merged.set(task.id, task))
+  currentTasks.forEach(task => merged.set(task.id, task))
+  return Array.from(merged.values())
+}
+
 export default function ProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
@@ -168,7 +175,7 @@ export default function ProjectsPage() {
           all.push(...tasks)
         }
       }
-      setBoardTasks(all)
+      setBoardTasks(prev => mergeLiveTasks(all, prev))
       setFailedProjectIds(failed)
       setBoardLoading(false)
     })
