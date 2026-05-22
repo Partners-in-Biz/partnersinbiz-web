@@ -24,10 +24,16 @@ const DEFAULT_COLUMNS: Column[] = [
 ]
 
 const TYPE_COLORS: Record<string, string> = {
-  brief: 'bg-amber-50 text-amber-700 border-amber-200',
-  requirements: 'bg-blue-50 text-blue-700 border-blue-200',
-  notes: 'bg-gray-50 text-gray-700 border-gray-200',
-  reference: 'bg-purple-50 text-purple-700 border-purple-200',
+  brief: 'border-[var(--color-accent-v2)] bg-[var(--color-surface-container)] text-on-surface',
+  requirements: 'border-[var(--color-accent-v2)] bg-[var(--color-surface-container)] text-on-surface',
+  notes: 'border-[var(--color-card-border)] bg-[var(--color-card)] text-on-surface-variant',
+  reference: 'border-[var(--color-card-border)] bg-[var(--color-card)] text-on-surface-variant',
+}
+
+function docPreview(content: string): string {
+  const preview = content.replace(/\s+/g, ' ').trim()
+  if (!preview) return 'No preview content yet.'
+  return preview.length > 180 ? `${preview.slice(0, 180).trim()}…` : preview
 }
 
 function Skeleton({ className = '' }: { className?: string }) {
@@ -99,6 +105,7 @@ export default function ProjectDetailPage() {
   const [editingBrief, setEditingBrief] = useState(false)
   const [briefValue, setBriefValue] = useState('')
   const [editingDoc, setEditingDoc] = useState<ProjectDoc | null>(null)
+  const [selectedDoc, setSelectedDoc] = useState<ProjectDoc | null>(null)
   const [savingBrief, setSavingBrief] = useState(false)
   const [settingsName, setSettingsName] = useState('')
   const [settingsStatus, setSettingsStatus] = useState('discovery')
@@ -222,6 +229,7 @@ export default function ProjectDetailPage() {
     if (!window.confirm('Are you sure?')) return
     await fetch(`/api/v1/projects/${projectId}/docs/${docId}`, { method: 'DELETE' })
     setDocs(prev => prev.filter(d => d.id !== docId))
+    setSelectedDoc(prev => prev?.id === docId ? null : prev)
   }
 
   const handleSaveDoc = async () => {
@@ -234,6 +242,7 @@ export default function ProjectDetailPage() {
         body: JSON.stringify({ title: editingDoc.title, content: editingDoc.content, type: editingDoc.type }),
       })
       setDocs(prev => prev.map(d => d.id === editingDoc.id ? editingDoc : d))
+      setSelectedDoc(prev => prev?.id === editingDoc.id ? editingDoc : prev)
     } else {
       const res = await fetch(`/api/v1/projects/${projectId}/docs`, {
         method: 'POST',
@@ -242,7 +251,9 @@ export default function ProjectDetailPage() {
       })
       const body = await res.json()
       if (body.data?.id) {
-        setDocs(prev => [{ ...editingDoc, id: body.data.id } as ProjectDoc, ...prev])
+        const createdDoc = { ...editingDoc, id: body.data.id } as ProjectDoc
+        setDocs(prev => [createdDoc, ...prev])
+        setSelectedDoc(createdDoc)
       }
     }
     setEditingDoc(null)
@@ -446,17 +457,43 @@ export default function ProjectDetailPage() {
       )}
 
       {activeTab === 'docs' && (
-        <div className="flex-1 overflow-auto space-y-6">
+        <div className="flex-1 overflow-auto space-y-6 pb-6">
+          <div className="rounded-2xl border border-[var(--color-card-border)] bg-[var(--color-card)] p-5 shadow-sm">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Project docs</p>
+                <h2 className="mt-1 text-2xl font-headline font-bold text-on-surface">Brief and knowledge base</h2>
+                <p className="mt-2 max-w-2xl text-sm text-on-surface-variant">Keep project context close to the board. Open any document to preview it before editing.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingDoc({ id: '', title: '', content: '', type: 'notes', createdBy: '' })}
+                className="pib-btn-primary text-sm font-label"
+              >
+                <span className="material-symbols-outlined text-[17px]">note_add</span>
+                New Document
+              </button>
+            </div>
+          </div>
+
           {/* Brief Section */}
-          <div className="bg-[var(--color-card)] border border-[var(--color-outline)] rounded-lg p-4">
-            <h2 className="text-lg font-headline font-bold text-on-surface mb-3">Project Brief</h2>
+          <div className="rounded-2xl border border-[var(--color-card-border)] bg-[var(--color-card)] p-5 shadow-sm">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Source of truth</p>
+                <h2 className="mt-1 text-lg font-headline font-bold text-on-surface">Project Brief</h2>
+              </div>
+              {!editingBrief && (
+                <button onClick={() => setEditingBrief(true)} className="pib-btn-secondary text-sm font-label">Edit brief</button>
+              )}
+            </div>
             {editingBrief ? (
               <div className="space-y-3">
                 <textarea
                   value={briefValue}
                   onChange={e => setBriefValue(e.target.value)}
                   placeholder="Add a project brief... What's this project about? Goals, constraints, key stakeholders."
-                  className="w-full px-3 py-2 text-sm bg-[var(--color-background)] border border-[var(--color-outline)] rounded text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-[var(--color-accent-v2)]"
+                  className="w-full rounded-xl border border-[var(--color-card-border)] bg-[var(--color-background)] px-4 py-3 text-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-[var(--color-accent-v2)]"
                   rows={4}
                 />
                 <div className="flex gap-2">
@@ -467,31 +504,36 @@ export default function ProjectDetailPage() {
                 </div>
               </div>
             ) : (
-              <div className="space-y-3">
-                <p className={`px-3 py-2 text-sm rounded min-h-[80px] ${briefValue ? 'bg-[var(--color-background)] text-on-surface' : 'bg-[var(--color-background)] text-on-surface-variant italic'}`}>
+              <div>
+                <p className={`min-h-[96px] whitespace-pre-wrap rounded-xl border border-[var(--color-card-border)] px-4 py-3 text-sm leading-6 ${briefValue ? 'bg-[var(--color-background)] text-on-surface' : 'bg-[var(--color-background)] text-on-surface-variant italic'}`}>
                   {briefValue || 'No brief yet'}
                 </p>
-                <button onClick={() => setEditingBrief(true)} className="pib-btn-secondary text-sm font-label">Edit</button>
               </div>
             )}
           </div>
 
           {/* Documents Section */}
-          <div className="bg-[var(--color-card)] border border-[var(--color-outline)] rounded-lg p-4">
-            <h2 className="text-lg font-headline font-bold text-on-surface mb-4">Documents</h2>
+          <div className="rounded-2xl border border-[var(--color-card-border)] bg-[var(--color-card)] p-5 shadow-sm">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Library</p>
+                <h2 className="mt-1 text-lg font-headline font-bold text-on-surface">Documents</h2>
+              </div>
+              <span className="rounded-full border border-[var(--color-card-border)] bg-[var(--color-surface-container)] px-3 py-1 text-xs text-on-surface-variant">{docs.length} docs</span>
+            </div>
             {editingDoc ? (
-              <div className="space-y-3 mb-4">
+              <div className="mb-4 rounded-xl border border-[var(--color-card-border)] bg-[var(--color-background)] p-4 space-y-3">
                 <input
                   type="text"
                   placeholder="Document title..."
                   value={editingDoc.title}
                   onChange={e => setEditingDoc({ ...editingDoc, title: e.target.value })}
-                  className="w-full px-3 py-2 text-sm bg-[var(--color-background)] border border-[var(--color-outline)] rounded text-on-surface focus:outline-none focus:border-[var(--color-accent-v2)]"
+                  className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-[var(--color-accent-v2)]"
                 />
                 <select
                   value={editingDoc.type}
                   onChange={e => setEditingDoc({ ...editingDoc, type: e.target.value as ProjectDoc['type'] })}
-                  className="w-full px-3 py-2 text-sm bg-[var(--color-background)] border border-[var(--color-outline)] rounded text-on-surface focus:outline-none focus:border-[var(--color-accent-v2)]"
+                  className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-[var(--color-accent-v2)]"
                 >
                   <option value="brief">Brief</option>
                   <option value="requirements">Requirements</option>
@@ -502,7 +544,7 @@ export default function ProjectDetailPage() {
                   placeholder="Content (markdown)..."
                   value={editingDoc.content}
                   onChange={e => setEditingDoc({ ...editingDoc, content: e.target.value })}
-                  className="w-full px-3 py-2 text-sm bg-[var(--color-background)] border border-[var(--color-outline)] rounded text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-[var(--color-accent-v2)]"
+                  className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-[var(--color-accent-v2)]"
                   rows={10}
                 />
                 <div className="flex gap-2">
@@ -514,31 +556,70 @@ export default function ProjectDetailPage() {
 
             {!editingDoc && (
               <>
-                <div className="space-y-2 mb-4">
-                  {docs.map(doc => (
-                    <div key={doc.id} className="flex items-center justify-between p-3 bg-[var(--color-background)] border border-[var(--color-outline)] rounded">
-                      <div className="flex-1 flex items-center gap-3">
-                        <span className="text-lg">📄</span>
-                        <div>
-                          <p className="text-sm font-semibold text-on-surface">{doc.title}</p>
-                          <span className={`inline-block text-xs px-2 py-1 rounded border mt-1 ${TYPE_COLORS[doc.type] || TYPE_COLORS.notes}`}>
-                            {doc.type}
-                          </span>
+                {docs.length ? (
+                  <div className="grid gap-4 lg:grid-cols-[minmax(0,0.95fr)_minmax(360px,1.05fr)]">
+                    <div className="space-y-3">
+                      {docs.map(doc => (
+                        <div key={doc.id} className={`rounded-xl border bg-[var(--color-background)] p-1 transition-colors ${selectedDoc?.id === doc.id ? 'border-[var(--color-accent-v2)]' : 'border-[var(--color-card-border)] hover:border-[var(--color-outline)]'}`}>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedDoc(doc)}
+                            className="flex w-full items-start gap-3 rounded-lg px-3 py-3 text-left"
+                            aria-label={`Preview ${doc.title}`}
+                          >
+                            <span className="material-symbols-outlined mt-0.5 text-[22px] text-on-surface-variant">description</span>
+                            <span className="min-w-0 flex-1">
+                              <span className="block text-sm font-semibold text-on-surface">{doc.title}</span>
+                              <span className="mt-2 block text-xs leading-5 text-on-surface-variant">{docPreview(doc.content)}</span>
+                              <span className={`mt-3 inline-block rounded-full border px-2.5 py-1 text-[10px] font-label uppercase tracking-widest ${TYPE_COLORS[doc.type] || TYPE_COLORS.notes}`}>
+                                {doc.type}
+                              </span>
+                            </span>
+                          </button>
+                          <div className="flex items-center justify-end gap-2 border-t border-[var(--color-card-border)] px-3 py-2">
+                            <button onClick={() => setEditingDoc(doc)} className="pib-btn-secondary text-xs font-label">Edit</button>
+                            <button onClick={() => handleDeleteDoc(doc.id!)} className="text-xs font-label text-red-400 hover:text-red-300">Delete</button>
+                          </div>
                         </div>
-                      </div>
-                      <div className="flex gap-2">
-                        <button onClick={() => setEditingDoc(doc)} className="pib-btn-secondary text-xs font-label">Edit</button>
-                        <button onClick={() => handleDeleteDoc(doc.id!)} className="text-xs text-red-600 hover:text-red-700">Delete</button>
-                      </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-                <button
-                  onClick={() => setEditingDoc({ id: '', title: '', content: '', type: 'notes', createdBy: '' })}
-                  className="w-full pib-btn-secondary text-sm font-label"
-                >
-                  + New Document
-                </button>
+                    <div className="min-h-[320px] rounded-xl border border-[var(--color-card-border)] bg-[var(--color-background)] p-5">
+                      {selectedDoc ? (
+                        <div className="space-y-4">
+                          <div className="flex items-start justify-between gap-4">
+                            <div>
+                              <span className={`inline-block rounded-full border px-2.5 py-1 text-[10px] font-label uppercase tracking-widest ${TYPE_COLORS[selectedDoc.type] || TYPE_COLORS.notes}`}>{selectedDoc.type}</span>
+                              <h3 className="mt-3 text-xl font-headline font-bold text-on-surface">{selectedDoc.title}</h3>
+                              <p className="mt-1 text-xs text-on-surface-variant">Updated {formatDate(selectedDoc.updatedAt ?? selectedDoc.createdAt)}</p>
+                            </div>
+                            <button onClick={() => setEditingDoc(selectedDoc)} className="pib-btn-secondary text-xs font-label">Edit</button>
+                          </div>
+                          <div className="max-h-[520px] overflow-auto whitespace-pre-wrap rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-4 text-sm leading-6 text-on-surface">
+                            {selectedDoc.content || 'This document is empty.'}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex h-full min-h-[280px] flex-col items-center justify-center text-center">
+                          <span className="material-symbols-outlined text-[40px] text-on-surface-variant">preview</span>
+                          <h3 className="mt-3 text-base font-headline font-bold text-on-surface">Select a document</h3>
+                          <p className="mt-2 max-w-xs text-sm text-on-surface-variant">Click a document on the left to open its preview here.</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-dashed border-[var(--color-card-border)] bg-[var(--color-background)] p-8 text-center">
+                    <span className="material-symbols-outlined text-[40px] text-on-surface-variant">draft</span>
+                    <h3 className="mt-3 text-base font-headline font-bold text-on-surface">No documents yet</h3>
+                    <p className="mt-2 text-sm text-on-surface-variant">Create the first project note, brief, requirement, or reference doc.</p>
+                    <button
+                      onClick={() => setEditingDoc({ id: '', title: '', content: '', type: 'notes', createdBy: '' })}
+                      className="pib-btn-secondary mt-4 text-sm font-label"
+                    >
+                      New Document
+                    </button>
+                  </div>
+                )}
               </>
             )}
           </div>
@@ -557,52 +638,69 @@ export default function ProjectDetailPage() {
       )}
 
       {activeTab === 'settings' && (
-        <div className="flex-1 overflow-auto max-w-2xl">
-          <div className="bg-[var(--color-card)] border border-[var(--color-outline)] rounded-lg p-6 space-y-6">
-            <div>
-              <label className="block text-sm font-semibold text-on-surface mb-2">Project Name</label>
-              <input
-                type="text"
-                value={settingsName}
-                onChange={e => setSettingsName(e.target.value)}
-                className="w-full px-4 py-2 text-sm bg-[var(--color-background)] border border-[var(--color-outline)] rounded text-on-surface focus:outline-none focus:border-[var(--color-accent-v2)]"
-              />
+        <div className="flex-1 overflow-auto pb-6">
+          <div className="max-w-4xl space-y-6">
+            <div className="rounded-2xl border border-[var(--color-card-border)] bg-[var(--color-card)] p-5 shadow-sm">
+              <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Project settings</p>
+              <h2 className="mt-1 text-2xl font-headline font-bold text-on-surface">Manage this board</h2>
+              <p className="mt-2 max-w-2xl text-sm text-on-surface-variant">Update the client-facing project details while keeping the same polished board styling.</p>
             </div>
-            <div>
-              <label className="block text-sm font-semibold text-on-surface mb-2">Status</label>
-              <select
-                value={settingsStatus}
-                onChange={e => setSettingsStatus(e.target.value)}
-                className="w-full px-4 py-2 text-sm bg-[var(--color-background)] border border-[var(--color-outline)] rounded text-on-surface focus:outline-none focus:border-[var(--color-accent-v2)]"
-              >
-                <option value="discovery">Discovery</option>
-                <option value="design">Design</option>
-                <option value="development">Development</option>
-                <option value="review">Review</option>
-                <option value="live">Live</option>
-                <option value="maintenance">Maintenance</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-on-surface mb-2">Description</label>
-              <textarea
-                value={settingsDescription}
-                onChange={e => setSettingsDescription(e.target.value)}
-                className="w-full px-4 py-2 text-sm bg-[var(--color-background)] border border-[var(--color-outline)] rounded text-on-surface focus:outline-none focus:border-[var(--color-accent-v2)]"
-                rows={4}
-              />
-            </div>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={handleSaveSettings}
-                disabled={savingSettings || !settingsName.trim()}
-                className="pib-btn-primary text-sm font-label"
-              >
-                {savingSettings ? 'Saving...' : 'Save Settings'}
-              </button>
-              {settingsSaved && (
-                <span className="text-xs text-green-400">Saved</span>
-              )}
+            <div className="rounded-2xl border border-[var(--color-card-border)] bg-[var(--color-card)] p-5 shadow-sm">
+              <div className="grid gap-5 md:grid-cols-2">
+                <div className="md:col-span-2">
+                  <label htmlFor="project-settings-name" className="block text-xs font-label uppercase tracking-widest text-on-surface-variant mb-2">Project Name</label>
+                  <input
+                    id="project-settings-name"
+                    type="text"
+                    value={settingsName}
+                    onChange={e => setSettingsName(e.target.value)}
+                    className="w-full rounded-xl border border-[var(--color-card-border)] bg-[var(--color-background)] px-4 py-3 text-sm text-on-surface focus:outline-none focus:border-[var(--color-accent-v2)]"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="project-settings-status" className="block text-xs font-label uppercase tracking-widest text-on-surface-variant mb-2">Status</label>
+                  <select
+                    id="project-settings-status"
+                    value={settingsStatus}
+                    onChange={e => setSettingsStatus(e.target.value)}
+                    className="w-full rounded-xl border border-[var(--color-card-border)] bg-[var(--color-background)] px-4 py-3 text-sm text-on-surface focus:outline-none focus:border-[var(--color-accent-v2)]"
+                  >
+                    <option value="discovery">Discovery</option>
+                    <option value="design">Design</option>
+                    <option value="development">Development</option>
+                    <option value="review">Review</option>
+                    <option value="live">Live</option>
+                    <option value="maintenance">Maintenance</option>
+                  </select>
+                </div>
+                <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-background)] p-4">
+                  <p className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Current board</p>
+                  <p className="mt-2 text-lg font-headline font-bold text-on-surface">{settingsName || project?.name || 'Untitled project'}</p>
+                  <p className="mt-1 text-sm capitalize text-on-surface-variant">{settingsStatus.replace(/_/g, ' ')}</p>
+                </div>
+                <div className="md:col-span-2">
+                  <label htmlFor="project-settings-description" className="block text-xs font-label uppercase tracking-widest text-on-surface-variant mb-2">Description</label>
+                  <textarea
+                    id="project-settings-description"
+                    value={settingsDescription}
+                    onChange={e => setSettingsDescription(e.target.value)}
+                    className="w-full rounded-xl border border-[var(--color-card-border)] bg-[var(--color-background)] px-4 py-3 text-sm text-on-surface focus:outline-none focus:border-[var(--color-accent-v2)]"
+                    rows={5}
+                  />
+                </div>
+              </div>
+              <div className="mt-6 flex items-center gap-3 border-t border-[var(--color-card-border)] pt-5">
+                <button
+                  onClick={handleSaveSettings}
+                  disabled={savingSettings || !settingsName.trim()}
+                  className="pib-btn-primary text-sm font-label"
+                >
+                  {savingSettings ? 'Saving...' : 'Save Settings'}
+                </button>
+                {settingsSaved && (
+                  <span className="rounded-full border border-green-500/40 bg-green-500/10 px-3 py-1 text-xs text-green-300">Saved</span>
+                )}
+              </div>
             </div>
           </div>
         </div>
