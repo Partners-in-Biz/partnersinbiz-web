@@ -1,5 +1,5 @@
 import React from 'react'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { CrossProjectBoard } from '@/components/projects/CrossProjectBoard'
 import type { Task } from '@/components/kanban/types'
 
@@ -24,7 +24,12 @@ jest.mock('@dnd-kit/sortable', () => ({
 }))
 jest.mock('@dnd-kit/utilities', () => ({ CSS: { Transform: { toString: () => '' } } }))
 jest.mock('@/components/kanban/TaskDetailPanel', () => ({
-  TaskDetailPanel: () => null,
+  TaskDetailPanel: ({ task, onClose }: { task: Task; onClose: () => void }) => (
+    <section aria-label="Task details">
+      <h2>{task.title}</h2>
+      <button type="button" onClick={onClose}>Back to board</button>
+    </section>
+  ),
 }))
 
 type BoardTask = Task & { projectId: string; projectName: string }
@@ -70,5 +75,18 @@ describe('CrossProjectBoard', () => {
     const task = makeBoardTask()
     render(<CrossProjectBoard tasks={[task]} loading={false} onTaskUpdate={jest.fn()} />)
     expect(screen.queryByText(/No tasks yet/i)).not.toBeInTheDocument()
+  })
+
+  it('returns to the board after closing an opened task detail', () => {
+    const task = makeBoardTask({ title: 'Mobile board task' })
+    render(<CrossProjectBoard tasks={[task]} loading={false} onTaskUpdate={jest.fn()} />)
+
+    fireEvent.click(screen.getByText('Mobile board task'))
+    expect(screen.getByRole('region', { name: /task details/i })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /back to board/i }))
+
+    expect(screen.queryByRole('region', { name: /task details/i })).not.toBeInTheDocument()
+    expect(screen.getByText('Mobile board task')).toBeInTheDocument()
   })
 })

@@ -491,14 +491,25 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
           data-task-detail-header
           className="sticky top-0 z-10 flex items-center justify-between px-6 py-4 border-b border-[var(--color-card-border)] shrink-0 bg-[var(--color-sidebar)]"
         >
-          <div>
-            <span
-              className="text-[9px] font-label uppercase tracking-widest px-2 py-0.5 rounded"
-              style={{ background: `${priorityColor}20`, color: priorityColor }}
+          <div className="min-w-0 space-y-2">
+            <button
+              type="button"
+              aria-label="Back to board"
+              onClick={onClose}
+              className="inline-flex sm:hidden items-center gap-1 rounded-full border border-[var(--color-card-border)] px-3 py-2 text-xs font-label uppercase tracking-wide text-on-surface hover:bg-[var(--color-surface-container)] transition-colors"
             >
-              {task.priority ?? 'medium'}
-            </span>
-            <p className="text-xs text-on-surface-variant mt-1">{columnName}</p>
+              <span aria-hidden="true">←</span>
+              Back to board
+            </button>
+            <div>
+              <span
+                className="text-[9px] font-label uppercase tracking-widest px-2 py-0.5 rounded"
+                style={{ background: `${priorityColor}20`, color: priorityColor }}
+              >
+                {task.priority ?? 'medium'}
+              </span>
+              <p className="text-xs text-on-surface-variant mt-1">{columnName}</p>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <button

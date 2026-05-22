@@ -24,6 +24,11 @@ import {
   type AgentId,
   type AgentStatus,
 } from '@/lib/tasks/types'
+import {
+  applyAgentColumnForUpdate,
+  applyAgentTodoRequeue,
+  applyStandaloneTaskStatusForAgentStatus,
+} from '@/lib/tasks/agentState'
 
 export const dynamic = 'force-dynamic'
 
@@ -49,7 +54,8 @@ const UPDATABLE_FIELDS = [
   'contactId',
   'dealId',
   'tags',
-  // Agent dispatch fields
+  'columnId',
+  'reviewStatus',
   'assigneeAgentId',
   'agentStatus',
   'agentInput',
@@ -126,18 +132,21 @@ export const PUT = withAuth('admin', async (req, user, context) => {
   if (body.assigneeAgentId !== undefined && body.agentStatus === undefined) {
     updates.agentStatus = body.assigneeAgentId ? 'pending' : null
   }
+  applyAgentColumnForUpdate(updates, body)
+  applyStandaloneTaskStatusForAgentStatus(updates, body)
+  const finalUpdates = applyAgentTodoRequeue(existing as unknown as Record<string, unknown>, updates, body)
 
   // Heartbeat sentinel — caller passes agentHeartbeatAt:true to bump server timestamp.
   if (body.agentHeartbeatAt === true) {
-    updates.agentHeartbeatAt = FieldValue.serverTimestamp()
+    finalUpdates.agentHeartbeatAt = FieldValue.serverTimestamp()
   }
 
   // Status transition side effects.
   if (
-    updates.status === 'done' &&
+    finalUpdates.status === 'done' &&
     existing.status !== 'done'
   ) {
-    updates.completedAt = FieldValue.serverTimestamp()
+    finalUpdates.completedAt = FieldValue.serverTimestamp()
   }
 
   const assigneeChanged =
@@ -145,7 +154,7 @@ export const PUT = withAuth('admin', async (req, user, context) => {
     JSON.stringify(body.assignedTo) !== JSON.stringify(existing.assignedTo ?? null)
 
   await ref.update({
-    ...updates,
+    ...finalUpdates,
     ...lastActorFrom(user),
   })
 
@@ -159,15 +168,15 @@ export const PUT = withAuth('admin', async (req, user, context) => {
       description: 'Updated task',
       entityId: id,
       entityType: 'task',
-      entityTitle: (updates.title as string | undefined) ?? existing.title,
+      entityTitle: (finalUpdates.title as string | undefined) ?? existing.title,
     }).catch(() => {})
   }
 
   // Notify reporter when agent marks task done.
-  const agentJustDone = updates.agentStatus === 'done' && existing.agentStatus !== 'done'
+  const agentJustDone = finalUpdates.agentStatus === 'done' && existing.agentStatus !== 'done'
   if (agentJustDone && existing.orgId) {
     const reporterId = typeof existing.createdBy === 'string' ? existing.createdBy : null
-    const agentId = typeof updates.assigneeAgentId === 'string' ? updates.assigneeAgentId : typeof existing.assigneeAgentId === 'string' ? existing.assigneeAgentId : 'agent'
+    const agentId = typeof finalUpdates.assigneeAgentId === 'string' ? finalUpdates.assigneeAgentId : typeof existing.assigneeAgentId === 'string' ? existing.assigneeAgentId : 'agent'
     if (reporterId && reporterId !== user.uid) {
       adminDb.collection('notifications').add({
         orgId: existing.orgId,
@@ -175,10 +184,10 @@ export const PUT = withAuth('admin', async (req, user, context) => {
         agentId: null,
         type: 'task.agent_done',
         title: `${agentId.charAt(0).toUpperCase() + agentId.slice(1)} finished a task`,
-        body: (updates.title as string | undefined) ?? existing.title ?? 'Task',
+        body: (finalUpdates.title as string | undefined) ?? existing.title ?? 'Task',
         link: `/admin/tasks/${id}`,
         status: 'unread',
-        priority: (updates.priority as string | undefined) ?? existing.priority ?? 'medium',
+        priority: (finalUpdates.priority as string | undefined) ?? existing.priority ?? 'medium',
         snoozedUntil: null,
         readAt: null,
         createdAt: FieldValue.serverTimestamp(),
@@ -189,11 +198,11 @@ export const PUT = withAuth('admin', async (req, user, context) => {
   // Notify the new assignee if it changed to a non-null value.
   if (assigneeChanged && body.assignedTo) {
     const a = body.assignedTo as TaskAssignee
-    const title = (updates.title as string | undefined) ?? existing.title
+    const title = (finalUpdates.title as string | undefined) ?? existing.title
     const priority =
-      (updates.priority as TaskPriority | undefined) ?? existing.priority
+      (finalUpdates.priority as TaskPriority | undefined) ?? existing.priority
     const dueDate =
-      (updates.dueDate as string | null | undefined) ?? existing.dueDate
+      (finalUpdates.dueDate as string | null | undefined) ?? existing.dueDate
 
     await adminDb.collection('notifications').add({
       orgId: existing.orgId,
@@ -209,7 +218,7 @@ export const PUT = withAuth('admin', async (req, user, context) => {
     })
   }
 
-  return apiSuccess({ id, ...updates })
+  return apiSuccess({ id, ...finalUpdates })
 })
 
 export const DELETE = withAuth('admin', async (req, user, context) => {

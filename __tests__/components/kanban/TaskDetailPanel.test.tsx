@@ -55,4 +55,17 @@ describe('TaskDetailPanel', () => {
 
     expect(props.onClose).toHaveBeenCalledTimes(1)
   })
+
+  it('shows a clear mobile back-to-board control that closes the detail panel', async () => {
+    const props = renderPanel()
+
+    await waitFor(() => expect(screen.queryByText('Loading comments...')).not.toBeInTheDocument())
+
+    const backButton = screen.getByRole('button', { name: /back to board/i })
+    expect(backButton.closest('[data-task-detail-header]')).toHaveClass('sticky', 'top-0', 'z-10')
+
+    fireEvent.click(backButton)
+
+    expect(props.onClose).toHaveBeenCalledTimes(1)
+  })
 })

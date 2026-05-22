@@ -172,6 +172,27 @@ describe('project task payload helpers', () => {
       })
     })
 
+    it('CREATE: explicit gated agentStatus controls the starting column', () => {
+      const result = buildProjectTaskCreateData(
+        {
+          title: 'Wait for approval before build',
+          assigneeAgentId: 'theo',
+          agentStatus: 'awaiting-input',
+          agentInput: { spec: 'Do not start until Peet approves the spec.' },
+        },
+        'project-1',
+        'org-1',
+      )
+
+      expect(result.ok).toBe(true)
+      if (!result.ok) return
+      expect(result.value).toEqual(expect.objectContaining({
+        assigneeAgentId: 'theo',
+        agentStatus: 'awaiting-input',
+        columnId: 'blocked',
+      }))
+    })
+
     it('rejects invalid provenance/risk fields', () => {
       const result = buildProjectTaskCreateData(
         {

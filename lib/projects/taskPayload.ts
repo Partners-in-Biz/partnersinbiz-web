@@ -219,12 +219,12 @@ function cleanAgentId(value: unknown, fieldName = 'assigneeAgentId'): PayloadRes
   return { ok: true, value: value as string }
 }
 
-function cleanAgentStatus(value: unknown): PayloadResult<string | null> {
+function cleanAgentStatus(value: unknown): PayloadResult<AgentStatus | null> {
   if (value === undefined || value === null || value === '') return { ok: true, value: null }
   if (typeof value !== 'string' || !VALID_AGENT_STATUSES.includes(value as (typeof VALID_AGENT_STATUSES)[number])) {
     return { ok: false, error: `Invalid agentStatus; expected one of ${VALID_AGENT_STATUSES.join(' | ')}`, status: 400 }
   }
-  return { ok: true, value }
+  return { ok: true, value: value as AgentStatus }
 }
 
 function cleanAgentInput(value: unknown): PayloadResult<Record<string, unknown> | null> {
