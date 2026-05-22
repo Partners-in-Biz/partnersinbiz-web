@@ -67,10 +67,14 @@ jobs:
           cd "$repo"
           git config --global --add safe.directory "$repo" || true
           git_dir="$(git rev-parse --git-common-dir 2>/dev/null || true)"
+          echo "Running VPS repair as $(id)"
           if command -v sudo >/dev/null 2>&1; then
-            sudo chown -R "$(id -u):$(id -g)" "$repo" ${git_dir:+"$git_dir"} 2>/dev/null || true
+            sudo -n chown -R "$(id -u):$(id -g)" "$repo" ${git_dir:+"$git_dir"}
+            sudo -n chmod -R u+rwX "$repo" ${git_dir:+"$git_dir"}
+          else
+            echo "sudo is not available on VPS deploy user" >&2
           fi
-          chmod -R u+rwX "$repo" ${git_dir:+"$git_dir"} 2>/dev/null || true
+          chmod -R u+rwX "$repo" ${git_dir:+"$git_dir"}
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
           key_path=""
