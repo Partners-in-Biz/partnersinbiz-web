@@ -72,6 +72,26 @@ function mockFetch() {
         }),
       } as Response)
     }
+    if (url === '/api/v1/projects/project-1/tasks') {
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({
+          data: [
+            {
+              id: 'task-1',
+              title: 'Tighten mobile project board',
+              columnId: 'todo',
+              order: 1,
+              priority: 'high',
+              dueDate: '2026-05-25T00:00:00.000Z',
+              estimateMinutes: 45,
+              assigneeIds: [],
+              attachments: [{ id: 'file-1' }],
+            },
+          ],
+        }),
+      } as Response)
+    }
     return Promise.resolve({ ok: true, json: async () => ({ data: [] }) } as Response)
   }) as jest.Mock
 }
@@ -79,6 +99,19 @@ function mockFetch() {
 describe('Admin project docs and settings tabs', () => {
   beforeEach(() => {
     unsubscribe.mockClear()
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      value: jest.fn().mockImplementation(query => ({
+        matches: false,
+        media: query,
+        onchange: null,
+        addListener: jest.fn(),
+        removeListener: jest.fn(),
+        addEventListener: jest.fn(),
+        removeEventListener: jest.fn(),
+        dispatchEvent: jest.fn(),
+      })),
+    })
     mockFetch()
   })
 
@@ -105,4 +138,25 @@ describe('Admin project docs and settings tabs', () => {
     expect(screen.getByLabelText('Project Name')).toHaveValue('Client Website')
     expect(screen.getByText('Current board')).toBeInTheDocument()
   })
+
+  it('uses the compact mobile list instead of the wide board by default on phones', async () => {
+    ;(window.matchMedia as jest.Mock).mockImplementation(query => ({
+      matches: query === '(max-width: 767px)',
+      media: query,
+      onchange: null,
+      addListener: jest.fn(),
+      removeListener: jest.fn(),
+      addEventListener: jest.fn(),
+      removeEventListener: jest.fn(),
+      dispatchEvent: jest.fn(),
+    }))
+
+    render(<ProjectDetailPage />)
+
+    await waitFor(() => expect(screen.getAllByText('Tighten mobile project board').length).toBeGreaterThan(0))
+    expect(screen.queryByTestId('kanban-board')).not.toBeInTheDocument()
+    expect(screen.getAllByText('Due').length).toBeGreaterThan(0)
+  })
+
 })
+
