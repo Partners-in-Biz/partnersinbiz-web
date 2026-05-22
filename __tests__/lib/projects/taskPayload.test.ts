@@ -1,4 +1,5 @@
 import {
+  applyAgentTodoRequeue,
   buildProjectTaskCreateData,
   buildProjectTaskUpdateData,
   taskOrderMillis,
@@ -227,6 +228,41 @@ describe('project task payload helpers', () => {
         agentOutput: { summary: 's', artifacts: [{ type: 'url' }] },
       })
       expect(bad.ok).toBe(false)
+    })
+
+    it('PATCH: moving a completed agent task back to todo requeues it for pickup', () => {
+      const raw = buildProjectTaskUpdateData({ columnId: 'todo' })
+      expect(raw.ok).toBe(true)
+      if (!raw.ok) return
+
+      const result = applyAgentTodoRequeue(
+        { assigneeAgentId: 'theo', agentStatus: 'done' },
+        raw.value,
+        { columnId: 'todo' },
+      )
+
+      expect(result).toEqual({
+        columnId: 'todo',
+        agentStatus: 'pending',
+        reviewStatus: 'changes-requested',
+        agentOutput: null,
+        agentConversationId: null,
+        agentHeartbeatAt: null,
+      })
+    })
+
+    it('PATCH: explicit agentStatus is respected when moving columns', () => {
+      const raw = buildProjectTaskUpdateData({ columnId: 'todo', agentStatus: 'done' })
+      expect(raw.ok).toBe(true)
+      if (!raw.ok) return
+
+      const result = applyAgentTodoRequeue(
+        { assigneeAgentId: 'theo', agentStatus: 'done' },
+        raw.value,
+        { columnId: 'todo', agentStatus: 'done' },
+      )
+
+      expect(result).toEqual({ columnId: 'todo', agentStatus: 'done' })
     })
 
     it('PATCH: heartbeat sentinel survives the validator (route swaps it)', () => {

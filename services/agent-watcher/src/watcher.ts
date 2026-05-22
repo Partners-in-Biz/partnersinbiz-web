@@ -79,6 +79,52 @@ async function dependenciesResolved(
   return { ok: blockers.length === 0, blockers }
 }
 
+type TaskComment = {
+  text?: string
+  userName?: string
+  userRole?: string
+  createdAt?: { toDate?: () => Date; seconds?: number; _seconds?: number } | string | null
+}
+
+function commentDate(value: TaskComment['createdAt']): string {
+  if (!value) return ''
+  if (typeof value === 'string') return value
+  if (typeof value.toDate === 'function') {
+    try { return value.toDate().toISOString() } catch { return '' }
+  }
+  const seconds = value.seconds ?? value._seconds
+  return typeof seconds === 'number' ? new Date(seconds * 1000).toISOString() : ''
+}
+
+function formatTaskComments(comments: TaskComment[]): string {
+  if (comments.length === 0) return ''
+  return comments
+    .map((comment) => {
+      const author = comment.userName || comment.userRole || 'comment'
+      const date = commentDate(comment.createdAt)
+      return `- ${date ? `${date} ` : ''}${author}: ${comment.text ?? ''}`
+    })
+    .join('\n')
+}
+
+async function loadRecentTaskComments(taskRef: DocumentReference, limit = 8): Promise<TaskComment[]> {
+  const maybeCollection = (taskRef as unknown as { collection?: (name: string) => unknown }).collection
+  if (typeof maybeCollection !== 'function') return []
+  try {
+    const collection = maybeCollection.call(taskRef, 'comments') as {
+      orderBy: (field: string, direction: 'asc' | 'desc') => { limit: (n: number) => { get: () => Promise<{ docs: Array<{ data: () => TaskComment }> }> } }
+    }
+    const snap = await collection.orderBy('createdAt', 'desc').limit(limit).get()
+    return snap.docs.map((doc) => doc.data()).reverse().filter((comment) => typeof comment.text === 'string' && comment.text.trim().length > 0)
+  } catch (err) {
+    logger.warn('failed to load task comments for dispatch prompt', {
+      taskId: taskRef.id,
+      error: err instanceof Error ? err.message : String(err),
+    })
+    return []
+  }
+}
+
 export async function dispatchTask(taskRef: DocumentReference, taskData: TaskData): Promise<void> {
   const taskId = taskRef.id
   const agentId = taskData.assigneeAgentId as AgentId | undefined
@@ -139,7 +185,11 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
     })
     stopHeartbeat = startHeartbeat(taskRef)
 
-    const spec = taskData.agentInput?.spec?.trim() || taskData.title || `Task ${taskId}`
+    const baseSpec = taskData.agentInput?.spec?.trim() || taskData.title || `Task ${taskId}`
+    const commentBlock = formatTaskComments(await loadRecentTaskComments(taskRef))
+    const spec = commentBlock
+      ? `${baseSpec}\n\nRecent task comments / revision notes:\n${commentBlock}`
+      : baseSpec
     const dispatchInput: TaskDispatchInput = {
       taskId,
       orgId: taskData.orgId ?? '',
