@@ -264,6 +264,7 @@ export default function AgentBoardPage() {
               )}
               {col.cards.map((card) => {
                 const badges = getAgentBoardBadges(card)
+                const orgName = data?.orgNames?.[card.orgId] ?? null
                 const cardInner = (
                   <>
                     <div className="flex items-start justify-between gap-2">

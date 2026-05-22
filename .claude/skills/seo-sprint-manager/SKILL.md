@@ -480,3 +480,5 @@ for [client] — needs reconnect at /admin/seo/sprints/[id]/settings".
 ## Client Document Handoff
 
 When an SEO sprint needs client strategy sign-off, create or link a client document through the `client-documents` skill. Use a strategy/spec-style document, link it with `linked.seoSprintId`, and keep implementation work in the SEO sprint tasks.
+
+For keyword, SERP, GEO, backlink, competitor, crawler, or citation research, create or link a structured Research item through the `research-intelligence` skill. Use the Research item as the working evidence layer and export durable summaries to Obsidian when the findings should be reused.

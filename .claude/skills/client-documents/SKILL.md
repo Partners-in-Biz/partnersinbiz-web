@@ -749,6 +749,7 @@ Default proposals are fine. *Standout* proposals close. When generating a `sales
 
 ## Cross-References
 
+- **research-intelligence** skill creates structured `research_items` first. Use `research_report` documents only when research needs polished client presentation, approval, or shareable output. Link reports with `linked.researchItemIds`.
 - **content-engine** skill creates `content_campaign_plan` documents automatically
 - **project-management** skill links documents to projects via `linked.projectId`
 - **crm-sales** skill links proposals to deals via `linked.dealId`

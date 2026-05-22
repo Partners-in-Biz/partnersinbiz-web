@@ -32,6 +32,7 @@ const NAV_LINKS: NavItem[] = [
   { href: '/portal/dashboard', label: 'Overview',  icon: 'space_dashboard', group: 'work' },
   { href: '/portal/projects',  label: 'Projects',  icon: 'rocket_launch',   group: 'work' },
   { href: '/portal/documents', label: 'Documents', icon: 'description',     group: 'work' },
+  { href: '/portal/research',  label: 'Research',  icon: 'travel_explore', group: 'data' },
   // CRM is still behind the scenes for now. Keep the route, but do not expose
   // the unfinished workspace from the client navigation.
   // {

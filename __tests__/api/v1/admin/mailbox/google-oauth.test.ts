@@ -27,7 +27,8 @@ const adminUser = { uid: 'admin-1', role: 'admin', orgId: 'pib-platform-owner', 
 
 function adminRequest(url: string, init?: RequestInit) {
   return new NextRequest(url, {
-    ...init,
+    method: init?.method,
+    body: init?.body,
     headers: new Headers({
       Cookie: '__session=session-token',
       ...(init?.headers ?? {}),
