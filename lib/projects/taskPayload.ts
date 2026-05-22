@@ -261,6 +261,7 @@ function cleanAgentOutput(value: unknown): PayloadResult<Record<string, unknown>
     }
     out.artifacts = artifacts
   }
+  if (value.completedAt !== undefined) out.completedAt = cleanOptionalDate(value.completedAt)
   return { ok: true, value: out }
 }
 

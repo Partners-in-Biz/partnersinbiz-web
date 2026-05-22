@@ -323,6 +323,22 @@ describe('project task payload helpers', () => {
       expect(bad.ok).toBe(false)
     })
 
+    it('PATCH: preserves agentOutput completedAt for task card end times', () => {
+      const result = buildProjectTaskUpdateData({
+        agentOutput: {
+          summary: 'Built it',
+          completedAt: '2026-05-22T22:58:00.000Z',
+        },
+      })
+
+      expect(result.ok).toBe(true)
+      if (!result.ok) return
+      expect(result.value.agentOutput).toEqual({
+        summary: 'Built it',
+        completedAt: '2026-05-22T22:58:00.000Z',
+      })
+    })
+
     it('PATCH: moving a completed agent task back to todo requeues it for pickup', () => {
       const raw = buildProjectTaskUpdateData({ columnId: 'todo' })
       expect(raw.ok).toBe(true)
