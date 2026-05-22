@@ -66,6 +66,32 @@ jobs:
 
           cd "$repo"
           git config --global --add safe.directory "$repo" || true
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          key_path=""
+          for candidate in \
+            "$HOME/.ssh/github_hermes" \
+            "/var/lib/hermes/.ssh/github_hermes" \
+            "/root/.ssh/github_hermes" \
+            "$HOME/.ssh/id_ed25519" \
+            "/var/lib/hermes/.ssh/id_ed25519"
+          do
+            if [ -r "$candidate" ]; then
+              key_path="$candidate"
+              break
+            fi
+          done
+          if [ -n "$key_path" ]; then
+            cat > ~/.ssh/config <<EOF
+          Host github-hermes
+            HostName github.com
+            User git
+            IdentityFile $key_path
+            StrictHostKeyChecking no
+          EOF
+            chmod 600 ~/.ssh/config
+          fi
+          ssh-keyscan -H github.com >> ~/.ssh/known_hosts 2>/dev/null || true
           echo "== Before active worktree sync =="
           git status --short --branch
 
