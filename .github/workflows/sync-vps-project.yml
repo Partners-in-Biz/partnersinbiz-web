@@ -59,7 +59,7 @@ jobs:
           set -euo pipefail
 
           repo="/var/lib/hermes/projects/partnersinbiz-web-development"
-          if [ ! -d "$repo/.git" ]; then
+          if [ ! -e "$repo/.git" ]; then
             echo "Active development repo is missing: $repo" >&2
             exit 1
           fi
