@@ -43,7 +43,7 @@ const claimTaskMock = claimTask as jest.Mock
 const startHeartbeatMock = startHeartbeat as jest.Mock
 const runAndPollMock = runAndPoll as jest.Mock
 
-function makeTaskRef() {
+function makeTaskRef(comments: Array<Record<string, unknown>> = []) {
   const update = jest.fn(async () => undefined)
   return {
     id: 'task-1',
@@ -51,6 +51,15 @@ function makeTaskRef() {
     parent: {
       doc: jest.fn(),
     },
+    collection: jest.fn(() => ({
+      orderBy: jest.fn(() => ({
+        limit: jest.fn(() => ({
+          get: jest.fn(async () => ({
+            docs: comments.map(comment => ({ data: () => comment })),
+          })),
+        })),
+      })),
+    })),
     update,
   }
 }
@@ -112,6 +121,33 @@ describe('agent watcher dispatchTask', () => {
       agentConversationId: 'run-live-1',
       agentOutput: expect.objectContaining({ summary: 'done summary' }),
     }))
+  })
+
+  it('includes recent task comments in the dispatched prompt', async () => {
+    const taskRef = makeTaskRef([
+      {
+        text: 'Please fix the mobile spacing and keep the hero compact.',
+        userName: 'Peet',
+        createdAt: { _seconds: 1779421000 },
+      },
+    ])
+
+    await dispatchTask(taskRef as never, {
+      orgId: 'org-1',
+      assigneeAgentId: 'theo',
+      agentStatus: 'pending',
+      columnId: 'todo',
+      agentInput: { spec: 'Original implementation task' },
+    })
+
+    expect(runAndPollMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        spec: expect.stringContaining('Recent task comments / revision notes:'),
+      }),
+      expect.any(Function),
+    )
+    expect(runAndPollMock.mock.calls[0][1].spec).toContain('Please fix the mobile spacing')
   })
 
   it('marks failed Hermes runs blocked while preserving the live run id and stopping the heartbeat', async () => {

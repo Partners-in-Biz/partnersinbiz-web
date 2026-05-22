@@ -1,7 +1,7 @@
 name: Mirror partnersinbiz-web to Hermes VPS
 #
 # Rsyncs the development source tree to /var/lib/hermes/projects/partnersinbiz-web/
-# on hermes-vps-01 so VPS agents (Theo especially) can read project code.
+# on hermes-vps-01 so all PiB code-capable agents can read project code.
 #
 # Scaling to other projects:
 #   Copy this file into any other repo, update the destination path in the

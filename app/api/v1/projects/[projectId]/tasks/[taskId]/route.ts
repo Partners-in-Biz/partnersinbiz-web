@@ -5,6 +5,7 @@ import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { getProjectForUser } from '@/lib/projects/access'
 import {
+  applyAgentTodoRequeue,
   buildProjectTaskUpdateData,
   notificationPriority,
 } from '@/lib/projects/taskPayload'
@@ -24,15 +25,17 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
   const doc = await ref.get()
   if (!doc.exists) return apiError('Task not found', 404)
 
+  const existing = doc.data() ?? {}
   const updates = buildProjectTaskUpdateData(body)
   if (!updates.ok) return apiError(updates.error, updates.status ?? 400)
+  const updateValue = applyAgentTodoRequeue(existing, updates.value, body)
 
   // Sentinel swap — the payload builder is pure JSON and can't emit FieldValue.serverTimestamp() itself.
-  if (updates.value.agentHeartbeatAt === '__server_timestamp__') {
-    updates.value.agentHeartbeatAt = FieldValue.serverTimestamp()
+  if (updateValue.agentHeartbeatAt === '__server_timestamp__') {
+    updateValue.agentHeartbeatAt = FieldValue.serverTimestamp()
   }
 
-  await ref.update({ ...updates.value, updatedAt: FieldValue.serverTimestamp() })
+  await ref.update({ ...updateValue, updatedAt: FieldValue.serverTimestamp() })
 
   const projectOrgId = access.doc.data()?.orgId as string | undefined
   if (projectOrgId) {
@@ -45,17 +48,15 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
       description: 'Updated task',
       entityId: taskId,
       entityType: 'task',
-      entityTitle: (updates.value.title as string | undefined) ?? undefined,
+      entityTitle: (updateValue.title as string | undefined) ?? undefined,
     }).catch(() => {})
   }
 
-  const existing = doc.data() ?? {}
-
   // Notify reporter when agent marks task done
-  const agentJustDone = updates.value.agentStatus === 'done' && existing.agentStatus !== 'done'
+  const agentJustDone = updateValue.agentStatus === 'done' && existing.agentStatus !== 'done'
   if (agentJustDone && projectOrgId) {
     const reporterId = typeof existing.reporterId === 'string' ? existing.reporterId : typeof existing.createdBy === 'string' ? existing.createdBy : null
-    const agentId = typeof updates.value.assigneeAgentId === 'string' ? updates.value.assigneeAgentId : typeof existing.assigneeAgentId === 'string' ? existing.assigneeAgentId : 'agent'
+    const agentId = typeof updateValue.assigneeAgentId === 'string' ? updateValue.assigneeAgentId : typeof existing.assigneeAgentId === 'string' ? existing.assigneeAgentId : 'agent'
     const taskTitle = String(existing.title ?? 'Task')
     if (reporterId && reporterId !== user.uid) {
       adminDb.collection('notifications').add({
