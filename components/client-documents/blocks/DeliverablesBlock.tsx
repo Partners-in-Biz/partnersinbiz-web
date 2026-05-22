@@ -2,6 +2,16 @@ import type { DocumentBlock } from '@/lib/client-documents/types'
 import { BlockFrame } from './BlockFrame'
 import { SparkleIcon } from './_icons'
 
+function renderableItem(item: unknown) {
+  if (typeof item === 'string') return item
+  if (!item || typeof item !== 'object') return String(item ?? '')
+  const record = item as Record<string, unknown>
+  return [
+    typeof record.title === 'string' ? record.title : '',
+    typeof record.body === 'string' ? record.body : '',
+  ].filter(Boolean).join('\n') || JSON.stringify(item)
+}
+
 export function DeliverablesBlock({
   block,
   index,
@@ -9,7 +19,7 @@ export function DeliverablesBlock({
   block: DocumentBlock
   index: number
 }) {
-  const items = Array.isArray(block.content) ? (block.content as string[]) : []
+  const items = Array.isArray(block.content) ? block.content.map(renderableItem) : []
   return (
     <BlockFrame block={block} index={index}>
       {block.title && (

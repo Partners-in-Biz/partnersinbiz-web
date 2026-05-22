@@ -46,6 +46,21 @@ describe('research report document blocks', () => {
       'approval',
     ])
     expect(blocks[2].type).toBe('deliverables')
+    expect(blocks[2].content).toEqual(expect.arrayContaining([
+      expect.stringContaining('Risk questions dominate'),
+    ]))
+    expect(blocks[3].type).toBe('table')
+    expect(blocks[3].content).toEqual(expect.objectContaining({
+      headers: ['Source', 'Type', 'Confidence', 'Verified', 'Excerpt / URL'],
+      rows: expect.arrayContaining([
+        ['Forum thread', 'url', 'medium', 'Yes', 'https://example.com/thread'],
+      ]),
+    }))
+    expect(blocks[4].type).toBe('callout')
+    expect(blocks[4].content).toEqual(expect.objectContaining({
+      body: expect.stringContaining('Publish proof-led explainers'),
+      variant: 'success',
+    }))
     expect(JSON.stringify(blocks)).toContain('Risk questions dominate')
     expect(JSON.stringify(blocks)).toContain('Forum thread')
     expect(JSON.stringify(blocks)).toContain('Publish proof-led explainers')

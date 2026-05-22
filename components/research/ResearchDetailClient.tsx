@@ -171,13 +171,11 @@ export function ResearchDetailClient({ id, mode, basePath, documentsBasePath = '
 
   async function openResearchReport(destination: 'edit' | 'preview') {
     if (!item) return
-    const existingDocumentId = item.linked.documentIds?.[0]
-    let documentId = existingDocumentId
-
-    if (!documentId) {
-      const data = await runAction(`/api/v1/research/${id}/create-document`, 'Creating document')
-      documentId = data?.documentId
-    }
+    const data = await runAction(
+      `/api/v1/research/${id}/create-document`,
+      item.linked.documentIds?.length ? 'Refreshing report' : 'Creating document',
+    )
+    const documentId = data?.documentId
 
     if (documentId) {
       window.location.href = `${documentsBasePath}/${documentId}${destination === 'preview' ? '/preview' : ''}`

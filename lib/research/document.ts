@@ -7,41 +7,59 @@ function block(id: string, type: DocumentBlock['type'], title: string, content: 
   return { id, type, title, content, required: true, display: { ...display } }
 }
 
+function line(parts: Array<string | false | null | undefined>) {
+  return parts.filter(Boolean).join(' | ')
+}
+
 export function blocksFromResearchItem(item: ResearchItem, sources: ResearchSource[]): DocumentBlock[] {
+  const findings = item.findings.map((finding) =>
+    [
+      finding.title,
+      finding.body,
+      line([
+        `Confidence: ${finding.confidence}`,
+        `Status: ${finding.status}`,
+        finding.sourceIds.length ? `Sources: ${finding.sourceIds.join(', ')}` : false,
+      ]),
+    ].filter(Boolean).join('\n'),
+  )
+  const recommendations = item.recommendations.map((recommendation) =>
+    [
+      recommendation.title,
+      recommendation.body,
+      line([
+        `Priority: ${recommendation.priority}`,
+        `Status: ${recommendation.status}`,
+        recommendation.sourceIds.length ? `Sources: ${recommendation.sourceIds.join(', ')}` : false,
+      ]),
+    ].filter(Boolean).join('\n'),
+  )
+
   return [
-    block('hero', 'hero', item.title, {
-      eyebrow: 'Research Report',
-      subtitle: item.summary,
-      meta: [item.kind, item.status, item.visibility],
+    block('hero', 'hero', item.title, item.summary || `${item.kind} research report`),
+    block('summary', 'summary', 'Research summary', [
+      item.summary,
+      item.tags.length ? `Tags: ${item.tags.join(', ')}` : '',
+      `Kind: ${item.kind}`,
+      `Status: ${item.status}`,
+      `Visibility: ${item.visibility}`,
+    ].filter(Boolean).join('\n\n')),
+    block('findings', 'deliverables', 'Key findings', findings.length ? findings : ['No findings captured yet.']),
+    block('sources', 'table', 'Evidence and sources', {
+      headers: ['Source', 'Type', 'Confidence', 'Verified', 'Excerpt / URL'],
+      rows: sources.map((source) => [
+        source.title,
+        source.type,
+        source.confidence,
+        source.verified ? 'Yes' : 'No',
+        source.excerpt ?? source.rawText ?? source.url ?? source.mediaUrl ?? '',
+      ]),
     }),
-    block('summary', 'summary', 'Research summary', {
-      summary: item.summary,
-      tags: item.tags,
-      linked: item.linked,
+    block('recommendations', 'callout', 'Recommendations', {
+      title: recommendations.length ? 'Recommended actions' : 'No recommendations captured yet',
+      body: recommendations.join('\n\n'),
+      variant: 'success',
     }),
-    block('findings', 'deliverables', 'Key findings', item.findings.map((finding) => ({
-      title: finding.title,
-      body: finding.body,
-      confidence: finding.confidence,
-      status: finding.status,
-      sources: finding.sourceIds,
-    }))),
-    block('sources', 'gallery', 'Evidence and sources', sources.map((source) => ({
-      title: source.title,
-      body: source.excerpt ?? source.rawText ?? source.url ?? '',
-      url: source.url,
-      mediaUrl: source.mediaUrl,
-      type: source.type,
-      confidence: source.confidence,
-      verified: source.verified,
-    }))),
-    block('recommendations', 'callout', 'Recommendations', item.recommendations.map((recommendation) => ({
-      title: recommendation.title,
-      body: recommendation.body,
-      priority: recommendation.priority,
-      status: recommendation.status,
-      sources: recommendation.sourceIds,
-    }))),
     block('next_steps', 'scope', 'Next steps', [
       'Review open comments and disputed findings.',
       'Confirm which recommendations should move into execution.',
