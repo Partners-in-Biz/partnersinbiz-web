@@ -90,6 +90,7 @@ export interface ConversationMessage {
   content: string
   attachments?: ConversationAttachment[]
   runId?: string
+  runDocId?: string
   status?: 'pending' | 'streaming' | 'completed' | 'failed' | 'waiting_approval'
   error?: string
   events?: unknown[]

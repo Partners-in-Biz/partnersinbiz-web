@@ -21,6 +21,7 @@ export interface ConversationMessage {
   authorKind: 'user' | 'agent' | 'system'
   authorId: string
   authorDisplayName: string
+  dispatchAgentId?: string
   createdAt?: { seconds?: number; _seconds?: number } | string
 }
 

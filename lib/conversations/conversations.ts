@@ -9,10 +9,11 @@ import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { AGENT_IDS } from '@/lib/agents/types'
 import type { AgentId, Conversation, ConversationMessage, Participant } from './types'
+import {
+  CONVERSATION_RUN_DISPATCH_GRACE_MS,
+} from './run-policy'
 
 export const CONVERSATIONS_COLLECTION = 'conversations'
-const RUN_DISPATCH_GRACE_MS = 2 * 60 * 1000
-const RUN_STALE_TIMEOUT_MS = 30 * 60 * 1000
 
 // ---------------------------------------------------------------------------
 // Document / collection refs
@@ -146,13 +147,10 @@ export async function listMessages(convId: string, limit = 200): Promise<Convers
     const createdAtMs = data.createdAt?.toMillis?.() ?? 0
     const ageMs = createdAtMs ? now - createdAtMs : 0
     const isPending = status === 'pending' || status === 'streaming'
-    const missingRun = isPending && !message.runId && ageMs > RUN_DISPATCH_GRACE_MS
-    const staleRun = isPending && !!message.runId && ageMs > RUN_STALE_TIMEOUT_MS
+    const missingRun = isPending && !message.runId && ageMs > CONVERSATION_RUN_DISPATCH_GRACE_MS
 
-    if (missingRun || staleRun) {
-      const error = missingRun
-        ? 'Agent run was not started on the gateway'
-        : 'Agent run timed out after 30 minutes'
+    if (missingRun) {
+      const error = 'Agent run was not started on the gateway'
       message.status = 'failed'
       message.error = error
       message.content = ''

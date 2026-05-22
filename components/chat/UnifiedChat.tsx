@@ -43,6 +43,7 @@ export interface UnifiedChatProps {
 }
 
 const POLL_INTERVAL = 1500
+const MAX_RUN_POLL_ATTEMPTS = Math.ceil((90 * 60 * 1000) / POLL_INTERVAL)
 const HUMAN_CHAT_REFRESH_INTERVAL = 3000
 
 async function uploadConversationAttachment(convId: string, file: File): Promise<ConversationAttachment> {
@@ -372,7 +373,7 @@ export default function UnifiedChat({
   // ── Polling finalize ──────────────────────────────────────────────────────
   const pollFinalize = useCallback(
     async (convId: string, msgId: string, runId: string, agentId: AgentId, attempts = 0) => {
-      if (attempts > 400) {
+      if (attempts > MAX_RUN_POLL_ATTEMPTS) {
         closeEventStream(msgId)
         // Update the pending message to show a timeout notice without killing it
         setMessages((prev) =>
@@ -487,8 +488,9 @@ export default function UnifiedChat({
         !resumedRunsRef.current.has(m.id)
       ) {
         resumedRunsRef.current.add(m.id)
-        const agentId: AgentId = knownAgentIds.includes(m.authorId as AgentId)
-          ? (m.authorId as AgentId)
+        const dispatchedAgentId = m.dispatchAgentId ?? m.authorId
+        const agentId: AgentId = knownAgentIds.includes(dispatchedAgentId as AgentId)
+          ? (dispatchedAgentId as AgentId)
           : 'pip'
         startEventStream(m.id, m.runId, agentId)
         pollFinalize(activeId, m.id, m.runId, agentId)
