@@ -47,6 +47,14 @@ export function AdminShell({ userEmail, userUid, children }: AdminShellProps) {
     })
   }
 
+  function openSidebar() {
+    if (typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches) {
+      setCollapsed(false)
+      localStorage.setItem('sidebar_collapsed', 'false')
+    }
+    setOpen(true)
+  }
+
   function closeSidebarForMessages() {
     setOpen(false)
     setCollapsed(true)
@@ -93,7 +101,7 @@ export function AdminShell({ userEmail, userUid, children }: AdminShellProps) {
       <div className="flex flex-col flex-1 overflow-hidden min-w-0">
         <AdminTopbar
           userEmail={userEmail}
-          onMenuClick={() => setOpen(true)}
+          onMenuClick={openSidebar}
           onToggleLayout={toggleLayout}
           messageAction={messageAction}
         />

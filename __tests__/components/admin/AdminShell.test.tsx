@@ -56,6 +56,20 @@ describe('AdminShell message drawer coordination', () => {
     }))
   })
 
+  it('opens the mobile sidebar expanded even when the saved desktop preference is collapsed', () => {
+    localStorage.setItem('sidebar_collapsed', 'true')
+
+    render(<AdminShell userEmail="peet@example.com" userUid="user_1"><main>Dashboard</main></AdminShell>)
+
+    expect(screen.getByTestId('admin-sidebar')).toHaveAttribute('data-collapsed', 'true')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open sidebar' }))
+
+    expect(screen.getByTestId('admin-sidebar')).toHaveAttribute('data-open', 'true')
+    expect(screen.getByTestId('admin-sidebar')).toHaveAttribute('data-collapsed', 'false')
+    expect(localStorage.getItem('sidebar_collapsed')).toBe('false')
+  })
+
   it('closes the left sidebar when the message drawer opens', () => {
     render(<AdminShell userEmail="peet@example.com" userUid="user_1"><main>Dashboard</main></AdminShell>)
 
