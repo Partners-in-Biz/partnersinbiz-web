@@ -26,6 +26,23 @@ export const POST = withAuth('admin', async (_req: NextRequest, user: ApiUser, c
   if (!scope.ok) return apiError(scope.error, scope.status)
 
   const sources = await listResearchSources(id)
+  const blocks = serializeBlocksForFirestore(blocksFromResearchItem(item, sources))
+  const existingDocumentId = item.linked.documentIds?.[0]
+  if (existingDocumentId) {
+    const documentRef = adminDb.collection(CLIENT_DOCUMENTS_COLLECTION).doc(existingDocumentId)
+    const documentSnap = await documentRef.get()
+    if (documentSnap.exists && documentSnap.data()?.deleted !== true && documentSnap.data()?.orgId === item.orgId) {
+      const versionId = documentSnap.data()?.currentVersionId
+      if (typeof versionId === 'string' && versionId) {
+        await documentRef.collection('versions').doc(versionId).update({
+          blocks,
+          changeSummary: 'Regenerated from research item',
+        })
+        return apiSuccess({ documentId: existingDocumentId, versionId })
+      }
+    }
+  }
+
   const created = await createClientDocument({
     orgId: item.orgId,
     title: `${item.title} Research Report`,
@@ -37,7 +54,6 @@ export const POST = withAuth('admin', async (_req: NextRequest, user: ApiUser, c
     user,
   })
 
-  const blocks = serializeBlocksForFirestore(blocksFromResearchItem(item, sources))
   await adminDb
     .collection(CLIENT_DOCUMENTS_COLLECTION)
     .doc(created.id)

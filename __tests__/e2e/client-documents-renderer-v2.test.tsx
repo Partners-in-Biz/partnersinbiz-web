@@ -144,3 +144,64 @@ test('renders every registered block type without errors', () => {
   // Should not throw; jsdom doesn't run Recharts measurement but smoke check is enough
   expect(() => render(<DocumentRenderer document={doc} version={version} />)).not.toThrow()
 })
+
+test('does not crash when legacy generated lists contain objects', () => {
+  const doc: ClientDocument = {
+    id: 'd',
+    orgId: 'o',
+    title: 'Legacy research report',
+    type: 'research_report',
+    templateId: 'research-report-v1',
+    status: 'internal_draft',
+    linked: {},
+    currentVersionId: 'v1',
+    approvalMode: 'operational',
+    clientPermissions: {
+      canComment: true,
+      canSuggest: true,
+      canDirectEdit: false,
+      canApprove: true,
+    },
+    assumptions: [],
+    shareToken: 't',
+    shareEnabled: true,
+    editShareEnabled: false,
+    createdBy: 'u',
+    createdByType: 'agent',
+    updatedBy: 'u',
+    updatedByType: 'agent',
+    deleted: false,
+  }
+  const version: ClientDocumentVersion = {
+    id: 'v1',
+    documentId: 'd',
+    versionNumber: 1,
+    status: 'draft',
+    blocks: [
+      {
+        id: 'findings',
+        type: 'deliverables',
+        title: 'Key findings',
+        content: [{ title: 'Finding title', body: 'Finding body', confidence: 'high', status: 'verified', sources: ['s1'] }],
+        required: true,
+        display: {},
+      },
+      {
+        id: 'next_steps',
+        type: 'scope',
+        title: 'Next steps',
+        content: [{ title: 'Step title', body: 'Step body' }],
+        required: true,
+        display: {},
+      },
+    ],
+    theme: {
+      palette: { bg: '#000', text: '#fff', accent: '#F5A623' },
+      typography: { heading: 'sans-serif', body: 'sans-serif' },
+    },
+    createdBy: 'u',
+    createdByType: 'agent',
+  }
+
+  expect(() => render(<DocumentRenderer document={doc} version={version} />)).not.toThrow()
+})

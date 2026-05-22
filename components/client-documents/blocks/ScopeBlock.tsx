@@ -2,8 +2,20 @@ import type { DocumentBlock } from '@/lib/client-documents/types'
 import { BlockFrame } from './BlockFrame'
 import { CheckIcon } from './_icons'
 
+function renderableItem(item: unknown) {
+  if (typeof item === 'string') return item
+  if (!item || typeof item !== 'object') return String(item ?? '')
+  const record = item as Record<string, unknown>
+  return [
+    typeof record.title === 'string' ? record.title : '',
+    typeof record.body === 'string' ? record.body : '',
+  ].filter(Boolean).join('\n') || JSON.stringify(item)
+}
+
 export function ScopeBlock({ block, index }: { block: DocumentBlock; index: number }) {
-  const isList = Array.isArray(block.content)
+  const content = block.content
+  const isList = Array.isArray(content)
+  const items = isList ? content.map(renderableItem) : []
   return (
     <BlockFrame block={block} index={index}>
       {block.title && (
@@ -13,7 +25,7 @@ export function ScopeBlock({ block, index }: { block: DocumentBlock; index: numb
       )}
       {isList ? (
         <ul className="space-y-3">
-          {(block.content as string[]).map((item, i) => (
+          {items.map((item, i) => (
             <li
               key={i}
               className="flex items-start gap-3 text-base leading-7 text-[var(--doc-text)]"
