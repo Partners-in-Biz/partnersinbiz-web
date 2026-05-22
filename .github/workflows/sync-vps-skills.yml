@@ -41,13 +41,15 @@ jobs:
           # destination dirs, so utime() fails ("Operation not permitted").
           # We only need content + filenames; times/perms aren't load-bearing here.
           remote_base="/var/lib/hermes/pib-skills/partnersinbiz"
-          for skill in ads-manager analytics billing-finance client-documents client-manager content-engine crm-sales email-outreach google-workspace platform-ops project-management properties research-intelligence seo-sprint-manager social-media-manager; do
+          mapfile -t sync_skills < <(node -e "const p=require('./config/agent-skill-policy.json'); console.log(Object.entries(p.skillCatalog).filter(([,v]) => v.syncTarget === 'vps').map(([k]) => k).sort().join('\n'))")
+          for skill in "${sync_skills[@]}"; do
             if [ -d ".claude/skills/$skill" ]; then
               echo "-> rsyncing $skill"
-              tmp_dir="$remote_base/.sync-$skill-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+              safe_skill="${skill//\//__}"
+              tmp_dir="$remote_base/.sync-$safe_skill-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
               dest_dir="$remote_base/$skill"
-              stale_dir="$remote_base/.stale-$skill-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-              ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "rm -rf '$tmp_dir' && mkdir -p '$tmp_dir'"
+              stale_dir="$remote_base/.stale-$safe_skill-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+              ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "rm -rf '$tmp_dir' '$stale_dir' && mkdir -p '$tmp_dir' \"\$(dirname '$dest_dir')\""
               rsync -rlz --delete --omit-dir-times --no-perms --no-owner --no-group \
                 ".claude/skills/$skill/" \
                 "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:$tmp_dir/"
@@ -66,6 +68,9 @@ jobs:
           done
           ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
             set -e
-            node /var/lib/hermes/partnersinbiz-web/scripts/apply-agent-skill-policy.mjs --root /var/lib/hermes --apply
+            # Profile config.yaml files are owned by the live Hermes runtime.
+            # Provisioning/install scripts update them; CI only refreshes the
+            # shared skill cache and generated per-agent skill directories.
+            node /var/lib/hermes/partnersinbiz-web/scripts/apply-agent-skill-policy.mjs --root /var/lib/hermes --apply --no-config
           "
           echo "Sync complete"

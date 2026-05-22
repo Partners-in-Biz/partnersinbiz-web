@@ -1,7 +1,7 @@
 jest.mock('../../../services/agent-watcher/src/config', () => ({
-  AGENT_IDS: ['pip', 'theo', 'maya', 'sage', 'nora'],
+  AGENT_IDS: ['pip', 'theo', 'maya', 'sage', 'nora', 'ads', 'qa-release', 'support', 'data', 'docs', 'seo'],
   getAgentConfig: jest.fn(),
-  loadEnabledAgentIds: jest.fn(async () => ['pip', 'theo', 'maya', 'sage', 'nora']),
+  loadEnabledAgentIds: jest.fn(async () => ['pip', 'theo', 'maya', 'sage', 'nora', 'ads', 'qa-release', 'support', 'data', 'docs', 'seo']),
 }))
 
 jest.mock('../../../services/agent-watcher/src/claim', () => ({
@@ -149,6 +149,51 @@ describe('agent watcher dispatchTask', () => {
       expect.any(Function),
     )
     expect(runAndPollMock.mock.calls[0][1].spec).toContain('Please fix the mobile spacing')
+  })
+
+  it('passes provenance, risk, capability, and reviewer context into Hermes dispatch', async () => {
+    const taskRef = makeTaskRef()
+
+    await dispatchTask(taskRef as never, {
+      orgId: 'org-1',
+      projectId: 'project-1',
+      assigneeAgentId: 'theo',
+      agentStatus: 'pending',
+      columnId: 'todo',
+      reviewerAgentId: 'qa-release',
+      agentInput: {
+        spec: 'Implement approved spec',
+        context: {
+          sourceDocumentId: 'doc-1',
+          sourceSpecVersion: 'v3',
+          approvalGateTaskId: 'gate-1',
+          sourceResearchItemId: 'research-1',
+        },
+      },
+      riskLevel: 'critical',
+      requiredCapability: 'deploy',
+      requestedByAgentId: 'pip',
+      expectedArtifacts: ['pull_request', 'preview_url', 'test_report'],
+    })
+
+    expect(runAndPollMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        context: expect.objectContaining({
+          projectId: 'project-1',
+          reviewerAgentId: 'qa-release',
+          riskLevel: 'critical',
+          requiredCapability: 'deploy',
+          requestedByAgentId: 'pip',
+          expectedArtifacts: ['pull_request', 'preview_url', 'test_report'],
+          sourceDocumentId: 'doc-1',
+          sourceSpecVersion: 'v3',
+          approvalGateTaskId: 'gate-1',
+          sourceResearchItemId: 'research-1',
+        }),
+      }),
+      expect.any(Function),
+    )
   })
 
   it('marks failed Hermes runs blocked while preserving the live run id and stopping the heartbeat', async () => {

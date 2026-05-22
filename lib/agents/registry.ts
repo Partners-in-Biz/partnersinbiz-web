@@ -196,15 +196,16 @@ export function mergeAgentRegistry(agentId: AgentId, stored?: Partial<AgentRegis
   const policy = getAgentSkillPolicy(agentId)
   const policySkills = policy
     ? [
-        ...policy.pibSkills.map((skill) => `partnersinbiz/${skill}`),
+        ...policy.runtimeSkills.map((skill) => `partnersinbiz/${skill}`),
         ...policy.globalSkills,
       ]
     : undefined
+  const policyResponsibilities = policy?.primaryOwnerOf.map((item) => `${policy.name ?? agentId} owns ${item}`)
   return {
-    responsibilities: safeStored.responsibilities ?? defaults?.responsibilities ?? [],
+    responsibilities: safeStored.responsibilities ?? defaults?.responsibilities ?? policyResponsibilities ?? [],
     skills: safeStored.skills ?? policySkills ?? defaults?.skills ?? [],
-    cronWatchLoops: safeStored.cronWatchLoops ?? defaults?.cronWatchLoops ?? [],
-    allowedScopes: safeStored.allowedScopes ?? defaults?.allowedScopes ?? [],
-    exampleTaskTypes: safeStored.exampleTaskTypes ?? defaults?.exampleTaskTypes ?? [],
+    cronWatchLoops: safeStored.cronWatchLoops ?? defaults?.cronWatchLoops ?? (policy ? ['Assigned Kanban task pickup', 'Approval-gate and blocker follow-up'] : []),
+    allowedScopes: safeStored.allowedScopes ?? defaults?.allowedScopes ?? policy?.capabilities ?? [],
+    exampleTaskTypes: safeStored.exampleTaskTypes ?? defaults?.exampleTaskTypes ?? policy?.primaryOwnerOf ?? [],
   }
 }

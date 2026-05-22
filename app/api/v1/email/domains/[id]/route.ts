@@ -10,6 +10,7 @@ import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
 import { resolveOrgScope } from '@/lib/api/orgScope'
 import { apiSuccess, apiError } from '@/lib/api/response'
+import { enforceAgentCapability } from '@/lib/api/capabilityGate'
 import { getResendClient } from '@/lib/email/resend'
 import type { EmailDomain, EmailDomainDnsRecord } from '@/lib/email/domains'
 import type { ApiUser } from '@/lib/api/types'
@@ -52,13 +53,15 @@ export const GET = withAuth('client', async (_req: NextRequest, user: ApiUser, c
   return apiSuccess({ ...doc, status: data.status, dnsRecords })
 })
 
-export const DELETE = withAuth('client', async (_req: NextRequest, user: ApiUser, context?: unknown) => {
+export const DELETE = withAuth('client', async (req: NextRequest, user: ApiUser, context?: unknown) => {
   const { id } = await (context as Params).params
 
   const snap = await adminDb.collection('email_domains').doc(id).get()
   if (!snap.exists || snap.data()?.deleted) return apiError('Domain not found', 404)
   const scope = resolveOrgScope(user, (snap.data()?.orgId as string | undefined) ?? null)
   if (!scope.ok) return apiError(scope.error, scope.status)
+  const capabilityError = enforceAgentCapability(user, 'delete', req)
+  if (capabilityError) return capabilityError
   const doc = snap.data() as EmailDomain
 
   // Best-effort remove from Resend; soft-delete locally either way

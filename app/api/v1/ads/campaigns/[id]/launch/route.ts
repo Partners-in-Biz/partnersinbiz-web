@@ -2,6 +2,7 @@
 import { NextRequest } from 'next/server'
 import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
+import { enforceAgentCapability } from '@/lib/api/capabilityGate'
 import { getCampaign, updateCampaign, setCampaignMetaId } from '@/lib/ads/campaigns/store'
 import { requireMetaContext, resolveGoogleAdsCustomerContext } from '@/lib/ads/api-helpers'
 import { metaProvider } from '@/lib/ads/providers/meta'
@@ -10,12 +11,15 @@ import { readDeveloperToken } from '@/lib/integrations/google_ads/oauth'
 import { resumeCampaign as googleResumeCampaign } from '@/lib/ads/providers/google/campaigns'
 import { logCampaignActivity } from '@/lib/ads/activity'
 import { notifyCampaignLaunched } from '@/lib/ads/notifications'
+import type { ApiUser } from '@/lib/api/types'
 
 export const POST = withAuth(
   'admin',
-  async (req: NextRequest, user: unknown, ctxParams: { params: Promise<{ id: string }> }) => {
+  async (req: NextRequest, user: ApiUser, ctxParams: { params: Promise<{ id: string }> }) => {
     const orgId = req.headers.get('X-Org-Id')
     if (!orgId) return apiError('Missing X-Org-Id header', 400)
+    const capabilityError = enforceAgentCapability(user, 'spend', req)
+    if (capabilityError) return capabilityError
 
     const { id } = await ctxParams.params
     const campaign = await getCampaign(id)

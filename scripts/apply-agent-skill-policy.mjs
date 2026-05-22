@@ -55,6 +55,13 @@ function resetSymlink(target, linkPath) {
   if (apply) symlinkSync(target, linkPath, 'dir')
 }
 
+function resetManagedRepoSkillRoot(externalDir) {
+  const managedRoot = join(externalDir, 'partnersinbiz')
+  logAction(`reset generated repo skill root ${managedRoot}`)
+  if (apply) rmSync(managedRoot, { recursive: true, force: true })
+  ensureDir(managedRoot)
+}
+
 function lstatSafe(path) {
   try {
     return lstatSync(path)
@@ -83,6 +90,12 @@ function listSkillDirs(base) {
     }
   }
   return out.sort()
+}
+
+function runtimeSkillsFor(agentPolicy) {
+  return Array.isArray(agentPolicy.runtimeSkills) && agentPolicy.runtimeSkills.length > 0
+    ? agentPolicy.runtimeSkills
+    : agentPolicy.pibSkills
 }
 
 function replaceExternalDirsInConfig(text, externalDir) {
@@ -181,13 +194,14 @@ for (const [agentId, agentPolicy] of agentEntries) {
 
   const externalDir = agentPolicy.vpsExternalDir
   ensureDir(externalDir)
+  resetManagedRepoSkillRoot(externalDir)
 
-  for (const skill of agentPolicy.pibSkills) {
-    const source = join(pibSourceRoot, skill)
+  for (const skill of runtimeSkillsFor(agentPolicy)) {
+    const source = join(pibSourceRoot, ...skill.split('/'))
     const dest = join(externalDir, 'partnersinbiz', skill)
     if (!existsSync(source)) {
       agentSummary.missingPibSkills.push(skill)
-      summary.warnings.push(`${agentId}: missing PiB skill source ${source}`)
+      summary.warnings.push(`${agentId}: missing repo skill source ${source}`)
       continue
     }
     resetSymlink(source, dest)

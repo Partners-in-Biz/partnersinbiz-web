@@ -28,7 +28,7 @@ if [ ! -f "$POLICY_JSON" ]; then
   exit 1
 fi
 
-mapfile -t PLATFORM_SKILLS < <(node -e "const p=require('$POLICY_JSON'); console.log(p.repoPibSkills.join('\n'))")
+mapfile -t PLATFORM_SKILLS < <(node -e "const p=require('$POLICY_JSON'); console.log(Object.entries(p.skillCatalog).filter(([,v]) => v.syncTarget === 'vps').map(([k]) => k).sort().join('\n'))")
 
 if [ ! -d "$SRC" ]; then
   echo "FATAL: source skills dir missing at $SRC" >&2
@@ -48,6 +48,7 @@ for skill in "${PLATFORM_SKILLS[@]}"; do
   fi
 
   rm -rf "$dest_path"
+  mkdir -p "$(dirname "$dest_path")"
   ln -s "$source_path" "$dest_path"
   echo "cached $skill"
 done

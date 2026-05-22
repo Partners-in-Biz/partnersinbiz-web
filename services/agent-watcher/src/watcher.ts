@@ -64,6 +64,10 @@ interface TaskData {
   requiresApproval?: boolean
   approvalStatus?: string
   approvalGate?: { status?: string }
+  riskLevel?: string
+  requiredCapability?: string
+  requestedByAgentId?: string
+  expectedArtifacts?: string[]
 }
 
 async function dependenciesResolved(
@@ -213,7 +217,15 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
       orgId: taskData.orgId ?? '',
       agentId,
       spec,
-      context: taskData.agentInput?.context,
+      context: {
+        ...(taskData.agentInput?.context ?? {}),
+        ...(taskData.projectId ? { projectId: taskData.projectId } : {}),
+        ...(taskData.reviewerAgentId ? { reviewerAgentId: taskData.reviewerAgentId } : {}),
+        ...(taskData.riskLevel ? { riskLevel: taskData.riskLevel } : {}),
+        ...(taskData.requiredCapability ? { requiredCapability: taskData.requiredCapability } : {}),
+        ...(taskData.requestedByAgentId ? { requestedByAgentId: taskData.requestedByAgentId } : {}),
+        ...(Array.isArray(taskData.expectedArtifacts) ? { expectedArtifacts: taskData.expectedArtifacts } : {}),
+      },
       constraints: taskData.agentInput?.constraints,
     }
 

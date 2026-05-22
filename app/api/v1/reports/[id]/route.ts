@@ -5,10 +5,12 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { withAuth } from '@/lib/api/auth'
+import { enforceAgentCapability } from '@/lib/api/capabilityGate'
 import { getReport, patchReport } from '@/lib/reports/generate'
 import { adminDb } from '@/lib/firebase/admin'
 import { REPORTS_COLLECTION, type Report } from '@/lib/reports/types'
 import { canAccessOrg } from '@/lib/api/platformAdmin'
+import type { ApiUser } from '@/lib/api/types'
 
 export const dynamic = 'force-dynamic'
 
@@ -43,11 +45,13 @@ export const PATCH = withAuth('admin', async (req: NextRequest, user, ctx) => {
   return NextResponse.json({ ok: true, report: updated })
 })
 
-export const DELETE = withAuth('admin', async (_req: NextRequest, user, ctx) => {
+export const DELETE = withAuth('admin', async (req: NextRequest, user: ApiUser, ctx) => {
   const { id } = await (ctx as RouteContext).params
   const report = await getReport(id)
   if (!report) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   if (!canAccessOrg(user, report.orgId)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  const capabilityError = enforceAgentCapability(user, 'delete', req)
+  if (capabilityError) return capabilityError
   await adminDb.collection(REPORTS_COLLECTION).doc(id).update({ status: 'archived' })
   return NextResponse.json({ ok: true })
 })

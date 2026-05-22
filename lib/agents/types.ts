@@ -5,7 +5,7 @@ import type { Timestamp } from 'firebase-admin/firestore'
 
 export type AgentId = string
 
-export const AGENT_IDS: AgentId[] = ['pip', 'theo', 'maya', 'sage', 'nora']
+export const AGENT_IDS: AgentId[] = ['pip', 'theo', 'maya', 'sage', 'nora', 'ads', 'qa-release', 'support', 'data', 'docs', 'seo']
 export const AGENT_ID_RE = /^[a-z][a-z0-9._-]{1,39}$/
 export function isValidAgentId(value: unknown): value is AgentId {
   return typeof value === 'string' && AGENT_ID_RE.test(value)
@@ -22,9 +22,16 @@ export interface AgentRegistryEntry {
 export interface AgentSkillPolicyState {
   mode: 'hard_allowlist'
   policyVersion: string
+  catalogVersion?: string
   pibSkills: string[]
+  runtimeSkills?: string[]
   globalSkills: string[]
   deniedSkills: string[]
+  capabilities?: string[]
+  approvalGates?: string[]
+  primaryOwnerOf?: string[]
+  mayRequestFrom?: string[]
+  reviewerAgentId?: AgentId | null
   vpsExternalDir: string
   appliedVersion?: string | null
   appliedAt?: Timestamp | null

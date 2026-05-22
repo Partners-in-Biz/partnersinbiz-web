@@ -2,21 +2,57 @@ import rawPolicy from '@/config/agent-skill-policy.json'
 import type { AgentId, AgentSkillPolicyState } from './types'
 
 export type AgentSkillPolicyMode = 'hard_allowlist'
+export type AgentSkillRiskLevel = 'low' | 'medium' | 'high' | 'critical'
+export type AgentCapability =
+  | 'read'
+  | 'draft'
+  | 'write'
+  | 'approve'
+  | 'publish'
+  | 'deploy'
+  | 'spend'
+  | 'message_client'
+  | 'access_secret'
+  | 'delete'
+
+export interface AgentCapabilityGate {
+  requiresApproval: boolean
+  reason: string
+}
+
+export interface AgentSkillCatalogEntry {
+  ownerAgentId: AgentId
+  allowedAgentIds: AgentId[]
+  riskLevel: AgentSkillRiskLevel
+  syncTarget: 'vps'
+}
 
 export interface AgentSkillPolicyDefinition {
+  name?: string
   label: string
+  role?: string
   vpsExternalDir: string
   pibSkills: string[]
+  runtimeSkills: string[]
   globalSkills: string[]
   deniedSkills: string[]
+  capabilities: AgentCapability[]
+  approvalGates: AgentCapability[]
+  primaryOwnerOf: string[]
+  mayRequestFrom: AgentId[]
+  reviewerAgentId?: AgentId | null
 }
 
 export interface AgentSkillPolicyManifest {
   version: string
+  catalogVersion: string
   mode: AgentSkillPolicyMode
   vpsRoot: string
   repoPibSkills: string[]
   futureAgentCandidates: string[]
+  capabilities: AgentCapability[]
+  approvalGates: Partial<Record<AgentCapability, AgentCapabilityGate>>
+  skillCatalog: Record<string, AgentSkillCatalogEntry>
   agents: Record<string, AgentSkillPolicyDefinition>
 }
 
@@ -31,6 +67,17 @@ export interface AgentSkillPolicyDrift {
 }
 
 export const AGENT_SKILL_POLICY = rawPolicy as AgentSkillPolicyManifest
+
+export function listCatalogSkillPaths(): string[] {
+  return Object.keys(AGENT_SKILL_POLICY.skillCatalog).sort()
+}
+
+export function listSyncableRepoSkillPaths(): string[] {
+  return Object.entries(AGENT_SKILL_POLICY.skillCatalog)
+    .filter(([, entry]) => entry.syncTarget === 'vps')
+    .map(([skillPath]) => skillPath)
+    .sort()
+}
 
 export function listPolicyAgentIds(): AgentId[] {
   return Object.keys(AGENT_SKILL_POLICY.agents)
@@ -50,9 +97,16 @@ export function buildAgentSkillPolicyState(
   return {
     mode: AGENT_SKILL_POLICY.mode,
     policyVersion: AGENT_SKILL_POLICY.version,
+    catalogVersion: AGENT_SKILL_POLICY.catalogVersion,
     pibSkills: [...policy.pibSkills],
+    runtimeSkills: [...policy.runtimeSkills],
     globalSkills: [...policy.globalSkills],
     deniedSkills: [...policy.deniedSkills],
+    capabilities: [...policy.capabilities],
+    approvalGates: [...policy.approvalGates],
+    primaryOwnerOf: [...policy.primaryOwnerOf],
+    mayRequestFrom: [...policy.mayRequestFrom],
+    reviewerAgentId: policy.reviewerAgentId ?? null,
     vpsExternalDir: policy.vpsExternalDir,
     appliedVersion: patch.appliedVersion ?? null,
     appliedAt: patch.appliedAt ?? null,
@@ -124,8 +178,9 @@ export function computeAgentSkillDrift(args: {
   const policy = getAgentSkillPolicy(args.agentId)
   if (!policy) return null
 
-  const pib = diff(policy.pibSkills, args.installedPibSkills)
-  const global = diff(policy.globalSkills, args.installedGlobalSkills)
+  const expectedRuntimeSkills = policy.runtimeSkills?.length ? policy.runtimeSkills : policy.pibSkills
+  const pib = diff(expectedRuntimeSkills, args.installedPibSkills ?? [])
+  const global = diff(policy.globalSkills, args.installedGlobalSkills ?? [])
   const expectedExternalDirs = [policy.vpsExternalDir]
   const configExternalDirs = args.configExternalDirs
   const configOk = configExternalDirs.length === 1 && configExternalDirs[0] === policy.vpsExternalDir

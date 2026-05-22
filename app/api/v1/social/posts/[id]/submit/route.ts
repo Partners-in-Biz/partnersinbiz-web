@@ -12,6 +12,7 @@ import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
 import { withTenant } from '@/lib/api/tenant'
 import { apiSuccess, apiError } from '@/lib/api/response'
+import { enforceAgentCapability } from '@/lib/api/capabilityGate'
 import { logAudit } from '@/lib/social/audit'
 import { logActivity } from '@/lib/activity/log'
 import {
@@ -66,6 +67,11 @@ export const POST = withAuth('client', withTenant(async (req, user, orgId, conte
       orgId,
       desiredStatus,
     )
+  }
+
+  if (['approved', 'scheduled', 'publishing', 'published'].includes(newStatus)) {
+    const capabilityError = enforceAgentCapability(user, 'publish', req)
+    if (capabilityError) return capabilityError
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

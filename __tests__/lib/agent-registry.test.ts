@@ -4,20 +4,23 @@ import {
   mergeAgentRegistry,
   normalizeAgentRegistryInput,
 } from '@/lib/agents/registry'
+import { AGENT_IDS } from '@/lib/agents/types'
 
 describe('agent registry', () => {
-  it('advertises the five platform agents with responsibilities, skills, cron loops, scopes, and examples', () => {
+  it('advertises platform agents with responsibilities, skills, cron loops, scopes, and examples', () => {
     expect(Object.keys(AGENT_REGISTRY).sort()).toEqual(['maya', 'nora', 'pip', 'sage', 'theo'])
 
-    for (const agentId of ['pip', 'theo', 'maya', 'sage', 'nora'] as const) {
-      const entry = getAgentRegistryEntry(agentId)
+    for (const agentId of AGENT_IDS) {
+      const entry = mergeAgentRegistry(agentId)
       expect(entry).toBeDefined()
-      expect(entry?.responsibilities.length).toBeGreaterThan(0)
-      expect(entry?.skills.length).toBeGreaterThan(0)
-      expect(entry?.cronWatchLoops.length).toBeGreaterThan(0)
-      expect(entry?.allowedScopes.length).toBeGreaterThan(0)
-      expect(entry?.exampleTaskTypes.length).toBeGreaterThan(0)
+      expect(entry.responsibilities.length).toBeGreaterThan(0)
+      expect(entry.skills.length).toBeGreaterThan(0)
+      expect(entry.cronWatchLoops.length).toBeGreaterThan(0)
+      expect(entry.allowedScopes.length).toBeGreaterThan(0)
+      expect(entry.exampleTaskTypes.length).toBeGreaterThan(0)
     }
+
+    expect(getAgentRegistryEntry('pip')).toBeDefined()
   })
 
   it('normalizes future specialist registry input without accepting arbitrary shapes', () => {
@@ -51,12 +54,12 @@ describe('agent registry', () => {
   })
 
   it('uses the hard skill policy as the default advertised skill list', () => {
-    const merged = mergeAgentRegistry('sage', {})
+    const merged = mergeAgentRegistry('seo', {})
 
     expect(merged.skills).toEqual(expect.arrayContaining([
       'partnersinbiz/research-intelligence',
       'partnersinbiz/seo-sprint-manager',
-      'research/llm-wiki',
+      'research/blogwatcher',
     ]))
   })
 })

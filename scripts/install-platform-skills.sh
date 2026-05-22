@@ -13,33 +13,12 @@ set -euo pipefail
 SRC="/Users/peetstander/Cowork/Partners in Biz — Client Growth/partnersinbiz-web/.claude/skills"
 DEST="/Users/peetstander/Cowork/.claude/skills"
 
-# Only the platform-API skills + the content-engine production pipeline get
-# exposed Cowork-wide. Engineering playbook skills (marketing,
-# software-development) stay codebase-local — they're for working ON the
-# partnersinbiz-web codebase, not on clients.
-#
-# content-engine is included because it's invoked from any client workspace
-# (AHS Law, Lumen, Loyalty Plus, etc.) — it replaces the old
-# `client-content-engine` user-level skill. Once this is symlinked the old
-# skill at ~/.claude/skills/client-content-engine/ should be deleted to
-# avoid two skills competing for the same triggers.
-PLATFORM_SKILLS=(
-  ads-manager
-  analytics
-  billing-finance
-  client-manager
-  client-documents
-  content-engine
-  crm-sales
-  email-outreach
-  google-workspace
-  platform-ops
-  project-management
-  properties
-  research-intelligence
-  seo-sprint-manager
-  social-media-manager
-)
+POLICY_JSON="/Users/peetstander/Cowork/Partners in Biz — Client Growth/partnersinbiz-web/config/agent-skill-policy.json"
+
+# Only top-level PiB platform/runtime skills are exposed Cowork-wide. Nested
+# marketing and software-development skills are specialist runtime skills and
+# are mounted per agent on the VPS from the policy catalog.
+mapfile -t PLATFORM_SKILLS < <(node -e "const p=require('$POLICY_JSON'); console.log(p.repoPibSkills.join('\n'))")
 
 mkdir -p "$DEST"
 

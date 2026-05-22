@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { withAuth } from '@/lib/api/auth'
 import { apiError, apiSuccess } from '@/lib/api/response'
+import { enforceAgentCapability } from '@/lib/api/capabilityGate'
 import { isSuperAdmin } from '@/lib/api/platformAdmin'
 import { callAgentPath, getAgent, recordAgentSkillPolicyApplied } from '@/lib/agents/team'
 import { isValidAgentId, type AgentId } from '@/lib/agents/types'
@@ -22,14 +23,16 @@ function skillBasename(skill: string): string {
 }
 
 function classifyInstalledSkills(installed: string[]): { pib: string[]; global: string[] } {
-  const pibNames = new Set(AGENT_SKILL_POLICY.repoPibSkills)
+  const catalogPaths = new Set(Object.keys(AGENT_SKILL_POLICY.skillCatalog))
+  const catalogByBase = new Map(Object.keys(AGENT_SKILL_POLICY.skillCatalog).map((skill) => [skillBasename(skill), skill]))
   const pib: string[] = []
   const global: string[] = []
 
   for (const skill of installed) {
     const base = skillBasename(skill)
-    if (pibNames.has(base)) {
-      pib.push(base)
+    const catalogSkill = catalogPaths.has(skill) ? skill : catalogByBase.get(base)
+    if (catalogSkill) {
+      pib.push(catalogSkill)
     } else {
       global.push(skill)
     }
@@ -123,6 +126,8 @@ export const POST = withAuth('admin', async (req: NextRequest, user, ctx) => {
   let body: Record<string, unknown> = {}
   try { body = await req.json() as Record<string, unknown> } catch { body = {} }
   const applyConfig = body.applyConfig !== false
+  const capabilityError = enforceAgentCapability(user, 'access_secret', req, body)
+  if (capabilityError) return capabilityError
 
   try {
     let configApplied = false

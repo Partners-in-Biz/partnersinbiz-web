@@ -20,10 +20,13 @@ export const GET = withAuth('admin', async () => {
       name: data.name,
       keyPrefix: data.keyPrefix,
       orgId: data.orgId,
+      agentId: data.agentId ?? null,
       role: data.role,
+      permissions: data.permissions ?? [],
       lastUsedAt: data.lastUsedAt,
       createdAt: data.createdAt,
       expiresAt: data.expiresAt ?? null,
+      revokedAt: data.revokedAt ?? null,
     }
   })
 
@@ -42,6 +45,7 @@ export const POST = withAuth('admin', async (req, user) => {
   const doc = {
     name: body.name,
     orgId: body.orgId ?? '',
+    agentId: typeof body.agentId === 'string' && body.agentId.trim() ? body.agentId.trim() : null,
     role: body.role ?? 'ai',
     keyHash,
     keyPrefix,

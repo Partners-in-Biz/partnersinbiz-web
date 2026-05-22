@@ -10,6 +10,8 @@ import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
 import { resolveOrgScope } from '@/lib/api/orgScope'
 import { apiSuccess, apiError } from '@/lib/api/response'
+import { enforceAgentCapability } from '@/lib/api/capabilityGate'
+import type { ApiUser } from '@/lib/api/types'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -28,12 +30,14 @@ export const PUT = withAuth('client', async (req: NextRequest, user, context) =>
   return apiSuccess({ id })
 })
 
-export const DELETE = withAuth('client', async (_req: NextRequest, user, context) => {
+export const DELETE = withAuth('client', async (req: NextRequest, user: ApiUser, context) => {
   const { id } = await (context as Params).params
   const doc = await adminDb.collection('emails').doc(id).get()
   if (!doc.exists) return apiError('Email not found', 404)
   const scope = resolveOrgScope(user, (doc.data()?.orgId as string | undefined) ?? null)
   if (!scope.ok) return apiError(scope.error, scope.status)
+  const capabilityError = enforceAgentCapability(user, 'delete', req)
+  if (capabilityError) return capabilityError
 
   await adminDb.collection('emails').doc(id).update({
     deleted: true,

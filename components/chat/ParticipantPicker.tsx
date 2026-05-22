@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 
-type AgentId = 'pip' | 'theo' | 'maya' | 'sage' | 'nora'
+type AgentId = string
 
 export type SelectedParticipant =
   | { kind: 'agent'; agentId: AgentId; name: string }

@@ -2,6 +2,7 @@
 import { NextRequest } from 'next/server'
 import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
+import { enforceAgentCapability } from '@/lib/api/capabilityGate'
 import { getAdSet, updateAdSet, deleteAdSet } from '@/lib/ads/adsets/store'
 import { requireMetaContext, resolveGoogleAdsCustomerContext } from '@/lib/ads/api-helpers'
 import { metaProvider } from '@/lib/ads/providers/meta'
@@ -14,6 +15,7 @@ import {
 } from '@/lib/ads/providers/google/adgroups'
 import type { UpdateAdSetInput } from '@/lib/ads/types'
 import { logAdSetActivity } from '@/lib/ads/activity'
+import type { ApiUser } from '@/lib/api/types'
 
 export const GET = withAuth(
   'admin',
@@ -158,13 +160,15 @@ export const PATCH = withAuth(
 
 export const DELETE = withAuth(
   'admin',
-  async (req: NextRequest, user: unknown, ctxParams: { params: Promise<{ id: string }> }) => {
+  async (req: NextRequest, user: ApiUser, ctxParams: { params: Promise<{ id: string }> }) => {
     const orgId = req.headers.get('X-Org-Id')
     if (!orgId) return apiError('Missing X-Org-Id header', 400)
 
     const { id } = await ctxParams.params
     const adSet = await getAdSet(id)
     if (!adSet || adSet.orgId !== orgId) return apiError('Ad set not found', 404)
+    const capabilityError = enforceAgentCapability(user, 'delete', req)
+    if (capabilityError) return capabilityError
 
     if (adSet.platform === 'tiktok') {
       const tiktokData = (adSet.providerData as Record<string, unknown>)?.tiktok as Record<string, unknown> | undefined

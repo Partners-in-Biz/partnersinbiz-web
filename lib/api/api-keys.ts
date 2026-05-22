@@ -13,6 +13,7 @@ export interface ApiKeyPermission {
 export interface ApiKey {
   id?: string
   orgId: string             // Which org this key is scoped to (empty string = platform-level)
+  agentId?: string | null   // Owning specialist when this is an agent key
   name: string              // Human-readable label e.g. "Social Agent"
   keyHash: string           // SHA-256 hash of the actual key — never store plaintext
   keyPrefix: string         // First 8 chars for identification e.g. "pib_ak_1"
@@ -20,6 +21,7 @@ export interface ApiKey {
   permissions: ApiKeyPermission[]
   lastUsedAt: Timestamp | null
   expiresAt: Timestamp | null
+  revokedAt?: Timestamp | null
   createdBy: string
   createdAt: Timestamp
   updatedAt: Timestamp

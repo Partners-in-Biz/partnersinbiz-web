@@ -1,7 +1,9 @@
 import { NextRequest } from 'next/server'
+import { createHash } from 'crypto'
+import { FieldValue } from 'firebase-admin/firestore'
 import { adminAuth, adminDb } from '@/lib/firebase/admin'
 import { apiError, apiErrorFromException } from './response'
-import type { ApiRole, ApiUser } from './types'
+import type { ApiPermission, ApiRole, ApiUser } from './types'
 import { canAccessOrg } from './platformAdmin'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -73,33 +75,113 @@ async function _resolveUser(req: NextRequest): Promise<ApiUser | null> {
     // 1. Check for AI_API_KEY
     const aiKey = process.env.AI_API_KEY
     if (aiKey && token === aiKey) {
-      return { uid: 'ai-agent', role: 'ai' }
+      return { uid: 'ai-agent', role: 'ai', authKind: 'legacy_ai_key' }
     }
 
-    // 2. Verify as Firebase ID token
+    // 2. Check hashed PiB per-agent API keys.
+    const agentUser = await resolveAgentApiKeyUser(token)
+    if (agentUser) return agentUser
+
+    // 3. Verify as Firebase ID token
     try {
       const decoded = await adminAuth.verifyIdToken(token)
       const extras = await getUserExtrasFromFirestore(decoded.uid)
-      return { uid: decoded.uid, ...extras }
+      return { uid: decoded.uid, authKind: 'firebase', ...extras }
     } catch {
       // fall through to cookie check
     }
   }
 
-  // 3. Session cookie
+  // 4. Session cookie
   const cookieName = process.env.SESSION_COOKIE_NAME ?? '__session'
   const cookie = req.cookies.get(cookieName)?.value
   if (cookie) {
     try {
       const decoded = await adminAuth.verifySessionCookie(cookie, true)
       const extras = await getUserExtrasFromFirestore(decoded.uid)
-      return { uid: decoded.uid, ...extras }
+      return { uid: decoded.uid, authKind: 'session', ...extras }
     } catch {
       return null
     }
   }
 
   return null
+}
+
+function timestampToMillis(value: unknown): number | null {
+  if (!value) return null
+  if (value instanceof Date) return value.getTime()
+  if (typeof value === 'string') {
+    const ms = Date.parse(value)
+    return Number.isFinite(ms) ? ms : null
+  }
+  if (typeof value === 'object') {
+    const source = value as { toDate?: () => Date; seconds?: number; _seconds?: number }
+    if (typeof source.toDate === 'function') {
+      try { return source.toDate().getTime() } catch { return null }
+    }
+    const seconds = source.seconds ?? source._seconds
+    if (typeof seconds === 'number') return seconds * 1000
+  }
+  return null
+}
+
+function cleanPermissions(value: unknown): ApiPermission[] {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((item) => {
+    if (!item || typeof item !== 'object') return []
+    const source = item as Record<string, unknown>
+    const resource = typeof source.resource === 'string' ? source.resource.trim() : ''
+    const actions = Array.isArray(source.actions)
+      ? source.actions.filter((action): action is string => typeof action === 'string' && action.trim().length > 0).map((action) => action.trim())
+      : []
+    return resource && actions.length > 0 ? [{ resource, actions }] : []
+  })
+}
+
+export async function resolveAgentApiKeyUser(rawKey: string): Promise<ApiUser | null> {
+  if (!rawKey || !rawKey.startsWith('pib_')) return null
+
+  const keyHash = createHash('sha256').update(rawKey).digest('hex')
+
+  try {
+    const snap = await adminDb
+      .collection('api_keys')
+      .where('keyHash', '==', keyHash)
+      .limit(1)
+      .get()
+
+    if (snap.empty || snap.docs.length === 0) return null
+    const doc = snap.docs[0]
+    const data = doc.data() ?? {}
+    if (data.role !== 'ai') return null
+    if (data.revokedAt) return null
+    const expiresAt = timestampToMillis(data.expiresAt)
+    if (expiresAt !== null && expiresAt <= Date.now()) return null
+
+    const agentId = typeof data.agentId === 'string' && data.agentId.trim()
+      ? data.agentId.trim()
+      : null
+    if (!agentId) return null
+
+    try {
+      await doc.ref.update({ lastUsedAt: FieldValue.serverTimestamp() })
+    } catch {
+      // Auth should not fail just because telemetry couldn't be written.
+    }
+
+    return {
+      uid: `agent:${agentId}`,
+      role: 'ai',
+      authKind: 'agent_api_key',
+      agentId,
+      apiKeyId: doc.id,
+      permissions: cleanPermissions(data.permissions),
+      orgId: typeof data.orgId === 'string' && data.orgId ? data.orgId : undefined,
+    }
+  } catch {
+    return null
+  }
 }
 
 async function getUserExtrasFromFirestore(

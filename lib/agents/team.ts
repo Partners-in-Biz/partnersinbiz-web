@@ -111,7 +111,7 @@ async function getRaw(agentId: AgentId): Promise<AgentTeamStoredDoc | null> {
 // Public API
 // ---------------------------------------------------------------------------
 
-/** List all 5 agent docs with apiKey masked. */
+/** List all agent docs with apiKey masked. */
 export async function listAgents(): Promise<AgentTeamDoc[]> {
   const snap = await adminDb.collection(COLLECTION).get()
   return snap.docs.map((d) => toPublicDoc(d.data() as AgentTeamStoredDoc))
