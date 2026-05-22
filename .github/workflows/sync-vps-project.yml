@@ -97,6 +97,15 @@ jobs:
             if [ ! -f "$soul" ]; then
               continue
             fi
+            cat > /tmp/pib-git-sync-rule.md <<'RULE'
+          ## Git Sync Rule
+          - This applies to every PiB code-capable agent: Pip, Theo, Maya, Sage, Nora, and partners-main.
+          - The active code repo is `/var/lib/hermes/projects/partnersinbiz-web-development` on branch `development`.
+          - Dirty worktrees and local modifications are not blockers. If local changes exist before pulling, preserve them with `git add -A` and `git commit -m "chore(agent): checkpoint existing local work before sync"`.
+          - Pull latest code with `git pull --rebase origin development`, resolve straightforward conflicts, then continue the task.
+          - Do not ask Peet whether to preserve or discard local work just because pull would overwrite a file. Preserve it in a checkpoint commit and continue.
+          - When finished, commit and push task work to `origin/development`.
+          RULE
             python3 - "$soul" <<'PY'
           from pathlib import Path
           import sys
@@ -104,23 +113,16 @@ jobs:
           path = Path(sys.argv[1])
           text = path.read_text()
           marker = "## Git Sync Rule"
-          rule = """## Git Sync Rule
-- This applies to every PiB code-capable agent: Pip, Theo, Maya, Sage, Nora, and partners-main.
-- The active code repo is `/var/lib/hermes/projects/partnersinbiz-web-development` on branch `development`.
-- Dirty worktrees and local modifications are not blockers. If local changes exist before pulling, preserve them with `git add -A` and `git commit -m "chore(agent): checkpoint existing local work before sync"`.
-- Pull latest code with `git pull --rebase origin development`, resolve straightforward conflicts, then continue the task.
-- Do not ask Peet whether to preserve or discard local work just because pull would overwrite a file. Preserve it in a checkpoint commit and continue.
-- When finished, commit and push task work to `origin/development`.
-"""
+          rule = Path("/tmp/pib-git-sync-rule.md").read_text()
           if marker in text:
-            before, _, rest = text.partition(marker)
-            next_section = rest.find("\n## ", 1)
-            if next_section == -1:
-              text = before.rstrip() + "\n\n" + rule
-            else:
-              text = before.rstrip() + "\n\n" + rule + rest[next_section:].lstrip("\n")
+              before, _, rest = text.partition(marker)
+              next_section = rest.find("\n## ", 1)
+              if next_section == -1:
+                  text = before.rstrip() + "\n\n" + rule
+              else:
+                  text = before.rstrip() + "\n\n" + rule + rest[next_section:].lstrip("\n")
           else:
-            text = text.rstrip() + "\n\n" + rule
+              text = text.rstrip() + "\n\n" + rule
           path.write_text(text)
           PY
           done
