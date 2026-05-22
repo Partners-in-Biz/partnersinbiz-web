@@ -188,11 +188,15 @@ will re-pick it.
 
 1. Add a doc at `agent_dispatch_configs/<newAgentId>` with the new Hermes base URL
    and API key (use a copy of `scripts/seed-agent-dispatch-configs.ts`).
-2. Add the new id to `AGENT_IDS` in `src/config.ts`.
-3. Update the `tasks` collectionGroup index in `firestore.indexes.json` if you
+2. Add or enable `agent_team/<newAgentId>`. The watcher derives eligible agents
+   from enabled `agent_team` docs at boot and falls back to the core five only if
+   Firestore cannot provide a usable list.
+3. Add the runtime skill policy for that agent in `config/agent-skill-policy.json`
+   before assigning task-bus work to it.
+4. Update the `tasks` collectionGroup index in `firestore.indexes.json` if you
    added new query shapes (the existing index on
    `assigneeAgentId + agentStatus` already covers any agent id).
-4. Rebuild and redeploy: `npm run build` + `systemctl restart hermes-watcher`.
+5. Rebuild and redeploy: `npm run build` + `systemctl restart hermes-watcher`.
 
 ## Local development
 

@@ -1,6 +1,7 @@
 jest.mock('../../../services/agent-watcher/src/config', () => ({
   AGENT_IDS: ['pip', 'theo', 'maya', 'sage', 'nora'],
   getAgentConfig: jest.fn(),
+  loadEnabledAgentIds: jest.fn(async () => ['pip', 'theo', 'maya', 'sage', 'nora']),
 }))
 
 jest.mock('../../../services/agent-watcher/src/claim', () => ({

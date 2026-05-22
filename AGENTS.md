@@ -35,3 +35,19 @@ Agents must leave completed work committed and pushed to `origin/development`. I
 ## Deployments
 
 Push normal work to `origin/development`. Vercel should build those pushes as Preview deployments for development/testing. The public production site remains tied to `main`.
+
+## Hermes Agent Skill Policy
+
+The live PiB task-bus specialists are `pip`, `theo`, `maya`, `sage`, and `nora`. Do not create module agents until volume or risk proves the need. Reserved future candidates are `seo`, `ads`, `docs`, `support`, `data`, and `qa-release`.
+
+Runtime skills are hard-allowlisted by `config/agent-skill-policy.json`. The same manifest is consumed by the app registry, admin skill-policy view, VPS sync/apply scripts, and watcher rollout notes.
+
+- `pip` owns routing, client context, Projects/Kanban, approvals, status summaries, onboarding, and cross-agent follow-up.
+- `theo` owns engineering, infra, deployments, debugging, tests, GitHub/Vercel, and the engineering workflow skills.
+- `maya` owns content-engine, social, brand voice, campaign assets, scheduling, and creative packs.
+- `sage` owns research, SEO, analytics readouts, competitor intelligence, and evidence-backed recommendations.
+- `nora` owns billing, CRM hygiene, inbox/email ops, reports, finance-sensitive follow-ups, and admin reconciliation.
+
+Theo’s engineering workflow must use the Partners delivery gate: create the online spec/change document first, wait for approval, then create linked Kanban implementation tasks with dependencies and `agentStatus=pending`. Link tasks back through `agentInput.context.sourceDocumentId`, `sourceDocumentSectionId`, `sourceSpecVersion`, `approvalGateTaskId`, and `sourceResearchItemId` where applicable.
+
+VPS profiles must load only `/var/lib/hermes/agent-skills/<agentId>` in `skills.external_dirs`. Do not point core specialist profiles back at `/var/lib/hermes/pib-skills`; that shared cache is only the source for policy-generated per-agent directories.

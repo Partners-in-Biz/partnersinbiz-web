@@ -5,6 +5,9 @@ on:
     branches: [development]
     paths:
       - '.claude/skills/**'
+      - 'config/agent-skill-policy.json'
+      - 'scripts/apply-agent-skill-policy.mjs'
+      - 'scripts/install-vps-skills.sh'
       - '.github/workflows/sync-vps-skills.yml'
   workflow_dispatch:
 
@@ -23,14 +26,22 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Rsync platform skills to VPS
+      - name: Rsync platform skills and policy tooling to VPS
         run: |
+          ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "mkdir -p /var/lib/hermes/partnersinbiz-web/config /var/lib/hermes/partnersinbiz-web/scripts"
+          rsync -rlz --omit-dir-times --no-perms --no-owner --no-group \
+            config/agent-skill-policy.json \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/var/lib/hermes/partnersinbiz-web/config/agent-skill-policy.json"
+          rsync -rlz --omit-dir-times --no-perms --no-owner --no-group \
+            scripts/apply-agent-skill-policy.mjs scripts/install-vps-skills.sh \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/var/lib/hermes/partnersinbiz-web/scripts/"
+
           # Use -rlz instead of -avz: skip preserving times/perms/owner/group.
           # The hermes-deploy user has group-write but isn't the owner of the
           # destination dirs, so utime() fails ("Operation not permitted").
           # We only need content + filenames; times/perms aren't load-bearing here.
           remote_base="/var/lib/hermes/pib-skills/partnersinbiz"
-          for skill in analytics billing-finance client-documents client-manager content-engine crm-sales email-outreach platform-ops project-management properties seo-sprint-manager social-media-manager; do
+          for skill in ads-manager analytics billing-finance client-documents client-manager content-engine crm-sales email-outreach google-workspace platform-ops project-management properties research-intelligence seo-sprint-manager social-media-manager; do
             if [ -d ".claude/skills/$skill" ]; then
               echo "-> rsyncing $skill"
               tmp_dir="$remote_base/.sync-$skill-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
@@ -53,4 +64,8 @@ jobs:
               echo "-- skipping $skill (not found in repo)"
             fi
           done
+          ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
+            set -e
+            node /var/lib/hermes/partnersinbiz-web/scripts/apply-agent-skill-policy.mjs --root /var/lib/hermes --apply
+          "
           echo "Sync complete"

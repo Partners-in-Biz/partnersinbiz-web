@@ -13,6 +13,7 @@ import crypto from 'crypto'
 import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { mergeAgentRegistry, normalizeAgentRegistryInput } from './registry'
+import { buildAgentSkillPolicyState } from './skill-policy'
 import type { AgentId, AgentRegistryEntry, AgentTeamDoc, AgentTeamStoredDoc } from './types'
 
 // ---------------------------------------------------------------------------
@@ -95,6 +96,7 @@ function toPublicDoc(stored: AgentTeamStoredDoc & { id?: string }): AgentTeamDoc
   return {
     ...stored,
     ...mergeAgentRegistry(stored.agentId, stored),
+    skillPolicy: stored.skillPolicy ?? buildAgentSkillPolicyState(stored.agentId) ?? undefined,
     apiKey: masked,
   }
 }
@@ -204,6 +206,7 @@ export async function createAgent(input: CreateAgentInput): Promise<AgentTeamDoc
   const now = FieldValue.serverTimestamp()
   const encryptedKey = encryptAgentApiKey(input.apiKey)
   const registry = mergeAgentRegistry(input.agentId, input)
+  const skillPolicy = buildAgentSkillPolicyState(input.agentId)
   await ref.set({
     agentId: input.agentId,
     name: input.name,
@@ -216,6 +219,7 @@ export async function createAgent(input: CreateAgentInput): Promise<AgentTeamDoc
     baseUrl: input.baseUrl.replace(/\/+$/, ''),
     apiKey: encryptedKey,
     ...registry,
+    ...(skillPolicy ? { skillPolicy } : {}),
     createdAt: now,
     updatedAt: now,
   })
@@ -233,6 +237,30 @@ export async function createAgent(input: CreateAgentInput): Promise<AgentTeamDoc
 
   const snap = await ref.get()
   return toPublicDoc(snap.data() as AgentTeamStoredDoc)
+}
+
+export async function recordAgentSkillPolicyApplied(
+  agentId: AgentId,
+  appliedBy: string,
+  driftStatus: 'in_sync' | 'drifted' | 'not_applied' = 'in_sync',
+): Promise<AgentTeamDoc> {
+  const state = buildAgentSkillPolicyState(agentId)
+  if (!state) throw new Error(`No skill policy defined for agent '${agentId}'`)
+
+  await adminDb.collection(COLLECTION).doc(agentId).set({
+    skillPolicy: {
+      ...state,
+      appliedAt: FieldValue.serverTimestamp(),
+      appliedVersion: state.policyVersion,
+      appliedBy,
+      driftStatus,
+    },
+    updatedAt: FieldValue.serverTimestamp(),
+  }, { merge: true })
+
+  const updated = await getRaw(agentId)
+  if (!updated) throw new Error(`agent_team/${agentId} not found`)
+  return toPublicDoc(updated)
 }
 
 /**

@@ -116,7 +116,17 @@ describe('project task payload helpers', () => {
         {
           title: 'Build /pricing page',
           assigneeAgentId: 'theo',
-          agentInput: { spec: 'Build a /pricing page using the existing design system' },
+          agentInput: {
+            spec: 'Build a /pricing page using the existing design system',
+            context: {
+              sourceDocumentId: ' doc-123 ',
+              sourceDocumentSectionId: ' section-2 ',
+              sourceSpecVersion: ' v4 ',
+              approvalGateTaskId: ' gate-1 ',
+              sourceResearchItemId: '',
+              otherContext: { keep: true },
+            },
+          },
           dependsOn: ['task-abc'],
           reviewerIds: ['reviewer-1'],
           reviewerAgentId: 'sage',
@@ -129,11 +139,21 @@ describe('project task payload helpers', () => {
       expect(result.value).toEqual(expect.objectContaining({
         assigneeAgentId: 'theo',
         agentStatus: 'pending',
-        agentInput: { spec: 'Build a /pricing page using the existing design system' },
+        agentInput: expect.objectContaining({ spec: 'Build a /pricing page using the existing design system' }),
         dependsOn: ['task-abc'],
         reviewerIds: ['reviewer-1'],
         reviewerAgentId: 'sage',
       }))
+      expect(result.value.agentInput).toEqual({
+        spec: 'Build a /pricing page using the existing design system',
+        context: {
+          sourceDocumentId: 'doc-123',
+          sourceDocumentSectionId: 'section-2',
+          sourceSpecVersion: 'v4',
+          approvalGateTaskId: 'gate-1',
+          otherContext: { keep: true },
+        },
+      })
     })
 
     it('rejects an unknown agent id', () => {
@@ -270,6 +290,34 @@ describe('project task payload helpers', () => {
       expect(result.ok).toBe(true)
       if (!result.ok) return
       expect(result.value.agentHeartbeatAt).toBe('__server_timestamp__')
+    })
+
+    it('PATCH: preserves spec/task linkage fields inside agentInput.context', () => {
+      const result = buildProjectTaskUpdateData({
+        agentInput: {
+          spec: 'Implement approved spec tasks',
+          context: {
+            sourceDocumentId: 'spec-1',
+            sourceDocumentSectionId: null,
+            sourceSpecVersion: '3',
+            approvalGateTaskId: 'approval-task-1',
+            sourceResearchItemId: 'research-1',
+          },
+        },
+      })
+
+      expect(result.ok).toBe(true)
+      if (!result.ok) return
+      expect(result.value.agentInput).toEqual({
+        spec: 'Implement approved spec tasks',
+        context: {
+          sourceDocumentId: 'spec-1',
+          sourceDocumentSectionId: null,
+          sourceSpecVersion: '3',
+          approvalGateTaskId: 'approval-task-1',
+          sourceResearchItemId: 'research-1',
+        },
+      })
     })
   })
 })

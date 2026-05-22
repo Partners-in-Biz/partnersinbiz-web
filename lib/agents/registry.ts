@@ -1,4 +1,5 @@
 import type { AgentId, AgentRegistryEntry } from './types'
+import { getAgentSkillPolicy } from './skill-policy'
 
 const REGISTRY_KEYS = [
   'responsibilities',
@@ -192,9 +193,16 @@ export function normalizeAgentRegistryInput(input: unknown): Partial<AgentRegist
 export function mergeAgentRegistry(agentId: AgentId, stored?: Partial<AgentRegistryEntry> | null): AgentRegistryEntry {
   const defaults = getAgentRegistryEntry(agentId)
   const safeStored = normalizeAgentRegistryInput(stored)
+  const policy = getAgentSkillPolicy(agentId)
+  const policySkills = policy
+    ? [
+        ...policy.pibSkills.map((skill) => `partnersinbiz/${skill}`),
+        ...policy.globalSkills,
+      ]
+    : undefined
   return {
     responsibilities: safeStored.responsibilities ?? defaults?.responsibilities ?? [],
-    skills: safeStored.skills ?? defaults?.skills ?? [],
+    skills: safeStored.skills ?? policySkills ?? defaults?.skills ?? [],
     cronWatchLoops: safeStored.cronWatchLoops ?? defaults?.cronWatchLoops ?? [],
     allowedScopes: safeStored.allowedScopes ?? defaults?.allowedScopes ?? [],
     exampleTaskTypes: safeStored.exampleTaskTypes ?? defaults?.exampleTaskTypes ?? [],

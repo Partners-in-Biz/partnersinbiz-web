@@ -19,6 +19,19 @@ export interface AgentRegistryEntry {
   exampleTaskTypes: string[]
 }
 
+export interface AgentSkillPolicyState {
+  mode: 'hard_allowlist'
+  policyVersion: string
+  pibSkills: string[]
+  globalSkills: string[]
+  deniedSkills: string[]
+  vpsExternalDir: string
+  appliedVersion?: string | null
+  appliedAt?: Timestamp | null
+  appliedBy?: string | null
+  driftStatus?: 'unknown' | 'in_sync' | 'drifted' | 'not_applied'
+}
+
 export interface AgentTeamDoc extends AgentRegistryEntry {
   agentId: AgentId
   name: string
@@ -32,6 +45,7 @@ export interface AgentTeamDoc extends AgentRegistryEntry {
   apiKey: string        // stored AES-256-GCM encrypted; masked to last 6 chars in reads
   lastHealthCheck?: Timestamp
   lastHealthStatus?: 'ok' | 'degraded' | 'unreachable'
+  skillPolicy?: AgentSkillPolicyState
   createdAt: Timestamp
   updatedAt: Timestamp
 }

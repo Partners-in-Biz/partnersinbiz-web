@@ -1,7 +1,8 @@
 /**
  * Firestore onSnapshot listener + dispatch coordinator.
  *
- * Subscribes to all tasks (collectionGroup) where assigneeAgentId ∈ AGENT_IDS and
+ * Subscribes to all tasks (collectionGroup) where assigneeAgentId is an enabled
+ * agent and
  * agentStatus = 'pending'. For each added/modified doc, attempts to claim it and run
  * it on Hermes. In-flight task IDs are tracked so rapid snapshot updates don't double-process.
  *
@@ -9,7 +10,7 @@
  */
 import type { DocumentReference, DocumentSnapshot, QuerySnapshot } from 'firebase-admin/firestore'
 import { db, FieldValue } from './firestore'
-import { AGENT_IDS, getAgentConfig, type AgentId } from './config'
+import { AGENT_IDS, getAgentConfig, loadEnabledAgentIds, type AgentId } from './config'
 import { claimReviewTask, claimTask, startHeartbeat } from './claim'
 import { runAndPoll, type TaskDispatchInput } from './hermes'
 import { logger } from './logger'
@@ -20,6 +21,7 @@ const MAX_CONCURRENT_PER_AGENT = 5
 
 const inFlight = new Set<string>()
 const perAgentInFlight = new Map<AgentId, number>()
+let activeAgentIds = new Set<string>(AGENT_IDS)
 
 function incAgent(agentId: AgentId): void {
   perAgentInFlight.set(agentId, (perAgentInFlight.get(agentId) ?? 0) + 1)
@@ -27,6 +29,22 @@ function incAgent(agentId: AgentId): void {
 function decAgent(agentId: AgentId): void {
   const cur = perAgentInFlight.get(agentId) ?? 0
   perAgentInFlight.set(agentId, Math.max(0, cur - 1))
+}
+
+function currentAgentIds(): string[] {
+  return Array.from(activeAgentIds).sort()
+}
+
+function isActiveAgentId(agentId: unknown): agentId is AgentId {
+  return typeof agentId === 'string' && activeAgentIds.has(agentId)
+}
+
+function chunkAgentIds(agentIds: string[], size = 30): string[][] {
+  const chunks: string[][] = []
+  for (let index = 0; index < agentIds.length; index += size) {
+    chunks.push(agentIds.slice(index, index + size))
+  }
+  return chunks.length > 0 ? chunks : [Array.from(AGENT_IDS)]
 }
 
 interface TaskData {
@@ -128,9 +146,9 @@ async function loadRecentTaskComments(taskRef: DocumentReference, limit = 8): Pr
 export async function dispatchTask(taskRef: DocumentReference, taskData: TaskData): Promise<void> {
   const taskId = taskRef.id
   const agentId = taskData.assigneeAgentId as AgentId | undefined
-  const blocker = getTaskDispatchBlocker(taskData, AGENT_IDS as readonly string[])
+  const blocker = getTaskDispatchBlocker(taskData, currentAgentIds())
   if (blocker) return
-  if (!agentId || !AGENT_IDS.includes(agentId)) return
+  if (!isActiveAgentId(agentId)) return
 
   if (inFlight.has(taskRef.path)) return
   if ((perAgentInFlight.get(agentId) ?? 0) >= MAX_CONCURRENT_PER_AGENT) {
@@ -300,7 +318,7 @@ function reviewApproved(output: string): boolean {
 async function dispatchReview(taskRef: DocumentReference, taskData: TaskData): Promise<void> {
   const taskId = taskRef.id
   const agentId = taskData.reviewerAgentId as AgentId | undefined
-  if (!agentId || !AGENT_IDS.includes(agentId)) return
+  if (!isActiveAgentId(agentId)) return
   if (taskData.columnId !== 'review' || taskData.reviewStatus !== 'pending') return
   if (inFlight.has(`${taskRef.path}:review`)) return
   if ((perAgentInFlight.get(agentId) ?? 0) >= MAX_CONCURRENT_PER_AGENT) return
@@ -389,12 +407,16 @@ export function inFlightCount(): number {
   return inFlight.size
 }
 
-export function startWatcher(): () => void {
-  logger.info('starting Firestore watcher', { agents: AGENT_IDS as readonly string[] })
+export async function startWatcher(agentIds?: readonly string[]): Promise<() => void> {
+  const enabledAgentIds = agentIds && agentIds.length > 0 ? Array.from(new Set(agentIds)) : await loadEnabledAgentIds()
+  activeAgentIds = new Set(enabledAgentIds)
+  const agentChunks = chunkAgentIds(currentAgentIds())
 
-  const unsubscribe = db
+  logger.info('starting Firestore watcher', { agents: currentAgentIds() })
+
+  const unsubscribes = agentChunks.map((chunk) => db
     .collectionGroup('tasks')
-    .where('assigneeAgentId', 'in', AGENT_IDS as unknown as string[])
+    .where('assigneeAgentId', 'in', chunk)
     .where('agentStatus', '==', 'pending')
     .where('columnId', '==', 'todo')
     .onSnapshot(
@@ -411,11 +433,11 @@ export function startWatcher(): () => void {
         logger.error('Firestore snapshot listener error', { error: err.message })
         // onSnapshot auto-reconnects internally; just log the surface error.
       },
-    )
+    ))
 
-  const reviewUnsubscribe = db
+  const reviewUnsubscribes = agentChunks.map((chunk) => db
     .collectionGroup('tasks')
-    .where('reviewerAgentId', 'in', AGENT_IDS as unknown as string[])
+    .where('reviewerAgentId', 'in', chunk)
     .where('columnId', '==', 'review')
     .where('reviewStatus', '==', 'pending')
     .onSnapshot(
@@ -428,7 +450,7 @@ export function startWatcher(): () => void {
         })
       },
       (err: Error) => logger.error('Firestore review snapshot listener error', { error: err.message }),
-    )
+    ))
 
   const dependencyUnsubscribe = db
     .collectionGroup('tasks')
@@ -445,8 +467,8 @@ export function startWatcher(): () => void {
 
   return () => {
     try {
-      unsubscribe()
-      reviewUnsubscribe()
+      unsubscribes.forEach((unsubscribe) => unsubscribe())
+      reviewUnsubscribes.forEach((unsubscribe) => unsubscribe())
       dependencyUnsubscribe()
     } catch (err) {
       logger.warn('unsubscribe threw', { error: err instanceof Error ? err.message : String(err) })

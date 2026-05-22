@@ -13,6 +13,18 @@ export interface AgentTeamDoc {
   apiKey: string
   lastHealthCheck?: string
   lastHealthStatus?: 'ok' | 'degraded' | 'unreachable'
+  skillPolicy?: {
+    mode: 'hard_allowlist'
+    policyVersion: string
+    pibSkills: string[]
+    globalSkills: string[]
+    deniedSkills: string[]
+    vpsExternalDir: string
+    appliedVersion?: string | null
+    appliedAt?: string | null
+    appliedBy?: string | null
+    driftStatus?: 'unknown' | 'in_sync' | 'drifted' | 'not_applied'
+  }
   responsibilities: string[]
   skills: string[]
   cronWatchLoops: string[]
