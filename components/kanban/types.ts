@@ -84,6 +84,8 @@ export interface Task {
   checklist?: ChecklistItem[]
   dueDate?: unknown
   startDate?: unknown
+  endDate?: unknown
+  completedAt?: unknown
   estimateMinutes?: number | null
   order: number
 }

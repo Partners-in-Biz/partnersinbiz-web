@@ -330,12 +330,13 @@ export function buildProjectTaskCreateData(
   }
 
   if (agentId.value) {
+    const nextAgentStatus = agentStatus.value ?? 'pending'
     value.assigneeAgentId = agentId.value
-    value.agentStatus = (agentStatus.value ?? 'pending') as AgentStatus
+    value.agentStatus = nextAgentStatus
     if (body.columnId === undefined) {
-      value.columnId = columnForAgentStatus(value.agentStatus)
+      value.columnId = columnForAgentStatus(nextAgentStatus)
     }
-    if (value.agentStatus === 'done') value.reviewStatus = 'pending'
+    if (nextAgentStatus === 'done') value.reviewStatus = 'pending'
   }
   const provenance = applyProvenanceFields(body, value)
   if (!provenance.ok) return provenance
