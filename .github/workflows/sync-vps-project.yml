@@ -66,6 +66,11 @@ jobs:
 
           cd "$repo"
           git config --global --add safe.directory "$repo" || true
+          git_dir="$(git rev-parse --git-common-dir 2>/dev/null || true)"
+          if command -v sudo >/dev/null 2>&1; then
+            sudo chown -R "$(id -u):$(id -g)" "$repo" ${git_dir:+"$git_dir"} 2>/dev/null || true
+          fi
+          chmod -R u+rwX "$repo" ${git_dir:+"$git_dir"} 2>/dev/null || true
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
           key_path=""
@@ -107,6 +112,7 @@ jobs:
           fi
 
           repair_remote="https://x-access-token:${{ github.token }}@github.com/Partners-in-Biz/partnersinbiz-web.git"
+          git rebase --abort 2>/dev/null || true
           git fetch "$repair_remote" development:refs/remotes/origin/development
           git rebase origin/development
           git push "$repair_remote" HEAD:development
