@@ -9,6 +9,11 @@ import type { PublishResult, ProfileInfo } from './types'
 
 const LINKEDIN_POSTS_URL = 'https://api.linkedin.com/rest/posts'
 const LINKEDIN_USERINFO_URL = 'https://api.linkedin.com/v2/userinfo'
+const LINKEDIN_LITERAL_RE = /(?<!\\)([()|{}\[\]<>@*_~])/g
+
+function escapeLinkedInLittleText(text: string): string {
+  return text.replace(LINKEDIN_LITERAL_RE, '\\$1')
+}
 
 export class LinkedInProvider extends SocialProvider {
   constructor(credentials: ProviderCredentials) {
@@ -143,7 +148,7 @@ export class LinkedInProvider extends SocialProvider {
 
     const body: Record<string, unknown> = {
       author: this.credentials.personUrn,
-      commentary: options.text,
+      commentary: escapeLinkedInLittleText(options.text),
       visibility: 'PUBLIC',
       distribution: {
         feedDistribution: 'MAIN_FEED',
