@@ -118,7 +118,7 @@ export function ResearchListClient({ mode, title, description, basePath, orgId, 
             value={newTitle}
             onChange={(event) => setNewTitle(event.target.value)}
             placeholder="New research title"
-            className="rounded-md border border-[var(--color-border)] bg-black/20 px-3 py-2 text-sm outline-none focus:border-[var(--color-pib-accent)]"
+            className="pib-input"
           />
           <button type="button" onClick={createResearch} disabled={!newTitle.trim() || creating} className="btn-pib-accent disabled:opacity-50">
             <span className="material-symbols-outlined text-base">{creating ? 'progress_activity' : 'add'}</span>
@@ -129,25 +129,25 @@ export function ResearchListClient({ mode, title, description, basePath, orgId, 
 
       <section className="bento-card grid gap-3 md:grid-cols-5">
         {mode === 'admin' && orgs.length > 0 && (
-          <select value={activeOrgId} onChange={(event) => setActiveOrgId(event.target.value)} className="rounded-md border border-[var(--color-border)] bg-black/20 px-3 py-2 text-sm">
+          <select value={activeOrgId} onChange={(event) => setActiveOrgId(event.target.value)} className="pib-select">
             {orgs.map((org) => <option key={org.id} value={org.id}>{org.name}</option>)}
           </select>
         )}
-        <select value={kind} onChange={(event) => setKind(event.target.value as ResearchKind | 'all')} className="rounded-md border border-[var(--color-border)] bg-black/20 px-3 py-2 text-sm">
+        <select value={kind} onChange={(event) => setKind(event.target.value as ResearchKind | 'all')} className="pib-select">
           <option value="all">All kinds</option>
           {RESEARCH_KINDS.map((value) => <option key={value} value={value}>{label(value)}</option>)}
         </select>
-        <select value={status} onChange={(event) => setStatus(event.target.value as ResearchStatus | 'all')} className="rounded-md border border-[var(--color-border)] bg-black/20 px-3 py-2 text-sm">
+        <select value={status} onChange={(event) => setStatus(event.target.value as ResearchStatus | 'all')} className="pib-select">
           <option value="all">All statuses</option>
           {RESEARCH_STATUSES.map((value) => <option key={value} value={value}>{label(value)}</option>)}
         </select>
         {mode === 'admin' && (
-          <select value={visibility} onChange={(event) => setVisibility(event.target.value as ResearchVisibility | 'all')} className="rounded-md border border-[var(--color-border)] bg-black/20 px-3 py-2 text-sm">
+          <select value={visibility} onChange={(event) => setVisibility(event.target.value as ResearchVisibility | 'all')} className="pib-select">
             <option value="all">All visibility</option>
             {RESEARCH_VISIBILITIES.map((value) => <option key={value} value={value}>{label(value)}</option>)}
           </select>
         )}
-        <input value={q} onChange={(event) => setQ(event.target.value)} placeholder="Search research" className="rounded-md border border-[var(--color-border)] bg-black/20 px-3 py-2 text-sm outline-none focus:border-[var(--color-pib-accent)]" />
+        <input value={q} onChange={(event) => setQ(event.target.value)} placeholder="Search research" className="pib-input" />
       </section>
 
       {error && <div className="rounded-md border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">{error}</div>}

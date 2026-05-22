@@ -133,7 +133,7 @@ export function workspaceNav(slug: string): NavItem[] {
       href: `/admin/org/${slug}/intelligence`,
       icon: 'analytics',
       group: 'data',
-      activePatterns: [`/admin/org/${slug}/activity`, `/admin/org/${slug}/research`, '/admin/analytics', '/admin/properties', '/admin/reports'],
+      activePatterns: [`/admin/org/${slug}/activity`, '/admin/analytics', '/admin/properties', '/admin/reports'],
     },
     { label: 'Wiki', href: `/admin/org/${slug}/wiki`, icon: 'menu_book', group: 'data' },
     { label: 'Team',     href: `/admin/org/${slug}/team`,     icon: 'groups', group: 'comms' },

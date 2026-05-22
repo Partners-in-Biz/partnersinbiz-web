@@ -213,15 +213,15 @@ export function ResearchDetailClient({ id, mode, basePath, documentsBasePath = '
       {mode === 'admin' && (
         <section className="bento-card space-y-4">
           <div className="grid gap-3 md:grid-cols-2">
-            <select value={status} onChange={(event) => setStatus(event.target.value as ResearchStatus)} className="rounded-md border border-[var(--color-border)] bg-black/20 px-3 py-2 text-sm">
+            <select value={status} onChange={(event) => setStatus(event.target.value as ResearchStatus)} className="pib-select">
               {RESEARCH_STATUSES.map((value) => <option key={value} value={value}>{label(value)}</option>)}
             </select>
-            <select value={visibility} onChange={(event) => setVisibility(event.target.value as ResearchVisibility)} className="rounded-md border border-[var(--color-border)] bg-black/20 px-3 py-2 text-sm">
+            <select value={visibility} onChange={(event) => setVisibility(event.target.value as ResearchVisibility)} className="pib-select">
               {RESEARCH_VISIBILITIES.map((value) => <option key={value} value={value}>{label(value)}</option>)}
             </select>
           </div>
-          <textarea value={summary} onChange={(event) => setSummary(event.target.value)} rows={3} className="w-full rounded-md border border-[var(--color-border)] bg-black/20 px-3 py-2 text-sm" placeholder="Research summary" />
-          <textarea value={notesMarkdown} onChange={(event) => setNotesMarkdown(event.target.value)} rows={6} className="w-full rounded-md border border-[var(--color-border)] bg-black/20 px-3 py-2 text-sm font-mono" placeholder="Working notes markdown" />
+          <textarea value={summary} onChange={(event) => setSummary(event.target.value)} rows={3} className="pib-textarea" placeholder="Research summary" />
+          <textarea value={notesMarkdown} onChange={(event) => setNotesMarkdown(event.target.value)} rows={6} className="pib-textarea font-mono" placeholder="Working notes markdown" />
           <button type="button" className="btn-pib-accent" onClick={() => patchItem({ status, visibility, summary, notesMarkdown })}>
             <span className="material-symbols-outlined text-base">save</span>
             Save Research
@@ -247,7 +247,7 @@ export function ResearchDetailClient({ id, mode, basePath, documentsBasePath = '
                         const findings = item.findings.map((row) => row.id === finding.id ? { ...row, status: event.target.value as ResearchFindingStatus } : row)
                         patchItem({ findings })
                       }}
-                      className="rounded-md border border-[var(--color-border)] bg-black/20 px-2 py-1 text-xs"
+                      className="pib-select !w-auto !py-1 !pl-2 !pr-7 text-xs"
                     >
                       {RESEARCH_FINDING_STATUSES.map((value) => <option key={value} value={value}>{label(value)}</option>)}
                     </select>
@@ -275,8 +275,8 @@ export function ResearchDetailClient({ id, mode, basePath, documentsBasePath = '
             <h2 className="font-display text-2xl">Sources</h2>
             {mode === 'admin' && (
               <div className="space-y-2">
-                <input value={sourceTitle} onChange={(event) => setSourceTitle(event.target.value)} placeholder="Source title" className="w-full rounded-md border border-[var(--color-border)] bg-black/20 px-3 py-2 text-sm" />
-                <input value={sourceUrl} onChange={(event) => setSourceUrl(event.target.value)} placeholder="Source URL" className="w-full rounded-md border border-[var(--color-border)] bg-black/20 px-3 py-2 text-sm" />
+                <input value={sourceTitle} onChange={(event) => setSourceTitle(event.target.value)} placeholder="Source title" className="pib-input" />
+                <input value={sourceUrl} onChange={(event) => setSourceUrl(event.target.value)} placeholder="Source URL" className="pib-input" />
                 <button type="button" className="btn-pib-secondary !py-1.5 !text-sm" onClick={addSource}>
                   <span className="material-symbols-outlined text-base">add_link</span>
                   Add Source
@@ -294,7 +294,7 @@ export function ResearchDetailClient({ id, mode, basePath, documentsBasePath = '
 
           <section className="bento-card space-y-4">
             <h2 className="font-display text-2xl">Comments</h2>
-            <textarea value={newComment} onChange={(event) => setNewComment(event.target.value)} rows={3} className="w-full rounded-md border border-[var(--color-border)] bg-black/20 px-3 py-2 text-sm" placeholder="Comment on this research" />
+            <textarea value={newComment} onChange={(event) => setNewComment(event.target.value)} rows={3} className="pib-textarea" placeholder="Comment on this research" />
             <button type="button" className="btn-pib-accent !py-1.5 !text-sm" onClick={() => postComment()}>
               <span className="material-symbols-outlined text-base">comment</span>
               Post Comment
