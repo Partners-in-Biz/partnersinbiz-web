@@ -5,6 +5,7 @@ import { buildClientProvisioningPayload, type ClientProvisioningInput } from './
 export type FullClientProvisioningResult = {
   profile: unknown
   workspace: unknown
+  warnings?: string[]
 }
 
 function isConflict(response: Response, data: unknown) {
@@ -16,6 +17,17 @@ function isConflict(response: Response, data: unknown) {
 
 export async function provisionFullClientOnVps(input: ClientProvisioningInput): Promise<FullClientProvisioningResult> {
   const payload = buildClientProvisioningPayload(input)
+  const warnings: string[] = []
+
+  const workspaceResponse = await callAgentPath('pip' as AgentId, '/admin/client-workspaces', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+
+  if (!workspaceResponse.response.ok && !isConflict(workspaceResponse.response, workspaceResponse.data)) {
+    throw new Error(`VPS workspace provisioning failed: ${JSON.stringify(workspaceResponse.data).slice(0, 500)}`)
+  }
 
   const profileResponse = await callAgentPath('pip' as AgentId, '/admin/profiles', {
     method: 'POST',
@@ -31,22 +43,21 @@ export async function provisionFullClientOnVps(input: ClientProvisioningInput): 
     }),
   })
 
-  if (!profileResponse.response.ok && !isConflict(profileResponse.response, profileResponse.data)) {
-    throw new Error(`VPS profile provisioning failed: ${JSON.stringify(profileResponse.data).slice(0, 500)}`)
-  }
-
-  const workspaceResponse = await callAgentPath('pip' as AgentId, '/admin/client-workspaces', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  })
-
-  if (!workspaceResponse.response.ok) {
-    throw new Error(`VPS workspace provisioning failed: ${JSON.stringify(workspaceResponse.data).slice(0, 500)}`)
+  const profileExists = isConflict(profileResponse.response, profileResponse.data)
+  const profileProvisioned = profileResponse.response.ok || profileExists
+  if (!profileProvisioned) {
+    warnings.push(`VPS profile provisioning warning: ${JSON.stringify(profileResponse.data).slice(0, 500)}`)
   }
 
   return {
-    profile: profileResponse.response.ok ? profileResponse.data : { existing: true, upstream: profileResponse.data },
-    workspace: workspaceResponse.data,
+    profile: profileResponse.response.ok
+      ? profileResponse.data
+      : profileExists
+        ? { existing: true, upstream: profileResponse.data }
+        : { skipped: true, upstream: profileResponse.data },
+    workspace: workspaceResponse.response.ok
+      ? workspaceResponse.data
+      : { existing: true, upstream: workspaceResponse.data },
+    ...(warnings.length > 0 ? { warnings } : {}),
   }
 }
