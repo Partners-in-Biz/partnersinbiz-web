@@ -25,6 +25,13 @@ const sources: ResearchSource[] = [
   { id: 's1', researchItemId: 'research-1', type: 'url', title: 'Forum thread', url: 'https://example.com/thread', confidence: 'medium', verified: true, createdBy: 'admin-1', updatedBy: 'admin-1', deleted: false },
 ]
 
+function containsUndefined(value: unknown): boolean {
+  if (value === undefined) return true
+  if (Array.isArray(value)) return value.some(containsUndefined)
+  if (!value || typeof value !== 'object') return false
+  return Object.values(value).some(containsUndefined)
+}
+
 describe('research report document blocks', () => {
   it('turns research into client-document blocks with findings, sources, recommendations, and next steps', () => {
     const blocks = blocksFromResearchItem(item, sources)
@@ -42,5 +49,25 @@ describe('research report document blocks', () => {
     expect(JSON.stringify(blocks)).toContain('Risk questions dominate')
     expect(JSON.stringify(blocks)).toContain('Forum thread')
     expect(JSON.stringify(blocks)).toContain('Publish proof-led explainers')
+  })
+
+  it('serializes sparse research report blocks without Firestore-unsafe undefined values', async () => {
+    const { serializeBlocksForFirestore } = await import('@/lib/client-documents/firestore-blocks')
+
+    const blocks = serializeBlocksForFirestore(blocksFromResearchItem(item, [
+      {
+        id: 'sparse-source',
+        researchItemId: 'research-1',
+        type: 'note',
+        title: 'Sparse source',
+        confidence: 'medium',
+        verified: false,
+        createdBy: 'admin-1',
+        updatedBy: 'admin-1',
+        deleted: false,
+      },
+    ]))
+
+    expect(containsUndefined(blocks)).toBe(false)
   })
 })

@@ -169,6 +169,21 @@ export function ResearchDetailClient({ id, mode, basePath, documentsBasePath = '
     }
   }
 
+  async function openResearchReport(destination: 'edit' | 'preview') {
+    if (!item) return
+    const existingDocumentId = item.linked.documentIds?.[0]
+    let documentId = existingDocumentId
+
+    if (!documentId) {
+      const data = await runAction(`/api/v1/research/${id}/create-document`, 'Creating document')
+      documentId = data?.documentId
+    }
+
+    if (documentId) {
+      window.location.href = `${documentsBasePath}/${documentId}${destination === 'preview' ? '/preview' : ''}`
+    }
+  }
+
   if (error && !item) {
     return <div className="rounded-md border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">{error}</div>
   }
@@ -189,12 +204,13 @@ export function ResearchDetailClient({ id, mode, basePath, documentsBasePath = '
               <span className="material-symbols-outlined text-base">sync</span>
               Export Obsidian
             </button>
-            <button type="button" className="btn-pib-accent" onClick={async () => {
-              const data = await runAction(`/api/v1/research/${id}/create-document`, 'Creating document')
-              if (data?.documentId) window.location.href = `${documentsBasePath}/${data.documentId}`
-            }}>
+            <button type="button" className="btn-pib-secondary" onClick={() => openResearchReport('preview')}>
+              <span className="material-symbols-outlined text-base">visibility</span>
+              Preview Report
+            </button>
+            <button type="button" className="btn-pib-accent" onClick={() => openResearchReport('edit')}>
               <span className="material-symbols-outlined text-base">description</span>
-              Create Report
+              {item.linked.documentIds?.length ? 'Open Report' : 'Create Report'}
             </button>
           </div>
         )}
