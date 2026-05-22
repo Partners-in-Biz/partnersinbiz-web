@@ -11,8 +11,25 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value)
 }
 
+function withoutUndefinedDeep<T>(value: T): T {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => withoutUndefinedDeep(item))
+      .filter((item) => item !== undefined) as T
+  }
+
+  if (!isPlainObject(value)) return value
+
+  return Object.fromEntries(
+    Object.entries(value)
+      .map(([key, entry]) => [key, withoutUndefinedDeep(entry)] as const)
+      .filter(([, entry]) => entry !== undefined),
+  ) as T
+}
+
 export function serializeBlocksForFirestore(blocks: DocumentBlock[]): DocumentBlock[] {
-  return blocks.map((block) => {
+  return blocks.map((inputBlock) => {
+    const block = withoutUndefinedDeep(inputBlock)
     if (block.type !== 'table' || !isPlainObject(block.content)) return block
     const content = block.content as TableContentInput
     if (!Array.isArray(content.rows)) return block

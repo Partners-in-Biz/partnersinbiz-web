@@ -93,6 +93,26 @@ function strings(value: unknown): string[] {
   return Array.from(new Set(value.map((item) => typeof item === 'string' ? item.trim() : '').filter(Boolean)))
 }
 
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === 'object' && !Array.isArray(value) && Object.getPrototypeOf(value) === Object.prototype
+}
+
+function withoutUndefinedDeep<T>(value: T): T {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => withoutUndefinedDeep(item))
+      .filter((item) => item !== undefined) as T
+  }
+
+  if (!isPlainObject(value)) return value
+
+  return Object.fromEntries(
+    Object.entries(value)
+      .map(([key, entry]) => [key, withoutUndefinedDeep(entry)] as const)
+      .filter(([, entry]) => entry !== undefined),
+  ) as T
+}
+
 function linked(value: unknown): ResearchLinked {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {}
   const input = value as Record<string, unknown>
@@ -261,7 +281,7 @@ export async function createResearchSource(researchItemId: string, input: Resear
   if (!title) throw new Error('title is required')
   const ref = adminDb.collection(RESEARCH_COLLECTION).doc(researchItemId).collection('sources').doc()
   const now = FieldValue.serverTimestamp()
-  await ref.set({
+  await ref.set(withoutUndefinedDeep({
     researchItemId,
     type: oneOf(input.type, RESEARCH_SOURCE_TYPES, 'note'),
     title,
@@ -279,7 +299,7 @@ export async function createResearchSource(researchItemId: string, input: Resear
     updatedAt: now,
     updatedBy: user.uid,
     deleted: false,
-  })
+  }))
   return { id: ref.id }
 }
 
@@ -298,7 +318,7 @@ export async function updateResearchSource(researchItemId: string, sourceId: str
   }
   if (typeof input.verified === 'boolean') updates.verified = input.verified
   if (input.metadata && typeof input.metadata === 'object' && !Array.isArray(input.metadata)) updates.metadata = input.metadata
-  await adminDb.collection(RESEARCH_COLLECTION).doc(researchItemId).collection('sources').doc(sourceId).update(updates)
+  await adminDb.collection(RESEARCH_COLLECTION).doc(researchItemId).collection('sources').doc(sourceId).update(withoutUndefinedDeep(updates))
 }
 
 export async function archiveResearchSource(researchItemId: string, sourceId: string, user: ApiUser): Promise<void> {

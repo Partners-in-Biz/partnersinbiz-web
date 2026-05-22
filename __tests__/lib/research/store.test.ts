@@ -24,6 +24,13 @@ jest.mock('firebase-admin/firestore', () => ({
 
 const user: ApiUser = { uid: 'admin-1', role: 'admin', orgId: 'platform' }
 
+function containsUndefined(value: unknown): boolean {
+  if (value === undefined) return true
+  if (Array.isArray(value)) return value.some(containsUndefined)
+  if (!value || typeof value !== 'object') return false
+  return Object.values(value).some(containsUndefined)
+}
+
 beforeEach(() => {
   jest.clearAllMocks()
   const docRef = { id: 'research-1', set: mockSet, update: mockUpdate, get: mockGet, collection: mockCollection }
@@ -71,5 +78,25 @@ describe('research store', () => {
       deleted: true,
       updatedBy: 'admin-1',
     }))
+  })
+
+  it('creates sparse source records without undefined Firestore values', async () => {
+    const { createResearchSource } = await import('@/lib/research/store')
+
+    await createResearchSource('research-1', {
+      title: 'Source without optional fields',
+      type: 'note',
+      metadata: { kept: true, missing: undefined },
+    }, user)
+
+    const payload = mockSet.mock.calls[0][0]
+    expect(payload).toMatchObject({
+      researchItemId: 'research-1',
+      title: 'Source without optional fields',
+      type: 'note',
+      confidence: 'medium',
+      verified: false,
+    })
+    expect(containsUndefined(payload)).toBe(false)
   })
 })
