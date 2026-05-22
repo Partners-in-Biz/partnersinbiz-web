@@ -31,6 +31,15 @@ export default function AgentsBoardClient() {
   const [newModel, setNewModel]       = useState('gpt-5.5')
   const [newProvider, setNewProvider] = useState('openai-codex')
   const [isSuperAdmin, setIsSuperAdmin] = useState(false)
+  const enabledCount = agents.filter((agent) => agent.enabled).length
+  const driftedPolicyCount = agents.filter((agent) => {
+    const status = agent.skillPolicy?.driftStatus
+    return status === 'drifted' || status === 'not_applied' || !agent.skillPolicy
+  }).length
+  const hardGateCount = agents.reduce((sum, agent) => sum + (agent.skillPolicy?.approvalGates?.length ?? 0), 0)
+  const quinnReviewCount = agents.filter((agent) => agent.skillPolicy?.reviewerAgentId === 'qa-release').length
+  const capabilityCount = new Set(agents.flatMap((agent) => agent.skillPolicy?.capabilities ?? [])).size
+  const installedRuntimeSkillCount = agents.reduce((sum, agent) => sum + (agent.skillPolicy?.runtimeSkills?.length ?? agent.skillPolicy?.pibSkills?.length ?? 0), 0)
 
   const pingAllHealth = useCallback(async (agentList: AgentTeamDoc[]) => {
     // Set all to loading first
@@ -224,6 +233,27 @@ export default function AgentsBoardClient() {
         <div className="pib-card border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-red-400">
           {topError}
         </div>
+      )}
+
+      {!loading && agents.length > 0 && (
+        <section className="grid grid-cols-2 gap-3 lg:grid-cols-6">
+          {[
+            { label: 'Enabled', value: `${enabledCount}/${agents.length}`, icon: 'power_settings_new' },
+            { label: 'Policy Drift', value: String(driftedPolicyCount), icon: 'rule_settings' },
+            { label: 'Hard Gates', value: String(hardGateCount), icon: 'approval' },
+            { label: 'Quinn Review', value: String(quinnReviewCount), icon: 'verified' },
+            { label: 'Capabilities', value: String(capabilityCount), icon: 'admin_panel_settings' },
+            { label: 'Runtime Skills', value: String(installedRuntimeSkillCount), icon: 'extension' },
+          ].map((item) => (
+            <div key={item.label} className="pib-card p-3">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant">{item.label}</span>
+                <span className="material-symbols-outlined text-[16px] text-on-surface-variant/70">{item.icon}</span>
+              </div>
+              <div className="mt-2 text-xl font-semibold text-on-surface">{item.value}</div>
+            </div>
+          ))}
+        </section>
       )}
 
       {/* Agent grid */}

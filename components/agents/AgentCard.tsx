@@ -16,9 +16,16 @@ export interface AgentTeamDoc {
   skillPolicy?: {
     mode: 'hard_allowlist'
     policyVersion: string
+    catalogVersion?: string
     pibSkills: string[]
+    runtimeSkills?: string[]
     globalSkills: string[]
     deniedSkills: string[]
+    capabilities?: string[]
+    approvalGates?: string[]
+    primaryOwnerOf?: string[]
+    mayRequestFrom?: string[]
+    reviewerAgentId?: string | null
     vpsExternalDir: string
     appliedVersion?: string | null
     appliedAt?: string | null

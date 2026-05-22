@@ -3,7 +3,7 @@
  *
  * Doc shape (written by scripts/seed-agent-dispatch-configs.ts):
  *   {
- *     agentId: 'pip' | 'theo' | 'maya' | 'sage' | 'nora',
+ *     agentId: 'pip' | 'theo' | 'maya' | ...,
  *     baseUrl: string,          // e.g. https://hermes-api.partnersinbiz.online
  *     apiKey: string,           // bearer token Hermes will accept
  *     enabled: boolean,
@@ -16,7 +16,7 @@
 import { db } from './firestore'
 import { logger } from './logger'
 
-export const DEFAULT_AGENT_IDS = ['pip', 'theo', 'maya', 'sage', 'nora'] as const
+export const DEFAULT_AGENT_IDS = ['ads', 'data', 'docs', 'maya', 'nora', 'pip', 'qa-release', 'sage', 'seo', 'support', 'theo'] as const
 export const AGENT_IDS = DEFAULT_AGENT_IDS
 export type AgentId = string
 

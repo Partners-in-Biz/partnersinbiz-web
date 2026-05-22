@@ -15,12 +15,31 @@ const VALID_AGENT_STATUSES = [
   'blocked',
 ] as const
 
+const VALID_RISK_LEVELS = ['low', 'medium', 'high', 'critical'] as const
+
+const VALID_AGENT_CAPABILITIES = [
+  'read',
+  'draft',
+  'write',
+  'approve',
+  'publish',
+  'deploy',
+  'spend',
+  'message_client',
+  'access_secret',
+  'delete',
+] as const
+
 export const TASK_SOURCE_LINKAGE_FIELDS = [
   'sourceDocumentId',
   'sourceDocumentSectionId',
   'sourceSpecVersion',
   'approvalGateTaskId',
   'sourceResearchItemId',
+  'riskLevel',
+  'requiredCapability',
+  'requestedByAgentId',
+  'expectedArtifacts',
 ] as const
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -36,12 +55,36 @@ function cleanStringArray(value: unknown): string[] {
   return Array.from(new Set(value.map(cleanString).filter((item): item is string => !!item)))
 }
 
+function cleanRiskLevel(value: unknown): PayloadResult<string | null> {
+  if (value === undefined || value === null || value === '') return { ok: true, value: null }
+  const cleaned = cleanString(value)
+  if (!cleaned || !VALID_RISK_LEVELS.includes(cleaned as (typeof VALID_RISK_LEVELS)[number])) {
+    return { ok: false, error: 'Invalid riskLevel; expected low | medium | high | critical', status: 400 }
+  }
+  return { ok: true, value: cleaned }
+}
+
+function cleanRequiredCapability(value: unknown): PayloadResult<string | null> {
+  if (value === undefined || value === null || value === '') return { ok: true, value: null }
+  const cleaned = cleanString(value)
+  if (!cleaned || !VALID_AGENT_CAPABILITIES.includes(cleaned as (typeof VALID_AGENT_CAPABILITIES)[number])) {
+    return { ok: false, error: `Invalid requiredCapability; expected one of ${VALID_AGENT_CAPABILITIES.join(' | ')}`, status: 400 }
+  }
+  return { ok: true, value: cleaned }
+}
+
 function cleanAgentContext(value: unknown): Record<string, unknown> | null {
   if (!isRecord(value)) return null
   const out: Record<string, unknown> = { ...value }
 
   for (const field of TASK_SOURCE_LINKAGE_FIELDS) {
     if (!(field in value)) continue
+    if (field === 'expectedArtifacts') {
+      const cleaned = cleanStringArray(value[field])
+      if (cleaned.length > 0) out[field] = cleaned
+      else delete out[field]
+      continue
+    }
     const cleaned = cleanString(value[field])
     if (cleaned) {
       out[field] = cleaned
@@ -53,6 +96,31 @@ function cleanAgentContext(value: unknown): Record<string, unknown> | null {
   }
 
   return out
+}
+
+function applyProvenanceFields(
+  source: Record<string, unknown>,
+  target: Record<string, unknown>,
+): PayloadResult<null> {
+  if (source.riskLevel !== undefined) {
+    const risk = cleanRiskLevel(source.riskLevel)
+    if (!risk.ok) return { ok: false, error: risk.error, status: risk.status }
+    if (risk.value) target.riskLevel = risk.value
+  }
+  if (source.requiredCapability !== undefined) {
+    const capability = cleanRequiredCapability(source.requiredCapability)
+    if (!capability.ok) return { ok: false, error: capability.error, status: capability.status }
+    if (capability.value) target.requiredCapability = capability.value
+  }
+  if (source.requestedByAgentId !== undefined) {
+    const requestedBy = cleanAgentId(source.requestedByAgentId, 'requestedByAgentId')
+    if (!requestedBy.ok) return { ok: false, error: requestedBy.error, status: requestedBy.status }
+    if (requestedBy.value) target.requestedByAgentId = requestedBy.value
+  }
+  if (source.expectedArtifacts !== undefined) {
+    target.expectedArtifacts = cleanStringArray(source.expectedArtifacts)
+  }
+  return { ok: true, value: null }
 }
 
 function cleanOptionalDate(value: unknown): string | null {
@@ -261,6 +329,8 @@ export function buildProjectTaskCreateData(
     value.assigneeAgentId = agentId.value
     value.agentStatus = 'pending'
   }
+  const provenance = applyProvenanceFields(body, value)
+  if (!provenance.ok) return provenance
   if (agentInput.value) value.agentInput = agentInput.value
   if (dependsOn.value.length > 0) value.dependsOn = dependsOn.value
   const reviewerIds = cleanStringArray(body.reviewerIds)
@@ -377,6 +447,9 @@ export function buildProjectTaskUpdateData(body: Record<string, unknown>): Paylo
     // Real timestamp is set in the route handler via FieldValue.serverTimestamp().
     updates.agentHeartbeatAt = '__server_timestamp__'
   }
+
+  const provenance = applyProvenanceFields(body, updates)
+  if (!provenance.ok) return provenance
 
   return { ok: true, value: updates }
 }

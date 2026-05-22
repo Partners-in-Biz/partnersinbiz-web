@@ -67,8 +67,14 @@ type SkillPolicyView = {
   policy: {
     vpsExternalDir: string
     pibSkills: string[]
+    runtimeSkills?: string[]
     globalSkills: string[]
     deniedSkills: string[]
+    capabilities?: string[]
+    approvalGates?: string[]
+    primaryOwnerOf?: string[]
+    mayRequestFrom?: string[]
+    reviewerAgentId?: string | null
   }
   drift?: {
     status: 'in_sync' | 'drifted' | 'not_applied'
@@ -903,9 +909,16 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
                   </span>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <RegistryList title="Allowed PiB skills" items={skillPolicy.policy.pibSkills} />
+                  <RegistryList title="Runtime repo skills" items={skillPolicy.policy.runtimeSkills ?? skillPolicy.policy.pibSkills} />
                   <RegistryList title="Allowed global skills" items={skillPolicy.policy.globalSkills} />
+                  <RegistryList title="Action capabilities" items={skillPolicy.policy.capabilities ?? []} />
+                  <RegistryList title="Hard approval gates" items={skillPolicy.policy.approvalGates ?? []} />
                 </div>
+                {skillPolicy.policy.reviewerAgentId && (
+                  <p className="text-xs text-on-surface-variant">
+                    Reviewer: <span className="font-mono text-on-surface">{skillPolicy.policy.reviewerAgentId}</span>
+                  </p>
+                )}
                 {skillPolicy.drift && skillPolicy.drift.status !== 'in_sync' && (
                   <div className="rounded-md border border-amber-500/20 bg-amber-500/10 p-2 text-xs text-amber-200">
                     Drift detected: {[

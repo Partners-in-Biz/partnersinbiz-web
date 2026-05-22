@@ -1,4 +1,4 @@
-export type AgentId = 'pip' | 'theo' | 'maya' | 'sage' | 'nora'
+export type AgentId = string
 
 export type AgentTaskCard = {
   id: string

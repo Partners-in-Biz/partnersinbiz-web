@@ -11,10 +11,10 @@ describe('agent watcher config', () => {
     ])).toEqual(['docs', 'pip', 'sage'])
   })
 
-  it('falls back to the live core five when agent_team yields no usable ids', () => {
+  it('falls back to the live policy team when agent_team yields no usable ids', () => {
     expect(normalizeEnabledAgentIds([
       { id: 'bad id', data: { enabled: true } },
       { id: 'disabled', data: { enabled: false } },
-    ])).toEqual(['pip', 'theo', 'maya', 'sage', 'nora'])
+    ])).toEqual(['ads', 'data', 'docs', 'maya', 'nora', 'pip', 'qa-release', 'sage', 'seo', 'support', 'theo'])
   })
 })

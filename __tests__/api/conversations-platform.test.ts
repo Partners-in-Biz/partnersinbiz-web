@@ -38,7 +38,7 @@ beforeEach(() => {
   jest.clearAllMocks()
   mockUser = { uid: 'admin-1', role: 'admin' }
   mockOrgChatConfigGet.mockResolvedValue({ exists: false, data: () => ({}) })
-  mockResolveVisibleAgents.mockReturnValue(['pip', 'theo', 'maya', 'sage', 'nora'])
+  mockResolveVisibleAgents.mockReturnValue(['pip', 'theo', 'maya', 'sage', 'nora', 'ads', 'qa-release', 'support', 'data', 'docs', 'seo'])
   mockCreateConversation.mockImplementation(async (input) => ({ id: 'conv-1', ...input }))
   mockListConversations.mockResolvedValue([{ id: 'conv-1', orgId: 'pib-platform-owner' }])
 
@@ -125,7 +125,7 @@ describe('platform-scoped unified conversations', () => {
     const res = await GET(new NextRequest('http://localhost/api/v1/conversations?orgId=pib-platform-owner'))
 
     expect(res.status).toBe(200)
-    expect(mockListConversations).toHaveBeenCalledWith('pib-platform-owner', 'admin-1', 30)
+    expect(mockListConversations).toHaveBeenCalledWith('pib-platform-owner', 'admin-1', 30, expect.any(Object))
   })
 
   it('lets a client start a platform-workspace conversation with listed org members', async () => {

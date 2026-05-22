@@ -7,6 +7,7 @@
  */
 import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
+import { AGENT_IDS } from '@/lib/agents/types'
 import type { AgentId, Conversation, ConversationMessage, Participant } from './types'
 
 export const CONVERSATIONS_COLLECTION = 'conversations'
@@ -235,7 +236,7 @@ export function resolveVisibleAgents(
   role: 'admin' | 'client',
 ): AgentId[] {
   const defaults: Record<'admin' | 'client', AgentId[]> = {
-    admin: ['pip', 'theo', 'maya', 'sage', 'nora'],
+    admin: [...AGENT_IDS],
     client: ['pip'],
   }
   return config?.visibleAgents?.[role] ?? defaults[role]

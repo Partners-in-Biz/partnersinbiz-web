@@ -38,16 +38,24 @@ Push normal work to `origin/development`. Vercel should build those pushes as Pr
 
 ## Hermes Agent Skill Policy
 
-The live PiB task-bus specialists are `pip`, `theo`, `maya`, `sage`, and `nora`. Do not create module agents until volume or risk proves the need. Reserved future candidates are `seo`, `ads`, `docs`, `support`, `data`, and `qa-release`.
+The live PiB task-bus specialists are `pip`, `theo`, `maya`, `sage`, `nora`, `ads`, `qa-release`, `support`, `data`, `docs`, and `seo`. UI names may be human-friendly, but routing and policy always use the functional `agentId`.
 
-Runtime skills are hard-allowlisted by `config/agent-skill-policy.json`. The same manifest is consumed by the app registry, admin skill-policy view, VPS sync/apply scripts, and watcher rollout notes.
+Runtime skills are hard-allowlisted by `config/agent-skill-policy.json`. The v2 manifest catalogs every repo skill path, declares an owner, risk level, runtime agents, sync target, action capabilities, approval gates, and reviewer defaults. The same manifest is consumed by the app registry, admin skill-policy view, VPS sync/apply scripts, and watcher rollout notes.
 
 - `pip` owns routing, client context, Projects/Kanban, approvals, status summaries, onboarding, and cross-agent follow-up.
 - `theo` owns engineering, infra, deployments, debugging, tests, GitHub/Vercel, and the engineering workflow skills.
 - `maya` owns content-engine, social, brand voice, campaign assets, scheduling, and creative packs.
-- `sage` owns research, SEO, analytics readouts, competitor intelligence, and evidence-backed recommendations.
+- `sage` owns research, strategic intelligence, competitor analysis, and evidence-backed recommendations.
 - `nora` owns billing, CRM hygiene, inbox/email ops, reports, finance-sensitive follow-ups, and admin reconciliation.
+- `ads` / Ari owns paid ads, ad audits, media planning, budgets, experiments, and launch/spend workflows.
+- `qa-release` / Quinn owns QA, release readiness, smoke tests, reviewer queues, and production verification.
+- `support` / Luca owns ticket intake, issue reproduction, triage, and client support routing.
+- `data` / Vera owns analytics, dashboards, attribution, reporting, and data quality.
+- `docs` / Iris owns client documents, specs, approvals, reports, and deliverable polish.
+- `seo` / Silas owns SEO sprint execution, local SEO, GSC/PageSpeed/Bing interpretation, and optimization queues.
 
-Theo’s engineering workflow must use the Partners delivery gate: create the online spec/change document first, wait for approval, then create linked Kanban implementation tasks with dependencies and `agentStatus=pending`. Link tasks back through `agentInput.context.sourceDocumentId`, `sourceDocumentSectionId`, `sourceSpecVersion`, `approvalGateTaskId`, and `sourceResearchItemId` where applicable.
+Sensitive capabilities are hard gates, not suggestions. Production deploys, paid-ad spend or launch, public publishing, client-visible email/message sends, invoice/payment changes, destructive data operations, secret/config changes, and final client reports require an approval task in Projects/Kanban before execution.
+
+Theo’s engineering workflow must use the Partners delivery gate: create the online spec/change document first, wait for approval, then create linked Kanban implementation tasks with dependencies and `agentStatus=pending`. Link tasks back through `agentInput.context.sourceDocumentId`, `sourceDocumentSectionId`, `sourceSpecVersion`, `approvalGateTaskId`, `sourceResearchItemId`, `riskLevel`, `requiredCapability`, `reviewerAgentId`, and `expectedArtifacts` where applicable.
 
 VPS profiles must load only `/var/lib/hermes/agent-skills/<agentId>` in `skills.external_dirs`. Do not point core specialist profiles back at `/var/lib/hermes/pib-skills`; that shared cache is only the source for policy-generated per-agent directories.

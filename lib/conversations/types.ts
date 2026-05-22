@@ -7,13 +7,13 @@
  */
 import type { Timestamp } from 'firebase-admin/firestore'
 
-import type { AgentId } from '@/lib/agents/types'
+import { AGENT_IDS, type AgentId } from '@/lib/agents/types'
 export type { AgentId }
 
 export interface OrgChatConfig {
   orgId: string
   visibleAgents: {
-    admin: AgentId[]  // default: ['pip','theo','maya','sage','nora']
+    admin: AgentId[]  // default: all policy agents
     client: AgentId[] // default: ['pip']
   }
   enableClientToAdminChat: boolean    // default: true
@@ -24,7 +24,7 @@ export interface OrgChatConfig {
 
 export const DEFAULT_CHAT_CONFIG: Omit<OrgChatConfig, 'orgId' | 'updatedAt' | 'updatedBy'> = {
   visibleAgents: {
-    admin: ['pip', 'theo', 'maya', 'sage', 'nora'],
+    admin: [...AGENT_IDS],
     client: ['pip'],
   },
   enableClientToAdminChat: true,

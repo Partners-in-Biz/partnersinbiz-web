@@ -233,7 +233,7 @@ export interface ClientDocumentAgentWorkflowTask {
   title: string
   description: string
   sectionId: string
-  assigneeAgentId?: 'pip' | 'theo' | 'maya' | 'sage' | 'nora'
+  assigneeAgentId?: string
   dependsOn?: string[]
   priority?: 'urgent' | 'high' | 'medium' | 'normal' | 'low'
   labels?: string[]

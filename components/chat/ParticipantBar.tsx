@@ -1,6 +1,6 @@
 'use client'
 
-type AgentId = 'pip' | 'theo' | 'maya' | 'sage' | 'nora'
+type AgentId = string
 
 type Participant =
   | { kind: 'user'; uid: string; role: 'admin' | 'client'; displayName?: string }
@@ -20,12 +20,18 @@ const AGENT_COLOR: Record<string, { dot: string; label: string }> = {
 }
 
 // Agent ID → default color key (matches AgentTeamDoc.colorKey in Firestore)
-const AGENT_DEFAULT_COLOR: Record<AgentId, string> = {
+const AGENT_DEFAULT_COLOR: Record<string, string> = {
   pip:   'violet',
   theo:  'sky',
   maya:  'amber',
   sage:  'emerald',
   nora:  'rose',
+  ads:   'amber',
+  'qa-release': 'emerald',
+  support: 'sky',
+  data: 'violet',
+  docs: 'rose',
+  seo:  'emerald',
 }
 
 function initials(name: string): string {

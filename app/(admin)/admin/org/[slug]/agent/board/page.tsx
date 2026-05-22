@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
+import { AGENT_IDS } from '@/lib/agents/types'
 import type { AgentId, AgentTaskCard } from '@/lib/agent-board/types'
 import {
   AGENT_BOARD_OPERATIONAL_VIEWS,
@@ -15,7 +16,7 @@ import {
 import { TaskDetailModal } from '@/components/agent-board/TaskDetailModal'
 import { EmptyState } from '@/components/agent-board/EmptyState'
 
-const ALL_AGENTS: AgentId[] = ['pip', 'theo', 'maya', 'sage', 'nora']
+const ALL_AGENTS: AgentId[] = [...AGENT_IDS]
 
 type BoardResponse = {
   orgId: string
@@ -48,12 +49,18 @@ const STATUS_COLORS: Record<string, string> = {
   unstarted: 'border-white/10 bg-white/[0.02]',
 }
 
-const AGENT_COLORS: Record<AgentId, string> = {
+const AGENT_COLORS: Record<string, string> = {
   pip: 'bg-amber-400/15 text-amber-200 border border-amber-400/30',
   theo: 'bg-sky-400/15 text-sky-200 border border-sky-400/30',
   maya: 'bg-fuchsia-400/15 text-fuchsia-200 border border-fuchsia-400/30',
   sage: 'bg-emerald-400/15 text-emerald-200 border border-emerald-400/30',
   nora: 'bg-slate-300/15 text-slate-200 border border-slate-300/30',
+  ads: 'bg-amber-400/15 text-amber-200 border border-amber-400/30',
+  'qa-release': 'bg-emerald-400/15 text-emerald-200 border border-emerald-400/30',
+  support: 'bg-sky-400/15 text-sky-200 border border-sky-400/30',
+  data: 'bg-violet-400/15 text-violet-200 border border-violet-400/30',
+  docs: 'bg-rose-400/15 text-rose-200 border border-rose-400/30',
+  seo: 'bg-emerald-400/15 text-emerald-200 border border-emerald-400/30',
 }
 
 const BADGE_TONE_CLASSES: Record<AgentBoardBadgeTone, string> = {

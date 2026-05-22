@@ -132,6 +132,12 @@ const AGENT_DEFAULT_COLOR: Record<string, string> = {
   maya: 'bg-amber-400',
   sage: 'bg-emerald-400',
   nora: 'bg-rose-400',
+  ads: 'bg-amber-400',
+  'qa-release': 'bg-emerald-400',
+  support: 'bg-sky-400',
+  data: 'bg-violet-400',
+  docs: 'bg-rose-400',
+  seo: 'bg-emerald-400',
 }
 
 const AGENT_STATUS_STYLE: Record<string, { label: string; className: string }> = {

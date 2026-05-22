@@ -2,6 +2,7 @@
 import { NextRequest } from 'next/server'
 import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
+import { enforceAgentCapability } from '@/lib/api/capabilityGate'
 import { getCampaign, updateCampaign, deleteCampaign } from '@/lib/ads/campaigns/store'
 import { requireMetaContext, resolveGoogleAdsCustomerContext } from '@/lib/ads/api-helpers'
 import { metaProvider } from '@/lib/ads/providers/meta'
@@ -14,6 +15,7 @@ import {
 } from '@/lib/ads/providers/google/campaigns'
 import type { UpdateAdCampaignInput } from '@/lib/ads/types'
 import { logCampaignActivity } from '@/lib/ads/activity'
+import type { ApiUser } from '@/lib/api/types'
 
 export const GET = withAuth(
   'admin',
@@ -128,13 +130,15 @@ export const PATCH = withAuth(
 
 export const DELETE = withAuth(
   'admin',
-  async (req: NextRequest, user: unknown, ctxParams: { params: Promise<{ id: string }> }) => {
+  async (req: NextRequest, user: ApiUser, ctxParams: { params: Promise<{ id: string }> }) => {
     const orgId = req.headers.get('X-Org-Id')
     if (!orgId) return apiError('Missing X-Org-Id header', 400)
 
     const { id } = await ctxParams.params
     const campaign = await getCampaign(id)
     if (!campaign || campaign.orgId !== orgId) return apiError('Campaign not found', 404)
+    const capabilityError = enforceAgentCapability(user, 'delete', req)
+    if (capabilityError) return capabilityError
 
     if (campaign.platform === 'linkedin') {
       const linkedinData = (campaign.providerData as Record<string, unknown>)?.linkedin as Record<string, unknown> | undefined

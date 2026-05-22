@@ -1,8 +1,10 @@
 import { NextRequest } from 'next/server'
 import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
+import { enforceAgentCapability } from '@/lib/api/capabilityGate'
 import { getBudget, updateBudget, archiveBudget, listEvents } from '@/lib/ads/budgets/store'
 import type { UpdateBudgetInput } from '@/lib/ads/budgets/types'
+import type { ApiUser } from '@/lib/api/types'
 
 export const dynamic = 'force-dynamic'
 
@@ -21,7 +23,7 @@ export const GET = withAuth(
 
 export const PATCH = withAuth(
   'admin',
-  async (req: NextRequest, _user: unknown, ctx: { params: Promise<{ id: string }> }) => {
+  async (req: NextRequest, user: ApiUser, ctx: { params: Promise<{ id: string }> }) => {
     const orgId = req.headers.get('X-Org-Id')
     if (!orgId) return apiError('Missing X-Org-Id header', 400)
     const { id } = await ctx.params
@@ -29,6 +31,8 @@ export const PATCH = withAuth(
     if (!existing || existing.orgId !== orgId) return apiError('Budget not found', 404)
     let body: UpdateBudgetInput
     try { body = (await req.json()) as UpdateBudgetInput } catch { return apiError('Invalid JSON body', 400) }
+    const capabilityError = enforceAgentCapability(user, 'spend', req, body as Record<string, unknown>)
+    if (capabilityError) return capabilityError
     try {
       await updateBudget(id, body)
       const updated = await getBudget(id)
@@ -41,12 +45,14 @@ export const PATCH = withAuth(
 
 export const DELETE = withAuth(
   'admin',
-  async (req: NextRequest, _user: unknown, ctx: { params: Promise<{ id: string }> }) => {
+  async (req: NextRequest, user: ApiUser, ctx: { params: Promise<{ id: string }> }) => {
     const orgId = req.headers.get('X-Org-Id')
     if (!orgId) return apiError('Missing X-Org-Id header', 400)
     const { id } = await ctx.params
     const existing = await getBudget(id)
     if (!existing || existing.orgId !== orgId) return apiError('Budget not found', 404)
+    const capabilityError = enforceAgentCapability(user, 'delete', req)
+    if (capabilityError) return capabilityError
     await archiveBudget(id)
     return apiSuccess({ archived: true })
   },

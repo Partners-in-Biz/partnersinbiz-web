@@ -2,13 +2,14 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ChatEvent } from '@/lib/hermes/types'
+import { AGENT_IDS } from '@/lib/agents/types'
 import MessageBubble, { type ConversationAttachment, type ConversationMessage } from './MessageBubble'
 import ParticipantBar from './ParticipantBar'
 import ParticipantPicker, { type SelectedParticipant } from './ParticipantPicker'
 import ConversationListItem, { type Conversation } from './ConversationListItem'
 import VoiceInputButton from './VoiceInputButton'
 
-type AgentId = 'pip' | 'theo' | 'maya' | 'sage' | 'nora'
+type AgentId = string
 
 interface AgentTeamDoc {
   agentId: AgentId
@@ -477,7 +478,7 @@ export default function UnifiedChat({
 
   useEffect(() => {
     if (!activeId) return
-    const knownAgentIds: AgentId[] = ['pip', 'theo', 'maya', 'sage', 'nora']
+    const knownAgentIds: AgentId[] = [...AGENT_IDS]
     for (const m of messages) {
       if (
         m.role === 'assistant' &&

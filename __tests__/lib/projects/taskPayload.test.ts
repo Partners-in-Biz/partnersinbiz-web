@@ -124,12 +124,20 @@ describe('project task payload helpers', () => {
               sourceSpecVersion: ' v4 ',
               approvalGateTaskId: ' gate-1 ',
               sourceResearchItemId: '',
+              riskLevel: ' high ',
+              requiredCapability: ' deploy ',
+              requestedByAgentId: ' pip ',
+              expectedArtifacts: [' pr ', '', ' preview-url '],
               otherContext: { keep: true },
             },
           },
+          riskLevel: 'critical',
+          requiredCapability: 'deploy',
+          requestedByAgentId: 'pip',
+          expectedArtifacts: ['pull_request', 'deployment_url', 'test_report'],
           dependsOn: ['task-abc'],
           reviewerIds: ['reviewer-1'],
-          reviewerAgentId: 'sage',
+          reviewerAgentId: 'qa-release',
         },
         'project-1',
         'org-1',
@@ -142,7 +150,11 @@ describe('project task payload helpers', () => {
         agentInput: expect.objectContaining({ spec: 'Build a /pricing page using the existing design system' }),
         dependsOn: ['task-abc'],
         reviewerIds: ['reviewer-1'],
-        reviewerAgentId: 'sage',
+        reviewerAgentId: 'qa-release',
+        riskLevel: 'critical',
+        requiredCapability: 'deploy',
+        requestedByAgentId: 'pip',
+        expectedArtifacts: ['pull_request', 'deployment_url', 'test_report'],
       }))
       expect(result.value.agentInput).toEqual({
         spec: 'Build a /pricing page using the existing design system',
@@ -151,9 +163,31 @@ describe('project task payload helpers', () => {
           sourceDocumentSectionId: 'section-2',
           sourceSpecVersion: 'v4',
           approvalGateTaskId: 'gate-1',
+          riskLevel: 'high',
+          requiredCapability: 'deploy',
+          requestedByAgentId: 'pip',
+          expectedArtifacts: ['pr', 'preview-url'],
           otherContext: { keep: true },
         },
       })
+    })
+
+    it('rejects invalid provenance/risk fields', () => {
+      const result = buildProjectTaskCreateData(
+        {
+          title: 'Risky task',
+          assigneeAgentId: 'theo',
+          riskLevel: 'catastrophic',
+          requiredCapability: 'deploy',
+          agentInput: { spec: 'Ship it' },
+        },
+        'project-1',
+        'org-1',
+      )
+
+      expect(result.ok).toBe(false)
+      if (result.ok) return
+      expect(result.error).toMatch(/Invalid riskLevel/)
     })
 
     it('rejects an unknown agent id', () => {
@@ -202,6 +236,24 @@ describe('project task payload helpers', () => {
       expect(result.ok).toBe(true)
       if (!result.ok) return
       expect(result.value).toEqual({ assigneeAgentId: 'theo', agentStatus: 'in-progress' })
+    })
+
+    it('PATCH: accepts provenance fields for gated work', () => {
+      const result = buildProjectTaskUpdateData({
+        riskLevel: 'high',
+        requiredCapability: 'publish',
+        requestedByAgentId: 'maya',
+        expectedArtifacts: ['campaign-record', 'approval-note'],
+      })
+
+      expect(result.ok).toBe(true)
+      if (!result.ok) return
+      expect(result.value).toEqual({
+        riskLevel: 'high',
+        requiredCapability: 'publish',
+        requestedByAgentId: 'maya',
+        expectedArtifacts: ['campaign-record', 'approval-note'],
+      })
     })
 
     it('PATCH: done moves to review and blocked moves to blocked when no column is supplied', () => {

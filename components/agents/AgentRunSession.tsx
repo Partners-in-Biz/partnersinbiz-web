@@ -247,7 +247,7 @@ export default function AgentRunSession({
               currentUserDisplayName={currentUserDisplayName}
               scope="task"
               scopeRefId={taskId}
-              initialAgentId={agentId as 'pip' | 'theo' | 'maya' | 'sage' | 'nora'}
+              initialAgentId={agentId}
               autoCreateScopedConversation={Boolean(taskId)}
               autoCreateTitle={taskTitle ? `Ticket: ${taskTitle}` : 'Ticket conversation'}
               allowDeleteConversations
