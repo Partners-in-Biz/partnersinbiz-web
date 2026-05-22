@@ -471,3 +471,5 @@ GET /reports/team-utilization?orgId=org_abc&from=2026-04-07&to=2026-04-13
 ## Client Document Handoff
 
 Use the `client-documents` skill for specs, change requests, launch sign-offs, and handover packs. Link these documents with `linked.projectId` so Projects/Kanban remains the operational source of truth while `client_documents` handles presentation, comments, versions, and approvals.
+
+Use the `research-intelligence` skill for working research that informs a project. Link Research items to `linked.projectId` and convert to a `research_report` document only when the client needs polished review or approval.

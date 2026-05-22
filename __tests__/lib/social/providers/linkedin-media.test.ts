@@ -77,4 +77,19 @@ describe('LinkedInProvider publishPost with image', () => {
     expect(postBody.content).toBeUndefined()
     expect(postBody.mediaCategory).toBeUndefined()
   })
+
+  it('escapes LinkedIn Little Text reserved characters so commentary is not truncated', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      text: async () => '',
+      json: async () => ({}),
+      headers: { get: (h: string) => h === 'x-restli-id' ? 'urn:li:share:777' : null },
+    })
+
+    const p = makeProvider()
+    await p.publishPost({ text: 'Deploy Friday (no) | change nothing #keepsHashtag' })
+
+    const postBody = JSON.parse(mockFetch.mock.calls[0][1].body)
+    expect(postBody.commentary).toBe('Deploy Friday \\(no\\) \\| change nothing #keepsHashtag')
+  })
 })

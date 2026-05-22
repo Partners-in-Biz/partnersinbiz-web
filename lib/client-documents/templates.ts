@@ -242,6 +242,27 @@ export const CLIENT_DOCUMENT_TEMPLATES: ClientDocumentTemplate[] = [
     ],
   },
   {
+    id: 'research-report-v1',
+    type: 'research_report',
+    label: 'Research Report',
+    approvalMode: 'operational',
+    clientPermissions: {
+      canComment: true,
+      canSuggest: true,
+      canDirectEdit: false,
+      canApprove: true,
+    },
+    requiredBlockTypes: ['hero', 'summary', 'deliverables', 'gallery', 'callout', 'approval'],
+    defaultBlocks: [
+      block('hero', 'Research report'),
+      block('summary', 'Research summary'),
+      block('deliverables', 'Key findings'),
+      block('gallery', 'Sources and evidence'),
+      block('callout', 'Recommendations'),
+      block('approval', 'Acknowledgement'),
+    ],
+  },
+  {
     id: 'monthly-report-v1',
     type: 'monthly_report',
     label: 'Monthly Report',

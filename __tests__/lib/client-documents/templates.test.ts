@@ -12,6 +12,7 @@ describe('client document templates', () => {
       'social_strategy',
       'content_campaign_plan',
       'geo_seo_strategy',
+      'research_report',
       'monthly_report',
       'launch_signoff',
       'change_request',
@@ -82,6 +83,14 @@ describe('client document templates', () => {
       'approval',
     ])
     expect(blocks.every(block => block.required)).toBe(true)
+  })
+
+  it('ships a research report template for polished client-facing research output', () => {
+    const template = getClientDocumentTemplate('research_report')
+
+    expect(template.label).toBe('Research Report')
+    expect(template.approvalMode).toBe('operational')
+    expect(template.requiredBlockTypes).toEqual(['hero', 'summary', 'deliverables', 'gallery', 'callout', 'approval'])
   })
 
   it('deep-clones object content from template defaults', () => {

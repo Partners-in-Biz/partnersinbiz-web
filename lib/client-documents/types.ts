@@ -4,6 +4,7 @@ export type ClientDocumentType =
   | 'social_strategy'
   | 'content_campaign_plan'
   | 'geo_seo_strategy'
+  | 'research_report'
   | 'monthly_report'
   | 'launch_signoff'
   | 'change_request'
@@ -57,6 +58,7 @@ export interface ClientDocumentLinkSet {
   geoWorkspaceId?: string
   geoAuditId?: string
   geoTaskIds?: string[]
+  researchItemIds?: string[]
   socialPostIds?: string[]
   invoiceId?: string
 }

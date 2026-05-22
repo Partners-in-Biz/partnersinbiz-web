@@ -615,3 +615,5 @@ POST /onboarding
 ## Client Document Handoff
 
 During handoff, account review, or client check-in work, check outstanding `client_documents` for the org. Surface documents in `client_review`, `changes_requested`, `approved`, or `accepted` states, and use the `client-documents` skill when a proposal, spec, report, sign-off, or approval pack is needed.
+
+Onboarding, discovery, market, background, and client-context research belongs in the Research module through the `research-intelligence` skill. Export durable summaries to the client Obsidian domain after meaningful research so PiB agents can reuse the findings.
