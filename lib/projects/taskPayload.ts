@@ -1,4 +1,6 @@
 import { isValidAgentId } from '@/lib/agents/types'
+import { columnForAgentStatus } from '@/lib/tasks/agentState'
+import type { AgentStatus } from '@/lib/tasks/types'
 
 type PayloadResult<T> =
   | { ok: true; value: T }
@@ -301,6 +303,8 @@ export function buildProjectTaskCreateData(
   const assigneeIds = cleanStringArray(body.assigneeIds)
   const agentId = cleanAgentId(body.assigneeAgentId)
   if (!agentId.ok) return agentId
+  const agentStatus = cleanAgentStatus(body.agentStatus)
+  if (!agentStatus.ok) return agentStatus
   const agentInput = cleanAgentInput(body.agentInput)
   if (!agentInput.ok) return agentInput
   const dependsOn = cleanDependsOn(body.dependsOn)
@@ -327,7 +331,11 @@ export function buildProjectTaskCreateData(
 
   if (agentId.value) {
     value.assigneeAgentId = agentId.value
-    value.agentStatus = 'pending'
+    value.agentStatus = (agentStatus.value ?? 'pending') as AgentStatus
+    if (body.columnId === undefined) {
+      value.columnId = columnForAgentStatus(value.agentStatus)
+    }
+    if (value.agentStatus === 'done') value.reviewStatus = 'pending'
   }
   const provenance = applyProvenanceFields(body, value)
   if (!provenance.ok) return provenance

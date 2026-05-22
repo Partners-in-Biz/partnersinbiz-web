@@ -58,6 +58,7 @@ export const OPERATOR_NAV_TOPBAR: NavItem[] = [
       { label: 'Social',        href: '/admin/social' },
       { label: 'Campaigns',     href: '/admin/campaigns' },
       { label: 'Email',         href: '/admin/email' },
+      { label: 'Internal mailbox', href: '/admin/email/mailbox' },
       { label: 'Sequences',     href: '/admin/sequences' },
       { label: 'SEO',           href: '/admin/seo' },
     ],
