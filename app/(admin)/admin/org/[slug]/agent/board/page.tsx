@@ -265,6 +265,7 @@ export default function AgentBoardPage() {
               )}
               {col.cards.map((card) => {
                 const badges = getAgentBoardBadges(card)
+                const orgName = data?.orgNames?.[card.orgId]
                 const cardInner = (
                   <>
                     <div className="flex items-start justify-between gap-2">
@@ -307,10 +308,10 @@ export default function AgentBoardPage() {
                           standalone
                         </span>
                       )}
-                      {orgNames[card.orgId] && card.orgId !== currentOrgId && (
+                      {orgName && card.orgId !== currentOrgId && (
                         <span className="px-1.5 py-0.5 rounded bg-purple-500/10 border border-purple-400/20 text-purple-100">
                           <span className="opacity-60">org · </span>
-                          {orgNames[card.orgId]}
+                          {orgName}
                         </span>
                       )}
                       {card.priority && card.priority !== 'normal' && card.priority !== 'medium' && (
