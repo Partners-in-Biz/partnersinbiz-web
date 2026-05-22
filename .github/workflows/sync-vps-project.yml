@@ -65,6 +65,7 @@ jobs:
           fi
 
           cd "$repo"
+          git config --global --add safe.directory "$repo" || true
           echo "== Before active worktree sync =="
           git status --short --branch
 
