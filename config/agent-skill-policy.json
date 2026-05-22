@@ -1,0 +1,158 @@
+{
+  "version": "2026-05-22.v1",
+  "mode": "hard_allowlist",
+  "vpsRoot": "/var/lib/hermes/agent-skills",
+  "futureAgentCandidates": [
+    "seo",
+    "ads",
+    "docs",
+    "support",
+    "data",
+    "qa-release"
+  ],
+  "repoPibSkills": [
+    "ads-manager",
+    "analytics",
+    "billing-finance",
+    "client-documents",
+    "client-manager",
+    "content-engine",
+    "crm-sales",
+    "email-outreach",
+    "google-workspace",
+    "platform-ops",
+    "project-management",
+    "properties",
+    "research-intelligence",
+    "seo-sprint-manager",
+    "social-media-manager"
+  ],
+  "agents": {
+    "pip": {
+      "label": "Operator",
+      "vpsExternalDir": "/var/lib/hermes/agent-skills/pip",
+      "pibSkills": [
+        "client-documents",
+        "client-manager",
+        "content-engine",
+        "platform-ops",
+        "project-management",
+        "research-intelligence",
+        "seo-sprint-manager",
+        "social-media-manager"
+      ],
+      "globalSkills": [
+        "autonomous-ai-agents/hermes-agent"
+      ],
+      "deniedSkills": [
+        "red-teaming/godmode",
+        "mlops/inference/obliteratus"
+      ]
+    },
+    "theo": {
+      "label": "Builder",
+      "vpsExternalDir": "/var/lib/hermes/agent-skills/theo",
+      "pibSkills": [
+        "client-documents",
+        "client-manager",
+        "platform-ops",
+        "project-management",
+        "properties",
+        "research-intelligence"
+      ],
+      "globalSkills": [
+        "autonomous-ai-agents/codex",
+        "autonomous-ai-agents/hermes-agent",
+        "github/codebase-inspection",
+        "github/github-auth",
+        "github/github-code-review",
+        "github/github-issues",
+        "github/github-pr-workflow",
+        "github/github-repo-management",
+        "software-development/plan",
+        "software-development/requesting-code-review",
+        "software-development/subagent-driven-development",
+        "software-development/systematic-debugging",
+        "software-development/test-driven-development",
+        "software-development/writing-plans"
+      ],
+      "deniedSkills": [
+        "red-teaming/godmode",
+        "mlops/inference/obliteratus"
+      ]
+    },
+    "maya": {
+      "label": "Marketer",
+      "vpsExternalDir": "/var/lib/hermes/agent-skills/maya",
+      "pibSkills": [
+        "client-documents",
+        "client-manager",
+        "content-engine",
+        "email-outreach",
+        "platform-ops",
+        "project-management",
+        "research-intelligence",
+        "social-media-manager"
+      ],
+      "globalSkills": [
+        "creative/creative-ideation",
+        "creative/popular-web-designs",
+        "media/youtube-content",
+        "productivity/google-workspace"
+      ],
+      "deniedSkills": [
+        "red-teaming/godmode",
+        "mlops/inference/obliteratus"
+      ]
+    },
+    "sage": {
+      "label": "Researcher",
+      "vpsExternalDir": "/var/lib/hermes/agent-skills/sage",
+      "pibSkills": [
+        "analytics",
+        "client-documents",
+        "client-manager",
+        "platform-ops",
+        "project-management",
+        "research-intelligence",
+        "seo-sprint-manager"
+      ],
+      "globalSkills": [
+        "note-taking/obsidian",
+        "productivity/google-workspace",
+        "productivity/maps",
+        "research/arxiv",
+        "research/blogwatcher",
+        "research/llm-wiki",
+        "research/research-paper-writing"
+      ],
+      "deniedSkills": [
+        "red-teaming/godmode",
+        "mlops/inference/obliteratus"
+      ]
+    },
+    "nora": {
+      "label": "Operations",
+      "vpsExternalDir": "/var/lib/hermes/agent-skills/nora",
+      "pibSkills": [
+        "billing-finance",
+        "client-documents",
+        "client-manager",
+        "crm-sales",
+        "email-outreach",
+        "google-workspace",
+        "platform-ops",
+        "project-management",
+        "research-intelligence"
+      ],
+      "globalSkills": [
+        "email/himalaya",
+        "productivity/google-workspace"
+      ],
+      "deniedSkills": [
+        "red-teaming/godmode",
+        "mlops/inference/obliteratus"
+      ]
+    }
+  }
+}

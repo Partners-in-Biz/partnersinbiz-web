@@ -49,4 +49,14 @@ describe('agent registry', () => {
     expect(merged.allowedScopes).toEqual(AGENT_REGISTRY.pip.allowedScopes)
     expect(merged.exampleTaskTypes).toEqual(AGENT_REGISTRY.pip.exampleTaskTypes)
   })
+
+  it('uses the hard skill policy as the default advertised skill list', () => {
+    const merged = mergeAgentRegistry('sage', {})
+
+    expect(merged.skills).toEqual(expect.arrayContaining([
+      'partnersinbiz/research-intelligence',
+      'partnersinbiz/seo-sprint-manager',
+      'research/llm-wiki',
+    ]))
+  })
 })

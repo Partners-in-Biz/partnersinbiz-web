@@ -15,6 +15,14 @@ const VALID_AGENT_STATUSES = [
   'blocked',
 ] as const
 
+export const TASK_SOURCE_LINKAGE_FIELDS = [
+  'sourceDocumentId',
+  'sourceDocumentSectionId',
+  'sourceSpecVersion',
+  'approvalGateTaskId',
+  'sourceResearchItemId',
+] as const
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value)
 }
@@ -26,6 +34,25 @@ function cleanString(value: unknown): string | null {
 function cleanStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) return []
   return Array.from(new Set(value.map(cleanString).filter((item): item is string => !!item)))
+}
+
+function cleanAgentContext(value: unknown): Record<string, unknown> | null {
+  if (!isRecord(value)) return null
+  const out: Record<string, unknown> = { ...value }
+
+  for (const field of TASK_SOURCE_LINKAGE_FIELDS) {
+    if (!(field in value)) continue
+    const cleaned = cleanString(value[field])
+    if (cleaned) {
+      out[field] = cleaned
+    } else if (value[field] === null) {
+      out[field] = null
+    } else {
+      delete out[field]
+    }
+  }
+
+  return out
 }
 
 function cleanOptionalDate(value: unknown): string | null {
@@ -136,7 +163,8 @@ function cleanAgentInput(value: unknown): PayloadResult<Record<string, unknown> 
   const spec = cleanString(value.spec)
   if (!spec) return { ok: false, error: 'agentInput.spec is required', status: 400 }
   const out: Record<string, unknown> = { spec }
-  if (isRecord(value.context)) out.context = value.context
+  const context = cleanAgentContext(value.context)
+  if (context) out.context = context
   if (Array.isArray(value.constraints)) {
     out.constraints = value.constraints.map(cleanString).filter((s): s is string => !!s)
   }

@@ -24,6 +24,7 @@ DEST="/Users/peetstander/Cowork/.claude/skills"
 # skill at ~/.claude/skills/client-content-engine/ should be deleted to
 # avoid two skills competing for the same triggers.
 PLATFORM_SKILLS=(
+  ads-manager
   analytics
   billing-finance
   client-manager
@@ -31,9 +32,11 @@ PLATFORM_SKILLS=(
   content-engine
   crm-sales
   email-outreach
+  google-workspace
   platform-ops
   project-management
   properties
+  research-intelligence
   seo-sprint-manager
   social-media-manager
 )
