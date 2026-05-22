@@ -11,23 +11,26 @@ This repository powers the live Partners in Biz production site.
 
 ## Required Preflight
 
-Before editing this repo, run:
+Before editing this repo, sync first. This is not a blocker gate; it is the routine for preserving any local work and getting onto latest `development`.
 
 ```bash
 git status --short --branch
-git pull --ff-only
+# If local changes already exist, checkpoint them before pulling:
+git add -A
+git commit -m "chore(agent): checkpoint existing local work before sync"
+git pull --rebase origin development
 git status --short --branch
 ```
 
-After the preflight, the branch must be `development`. If the repo is on `main`, switch to `development` before editing. If `development` is missing, diverged, or cannot fast-forward cleanly, stop and report the blocker.
+After the sync, the branch must be `development`. If the repo is on `main`, switch to `development` before editing. If `development` is missing, stop and report that hard blocker.
 
-A dirty `development` worktree is expected because multiple agents may work in the same checkout. Dirty or untracked files do not block new work. Before editing, inspect the status, identify which files are yours, and avoid overwriting unrelated changes. Stage only the files changed for your task unless Peet explicitly asks for a broader cleanup.
+A dirty `development` worktree is expected because multiple agents may work in the same checkout. Dirty or untracked files do not block new work, and "local changes would be overwritten by pull" is not an acceptable reason to stop. Checkpoint-commit existing local work, rebase onto latest `origin/development`, then continue.
 
-Do not force-pull, reset, stash, checkout over work, or overwrite another agent's/user's changes unless Peet explicitly asks for that recovery.
+Resolve rebase conflicts when they are in files related to the checkpointed work or the task. Only stop for true hard blockers such as missing credentials, a conflict that cannot be resolved safely from the available context, or a broken branch Git cannot rebase. Do not force-pull, reset, stash, checkout over work, or discard another agent's/user's changes unless Peet explicitly asks for that destructive recovery.
 
 ## Commit and Push Discipline
 
-Agents must leave completed work committed and pushed to `origin/development`. Use focused commits that include only your task's files. If tests/builds are relevant, run them before committing. If push is blocked by credentials, network, divergence, or CI/pre-push failures, report the blocker and leave the local commit in place.
+Agents must leave completed work committed and pushed to `origin/development`. If tests/builds are relevant, run them before committing. If push is blocked by credentials, network, divergence, or CI/pre-push failures, report the blocker and leave the local commit in place.
 
 ## Deployments
 
