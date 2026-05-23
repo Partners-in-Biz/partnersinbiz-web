@@ -184,6 +184,20 @@ Metadata including `url`, `mimeType`, `size`, `relatedTo`.
 #### `DELETE /files/[id]` — auth: admin
 Soft-delete (metadata). `?force=true` hard-deletes the Firestore doc (storage blob is NOT deleted — delete manually if needed).
 
+### Workspace folders and Drive sync policy
+
+For client/workspace assets, prefer the workspace folder registry over ad-hoc uploaded-file paths. A workspace or resource can have many linked folders, each with its own hierarchy, tags, sort order, Drive folder id/url, VPS/local sync targets, visibility, sync mode/state, and conflict/audit status.
+
+V1 operating rules:
+- Google Drive is canonical for binary/source assets.
+- Obsidian/wiki remains markdown and lightweight text knowledge only; do not put PDFs, video, images, design exports, or other binaries in the vault.
+- Folder visibility is per folder: `admin_only`, `admin_agents`, or `admin_agents_clients`.
+- PiB roles/visibility decide what the app and agents can read; Drive ACLs must not accidentally expose admin/agent-only folders to clients.
+- Sync targets can include both VPS and Peet's local Cowork environment; full file sync is expected for linked asset folders, not metadata-only sync.
+- Conflicts must be preserved and audited. Do not use blind last-writer-wins.
+
+Runbook: `docs/deploy/workspace-folder-sync-v1.md`.
+
 ### Health
 
 #### `GET /health` — auth: admin

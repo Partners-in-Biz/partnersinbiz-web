@@ -14,6 +14,7 @@ import {
   type Task,
   type TaskAssignee,
 } from '@/lib/tasks/types'
+import { applyAgentDispatchDefaultsForStandaloneAssignment } from '@/lib/tasks/agentState'
 
 export const dynamic = 'force-dynamic'
 
@@ -40,10 +41,13 @@ export const POST = withAuth('admin', async (req, user, context) => {
     return apiError("Invalid assignedTo; expected { type: 'user'|'agent', id }")
   }
 
-  await ref.update({
+  const updates: Record<string, unknown> = {
     assignedTo,
     ...lastActorFrom(user),
-  })
+  }
+  applyAgentDispatchDefaultsForStandaloneAssignment(updates, body as unknown as Record<string, unknown>, existing as unknown as Record<string, unknown>)
+
+  await ref.update(updates)
 
   await adminDb.collection('notifications').add({
     orgId: existing.orgId,

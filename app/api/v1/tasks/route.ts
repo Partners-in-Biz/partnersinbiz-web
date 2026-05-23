@@ -28,6 +28,7 @@ import {
 } from '@/lib/tasks/types'
 import {
   applyAgentColumnForCreate,
+  applyAgentDispatchDefaultsForStandaloneAssignment,
 } from '@/lib/tasks/agentState'
 
 export const dynamic = 'force-dynamic'
@@ -202,6 +203,7 @@ export const POST = withAuth(
     applyAgentColumnForCreate(docData, raw)
     if (agentInputValue) docData.agentInput = agentInputValue
     if (dependsOnValue.length > 0) docData.dependsOn = dependsOnValue
+    applyAgentDispatchDefaultsForStandaloneAssignment(docData, raw)
 
     const docRef = await adminDb.collection('tasks').add(docData)
 

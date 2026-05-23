@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { copyToClipboard } from '@/lib/utils/clipboard'
+import type { WorkspaceFolder } from '@/lib/workspace-folders/model'
 
 interface OrgForm {
   // General settings
@@ -50,6 +51,31 @@ const emptyForm: OrgForm = {
   routingNumber: '', swiftCode: '', iban: '',
 }
 
+type WorkspaceFolderWithId = WorkspaceFolder & { id: string }
+
+function folderVisibilityLabel(value: WorkspaceFolder['visibility']) {
+  if (value === 'admin_only') return 'Admin only'
+  if (value === 'admin_agents_clients') return 'Admin + agents + clients'
+  return 'Admin + agents'
+}
+
+function folderSourceOfTruthLabel(value: WorkspaceFolder['sourceOfTruth']) {
+  if (value === 'google_drive') return 'Google Drive is source of truth'
+  if (value === 'local') return 'Local Cowork is source of truth'
+  if (value === 'vps') return 'VPS is source of truth'
+  return 'Mixed source of truth'
+}
+
+function folderSyncModeLabel(value: WorkspaceFolder['syncMode']) {
+  if (value === 'metadata_only') return 'Metadata only'
+  if (value === 'manual') return 'Manual sync'
+  return 'Full sync'
+}
+
+function folderSyncTargetLabel(value: WorkspaceFolder['syncTargets'][number]) {
+  return value === 'local' ? 'Local Cowork' : 'VPS'
+}
+
 export default function OrgSettingsPage() {
   const params = useParams()
   const slug = params.slug as string
@@ -61,6 +87,9 @@ export default function OrgSettingsPage() {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [copiedId, setCopiedId] = useState(false)
+  const [folderMappings, setFolderMappings] = useState<WorkspaceFolderWithId[]>([])
+  const [folderNotice, setFolderNotice] = useState('')
+  const [resyncingFolderId, setResyncingFolderId] = useState<string | null>(null)
 
   function copyOrgId() {
     if (!orgId) return
@@ -83,6 +112,10 @@ export default function OrgSettingsPage() {
       const detailRes = await fetch(`/api/v1/organizations/${org.id}`)
       const detailBody = await detailRes.json()
       const d = detailBody.data
+      const folderRes = await fetch(`/api/v1/workspace-folders?orgId=${encodeURIComponent(org.id)}`)
+      const folderBody = await folderRes.json().catch(() => ({ data: { folders: [] } }))
+      const folders = Array.isArray(folderBody.data?.folders) ? folderBody.data.folders : []
+      setFolderMappings(folders)
       if (d) {
         const bd = d.billingDetails ?? {}
         const addr = bd.address ?? {}
@@ -191,6 +224,15 @@ export default function OrgSettingsPage() {
     setForm(prev => ({ ...prev, [field]: value }))
   }
 
+  async function handleFolderResync(folder: WorkspaceFolderWithId) {
+    setResyncingFolderId(folder.id)
+    setFolderNotice('')
+    const res = await fetch(`/api/v1/workspace-folders/${folder.id}/resync?orgId=${encodeURIComponent(orgId)}`, { method: 'POST' })
+    const body = await res.json().catch(() => ({}))
+    setFolderNotice(body.data?.message ?? body.error ?? 'Resync request recorded.')
+    setResyncingFolderId(null)
+  }
+
   if (loading) return <div className="pib-skeleton h-96 max-w-3xl mx-auto" />
 
   return (
@@ -222,6 +264,81 @@ export default function OrgSettingsPage() {
           </div>
         </div>
       )}
+
+      <div className="pib-card-section">
+        <div className="pib-card-section-header flex items-start justify-between gap-4">
+          <div>
+            <span className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Workspace folder registry</span>
+            <p className="mt-1 text-xs text-on-surface-variant">
+              Map multiple Google Drive folders to each workspace/resource. PiB visibility controls what admins, agents, and clients can see; Drive ACLs remain the binary asset source-of-truth guardrail.
+            </p>
+          </div>
+          <span className="rounded-full bg-[var(--color-surface-container)] px-3 py-1 text-[10px] font-label uppercase tracking-wider text-on-surface-variant">
+            Portal exposure deferred
+          </span>
+        </div>
+        <div className="divide-y divide-outline-variant/50">
+          {folderMappings.length === 0 ? (
+            <div className="p-4 text-sm text-on-surface-variant">
+              No folder mappings yet. Add records through the folder mappings API once Drive folders and sync targets are agreed.
+            </div>
+          ) : folderMappings.map(folder => (
+            <div key={folder.id} className="p-4 space-y-3">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h2 className="text-sm font-semibold text-on-surface">{folder.name}</h2>
+                    <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-label uppercase tracking-wide text-primary">{folder.resourceType || 'workspace'}</span>
+                    {folder.parentId && <span className="text-[11px] text-on-surface-variant">Parent: {folder.parentId}</span>}
+                  </div>
+                  <p className="mt-1 flex flex-wrap gap-1 text-xs text-on-surface-variant">
+                    <span>{folderVisibilityLabel(folder.visibility)}</span>
+                    <span>·</span>
+                    <span>{folderSourceOfTruthLabel(folder.sourceOfTruth)}</span>
+                    <span>·</span>
+                    <span>{folderSyncModeLabel(folder.syncMode)}</span>
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleFolderResync(folder)}
+                  disabled={resyncingFolderId === folder.id}
+                  className="pib-btn-secondary text-xs"
+                  aria-label={`Resync ${folder.name}`}
+                >
+                  {resyncingFolderId === folder.id ? 'Requesting…' : 'Manual resync'}
+                </button>
+              </div>
+              <div className="grid gap-3 text-xs sm:grid-cols-2">
+                <div>
+                  <p className="font-label uppercase tracking-wide text-on-surface-variant">Drive</p>
+                  <p className="mt-1 break-all text-on-surface">{folder.drive.folderId || 'No Drive ID set'}</p>
+                  {folder.drive.folderUrl && <a className="mt-1 inline-block break-all text-primary hover:underline" href={folder.drive.folderUrl} target="_blank" rel="noreferrer">{folder.drive.folderUrl}</a>}
+                </div>
+                <div>
+                  <p className="font-label uppercase tracking-wide text-on-surface-variant">Sync / audit</p>
+                  <p className="mt-1 text-on-surface">Status: {folder.syncState.status} · Conflicts: {folder.audit.conflictStatus}</p>
+                  <div className="mt-1 flex flex-wrap gap-1 text-on-surface-variant">
+                    <span>Targets:</span>
+                    {folder.syncTargets.length ? folder.syncTargets.map(target => <span key={target}>{folderSyncTargetLabel(target)}</span>) : <span>Not configured</span>}
+                  </div>
+                </div>
+                <div>
+                  <p className="font-label uppercase tracking-wide text-on-surface-variant">Path hints</p>
+                  <p className="mt-1 text-on-surface-variant">VPS: {folder.paths.vpsPath || '—'}</p>
+                  <p className="text-on-surface-variant">Local: {folder.paths.localPathHint || '—'}</p>
+                </div>
+                <div>
+                  <p className="font-label uppercase tracking-wide text-on-surface-variant">Tags / permissions</p>
+                  <p className="mt-1 text-on-surface-variant">{folder.tags.length ? folder.tags.join(', ') : 'No tags'}</p>
+                  <p className="mt-1 text-on-surface-variant">{folder.audit.notes || 'Hybrid permission model: PiB roles gate app/agent access; Drive permissions must be reviewed before adding clients.'}</p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+        {folderNotice && <div className="border-t border-outline-variant/50 p-4 text-sm text-green-400">{folderNotice}</div>}
+      </div>
 
       <form onSubmit={handleSave} className="space-y-5">
         {/* General Settings */}
