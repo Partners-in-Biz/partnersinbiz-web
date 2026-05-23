@@ -464,24 +464,26 @@ export async function startWatcher(agentIds?: readonly string[]): Promise<() => 
       (err: Error) => logger.error('Firestore review snapshot listener error', { error: err.message }),
     ))
 
-  const dependencyUnsubscribe = db
-    .collectionGroup('tasks')
-    .where('columnId', '==', 'done')
-    .onSnapshot(
-      (snap: QuerySnapshot) => {
-        snap.docChanges().forEach((change) => {
-          if (change.type !== 'added' && change.type !== 'modified') return
-          void dispatchDependents(change.doc.id)
-        })
-      },
-      (err: Error) => logger.error('Firestore dependency snapshot listener error', { error: err.message }),
-    )
+  const onDependencyResolved = (snap: QuerySnapshot) => {
+    snap.docChanges().forEach((change) => {
+      if (change.type !== 'added' && change.type !== 'modified') return
+      void dispatchDependents(change.doc.id)
+    })
+  }
+
+  const dependencyUnsubscribes = [
+    db.collectionGroup('tasks').where('columnId', '==', 'done'),
+    db.collectionGroup('tasks').where('agentStatus', '==', 'done'),
+  ].map((query) => query.onSnapshot(
+    onDependencyResolved,
+    (err: Error) => logger.error('Firestore dependency snapshot listener error', { error: err.message }),
+  ))
 
   return () => {
     try {
       unsubscribes.forEach((unsubscribe) => unsubscribe())
       reviewUnsubscribes.forEach((unsubscribe) => unsubscribe())
-      dependencyUnsubscribe()
+      dependencyUnsubscribes.forEach((unsubscribe) => unsubscribe())
     } catch (err) {
       logger.warn('unsubscribe threw', { error: err instanceof Error ? err.message : String(err) })
     }

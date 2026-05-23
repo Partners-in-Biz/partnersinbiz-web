@@ -36,13 +36,15 @@ jest.mock('../../../services/agent-watcher/src/logger', () => ({
 
 import { getAgentConfig } from '../../../services/agent-watcher/src/config'
 import { claimTask, startHeartbeat } from '../../../services/agent-watcher/src/claim'
+import { db } from '../../../services/agent-watcher/src/firestore'
 import { runAndPoll } from '../../../services/agent-watcher/src/hermes'
-import { dispatchTask } from '../../../services/agent-watcher/src/watcher'
+import { dispatchTask, startWatcher } from '../../../services/agent-watcher/src/watcher'
 
 const getAgentConfigMock = getAgentConfig as jest.Mock
 const claimTaskMock = claimTask as jest.Mock
 const startHeartbeatMock = startHeartbeat as jest.Mock
 const runAndPollMock = runAndPoll as jest.Mock
+const dbMock = db as { collectionGroup?: jest.Mock }
 
 function makeTaskRef(comments: Array<Record<string, unknown>> = []) {
   const update = jest.fn(async () => undefined)
@@ -219,5 +221,40 @@ describe('agent watcher dispatchTask', () => {
       agentConversationId: 'run-failed-1',
       agentOutput: expect.objectContaining({ summary: 'Watcher error: gateway failed' }),
     }))
+  })
+})
+
+describe('agent watcher dependency subscriptions', () => {
+  beforeEach(() => {
+    jest.clearAllMocks()
+  })
+
+  it('rechecks dependents when a dependency is marked agentStatus done before review approval', async () => {
+    const queries: Array<{ wheres: Array<[string, string, unknown]>; unsubscribe: jest.Mock }> = []
+    dbMock.collectionGroup = jest.fn(() => {
+      const query = {
+        wheres: [] as Array<[string, string, unknown]>,
+        unsubscribe: jest.fn(),
+        where(field: string, op: string, value: unknown) {
+          this.wheres.push([field, op, value])
+          return this
+        },
+        onSnapshot: jest.fn((_onNext, _onError) => {
+          queries.push({ wheres: [...query.wheres], unsubscribe: query.unsubscribe })
+          return query.unsubscribe
+        }),
+      }
+      return query
+    })
+
+    const stop = await startWatcher(['theo'])
+
+    expect(queries).toEqual(expect.arrayContaining([
+      expect.objectContaining({ wheres: [['columnId', '==', 'done']] }),
+      expect.objectContaining({ wheres: [['agentStatus', '==', 'done']] }),
+    ]))
+
+    stop()
+    expect(queries.every((query) => query.unsubscribe.mock.calls.length === 1)).toBe(true)
   })
 })
