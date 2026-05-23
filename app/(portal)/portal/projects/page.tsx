@@ -2,6 +2,8 @@
 
 import { useEffect, useState, useMemo, useCallback } from 'react'
 import Link from 'next/link'
+import { collection, onSnapshot } from 'firebase/firestore'
+import { getClientDb } from '@/lib/firebase/config'
 import { CrossProjectBoard } from '@/components/projects/CrossProjectBoard'
 import type { BoardTask } from '@/components/projects/CrossProjectBoard'
 
@@ -37,6 +39,13 @@ function StatusBadge({ status }: { status: string }) {
   )
 }
 
+function mergeLiveTasks(restTasks: BoardTask[], currentTasks: BoardTask[]) {
+  const merged = new Map<string, BoardTask>()
+  restTasks.forEach(task => merged.set(task.id, task))
+  currentTasks.forEach(task => merged.set(task.id, task))
+  return Array.from(merged.values())
+}
+
 export default function ProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
@@ -61,17 +70,85 @@ export default function ProjectsPage() {
       .catch(() => setLoading(false))
   }, [])
 
+  useEffect(() => {
+    const unsubscribe = onSnapshot(
+      collection(getClientDb(), 'projects'),
+      (snap) => {
+        snap.docChanges().forEach(change => {
+          if (change.type === 'removed') {
+            setProjects(prev => prev.filter(project => project.id !== change.doc.id))
+            return
+          }
+
+          const liveProject = { id: change.doc.id, ...change.doc.data() } as Project
+          setProjects(prev => {
+            const idx = prev.findIndex(project => project.id === liveProject.id)
+            if (idx >= 0) {
+              const next = [...prev]
+              next[idx] = { ...next[idx], ...liveProject }
+              return next
+            }
+            return [liveProject, ...prev]
+          })
+        })
+      },
+      () => {} // REST remains the fallback if client Firestore auth/listening fails.
+    )
+    return () => unsubscribe()
+  }, [])
+
   const filtered = useMemo(
     () => filter === 'all' ? projects : projects.filter(p => p.status === filter),
     [projects, filter],
   )
 
   useEffect(() => {
-    if (viewMode !== 'board' || filtered.length === 0) return
+    if (viewMode !== 'board') return
+    if (filtered.length === 0) {
+      setBoardTasks([])
+      setFailedProjectIds([])
+      setBoardLoading(false)
+      return
+    }
 
     let cancelled = false
+    const unsubscribers: Array<() => void> = []
     setBoardLoading(true)
     setFailedProjectIds([])
+
+    for (const project of filtered) {
+      const unsubscribe = onSnapshot(
+        collection(getClientDb(), 'projects', project.id, 'tasks'),
+        (snap) => {
+          snap.docChanges().forEach(change => {
+            if (cancelled) return
+            const liveTask = {
+              id: change.doc.id,
+              ...change.doc.data(),
+              projectId: project.id,
+              projectName: project.name,
+            } as BoardTask
+
+            if (change.type === 'removed') {
+              setBoardTasks(prev => prev.filter(task => task.id !== change.doc.id))
+              return
+            }
+
+            setBoardTasks(prev => {
+              const idx = prev.findIndex(task => task.id === liveTask.id)
+              if (idx >= 0) {
+                const next = [...prev]
+                next[idx] = liveTask
+                return next
+              }
+              return [...prev, liveTask]
+            })
+          })
+        },
+        () => {} // REST remains the fallback if client Firestore auth/listening fails.
+      )
+      unsubscribers.push(unsubscribe)
+    }
 
     const fetches = filtered.map(project =>
       fetch(`/api/v1/projects/${project.id}/tasks`)
@@ -98,12 +175,15 @@ export default function ProjectsPage() {
           all.push(...tasks)
         }
       }
-      setBoardTasks(all)
+      setBoardTasks(prev => mergeLiveTasks(all, prev))
       setFailedProjectIds(failed)
       setBoardLoading(false)
     })
 
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+      unsubscribers.forEach(unsubscribe => unsubscribe())
+    }
   }, [viewMode, filtered])
 
   const handleCreateProject = async (e: React.FormEvent) => {

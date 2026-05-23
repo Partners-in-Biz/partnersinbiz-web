@@ -67,11 +67,25 @@ export interface Task {
   agentConversationId?: string | null
   agentHeartbeatAt?: unknown
   dependsOn?: string[]
+  reviewerIds?: string[]
+  reviewerAgentId?: AgentId | null
+  reviewStatus?: 'pending' | 'in-progress' | 'approved' | 'changes-requested' | null
+  riskLevel?: 'low' | 'medium' | 'high' | 'critical'
+  requiredCapability?: string | null
+  requestedByAgentId?: AgentId | null
+  approvalGateTaskId?: string | null
+  sourceDocumentId?: string | null
+  sourceDocumentSectionId?: string | null
+  sourceSpecVersion?: string | null
+  sourceResearchItemId?: string | null
+  expectedArtifacts?: string[]
   mentionIds?: string[]
   attachments?: Attachment[]
   checklist?: ChecklistItem[]
   dueDate?: unknown
   startDate?: unknown
+  endDate?: unknown
+  completedAt?: unknown
   estimateMinutes?: number | null
   order: number
 }

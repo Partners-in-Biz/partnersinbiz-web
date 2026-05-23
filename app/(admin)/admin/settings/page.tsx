@@ -130,6 +130,13 @@ export default function SettingsPage() {
             {session?.role ?? 'Admin'}
           </span>
         </div>
+        <Link href="/admin/email/mailbox" className="flex items-center justify-between px-4 py-3 hover:bg-[var(--color-row-hover)] transition-colors">
+          <div>
+            <p className="text-sm font-medium text-on-surface">Internal mailbox</p>
+            <p className="text-xs text-on-surface-variant mt-0.5">Link Gmail or SMTP/IMAP and send mail from your admin profile.</p>
+          </div>
+          <span style={{ color: 'var(--color-accent-v2)' }}>→</span>
+        </Link>
       </div>
 
       {/* Integrations */}

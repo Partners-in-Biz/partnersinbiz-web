@@ -1,9 +1,13 @@
 name: Sync VPS platform skills
+# Runs from development so VPS agents consume the same branch they work on.
 on:
   push:
-    branches: [main]
+    branches: [development]
     paths:
       - '.claude/skills/**'
+      - 'config/agent-skill-policy.json'
+      - 'scripts/apply-agent-skill-policy.mjs'
+      - 'scripts/install-vps-skills.sh'
       - '.github/workflows/sync-vps-skills.yml'
   workflow_dispatch:
 
@@ -12,6 +16,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: development
 
       - name: Set up SSH
         run: |
@@ -20,20 +26,51 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Rsync platform skills to VPS
+      - name: Rsync platform skills and policy tooling to VPS
         run: |
+          ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "mkdir -p /var/lib/hermes/partnersinbiz-web/config /var/lib/hermes/partnersinbiz-web/scripts"
+          rsync -rlz --omit-dir-times --no-perms --no-owner --no-group \
+            config/agent-skill-policy.json \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/var/lib/hermes/partnersinbiz-web/config/agent-skill-policy.json"
+          rsync -rlz --omit-dir-times --no-perms --no-owner --no-group \
+            scripts/apply-agent-skill-policy.mjs scripts/install-vps-skills.sh \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/var/lib/hermes/partnersinbiz-web/scripts/"
+
           # Use -rlz instead of -avz: skip preserving times/perms/owner/group.
           # The hermes-deploy user has group-write but isn't the owner of the
           # destination dirs, so utime() fails ("Operation not permitted").
           # We only need content + filenames; times/perms aren't load-bearing here.
-          for skill in analytics billing-finance client-documents client-manager content-engine crm-sales email-outreach platform-ops project-management properties seo-sprint-manager social-media-manager; do
+          remote_base="/var/lib/hermes/pib-skills/partnersinbiz"
+          mapfile -t sync_skills < <(node -e "const p=require('./config/agent-skill-policy.json'); console.log(Object.entries(p.skillCatalog).filter(([,v]) => v.syncTarget === 'vps').map(([k]) => k).sort().join('\n'))")
+          for skill in "${sync_skills[@]}"; do
             if [ -d ".claude/skills/$skill" ]; then
               echo "-> rsyncing $skill"
-              rsync -rlz --delete --omit-dir-times --no-perms \
+              safe_skill="${skill//\//__}"
+              tmp_dir="$remote_base/.sync-$safe_skill-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+              dest_dir="$remote_base/$skill"
+              stale_dir="$remote_base/.stale-$safe_skill-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+              ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "rm -rf '$tmp_dir' '$stale_dir' && mkdir -p '$tmp_dir' \"\$(dirname '$dest_dir')\""
+              rsync -rlz --delete --omit-dir-times --no-perms --no-owner --no-group \
                 ".claude/skills/$skill/" \
-                "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/var/lib/hermes/pib-skills/partnersinbiz/$skill/"
+                "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:$tmp_dir/"
+              ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
+                set -e
+                if [ -e '$dest_dir' ]; then
+                  mv '$dest_dir' '$stale_dir'
+                fi
+                mv '$tmp_dir' '$dest_dir'
+                chmod -R g+rwX '$dest_dir' || true
+                rm -rf '$stale_dir' 2>/dev/null || true
+              "
             else
               echo "-- skipping $skill (not found in repo)"
             fi
           done
+          ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
+            set -e
+            # Profile config.yaml files are owned by the live Hermes runtime.
+            # Provisioning/install scripts update them; CI only refreshes the
+            # shared skill cache and generated per-agent skill directories.
+            node /var/lib/hermes/partnersinbiz-web/scripts/apply-agent-skill-policy.mjs --root /var/lib/hermes --apply --no-config
+          "
           echo "Sync complete"

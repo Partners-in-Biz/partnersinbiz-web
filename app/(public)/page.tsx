@@ -33,7 +33,7 @@ export default function HomePage() {
         <div className="absolute inset-0 pib-grid-bg pointer-events-none opacity-40" />
 
         <div className="container-pib relative">
-          <Reveal>
+          <Reveal eager>
             <div className="flex items-center gap-2.5 mb-8">
               <span className="relative flex h-2 w-2">
                 <span className="absolute inset-0 rounded-full bg-[var(--color-pib-success)] opacity-75 animate-ping" />
@@ -43,37 +43,38 @@ export default function HomePage() {
             </div>
           </Reveal>
 
-          <Reveal delay={80}>
+          <Reveal delay={80} eager>
             <h1 className="h-display text-balance max-w-[18ch]">
               Software your competitors will <em className="not-italic text-[var(--color-pib-accent)]">copy.</em>
             </h1>
           </Reveal>
 
-          <Reveal delay={160}>
+          <Reveal delay={160} eager>
             <p className="mt-8 text-xl md:text-2xl text-[var(--color-pib-text-muted)] max-w-2xl text-pretty leading-snug">
               Partners in Biz is a Pretoria-based studio. We build websites, web apps, mobile apps, and AI integrations
               that ship in weeks — and keep working long after.
             </p>
           </Reveal>
 
-          <Reveal delay={240}>
+          <Reveal delay={240} eager>
             <div className="mt-10 flex flex-wrap items-center gap-3">
-              <Link href="/start-a-project" className="btn-pib-accent">
+              <Link href="/start-a-project" prefetch={false} className="btn-pib-accent">
                 Start a project
                 <span className="material-symbols-outlined text-base">arrow_outward</span>
               </Link>
-              <Link href="/work" className="btn-pib-secondary">
+              <Link href="/work" prefetch={false} className="btn-pib-secondary">
                 See the work
               </Link>
             </div>
           </Reveal>
 
           {/* Hero bento — 4 work tiles forming the proof block */}
-          <Reveal delay={320}>
+          <Reveal delay={320} eager>
             <div className="mt-20 md:mt-28 grid grid-cols-12 gap-3 md:gap-4">
               {/* Big featured work tile */}
               <Link
                 href={CASE_STUDIES[0].href}
+                prefetch={false}
                 className="col-span-12 md:col-span-7 row-span-2 group bento-card !p-0 aspect-[4/3] md:aspect-auto md:min-h-[420px] relative overflow-hidden"
               >
                 <Image
@@ -110,6 +111,7 @@ export default function HomePage() {
                 <Link
                   key={c.slug}
                   href={c.href}
+                  prefetch={false}
                   className="col-span-6 md:col-span-5 group bento-card !p-0 aspect-[5/3] relative overflow-hidden md:aspect-auto md:min-h-[200px]"
                   style={{ gridColumn: 'span 6 / span 6' }}
                 >
@@ -163,6 +165,7 @@ export default function HomePage() {
               <Reveal key={s.slug} delay={i * 60}>
                 <Link
                   href={`/services/${s.slug}`}
+                  prefetch={false}
                   className={`bento-card flex flex-col h-full ${i === 0 || i === 4 ? 'md:col-span-1' : ''}`}
                 >
                   <span className="material-symbols-outlined text-4xl text-[var(--color-pib-accent)] mb-6">{s.icon}</span>
@@ -188,6 +191,7 @@ export default function HomePage() {
           <Reveal delay={SERVICES.length * 60}>
             <Link
               href="/properties"
+              prefetch={false}
               className="bento-card mt-5 md:mt-6 group flex flex-col md:flex-row md:items-center gap-6 md:gap-10 p-8 md:p-10 relative overflow-hidden"
             >
               <span className="pill pill-accent absolute top-4 right-4 !text-[10px]">New</span>
@@ -225,6 +229,7 @@ export default function HomePage() {
               <Reveal key={c.slug}>
                 <Link
                   href={c.href}
+                  prefetch={false}
                   className={`group grid md:grid-cols-12 gap-6 md:gap-12 items-center ${
                     i % 2 === 1 ? 'md:[&>*:first-child]:order-2' : ''
                   }`}
@@ -354,7 +359,13 @@ export default function HomePage() {
                 {TESTIMONIALS[0].quote}
               </blockquote>
               <footer className="mt-8 pt-6 border-t border-[var(--color-pib-line)] flex items-center gap-4">
-                <Image src={TESTIMONIALS[0].avatar} alt="" width={48} height={48} className="rounded-full object-cover" />
+                <Image
+                  src={TESTIMONIALS[0].avatar}
+                  alt={`${TESTIMONIALS[0].author} testimonial portrait`}
+                  width={48}
+                  height={48}
+                  className="rounded-full object-cover"
+                />
                 <div>
                   <div className="font-medium">{TESTIMONIALS[0].author}</div>
                   <div className="text-sm text-[var(--color-pib-text-muted)]">{TESTIMONIALS[0].role}</div>
@@ -366,7 +377,13 @@ export default function HomePage() {
                 <div key={t.author} className="bento-card">
                   <p className="text-[var(--color-pib-text)] text-pretty">&ldquo;{t.quote}&rdquo;</p>
                   <footer className="mt-4 pt-4 border-t border-[var(--color-pib-line)] flex items-center gap-3 text-sm">
-                    <Image src={t.avatar} alt="" width={32} height={32} className="rounded-full object-cover" />
+                    <Image
+                      src={t.avatar}
+                      alt={`${t.author} testimonial portrait`}
+                      width={32}
+                      height={32}
+                      className="rounded-full object-cover"
+                    />
                     <div>
                       <div className="font-medium">{t.author}</div>
                       <div className="text-[var(--color-pib-text-muted)] text-xs">{t.role}</div>
@@ -390,18 +407,18 @@ export default function HomePage() {
             cta="See full pricing"
           />
           <div className="grid md:grid-cols-3 gap-4 md:gap-5">
-            <Link href="/pricing" className="bento-card group">
+            <Link href="/pricing" prefetch={false} className="bento-card group">
               <p className="eyebrow mb-4">Marketing site</p>
               <p className="font-display text-4xl text-[var(--color-pib-text)]">From R35k</p>
               <p className="mt-3 text-sm text-[var(--color-pib-text-muted)]">2–4 weeks. Built to be found, built to convert.</p>
             </Link>
-            <Link href="/pricing" className="bento-card relative group" style={{ borderColor: 'rgba(245,166,35,0.4)' }}>
+            <Link href="/pricing" prefetch={false} className="bento-card relative group" style={{ borderColor: 'rgba(245,166,35,0.4)' }}>
               <span className="absolute -top-2 right-4 pill pill-accent !text-[10px]">Most popular</span>
               <p className="eyebrow mb-4 text-[var(--color-pib-accent)]">Web application</p>
               <p className="font-display text-4xl text-[var(--color-pib-text)]">From R120k</p>
               <p className="mt-3 text-sm text-[var(--color-pib-text-muted)]">6–12 weeks. Custom platforms, internal tools, SaaS.</p>
             </Link>
-            <Link href="/pricing" className="bento-card group">
+            <Link href="/pricing" prefetch={false} className="bento-card group">
               <p className="eyebrow mb-4">Bespoke build</p>
               <p className="font-display text-4xl text-[var(--color-pib-text)]">Let&rsquo;s scope it</p>
               <p className="mt-3 text-sm text-[var(--color-pib-text-muted)]">Strategic engagement. Equity, retainer, or fixed-scope.</p>
@@ -421,7 +438,7 @@ export default function HomePage() {
             cta="All insights"
           />
           <div className="grid md:grid-cols-3 gap-4 md:gap-5">
-            <Link href="/insights/next-js-16-for-business-websites" className="bento-card group">
+            <Link href="/insights/next-js-16-for-business-websites" prefetch={false} className="bento-card group">
               <span className="pill mb-4 inline-block">Build Notes</span>
               <h3 className="font-display text-2xl mb-3 group-hover:text-[var(--color-pib-accent)] transition-colors text-balance">
                 Next.js 16 for business websites: what actually matters
@@ -429,7 +446,7 @@ export default function HomePage() {
               <p className="text-sm text-[var(--color-pib-text-muted)] text-pretty">A practical look at the Next.js 16 features that move the needle for marketing sites and SaaS.</p>
               <p className="mt-4 font-mono text-xs text-[var(--color-pib-text-faint)]">8 min · 2026-04-12</p>
             </Link>
-            <Link href="/insights/building-an-ai-agent-that-bills" className="bento-card group">
+            <Link href="/insights/building-an-ai-agent-that-bills" prefetch={false} className="bento-card group">
               <span className="pill mb-4 inline-block">Build Notes</span>
               <h3 className="font-display text-2xl mb-3 group-hover:text-[var(--color-pib-accent)] transition-colors text-balance">
                 Building an AI agent that actually bills clients
@@ -437,7 +454,7 @@ export default function HomePage() {
               <p className="text-sm text-[var(--color-pib-text-muted)] text-pretty">How we wired Claude into a South African EFT-first invoicing flow — with proof-of-payment, PayPal fallback, and zero hallucinations.</p>
               <p className="mt-4 font-mono text-xs text-[var(--color-pib-text-faint)]">11 min · 2026-04-02</p>
             </Link>
-            <Link href="/insights/south-african-website-cost-2026" className="bento-card group">
+            <Link href="/insights/south-african-website-cost-2026" prefetch={false} className="bento-card group">
               <span className="pill mb-4 inline-block">Industry POV</span>
               <h3 className="font-display text-2xl mb-3 group-hover:text-[var(--color-pib-accent)] transition-colors text-balance">
                 How much does a custom website cost in South Africa in 2026?

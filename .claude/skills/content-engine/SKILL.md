@@ -12,7 +12,7 @@ description: |
 
 Take a PiB client from a research brief to ~75 production assets, all written into the platform as a single `campaign`. The pipeline output:
 
-- **1 research dossier** — audiences, voice, taglines, channel mix, citations (saved on `campaign.research`)
+- **1 research dossier** — audiences, voice, taglines, channel mix, citations (saved as a structured Research item first, then mirrored on `campaign.research`)
 - **1 brand identity lock** — palette, typography, aesthetic keywords, tone (saved on `campaign.brandIdentity`)
 - **N content pillars + 12-week calendar** — saved on `campaign.pillars` and `campaign.calendar`
 - **8 blog posts** — `seo_content` rows with AI-generated bodies in `seo_drafts`, status `review`, optionally linked to an active SEO sprint
@@ -60,7 +60,7 @@ Run them in order. Phases 3–6 inside the production day can run heavily in par
 |---|---|---|---|
 | **0. Identify client type** | service / consumer-app / B2B SaaS | (decision) | [`references/client-types/`](references/client-types/) |
 | **0a. Create campaign** | `POST /api/v1/campaigns` with `name`, `clientType`, empty placeholders | `campaigns/{id}` (capture `id` + `shareToken`) | (this file) |
-| **1. Research** | last30days + WebSearch on the client's domain | `PATCH /campaigns/[id]` with `{ research }` | [`references/01-research.md`](references/01-research.md) |
+| **1. Research** | last30days + WebSearch on the client's domain | Create/link Research item, then `PATCH /campaigns/[id]` with `{ research, researchItemId }` | [`references/01-research.md`](references/01-research.md) |
 | **2. Master plan** | Brand identity lock + pillars + 12-week calendar | `PATCH /campaigns/[id]` with `{ brandIdentity, pillars, calendar }` | [`references/02-master-plan.md`](references/02-master-plan.md) |
 | **3. Parallel writing wave** | Dispatch 8 blog writers + 6 video composers + social writer | `seo_content` + `seo_drafts` + `social_posts` (all with `campaignId`) | [`references/03-parallel-agents.md`](references/03-parallel-agents.md) |
 | **4. Image generation** | Imagen 4.0 + master style suffix | `/social/media/upload` → URLs attached to posts/blogs | [`references/04-image-generation.md`](references/04-image-generation.md) |
@@ -381,4 +381,4 @@ When in doubt about video format: read [`references/05-video-production.md`](ref
 
 ## Client Document Handoff
 
-For major client-facing runs, create or link a Content Campaign Plan document through the `client-documents` skill. Link it with `linked.campaignId` and use the document for strategy, assumptions, comments, and client approval; keep individual post approval in the social campaign workflow.
+For major client-facing runs, create or link a Research item through the `research-intelligence` skill before populating campaign output. For client-facing sign-off, create or link a Content Campaign Plan document through the `client-documents` skill. Link it with `linked.campaignId` and use the document for strategy, assumptions, comments, and client approval; keep individual post approval in the social campaign workflow.

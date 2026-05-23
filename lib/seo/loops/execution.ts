@@ -2,6 +2,11 @@ import { adminDb } from '@/lib/firebase/admin'
 import { FieldValue } from 'firebase-admin/firestore'
 import type { ApiUser } from '@/lib/api/types'
 import { lastActorFrom } from '@/lib/api/actor'
+import {
+  ensureSeoBlockerHandoff,
+  ensureSeoQueuedAgentHandoff,
+  resolveSeoBlockerHandoff,
+} from '@/lib/seo/blocker-handoff'
 
 export interface ExecutorResult {
   status: 'done' | 'queued' | 'blocked'
@@ -29,6 +34,7 @@ const DEFAULT_SAFE_TASK_TYPES = new Set([
   'cwv-check',
   'canonical-check',
   'gsc-index-check',
+  'sitemap-submit',
   'keyword-record',
   'directory-submission',
   'audit-snapshot',
@@ -86,6 +92,11 @@ export async function runExecutionLoopForSprint(
   done: string[]
   queued: string[]
   blocked: { taskId: string; reason: string }[]
+  agentHandoff?: {
+    projectId: string | null
+    projectTaskId: string | null
+    taskIds: string[]
+  } | null
 }> {
   await ensureExecutorsLoaded()
   const sprintSnap = await adminDb.collection('seo_sprints').doc(sprintId).get()
@@ -94,7 +105,16 @@ export async function runExecutionLoopForSprint(
   const data = sprintSnap.data() as any
   const plan = data.todayPlan
   const ids = [...(plan?.due ?? []), ...(plan?.inProgress ?? [])]
-  const out = {
+  const out: {
+    done: string[]
+    queued: string[]
+    blocked: { taskId: string; reason: string }[]
+    agentHandoff?: {
+      projectId: string | null
+      projectTaskId: string | null
+      taskIds: string[]
+    } | null
+  } = {
     done: [] as string[],
     queued: [] as string[],
     blocked: [] as { taskId: string; reason: string }[],
@@ -110,6 +130,7 @@ export async function runExecutionLoopForSprint(
         outputArtifactId: r.artifactId ?? null,
         ...lastActorFrom(user),
       })
+      await resolveSeoBlockerHandoff(id, user)
     } else if (r.status === 'queued') {
       out.queued.push(id)
       await adminDb.collection('seo_tasks').doc(id).update({
@@ -124,7 +145,20 @@ export async function runExecutionLoopForSprint(
         blockerReason: r.blockerReason ?? null,
         ...lastActorFrom(user),
       })
+      await ensureSeoBlockerHandoff({
+        taskId: id,
+        reason: r.blockerReason,
+        actor: user,
+      })
     }
+  }
+  if (out.queued.length > 0) {
+    const agentHandoff = await ensureSeoQueuedAgentHandoff({
+      sprintId,
+      taskIds: out.queued,
+      actor: user,
+    })
+    if (agentHandoff) out.agentHandoff = agentHandoff
   }
   return out
 }

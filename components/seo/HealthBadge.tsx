@@ -4,19 +4,19 @@ interface HealthBadgeProps {
 }
 
 export function HealthBadge({ score, signalsCount = 0 }: HealthBadgeProps) {
-  let color = 'bg-gray-200 text-gray-700'
+  let color = 'pib-pill'
   let label = 'unknown'
   if (typeof score === 'number') {
     if (score >= 80) {
-      color = 'bg-green-100 text-green-800'
+      color = 'pib-pill pib-pill-success'
       label = `healthy${signalsCount > 0 ? ` · ${signalsCount}` : ''}`
     } else if (score >= 50) {
-      color = 'bg-amber-100 text-amber-800'
+      color = 'pib-pill pib-pill-warn'
       label = `attention · ${signalsCount}`
     } else {
-      color = 'bg-red-100 text-red-800'
+      color = 'pib-pill pib-pill-danger'
       label = `unhealthy · ${signalsCount}`
     }
   }
-  return <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${color}`}>{label}</span>
+  return <span className={color}>{label}</span>
 }

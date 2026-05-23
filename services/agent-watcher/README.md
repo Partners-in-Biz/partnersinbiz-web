@@ -1,9 +1,11 @@
 # agent-watcher
 
 A small Node.js daemon that watches Firestore for kanban tasks assigned to a PiB
-agent (Pip, Theo, Maya, Sage, Nora), claims them transactionally, dispatches them
-to the corresponding Hermes profile, polls for completion, and writes the result
-back to the task.
+agent, claims them transactionally, dispatches them to the corresponding Hermes
+profile, polls for completion, and writes the result back to the task.
+
+The live policy team is `pip`, `theo`, `maya`, `sage`, `nora`, `ads`,
+`qa-release`, `support`, `data`, `docs`, and `seo`.
 
 This implements Step 2-3 of the multi-agent orchestrator spec
 (`agents/partners/wiki/multi-agent-orchestrator-spec.md`).
@@ -18,6 +20,8 @@ This implements Step 2-3 of the multi-agent orchestrator spec
                        │      {project}/tasks/{task}           │
                        │      assigneeAgentId  ──► 'theo'      │
                        │      agentStatus      ──► 'pending'   │
+                       │      requiredCapability ─► 'deploy'   │
+                       │      reviewerAgentId  ──► 'qa-release'│
                        │                                       │
                        │  /agent_dispatch_configs/{agentId}    │
                        │      { baseUrl, apiKey, enabled }     │
@@ -40,23 +44,26 @@ This implements Step 2-3 of the multi-agent orchestrator spec
                        │    /chat/* → pip                      │
                        │    /agents/theo/* → theo              │
                        │    /agents/maya/* → maya …            │
+                       │    /agents/seo/* → seo                │
+                       │    /agents/qa-release/* → qa-release  │
                        └───────────────────────────────────────┘
 ```
 
 ## What it does
 
 - Subscribes via `collectionGroup('tasks')` to every task where
-  `assigneeAgentId ∈ { pip, theo, maya, sage, nora }` and `agentStatus = 'pending'`.
+  `assigneeAgentId` is an enabled policy agent and `agentStatus = 'pending'`.
 - For each pending task:
   1. Checks any `dependsOn` task IDs — skips until all are `done`.
-  2. Atomically claims the task (Firestore transaction; `pending` → `picked-up`).
-  3. Loads the agent's Hermes config from `agent_dispatch_configs/<agentId>`
+  2. Skips tasks with pending approval gates.
+  3. Atomically claims the task (Firestore transaction; `pending` → `picked-up`).
+  4. Loads the agent's Hermes config from `agent_dispatch_configs/<agentId>`
      (60-second in-memory TTL cache).
-  4. Moves the task to `in-progress` and starts a 30s heartbeat.
-  5. POSTs to `${baseUrl}/v1/runs` with the task spec + metadata.
-  6. Polls `${baseUrl}/v1/runs/{runId}` every 2s until the status is terminal
+  5. Moves the task to `in-progress` and starts a 30s heartbeat.
+  6. POSTs to `${baseUrl}/v1/runs` with the task spec + provenance metadata.
+  7. Polls `${baseUrl}/v1/runs/{runId}` every 2s until the status is terminal
      (5-minute timeout).
-  7. Writes `agentOutput.summary` and sets `agentStatus = 'done'` (or `'blocked'`
+  8. Writes `agentOutput.summary` and sets `agentStatus = 'done'` (or `'blocked'`
      with the error in `agentOutput.summary` on failure).
 - Caps concurrency at **5 dispatches per agent**. Other tasks wait — Firestore's
   next snapshot tick will retrigger them.
@@ -145,7 +152,7 @@ You should see (one JSON line per event):
 
 ```
 {"ts":"...","level":"info","msg":"agent-watcher booting","node":"v20.x","pid":12345}
-{"ts":"...","level":"info","msg":"starting Firestore watcher","agents":["pip","theo","maya","sage","nora"]}
+{"ts":"...","level":"info","msg":"starting Firestore watcher","agents":["ads","data","docs","maya","nora","pip","qa-release","sage","seo","support","theo"]}
 {"ts":"...","level":"info","msg":"agent-watcher ready"}
 ```
 
@@ -162,11 +169,8 @@ npx tsx scripts/seed-agent-dispatch-configs.ts
 The seed script:
 
 1. Reads `hermes_profile_links/pib-platform-owner` to extract `baseUrl` + `apiKey`.
-2. Writes `agent_dispatch_configs/pip` with `{ agentId, baseUrl, apiKey, enabled: true }`.
+2. Writes `agent_dispatch_configs/<agentId>` with `{ agentId, baseUrl, apiKey, enabled: true }`.
 3. Is idempotent — safe to re-run.
-
-To seed the other agents (theo/maya/sage/nora) once they have their own Hermes
-profiles, copy the seed script and adjust the source profile + target agentId.
 
 ## Failure modes
 
@@ -188,11 +192,15 @@ will re-pick it.
 
 1. Add a doc at `agent_dispatch_configs/<newAgentId>` with the new Hermes base URL
    and API key (use a copy of `scripts/seed-agent-dispatch-configs.ts`).
-2. Add the new id to `AGENT_IDS` in `src/config.ts`.
-3. Update the `tasks` collectionGroup index in `firestore.indexes.json` if you
+2. Add or enable `agent_team/<newAgentId>`. The watcher derives eligible agents
+   from enabled `agent_team` docs at boot and falls back to the policy team only if
+   Firestore cannot provide a usable list.
+3. Add the runtime skill policy for that agent in `config/agent-skill-policy.json`
+   before assigning task-bus work to it.
+4. Update the `tasks` collectionGroup index in `firestore.indexes.json` if you
    added new query shapes (the existing index on
    `assigneeAgentId + agentStatus` already covers any agent id).
-4. Rebuild and redeploy: `npm run build` + `systemctl restart hermes-watcher`.
+5. Rebuild and redeploy: `npm run build` + `systemctl restart hermes-watcher`.
 
 ## Local development
 

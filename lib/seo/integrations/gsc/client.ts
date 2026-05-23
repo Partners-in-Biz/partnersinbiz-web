@@ -36,6 +36,18 @@ export async function fetchSearchAnalytics(
   }))
 }
 
+export async function submitSitemap(
+  auth: OAuth2Client,
+  siteUrl: string,
+  sitemapUrl: string,
+): Promise<void> {
+  const wm = google.webmasters({ version: 'v3', auth })
+  await wm.sitemaps.submit({
+    siteUrl,
+    feedpath: sitemapUrl,
+  })
+}
+
 export async function inspectUrl(
   auth: OAuth2Client,
   inspectionUrl: string,

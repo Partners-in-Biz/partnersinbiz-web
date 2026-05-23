@@ -35,6 +35,54 @@ Authorization: Bearer <AI_API_KEY>
 
 Pick the system that fits: use project-nested when a project is the clear container; use standalone for personal todos or deal-linked tasks.
 
+## Cross-app handoff rule
+
+Projects are the canonical task bus whenever work crosses module boundaries, agents,
+Peet, Partners in Biz staff, or client action.
+
+For substantial client work, start with an internal/client document for the spec, then use Projects/Kanban as the execution bus. If the spec is not approved yet, create a Pip approval-gate task and hold specialist agent tasks at `agentStatus='awaiting-input'` with `dependsOn` until approval. When approval lands, release those tasks to `pending` so the kanban watcher picks them up automatically.
+
+Domain modules still own their own progress records:
+
+- SEO work must update the SEO sprint.
+- Social work must update the campaign/social queue.
+- Ads work must update the ads campaign/ad records.
+- Documents work must update the document/review surface.
+- CRM work must update the CRM record, activity, or automation state.
+
+Projects carry the execution handoff: who needs to do what, by when, what it blocks,
+which agent owns it, and where the evidence lives.
+
+When an agent discovers human work it cannot complete:
+
+1. First update the domain record with the finding, current status, and blocker.
+2. Find the active client/workstream project.
+3. If no suitable project exists, create one with `POST /projects`.
+4. Create a project-nested task with enough context for the assignee to act without
+   reading the whole chat.
+5. Assign or mention the responsible person if their user id is known.
+6. If the responsible person cannot be resolved, leave the task unassigned, add a
+   clear owner prefix in the title (`Peet action:`, `Client action:`, `Team action:`),
+   and include `needs-assignment` in `labels`.
+7. Add labels that tie the ticket back to the source module and record id, for example
+   `seo`, `seo-sprint:<id>`, `ads-campaign:<id>`, `document:<id>`, `crm:<entityId>`.
+8. Link the project task id or URL back into the domain record's notes/blocker field
+   where the API allows it.
+
+If there is no project yet, create it first. Do not leave actionable blockers only in
+the final chat response, repo PR, or wiki.
+
+Every blocker task must explain:
+
+- what is wrong
+- how to fix it
+- what evidence/proof is required
+- what message should be sent back to the agent when the blocker is resolved
+
+For SEO blockers, the SEO module now creates/reuses the client SEO project, creates
+the project task, and notifies matching admins automatically when the SEO task is
+marked `blocked`. The agent remains responsible for writing a useful blocker reason.
+
 ## Collaboration primitives
 
 - **Idempotency** on `POST /projects`, `POST /tasks`, `POST /time-entries`, `POST /time-entries/start`, `POST /calendar/events`
@@ -104,8 +152,10 @@ Tasks can be assigned to a named agent in the Partners-in-Biz team (Pip, Theo, M
 }
 ```
 
-- **`assigneeAgentId`** — one of `pip` | `theo` | `maya` | `sage` | `nora` (or omit/null for a human task). Setting this auto-initialises `agentStatus` to `pending`.
-- **`agentStatus`** — `pending` | `picked-up` | `in-progress` | `awaiting-input` | `done` | `blocked`. On reassignment, status resets to `pending` unless explicitly overridden.
+- **`assigneeAgentId`** — one of `pip` | `theo` | `maya` | `sage` | `nora` (or omit/null for a human task). Setting this on create auto-initialises `agentStatus` to `pending`.
+- **`agentStatus`** — `pending` | `picked-up` | `in-progress` | `awaiting-input` | `done` | `blocked`. On reassignment, status resets to `pending` unless explicitly overridden on update.
+  - **Revision/requeue rule:** if an agent task in `done`, `blocked`, or `awaiting-input` is moved back to `columnId:'todo'` without an explicit `agentStatus`, the task PATCH route requeues it automatically: `agentStatus:'pending'`, `reviewStatus:'changes-requested'`, and stale `agentOutput`/conversation/heartbeat fields cleared. Humans should still add a task comment first with the requested changes; the watcher injects recent task comments into the retry prompt so the agent sees the review note.
+  - **Approval-gated task gotcha:** `POST /projects/[projectId]/tasks` currently resets agent-assigned tasks to `agentStatus='pending'` even when the create payload includes `agentStatus:'awaiting-input'`. If you are creating future/approval-gated agent tasks, immediately `PATCH /projects/[projectId]/tasks/[taskId]` with `{ "agentStatus": "awaiting-input" }` after creation, then verify with `GET /projects/[projectId]/tasks` before telling Peet the tasks are gated. Otherwise the watcher can pick them up too early.
 - **`agentInput`** — `{ spec: string, context?: object, constraints?: string[] }`. `spec` is required.
 - **`agentOutput`** — written when the agent completes: `{ summary: string, artifacts?: [{ type, ref, label? }], completedAt }`. `artifacts.type` is `url` | `file` | `commit` | `message-thread` | `doc`.
 - **`dependsOn`** — array of task IDs that must reach `agentStatus='done'` before this one becomes eligible for pickup.
@@ -149,12 +199,31 @@ Returns everything an agent needs to work on a project in one call:
 {
   "project": { "name": "...", "status": "...", "description": "...", "brief": "...", "orgId": "..." },
   "documents": [{ "title": "...", "content": "...", "type": "..." }],
-  "tasks": [{ "title": "...", "status": "...", "assignedTo": "..." }],
+  "tasks": [{
+    "id": "task_abc",
+    "orgId": "org_abc",
+    "projectId": "proj_xyz",
+    "title": "...",
+    "description": "...",
+    "priority": "high",
+    "columnId": "review",
+    "status": "in_progress",
+    "assigneeAgentId": "theo",
+    "agentStatus": "done",
+    "agentInput": { "spec": "...", "context": {} },
+    "agentOutput": { "summary": "...", "artifacts": [{ "type": "commit", "ref": "abc123" }] },
+    "dependsOn": ["task_previous"],
+    "labels": ["qc", "handoff"],
+    "reviewStatus": "pending",
+    "agentConversationId": "run_...",
+    "agentHeartbeatAt": "...",
+    "attachments": []
+  }],
   "recentComments": [...]
 }
 ```
 
-**Use this first** whenever an agent is asked to work on a project. Avoids multiple roundtrips.
+**Use this first** whenever an agent is asked to work on a project. It is the gold endpoint for project handoff/QC because it exposes task ids, org/project scope, kanban column/status, agent dispatch input/output, artifact refs, dependencies, labels, review status, and safe agent conversation/heartbeat metadata in one response.
 
 ### Standalone tasks
 
@@ -421,3 +490,5 @@ GET /reports/team-utilization?orgId=org_abc&from=2026-04-07&to=2026-04-13
 ## Client Document Handoff
 
 Use the `client-documents` skill for specs, change requests, launch sign-offs, and handover packs. Link these documents with `linked.projectId` so Projects/Kanban remains the operational source of truth while `client_documents` handles presentation, comments, versions, and approvals.
+
+Use the `research-intelligence` skill for working research that informs a project. Link Research items to `linked.projectId` and convert to a `research_report` document only when the client needs polished review or approval.

@@ -5,7 +5,7 @@
  * {
  *   project: { name, status, description, brief, orgId },
  *   documents: [ { title, content, type } ],
- *   tasks: [ { title, description, priority, columnId, attachments } ],
+ *   tasks: [ { id, orgId, projectId, title, description, priority, columnId, status, assigneeAgentId, agentStatus, agentInput, agentOutput, dependsOn, labels, reviewStatus, agentConversationId, agentHeartbeatAt, attachments } ],
  *   recentComments: [ ... ] // latest 10 comments across all tasks
  * }
  */
@@ -62,10 +62,23 @@ export const GET = withAuth('admin', async (req: NextRequest, user, ctx) => {
   const tasks = tasksSnapshot.docs.map(doc => {
     const data = doc.data()
     return {
+      id: doc.id,
+      orgId: data.orgId ?? project.orgId,
+      projectId: data.projectId ?? projectId,
       title: data.title ?? '',
       description: data.description ?? '',
       priority: data.priority ?? 'medium',
       columnId: data.columnId ?? '',
+      status: data.status ?? data.columnId ?? '',
+      assigneeAgentId: data.assigneeAgentId ?? null,
+      agentStatus: data.agentStatus ?? null,
+      agentInput: data.agentInput ?? null,
+      agentOutput: data.agentOutput ?? null,
+      dependsOn: Array.isArray(data.dependsOn) ? data.dependsOn : [],
+      labels: Array.isArray(data.labels) ? data.labels : [],
+      reviewStatus: data.reviewStatus ?? null,
+      agentConversationId: data.agentConversationId ?? null,
+      agentHeartbeatAt: data.agentHeartbeatAt ?? null,
       attachments: data.attachments ?? [],
     }
   })

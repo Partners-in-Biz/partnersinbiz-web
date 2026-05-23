@@ -2,7 +2,7 @@
 
 import React from 'react'
 import type { PreviewSocialPost, PreviewBrand } from './types'
-import { PreviewImage, getFirstVideo, getFirstImage, compactCount, HighlightedText, withHashtags } from './utils'
+import { PreviewImage, getFirstVideo, getFirstImage, compactCount, HighlightedText, readableAccentOnDark, withHashtags } from './utils'
 
 export interface InstagramReelsCardProps {
   post: PreviewSocialPost
@@ -14,7 +14,7 @@ export function InstagramReelsCard({ post, brand }: InstagramReelsCardProps) {
   const image = getFirstImage(post.media)
   const handle = post.authorHandle || brand?.name || 'yourbrand'
   const fullCaption = withHashtags(post.content, post.hashtags)
-  const accent = brand?.palette.accent || '#fff'
+  const accent = readableAccentOnDark(brand?.palette.accent, '#fff')
 
   return (
     <div

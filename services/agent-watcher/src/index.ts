@@ -45,13 +45,13 @@ async function shutdown(signal: string): Promise<void> {
   process.exit(0)
 }
 
-function main(): void {
+async function main(): Promise<void> {
   logger.info('agent-watcher booting', {
     node: process.version,
     pid: process.pid,
   })
 
-  stopWatcher = startWatcher()
+  stopWatcher = await startWatcher()
   stopSweeper = startStaleSweeper()
 
   process.on('SIGTERM', () => void shutdown('SIGTERM'))
@@ -71,4 +71,9 @@ function main(): void {
   logger.info('agent-watcher ready')
 }
 
-main()
+void main().catch((err) => {
+  logger.error('agent-watcher failed to boot', {
+    error: err instanceof Error ? err.message : String(err),
+  })
+  process.exit(1)
+})

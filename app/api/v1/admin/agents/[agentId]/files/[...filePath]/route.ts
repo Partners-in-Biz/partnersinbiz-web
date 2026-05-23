@@ -6,6 +6,7 @@
 import { NextRequest } from 'next/server'
 import { withAuth } from '@/lib/api/auth'
 import { apiError, apiSuccess } from '@/lib/api/response'
+import { enforceAgentCapability } from '@/lib/api/capabilityGate'
 import { callAgentPath } from '@/lib/agents/team'
 import { isValidAgentId, type AgentId } from '@/lib/agents/types'
 import { isSuperAdmin } from '@/lib/api/platformAdmin'
@@ -37,6 +38,8 @@ export const PUT = withAuth('admin', async (req: NextRequest, user, ctx) => {
   if (!isValidAgentId(agentId)) return apiError('Invalid agentId', 400)
   let body: unknown
   try { body = await req.json() } catch { return apiError('Invalid JSON body', 400) }
+  const capabilityError = enforceAgentCapability(user, 'access_secret', req, body && typeof body === 'object' && !Array.isArray(body) ? body as Record<string, unknown> : null)
+  if (capabilityError) return capabilityError
   try {
     const { response, data } = await callAgentPath(agentId as AgentId, `/admin/files/${encodePath(filePath)}`, {
       method: 'PUT',

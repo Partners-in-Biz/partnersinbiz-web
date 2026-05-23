@@ -1,6 +1,6 @@
 'use client'
 
-type AgentId = 'pip' | 'theo' | 'maya' | 'sage' | 'nora'
+type AgentId = string
 
 type Participant =
   | { kind: 'user'; uid: string; role: 'admin' | 'client'; displayName?: string }
@@ -35,12 +35,18 @@ interface ConversationListItemProps {
   currentUserUid: string
 }
 
-const AGENT_COLORS: Record<AgentId, string> = {
+const AGENT_COLORS: Record<string, string> = {
   pip:   'bg-violet-400',
   theo:  'bg-sky-400',
   maya:  'bg-amber-400',
   sage:  'bg-emerald-400',
   nora:  'bg-rose-400',
+  ads:   'bg-amber-400',
+  'qa-release': 'bg-emerald-400',
+  support: 'bg-sky-400',
+  data: 'bg-violet-400',
+  docs: 'bg-rose-400',
+  seo:  'bg-emerald-400',
 }
 
 function tsSeconds(ts: Conversation['lastMessageAt']): number {

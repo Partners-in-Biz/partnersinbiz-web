@@ -47,12 +47,13 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
       lastMessagePreview: output,
       lastMessageRole: 'assistant',
     })
-  } else if (status === 'failed' || status === 'cancelled' || status === 'canceled' || status === 'stopped') {
+  } else if (status === 'failed' || status === 'cancelled' || status === 'canceled' || status === 'stopped' || status === 'interrupted') {
     await updateMessage(convId, msgId, {
       content: error || `Run ${status}`,
       status: 'failed',
       error,
       runId,
+      ...(events.length > 0 ? { events } : {}),
     })
     await touchConversation(convId, {
       lastMessagePreview: `[run ${status}] ${error || ''}`.slice(0, 200),

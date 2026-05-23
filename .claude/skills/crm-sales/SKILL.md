@@ -41,6 +41,8 @@ Except for `POST /forms/[slug]/submit` which is **public** (no auth required).
 
 Sales opportunities that need client review should produce Sales Proposal documents through the `client-documents` skill. Link them with `linked.dealId`, keep pricing/legal/scope assumptions as `blocks_publish` until resolved, and use formal acceptance for proposal approval.
 
+Prospect, company, account, stakeholder, and market-fit research should be captured in the Research module through the `research-intelligence` skill and linked to the relevant deal, company, contact, project, or proposal.
+
 ## Auth & org scoping (PR 2+)
 
 All `/api/v1/crm/contacts/*` routes now use the `withCrmAuth` middleware:

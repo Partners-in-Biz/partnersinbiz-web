@@ -9,6 +9,7 @@ import { adminDb, getAdminApp } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
 import { resolveOrgScope } from '@/lib/api/orgScope'
 import { apiSuccess, apiError } from '@/lib/api/response'
+import { enforceAgentCapability } from '@/lib/api/capabilityGate'
 import { FieldValue } from 'firebase-admin/firestore'
 import { lastActorFrom } from '@/lib/api/actor'
 import { getStorage } from 'firebase-admin/storage'
@@ -28,6 +29,8 @@ export const DELETE = withAuth('client', async (req: NextRequest, user: ApiUser,
   const data = snap.data()!
   const scope = resolveOrgScope(user, (data.orgId as string | undefined) ?? null)
   if (!scope.ok) return apiError(scope.error, scope.status)
+  const capabilityError = enforceAgentCapability(user, 'delete', req)
+  if (capabilityError) return capabilityError
 
   // Best-effort storage delete — don't fail the API call if it doesn't exist.
   const storagePath = typeof data.storagePath === 'string' ? data.storagePath : ''

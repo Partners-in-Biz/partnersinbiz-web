@@ -16,7 +16,7 @@ export default function Footer() {
             Let&rsquo;s build something <em className="text-[var(--color-pib-accent)] not-italic">your competitors will copy.</em>
           </h3>
           <div className="mt-12 flex flex-wrap items-center justify-center gap-3">
-            <Link href="/start-a-project" className="btn-pib-accent">
+            <Link href="/start-a-project" prefetch={false} className="btn-pib-accent">
               Start a project
               <span className="material-symbols-outlined text-base">arrow_outward</span>
             </Link>
@@ -49,7 +49,7 @@ export default function Footer() {
       <div className="container-pib py-16">
         <div className="grid grid-cols-2 md:grid-cols-12 gap-8 md:gap-10">
           <div className="col-span-2 md:col-span-4">
-            <Link href="/" className="flex items-center gap-2.5 mb-5">
+            <Link href="/" prefetch={false} className="flex items-center gap-2.5 mb-5">
               <span className="grid place-items-center w-8 h-8 rounded-lg bg-[var(--color-pib-text)] text-black font-bold text-sm font-mono">P</span>
               <span className="font-display text-xl">Partners <span className="text-[var(--color-pib-text-muted)]">in</span> Biz</span>
             </Link>
@@ -67,7 +67,7 @@ export default function Footer() {
             <ul className="space-y-3 text-sm">
               {SERVICES.map((s) => (
                 <li key={s.slug}>
-                  <Link href={`/services/${s.slug}`} className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors">
+                  <Link href={`/services/${s.slug}`} prefetch={false} className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors">
                     {s.name}
                   </Link>
                 </li>
@@ -78,11 +78,11 @@ export default function Footer() {
           <div className="md:col-span-2">
             <h4 className="eyebrow mb-5">Studio</h4>
             <ul className="space-y-3 text-sm">
-              <li><Link href="/work" className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors">Work</Link></li>
-              <li><Link href="/about" className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors">About</Link></li>
-              <li><Link href="/our-process" className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors">Process</Link></li>
-              <li><Link href="/insights" className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors">Insights</Link></li>
-              <li><Link href="/pricing" className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors">Pricing</Link></li>
+              <li><Link href="/work" prefetch={false} className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors">Work</Link></li>
+              <li><Link href="/about" prefetch={false} className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors">About</Link></li>
+              <li><Link href="/our-process" prefetch={false} className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors">Process</Link></li>
+              <li><Link href="/insights" prefetch={false} className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors">Insights</Link></li>
+              <li><Link href="/pricing" prefetch={false} className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors">Pricing</Link></li>
             </ul>
           </div>
 
@@ -109,8 +109,8 @@ export default function Footer() {
             © {new Date().getFullYear()} Partners in Biz · All rights reserved.
           </p>
           <div className="flex flex-wrap gap-x-6 gap-y-2">
-            <Link href="/privacy-policy" className="hover:text-[var(--color-pib-text-muted)] transition-colors">Privacy</Link>
-            <Link href="/terms-of-service" className="hover:text-[var(--color-pib-text-muted)] transition-colors">Terms</Link>
+            <Link href="/privacy-policy" prefetch={false} className="hover:text-[var(--color-pib-text-muted)] transition-colors">Privacy</Link>
+            <Link href="/terms-of-service" prefetch={false} className="hover:text-[var(--color-pib-text-muted)] transition-colors">Terms</Link>
             <a href="/llms.txt" className="hover:text-[var(--color-pib-text-muted)] transition-colors">llms.txt</a>
             <a href="/sitemap.xml" className="hover:text-[var(--color-pib-text-muted)] transition-colors">Sitemap</a>
             <span className="font-mono">v2026.04 · Made in Pretoria</span>

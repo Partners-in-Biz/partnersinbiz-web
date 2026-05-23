@@ -1,7 +1,7 @@
 name: Mirror partnersinbiz-web to Hermes VPS
 #
-# Rsyncs the full source tree to /var/lib/hermes/projects/partnersinbiz-web/
-# on hermes-vps-01 so VPS agents (Theo especially) can read project code.
+# Rsyncs the development source tree to /var/lib/hermes/projects/partnersinbiz-web/
+# on hermes-vps-01 so all PiB code-capable agents can read project code.
 #
 # Scaling to other projects:
 #   Copy this file into any other repo, update the destination path in the
@@ -17,10 +17,7 @@ name: Mirror partnersinbiz-web to Hermes VPS
 #
 on:
   push:
-    branches: [main]
-    paths-ignore:
-      - '.github/**'
-      - '**.md'
+    branches: [development]
   workflow_dispatch:
 
 jobs:
@@ -28,6 +25,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: development
 
       - name: Set up SSH
         run: |

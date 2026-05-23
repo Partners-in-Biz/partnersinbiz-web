@@ -23,7 +23,7 @@ export function SectionHead({ eyebrow, title, subtitle, href, cta, align = 'left
         )}
       </div>
       {href && cta && (
-        <Link href={href} className="btn-pib-secondary self-start md:self-end shrink-0">
+        <Link href={href} prefetch={false} className="btn-pib-secondary self-start md:self-end shrink-0">
           {cta}
           <span className="material-symbols-outlined text-base">arrow_outward</span>
         </Link>

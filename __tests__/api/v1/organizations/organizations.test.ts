@@ -8,10 +8,12 @@ import { POST as createLogin } from '@/app/api/v1/organizations/[id]/create-logi
 import { DELETE as removeMember } from '@/app/api/v1/organizations/[id]/members/[userId]/route'
 import { POST as linkClient } from '@/app/api/v1/organizations/[id]/link-client/route'
 import { GET as getOrgAccounts } from '@/app/api/v1/organizations/[id]/accounts/route'
+import { provisionFullClientOnVps } from '@/lib/client-provisioning/vps'
 
 jest.mock('firebase-admin/firestore', () => ({
   FieldValue: {
     serverTimestamp: () => '__SERVER_TS__',
+    delete: () => '__DELETE_FIELD__',
   },
   Timestamp: {
     now: () => '__NOW_TS__',
@@ -24,9 +26,14 @@ process.env.SESSION_COOKIE_NAME = '__session'
 
 const mockGet = jest.fn()
 const mockAdd = jest.fn()
+const mockSet = jest.fn()
 const mockWhere = jest.fn()
 const mockOrderBy = jest.fn()
 const mockCollection = jest.fn()
+
+jest.mock('@/lib/client-provisioning/vps', () => ({
+  provisionFullClientOnVps: jest.fn(),
+}))
 
 jest.mock('@/lib/firebase/admin', () => ({
   adminAuth: {
@@ -80,9 +87,14 @@ describe('POST /api/v1/organizations', () => {
     jest.clearAllMocks()
     mockGet.mockResolvedValue({ empty: true, docs: [] })
     mockWhere.mockReturnValue({ get: mockGet })
-    mockAdd.mockResolvedValue({ id: 'new-org-id' })
+    mockSet.mockResolvedValue(undefined)
+    mockAdd.mockResolvedValue({ id: 'new-org-id', set: mockSet })
     mockCollection.mockReturnValue({ where: mockWhere, add: mockAdd, orderBy: mockOrderBy, get: mockGet })
     mockOrderBy.mockReturnValue({ get: mockGet })
+    ;(provisionFullClientOnVps as jest.Mock).mockResolvedValue({
+      profile: { agentId: 'velox' },
+      workspace: { directoriesCreated: [] },
+    })
   })
 
   it('creates an org and returns 201', async () => {
@@ -91,6 +103,31 @@ describe('POST /api/v1/organizations', () => {
     const body = await res.json()
     expect(body.success).toBe(true)
     expect(body.data.id).toBe('new-org-id')
+  })
+
+  it('requests full VPS client provisioning by default for client orgs', async () => {
+    const res = await POST(adminReq('POST', { name: 'Velox', agentName: 'Vee' }))
+    expect(res.status).toBe(201)
+    expect(provisionFullClientOnVps).toHaveBeenCalledWith({
+      clientName: 'Velox',
+      domain: 'velox',
+      orgId: 'new-org-id',
+      agentName: 'Vee',
+    })
+    expect(mockSet).toHaveBeenCalledWith(
+      expect.objectContaining({
+        provisioning: expect.objectContaining({ status: 'complete', domain: 'velox', agentName: 'Vee' }),
+      }),
+      { merge: true },
+    )
+  })
+
+  it('can skip workspace provisioning for Firebase-only org creation', async () => {
+    const res = await POST(adminReq('POST', { name: 'Velox', provisionWorkspace: false }))
+    const body = await res.json()
+    expect(res.status).toBe(201)
+    expect(body.data.provisioning.status).toBe('skipped')
+    expect(provisionFullClientOnVps).not.toHaveBeenCalled()
   })
 
   it('returns 400 when name is missing', async () => {
@@ -566,13 +603,15 @@ describe('POST /api/v1/organizations/[id]/create-login', () => {
 })
 
 describe('DELETE /api/v1/organizations/[id]/members/[userId]', () => {
-  const mockDocGet = jest.fn()
-  const mockDoc = jest.fn()
-  const mockUpdate = jest.fn()
+  const mockOrgGet = jest.fn()
+  const mockUserGet = jest.fn()
+  const mockOrgUpdate = jest.fn()
+  const mockUserSet = jest.fn()
+  const mockMemberDelete = jest.fn()
 
   beforeEach(() => {
     jest.clearAllMocks()
-    mockDocGet.mockResolvedValue({
+    mockOrgGet.mockResolvedValue({
       exists: true,
       id: 'org-1',
       data: () => ({
@@ -584,9 +623,30 @@ describe('DELETE /api/v1/organizations/[id]/members/[userId]', () => {
         description: '', logoUrl: '', website: '', createdBy: 'ai-agent', linkedClientId: '',
       }),
     })
-    mockUpdate.mockResolvedValue(undefined)
-    mockDoc.mockReturnValue({ get: mockDocGet, update: mockUpdate })
-    mockCollection.mockReturnValue({ doc: mockDoc })
+    mockUserGet.mockResolvedValue({
+      exists: true,
+      data: () => ({
+        role: 'client',
+        orgId: 'org-1',
+        activeOrgId: 'org-1',
+        orgIds: ['org-1', 'org-2'],
+      }),
+    })
+    mockOrgUpdate.mockResolvedValue(undefined)
+    mockUserSet.mockResolvedValue(undefined)
+    mockMemberDelete.mockResolvedValue(undefined)
+    mockCollection.mockImplementation((collName: string) => {
+      if (collName === 'organizations') {
+        return { doc: jest.fn().mockReturnValue({ get: mockOrgGet, update: mockOrgUpdate }) }
+      }
+      if (collName === 'users') {
+        return { doc: jest.fn().mockReturnValue({ get: mockUserGet, set: mockUserSet }) }
+      }
+      if (collName === 'orgMembers') {
+        return { doc: jest.fn().mockReturnValue({ delete: mockMemberDelete }) }
+      }
+      throw new Error(`Unexpected collection: ${collName}`)
+    })
   })
 
   it('removes a member and returns 200', async () => {
@@ -597,13 +657,53 @@ describe('DELETE /api/v1/organizations/[id]/members/[userId]', () => {
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.data.removed).toBe(true)
-    expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({
+    expect(mockOrgUpdate).toHaveBeenCalledWith(expect.objectContaining({
       members: expect.anything(),
       updatedAt: expect.anything(),
     }))
+    expect(mockUserSet).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orgIds: ['org-2'],
+        orgId: 'org-2',
+        activeOrgId: 'org-2',
+        updatedAt: expect.anything(),
+      }),
+      { merge: true },
+    )
+    expect(mockMemberDelete).toHaveBeenCalled()
   })
 
-  it('returns 404 when user is not a member', async () => {
+  it('cleans a stale user-org link when the embedded org member is already gone', async () => {
+    const res = await removeMember(
+      adminReq('DELETE'),
+      { params: Promise.resolve({ id: 'org-1', userId: 'non-member' }) } as any,
+    )
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.data.cleanedStaleLink).toBe(true)
+    expect(mockOrgUpdate).not.toHaveBeenCalled()
+    expect(mockUserSet).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orgIds: ['org-2'],
+        orgId: 'org-2',
+        activeOrgId: 'org-2',
+        updatedAt: expect.anything(),
+      }),
+      { merge: true },
+    )
+    expect(mockMemberDelete).toHaveBeenCalled()
+  })
+
+  it('returns 404 when user is not linked to the organisation anywhere', async () => {
+    mockUserGet.mockResolvedValue({
+      exists: true,
+      data: () => ({
+        role: 'client',
+        orgId: 'org-2',
+        activeOrgId: 'org-2',
+        orgIds: ['org-2'],
+      }),
+    })
     const res = await removeMember(
       adminReq('DELETE'),
       { params: Promise.resolve({ id: 'org-1', userId: 'non-member' }) } as any,
@@ -612,7 +712,7 @@ describe('DELETE /api/v1/organizations/[id]/members/[userId]', () => {
   })
 
   it('returns 404 when org does not exist', async () => {
-    mockDocGet.mockResolvedValue({ exists: false })
+    mockOrgGet.mockResolvedValue({ exists: false })
     const res = await removeMember(
       adminReq('DELETE'),
       { params: Promise.resolve({ id: 'ghost', userId: 'anyone' }) } as any,

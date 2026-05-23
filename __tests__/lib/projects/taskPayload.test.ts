@@ -1,4 +1,5 @@
 import {
+  applyAgentTodoRequeue,
   buildProjectTaskCreateData,
   buildProjectTaskUpdateData,
   taskOrderMillis,
@@ -56,6 +57,14 @@ describe('project task payload helpers', () => {
     ])
   })
 
+
+  it('defaults new project tasks into todo instead of backlog', () => {
+    const result = buildProjectTaskCreateData({ title: 'Ready task' }, 'project-1', 'org-1')
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.value.columnId).toBe('todo')
+  })
+
   it('rejects attachment objects without a persisted url and name', () => {
     const result = buildProjectTaskCreateData(
       {
@@ -107,8 +116,28 @@ describe('project task payload helpers', () => {
         {
           title: 'Build /pricing page',
           assigneeAgentId: 'theo',
-          agentInput: { spec: 'Build a /pricing page using the existing design system' },
+          agentInput: {
+            spec: 'Build a /pricing page using the existing design system',
+            context: {
+              sourceDocumentId: ' doc-123 ',
+              sourceDocumentSectionId: ' section-2 ',
+              sourceSpecVersion: ' v4 ',
+              approvalGateTaskId: ' gate-1 ',
+              sourceResearchItemId: '',
+              riskLevel: ' high ',
+              requiredCapability: ' deploy ',
+              requestedByAgentId: ' pip ',
+              expectedArtifacts: [' pr ', '', ' preview-url '],
+              otherContext: { keep: true },
+            },
+          },
+          riskLevel: 'critical',
+          requiredCapability: 'deploy',
+          requestedByAgentId: 'pip',
+          expectedArtifacts: ['pull_request', 'deployment_url', 'test_report'],
           dependsOn: ['task-abc'],
+          reviewerIds: ['reviewer-1'],
+          reviewerAgentId: 'qa-release',
         },
         'project-1',
         'org-1',
@@ -118,14 +147,73 @@ describe('project task payload helpers', () => {
       expect(result.value).toEqual(expect.objectContaining({
         assigneeAgentId: 'theo',
         agentStatus: 'pending',
-        agentInput: { spec: 'Build a /pricing page using the existing design system' },
+        agentInput: expect.objectContaining({ spec: 'Build a /pricing page using the existing design system' }),
         dependsOn: ['task-abc'],
+        reviewerIds: ['reviewer-1'],
+        reviewerAgentId: 'qa-release',
+        riskLevel: 'critical',
+        requiredCapability: 'deploy',
+        requestedByAgentId: 'pip',
+        expectedArtifacts: ['pull_request', 'deployment_url', 'test_report'],
       }))
+      expect(result.value.agentInput).toEqual({
+        spec: 'Build a /pricing page using the existing design system',
+        context: {
+          sourceDocumentId: 'doc-123',
+          sourceDocumentSectionId: 'section-2',
+          sourceSpecVersion: 'v4',
+          approvalGateTaskId: 'gate-1',
+          riskLevel: 'high',
+          requiredCapability: 'deploy',
+          requestedByAgentId: 'pip',
+          expectedArtifacts: ['pr', 'preview-url'],
+          otherContext: { keep: true },
+        },
+      })
+    })
+
+    it('CREATE: explicit gated agentStatus controls the starting column', () => {
+      const result = buildProjectTaskCreateData(
+        {
+          title: 'Wait for approval before build',
+          assigneeAgentId: 'theo',
+          agentStatus: 'awaiting-input',
+          agentInput: { spec: 'Do not start until Peet approves the spec.' },
+        },
+        'project-1',
+        'org-1',
+      )
+
+      expect(result.ok).toBe(true)
+      if (!result.ok) return
+      expect(result.value).toEqual(expect.objectContaining({
+        assigneeAgentId: 'theo',
+        agentStatus: 'awaiting-input',
+        columnId: 'blocked',
+      }))
+    })
+
+    it('rejects invalid provenance/risk fields', () => {
+      const result = buildProjectTaskCreateData(
+        {
+          title: 'Risky task',
+          assigneeAgentId: 'theo',
+          riskLevel: 'catastrophic',
+          requiredCapability: 'deploy',
+          agentInput: { spec: 'Ship it' },
+        },
+        'project-1',
+        'org-1',
+      )
+
+      expect(result.ok).toBe(false)
+      if (result.ok) return
+      expect(result.error).toMatch(/Invalid riskLevel/)
     })
 
     it('rejects an unknown agent id', () => {
       const result = buildProjectTaskCreateData(
-        { title: 't', assigneeAgentId: 'rogue' },
+        { title: 't', assigneeAgentId: '1-rogue' },
         'project-1',
         'org-1',
       )
@@ -171,6 +259,43 @@ describe('project task payload helpers', () => {
       expect(result.value).toEqual({ assigneeAgentId: 'theo', agentStatus: 'in-progress' })
     })
 
+    it('PATCH: accepts provenance fields for gated work', () => {
+      const result = buildProjectTaskUpdateData({
+        riskLevel: 'high',
+        requiredCapability: 'publish',
+        requestedByAgentId: 'maya',
+        expectedArtifacts: ['campaign-record', 'approval-note'],
+      })
+
+      expect(result.ok).toBe(true)
+      if (!result.ok) return
+      expect(result.value).toEqual({
+        riskLevel: 'high',
+        requiredCapability: 'publish',
+        requestedByAgentId: 'maya',
+        expectedArtifacts: ['campaign-record', 'approval-note'],
+      })
+    })
+
+    it('PATCH: done moves to review and blocked moves to blocked when no column is supplied', () => {
+      const done = buildProjectTaskUpdateData({ agentStatus: 'done' })
+      expect(done.ok).toBe(true)
+      if (!done.ok) return
+      expect(done.value).toEqual({ agentStatus: 'done', columnId: 'review', reviewStatus: 'pending' })
+
+      const blocked = buildProjectTaskUpdateData({ agentStatus: 'blocked' })
+      expect(blocked.ok).toBe(true)
+      if (!blocked.ok) return
+      expect(blocked.value).toEqual({ agentStatus: 'blocked', columnId: 'blocked' })
+    })
+
+    it('PATCH: explicit column wins over agent status column automation', () => {
+      const result = buildProjectTaskUpdateData({ agentStatus: 'done', columnId: 'review' })
+      expect(result.ok).toBe(true)
+      if (!result.ok) return
+      expect(result.value).toEqual({ agentStatus: 'done', columnId: 'review' })
+    })
+
     it('PATCH: rejects unknown agentStatus', () => {
       const result = buildProjectTaskUpdateData({ agentStatus: 'cooked' })
       expect(result.ok).toBe(false)
@@ -198,11 +323,90 @@ describe('project task payload helpers', () => {
       expect(bad.ok).toBe(false)
     })
 
+    it('PATCH: preserves agentOutput completedAt for task card end times', () => {
+      const result = buildProjectTaskUpdateData({
+        agentOutput: {
+          summary: 'Built it',
+          completedAt: '2026-05-22T22:58:00.000Z',
+        },
+      })
+
+      expect(result.ok).toBe(true)
+      if (!result.ok) return
+      expect(result.value.agentOutput).toEqual({
+        summary: 'Built it',
+        completedAt: '2026-05-22T22:58:00.000Z',
+      })
+    })
+
+    it('PATCH: moving a completed agent task back to todo requeues it for pickup', () => {
+      const raw = buildProjectTaskUpdateData({ columnId: 'todo' })
+      expect(raw.ok).toBe(true)
+      if (!raw.ok) return
+
+      const result = applyAgentTodoRequeue(
+        { assigneeAgentId: 'theo', agentStatus: 'done' },
+        raw.value,
+        { columnId: 'todo' },
+      )
+
+      expect(result).toEqual({
+        columnId: 'todo',
+        agentStatus: 'pending',
+        reviewStatus: 'changes-requested',
+        agentOutput: null,
+        agentConversationId: null,
+        agentHeartbeatAt: null,
+      })
+    })
+
+    it('PATCH: explicit agentStatus is respected when moving columns', () => {
+      const raw = buildProjectTaskUpdateData({ columnId: 'todo', agentStatus: 'done' })
+      expect(raw.ok).toBe(true)
+      if (!raw.ok) return
+
+      const result = applyAgentTodoRequeue(
+        { assigneeAgentId: 'theo', agentStatus: 'done' },
+        raw.value,
+        { columnId: 'todo', agentStatus: 'done' },
+      )
+
+      expect(result).toEqual({ columnId: 'todo', agentStatus: 'done' })
+    })
+
     it('PATCH: heartbeat sentinel survives the validator (route swaps it)', () => {
       const result = buildProjectTaskUpdateData({ agentHeartbeatAt: true })
       expect(result.ok).toBe(true)
       if (!result.ok) return
       expect(result.value.agentHeartbeatAt).toBe('__server_timestamp__')
+    })
+
+    it('PATCH: preserves spec/task linkage fields inside agentInput.context', () => {
+      const result = buildProjectTaskUpdateData({
+        agentInput: {
+          spec: 'Implement approved spec tasks',
+          context: {
+            sourceDocumentId: 'spec-1',
+            sourceDocumentSectionId: null,
+            sourceSpecVersion: '3',
+            approvalGateTaskId: 'approval-task-1',
+            sourceResearchItemId: 'research-1',
+          },
+        },
+      })
+
+      expect(result.ok).toBe(true)
+      if (!result.ok) return
+      expect(result.value.agentInput).toEqual({
+        spec: 'Implement approved spec tasks',
+        context: {
+          sourceDocumentId: 'spec-1',
+          sourceDocumentSectionId: null,
+          sourceSpecVersion: '3',
+          approvalGateTaskId: 'approval-task-1',
+          sourceResearchItemId: 'research-1',
+        },
+      })
     })
   })
 })

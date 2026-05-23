@@ -19,6 +19,7 @@ import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
 import { resolveOrgScope } from '@/lib/api/orgScope'
 import { apiSuccess, apiError } from '@/lib/api/response'
+import { enforceAgentCapability } from '@/lib/api/capabilityGate'
 import { sendCampaignEmail, FROM_ADDRESS, plainTextToHtml, htmlToPlainText } from '@/lib/email/resend'
 import { signUnsubscribeToken } from '@/lib/email/unsubscribeToken'
 import { isSuppressed } from '@/lib/email/suppressions'
@@ -26,8 +27,25 @@ import { checkQuota } from '@/lib/platform/quotas'
 import type { ApiUser } from '@/lib/api/types'
 import { shouldSendToContact } from '@/lib/preferences/store'
 
+type SendEmailBody = {
+  to?: string
+  subject?: string
+  bodyText?: string
+  bodyHtml?: string
+  cc?: string[]
+  contactId?: string
+  sequenceId?: string
+  sequenceStep?: number | null
+  campaignId?: string
+  fromDomainId?: string
+  orgId?: string
+  topicId?: string
+  approvalStatus?: string
+  approvalGateTaskId?: string
+}
+
 export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) => {
-  const body = await req.json()
+  const body = await req.json() as SendEmailBody & Record<string, unknown>
   const {
     to,
     subject,
@@ -41,18 +59,25 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) =
     fromDomainId = '',
   } = body
 
-  if (!to?.trim()) return apiError('to is required')
-  if (!subject?.trim()) return apiError('subject is required')
-  if (!bodyText?.trim() && !bodyHtml?.trim()) return apiError('bodyText or bodyHtml is required')
+  const cleanTo = to?.trim() ?? ''
+  const cleanSubject = subject?.trim() ?? ''
+  const cleanBodyText = bodyText?.trim() ?? ''
+  const cleanBodyHtml = bodyHtml?.trim() ?? ''
+
+  if (!cleanTo) return apiError('to is required')
+  if (!cleanSubject) return apiError('subject is required')
+  if (!cleanBodyText && !cleanBodyHtml) return apiError('bodyText or bodyHtml is required')
 
   const requestedOrgId = typeof body.orgId === 'string' ? body.orgId.trim() : null
   const scope = resolveOrgScope(user, requestedOrgId)
   if (!scope.ok) return apiError(scope.error, scope.status)
   const orgId = scope.orgId
+  const capabilityError = enforceAgentCapability(user, 'message_client', req, body)
+  if (capabilityError) return capabilityError
 
   // Refuse to send to addresses on the org suppression list (hard bounce,
   // complaint, manual unsub, or active soft-bounce hold).
-  if (await isSuppressed(orgId, to)) {
+  if (await isSuppressed(orgId, cleanTo)) {
     return apiError('Recipient is on the suppression list for this organisation', 422)
   }
 
@@ -80,9 +105,9 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) =
     ? `<p style="font-size:11px;color:#666;text-align:center;margin-top:24px;">Don't want these emails? <a href="${unsubscribeUrl}" style="color:#888;">Unsubscribe</a></p>`
     : ''
 
-  const rawHtml = bodyHtml?.trim() || plainTextToHtml(bodyText)
+  const rawHtml = cleanBodyHtml || plainTextToHtml(cleanBodyText)
   const finalBodyHtml = unsubscribeFooter ? rawHtml + unsubscribeFooter : rawHtml
-  const finalBodyText = bodyText?.trim() || htmlToPlainText(bodyHtml)
+  const finalBodyText = cleanBodyText || htmlToPlainText(cleanBodyHtml)
 
   // 1. Create draft doc first so we have an id for the activity log
   const docRef = await adminDb.collection('emails').add({
@@ -95,9 +120,9 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) =
     provider: '',
     providerMessageId: '',
     from: FROM_ADDRESS,
-    to: to.trim(),
+    to: cleanTo,
     cc,
-    subject: subject.trim(),
+    subject: cleanSubject,
     bodyHtml: finalBodyHtml,
     bodyText: finalBodyText,
     status: 'draft',
@@ -117,9 +142,9 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) =
   // 2. Send via the configured provider (with one-click List-Unsubscribe when we have a token).
   const sendResult = await sendCampaignEmail({
     from: FROM_ADDRESS,
-    to: to.trim(),
+    to: cleanTo,
     cc: cc.length ? cc : undefined,
-    subject: subject.trim(),
+    subject: cleanSubject,
     html: finalBodyHtml,
     text: finalBodyText,
     listUnsubscribeUrl: unsubscribeUrl,
@@ -148,8 +173,8 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) =
       contactId,
       dealId: '',
       type: 'email_sent',
-      summary: `Email sent: ${subject.trim()}`,
-      metadata: { emailId: docRef.id, to: to.trim() },
+      summary: `Email sent: ${cleanSubject}`,
+      metadata: { emailId: docRef.id, to: cleanTo },
       createdBy: user.uid,
       createdAt: FieldValue.serverTimestamp(),
     })

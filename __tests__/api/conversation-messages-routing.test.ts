@@ -172,6 +172,34 @@ describe('unified conversation message routing', () => {
     expect(body.data.dispatchAgentId).toBe('pip')
   })
 
+  it('returns a failed assistant message instead of a 500 when agent key decrypt fails', async () => {
+    const update = jest.fn().mockResolvedValue(undefined)
+    mockMessagesCollection.mockReturnValue({ doc: () => ({ update }) })
+    mockGetAgentDecryptedKey.mockRejectedValue(new Error('Missing env var: SOCIAL_TOKEN_MASTER_KEY'))
+    mockGetConversation.mockResolvedValue({
+      id: 'conv-1',
+      orgId: 'pib-platform-owner',
+      participantUids: ['client-1'],
+      participantAgentIds: ['pip'],
+      participants: [
+        { kind: 'user', uid: 'client-1', role: 'client', displayName: 'Client User' },
+        { kind: 'agent', agentId: 'pip', name: 'Pip' },
+      ],
+    })
+    const { POST } = await import('@/app/api/v1/conversations/[convId]/messages/route')
+
+    const res = await POST(req(), { params: Promise.resolve({ convId: 'conv-1' }) })
+
+    expect(res.status).toBe(201)
+    expect(mockCreateHermesRun).not.toHaveBeenCalled()
+    expect(update).toHaveBeenCalledWith(expect.objectContaining({
+      status: 'failed',
+      error: 'Agent dispatch is not configured for this Preview environment.',
+    }))
+    const body = await readJson(res)
+    expect(body.data.assistantMessage.status).toBe('failed')
+  })
+
   it('stores validated message attachments with the user message', async () => {
     mockGetConversation.mockResolvedValue({
       id: 'conv-1',

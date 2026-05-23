@@ -18,6 +18,17 @@ function block(type: DocumentBlockType, title: string, content: unknown = ''): D
   }
 }
 
+function requiredBlock(id: string, type: DocumentBlockType, title: string, content: unknown = ''): DocumentBlock {
+  return {
+    id,
+    type,
+    title,
+    content,
+    required: true,
+    display: { ...BASE_DISPLAY },
+  }
+}
+
 function cloneContent(content: unknown): unknown {
   if (content === null || typeof content !== 'object') {
     return content
@@ -130,6 +141,125 @@ export const CLIENT_DOCUMENT_TEMPLATES: ClientDocumentTemplate[] = [
       block('timeline', 'Calendar'),
       block('metrics', 'Measurement'),
       block('approval', 'Campaign approval'),
+    ],
+  },
+  {
+    id: 'geo-seo-strategy-v1',
+    type: 'geo_seo_strategy',
+    label: 'GEO SEO Agent Workflow',
+    approvalMode: 'operational',
+    clientPermissions: {
+      canComment: true,
+      canSuggest: true,
+      canDirectEdit: false,
+      canApprove: true,
+    },
+    requiredBlockTypes: ['hero', 'summary', 'scope', 'deliverables', 'timeline', 'metrics', 'approval'],
+    defaultBlocks: [
+      requiredBlock('hero', 'hero', 'GEO SEO workflow', 'Turn AI-search strategy into approved research, content, implementation, and measurement work.'),
+      requiredBlock('summary', 'summary', 'Strategy summary', {
+        outcome: 'Increase the client\'s likelihood of being understood, cited, and recommended by ChatGPT, Gemini, Perplexity, Claude, Copilot, and Google AI Overviews.',
+        operatingModel: 'Sage owns opportunity research, Maya owns content drafting and execution, and Pip keeps client approval gates visible before publish or implementation.',
+        sourceOfTruth: 'Tasks must carry orgId plus linked GEO/SEO records and the approved client document/version that released the work.',
+      }),
+      requiredBlock('scope', 'scope', 'GEO and SEO records to link', {
+        geoRecords: ['geoWorkspaceId', 'geoAuditId', 'geoTaskIds[]'],
+        seoRecords: ['seoSprintId', 'seoContentId or campaignId where the content overlaps traditional SEO execution'],
+        approvalRecords: ['clientDocumentId', 'approvedVersionId', 'approvalId'],
+        rule: 'GEO owns AI citability, entity clarity, answerability, crawler policy, llms.txt, and platform-readiness findings. SEO is linked only when the implementation also targets rankings, clicks, impressions, or keyword movement.',
+      }),
+      requiredBlock('deliverables', 'deliverables', 'Agent workflow deliverables', [
+        'Sage opportunity map: AI-search questions, entity gaps, citation risks, platform readiness, evidence, and prioritized opportunities linked to GEO workspace/audit records.',
+        'Maya content plan: answer blocks, FAQs, page refreshes, social/email amplification, campaign or SEO content records, and draft copy in the client brand voice.',
+        'Client approval gate: approved strategy/spec document before public publishing, site changes, or queued social distribution.',
+        'Maya execution pass: publish/schedule approved assets, update campaign/SEO/GEO records, and attach evidence URLs or record IDs to the project task.',
+        'Measurement loop: monthly GEO delta report, linked learnings, and next opportunities back into the GEO workspace.',
+      ]),
+      requiredBlock('timeline', 'timeline', 'Workflow sequence', [
+        '1. Sage researches GEO opportunities from the approved brief and active GEO audit/workspace.',
+        '2. Maya drafts the content/action plan from Sage research and links drafts to SEO/GEO records.',
+        '3. Pip or the operator routes the client approval gate and keeps dependent tasks blocked until approval lands.',
+        '4. Maya executes approved content, schedules distribution, and records evidence against the campaign/SEO/GEO ledger.',
+        '5. Sage or Pip reviews performance deltas and creates the next cycle of linked opportunities.',
+      ]),
+      requiredBlock('metrics', 'metrics', 'Success metrics', {
+        geo: ['GEO score delta', 'platform-readiness score', 'AI-citable answer block coverage', 'entity clarity/trust signal completion', 'brand mention/citation evidence'],
+        seoOverlap: ['linked SEO sprint task completion', 'content status', 'indexability or ranking metrics only when the GEO task also overlaps traditional SEO'],
+        approval: ['approvalId attached', 'approvedVersionId attached', 'client changes resolved before execution'],
+      }),
+      requiredBlock('approval', 'approval', 'Client approval to execute', 'Approval confirms PiB can generate agent tasks from this workflow, start Sage research, let Maya draft/execute approved content, and link all outputs to the relevant GEO, SEO, campaign, and client-document records.'),
+    ],
+    agentWorkflowTasks: [
+      {
+        key: 'sage-geo-opportunity-research',
+        title: 'Sage: research GEO SEO opportunities',
+        description: 'Research AI-search visibility opportunities, citation gaps, entity clarity, platform readiness, and answerable questions. Link findings to the GEO workspace/audit and flag any SEO-overlap opportunities.',
+        sectionId: 'deliverables',
+        assigneeAgentId: 'sage',
+        priority: 'high',
+        labels: ['geo-seo', 'sage', 'research', 'geo-record-required', 'seo-overlap-check'],
+      },
+      {
+        key: 'maya-content-draft',
+        title: 'Maya: draft GEO-informed content plan and assets',
+        description: 'Use Sage research to draft answer blocks, FAQs, page updates, social/email amplification, and campaign or SEO content drafts in the client brand voice. Link each draft to the relevant GEO opportunity and SEO/content record where applicable.',
+        sectionId: 'deliverables',
+        assigneeAgentId: 'maya',
+        dependsOn: ['sage-geo-opportunity-research'],
+        priority: 'high',
+        labels: ['geo-seo', 'maya', 'content-draft', 'client-approval-required', 'seo-content-link'],
+      },
+      {
+        key: 'client-approval-gate',
+        title: 'Pip: secure client approval for GEO content execution',
+        description: 'Route the GEO content plan and drafts for client approval. Capture approvalId, approvedVersionId, and any requested changes before execution begins.',
+        sectionId: 'approval',
+        assigneeAgentId: 'pip',
+        dependsOn: ['maya-content-draft'],
+        priority: 'high',
+        labels: ['geo-seo', 'approval-gate', 'client-documents', 'approval-record-required'],
+      },
+      {
+        key: 'maya-execute-approved-content',
+        title: 'Maya: execute approved GEO content and distribution',
+        description: 'Publish, schedule, or hand off approved GEO content only after approval is recorded. Update campaign/social/SEO/GEO records and attach evidence links or record IDs back to this task.',
+        sectionId: 'timeline',
+        assigneeAgentId: 'maya',
+        dependsOn: ['client-approval-gate'],
+        priority: 'high',
+        labels: ['geo-seo', 'maya', 'execution', 'approved-only', 'linked-artifacts-required'],
+      },
+      {
+        key: 'sage-geo-delta-review',
+        title: 'Sage: review GEO delta and next opportunities',
+        description: 'After execution evidence is attached, review GEO score/platform deltas, update the GEO workspace, and create the next opportunity set or monthly report inputs.',
+        sectionId: 'metrics',
+        assigneeAgentId: 'sage',
+        dependsOn: ['maya-execute-approved-content'],
+        priority: 'medium',
+        labels: ['geo-seo', 'sage', 'measurement', 'geo-report'],
+      },
+    ],
+  },
+  {
+    id: 'research-report-v1',
+    type: 'research_report',
+    label: 'Research Report',
+    approvalMode: 'operational',
+    clientPermissions: {
+      canComment: true,
+      canSuggest: true,
+      canDirectEdit: false,
+      canApprove: true,
+    },
+    requiredBlockTypes: ['hero', 'summary', 'deliverables', 'gallery', 'callout', 'approval'],
+    defaultBlocks: [
+      block('hero', 'Research report'),
+      block('summary', 'Research summary'),
+      block('deliverables', 'Key findings'),
+      block('gallery', 'Sources and evidence'),
+      block('callout', 'Recommendations'),
+      block('approval', 'Acknowledgement'),
     ],
   },
   {

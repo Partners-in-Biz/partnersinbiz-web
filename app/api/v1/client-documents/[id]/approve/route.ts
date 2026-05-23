@@ -6,6 +6,7 @@ import { resolveOrgScope } from '@/lib/api/orgScope'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import type { ApiUser } from '@/lib/api/types'
 import { sendDocumentApprovedEmail } from '@/lib/client-documents/notifications'
+import { generateApprovedDocumentProjectTasks } from '@/lib/client-documents/taskGeneration'
 import { CLIENT_DOCUMENTS_COLLECTION, getClientDocument } from '@/lib/client-documents/store'
 import type { ClientDocument, DocumentApproval } from '@/lib/client-documents/types'
 import { adminDb } from '@/lib/firebase/admin'
@@ -85,6 +86,19 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
 
   await batch.commit()
 
+  let generatedProjectTasks: { projectId: string; taskIds: string[] } | undefined
+  if (body.generateProjectTasks) {
+    const plan = body.generateProjectTasks === true ? {} : body.generateProjectTasks
+    const taskGeneration = await generateApprovedDocumentProjectTasks({
+      document,
+      approvalId: approvalRef.id,
+      actorId: user.uid,
+      plan,
+    })
+    if (!taskGeneration.ok) return apiError(taskGeneration.error, taskGeneration.status)
+    generatedProjectTasks = { projectId: taskGeneration.projectId, taskIds: taskGeneration.createdTaskIds }
+  }
+
   // Fire-and-forget: notify PiB team inbox
   void (async () => {
     try {
@@ -104,5 +118,9 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
     }
   })()
 
-  return apiSuccess({ id: approvalRef.id, versionId: document.latestPublishedVersionId })
+  return apiSuccess({
+    id: approvalRef.id,
+    versionId: document.latestPublishedVersionId,
+    ...(generatedProjectTasks ? { generatedProjectTasks } : {}),
+  })
 })

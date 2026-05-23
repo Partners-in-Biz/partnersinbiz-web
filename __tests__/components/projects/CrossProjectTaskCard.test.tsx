@@ -74,4 +74,23 @@ describe('CrossProjectTaskCard', () => {
     fireEvent.click(screen.getByText('Build landing page'))
     expect(onClick).toHaveBeenCalledTimes(1)
   })
+
+  it('shows start and end date-times on the task card', () => {
+    render(
+      <CrossProjectTaskCard
+        task={{
+          ...baseTask,
+          startDate: '2026-05-22T08:15:00.000Z',
+          dueDate: '2026-05-22T10:45:00.000Z',
+        }}
+        projectId="proj-a"
+        projectName="Website Revamp"
+        onClick={jest.fn()}
+      />
+    )
+
+    expect(screen.getByText('Start')).toBeInTheDocument()
+    expect(screen.getByText('End')).toBeInTheDocument()
+    expect(screen.getAllByText(/\d{1,2}:\d{2}/).length).toBeGreaterThanOrEqual(2)
+  })
 })

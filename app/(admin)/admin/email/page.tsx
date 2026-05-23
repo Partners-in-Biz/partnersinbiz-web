@@ -61,7 +61,18 @@ export default function EmailInboxPage() {
   }
 
   return (
-    <div className="flex h-full -m-6 overflow-hidden">
+    <div className="flex h-full -m-6 flex-col overflow-hidden">
+      <div className="flex shrink-0 items-center justify-between border-b border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-4 py-3">
+        <div>
+          <p className="eyebrow">Email</p>
+          <h1 className="text-xl font-semibold">System emails</h1>
+        </div>
+        <button type="button" onClick={() => router.push('/admin/email/mailbox')} className="btn-pib-primary">
+          <span className="material-symbols-outlined text-[18px]">mail</span>
+          Open internal mailbox
+        </button>
+      </div>
+      <div className="flex min-h-0 flex-1 overflow-hidden">
       <EmailList
         folder={folder}
         emails={emails}
@@ -74,6 +85,7 @@ export default function EmailInboxPage() {
           }}
       />
       <EmailDetail email={detailEmail} loading={detailLoading} />
+      </div>
     </div>
   )
 }

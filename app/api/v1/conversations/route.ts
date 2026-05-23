@@ -10,6 +10,7 @@ import { withAuth } from '@/lib/api/auth'
 import { resolveOrgScope } from '@/lib/api/orgScope'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
+import { AGENT_IDS } from '@/lib/agents/types'
 import {
   createConversation,
   listConversations,
@@ -21,7 +22,7 @@ import type { ApiUser } from '@/lib/api/types'
 
 export const dynamic = 'force-dynamic'
 
-const VALID_AGENT_IDS: AgentId[] = ['pip', 'theo', 'maya', 'sage', 'nora']
+const VALID_AGENT_IDS: AgentId[] = [...AGENT_IDS]
 const VALID_SCOPES: ConversationScope[] = ['general', 'project', 'task', 'campaign']
 const isPlatformWorkspace = (orgId: string) => orgId === PIB_PLATFORM_ORG_ID
 

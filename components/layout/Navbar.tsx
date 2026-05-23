@@ -1,4 +1,5 @@
 'use client'
+import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState, useEffect } from 'react'
@@ -8,8 +9,6 @@ export default function Navbar() {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
-
-  useEffect(() => { setOpen(false) }, [pathname])
 
   useEffect(() => {
     document.body.style.overflow = open ? 'hidden' : ''
@@ -38,8 +37,8 @@ export default function Navbar() {
           aria-label="Primary"
           className="container-pib flex items-center justify-between h-16 md:h-20"
         >
-          <Link href="/" aria-label="Partners in Biz home" className="flex items-center gap-2.5 group">
-            <img src="/pib-logo-512.png" alt="Partners in Biz" className="w-8 h-8 rounded-lg object-contain" />
+          <Link href="/" prefetch={false} aria-label="Partners in Biz home" className="flex items-center gap-2.5 group">
+            <Image src="/pib-logo-64.png" alt="Partners in Biz" width={32} height={32} className="rounded-lg object-contain" />
             <span className="font-display text-xl tracking-tight hidden sm:inline">
               Partners <span className="text-[var(--color-pib-text-muted)]">in</span> Biz
             </span>
@@ -50,6 +49,7 @@ export default function Navbar() {
               <Link
                 key={href}
                 href={href}
+                prefetch={false}
                 className={`px-4 py-2 rounded-full text-sm transition-colors ${
                   isActive(href)
                     ? 'text-[var(--color-pib-text)] bg-white/[0.06]'
@@ -64,11 +64,12 @@ export default function Navbar() {
           <div className="flex items-center gap-2">
             <Link
               href="/login"
+              prefetch={false}
               className="hidden lg:inline-flex text-sm text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] px-3 py-2 transition-colors"
             >
               Client login
             </Link>
-            <Link href="/start-a-project" className="btn-pib-primary text-sm hidden sm:inline-flex">
+            <Link href="/start-a-project" prefetch={false} className="btn-pib-primary text-sm hidden sm:inline-flex">
               Start a project
               <span className="material-symbols-outlined text-base">arrow_outward</span>
             </Link>
@@ -102,6 +103,8 @@ export default function Navbar() {
             <Link
               key={href}
               href={href}
+              prefetch={false}
+              onClick={() => setOpen(false)}
               className={`font-display text-3xl py-4 border-b border-[var(--color-pib-line)] transition-colors ${
                 isActive(href) ? 'text-[var(--color-pib-text)]' : 'text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]'
               }`}
@@ -111,6 +114,8 @@ export default function Navbar() {
           ))}
           <Link
             href="/login"
+            prefetch={false}
+            onClick={() => setOpen(false)}
             className="font-display text-3xl py-4 border-b border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors"
           >
             Client login
@@ -118,7 +123,7 @@ export default function Navbar() {
         </nav>
 
         <div className="space-y-4">
-          <Link href="/start-a-project" className="btn-pib-primary w-full justify-center">
+          <Link href="/start-a-project" prefetch={false} onClick={() => setOpen(false)} className="btn-pib-primary w-full justify-center">
             Start a project
             <span className="material-symbols-outlined text-base">arrow_outward</span>
           </Link>

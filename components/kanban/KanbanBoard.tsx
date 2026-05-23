@@ -21,6 +21,7 @@ import {
   useSortable,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+import { formatTaskDate, formatTaskDateTime, timestampToDate } from '@/lib/tasks/dateTimeDisplay'
 import type { AgentMember, Column, Task, TeamMember } from './types'
 
 interface KanbanBoardProps {
@@ -41,28 +42,6 @@ const PRIORITY_STYLES: Record<string, { color: string; label: string }> = {
   medium: { color: '#60a5fa', label: 'Medium' },
   normal: { color: '#60a5fa', label: 'Normal' },
   low:    { color: 'var(--color-outline)', label: 'Low' },
-}
-
-function timestampToDate(value: unknown): Date | null {
-  if (!value) return null
-  if (value instanceof Date) return value
-  if (typeof value === 'string') {
-    const parsed = new Date(value)
-    return Number.isNaN(parsed.getTime()) ? null : parsed
-  }
-  if (typeof value === 'object') {
-    const timestamp = value as { toDate?: () => Date; seconds?: number; _seconds?: number }
-    if (typeof timestamp.toDate === 'function') return timestamp.toDate()
-    const seconds = timestamp.seconds ?? timestamp._seconds
-    if (typeof seconds === 'number') return new Date(seconds * 1000)
-  }
-  return null
-}
-
-function formatDueDate(value: unknown): string | null {
-  const date = timestampToDate(value)
-  if (!date) return null
-  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
 
 function isDueSoon(value: unknown): boolean {
@@ -132,6 +111,12 @@ const AGENT_DEFAULT_COLOR: Record<string, string> = {
   maya: 'bg-amber-400',
   sage: 'bg-emerald-400',
   nora: 'bg-rose-400',
+  ads: 'bg-amber-400',
+  'qa-release': 'bg-emerald-400',
+  support: 'bg-sky-400',
+  data: 'bg-violet-400',
+  docs: 'bg-rose-400',
+  seo: 'bg-emerald-400',
 }
 
 const AGENT_STATUS_STYLE: Record<string, { label: string; className: string }> = {
@@ -160,7 +145,9 @@ function TaskCard({
 }) {
   const priority = PRIORITY_STYLES[task.priority ?? 'medium']
   const attachmentCount = task.attachments?.length ?? 0
-  const dueLabel = formatDueDate(task.dueDate)
+  const dueLabel = formatTaskDate(task.dueDate)
+  const startDateTimeLabel = formatTaskDateTime(task.startDate)
+  const endDateTimeLabel = formatTaskDateTime(task.completedAt ?? task.agentOutput?.completedAt ?? task.endDate ?? task.dueDate)
   const kind = attachmentKind(task)
   const assigneeIds = task.assigneeIds?.length ? task.assigneeIds : task.assigneeId ? [task.assigneeId] : []
   const peopleIds = Array.from(new Set([...assigneeIds, ...(task.mentionIds ?? [])]))
@@ -201,6 +188,22 @@ function TaskCard({
           </span>
         ))}
       </div>
+      {(startDateTimeLabel || endDateTimeLabel) && (
+        <div className="mt-3 grid gap-1 text-[10px] text-on-surface-variant">
+          {startDateTimeLabel && (
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-label uppercase tracking-wide">Start</span>
+              <span className="text-right text-on-surface">{startDateTimeLabel}</span>
+            </div>
+          )}
+          {endDateTimeLabel && (
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-label uppercase tracking-wide">End</span>
+              <span className="text-right text-on-surface">{endDateTimeLabel}</span>
+            </div>
+          )}
+        </div>
+      )}
       <div className="mt-3 flex items-center justify-between gap-2 text-[10px] text-on-surface-variant">
         <div className="flex items-center gap-2 min-w-0">
           {dueLabel && (

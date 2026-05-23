@@ -57,6 +57,79 @@ Loop C generates work weekly. The sprint never "ends" until archived.
 
 When creating a sprint via the UI in workspace mode, the form pre-fills `orgId`/`clientId` from the URL query params (`?orgId=X&siteName=Y`) which the per-org page passes through. When in operator mode the user picks the org from a dropdown.
 
+## Non-negotiable operating rule: the sprint is the client-visible ledger
+
+Any SEO work done for a client must end in the Partners in Biz SEO sprint, not only in
+the client's app repo, GitHub PR, or wiki. The website/code PR is the implementation
+record, the wiki is the internal knowledge record, and the SEO sprint is the
+client-facing progress record. This applies equally when a client-specific agent is
+working in another app repository and only uses Partners in Biz as the growth
+platform.
+
+For every SEO pass:
+
+1. Resolve the client org id and active SEO sprint.
+2. Read today's plan and overdue tasks before choosing work.
+3. Match the work performed to existing sprint tasks where possible.
+4. Mark completed sprint tasks done with notes/evidence:
+   - GitHub PR/commit links
+   - build/check evidence
+   - audit/artifact references
+   - exact findings or before/after notes
+5. Move partly handled tasks to `in_progress` with the remaining work described.
+6. Move blocked tasks to `blocked` with a concrete blocker reason.
+7. Add an audit, artifact, content row, optimization, keyword, or backlink row when the work produced one.
+8. Finish with a digest that includes sprint task ids/statuses, blockers, and any human tickets created.
+
+Do not report "SEO done" if the client-visible sprint still shows the work as due.
+
+When an SEO task is blocked, the blocker reason must be detailed enough for an
+admin or client to act. Include:
+
+- what is wrong
+- how to fix it
+- what proof is needed
+- the exact instruction to send the agent after the blocker is resolved
+
+The platform creates/reuses the client SEO project, creates a blocker task, and
+notifies matching admins when an SEO task is marked `blocked`. Agents should still
+make the blocker reason useful; the platform cannot infer missing context.
+
+## Human blockers and cross-app handoff
+
+When a task needs Peet, a Partners in Biz team member, or the client to do something
+the agent cannot do, create a Partners in Biz project ticket instead of leaving the
+request only in chat or a wiki note.
+
+Canonical flow:
+
+1. Look for an active client project for the workstream, for example
+   `AHS Law - SEO 90-day Sprint`.
+2. If no suitable project exists, create one with `POST /projects`:
+   - `orgId`: the client's org id
+   - `clientId` / `clientOrgId`: the same client org id unless a separate billing org is known
+   - `name`: `<Client> - SEO 90-day Sprint`
+   - `status`: `development` while work is actively being executed, or `discovery` during setup
+   - `brief`: include the sprint id, site URL, goals, and the rule that this project tracks human/agent work related to the SEO sprint.
+3. Create a project-nested task with `POST /projects/{projectId}/tasks`.
+4. Label the task so it remains tied to the module:
+   - `seo`
+   - `seo-sprint:<sprintId>`
+   - `client-action`, `peet-action`, or `team-action`
+   - `blocked` when it blocks sprint progress
+5. Link the task back from the SEO sprint task by adding the project/task URL or id to
+   the SEO task description or blocker reason.
+6. If the exact human user id is known, assign or mention them (`assigneeIds` /
+   `mentionIds`). If not, leave it unassigned but make ownership explicit in the
+   title, for example `Client action: confirm public business address`, and add the
+   `needs-assignment` label.
+7. Do not mark the SEO task done until the human blocker is resolved and proof is
+   recorded in the sprint.
+
+Use this pattern across app workstreams too: the domain-specific module records its
+own progress, while the Projects task carries cross-team execution, ownership,
+mentions, dependencies, and agent handoff.
+
 ## Auth
 
 ```
@@ -98,14 +171,46 @@ GET  /seo/sprints/[id]/today                         # what's due today
 POST /seo/sprints/[id]/run                           # execute Loop B end-to-end
 ```
 
-`/run` returns `{ done: [taskIds], queued: [taskIds], blocked: [{taskId, reason}] }`.
+`/run` returns `{ done: [taskIds], queued: [taskIds], blocked: [{taskId, reason}], agentHandoff? }`.
+
+When `/run` queues work for Hermes, the platform creates or updates a watcher-visible
+project task assigned to Pip:
+
+- `assigneeAgentId: "pip"`
+- `agentStatus: "pending"`
+- `source: "seo-run-orchestration"`
+- `agentInput.context.orchestrationMode: "pip-orchestrator"`
+- `agentInput.context.queuedSeoTaskIds: [...]`
+
+That project task is what the VPS `agent-watcher` dispatches to Hermes. Do not treat
+`queued` as dispatched unless the response has `agentHandoff` or the relevant
+`seo_tasks` have `agentProjectTaskId`.
+
+### Closing SEO handoff project tasks
+
+When Hermes/Pip receives a `seo-run-orchestration` project task, the project task is
+only the orchestration wrapper. The source of truth is still the SEO sprint ledger.
+Before marking the project task `agentStatus: done`, always sync the wrapper back to
+the child `seo_tasks`:
+
+1. Re-read every id in `agentInput.context.queuedSeoTaskIds` or `sourceSeoTaskIds`.
+2. Set each checklist item done only when the matching `seo_tasks/{id}.status` is `done`.
+3. Leave blocked SEO tasks as unchecked and make sure each has a concrete `blockerReason`.
+4. If all reachable work is complete and only blocker tickets remain, move the wrapper
+   project task to `columnId: done` and set `agentStatus: done`.
+5. If the agent itself is blocked and cannot complete the orchestration, set
+   `columnId: blocked`, `agentStatus: blocked`, and write the exact recovery action.
+6. Never leave a project task with `agentStatus: done` in an active kanban column, and
+   never report "SEO done" when its checklist still shows unfinished child SEO tasks
+   without explaining that they are blockers or pending release.
 
 Pip's natural-language flow when Peet says "do today's SEO":
 
 1. Find active sprints (filter by client if mentioned)
 2. For each, GET today's plan
 3. POST /run to execute autopilot tasks + queue the rest
-4. Report a short digest: "Did 4, queued 2 for your review, 1 blocked on GSC reconnect"
+4. If `agentHandoff` is present, include the project/task id so the user can see the Hermes handoff.
+5. Report a short digest: "Did 4, queued 2 to Pip/Hermes, 1 blocked on GSC reconnect"
 
 ## Endpoints
 
@@ -178,6 +283,27 @@ POST   /seo/optimizations/[id]/reject
 POST   /seo/optimizations/[id]/measure               re-measure outcome (win/loss/no-change)
 ```
 
+`POST /seo/sprints/[id]/optimize` returns `{ signalsFound, proposalsCreated, agentHandoff? }`.
+When proposals are created, the platform creates or updates a watcher-visible project
+task assigned to Pip:
+
+- `assigneeAgentId: "pip"`
+- `agentStatus: "pending"`
+- `source: "seo-optimization-orchestration"`
+- `agentInput.context.orchestrationMode: "pip-orchestrator"`
+- `agentInput.context.optimizationIds: [...]`
+
+Hermes/Pip should review each proposal, approve useful proposals via
+`POST /seo/optimizations/[id]/approve`, run the generated tasks where appropriate,
+reject weak/duplicate proposals, and report optimization ids, generated task ids,
+completed task ids, blockers, and evidence.
+
+When closing a `seo-optimization-orchestration` project task, apply the same wrapper
+rule: re-read every `optimizationId`, update the project checklist from the actual
+optimization/task outcomes, move the wrapper to Done only when the orchestration work
+is finished, and keep unresolved human/client/admin actions as separate blocker or
+review tasks.
+
 ### In-house SEO toolkit
 ```
 POST   /seo/tools/metadata-check                     {url} → title/meta/og audit
@@ -204,9 +330,56 @@ POST   /seo/integrations/gsc/connect/[sprintId]      pick GSC property
 POST   /seo/integrations/gsc/disconnect/[sprintId]
 POST   /seo/integrations/gsc/pull/[sprintId]         on-demand pull
 GET    /seo/integrations/gsc/properties/[sprintId]   list GSC properties for connected account
+POST   /seo/integrations/gsc/sitemaps/submit/[sprintId] submit sitemap.xml or {sitemapUrl}
 POST   /seo/integrations/bing/connect/[sprintId]     {siteUrl}
 POST   /seo/integrations/pagespeed/run/[sprintId]    on-demand pull
 ```
+
+### GSC API capability map
+
+Agents must be precise about what the connected Google Search Console API can and
+cannot do.
+
+**Current OAuth scope**
+
+PiB requests `https://www.googleapis.com/auth/webmasters`, not readonly. This is the
+Search Console read/write scope and is needed for sitemap submission. Existing
+connections made before this scope change may only have
+`https://www.googleapis.com/auth/webmasters.readonly`; if sitemap submit returns an
+insufficient-scope error, reconnect GSC from the sprint Settings tab, select the
+property again, then retry.
+
+**Can do through the PiB API**
+
+- List verified GSC properties:
+  `GET /seo/integrations/gsc/properties/[sprintId]`.
+- Select the property used by the sprint:
+  `POST /seo/integrations/gsc/connect/[sprintId]` with `{ "propertyUrl": "sc-domain:example.com" }`.
+- Pull Search Analytics data for keyword/page tracking:
+  `POST /seo/integrations/gsc/pull/[sprintId]`.
+- Inspect known URL status from Search Console through executors/tools that call
+  Google's URL Inspection API. This reads Google's URL-level state; it does not
+  request indexing.
+- Submit a sitemap:
+  `POST /seo/integrations/gsc/sitemaps/submit/[sprintId]`.
+  Body is optional; omit it to submit `${siteUrl}/sitemap.xml`, or send
+  `{ "sitemapUrl": "https://example.com/sitemap.xml" }`.
+
+**Cannot do through any normal GSC API**
+
+- The Search Console UI's **Request indexing** action for ordinary pages is not
+  exposed as a Search Console API method. Keep `gsc-request-index` tasks manual:
+  a verified user must open URL Inspection in the Search Console UI, inspect the
+  page, and click Request indexing.
+- Google's separate Indexing API is not a general replacement. It is only for
+  pages with `JobPosting` structured data or livestream `BroadcastEvent` content
+  embedded in `VideoObject`. Do not use it for standard Partners/client landing,
+  service, blog, or pricing pages.
+
+When closing SEO blockers, mark sitemap submission as agent-actionable if the sprint
+has a write-scoped GSC token and selected property. Keep URL Inspection request
+indexing as a human/client action unless the page is genuinely eligible for Google's
+special Indexing API.
 
 ## Examples
 
@@ -273,6 +446,13 @@ curl -X POST "$BASE/sprints/$ID/audits" \
   -d '{"snapshotDay":30}'
 ```
 
+### Submit the sprint sitemap to GSC
+```bash
+curl -X POST "$BASE/integrations/gsc/sitemaps/submit/$ID" \
+  -H "Authorization: Bearer $AI_API_KEY" \
+  -H "Idempotency-Key: sitemap-$ID-$(date +%s)"
+```
+
 ## Cross-skill handoffs
 
 - **`/content/[id]/repurpose`** calls `/api/v1/social/posts` (the social-media-manager
@@ -300,3 +480,5 @@ for [client] — needs reconnect at /admin/seo/sprints/[id]/settings".
 ## Client Document Handoff
 
 When an SEO sprint needs client strategy sign-off, create or link a client document through the `client-documents` skill. Use a strategy/spec-style document, link it with `linked.seoSprintId`, and keep implementation work in the SEO sprint tasks.
+
+For keyword, SERP, GEO, backlink, competitor, crawler, or citation research, create or link a structured Research item through the `research-intelligence` skill. Use the Research item as the working evidence layer and export durable summaries to Obsidian when the findings should be reused.

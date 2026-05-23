@@ -2,6 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ChatEvent } from '@/lib/hermes/types'
+import VoiceInputButton from '@/components/chat/VoiceInputButton'
 
 type Role = 'user' | 'assistant' | 'system' | 'tool'
 
@@ -54,8 +55,8 @@ export default function HermesChat({ orgId, profileEnabled, projectId, projectNa
   const [error, setError] = useState<string | null>(null)
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const eventSourceRef = useRef<EventSource | null>(null)
-  const messagesEndRef = useRef<HTMLDivElement | null>(null)
   const messagesContainerRef = useRef<HTMLDivElement | null>(null)
+  const composerRef = useRef<HTMLTextAreaElement | null>(null)
   const [liveEvents, setLiveEvents] = useState<Record<string, ChatEvent[]>>({})
   const liveEventsRef = useRef<Record<string, ChatEvent[]>>({})
   useEffect(() => { liveEventsRef.current = liveEvents }, [liveEvents])
@@ -322,6 +323,17 @@ export default function HermesChat({ orgId, profileEnabled, projectId, projectNa
     [activeId, apiBase, input, sending, profileEnabled, loadMessages, pollFinalize, projectId, subscribeEvents, orgId],
   )
 
+  const addVoiceTranscriptToComposer = useCallback((transcript: string) => {
+    const cleaned = transcript.trim()
+    if (!cleaned) return
+    setInput((prev) => (prev.trim() ? `${prev.trimEnd()} ${cleaned}` : cleaned))
+    requestAnimationFrame(() => {
+      composerRef.current?.focus()
+      const length = composerRef.current?.value.length ?? 0
+      composerRef.current?.setSelectionRange(length, length)
+    })
+  }, [])
+
   useEffect(() => () => {
     if (pollRef.current) clearTimeout(pollRef.current)
     if (eventSourceRef.current) eventSourceRef.current.close()
@@ -547,7 +559,13 @@ export default function HermesChat({ orgId, profileEnabled, projectId, projectNa
         </div>
         {error && <div className="px-4 py-2 text-xs text-red-300 border-t border-red-500/30 bg-red-500/10">{error}</div>}
         <form onSubmit={send} className="flex gap-2 border-t border-[var(--color-card-border)] p-3">
+          <VoiceInputButton
+            disabled={sending || !profileEnabled}
+            onTranscript={addVoiceTranscriptToComposer}
+            className="self-end border border-[var(--color-card-border)] bg-[var(--color-card)]"
+          />
           <textarea
+            ref={composerRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {

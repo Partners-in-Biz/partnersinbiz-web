@@ -21,6 +21,8 @@
 3. Set `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, `GSC_REDIRECT_URI` on Vercel
 4. Per sprint: user clicks "Connect Search Console" in `/admin/seo/sprints/[id]/settings`
 
+Gotcha: copied Google values can include trailing newlines. `GSC_REDIRECT_URI` must resolve exactly to the registered callback URL, with no whitespace, otherwise Google may reject the OAuth request before consent. The GSC OAuth helper trims these env values defensively, but keep Vercel values clean as well.
+
 ### Bing Webmaster Tools
 1. Sign in to [Bing Webmaster](https://www.bing.com/webmasters), verify the site
 2. In Settings → API access, generate an API key

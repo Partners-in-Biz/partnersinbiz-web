@@ -6,6 +6,9 @@ import { AdminShell } from '@/components/admin/AdminShell'
 import { OrgProvider } from '@/lib/contexts/OrgContext'
 import { LastPathTracker } from '@/components/pwa/LastPathTracker'
 
+const ADMIN_MATERIAL_SYMBOLS =
+  'https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap'
+
 export default async function AdminLayout({
   children,
 }: {
@@ -32,11 +35,14 @@ export default async function AdminLayout({
   if (role !== 'admin') redirect('/portal/dashboard')
 
   return (
-    <OrgProvider>
-      <Suspense fallback={null}>
-        <LastPathTracker />
-      </Suspense>
-      <AdminShell userEmail={email} userUid={uid}>{children}</AdminShell>
-    </OrgProvider>
+    <>
+      <link rel="stylesheet" href={ADMIN_MATERIAL_SYMBOLS} />
+      <OrgProvider>
+        <Suspense fallback={null}>
+          <LastPathTracker />
+        </Suspense>
+        <AdminShell userEmail={email} userUid={uid}>{children}</AdminShell>
+      </OrgProvider>
+    </>
   )
 }

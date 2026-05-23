@@ -2,12 +2,14 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ChatEvent } from '@/lib/hermes/types'
+import { AGENT_IDS } from '@/lib/agents/types'
 import MessageBubble, { type ConversationAttachment, type ConversationMessage } from './MessageBubble'
 import ParticipantBar from './ParticipantBar'
 import ParticipantPicker, { type SelectedParticipant } from './ParticipantPicker'
 import ConversationListItem, { type Conversation } from './ConversationListItem'
+import VoiceInputButton from './VoiceInputButton'
 
-type AgentId = 'pip' | 'theo' | 'maya' | 'sage' | 'nora'
+type AgentId = string
 
 interface AgentTeamDoc {
   agentId: AgentId
@@ -41,6 +43,7 @@ export interface UnifiedChatProps {
 }
 
 const POLL_INTERVAL = 1500
+const MAX_RUN_POLL_ATTEMPTS = Math.ceil((90 * 60 * 1000) / POLL_INTERVAL)
 const HUMAN_CHAT_REFRESH_INTERVAL = 3000
 
 async function uploadConversationAttachment(convId: string, file: File): Promise<ConversationAttachment> {
@@ -370,7 +373,7 @@ export default function UnifiedChat({
   // ── Polling finalize ──────────────────────────────────────────────────────
   const pollFinalize = useCallback(
     async (convId: string, msgId: string, runId: string, agentId: AgentId, attempts = 0) => {
-      if (attempts > 400) {
+      if (attempts > MAX_RUN_POLL_ATTEMPTS) {
         closeEventStream(msgId)
         // Update the pending message to show a timeout notice without killing it
         setMessages((prev) =>
@@ -476,7 +479,7 @@ export default function UnifiedChat({
 
   useEffect(() => {
     if (!activeId) return
-    const knownAgentIds: AgentId[] = ['pip', 'theo', 'maya', 'sage', 'nora']
+    const knownAgentIds: AgentId[] = [...AGENT_IDS]
     for (const m of messages) {
       if (
         m.role === 'assistant' &&
@@ -485,8 +488,9 @@ export default function UnifiedChat({
         !resumedRunsRef.current.has(m.id)
       ) {
         resumedRunsRef.current.add(m.id)
-        const agentId: AgentId = knownAgentIds.includes(m.authorId as AgentId)
-          ? (m.authorId as AgentId)
+        const dispatchedAgentId = m.dispatchAgentId ?? m.authorId
+        const agentId: AgentId = knownAgentIds.includes(dispatchedAgentId as AgentId)
+          ? (dispatchedAgentId as AgentId)
           : 'pip'
         startEventStream(m.id, m.runId, agentId)
         pollFinalize(activeId, m.id, m.runId, agentId)
@@ -536,6 +540,17 @@ export default function UnifiedChat({
       .map((line) => `> ${line}`)
       .join('\n')
     setInput((prev) => (prev.trim() ? `${prev.trimEnd()}\n\n${quoted}\n\n` : `${quoted}\n\n`))
+    requestAnimationFrame(() => {
+      composerRef.current?.focus()
+      const length = composerRef.current?.value.length ?? 0
+      composerRef.current?.setSelectionRange(length, length)
+    })
+  }, [])
+
+  const addVoiceTranscriptToComposer = useCallback((transcript: string) => {
+    const cleaned = transcript.trim()
+    if (!cleaned) return
+    setInput((prev) => (prev.trim() ? `${prev.trimEnd()} ${cleaned}` : cleaned))
     requestAnimationFrame(() => {
       composerRef.current?.focus()
       const length = composerRef.current?.value.length ?? 0
@@ -1211,6 +1226,12 @@ export default function UnifiedChat({
             >
               <span className="material-symbols-outlined text-[20px]">attach_file</span>
             </button>
+
+            <VoiceInputButton
+              disabled={sending || !activeConversation}
+              onTranscript={addVoiceTranscriptToComposer}
+              className="self-end"
+            />
 
             <textarea
               ref={composerRef}

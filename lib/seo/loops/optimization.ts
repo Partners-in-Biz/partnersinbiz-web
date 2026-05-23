@@ -3,14 +3,26 @@ import { FieldValue } from 'firebase-admin/firestore'
 import { runAllDetectors } from './detectors'
 import { proposeHypotheses } from './hypotheses'
 import type { SprintStatus } from '@/lib/seo/types'
+import type { ApiUser } from '@/lib/api/types'
+import { ensureSeoOptimizationAgentHandoff } from '@/lib/seo/blocker-handoff'
 // Auto-register all detectors
 import './detectors/register'
 
 const ACTIVE: SprintStatus[] = ['active', 'compounding']
+const OPTIMIZATION_CRON_ACTOR: ApiUser = { uid: 'seo-optimization-cron', role: 'ai' }
 
 export async function runOptimizationLoopForSprint(
   sprintId: string,
-): Promise<{ signalsFound: number; proposalsCreated: number }> {
+  actor: ApiUser = OPTIMIZATION_CRON_ACTOR,
+): Promise<{
+  signalsFound: number
+  proposalsCreated: number
+  agentHandoff?: {
+    projectId: string | null
+    projectTaskId: string | null
+    optimizationIds: string[]
+  } | null
+}> {
   const snap = await adminDb.collection('seo_sprints').doc(sprintId).get()
   if (!snap.exists) return { signalsFound: 0, proposalsCreated: 0 }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -36,11 +48,12 @@ export async function runOptimizationLoopForSprint(
 
   const proposals = proposeHypotheses(signals, sprint.scoreboard)
   let proposalsCreated = 0
+  const optimizationIds: string[] = []
   const remaining = cap - recentSnap.size
   for (let i = 0; i < proposals.length && i < remaining; i++) {
     const p = proposals[i]
     const matchingSignal = signals.find((sig) => p.hypothesisType.startsWith(sig.type)) ?? signals[0]
-    await adminDb.collection('seo_optimizations').add({
+    const optimizationRef = await adminDb.collection('seo_optimizations').add({
       sprintId,
       orgId: sprint.orgId,
       detectedAt: new Date().toISOString(),
@@ -53,6 +66,7 @@ export async function runOptimizationLoopForSprint(
       deleted: false,
       createdAt: FieldValue.serverTimestamp(),
     })
+    optimizationIds.push(optimizationRef.id)
     proposalsCreated++
   }
 
@@ -64,7 +78,24 @@ export async function runOptimizationLoopForSprint(
     },
   })
 
-  return { signalsFound: signals.length, proposalsCreated }
+  const result: {
+    signalsFound: number
+    proposalsCreated: number
+    agentHandoff?: {
+      projectId: string | null
+      projectTaskId: string | null
+      optimizationIds: string[]
+    } | null
+  } = { signalsFound: signals.length, proposalsCreated }
+  if (optimizationIds.length > 0) {
+    const agentHandoff = await ensureSeoOptimizationAgentHandoff({
+      sprintId,
+      optimizationIds,
+      actor,
+    })
+    if (agentHandoff) result.agentHandoff = agentHandoff
+  }
+  return result
 }
 
 export async function runWeeklyOptimizationLoop(): Promise<{ processed: number; proposalsCreated: number }> {

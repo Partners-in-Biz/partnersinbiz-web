@@ -44,6 +44,7 @@ next-env.d.ts
 .worktrees/
 
 # local tooling
+.codex-tmp/
 .agents/
 .claude/*
 # but DO version the agent skill definitions — Hermes, CI, and the team
@@ -52,7 +53,6 @@ next-env.d.ts
 !.claude/skills/**
 dogfood-output/
 skills-lock.json
-AGENTS.md
 CLAUDE.md
 
 # firebase secrets

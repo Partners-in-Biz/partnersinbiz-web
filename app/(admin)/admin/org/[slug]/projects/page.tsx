@@ -1,11 +1,16 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
+import { collection, onSnapshot, query, where } from 'firebase/firestore'
+import { getClientDb } from '@/lib/firebase/config'
+import { CrossProjectBoard } from '@/components/projects/CrossProjectBoard'
+import type { BoardTask } from '@/components/projects/CrossProjectBoard'
 
 interface Project {
   id: string
+  orgId?: string
   name: string
   status: string
   description?: string
@@ -127,6 +132,13 @@ function timestampLabel(value: unknown) {
   return `Updated ${new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(date)}`
 }
 
+function mergeLiveTasks(restTasks: BoardTask[], currentTasks: BoardTask[]) {
+  const merged = new Map<string, BoardTask>()
+  restTasks.forEach(task => merged.set(task.id, task))
+  currentTasks.forEach(task => merged.set(task.id, task))
+  return Array.from(merged.values())
+}
+
 function StatusBadge({ status }: { status: string }) {
   const s = STATUS_META[status] ?? { label: status.replace(/_/g, ' '), color: 'var(--color-outline)' }
   return (
@@ -206,6 +218,10 @@ export default function ProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<string>('all')
+  const [viewMode, setViewMode] = useState<'list' | 'board'>('list')
+  const [boardTasks, setBoardTasks] = useState<BoardTask[]>([])
+  const [boardLoading, setBoardLoading] = useState(false)
+  const [failedProjectIds, setFailedProjectIds] = useState<string[]>([])
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [confirmId, setConfirmId] = useState<string | null>(null)
 
@@ -223,7 +239,125 @@ export default function ProjectsPage() {
       .catch(() => setLoading(false))
   }, [slug])
 
-  const filtered = filter === 'all' ? projects : projects.filter(p => p.status === filter)
+  const liveOrgId = useMemo(() => projects.find(project => project.orgId)?.orgId, [projects])
+
+  useEffect(() => {
+    if (!liveOrgId) return
+    const unsubscribe = onSnapshot(
+      query(collection(getClientDb(), 'projects'), where('orgId', '==', liveOrgId)),
+      (snap) => {
+        snap.docChanges().forEach(change => {
+          if (change.type === 'removed') {
+            setProjects(prev => prev.filter(project => project.id !== change.doc.id))
+            return
+          }
+
+          const liveProject = { id: change.doc.id, ...change.doc.data() } as Project
+          setProjects(prev => {
+            const idx = prev.findIndex(project => project.id === liveProject.id)
+            if (idx >= 0) {
+              const next = [...prev]
+              next[idx] = { ...next[idx], ...liveProject }
+              return next
+            }
+
+            return [liveProject, ...prev]
+          })
+        })
+      },
+      () => {} // REST remains the fallback if client Firestore auth/listening fails.
+    )
+    return () => unsubscribe()
+  }, [liveOrgId])
+
+  const filtered = useMemo(
+    () => filter === 'all' ? projects : projects.filter(p => p.status === filter),
+    [projects, filter],
+  )
+
+  useEffect(() => {
+    if (viewMode !== 'board') return
+    if (filtered.length === 0) {
+      setBoardTasks([])
+      setFailedProjectIds([])
+      setBoardLoading(false)
+      return
+    }
+
+    let cancelled = false
+    const unsubscribers: Array<() => void> = []
+    setBoardLoading(true)
+    setFailedProjectIds([])
+
+    for (const project of filtered) {
+      const unsubscribe = onSnapshot(
+        collection(getClientDb(), 'projects', project.id, 'tasks'),
+        (snap) => {
+          snap.docChanges().forEach(change => {
+            if (cancelled) return
+            const liveTask = {
+              id: change.doc.id,
+              ...change.doc.data(),
+              projectId: project.id,
+              projectName: project.name,
+            } as BoardTask
+
+            if (change.type === 'removed') {
+              setBoardTasks(prev => prev.filter(task => task.id !== change.doc.id))
+              return
+            }
+
+            setBoardTasks(prev => {
+              const idx = prev.findIndex(task => task.id === liveTask.id)
+              if (idx >= 0) {
+                const next = [...prev]
+                next[idx] = liveTask
+                return next
+              }
+              return [...prev, liveTask]
+            })
+          })
+        },
+        () => {} // REST remains the fallback if client Firestore auth/listening fails.
+      )
+      unsubscribers.push(unsubscribe)
+    }
+
+    const fetches = filtered.map(project =>
+      fetch(`/api/v1/projects/${project.id}/tasks`)
+        .then(r => r.json())
+        .then((body): { project: Project; tasks: BoardTask[] } => ({
+          project,
+          tasks: (body.data ?? []).map((t: BoardTask) => ({
+            ...t,
+            projectId: project.id,
+            projectName: project.name,
+          })),
+        }))
+        .catch(() => ({ project, tasks: undefined as BoardTask[] | undefined }))
+    )
+
+    Promise.all(fetches).then(results => {
+      if (cancelled) return
+      const failed: string[] = []
+      const all: BoardTask[] = []
+      for (const { project, tasks } of results) {
+        if (!tasks) {
+          failed.push(project.id)
+        } else {
+          all.push(...tasks)
+        }
+      }
+      setBoardTasks(prev => mergeLiveTasks(all, prev))
+      setFailedProjectIds(failed)
+      setBoardLoading(false)
+    })
+
+    return () => {
+      cancelled = true
+      unsubscribers.forEach(unsubscribe => unsubscribe())
+    }
+  }, [viewMode, filtered])
 
   const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -287,6 +421,20 @@ export default function ProjectsPage() {
     }
   }
 
+  const handleBoardTaskUpdate = useCallback(
+    (projectId: string, taskId: string, patch: Partial<{ columnId: string; order: number }>) => {
+      setBoardTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...patch } : t))
+      fetch(`/api/v1/projects/${projectId}/tasks/${taskId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patch),
+      }).catch(() => {
+        setBoardTasks(prev => prev.map(t => t.id === taskId ? { ...t, columnId: t.columnId, order: t.order } : t))
+      })
+    },
+    [],
+  )
+
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
       <div className="flex items-center justify-between">
@@ -294,14 +442,38 @@ export default function ProjectsPage() {
           <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">Workspace / Projects</p>
           <h1 className="text-2xl font-headline font-bold text-on-surface">Projects</h1>
         </div>
-        {!showForm && (
-          <button
-            onClick={() => setShowForm(true)}
-            className="pib-btn-primary text-sm font-label"
+        <div className="flex items-center gap-3">
+          <div
+            className="flex rounded-[var(--radius-btn)] overflow-hidden border"
+            style={{ borderColor: 'var(--color-outline)' }}
           >
-            + New Project
-          </button>
-        )}
+            {(['list', 'board'] as const).map(mode => (
+              <button
+                key={mode}
+                onClick={() => setViewMode(mode)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-label capitalize transition-colors"
+                style={
+                  viewMode === mode
+                    ? { background: 'var(--color-accent-v2)', color: '#000' }
+                    : { background: 'transparent', color: 'var(--color-on-surface-variant)' }
+                }
+              >
+                <span className="material-symbols-outlined text-[14px]">
+                  {mode === 'list' ? 'list' : 'view_kanban'}
+                </span>
+                {mode}
+              </button>
+            ))}
+          </div>
+          {!showForm && (
+            <button
+              onClick={() => setShowForm(true)}
+              className="pib-btn-primary text-sm font-label"
+            >
+              + New Project
+            </button>
+          )}
+        </div>
       </div>
 
       {/* New Project Form */}
@@ -372,8 +544,32 @@ export default function ProjectsPage() {
         ))}
       </div>
 
-      {/* Projects Grid */}
-      {loading ? (
+      {/* Error banner for partial board load failures */}
+      {viewMode === 'board' && failedProjectIds.length > 0 && (
+        <div
+          className="flex items-center justify-between gap-3 rounded-[var(--radius-card)] px-4 py-2 text-sm"
+          style={{ background: '#ef444420', color: '#f87171', border: '1px solid #ef444430' }}
+        >
+          <span>Could not load tasks for {failedProjectIds.length} project(s).</span>
+          <button
+            onClick={() => {
+              setViewMode('list')
+              setTimeout(() => setViewMode('board'), 0)
+            }}
+            className="underline text-xs shrink-0"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
+      {viewMode === 'board' ? (
+        <CrossProjectBoard
+          tasks={boardTasks}
+          loading={boardLoading}
+          onTaskUpdate={handleBoardTaskUpdate}
+        />
+      ) : loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-32" />)}
         </div>

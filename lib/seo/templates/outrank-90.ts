@@ -25,7 +25,7 @@ export const OUTRANK_90: SeoTemplate = {
     { week: 0, phase: 0, focus: 'Pre-launch', title: 'Set up meta tags on every page (title, description, OG image)', taskType: 'meta-tag-audit', autopilotEligible: true, internalToolPath: '/admin/seo/tools#metadata-check' },
     { week: 0, phase: 0, focus: 'Pre-launch', title: 'Add SoftwareApplication + FAQ schema (structured data)', taskType: 'schema-add', autopilotEligible: true },
     { week: 0, phase: 0, focus: 'Pre-launch', title: 'Verify site in Google Search Console', taskType: 'gsc-verify', autopilotEligible: false },
-    { week: 0, phase: 0, focus: 'Pre-launch', title: 'Submit sitemap.xml to GSC', taskType: 'sitemap-submit', autopilotEligible: false, internalToolPath: '/admin/seo/tools#sitemap-check' },
+    { week: 0, phase: 0, focus: 'Pre-launch', title: 'Submit sitemap.xml to GSC', taskType: 'sitemap-submit', autopilotEligible: true, internalToolPath: '/admin/seo/tools#sitemap-check' },
     { week: 0, phase: 0, focus: 'Pre-launch', title: 'Manually request indexing for 5 core pages', taskType: 'gsc-request-index', autopilotEligible: false },
     { week: 0, phase: 0, focus: 'Pre-launch', title: 'Set up Bing Webmaster Tools (import from GSC)', taskType: 'bing-verify', autopilotEligible: false },
     { week: 0, phase: 0, focus: 'Pre-launch', title: 'Cross-link from existing property to new site', taskType: 'cross-link', autopilotEligible: false },

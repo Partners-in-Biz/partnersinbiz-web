@@ -9,7 +9,7 @@ export interface TaskAssignee {
   id: string
 }
 
-export type AgentId = 'pip' | 'theo' | 'maya' | 'sage' | 'nora'
+export type AgentId = string
 
 export type AgentStatus =
   | 'pending'
@@ -50,6 +50,7 @@ export interface Task {
   contactId: string | null
   dealId: string | null
   tags: string[]
+  columnId?: string | null
   createdBy: string
   createdByType: 'user' | 'agent' | 'system'
   createdAt: unknown
@@ -65,6 +66,18 @@ export interface Task {
   agentConversationId?: string | null
   agentHeartbeatAt?: unknown
   dependsOn?: string[]
+  reviewerIds?: string[]
+  reviewerAgentId?: AgentId | null
+  reviewStatus?: 'pending' | 'in-progress' | 'approved' | 'changes-requested' | null
+  riskLevel?: 'low' | 'medium' | 'high' | 'critical'
+  requiredCapability?: string | null
+  requestedByAgentId?: AgentId | null
+  approvalGateTaskId?: string | null
+  sourceDocumentId?: string | null
+  sourceDocumentSectionId?: string | null
+  sourceSpecVersion?: string | null
+  sourceResearchItemId?: string | null
+  expectedArtifacts?: string[]
 }
 
 export interface TaskInput {
@@ -78,12 +91,25 @@ export interface TaskInput {
   contactId?: string
   dealId?: string
   tags?: string[]
+  columnId?: string | null
   assigneeAgentId?: AgentId | null
   agentStatus?: AgentStatus
   agentInput?: AgentInput
   agentOutput?: AgentOutput
   agentConversationId?: string | null
   dependsOn?: string[]
+  reviewerIds?: string[]
+  reviewerAgentId?: AgentId | null
+  reviewStatus?: 'pending' | 'in-progress' | 'approved' | 'changes-requested' | null
+  riskLevel?: 'low' | 'medium' | 'high' | 'critical'
+  requiredCapability?: string | null
+  requestedByAgentId?: AgentId | null
+  approvalGateTaskId?: string | null
+  sourceDocumentId?: string | null
+  sourceDocumentSectionId?: string | null
+  sourceSpecVersion?: string | null
+  sourceResearchItemId?: string | null
+  expectedArtifacts?: string[]
 }
 
 export const VALID_TASK_STATUSES: TaskStatus[] = [
@@ -102,7 +128,7 @@ export const VALID_TASK_PRIORITIES: TaskPriority[] = [
 
 export const VALID_ASSIGNEE_TYPES: TaskAssignee['type'][] = ['user', 'agent']
 
-export const VALID_AGENT_IDS: AgentId[] = ['pip', 'theo', 'maya', 'sage', 'nora']
+export const VALID_AGENT_IDS: AgentId[] = ['pip', 'theo', 'maya', 'sage', 'nora', 'ads', 'qa-release', 'support', 'data', 'docs', 'seo']
 
 export const VALID_AGENT_STATUSES: AgentStatus[] = [
   'pending',

@@ -479,4 +479,4 @@ If both return 200, the integration is live. Delete the test file and update thi
 2. **Share folders, not files** — when giving a client access to a campaign, share the campaign sub-folder. Individual file shares create noise in Drive and are harder to revoke.
 3. **Name files with version and date** — `brand-kit-v3-2026-05.pdf` not `brand-kit-final-FINAL.pdf`. Clients rename things; the version in the filename is the source of truth.
 4. **Always write artifacts to kanban** — a Drive URL that isn't in `agentOutput.artifacts` is invisible to Peet and to other agents. Never skip this step.
-5. **Binary artifacts = Drive; text knowledge = Obsidian** — if you're tempted to put a markdown file in Drive, stop. It belongs in the wiki.
+5. **Binary artifacts = Drive; text knowledge = Research/Obsidian** — if you're tempted to put a markdown file in Drive, stop. Working client research belongs in the Research module first, then selected durable summaries can be exported to the wiki.

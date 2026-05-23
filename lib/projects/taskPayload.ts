@@ -1,4 +1,6 @@
 import { isValidAgentId } from '@/lib/agents/types'
+import { columnForAgentStatus } from '@/lib/tasks/agentState'
+import type { AgentStatus } from '@/lib/tasks/types'
 
 type PayloadResult<T> =
   | { ok: true; value: T }
@@ -15,6 +17,33 @@ const VALID_AGENT_STATUSES = [
   'blocked',
 ] as const
 
+const VALID_RISK_LEVELS = ['low', 'medium', 'high', 'critical'] as const
+
+const VALID_AGENT_CAPABILITIES = [
+  'read',
+  'draft',
+  'write',
+  'approve',
+  'publish',
+  'deploy',
+  'spend',
+  'message_client',
+  'access_secret',
+  'delete',
+] as const
+
+export const TASK_SOURCE_LINKAGE_FIELDS = [
+  'sourceDocumentId',
+  'sourceDocumentSectionId',
+  'sourceSpecVersion',
+  'approvalGateTaskId',
+  'sourceResearchItemId',
+  'riskLevel',
+  'requiredCapability',
+  'requestedByAgentId',
+  'expectedArtifacts',
+] as const
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value)
 }
@@ -26,6 +55,74 @@ function cleanString(value: unknown): string | null {
 function cleanStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) return []
   return Array.from(new Set(value.map(cleanString).filter((item): item is string => !!item)))
+}
+
+function cleanRiskLevel(value: unknown): PayloadResult<string | null> {
+  if (value === undefined || value === null || value === '') return { ok: true, value: null }
+  const cleaned = cleanString(value)
+  if (!cleaned || !VALID_RISK_LEVELS.includes(cleaned as (typeof VALID_RISK_LEVELS)[number])) {
+    return { ok: false, error: 'Invalid riskLevel; expected low | medium | high | critical', status: 400 }
+  }
+  return { ok: true, value: cleaned }
+}
+
+function cleanRequiredCapability(value: unknown): PayloadResult<string | null> {
+  if (value === undefined || value === null || value === '') return { ok: true, value: null }
+  const cleaned = cleanString(value)
+  if (!cleaned || !VALID_AGENT_CAPABILITIES.includes(cleaned as (typeof VALID_AGENT_CAPABILITIES)[number])) {
+    return { ok: false, error: `Invalid requiredCapability; expected one of ${VALID_AGENT_CAPABILITIES.join(' | ')}`, status: 400 }
+  }
+  return { ok: true, value: cleaned }
+}
+
+function cleanAgentContext(value: unknown): Record<string, unknown> | null {
+  if (!isRecord(value)) return null
+  const out: Record<string, unknown> = { ...value }
+
+  for (const field of TASK_SOURCE_LINKAGE_FIELDS) {
+    if (!(field in value)) continue
+    if (field === 'expectedArtifacts') {
+      const cleaned = cleanStringArray(value[field])
+      if (cleaned.length > 0) out[field] = cleaned
+      else delete out[field]
+      continue
+    }
+    const cleaned = cleanString(value[field])
+    if (cleaned) {
+      out[field] = cleaned
+    } else if (value[field] === null) {
+      out[field] = null
+    } else {
+      delete out[field]
+    }
+  }
+
+  return out
+}
+
+function applyProvenanceFields(
+  source: Record<string, unknown>,
+  target: Record<string, unknown>,
+): PayloadResult<null> {
+  if (source.riskLevel !== undefined) {
+    const risk = cleanRiskLevel(source.riskLevel)
+    if (!risk.ok) return { ok: false, error: risk.error, status: risk.status }
+    if (risk.value) target.riskLevel = risk.value
+  }
+  if (source.requiredCapability !== undefined) {
+    const capability = cleanRequiredCapability(source.requiredCapability)
+    if (!capability.ok) return { ok: false, error: capability.error, status: capability.status }
+    if (capability.value) target.requiredCapability = capability.value
+  }
+  if (source.requestedByAgentId !== undefined) {
+    const requestedBy = cleanAgentId(source.requestedByAgentId, 'requestedByAgentId')
+    if (!requestedBy.ok) return { ok: false, error: requestedBy.error, status: requestedBy.status }
+    if (requestedBy.value) target.requestedByAgentId = requestedBy.value
+  }
+  if (source.expectedArtifacts !== undefined) {
+    target.expectedArtifacts = cleanStringArray(source.expectedArtifacts)
+  }
+  return { ok: true, value: null }
 }
 
 function cleanOptionalDate(value: unknown): string | null {
@@ -113,21 +210,21 @@ function cleanChecklist(value: unknown): PayloadResult<Record<string, unknown>[]
   return { ok: true, value: checklist }
 }
 
-function cleanAgentId(value: unknown): PayloadResult<string | null> {
+function cleanAgentId(value: unknown, fieldName = 'assigneeAgentId'): PayloadResult<string | null> {
   if (value === undefined) return { ok: true, value: null }
   if (value === null || value === '') return { ok: true, value: null }
   if (!isValidAgentId(value)) {
-    return { ok: false, error: 'Invalid assigneeAgentId; expected a valid agent id', status: 400 }
+    return { ok: false, error: `Invalid ${fieldName}; expected a valid agent id`, status: 400 }
   }
-  return { ok: true, value }
+  return { ok: true, value: value as string }
 }
 
-function cleanAgentStatus(value: unknown): PayloadResult<string | null> {
+function cleanAgentStatus(value: unknown): PayloadResult<AgentStatus | null> {
   if (value === undefined || value === null || value === '') return { ok: true, value: null }
   if (typeof value !== 'string' || !VALID_AGENT_STATUSES.includes(value as (typeof VALID_AGENT_STATUSES)[number])) {
     return { ok: false, error: `Invalid agentStatus; expected one of ${VALID_AGENT_STATUSES.join(' | ')}`, status: 400 }
   }
-  return { ok: true, value }
+  return { ok: true, value: value as AgentStatus }
 }
 
 function cleanAgentInput(value: unknown): PayloadResult<Record<string, unknown> | null> {
@@ -136,7 +233,8 @@ function cleanAgentInput(value: unknown): PayloadResult<Record<string, unknown> 
   const spec = cleanString(value.spec)
   if (!spec) return { ok: false, error: 'agentInput.spec is required', status: 400 }
   const out: Record<string, unknown> = { spec }
-  if (isRecord(value.context)) out.context = value.context
+  const context = cleanAgentContext(value.context)
+  if (context) out.context = context
   if (Array.isArray(value.constraints)) {
     out.constraints = value.constraints.map(cleanString).filter((s): s is string => !!s)
   }
@@ -163,6 +261,7 @@ function cleanAgentOutput(value: unknown): PayloadResult<Record<string, unknown>
     }
     out.artifacts = artifacts
   }
+  if (value.completedAt !== undefined) out.completedAt = cleanOptionalDate(value.completedAt)
   return { ok: true, value: out }
 }
 
@@ -191,7 +290,7 @@ export function buildProjectTaskCreateData(
   const title = cleanString(body.title)
   if (!title) return { ok: false, error: 'title is required', status: 400 }
 
-  const columnId = cleanString(body.columnId) ?? 'backlog'
+  const columnId = cleanString(body.columnId) ?? 'todo'
   const priority = cleanPriority(body.priority)
   if (!priority.ok) return priority
   const order = cleanOrder(body.order)
@@ -205,6 +304,8 @@ export function buildProjectTaskCreateData(
   const assigneeIds = cleanStringArray(body.assigneeIds)
   const agentId = cleanAgentId(body.assigneeAgentId)
   if (!agentId.ok) return agentId
+  const agentStatus = cleanAgentStatus(body.agentStatus)
+  if (!agentStatus.ok) return agentStatus
   const agentInput = cleanAgentInput(body.agentInput)
   if (!agentInput.ok) return agentInput
   const dependsOn = cleanDependsOn(body.dependsOn)
@@ -230,11 +331,23 @@ export function buildProjectTaskCreateData(
   }
 
   if (agentId.value) {
+    const nextAgentStatus = agentStatus.value ?? 'pending'
     value.assigneeAgentId = agentId.value
-    value.agentStatus = 'pending'
+    value.agentStatus = nextAgentStatus
+    if (body.columnId === undefined) {
+      value.columnId = columnForAgentStatus(nextAgentStatus)
+    }
+    if (nextAgentStatus === 'done') value.reviewStatus = 'pending'
   }
+  const provenance = applyProvenanceFields(body, value)
+  if (!provenance.ok) return provenance
   if (agentInput.value) value.agentInput = agentInput.value
   if (dependsOn.value.length > 0) value.dependsOn = dependsOn.value
+  const reviewerIds = cleanStringArray(body.reviewerIds)
+  const reviewerAgentId = cleanAgentId(body.reviewerAgentId, 'reviewerAgentId')
+  if (!reviewerAgentId.ok) return reviewerAgentId
+  if (reviewerIds.length > 0) value.reviewerIds = reviewerIds
+  if (reviewerAgentId.value) value.reviewerAgentId = reviewerAgentId.value
 
   return { ok: true, value }
 }
@@ -248,7 +361,7 @@ export function buildProjectTaskUpdateData(body: Record<string, unknown>): Paylo
     updates.title = title
   }
   if (body.description !== undefined) updates.description = typeof body.description === 'string' ? body.description.trim() : ''
-  if (body.columnId !== undefined) updates.columnId = cleanString(body.columnId) ?? 'backlog'
+  if (body.columnId !== undefined) updates.columnId = cleanString(body.columnId) ?? 'todo'
   if (body.priority !== undefined) {
     const priority = cleanPriority(body.priority)
     if (!priority.ok) return priority
@@ -298,6 +411,12 @@ export function buildProjectTaskUpdateData(body: Record<string, unknown>): Paylo
     const agentStatus = cleanAgentStatus(body.agentStatus)
     if (!agentStatus.ok) return agentStatus
     updates.agentStatus = agentStatus.value
+    if (body.columnId === undefined && agentStatus.value === 'done') {
+      updates.columnId = 'review'
+      updates.reviewStatus = 'pending'
+    } else if (body.columnId === undefined && agentStatus.value === 'blocked') {
+      updates.columnId = 'blocked'
+    }
   }
   if (body.agentInput !== undefined) {
     const agentInput = cleanAgentInput(body.agentInput)
@@ -314,6 +433,19 @@ export function buildProjectTaskUpdateData(body: Record<string, unknown>): Paylo
     if (!dependsOn.ok) return dependsOn
     updates.dependsOn = dependsOn.value
   }
+  if (body.reviewerIds !== undefined) updates.reviewerIds = cleanStringArray(body.reviewerIds)
+  if (body.reviewerAgentId !== undefined) {
+    const reviewerAgentId = cleanAgentId(body.reviewerAgentId, 'reviewerAgentId')
+    if (!reviewerAgentId.ok) return reviewerAgentId
+    updates.reviewerAgentId = reviewerAgentId.value
+  }
+  if (body.reviewStatus !== undefined) {
+    const reviewStatus = cleanString(body.reviewStatus)
+    if (reviewStatus && !['pending', 'in-progress', 'approved', 'changes-requested'].includes(reviewStatus)) {
+      return { ok: false, error: 'Invalid reviewStatus; expected pending | in-progress | approved | changes-requested', status: 400 }
+    }
+    updates.reviewStatus = reviewStatus
+  }
   if (body.agentConversationId !== undefined) {
     updates.agentConversationId =
       typeof body.agentConversationId === 'string' && body.agentConversationId.trim()
@@ -326,5 +458,31 @@ export function buildProjectTaskUpdateData(body: Record<string, unknown>): Paylo
     updates.agentHeartbeatAt = '__server_timestamp__'
   }
 
+  const provenance = applyProvenanceFields(body, updates)
+  if (!provenance.ok) return provenance
+
   return { ok: true, value: updates }
+}
+
+export function applyAgentTodoRequeue(
+  existing: Record<string, unknown>,
+  updates: Record<string, unknown>,
+  body: Record<string, unknown>,
+): Record<string, unknown> {
+  const hasAgent = typeof existing.assigneeAgentId === 'string' && existing.assigneeAgentId.trim().length > 0
+  const movedToTodo = updates.columnId === 'todo'
+  const callerDidNotSetStatus = body.agentStatus === undefined
+  const currentStatus = typeof existing.agentStatus === 'string' ? existing.agentStatus : null
+  const requeueable = currentStatus === 'done' || currentStatus === 'blocked' || currentStatus === 'awaiting-input'
+
+  if (!hasAgent || !movedToTodo || !callerDidNotSetStatus || !requeueable) return updates
+
+  return {
+    ...updates,
+    agentStatus: 'pending',
+    reviewStatus: 'changes-requested',
+    agentOutput: null,
+    agentConversationId: null,
+    agentHeartbeatAt: null,
+  }
 }

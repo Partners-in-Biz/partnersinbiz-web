@@ -39,30 +39,32 @@ export function ContentRow({
 
   return (
     <>
-      <tr className="hover:bg-[var(--color-row-hover)]">
-        <td className="px-4 py-2">
+      <tr className="transition-colors hover:bg-white/[0.03]">
+        <td className="px-4 py-3">
           <button
             type="button"
             onClick={() => setOpen((v) => !v)}
-            className="text-xs text-[var(--color-pib-accent)] hover:underline"
+            className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] transition hover:border-[var(--color-pib-accent)] hover:text-[var(--color-pib-accent)] disabled:cursor-not-allowed disabled:opacity-40"
             aria-label={open ? 'Hide draft' : 'Show draft'}
             disabled={!draftPostId}
             title={draftPostId ? 'Show draft' : 'No draft yet'}
           >
-            {open ? '▾' : '▸'}
+            <span className="material-symbols-outlined text-base">{open ? 'expand_more' : 'chevron_right'}</span>
           </button>
         </td>
-        <td className="px-4 py-2 font-medium">{title}</td>
-        <td className="px-4 py-2 text-xs">{keyword}</td>
-        <td className="px-4 py-2 text-xs">{phaseLabel}</td>
-        <td className="px-4 py-2 text-xs">{type ?? '—'}</td>
-        <td className="px-4 py-2 text-xs">{status ?? '—'}</td>
-        <td className="px-4 py-2 text-xs">
+        <td className="px-4 py-3 font-medium text-[var(--color-pib-text)]">{title}</td>
+        <td className="px-4 py-3 text-xs text-[var(--color-pib-text-muted)]">{keyword}</td>
+        <td className="px-4 py-3 text-xs">{phaseLabel}</td>
+        <td className="px-4 py-3 text-xs">{type ?? '—'}</td>
+        <td className="px-4 py-3 text-xs">
+          <span className="pib-pill">{status ?? '—'}</span>
+        </td>
+        <td className="px-4 py-3 text-xs">
           {publishDate ? new Date(publishDate).toISOString().slice(0, 10) : '—'}
         </td>
-        <td className="px-4 py-2 text-xs">
+        <td className="px-4 py-3 text-xs">
           {targetUrl ? (
-            <a href={targetUrl} className="underline">
+            <a href={targetUrl} className="text-[var(--color-pib-accent)] underline">
               link
             </a>
           ) : (
@@ -80,7 +82,7 @@ export function ContentRow({
               </div>
             )}
             {draftPostId && !hasDraft && (
-              <div className="text-xs text-red-600">
+              <div className="text-xs text-red-300">
                 Draft id <code>{draftPostId}</code> not found in <code>seo_drafts</code>.
               </div>
             )}

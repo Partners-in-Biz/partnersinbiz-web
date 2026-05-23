@@ -10,6 +10,7 @@ import { withAuth } from '@/lib/api/auth'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import { callAgentPath, createAgent, listAgents } from '@/lib/agents/team'
 import { isValidAgentId } from '@/lib/agents/types'
+import { normalizeAgentRegistryInput } from '@/lib/agents/registry'
 import { isSuperAdmin } from '@/lib/api/platformAdmin'
 
 export const dynamic = 'force-dynamic'
@@ -38,6 +39,7 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
   const defaultModel = String(body.defaultModel ?? 'gpt-5.5').trim()
   const iconKey = String(body.iconKey ?? 'smart_toy').trim()
   const colorKey = String(body.colorKey ?? 'sky').trim()
+  const registry = normalizeAgentRegistryInput(body)
 
   try {
     const { response, data } = await callAgentPath('pip', '/admin/profiles', {
@@ -71,6 +73,7 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
       enabled: true,
       baseUrl,
       apiKey,
+      ...registry,
     })
     const safeProvisioned = { ...result }
     delete safeProvisioned.apiKey

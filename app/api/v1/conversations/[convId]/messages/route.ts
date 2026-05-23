@@ -225,8 +225,41 @@ export const POST = withAuth(
       }
       const agentData = agentSnap.data() as AgentTeamDoc
 
-      // Decrypt API key
-      const decryptedKey = await getAgentDecryptedKey(agentId)
+      // Create pending assistant message first so dispatch/config failures are
+      // visible in the thread instead of surfacing as a raw 500 after the user
+      // message has already been saved.
+      const assistantMessage = await createMessage(convId, {
+        conversationId: convId,
+        role: 'assistant',
+        content: '',
+        authorKind: 'agent',
+        authorId: agentId,
+        authorDisplayName: agentData.name,
+        dispatchAgentId: agentId,
+        status: 'pending',
+      })
+
+      let decryptedKey: string | null
+      try {
+        // Decrypt API key
+        decryptedKey = await getAgentDecryptedKey(agentId)
+      } catch (err) {
+        console.error('[conversation-agent-dispatch-failed]', {
+          convId,
+          agentId,
+          error: err instanceof Error ? err.message : String(err),
+        })
+        const error = 'Agent dispatch is not configured for this Preview environment.'
+        await messagesCollection(convId).doc(assistantMessage.id).update({
+          content: '',
+          status: 'failed',
+          error,
+        })
+        return apiSuccess({
+          message,
+          assistantMessage: { ...assistantMessage, status: 'failed', error },
+        }, 201)
+      }
 
       // Build a HermesProfileLink from agent_team data
       const agentLink: HermesProfileLink = {
@@ -248,18 +281,6 @@ export const POST = withAuth(
         : ''
       const hermesInput = orgContext + convContext + orchestrationContext + content + attachmentContext
 
-      // Create pending assistant message first
-      const assistantMessage = await createMessage(convId, {
-        conversationId: convId,
-        role: 'assistant',
-        content: '',
-        authorKind: 'agent',
-        authorId: agentId,
-        authorDisplayName: agentData.name,
-        dispatchAgentId: agentId,
-        status: 'pending',
-      })
-
       // Dispatch Hermes run
       const runResult = await createHermesRun(agentLink, user.uid, {
         prompt: hermesInput,
@@ -273,7 +294,31 @@ export const POST = withAuth(
           orchestrationMode: conversation.orchestration?.mode ?? (conversation.participantAgentIds.length > 1 ? 'pip-orchestrator' : 'direct'),
           source: 'pib-unified-chat',
         },
+      }).catch(async (err) => {
+        console.error('[conversation-agent-dispatch-failed]', {
+          convId,
+          agentId,
+          error: err instanceof Error ? err.message : String(err),
+        })
+        const error = 'Agent run could not be started on the gateway.'
+        await messagesCollection(convId).doc(assistantMessage.id).update({
+          content: '',
+          status: 'failed',
+          error,
+        })
+        return null
       })
+
+      if (!runResult) {
+        return apiSuccess({
+          message,
+          assistantMessage: {
+            ...assistantMessage,
+            status: 'failed',
+            error: 'Agent run could not be started on the gateway.',
+          },
+        }, 201)
+      }
 
       // Store runId on the pending message if run started
       if (runResult.response.ok) {

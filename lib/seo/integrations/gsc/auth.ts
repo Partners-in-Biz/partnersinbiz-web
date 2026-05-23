@@ -1,12 +1,16 @@
 import { google } from 'googleapis'
 
-const SCOPES = ['https://www.googleapis.com/auth/webmasters.readonly']
+export const GSC_SCOPES = ['https://www.googleapis.com/auth/webmasters']
+
+function readEnv(name: string): string | undefined {
+  return process.env[name]?.trim()
+}
 
 function client() {
   return new google.auth.OAuth2(
-    process.env.GOOGLE_OAUTH_CLIENT_ID,
-    process.env.GOOGLE_OAUTH_CLIENT_SECRET,
-    process.env.GSC_REDIRECT_URI,
+    readEnv('GOOGLE_OAUTH_CLIENT_ID'),
+    readEnv('GOOGLE_OAUTH_CLIENT_SECRET'),
+    readEnv('GSC_REDIRECT_URI'),
   )
 }
 
@@ -14,7 +18,7 @@ export function gscAuthUrl(state: string): string {
   return client().generateAuthUrl({
     access_type: 'offline',
     prompt: 'consent',
-    scope: SCOPES,
+    scope: GSC_SCOPES,
     state,
   })
 }

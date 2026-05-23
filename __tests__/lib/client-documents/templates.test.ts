@@ -5,12 +5,14 @@ import {
 } from '@/lib/client-documents/templates'
 
 describe('client document templates', () => {
-  it('ships the first seven approved templates', () => {
+  it('ships the approved templates including the GEO SEO workflow', () => {
     expect(CLIENT_DOCUMENT_TEMPLATES.map(template => template.type)).toEqual([
       'sales_proposal',
       'build_spec',
       'social_strategy',
       'content_campaign_plan',
+      'geo_seo_strategy',
+      'research_report',
       'monthly_report',
       'launch_signoff',
       'change_request',
@@ -39,6 +41,35 @@ describe('client document templates', () => {
     expect(template.requiredBlockTypes).toContain('approval')
   })
 
+  it('defines a GEO SEO workflow that fans out Sage research, Maya content, and approval-gated execution', () => {
+    const template = getClientDocumentTemplate('geo_seo_strategy')
+
+    expect(template.approvalMode).toBe('operational')
+    expect(template.requiredBlockTypes).toEqual(['hero', 'summary', 'scope', 'deliverables', 'timeline', 'metrics', 'approval'])
+    expect(template.defaultBlocks.map(block => block.id)).toEqual([
+      'hero',
+      'summary',
+      'scope',
+      'deliverables',
+      'timeline',
+      'metrics',
+      'approval',
+    ])
+    expect(template.agentWorkflowTasks?.map(task => [task.key, task.assigneeAgentId, task.dependsOn ?? []])).toEqual([
+      ['sage-geo-opportunity-research', 'sage', []],
+      ['maya-content-draft', 'maya', ['sage-geo-opportunity-research']],
+      ['client-approval-gate', 'pip', ['maya-content-draft']],
+      ['maya-execute-approved-content', 'maya', ['client-approval-gate']],
+      ['sage-geo-delta-review', 'sage', ['maya-execute-approved-content']],
+    ])
+    expect(template.agentWorkflowTasks?.flatMap(task => task.labels ?? [])).toEqual(expect.arrayContaining([
+      'geo-record-required',
+      'seo-content-link',
+      'approval-record-required',
+      'linked-artifacts-required',
+    ]))
+  })
+
   it('creates stable block ids from template defaults', () => {
     const blocks = createBlocksFromTemplate('build_spec')
 
@@ -52,6 +83,14 @@ describe('client document templates', () => {
       'approval',
     ])
     expect(blocks.every(block => block.required)).toBe(true)
+  })
+
+  it('ships a research report template for polished client-facing research output', () => {
+    const template = getClientDocumentTemplate('research_report')
+
+    expect(template.label).toBe('Research Report')
+    expect(template.approvalMode).toBe('operational')
+    expect(template.requiredBlockTypes).toEqual(['hero', 'summary', 'deliverables', 'gallery', 'callout', 'approval'])
   })
 
   it('deep-clones object content from template defaults', () => {

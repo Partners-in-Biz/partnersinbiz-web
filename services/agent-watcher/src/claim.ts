@@ -12,21 +12,38 @@
 import type { DocumentReference, Firestore } from 'firebase-admin/firestore'
 import { db, FieldValue, Timestamp } from './firestore'
 import { logger } from './logger'
+import { agentStatusUpdate } from './task-updates'
+import { getUnresolvedDependencyIds, hasPendingApprovalGate } from './eligibility'
 
 const STALE_THRESHOLD_MS = 5 * 60 * 1_000
 const SWEEP_INTERVAL_MS = 60 * 1_000
 export const HEARTBEAT_INTERVAL_MS = 30 * 1_000
 
-export async function claimTask(taskRef: DocumentReference): Promise<boolean> {
+export async function claimTask(taskRef: DocumentReference, expectedAgentId: string): Promise<boolean> {
   try {
     return await (db as Firestore).runTransaction(async (tx) => {
       const snap = await tx.get(taskRef)
       if (!snap.exists) return false
       const data = snap.data() ?? {}
+      if (data.assigneeAgentId !== expectedAgentId) return false
       if (data.agentStatus !== 'pending') return false
+      if (data.columnId !== 'todo') return false
+      if (data.deleted === true) return false
+      if (data.status === 'cancelled' || data.status === 'canceled') return false
+      if (hasPendingApprovalGate(data)) return false
+
+      const dependsOn = Array.isArray(data.dependsOn) ? data.dependsOn.filter(Boolean) : []
+      if (dependsOn.length > 0) {
+        const dependenciesById: Record<string, { agentStatus?: string | null; columnId?: string | null } | null> = {}
+        for (const dependencyId of dependsOn) {
+          const depSnap = await tx.get(taskRef.parent.doc(String(dependencyId)))
+          dependenciesById[String(dependencyId)] = depSnap.exists ? (depSnap.data() ?? {}) : null
+        }
+        if (getUnresolvedDependencyIds(dependsOn.map(String), dependenciesById).length > 0) return false
+      }
 
       tx.update(taskRef, {
-        agentStatus: 'picked-up',
+        ...agentStatusUpdate('picked-up'),
         agentHeartbeatAt: FieldValue.serverTimestamp(),
         updatedAt: FieldValue.serverTimestamp(),
       })
@@ -34,6 +51,32 @@ export async function claimTask(taskRef: DocumentReference): Promise<boolean> {
     })
   } catch (err) {
     logger.warn('claimTask transaction failed', {
+      path: taskRef.path,
+      error: err instanceof Error ? err.message : String(err),
+    })
+    return false
+  }
+}
+
+export async function claimReviewTask(taskRef: DocumentReference, reviewerAgentId: string): Promise<boolean> {
+  try {
+    return await (db as Firestore).runTransaction(async (tx) => {
+      const snap = await tx.get(taskRef)
+      if (!snap.exists) return false
+      const data = snap.data() ?? {}
+      if (data.columnId !== 'review') return false
+      if (data.reviewStatus !== 'pending') return false
+      if (data.agentStatus !== 'done') return false
+      if (data.reviewerAgentId !== reviewerAgentId) return false
+
+      tx.update(taskRef, {
+        reviewStatus: 'in-progress',
+        updatedAt: FieldValue.serverTimestamp(),
+      })
+      return true
+    })
+  } catch (err) {
+    logger.warn('claimReviewTask transaction failed', {
       path: taskRef.path,
       error: err instanceof Error ? err.message : String(err),
     })
@@ -81,7 +124,7 @@ export function startStaleSweeper(): () => void {
       let opsInBatch = 0
       for (const doc of snap.docs) {
         batch.update(doc.ref, {
-          agentStatus: 'pending',
+          ...agentStatusUpdate('pending'),
           agentHeartbeatAt: FieldValue.delete(),
           updatedAt: FieldValue.serverTimestamp(),
         })

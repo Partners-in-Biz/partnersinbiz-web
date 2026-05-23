@@ -14,8 +14,8 @@ export const dynamic = 'force-dynamic'
 type RouteContext = { params: Promise<{ id: string }> }
 
 const PATCH_FIELDS = new Set(['title', 'linked', 'assumptions', 'shareEnabled'])
-const LINKED_STRING_FIELDS = new Set(['projectId', 'campaignId', 'reportId', 'dealId', 'seoSprintId', 'invoiceId'])
-const LINKED_FIELDS = new Set([...LINKED_STRING_FIELDS, 'socialPostIds'])
+const LINKED_STRING_FIELDS = new Set(['projectId', 'campaignId', 'reportId', 'dealId', 'seoSprintId', 'geoWorkspaceId', 'geoAuditId', 'invoiceId'])
+const LINKED_FIELDS = new Set([...LINKED_STRING_FIELDS, 'socialPostIds', 'geoTaskIds'])
 const ASSUMPTION_FIELDS = new Set([
   'id',
   'text',
@@ -93,6 +93,13 @@ function validateLinked(value: unknown): { ok: true; value: ClientDocumentLinkSe
     (!Array.isArray(linked.socialPostIds) || linked.socialPostIds.some((postId) => typeof postId !== 'string'))
   ) {
     return { ok: false, error: 'linked.socialPostIds must be an array of strings' }
+  }
+
+  if (
+    'geoTaskIds' in linked &&
+    (!Array.isArray(linked.geoTaskIds) || linked.geoTaskIds.some((taskId) => typeof taskId !== 'string'))
+  ) {
+    return { ok: false, error: 'linked.geoTaskIds must be an array of strings' }
   }
 
   return { ok: true, value: linked as ClientDocumentLinkSet }

@@ -4,11 +4,13 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { withAuth } from '@/lib/api/auth'
+import { enforceAgentCapability } from '@/lib/api/capabilityGate'
 import { adminDb } from '@/lib/firebase/admin'
 import { FieldValue } from 'firebase-admin/firestore'
 import { sendCampaignEmail, FROM_ADDRESS } from '@/lib/email/resend'
 import { getReport } from '@/lib/reports/generate'
 import { REPORTS_COLLECTION } from '@/lib/reports/types'
+import type { ApiUser } from '@/lib/api/types'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 30
@@ -73,9 +75,11 @@ function emailHtml(report: Awaited<ReturnType<typeof getReport>>, link: string):
 </body></html>`
 }
 
-export const POST = withAuth('admin', async (req: NextRequest, _user, ctx) => {
+export const POST = withAuth('admin', async (req: NextRequest, user: ApiUser, ctx) => {
   const { id } = await (ctx as RouteContext).params
-  const body = (await req.json().catch(() => ({}))) as SendBody
+  const body = (await req.json().catch(() => ({}))) as SendBody & Record<string, unknown>
+  const capabilityError = enforceAgentCapability(user, 'message_client', req, body)
+  if (capabilityError) return capabilityError
   const recipients = (body.to ?? []).map(String).map((s) => s.trim()).filter(Boolean)
   if (recipients.length === 0) {
     return NextResponse.json({ error: 'to[] required' }, { status: 400 })

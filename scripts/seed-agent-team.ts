@@ -1,5 +1,5 @@
 /**
- * Seed agent_team/<agentId> documents for the 5 platform agents.
+ * Seed agent_team/<agentId> documents for platform agents.
  * Idempotent — skips docs that already exist (checks by agentId field presence).
  *
  * Run:
@@ -10,6 +10,8 @@
 
 import { readFileSync, existsSync } from 'fs'
 import { resolve } from 'path'
+import { mergeAgentRegistry } from '@/lib/agents/registry'
+import { buildAgentSkillPolicyState } from '@/lib/agents/skill-policy'
 
 // ---------------------------------------------------------------------------
 // Load .env.local before importing firebase-admin (mirrors seed-agent-dispatch-configs.ts)
@@ -118,6 +120,60 @@ const AGENTS: AgentSeed[] = [
     iconKey: 'receipt_long',
     colorKey: 'rose',
   },
+  {
+    agentId: 'ads',
+    name: 'Ari',
+    role: 'Ads',
+    persona: 'Paid media specialist — audits, plans, and prepares ad campaigns behind hard spend gates',
+    defaultModel: 'gpt-5.5',
+    iconKey: 'campaign',
+    colorKey: 'amber',
+  },
+  {
+    agentId: 'qa-release',
+    name: 'Quinn',
+    role: 'QA Release',
+    persona: 'Release reviewer — verifies risky work, smoke tests changes, and prepares rollback notes',
+    defaultModel: 'gpt-5.5',
+    iconKey: 'verified',
+    colorKey: 'emerald',
+  },
+  {
+    agentId: 'support',
+    name: 'Luca',
+    role: 'Support',
+    persona: 'Support triage — captures client symptoms, reproduces issues, and routes follow-up',
+    defaultModel: 'gpt-5.4',
+    iconKey: 'support_agent',
+    colorKey: 'sky',
+  },
+  {
+    agentId: 'data',
+    name: 'Vera',
+    role: 'Data',
+    persona: 'Data analyst — owns analytics, attribution, dashboards, and data-quality evidence',
+    defaultModel: 'gpt-5.5',
+    iconKey: 'monitoring',
+    colorKey: 'violet',
+  },
+  {
+    agentId: 'docs',
+    name: 'Iris',
+    role: 'Docs',
+    persona: 'Documents lead — turns strategy into approved specs, reports, and polished deliverables',
+    defaultModel: 'gpt-5.5',
+    iconKey: 'description',
+    colorKey: 'rose',
+  },
+  {
+    agentId: 'seo',
+    name: 'Silas',
+    role: 'SEO',
+    persona: 'SEO specialist — executes SEO sprints, local SEO, and search-performance interpretation',
+    defaultModel: 'gpt-5.5',
+    iconKey: 'travel_explore',
+    colorKey: 'emerald',
+  },
 ]
 
 const PLACEHOLDER_API_KEY = 'PLACEHOLDER_ROTATE_ME'
@@ -175,6 +231,8 @@ async function main() {
 
     const baseUrl = `https://hermes-api.partnersinbiz.online/profiles/${agent.agentId}`
     const encryptedKey = encryptAgentApiKey(PLACEHOLDER_API_KEY)
+    const registry = mergeAgentRegistry(agent.agentId)
+    const skillPolicy = buildAgentSkillPolicyState(agent.agentId)
 
     await ref.set({
       agentId: agent.agentId,
@@ -187,6 +245,8 @@ async function main() {
       enabled: true,
       baseUrl,
       apiKey: encryptedKey,
+      ...registry,
+      ...(skillPolicy ? { skillPolicy } : {}),
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
     })

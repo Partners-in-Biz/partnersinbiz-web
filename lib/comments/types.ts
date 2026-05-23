@@ -19,6 +19,7 @@ export type CommentResourceType =
   | 'form_submission'
   | 'calendar_event'
   | 'client_org'
+  | 'research_item'
 
 export const VALID_COMMENT_RESOURCE_TYPES: readonly CommentResourceType[] = [
   'invoice',
@@ -32,6 +33,7 @@ export const VALID_COMMENT_RESOURCE_TYPES: readonly CommentResourceType[] = [
   'form_submission',
   'calendar_event',
   'client_org',
+  'research_item',
 ] as const
 
 /**
@@ -61,6 +63,7 @@ export interface Comment {
    */
   mentionIds: string[]
   attachments: string[] // file IDs
+  anchor?: unknown
   createdBy: string
   createdByType: 'user' | 'agent' | 'system'
   updatedBy: string | null

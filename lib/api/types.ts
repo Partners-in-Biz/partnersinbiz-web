@@ -1,8 +1,18 @@
 export type ApiRole = 'admin' | 'client' | 'ai'
+export type ApiAuthKind = 'session' | 'firebase' | 'legacy_ai_key' | 'agent_api_key'
+
+export interface ApiPermission {
+  resource: string
+  actions: string[]
+}
 
 export interface ApiUser {
   uid: string
   role: ApiRole
+  authKind?: ApiAuthKind
+  agentId?: string
+  apiKeyId?: string
+  permissions?: ApiPermission[]
   orgId?: string
   // All orgs this client belongs to. Falls back to [orgId] for existing users.
   orgIds?: string[]

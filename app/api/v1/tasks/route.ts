@@ -26,6 +26,9 @@ import {
   type AgentId,
   type AgentStatus,
 } from '@/lib/tasks/types'
+import {
+  applyAgentColumnForCreate,
+} from '@/lib/tasks/agentState'
 
 export const dynamic = 'force-dynamic'
 
@@ -187,6 +190,7 @@ export const POST = withAuth(
       contactId: body.contactId ?? null,
       dealId: body.dealId ?? null,
       tags: body.tags ?? [],
+      columnId: typeof body.columnId === 'string' && body.columnId.trim() ? body.columnId.trim() : 'todo',
       ...actorFrom(user),
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
@@ -195,6 +199,7 @@ export const POST = withAuth(
     }
     if (assigneeAgentId) docData.assigneeAgentId = assigneeAgentId
     if (agentStatusValue) docData.agentStatus = agentStatusValue
+    applyAgentColumnForCreate(docData, raw)
     if (agentInputValue) docData.agentInput = agentInputValue
     if (dependsOnValue.length > 0) docData.dependsOn = dependsOnValue
 

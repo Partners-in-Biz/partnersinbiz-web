@@ -12,6 +12,7 @@ import { resolveOrgScope } from '@/lib/api/orgScope'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { orgChatConfigDoc } from '@/lib/conversations/conversations'
 import { DEFAULT_CHAT_CONFIG } from '@/lib/conversations/types'
+import { AGENT_IDS } from '@/lib/agents/types'
 import type { OrgChatConfig } from '@/lib/conversations/types'
 import type { ApiUser } from '@/lib/api/types'
 
@@ -52,7 +53,7 @@ export const PUT = withAuth(
     if (!body || typeof body !== 'object') return apiError('Invalid JSON body', 400)
 
     // Validate visibleAgents if provided
-    const VALID_AGENTS = ['pip', 'theo', 'maya', 'sage', 'nora']
+    const VALID_AGENTS = [...AGENT_IDS]
     if (body.visibleAgents !== undefined) {
       const va = body.visibleAgents as Record<string, unknown>
       for (const roleKey of ['admin', 'client'] as const) {

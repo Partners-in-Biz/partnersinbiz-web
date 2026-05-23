@@ -3,10 +3,10 @@ export const dynamic = 'force-dynamic'
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { PropertiesLaunchBanner } from '@/components/portal/PropertiesLaunchBanner'
 import { ProfileCompleteBanner } from '@/components/settings/ProfileCompleteBanner'
 import { TopCompaniesByPipelineTile } from '@/components/dashboard/TopCompaniesByPipelineTile'
 import { fmtTimestamp } from '@/components/admin/email/fmtTimestamp'
+import { DonutChart, HorizontalBarChart, StatCardWithChart, TrendAreaChart } from '@/components/ui/Charts'
 
 interface Kpis {
   total_revenue: number
@@ -26,6 +26,31 @@ interface PortalProperty {
   id: string
   name: string
   type: string
+  domain?: string
+}
+
+interface Project {
+  id: string
+  name: string
+  status: string
+  description?: string
+}
+
+interface SocialStats {
+  total: number
+  byStatus: {
+    draft: number
+    pending_approval: number
+    approved: number
+    scheduled: number
+    published: number
+    failed: number
+    cancelled: number
+  }
+  byPlatform: Record<string, number>
+  approvalRate: number
+  last30Days: number
+  last30DaysSeries?: { label: string; value: number }[]
 }
 
 interface PortalConnection {
@@ -107,6 +132,55 @@ const fmtZar = new Intl.NumberFormat('en-ZA', {
   style: 'currency', currency: 'ZAR', maximumFractionDigits: 0,
 })
 const fmtNum = new Intl.NumberFormat('en-ZA', { maximumFractionDigits: 0 })
+
+const PLATFORM_COLORS: Record<string, string> = {
+  twitter: '#000000',
+  x: '#000000',
+  linkedin: '#0A66C2',
+  facebook: '#1877F2',
+  instagram: '#E4405F',
+  tiktok: '#69C9D0',
+  reddit: '#FF4500',
+  pinterest: '#E60023',
+  bluesky: '#0085FF',
+  threads: '#555',
+}
+
+function getGreeting(): string {
+  const hour = new Date().getHours()
+  if (hour < 12) return 'Good morning'
+  if (hour < 17) return 'Good afternoon'
+  return 'Good evening'
+}
+
+function Skeleton({ className = '' }: { className?: string }) {
+  return <div className={`pib-skeleton ${className}`} />
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const map: Record<string, { label: string; color: string }> = {
+    active: { label: 'Active', color: 'var(--color-pib-accent)' },
+    on_hold: { label: 'On Hold', color: '#facc15' },
+    completed: { label: 'Completed', color: '#4ade80' },
+    archived: { label: 'Archived', color: 'var(--color-pib-text-muted)' },
+    in_progress: { label: 'In Progress', color: 'var(--color-pib-accent)' },
+    discovery: { label: 'Discovery', color: '#60a5fa' },
+    design: { label: 'Design', color: '#a78bfa' },
+    development: { label: 'Development', color: '#38bdf8' },
+    review: { label: 'Review', color: '#f59e0b' },
+    live: { label: 'Live', color: '#4ade80' },
+    maintenance: { label: 'Maintenance', color: '#22d3ee' },
+  }
+  const s = map[status] ?? { label: status, color: 'var(--color-pib-text-muted)' }
+  return (
+    <span
+      className="rounded-full px-2 py-0.5 text-[10px] font-label uppercase tracking-wide"
+      style={{ background: `${s.color}20`, color: s.color }}
+    >
+      {s.label}
+    </span>
+  )
+}
 
 function fmtPct(p: number | null) {
   if (p === null) return '—'
@@ -191,6 +265,10 @@ interface CampaignStats {
 export default function PortalDashboard() {
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [projects, setProjects] = useState<Project[]>([])
+  const [projectsLoading, setProjectsLoading] = useState(true)
+  const [socialStats, setSocialStats] = useState<SocialStats | null>(null)
+  const [socialLoading, setSocialLoading] = useState(true)
   const [stats, setStats] = useState<CampaignStats>({
     contacts: null,
     activeCampaigns: null,
@@ -204,6 +282,22 @@ export default function PortalDashboard() {
       .then((r) => r.json())
       .then((b) => { setData(b); setLoading(false) })
       .catch(() => setLoading(false))
+  }, [])
+
+  useEffect(() => {
+    fetch('/api/v1/projects')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((body) => setProjects(Array.isArray(body?.data) ? body.data : []))
+      .catch(() => setProjects([]))
+      .finally(() => setProjectsLoading(false))
+  }, [])
+
+  useEffect(() => {
+    fetch('/api/v1/social/stats')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((body) => setSocialStats(body?.data ?? null))
+      .catch(() => setSocialStats(null))
+      .finally(() => setSocialLoading(false))
   }, [])
 
   useEffect(() => {
@@ -253,39 +347,196 @@ export default function PortalDashboard() {
   }, [])
 
   const noData = !loading && (!data || (data?.connections?.length ?? 0) === 0)
+  const activeProjects = projects.filter(p => ['active', 'in_progress', 'development', 'review', 'live', 'maintenance'].includes(p.status))
+  const workspaceLoading = loading || projectsLoading || socialLoading
+  const statusDonut = socialStats ? [
+    { name: 'Published', value: socialStats.byStatus.published, color: '#4ade80' },
+    { name: 'Scheduled', value: socialStats.byStatus.scheduled, color: '#60a5fa' },
+    { name: 'Pending', value: socialStats.byStatus.pending_approval, color: '#F59E0B' },
+    { name: 'Draft', value: socialStats.byStatus.draft, color: '#666' },
+  ].filter(d => d.value > 0) : []
+  const platformBarData = socialStats
+    ? Object.entries(socialStats.byPlatform).map(([platform, count]) => ({
+        label: platform.charAt(0).toUpperCase() + platform.slice(1),
+        value: count,
+        color: PLATFORM_COLORS[platform.toLowerCase()] ?? '#F59E0B',
+      }))
+    : []
+  const last30DaysData = socialStats?.last30DaysSeries?.length
+    ? socialStats.last30DaysSeries
+    : Array.from({ length: 7 }, (_, i) => ({ label: `W${i + 1}`, value: 0 }))
+  const hasLast30DaysData = last30DaysData.some(point => point.value > 0)
 
   return (
-    <div className="space-y-12">
+    <div className="mx-auto max-w-6xl space-y-10">
       <ProfileCompleteBanner />
-      <PropertiesLaunchBanner />
-      {/* Hero */}
-      <section className="relative overflow-hidden rounded-2xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-8 md:p-10">
-        <div className="absolute inset-0 pib-mesh pointer-events-none opacity-90" />
-        <div className="absolute inset-0 pib-grid-bg pointer-events-none opacity-30" />
-        <div className="relative">
-          <div className="flex items-center gap-2.5">
-            <span className="relative flex h-2 w-2">
-              <span className="absolute inset-0 rounded-full bg-[var(--color-pib-success)] opacity-75 animate-ping" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-[var(--color-pib-success)]" />
-            </span>
-            <span className="eyebrow">
-              {data?.period
-                ? `Live · ${data.period.start} → ${data.period.end}`
-                : 'Live overview'}
-            </span>
+
+      <section className="space-y-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="eyebrow !text-[10px]">Workspace</p>
+            <h1 className="mt-1 text-2xl font-headline font-bold text-on-surface">
+              {getGreeting()}.
+            </h1>
+            <p className="mt-0.5 text-sm text-on-surface-variant">
+              {new Date().toLocaleDateString('en-ZA', { weekday: 'long', month: 'long', day: 'numeric' })}
+            </p>
           </div>
-          <h1 className="mt-4 pib-page-title">Welcome back.</h1>
-          <p className="pib-page-sub max-w-xl">
-            Your business at a glance — revenue, projects, and the latest report your team has shipped.
-          </p>
-          <div className="mt-6 flex flex-wrap items-center gap-2">
-            <Link href="/portal/projects" className="btn-pib-accent">
-              View projects
-              <span className="material-symbols-outlined text-base">arrow_outward</span>
+          <div className="flex flex-wrap items-center gap-2">
+            <Link href="/portal/projects" className="btn-pib-accent text-sm">
+              + New Project
             </Link>
-            <Link href="/portal/messages" className="btn-pib-secondary">
-              Message your team
+            <Link href="/portal/properties" className="btn-pib-secondary text-sm">
+              Set Properties
             </Link>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          {workspaceLoading ? (
+            Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-28" />)
+          ) : (
+            <>
+              <StatCardWithChart
+                label="Projects"
+                value={projects.length}
+                sub={`${activeProjects.length} active`}
+                trend={activeProjects.length > 0 ? 'up' : undefined}
+                accent
+              />
+              <StatCardWithChart
+                label="Posts Published"
+                value={socialStats?.byStatus.published ?? 0}
+                sub={`${socialStats?.last30Days ?? 0} last 30d`}
+                trend={hasLast30DaysData ? 'up' : undefined}
+                data={hasLast30DaysData ? last30DaysData.map(d => ({ value: d.value })) : undefined}
+                chartType="area"
+              />
+              <StatCardWithChart
+                label="Pending Approval"
+                value={socialStats?.byStatus.pending_approval ?? 0}
+                accent={(socialStats?.byStatus.pending_approval ?? 0) > 0}
+              />
+              <StatCardWithChart
+                label="Approval Rate"
+                value={socialStats?.approvalRate ? `${Math.round(socialStats.approvalRate)}%` : '—'}
+                sub="all time"
+              />
+            </>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <div className="pib-card space-y-3 lg:col-span-2">
+            <div className="flex items-center justify-between">
+              <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Projects</p>
+              <Link href="/portal/projects" className="text-[10px] font-label uppercase tracking-wide text-[var(--color-pib-accent)]">
+                View all →
+              </Link>
+            </div>
+
+            {projectsLoading ? (
+              <div className="space-y-2">
+                {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-14" />)}
+              </div>
+            ) : projects.length === 0 ? (
+              <div className="py-8 text-center">
+                <p className="text-sm text-on-surface-variant">No projects yet.</p>
+                <Link href="/portal/projects" className="mt-2 inline-block text-sm text-[var(--color-pib-accent)]">
+                  Start the first one →
+                </Link>
+              </div>
+            ) : (
+              <div className="-mx-6 space-y-1">
+                {projects.slice(0, 6).map((project) => (
+                  <Link
+                    key={project.id}
+                    href={`/portal/projects/${project.id}`}
+                    className="flex items-center gap-4 rounded-lg px-6 py-3 transition-colors hover:bg-[var(--color-row-hover)]"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-on-surface">{project.name}</p>
+                      {project.description && (
+                        <p className="mt-0.5 truncate text-xs text-on-surface-variant">{project.description}</p>
+                      )}
+                    </div>
+                    <StatusBadge status={project.status} />
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="pib-card space-y-2">
+            <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+              Post Status
+            </p>
+            {socialLoading ? (
+              <Skeleton className="h-[220px]" />
+            ) : statusDonut.length > 0 ? (
+              <DonutChart data={statusDonut} centerValue={socialStats?.total ?? 0} centerLabel="Total" />
+            ) : (
+              <div className="py-8 text-center text-sm text-on-surface-variant">
+                No social posts yet.
+              </div>
+            )}
+          </div>
+        </div>
+
+        {!socialLoading && socialStats && (
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            {platformBarData.length > 0 && (
+              <div className="pib-card space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+                    Platform Breakdown
+                  </p>
+                  <Link href="/portal/social" className="text-[10px] font-label uppercase tracking-wide text-[var(--color-pib-accent)]">
+                    View Social →
+                  </Link>
+                </div>
+                <HorizontalBarChart data={platformBarData} />
+              </div>
+            )}
+
+            <div className="pib-card space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+                    Publishing Trend
+                  </p>
+                  <p className="mt-0.5 text-lg font-headline font-bold text-on-surface">
+                    {socialStats.last30Days} posts
+                  </p>
+                </div>
+                <span className="rounded bg-[var(--color-surface-container)] px-2 py-1 text-[10px] text-on-surface-variant">
+                  Last 30 days
+                </span>
+              </div>
+              {hasLast30DaysData ? (
+                <TrendAreaChart data={last30DaysData} height={160} color="#4ade80" />
+              ) : (
+                <div className="flex h-40 items-center justify-center text-sm text-on-surface-variant">
+                  No posts in the last 30 days.
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        <div className="pib-card">
+          <p className="mb-3 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Quick Actions</p>
+          <div className="flex flex-wrap gap-2">
+            {[
+              { label: 'Projects', href: '/portal/projects' },
+              { label: 'Messages', href: '/portal/messages' },
+              { label: 'Properties', href: '/portal/properties' },
+              { label: 'Reports', href: '/portal/reports' },
+              { label: 'Marketing', href: '/portal/marketing' },
+              { label: 'Team', href: '/portal/settings/team' },
+            ].map(a => (
+              <Link key={a.href} href={a.href} className="pib-btn-secondary text-xs font-label">{a.label}</Link>
+            ))}
           </div>
         </div>
       </section>

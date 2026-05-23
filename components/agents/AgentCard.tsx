@@ -13,6 +13,30 @@ export interface AgentTeamDoc {
   apiKey: string
   lastHealthCheck?: string
   lastHealthStatus?: 'ok' | 'degraded' | 'unreachable'
+  skillPolicy?: {
+    mode: 'hard_allowlist'
+    policyVersion: string
+    catalogVersion?: string
+    pibSkills: string[]
+    runtimeSkills?: string[]
+    globalSkills: string[]
+    deniedSkills: string[]
+    capabilities?: string[]
+    approvalGates?: string[]
+    primaryOwnerOf?: string[]
+    mayRequestFrom?: string[]
+    reviewerAgentId?: string | null
+    vpsExternalDir: string
+    appliedVersion?: string | null
+    appliedAt?: string | null
+    appliedBy?: string | null
+    driftStatus?: 'unknown' | 'in_sync' | 'drifted' | 'not_applied'
+  }
+  responsibilities: string[]
+  skills: string[]
+  cronWatchLoops: string[]
+  allowedScopes: string[]
+  exampleTaskTypes: string[]
 }
 
 export type HealthStatus = 'ok' | 'degraded' | 'unreachable' | 'loading'
@@ -84,6 +108,12 @@ export function AgentCard({ agent, onClick, healthStatus = 'loading' }: AgentCar
       <p className="text-xs text-on-surface-variant mt-3 leading-relaxed line-clamp-2">
         {agent.persona}
       </p>
+
+      {agent.exampleTaskTypes?.length > 0 && (
+        <p className="mt-2 text-[10px] text-on-surface-variant/70 line-clamp-1">
+          Example: {agent.exampleTaskTypes[0]}
+        </p>
+      )}
 
       {/* Footer row */}
       <div className="mt-3 flex items-center gap-2">

@@ -17,10 +17,16 @@ export default function NewClientPage() {
     description: '',
     billingEmail: '',
     plan: '',
+    agentName: '',
+    provisionWorkspace: true,
   })
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target
+    const { name, value, type } = e.target
+    if (type === 'checkbox') {
+      setFormData(prev => ({ ...prev, [name]: (e.target as HTMLInputElement).checked }))
+      return
+    }
     setFormData(prev => ({ ...prev, [name]: value }))
   }
 
@@ -40,6 +46,8 @@ export default function NewClientPage() {
           description: formData.description,
           billingEmail: formData.billingEmail,
           plan: formData.plan,
+          agentName: formData.agentName,
+          provisionWorkspace: formData.provisionWorkspace,
           type: 'client',
           status: 'onboarding',
         }),
@@ -53,7 +61,7 @@ export default function NewClientPage() {
       }
 
       router.push('/admin/clients')
-    } catch (err) {
+    } catch {
       setError('An error occurred while creating the client')
     } finally {
       setLoading(false)
@@ -130,6 +138,43 @@ export default function NewClientPage() {
                 <option value="enterprise">Enterprise</option>
               </select>
             </div>
+          </div>
+        </div>
+
+        {/* Cowork & Hermes Card */}
+        <div className="pib-card space-y-4">
+          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+            Cowork & Hermes Setup
+          </p>
+
+          <label className="flex items-start gap-3 text-sm text-on-surface">
+            <input
+              type="checkbox"
+              name="provisionWorkspace"
+              checked={formData.provisionWorkspace}
+              onChange={handleChange}
+              className="mt-1"
+            />
+            <span>
+              <span className="block font-medium">Create full client workspace</span>
+              <span className="block text-xs text-on-surface-variant">
+                Creates the VPS Cowork folder, Obsidian agent domain, wiki/log/raw folders,
+                project instructions, Hermes profile, SOUL.md, and global Cowork mapping.
+              </span>
+            </span>
+          </label>
+
+          <div>
+            <label htmlFor="agentName" className="pib-label">Agent Name</label>
+            <input
+              id="agentName"
+              type="text"
+              name="agentName"
+              value={formData.agentName}
+              onChange={handleChange}
+              placeholder="Defaults to the first word of the organisation name"
+              className="pib-input"
+            />
           </div>
         </div>
 

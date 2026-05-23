@@ -684,6 +684,8 @@ These items are required for full production capability but are not blocking for
 | CRM contact / deal CRUD | `crm-sales` skill |
 | SEO sprint management | `seo-sprint-manager` skill |
 
+For competitor, offer, audience, creative, placement, platform, and benchmark research, create or link a structured Research item through the `research-intelligence` skill before producing client-facing reports or campaign recommendations.
+
 ---
 
 ## Error Reference

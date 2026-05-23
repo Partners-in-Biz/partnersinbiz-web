@@ -45,6 +45,37 @@ export function brandFont(brand: PreviewBrand | undefined, kind: 'heading' | 'bo
   return brand?.typography?.[kind]
 }
 
+function hexToRgb(hex: string): [number, number, number] | null {
+  const normalized = hex.trim().replace(/^#/, '')
+  if (/^[0-9a-f]{3}$/i.test(normalized)) {
+    return normalized.split('').map((c) => parseInt(`${c}${c}`, 16)) as [number, number, number]
+  }
+  if (!/^[0-9a-f]{6}$/i.test(normalized)) return null
+  return [0, 2, 4].map((i) => parseInt(normalized.slice(i, i + 2), 16)) as [number, number, number]
+}
+
+function relativeLuminance(hex: string): number | null {
+  const rgb = hexToRgb(hex)
+  if (!rgb) return null
+  const [r, g, b] = rgb.map((channel) => {
+    const value = channel / 255
+    return value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4
+  })
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b
+}
+
+function contrastRatio(foreground: string, background: string): number {
+  const fg = relativeLuminance(foreground)
+  const bg = relativeLuminance(background)
+  if (fg === null || bg === null) return 0
+  return (Math.max(fg, bg) + 0.05) / (Math.min(fg, bg) + 0.05)
+}
+
+export function readableAccentOnDark(accent?: string, fallback = '#8BD8BD'): string {
+  if (!accent) return fallback
+  return contrastRatio(accent, '#000000') >= 4.5 ? accent : fallback
+}
+
 /** Lightweight image with placeholder fallback. */
 export function PreviewImage({
   src,

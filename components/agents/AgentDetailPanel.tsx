@@ -61,6 +61,32 @@ type Skill = {
   sizeBytes: number
 }
 
+type SkillPolicyView = {
+  policyVersion: string
+  mode: 'hard_allowlist'
+  policy: {
+    vpsExternalDir: string
+    pibSkills: string[]
+    runtimeSkills?: string[]
+    globalSkills: string[]
+    deniedSkills: string[]
+    capabilities?: string[]
+    approvalGates?: string[]
+    primaryOwnerOf?: string[]
+    mayRequestFrom?: string[]
+    reviewerAgentId?: string | null
+  }
+  drift?: {
+    status: 'in_sync' | 'drifted' | 'not_applied'
+    missingPibSkills: string[]
+    unexpectedPibSkills: string[]
+    missingGlobalSkills: string[]
+    unexpectedGlobalSkills: string[]
+    configExternalDirs: string[]
+    expectedExternalDirs: string[]
+  } | null
+}
+
 type LogRun = {
   id: string
   orgId: string | null
@@ -122,6 +148,23 @@ function FieldRow({ label, children }: { label: string; children: React.ReactNod
   )
 }
 
+function RegistryList({ title, items }: { title: string; items?: string[] }) {
+  if (!items || items.length === 0) return null
+  return (
+    <div className="pib-card p-3">
+      <p className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant mb-2">{title}</p>
+      <ul className="space-y-1.5 text-xs text-on-surface-variant leading-relaxed">
+        {items.map((item) => (
+          <li key={item} className="flex gap-2">
+            <span className="mt-1 h-1 w-1 shrink-0 rounded-full bg-primary/70" />
+            <span>{item}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
 export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: AgentDetailPanelProps) {
   const { success: toastSuccess, error: toastError } = useToast()
 
@@ -148,6 +191,9 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
   const [skillsLoading, setSkillsLoading] = useState(false)
   const [skillsError, setSkillsError]     = useState<string | null>(null)
   const [skillsMessage, setSkillsMessage] = useState<string | null>(null)
+  const [skillPolicy, setSkillPolicy]     = useState<SkillPolicyView | null>(null)
+  const [skillPolicyLoading, setSkillPolicyLoading] = useState(false)
+  const [skillPolicyApplying, setSkillPolicyApplying] = useState(false)
   const [uploading, setUploading]         = useState(false)
   const [dragOver, setDragOver]           = useState(false)
   const skillInputRef = useRef<HTMLInputElement | null>(null)
@@ -216,6 +262,9 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
     setSkills([])
     setSkillsError(null)
     setSkillsMessage(null)
+    setSkillPolicy(null)
+    setSkillPolicyLoading(false)
+    setSkillPolicyApplying(false)
     setConfigData(null)
     setConfigError(null)
     setConfigText('')
@@ -263,6 +312,21 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
       setSkillsError(e instanceof Error ? e.message : 'Failed to load skills')
     } finally {
       setSkillsLoading(false)
+    }
+  }, [])
+
+  const loadSkillPolicy = useCallback(async (agentId: string) => {
+    setSkillPolicyLoading(true)
+    setSkillsError(null)
+    try {
+      const res = await fetch(`/api/v1/admin/agents/${agentId}/skill-policy`)
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(body.error || `Failed to load skill policy (${res.status})`)
+      setSkillPolicy(body.data ?? null)
+    } catch (e) {
+      setSkillsError(e instanceof Error ? e.message : 'Failed to load skill policy')
+    } finally {
+      setSkillPolicyLoading(false)
     }
   }, [])
 
@@ -378,6 +442,7 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
     if (tab === 'skills' && !loadedTabs.current.has('skills')) {
       loadedTabs.current.add('skills')
       loadSkills(agentId)
+      loadSkillPolicy(agentId)
     }
     if (tab === 'config' && !loadedTabs.current.has('config')) {
       loadedTabs.current.add('config')
@@ -508,6 +573,32 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
       setTimeout(() => loadSkills(agentId), 4000)
     } catch (e) {
       setSkillsError(e instanceof Error ? e.message : 'Delete failed')
+    }
+  }
+
+  async function applySkillPolicy() {
+    if (!agent) return
+    setSkillPolicyApplying(true)
+    setSkillsError(null)
+    setSkillsMessage(null)
+    try {
+      const res = await fetch(`/api/v1/admin/agents/${agent.agentId}/skill-policy`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ applyConfig: true }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(body.error || `Failed to apply policy (${res.status})`)
+      setSkillPolicy(body.data ?? null)
+      setSkillsMessage('Skill policy applied to the live profile config. Restart may take a few seconds.')
+      setTimeout(() => {
+        loadSkillPolicy(agent.agentId)
+        loadSkills(agent.agentId)
+      }, 3000)
+    } catch (e) {
+      setSkillsError(e instanceof Error ? e.message : 'Failed to apply skill policy')
+    } finally {
+      setSkillPolicyApplying(false)
     }
   }
 
@@ -725,6 +816,21 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
                 <p className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant mb-1">Base URL</p>
                 <code className="text-xs font-mono text-on-surface break-all">{agent.baseUrl}</code>
               </div>
+
+              <div className="space-y-3">
+                <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+                  Registry
+                </p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <RegistryList title="Responsibilities" items={agent.responsibilities} />
+                  <RegistryList title="Advertised skills" items={agent.skills} />
+                  <RegistryList title="Cron / watch loops" items={agent.cronWatchLoops} />
+                  <RegistryList title="Allowed scopes" items={agent.allowedScopes} />
+                  <div className="sm:col-span-2">
+                    <RegistryList title="Example task types" items={agent.exampleTaskTypes} />
+                  </div>
+                </div>
+              </div>
             </section>
 
             {/* Health ping */}
@@ -763,16 +869,68 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
               <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
                 {skills.length} installed
               </p>
-              <button
-                type="button"
-                onClick={() => loadSkills(agentId)}
-                disabled={skillsLoading}
-                className="pib-btn-ghost text-xs font-label flex items-center gap-1.5 disabled:opacity-50"
-              >
-                <span className="material-symbols-outlined text-[14px]">refresh</span>
-                {skillsLoading ? 'Loading…' : 'Refresh'}
-              </button>
+              <div className="flex items-center gap-2">
+                {canEdit && (
+                  <button
+                    type="button"
+                    onClick={applySkillPolicy}
+                    disabled={skillPolicyApplying}
+                    className="pib-btn-primary text-xs font-label flex items-center gap-1.5 disabled:opacity-50"
+                  >
+                    <span className="material-symbols-outlined text-[14px]">rule_settings</span>
+                    {skillPolicyApplying ? 'Applying…' : 'Apply policy'}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => { loadSkills(agentId); loadSkillPolicy(agentId) }}
+                  disabled={skillsLoading || skillPolicyLoading}
+                  className="pib-btn-ghost text-xs font-label flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  <span className="material-symbols-outlined text-[14px]">refresh</span>
+                  {skillsLoading || skillPolicyLoading ? 'Loading…' : 'Refresh'}
+                </button>
+              </div>
             </div>
+
+            {skillPolicy && (
+              <div className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-3 space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Runtime skill policy</p>
+                    <code className="mt-1 block text-xs text-on-surface-variant break-all">{skillPolicy.policy.vpsExternalDir}</code>
+                  </div>
+                  <span className={`text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full ${
+                    skillPolicy.drift?.status === 'in_sync'
+                      ? 'bg-emerald-500/15 text-emerald-400'
+                      : 'bg-amber-500/15 text-amber-400'
+                  }`}>
+                    {skillPolicy.drift?.status?.replace('_', ' ') ?? 'unknown'}
+                  </span>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <RegistryList title="Runtime repo skills" items={skillPolicy.policy.runtimeSkills ?? skillPolicy.policy.pibSkills} />
+                  <RegistryList title="Allowed global skills" items={skillPolicy.policy.globalSkills} />
+                  <RegistryList title="Action capabilities" items={skillPolicy.policy.capabilities ?? []} />
+                  <RegistryList title="Hard approval gates" items={skillPolicy.policy.approvalGates ?? []} />
+                </div>
+                {skillPolicy.policy.reviewerAgentId && (
+                  <p className="text-xs text-on-surface-variant">
+                    Reviewer: <span className="font-mono text-on-surface">{skillPolicy.policy.reviewerAgentId}</span>
+                  </p>
+                )}
+                {skillPolicy.drift && skillPolicy.drift.status !== 'in_sync' && (
+                  <div className="rounded-md border border-amber-500/20 bg-amber-500/10 p-2 text-xs text-amber-200">
+                    Drift detected: {[
+                      skillPolicy.drift.missingPibSkills.length ? `${skillPolicy.drift.missingPibSkills.length} missing PiB` : '',
+                      skillPolicy.drift.unexpectedPibSkills.length ? `${skillPolicy.drift.unexpectedPibSkills.length} unexpected PiB` : '',
+                      skillPolicy.drift.missingGlobalSkills.length ? `${skillPolicy.drift.missingGlobalSkills.length} missing global` : '',
+                      skillPolicy.drift.unexpectedGlobalSkills.length ? `${skillPolicy.drift.unexpectedGlobalSkills.length} unexpected global` : '',
+                    ].filter(Boolean).join(', ') || 'config external directory mismatch'}
+                  </div>
+                )}
+              </div>
+            )}
 
             {canEdit && (
               <div

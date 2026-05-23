@@ -3,32 +3,33 @@
 import { useState } from 'react'
 
 const TOOLS = [
-  { key: 'metadata-check', label: 'Metadata Check', input: 'url', desc: 'Audit page title, description, OG, Twitter cards' },
-  { key: 'robots-check', label: 'Robots.txt Check', input: 'domain', desc: 'Validate robots.txt, flag accidental blocks' },
-  { key: 'sitemap-check', label: 'Sitemap Check', input: 'sitemapUrl', desc: 'Count URLs, spot-check for 404s' },
-  { key: 'canonical-check', label: 'Canonical Check', input: 'url', desc: 'Audit canonical tags' },
-  { key: 'crawler-sim', label: 'Crawler Simulator', input: 'url', desc: 'See what Googlebot can render' },
-  { key: 'schema-validate', label: 'Schema Validator', input: 'url', desc: 'Validate JSON-LD against schema.org' },
-  { key: 'keyword-density', label: 'Keyword Density', input: 'urlKeyword', desc: 'Term frequency on a page' },
-  { key: 'internal-link-audit', label: 'Internal Link Audit', input: 'sitemapUrl', desc: 'Find orphan pages, score link equity' },
-  { key: 'seo-roi', label: 'SEO ROI Calculator', input: 'roi', desc: 'Project organic value' },
-  { key: 'title-generate', label: 'AI Title Generator', input: 'topicKeyword', desc: '5 SEO title options' },
-  { key: 'meta-generate', label: 'AI Meta Description', input: 'topicKeyword', desc: '3 meta description options' },
-  { key: 'slug-generate', label: 'Slug Generator', input: 'title', desc: 'URL-safe slug from title' },
-  { key: 'keyword-discover', label: 'Keyword Discovery', input: 'seedKeyword', desc: 'GSC + Autocomplete + Wikipedia' },
+  { key: 'metadata-check', label: 'Metadata Check', input: 'url', desc: 'Audit page title, description, OG, Twitter cards', icon: 'description', tag: 'SERP' },
+  { key: 'robots-check', label: 'Robots.txt Check', input: 'domain', desc: 'Validate robots.txt, flag accidental blocks', icon: 'shield', tag: 'Crawl' },
+  { key: 'sitemap-check', label: 'Sitemap Check', input: 'sitemapUrl', desc: 'Count URLs, spot-check for 404s', icon: 'account_tree', tag: 'Index' },
+  { key: 'canonical-check', label: 'Canonical Check', input: 'url', desc: 'Audit canonical tags', icon: 'link', tag: 'Technical' },
+  { key: 'crawler-sim', label: 'Crawler Simulator', input: 'url', desc: 'See what Googlebot can render', icon: 'travel_explore', tag: 'Crawl' },
+  { key: 'schema-validate', label: 'Schema Validator', input: 'url', desc: 'Validate JSON-LD against schema.org', icon: 'data_object', tag: 'Schema' },
+  { key: 'keyword-density', label: 'Keyword Density', input: 'urlKeyword', desc: 'Term frequency on a page', icon: 'percent', tag: 'Content' },
+  { key: 'internal-link-audit', label: 'Internal Link Audit', input: 'sitemapUrl', desc: 'Find orphan pages, score link equity', icon: 'hub', tag: 'Links' },
+  { key: 'seo-roi', label: 'SEO ROI Calculator', input: 'roi', desc: 'Project organic value', icon: 'monitoring', tag: 'Value' },
+  { key: 'title-generate', label: 'AI Title Generator', input: 'topicKeyword', desc: '5 SEO title options', icon: 'title', tag: 'AI' },
+  { key: 'meta-generate', label: 'AI Meta Description', input: 'topicKeyword', desc: '3 meta description options', icon: 'auto_awesome', tag: 'AI' },
+  { key: 'slug-generate', label: 'Slug Generator', input: 'title', desc: 'URL-safe slug from title', icon: 'tag', tag: 'URL' },
+  { key: 'keyword-discover', label: 'Keyword Discovery', input: 'seedKeyword', desc: 'GSC + Autocomplete + Wikipedia', icon: 'manage_search', tag: 'Research' },
 ]
 
 export default function ToolsPage() {
   const [openKey, setOpenKey] = useState<string | null>(null)
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-semibold">SEO Tools</h1>
-        <p className="text-sm text-[var(--color-pib-text-muted)]">
+      <header className="flex flex-col gap-2">
+        <p className="eyebrow !text-[10px]">Admin toolkit</p>
+        <h1 className="font-display text-3xl leading-tight">SEO Tools</h1>
+        <p className="max-w-2xl text-sm text-[var(--color-pib-text-muted)]">
           In-house SEO toolkit. Pip uses these via the skill, but you can run them ad-hoc here too.
         </p>
       </header>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {TOOLS.map((t) => (
           <ToolCard key={t.key} tool={t} expanded={openKey === t.key} onToggle={() => setOpenKey(openKey === t.key ? null : t.key)} />
         ))}
@@ -42,6 +43,8 @@ interface ToolDef {
   label: string
   input: string
   desc: string
+  icon: string
+  tag: string
 }
 
 function ToolCard({ tool, expanded, onToggle }: { tool: ToolDef; expanded: boolean; onToggle: () => void }) {
@@ -67,38 +70,64 @@ function ToolCard({ tool, expanded, onToggle }: { tool: ToolDef; expanded: boole
   }
 
   return (
-    <div className="card p-5 space-y-3">
-      <div className="flex items-start justify-between">
-        <div>
-          <h3 className="font-semibold text-sm">{tool.label}</h3>
-          <p className="text-xs text-[var(--color-pib-text-muted)]">{tool.desc}</p>
+    <div className="pib-card group p-5 space-y-4 transition-colors hover:border-[var(--color-pib-accent)] hover:bg-white/[0.03]">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex min-w-0 items-start gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-[var(--color-pib-line)] bg-[rgba(245,166,35,0.12)] text-[var(--color-pib-accent)]">
+            <span className="material-symbols-outlined text-[20px]">{tool.icon}</span>
+          </span>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="text-sm font-semibold leading-tight">{tool.label}</h3>
+              <span className="pib-pill !px-2 !py-0.5">
+                {tool.tag}
+              </span>
+            </div>
+            <p className="mt-1 text-xs leading-relaxed text-[var(--color-pib-text-muted)]">{tool.desc}</p>
+          </div>
         </div>
-        <button onClick={onToggle} className="text-xs underline">
-          {expanded ? 'Close' : 'Open'}
+        <button
+          onClick={onToggle}
+          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] transition-colors hover:border-[var(--color-pib-accent)] hover:text-[var(--color-pib-accent)]"
+          aria-label={expanded ? `Close ${tool.label}` : `Open ${tool.label}`}
+        >
+          <span className="material-symbols-outlined text-[18px]">{expanded ? 'close' : 'arrow_forward'}</span>
         </button>
       </div>
       {expanded && (
-        <div className="space-y-2 pt-2 border-t">
+        <div className="space-y-3 border-t border-[var(--color-pib-line)] pt-4">
           {fieldsFor(tool.input).map((f) => (
-            <label key={f.name} className="block text-xs">
-              {f.label}
+            <label key={f.name} className="block">
+              <span className="pib-label">{f.label}</span>
               <input
                 type={f.type ?? 'text'}
                 value={fields[f.name] ?? ''}
                 onChange={(e) => setFields({ ...fields, [f.name]: e.target.value })}
-                className="mt-1 w-full border rounded px-2 py-1 text-xs"
+                className="pib-input text-sm"
               />
             </label>
           ))}
-          <button
-            onClick={run}
-            disabled={busy}
-            className="text-xs px-3 py-1.5 rounded bg-black text-white hover:bg-gray-800 disabled:opacity-50"
-          >
-            {busy ? 'Running…' : 'Run'}
-          </button>
+          <div className="flex items-center justify-between gap-3">
+            <button
+              onClick={run}
+              disabled={busy}
+              className="pib-btn-primary text-sm disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {busy ? (
+                <>
+                  <span className="material-symbols-outlined text-[18px] animate-spin">autorenew</span>
+                  Running
+                </>
+              ) : (
+                <>
+                  <span className="material-symbols-outlined text-[18px]">play_arrow</span>
+                  Run tool
+                </>
+              )}
+            </button>
+          </div>
           {result && (
-            <pre className="text-xs bg-gray-50 p-2 rounded overflow-x-auto max-h-60">
+            <pre className="max-h-60 overflow-x-auto rounded-lg border border-[var(--color-pib-line)] bg-black/40 p-3 font-mono text-xs leading-relaxed text-[var(--color-pib-text-muted)]">
               {JSON.stringify(result, null, 2)}
             </pre>
           )}

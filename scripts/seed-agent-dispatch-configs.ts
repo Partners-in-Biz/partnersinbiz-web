@@ -66,15 +66,21 @@ import { resolve } from 'path'
 // ---------------------------------------------------------------------------
 const SOURCE_PROFILE_DOC_ID = 'pib-platform-owner'
 
-// Map of agent id → which profile doc to copy credentials from. For now every
-// agent shares the platform-owner profile; once theo/maya/sage/nora have their
-// own Hermes profiles, change the source key here.
+// Map of agent id → which profile doc to copy credentials from. This script is
+// a legacy bootstrap fallback; normal new-agent creation should use
+// POST /api/v1/admin/agents so each specialist receives its own profile/key.
 const AGENT_SOURCE_MAP: Record<string, string> = {
   pip: SOURCE_PROFILE_DOC_ID,
-  // theo:  'pib-theo',
-  // maya:  'pib-maya',
-  // sage:  'pib-sage',
-  // nora:  'pib-nora',
+  theo: SOURCE_PROFILE_DOC_ID,
+  maya: SOURCE_PROFILE_DOC_ID,
+  sage: SOURCE_PROFILE_DOC_ID,
+  nora: SOURCE_PROFILE_DOC_ID,
+  ads: SOURCE_PROFILE_DOC_ID,
+  'qa-release': SOURCE_PROFILE_DOC_ID,
+  support: SOURCE_PROFILE_DOC_ID,
+  data: SOURCE_PROFILE_DOC_ID,
+  docs: SOURCE_PROFILE_DOC_ID,
+  seo: SOURCE_PROFILE_DOC_ID,
 }
 
 // ---------------------------------------------------------------------------

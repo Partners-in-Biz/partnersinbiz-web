@@ -67,7 +67,7 @@ export const GET = withAuth('admin', async (req) => {
 
 /**
  * POST — create a comment.
- * Body: { orgId, resourceType, resourceId, body, parentCommentId?, attachments? }
+ * Body: { orgId, resourceType, resourceId, body, parentCommentId?, attachments?, anchor? }
  * Parses @mentions out of `body`, writes the comment, then fires mention
  * notifications (fire-and-forget — the response is not blocked on them).
  */
@@ -85,6 +85,9 @@ export const POST = withAuth('admin', async (req, user) => {
   const attachments: string[] = Array.isArray(body.attachments)
     ? body.attachments.filter((a: unknown) => typeof a === 'string')
     : []
+  const anchor = body.anchor && typeof body.anchor === 'object' && !Array.isArray(body.anchor)
+    ? body.anchor
+    : undefined
 
   if (!orgId) return apiError('orgId is required')
   if (!resourceType) return apiError('resourceType is required')
@@ -108,6 +111,7 @@ export const POST = withAuth('admin', async (req, user) => {
     mentions,
     mentionIds,
     attachments,
+    ...(anchor ? { anchor } : {}),
     ...actorFrom(user),
     updatedBy: null,
     updatedByType: null,
