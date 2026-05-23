@@ -64,6 +64,54 @@ export function applyStandaloneTaskStatusForAgentStatus(
   updates.status = taskStatusForAgentStatus(agentStatus)
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function taskSpecFrom(value: Record<string, unknown>, existing?: Record<string, unknown>): string {
+  const title = typeof value.title === 'string' && value.title.trim()
+    ? value.title.trim()
+    : typeof existing?.title === 'string'
+      ? existing.title.trim()
+      : ''
+  const description = typeof value.description === 'string' && value.description.trim()
+    ? value.description.trim()
+    : typeof existing?.description === 'string'
+      ? existing.description.trim()
+      : ''
+  return [title, description].filter(Boolean).join('\n\n')
+}
+
+export function applyAgentDispatchDefaultsForStandaloneAssignment(
+  value: Record<string, unknown>,
+  body: Record<string, unknown>,
+  existing?: Record<string, unknown>,
+): void {
+  const assignedTo = isRecord(value.assignedTo) ? value.assignedTo : null
+  if (assignedTo?.type !== 'agent' || typeof assignedTo.id !== 'string' || !assignedTo.id.trim()) return
+
+  const agentId = assignedTo.id.trim()
+  if (body.assigneeAgentId === undefined && value.assigneeAgentId === undefined) {
+    value.assigneeAgentId = agentId
+  }
+  if (body.agentStatus === undefined && value.agentStatus === undefined) {
+    value.agentStatus = 'pending'
+  }
+  if (body.status === undefined && value.status === undefined) {
+    value.status = 'todo'
+  }
+  applyAgentColumnForCreate(value, body)
+
+  if (body.agentInput === undefined && value.agentInput === undefined) {
+    const spec = taskSpecFrom(value, existing)
+    if (spec) value.agentInput = { spec }
+  }
+
+  value.agentOutput = null
+  value.agentConversationId = null
+  value.agentHeartbeatAt = null
+}
+
 export function applyAgentTodoRequeue(
   existing: Record<string, unknown>,
   updates: Record<string, unknown>,

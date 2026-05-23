@@ -1,6 +1,7 @@
 import {
   applyAgentColumnForCreate,
   applyAgentColumnForUpdate,
+  applyAgentDispatchDefaultsForStandaloneAssignment,
   applyAgentTodoRequeue,
   applyStandaloneTaskStatusForAgentStatus,
   columnForAgentStatus,
@@ -60,6 +61,45 @@ describe('standalone agent task state helpers', () => {
       agentStatus: 'pending',
       status: 'todo',
       reviewStatus: 'changes-requested',
+      agentOutput: null,
+      agentConversationId: null,
+      agentHeartbeatAt: null,
+    })
+  })
+
+  it('makes standalone tasks assigned to agents watcher-ready on create', () => {
+    const value: Record<string, unknown> = {
+      assignedTo: { type: 'agent', id: 'pip' },
+      title: 'Research Athleet competitors',
+      description: 'Find similar businesses and summarize positioning.',
+      columnId: 'todo',
+    }
+
+    applyAgentDispatchDefaultsForStandaloneAssignment(value, {})
+
+    expect(value.assigneeAgentId).toBe('pip')
+    expect(value.agentStatus).toBe('pending')
+    expect(value.columnId).toBe('todo')
+    expect(value.agentInput).toEqual({
+      spec: 'Research Athleet competitors\n\nFind similar businesses and summarize positioning.',
+    })
+  })
+
+  it('makes existing standalone tasks watcher-ready when assigned to an agent', () => {
+    const updates: Record<string, unknown> = { assignedTo: { type: 'agent', id: 'theo' } }
+
+    applyAgentDispatchDefaultsForStandaloneAssignment(updates, {}, {
+      title: 'Fix notification routing',
+      description: '',
+    })
+
+    expect(updates).toEqual({
+      assignedTo: { type: 'agent', id: 'theo' },
+      assigneeAgentId: 'theo',
+      agentStatus: 'pending',
+      columnId: 'todo',
+      status: 'todo',
+      agentInput: { spec: 'Fix notification routing' },
       agentOutput: null,
       agentConversationId: null,
       agentHeartbeatAt: null,
