@@ -3,13 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { copyToClipboard } from '@/lib/utils/clipboard'
-import {
-  WorkspaceFolderMapping,
-  folderSourceOfTruthLabel,
-  folderSyncModeLabel,
-  folderSyncTargetLabel,
-  folderVisibilityLabel,
-} from '@/lib/workspace-folder-mappings'
+import type { WorkspaceFolder } from '@/lib/workspace-folders/model'
 
 interface OrgForm {
   // General settings
@@ -57,6 +51,31 @@ const emptyForm: OrgForm = {
   routingNumber: '', swiftCode: '', iban: '',
 }
 
+type WorkspaceFolderWithId = WorkspaceFolder & { id: string }
+
+function folderVisibilityLabel(value: WorkspaceFolder['visibility']) {
+  if (value === 'admin_only') return 'Admin only'
+  if (value === 'admin_agents_clients') return 'Admin + agents + clients'
+  return 'Admin + agents'
+}
+
+function folderSourceOfTruthLabel(value: WorkspaceFolder['sourceOfTruth']) {
+  if (value === 'google_drive') return 'Google Drive is source of truth'
+  if (value === 'local') return 'Local Cowork is source of truth'
+  if (value === 'vps') return 'VPS is source of truth'
+  return 'Mixed source of truth'
+}
+
+function folderSyncModeLabel(value: WorkspaceFolder['syncMode']) {
+  if (value === 'metadata_only') return 'Metadata only'
+  if (value === 'manual') return 'Manual sync'
+  return 'Full sync'
+}
+
+function folderSyncTargetLabel(value: WorkspaceFolder['syncTargets'][number]) {
+  return value === 'local' ? 'Local Cowork' : 'VPS'
+}
+
 export default function OrgSettingsPage() {
   const params = useParams()
   const slug = params.slug as string
@@ -68,7 +87,7 @@ export default function OrgSettingsPage() {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [copiedId, setCopiedId] = useState(false)
-  const [folderMappings, setFolderMappings] = useState<WorkspaceFolderMapping[]>([])
+  const [folderMappings, setFolderMappings] = useState<WorkspaceFolderWithId[]>([])
   const [folderNotice, setFolderNotice] = useState('')
   const [resyncingFolderId, setResyncingFolderId] = useState<string | null>(null)
 
@@ -93,9 +112,10 @@ export default function OrgSettingsPage() {
       const detailRes = await fetch(`/api/v1/organizations/${org.id}`)
       const detailBody = await detailRes.json()
       const d = detailBody.data
-      const folderRes = await fetch(`/api/v1/organizations/${org.id}/folder-mappings`)
-      const folderBody = await folderRes.json().catch(() => ({ data: [] }))
-      setFolderMappings(Array.isArray(folderBody.data) ? folderBody.data : [])
+      const folderRes = await fetch(`/api/v1/workspace-folders?orgId=${encodeURIComponent(org.id)}`)
+      const folderBody = await folderRes.json().catch(() => ({ data: { folders: [] } }))
+      const folders = Array.isArray(folderBody.data?.folders) ? folderBody.data.folders : []
+      setFolderMappings(folders)
       if (d) {
         const bd = d.billingDetails ?? {}
         const addr = bd.address ?? {}
@@ -204,10 +224,10 @@ export default function OrgSettingsPage() {
     setForm(prev => ({ ...prev, [field]: value }))
   }
 
-  async function handleFolderResync(folder: WorkspaceFolderMapping) {
+  async function handleFolderResync(folder: WorkspaceFolderWithId) {
     setResyncingFolderId(folder.id)
     setFolderNotice('')
-    const res = await fetch(`/api/v1/organizations/${orgId}/folder-mappings/${folder.id}/resync`, { method: 'POST' })
+    const res = await fetch(`/api/v1/workspace-folders/${folder.id}/resync?orgId=${encodeURIComponent(orgId)}`, { method: 'POST' })
     const body = await res.json().catch(() => ({}))
     setFolderNotice(body.data?.message ?? body.error ?? 'Resync request recorded.')
     setResyncingFolderId(null)
@@ -268,7 +288,7 @@ export default function OrgSettingsPage() {
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
                     <h2 className="text-sm font-semibold text-on-surface">{folder.name}</h2>
-                    <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-label uppercase tracking-wide text-primary">{folder.folderType}</span>
+                    <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-label uppercase tracking-wide text-primary">{folder.resourceType || 'workspace'}</span>
                     {folder.parentId && <span className="text-[11px] text-on-surface-variant">Parent: {folder.parentId}</span>}
                   </div>
                   <p className="mt-1 flex flex-wrap gap-1 text-xs text-on-surface-variant">
@@ -292,12 +312,12 @@ export default function OrgSettingsPage() {
               <div className="grid gap-3 text-xs sm:grid-cols-2">
                 <div>
                   <p className="font-label uppercase tracking-wide text-on-surface-variant">Drive</p>
-                  <p className="mt-1 break-all text-on-surface">{folder.driveFolderId || 'No Drive ID set'}</p>
-                  {folder.driveFolderUrl && <a className="mt-1 inline-block break-all text-primary hover:underline" href={folder.driveFolderUrl} target="_blank" rel="noreferrer">{folder.driveFolderUrl}</a>}
+                  <p className="mt-1 break-all text-on-surface">{folder.drive.folderId || 'No Drive ID set'}</p>
+                  {folder.drive.folderUrl && <a className="mt-1 inline-block break-all text-primary hover:underline" href={folder.drive.folderUrl} target="_blank" rel="noreferrer">{folder.drive.folderUrl}</a>}
                 </div>
                 <div>
                   <p className="font-label uppercase tracking-wide text-on-surface-variant">Sync / audit</p>
-                  <p className="mt-1 text-on-surface">Status: {folder.syncStatus} · Audit: {folder.auditStatus}</p>
+                  <p className="mt-1 text-on-surface">Status: {folder.syncState.status} · Conflicts: {folder.audit.conflictStatus}</p>
                   <div className="mt-1 flex flex-wrap gap-1 text-on-surface-variant">
                     <span>Targets:</span>
                     {folder.syncTargets.length ? folder.syncTargets.map(target => <span key={target}>{folderSyncTargetLabel(target)}</span>) : <span>Not configured</span>}
@@ -305,13 +325,13 @@ export default function OrgSettingsPage() {
                 </div>
                 <div>
                   <p className="font-label uppercase tracking-wide text-on-surface-variant">Path hints</p>
-                  <p className="mt-1 text-on-surface-variant">VPS: {folder.pathHints.vps || '—'}</p>
-                  <p className="text-on-surface-variant">Local: {folder.pathHints.local || '—'}</p>
+                  <p className="mt-1 text-on-surface-variant">VPS: {folder.paths.vpsPath || '—'}</p>
+                  <p className="text-on-surface-variant">Local: {folder.paths.localPathHint || '—'}</p>
                 </div>
                 <div>
                   <p className="font-label uppercase tracking-wide text-on-surface-variant">Tags / permissions</p>
                   <p className="mt-1 text-on-surface-variant">{folder.tags.length ? folder.tags.join(', ') : 'No tags'}</p>
-                  <p className="mt-1 text-on-surface-variant">{folder.permissionNotes || 'Hybrid permission model: PiB roles gate app/agent access; Drive permissions must be reviewed before adding clients.'}</p>
+                  <p className="mt-1 text-on-surface-variant">{folder.audit.notes || 'Hybrid permission model: PiB roles gate app/agent access; Drive permissions must be reviewed before adding clients.'}</p>
                 </div>
               </div>
             </div>

@@ -22,32 +22,36 @@ describe('OrgSettingsPage folder mappings', () => {
           json: async () => ({ data: { id: 'org_1', name: 'Acme Client', settings: {} } }),
         } as Response)
       }
-      if (url === '/api/v1/organizations/org_1/folder-mappings' && !init) {
+      if (url === '/api/v1/workspace-folders?orgId=org_1' && !init) {
         return Promise.resolve({
           ok: true,
           json: async () => ({
-            data: [
+            data: { folders: [
               {
                 id: 'assets',
+                orgId: 'org_1',
                 name: 'Source Assets',
-                folderType: 'assets',
+                resourceType: 'assets',
+                resourceId: 'org_1',
+                parentId: null,
+                visibility: 'admin_agents_clients',
                 tags: ['drive', 'binary'],
                 sortOrder: 10,
-                driveFolderId: 'drive_123',
-                driveFolderUrl: 'https://drive.google.com/drive/folders/drive_123',
-                pathHints: { vps: '/var/lib/hermes/Cowork/Acme/assets', local: '~/Cowork/Acme/assets' },
-                visibility: 'admin_agents_clients',
+                drive: { folderId: 'drive_123', folderUrl: 'https://drive.google.com/drive/folders/drive_123' },
+                paths: { vpsPath: '/var/lib/hermes/Cowork/Acme/assets', localPathHint: '~/Cowork/Acme/assets' },
                 sourceOfTruth: 'google_drive',
                 syncMode: 'full',
-                syncTargets: ['vps', 'local_cowork'],
-                syncStatus: 'conflict',
-                auditStatus: 'needs_review',
+                syncTargets: ['vps', 'local'],
+                syncState: { status: 'conflict', lastSyncedAt: null, lastAttemptAt: null, error: null, conflictCount: 1 },
+                audit: { conflictStatus: 'open', lastConflictAt: null, notes: null },
+                permissions: { inheritParent: true, allowedAgentIds: [], allowedRoleIds: [], allowedUserIds: [] },
+                deleted: false,
               },
-            ],
+            ] },
           }),
         } as Response)
       }
-      if (url === '/api/v1/organizations/org_1/folder-mappings/assets/resync') {
+      if (url === '/api/v1/workspace-folders/assets/resync?orgId=org_1') {
         return Promise.resolve({
           ok: true,
           json: async () => ({ data: { queued: false, message: 'Manual resync is not configured for this folder yet.' } }),
