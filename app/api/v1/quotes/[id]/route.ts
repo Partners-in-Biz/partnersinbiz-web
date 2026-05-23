@@ -6,6 +6,7 @@ import { withCrmAuth, type CrmAuthContext } from '@/lib/auth/crm-middleware'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { generateInvoiceNumber } from '@/lib/invoices/invoice-number'
 import { dispatchWebhook } from '@/lib/webhooks/dispatch'
+import { notifyQuoteAccepted } from '@/lib/notifications/client-acceptance'
 import { loadCompany } from '@/lib/companies/store'
 import type { Quote } from '@/lib/quotes/types'
 import type { MemberRef } from '@/lib/orgMembers/memberRef'
@@ -224,6 +225,18 @@ async function handleQuoteUpdate(
         })
       } catch (err) {
         console.error('[webhook-dispatch-error] quote.accepted', err)
+      }
+      try {
+        await notifyQuoteAccepted({
+          orgId: ctx.orgId,
+          quoteId: id,
+          quoteNumber: before.quoteNumber,
+          total: before.total,
+          currency: before.currency,
+          companyName: before.companyName,
+        })
+      } catch (err) {
+        console.error('[notification-dispatch-error] quote.accepted', err)
       }
     } else if (toStatus === 'rejected') {
       try {
