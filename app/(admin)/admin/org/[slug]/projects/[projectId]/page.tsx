@@ -371,13 +371,12 @@ export default function ProjectDetailPage() {
         </button>
         <button
           onClick={() => setActiveTab('agent')}
-          className={`px-1 pb-3 text-sm font-label transition-colors flex items-center gap-1.5 ${
+          className={`px-1 pb-3 text-sm font-label transition-colors ${
             activeTab === 'agent'
               ? 'text-on-surface border-b-2 border-[var(--color-accent-v2)]'
               : 'text-on-surface-variant hover:text-on-surface'
           }`}
         >
-          <span className="material-symbols-outlined text-[16px]">smart_toy</span>
           Agent
         </button>
         <button

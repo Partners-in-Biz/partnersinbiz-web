@@ -118,14 +118,14 @@ export function ProjectBoardSummary({ tasks, columns }: { tasks: Task[]; columns
         <div className="border-b border-[var(--color-card-border)] p-4 md:border-b-0 md:border-r md:p-5">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-[10px] font-label uppercase tracking-[0.18em] text-on-surface-variant">Board progress</p>
+              <p className="text-[10px] font-label uppercase tracking-[0.18em] text-on-surface-variant">Actually done</p>
               <p aria-label="Done task progress" className="mt-2 text-3xl font-headline font-bold text-on-surface md:text-4xl">
                 {summary.done} / {summary.total}
               </p>
-              <p className="mt-1 text-xs text-on-surface-variant">tasks in Done</p>
+              <p className="mt-1 text-xs text-on-surface-variant">Done column, completed tasks, and agent-done work</p>
             </div>
             <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[#4ade8040] bg-[#4ade8016] text-[#4ade80]">
-              <span className="material-symbols-outlined text-[24px]">task_alt</span>
+              <span className="material-symbols-outlined text-[24px]">fact_check</span>
             </span>
           </div>
 
@@ -151,20 +151,20 @@ export function ProjectBoardSummary({ tasks, columns }: { tasks: Task[]; columns
           </div>
         </div>
 
-        <div className="p-3 md:p-4">
-          <div className="grid grid-cols-2 gap-2 lg:grid-cols-5">
+          <div className="p-3 md:p-4">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-5">
             {summary.stats.map(stat => (
               <div
                 key={stat.key}
-                className="rounded-xl border border-[var(--color-card-border)] bg-black/[0.10] p-3"
-                style={{ boxShadow: `inset 0 1px 0 ${stat.tone}22` }}
+                className="relative overflow-hidden rounded-2xl border border-[var(--color-card-border)] bg-[color-mix(in_srgb,var(--color-card)_82%,black)] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
               >
+                <div className="absolute inset-x-0 top-0 h-0.5" style={{ background: stat.tone }} />
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">{stat.label}</span>
-                  <span className="material-symbols-outlined text-[17px]" style={{ color: stat.tone }}>{stat.icon}</span>
+                  <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white/[0.04] material-symbols-outlined text-[16px]" style={{ color: stat.tone }}>{stat.icon}</span>
                 </div>
-                <p aria-label={`${stat.label} task count`} className="mt-2 text-2xl font-headline font-bold text-on-surface">{stat.value}</p>
-                <p className="mt-1 min-h-[2rem] text-[11px] leading-4 text-on-surface-variant">{stat.helper}</p>
+                <p aria-label={stat.ariaLabel} className="mt-3 text-3xl font-headline font-bold leading-none text-on-surface">{stat.value}</p>
+                <p className="mt-2 min-h-[2.25rem] text-[11px] leading-4 text-on-surface-variant">{stat.helper}</p>
               </div>
             ))}
           </div>

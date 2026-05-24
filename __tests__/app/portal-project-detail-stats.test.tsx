@@ -99,6 +99,14 @@ function mockFetch() {
               order: 3,
               attachments: [],
             },
+            {
+              id: 'task-4',
+              title: 'Agent finished awaiting review',
+              columnId: 'review',
+              agentStatus: 'done',
+              order: 4,
+              attachments: [],
+            },
           ],
         }),
       } as Response)
@@ -119,10 +127,11 @@ describe('Portal project detail kanban stat cards', () => {
 
     await waitFor(() => expect(screen.getByText('Board blocker')).toBeInTheDocument())
 
-    expect(screen.getByLabelText('Done task progress')).toHaveTextContent('1 / 3')
+    expect(screen.getAllByText('Actually done').length).toBeGreaterThan(0)
+    expect(screen.getByLabelText('Done task progress')).toHaveTextContent('2 / 4')
     expect(screen.getByLabelText('Open task count')).toHaveTextContent('2')
     expect(screen.getByLabelText('Blocked task count')).toHaveTextContent('1')
-    expect(screen.getByLabelText('Done task count')).toHaveTextContent('1')
+    expect(screen.getByLabelText('Done task count')).toHaveTextContent('2')
     expect(screen.getByText('Due this week', { exact: false })).toHaveTextContent('1 due this week')
     expect(screen.queryByText('Media')).not.toBeInTheDocument()
     expect(screen.queryByText('Done / blocked')).not.toBeInTheDocument()
@@ -139,7 +148,7 @@ describe('Portal project detail kanban stat cards', () => {
     })
 
     expect(screen.getByText('Live blocked task')).toBeInTheDocument()
-    expect(screen.getByLabelText('Done task progress')).toHaveTextContent('1 / 4')
+    expect(screen.getByLabelText('Done task progress')).toHaveTextContent('2 / 5')
     expect(screen.getByLabelText('Blocked task count')).toHaveTextContent('2')
   })
 

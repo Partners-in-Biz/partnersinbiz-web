@@ -122,7 +122,8 @@ function mockFetch() {
             {
               id: 'task-2',
               title: 'Latest task should float up',
-              columnId: 'todo',
+              columnId: 'review',
+              agentStatus: 'done',
               order: 2,
               priority: 'medium',
               dueDate: '2026-06-01T00:00:00.000Z',
@@ -211,11 +212,22 @@ describe('Admin project docs and settings tabs', () => {
 
     await waitFor(() => expect(screen.getByText('Resolve production blocker')).toBeInTheDocument())
 
-    expect(screen.getByLabelText('Done task progress')).toHaveTextContent('1 / 4')
-    expect(screen.getByLabelText('Open task count')).toHaveTextContent('3')
-    expect(screen.getByLabelText('Done task count')).toHaveTextContent('1')
+    expect(screen.getAllByText('Actually done').length).toBeGreaterThan(0)
+    expect(screen.getByLabelText('Done task progress')).toHaveTextContent('2 / 4')
+    expect(screen.getByLabelText('Open task count')).toHaveTextContent('2')
+    expect(screen.getByLabelText('Done task count')).toHaveTextContent('2')
     expect(screen.getByLabelText('Blocked task count')).toHaveTextContent('1')
     expect(screen.queryByText('Done / blocked')).not.toBeInTheDocument()
+  })
+
+  it('keeps project tabs visually consistent without a lone agent icon', async () => {
+    render(<ProjectDetailPage />)
+
+    const tabBar = screen.getByRole('button', { name: 'Kanban' }).parentElement
+    expect(tabBar).toContainElement(screen.getByRole('button', { name: 'Docs' }))
+    expect(tabBar).toContainElement(screen.getByRole('button', { name: 'Agent' }))
+    expect(tabBar).toContainElement(screen.getByRole('button', { name: 'Settings' }))
+    expect(within(tabBar as HTMLElement).queryByText('smart_toy')).not.toBeInTheDocument()
   })
 
   it('keeps board/list and board sort controls spaced on one toolbar row', async () => {
