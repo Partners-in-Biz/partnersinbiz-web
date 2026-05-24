@@ -165,35 +165,46 @@ export function NotificationBell({ mode = 'crm', orgId, userId }: NotificationBe
                 <p className="text-sm text-[var(--color-pib-text-muted)]">No notifications yet</p>
               </div>
             ) : (
-              notifications.map(n => (
-                <div
-                  key={n.id}
-                  className={[
-                    'flex items-start gap-3 px-4 py-3 border-b border-[var(--color-pib-line)] last:border-0 transition-colors',
-                    n.status === 'unread' ? 'bg-[var(--color-pib-accent-soft)]/10' : 'hover:bg-white/[0.02]',
-                  ].join(' ')}
-                >
-                  <div className="shrink-0 w-7 h-7 rounded-full bg-[var(--color-pib-surface)] border border-[var(--color-pib-line)] flex items-center justify-center mt-0.5">
-                    <span className="material-symbols-outlined text-[13px] text-[var(--color-pib-text-muted)]">
-                      {notifIcon(n.type)}
-                    </span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className={['text-xs leading-snug', n.status === 'unread' ? 'font-medium text-[var(--color-pib-text)]' : 'text-[var(--color-pib-text-muted)]'].join(' ')}>
-                      {n.title ?? n.body ?? n.type}
-                    </p>
-                    {n.body && n.title && (
-                      <p className="text-[11px] text-[var(--color-pib-text-muted)] mt-0.5 truncate">{n.body}</p>
+              notifications.map(n => {
+                const rowClassName = [
+                  'flex items-start gap-3 px-4 py-3 border-b border-[var(--color-pib-line)] last:border-0 transition-colors text-left w-full',
+                  n.status === 'unread' ? 'bg-[var(--color-pib-accent-soft)]/10' : 'hover:bg-white/[0.02]',
+                  n.link ? 'cursor-pointer hover:bg-white/[0.04]' : '',
+                ].join(' ')
+                const content = (
+                  <>
+                    <div className="shrink-0 w-7 h-7 rounded-full bg-[var(--color-pib-surface)] border border-[var(--color-pib-line)] flex items-center justify-center mt-0.5">
+                      <span className="material-symbols-outlined text-[13px] text-[var(--color-pib-text-muted)]">
+                        {notifIcon(n.type)}
+                      </span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className={['text-xs leading-snug', n.status === 'unread' ? 'font-medium text-[var(--color-pib-text)]' : 'text-[var(--color-pib-text-muted)]'].join(' ')}>
+                        {n.title ?? n.body ?? n.type}
+                      </p>
+                      {n.body && n.title && (
+                        <p className="text-[11px] text-[var(--color-pib-text-muted)] mt-0.5 truncate">{n.body}</p>
+                      )}
+                      <p className="text-[10px] text-[var(--color-pib-text-muted)] mt-1 font-mono">
+                        {fmtTimestamp(n.createdAt)}
+                      </p>
+                    </div>
+                    {n.status === 'unread' && (
+                      <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-[var(--color-pib-accent)] mt-1.5" />
                     )}
-                    <p className="text-[10px] text-[var(--color-pib-text-muted)] mt-1 font-mono">
-                      {fmtTimestamp(n.createdAt)}
-                    </p>
+                  </>
+                )
+
+                return n.link ? (
+                  <a key={n.id} href={n.link} className={rowClassName}>
+                    {content}
+                  </a>
+                ) : (
+                  <div key={n.id} className={rowClassName}>
+                    {content}
                   </div>
-                  {n.status === 'unread' && (
-                    <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-[var(--color-pib-accent)] mt-1.5" />
-                  )}
-                </div>
-              ))
+                )
+              })
             )}
           </div>
         </div>
