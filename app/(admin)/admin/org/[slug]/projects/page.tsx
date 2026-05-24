@@ -6,6 +6,7 @@ import { useParams } from 'next/navigation'
 import { collection, onSnapshot, query, where } from 'firebase/firestore'
 import { getClientDb } from '@/lib/firebase/config'
 import { CrossProjectBoard } from '@/components/projects/CrossProjectBoard'
+import { PageHeader, Surface } from '@/components/ui/AppFoundation'
 import type { BoardTask } from '@/components/projects/CrossProjectBoard'
 
 interface Project {
@@ -463,26 +464,23 @@ export default function ProjectsPage() {
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">Workspace / Projects</p>
-          <h1 className="text-2xl font-headline font-bold text-on-surface">Projects</h1>
-        </div>
-        <div className="flex items-center gap-3">
-          {!showForm && (
-            <button
-              onClick={() => setShowForm(true)}
-              className="pib-btn-primary text-sm font-label"
-            >
-              + New Project
-            </button>
-          )}
-        </div>
-      </div>
+      <PageHeader
+        eyebrow="Workspace / Projects"
+        title="Projects"
+        description="Kanban-led delivery spaces for client and platform work. Switch between board and list views without leaving the workspace."
+        actions={!showForm ? (
+          <button
+            onClick={() => setShowForm(true)}
+            className="pib-btn-primary text-sm font-label"
+          >
+            + New Project
+          </button>
+        ) : null}
+      />
 
       {/* New Project Form */}
       {showForm && (
-        <div className="pib-card p-4">
+        <Surface className="p-4">
           <form onSubmit={handleCreateProject} className="flex gap-2 items-end flex-wrap">
             <div className="flex-1 min-w-[150px]">
               <input
@@ -526,7 +524,7 @@ export default function ProjectsPage() {
           {formError && (
             <p className="text-xs text-[#ef4444] mt-2">{formError}</p>
           )}
-        </div>
+        </Surface>
       )}
 
       {/* Filters and view controls */}

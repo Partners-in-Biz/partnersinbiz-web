@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams, useSearchParams } from 'next/navigation'
 import { OrgThemedFrame } from '@/components/admin/OrgThemedFrame'
+import { PageHeader } from '@/components/ui/AppFoundation'
 import { DocumentIndex } from '@/components/client-documents/DocumentIndex'
 import type { ClientDocument, ClientDocumentStatus } from '@/lib/client-documents/types'
 
@@ -69,24 +70,22 @@ export default function OrgDocumentsPage() {
   return (
     <OrgThemedFrame orgId={orgId} className="-m-6 min-h-screen p-6">
       <div className="space-y-8">
-        <header className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <p className="eyebrow">{orgName || 'Client workspace'}</p>
-            <h1 className="pib-page-title mt-2">Client Documents</h1>
-            <p className="pib-page-sub mt-2 max-w-2xl">
-              Proposals, specs, strategies, and reports for this client. Use the tabs to move between the active review states.
-            </p>
-          </div>
-          <Link
-            href={`/admin/org/${slug}/documents/new`}
-            className="btn-pib-accent"
-          >
-            <span className="material-symbols-outlined text-base">add</span>
-            New Document
-          </Link>
-        </header>
+        <PageHeader
+          eyebrow={orgName || 'Client workspace'}
+          title="Client Documents"
+          description="Proposals, specs, strategies, and reports for this client. Use the tabs to move between active review states."
+          actions={(
+            <Link
+              href={`/admin/org/${slug}/documents/new`}
+              className="btn-pib-accent"
+            >
+              <span className="material-symbols-outlined text-base">add</span>
+              New Document
+            </Link>
+          )}
+        />
 
-        <nav className="bento-card !p-2 flex gap-2 overflow-x-auto" aria-label="Document status filters">
+        <nav className="pib-tabs" aria-label="Document status filters">
           {STATUS_TABS.map((tab) => {
             const count =
               tab.value === 'all'
@@ -101,17 +100,11 @@ export default function OrgDocumentsPage() {
               <Link
                 key={tab.value}
                 href={href}
-                className={`inline-flex whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-                  isActive
-                    ? 'bg-[var(--color-pib-accent)] text-black'
-                    : 'text-[var(--color-pib-text-muted)] hover:bg-[var(--color-surface)] hover:text-on-surface'
-                }`}
+                className={`pib-tab ${isActive ? 'pib-tab-active' : ''}`}
               >
                 {tab.label}
                 {count > 0 && (
-                  <span className={`ml-1.5 rounded-full px-1.5 py-0.5 text-[10px] ${
-                    isActive ? 'bg-black/15 text-black' : 'bg-[var(--color-surface-variant)] text-on-surface'
-                  }`}>
+                  <span className="pib-tabs-badge">
                     {count}
                   </span>
                 )}

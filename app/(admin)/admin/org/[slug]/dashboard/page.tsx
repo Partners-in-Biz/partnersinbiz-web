@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { StatCardWithChart, DonutChart, HorizontalBarChart, TrendAreaChart } from '@/components/ui/Charts'
 import { ScheduledContentPreviewCards, type ScheduledContentPost } from '@/components/admin/ScheduledContentPreviewCards'
+import { PageHeader, Surface } from '@/components/ui/AppFoundation'
 
 interface Project {
   id: string
@@ -159,23 +160,17 @@ export default function OrgDashboard() {
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
-      {/* ── Header ── */}
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">
-            Workspace
-          </p>
-          <h1 className="text-2xl font-headline font-bold text-on-surface capitalize">
-            {getGreeting()} — {orgName}
-          </h1>
-          <p className="text-sm text-on-surface-variant mt-0.5">
-            {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-          </p>
-        </div>
-        <Link href={`/admin/org/${slug}/projects`} className="pib-btn-primary text-sm font-label">
-          + New Project
-        </Link>
-      </div>
+      <PageHeader
+        eyebrow="Workspace"
+        title={`${getGreeting()} — ${orgName}`}
+        description={new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+        actions={(
+          <Link href={`/admin/org/${slug}/projects`} className="pib-btn-primary text-sm font-label">
+            + New Project
+          </Link>
+        )}
+        className="capitalize"
+      />
 
       {/* ── Stat Cards ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -217,7 +212,7 @@ export default function OrgDashboard() {
       {/* ── Projects + Social Status ── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Projects List */}
-        <div className="lg:col-span-2 pib-card space-y-3">
+        <Surface className="lg:col-span-2 space-y-3">
           <div className="flex items-center justify-between">
             <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Projects</p>
             <Link
@@ -263,10 +258,10 @@ export default function OrgDashboard() {
               ))}
             </div>
           )}
-        </div>
+        </Surface>
 
         {/* Social Status Donut */}
-        <div className="pib-card space-y-2">
+        <Surface className="space-y-2">
           <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
             Post Status
           </p>
@@ -283,7 +278,7 @@ export default function OrgDashboard() {
               No social posts yet.
             </div>
           )}
-        </div>
+        </Surface>
       </div>
 
       {/* ── Social Analytics Row ── */}
@@ -291,7 +286,7 @@ export default function OrgDashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Platform Breakdown */}
           {platformBarData.length > 0 && (
-            <div className="pib-card space-y-3">
+            <Surface className="space-y-3">
               <div className="flex items-center justify-between">
                 <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
                   Platform Breakdown
@@ -305,11 +300,11 @@ export default function OrgDashboard() {
                 </Link>
               </div>
               <HorizontalBarChart data={platformBarData} />
-            </div>
+            </Surface>
           )}
 
           {/* Post Trend */}
-          <div className="pib-card space-y-3">
+          <Surface className="space-y-3">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
@@ -330,12 +325,12 @@ export default function OrgDashboard() {
                 No posts in the last 30 days.
               </div>
             )}
-          </div>
+          </Surface>
         </div>
       )}
 
       {/* ── Quick Actions ── */}
-      <div className="pib-card">
+      <Surface>
         <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-3">Quick Actions</p>
         <div className="flex flex-wrap gap-2">
           {[
@@ -349,7 +344,7 @@ export default function OrgDashboard() {
             <Link key={a.href} href={a.href} className="pib-btn-secondary text-xs font-label">{a.label}</Link>
           ))}
         </div>
-      </div>
+      </Surface>
     </div>
   )
 }
