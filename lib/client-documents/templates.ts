@@ -42,6 +42,12 @@ export const CLIENT_DOCUMENT_TEMPLATES: ClientDocumentTemplate[] = [
     id: 'sales-proposal-v1',
     type: 'sales_proposal',
     label: 'Sales Proposal',
+    picker: {
+      description: 'Client-facing commercial proposal for a new engagement, package, or retainer.',
+      bestFor: 'Pricing, scope, timeline, terms, and formal acceptance.',
+      decides: 'Decides whether the client accepts the proposed work and investment.',
+      helpText: 'Use this when the commercial offer is the decision. It can fan out implementation work after acceptance.',
+    },
     approvalMode: 'formal_acceptance',
     clientPermissions: {
       canComment: true,
@@ -90,6 +96,12 @@ export const CLIENT_DOCUMENT_TEMPLATES: ClientDocumentTemplate[] = [
     id: 'build-spec-v1',
     type: 'build_spec',
     label: 'Website/App Build Spec',
+    picker: {
+      description: 'Implementation spec for a website, app, integration, or platform feature build.',
+      bestFor: 'Requirements, technical approach, data/API changes, tests, rollout, and rollback.',
+      decides: 'Specs decide what to build, in what order, and how QA will prove it is done.',
+      helpText: 'Choose this after research or discovery is settled and the next decision is build execution.',
+    },
     approvalMode: 'operational',
     clientPermissions: {
       canComment: true,
@@ -161,7 +173,13 @@ export const CLIENT_DOCUMENT_TEMPLATES: ClientDocumentTemplate[] = [
   {
     id: 'social-strategy-v1',
     type: 'social_strategy',
-    label: 'Social Media Strategy',
+    label: 'Social Strategy',
+    picker: {
+      description: 'Strategy document for audience, positioning, channels, content pillars, and publishing rhythm.',
+      bestFor: 'Social direction, content themes, approval gates, success metrics, and campaign handoff.',
+      decides: 'Decides what the brand should say, where it should show up, and how execution will be measured.',
+      helpText: 'Use for Maya/social planning. If facts are still uncertain, create a Research Report first.',
+    },
     approvalMode: 'operational',
     clientPermissions: {
       canComment: true,
@@ -207,6 +225,12 @@ export const CLIENT_DOCUMENT_TEMPLATES: ClientDocumentTemplate[] = [
     id: 'content-campaign-plan-v1',
     type: 'content_campaign_plan',
     label: 'Content Campaign Plan',
+    picker: {
+      description: 'Campaign execution plan for content assets, calendar, measurement, and approvals.',
+      bestFor: 'Asset lists, posting calendars, campaign milestones, and performance targets.',
+      decides: 'Decides what content gets produced and when it moves through approval.',
+      helpText: 'Use when the campaign strategy is known and the team needs an execution-ready plan.',
+    },
     approvalMode: 'operational',
     clientPermissions: {
       canComment: true,
@@ -234,7 +258,13 @@ export const CLIENT_DOCUMENT_TEMPLATES: ClientDocumentTemplate[] = [
   {
     id: 'geo-seo-strategy-v1',
     type: 'geo_seo_strategy',
-    label: 'GEO SEO Agent Workflow',
+    label: 'GEO / SEO Agent Workflow',
+    picker: {
+      description: 'AI-search and SEO workflow that links Sage research, Maya content, approvals, and measurement.',
+      bestFor: 'GEO opportunities, SEO overlap, answer blocks, entity clarity, and agent task routing.',
+      decides: 'Decides how research becomes approved GEO/SEO content and measurement work.',
+      helpText: 'Use when AI-search visibility work needs linked agent execution rather than a standalone research memo.',
+    },
     approvalMode: 'operational',
     clientPermissions: {
       canComment: true,
@@ -340,6 +370,12 @@ export const CLIENT_DOCUMENT_TEMPLATES: ClientDocumentTemplate[] = [
     id: 'research-report-v1',
     type: 'research_report',
     label: 'Research Report',
+    picker: {
+      description: 'Evidence-led report for findings, confidence, contradictions, unknowns, and recommendations.',
+      bestFor: 'Research questions, source ledgers, truth checks, options, and decision support.',
+      decides: 'Research decides what is true, what is still unknown, and what options are credible.',
+      helpText: 'Use this before a spec when Peet or the client needs evidence. It should not blindly create code tasks.',
+    },
     approvalMode: 'operational',
     clientPermissions: {
       canComment: true,
@@ -421,6 +457,12 @@ export const CLIENT_DOCUMENT_TEMPLATES: ClientDocumentTemplate[] = [
     id: 'monthly-report-v1',
     type: 'monthly_report',
     label: 'Monthly Report',
+    picker: {
+      description: 'Performance recap for a completed month across activity, outcomes, learnings, and next actions.',
+      bestFor: 'KPIs, highlights, blockers, client-visible progress, and next-month priorities.',
+      decides: 'Decides what progress is reported and what follow-up actions need attention.',
+      helpText: 'Use for review/reporting. It summarises work already done; it is not a build spec.',
+    },
     approvalMode: 'operational',
     clientPermissions: {
       canComment: true,
@@ -448,6 +490,12 @@ export const CLIENT_DOCUMENT_TEMPLATES: ClientDocumentTemplate[] = [
     id: 'launch-signoff-v1',
     type: 'launch_signoff',
     label: 'Launch Sign-off',
+    picker: {
+      description: 'Go/no-go sign-off for launch readiness, known limitations, and acceptance.',
+      bestFor: 'Launch checklists, readiness notes, known risks, and final approval before release.',
+      decides: 'Decides whether an approved build is ready to launch or needs more work.',
+      helpText: 'Use after implementation and QA evidence exists. Do not use it to define new scope.',
+    },
     approvalMode: 'operational',
     clientPermissions: {
       canComment: true,
@@ -475,6 +523,12 @@ export const CLIENT_DOCUMENT_TEMPLATES: ClientDocumentTemplate[] = [
     id: 'change-request-v1',
     type: 'change_request',
     label: 'Change Request',
+    picker: {
+      description: 'Scoped change to approved work, including impact on scope, timeline, and cost.',
+      bestFor: 'New requests, scope changes, budget impact, timeline impact, and approval-gated implementation.',
+      decides: 'Decides whether an approved plan changes and what implementation tasks become valid.',
+      helpText: 'Use when the client asks for something outside the current approved spec or proposal.',
+    },
     approvalMode: 'operational',
     clientPermissions: {
       canComment: true,
@@ -548,6 +602,12 @@ const LEGACY_SAFE_FALLBACK_TEMPLATE: ClientDocumentTemplate = {
   id: 'legacy-safe-fallback',
   type: 'build_spec',
   label: 'Legacy Document',
+  picker: {
+    description: 'Safe fallback for older or unknown document templates.',
+    bestFor: 'Viewing legacy documents without breaking rendering or share links.',
+    decides: 'Decides nothing automatically; route manually if more work is needed.',
+    helpText: 'This fallback preserves old documents. Create a new typed document for new work.',
+  },
   approvalMode: 'operational',
   clientPermissions: {
     canComment: true,

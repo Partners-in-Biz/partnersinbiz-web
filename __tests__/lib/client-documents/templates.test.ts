@@ -115,6 +115,27 @@ describe('client document templates', () => {
     ])
   })
 
+  it('exposes chooser copy that distinguishes research truth from build specs', () => {
+    const research = getClientDocumentTemplate('research_report')
+    const buildSpec = getClientDocumentTemplate('build_spec')
+    const changeRequest = getClientDocumentTemplate('change_request')
+    const labels = CLIENT_DOCUMENT_TEMPLATES.map(template => template.label)
+
+    expect(labels).toEqual(expect.arrayContaining([
+      'Research Report',
+      'Website/App Build Spec',
+      'Change Request',
+      'Social Strategy',
+      'Monthly Report',
+    ]))
+    expect(research.picker.decides).toContain('Research decides what is true')
+    expect(research.picker.helpText).toContain('should not blindly create code tasks')
+    expect(buildSpec.picker.decides).toContain('Specs decide what to build')
+    expect(buildSpec.picker.bestFor).toContain('technical approach')
+    expect(changeRequest.picker.description).toContain('Scoped change')
+    expect(CLIENT_DOCUMENT_TEMPLATES.every(template => template.picker.description && template.picker.bestFor && template.picker.decides && template.picker.helpText)).toBe(true)
+  })
+
   it('exposes typed metadata contracts for build specs, research reports, and change requests', () => {
     expect(getClientDocumentTemplate('build_spec').contract).toMatchObject({
       purpose: 'implementation_spec',

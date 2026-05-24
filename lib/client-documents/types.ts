@@ -238,6 +238,13 @@ export interface ClientDocumentTemplateContract {
   aiPromptKey: string
 }
 
+export interface ClientDocumentTemplatePickerMetadata {
+  description: string
+  bestFor: string
+  decides: string
+  helpText: string
+}
+
 export interface ClientDocumentTemplate {
   id: string
   type: ClientDocumentType
@@ -247,6 +254,7 @@ export interface ClientDocumentTemplate {
   requiredBlockTypes: DocumentBlockType[]
   defaultBlocks: DocumentBlock[]
   contract: ClientDocumentTemplateContract
+  picker: ClientDocumentTemplatePickerMetadata
   agentWorkflowTasks?: ClientDocumentAgentWorkflowTask[]
 }
 
