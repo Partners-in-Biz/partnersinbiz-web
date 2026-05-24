@@ -140,6 +140,17 @@ function mockFetch() {
               assigneeIds: [],
               attachments: [],
             },
+            {
+              id: 'task-4',
+              title: 'Completed task with stale blocked label',
+              columnId: 'done',
+              order: 4,
+              priority: 'medium',
+              createdAt: '2026-05-24T10:00:00.000Z',
+              labels: ['blocked'],
+              assigneeIds: [],
+              attachments: [],
+            },
           ],
         }),
       } as Response)
@@ -199,9 +210,10 @@ describe('Admin project docs and settings tabs', () => {
 
     await waitFor(() => expect(screen.getByText('Resolve production blocker')).toBeInTheDocument())
 
-    expect(screen.getByText('Tasks').nextElementSibling).toHaveTextContent('3')
-    expect(screen.getByText('Done').nextElementSibling).toHaveTextContent('0')
+    expect(screen.getByText('Tasks').nextElementSibling).toHaveTextContent('4')
+    expect(screen.getByText('Done').nextElementSibling).toHaveTextContent('1')
     expect(screen.getByText('Blocked').nextElementSibling).toHaveTextContent('1')
+    expect(screen.queryByText('Done / blocked')).not.toBeInTheDocument()
   })
 
   it('keeps board/list and list sort controls in one compact toolbar', async () => {
