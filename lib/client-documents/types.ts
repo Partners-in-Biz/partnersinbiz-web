@@ -259,6 +259,11 @@ export interface ClientDocumentAgentWorkflowTask {
   dependsOn?: string[]
   priority?: 'urgent' | 'high' | 'medium' | 'normal' | 'low'
   labels?: string[]
+  reviewerAgentId?: string | null
+  riskLevel?: 'low' | 'medium' | 'high' | 'critical'
+  requiredCapability?: string | null
+  expectedArtifacts?: string[]
+  sourceResearchItemId?: string | null
 }
 
 export interface MagicLink {

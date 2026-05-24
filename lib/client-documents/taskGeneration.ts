@@ -17,6 +17,11 @@ export type ApprovedDocumentTaskPlanItem = {
   labels?: string[]
   dueDate?: string | null
   estimateMinutes?: number | null
+  reviewerAgentId?: AgentId | null
+  riskLevel?: 'low' | 'medium' | 'high' | 'critical'
+  requiredCapability?: string | null
+  expectedArtifacts?: string[]
+  sourceResearchItemId?: string | null
 }
 
 export type ApprovedDocumentTaskPlan = {
@@ -59,6 +64,51 @@ function normalizePriority(value: unknown): 'urgent' | 'high' | 'medium' | 'low'
   if (value === 'urgent' || value === 'high' || value === 'medium' || value === 'low') return value
   if (value === 'normal') return 'medium'
   return DEFAULT_PRIORITY
+}
+
+function normalizeRiskLevel(value: unknown, fallback: 'low' | 'medium' | 'high' | 'critical' = 'medium') {
+  if (value === 'low' || value === 'medium' || value === 'high' || value === 'critical') return value
+  return fallback
+}
+
+function defaultMetadataForTask(input: { document: ClientDocument; item: ApprovedDocumentTaskPlanItem }) {
+  const assignee = cleanString(input.item.assigneeAgentId)
+  const isEngineeringDoc = input.document.type === 'build_spec' || input.document.type === 'change_request'
+  if (assignee === 'theo') {
+    return {
+      reviewerAgentId: 'qa-release' as AgentId,
+      riskLevel: isEngineeringDoc ? 'high' as const : 'medium' as const,
+      requiredCapability: 'engineering',
+      expectedArtifacts: isEngineeringDoc ? ['commit', 'test-output', 'build-output', 'preview-url'] : ['commit', 'test-output', 'build-output'],
+    }
+  }
+  if (assignee === 'qa-release') {
+    return {
+      reviewerAgentId: 'pip' as AgentId,
+      riskLevel: isEngineeringDoc ? 'high' as const : 'medium' as const,
+      requiredCapability: 'quality-assurance',
+      expectedArtifacts: ['test-output', 'build-output', 'qa-notes'],
+    }
+  }
+  if (assignee === 'sage') {
+    return {
+      reviewerAgentId: 'pip' as AgentId,
+      riskLevel: 'medium' as const,
+      requiredCapability: input.document.type === 'research_report' ? 'research-recommendation-followup' : 'research-intelligence',
+      expectedArtifacts: input.document.type === 'research_report' ? ['recommendation-options', 'project-comment-or-task-links'] : ['research-records', 'evidence-links'],
+    }
+  }
+  return {
+    reviewerAgentId: null,
+    riskLevel: 'medium' as const,
+    requiredCapability: assignee === 'pip' ? 'coordination' : null,
+    expectedArtifacts: ['project-comment-or-task-links'],
+  }
+}
+
+function firstLinkedResearchItemId(document: ClientDocument): string | null {
+  const ids = document.linked?.researchItemIds
+  return Array.isArray(ids) ? cleanString(ids[0]) : null
 }
 
 function stringifySectionContent(content: unknown): string {
@@ -116,9 +166,9 @@ function taskPlanItems(plan: ApprovedDocumentTaskPlan, blocks: DocumentBlock[], 
   if (Array.isArray(plan.tasks) && plan.tasks.length > 0) return plan.tasks
   if (document?.type) {
     const template = getClientDocumentTemplate(document.type)
-    if (template.contract.taskFanout === 'none') return []
     const templatePlan = template.agentWorkflowTasks
     if (Array.isArray(templatePlan) && templatePlan.length > 0) return templatePlan
+    if (template.contract.taskFanout === 'none') return []
   }
   return blocks
     .filter((block) => ['scope', 'deliverables', 'timeline', 'rich_text'].includes(block.type))
@@ -173,8 +223,19 @@ export function buildApprovedDocumentTaskFanout(input: BuildInput): BuildSuccess
       `document-section:${block.id}`,
       ...cleanStringArray(item.labels),
     ]))
-    const dependsOn = cleanStringArray(item.dependsOn).map((dep) => keyToTaskId.get(dep) ?? dep)
+    const dependsOn = cleanStringArray(item.dependsOn).map((dep) => {
+      if (dep === 'approvalGateTaskId' || dep === 'approval-gate' || dep === '$approvalGateTaskId') return input.approvalId
+      return keyToTaskId.get(dep) ?? dep
+    })
     const agentSpec = buildAgentSpec({ item, block, document: input.document, versionId: input.versionId })
+    const defaults = defaultMetadataForTask({ document: input.document, item })
+    const reviewerAgentId = cleanString(item.reviewerAgentId) ?? defaults.reviewerAgentId
+    if (reviewerAgentId && !isValidAgentId(reviewerAgentId)) {
+      return { ok: false, error: `Invalid reviewerAgentId for task ${index + 1}`, status: 400 }
+    }
+    const requiredCapability = cleanString(item.requiredCapability) ?? defaults.requiredCapability
+    const expectedArtifacts = cleanStringArray(item.expectedArtifacts).length > 0 ? cleanStringArray(item.expectedArtifacts) : defaults.expectedArtifacts
+    const sourceResearchItemId = cleanString(item.sourceResearchItemId) ?? firstLinkedResearchItemId(input.document)
 
     const task: BuiltTask = {
       id: taskId,
@@ -198,6 +259,13 @@ export function buildApprovedDocumentTaskFanout(input: BuildInput): BuildSuccess
       sourceDocumentVersionId: input.versionId,
       sourceDocumentApprovalId: input.approvalId,
       sourceDocumentSectionId: block.id,
+      sourceSpecVersion: input.versionId,
+      sourceResearchItemId,
+      approvalGateTaskId: input.approvalId,
+      reviewerAgentId,
+      riskLevel: normalizeRiskLevel(item.riskLevel, defaults.riskLevel),
+      requiredCapability,
+      expectedArtifacts,
       linkedDocuments: [
         {
           type: 'client-document',
@@ -221,7 +289,14 @@ export function buildApprovedDocumentTaskFanout(input: BuildInput): BuildSuccess
           documentId: input.document.id,
           documentTitle: input.document.title,
           documentVersionId: input.versionId,
+          sourceSpecVersion: input.versionId,
           approvalId: input.approvalId,
+          approvalGateTaskId: input.approvalId,
+          reviewerAgentId,
+          riskLevel: normalizeRiskLevel(item.riskLevel, defaults.riskLevel),
+          requiredCapability,
+          expectedArtifacts,
+          sourceResearchItemId,
           section: {
             id: block.id,
             type: block.type,
