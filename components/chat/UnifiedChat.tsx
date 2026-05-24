@@ -929,7 +929,7 @@ export default function UnifiedChat({
                       setMenuPosition(null)
                     } else {
                       const rect = e.currentTarget.getBoundingClientRect()
-                      setMenuPosition({ top: rect.bottom + 4, left: rect.right - 128 })
+                      setMenuPosition({ top: rect.bottom + 4, left: rect.right - 176 })
                       setMenuOpenId(c.id)
                     }
                   }}
