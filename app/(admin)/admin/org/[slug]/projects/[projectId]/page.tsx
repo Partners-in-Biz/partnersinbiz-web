@@ -8,11 +8,12 @@ import Link from 'next/link'
 import { KanbanBoard } from '@/components/kanban/KanbanBoard'
 import { TaskDetailPanel } from '@/components/kanban/TaskDetailPanel'
 import { TaskComposer } from '@/components/kanban/TaskComposer'
-import HermesChat from '@/components/hermes/Chat'
+import UnifiedChat from '@/components/chat/UnifiedChat'
 import type { AgentMember, Column, Task, TeamMember } from '@/components/kanban/types'
 
 interface ProjectDoc { id: string; title: string; content?: string; type: 'brief' | 'requirements' | 'notes' | 'reference'; createdBy: string; updatedBy?: string; createdAt?: unknown; updatedAt?: unknown }
 interface Project { id: string; orgId?: string; name: string; description?: string; brief?: string; status?: string; columns: Column[] }
+interface CurrentUser { uid: string; displayName: string }
 type TaskListSort = 'latest' | 'due'
 
 function mergeLiveTasks(restTasks: Task[], currentTasks: Task[]) {
@@ -132,6 +133,8 @@ export default function ProjectDetailPage() {
   const [settingsDescription, setSettingsDescription] = useState('')
   const [savingSettings, setSavingSettings] = useState(false)
   const [settingsSaved, setSettingsSaved] = useState(false)
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
+  const [userLoadError, setUserLoadError] = useState<string | null>(null)
 
   useEffect(() => {
     // Project + docs: one-shot fetch
@@ -181,6 +184,29 @@ export default function ProjectDetailPage() {
     )
     return () => unsubscribe()
   }, [projectId])
+
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/auth/verify')
+      .then(async (res) => {
+        const body = await res.json().catch(() => null)
+        if (!res.ok) throw new Error(body?.error ?? `User load failed (${res.status})`)
+        const uid = typeof body?.uid === 'string' ? body.uid : ''
+        if (!uid) throw new Error('User load failed')
+        const displayName =
+          (typeof body?.name === 'string' && body.name.trim()) ||
+          (typeof body?.email === 'string' && body.email.trim()) ||
+          uid
+        if (!cancelled) {
+          setCurrentUser({ uid, displayName })
+          setUserLoadError(null)
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) setUserLoadError(err instanceof Error ? err.message : 'User load failed')
+      })
+    return () => { cancelled = true }
+  }, [])
 
   useEffect(() => {
     if (!project?.orgId) return
@@ -703,13 +729,35 @@ export default function ProjectDetailPage() {
       )}
 
       {activeTab === 'agent' && (
-        <div className="flex-1 overflow-auto">
-          <HermesChat
-            orgId={project?.orgId ?? ''}
-            profileEnabled={Boolean(project?.orgId)}
-            projectId={projectId}
-            projectName={project?.name}
-          />
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden -mx-4 -my-8 md:mx-0 md:my-0 h-[calc(100dvh-56px)] lg:h-[calc(100dvh-120px)]">
+          <div className="hidden shrink-0 lg:block mb-4">
+            <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">
+              Project / Agent chat
+            </p>
+            <h2 className="text-2xl font-headline font-bold text-on-surface">Project chat</h2>
+            <p className="text-sm text-on-surface-variant mt-1">
+              Same chat engine as the sidebar, scoped to this project with streaming, approvals, voice, and file uploads.
+            </p>
+          </div>
+          {!project?.orgId || !currentUser ? (
+            <div className="flex flex-1 items-center justify-center rounded-2xl border border-[var(--color-card-border)] bg-[var(--color-card)] p-6 text-center text-sm text-on-surface-variant">
+              {userLoadError ? `Project chat unavailable: ${userLoadError}` : 'Loading project chat…'}
+            </div>
+          ) : (
+            <UnifiedChat
+              orgId={project.orgId}
+              currentUserUid={currentUser.uid}
+              currentUserDisplayName={currentUser.displayName}
+              orgName={project.name}
+              projectId={projectId}
+              scope="project"
+              scopeRefId={projectId}
+              initialAgentId="pip"
+              autoCreateScopedConversation
+              autoCreateTitle={`Project: ${project.name}`}
+              allowDeleteConversations
+            />
+          )}
         </div>
       )}
 
