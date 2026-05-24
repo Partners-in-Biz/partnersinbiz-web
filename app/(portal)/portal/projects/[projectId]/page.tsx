@@ -28,6 +28,10 @@ const TYPE_COLORS: Record<string, string> = {
   reference: 'bg-purple-50 text-purple-700 border-purple-200',
 }
 
+function docContent(content: unknown): string {
+  return typeof content === 'string' ? content : ''
+}
+
 function Skeleton({ className = '' }: { className?: string }) {
   return <div className={`pib-skeleton ${className}`} />
 }
@@ -191,7 +195,7 @@ export default function ProjectDetailPage() {
   }
 
   const handleSaveDoc = async () => {
-    if (!editingDoc?.title.trim() || !editingDoc?.content.trim()) return
+    if (!editingDoc?.title.trim() || !docContent(editingDoc.content).trim()) return
 
     if (editingDoc.id) {
       await fetch(`/api/v1/projects/${projectId}/docs/${editingDoc.id}`, {
