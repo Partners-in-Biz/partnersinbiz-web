@@ -123,6 +123,77 @@ function healthTone(health: Health | null, error: string | null) {
   return health.ok === false ? 'border-amber-400/30 bg-amber-500/10 text-amber-100' : 'border-emerald-400/30 bg-emerald-500/10 text-emerald-100'
 }
 
+type ConstellationNode = OrgSummary & {
+  x: number
+  y: number
+  tone: 'risk' | 'active' | 'calm'
+}
+
+function constellationNodes(orgs: OrgSummary[], tasks: AgentTask[], approvals: Approval[]): ConstellationNode[] {
+  const fallback = orgs.length > 0 ? orgs : [{ id: 'platform', name: 'PiB Platform', slug: 'partners-in-biz' }]
+  const centerX = 50
+  const centerY = 50
+  const radius = fallback.length < 4 ? 27 : 35
+
+  return fallback.slice(0, 10).map((org, index) => {
+    const angle = (Math.PI * 2 * index) / Math.max(fallback.length, 3) - Math.PI / 2
+    const orgTasks = tasks.filter(task => task.orgId === org.id)
+    const hasRisk = orgTasks.some(task => RISK_STATUSES.has(task.agentStatus ?? '')) || approvals.some(approval => approval.orgId === org.id)
+    const hasActive = orgTasks.some(task => ACTIVE_STATUSES.has(task.agentStatus ?? ''))
+
+    return {
+      ...org,
+      x: Math.round((centerX + Math.cos(angle) * radius) * 10) / 10,
+      y: Math.round((centerY + Math.sin(angle) * radius) * 10) / 10,
+      tone: hasRisk ? 'risk' : hasActive ? 'active' : 'calm',
+    }
+  })
+}
+
+function MissionConstellation({ orgs, tasks, approvals }: { orgs: OrgSummary[]; tasks: AgentTask[]; approvals: Approval[] }) {
+  const nodes = useMemo(() => constellationNodes(orgs, tasks, approvals), [orgs, tasks, approvals])
+  const riskCount = nodes.filter(node => node.tone === 'risk').length
+  const activeCount = nodes.filter(node => node.tone === 'active').length
+
+  return (
+    <div className="relative overflow-hidden rounded-[2rem] border border-[var(--color-border)] bg-[radial-gradient(circle_at_50%_20%,rgba(150,255,214,0.12),transparent_38%),var(--color-surface)] p-4 shadow-sm sm:p-5">
+      <div className="relative z-10 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-[10px] font-label uppercase tracking-[0.25em] text-on-surface-variant">Motion layer: CSS/SVG</p>
+          <h2 className="mt-1 text-lg font-headline font-bold text-on-surface">Organisation constellation</h2>
+          <p className="mt-1 max-w-xl text-xs text-on-surface-variant">A lightweight radar map of client attention. Three.js deferred: the CSS/SVG layer keeps this fast, readable, and respectful of reduced-motion preferences.</p>
+        </div>
+        <div className="flex flex-wrap gap-2 text-[10px] uppercase tracking-wide text-on-surface-variant">
+          <span className="rounded-full bg-[var(--color-surface-container)] px-2.5 py-1">{nodes.length} nodes</span>
+          <span className="rounded-full bg-amber-500/15 px-2.5 py-1 text-amber-100">{riskCount} risk</span>
+          <span className="rounded-full bg-[var(--color-accent-subtle)] px-2.5 py-1" style={{ color: 'var(--color-accent-text)' }}>{activeCount} active</span>
+        </div>
+      </div>
+      <div data-testid="mission-control-constellation" aria-hidden="true" className="relative mt-4 h-64 overflow-hidden rounded-3xl border border-[var(--color-border)] bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:32px_32px]">
+        <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 100" role="presentation" focusable="false">
+          <circle cx="50" cy="50" r="16" className="fill-none stroke-[var(--color-border)]" strokeWidth="0.5" />
+          <circle cx="50" cy="50" r="32" className="fill-none stroke-[var(--color-border)]" strokeWidth="0.5" />
+          <g className="origin-center motion-safe:animate-[pib-radar-spin_18s_linear_infinite]">
+            <line x1="50" y1="50" x2="50" y2="10" stroke="var(--color-accent-v2)" strokeWidth="0.7" strokeLinecap="round" opacity="0.45" />
+          </g>
+          {nodes.map(node => (
+            <line key={`line-${node.id}`} x1="50" y1="50" x2={node.x} y2={node.y} className="stroke-[var(--color-border)]" strokeWidth="0.45" opacity="0.85" />
+          ))}
+        </svg>
+        {nodes.map((node, index) => (
+          <span
+            key={node.id}
+            data-constellation-node="true"
+            className={`absolute h-3 w-3 rounded-full shadow-[0_0_18px_currentColor] motion-safe:animate-[pib-node-float_5s_ease-in-out_infinite] ${node.tone === 'risk' ? 'bg-amber-300 text-amber-300' : node.tone === 'active' ? 'bg-[var(--color-accent-v2)] text-[var(--color-accent-v2)]' : 'bg-emerald-300 text-emerald-300'}`}
+            style={{ left: `${node.x}%`, top: `${node.y}%`, animationDelay: `${index * 180}ms`, transform: 'translate(-50%, -50%)' }}
+          />
+        ))}
+        <div className="absolute left-1/2 top-1/2 h-14 w-14 -translate-x-1/2 -translate-y-1/2 rounded-full border border-[var(--color-accent-v2)]/40 bg-[var(--color-surface)]/80 shadow-[0_0_40px_rgba(150,255,214,0.16)]" />
+      </div>
+    </div>
+  )
+}
+
 function Skeleton({ className = '' }: { className?: string }) {
   return <div className={`pib-skeleton ${className}`} />
 }
@@ -217,11 +288,12 @@ function ApprovalRadarItem({ approval }: { approval: Approval }) {
 }
 
 function TimelineItem({ item }: { item: Activity | AgentTask }) {
-  const title = 'note' in item
-    ? (item.note ?? item.description ?? item.entityTitle ?? item.type ?? 'Activity')
-    : item.title
-  const meta = 'agentStatus' in item ? `${item.assigneeAgentId ?? 'agent'} · ${STATUS_LABELS[item.agentStatus ?? ''] ?? item.agentStatus ?? 'Queued'}` : (item.type ?? 'activity').replace(/_/g, ' ')
-  const when = 'updatedAt' in item ? formatRelative(item.updatedAt ?? item.createdAt) : formatRelative(item.createdAt)
+  const isTask = 'title' in item
+  const title = isTask
+    ? item.title
+    : (item.note ?? item.description ?? item.entityTitle ?? item.type ?? 'Activity')
+  const meta = isTask ? `${item.assigneeAgentId ?? 'agent'} · ${STATUS_LABELS[item.agentStatus ?? ''] ?? item.agentStatus ?? 'Queued'}` : (item.type ?? 'activity').replace(/_/g, ' ')
+  const when = isTask ? formatRelative(item.updatedAt ?? item.createdAt) : formatRelative(item.createdAt)
   return (
     <div className="relative pl-6">
       <span className="absolute left-0 top-1.5 h-3 w-3 rounded-full border-2 border-[var(--color-accent-v2)] bg-[var(--color-surface)]" />
@@ -319,6 +391,8 @@ export default function MissionControlDashboard() {
           Some dashboard feeds could not load: {error}. Showing everything that is available.
         </div>
       )}
+
+      <MissionConstellation orgs={data.orgs} tasks={pulseTasks} approvals={data.approvals} />
 
       <section className="rounded-3xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 sm:p-5">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

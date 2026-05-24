@@ -237,6 +237,16 @@
     0%, 100% { opacity: 1; }
     50% { opacity: 0.6; }
   }
+
+  @keyframes pib-radar-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
+  @keyframes pib-node-float {
+    0%, 100% { translate: 0 0; opacity: 0.92; }
+    50% { translate: 0 -4px; opacity: 1; }
+  }
 }
 
 @layer components {

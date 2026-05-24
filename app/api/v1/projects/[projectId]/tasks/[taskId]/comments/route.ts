@@ -108,7 +108,7 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
       commenterRole: userRole,
       context: `task "${taskTitle}"`,
       orgId,
-      viewUrl: `/admin/org/${projectDoc.data()?.orgSlug ?? ''}/projects/${projectId}`,
+      viewUrl: `/admin/org/${projectDoc.data()?.orgSlug ?? ''}/projects/${projectId}?taskId=${encodeURIComponent(taskId)}`,
     }).catch(() => {})
 
     // Log activity event (fire and forget)

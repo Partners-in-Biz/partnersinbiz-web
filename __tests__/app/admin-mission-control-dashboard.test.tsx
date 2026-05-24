@@ -72,6 +72,45 @@ describe('Mission control dashboard', () => {
     expect(screen.getByText(/1 active task/i)).toBeInTheDocument()
   })
 
+  it('renders the motion layer as an accessible CSS/SVG progressive enhancement without a WebGL dependency', async () => {
+    global.fetch = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/organizations') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: [
+            { id: 'org-1', name: 'Acme Co', slug: 'acme', status: 'active', type: 'client', memberCount: 3 },
+            { id: 'org-2', name: 'Beta Studio', slug: 'beta', status: 'active', type: 'client', memberCount: 2 },
+          ] }),
+        } as Response)
+      }
+      if (url === '/api/v1/admin/agent-tasks?assigneeAgentId=theo') {
+        return Promise.resolve({ ok: true, json: async () => ({ data: { cards: [
+          { id: 'task-1', orgId: 'org-1', title: 'Build campaign', assigneeAgentId: 'theo', agentStatus: 'in-progress', href: '/admin/org/acme/projects/proj?task=task-1' },
+          { id: 'task-2', orgId: 'org-2', title: 'Blocked handoff', assigneeAgentId: 'theo', agentStatus: 'blocked', href: '/admin/org/beta/projects/proj?task=task-2' },
+        ] } }) } as Response)
+      }
+      if (url === '/api/v1/social/posts/pending?limit=12') {
+        return Promise.resolve({ ok: true, json: async () => ({ data: [
+          { id: 'approval-1', orgId: 'org-2', orgName: 'Beta Studio', platform: 'linkedin', content: 'Approve launch post' },
+        ] }) } as Response)
+      }
+      if (url === '/api/v1/health') {
+        return Promise.resolve({ ok: true, json: async () => ({ ok: true, services: { firestore: 'ok' } }) } as Response)
+      }
+      return Promise.resolve({ ok: true, json: async () => ({ data: [] }) } as Response)
+    }) as jest.Mock
+
+    const { container } = render(<MissionControlDashboard />)
+
+    await waitFor(() => expect(container.querySelectorAll('[data-constellation-node]')).toHaveLength(2))
+
+    expect(screen.getByText(/motion layer: css\/svg/i)).toBeInTheDocument()
+    expect(screen.getByText(/three\.js deferred/i)).toBeInTheDocument()
+    expect(screen.getByTestId('mission-control-constellation')).toHaveAttribute('aria-hidden', 'true')
+    expect(container.querySelector('canvas')).not.toBeInTheDocument()
+  })
+
   it('has excellent empty and error states', async () => {
     global.fetch = jest.fn((input: RequestInfo | URL) => {
       const url = String(input)

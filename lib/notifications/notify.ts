@@ -56,7 +56,7 @@ export async function notifyNewComment(opts: {
       if (orgDoc.exists) {
         const notifEmail = orgDoc.data()?.settings?.notificationEmail
         if (notifEmail) {
-          const html = newCommentEmail(opts.commentText, opts.commenterName, `on ${opts.context}`, `${BASE_URL}/portal/social`)
+          const html = newCommentEmail(opts.commentText, opts.commenterName, `on ${opts.context}`, absoluteAppUrl(opts.viewUrl))
           await sendEmail({ to: notifEmail, subject: `[PIB] New comment on ${opts.context}`, html })
         }
       }

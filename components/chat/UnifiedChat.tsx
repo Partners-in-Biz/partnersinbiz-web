@@ -615,6 +615,30 @@ export default function UnifiedChat({
     [activeId, allowDeleteConversations, conversations, loadConversations, loadMessages],
   )
 
+  const openConversationInNewWindow = useCallback((convId: string) => {
+    if (typeof window === 'undefined') return
+    const url = new URL(window.location.href)
+    url.searchParams.set('convId', convId)
+    url.searchParams.delete('agent')
+    url.searchParams.delete('runId')
+    url.searchParams.delete('taskId')
+    url.searchParams.delete('taskTitle')
+
+    setMenuOpenId(null)
+    setMenuPosition(null)
+    setHeaderMenuOpen(false)
+
+    const width = Math.min(1240, Math.max(860, Math.floor(window.screen.availWidth * 0.72)))
+    const height = Math.min(940, Math.max(720, Math.floor(window.screen.availHeight * 0.86)))
+    const left = Math.max(0, Math.floor((window.screen.availWidth - width) / 2))
+    const top = Math.max(0, Math.floor((window.screen.availHeight - height) / 2))
+    window.open(
+      url.toString(),
+      `pib-chat-${convId}`,
+      `noopener,noreferrer,width=${width},height=${height},left=${left},top=${top}`,
+    )
+  }, [])
+
   // ── Stop agent run ───────────────────────────────────────────────────────
   const stopAgentRun = useCallback(
     async (convId: string, msgId: string) => {
@@ -927,8 +951,16 @@ export default function UnifiedChat({
         <div
           data-conv-menu
           style={{ position: 'fixed', top: menuPosition.top, left: menuPosition.left }}
-          className="z-50 min-w-[128px] rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface,#1c1c1c)] py-1 shadow-xl"
+          className="z-50 min-w-[176px] rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface,#1c1c1c)] py-1 shadow-xl"
         >
+          <button
+            type="button"
+            className="w-full text-left px-3 py-2 text-xs text-on-surface hover:bg-[var(--color-card-hover,rgba(255,255,255,0.06))] flex items-center gap-2"
+            onClick={() => openConversationInNewWindow(menuOpenId)}
+          >
+            <span className="material-symbols-outlined text-[14px]">open_in_new</span>
+            Open in new window
+          </button>
           <button
             type="button"
             className="w-full text-left px-3 py-2 text-xs text-on-surface hover:bg-[var(--color-card-hover,rgba(255,255,255,0.06))] flex items-center gap-2"
@@ -1015,7 +1047,15 @@ export default function UnifiedChat({
                   <span className="material-symbols-outlined text-[22px]">more_horiz</span>
                 </button>
                 {headerMenuOpen && (
-                  <div className="absolute right-0 top-full mt-1 z-30 min-w-[160px] rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface,#1c1c1c)] py-1 shadow-xl">
+                  <div className="absolute right-0 top-full mt-1 z-30 min-w-[190px] rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface,#1c1c1c)] py-1 shadow-xl">
+                    <button
+                      type="button"
+                      className="w-full text-left px-3 py-2 text-sm text-on-surface hover:bg-[var(--color-card-hover,rgba(255,255,255,0.06))] flex items-center gap-2"
+                      onClick={() => openConversationInNewWindow(activeConversation.id)}
+                    >
+                      <span className="material-symbols-outlined text-[16px]">open_in_new</span>
+                      Open in new window
+                    </button>
                     <button
                       type="button"
                       className="w-full text-left px-3 py-2 text-sm text-on-surface hover:bg-[var(--color-card-hover,rgba(255,255,255,0.06))] flex items-center gap-2"

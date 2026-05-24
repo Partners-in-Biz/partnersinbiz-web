@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useSearchParams } from 'next/navigation'
 import { collection, onSnapshot } from 'firebase/firestore'
 import { getClientDb } from '@/lib/firebase/config'
 import Link from 'next/link'
@@ -106,8 +106,10 @@ function isBlockedForBoardStats(task: Task): boolean {
 
 export default function ProjectDetailPage() {
   const params = useParams()
+  const searchParams = useSearchParams()
   const slug = params.slug as string
   const projectId = params.projectId as string
+  const deepLinkedTaskId = searchParams.get('taskId')
 
   const [project, setProject] = useState<Project | null>(null)
   const [tasks, setTasks] = useState<Task[]>([])
@@ -208,6 +210,14 @@ export default function ProjectDetailPage() {
       })
     return () => { cancelled = true }
   }, [])
+
+  useEffect(() => {
+    if (!deepLinkedTaskId) return
+    const task = tasks.find(t => t.id === deepLinkedTaskId)
+    if (!task) return
+    setActiveTab('kanban')
+    setSelectedTask(task)
+  }, [deepLinkedTaskId, tasks])
 
   useEffect(() => {
     if (!project?.orgId) return
