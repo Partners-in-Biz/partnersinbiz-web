@@ -22,7 +22,13 @@ function notifIcon(type: string): string {
   return TYPE_ICONS[type] ?? 'notifications'
 }
 
-export function NotificationBell() {
+interface NotificationBellProps {
+  mode?: 'crm' | 'admin'
+  orgId?: string
+  userId?: string
+}
+
+export function NotificationBell({ mode = 'crm', orgId, userId }: NotificationBellProps = {}) {
   const [notifications, setNotifications] = useState<NotificationWithId[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [open, setOpen] = useState(false)
@@ -45,13 +51,23 @@ export function NotificationBell() {
   const fetchNotifications = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await fetch('/api/v1/crm/notifications?limit=20')
+      const endpoint = mode === 'admin'
+        ? `/api/v1/notifications?orgId=${encodeURIComponent(orgId ?? '')}&limit=20${userId ? `&userId=${encodeURIComponent(userId)}` : ''}`
+        : '/api/v1/crm/notifications?limit=20'
+      if (mode === 'admin' && !orgId) return
+      const res = await fetch(endpoint)
       if (!res.ok) return
       const body = await res.json() as {
         success?: boolean
-        data?: { notifications?: NotificationWithId[]; unreadCount?: number }
+        data?: {
+          notifications?: NotificationWithId[]
+          unreadCount?: number
+          items?: NotificationWithId[]
+        }
       }
-      const list = body.data?.notifications ?? []
+      const list = mode === 'admin'
+        ? (body.data?.items ?? [])
+        : (body.data?.notifications ?? [])
       const unread = body.data?.unreadCount ?? list.filter(n => n.status === 'unread').length
       setNotifications(list)
       setUnreadCount(unread)
@@ -60,7 +76,7 @@ export function NotificationBell() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [mode, orgId, userId])
 
   // Fetch on mount
   useEffect(() => {
@@ -78,7 +94,15 @@ export function NotificationBell() {
     setNotifications(prev => prev.map(n => ({ ...n, status: 'read' as const })))
     setUnreadCount(0)
     try {
-      await fetch('/api/v1/crm/notifications/mark-read', { method: 'POST' })
+      if (mode === 'admin') {
+        await fetch('/api/v1/notifications/read-all', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ orgId, userId }),
+        })
+      } else {
+        await fetch('/api/v1/crm/notifications/mark-read', { method: 'POST' })
+      }
     } catch {
       // silent fail — optimistic state stays
     } finally {

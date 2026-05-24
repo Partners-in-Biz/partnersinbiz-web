@@ -15,6 +15,11 @@ type SummaryStat = {
   icon: string
   tone: string
   helper: string
+  ariaLabel: string
+}
+
+type TaskWithStatusSignals = Task & {
+  status?: string | null
 }
 
 const DEFAULT_TRACKED_COLUMNS: BoardColumnLike[] = [
@@ -26,7 +31,20 @@ const DEFAULT_TRACKED_COLUMNS: BoardColumnLike[] = [
   { id: 'done', name: 'Done', color: '#4ade80' },
 ]
 
+function isTaskDone(task: Task): boolean {
+  const withStatus = task as TaskWithStatusSignals
+  const status = typeof withStatus.status === 'string' ? withStatus.status.toLowerCase() : null
+  return (
+    task.columnId === 'done' ||
+    task.agentStatus === 'done' ||
+    status === 'done' ||
+    status === 'completed' ||
+    Boolean(task.completedAt)
+  )
+}
+
 function isActiveBlocker(task: Task): boolean {
+  if (isTaskDone(task)) return false
   return task.columnId === 'blocked' || task.agentStatus === 'blocked' || task.agentStatus === 'awaiting-input'
 }
 
@@ -66,8 +84,10 @@ export function getProjectBoardSummary(tasks: Task[], columns: BoardColumnLike[]
   }
 
   const total = tasks.length
-  const done = columnCounts.get('done') ?? 0
-  const review = columnCounts.get('review') ?? 0
+  const boardDone = columnCounts.get('done') ?? 0
+  const agentDone = tasks.filter(task => task.agentStatus === 'done').length
+  const done = tasks.filter(isTaskDone).length
+  const review = tasks.filter(task => task.columnId === 'review' && !isTaskDone(task)).length
   const blocked = tasks.filter(isActiveBlocker).length
   const inProgress = columnCounts.get('in_progress') ?? 0
   const dueSoon = tasks.filter(isDueThisWeek).length
@@ -75,14 +95,14 @@ export function getProjectBoardSummary(tasks: Task[], columns: BoardColumnLike[]
   const progress = total === 0 ? 0 : Math.round((done / total) * 100)
 
   const stats: SummaryStat[] = [
-    { key: 'open', label: 'Open', value: open, icon: 'radio_button_unchecked', tone: '#60a5fa', helper: 'Not in Done' },
-    { key: 'in_progress', label: 'In progress', value: inProgress, icon: 'autorenew', tone: 'var(--color-accent-v2)', helper: 'In Progress column' },
-    { key: 'blocked', label: 'Blocked', value: blocked, icon: 'block', tone: '#ef4444', helper: 'Blocked column or agent waiting' },
-    { key: 'review', label: 'Review', value: review, icon: 'rate_review', tone: '#c084fc', helper: 'Waiting for approval' },
-    { key: 'done', label: 'Done', value: done, icon: 'check_circle', tone: '#4ade80', helper: 'Done column only' },
+    { key: 'done', label: 'Actually done', value: done, icon: 'task_alt', tone: '#4ade80', helper: `${boardDone} in Done · ${agentDone} agent-done`, ariaLabel: 'Done task count' },
+    { key: 'open', label: 'Still open', value: open, icon: 'radio_button_unchecked', tone: '#60a5fa', helper: 'Excludes Done, completed, and agent-done', ariaLabel: 'Open task count' },
+    { key: 'in_progress', label: 'In progress', value: inProgress, icon: 'autorenew', tone: 'var(--color-accent-v2)', helper: 'Cards sitting in In Progress', ariaLabel: 'In progress task count' },
+    { key: 'blocked', label: 'Blocked now', value: blocked, icon: 'block', tone: '#ef4444', helper: 'Active blocked/waiting only', ariaLabel: 'Blocked task count' },
+    { key: 'review', label: 'Needs review', value: review, icon: 'rate_review', tone: '#c084fc', helper: 'Review column not already done', ariaLabel: 'Review task count' },
   ]
 
-  return { total, done, review, blocked, inProgress, dueSoon, open, progress, columnCounts, stats, columns: trackedColumns }
+  return { total, done, boardDone, agentDone, review, blocked, inProgress, dueSoon, open, progress, columnCounts, stats, columns: trackedColumns }
 }
 
 export function ProjectBoardSummary({ tasks, columns }: { tasks: Task[]; columns: BoardColumnLike[] }) {

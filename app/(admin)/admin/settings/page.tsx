@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { useOrg } from '@/lib/contexts/OrgContext'
 import { copyToClipboard } from '@/lib/utils/clipboard'
+import { PushNotificationsToggle } from '@/components/pwa/PushNotificationsToggle'
 
 interface SessionInfo {
   email?: string | null
@@ -272,6 +273,22 @@ export default function SettingsPage() {
       </div>
 
       {/* Notification preferences */}
+      <div className="pib-card-section">
+        <div className="pib-card-section-header">
+          <div>
+            <span className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+              Device push notifications
+            </span>
+            <p className="text-xs text-on-surface-variant mt-1 normal-case tracking-normal">
+              Enable browser push delivery on this device before choosing which client alerts can use push.
+            </p>
+          </div>
+        </div>
+        <div className="px-4 py-3">
+          <PushNotificationsToggle />
+        </div>
+      </div>
+
       <div className="pib-card-section">
         <div className="pib-card-section-header">
           <div>

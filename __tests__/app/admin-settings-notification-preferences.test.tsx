@@ -13,6 +13,10 @@ jest.mock('@/lib/contexts/OrgContext', () => ({
   }),
 }))
 
+jest.mock('@/components/pwa/PushNotificationsToggle', () => ({
+  PushNotificationsToggle: () => <div data-testid="push-notifications-toggle">Push notifications device toggle</div>,
+}))
+
 describe('SettingsPage admin notification preferences', () => {
   beforeEach(() => {
     jest.clearAllMocks()
@@ -64,6 +68,7 @@ describe('SettingsPage admin notification preferences', () => {
     await waitFor(() => expect(screen.getByText('Client notification preferences')).toBeInTheDocument())
     expect(await screen.findByText('Acme Client')).toBeInTheDocument()
     expect(screen.getByText('Beta Client')).toBeInTheDocument()
+    expect(screen.getByTestId('push-notifications-toggle')).toBeInTheDocument()
 
     const acmeEmail = await screen.findByRole('switch', { name: 'Email notifications for Acme Client' })
     expect(acmeEmail).not.toBeChecked()

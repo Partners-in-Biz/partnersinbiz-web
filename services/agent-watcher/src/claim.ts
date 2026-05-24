@@ -10,7 +10,7 @@
  *   older than 5 minutes and resets them to 'pending' so they can be re-claimed.
  */
 import type { DocumentReference, Firestore } from 'firebase-admin/firestore'
-import { db, FieldValue, Timestamp } from './firestore'
+import { db, FieldValue } from './firestore'
 import { logger } from './logger'
 import { agentStatusUpdate } from './task-updates'
 import { getUnresolvedDependencyIds, hasPendingApprovalGate } from './eligibility'
@@ -106,40 +106,64 @@ export function startHeartbeat(taskRef: DocumentReference): () => void {
 
 let sweeperHandle: NodeJS.Timeout | null = null
 
+function heartbeatMillis(value: unknown): number | null {
+  if (!value) return null
+  if (typeof value === 'object' && value !== null && 'toMillis' in value && typeof (value as { toMillis: () => number }).toMillis === 'function') {
+    try { return (value as { toMillis: () => number }).toMillis() } catch { return null }
+  }
+  if (typeof value === 'object' && value !== null && 'toDate' in value && typeof (value as { toDate: () => Date }).toDate === 'function') {
+    try { return (value as { toDate: () => Date }).toDate().getTime() } catch { return null }
+  }
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string') {
+    const millis = Date.parse(value)
+    return Number.isFinite(millis) ? millis : null
+  }
+  return null
+}
+
+export async function sweepStaleTasks(now = Date.now()): Promise<number> {
+  const cutoffMillis = now - STALE_THRESHOLD_MS
+  const snap = await db
+    .collectionGroup('tasks')
+    .where('agentStatus', 'in', ['picked-up', 'in-progress'])
+    .get()
+
+  if (snap.empty) return 0
+
+  let reclaimed = 0
+  const batchSize = 400
+  let batch = db.batch()
+  let opsInBatch = 0
+  for (const doc of snap.docs) {
+    const data = doc.data() ?? {}
+    const heartbeat = heartbeatMillis(data.agentHeartbeatAt)
+    if (heartbeat !== null && heartbeat >= cutoffMillis) continue
+
+    batch.update(doc.ref, {
+      ...agentStatusUpdate('pending'),
+      agentHeartbeatAt: FieldValue.delete(),
+      updatedAt: FieldValue.serverTimestamp(),
+    })
+    opsInBatch++
+    reclaimed++
+    if (opsInBatch >= batchSize) {
+      await batch.commit()
+      batch = db.batch()
+      opsInBatch = 0
+    }
+  }
+  if (opsInBatch > 0) {
+    await batch.commit()
+  }
+
+  return reclaimed
+}
+
 export function startStaleSweeper(): () => void {
   async function sweepOnce() {
-    const cutoff = Timestamp.fromMillis(Date.now() - STALE_THRESHOLD_MS)
     try {
-      const snap = await db
-        .collectionGroup('tasks')
-        .where('agentStatus', 'in', ['picked-up', 'in-progress'])
-        .where('agentHeartbeatAt', '<', cutoff)
-        .get()
-
-      if (snap.empty) return
-
-      let reclaimed = 0
-      const batchSize = 400
-      let batch = db.batch()
-      let opsInBatch = 0
-      for (const doc of snap.docs) {
-        batch.update(doc.ref, {
-          ...agentStatusUpdate('pending'),
-          agentHeartbeatAt: FieldValue.delete(),
-          updatedAt: FieldValue.serverTimestamp(),
-        })
-        opsInBatch++
-        reclaimed++
-        if (opsInBatch >= batchSize) {
-          await batch.commit()
-          batch = db.batch()
-          opsInBatch = 0
-        }
-      }
-      if (opsInBatch > 0) {
-        await batch.commit()
-      }
-
+      const reclaimed = await sweepStaleTasks()
       if (reclaimed > 0) {
         logger.info('stale sweeper reclaimed tasks', { count: reclaimed })
       }

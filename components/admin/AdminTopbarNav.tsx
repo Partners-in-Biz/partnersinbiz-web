@@ -7,6 +7,7 @@ import { useState, useEffect, useRef } from 'react'
 import type { ReactNode } from 'react'
 import { useOrg } from '@/lib/contexts/OrgContext'
 import { OrgSwitcher } from './OrgSwitcher'
+import { NotificationBell } from '@/components/crm/NotificationBell'
 import {
   OPERATOR_NAV_TOPBAR,
   workspaceNav,
@@ -15,6 +16,8 @@ import {
 
 interface AdminTopbarNavProps {
   userEmail: string
+  userUid: string
+  orgId: string
   onToggleLayout: () => void
   messageAction?: ReactNode
 }
@@ -121,7 +124,7 @@ function NavItemRenderer({ item, pathname }: { item: NavItem; pathname: string }
 
 // ── Main topbar nav ─────────────────────────────────────────────────────────
 
-export function AdminTopbarNav({ userEmail, messageAction }: AdminTopbarNavProps) {
+export function AdminTopbarNav({ userEmail, userUid, orgId, messageAction }: AdminTopbarNavProps) {
   const pathname = usePathname()
   const { selectedOrgId, orgs } = useOrg()
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -167,6 +170,7 @@ export function AdminTopbarNav({ userEmail, messageAction }: AdminTopbarNavProps
 
           {/* Right side */}
           <div className="flex items-center gap-2 ml-auto shrink-0">
+            <NotificationBell mode="admin" orgId={orgId} userId={userUid} />
             {messageAction}
             {/* Temporarily hidden while the admin layout switcher is being revisited.
             <button

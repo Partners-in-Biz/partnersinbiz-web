@@ -1,13 +1,16 @@
 import type { ReactNode } from 'react'
+import { NotificationBell } from '@/components/crm/NotificationBell'
 
 interface AdminTopbarProps {
   userEmail: string
+  userUid: string
+  orgId: string
   onMenuClick?: () => void
   onToggleLayout?: () => void
   messageAction?: ReactNode
 }
 
-export function AdminTopbar({ userEmail, onMenuClick, messageAction }: AdminTopbarProps) {
+export function AdminTopbar({ userEmail, userUid, orgId, onMenuClick, messageAction }: AdminTopbarProps) {
   const initials = userEmail.split(/[.\s@]/).filter(Boolean).slice(0, 2).map((s) => s[0]?.toUpperCase()).join('')
 
   return (
@@ -30,6 +33,7 @@ export function AdminTopbar({ userEmail, onMenuClick, messageAction }: AdminTopb
         </span>
       </div>
       <div className="flex items-center gap-3 md:gap-4">
+        <NotificationBell mode="admin" orgId={orgId} userId={userUid} />
         {messageAction}
         {/* Temporarily hidden while the admin layout switcher is being revisited.
         <button

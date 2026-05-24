@@ -89,7 +89,13 @@ export function AdminShell({ userEmail, userUid, children }: AdminShellProps) {
     return (
       <div data-message-push-root className="flex flex-col h-screen overflow-hidden bg-[var(--color-pib-bg)] text-[var(--color-pib-text)]">
         <WelcomeFlashHandler />
-        <AdminTopbarNav userEmail={userEmail} onToggleLayout={toggleLayout} messageAction={messageAction} />
+        <AdminTopbarNav
+          userEmail={userEmail}
+          userUid={userUid}
+          orgId={drawerOrgId}
+          onToggleLayout={toggleLayout}
+          messageAction={messageAction}
+        />
         <main className={mainClassName}>
           <div className={innerClassName}>
             {children}
@@ -106,6 +112,8 @@ export function AdminShell({ userEmail, userUid, children }: AdminShellProps) {
       <div className="flex flex-col flex-1 overflow-hidden min-w-0">
         <AdminTopbar
           userEmail={userEmail}
+          userUid={userUid}
+          orgId={drawerOrgId}
           onMenuClick={openSidebar}
           onToggleLayout={toggleLayout}
           messageAction={messageAction}
