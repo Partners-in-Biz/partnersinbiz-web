@@ -11,7 +11,7 @@ import { TaskComposer } from '@/components/kanban/TaskComposer'
 import HermesChat from '@/components/hermes/Chat'
 import type { AgentMember, Column, Task, TeamMember } from '@/components/kanban/types'
 
-interface ProjectDoc { id: string; title: string; content: string; type: 'brief' | 'requirements' | 'notes' | 'reference'; createdBy: string; updatedBy?: string; createdAt?: unknown; updatedAt?: unknown }
+interface ProjectDoc { id: string; title: string; content?: string; type: 'brief' | 'requirements' | 'notes' | 'reference'; createdBy: string; updatedBy?: string; createdAt?: unknown; updatedAt?: unknown }
 interface Project { id: string; orgId?: string; name: string; description?: string; brief?: string; status?: string; columns: Column[] }
 type TaskListSort = 'latest' | 'due'
 
@@ -38,8 +38,12 @@ const TYPE_COLORS: Record<string, string> = {
   reference: 'border-[var(--color-card-border)] bg-[var(--color-card)] text-on-surface-variant',
 }
 
-function docPreview(content: string): string {
-  const preview = content.replace(/\s+/g, ' ').trim()
+function docContent(content: unknown): string {
+  return typeof content === 'string' ? content : ''
+}
+
+function docPreview(content: unknown): string {
+  const preview = docContent(content).replace(/\s+/g, ' ').trim()
   if (!preview) return 'No preview content yet.'
   return preview.length > 180 ? `${preview.slice(0, 180).trim()}…` : preview
 }
@@ -245,13 +249,13 @@ export default function ProjectDetailPage() {
   }
 
   const handleSaveDoc = async () => {
-    if (!editingDoc?.title.trim() || !editingDoc?.content.trim()) return
+    if (!editingDoc?.title.trim() || !docContent(editingDoc.content).trim()) return
 
     if (editingDoc.id) {
       await fetch(`/api/v1/projects/${projectId}/docs/${editingDoc.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: editingDoc.title, content: editingDoc.content, type: editingDoc.type }),
+        body: JSON.stringify({ title: editingDoc.title, content: docContent(editingDoc.content), type: editingDoc.type }),
       })
       setDocs(prev => prev.map(d => d.id === editingDoc.id ? editingDoc : d))
       setSelectedDoc(prev => prev?.id === editingDoc.id ? editingDoc : prev)
@@ -259,7 +263,7 @@ export default function ProjectDetailPage() {
       const res = await fetch(`/api/v1/projects/${projectId}/docs`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: editingDoc.title, content: editingDoc.content, type: editingDoc.type }),
+        body: JSON.stringify({ title: editingDoc.title, content: docContent(editingDoc.content), type: editingDoc.type }),
       })
       const body = await res.json()
       if (body.data?.id) {
@@ -610,7 +614,7 @@ export default function ProjectDetailPage() {
                 </select>
                 <textarea
                   placeholder="Content (markdown)..."
-                  value={editingDoc.content}
+                  value={docContent(editingDoc.content)}
                   onChange={e => setEditingDoc({ ...editingDoc, content: e.target.value })}
                   className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-[var(--color-accent-v2)]"
                   rows={10}
@@ -663,7 +667,7 @@ export default function ProjectDetailPage() {
                             <button onClick={() => setEditingDoc(selectedDoc)} className="pib-btn-secondary text-xs font-label">Edit</button>
                           </div>
                           <div className="max-h-[520px] overflow-auto whitespace-pre-wrap rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-4 text-sm leading-6 text-on-surface">
-                            {selectedDoc.content || 'This document is empty.'}
+                            {docContent(selectedDoc.content) || 'This document is empty.'}
                           </div>
                         </div>
                       ) : (

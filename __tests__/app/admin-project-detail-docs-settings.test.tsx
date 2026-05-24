@@ -90,6 +90,13 @@ function mockFetch() {
               createdBy: 'theo',
               updatedAt: '2026-05-22T10:00:00.000Z',
             },
+            {
+              id: 'doc-legacy-empty',
+              title: 'Legacy Empty Doc',
+              type: 'notes',
+              createdBy: 'theo',
+              updatedAt: '2026-05-22T11:00:00.000Z',
+            },
           ],
         }),
       } as Response)
@@ -167,6 +174,8 @@ describe('Admin project docs and settings tabs', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Docs' }))
 
     await waitFor(() => expect(screen.getByText('Delivery Plan')).toBeInTheDocument())
+    expect(screen.getByText('Legacy Empty Doc')).toBeInTheDocument()
+    expect(screen.getByText('No preview content yet.')).toBeInTheDocument()
     expect(screen.getByText('Select a document')).toBeInTheDocument()
     expect(screen.queryByText(/Unique full ending/)).not.toBeInTheDocument()
 
