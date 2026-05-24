@@ -279,8 +279,7 @@ export default function ProjectDetailPage() {
   const selectedColumn = columns.find(c => c.id === selectedTask?.columnId)
   const composerColumn = columns.find(c => c.id === showNewTask) ?? null
   const doneCount = tasks.filter(t => t.columnId === 'done').length
-  const blockedCount = tasks.filter(t => t.labels?.some(label => label.toLowerCase() === 'blocked')).length
-  const mediaCount = tasks.reduce((sum, task) => sum + (task.attachments?.length ?? 0), 0)
+  const blockedCount = tasks.filter(t => t.columnId === 'blocked' || t.labels?.some(label => label.toLowerCase() === 'blocked')).length
   const dueSoonCount = tasks.filter(isDueThisWeek).length
   const sortedListTasks = [...tasks].sort((a, b) => {
     if (taskListSort === 'latest') {
@@ -367,23 +366,18 @@ export default function ProjectDetailPage() {
       {/* Tab Content */}
       {activeTab === 'kanban' && (
         <>
-          <div className="mb-3 grid shrink-0 grid-cols-4 gap-2 rounded-2xl border border-[var(--color-card-border)] bg-gradient-to-r from-[var(--color-card)] to-[var(--color-surface-container)] p-2 shadow-sm md:mb-4 md:gap-3 md:bg-none md:p-0 md:shadow-none">
-            <div className="rounded-xl border border-white/5 bg-black/10 px-2 py-2 md:border-[var(--color-card-border)] md:bg-[var(--color-card)] md:p-3">
-              <p className="text-[8px] font-label uppercase tracking-widest text-on-surface-variant md:text-[10px]">Tasks</p>
-              <p className="mt-0.5 text-lg font-headline font-bold text-on-surface md:mt-1 md:text-2xl">{tasks.length}</p>
-            </div>
-            <div className="rounded-xl border border-white/5 bg-black/10 px-2 py-2 md:border-[var(--color-card-border)] md:bg-[var(--color-card)] md:p-3">
-              <p className="text-[8px] font-label uppercase tracking-widest text-on-surface-variant md:text-[10px]">Due</p>
-              <p className="mt-0.5 text-lg font-headline font-bold text-on-surface md:mt-1 md:text-2xl">{dueSoonCount}</p>
-            </div>
-            <div className="rounded-xl border border-white/5 bg-black/10 px-2 py-2 md:border-[var(--color-card-border)] md:bg-[var(--color-card)] md:p-3">
-              <p className="text-[8px] font-label uppercase tracking-widest text-on-surface-variant md:text-[10px]">Media</p>
-              <p className="mt-0.5 text-lg font-headline font-bold text-on-surface md:mt-1 md:text-2xl">{mediaCount}</p>
-            </div>
-            <div className="rounded-xl border border-white/5 bg-black/10 px-2 py-2 md:border-[var(--color-card-border)] md:bg-[var(--color-card)] md:p-3">
-              <p className="text-[8px] font-label uppercase tracking-widest text-on-surface-variant md:text-[10px]">Done</p>
-              <p className="mt-0.5 text-lg font-headline font-bold text-on-surface md:mt-1 md:text-2xl">{doneCount}<span className="text-on-surface-variant">/{blockedCount}</span></p>
-            </div>
+          <div className="mb-3 grid shrink-0 grid-cols-2 gap-2 md:mb-4 md:grid-cols-4 md:gap-3">
+            {[
+              { label: 'Tasks', value: tasks.length },
+              { label: 'Due', value: dueSoonCount },
+              { label: 'Blocked', value: blockedCount },
+              { label: 'Done', value: doneCount },
+            ].map(stat => (
+              <div key={stat.label} className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)] p-3 shadow-sm">
+                <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">{stat.label}</p>
+                <p className="mt-1 text-2xl font-headline font-bold text-on-surface">{stat.value}</p>
+              </div>
+            ))}
           </div>
 
           <div className="mb-3 flex shrink-0 items-center justify-between gap-3 md:mb-4">

@@ -123,6 +123,16 @@ function mockFetch() {
               assigneeIds: [],
               attachments: [],
             },
+            {
+              id: 'task-3',
+              title: 'Resolve production blocker',
+              columnId: 'blocked',
+              order: 3,
+              priority: 'high',
+              createdAt: '2026-05-24T09:00:00.000Z',
+              assigneeIds: [],
+              attachments: [],
+            },
           ],
         }),
       } as Response)
@@ -173,6 +183,16 @@ describe('Admin project docs and settings tabs', () => {
     await waitFor(() => expect(screen.getByText('Manage this board')).toBeInTheDocument())
     expect(screen.getByLabelText('Project Name')).toHaveValue('Client Website')
     expect(screen.getByText('Current board')).toBeInTheDocument()
+  })
+
+  it('shows separate kanban stat cards for done and blocked tasks', async () => {
+    render(<ProjectDetailPage />)
+
+    await waitFor(() => expect(screen.getByText('Resolve production blocker')).toBeInTheDocument())
+
+    expect(screen.getByText('Tasks').nextElementSibling).toHaveTextContent('3')
+    expect(screen.getByText('Done').nextElementSibling).toHaveTextContent('0')
+    expect(screen.getByText('Blocked').nextElementSibling).toHaveTextContent('1')
   })
 
   it('uses the compact mobile list instead of the wide board by default on phones', async () => {
