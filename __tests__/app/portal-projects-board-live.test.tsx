@@ -76,6 +76,12 @@ describe('Portal projects board live data', () => {
     })
 
     expect(screen.getByText('Live task from Firestore — Launch Site')).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByRole('button', { name: /manual order/i })).toBeInTheDocument())
+    const boardButton = screen.getByRole('button', { name: /view_kanban\s+board/i })
+    const manualOrderButton = screen.getByRole('button', { name: /manual order/i })
+    const toolbar = boardButton.parentElement?.parentElement
+    expect(toolbar).toHaveClass('justify-between')
+    expect(toolbar).toContainElement(manualOrderButton)
   })
 
   it('keeps live task changes that arrive before the REST fallback finishes', async () => {

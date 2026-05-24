@@ -549,18 +549,7 @@ export default function ProjectsPage() {
           ))}
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
-          {viewMode === 'board' && !boardLoading && boardTasks.length > 0 && (
-            <button
-              type="button"
-              onClick={() => setBoardSortMode(prev => prev === 'latest' ? 'manual' : 'latest')}
-              className="inline-flex items-center gap-2 rounded-[var(--radius-btn)] border border-[var(--color-card-border)] px-3 py-1.5 text-xs font-label uppercase tracking-wide text-on-surface-variant transition-colors hover:text-on-surface"
-              aria-pressed={boardSortMode === 'manual'}
-            >
-              <span className="material-symbols-outlined text-[16px]">sort</span>
-              {boardSortMode === 'latest' ? 'Manual order' : 'Latest first'}
-            </button>
-          )}
+        <div className="flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-end">
           <div
             className="flex rounded-[var(--radius-btn)] overflow-hidden border"
             style={{ borderColor: 'var(--color-outline)' }}
@@ -583,6 +572,17 @@ export default function ProjectsPage() {
               </button>
             ))}
           </div>
+          {viewMode === 'board' && !boardLoading && boardTasks.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setBoardSortMode(prev => prev === 'latest' ? 'manual' : 'latest')}
+              className="inline-flex shrink-0 items-center gap-2 rounded-[var(--radius-btn)] border border-[var(--color-card-border)] px-3 py-1.5 text-xs font-label uppercase tracking-wide text-on-surface-variant transition-colors hover:text-on-surface"
+              aria-pressed={boardSortMode === 'manual'}
+            >
+              <span className="material-symbols-outlined text-[16px]">sort</span>
+              {boardSortMode === 'latest' ? 'Manual order' : 'Latest first'}
+            </button>
+          )}
         </div>
       </div>
 
