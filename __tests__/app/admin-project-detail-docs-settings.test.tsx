@@ -7,6 +7,7 @@ const unsubscribe = jest.fn()
 
 jest.mock('next/navigation', () => ({
   useParams: () => ({ slug: 'acme-client', projectId: 'project-1' }),
+  useSearchParams: () => ({ get: jest.fn(() => null) }),
 }))
 
 jest.mock('firebase/firestore', () => ({
@@ -205,14 +206,15 @@ describe('Admin project docs and settings tabs', () => {
     expect(screen.getByText('Current board')).toBeInTheDocument()
   })
 
-  it('shows separate kanban stat cards for done and blocked tasks', async () => {
+  it('shows the board-progress summary with done and active blocker counts', async () => {
     render(<ProjectDetailPage />)
 
     await waitFor(() => expect(screen.getByText('Resolve production blocker')).toBeInTheDocument())
 
-    expect(screen.getByText('Tasks').nextElementSibling).toHaveTextContent('4')
-    expect(screen.getByText('Done').nextElementSibling).toHaveTextContent('1')
-    expect(screen.getByText('Blocked').nextElementSibling).toHaveTextContent('1')
+    expect(screen.getByLabelText('Done task progress')).toHaveTextContent('1 / 4')
+    expect(screen.getByLabelText('Open task count')).toHaveTextContent('3')
+    expect(screen.getByLabelText('Done task count')).toHaveTextContent('1')
+    expect(screen.getByLabelText('Blocked task count')).toHaveTextContent('1')
     expect(screen.queryByText('Done / blocked')).not.toBeInTheDocument()
   })
 

@@ -114,15 +114,16 @@ describe('Portal project detail kanban stat cards', () => {
     mockFetch()
   })
 
-  it('uses separate board-parity stat cards and ignores stale blocked labels outside active blockers', async () => {
+  it('uses a board-progress summary and ignores stale blocked labels outside active blockers', async () => {
     render(<ProjectDetailPage />)
 
     await waitFor(() => expect(screen.getByText('Board blocker')).toBeInTheDocument())
 
-    expect(screen.getByText('Tasks').nextElementSibling).toHaveTextContent('3')
-    expect(screen.getByText('Due').nextElementSibling).toHaveTextContent('1')
-    expect(screen.getByText('Blocked').nextElementSibling).toHaveTextContent('1')
-    expect(screen.getByText('Done').nextElementSibling).toHaveTextContent('1')
+    expect(screen.getByLabelText('Done task progress')).toHaveTextContent('1 / 3')
+    expect(screen.getByLabelText('Open task count')).toHaveTextContent('2')
+    expect(screen.getByLabelText('Blocked task count')).toHaveTextContent('1')
+    expect(screen.getByLabelText('Done task count')).toHaveTextContent('1')
+    expect(screen.getByText('Due this week', { exact: false })).toHaveTextContent('1 due this week')
     expect(screen.queryByText('Media')).not.toBeInTheDocument()
     expect(screen.queryByText('Done / blocked')).not.toBeInTheDocument()
   })
@@ -138,8 +139,8 @@ describe('Portal project detail kanban stat cards', () => {
     })
 
     expect(screen.getByText('Live blocked task')).toBeInTheDocument()
-    expect(screen.getByText('Tasks').nextElementSibling).toHaveTextContent('4')
-    expect(screen.getByText('Blocked').nextElementSibling).toHaveTextContent('2')
+    expect(screen.getByLabelText('Done task progress')).toHaveTextContent('1 / 4')
+    expect(screen.getByLabelText('Blocked task count')).toHaveTextContent('2')
   })
 
   it('keeps the board/list toggle and manual order control on one spaced toolbar row', async () => {
