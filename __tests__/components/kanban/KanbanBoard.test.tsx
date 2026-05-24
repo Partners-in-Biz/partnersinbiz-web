@@ -92,4 +92,32 @@ describe('KanbanBoard task cards', () => {
     expect(scope.getByText('End')).toBeInTheDocument()
     expect(scope.getAllByText(/\d{1,2}:\d{2}/).length).toBeGreaterThanOrEqual(2)
   })
+
+  it('shows blocked cards with visible unblock guidance on the board', () => {
+    render(
+      <KanbanBoard
+        columns={[{ id: 'blocked', name: 'Blocked', color: '#ef4444', order: 1 }]}
+        tasks={[{
+          ...task,
+          id: 'task-blocked',
+          title: 'Blocked card',
+          columnId: 'blocked',
+          agentStatus: 'blocked',
+          assigneeAgentId: 'theo',
+          agentOutput: { summary: 'Waiting on client confirmation. Evidence required: approval comment. Message for agent: confirmation received.' },
+        }]}
+        onTaskMove={jest.fn()}
+        onTaskClick={jest.fn()}
+        onAddTask={jest.fn()}
+      />,
+    )
+
+    const card = screen.getByText('Blocked card').closest('.pib-card')
+    expect(card).not.toBeNull()
+    const scope = within(card as HTMLElement)
+    expect(scope.getByText(/Blocked:/)).toBeInTheDocument()
+    expect(scope.getByText(/Waiting on client confirmation/i)).toBeInTheDocument()
+    expect(scope.getByText(/Unblock:/)).toBeInTheDocument()
+    expect(scope.getAllByText(/client confirmation/i).length).toBeGreaterThan(0)
+  })
 })
