@@ -333,7 +333,7 @@ export default function ProjectsPage() {
           ))}
         </div>
 
-        <div className="flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-end">
+        <div className="flex w-full items-center justify-between gap-3 sm:w-auto sm:justify-end">
           <div
             className="flex rounded-[var(--radius-btn)] overflow-hidden border"
             style={{ borderColor: 'var(--color-outline)' }}

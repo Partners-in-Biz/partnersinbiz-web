@@ -81,6 +81,7 @@ describe('Portal projects board live data', () => {
     const manualOrderButton = screen.getByRole('button', { name: /manual order/i })
     const toolbar = boardButton.parentElement?.parentElement
     expect(toolbar).toHaveClass('justify-between')
+    expect(toolbar).toHaveClass('gap-3')
     expect(toolbar).toContainElement(manualOrderButton)
   })
 

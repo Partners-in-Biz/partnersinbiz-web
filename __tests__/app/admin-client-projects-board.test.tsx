@@ -97,6 +97,7 @@ describe('Admin client projects board view', () => {
     const manualOrderButton = screen.getByRole('button', { name: /manual order/i })
     const toolbar = boardButton.parentElement?.parentElement
     expect(toolbar).toHaveClass('justify-between')
+    expect(toolbar).toHaveClass('gap-3')
     expect(toolbar).toContainElement(manualOrderButton)
     fireEvent.click(manualOrderButton)
 
