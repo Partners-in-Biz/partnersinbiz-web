@@ -90,7 +90,29 @@ describe('client document templates', () => {
 
     expect(template.label).toBe('Research Report')
     expect(template.approvalMode).toBe('operational')
-    expect(template.requiredBlockTypes).toEqual(['hero', 'summary', 'deliverables', 'gallery', 'callout', 'approval'])
+    expect(template.requiredBlockTypes).toEqual([
+      'summary',
+      'problem',
+      'rich_text',
+      'table',
+      'deliverables',
+      'metrics',
+      'risk',
+      'callout',
+      'approval',
+    ])
+    expect(template.defaultBlocks.map((block) => block.id)).toEqual([
+      'research_question',
+      'context_hypothesis',
+      'methodology',
+      'source_ledger',
+      'findings',
+      'confidence',
+      'contradictions_unknowns',
+      'recommendations',
+      'evidence_appendix',
+      'decision_needed',
+    ])
   })
 
   it('exposes typed metadata contracts for build specs, research reports, and change requests', () => {
@@ -106,7 +128,17 @@ describe('client document templates', () => {
       approvalMode: 'operational',
       taskFanout: 'none',
       aiPromptKey: 'client_documents.research_report',
-      recommendedBlockTypes: ['hero', 'summary', 'deliverables', 'gallery', 'callout', 'approval'],
+      recommendedBlockTypes: [
+        'summary',
+        'problem',
+        'rich_text',
+        'table',
+        'deliverables',
+        'metrics',
+        'risk',
+        'callout',
+        'approval',
+      ],
     })
     expect(getClientDocumentTemplate('change_request').contract).toMatchObject({
       purpose: 'scope_change_approval',

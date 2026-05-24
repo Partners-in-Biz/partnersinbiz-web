@@ -2,10 +2,16 @@ import { getClientDocumentTemplate } from './templates'
 import type { ClientDocumentType } from './types'
 
 export type ClientDocumentAiPromptSection =
-  | 'evidence'
+  | 'researchQuestion'
+  | 'contextHypothesis'
+  | 'methodology'
+  | 'sourceLedger'
+  | 'findings'
   | 'confidence'
-  | 'contradictions'
-  | 'decisions'
+  | 'contradictionsUnknowns'
+  | 'recommendations'
+  | 'evidenceAppendix'
+  | 'decisionNeeded'
   | 'requirements'
   | 'technicalApproach'
   | 'apiDataChanges'
@@ -33,10 +39,16 @@ export interface BuildClientDocumentAiPromptInput {
 }
 
 const RESEARCH_REQUIRED_SECTIONS: ClientDocumentAiPromptSection[] = [
-  'evidence',
+  'researchQuestion',
+  'contextHypothesis',
+  'methodology',
+  'sourceLedger',
+  'findings',
   'confidence',
-  'contradictions',
-  'decisions',
+  'contradictionsUnknowns',
+  'recommendations',
+  'evidenceAppendix',
+  'decisionNeeded',
 ]
 
 const ENGINEERING_REQUIRED_SECTIONS: ClientDocumentAiPromptSection[] = [
@@ -55,10 +67,16 @@ const GENERAL_REQUIRED_SECTIONS: ClientDocumentAiPromptSection[] = [
 ]
 
 const RESEARCH_INSTRUCTIONS = [
-  'Evidence: list the specific facts, sources, observations, or artifacts that support each finding.',
-  'Confidence: assign a confidence level to each major finding and explain why it is not higher.',
-  'Contradictions: call out disputed, stale, weak, or conflicting evidence instead of smoothing it over.',
-  'Decisions: separate decisions already made from recommendations that still need approval.',
+  'Research question: state the exact question this report answers or the decision it supports.',
+  'Context / hypothesis: explain the starting context, working hypothesis, and boundaries of the research.',
+  'Methodology: describe how the evidence was gathered, screened, and synthesised.',
+  'Source ledger: list each source with title, type, publisher/date where known, confidence, verification status, and URL/media reference.',
+  'Findings: present evidence-backed findings only, with linked source IDs and finding-level confidence.',
+  'Confidence: summarize overall confidence, verified-source coverage, and why confidence is not higher.',
+  'Contradictions / unknowns: call out disputed, stale, weak, missing, or conflicting evidence instead of smoothing it over.',
+  'Recommendations: separate recommended actions from findings, with source IDs and priority/status where known.',
+  'Evidence appendix: preserve excerpts, raw observations, and source IDs so reviewers can audit the claims.',
+  'Decision needed: state what should be decided next and whether a separate spec/change request is required before implementation tasks exist.',
 ]
 
 const ENGINEERING_INSTRUCTIONS = [

@@ -173,6 +173,26 @@ describe('buildApprovedDocumentTaskFanout', () => {
     expect(result.tasks[3].labels).toEqual(expect.arrayContaining(['approved-only', 'linked-artifacts-required']))
   })
 
+  it('does not auto-create implementation tasks from a research report without an explicit later plan', () => {
+    const result = buildApprovedDocumentTaskFanout({
+      document: {
+        ...document,
+        id: 'research-doc-1',
+        title: 'Audience Research Report',
+        type: 'research_report',
+        templateId: 'research-report-v1',
+      },
+      versionId: 'version-1',
+      approvalId: 'approval-1',
+      blocks: createBlocksFromTemplate('research_report'),
+      actorId: 'ai-agent',
+      taskRefs: ['task-1', 'task-2', 'task-3'],
+      plan: {},
+    })
+
+    expect(result).toEqual({ ok: false, error: 'No task plan items were provided', status: 400 })
+  })
+
   it('rejects generation unless the document has a linked project', () => {
     const result = buildApprovedDocumentTaskFanout({
       document: { ...document, id: 'doc-1', linked: {} },

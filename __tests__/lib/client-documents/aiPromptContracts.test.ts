@@ -4,16 +4,22 @@ import {
 } from '@/lib/client-documents/aiPromptContracts'
 
 describe('client document AI prompt contracts', () => {
-  it('selects a research contract that asks for evidence, confidence, contradictions, and decisions', () => {
+  it('selects a research-native contract for polished research reports', () => {
     const contract = getClientDocumentAiPromptContract('research_report')
 
     expect(contract.key).toBe('client_documents.research_report')
-    expect(contract.requiredSections).toEqual(expect.arrayContaining([
-      'evidence',
+    expect(contract.requiredSections).toEqual([
+      'researchQuestion',
+      'contextHypothesis',
+      'methodology',
+      'sourceLedger',
+      'findings',
       'confidence',
-      'contradictions',
-      'decisions',
-    ]))
+      'contradictionsUnknowns',
+      'recommendations',
+      'evidenceAppendix',
+      'decisionNeeded',
+    ])
     expect(contract.requiredSections).not.toContain('technicalApproach')
     expect(contract.requiredSections).not.toContain('rollback')
   })
@@ -31,8 +37,8 @@ describe('client document AI prompt contracts', () => {
         'rollback',
         'taskBreakdown',
       ]))
-      expect(contract.requiredSections).not.toContain('contradictions')
-      expect(contract.requiredSections).not.toContain('decisions')
+      expect(contract.requiredSections).not.toContain('contradictionsUnknowns')
+      expect(contract.requiredSections).not.toContain('decisionNeeded')
     },
   )
 
@@ -53,10 +59,10 @@ describe('client document AI prompt contracts', () => {
       sourceMaterial: 'Assess impact of a new API requirement.',
     })
 
-    expect(researchPrompt).toContain('Evidence')
-    expect(researchPrompt).toContain('Confidence')
-    expect(researchPrompt).toContain('Contradictions')
-    expect(researchPrompt).toContain('Decisions')
+    expect(researchPrompt).toContain('Research question')
+    expect(researchPrompt).toContain('Source ledger')
+    expect(researchPrompt).toContain('Evidence appendix')
+    expect(researchPrompt).toContain('Decision needed')
     expect(researchPrompt).not.toContain('Rollback plan')
 
     expect(buildSpecPrompt).toContain('Technical approach')

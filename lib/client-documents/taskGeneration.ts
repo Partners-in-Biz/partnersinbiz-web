@@ -115,7 +115,9 @@ function linkedArtifactsForDocument(document: ClientDocument & { id: string }) {
 function taskPlanItems(plan: ApprovedDocumentTaskPlan, blocks: DocumentBlock[], document?: ClientDocument): ApprovedDocumentTaskPlanItem[] {
   if (Array.isArray(plan.tasks) && plan.tasks.length > 0) return plan.tasks
   if (document?.type) {
-    const templatePlan = getClientDocumentTemplate(document.type).agentWorkflowTasks
+    const template = getClientDocumentTemplate(document.type)
+    if (template.contract.taskFanout === 'none') return []
+    const templatePlan = template.agentWorkflowTasks
     if (Array.isArray(templatePlan) && templatePlan.length > 0) return templatePlan
   }
   return blocks
