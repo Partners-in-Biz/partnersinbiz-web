@@ -23,6 +23,7 @@ function Skeleton({ className = '' }: { className?: string }) {
 }
 
 const STATUS_OPTIONS = ['discovery', 'design', 'development', 'review', 'live', 'maintenance']
+const PROJECT_REFRESH_INTERVAL_MS = 10000
 
 const STATUS_META: Record<string, { label: string; color: string; icon: string; progress: number; summary: string }> = {
   discovery: {
@@ -233,12 +234,36 @@ export default function ProjectsPage() {
   const [formLoading, setFormLoading] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
 
-  useEffect(() => {
-    fetch(`/api/v1/projects?orgSlug=${slug}`)
-      .then(r => r.json())
-      .then(body => { setProjects(body.data ?? []); setLoading(false) })
-      .catch(() => setLoading(false))
+  const loadProjects = useCallback(async ({ showSpinner = false }: { showSpinner?: boolean } = {}) => {
+    if (showSpinner) setLoading(true)
+    try {
+      const res = await fetch(`/api/v1/projects?orgSlug=${slug}`)
+      const body = await res.json()
+      setProjects(body.data ?? [])
+    } finally {
+      if (showSpinner) setLoading(false)
+    }
   }, [slug])
+
+  useEffect(() => {
+    let cancelled = false
+    const refresh = async (options?: { showSpinner?: boolean }) => {
+      if (cancelled) return
+      await loadProjects(options)
+    }
+
+    refresh({ showSpinner: true }).catch(() => {
+      if (!cancelled) setLoading(false)
+    })
+    const interval = window.setInterval(() => {
+      refresh().catch(() => {})
+    }, PROJECT_REFRESH_INTERVAL_MS)
+
+    return () => {
+      cancelled = true
+      window.clearInterval(interval)
+    }
+  }, [loadProjects])
 
   const liveOrgId = useMemo(() => projects.find(project => project.orgId)?.orgId, [projects])
 

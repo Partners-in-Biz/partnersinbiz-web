@@ -148,4 +148,69 @@ describe('Admin client projects board view', () => {
     expect(screen.getByText('Client Website Live')).toBeInTheDocument()
     expect(screen.getByText('This status changed live')).toBeInTheDocument()
   })
+
+  it('polls cross-project task cards when Firestore task listeners are not delivering changes', async () => {
+    jest.useFakeTimers()
+    let taskCalls = 0
+    global.fetch = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/projects?orgSlug=acme-client') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: [{ id: 'project-1', orgId: 'org-acme', name: 'Client Website', status: 'development' }] }),
+        } as Response)
+      }
+      if (url === '/api/v1/projects/project-1/tasks') {
+        taskCalls += 1
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: taskCalls === 1 ? [] : [{ id: 'task-rest-1', title: 'REST fallback task', columnId: 'todo', order: 1 }],
+          }),
+        } as Response)
+      }
+      return Promise.resolve({ ok: true, json: async () => ({ data: [] }) } as Response)
+    }) as jest.Mock
+
+    render(<ProjectsPage />)
+
+    await waitFor(() => expect(screen.getByRole('button', { name: /board/i })).toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: /board/i }))
+    await waitFor(() => expect(screen.getByTestId('cross-project-board')).toBeInTheDocument())
+
+    await act(async () => {
+      jest.advanceTimersByTime(10000)
+    })
+
+    await waitFor(() => expect(screen.getByText('REST fallback task — Client Website')).toBeInTheDocument())
+    jest.useRealTimers()
+  })
+
+  it('polls the project list so cards update even when the Firestore listener is not delivering changes', async () => {
+    jest.useFakeTimers()
+    let listCalls = 0
+    global.fetch = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/projects?orgSlug=acme-client') {
+        listCalls += 1
+        const project = listCalls === 1
+          ? { id: 'project-1', orgId: 'org-acme', name: 'Client Website', status: 'development' }
+          : { id: 'project-1', orgId: 'org-acme', name: 'Client Website Live', status: 'review', description: 'Fresh from REST fallback' }
+        return Promise.resolve({ ok: true, json: async () => ({ data: [project] }) } as Response)
+      }
+      return Promise.resolve({ ok: true, json: async () => ({ data: [] }) } as Response)
+    }) as jest.Mock
+
+    render(<ProjectsPage />)
+
+    await waitFor(() => expect(screen.getByText('Client Website')).toBeInTheDocument())
+
+    await act(async () => {
+      jest.advanceTimersByTime(10000)
+    })
+
+    await waitFor(() => expect(screen.getByText('Client Website Live')).toBeInTheDocument())
+    expect(screen.getByText('Fresh from REST fallback')).toBeInTheDocument()
+    jest.useRealTimers()
+  })
 })
