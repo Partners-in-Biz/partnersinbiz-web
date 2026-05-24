@@ -155,15 +155,16 @@ export default function VoiceInputButton({
     setLocked(true)
   }
 
-  function handlePointerRelease(pointerId?: number, clientY?: number) {
+  function handlePointerRelease(pointerId?: number, clientY?: number, pointerType?: string) {
     const startY = pointerStartYRef.current
     const swipedByPosition =
       typeof startY === 'number' &&
       typeof clientY === 'number' &&
       startY - clientY >= LOCK_SWIPE_DISTANCE_PX
     const swipedByMovement = pointerMoveDeltaYRef.current <= -LOCK_SWIPE_DISTANCE_PX
+    const clickToLock = pointerType === 'mouse'
     const swipedToLock =
-      (swipedByPosition || swipedByMovement) &&
+      (clickToLock || swipedByPosition || swipedByMovement) &&
       (typeof pointerId !== 'number' || activePointerIdRef.current === null || activePointerIdRef.current === pointerId)
 
     if (!listening || lockedRef.current || swipedToLock) {
@@ -176,8 +177,8 @@ export default function VoiceInputButton({
   const isDisabled = disabled || !supported
   const title = !supported
     ? 'Voice input is not supported in this browser'
-    : error ?? (locked ? 'Voice recording locked — click to stop' : listening ? 'Swipe up to lock or release to add voice text' : 'Hold to dictate')
-  const ariaLabel = locked ? 'Stop voice recording' : listening ? 'Release to add voice text or swipe up to lock' : 'Hold to dictate'
+    : error ?? (locked ? 'Voice recording locked — click to stop' : listening ? 'Swipe up to lock or release to add voice text' : 'Click to record, or hold to dictate')
+  const ariaLabel = locked ? 'Stop voice recording' : listening ? 'Release to add voice text or swipe up to lock' : 'Click to record or hold to dictate'
 
   return (
     <button
@@ -204,9 +205,9 @@ export default function VoiceInputButton({
       }}
       onPointerUp={(event) => {
         event.preventDefault()
-        handlePointerRelease(event.pointerId, event.clientY)
+        handlePointerRelease(event.pointerId, event.clientY, event.pointerType)
       }}
-      onPointerCancel={(event) => handlePointerRelease(event.pointerId, event.clientY)}
+      onPointerCancel={(event) => handlePointerRelease(event.pointerId, event.clientY, event.pointerType)}
       onPointerLeave={() => {
         if (listening && !locked) stopListening()
       }}

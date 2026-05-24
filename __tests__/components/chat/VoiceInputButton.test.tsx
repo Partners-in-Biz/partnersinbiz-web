@@ -48,7 +48,7 @@ describe('VoiceInputButton', () => {
     const onTranscript = jest.fn()
     render(<VoiceInputButton onTranscript={onTranscript} />)
 
-    const button = screen.getByRole('button', { name: /hold to dictate/i })
+    const button = screen.getByRole('button', { name: /click to record or hold to dictate/i })
 
     dispatchPointer(button, 'pointerdown', { pointerId: 1, clientY: 220 })
     expect(recognitionInstances).toHaveLength(1)
@@ -74,7 +74,7 @@ describe('VoiceInputButton', () => {
     const onTranscript = jest.fn()
     render(<VoiceInputButton onTranscript={onTranscript} />)
 
-    const button = screen.getByRole('button', { name: /hold to dictate/i })
+    const button = screen.getByRole('button', { name: /click to record or hold to dictate/i })
 
     dispatchPointer(button, 'pointerdown', { pointerId: 1, pointerType: 'mouse', clientY: 220 })
     dispatchPointer(button, 'pointerup', { pointerId: 1, pointerType: 'mouse', clientY: 220 })

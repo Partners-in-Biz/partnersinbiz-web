@@ -415,8 +415,8 @@ export default function ProjectDetailPage() {
             ))}
           </div>
 
-          <div className="mb-3 flex shrink-0 items-center gap-3 overflow-x-auto md:mb-4">
-            <div className="inline-flex rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)] p-1">
+          <div className="mb-3 flex shrink-0 items-center justify-between gap-3 overflow-x-auto md:mb-4">
+            <div className="inline-flex shrink-0 rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)] p-1">
               {(['board', 'list'] as const).map(mode => (
                 <button
                   key={mode}
@@ -433,8 +433,18 @@ export default function ProjectDetailPage() {
                 </button>
               ))}
             </div>
-            {viewMode === 'list' && (
-              <div className="inline-flex rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)] p-1">
+            {viewMode === 'board' ? (
+              <button
+                type="button"
+                onClick={() => setBoardSortMode(prev => prev === 'latest' ? 'manual' : 'latest')}
+                className="inline-flex shrink-0 items-center gap-2 rounded-full border border-[var(--color-card-border)] px-3 py-1.5 text-xs font-label uppercase tracking-wide text-on-surface-variant transition-colors hover:text-on-surface"
+                aria-pressed={boardSortMode === 'manual'}
+              >
+                <span className="material-symbols-outlined text-[16px]">sort</span>
+                {boardSortMode === 'latest' ? 'Manual order' : 'Latest first'}
+              </button>
+            ) : (
+              <div className="inline-flex shrink-0 rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)] p-1">
                 {([
                   { key: 'latest', label: 'Latest first', icon: 'new_releases' },
                   { key: 'due', label: 'Due date', icon: 'event' },
@@ -550,6 +560,9 @@ export default function ProjectDetailPage() {
                 tasks={tasks}
                 members={members}
                 agents={agents}
+                sortMode={boardSortMode}
+                onSortModeChange={setBoardSortMode}
+                showSortToggle={false}
                 onTaskMove={handleTaskMove}
                 onTaskClick={setSelectedTask}
                 onAddTask={(columnId) => setShowNewTask(columnId)}

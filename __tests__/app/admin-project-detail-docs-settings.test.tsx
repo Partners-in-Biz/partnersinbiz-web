@@ -216,7 +216,7 @@ describe('Admin project docs and settings tabs', () => {
     expect(screen.queryByText('Done / blocked')).not.toBeInTheDocument()
   })
 
-  it('keeps board/list and list sort controls in one compact toolbar', async () => {
+  it('keeps board/list and board sort controls spaced on one toolbar row', async () => {
     render(<ProjectDetailPage />)
 
     await waitFor(() => expect(screen.getByText('Resolve production blocker')).toBeInTheDocument())
@@ -224,9 +224,14 @@ describe('Admin project docs and settings tabs', () => {
     const boardButton = screen.getByRole('button', { name: /view_kanban\s+board/i })
     const listButton = screen.getByRole('button', { name: /view_list\s+list/i })
     const toolbar = boardButton.parentElement?.parentElement
+    const manualSort = screen.getByRole('button', { name: /manual order/i })
     expect(toolbar).toHaveClass('gap-3')
     expect(toolbar).toHaveClass('overflow-x-auto')
-    expect(toolbar).not.toHaveClass('justify-between')
+    expect(toolbar).toHaveClass('justify-between')
+    expect(toolbar).toContainElement(manualSort)
+
+    fireEvent.click(manualSort)
+    expect(screen.getByRole('button', { name: /latest first/i })).toHaveAttribute('aria-pressed', 'true')
 
     fireEvent.click(listButton)
 
