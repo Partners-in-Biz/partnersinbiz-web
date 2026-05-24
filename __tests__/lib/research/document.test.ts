@@ -83,6 +83,41 @@ describe('research report document blocks', () => {
     expect(JSON.stringify(blocks)).toContain('Publish proof-led explainers')
   })
 
+  it('preserves explicit research question, methodology, unknowns, and decision sections from notes', () => {
+    const blocks = blocksFromResearchItem(
+      {
+        ...item,
+        notesMarkdown: [
+          '## Research question',
+          'Should we convert this discovery into a build spec?',
+          '',
+          '## Methodology',
+          'Reviewed client notes, source screenshots, and prior project comments.',
+          '',
+          '## Unknowns',
+          'The API owner has not confirmed rate limits.',
+          '',
+          '## Decision needed',
+          'Decide whether to approve a separate engineering spec before code tasks exist.',
+        ].join('\n'),
+      },
+      sources,
+    )
+
+    expect(blocks.find((block) => block.id === 'research_question')?.content).toBe(
+      'Should we convert this discovery into a build spec?',
+    )
+    expect(blocks.find((block) => block.id === 'methodology')?.content).toBe(
+      'Reviewed client notes, source screenshots, and prior project comments.',
+    )
+    expect(blocks.find((block) => block.id === 'contradictions_unknowns')?.content).toEqual(
+      expect.arrayContaining(['The API owner has not confirmed rate limits.']),
+    )
+    expect(blocks.find((block) => block.id === 'decision_needed')?.content).toBe(
+      'Decide whether to approve a separate engineering spec before code tasks exist.',
+    )
+  })
+
   it('serializes sparse research report blocks without Firestore-unsafe undefined values', async () => {
     const { serializeBlocksForFirestore } = await import('@/lib/client-documents/firestore-blocks')
 
