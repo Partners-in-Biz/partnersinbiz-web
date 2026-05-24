@@ -116,6 +116,8 @@ export function serializeMobileApp(id: string, data: FirebaseFirestore.DocumentD
 }
 
 export function clientSafeMobileApp(app: MobileAppRecord): MobileAppRecord {
-  const { access: _access, internalNotes: _internalNotes, ...safe } = app
+  const safe = { ...app }
+  delete safe.access
+  delete safe.internalNotes
   return safe
 }
