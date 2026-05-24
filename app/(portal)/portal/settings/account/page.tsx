@@ -5,6 +5,7 @@ export const dynamic = 'force-dynamic'
 import { useState } from 'react'
 import { sendPasswordResetEmail } from 'firebase/auth'
 import { getClientAuth } from '@/lib/firebase/config'
+import { PageHeader, Surface } from '@/components/ui/AppFoundation'
 
 export default function AccountSettingsPage() {
   const auth = getClientAuth()
@@ -30,18 +31,21 @@ export default function AccountSettingsPage() {
   }
 
   return (
-    <div className="max-w-xl">
-      <h1 className="text-lg font-semibold mb-1">Account settings</h1>
-      <p className="text-sm text-[var(--color-pib-text-muted)] mb-8">Your login credentials — not workspace-specific.</p>
+    <div className="max-w-3xl">
+      <PageHeader
+        eyebrow="Settings / Account"
+        title="Account settings"
+        description="Your login credentials — not workspace-specific."
+      />
 
       <div className="space-y-4">
-        <div className="bg-[var(--color-pib-surface)] border border-[var(--color-pib-line)] rounded-xl p-5">
+        <Surface>
           <p className="text-[10px] font-mono uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1">Login email</p>
           <p className="text-sm">{email || '—'}</p>
           <p className="text-xs text-[var(--color-pib-text-muted)] mt-1">Read-only. Managed by your account provider.</p>
-        </div>
+        </Surface>
 
-        <div className="bg-[var(--color-pib-surface)] border border-[var(--color-pib-line)] rounded-xl p-5">
+        <Surface>
           <p className="text-[10px] font-mono uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1">Password</p>
           {resetSent ? (
             <p className="text-sm text-[var(--color-pib-accent)]">Password reset email sent to {email}.</p>
@@ -57,7 +61,7 @@ export default function AccountSettingsPage() {
               {resetError && <p className="text-xs text-red-400 mt-1">{resetError}</p>}
             </>
           )}
-        </div>
+        </Surface>
       </div>
     </div>
   )

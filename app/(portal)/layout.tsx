@@ -456,7 +456,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
 
         <main className={isEmailRoute
           ? 'flex-1 px-3 md:px-5 py-4 w-full max-w-none'
-          : 'flex-1 px-4 md:px-8 py-8 max-w-6xl mx-auto w-full'
+          : 'flex-1 overflow-y-auto px-4 md:px-8 py-8 max-w-[1400px] mx-auto w-full'
         }>{children}</main>
 
         {!isEmailRoute && (
@@ -680,7 +680,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
 
         <main className={isEmailRoute
           ? 'flex-1 px-3 md:px-5 py-4 w-full max-w-none'
-          : 'flex-1 px-4 md:px-8 py-8 max-w-6xl mx-auto w-full'
+          : 'flex-1 overflow-y-auto px-4 md:px-8 py-8 max-w-[1400px] mx-auto w-full'
         }>{children}</main>
 
         {!isEmailRoute && (
