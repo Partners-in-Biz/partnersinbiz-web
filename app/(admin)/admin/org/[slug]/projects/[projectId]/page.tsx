@@ -9,6 +9,7 @@ import { KanbanBoard } from '@/components/kanban/KanbanBoard'
 import { TaskDetailPanel } from '@/components/kanban/TaskDetailPanel'
 import { TaskComposer } from '@/components/kanban/TaskComposer'
 import UnifiedChat from '@/components/chat/UnifiedChat'
+import { ProjectBoardSummary } from '@/components/projects/ProjectBoardSummary'
 import type { AgentMember, Column, Task, TeamMember } from '@/components/kanban/types'
 
 interface ProjectDoc { id: string; title: string; content?: string; type: 'brief' | 'requirements' | 'notes' | 'reference'; createdBy: string; updatedBy?: string; createdAt?: unknown; updatedAt?: unknown }
@@ -69,16 +70,6 @@ function timestampToMillis(value: unknown): number {
   return 0
 }
 
-function isDueThisWeek(task: Task): boolean {
-  const due = timestampToMillis(task.dueDate)
-  if (!due) return false
-  const now = new Date()
-  now.setHours(0, 0, 0, 0)
-  const nextWeek = new Date(now)
-  nextWeek.setDate(now.getDate() + 7)
-  return due >= now.getTime() && due <= nextWeek.getTime()
-}
-
 function formatDate(value: unknown): string {
   const millis = timestampToMillis(value)
   if (!millis) return 'No date'
@@ -98,10 +89,6 @@ function memberLabel(member?: TeamMember): string {
 
 function agentLabel(agent?: AgentMember, agentId?: string | null): string {
   return agent?.name || agentId || ''
-}
-
-function isBlockedForBoardStats(task: Task): boolean {
-  return task.columnId === 'blocked' || task.agentStatus === 'blocked' || task.agentStatus === 'awaiting-input'
 }
 
 export default function ProjectDetailPage() {
@@ -323,9 +310,6 @@ export default function ProjectDetailPage() {
   const columns = project?.columns?.length ? project.columns : DEFAULT_COLUMNS
   const selectedColumn = columns.find(c => c.id === selectedTask?.columnId)
   const composerColumn = columns.find(c => c.id === showNewTask) ?? null
-  const doneCount = tasks.filter(t => t.columnId === 'done').length
-  const blockedCount = tasks.filter(isBlockedForBoardStats).length
-  const dueSoonCount = tasks.filter(isDueThisWeek).length
   const sortedListTasks = [...tasks].sort((a, b) => {
     if (taskListSort === 'latest') {
       const latestA = timestampToMillis(a.createdAt) || timestampToMillis(a.updatedAt) || a.order || 0
@@ -411,19 +395,7 @@ export default function ProjectDetailPage() {
       {/* Tab Content */}
       {activeTab === 'kanban' && (
         <>
-          <div className="mb-3 grid shrink-0 grid-cols-2 gap-2 md:mb-4 md:grid-cols-4 md:gap-3">
-            {[
-              { label: 'Tasks', value: tasks.length },
-              { label: 'Due', value: dueSoonCount },
-              { label: 'Blocked', value: blockedCount },
-              { label: 'Done', value: doneCount },
-            ].map(stat => (
-              <div key={stat.label} className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)] p-3 shadow-sm">
-                <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">{stat.label}</p>
-                <p className="mt-1 text-2xl font-headline font-bold text-on-surface">{stat.value}</p>
-              </div>
-            ))}
-          </div>
+          <ProjectBoardSummary tasks={tasks} columns={columns} />
 
           <div className="mb-3 flex shrink-0 items-center justify-between gap-3 overflow-x-auto md:mb-4">
             <div className="inline-flex shrink-0 rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)] p-1">
