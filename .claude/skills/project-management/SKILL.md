@@ -171,7 +171,9 @@ When the user asks you to "do X and create a task for it" or "track this work", 
 
 This gives the human a real audit trail on the board without you needing to ask permission for each step.
 
-#### `GET/PUT/DELETE /projects/[projectId]/tasks/[taskId]` — auth: admin
+#### `GET/PATCH/DELETE /projects/[projectId]/tasks/[taskId]` — auth: admin
+
+Use `PATCH` for project-nested task updates. `PUT` returns 405 on the current API.
 
 #### `GET /projects/[projectId]/tasks/[taskId]/comments` — auth: admin
 List comments on a project task (pre-existing per-task comment collection — distinct from the unified `/comments`).
