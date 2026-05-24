@@ -17,6 +17,7 @@ import { sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 import { BoardColumn } from './BoardColumn'
 import { CrossProjectTaskCard } from './CrossProjectTaskCard'
 import { TaskDetailPanel } from '@/components/kanban/TaskDetailPanel'
+import { timestampToDate } from '@/lib/tasks/dateTimeDisplay'
 import type { Column, Task } from '@/components/kanban/types'
 import type { BoardTask } from './BoardColumn'
 
@@ -36,6 +37,11 @@ function normalizeColumnId(columnId: string): string {
   return BOARD_COLUMNS.some(c => c.id === columnId) ? columnId : 'backlog'
 }
 
+function getTaskCreatedAtMillis(task: Task): number | null {
+  const date = timestampToDate(task.createdAt)
+  return date ? date.getTime() : null
+}
+
 function Skeleton() {
   return <div className="pib-skeleton h-16 rounded-lg" />
 }
@@ -50,6 +56,7 @@ export function CrossProjectBoard({ tasks: initialTasks, loading, onTaskUpdate }
   const [tasks, setTasks] = useState<BoardTask[]>([])
   const [activeTask, setActiveTask] = useState<BoardTask | null>(null)
   const [selectedTask, setSelectedTask] = useState<BoardTask | null>(null)
+  const [sortMode, setSortMode] = useState<'latest' | 'manual'>('latest')
 
   useEffect(() => {
     // Keep the optimistic drag/drop copy in sync with live Firestore task props.
@@ -63,8 +70,21 @@ export function CrossProjectBoard({ tasks: initialTasks, loading, onTaskUpdate }
   )
 
   const getTasksForColumn = useCallback(
-    (columnId: string) => tasks.filter(t => t.columnId === columnId).sort((a, b) => a.order - b.order),
-    [tasks],
+    (columnId: string) => tasks
+      .filter(t => t.columnId === columnId)
+      .sort((a, b) => {
+        if (sortMode === 'latest') {
+          const aCreatedAt = getTaskCreatedAtMillis(a)
+          const bCreatedAt = getTaskCreatedAtMillis(b)
+          if (aCreatedAt !== null && bCreatedAt !== null && aCreatedAt !== bCreatedAt) {
+            return bCreatedAt - aCreatedAt
+          }
+          if (aCreatedAt !== null && bCreatedAt === null) return -1
+          if (aCreatedAt === null && bCreatedAt !== null) return 1
+        }
+        return a.order - b.order
+      }),
+    [sortMode, tasks],
   )
 
   function handleDragStart(event: DragStartEvent) {
@@ -140,6 +160,20 @@ export function CrossProjectBoard({ tasks: initialTasks, loading, onTaskUpdate }
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
       >
+        {!loading && hasAnyTasks && (
+          <div className="mb-3 flex justify-end">
+            <button
+              type="button"
+              onClick={() => setSortMode(prev => prev === 'latest' ? 'manual' : 'latest')}
+              className="inline-flex items-center gap-2 rounded-full border border-[var(--color-card-border)] px-3 py-1.5 text-xs font-label uppercase tracking-wide text-on-surface-variant transition-colors hover:text-on-surface"
+              aria-pressed={sortMode === 'manual'}
+            >
+              <span className="material-symbols-outlined text-[16px]">sort</span>
+              {sortMode === 'latest' ? 'Manual order' : 'Latest first'}
+            </button>
+          </div>
+        )}
+
         <div className="flex gap-4 overflow-x-auto pb-4" style={{ minHeight: 400 }}>
           {BOARD_COLUMNS.map(column => (
             loading ? (

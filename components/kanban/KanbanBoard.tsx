@@ -128,6 +128,11 @@ const AGENT_STATUS_STYLE: Record<string, { label: string; className: string }> =
   'blocked':        { label: 'Blocked',   className: 'bg-red-500/20 text-red-400' },
 }
 
+function getTaskCreatedAtMillis(task: Task): number | null {
+  const date = timestampToDate(task.createdAt)
+  return date ? date.getTime() : null
+}
+
 // ── Task Card ─────────────────────────────────────────────────────────────
 
 function TaskCard({
@@ -344,6 +349,7 @@ function KanbanColumn({
 export function KanbanBoard({ columns, tasks: initialTasks, members, agents, onTaskMove, onTaskClick, onAddTask }: KanbanBoardProps) {
   const [tasks, setTasks] = useState(initialTasks)
   const [activeTask, setActiveTask] = useState<Task | null>(null)
+  const [sortMode, setSortMode] = useState<'latest' | 'manual'>('latest')
 
   useEffect(() => {
     setTasks(initialTasks)
@@ -358,8 +364,21 @@ export function KanbanBoard({ columns, tasks: initialTasks, members, agents, onT
 
   const getTasksForColumn = useCallback(
     (columnId: string) =>
-      tasks.filter(t => t.columnId === columnId).sort((a, b) => a.order - b.order),
-    [tasks],
+      tasks
+        .filter(t => t.columnId === columnId)
+        .sort((a, b) => {
+          if (sortMode === 'latest') {
+            const aCreatedAt = getTaskCreatedAtMillis(a)
+            const bCreatedAt = getTaskCreatedAtMillis(b)
+            if (aCreatedAt !== null && bCreatedAt !== null && aCreatedAt !== bCreatedAt) {
+              return bCreatedAt - aCreatedAt
+            }
+            if (aCreatedAt !== null && bCreatedAt === null) return -1
+            if (aCreatedAt === null && bCreatedAt !== null) return 1
+          }
+          return a.order - b.order
+        }),
+    [sortMode, tasks],
   )
 
   function handleDragStart(event: DragStartEvent) {
@@ -426,6 +445,18 @@ export function KanbanBoard({ columns, tasks: initialTasks, members, agents, onT
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
     >
+      <div className="mb-3 flex justify-end">
+        <button
+          type="button"
+          onClick={() => setSortMode(prev => prev === 'latest' ? 'manual' : 'latest')}
+          className="inline-flex items-center gap-2 rounded-full border border-[var(--color-card-border)] px-3 py-1.5 text-xs font-label uppercase tracking-wide text-on-surface-variant transition-colors hover:text-on-surface"
+          aria-pressed={sortMode === 'manual'}
+        >
+          <span className="material-symbols-outlined text-[16px]">sort</span>
+          {sortMode === 'latest' ? 'Manual order' : 'Latest first'}
+        </button>
+      </div>
+
       <div className="flex gap-4 overflow-x-auto pb-4" style={{ minHeight: 500 }}>
         {sortedColumns.map(column => (
           <KanbanColumn
