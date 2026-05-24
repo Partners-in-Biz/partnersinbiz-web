@@ -99,6 +99,10 @@ function agentLabel(agent?: AgentMember, agentId?: string | null): string {
   return agent?.name || agentId || ''
 }
 
+function isBlockedForBoardStats(task: Task): boolean {
+  return task.columnId === 'blocked' || task.agentStatus === 'blocked' || task.agentStatus === 'awaiting-input'
+}
+
 export default function ProjectDetailPage() {
   const params = useParams()
   const slug = params.slug as string
@@ -283,7 +287,7 @@ export default function ProjectDetailPage() {
   const selectedColumn = columns.find(c => c.id === selectedTask?.columnId)
   const composerColumn = columns.find(c => c.id === showNewTask) ?? null
   const doneCount = tasks.filter(t => t.columnId === 'done').length
-  const blockedCount = tasks.filter(t => t.columnId === 'blocked' || t.labels?.some(label => label.toLowerCase() === 'blocked')).length
+  const blockedCount = tasks.filter(isBlockedForBoardStats).length
   const dueSoonCount = tasks.filter(isDueThisWeek).length
   const sortedListTasks = [...tasks].sort((a, b) => {
     if (taskListSort === 'latest') {

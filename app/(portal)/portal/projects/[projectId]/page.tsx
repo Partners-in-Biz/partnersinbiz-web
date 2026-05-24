@@ -2,6 +2,8 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useParams } from 'next/navigation'
+import { collection, onSnapshot } from 'firebase/firestore'
+import { getClientDb } from '@/lib/firebase/config'
 import Link from 'next/link'
 import { KanbanBoard } from '@/components/kanban/KanbanBoard'
 import { TaskDetailPanel } from '@/components/kanban/TaskDetailPanel'
@@ -11,6 +13,13 @@ import type { AgentMember, Column, Task, TeamMember } from '@/components/kanban/
 interface ProjectDoc { id: string; title: string; content?: string; type: 'brief' | 'requirements' | 'notes' | 'reference'; createdBy: string; updatedBy?: string; createdAt?: unknown; updatedAt?: unknown }
 interface Project { id: string; orgId?: string; name: string; description?: string; brief?: string; status?: string; columns: Column[] }
 type TaskListSort = 'latest' | 'due'
+
+function mergeLiveTasks(restTasks: Task[], currentTasks: Task[]) {
+  const merged = new Map<string, Task>()
+  restTasks.forEach(task => merged.set(task.id, task))
+  currentTasks.forEach(task => merged.set(task.id, task))
+  return Array.from(merged.values())
+}
 
 const DEFAULT_COLUMNS: Column[] = [
   { id: 'backlog',     name: 'Backlog',     color: 'var(--color-outline)',    order: 0 },
@@ -83,6 +92,10 @@ function agentLabel(agent?: AgentMember, agentId?: string | null): string {
   return agent?.name || agentId || ''
 }
 
+function isBlockedForBoardStats(task: Task): boolean {
+  return task.columnId === 'blocked' || task.agentStatus === 'blocked' || task.agentStatus === 'awaiting-input'
+}
+
 export default function ProjectDetailPage() {
   const params = useParams()
   const projectId = params.projectId as string
@@ -111,11 +124,9 @@ export default function ProjectDetailPage() {
   useEffect(() => {
     Promise.all([
       fetch(`/api/v1/projects/${projectId}`).then(r => r.json()),
-      fetch(`/api/v1/projects/${projectId}/tasks`).then(r => r.json()),
       fetch(`/api/v1/projects/${projectId}/docs`).then(r => r.json()),
-    ]).then(([pBody, tBody, dBody]) => {
+    ]).then(([pBody, dBody]) => {
       setProject(pBody.data)
-      setTasks(tBody.data ?? [])
       setDocs(dBody.data ?? [])
       setBriefValue(pBody.data?.brief ?? '')
       setSettingsName(pBody.data?.name ?? '')
@@ -123,6 +134,36 @@ export default function ProjectDetailPage() {
       setSettingsDescription(pBody.data?.description ?? '')
       setLoading(false)
     }).catch(() => setLoading(false))
+
+    fetch(`/api/v1/projects/${projectId}/tasks`).then(r => r.json())
+      .then(body => setTasks(prev => mergeLiveTasks(body.data ?? [], prev)))
+      .catch(() => {})
+
+    const unsubscribe = onSnapshot(
+      collection(getClientDb(), 'projects', projectId, 'tasks'),
+      (snap) => {
+        snap.docChanges().forEach(change => {
+          const taskData = { id: change.doc.id, ...change.doc.data() } as Task
+          if (change.type === 'added' || change.type === 'modified') {
+            setTasks(prev => {
+              const idx = prev.findIndex(t => t.id === taskData.id)
+              if (idx >= 0) {
+                const next = [...prev]
+                next[idx] = taskData
+                return next
+              }
+              return [...prev, taskData]
+            })
+            setSelectedTask(prev => prev?.id === taskData.id ? taskData : prev)
+          }
+          if (change.type === 'removed') {
+            setTasks(prev => prev.filter(t => t.id !== change.doc.id))
+          }
+        })
+      },
+      () => {}
+    )
+    return () => unsubscribe()
   }, [projectId])
 
   useEffect(() => {
@@ -201,14 +242,14 @@ export default function ProjectDetailPage() {
       await fetch(`/api/v1/projects/${projectId}/docs/${editingDoc.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: editingDoc.title, content: editingDoc.content, type: editingDoc.type }),
+        body: JSON.stringify({ title: editingDoc.title, content: docContent(editingDoc.content), type: editingDoc.type }),
       })
       setDocs(prev => prev.map(d => d.id === editingDoc.id ? editingDoc : d))
     } else {
       const res = await fetch(`/api/v1/projects/${projectId}/docs`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: editingDoc.title, content: editingDoc.content, type: editingDoc.type }),
+        body: JSON.stringify({ title: editingDoc.title, content: docContent(editingDoc.content), type: editingDoc.type }),
       })
       const body = await res.json()
       if (body.data?.id) {
@@ -226,8 +267,7 @@ export default function ProjectDetailPage() {
   const selectedColumn = columns.find(c => c.id === selectedTask?.columnId)
   const composerColumn = columns.find(c => c.id === showNewTask) ?? null
   const doneCount = tasks.filter(t => t.columnId === 'done').length
-  const blockedCount = tasks.filter(t => t.labels?.some(label => label.toLowerCase() === 'blocked')).length
-  const mediaCount = tasks.reduce((sum, task) => sum + (task.attachments?.length ?? 0), 0)
+  const blockedCount = tasks.filter(isBlockedForBoardStats).length
   const dueSoonCount = tasks.filter(isDueThisWeek).length
   const sortedListTasks = [...tasks].sort((a, b) => {
     if (taskListSort === 'latest') {
@@ -302,23 +342,18 @@ export default function ProjectDetailPage() {
       {/* Tab Content */}
       {activeTab === 'kanban' && (
         <>
-          <div className="mb-4 grid shrink-0 gap-3 md:grid-cols-4">
-            <div className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-3">
-              <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Tasks</p>
-              <p className="mt-1 text-2xl font-headline font-bold text-on-surface">{tasks.length}</p>
-            </div>
-            <div className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-3">
-              <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Due soon</p>
-              <p className="mt-1 text-2xl font-headline font-bold text-on-surface">{dueSoonCount}</p>
-            </div>
-            <div className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-3">
-              <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Media</p>
-              <p className="mt-1 text-2xl font-headline font-bold text-on-surface">{mediaCount}</p>
-            </div>
-            <div className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-3">
-              <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Done / blocked</p>
-              <p className="mt-1 text-2xl font-headline font-bold text-on-surface">{doneCount}<span className="text-on-surface-variant"> / {blockedCount}</span></p>
-            </div>
+          <div className="mb-3 grid shrink-0 grid-cols-2 gap-2 md:mb-4 md:grid-cols-4 md:gap-3">
+            {[
+              { label: 'Tasks', value: tasks.length },
+              { label: 'Due', value: dueSoonCount },
+              { label: 'Blocked', value: blockedCount },
+              { label: 'Done', value: doneCount },
+            ].map(stat => (
+              <div key={stat.label} className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)] p-3 shadow-sm">
+                <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">{stat.label}</p>
+                <p className="mt-1 text-2xl font-headline font-bold text-on-surface">{stat.value}</p>
+              </div>
+            ))}
           </div>
 
           <div className="mb-4 flex shrink-0 items-center gap-3 overflow-x-auto">
@@ -487,7 +522,7 @@ export default function ProjectDetailPage() {
                 </select>
                 <textarea
                   placeholder="Content (markdown)..."
-                  value={editingDoc.content}
+                  value={docContent(editingDoc.content)}
                   onChange={e => setEditingDoc({ ...editingDoc, content: e.target.value })}
                   className="w-full px-3 py-2 text-sm bg-[var(--color-background)] border border-[var(--color-outline)] rounded text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-[var(--color-accent-v2)]"
                   rows={10}
