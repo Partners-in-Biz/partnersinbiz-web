@@ -222,6 +222,55 @@ describe('agent watcher dispatchTask', () => {
       agentOutput: expect.objectContaining({ summary: 'Watcher error: gateway failed' }),
     }))
   })
+
+  it('retries a pending task that arrives while the agent is at concurrency capacity', async () => {
+    const running: Array<(value: { runId: string; output: string; error: null }) => void> = []
+    runAndPollMock.mockImplementation(async (_cfg, _input, onRunCreated) => {
+      const runId = `run-live-${running.length + 1}`
+      await onRunCreated(runId)
+      return new Promise(resolve => running.push(resolve))
+    })
+
+    const taskData = {
+      orgId: 'org-1',
+      assigneeAgentId: 'theo',
+      agentStatus: 'pending',
+      columnId: 'todo',
+      title: 'Ship watcher hardening',
+    }
+    const activeRefs = Array.from({ length: 5 }, (_value, index) => ({
+      ...makeTaskRef(),
+      id: `active-${index}`,
+      path: `projects/project-1/tasks/active-${index}`,
+    }))
+    const queuedRef = {
+      ...makeTaskRef(),
+      id: 'queued-1',
+      path: 'projects/project-1/tasks/queued-1',
+    }
+
+    const flush = () => new Promise(resolve => setImmediate(resolve))
+    const activeDispatches = activeRefs.map(ref => dispatchTask(ref as never, taskData))
+    await flush()
+    await flush()
+    expect(runAndPollMock).toHaveBeenCalledTimes(5)
+
+    await dispatchTask(queuedRef as never, taskData)
+    expect(claimTaskMock).not.toHaveBeenCalledWith(queuedRef, 'theo')
+
+    running[0]({ runId: 'run-live-1', output: 'done summary', error: null })
+    await activeDispatches[0]
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(claimTaskMock).toHaveBeenCalledWith(queuedRef, 'theo')
+    await flush()
+    expect(runAndPollMock).toHaveBeenCalledTimes(6)
+
+    running.slice(1).forEach((resolve, index) => resolve({ runId: `run-live-${index + 2}`, output: 'done summary', error: null }))
+    running[5]({ runId: 'run-live-6', output: 'done summary', error: null })
+    await Promise.all(activeDispatches.slice(1))
+  })
 })
 
 describe('agent watcher dependency subscriptions', () => {
