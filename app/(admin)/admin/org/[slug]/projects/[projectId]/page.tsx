@@ -380,7 +380,7 @@ export default function ProjectDetailPage() {
             ))}
           </div>
 
-          <div className="mb-3 flex shrink-0 items-center justify-between gap-3 md:mb-4">
+          <div className="mb-3 flex shrink-0 items-center gap-3 overflow-x-auto md:mb-4">
             <div className="inline-flex rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)] p-1">
               {(['board', 'list'] as const).map(mode => (
                 <button

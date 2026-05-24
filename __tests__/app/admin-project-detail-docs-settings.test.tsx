@@ -195,6 +195,24 @@ describe('Admin project docs and settings tabs', () => {
     expect(screen.getByText('Blocked').nextElementSibling).toHaveTextContent('1')
   })
 
+  it('keeps board/list and list sort controls in one compact toolbar', async () => {
+    render(<ProjectDetailPage />)
+
+    await waitFor(() => expect(screen.getByText('Resolve production blocker')).toBeInTheDocument())
+
+    const boardButton = screen.getByRole('button', { name: /view_kanban\s+board/i })
+    const listButton = screen.getByRole('button', { name: /view_list\s+list/i })
+    const toolbar = boardButton.parentElement?.parentElement
+    expect(toolbar).toHaveClass('gap-3')
+    expect(toolbar).toHaveClass('overflow-x-auto')
+    expect(toolbar).not.toHaveClass('justify-between')
+
+    fireEvent.click(listButton)
+
+    const latestSort = screen.getByRole('button', { name: /latest first/i })
+    expect(toolbar).toContainElement(latestSort)
+  })
+
   it('uses the compact mobile list instead of the wide board by default on phones', async () => {
     ;(window.matchMedia as jest.Mock).mockImplementation(query => ({
       matches: query === '(max-width: 767px)',
