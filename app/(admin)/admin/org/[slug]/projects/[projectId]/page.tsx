@@ -122,6 +122,7 @@ export default function ProjectDetailPage() {
     if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return 'board'
     return window.matchMedia('(max-width: 767px)').matches ? 'list' : 'board'
   })
+  const [boardSortMode, setBoardSortMode] = useState<'latest' | 'manual'>('latest')
   const [taskListSort, setTaskListSort] = useState<TaskListSort>('latest')
   const [editingBrief, setEditingBrief] = useState(false)
   const [briefValue, setBriefValue] = useState('')
