@@ -68,4 +68,82 @@ describe('TaskDetailPanel', () => {
 
     expect(props.onClose).toHaveBeenCalledTimes(1)
   })
+
+  it('shows actionable unblock guidance for blocked cards from the latest blocker comment', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      json: () => Promise.resolve({
+        success: true,
+        data: [
+          {
+            id: 'old-comment',
+            text: 'Blocked: older reason',
+            userId: 'theo',
+            userName: 'Theo',
+            userRole: 'ai',
+            createdAt: { _seconds: 10, _nanoseconds: 0 },
+            agentPickedUp: false,
+          },
+          {
+            id: 'new-comment',
+            text: 'Blocked: Waiting on Peet approval. Proof needed: screenshot of approved layout. When resolved tell Theo: approval granted and screenshot attached.',
+            userId: 'theo',
+            userName: 'Theo',
+            userRole: 'ai',
+            createdAt: { _seconds: 20, _nanoseconds: 0 },
+            agentPickedUp: false,
+          },
+        ],
+      }),
+    }) as jest.Mock
+
+    renderPanel({
+      task: {
+        ...task,
+        columnId: 'blocked',
+        assigneeAgentId: 'theo',
+        agentStatus: 'blocked',
+      },
+      columnName: 'Blocked',
+    })
+
+    expect(await screen.findByText('Unblock guidance')).toBeInTheDocument()
+    expect((await screen.findAllByText(/Waiting on Peet approval/i)).length).toBeGreaterThan(0)
+    expect((await screen.findAllByText(/screenshot of approved layout/i)).length).toBeGreaterThan(0)
+    expect((await screen.findAllByText(/approval granted and screenshot attached/i)).length).toBeGreaterThan(0)
+    expect(screen.getByRole('button', { name: /unblock/i })).toBeInTheDocument()
+  })
+
+  it('calls the unblock endpoint and reports dependency-gated failures instead of silently failing', async () => {
+    ;(global.fetch as jest.Mock)
+      .mockResolvedValueOnce({ json: () => Promise.resolve({ success: true, data: [] }) })
+      .mockResolvedValueOnce({
+        ok: false,
+        json: () => Promise.resolve({
+          success: false,
+          error: 'Cannot unblock yet',
+          data: { reasons: ['Dependency “Design approval” is still blocked.'] },
+        }),
+      })
+
+    renderPanel({
+      task: {
+        ...task,
+        columnId: 'blocked',
+        assigneeAgentId: 'theo',
+        agentStatus: 'awaiting-input',
+        dependsOn: ['dep-1'],
+      },
+      columnName: 'Blocked',
+    })
+
+    fireEvent.click(await screen.findByRole('button', { name: /unblock/i }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/projects/project-1/tasks/task-1/unblock', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      })
+    })
+    expect(await screen.findByText(/Dependency “Design approval” is still blocked/i)).toBeInTheDocument()
+  })
 })

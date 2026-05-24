@@ -12,9 +12,11 @@ interface OrgOption {
   slug: string
 }
 
-const TYPE_OPTIONS: Array<{ value: ClientDocumentType; label: string }> = CLIENT_DOCUMENT_TEMPLATES.map(
-  (t) => ({ value: t.type, label: t.label })
-)
+const TYPE_OPTIONS = CLIENT_DOCUMENT_TEMPLATES.map((template) => ({
+  value: template.type,
+  label: template.label,
+  description: template.picker.description,
+}))
 
 export default function NewDocumentPage() {
   const router = useRouter()
@@ -27,7 +29,8 @@ export default function NewDocumentPage() {
   const [error, setError] = useState<string | null>(null)
 
   // Derive templateId from type
-  const templateId = CLIENT_DOCUMENT_TEMPLATES.find((t) => t.type === type)?.id ?? ''
+  const selectedTemplate = CLIENT_DOCUMENT_TEMPLATES.find((t) => t.type === type)
+  const templateId = selectedTemplate?.id ?? ''
 
   useEffect(() => {
     fetch('/api/v1/organizations')
@@ -71,14 +74,19 @@ export default function NewDocumentPage() {
 
   return (
     <div className="mx-auto max-w-xl space-y-6">
-      <header className="flex items-center gap-3">
+      <header className="space-y-2">
         <Link
           href="/admin/documents"
           className="text-xs text-on-surface-variant hover:text-on-surface"
         >
           ← Documents
         </Link>
-        <h1 className="text-2xl font-semibold">New Document</h1>
+        <div>
+          <h1 className="text-2xl font-semibold">New Document</h1>
+          <p className="mt-2 text-sm text-on-surface-variant">
+            Pick the document by decision type: research decides what is true; specs decide what to build.
+          </p>
+        </div>
       </header>
 
       <form onSubmit={handleSubmit} className="space-y-5 rounded-lg border border-[var(--color-outline)] bg-[var(--color-surface)] p-6">
@@ -132,17 +140,38 @@ export default function NewDocumentPage() {
           >
             {TYPE_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>
-                {o.label}
+                {o.label} — {o.description}
               </option>
             ))}
           </select>
         </div>
 
-        {/* Template info (read-only, derived from type) */}
-        {templateId && (
-          <p className="text-xs text-on-surface-variant">
-            Template: <span className="font-mono">{templateId}</span>
-          </p>
+        {selectedTemplate && (
+          <section className="rounded-lg border border-[var(--color-outline)] bg-[var(--color-surface-variant)] p-4 text-sm">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs uppercase tracking-[0.18em] text-on-surface-variant">Selected template</p>
+                <h2 className="mt-1 font-medium text-on-surface">{selectedTemplate.label}</h2>
+              </div>
+              <span className="rounded-full border border-[var(--color-outline)] px-2 py-1 font-mono text-[11px] text-on-surface-variant">
+                {templateId}
+              </span>
+            </div>
+            <p className="mt-3 text-on-surface-variant">{selectedTemplate.picker.description}</p>
+            <dl className="mt-4 space-y-3">
+              <div>
+                <dt className="text-xs font-medium uppercase tracking-[0.14em] text-on-surface-variant">Best for</dt>
+                <dd className="mt-1 text-on-surface">{selectedTemplate.picker.bestFor}</dd>
+              </div>
+              <div>
+                <dt className="text-xs font-medium uppercase tracking-[0.14em] text-on-surface-variant">Decision it supports</dt>
+                <dd className="mt-1 text-on-surface">{selectedTemplate.picker.decides}</dd>
+              </div>
+            </dl>
+            <p className="mt-4 rounded-md bg-black/10 px-3 py-2 text-xs text-on-surface-variant">
+              {selectedTemplate.picker.helpText}
+            </p>
+          </section>
         )}
 
         {error && (

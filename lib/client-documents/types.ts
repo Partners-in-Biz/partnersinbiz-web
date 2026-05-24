@@ -217,6 +217,34 @@ export interface DocumentApproval {
   createdAt?: unknown
 }
 
+export type ClientDocumentTemplatePurpose =
+  | 'sales_proposal'
+  | 'implementation_spec'
+  | 'strategy_plan'
+  | 'content_plan'
+  | 'research_presentation'
+  | 'performance_report'
+  | 'launch_acceptance'
+  | 'scope_change_approval'
+  | 'legacy_safe_fallback'
+
+export type ClientDocumentTaskFanoutMode = 'none' | 'manual' | 'approval_gated' | 'automatic_after_approval'
+
+export interface ClientDocumentTemplateContract {
+  purpose: ClientDocumentTemplatePurpose
+  recommendedBlockTypes: DocumentBlockType[]
+  approvalMode: ApprovalMode
+  taskFanout: ClientDocumentTaskFanoutMode
+  aiPromptKey: string
+}
+
+export interface ClientDocumentTemplatePickerMetadata {
+  description: string
+  bestFor: string
+  decides: string
+  helpText: string
+}
+
 export interface ClientDocumentTemplate {
   id: string
   type: ClientDocumentType
@@ -225,6 +253,8 @@ export interface ClientDocumentTemplate {
   clientPermissions: ClientDocumentPermissions
   requiredBlockTypes: DocumentBlockType[]
   defaultBlocks: DocumentBlock[]
+  contract: ClientDocumentTemplateContract
+  picker: ClientDocumentTemplatePickerMetadata
   agentWorkflowTasks?: ClientDocumentAgentWorkflowTask[]
 }
 
@@ -237,6 +267,11 @@ export interface ClientDocumentAgentWorkflowTask {
   dependsOn?: string[]
   priority?: 'urgent' | 'high' | 'medium' | 'normal' | 'low'
   labels?: string[]
+  reviewerAgentId?: string | null
+  riskLevel?: 'low' | 'medium' | 'high' | 'critical'
+  requiredCapability?: string | null
+  expectedArtifacts?: string[]
+  sourceResearchItemId?: string | null
 }
 
 export interface MagicLink {

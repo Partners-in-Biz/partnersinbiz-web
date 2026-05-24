@@ -33,37 +33,89 @@ function containsUndefined(value: unknown): boolean {
 }
 
 describe('research report document blocks', () => {
-  it('turns research into client-document blocks with findings, sources, recommendations, and next steps', () => {
+  it('turns research into research-native report blocks', () => {
     const blocks = blocksFromResearchItem(item, sources)
 
     expect(blocks.map((block) => block.id)).toEqual([
-      'hero',
-      'summary',
+      'research_question',
+      'context_hypothesis',
+      'methodology',
+      'source_ledger',
       'findings',
-      'sources',
+      'confidence',
+      'contradictions_unknowns',
       'recommendations',
-      'next_steps',
-      'approval',
+      'evidence_appendix',
+      'decision_needed',
     ])
-    expect(blocks[2].type).toBe('deliverables')
-    expect(blocks[2].content).toEqual(expect.arrayContaining([
-      expect.stringContaining('Risk questions dominate'),
-    ]))
+    expect(blocks.map((block) => block.title)).toEqual([
+      'Research question',
+      'Context / hypothesis',
+      'Methodology',
+      'Source ledger',
+      'Findings',
+      'Confidence',
+      'Contradictions / unknowns',
+      'Recommendations',
+      'Evidence appendix',
+      'Decision needed',
+    ])
     expect(blocks[3].type).toBe('table')
     expect(blocks[3].content).toEqual(expect.objectContaining({
-      headers: ['Source', 'Type', 'Confidence', 'Verified', 'Excerpt / URL'],
+      headers: ['ID', 'Source', 'Type', 'Publisher', 'Date', 'Confidence', 'Verified', 'URL / media'],
       rows: expect.arrayContaining([
-        ['Forum thread', 'url', 'medium', 'Yes', 'https://example.com/thread'],
+        ['s1', 'Forum thread', 'url', '', '', 'medium', 'Yes', 'https://example.com/thread'],
       ]),
     }))
-    expect(blocks[4].type).toBe('callout')
-    expect(blocks[4].content).toEqual(expect.objectContaining({
+    expect(blocks[4].type).toBe('deliverables')
+    expect(blocks[4].content).toEqual(expect.arrayContaining([
+      expect.stringContaining('Risk questions dominate'),
+    ]))
+    expect(blocks[5].type).toBe('metrics')
+    expect(blocks[7].type).toBe('callout')
+    expect(blocks[7].content).toEqual(expect.objectContaining({
       body: expect.stringContaining('Publish proof-led explainers'),
       variant: 'success',
     }))
+    expect(blocks[9].type).toBe('approval')
     expect(JSON.stringify(blocks)).toContain('Risk questions dominate')
     expect(JSON.stringify(blocks)).toContain('Forum thread')
     expect(JSON.stringify(blocks)).toContain('Publish proof-led explainers')
+  })
+
+  it('preserves explicit research question, methodology, unknowns, and decision sections from notes', () => {
+    const blocks = blocksFromResearchItem(
+      {
+        ...item,
+        notesMarkdown: [
+          '## Research question',
+          'Should we convert this discovery into a build spec?',
+          '',
+          '## Methodology',
+          'Reviewed client notes, source screenshots, and prior project comments.',
+          '',
+          '## Unknowns',
+          'The API owner has not confirmed rate limits.',
+          '',
+          '## Decision needed',
+          'Decide whether to approve a separate engineering spec before code tasks exist.',
+        ].join('\n'),
+      },
+      sources,
+    )
+
+    expect(blocks.find((block) => block.id === 'research_question')?.content).toBe(
+      'Should we convert this discovery into a build spec?',
+    )
+    expect(blocks.find((block) => block.id === 'methodology')?.content).toBe(
+      'Reviewed client notes, source screenshots, and prior project comments.',
+    )
+    expect(blocks.find((block) => block.id === 'contradictions_unknowns')?.content).toEqual(
+      expect.arrayContaining(['The API owner has not confirmed rate limits.']),
+    )
+    expect(blocks.find((block) => block.id === 'decision_needed')?.content).toBe(
+      'Decide whether to approve a separate engineering spec before code tasks exist.',
+    )
   })
 
   it('serializes sparse research report blocks without Firestore-unsafe undefined values', async () => {

@@ -65,8 +65,8 @@ This implements Step 2-3 of the multi-agent orchestrator spec
      (5-minute timeout).
   8. Writes `agentOutput.summary` and sets `agentStatus = 'done'` (or `'blocked'`
      with the error in `agentOutput.summary` on failure).
-- Caps concurrency at **5 dispatches per agent**. Other tasks wait — Firestore's
-  next snapshot tick will retrigger them.
+- Caps concurrency at **5 dispatches per agent**. Other tasks are kept in an
+  in-process deferred queue and drained as soon as that agent has capacity again.
 - Runs a stale-task sweeper every 60 seconds: any task stuck in `picked-up` /
   `in-progress` with `agentHeartbeatAt` older than 5 minutes is reset to
   `pending` so it can be re-claimed (crash-safe).

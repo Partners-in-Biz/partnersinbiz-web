@@ -18,9 +18,11 @@ import { agentStatusUpdate } from './task-updates'
 import { getTaskDispatchBlocker, isDependencyResolved } from './eligibility'
 
 const MAX_CONCURRENT_PER_AGENT = 5
+const READY_TASK_SWEEP_MS = 60_000
 
 const inFlight = new Set<string>()
 const perAgentInFlight = new Map<AgentId, number>()
+const deferredByAgent = new Map<AgentId, Map<string, { ref: DocumentReference; data: TaskData }>>()
 let activeAgentIds = new Set<string>(AGENT_IDS)
 
 function incAgent(agentId: AgentId): void {
@@ -68,6 +70,28 @@ interface TaskData {
   requiredCapability?: string
   requestedByAgentId?: string
   expectedArtifacts?: string[]
+}
+
+function deferTask(agentId: AgentId, taskRef: DocumentReference, taskData: TaskData): void {
+  const existing = deferredByAgent.get(agentId) ?? new Map<string, { ref: DocumentReference; data: TaskData }>()
+  existing.set(taskRef.path, { ref: taskRef, data: taskData })
+  deferredByAgent.set(agentId, existing)
+  logger.info('task deferred — agent concurrency limit reached', { taskId: taskRef.id, agentId })
+}
+
+function drainDeferredTasks(agentId: AgentId): void {
+  const queued = deferredByAgent.get(agentId)
+  if (!queued || queued.size === 0) return
+
+  while ((perAgentInFlight.get(agentId) ?? 0) < MAX_CONCURRENT_PER_AGENT && queued.size > 0) {
+    const next = queued.entries().next().value as [string, { ref: DocumentReference; data: TaskData }] | undefined
+    if (!next) break
+    const [path, item] = next
+    queued.delete(path)
+    void dispatchTask(item.ref, item.data)
+  }
+
+  if (queued.size === 0) deferredByAgent.delete(agentId)
 }
 
 async function dependenciesResolved(
@@ -156,7 +180,7 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
 
   if (inFlight.has(taskRef.path)) return
   if ((perAgentInFlight.get(agentId) ?? 0) >= MAX_CONCURRENT_PER_AGENT) {
-    // Snapshot will retrigger later when capacity frees up.
+    deferTask(agentId, taskRef, taskData)
     return
   }
 
@@ -303,6 +327,7 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
     stopHeartbeat?.()
     inFlight.delete(taskRef.path)
     decAgent(agentId)
+    drainDeferredTasks(agentId)
   }
 }
 
@@ -415,6 +440,30 @@ async function dispatchDependents(completedTaskId: string): Promise<void> {
   }
 }
 
+export async function sweepReadyPendingTasks(): Promise<void> {
+  const chunks = chunkAgentIds(currentAgentIds())
+  for (const chunk of chunks) {
+    try {
+      const snap = await db
+        .collectionGroup('tasks')
+        .where('assigneeAgentId', 'in', chunk)
+        .where('agentStatus', '==', 'pending')
+        .where('columnId', '==', 'todo')
+        .get()
+
+      snap.docs.forEach((doc) => {
+        const data = (doc.data() ?? {}) as TaskData
+        void dispatchTask(doc.ref, data)
+      })
+    } catch (err) {
+      logger.error('ready pending task sweep failed', {
+        agents: chunk,
+        error: err instanceof Error ? err.message : String(err),
+      })
+    }
+  }
+}
+
 export function inFlightCount(): number {
   return inFlight.size
 }
@@ -464,24 +513,32 @@ export async function startWatcher(agentIds?: readonly string[]): Promise<() => 
       (err: Error) => logger.error('Firestore review snapshot listener error', { error: err.message }),
     ))
 
-  const dependencyUnsubscribe = db
-    .collectionGroup('tasks')
-    .where('columnId', '==', 'done')
-    .onSnapshot(
-      (snap: QuerySnapshot) => {
-        snap.docChanges().forEach((change) => {
-          if (change.type !== 'added' && change.type !== 'modified') return
-          void dispatchDependents(change.doc.id)
-        })
-      },
-      (err: Error) => logger.error('Firestore dependency snapshot listener error', { error: err.message }),
-    )
+  const onDependencyResolved = (snap: QuerySnapshot) => {
+    snap.docChanges().forEach((change) => {
+      if (change.type !== 'added' && change.type !== 'modified') return
+      void dispatchDependents(change.doc.id)
+    })
+  }
+
+  const dependencyUnsubscribes = [
+    db.collectionGroup('tasks').where('columnId', '==', 'done'),
+    db.collectionGroup('tasks').where('agentStatus', '==', 'done'),
+  ].map((query) => query.onSnapshot(
+    onDependencyResolved,
+    (err: Error) => logger.error('Firestore dependency snapshot listener error', { error: err.message }),
+  ))
+
+  const readyTaskSweep = setInterval(() => {
+    void sweepReadyPendingTasks()
+  }, READY_TASK_SWEEP_MS)
+  readyTaskSweep.unref?.()
 
   return () => {
     try {
+      clearInterval(readyTaskSweep)
       unsubscribes.forEach((unsubscribe) => unsubscribe())
       reviewUnsubscribes.forEach((unsubscribe) => unsubscribe())
-      dependencyUnsubscribe()
+      dependencyUnsubscribes.forEach((unsubscribe) => unsubscribe())
     } catch (err) {
       logger.warn('unsubscribe threw', { error: err instanceof Error ? err.message : String(err) })
     }

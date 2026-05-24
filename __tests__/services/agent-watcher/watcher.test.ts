@@ -36,13 +36,15 @@ jest.mock('../../../services/agent-watcher/src/logger', () => ({
 
 import { getAgentConfig } from '../../../services/agent-watcher/src/config'
 import { claimTask, startHeartbeat } from '../../../services/agent-watcher/src/claim'
+import { db } from '../../../services/agent-watcher/src/firestore'
 import { runAndPoll } from '../../../services/agent-watcher/src/hermes'
-import { dispatchTask } from '../../../services/agent-watcher/src/watcher'
+import { dispatchTask, startWatcher, sweepReadyPendingTasks } from '../../../services/agent-watcher/src/watcher'
 
 const getAgentConfigMock = getAgentConfig as jest.Mock
 const claimTaskMock = claimTask as jest.Mock
 const startHeartbeatMock = startHeartbeat as jest.Mock
 const runAndPollMock = runAndPoll as jest.Mock
+const dbMock = db as { collectionGroup?: jest.Mock }
 
 function makeTaskRef(comments: Array<Record<string, unknown>> = []) {
   const update = jest.fn(async () => undefined)
@@ -219,5 +221,129 @@ describe('agent watcher dispatchTask', () => {
       agentConversationId: 'run-failed-1',
       agentOutput: expect.objectContaining({ summary: 'Watcher error: gateway failed' }),
     }))
+  })
+
+  it('retries a pending task that arrives while the agent is at concurrency capacity', async () => {
+    const running: Array<(value: { runId: string; output: string; error: null }) => void> = []
+    runAndPollMock.mockImplementation(async (_cfg, _input, onRunCreated) => {
+      const runId = `run-live-${running.length + 1}`
+      await onRunCreated(runId)
+      return new Promise(resolve => running.push(resolve))
+    })
+
+    const taskData = {
+      orgId: 'org-1',
+      assigneeAgentId: 'theo',
+      agentStatus: 'pending',
+      columnId: 'todo',
+      title: 'Ship watcher hardening',
+    }
+    const activeRefs = Array.from({ length: 5 }, (_value, index) => ({
+      ...makeTaskRef(),
+      id: `active-${index}`,
+      path: `projects/project-1/tasks/active-${index}`,
+    }))
+    const queuedRef = {
+      ...makeTaskRef(),
+      id: 'queued-1',
+      path: 'projects/project-1/tasks/queued-1',
+    }
+
+    const flush = () => new Promise(resolve => setImmediate(resolve))
+    const activeDispatches = activeRefs.map(ref => dispatchTask(ref as never, taskData))
+    await flush()
+    await flush()
+    expect(runAndPollMock).toHaveBeenCalledTimes(5)
+
+    await dispatchTask(queuedRef as never, taskData)
+    expect(claimTaskMock).not.toHaveBeenCalledWith(queuedRef, 'theo')
+
+    running[0]({ runId: 'run-live-1', output: 'done summary', error: null })
+    await activeDispatches[0]
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(claimTaskMock).toHaveBeenCalledWith(queuedRef, 'theo')
+    await flush()
+    expect(runAndPollMock).toHaveBeenCalledTimes(6)
+
+    running.slice(1).forEach((resolve, index) => resolve({ runId: `run-live-${index + 2}`, output: 'done summary', error: null }))
+    running[5]({ runId: 'run-live-6', output: 'done summary', error: null })
+    await Promise.all(activeDispatches.slice(1))
+  })
+  it('periodically sweeps pending todo tasks so missed dependency transitions are retried', async () => {
+    const dependencySnap = { exists: true, data: () => ({ agentStatus: 'done', columnId: 'review' }) }
+    const taskRef = {
+      ...makeTaskRef(),
+      id: 'follow-up-1',
+      path: 'projects/project-1/tasks/follow-up-1',
+      parent: {
+        doc: jest.fn(() => ({ get: jest.fn(async () => dependencySnap) })),
+      },
+    }
+    const taskData = {
+      orgId: 'org-1',
+      assigneeAgentId: 'theo',
+      agentStatus: 'pending',
+      columnId: 'todo',
+      title: 'Follow-up task',
+      dependsOn: ['dependency-1'],
+    }
+    const query = {
+      where: jest.fn(function () { return this }),
+      get: jest.fn(async () => ({
+        docs: [{ ref: taskRef, data: () => taskData }],
+      })),
+    }
+    dbMock.collectionGroup = jest.fn(() => query)
+
+    await sweepReadyPendingTasks()
+    await new Promise(resolve => setImmediate(resolve))
+
+    expect(dbMock.collectionGroup).toHaveBeenCalledWith('tasks')
+    expect(query.where).toHaveBeenCalledWith('assigneeAgentId', 'in', expect.arrayContaining(['theo']))
+    expect(query.where).toHaveBeenCalledWith('agentStatus', '==', 'pending')
+    expect(query.where).toHaveBeenCalledWith('columnId', '==', 'todo')
+    expect(claimTaskMock).toHaveBeenCalledWith(taskRef, 'theo')
+    expect(runAndPollMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ taskId: 'follow-up-1' }),
+      expect.any(Function),
+    )
+  })
+})
+
+describe('agent watcher dependency subscriptions', () => {
+  beforeEach(() => {
+    jest.clearAllMocks()
+  })
+
+  it('rechecks dependents when a dependency is marked agentStatus done before review approval', async () => {
+    const queries: Array<{ wheres: Array<[string, string, unknown]>; unsubscribe: jest.Mock }> = []
+    dbMock.collectionGroup = jest.fn(() => {
+      const query = {
+        wheres: [] as Array<[string, string, unknown]>,
+        unsubscribe: jest.fn(),
+        where(field: string, op: string, value: unknown) {
+          this.wheres.push([field, op, value])
+          return this
+        },
+        onSnapshot: jest.fn(() => {
+          queries.push({ wheres: [...query.wheres], unsubscribe: query.unsubscribe })
+          return query.unsubscribe
+        }),
+      }
+      return query
+    })
+
+    const stop = await startWatcher(['theo'])
+
+    expect(queries).toEqual(expect.arrayContaining([
+      expect.objectContaining({ wheres: [['columnId', '==', 'done']] }),
+      expect.objectContaining({ wheres: [['agentStatus', '==', 'done']] }),
+    ]))
+
+    stop()
+    expect(queries.every((query) => query.unsubscribe.mock.calls.length === 1)).toBe(true)
   })
 })

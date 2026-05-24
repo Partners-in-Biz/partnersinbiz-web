@@ -43,10 +43,16 @@ export default function VoiceInputButton({
 }: VoiceInputButtonProps) {
   const [supported, setSupported] = useState(() => Boolean(recognitionCtor()))
   const [listening, setListening] = useState(false)
+  const [locked, setLocked] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null)
   const transcriptRef = useRef('')
   const appendedRef = useRef(false)
+  const pointerStartYRef = useRef<number | null>(null)
+  const activePointerIdRef = useRef<number | null>(null)
+  const lockedRef = useRef(false)
+  const pointerMoveDeltaYRef = useRef(0)
+  const LOCK_SWIPE_DISTANCE_PX = 56
 
   useEffect(() => {
     return () => {
@@ -63,7 +69,11 @@ export default function VoiceInputButton({
     onTranscript(text)
   }
 
-  function startListening(pointerId?: number, target?: EventTarget | null) {
+  function startListening(pointerId?: number, target?: EventTarget | null, clientY?: number) {
+    if (listening && lockedRef.current) {
+      stopListening()
+      return
+    }
     if (disabled || !supported || listening) return
 
     const Ctor = recognitionCtor()
@@ -74,6 +84,11 @@ export default function VoiceInputButton({
 
     transcriptRef.current = ''
     appendedRef.current = false
+    pointerStartYRef.current = typeof clientY === 'number' ? clientY : null
+    activePointerIdRef.current = typeof pointerId === 'number' ? pointerId : null
+    pointerMoveDeltaYRef.current = 0
+    lockedRef.current = false
+    setLocked(false)
     setError(null)
 
     const recognition = new Ctor()
@@ -94,7 +109,12 @@ export default function VoiceInputButton({
     recognition.onend = () => {
       appendTranscript()
       setListening(false)
+      lockedRef.current = false
+      setLocked(false)
       recognitionRef.current = null
+      pointerStartYRef.current = null
+      activePointerIdRef.current = null
+      pointerMoveDeltaYRef.current = 0
     }
 
     recognitionRef.current = recognition
@@ -113,37 +133,82 @@ export default function VoiceInputButton({
 
   function stopListening() {
     if (!recognitionRef.current) return
+    pointerStartYRef.current = null
+    activePointerIdRef.current = null
+    pointerMoveDeltaYRef.current = 0
+    lockedRef.current = false
+    setLocked(false)
     try {
       recognitionRef.current.stop()
     } catch {
       recognitionRef.current = null
       setListening(false)
+      lockedRef.current = false
+      setLocked(false)
     }
+  }
+
+  function lockListening(pointerId?: number) {
+    if (!listening) return
+    if (typeof pointerId === 'number' && activePointerIdRef.current !== null && activePointerIdRef.current !== pointerId) return
+    lockedRef.current = true
+    setLocked(true)
+  }
+
+  function handlePointerRelease(pointerId?: number, clientY?: number) {
+    const startY = pointerStartYRef.current
+    const swipedByPosition =
+      typeof startY === 'number' &&
+      typeof clientY === 'number' &&
+      startY - clientY >= LOCK_SWIPE_DISTANCE_PX
+    const swipedByMovement = pointerMoveDeltaYRef.current <= -LOCK_SWIPE_DISTANCE_PX
+    const swipedToLock =
+      (swipedByPosition || swipedByMovement) &&
+      (typeof pointerId !== 'number' || activePointerIdRef.current === null || activePointerIdRef.current === pointerId)
+
+    if (!listening || lockedRef.current || swipedToLock) {
+      if (swipedToLock) lockListening(pointerId)
+      return
+    }
+    stopListening()
   }
 
   const isDisabled = disabled || !supported
   const title = !supported
     ? 'Voice input is not supported in this browser'
-    : error ?? (listening ? 'Release to add voice text' : 'Hold to dictate')
+    : error ?? (locked ? 'Voice recording locked — click to stop' : listening ? 'Swipe up to lock or release to add voice text' : 'Hold to dictate')
+  const ariaLabel = locked ? 'Stop voice recording' : listening ? 'Release to add voice text or swipe up to lock' : 'Hold to dictate'
 
   return (
     <button
       type="button"
       disabled={isDisabled}
       title={title}
-      aria-label={listening ? 'Release to add voice text' : 'Hold to dictate'}
+      aria-label={ariaLabel}
       aria-pressed={listening}
       onPointerDown={(event) => {
         event.preventDefault()
-        startListening(event.pointerId, event.currentTarget)
+        startListening(event.pointerId, event.currentTarget, event.clientY)
+      }}
+      onPointerMove={(event) => {
+        if (!listening || locked) return
+        if (activePointerIdRef.current !== null && activePointerIdRef.current !== event.pointerId) return
+        const startY = pointerStartYRef.current
+        pointerMoveDeltaYRef.current += event.movementY ?? 0
+        if (
+          (typeof startY === 'number' && startY - event.clientY >= LOCK_SWIPE_DISTANCE_PX) ||
+          pointerMoveDeltaYRef.current <= -LOCK_SWIPE_DISTANCE_PX
+        ) {
+          lockListening(event.pointerId)
+        }
       }}
       onPointerUp={(event) => {
         event.preventDefault()
-        stopListening()
+        handlePointerRelease(event.pointerId, event.clientY)
       }}
-      onPointerCancel={stopListening}
+      onPointerCancel={(event) => handlePointerRelease(event.pointerId, event.clientY)}
       onPointerLeave={() => {
-        if (listening) stopListening()
+        if (listening && !locked) stopListening()
       }}
       className={[
         'relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-on-surface-variant transition-colors',
@@ -157,8 +222,13 @@ export default function VoiceInputButton({
       {listening && (
         <span className="absolute inset-0 animate-ping rounded-full bg-primary/30" />
       )}
+      {listening && (
+        <span className="absolute bottom-full mb-2 whitespace-nowrap rounded-full bg-[var(--color-surface,#1c1c1c)] px-2 py-1 text-[11px] font-medium text-on-surface shadow-lg">
+          {locked ? 'Locked — tap to stop' : 'Swipe up to lock'}
+        </span>
+      )}
       <span className="material-symbols-outlined relative text-[20px]">
-        {listening ? 'mic' : 'mic_none'}
+        {listening ? (locked ? 'lock' : 'mic') : 'mic_none'}
       </span>
     </button>
   )

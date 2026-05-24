@@ -85,6 +85,8 @@ export interface Task {
   dueDate?: unknown
   startDate?: unknown
   endDate?: unknown
+  createdAt?: unknown
+  updatedAt?: unknown
   completedAt?: unknown
   estimateMinutes?: number | null
   order: number

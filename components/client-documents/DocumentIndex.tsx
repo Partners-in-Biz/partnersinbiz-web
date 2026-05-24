@@ -7,10 +7,10 @@ import type { ClientDocument, ClientDocumentStatus, ClientDocumentType } from '@
 
 const TYPE_LABELS: Record<ClientDocumentType, string> = {
   sales_proposal: 'Sales Proposal',
-  build_spec: 'Build Spec',
+  build_spec: 'Website/App Build Spec',
   social_strategy: 'Social Strategy',
   content_campaign_plan: 'Content Campaign Plan',
-  geo_seo_strategy: 'GEO SEO Agent Workflow',
+  geo_seo_strategy: 'GEO / SEO Agent Workflow',
   research_report: 'Research Report',
   monthly_report: 'Monthly Report',
   launch_signoff: 'Launch Sign-off',
@@ -116,7 +116,7 @@ export function DocumentIndex({
         <span className="material-symbols-outlined text-4xl text-[var(--color-pib-accent)]">description</span>
         <h2 className="mt-4 font-display text-2xl">No documents match this view.</h2>
         <p className="mx-auto mt-2 max-w-md text-sm text-[var(--color-pib-text-muted)]">
-          Change the filter or create a new client document to start a proposal, spec, strategy, or report.
+          Change the filter or create a Research Report for evidence, a Website/App Build Spec for what to build, a Change Request for scope changes, or a strategy/report for marketing and performance work.
         </p>
       </div>
     )

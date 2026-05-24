@@ -22,6 +22,7 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { formatTaskDate, formatTaskDateTime, timestampToDate } from '@/lib/tasks/dateTimeDisplay'
+import { buildBlockedTaskRecovery } from '@/lib/projects/blockerRecovery'
 import type { AgentMember, Column, Task, TeamMember } from './types'
 
 interface KanbanBoardProps {
@@ -128,6 +129,11 @@ const AGENT_STATUS_STYLE: Record<string, { label: string; className: string }> =
   'blocked':        { label: 'Blocked',   className: 'bg-red-500/20 text-red-400' },
 }
 
+function getTaskCreatedAtMillis(task: Task): number | null {
+  const date = timestampToDate(task.createdAt)
+  return date ? date.getTime() : null
+}
+
 // ── Task Card ─────────────────────────────────────────────────────────────
 
 function TaskCard({
@@ -154,6 +160,7 @@ function TaskCard({
   const assignedAgent = task.assigneeAgentId ? agents?.find((agent) => agent.agentId === task.assigneeAgentId) : undefined
   const checklistDone = task.checklist?.filter((item) => item.done).length ?? 0
   const checklistTotal = task.checklist?.length ?? 0
+  const blockerRecovery = buildBlockedTaskRecovery(task)
 
   return (
     <div
@@ -173,6 +180,12 @@ function TaskCard({
         <div className="mt-2 mb-2 aspect-video overflow-hidden rounded border border-[var(--color-card-border)] bg-[var(--color-surface-container)]">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={task.attachments[0].url} alt="" className="h-full w-full object-cover" />
+        </div>
+      )}
+      {blockerRecovery.isBlocked && (
+        <div className="mt-2 rounded border border-orange-500/25 bg-orange-500/5 p-2 text-[10px] leading-snug text-orange-100">
+          <p><span className="font-semibold">Blocked:</span> {blockerRecovery.whatIsWrong}</p>
+          <p className="mt-1 opacity-90"><span className="font-semibold">Unblock:</span> {blockerRecovery.whoCanUnblock}</p>
         </div>
       )}
       <div className="flex items-center gap-2 flex-wrap mt-2">
@@ -344,6 +357,7 @@ function KanbanColumn({
 export function KanbanBoard({ columns, tasks: initialTasks, members, agents, onTaskMove, onTaskClick, onAddTask }: KanbanBoardProps) {
   const [tasks, setTasks] = useState(initialTasks)
   const [activeTask, setActiveTask] = useState<Task | null>(null)
+  const [sortMode, setSortMode] = useState<'latest' | 'manual'>('latest')
 
   useEffect(() => {
     setTasks(initialTasks)
@@ -358,8 +372,21 @@ export function KanbanBoard({ columns, tasks: initialTasks, members, agents, onT
 
   const getTasksForColumn = useCallback(
     (columnId: string) =>
-      tasks.filter(t => t.columnId === columnId).sort((a, b) => a.order - b.order),
-    [tasks],
+      tasks
+        .filter(t => t.columnId === columnId)
+        .sort((a, b) => {
+          if (sortMode === 'latest') {
+            const aCreatedAt = getTaskCreatedAtMillis(a)
+            const bCreatedAt = getTaskCreatedAtMillis(b)
+            if (aCreatedAt !== null && bCreatedAt !== null && aCreatedAt !== bCreatedAt) {
+              return bCreatedAt - aCreatedAt
+            }
+            if (aCreatedAt !== null && bCreatedAt === null) return -1
+            if (aCreatedAt === null && bCreatedAt !== null) return 1
+          }
+          return a.order - b.order
+        }),
+    [sortMode, tasks],
   )
 
   function handleDragStart(event: DragStartEvent) {
@@ -426,6 +453,18 @@ export function KanbanBoard({ columns, tasks: initialTasks, members, agents, onT
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
     >
+      <div className="mb-3 flex justify-end">
+        <button
+          type="button"
+          onClick={() => setSortMode(prev => prev === 'latest' ? 'manual' : 'latest')}
+          className="inline-flex items-center gap-2 rounded-full border border-[var(--color-card-border)] px-3 py-1.5 text-xs font-label uppercase tracking-wide text-on-surface-variant transition-colors hover:text-on-surface"
+          aria-pressed={sortMode === 'manual'}
+        >
+          <span className="material-symbols-outlined text-[16px]">sort</span>
+          {sortMode === 'latest' ? 'Manual order' : 'Latest first'}
+        </button>
+      </div>
+
       <div className="flex gap-4 overflow-x-auto pb-4" style={{ minHeight: 500 }}>
         {sortedColumns.map(column => (
           <KanbanColumn

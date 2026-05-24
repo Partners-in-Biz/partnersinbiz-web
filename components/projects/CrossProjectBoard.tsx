@@ -17,6 +17,7 @@ import { sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 import { BoardColumn } from './BoardColumn'
 import { CrossProjectTaskCard } from './CrossProjectTaskCard'
 import { TaskDetailPanel } from '@/components/kanban/TaskDetailPanel'
+import { timestampToDate } from '@/lib/tasks/dateTimeDisplay'
 import type { Column, Task } from '@/components/kanban/types'
 import type { BoardTask } from './BoardColumn'
 
@@ -36,6 +37,11 @@ function normalizeColumnId(columnId: string): string {
   return BOARD_COLUMNS.some(c => c.id === columnId) ? columnId : 'backlog'
 }
 
+function getTaskCreatedAtMillis(task: Task): number | null {
+  const date = timestampToDate(task.createdAt)
+  return date ? date.getTime() : null
+}
+
 function Skeleton() {
   return <div className="pib-skeleton h-16 rounded-lg" />
 }
@@ -44,9 +50,10 @@ interface CrossProjectBoardProps {
   tasks: BoardTask[]
   loading: boolean
   onTaskUpdate: (projectId: string, taskId: string, patch: Partial<Task>) => void
+  sortMode?: 'latest' | 'manual'
 }
 
-export function CrossProjectBoard({ tasks: initialTasks, loading, onTaskUpdate }: CrossProjectBoardProps) {
+export function CrossProjectBoard({ tasks: initialTasks, loading, onTaskUpdate, sortMode = 'latest' }: CrossProjectBoardProps) {
   const [tasks, setTasks] = useState<BoardTask[]>([])
   const [activeTask, setActiveTask] = useState<BoardTask | null>(null)
   const [selectedTask, setSelectedTask] = useState<BoardTask | null>(null)
@@ -63,8 +70,21 @@ export function CrossProjectBoard({ tasks: initialTasks, loading, onTaskUpdate }
   )
 
   const getTasksForColumn = useCallback(
-    (columnId: string) => tasks.filter(t => t.columnId === columnId).sort((a, b) => a.order - b.order),
-    [tasks],
+    (columnId: string) => tasks
+      .filter(t => t.columnId === columnId)
+      .sort((a, b) => {
+        if (sortMode === 'latest') {
+          const aCreatedAt = getTaskCreatedAtMillis(a)
+          const bCreatedAt = getTaskCreatedAtMillis(b)
+          if (aCreatedAt !== null && bCreatedAt !== null && aCreatedAt !== bCreatedAt) {
+            return bCreatedAt - aCreatedAt
+          }
+          if (aCreatedAt !== null && bCreatedAt === null) return -1
+          if (aCreatedAt === null && bCreatedAt !== null) return 1
+        }
+        return a.order - b.order
+      }),
+    [sortMode, tasks],
   )
 
   function handleDragStart(event: DragStartEvent) {

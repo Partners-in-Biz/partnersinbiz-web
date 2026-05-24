@@ -34,6 +34,12 @@ jest.mock('@/components/kanban/TaskDetailPanel', () => ({
 
 type BoardTask = Task & { projectId: string; projectName: string }
 
+function expectBefore(firstText: string, secondText: string) {
+  const first = screen.getByText(firstText)
+  const second = screen.getByText(secondText)
+  expect(first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+}
+
 const makeBoardTask = (overrides: Partial<BoardTask> = {}): BoardTask => ({
   id: 'task-1',
   title: 'Test task',
@@ -45,6 +51,34 @@ const makeBoardTask = (overrides: Partial<BoardTask> = {}): BoardTask => ({
 })
 
 describe('CrossProjectBoard', () => {
+  it('sorts latest first by default and uses manual order when requested by the toolbar', () => {
+    const tasks = [
+      makeBoardTask({ id: 'task-old', title: 'Old task', order: 1, createdAt: '2026-05-20T08:00:00.000Z' }),
+      makeBoardTask({ id: 'task-new', title: 'Newest task', order: 3, createdAt: '2026-05-24T08:00:00.000Z' }),
+      makeBoardTask({ id: 'task-middle', title: 'Middle task', order: 2, createdAt: '2026-05-22T08:00:00.000Z' }),
+    ]
+
+    const { rerender } = render(<CrossProjectBoard
+      tasks={tasks}
+      loading={false}
+      onTaskUpdate={jest.fn()}
+    />)
+
+    expectBefore('Newest task', 'Middle task')
+    expectBefore('Middle task', 'Old task')
+    expect(screen.queryByRole('button', { name: /manual order/i })).not.toBeInTheDocument()
+
+    rerender(<CrossProjectBoard
+      tasks={tasks}
+      loading={false}
+      sortMode="manual"
+      onTaskUpdate={jest.fn()}
+    />)
+
+    expectBefore('Old task', 'Middle task')
+    expectBefore('Middle task', 'Newest task')
+  })
+
   it('renders five column headers', () => {
     render(<CrossProjectBoard tasks={[]} loading={false} onTaskUpdate={jest.fn()} />)
     expect(screen.getByText('Backlog')).toBeInTheDocument()
