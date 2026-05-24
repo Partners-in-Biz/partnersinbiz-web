@@ -18,6 +18,7 @@ import { agentStatusUpdate } from './task-updates'
 import { getTaskDispatchBlocker, isDependencyResolved } from './eligibility'
 
 const MAX_CONCURRENT_PER_AGENT = 5
+const READY_TASK_SWEEP_MS = 60_000
 
 const inFlight = new Set<string>()
 const perAgentInFlight = new Map<AgentId, number>()
@@ -439,6 +440,30 @@ async function dispatchDependents(completedTaskId: string): Promise<void> {
   }
 }
 
+export async function sweepReadyPendingTasks(): Promise<void> {
+  const chunks = chunkAgentIds(currentAgentIds())
+  for (const chunk of chunks) {
+    try {
+      const snap = await db
+        .collectionGroup('tasks')
+        .where('assigneeAgentId', 'in', chunk)
+        .where('agentStatus', '==', 'pending')
+        .where('columnId', '==', 'todo')
+        .get()
+
+      snap.docs.forEach((doc) => {
+        const data = (doc.data() ?? {}) as TaskData
+        void dispatchTask(doc.ref, data)
+      })
+    } catch (err) {
+      logger.error('ready pending task sweep failed', {
+        agents: chunk,
+        error: err instanceof Error ? err.message : String(err),
+      })
+    }
+  }
+}
+
 export function inFlightCount(): number {
   return inFlight.size
 }
@@ -503,8 +528,14 @@ export async function startWatcher(agentIds?: readonly string[]): Promise<() => 
     (err: Error) => logger.error('Firestore dependency snapshot listener error', { error: err.message }),
   ))
 
+  const readyTaskSweep = setInterval(() => {
+    void sweepReadyPendingTasks()
+  }, READY_TASK_SWEEP_MS)
+  readyTaskSweep.unref?.()
+
   return () => {
     try {
+      clearInterval(readyTaskSweep)
       unsubscribes.forEach((unsubscribe) => unsubscribe())
       reviewUnsubscribes.forEach((unsubscribe) => unsubscribe())
       dependencyUnsubscribes.forEach((unsubscribe) => unsubscribe())

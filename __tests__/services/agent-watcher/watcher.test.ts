@@ -38,7 +38,7 @@ import { getAgentConfig } from '../../../services/agent-watcher/src/config'
 import { claimTask, startHeartbeat } from '../../../services/agent-watcher/src/claim'
 import { db } from '../../../services/agent-watcher/src/firestore'
 import { runAndPoll } from '../../../services/agent-watcher/src/hermes'
-import { dispatchTask, startWatcher } from '../../../services/agent-watcher/src/watcher'
+import { dispatchTask, startWatcher, sweepReadyPendingTasks } from '../../../services/agent-watcher/src/watcher'
 
 const getAgentConfigMock = getAgentConfig as jest.Mock
 const claimTaskMock = claimTask as jest.Mock
@@ -270,6 +270,46 @@ describe('agent watcher dispatchTask', () => {
     running.slice(1).forEach((resolve, index) => resolve({ runId: `run-live-${index + 2}`, output: 'done summary', error: null }))
     running[5]({ runId: 'run-live-6', output: 'done summary', error: null })
     await Promise.all(activeDispatches.slice(1))
+  })
+  it('periodically sweeps pending todo tasks so missed dependency transitions are retried', async () => {
+    const dependencySnap = { exists: true, data: () => ({ agentStatus: 'done', columnId: 'review' }) }
+    const taskRef = {
+      ...makeTaskRef(),
+      id: 'follow-up-1',
+      path: 'projects/project-1/tasks/follow-up-1',
+      parent: {
+        doc: jest.fn(() => ({ get: jest.fn(async () => dependencySnap) })),
+      },
+    }
+    const taskData = {
+      orgId: 'org-1',
+      assigneeAgentId: 'theo',
+      agentStatus: 'pending',
+      columnId: 'todo',
+      title: 'Follow-up task',
+      dependsOn: ['dependency-1'],
+    }
+    const query = {
+      where: jest.fn(function (_field: string, _op: string, _value: unknown) { return this }),
+      get: jest.fn(async () => ({
+        docs: [{ ref: taskRef, data: () => taskData }],
+      })),
+    }
+    dbMock.collectionGroup = jest.fn(() => query)
+
+    await sweepReadyPendingTasks()
+    await new Promise(resolve => setImmediate(resolve))
+
+    expect(dbMock.collectionGroup).toHaveBeenCalledWith('tasks')
+    expect(query.where).toHaveBeenCalledWith('assigneeAgentId', 'in', expect.arrayContaining(['theo']))
+    expect(query.where).toHaveBeenCalledWith('agentStatus', '==', 'pending')
+    expect(query.where).toHaveBeenCalledWith('columnId', '==', 'todo')
+    expect(claimTaskMock).toHaveBeenCalledWith(taskRef, 'theo')
+    expect(runAndPollMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ taskId: 'follow-up-1' }),
+      expect.any(Function),
+    )
   })
 })
 
