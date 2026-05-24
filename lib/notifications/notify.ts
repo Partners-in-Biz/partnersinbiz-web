@@ -7,6 +7,11 @@ import { getOrgManagerEmails } from '@/lib/organizations/manager-emails'
 // Base URL for links in emails
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://partnersinbiz.online'
 
+function absoluteAppUrl(pathOrUrl: string) {
+  if (/^https?:\/\//i.test(pathOrUrl)) return pathOrUrl
+  return `${BASE_URL}${pathOrUrl.startsWith('/') ? pathOrUrl : `/${pathOrUrl}`}`
+}
+
 export async function notifyApprovalNeeded(postId: string, postContent: string, orgId: string) {
   try {
     const orgDoc = await adminDb.collection('organizations').doc(orgId).get()
@@ -38,7 +43,7 @@ export async function notifyNewComment(opts: {
       // Notify whoever is assigned to manage this client in the Teams tab
       const managerEmails = await getOrgManagerEmails(opts.orgId)
       if (managerEmails.length > 0) {
-        const html = newCommentEmail(opts.commentText, opts.commenterName, `on ${opts.context}`, `${BASE_URL}${opts.viewUrl}`)
+        const html = newCommentEmail(opts.commentText, opts.commenterName, `on ${opts.context}`, absoluteAppUrl(opts.viewUrl))
         await Promise.all(
           managerEmails.map(email =>
             sendEmail({ to: email, subject: `[PIB] New comment on ${opts.context}`, html })

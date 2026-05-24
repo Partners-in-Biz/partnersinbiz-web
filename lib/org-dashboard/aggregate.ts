@@ -1,4 +1,5 @@
 import type { Timestamp } from 'firebase-admin/firestore'
+import type * as FirebaseFirestore from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { CLIENT_DOCUMENTS_COLLECTION } from '@/lib/client-documents/store'
 

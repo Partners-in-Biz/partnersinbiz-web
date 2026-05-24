@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { StatCardWithChart, DonutChart, HorizontalBarChart, TrendAreaChart } from '@/components/ui/Charts'
+import { ScheduledContentPreviewCards, type ScheduledContentPost } from '@/components/admin/ScheduledContentPreviewCards'
 
 interface Project {
   id: string
@@ -73,12 +74,21 @@ function getGreeting(): string {
   return 'Good evening'
 }
 
+function todayRange(): { from: string; to: string } {
+  const from = new Date()
+  from.setHours(0, 0, 0, 0)
+  const to = new Date(from)
+  to.setDate(to.getDate() + 1)
+  return { from: from.toISOString(), to: to.toISOString() }
+}
+
 export default function OrgDashboard() {
   const params = useParams()
   const slug = params.slug as string
 
   const [projects, setProjects] = useState<Project[]>([])
   const [socialStats, setSocialStats] = useState<SocialStats | null>(null)
+  const [scheduledPosts, setScheduledPosts] = useState<ScheduledContentPost[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -100,10 +110,22 @@ export default function OrgDashboard() {
     ])
       .then(([fetchedOrgId]) => {
         if (fetchedOrgId) {
-          return fetch(`/api/v1/social/stats?orgId=${fetchedOrgId}`)
-            .then(r => r.json())
-            .then(body => setSocialStats(body.data ?? null))
-            .catch(() => {})
+          const { from, to } = todayRange()
+          const orgQs = `orgId=${encodeURIComponent(fetchedOrgId)}`
+          return Promise.all([
+            fetch(`/api/v1/social/stats?${orgQs}`)
+              .then(r => r.json())
+              .then(body => setSocialStats(body.data ?? null))
+              .catch(() => {}),
+            fetch(`/api/v1/social/posts?${orgQs}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&limit=50`)
+              .then(r => r.json())
+              .then(body => {
+                const posts = ((body.data ?? []) as ScheduledContentPost[])
+                  .filter((post) => ['scheduled', 'approved', 'pending_approval', 'client_review', 'qa_review'].includes(post.status ?? ''))
+                setScheduledPosts(posts)
+              })
+              .catch(() => {}),
+          ])
         }
       })
       .catch(() => {})
@@ -189,6 +211,8 @@ export default function OrgDashboard() {
           </>
         )}
       </div>
+
+      <ScheduledContentPreviewCards slug={slug} posts={scheduledPosts} loading={loading} />
 
       {/* ── Projects + Social Status ── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">

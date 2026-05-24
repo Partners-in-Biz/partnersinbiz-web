@@ -28,12 +28,12 @@ describe('ScheduledContentPreviewCards', () => {
     expect(screen.getByText('Instagram reel')).toBeInTheDocument()
     expect(screen.getByText('Instagram story')).toBeInTheDocument()
     expect(screen.getByText('Facebook post')).toBeInTheDocument()
-    expect(screen.getByText('LinkedIn update')).toBeInTheDocument()
+    expect(screen.getAllByText('LinkedIn update')).toHaveLength(2)
     expect(screen.getByText('X post')).toBeInTheDocument()
     expect(screen.getByText('Generic post')).toBeInTheDocument()
 
-    expect(screen.getByTestId('scheduled-preview-ig-square')).toHaveAttribute('href', '/admin/org/acme/social/ig-square')
-    expect(screen.getByTestId('scheduled-preview-approval')).toHaveAttribute('href', '/admin/org/acme/social/approval?approvalId=approval')
+    expect(screen.getByTestId('scheduled-preview-ig-square')).toHaveAttribute('href', '/admin/org/acme/social/standalone?postId=ig-square')
+    expect(screen.getByTestId('scheduled-preview-approval')).toHaveAttribute('href', '/admin/org/acme/social/standalone?approvalId=approval')
   })
 
   it('shows an empty state that still links to the social composer', () => {
