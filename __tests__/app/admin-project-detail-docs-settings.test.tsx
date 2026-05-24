@@ -1,5 +1,5 @@
 import React from 'react'
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import ProjectDetailPage from '@/app/(admin)/admin/org/[slug]/projects/[projectId]/page'
 
 let snapshotCallback: ((snap: { docChanges: () => Array<{ type: 'added' | 'modified' | 'removed'; doc: { id: string; data: () => Record<string, unknown> } }> }) => void) | null = null
@@ -106,9 +106,22 @@ function mockFetch() {
               order: 1,
               priority: 'high',
               dueDate: '2026-05-25T00:00:00.000Z',
+              createdAt: '2026-05-20T09:00:00.000Z',
               estimateMinutes: 45,
               assigneeIds: [],
               attachments: [{ id: 'file-1' }],
+            },
+            {
+              id: 'task-2',
+              title: 'Latest task should float up',
+              columnId: 'todo',
+              order: 2,
+              priority: 'medium',
+              dueDate: '2026-06-01T00:00:00.000Z',
+              createdAt: '2026-05-23T09:00:00.000Z',
+              estimateMinutes: 30,
+              assigneeIds: [],
+              attachments: [],
             },
           ],
         }),
@@ -211,6 +224,21 @@ describe('Admin project docs and settings tabs', () => {
     })
 
     expect(screen.getByText('Live kanban task survives fallback')).toBeInTheDocument()
+  })
+  it('defaults task list sorting to latest first and can toggle back to due date', async () => {
+    render(<ProjectDetailPage />)
+
+    fireEvent.click(screen.getByRole('button', { name: /list/i }))
+
+    await waitFor(() => expect(screen.getByRole('button', { name: /Latest first/i })).toHaveAttribute('aria-pressed', 'true'))
+    await waitFor(() => expect(screen.getAllByText('Latest task should float up').length).toBeGreaterThan(0))
+    const table = screen.getByRole('table')
+    expect(within(table).getByText('Latest task should float up').compareDocumentPosition(within(table).getByText('Tighten mobile project board'))).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+
+    fireEvent.click(screen.getByRole('button', { name: /Due date/i }))
+
+    expect(screen.getByRole('button', { name: /Due date/i })).toHaveAttribute('aria-pressed', 'true')
+    expect(within(table).getByText('Tighten mobile project board').compareDocumentPosition(within(table).getByText('Latest task should float up'))).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
   })
 
 

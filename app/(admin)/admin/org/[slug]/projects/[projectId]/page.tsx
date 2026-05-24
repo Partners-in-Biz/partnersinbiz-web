@@ -13,6 +13,7 @@ import type { AgentMember, Column, Task, TeamMember } from '@/components/kanban/
 
 interface ProjectDoc { id: string; title: string; content: string; type: 'brief' | 'requirements' | 'notes' | 'reference'; createdBy: string; updatedBy?: string; createdAt?: unknown; updatedAt?: unknown }
 interface Project { id: string; orgId?: string; name: string; description?: string; brief?: string; status?: string; columns: Column[] }
+type TaskListSort = 'latest' | 'due'
 
 function mergeLiveTasks(restTasks: Task[], currentTasks: Task[]) {
   const merged = new Map<string, Task>()
@@ -112,6 +113,7 @@ export default function ProjectDetailPage() {
     if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return 'board'
     return window.matchMedia('(max-width: 767px)').matches ? 'list' : 'board'
   })
+  const [taskListSort, setTaskListSort] = useState<TaskListSort>('latest')
   const [editingBrief, setEditingBrief] = useState(false)
   const [briefValue, setBriefValue] = useState('')
   const [editingDoc, setEditingDoc] = useState<ProjectDoc | null>(null)
@@ -281,6 +283,11 @@ export default function ProjectDetailPage() {
   const mediaCount = tasks.reduce((sum, task) => sum + (task.attachments?.length ?? 0), 0)
   const dueSoonCount = tasks.filter(isDueThisWeek).length
   const sortedListTasks = [...tasks].sort((a, b) => {
+    if (taskListSort === 'latest') {
+      const latestA = timestampToMillis(a.createdAt) || timestampToMillis(a.updatedAt) || a.order || 0
+      const latestB = timestampToMillis(b.createdAt) || timestampToMillis(b.updatedAt) || b.order || 0
+      return latestB - latestA || a.order - b.order
+    }
     const dueA = timestampToMillis(a.dueDate) || Number.MAX_SAFE_INTEGER
     const dueB = timestampToMillis(b.dueDate) || Number.MAX_SAFE_INTEGER
     return dueA - dueB || a.order - b.order
@@ -397,6 +404,30 @@ export default function ProjectDetailPage() {
                 </button>
               ))}
             </div>
+            {viewMode === 'list' && (
+              <div className="inline-flex rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)] p-1">
+                {([
+                  { key: 'latest', label: 'Latest first', icon: 'new_releases' },
+                  { key: 'due', label: 'Due date', icon: 'event' },
+                ] as const).map(option => (
+                  <button
+                    key={option.key}
+                    type="button"
+                    onClick={() => setTaskListSort(option.key)}
+                    className={`inline-flex items-center gap-1 rounded px-3 py-1.5 text-xs font-label ${
+                      taskListSort === option.key
+                        ? 'bg-[var(--color-accent-v2)] text-black'
+                        : 'text-on-surface-variant hover:text-on-surface'
+                    }`}
+                    aria-pressed={taskListSort === option.key}
+                  >
+                    <span className="material-symbols-outlined text-[16px]">{option.icon}</span>
+                    <span className="hidden sm:inline">{option.label}</span>
+                    <span className="sm:hidden">{option.key === 'latest' ? 'Latest' : 'Due'}</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Board */}
