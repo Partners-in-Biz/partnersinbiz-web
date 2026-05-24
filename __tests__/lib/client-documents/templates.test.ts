@@ -93,6 +93,45 @@ describe('client document templates', () => {
     expect(template.requiredBlockTypes).toEqual(['hero', 'summary', 'deliverables', 'gallery', 'callout', 'approval'])
   })
 
+  it('exposes typed metadata contracts for build specs, research reports, and change requests', () => {
+    expect(getClientDocumentTemplate('build_spec').contract).toMatchObject({
+      purpose: 'implementation_spec',
+      approvalMode: 'operational',
+      taskFanout: 'approval_gated',
+      aiPromptKey: 'client_documents.build_spec',
+      recommendedBlockTypes: ['hero', 'summary', 'scope', 'deliverables', 'timeline', 'risk', 'approval'],
+    })
+    expect(getClientDocumentTemplate('research_report').contract).toMatchObject({
+      purpose: 'research_presentation',
+      approvalMode: 'operational',
+      taskFanout: 'none',
+      aiPromptKey: 'client_documents.research_report',
+      recommendedBlockTypes: ['hero', 'summary', 'deliverables', 'gallery', 'callout', 'approval'],
+    })
+    expect(getClientDocumentTemplate('change_request').contract).toMatchObject({
+      purpose: 'scope_change_approval',
+      approvalMode: 'operational',
+      taskFanout: 'approval_gated',
+      aiPromptKey: 'client_documents.change_request',
+      recommendedBlockTypes: ['hero', 'summary', 'scope', 'timeline', 'investment', 'approval'],
+    })
+  })
+
+  it('resolves template metadata safely for legacy documents with old or missing template IDs', () => {
+    const legacyByTemplateId = getClientDocumentTemplate({ templateId: 'research-report-v1' })
+    const legacyByType = getClientDocumentTemplate({ type: 'change_request', templateId: 'change_request' })
+    const fallback = getClientDocumentTemplate({ templateId: 'deleted-template-v0' })
+
+    expect(legacyByTemplateId.type).toBe('research_report')
+    expect(legacyByType.type).toBe('change_request')
+    expect(fallback).toMatchObject({
+      id: 'legacy-safe-fallback',
+      type: 'build_spec',
+      approvalMode: 'operational',
+      requiredBlockTypes: ['hero', 'summary', 'approval'],
+    })
+  })
+
   it('deep-clones object content from template defaults', () => {
     const template = getClientDocumentTemplate('build_spec')
     const templateBlock = template.defaultBlocks[0]

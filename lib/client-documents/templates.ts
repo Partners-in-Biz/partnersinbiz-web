@@ -59,6 +59,22 @@ export const CLIENT_DOCUMENT_TEMPLATES: ClientDocumentTemplate[] = [
       'terms',
       'approval',
     ],
+    contract: {
+      purpose: 'sales_proposal',
+      recommendedBlockTypes: [
+      'hero',
+      'problem',
+      'scope',
+      'deliverables',
+      'timeline',
+      'investment',
+      'terms',
+      'approval',
+    ],
+      approvalMode: 'formal_acceptance',
+      taskFanout: 'automatic_after_approval',
+      aiPromptKey: 'client_documents.sales_proposal',
+    },
     defaultBlocks: [
       block('hero', 'Proposal'),
       block('problem', 'What needs to change'),
@@ -82,6 +98,13 @@ export const CLIENT_DOCUMENT_TEMPLATES: ClientDocumentTemplate[] = [
       canApprove: true,
     },
     requiredBlockTypes: ['hero', 'summary', 'scope', 'deliverables', 'timeline', 'risk', 'approval'],
+    contract: {
+      purpose: 'implementation_spec',
+      recommendedBlockTypes: ['hero', 'summary', 'scope', 'deliverables', 'timeline', 'risk', 'approval'],
+      approvalMode: 'operational',
+      taskFanout: 'approval_gated',
+      aiPromptKey: 'client_documents.build_spec',
+    },
     defaultBlocks: [
       block('hero', 'Build spec'),
       block('summary', 'Executive summary'),
@@ -112,6 +135,21 @@ export const CLIENT_DOCUMENT_TEMPLATES: ClientDocumentTemplate[] = [
       'metrics',
       'approval',
     ],
+    contract: {
+      purpose: 'strategy_plan',
+      recommendedBlockTypes: [
+      'hero',
+      'summary',
+      'problem',
+      'deliverables',
+      'timeline',
+      'metrics',
+      'approval',
+    ],
+      approvalMode: 'operational',
+      taskFanout: 'approval_gated',
+      aiPromptKey: 'client_documents.social_strategy',
+    },
     defaultBlocks: [
       block('hero', 'Social strategy'),
       block('summary', 'Strategy summary'),
@@ -134,6 +172,13 @@ export const CLIENT_DOCUMENT_TEMPLATES: ClientDocumentTemplate[] = [
       canApprove: true,
     },
     requiredBlockTypes: ['hero', 'summary', 'deliverables', 'timeline', 'metrics', 'approval'],
+    contract: {
+      purpose: 'content_plan',
+      recommendedBlockTypes: ['hero', 'summary', 'deliverables', 'timeline', 'metrics', 'approval'],
+      approvalMode: 'operational',
+      taskFanout: 'approval_gated',
+      aiPromptKey: 'client_documents.content_campaign_plan',
+    },
     defaultBlocks: [
       block('hero', 'Content campaign plan'),
       block('summary', 'Campaign overview'),
@@ -155,6 +200,13 @@ export const CLIENT_DOCUMENT_TEMPLATES: ClientDocumentTemplate[] = [
       canApprove: true,
     },
     requiredBlockTypes: ['hero', 'summary', 'scope', 'deliverables', 'timeline', 'metrics', 'approval'],
+    contract: {
+      purpose: 'strategy_plan',
+      recommendedBlockTypes: ['hero', 'summary', 'scope', 'deliverables', 'timeline', 'metrics', 'approval'],
+      approvalMode: 'operational',
+      taskFanout: 'approval_gated',
+      aiPromptKey: 'client_documents.geo_seo_strategy',
+    },
     defaultBlocks: [
       requiredBlock('hero', 'hero', 'GEO SEO workflow', 'Turn AI-search strategy into approved research, content, implementation, and measurement work.'),
       requiredBlock('summary', 'summary', 'Strategy summary', {
@@ -253,6 +305,13 @@ export const CLIENT_DOCUMENT_TEMPLATES: ClientDocumentTemplate[] = [
       canApprove: true,
     },
     requiredBlockTypes: ['hero', 'summary', 'deliverables', 'gallery', 'callout', 'approval'],
+    contract: {
+      purpose: 'research_presentation',
+      recommendedBlockTypes: ['hero', 'summary', 'deliverables', 'gallery', 'callout', 'approval'],
+      approvalMode: 'operational',
+      taskFanout: 'none',
+      aiPromptKey: 'client_documents.research_report',
+    },
     defaultBlocks: [
       block('hero', 'Research report'),
       block('summary', 'Research summary'),
@@ -274,6 +333,13 @@ export const CLIENT_DOCUMENT_TEMPLATES: ClientDocumentTemplate[] = [
       canApprove: true,
     },
     requiredBlockTypes: ['hero', 'summary', 'metrics', 'callout', 'approval'],
+    contract: {
+      purpose: 'performance_report',
+      recommendedBlockTypes: ['hero', 'summary', 'metrics', 'callout', 'approval'],
+      approvalMode: 'operational',
+      taskFanout: 'none',
+      aiPromptKey: 'client_documents.monthly_report',
+    },
     defaultBlocks: [
       block('hero', 'Monthly report'),
       block('summary', 'Executive summary'),
@@ -294,6 +360,13 @@ export const CLIENT_DOCUMENT_TEMPLATES: ClientDocumentTemplate[] = [
       canApprove: true,
     },
     requiredBlockTypes: ['hero', 'summary', 'scope', 'risk', 'approval'],
+    contract: {
+      purpose: 'launch_acceptance',
+      recommendedBlockTypes: ['hero', 'summary', 'scope', 'risk', 'approval'],
+      approvalMode: 'operational',
+      taskFanout: 'manual',
+      aiPromptKey: 'client_documents.launch_signoff',
+    },
     defaultBlocks: [
       block('hero', 'Launch sign-off'),
       block('summary', 'What is ready'),
@@ -314,6 +387,13 @@ export const CLIENT_DOCUMENT_TEMPLATES: ClientDocumentTemplate[] = [
       canApprove: true,
     },
     requiredBlockTypes: ['hero', 'summary', 'scope', 'timeline', 'investment', 'approval'],
+    contract: {
+      purpose: 'scope_change_approval',
+      recommendedBlockTypes: ['hero', 'summary', 'scope', 'timeline', 'investment', 'approval'],
+      approvalMode: 'operational',
+      taskFanout: 'approval_gated',
+      aiPromptKey: 'client_documents.change_request',
+    },
     defaultBlocks: [
       block('hero', 'Change request'),
       block('summary', 'Requested change'),
@@ -325,11 +405,78 @@ export const CLIENT_DOCUMENT_TEMPLATES: ClientDocumentTemplate[] = [
   },
 ]
 
-export function getClientDocumentTemplate(type: ClientDocumentType): ClientDocumentTemplate {
-  const template = CLIENT_DOCUMENT_TEMPLATES.find(candidate => candidate.type === type)
+const LEGACY_SAFE_FALLBACK_TEMPLATE: ClientDocumentTemplate = {
+  id: 'legacy-safe-fallback',
+  type: 'build_spec',
+  label: 'Legacy Document',
+  approvalMode: 'operational',
+  clientPermissions: {
+    canComment: true,
+    canSuggest: true,
+    canDirectEdit: false,
+    canApprove: true,
+  },
+  requiredBlockTypes: ['hero', 'summary', 'approval'],
+  contract: {
+    purpose: 'legacy_safe_fallback',
+    recommendedBlockTypes: ['hero', 'summary', 'approval'],
+    approvalMode: 'operational',
+    taskFanout: 'manual',
+    aiPromptKey: 'client_documents.legacy_safe_fallback',
+  },
+  defaultBlocks: [
+    block('hero', 'Legacy document'),
+    block('summary', 'Summary'),
+    block('approval', 'Acknowledgement'),
+  ],
+}
+
+const LEGACY_TEMPLATE_ID_ALIASES: Record<string, ClientDocumentType> = {
+  sales_proposal: 'sales_proposal',
+  build_spec: 'build_spec',
+  research_report: 'research_report',
+  change_request: 'change_request',
+}
+
+type TemplateLookup = ClientDocumentType | { type?: unknown; templateId?: unknown }
+
+function isClientDocumentType(value: unknown): value is ClientDocumentType {
+  return typeof value === 'string' && CLIENT_DOCUMENT_TEMPLATES.some(template => template.type === value)
+}
+
+function findTemplateByLookup(lookup: TemplateLookup): ClientDocumentTemplate | undefined {
+  if (typeof lookup === 'string') {
+    return CLIENT_DOCUMENT_TEMPLATES.find(candidate => candidate.type === lookup)
+  }
+
+  if (isClientDocumentType(lookup.type)) {
+    return CLIENT_DOCUMENT_TEMPLATES.find(candidate => candidate.type === lookup.type)
+  }
+
+  if (typeof lookup.templateId === 'string') {
+    const exact = CLIENT_DOCUMENT_TEMPLATES.find(candidate => candidate.id === lookup.templateId)
+    if (exact) return exact
+
+    const aliasType = LEGACY_TEMPLATE_ID_ALIASES[lookup.templateId]
+    if (aliasType) {
+      return CLIENT_DOCUMENT_TEMPLATES.find(candidate => candidate.type === aliasType)
+    }
+  }
+
+  return undefined
+}
+
+export function getClientDocumentTemplate(type: ClientDocumentType): ClientDocumentTemplate
+export function getClientDocumentTemplate(lookup: { type?: unknown; templateId?: unknown }): ClientDocumentTemplate
+export function getClientDocumentTemplate(lookup: TemplateLookup): ClientDocumentTemplate {
+  const template = findTemplateByLookup(lookup)
 
   if (!template) {
-    throw new Error(`Unknown client document template type: ${type}`)
+    if (typeof lookup === 'string') {
+      throw new Error(`Unknown client document template type: ${lookup}`)
+    }
+
+    return LEGACY_SAFE_FALLBACK_TEMPLATE
   }
 
   return template
