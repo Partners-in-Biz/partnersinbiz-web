@@ -3,7 +3,6 @@ import {
   buildDefaultAdminNotificationPreference,
   normaliseAdminNotificationPreference,
   canAdminManageNotificationPreference,
-  type AdminNotificationPreference,
 } from '@/lib/notifications/adminPreferences'
 
 describe('admin notification preference model', () => {
@@ -27,13 +26,13 @@ describe('admin notification preference model', () => {
   })
 
   it('merges stored partial preferences with current defaults', () => {
-    const stored: Partial<AdminNotificationPreference> = {
+    const stored: Parameters<typeof normaliseAdminNotificationPreference>[0] = {
       userId: 'admin-1',
       orgId: 'org-client',
       channels: { inApp: false, push: true, email: false },
       eventClasses: {
         client_acceptance: { email: false },
-      } as any,
+      },
     }
 
     const pref = normaliseAdminNotificationPreference(stored, 'admin-1', 'org-client')

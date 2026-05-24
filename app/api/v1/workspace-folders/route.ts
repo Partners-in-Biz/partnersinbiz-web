@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server'
 import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
-import { actorFrom, lastActorFrom } from '@/lib/api/actor'
+import { actorFrom } from '@/lib/api/actor'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { canAccessOrg } from '@/lib/api/platformAdmin'
 import {

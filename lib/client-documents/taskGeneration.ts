@@ -356,7 +356,8 @@ export async function generateApprovedDocumentProjectTasks(input: {
 
   const batch = adminDb.batch()
   built.tasks.forEach((task, index) => {
-    const { id: _id, ...taskData } = task
+    const { id, ...taskData } = task
+    void id
     batch.set(taskRefs[index], taskData)
   })
   batch.update(documentRef, {

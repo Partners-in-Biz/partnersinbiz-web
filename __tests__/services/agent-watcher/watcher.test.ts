@@ -290,7 +290,7 @@ describe('agent watcher dispatchTask', () => {
       dependsOn: ['dependency-1'],
     }
     const query = {
-      where: jest.fn(function (_field: string, _op: string, _value: unknown) { return this }),
+      where: jest.fn(function () { return this }),
       get: jest.fn(async () => ({
         docs: [{ ref: taskRef, data: () => taskData }],
       })),
@@ -328,7 +328,7 @@ describe('agent watcher dependency subscriptions', () => {
           this.wheres.push([field, op, value])
           return this
         },
-        onSnapshot: jest.fn((_onNext, _onError) => {
+        onSnapshot: jest.fn(() => {
           queries.push({ wheres: [...query.wheres], unsubscribe: query.unsubscribe })
           return query.unsubscribe
         }),

@@ -52,6 +52,7 @@ const emptyForm: OrgForm = {
 }
 
 type WorkspaceFolderWithId = WorkspaceFolder & { id: string }
+type OrgSummary = { id: string; name?: string; slug?: string }
 
 function folderVisibilityLabel(value: WorkspaceFolder['visibility']) {
   if (value === 'admin_only') return 'Admin only'
@@ -103,11 +104,12 @@ export default function OrgSettingsPage() {
     async function load() {
       const orgsRes = await fetch('/api/v1/organizations')
       const orgsBody = await orgsRes.json()
-      const org = (orgsBody.data ?? []).find((o: any) => o.slug === slug)
+      const orgs: OrgSummary[] = Array.isArray(orgsBody.data) ? orgsBody.data : []
+      const org = orgs.find((o) => o.slug === slug)
       if (!org) { setLoading(false); return }
 
       setOrgId(org.id)
-      setOrgName(org.name)
+      setOrgName(org.name ?? '')
 
       const detailRes = await fetch(`/api/v1/organizations/${org.id}`)
       const detailBody = await detailRes.json()

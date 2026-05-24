@@ -17,6 +17,19 @@ import { apiSuccess, apiError } from '@/lib/api/response'
 export const dynamic = 'force-dynamic'
 
 type RouteContext = { params: Promise<{ projectId: string }> }
+type RecentTaskComment = {
+  taskId: string
+  text: string
+  userId: string
+  userName: string
+  createdAt?: unknown
+}
+
+function timestampMillis(value: unknown): number {
+  if (typeof value !== 'object' || value === null) return 0
+  const maybeTimestamp = value as { toMillis?: unknown }
+  return typeof maybeTimestamp.toMillis === 'function' ? (maybeTimestamp.toMillis as () => number)() : 0
+}
 
 export const GET = withAuth('admin', async (req: NextRequest, user, ctx) => {
   const { projectId } = await (ctx as RouteContext).params
@@ -84,7 +97,7 @@ export const GET = withAuth('admin', async (req: NextRequest, user, ctx) => {
   })
 
   // Get recent comments (latest 10 across all tasks)
-  const recentComments: any[] = []
+  const recentComments: RecentTaskComment[] = []
   for (const taskDoc of tasksSnapshot.docs) {
     const commentsSnapshot = await adminDb
       .collection('projects')
@@ -110,8 +123,8 @@ export const GET = withAuth('admin', async (req: NextRequest, user, ctx) => {
 
   // Sort and take top 10
   recentComments.sort((a, b) => {
-    const aTime = a.createdAt?.toMillis?.() ?? 0
-    const bTime = b.createdAt?.toMillis?.() ?? 0
+    const aTime = timestampMillis(a.createdAt)
+    const bTime = timestampMillis(b.createdAt)
     return bTime - aTime
   })
   const topComments = recentComments.slice(0, 10)
