@@ -24,8 +24,16 @@ jest.mock('@/lib/firebase/config', () => ({
 }))
 
 jest.mock('@/components/projects/CrossProjectBoard', () => ({
-  CrossProjectBoard: ({ tasks, loading }: { tasks: Array<{ id: string; title: string; projectName?: string }>; loading: boolean }) => (
-    <div data-testid="cross-project-board" data-loading={loading ? 'true' : 'false'}>
+  CrossProjectBoard: ({
+    tasks,
+    loading,
+    sortMode,
+  }: {
+    tasks: Array<{ id: string; title: string; projectName?: string }>
+    loading: boolean
+    sortMode?: 'latest' | 'manual'
+  }) => (
+    <div data-testid="cross-project-board" data-loading={loading ? 'true' : 'false'} data-sort={sortMode ?? 'latest'}>
       {tasks.map(task => <div key={task.id}>{task.title} — {task.projectName}</div>)}
     </div>
   ),
@@ -82,6 +90,12 @@ describe('Admin client projects board view', () => {
 
     expect(screen.getByTestId('cross-project-board')).toBeInTheDocument()
     expect(screen.getByText('Live admin task — Client Website')).toBeInTheDocument()
+    expect(screen.getByTestId('cross-project-board')).toHaveAttribute('data-sort', 'latest')
+
+    await waitFor(() => expect(screen.getByRole('button', { name: /manual order/i })).toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: /manual order/i }))
+
+    expect(screen.getByTestId('cross-project-board')).toHaveAttribute('data-sort', 'manual')
   })
 
   it('keeps live task changes that arrive before the REST fallback finishes', async () => {

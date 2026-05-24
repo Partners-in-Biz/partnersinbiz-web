@@ -51,21 +51,29 @@ const makeBoardTask = (overrides: Partial<BoardTask> = {}): BoardTask => ({
 })
 
 describe('CrossProjectBoard', () => {
-  it('shows latest tasks first by default and can toggle back to manual order', () => {
-    render(<CrossProjectBoard
-      tasks={[
-        makeBoardTask({ id: 'task-old', title: 'Old task', order: 1, createdAt: '2026-05-20T08:00:00.000Z' }),
-        makeBoardTask({ id: 'task-new', title: 'Newest task', order: 3, createdAt: '2026-05-24T08:00:00.000Z' }),
-        makeBoardTask({ id: 'task-middle', title: 'Middle task', order: 2, createdAt: '2026-05-22T08:00:00.000Z' }),
-      ]}
+  it('sorts latest first by default and uses manual order when requested by the toolbar', () => {
+    const tasks = [
+      makeBoardTask({ id: 'task-old', title: 'Old task', order: 1, createdAt: '2026-05-20T08:00:00.000Z' }),
+      makeBoardTask({ id: 'task-new', title: 'Newest task', order: 3, createdAt: '2026-05-24T08:00:00.000Z' }),
+      makeBoardTask({ id: 'task-middle', title: 'Middle task', order: 2, createdAt: '2026-05-22T08:00:00.000Z' }),
+    ]
+
+    const { rerender } = render(<CrossProjectBoard
+      tasks={tasks}
       loading={false}
       onTaskUpdate={jest.fn()}
     />)
 
     expectBefore('Newest task', 'Middle task')
     expectBefore('Middle task', 'Old task')
+    expect(screen.queryByRole('button', { name: /manual order/i })).not.toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: /manual order/i }))
+    rerender(<CrossProjectBoard
+      tasks={tasks}
+      loading={false}
+      sortMode="manual"
+      onTaskUpdate={jest.fn()}
+    />)
 
     expectBefore('Old task', 'Middle task')
     expectBefore('Middle task', 'Newest task')

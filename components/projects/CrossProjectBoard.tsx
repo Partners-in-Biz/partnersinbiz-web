@@ -50,13 +50,13 @@ interface CrossProjectBoardProps {
   tasks: BoardTask[]
   loading: boolean
   onTaskUpdate: (projectId: string, taskId: string, patch: Partial<Task>) => void
+  sortMode?: 'latest' | 'manual'
 }
 
-export function CrossProjectBoard({ tasks: initialTasks, loading, onTaskUpdate }: CrossProjectBoardProps) {
+export function CrossProjectBoard({ tasks: initialTasks, loading, onTaskUpdate, sortMode = 'latest' }: CrossProjectBoardProps) {
   const [tasks, setTasks] = useState<BoardTask[]>([])
   const [activeTask, setActiveTask] = useState<BoardTask | null>(null)
   const [selectedTask, setSelectedTask] = useState<BoardTask | null>(null)
-  const [sortMode, setSortMode] = useState<'latest' | 'manual'>('latest')
 
   useEffect(() => {
     // Keep the optimistic drag/drop copy in sync with live Firestore task props.
@@ -160,20 +160,6 @@ export function CrossProjectBoard({ tasks: initialTasks, loading, onTaskUpdate }
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
       >
-        {!loading && hasAnyTasks && (
-          <div className="mb-3 flex justify-end">
-            <button
-              type="button"
-              onClick={() => setSortMode(prev => prev === 'latest' ? 'manual' : 'latest')}
-              className="inline-flex items-center gap-2 rounded-full border border-[var(--color-card-border)] px-3 py-1.5 text-xs font-label uppercase tracking-wide text-on-surface-variant transition-colors hover:text-on-surface"
-              aria-pressed={sortMode === 'manual'}
-            >
-              <span className="material-symbols-outlined text-[16px]">sort</span>
-              {sortMode === 'latest' ? 'Manual order' : 'Latest first'}
-            </button>
-          </div>
-        )}
-
         <div className="flex gap-4 overflow-x-auto pb-4" style={{ minHeight: 400 }}>
           {BOARD_COLUMNS.map(column => (
             loading ? (

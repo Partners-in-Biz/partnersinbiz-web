@@ -219,6 +219,7 @@ export default function ProjectsPage() {
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<string>('all')
   const [viewMode, setViewMode] = useState<'list' | 'board'>('list')
+  const [boardSortMode, setBoardSortMode] = useState<'latest' | 'manual'>('latest')
   const [boardTasks, setBoardTasks] = useState<BoardTask[]>([])
   const [boardLoading, setBoardLoading] = useState(false)
   const [failedProjectIds, setFailedProjectIds] = useState<string[]>([])
@@ -443,28 +444,6 @@ export default function ProjectsPage() {
           <h1 className="text-2xl font-headline font-bold text-on-surface">Projects</h1>
         </div>
         <div className="flex items-center gap-3">
-          <div
-            className="flex rounded-[var(--radius-btn)] overflow-hidden border"
-            style={{ borderColor: 'var(--color-outline)' }}
-          >
-            {(['list', 'board'] as const).map(mode => (
-              <button
-                key={mode}
-                onClick={() => setViewMode(mode)}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-label capitalize transition-colors"
-                style={
-                  viewMode === mode
-                    ? { background: 'var(--color-accent-v2)', color: '#000' }
-                    : { background: 'transparent', color: 'var(--color-on-surface-variant)' }
-                }
-              >
-                <span className="material-symbols-outlined text-[14px]">
-                  {mode === 'list' ? 'list' : 'view_kanban'}
-                </span>
-                {mode}
-              </button>
-            ))}
-          </div>
           {!showForm && (
             <button
               onClick={() => setShowForm(true)}
@@ -525,23 +504,61 @@ export default function ProjectsPage() {
         </div>
       )}
 
-      {/* Filters */}
-      <div className="flex gap-2 flex-wrap">
-        {['all', ...STATUS_OPTIONS].map(s => (
-          <button
-            key={s}
-            onClick={() => setFilter(s)}
-            className={[
-              'text-xs font-label px-3 py-1.5 rounded-[var(--radius-btn)] transition-colors capitalize',
-              filter === s
-                ? 'text-black font-medium'
-                : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container',
-            ].join(' ')}
-            style={filter === s ? { background: 'var(--color-accent-v2)' } : {}}
+      {/* Filters and view controls */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex gap-2 flex-wrap">
+          {['all', ...STATUS_OPTIONS].map(s => (
+            <button
+              key={s}
+              onClick={() => setFilter(s)}
+              className={[
+                'text-xs font-label px-3 py-1.5 rounded-[var(--radius-btn)] transition-colors capitalize',
+                filter === s
+                  ? 'text-black font-medium'
+                  : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container',
+              ].join(' ')}
+              style={filter === s ? { background: 'var(--color-accent-v2)' } : {}}
+            >
+              {s === 'all' ? 'All' : s.replace(/_/g, ' ')}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex items-center gap-2 flex-wrap">
+          {viewMode === 'board' && !boardLoading && boardTasks.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setBoardSortMode(prev => prev === 'latest' ? 'manual' : 'latest')}
+              className="inline-flex items-center gap-2 rounded-[var(--radius-btn)] border border-[var(--color-card-border)] px-3 py-1.5 text-xs font-label uppercase tracking-wide text-on-surface-variant transition-colors hover:text-on-surface"
+              aria-pressed={boardSortMode === 'manual'}
+            >
+              <span className="material-symbols-outlined text-[16px]">sort</span>
+              {boardSortMode === 'latest' ? 'Manual order' : 'Latest first'}
+            </button>
+          )}
+          <div
+            className="flex rounded-[var(--radius-btn)] overflow-hidden border"
+            style={{ borderColor: 'var(--color-outline)' }}
           >
-            {s === 'all' ? 'All' : s.replace(/_/g, ' ')}
-          </button>
-        ))}
+            {(['list', 'board'] as const).map(mode => (
+              <button
+                key={mode}
+                onClick={() => setViewMode(mode)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-label capitalize transition-colors"
+                style={
+                  viewMode === mode
+                    ? { background: 'var(--color-accent-v2)', color: '#000' }
+                    : { background: 'transparent', color: 'var(--color-on-surface-variant)' }
+                }
+              >
+                <span className="material-symbols-outlined text-[14px]">
+                  {mode === 'list' ? 'list' : 'view_kanban'}
+                </span>
+                {mode}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* Error banner for partial board load failures */}
@@ -567,6 +584,7 @@ export default function ProjectsPage() {
         <CrossProjectBoard
           tasks={boardTasks}
           loading={boardLoading}
+          sortMode={boardSortMode}
           onTaskUpdate={handleBoardTaskUpdate}
         />
       ) : loading ? (
