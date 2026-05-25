@@ -1,6 +1,12 @@
 import {
+  createInternalShowcaseDocumentBlocks,
+  createInternalShowcaseVersionPayload,
+  createShowcaseDocumentBlock,
+} from '@/lib/client-documents/showcasePayloads'
+import {
   CANONICAL_DOCUMENT_BLOCK_TYPES,
   CANONICAL_SHOWCASE_BLOCK_CONTRACTS,
+  SHOWCASE_DOCUMENT_BLOCK_TYPES,
   type BeforeAfterBlockContent,
   type CaseStudyResultCardsBlockContent,
   type DocumentBlock,
@@ -102,6 +108,49 @@ describe('client document showcase block contracts', () => {
       'comparison',
     ])
     expect(CANONICAL_DOCUMENT_BLOCK_TYPES.slice(23)).toEqual(Object.keys(CANONICAL_SHOWCASE_BLOCK_CONTRACTS))
+  })
+
+  it('builds Firestore-safe authoring payloads for showcase blocks', () => {
+    const block = createShowcaseDocumentBlock({
+      type: 'funnel',
+      content: {
+        headline: 'Safe block helper',
+        stages: [{ id: 'one', label: 'One', value: 1 }],
+      },
+      display: { motion: 'reveal' },
+    })
+
+    expect(block).toMatchObject({
+      id: 'showcase-funnel',
+      type: 'funnel',
+      required: true,
+      locked: false,
+      clientEditable: false,
+      display: { motion: 'reveal' },
+    })
+    expect(JSON.parse(JSON.stringify(block))).toEqual(block)
+    expect(JSON.stringify(block)).not.toContain('undefined')
+  })
+
+  it('creates an internal showcase payload for every new block with neutral PiB-grade copy', () => {
+    const blocks = createInternalShowcaseDocumentBlocks()
+    const payload = createInternalShowcaseVersionPayload()
+
+    expect(blocks.map((block) => block.type)).toEqual(SHOWCASE_DOCUMENT_BLOCK_TYPES)
+    expect(payload.blocks.map((block) => block.type)).toEqual(SHOWCASE_DOCUMENT_BLOCK_TYPES)
+    expect(payload.theme.brandName).toBe('Partners in Biz')
+    expect(payload.changeSummary).toMatch(/Internal showcase example/)
+
+    for (const block of payload.blocks) {
+      expect(block.id).toBe(`showcase-${block.type}`)
+      expect(block.required).toBe(true)
+      expect(block.display).toEqual(expect.any(Object))
+      expect(JSON.parse(JSON.stringify(block))).toEqual(block)
+    }
+
+    const serialized = JSON.stringify(payload)
+    expect(serialized).not.toContain('undefined')
+    expect(serialized).not.toMatch(/Acme|LWRC|CMP|Foce|Saaiman|Hugo Rust|AHS Law/i)
   })
 
   it('supports strongly typed payload examples without narrowing legacy content', () => {
