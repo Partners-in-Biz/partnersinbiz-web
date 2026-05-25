@@ -138,13 +138,17 @@ function orgDashboardHref(org: Pick<OrgSummary, 'slug'>) {
   return org.slug ? `/admin/org/${org.slug}/dashboard` : '/admin/clients'
 }
 
+function clientOrgs(orgs: OrgSummary[]) {
+  return orgs.filter(org => org.type !== 'platform_owner')
+}
+
 function constellationNodes(orgs: OrgSummary[], tasks: AgentTask[], approvals: Approval[]): ConstellationNode[] {
   const fallback = orgs.length > 0 ? orgs : [{ id: 'platform', name: 'PiB Platform', slug: 'partners-in-biz' }]
   const centerX = 50
   const centerY = 50
   const radius = fallback.length < 4 ? 27 : 35
 
-  return fallback.slice(0, 10).map((org, index) => {
+  return fallback.map((org, index) => {
     const angle = (Math.PI * 2 * index) / Math.max(fallback.length, 3) - Math.PI / 2
     const orgTasks = tasks.filter(task => task.orgId === org.id)
     const orgApprovals = approvals.filter(approval => approval.orgId === org.id)
@@ -388,6 +392,7 @@ export default function MissionControlDashboard() {
     return () => { cancelled = true }
   }, [])
 
+  const visibleOrgs = useMemo(() => clientOrgs(data.orgs), [data.orgs])
   const activeTasks = useMemo(() => data.tasks.filter(task => ACTIVE_STATUSES.has(task.agentStatus ?? '')), [data.tasks])
   const pulseTasks = useMemo(() => data.tasks.filter(task => PULSE_STATUSES.has(task.agentStatus ?? '')), [data.tasks])
   const riskTasks = useMemo(() => pulseTasks.filter(task => RISK_STATUSES.has(task.agentStatus ?? '')), [pulseTasks])
@@ -405,8 +410,8 @@ export default function MissionControlDashboard() {
           </div>
           <div className="grid grid-cols-3 gap-2 sm:min-w-[360px]">
             <div className="rounded-2xl bg-[var(--color-surface-container)]/70 p-3 text-center">
-              <p className="text-2xl font-bold text-on-surface">{data.orgs.length}</p>
-              <p className="text-[10px] uppercase tracking-wide text-on-surface-variant">Orgs</p>
+              <p className="text-2xl font-bold text-on-surface">{visibleOrgs.length}</p>
+              <p className="text-[10px] uppercase tracking-wide text-on-surface-variant">Clients</p>
             </div>
             <div className="rounded-2xl bg-[var(--color-surface-container)]/70 p-3 text-center">
               <p className="text-2xl font-bold text-on-surface">{activeTasks.length}</p>
@@ -426,7 +431,7 @@ export default function MissionControlDashboard() {
         </div>
       )}
 
-      <MissionConstellation orgs={data.orgs} tasks={pulseTasks} approvals={data.approvals} />
+      <MissionConstellation orgs={visibleOrgs} tasks={pulseTasks} approvals={data.approvals} />
 
       <section className="pib-card p-4 sm:p-5">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -455,11 +460,11 @@ export default function MissionControlDashboard() {
         <SectionHeader title="Organisation cards" eyebrow="Client fleet" action={<Link href="/admin/clients" className="text-xs font-label uppercase tracking-wide" style={{ color: 'var(--color-accent-v2)' }}>Manage clients →</Link>} />
         {loading ? (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3"><Skeleton className="h-56" /><Skeleton className="h-56" /><Skeleton className="h-56" /></div>
-        ) : data.orgs.length === 0 ? (
+        ) : visibleOrgs.length === 0 ? (
           <EmptyState title="No active organisations" body="Create or activate a client organisation and its command card will appear here." />
         ) : (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {data.orgs.slice(0, 9).map(org => (
+            {visibleOrgs.map(org => (
               <OrganisationCard key={org.id} org={org} tasks={pulseTasks.filter(task => task.orgId === org.id)} approvals={data.approvals.filter(item => item.orgId === org.id)} />
             ))}
           </div>

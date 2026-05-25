@@ -121,6 +121,39 @@ describe('Mission control dashboard', () => {
     expect(container.querySelector('canvas')).not.toBeInTheDocument()
   })
 
+  it('shows every client organisation in the constellation and card grid without including the platform owner', async () => {
+    const orgs = Array.from({ length: 12 }, (_, index) => ({
+      id: `client-${index + 1}`,
+      name: `Client ${index + 1}`,
+      slug: `client-${index + 1}`,
+      status: 'active',
+      type: 'client',
+      memberCount: index,
+    }))
+
+    global.fetch = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/organizations') {
+        return Promise.resolve({ ok: true, json: async () => ({ data: [...orgs, { id: 'pib-platform-owner', name: 'Partners in Biz', slug: 'partners-in-biz', status: 'active', type: 'platform_owner' }] }) } as Response)
+      }
+      if (url === '/api/v1/health') {
+        return Promise.resolve({ ok: true, json: async () => ({ success: true, data: { ok: true, services: { firestore: 'ok' } } }) } as Response)
+      }
+      return Promise.resolve({ ok: true, json: async () => ({ data: [] }) } as Response)
+    }) as jest.Mock
+
+    const { container } = render(<MissionControlDashboard />)
+
+    await waitFor(() => expect(container.querySelectorAll('[data-constellation-node]')).toHaveLength(12))
+    expect(screen.getByText('12')).toBeInTheDocument()
+    expect(screen.getByText('Clients')).toBeInTheDocument()
+    expect(screen.getByLabelText(/Client 12: Calm/i)).toHaveAttribute('href', '/admin/org/client-12/dashboard')
+    expect(screen.queryByLabelText(/Partners in Biz:/i)).not.toBeInTheDocument()
+    orgs.forEach(org => {
+      expect(screen.getAllByText(org.name).some(element => element.closest('a')?.className.includes('pib-card'))).toBe(true)
+    })
+  })
+
   it('has excellent empty and error states', async () => {
     global.fetch = jest.fn((input: RequestInfo | URL) => {
       const url = String(input)
