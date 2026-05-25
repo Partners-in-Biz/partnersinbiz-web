@@ -47,17 +47,40 @@ function cleanList(value: string): string[] {
     .filter(Boolean)
 }
 
-function dateInputValue(value: unknown): string {
-  if (!value) return ''
-  if (typeof value === 'string') return value.slice(0, 10)
-  if (value instanceof Date) return value.toISOString().slice(0, 10)
+function dateFromUnknown(value: unknown): Date | null {
+  if (!value) return null
+  if (value instanceof Date && Number.isFinite(value.getTime())) return value
+  if (typeof value === 'string') {
+    const parsed = new Date(value)
+    return Number.isFinite(parsed.getTime()) ? parsed : null
+  }
   if (typeof value === 'object') {
     const timestamp = value as { toDate?: () => Date; seconds?: number; _seconds?: number }
-    if (typeof timestamp.toDate === 'function') return timestamp.toDate().toISOString().slice(0, 10)
+    if (typeof timestamp.toDate === 'function') {
+      const parsed = timestamp.toDate()
+      return Number.isFinite(parsed.getTime()) ? parsed : null
+    }
     const seconds = timestamp.seconds ?? timestamp._seconds
-    if (typeof seconds === 'number') return new Date(seconds * 1000).toISOString().slice(0, 10)
+    if (typeof seconds === 'number') return new Date(seconds * 1000)
   }
-  return ''
+  return null
+}
+
+function dateInputValue(value: unknown): string {
+  return dateFromUnknown(value)?.toISOString().slice(0, 10) ?? ''
+}
+
+function dateTimeInputValue(value: unknown): string {
+  const date = dateFromUnknown(value)
+  if (!date) return ''
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60 * 1000)
+  return local.toISOString().slice(0, 16)
+}
+
+function formatTaskDateTime(value: unknown): string {
+  const date = dateFromUnknown(value)
+  if (!date) return ''
+  return date.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
 }
 
 function memberLabel(member?: TeamMember): string {
@@ -126,6 +149,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
   const [reviewerAgentId, setReviewerAgentId] = useState<AgentId | ''>((task?.reviewerAgentId as AgentId | null) ?? '')
   const [dueDate, setDueDate] = useState(dateInputValue(task?.dueDate))
   const [startDate, setStartDate] = useState(dateInputValue(task?.startDate))
+  const [agentReleaseAt, setAgentReleaseAt] = useState(dateTimeInputValue(task?.agentReleaseAt))
   const [estimateHours, setEstimateHours] = useState(task?.estimateMinutes ? String(task.estimateMinutes / 60) : '')
   const [checklist, setChecklist] = useState<ChecklistItem[]>(task?.checklist ?? [])
   const [saving, setSaving] = useState(false)
@@ -160,6 +184,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
     setReviewerAgentId((task?.reviewerAgentId as AgentId | null) ?? '')
     setDueDate(dateInputValue(task?.dueDate))
     setStartDate(dateInputValue(task?.startDate))
+    setAgentReleaseAt(dateTimeInputValue(task?.agentReleaseAt))
     setEstimateHours(task?.estimateMinutes ? String(task.estimateMinutes / 60) : '')
     setChecklist(task?.checklist ?? [])
     setAttachments(task?.attachments ?? [])
@@ -194,6 +219,8 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
     const peopleIds = effectiveMode === 'people' ? assigneeIds : []
     const selectedMentionIds = effectiveMode === 'people' ? mentionIds : []
     const spec = buildAgentSpec(title, description, checklist)
+    const releaseDate = agentReleaseAt ? new Date(agentReleaseAt) : null
+    const hasReleaseDate = releaseDate !== null && Number.isFinite(releaseDate.getTime())
     await onUpdate(task.id, {
       title: title.trim(),
       description: description.trim(),
@@ -231,6 +258,8 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
       reviewerAgentId: reviewerAgentId || null,
       dueDate: dueDate || null,
       startDate: startDate || null,
+      agentReleaseAt: hasReleaseDate ? releaseDate!.toISOString() : null,
+      agentReleaseStatus: hasReleaseDate ? 'scheduled' : null,
       estimateMinutes: Number.isFinite(estimate) && estimate > 0 ? Math.round(estimate * 60) : null,
     })
     setSaving(false)
@@ -788,6 +817,32 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
                   <span className="material-symbols-outlined text-[15px] text-on-surface-variant">hub</span>
                   <span className="min-w-0 flex-1 truncate text-xs text-on-surface">Pip orchestration</span>
                 </label>
+              </div>
+            )}
+            {!hideAgentSection && assigneeAgentId && (
+              <div className="mt-3 rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-card)] p-3 space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[9px] font-label uppercase tracking-widest text-on-surface-variant">Scheduled release</p>
+                  {task.agentReleaseStatus === 'scheduled' && task.agentReleaseAt && (
+                    <span className="rounded bg-purple-500/15 px-2 py-0.5 text-[9px] font-label uppercase tracking-wide text-purple-300">
+                      Backlogged
+                    </span>
+                  )}
+                </div>
+                <input
+                  type="datetime-local"
+                  value={agentReleaseAt}
+                  onChange={e => { setAgentReleaseAt(e.target.value); setEditing(true) }}
+                  className="w-full rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-surface-container)] px-3 py-2 text-xs text-on-surface focus:border-[var(--color-accent-v2)] focus:outline-none"
+                />
+                <p className="text-[10px] leading-snug text-on-surface-variant">
+                  Set a future date/time to keep this agent task out of watcher pickup until release. Dependencies and approval gates still apply when it is released.
+                </p>
+                {task.agentReleaseStatus === 'scheduled' && task.agentReleaseAt && (
+                  <p className="text-[10px] leading-snug text-purple-300/90">
+                    Visible on board as scheduled for {formatTaskDateTime(task.agentReleaseAt)}.
+                  </p>
+                )}
               </div>
             )}
             {task.agentStatus && (() => {

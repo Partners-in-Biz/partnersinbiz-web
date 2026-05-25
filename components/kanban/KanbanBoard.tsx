@@ -155,6 +155,7 @@ function TaskCard({
   const priority = PRIORITY_STYLES[task.priority ?? 'medium']
   const attachmentCount = task.attachments?.length ?? 0
   const dueLabel = formatTaskDate(task.dueDate)
+  const releaseLabel = task.agentReleaseStatus === 'scheduled' ? formatTaskDateTime(task.agentReleaseAt) : ''
   const startDateTimeLabel = formatTaskDateTime(task.startDate)
   const endDateTimeLabel = formatTaskDateTime(task.completedAt ?? task.agentOutput?.completedAt ?? task.endDate ?? task.dueDate)
   const kind = attachmentKind(task)

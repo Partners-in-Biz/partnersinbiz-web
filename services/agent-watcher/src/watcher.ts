@@ -15,7 +15,7 @@ import { claimReviewTask, claimTask, startHeartbeat } from './claim'
 import { runAndPoll, type TaskDispatchInput } from './hermes'
 import { logger } from './logger'
 import { agentStatusUpdate } from './task-updates'
-import { getTaskDispatchBlocker, isDependencyResolved } from './eligibility'
+import { getTaskDispatchBlocker, isDependencyResolved, releaseMillis } from './eligibility'
 
 const MAX_CONCURRENT_PER_AGENT = 5
 const READY_TASK_SWEEP_MS = 60_000
@@ -66,6 +66,9 @@ interface TaskData {
   requiresApproval?: boolean
   approvalStatus?: string
   approvalGate?: { status?: string }
+  agentReleaseAt?: string | number | { toMillis?: () => number; toDate?: () => Date }
+  agentReleaseStatus?: string
+  agentReleasedAt?: unknown
   riskLevel?: string
   requiredCapability?: string
   requestedByAgentId?: string
@@ -440,7 +443,43 @@ async function dispatchDependents(completedTaskId: string): Promise<void> {
   }
 }
 
-export async function sweepReadyPendingTasks(): Promise<void> {
+async function releaseDueScheduledTasks(now = Date.now()): Promise<void> {
+  try {
+    const snap = await db
+      .collectionGroup('tasks')
+      .where('agentReleaseStatus', '==', 'scheduled')
+      .where('agentStatus', '==', 'pending')
+      .get()
+
+    await Promise.all(snap.docs.map(async (doc) => {
+      const data = (doc.data() ?? {}) as TaskData
+      const dueAt = releaseMillis(data.agentReleaseAt)
+      if (dueAt === null || dueAt > now) return
+      await doc.ref.update({
+        columnId: 'todo',
+        agentReleaseStatus: 'released',
+        agentReleasedAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      })
+      await doc.ref.collection('comments').add({
+        text: `Scheduled backlog release reached. Moved to To Do for agent pickup.`,
+        userId: 'system:agent-watcher',
+        userName: 'Agent watcher',
+        userRole: 'system',
+        createdAt: FieldValue.serverTimestamp(),
+        agentPickedUp: false,
+        agentPickedUpAt: null,
+      })
+    }))
+  } catch (err) {
+    logger.error('scheduled backlog release sweep failed', {
+      error: err instanceof Error ? err.message : String(err),
+    })
+  }
+}
+
+export async function sweepReadyPendingTasks(now = Date.now()): Promise<void> {
+  await releaseDueScheduledTasks(now)
   const chunks = chunkAgentIds(currentAgentIds())
   for (const chunk of chunks) {
     try {

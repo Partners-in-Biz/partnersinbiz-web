@@ -271,6 +271,44 @@ describe('agent watcher dispatchTask', () => {
     running[5]({ runId: 'run-live-6', output: 'done summary', error: null })
     await Promise.all(activeDispatches.slice(1))
   })
+  it('releases due scheduled backlog tasks into todo with an audit comment before pickup', async () => {
+    const taskRef = {
+      ...makeTaskRef(),
+      id: 'scheduled-1',
+      path: 'projects/project-1/tasks/scheduled-1',
+      collection: jest.fn(() => ({
+        add: jest.fn(async () => undefined),
+      })),
+    }
+    const taskData = {
+      orgId: 'org-1',
+      assigneeAgentId: 'theo',
+      agentStatus: 'pending',
+      columnId: 'backlog',
+      title: 'Scheduled task',
+      agentReleaseStatus: 'scheduled',
+      agentReleaseAt: '2026-05-26T09:30:00.000Z',
+    }
+    const query = {
+      where: jest.fn(function () { return this }),
+      get: jest.fn(async () => ({
+        docs: [{ ref: taskRef, data: () => taskData }],
+      })),
+    }
+    dbMock.collectionGroup = jest.fn(() => query)
+
+    await sweepReadyPendingTasks(Date.parse('2026-05-26T09:31:00.000Z'))
+    await new Promise(resolve => setImmediate(resolve))
+
+    expect(query.where).toHaveBeenCalledWith('agentReleaseStatus', '==', 'scheduled')
+    expect(taskRef.update).toHaveBeenCalledWith(expect.objectContaining({
+      columnId: 'todo',
+      agentReleaseStatus: 'released',
+      agentReleasedAt: 'SERVER_TIME',
+    }))
+    expect(taskRef.collection).toHaveBeenCalledWith('comments')
+  })
+
   it('periodically sweeps pending todo tasks so missed dependency transitions are retried', async () => {
     const dependencySnap = { exists: true, data: () => ({ agentStatus: 'done', columnId: 'review' }) }
     const taskRef = {

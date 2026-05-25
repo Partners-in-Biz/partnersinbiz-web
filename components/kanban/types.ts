@@ -66,6 +66,9 @@ export interface Task {
   } | null
   agentConversationId?: string | null
   agentHeartbeatAt?: unknown
+  agentReleaseAt?: unknown
+  agentReleaseStatus?: 'scheduled' | 'released' | 'cancelled' | null
+  agentReleasedAt?: unknown
   dependsOn?: string[]
   reviewerIds?: string[]
   reviewerAgentId?: AgentId | null
