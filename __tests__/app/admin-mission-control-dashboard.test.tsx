@@ -72,6 +72,7 @@ describe('Mission control dashboard', () => {
     expect(screen.getByText(/1 active task/i)).toBeInTheDocument()
 
     const orgCard = screen.getByText('Acme Co').closest('a')
+    expect(orgCard).toHaveAttribute('href', '/admin/org/acme/dashboard')
     expect(orgCard).toHaveClass('pib-card')
     expect(orgCard).toHaveClass('pib-card-hover')
     expect(orgCard?.className).not.toContain('--color-border')

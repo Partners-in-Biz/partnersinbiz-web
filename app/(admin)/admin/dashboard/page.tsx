@@ -224,7 +224,7 @@ function OrganisationCard({ org, tasks, approvals }: { org: OrgSummary; tasks: A
   const riskyTasks = tasks.filter(task => RISK_STATUSES.has(task.agentStatus ?? '')).length
   const activeTasks = tasks.filter(task => ACTIVE_STATUSES.has(task.agentStatus ?? '')).length
   const score = Math.max(35, Math.min(100, 95 - riskyTasks * 20 - approvals.length * 8))
-  const href = org.slug ? `/admin/org/${org.slug}` : '/admin/clients'
+  const href = org.slug ? `/admin/org/${org.slug}/dashboard` : '/admin/clients'
 
   return (
     <Link href={href} className="pib-card pib-card-hover group block p-5 hover:border-[var(--color-accent-v2)]/50">
