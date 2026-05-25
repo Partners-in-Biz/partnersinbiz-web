@@ -30,6 +30,9 @@ interface KanbanBoardProps {
   tasks: Task[]
   members?: TeamMember[]
   agents?: AgentMember[]
+  sortMode?: 'latest' | 'manual'
+  onSortModeChange?: (mode: 'latest' | 'manual') => void
+  showSortToggle?: boolean
   onTaskMove: (taskId: string, newColumnId: string, newOrder: number) => Promise<void>
   onTaskClick: (task: Task) => void
   onAddTask: (columnId: string) => void
@@ -152,6 +155,7 @@ function TaskCard({
   const priority = PRIORITY_STYLES[task.priority ?? 'medium']
   const attachmentCount = task.attachments?.length ?? 0
   const dueLabel = formatTaskDate(task.dueDate)
+  const releaseLabel = task.agentReleaseStatus === 'scheduled' ? formatTaskDateTime(task.agentReleaseAt) : ''
   const startDateTimeLabel = formatTaskDateTime(task.startDate)
   const endDateTimeLabel = formatTaskDateTime(task.completedAt ?? task.agentOutput?.completedAt ?? task.endDate ?? task.dueDate)
   const kind = attachmentKind(task)
@@ -186,6 +190,12 @@ function TaskCard({
         <div className="mt-2 rounded border border-orange-500/25 bg-orange-500/5 p-2 text-[10px] leading-snug text-orange-100">
           <p><span className="font-semibold">Blocked:</span> {blockerRecovery.whatIsWrong}</p>
           <p className="mt-1 opacity-90"><span className="font-semibold">Unblock:</span> {blockerRecovery.whoCanUnblock}</p>
+        </div>
+      )}
+      {releaseLabel && (
+        <div className="mt-2 flex items-center gap-1.5 rounded border border-purple-500/25 bg-purple-500/10 px-2 py-1.5 text-[10px] leading-snug text-purple-200">
+          <span className="material-symbols-outlined text-[13px]">schedule</span>
+          <span><span className="font-semibold">Scheduled release:</span> {releaseLabel}</span>
         </div>
       )}
       <div className="flex items-center gap-2 flex-wrap mt-2">
@@ -354,10 +364,22 @@ function KanbanColumn({
 
 // ── Main Board ────────────────────────────────────────────────────────────
 
-export function KanbanBoard({ columns, tasks: initialTasks, members, agents, onTaskMove, onTaskClick, onAddTask }: KanbanBoardProps) {
+export function KanbanBoard({
+  columns,
+  tasks: initialTasks,
+  members,
+  agents,
+  sortMode: controlledSortMode,
+  onSortModeChange,
+  showSortToggle = true,
+  onTaskMove,
+  onTaskClick,
+  onAddTask,
+}: KanbanBoardProps) {
   const [tasks, setTasks] = useState(initialTasks)
   const [activeTask, setActiveTask] = useState<Task | null>(null)
-  const [sortMode, setSortMode] = useState<'latest' | 'manual'>('latest')
+  const [internalSortMode, setInternalSortMode] = useState<'latest' | 'manual'>('latest')
+  const sortMode = controlledSortMode ?? internalSortMode
 
   useEffect(() => {
     setTasks(initialTasks)
@@ -369,6 +391,15 @@ export function KanbanBoard({ columns, tasks: initialTasks, members, agents, onT
   )
 
   const sortedColumns = [...columns].sort((a, b) => a.order - b.order)
+
+  function handleSortModeToggle() {
+    const nextMode = sortMode === 'latest' ? 'manual' : 'latest'
+    if (onSortModeChange) {
+      onSortModeChange(nextMode)
+    } else {
+      setInternalSortMode(nextMode)
+    }
+  }
 
   const getTasksForColumn = useCallback(
     (columnId: string) =>
@@ -453,17 +484,19 @@ export function KanbanBoard({ columns, tasks: initialTasks, members, agents, onT
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
     >
-      <div className="mb-3 flex justify-end">
-        <button
-          type="button"
-          onClick={() => setSortMode(prev => prev === 'latest' ? 'manual' : 'latest')}
-          className="inline-flex items-center gap-2 rounded-full border border-[var(--color-card-border)] px-3 py-1.5 text-xs font-label uppercase tracking-wide text-on-surface-variant transition-colors hover:text-on-surface"
-          aria-pressed={sortMode === 'manual'}
-        >
-          <span className="material-symbols-outlined text-[16px]">sort</span>
-          {sortMode === 'latest' ? 'Manual order' : 'Latest first'}
-        </button>
-      </div>
+      {showSortToggle && (
+        <div className="mb-3 flex justify-end">
+          <button
+            type="button"
+            onClick={handleSortModeToggle}
+            className="inline-flex items-center gap-2 rounded-full border border-[var(--color-card-border)] px-3 py-1.5 text-xs font-label uppercase tracking-wide text-on-surface-variant transition-colors hover:text-on-surface"
+            aria-pressed={sortMode === 'manual'}
+          >
+            <span className="material-symbols-outlined text-[16px]">sort</span>
+            {sortMode === 'latest' ? 'Manual order' : 'Latest first'}
+          </button>
+        </div>
+      )}
 
       <div className="flex gap-4 overflow-x-auto pb-4" style={{ minHeight: 500 }}>
         {sortedColumns.map(column => (

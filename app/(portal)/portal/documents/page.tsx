@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { EmptyState, PageHeader, Surface } from '@/components/ui/AppFoundation'
 import type { ClientDocument, ClientDocumentStatus, ClientDocumentType } from '@/lib/client-documents/types'
 
 const CLIENT_STATUSES: ClientDocumentStatus[] = ['client_review', 'changes_requested', 'approved', 'accepted']
@@ -56,13 +57,12 @@ export default function PortalDocuments() {
 
   return (
     <div className="space-y-10">
-      <header>
-        <p className="eyebrow">Documents</p>
-        <h1 className="pib-page-title mt-2">Your Documents</h1>
-        <p className="pib-page-sub max-w-2xl">
-          Proposals, specs, strategies, and reports from Partners in Biz.
-        </p>
-      </header>
+      <PageHeader
+        eyebrow="Client workspace / Documents"
+        title="Your documents"
+        description="Proposals, specs, strategies, and reports shared with you by Partners in Biz."
+        meta={<span>Client-visible documents only</span>}
+      />
 
       {loading ? (
         <div className="space-y-3">
@@ -71,17 +71,15 @@ export default function PortalDocuments() {
           ))}
         </div>
       ) : docs.length === 0 ? (
-        <div className="bento-card p-10 text-center">
-          <span className="material-symbols-outlined text-4xl text-[var(--color-pib-accent)]">description</span>
-          <h2 className="font-display text-2xl mt-4">No documents shared with you yet.</h2>
-          <p className="text-sm text-[var(--color-pib-text-muted)] max-w-md mx-auto mt-2">
-            Documents will appear here when Partners in Biz shares proposals, specs, or reports with you.
-          </p>
-        </div>
+        <EmptyState
+          icon="description"
+          title="No documents shared with you yet."
+          description="Documents will appear here when Partners in Biz shares proposals, specs, or reports with you."
+        />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {docs.map((doc) => (
-            <article key={doc.id} className="bento-card flex flex-col gap-4">
+            <Surface key={doc.id} as="article" className="flex flex-col gap-4">
               <div className="flex-1 space-y-2">
                 <p className="text-xs uppercase tracking-[0.18em] text-[var(--color-pib-text-muted)]">
                   {TYPE_LABELS[doc.type] ?? doc.type}
@@ -100,7 +98,7 @@ export default function PortalDocuments() {
                   <span className="material-symbols-outlined text-base">arrow_forward</span>
                 </Link>
               </div>
-            </article>
+            </Surface>
           ))}
         </div>
       )}

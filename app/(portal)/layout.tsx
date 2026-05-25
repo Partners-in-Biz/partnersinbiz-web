@@ -33,6 +33,7 @@ const NAV_LINKS: NavItem[] = [
   { href: '/portal/projects',  label: 'Projects',  icon: 'rocket_launch',   group: 'work' },
   { href: '/portal/documents', label: 'Documents', icon: 'description',     group: 'work' },
   { href: '/portal/research',  label: 'Research',  icon: 'travel_explore', group: 'data' },
+  { href: '/portal/mobile-apps', label: 'Mobile Apps', icon: 'smartphone', group: 'work' },
   // CRM is still behind the scenes for now. Keep the route, but do not expose
   // the unfinished workspace from the client navigation.
   // {
@@ -456,7 +457,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
 
         <main className={isEmailRoute
           ? 'flex-1 px-3 md:px-5 py-4 w-full max-w-none'
-          : 'flex-1 px-4 md:px-8 py-8 max-w-6xl mx-auto w-full'
+          : 'flex-1 overflow-y-auto px-4 md:px-8 py-8 max-w-[1400px] mx-auto w-full'
         }>{children}</main>
 
         {!isEmailRoute && (
@@ -680,7 +681,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
 
         <main className={isEmailRoute
           ? 'flex-1 px-3 md:px-5 py-4 w-full max-w-none'
-          : 'flex-1 px-4 md:px-8 py-8 max-w-6xl mx-auto w-full'
+          : 'flex-1 overflow-y-auto px-4 md:px-8 py-8 max-w-[1400px] mx-auto w-full'
         }>{children}</main>
 
         {!isEmailRoute && (

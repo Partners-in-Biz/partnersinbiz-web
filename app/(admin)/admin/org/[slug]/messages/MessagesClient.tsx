@@ -50,10 +50,10 @@ export default function MessagesClient({
   }
 
   // Mobile: edge-to-edge, fills viewport below the 56px admin topbar.
-  // Desktop: keeps the page header and respects main's py-8 (64px) + topbar (56px).
+  // Desktop messages route now uses slimmer shell padding (16px vertical), so keep the chat tall.
   return (
     <div
-      className="flex flex-col overflow-hidden -mx-4 -my-8 lg:mx-0 lg:my-0 h-[calc(100dvh-56px)] lg:h-[calc(100dvh-120px)]"
+      className="flex flex-col overflow-hidden -mx-2 -my-4 md:-mx-4 h-[calc(100dvh-56px)] lg:h-[calc(100dvh-88px)]"
     >
       <div className={[
         'hidden shrink-0 overflow-hidden transition-all duration-700 ease-out lg:block',

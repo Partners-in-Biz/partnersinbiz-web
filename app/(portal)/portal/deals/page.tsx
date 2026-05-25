@@ -6,6 +6,7 @@ import { DealKanban } from '@/components/crm/DealKanban'
 import { PipelineSelector } from '@/components/crm/PipelineSelector'
 import { DealDrawer } from '@/components/crm/DealDrawer'
 import { DealDetailDrawer } from '@/components/crm/DealDetailDrawer'
+import { EmptyState, PageHeader, PageTabs } from '@/components/ui/AppFoundation'
 import type { Deal, Currency } from '@/lib/crm/types'
 import type { Pipeline, PipelineStage } from '@/lib/pipelines/types'
 
@@ -281,60 +282,43 @@ export default function DealsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Page header */}
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div>
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">CRM / Deals</p>
-          <h1 className="text-2xl font-headline font-bold text-on-surface">Pipeline</h1>
-        </div>
+      <PageHeader
+        eyebrow="Client workspace / Deals"
+        title="Pipeline"
+        description="Track shared opportunities and forecasts with the same workspace controls as admin, limited to client-safe CRM actions."
+        actions={(
+          <div className="flex items-center gap-3 flex-wrap justify-end">
+            {pipelines.length > 0 && (
+              <PipelineSelector
+                pipelines={pipelines}
+                selectedId={selectedPipelineId}
+                onChange={handlePipelineChange}
+                className="w-48"
+              />
+            )}
 
-        <div className="flex items-center gap-3 flex-wrap">
-          {/* Pipeline selector */}
-          {pipelines.length > 0 && (
-            <PipelineSelector
-              pipelines={pipelines}
-              selectedId={selectedPipelineId}
-              onChange={handlePipelineChange}
-              className="w-48"
-            />
-          )}
-
-          {/* New deal button */}
-          <button
-            onClick={() => setShowCreateDrawer(true)}
-            className="cursor-pointer btn-pib-accent flex items-center gap-1.5 text-sm"
-          >
-            <span className="material-symbols-outlined text-[16px]">add</span>
-            New deal
-          </button>
-
-          {/* View toggle */}
-          <div
-            className="flex rounded-[var(--radius-btn)] overflow-hidden border"
-            style={{ borderColor: 'var(--color-outline)' }}
-          >
-            {([
-              { id: 'board', label: 'Board', icon: 'view_kanban' },
-              { id: 'list', label: 'List', icon: 'list' },
-              { id: 'forecast', label: 'Forecast', icon: 'trending_up' },
-            ] as const).map(({ id, label, icon }) => (
-              <button
-                key={id}
-                onClick={() => setViewMode(id)}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-label capitalize transition-colors cursor-pointer"
-                style={
-                  viewMode === id
-                    ? { background: 'var(--color-accent-v2)', color: '#000' }
-                    : { background: 'transparent', color: 'var(--color-on-surface-variant)' }
-                }
-              >
-                <span className="material-symbols-outlined text-[14px]">{icon}</span>
-                {label}
-              </button>
-            ))}
+            <button
+              onClick={() => setShowCreateDrawer(true)}
+              className="cursor-pointer btn-pib-accent flex items-center gap-1.5 text-sm"
+            >
+              <span className="material-symbols-outlined text-[16px]">add</span>
+              New deal
+            </button>
           </div>
-        </div>
-      </div>
+        )}
+      />
+
+      <PageTabs
+        tabs={[
+          { value: 'board', label: 'Board', icon: 'view_kanban' },
+          { value: 'list', label: 'List', icon: 'list' },
+          { value: 'forecast', label: 'Forecast', icon: 'trending_up' },
+        ]}
+        value={viewMode}
+        onValueChange={(id) => setViewMode(id as 'board' | 'list' | 'forecast')}
+        variant="segmented"
+        ariaLabel="Deal view mode"
+      />
 
       {/* Summary strip */}
       {isReady && !error && <PipelineSummary deals={deals} stages={stages} />}
@@ -365,12 +349,11 @@ export default function DealsPage() {
 
       {/* Error state */}
       {error && (
-        <div
-          className="rounded-[var(--radius-card)] px-4 py-3 text-sm"
-          style={{ background: '#ef444420', color: '#f87171', border: '1px solid #ef444430' }}
-        >
-          {error}
-        </div>
+        <EmptyState
+          icon="error"
+          title="Unable to load deals."
+          description={error}
+        />
       )}
 
       {/* Board view */}
@@ -378,13 +361,20 @@ export default function DealsPage() {
         loading ? (
           <DealKanban deals={[]} stages={stages} loading onStageChange={handleStageChange} />
         ) : filteredDeals.length === 0 && stageFilter === 'all' ? (
-          <div className="pib-card py-16 text-center">
-            <span className="material-symbols-outlined text-4xl text-on-surface-variant block mb-3">
-              monetization_on
-            </span>
-            <p className="text-on-surface-variant text-sm">No deals yet.</p>
-            <p className="text-on-surface-variant text-xs mt-1">Deals you create will appear here as a kanban pipeline.</p>
-          </div>
+          <EmptyState
+            icon="monetization_on"
+            title="No deals yet."
+            description="Deals you create will appear here as a kanban pipeline."
+            action={(
+              <button
+                onClick={() => setShowCreateDrawer(true)}
+                className="btn-pib-accent inline-flex items-center gap-2"
+              >
+                <span className="material-symbols-outlined text-[16px]">add</span>
+                New deal
+              </button>
+            )}
+          />
         ) : (
           <DealKanban deals={filteredDeals} stages={stages} onStageChange={handleStageChange} />
         )
@@ -411,9 +401,11 @@ export default function DealsPage() {
             {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-14" />)}
           </div>
         ) : filteredDeals.length === 0 ? (
-          <div className="pib-card py-12 text-center">
-            <p className="text-on-surface-variant text-sm">No deals found.</p>
-          </div>
+          <EmptyState
+            icon="search_off"
+            title="No deals found."
+            description="Try another stage filter or create a new client-safe deal."
+          />
         ) : (
           <div className="pib-card overflow-hidden">
             <table className="w-full text-sm">

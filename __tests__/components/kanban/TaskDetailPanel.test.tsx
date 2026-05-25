@@ -69,6 +69,27 @@ describe('TaskDetailPanel', () => {
     expect(props.onClose).toHaveBeenCalledTimes(1)
   })
 
+  it('does not crash when legacy task comments have no userName', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      json: () => Promise.resolve({
+        success: true,
+        data: [
+          {
+            id: 'legacy-comment',
+            text: 'Legacy status update',
+            userRole: 'system',
+            createdAt: { _seconds: 20, _nanoseconds: 0 },
+          },
+        ],
+      }),
+    }) as jest.Mock
+
+    renderPanel()
+
+    expect(await screen.findByText('Legacy status update')).toBeInTheDocument()
+    expect(screen.getAllByText('System').length).toBeGreaterThan(0)
+  })
+
   it('shows actionable unblock guidance for blocked cards from the latest blocker comment', async () => {
     global.fetch = jest.fn().mockResolvedValue({
       json: () => Promise.resolve({

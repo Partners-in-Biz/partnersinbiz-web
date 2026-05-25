@@ -26,6 +26,7 @@ import { isSuppressed } from '@/lib/email/suppressions'
 import { checkQuota } from '@/lib/platform/quotas'
 import type { ApiUser } from '@/lib/api/types'
 import { shouldSendToContact } from '@/lib/preferences/store'
+import { isWithinFrequencyCap, logFrequencySkip } from '@/lib/email/frequency'
 
 type SendEmailBody = {
   to?: string
@@ -92,6 +93,22 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) =
     const prefsCheck = await shouldSendToContact({ contactId, orgId, topicId: requestedTopicId })
     if (!prefsCheck.allowed) {
       return apiError(`Recipient has opted out: ${prefsCheck.reason ?? 'no reason'}`, 422)
+    }
+
+    if (requestedTopicId !== 'transactional') {
+      const freqCheck = await isWithinFrequencyCap(orgId, contactId, requestedTopicId)
+      if (!freqCheck.allowed) {
+        const reason = freqCheck.reason ?? 'frequency cap'
+        await logFrequencySkip({
+          orgId,
+          contactId,
+          topicId: requestedTopicId,
+          source: 'transactional',
+          sourceId: campaignId || sequenceId || '',
+          reason,
+        })
+        return apiError(`Recipient is over frequency cap: ${reason}`, 422)
+      }
     }
   }
 

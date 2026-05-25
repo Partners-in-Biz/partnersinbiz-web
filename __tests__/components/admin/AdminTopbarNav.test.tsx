@@ -21,11 +21,21 @@ jest.mock('@/components/admin/OrgSwitcher', () => ({
   OrgSwitcher: () => <div data-testid="org-switcher" />,
 }))
 
+jest.mock('@/components/crm/NotificationBell', () => ({
+  NotificationBell: ({ orgId, userId, mode }: { orgId?: string; userId?: string; mode?: string }) => (
+    <button type="button" aria-label="Open notifications" data-org-id={orgId} data-user-id={userId} data-mode={mode}>
+      Notifications
+    </button>
+  ),
+}))
+
 describe('AdminTopbarNav account display', () => {
   it('keeps the account email hidden until desktop-wide screens', () => {
     render(
       <AdminTopbarNav
         userEmail="peet@example.com"
+        userUid="admin-1"
+        orgId="pib-platform-owner"
         onToggleLayout={jest.fn()}
       />,
     )
@@ -35,6 +45,7 @@ describe('AdminTopbarNav account display', () => {
     expect(email).toHaveClass('hidden')
     expect(email).toHaveClass('xl:inline')
     expect(email).not.toHaveClass('lg:inline')
+    expect(screen.getByRole('button', { name: 'Open notifications' })).toHaveAttribute('data-mode', 'admin')
     expect(screen.getByRole('link', { name: /logout/i })).toBeInTheDocument()
   })
 })

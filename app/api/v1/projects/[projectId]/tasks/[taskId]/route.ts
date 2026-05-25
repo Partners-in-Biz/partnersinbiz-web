@@ -10,6 +10,7 @@ import {
   notificationPriority,
 } from '@/lib/projects/taskPayload'
 import { logActivity } from '@/lib/activity/log'
+import { adminProjectTaskLink } from '@/lib/projects/links'
 
 export const dynamic = 'force-dynamic'
 
@@ -66,7 +67,7 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
         type: 'task.agent_done',
         title: `${agentId.charAt(0).toUpperCase() + agentId.slice(1)} finished a task`,
         body: taskTitle,
-        link: `/admin/projects/${projectId}?task=${taskId}`,
+        link: await adminProjectTaskLink({ db: adminDb, orgId: projectOrgId, projectId, taskId }),
         data: { projectId, taskId },
         status: 'unread',
         priority: notificationPriority(existing.priority),
@@ -98,7 +99,7 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
           type: 'task.assigned',
           title: 'Task assigned to you',
           body: title,
-          link: `/admin/projects/${projectId}?task=${taskId}`,
+          link: await adminProjectTaskLink({ db: adminDb, orgId, projectId, taskId }),
           data: { projectId, taskId },
           status: 'unread',
           priority: notificationPriority(updates.value.priority ?? existing.priority),

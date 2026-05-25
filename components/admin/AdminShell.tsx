@@ -7,6 +7,7 @@ import { AdminTopbar } from './AdminTopbar'
 import { AdminTopbarNav } from './AdminTopbarNav'
 import { WelcomeFlashHandler } from '@/components/ui/WelcomeFlashHandler'
 import { MessageDrawer } from '@/components/chat/MessageDrawer'
+import { AppShell } from '@/components/ui/AppFoundation'
 import { useOrg } from '@/lib/contexts/OrgContext'
 import { PIB_PLATFORM_ORG_ID, SHARED_SENDER_NAME } from '@/lib/platform/constants'
 
@@ -67,6 +68,11 @@ export function AdminShell({ userEmail, userUid, children }: AdminShellProps) {
   const drawerOrg = routeOrg ?? selectedOrg
   const drawerOrgId = (drawerOrg?.id ?? selectedOrgId) || PIB_PLATFORM_ORG_ID
   const drawerOrgName = (drawerOrg?.name ?? orgName) || SHARED_SENDER_NAME
+  const isMessagesPage = /^\/admin\/org\/[^/]+\/messages(?:\/|$)/.test(pathname)
+  const mainClassName = isMessagesPage
+    ? 'px-2 md:px-4 py-4'
+    : 'px-4 md:px-8 py-8'
+  const innerClassName = isMessagesPage ? 'max-w-none' : 'max-w-[1400px]'
   const messageAction = (
     <MessageDrawer
       orgId={drawerOrgId}
@@ -82,15 +88,25 @@ export function AdminShell({ userEmail, userUid, children }: AdminShellProps) {
 
   if (layoutMode === 'topbar') {
     return (
-      <div data-message-push-root className="flex flex-col h-screen overflow-hidden bg-[var(--color-pib-bg)] text-[var(--color-pib-text)]">
-        <WelcomeFlashHandler />
-        <AdminTopbarNav userEmail={userEmail} onToggleLayout={toggleLayout} messageAction={messageAction} />
-        <main className="flex-1 overflow-y-auto px-4 md:px-8 py-8">
-          <div className="max-w-[1400px] mx-auto w-full">
-            {children}
-          </div>
-        </main>
-      </div>
+      <AppShell
+        data-message-push-root
+        header={(
+          <>
+            <WelcomeFlashHandler />
+            <AdminTopbarNav
+              userEmail={userEmail}
+              userUid={userUid}
+              orgId={drawerOrgId}
+              onToggleLayout={toggleLayout}
+              messageAction={messageAction}
+            />
+          </>
+        )}
+        contentClassName={mainClassName}
+        innerClassName={innerClassName}
+      >
+        {children}
+      </AppShell>
     )
   }
 
@@ -98,19 +114,23 @@ export function AdminShell({ userEmail, userUid, children }: AdminShellProps) {
     <div data-message-push-root className="flex h-screen overflow-hidden bg-[var(--color-pib-bg)] text-[var(--color-pib-text)]">
       <WelcomeFlashHandler />
       <AdminSidebar open={open} onClose={() => setOpen(false)} collapsed={collapsed} onToggleCollapsed={toggleCollapsed} />
-      <div className="flex flex-col flex-1 overflow-hidden min-w-0">
-        <AdminTopbar
-          userEmail={userEmail}
-          onMenuClick={openSidebar}
-          onToggleLayout={toggleLayout}
-          messageAction={messageAction}
-        />
-        <main className="flex-1 overflow-y-auto px-4 md:px-8 py-8">
-          <div className="max-w-[1400px] mx-auto w-full">
-            {children}
-          </div>
-        </main>
-      </div>
+      <AppShell
+        header={(
+          <AdminTopbar
+            userEmail={userEmail}
+            userUid={userUid}
+            orgId={drawerOrgId}
+            onMenuClick={openSidebar}
+            onToggleLayout={toggleLayout}
+            messageAction={messageAction}
+          />
+        )}
+        contentClassName={mainClassName}
+        innerClassName={innerClassName}
+        className="flex-1 min-w-0"
+      >
+        {children}
+      </AppShell>
     </div>
   )
 }

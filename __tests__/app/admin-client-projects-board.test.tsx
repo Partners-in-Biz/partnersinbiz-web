@@ -93,7 +93,13 @@ describe('Admin client projects board view', () => {
     expect(screen.getByTestId('cross-project-board')).toHaveAttribute('data-sort', 'latest')
 
     await waitFor(() => expect(screen.getByRole('button', { name: /manual order/i })).toBeInTheDocument())
-    fireEvent.click(screen.getByRole('button', { name: /manual order/i }))
+    const boardButton = screen.getByRole('button', { name: /view_kanban\s+board/i })
+    const manualOrderButton = screen.getByRole('button', { name: /manual order/i })
+    const toolbar = boardButton.parentElement?.parentElement
+    expect(toolbar).toHaveClass('justify-between')
+    expect(toolbar).toHaveClass('gap-3')
+    expect(toolbar).toContainElement(manualOrderButton)
+    fireEvent.click(manualOrderButton)
 
     expect(screen.getByTestId('cross-project-board')).toHaveAttribute('data-sort', 'manual')
   })

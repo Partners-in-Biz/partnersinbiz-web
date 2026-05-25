@@ -7,6 +7,8 @@ export interface DispatchEligibilityTask {
   requiresApproval?: boolean | null
   approvalStatus?: string | null
   approvalGate?: { status?: string | null } | null
+  agentReleaseAt?: string | number | { toMillis?: () => number; toDate?: () => Date } | null
+  agentReleaseStatus?: string | null
 }
 
 export interface DependencyState {
@@ -21,6 +23,7 @@ export type DispatchBlocker =
   | 'deleted'
   | 'cancelled'
   | 'approval-pending'
+  | 'scheduled-release-pending'
 
 const APPROVED_STATUSES = new Set(['approved', 'accepted', 'resolved'])
 
@@ -38,6 +41,30 @@ export function hasPendingApprovalGate(task: DispatchEligibilityTask): boolean {
   return !APPROVED_STATUSES.has(status)
 }
 
+export function releaseMillis(value: DispatchEligibilityTask['agentReleaseAt']): number | null {
+  if (!value) return null
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string') {
+    const millis = Date.parse(value)
+    return Number.isFinite(millis) ? millis : null
+  }
+  if (typeof value === 'object') {
+    if (typeof value.toMillis === 'function') {
+      try { return value.toMillis() } catch { return null }
+    }
+    if (typeof value.toDate === 'function') {
+      try { return value.toDate().getTime() } catch { return null }
+    }
+  }
+  return null
+}
+
+export function hasPendingScheduledRelease(task: DispatchEligibilityTask, now = Date.now()): boolean {
+  if (task.agentReleaseStatus !== 'scheduled') return false
+  const releaseAt = releaseMillis(task.agentReleaseAt)
+  return releaseAt !== null && releaseAt > now
+}
+
 export function getTaskDispatchBlocker(
   task: DispatchEligibilityTask,
   validAgentIds: readonly string[],
@@ -47,6 +74,7 @@ export function getTaskDispatchBlocker(
   if (task.status === 'cancelled' || task.status === 'canceled') return 'cancelled'
   if (task.agentStatus !== 'pending') return 'not-pending'
   if (task.columnId !== 'todo') return 'not-todo'
+  if (hasPendingScheduledRelease(task)) return 'scheduled-release-pending'
   if (hasPendingApprovalGate(task)) return 'approval-pending'
   return null
 }

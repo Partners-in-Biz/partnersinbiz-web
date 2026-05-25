@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
+import { EmptyState, PageHeader, StatusPill, Surface } from '@/components/ui/AppFoundation'
 
 type InvoiceStatus = 'draft' | 'sent' | 'viewed' | 'paid' | 'overdue' | 'cancelled'
 
@@ -22,13 +23,13 @@ function Skeleton({ className = '' }: { className?: string }) {
   return <div className={`pib-skeleton ${className}`} />
 }
 
-const STATUS_MAP: Record<InvoiceStatus, { label: string; color: string }> = {
-  draft:     { label: 'Draft',     color: 'var(--color-outline)' },
-  sent:      { label: 'Sent',      color: '#60a5fa' },
-  viewed:    { label: 'Viewed',    color: '#c084fc' },
-  paid:      { label: 'Paid',      color: '#4ade80' },
-  overdue:   { label: 'Overdue',   color: '#ef4444' },
-  cancelled: { label: 'Cancelled', color: 'var(--color-outline)' },
+const STATUS_MAP: Record<InvoiceStatus, { label: string; tone: 'neutral' | 'accent' | 'success' | 'warn' | 'danger' | 'info' }> = {
+  draft:     { label: 'Draft',     tone: 'neutral' },
+  sent:      { label: 'Sent',      tone: 'info' },
+  viewed:    { label: 'Viewed',    tone: 'accent' },
+  paid:      { label: 'Paid',      tone: 'success' },
+  overdue:   { label: 'Overdue',   tone: 'danger' },
+  cancelled: { label: 'Cancelled', tone: 'neutral' },
 }
 
 function formatCurrency(amount: number, currency: string) {
@@ -90,21 +91,19 @@ export default function BillingPage() {
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">
-            Workspace / Billing
-          </p>
-          <h1 className="text-2xl font-headline font-bold text-on-surface">Billing</h1>
-        </div>
-        <Link
-          href={`/admin/invoicing/new?orgId=${orgId}`}
-          className="pib-btn-primary text-sm font-label"
-        >
-          + New Invoice
-        </Link>
-      </div>
+      <PageHeader
+        eyebrow="Workspace / Billing"
+        title="Billing"
+        description="Invoice pipeline, outstanding balances, and paid revenue for this workspace."
+        actions={(
+          <Link
+            href={`/admin/invoicing/new?orgId=${orgId}`}
+            className="pib-btn-primary text-sm font-label"
+          >
+            + New Invoice
+          </Link>
+        )}
+      />
 
       {/* Stats Row */}
       <div className="grid grid-cols-3 gap-4">
@@ -141,7 +140,7 @@ export default function BillingPage() {
       </div>
 
       {/* Invoice Table */}
-      <div className="pib-card overflow-hidden !p-0">
+      <Surface variant="table" className="overflow-hidden !p-0" bodyClassName="!p-0">
         <div className="grid grid-cols-12 gap-4 px-5 py-3 border-b border-[var(--color-card-border)]">
           <p className="col-span-2 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
             Invoice #
@@ -172,21 +171,23 @@ export default function BillingPage() {
             ))}
           </div>
         ) : invoices.length === 0 ? (
-          <div className="py-10 text-center">
-            <p className="text-on-surface-variant text-sm mb-4">
-              No invoices yet for this workspace.
-            </p>
-            <Link
-              href={`/admin/invoicing/new?orgId=${orgId}`}
-              className="pib-btn-primary text-sm font-label"
-            >
-              Create Invoice
-            </Link>
-          </div>
+          <EmptyState
+            icon="receipt_long"
+            title="No invoices yet"
+            description="Create the first invoice for this workspace when billing is ready."
+            action={(
+              <Link
+                href={`/admin/invoicing/new?orgId=${orgId}`}
+                className="pib-btn-primary text-sm font-label"
+              >
+                Create Invoice
+              </Link>
+            )}
+          />
         ) : (
           <div className="divide-y divide-[var(--color-card-border)]">
             {invoices.map(inv => {
-              const status = STATUS_MAP[inv.status] ?? { label: inv.status, color: 'var(--color-outline)' }
+              const status = STATUS_MAP[inv.status] ?? { label: inv.status, tone: 'neutral' as const }
               return (
                 <div
                   key={inv.id}
@@ -207,12 +208,9 @@ export default function BillingPage() {
                     </p>
                   </div>
                   <div className="col-span-2">
-                    <span
-                      className="text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full"
-                      style={{ background: `${status.color}20`, color: status.color }}
-                    >
+                    <StatusPill tone={status.tone} dot>
                       {status.label}
-                    </span>
+                    </StatusPill>
                   </div>
                   <div className="col-span-2 flex justify-end gap-3">
                     <a
@@ -237,7 +235,7 @@ export default function BillingPage() {
             })}
           </div>
         )}
-      </div>
+      </Surface>
     </div>
   )
 }

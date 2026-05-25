@@ -59,3 +59,15 @@ Sensitive capabilities are hard gates, not suggestions. Production deploys, paid
 Theo’s engineering workflow must use the Partners delivery gate: create the online spec/change document first, wait for approval, then create linked Kanban implementation tasks with dependencies and `agentStatus=pending`. Link tasks back through `agentInput.context.sourceDocumentId`, `sourceDocumentSectionId`, `sourceSpecVersion`, `approvalGateTaskId`, `sourceResearchItemId`, `riskLevel`, `requiredCapability`, `reviewerAgentId`, and `expectedArtifacts` where applicable.
 
 VPS profiles must load only `/var/lib/hermes/agent-skills/<agentId>` in `skills.external_dirs`. Do not point core specialist profiles back at `/var/lib/hermes/pib-skills`; that shared cache is only the source for policy-generated per-agent directories.
+
+## All-Agent Wiki Update Standard
+
+Material agent work must close the loop in the Cowork wiki when it creates durable knowledge, reusable operational lessons, important decisions, blockers, or evidence Peet/the next agent will need later.
+
+Completion checklist for Pip, Theo, Maya, Sage, Nora, ads, qa-release, support, data, docs, seo, cron-origin jobs, and delegated one-off agent runs:
+
+1. Append the relevant daily/session log: `/var/lib/hermes/cowork-wiki/agents/<domain>/logs/YYYY-MM-DD.md`.
+2. Create or update the topical note: `/var/lib/hermes/cowork-wiki/agents/<domain>/wiki/<topic>.md`.
+3. Update the read-first layer when needed: `/var/lib/hermes/cowork-wiki/agents/<domain>/wiki/hot.md` for immediate next-agent context and `/var/lib/hermes/cowork-wiki/agents/<domain>/index.md` for discoverability.
+
+Use `agents/partners/` for parent Partners platform decisions, the orgId-resolved client domain for client work, and `shared/wiki/` only for genuinely cross-domain knowledge. Keep binaries/source assets in Google Drive, not Obsidian. Canonical standard: `/var/lib/hermes/cowork-wiki/agents/partners/wiki/agent-wiki-update-standard-2026-05-25.md`.

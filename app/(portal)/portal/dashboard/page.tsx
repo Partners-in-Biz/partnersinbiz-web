@@ -7,6 +7,7 @@ import { ProfileCompleteBanner } from '@/components/settings/ProfileCompleteBann
 import { TopCompaniesByPipelineTile } from '@/components/dashboard/TopCompaniesByPipelineTile'
 import { fmtTimestamp } from '@/components/admin/email/fmtTimestamp'
 import { DonutChart, HorizontalBarChart, StatCardWithChart, TrendAreaChart } from '@/components/ui/Charts'
+import { EmptyState, PageHeader } from '@/components/ui/AppFoundation'
 
 interface Kpis {
   total_revenue: number
@@ -372,25 +373,22 @@ export default function PortalDashboard() {
       <ProfileCompleteBanner />
 
       <section className="space-y-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="eyebrow !text-[10px]">Workspace</p>
-            <h1 className="mt-1 text-2xl font-headline font-bold text-on-surface">
-              {getGreeting()}.
-            </h1>
-            <p className="mt-0.5 text-sm text-on-surface-variant">
-              {new Date().toLocaleDateString('en-ZA', { weekday: 'long', month: 'long', day: 'numeric' })}
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Link href="/portal/projects" className="btn-pib-accent text-sm">
-              + New Project
-            </Link>
-            <Link href="/portal/properties" className="btn-pib-secondary text-sm">
-              Set Properties
-            </Link>
-          </div>
-        </div>
+        <PageHeader
+          eyebrow="Client workspace / Overview"
+          title={`${getGreeting()}.`}
+          description={new Date().toLocaleDateString('en-ZA', { weekday: 'long', month: 'long', day: 'numeric' })}
+          meta={<span>Same workspace system as admin, scoped to client-safe actions.</span>}
+          actions={(
+            <>
+              <Link href="/portal/projects" className="btn-pib-accent text-sm">
+                Request project
+              </Link>
+              <Link href="/portal/properties" className="btn-pib-secondary text-sm">
+                Set properties
+              </Link>
+            </>
+          )}
+        />
 
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           {workspaceLoading ? (
@@ -440,12 +438,12 @@ export default function PortalDashboard() {
                 {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-14" />)}
               </div>
             ) : projects.length === 0 ? (
-              <div className="py-8 text-center">
-                <p className="text-sm text-on-surface-variant">No projects yet.</p>
-                <Link href="/portal/projects" className="mt-2 inline-block text-sm text-[var(--color-pib-accent)]">
-                  Start the first one →
-                </Link>
-              </div>
+              <EmptyState
+                icon="rocket_launch"
+                title="No projects yet."
+                description="Project updates will appear here once work has been opened for your workspace."
+                action={<Link href="/portal/projects" className="btn-pib-secondary text-sm">Request project</Link>}
+              />
             ) : (
               <div className="-mx-6 space-y-1">
                 {projects.slice(0, 6).map((project) => (
@@ -695,18 +693,17 @@ export default function PortalDashboard() {
       )}
 
       {noData && (
-        <div className="bento-card p-10 text-center">
-          <span className="material-symbols-outlined text-4xl text-[var(--color-pib-accent)]">link</span>
-          <h2 className="font-display text-2xl mt-4">No data yet.</h2>
-          <p className="text-sm text-[var(--color-pib-text-muted)] max-w-md mx-auto mt-2 text-pretty">
-            Once your team connects integrations (RevenueCat, AdSense, AdMob, App Store Connect, Play Console, Google Ads, GA4),
-            KPIs will appear here within 24 hours.
-          </p>
-          <Link href="/portal/properties" className="btn-pib-secondary mt-6">
-            Manage properties
-            <span className="material-symbols-outlined text-base">arrow_forward</span>
-          </Link>
-        </div>
+        <EmptyState
+          icon="link"
+          title="No data yet."
+          description="Once your team connects integrations, KPIs will appear here within 24 hours."
+          action={(
+            <Link href="/portal/properties" className="btn-pib-secondary">
+              Manage properties
+              <span className="material-symbols-outlined text-base">arrow_forward</span>
+            </Link>
+          )}
+        />
       )}
 
       {!loading && data && data.connections.length > 0 && (

@@ -2,7 +2,9 @@
  * POST /api/v1/email/webhook — Resend webhook receiver
  *
  * Public endpoint — no auth middleware.
- * Security model: Resend posts to a secret path. Add signature verification in production.
+ * Security model: verify Resend's Svix signature when RESEND_WEBHOOK_SECRET is set.
+ * Production fails closed when the secret is absent; dev/preview may run unsigned
+ * and log a warning unless RESEND_WEBHOOK_REQUIRE_SIGNATURE=true.
  *
  * Handled event types:
  *   email.delivered        → stats.delivered++
@@ -21,9 +23,9 @@
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { FieldValue } from 'firebase-admin/firestore'
-import { Webhook } from 'svix'
 import { adminDb } from '@/lib/firebase/admin'
 import { incrementVariantStat, type VariantStatField } from '@/lib/ab-testing/cronHelpers'
+import { verifyResendWebhookSignature } from '@/lib/email/resendWebhook'
 import {
   addSuppression,
   temporaryExpiryFromNow,
@@ -31,9 +33,9 @@ import {
 } from '@/lib/email/suppressions'
 
 // Resend webhook signature verification uses svix.
-// Set RESEND_WEBHOOK_SECRET (format: whsec_xxxx) in env to enforce verification.
-// If unset, requests are allowed through (a one-time warning is logged at cold start)
-// so dev/preview environments without webhook setup still work.
+// Set RESEND_WEBHOOK_SECRET (format: whsec_xxxx) in env to verify signatures.
+// Production fails closed if it is unset. Dev/preview accepts unsigned webhooks
+// with a one-time warning unless RESEND_WEBHOOK_REQUIRE_SIGNATURE=true.
 // See: https://resend.com/docs/dashboard/webhooks/verify-webhook-requests
 
 let missingSecretWarned = false
@@ -42,24 +44,22 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   // Read raw body BEFORE parsing — svix needs the exact bytes to verify the signature.
   const rawBody = await req.text()
 
-  const secret = process.env.RESEND_WEBHOOK_SECRET
-  if (secret) {
-    const headers = {
+  const verification = verifyResendWebhookSignature({
+    rawBody,
+    headers: {
       'svix-id': req.headers.get('svix-id') ?? '',
       'svix-timestamp': req.headers.get('svix-timestamp') ?? '',
       'svix-signature': req.headers.get('svix-signature') ?? '',
-    }
-    try {
-      new Webhook(secret).verify(rawBody, headers)
-    } catch (err) {
-      console.warn('[email/webhook] signature verification failed', err)
-      return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
-    }
-  } else if (!missingSecretWarned) {
+    },
+    routeLabel: 'email/webhook',
+  })
+  if (!verification.ok) {
+    if (verification.warning) console.warn(verification.warning)
+    return NextResponse.json({ error: verification.error }, { status: verification.status ?? 400 })
+  }
+  if (verification.warning && !missingSecretWarned) {
     missingSecretWarned = true
-    console.warn(
-      '[email/webhook] RESEND_WEBHOOK_SECRET is not set — accepting unsigned webhooks. Set this in production.',
-    )
+    console.warn(verification.warning)
   }
 
   // Resend's payloads include a `data` object with the email id plus event-

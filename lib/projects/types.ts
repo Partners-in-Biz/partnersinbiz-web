@@ -95,6 +95,9 @@ export interface Task {
   agentOutput?: AgentOutput
   agentConversationId?: string | null  // Hermes run/conversation ID written at pickup; used to embed live session
   agentHeartbeatAt?: unknown   // last time the claiming agent reported alive; lets us reclaim stale picks
+  agentReleaseAt?: unknown     // scheduled backlog release date/time; watcher moves due scheduled cards to todo
+  agentReleaseStatus?: 'scheduled' | 'released' | 'cancelled' | null
+  agentReleasedAt?: unknown
   dependsOn?: string[]         // task IDs that must reach columnId='done' first
   reviewerIds?: string[]       // human reviewers selected for review column
   reviewerAgentId?: AgentId | null

@@ -26,6 +26,15 @@ type Props = { params: Promise<{ sourceId: string }> }
 
 const OVERLAY_MODES = new Set(['popup', 'slide-in', 'exit-intent'])
 
+function turnstileConfigured(source: CaptureSource): boolean {
+  return (
+    source.turnstileEnabled === true &&
+    typeof source.turnstileSiteKey === 'string' &&
+    source.turnstileSiteKey.trim().length > 0 &&
+    Boolean(process.env.TURNSTILE_SECRET_KEY)
+  )
+}
+
 export default async function NewsletterEmbedPage({ params }: Props) {
   const { sourceId } = await params
   const snap = await adminDb.collection(LEAD_CAPTURE_SOURCES).doc(sourceId).get()
@@ -79,11 +88,7 @@ export default async function NewsletterEmbedPage({ params }: Props) {
         submitUrl={submitUrl}
         progressiveUrl={progressiveUrl}
         display={display}
-        turnstileSiteKey={
-          source.turnstileEnabled && source.turnstileSiteKey
-            ? source.turnstileSiteKey
-            : undefined
-        }
+        turnstileSiteKey={turnstileConfigured(source) ? source.turnstileSiteKey : undefined}
       />
     </div>
   )

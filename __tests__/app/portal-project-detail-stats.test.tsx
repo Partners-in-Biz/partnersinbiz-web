@@ -1,5 +1,5 @@
 import React from 'react'
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import ProjectDetailPage from '@/app/(portal)/portal/projects/[projectId]/page'
 
 let snapshotCallback: ((snap: { docChanges: () => Array<{ type: 'added' | 'modified' | 'removed'; doc: { id: string; data: () => Record<string, unknown> } }> }) => void) | null = null
@@ -99,6 +99,14 @@ function mockFetch() {
               order: 3,
               attachments: [],
             },
+            {
+              id: 'task-4',
+              title: 'Agent finished awaiting review',
+              columnId: 'review',
+              agentStatus: 'done',
+              order: 4,
+              attachments: [],
+            },
           ],
         }),
       } as Response)
@@ -114,15 +122,17 @@ describe('Portal project detail kanban stat cards', () => {
     mockFetch()
   })
 
-  it('uses separate board-parity stat cards and ignores stale blocked labels outside active blockers', async () => {
+  it('uses a board-progress summary and ignores stale blocked labels outside active blockers', async () => {
     render(<ProjectDetailPage />)
 
     await waitFor(() => expect(screen.getByText('Board blocker')).toBeInTheDocument())
 
-    expect(screen.getByText('Tasks').nextElementSibling).toHaveTextContent('3')
-    expect(screen.getByText('Due').nextElementSibling).toHaveTextContent('1')
-    expect(screen.getByText('Blocked').nextElementSibling).toHaveTextContent('1')
-    expect(screen.getByText('Done').nextElementSibling).toHaveTextContent('1')
+    expect(screen.getAllByText('Actually done').length).toBeGreaterThan(0)
+    expect(screen.getByLabelText('Done task progress')).toHaveTextContent('2 / 4')
+    expect(screen.getByLabelText('Open task count')).toHaveTextContent('2')
+    expect(screen.getByLabelText('Blocked task count')).toHaveTextContent('1')
+    expect(screen.getByLabelText('Done task count')).toHaveTextContent('2')
+    expect(screen.getByText('Due this week', { exact: false })).toHaveTextContent('1 due this week')
     expect(screen.queryByText('Media')).not.toBeInTheDocument()
     expect(screen.queryByText('Done / blocked')).not.toBeInTheDocument()
   })
@@ -138,7 +148,22 @@ describe('Portal project detail kanban stat cards', () => {
     })
 
     expect(screen.getByText('Live blocked task')).toBeInTheDocument()
-    expect(screen.getByText('Tasks').nextElementSibling).toHaveTextContent('4')
-    expect(screen.getByText('Blocked').nextElementSibling).toHaveTextContent('2')
+    expect(screen.getByLabelText('Done task progress')).toHaveTextContent('2 / 5')
+    expect(screen.getByLabelText('Blocked task count')).toHaveTextContent('2')
+  })
+
+  it('keeps the board/list toggle and manual order control on one spaced toolbar row', async () => {
+    render(<ProjectDetailPage />)
+
+    await waitFor(() => expect(screen.getByText('Board blocker')).toBeInTheDocument())
+
+    const boardButton = screen.getByRole('button', { name: /view_kanban\s+board/i })
+    const toolbar = boardButton.parentElement?.parentElement
+    const manualSort = screen.getByRole('button', { name: /manual order/i })
+    expect(toolbar).toHaveClass('justify-between')
+    expect(toolbar).toContainElement(manualSort)
+
+    fireEvent.click(manualSort)
+    expect(screen.getByRole('button', { name: /latest first/i })).toHaveAttribute('aria-pressed', 'true')
   })
 })

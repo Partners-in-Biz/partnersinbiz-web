@@ -17,6 +17,9 @@ import { adminDb } from '@/lib/firebase/admin'
 import { sendCampaignEmail } from '@/lib/email/resend'
 import { resolveFrom } from '@/lib/email/resolveFrom'
 import { interpolate, varsFromContact } from '@/lib/email/template'
+import { isSuppressed } from '@/lib/email/suppressions'
+import { shouldSendToContact } from '@/lib/preferences/store'
+import { isWithinFrequencyCap, logFrequencySkip } from '@/lib/email/frequency'
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const authHeader = req.headers.get('authorization') ?? ''
@@ -49,10 +52,21 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         orgId?: string
         campaignId?: string
         fromDomainId?: string
+        topicId?: string
       }
 
       const orgId = email.orgId ?? ''
       const campaignId = email.campaignId ?? ''
+      const contactId = email.contactId ?? ''
+      const topicId = email.topicId || 'transactional'
+
+      const markSkipped = async (reason: string) => {
+        await adminDb.collection('emails').doc(docSnap.id).update({
+          status: 'skipped',
+          skippedReason: reason,
+          skippedAt: FieldValue.serverTimestamp(),
+        })
+      }
 
       // Look up org for fallback display name
       let orgName = ''
@@ -78,6 +92,41 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         }
       }
 
+      // Send gates. Scheduled campaign/one-off emails are created ahead of
+      // dispatch, so preferences/suppressions can change between scheduling
+      // and cron execution. Re-check the canonical gates immediately before
+      // provider dispatch and mark the email skipped instead of leaving it in
+      // the due queue.
+      if (orgId && email.to && (await isSuppressed(orgId, email.to))) {
+        await markSkipped('suppressed')
+        continue
+      }
+
+      if (orgId && contactId) {
+        const prefsCheck = await shouldSendToContact({ contactId, orgId, topicId })
+        if (!prefsCheck.allowed) {
+          await markSkipped(prefsCheck.reason ?? 'blocked by preferences')
+          continue
+        }
+
+        if (topicId !== 'transactional') {
+          const freqCheck = await isWithinFrequencyCap(orgId, contactId, topicId)
+          if (!freqCheck.allowed) {
+            const reason = freqCheck.reason ?? 'frequency cap'
+            await logFrequencySkip({
+              orgId,
+              contactId,
+              topicId,
+              source: campaignId ? 'campaign' : email.sequenceId ? 'sequence' : 'transactional',
+              sourceId: campaignId || email.sequenceId || docSnap.id,
+              reason,
+            })
+            await markSkipped(reason)
+            continue
+          }
+        }
+      }
+
       const resolved = campaign
         ? await resolveFrom({
             fromDomainId: campaign.fromDomainId,
@@ -92,8 +141,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
       // Build template variables and interpolate
       let vars: Record<string, string | number | undefined> = { orgName }
-      if (email.contactId) {
-        const contactSnap = await adminDb.collection('contacts').doc(email.contactId).get()
+      if (contactId) {
+        const contactSnap = await adminDb.collection('contacts').doc(contactId).get()
         if (contactSnap.exists) {
           vars = { ...varsFromContact(contactSnap.data()!), orgName }
         }
@@ -137,10 +186,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         })
       }
 
-      if (email.contactId && orgId) {
+      if (contactId && orgId) {
         await adminDb.collection('activities').add({
           orgId,
-          contactId: email.contactId,
+          contactId,
           dealId: '',
           type: 'email_sent',
           summary: `Email sent: ${subject}`,

@@ -27,7 +27,9 @@ describe('GET /api/v1/health', () => {
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.success).toBe(true)
-    expect(body.data.role).toBe('ai')
+    expect(body.data.ok).toBe(true)
+    expect(body.data.services).toEqual({ auth: 'ok', api: 'ok', firestore: 'ok' })
+    expect(body.data.identity.role).toBe('ai')
   })
 
   it('returns 401 without auth', async () => {

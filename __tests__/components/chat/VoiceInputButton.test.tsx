@@ -5,7 +5,7 @@ type RecognitionEvent = { results: Array<Array<{ transcript: string }>> }
 
 const recognitionInstances: MockSpeechRecognition[] = []
 
-function dispatchPointer(target: Element, type: string, props: Record<string, number> = {}) {
+function dispatchPointer(target: Element, type: string, props: Record<string, number | string> = {}) {
   const event = new Event(type, { bubbles: true, cancelable: true })
   for (const [key, value] of Object.entries(props)) {
     Object.defineProperty(event, key, { value, configurable: true })
@@ -44,17 +44,17 @@ describe('VoiceInputButton', () => {
     jest.restoreAllMocks()
   })
 
-  it('locks recording when the user swipes up and stops on the next press', () => {
+  it('keeps recording locked when the user drags before release', () => {
     const onTranscript = jest.fn()
     render(<VoiceInputButton onTranscript={onTranscript} />)
 
-    const button = screen.getByRole('button', { name: /hold to dictate/i })
+    const button = screen.getByRole('button', { name: /tap to start voice recording/i })
 
     dispatchPointer(button, 'pointerdown', { pointerId: 1, clientY: 220 })
     expect(recognitionInstances).toHaveLength(1)
     expect(recognitionInstances[0].start).toHaveBeenCalledTimes(1)
 
-    expect(screen.getByText(/swipe up to lock/i)).toBeInTheDocument()
+    expect(screen.getByText(/release to lock/i)).toBeInTheDocument()
 
     dispatchPointer(button, 'pointermove', { pointerId: 1, clientY: 140, movementY: -80 })
     expect(screen.getByText(/locked — tap to stop/i)).toBeInTheDocument()
@@ -68,5 +68,55 @@ describe('VoiceInputButton', () => {
 
     expect(recognitionInstances[0].stop).toHaveBeenCalledTimes(1)
     expect(onTranscript).toHaveBeenCalledWith('locked note')
+  })
+
+  it('locks recording on a laptop click and stops on the next click', () => {
+    const onTranscript = jest.fn()
+    render(<VoiceInputButton onTranscript={onTranscript} />)
+
+    const button = screen.getByRole('button', { name: /tap to start voice recording/i })
+
+    dispatchPointer(button, 'pointerdown', { pointerId: 1, pointerType: 'mouse', clientY: 220 })
+    dispatchPointer(button, 'pointerup', { pointerId: 1, pointerType: 'mouse', clientY: 220 })
+
+    expect(recognitionInstances).toHaveLength(1)
+    expect(recognitionInstances[0].start).toHaveBeenCalledTimes(1)
+    expect(recognitionInstances[0].stop).not.toHaveBeenCalled()
+    expect(screen.getByText(/locked — tap to stop/i)).toBeInTheDocument()
+
+    recognitionInstances[0].onresult?.({ results: [[{ transcript: 'laptop note' }]] })
+    const lockedButton = screen.getByRole('button', { name: /stop voice recording/i })
+    dispatchPointer(lockedButton, 'pointerdown', { pointerId: 2, pointerType: 'mouse', clientY: 220 })
+
+    expect(recognitionInstances[0].stop).toHaveBeenCalledTimes(1)
+    expect(onTranscript).toHaveBeenCalledWith('laptop note')
+  })
+
+  it('locks recording on a mobile tap without requiring swipe or long press selection', () => {
+    const onTranscript = jest.fn()
+    render(<VoiceInputButton onTranscript={onTranscript} />)
+
+    const button = screen.getByRole('button', { name: /tap to start voice recording/i })
+    expect(button).toHaveClass('touch-none')
+    expect(button).toHaveClass('select-none')
+    expect(button).toHaveAttribute('draggable', 'false')
+
+    dispatchPointer(button, 'pointerdown', { pointerId: 1, pointerType: 'touch', clientY: 220 })
+    dispatchPointer(button, 'pointerup', { pointerId: 1, pointerType: 'touch', clientY: 220 })
+
+    expect(recognitionInstances).toHaveLength(1)
+    expect(recognitionInstances[0].start).toHaveBeenCalledTimes(1)
+    expect(recognitionInstances[0].stop).not.toHaveBeenCalled()
+    expect(screen.getByText(/locked — tap to stop/i)).toBeInTheDocument()
+
+    recognitionInstances[0].onresult?.({ results: [[{ transcript: 'mobile note' }]] })
+    dispatchPointer(screen.getByRole('button', { name: /stop voice recording/i }), 'pointerdown', {
+      pointerId: 2,
+      pointerType: 'touch',
+      clientY: 220,
+    })
+
+    expect(recognitionInstances[0].stop).toHaveBeenCalledTimes(1)
+    expect(onTranscript).toHaveBeenCalledWith('mobile note')
   })
 })

@@ -7,6 +7,7 @@ const unsubscribe = jest.fn()
 
 jest.mock('next/navigation', () => ({
   useParams: () => ({ slug: 'acme-client', projectId: 'project-1' }),
+  useSearchParams: () => ({ get: jest.fn(() => null) }),
 }))
 
 jest.mock('firebase/firestore', () => ({
@@ -22,9 +23,9 @@ jest.mock('@/lib/firebase/config', () => ({
 }))
 
 jest.mock('@/components/kanban/KanbanBoard', () => ({
-  KanbanBoard: ({ tasks }: { tasks: Array<{ title: string }> }) => (
+  KanbanBoard: ({ tasks }: { tasks: Array<{ id: string; title: string; columnId?: string }> }) => (
     <div data-testid="kanban-board">
-      {tasks.map(task => <div key={task.title}>{task.title}</div>)}
+      {tasks.map(task => <div key={`${task.id}-${task.columnId ?? 'none'}`} data-testid="kanban-task">{task.title}</div>)}
     </div>
   ),
 }))
@@ -34,7 +35,15 @@ jest.mock('@/components/kanban/TaskDetailPanel', () => ({
 }))
 
 jest.mock('@/components/kanban/TaskComposer', () => ({
-  TaskComposer: () => <div data-testid="task-composer" />,
+  TaskComposer: ({ open, onCreated }: { open: boolean; onCreated: (task: { id: string; title: string; columnId: string; order: number }) => void }) => open ? (
+    <button
+      type="button"
+      data-testid="task-composer"
+      onClick={() => onCreated({ id: 'task-live-duplicate', title: 'Live-created task', columnId: 'todo', order: 1 })}
+    >
+      Mock create task
+    </button>
+  ) : null,
 }))
 
 jest.mock('@/components/hermes/Chat', () => ({
@@ -121,7 +130,8 @@ function mockFetch() {
             {
               id: 'task-2',
               title: 'Latest task should float up',
-              columnId: 'todo',
+              columnId: 'review',
+              agentStatus: 'done',
               order: 2,
               priority: 'medium',
               dueDate: '2026-06-01T00:00:00.000Z',
@@ -205,18 +215,30 @@ describe('Admin project docs and settings tabs', () => {
     expect(screen.getByText('Current board')).toBeInTheDocument()
   })
 
-  it('shows separate kanban stat cards for done and blocked tasks', async () => {
+  it('shows the board-progress summary with done and active blocker counts', async () => {
     render(<ProjectDetailPage />)
 
     await waitFor(() => expect(screen.getByText('Resolve production blocker')).toBeInTheDocument())
 
-    expect(screen.getByText('Tasks').nextElementSibling).toHaveTextContent('4')
-    expect(screen.getByText('Done').nextElementSibling).toHaveTextContent('1')
-    expect(screen.getByText('Blocked').nextElementSibling).toHaveTextContent('1')
+    expect(screen.getAllByText('Actually done').length).toBeGreaterThan(0)
+    expect(screen.getByLabelText('Done task progress')).toHaveTextContent('2 / 4')
+    expect(screen.getByLabelText('Open task count')).toHaveTextContent('2')
+    expect(screen.getByLabelText('Done task count')).toHaveTextContent('2')
+    expect(screen.getByLabelText('Blocked task count')).toHaveTextContent('1')
     expect(screen.queryByText('Done / blocked')).not.toBeInTheDocument()
   })
 
-  it('keeps board/list and list sort controls in one compact toolbar', async () => {
+  it('keeps project tabs visually consistent without a lone agent icon', async () => {
+    render(<ProjectDetailPage />)
+
+    const tabBar = screen.getByRole('button', { name: 'Kanban' }).parentElement
+    expect(tabBar).toContainElement(screen.getByRole('button', { name: 'Docs' }))
+    expect(tabBar).toContainElement(screen.getByRole('button', { name: 'Agent' }))
+    expect(tabBar).toContainElement(screen.getByRole('button', { name: 'Settings' }))
+    expect(within(tabBar as HTMLElement).queryByText('smart_toy')).not.toBeInTheDocument()
+  })
+
+  it('keeps board/list and board sort controls spaced on one toolbar row', async () => {
     render(<ProjectDetailPage />)
 
     await waitFor(() => expect(screen.getByText('Resolve production blocker')).toBeInTheDocument())
@@ -224,9 +246,14 @@ describe('Admin project docs and settings tabs', () => {
     const boardButton = screen.getByRole('button', { name: /view_kanban\s+board/i })
     const listButton = screen.getByRole('button', { name: /view_list\s+list/i })
     const toolbar = boardButton.parentElement?.parentElement
+    const manualSort = screen.getByRole('button', { name: /manual order/i })
     expect(toolbar).toHaveClass('gap-3')
     expect(toolbar).toHaveClass('overflow-x-auto')
-    expect(toolbar).not.toHaveClass('justify-between')
+    expect(toolbar).toHaveClass('justify-between')
+    expect(toolbar).toContainElement(manualSort)
+
+    fireEvent.click(manualSort)
+    expect(screen.getByRole('button', { name: /latest first/i })).toHaveAttribute('aria-pressed', 'true')
 
     fireEvent.click(listButton)
 
@@ -283,6 +310,24 @@ describe('Admin project docs and settings tabs', () => {
     })
 
     expect(screen.getByText('Live kanban task survives fallback')).toBeInTheDocument()
+  })
+
+  it('deduplicates a created task when the Firestore listener wins the race before POST returns', async () => {
+    render(<ProjectDetailPage />)
+
+    await waitFor(() => expect(snapshotCallback).toBeTruthy())
+    mockSnapshotChange('added', 'task-live-duplicate', {
+      title: 'Live-created task',
+      columnId: 'todo',
+      order: 1,
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /New Task/i }))
+    fireEvent.click(screen.getByTestId('task-composer'))
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Live-created task')).toHaveLength(1)
+    })
   })
   it('defaults task list sorting to latest first and can toggle back to due date', async () => {
     render(<ProjectDetailPage />)
