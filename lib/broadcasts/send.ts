@@ -23,6 +23,7 @@ import { interpolate, varsFromContact, type TemplateVars } from '@/lib/email/tem
 import { signUnsubscribeToken } from '@/lib/email/unsubscribeToken'
 import { isSuppressed } from '@/lib/email/suppressions'
 import { renderEmail } from '@/lib/email-builder/render'
+import { hasAmpBlocks, renderAmpEmail } from '@/lib/email-builder/render-amp'
 import type { EmailDocument } from '@/lib/email-builder/types'
 import type { Contact } from '@/lib/crm/types'
 import type { Broadcast } from './types'
@@ -294,6 +295,7 @@ export async function sendBroadcastToContact(
   let subject = ''
   let html = ''
   let text = ''
+  let ampFallbackMeta: Record<string, unknown> | null = null
   if (templateDoc) {
     // Build recipientContext for conditional blocks. customFields isn't on
     // the base Contact type today; we read it loosely if present (set by
@@ -308,9 +310,27 @@ export async function sendBroadcastToContact(
       customFields,
     }
     const rendered = renderEmail(templateDoc, vars, recipientContext)
+    const ampRendered = renderAmpEmail(templateDoc, vars, recipientContext)
     subject = interpolate(templateDoc.subject ?? broadcast.content.subject ?? '', vars)
     html = rendered.html
     text = rendered.text
+
+    // AMP-for-Email send-pipeline decision (documented + tested): the builder
+    // can render AMP bodies, but our current provider abstraction and Resend
+    // SDK adapter only send html/text parts. Until we move to a raw MIME send
+    // path (or a provider API with explicit AMP MIME support), AMP blocks are
+    // intentionally delivered through their safe HTML fallback from renderEmail.
+    // Keep an audit marker on the email doc so support can explain why an AMP
+    // template arrived as non-interactive HTML.
+    if (hasAmpBlocks(templateDoc)) {
+      ampFallbackMeta = {
+        requested: true,
+        rendered: !!ampRendered?.amp,
+        sent: false,
+        reason: 'send-provider-no-amp-mime-support',
+        fallback: 'html',
+      }
+    }
   } else {
     subject = interpolate(broadcast.content.subject ?? '', vars)
     const rawHtml = broadcast.content.bodyHtml ?? ''
@@ -406,6 +426,7 @@ export async function sendBroadcastToContact(
     bodyHtml: html,
     bodyText: text,
     status: sendOk ? 'sent' : 'failed',
+    amp: ampFallbackMeta,
     scheduledFor: null,
     sentAt: sendOk ? FieldValue.serverTimestamp() : null,
     openedAt: null,
