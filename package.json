@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "check:email-deliverability-env": "node scripts/check-email-deliverability-env.mjs",
     "test": "jest",
     "test:watch": "jest --watch"
   },
@@ -34,6 +35,7 @@
     "recharts": "^3.8.1",
     "resend": "^6.9.4",
     "sharp": "^0.34.5",
+    "svix": "^1.94.0",
     "tailwind-merge": "^3.5.0",
     "tiptap-markdown": "^0.9.0",
     "twilio": "^6.0.2"

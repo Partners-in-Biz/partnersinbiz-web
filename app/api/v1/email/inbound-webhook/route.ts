@@ -7,8 +7,8 @@
  *   - If RESEND_WEBHOOK_SECRET is set (whsec_…) we verify the svix signature
  *     exactly like /api/v1/email/webhook does. Resend's outbound + inbound
  *     webhooks share the signing infrastructure.
- *   - If unset, the route accepts unsigned requests but warns once at cold
- *     start. Use only in dev / preview environments.
+ *   - If unset, production fails closed. Dev/preview accepts unsigned requests
+ *     but warns once at cold start unless RESEND_WEBHOOK_REQUIRE_SIGNATURE=true.
  *   - Shared helper note: inbound and outbound Resend webhook routes currently
  *     perform the same local Svix verification flow. If lib/security/svix.ts
  *     lands later, centralise both routes there without changing behaviour.
@@ -37,11 +37,11 @@
  * caller but the inbound doc still lives in Firestore.
  */
 import { NextRequest, NextResponse } from 'next/server'
-import { Webhook } from 'svix'
 import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { classifyReply } from '@/lib/email/inbound/classify'
 import { processInboundEmail, newInboundEmail } from '@/lib/email/inbound/route'
+import { verifyResendWebhookSignature } from '@/lib/email/resendWebhook'
 
 export const dynamic = 'force-dynamic'
 
@@ -138,26 +138,22 @@ function parseAttachments(raw: unknown): Array<{
 export async function POST(req: NextRequest): Promise<NextResponse> {
   const rawBody = await req.text()
 
-  const secret = process.env.RESEND_WEBHOOK_SECRET
-  if (secret) {
-    const headers = {
+  const verification = verifyResendWebhookSignature({
+    rawBody,
+    headers: {
       'svix-id': req.headers.get('svix-id') ?? '',
       'svix-timestamp': req.headers.get('svix-timestamp') ?? '',
       'svix-signature': req.headers.get('svix-signature') ?? '',
-    }
-    try {
-      new Webhook(secret).verify(rawBody, headers)
-    } catch (err) {
-      // eslint-disable-next-line no-console
-      console.warn('[email/inbound-webhook] signature verification failed', err)
-      return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
-    }
-  } else if (!missingSecretWarned) {
+    },
+    routeLabel: 'email/inbound-webhook',
+  })
+  if (!verification.ok) {
+    if (verification.warning) console.warn(verification.warning)
+    return NextResponse.json({ error: verification.error }, { status: verification.status ?? 400 })
+  }
+  if (verification.warning && !missingSecretWarned) {
     missingSecretWarned = true
-    // eslint-disable-next-line no-console
-    console.warn(
-      '[email/inbound-webhook] RESEND_WEBHOOK_SECRET is not set — accepting unsigned webhooks. Set this in production.',
-    )
+    console.warn(verification.warning)
   }
 
   let payload: RawPayload
@@ -237,7 +233,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       outboundMatched: result.outboundMatched,
     })
   } catch (err) {
-    // eslint-disable-next-line no-console
     console.error('[email/inbound-webhook] processing failed', err)
     return NextResponse.json(
       {
