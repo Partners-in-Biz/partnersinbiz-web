@@ -2,7 +2,8 @@
  * POST /api/v1/email/webhook — Resend webhook receiver
  *
  * Public endpoint — no auth middleware.
- * Security model: Resend posts to a secret path. Add signature verification in production.
+ * Security model: verify Resend's Svix signature when RESEND_WEBHOOK_SECRET is set.
+ * Dev/preview environments may run unsigned and log a warning when the secret is absent.
  *
  * Handled event types:
  *   email.delivered        → stats.delivered++

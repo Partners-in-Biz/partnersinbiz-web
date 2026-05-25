@@ -9,8 +9,9 @@
  *     webhooks share the signing infrastructure.
  *   - If unset, the route accepts unsigned requests but warns once at cold
  *     start. Use only in dev / preview environments.
- *   - TODO: when lib/security/svix.ts lands (parallel deliverability agent),
- *     swap to that helper for a single source of truth.
+ *   - Shared helper note: inbound and outbound Resend webhook routes currently
+ *     perform the same local Svix verification flow. If lib/security/svix.ts
+ *     lands later, centralise both routes there without changing behaviour.
  *
  * Payload shape (best-effort — Resend's inbound payload is still evolving;
  * we read defensively):

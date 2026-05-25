@@ -348,8 +348,15 @@ export async function sendBroadcastToContact(
   subject = effective.subject
   html = effective.bodyHtml
   text = effective.bodyText
-  // Note: fromName override doesn't change resolvedSender here (already
-  // built once for the run). Future improvement: rebuild sender per-variant.
+  const effectiveSender =
+    effective.fromName.trim() && effective.fromName.trim() !== (broadcast.fromName ?? '').trim()
+      ? await resolveFrom({
+          fromDomainId: broadcast.fromDomainId,
+          fromName: effective.fromName,
+          fromLocal: broadcast.fromLocal,
+          orgName,
+        })
+      : resolvedSender
 
   // Send (or stub when no key in env).
   let resendId = ''
@@ -358,7 +365,7 @@ export async function sendBroadcastToContact(
   let sendError: string | undefined
   if (RESEND_KEY_SET) {
     const result = await sendCampaignEmail({
-      from: resolvedSender.from,
+      from: effectiveSender.from,
       to: contact.email,
       replyTo: broadcast.replyTo || undefined,
       subject,
@@ -386,13 +393,13 @@ export async function sendBroadcastToContact(
     orgId: broadcast.orgId,
     campaignId: '',
     broadcastId: broadcast.id,
-    fromDomainId: resolvedSender.fromDomainId,
+    fromDomainId: effectiveSender.fromDomainId,
     direction: 'outbound',
     contactId,
     resendId,
     provider: sendProvider,
     providerMessageId: resendId,
-    from: resolvedSender.from,
+    from: effectiveSender.from,
     to: contact.email,
     cc: [],
     subject,
