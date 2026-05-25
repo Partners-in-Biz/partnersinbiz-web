@@ -4,12 +4,11 @@
  * Send a direct SMS to a contact and log a CRM activity.
  * Auth: member+
  */
-import { FieldValue } from 'firebase-admin/firestore'
 import { NextRequest } from 'next/server'
 import { adminDb } from '@/lib/firebase/admin'
 import { withCrmAuth } from '@/lib/auth/crm-middleware'
 import { apiSuccess, apiError } from '@/lib/api/response'
-import { sendSms } from '@/lib/sms/twilio'
+import { sendSmsToContact } from '@/lib/sms/send'
 
 export const dynamic = 'force-dynamic'
 
@@ -40,39 +39,31 @@ export const POST = withCrmAuth<RouteCtx>(
 
     if (!contact.phone) return apiError('Contact has no phone number', 400)
 
-    // ── Send SMS ──────────────────────────────────────────────────────────────
-    const result = await sendSms({ to: contact.phone as string, body: message })
-    if (!result.ok) {
-      return apiError(result.error ?? 'SMS send failed', 500)
+    // ── Send through shared SMS pipeline ──────────────────────────────────────
+    // This keeps one-off CRM sends behind the same preferences, suppression,
+    // frequency-cap, audit-doc, and Twilio-safe-failure behaviour as sequences
+    // and broadcasts. Do not bypass this with a direct Twilio send.
+    const result = await sendSmsToContact({
+      orgId: ctx.orgId,
+      contactId: id,
+      body: message,
+      topicId: 'transactional',
+    })
+
+    if (result.status === 'failed') {
+      return apiError(result.reason ?? 'SMS send failed', 502)
     }
 
-    // ── Log CRM activity + update lastContactedAt (best-effort) ──────────────
-    try {
-      const actorRef = ctx.actor
-      const batch = adminDb.batch()
-
-      const activityRef = adminDb.collection('activities').doc()
-      batch.set(activityRef, {
-        orgId: ctx.orgId,
-        contactId: id,
-        type: 'sms_sent',
-        summary: message,
-        createdByRef: actorRef,
-        createdAt: FieldValue.serverTimestamp(),
-        updatedAt: FieldValue.serverTimestamp(),
-        deleted: false,
-      })
-
-      batch.update(docRef, {
-        lastContactedAt: FieldValue.serverTimestamp(),
-        updatedAt: FieldValue.serverTimestamp(),
-      })
-
-      await batch.commit()
-    } catch (err) {
-      console.error('[send-sms] activity/lastContactedAt write failed (non-blocking)', err)
+    if (result.status === 'skipped') {
+      return apiSuccess({ sent: false, status: 'skipped', reason: result.reason })
     }
 
-    return apiSuccess({ sent: true })
+    return apiSuccess({
+      sent: true,
+      status: 'sent',
+      smsId: result.smsId,
+      twilioSid: result.twilioSid,
+      segmentsCount: result.segmentsCount,
+    })
   },
 )

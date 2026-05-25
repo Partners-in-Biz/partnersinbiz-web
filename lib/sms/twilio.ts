@@ -95,9 +95,20 @@ export async function sendSms(input: SmsSendInput): Promise<SmsSendResult> {
 
   const client = getTwilioClient()
   if (!client) {
+    const sid = (process.env.TWILIO_ACCOUNT_SID ?? '').trim()
+    const token = (process.env.TWILIO_AUTH_TOKEN ?? '').trim()
+    if (sid || token) {
+      return {
+        ok: false,
+        twilioSid: '',
+        error: 'incomplete Twilio configuration — set both TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN',
+        errorCode: 'missing_twilio_credentials',
+        segmentsCount: seg.segments,
+      }
+    }
+
     // Dev / preview without Twilio creds — log and pretend success so the rest
     // of the pipeline (preferences, stats, sms docs, idempotency) still flows.
-    // eslint-disable-next-line no-console
     console.warn(
       `[sms/twilio] TWILIO_AUTH_TOKEN not set — skipping actual send to ${to} (${seg.segments} seg)`,
     )
