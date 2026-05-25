@@ -6,7 +6,7 @@ import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
-import { inferAgentName } from '@/lib/client-provisioning/provisioner'
+import { buildClientProvisioningPayload, inferAgentName } from '@/lib/client-provisioning/provisioner'
 import { provisionFullClientOnVps } from '@/lib/client-provisioning/vps'
 import { slugify, isMember } from '@/lib/organizations/helpers'
 import type { Organization, OrgMember, OrganizationSummary } from '@/lib/organizations/types'
@@ -114,6 +114,12 @@ export const POST = withAuth('admin', async (req, user) => {
   const agentName = typeof body.agentName === 'string' && body.agentName.trim()
     ? body.agentName.trim()
     : inferAgentName(name)
+  const provisioningPayload = buildClientProvisioningPayload({
+    clientName: name,
+    domain: slug,
+    orgId: docRef.id,
+    agentName,
+  })
 
   try {
     const provisioning = await provisionFullClientOnVps({
@@ -124,6 +130,7 @@ export const POST = withAuth('admin', async (req, user) => {
     })
 
     await docRef.set({
+      folderRegistry: provisioningPayload.folderRegistry,
       provisioning: {
         status: 'complete',
         domain: slug,
@@ -138,6 +145,7 @@ export const POST = withAuth('admin', async (req, user) => {
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Client workspace provisioning failed'
     await docRef.set({
+      folderRegistry: provisioningPayload.folderRegistry,
       provisioning: {
         status: 'failed',
         domain: slug,

@@ -1,18 +1,21 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useSearchParams } from 'next/navigation'
 import { collection, onSnapshot } from 'firebase/firestore'
 import { getClientDb } from '@/lib/firebase/config'
 import Link from 'next/link'
 import { KanbanBoard } from '@/components/kanban/KanbanBoard'
 import { TaskDetailPanel } from '@/components/kanban/TaskDetailPanel'
 import { TaskComposer } from '@/components/kanban/TaskComposer'
-import HermesChat from '@/components/hermes/Chat'
+import UnifiedChat from '@/components/chat/UnifiedChat'
+import { ProjectBoardSummary } from '@/components/projects/ProjectBoardSummary'
 import type { AgentMember, Column, Task, TeamMember } from '@/components/kanban/types'
 
-interface ProjectDoc { id: string; title: string; content: string; type: 'brief' | 'requirements' | 'notes' | 'reference'; createdBy: string; updatedBy?: string; createdAt?: unknown; updatedAt?: unknown }
+interface ProjectDoc { id: string; title: string; content?: string; type: 'brief' | 'requirements' | 'notes' | 'reference'; createdBy: string; updatedBy?: string; createdAt?: unknown; updatedAt?: unknown }
 interface Project { id: string; orgId?: string; name: string; description?: string; brief?: string; status?: string; columns: Column[] }
+interface CurrentUser { uid: string; displayName: string }
+type TaskListSort = 'latest' | 'due'
 
 function mergeLiveTasks(restTasks: Task[], currentTasks: Task[]) {
   const merged = new Map<string, Task>()
@@ -37,8 +40,12 @@ const TYPE_COLORS: Record<string, string> = {
   reference: 'border-[var(--color-card-border)] bg-[var(--color-card)] text-on-surface-variant',
 }
 
-function docPreview(content: string): string {
-  const preview = content.replace(/\s+/g, ' ').trim()
+function docContent(content: unknown): string {
+  return typeof content === 'string' ? content : ''
+}
+
+function docPreview(content: unknown): string {
+  const preview = docContent(content).replace(/\s+/g, ' ').trim()
   if (!preview) return 'No preview content yet.'
   return preview.length > 180 ? `${preview.slice(0, 180).trim()}…` : preview
 }
@@ -61,16 +68,6 @@ function timestampToMillis(value: unknown): number {
     if (typeof seconds === 'number') return seconds * 1000
   }
   return 0
-}
-
-function isDueThisWeek(task: Task): boolean {
-  const due = timestampToMillis(task.dueDate)
-  if (!due) return false
-  const now = new Date()
-  now.setHours(0, 0, 0, 0)
-  const nextWeek = new Date(now)
-  nextWeek.setDate(now.getDate() + 7)
-  return due >= now.getTime() && due <= nextWeek.getTime()
 }
 
 function formatDate(value: unknown): string {
@@ -96,8 +93,10 @@ function agentLabel(agent?: AgentMember, agentId?: string | null): string {
 
 export default function ProjectDetailPage() {
   const params = useParams()
+  const searchParams = useSearchParams()
   const slug = params.slug as string
   const projectId = params.projectId as string
+  const deepLinkedTaskId = searchParams.get('taskId')
 
   const [project, setProject] = useState<Project | null>(null)
   const [tasks, setTasks] = useState<Task[]>([])
@@ -112,6 +111,8 @@ export default function ProjectDetailPage() {
     if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return 'board'
     return window.matchMedia('(max-width: 767px)').matches ? 'list' : 'board'
   })
+  const [boardSortMode, setBoardSortMode] = useState<'latest' | 'manual'>('latest')
+  const [taskListSort, setTaskListSort] = useState<TaskListSort>('latest')
   const [editingBrief, setEditingBrief] = useState(false)
   const [briefValue, setBriefValue] = useState('')
   const [editingDoc, setEditingDoc] = useState<ProjectDoc | null>(null)
@@ -122,6 +123,8 @@ export default function ProjectDetailPage() {
   const [settingsDescription, setSettingsDescription] = useState('')
   const [savingSettings, setSavingSettings] = useState(false)
   const [settingsSaved, setSettingsSaved] = useState(false)
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
+  const [userLoadError, setUserLoadError] = useState<string | null>(null)
 
   useEffect(() => {
     // Project + docs: one-shot fetch
@@ -171,6 +174,37 @@ export default function ProjectDetailPage() {
     )
     return () => unsubscribe()
   }, [projectId])
+
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/auth/verify')
+      .then(async (res) => {
+        const body = await res.json().catch(() => null)
+        if (!res.ok) throw new Error(body?.error ?? `User load failed (${res.status})`)
+        const uid = typeof body?.uid === 'string' ? body.uid : ''
+        if (!uid) throw new Error('User load failed')
+        const displayName =
+          (typeof body?.name === 'string' && body.name.trim()) ||
+          (typeof body?.email === 'string' && body.email.trim()) ||
+          uid
+        if (!cancelled) {
+          setCurrentUser({ uid, displayName })
+          setUserLoadError(null)
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) setUserLoadError(err instanceof Error ? err.message : 'User load failed')
+      })
+    return () => { cancelled = true }
+  }, [])
+
+  useEffect(() => {
+    if (!deepLinkedTaskId) return
+    const task = tasks.find(t => t.id === deepLinkedTaskId)
+    if (!task) return
+    setActiveTab('kanban')
+    setSelectedTask(task)
+  }, [deepLinkedTaskId, tasks])
 
   useEffect(() => {
     if (!project?.orgId) return
@@ -243,13 +277,13 @@ export default function ProjectDetailPage() {
   }
 
   const handleSaveDoc = async () => {
-    if (!editingDoc?.title.trim() || !editingDoc?.content.trim()) return
+    if (!editingDoc?.title.trim() || !docContent(editingDoc.content).trim()) return
 
     if (editingDoc.id) {
       await fetch(`/api/v1/projects/${projectId}/docs/${editingDoc.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: editingDoc.title, content: editingDoc.content, type: editingDoc.type }),
+        body: JSON.stringify({ title: editingDoc.title, content: docContent(editingDoc.content), type: editingDoc.type }),
       })
       setDocs(prev => prev.map(d => d.id === editingDoc.id ? editingDoc : d))
       setSelectedDoc(prev => prev?.id === editingDoc.id ? editingDoc : prev)
@@ -257,7 +291,7 @@ export default function ProjectDetailPage() {
       const res = await fetch(`/api/v1/projects/${projectId}/docs`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: editingDoc.title, content: editingDoc.content, type: editingDoc.type }),
+        body: JSON.stringify({ title: editingDoc.title, content: docContent(editingDoc.content), type: editingDoc.type }),
       })
       const body = await res.json()
       if (body.data?.id) {
@@ -276,11 +310,12 @@ export default function ProjectDetailPage() {
   const columns = project?.columns?.length ? project.columns : DEFAULT_COLUMNS
   const selectedColumn = columns.find(c => c.id === selectedTask?.columnId)
   const composerColumn = columns.find(c => c.id === showNewTask) ?? null
-  const doneCount = tasks.filter(t => t.columnId === 'done').length
-  const blockedCount = tasks.filter(t => t.labels?.some(label => label.toLowerCase() === 'blocked')).length
-  const mediaCount = tasks.reduce((sum, task) => sum + (task.attachments?.length ?? 0), 0)
-  const dueSoonCount = tasks.filter(isDueThisWeek).length
   const sortedListTasks = [...tasks].sort((a, b) => {
+    if (taskListSort === 'latest') {
+      const latestA = timestampToMillis(a.createdAt) || timestampToMillis(a.updatedAt) || a.order || 0
+      const latestB = timestampToMillis(b.createdAt) || timestampToMillis(b.updatedAt) || b.order || 0
+      return latestB - latestA || a.order - b.order
+    }
     const dueA = timestampToMillis(a.dueDate) || Number.MAX_SAFE_INTEGER
     const dueB = timestampToMillis(b.dueDate) || Number.MAX_SAFE_INTEGER
     return dueA - dueB || a.order - b.order
@@ -336,13 +371,12 @@ export default function ProjectDetailPage() {
         </button>
         <button
           onClick={() => setActiveTab('agent')}
-          className={`px-1 pb-3 text-sm font-label transition-colors flex items-center gap-1.5 ${
+          className={`px-1 pb-3 text-sm font-label transition-colors ${
             activeTab === 'agent'
               ? 'text-on-surface border-b-2 border-[var(--color-accent-v2)]'
               : 'text-on-surface-variant hover:text-on-surface'
           }`}
         >
-          <span className="material-symbols-outlined text-[16px]">smart_toy</span>
           Agent
         </button>
         <button
@@ -360,27 +394,10 @@ export default function ProjectDetailPage() {
       {/* Tab Content */}
       {activeTab === 'kanban' && (
         <>
-          <div className="mb-3 grid shrink-0 grid-cols-4 gap-2 rounded-2xl border border-[var(--color-card-border)] bg-gradient-to-r from-[var(--color-card)] to-[var(--color-surface-container)] p-2 shadow-sm md:mb-4 md:gap-3 md:bg-none md:p-0 md:shadow-none">
-            <div className="rounded-xl border border-white/5 bg-black/10 px-2 py-2 md:border-[var(--color-card-border)] md:bg-[var(--color-card)] md:p-3">
-              <p className="text-[8px] font-label uppercase tracking-widest text-on-surface-variant md:text-[10px]">Tasks</p>
-              <p className="mt-0.5 text-lg font-headline font-bold text-on-surface md:mt-1 md:text-2xl">{tasks.length}</p>
-            </div>
-            <div className="rounded-xl border border-white/5 bg-black/10 px-2 py-2 md:border-[var(--color-card-border)] md:bg-[var(--color-card)] md:p-3">
-              <p className="text-[8px] font-label uppercase tracking-widest text-on-surface-variant md:text-[10px]">Due</p>
-              <p className="mt-0.5 text-lg font-headline font-bold text-on-surface md:mt-1 md:text-2xl">{dueSoonCount}</p>
-            </div>
-            <div className="rounded-xl border border-white/5 bg-black/10 px-2 py-2 md:border-[var(--color-card-border)] md:bg-[var(--color-card)] md:p-3">
-              <p className="text-[8px] font-label uppercase tracking-widest text-on-surface-variant md:text-[10px]">Media</p>
-              <p className="mt-0.5 text-lg font-headline font-bold text-on-surface md:mt-1 md:text-2xl">{mediaCount}</p>
-            </div>
-            <div className="rounded-xl border border-white/5 bg-black/10 px-2 py-2 md:border-[var(--color-card-border)] md:bg-[var(--color-card)] md:p-3">
-              <p className="text-[8px] font-label uppercase tracking-widest text-on-surface-variant md:text-[10px]">Done</p>
-              <p className="mt-0.5 text-lg font-headline font-bold text-on-surface md:mt-1 md:text-2xl">{doneCount}<span className="text-on-surface-variant">/{blockedCount}</span></p>
-            </div>
-          </div>
+          <ProjectBoardSummary tasks={tasks} columns={columns} />
 
-          <div className="mb-3 flex shrink-0 items-center justify-between gap-3 md:mb-4">
-            <div className="inline-flex rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)] p-1">
+          <div className="mb-3 flex shrink-0 items-center justify-between gap-3 overflow-x-auto md:mb-4">
+            <div className="inline-flex shrink-0 rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)] p-1">
               {(['board', 'list'] as const).map(mode => (
                 <button
                   key={mode}
@@ -397,6 +414,40 @@ export default function ProjectDetailPage() {
                 </button>
               ))}
             </div>
+            {viewMode === 'board' ? (
+              <button
+                type="button"
+                onClick={() => setBoardSortMode(prev => prev === 'latest' ? 'manual' : 'latest')}
+                className="inline-flex shrink-0 items-center gap-2 rounded-full border border-[var(--color-card-border)] px-3 py-1.5 text-xs font-label uppercase tracking-wide text-on-surface-variant transition-colors hover:text-on-surface"
+                aria-pressed={boardSortMode === 'manual'}
+              >
+                <span className="material-symbols-outlined text-[16px]">sort</span>
+                {boardSortMode === 'latest' ? 'Manual order' : 'Latest first'}
+              </button>
+            ) : (
+              <div className="inline-flex shrink-0 rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)] p-1">
+                {([
+                  { key: 'latest', label: 'Latest first', icon: 'new_releases' },
+                  { key: 'due', label: 'Due date', icon: 'event' },
+                ] as const).map(option => (
+                  <button
+                    key={option.key}
+                    type="button"
+                    onClick={() => setTaskListSort(option.key)}
+                    className={`inline-flex items-center gap-1 rounded px-3 py-1.5 text-xs font-label ${
+                      taskListSort === option.key
+                        ? 'bg-[var(--color-accent-v2)] text-black'
+                        : 'text-on-surface-variant hover:text-on-surface'
+                    }`}
+                    aria-pressed={taskListSort === option.key}
+                  >
+                    <span className="material-symbols-outlined text-[16px]">{option.icon}</span>
+                    <span className="hidden sm:inline">{option.label}</span>
+                    <span className="sm:hidden">{option.key === 'latest' ? 'Latest' : 'Due'}</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Board */}
@@ -490,6 +541,9 @@ export default function ProjectDetailPage() {
                 tasks={tasks}
                 members={members}
                 agents={agents}
+                sortMode={boardSortMode}
+                onSortModeChange={setBoardSortMode}
+                showSortToggle={false}
                 onTaskMove={handleTaskMove}
                 onTaskClick={setSelectedTask}
                 onAddTask={(columnId) => setShowNewTask(columnId)}
@@ -585,7 +639,7 @@ export default function ProjectDetailPage() {
                 </select>
                 <textarea
                   placeholder="Content (markdown)..."
-                  value={editingDoc.content}
+                  value={docContent(editingDoc.content)}
                   onChange={e => setEditingDoc({ ...editingDoc, content: e.target.value })}
                   className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-[var(--color-accent-v2)]"
                   rows={10}
@@ -638,7 +692,7 @@ export default function ProjectDetailPage() {
                             <button onClick={() => setEditingDoc(selectedDoc)} className="pib-btn-secondary text-xs font-label">Edit</button>
                           </div>
                           <div className="max-h-[520px] overflow-auto whitespace-pre-wrap rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-4 text-sm leading-6 text-on-surface">
-                            {selectedDoc.content || 'This document is empty.'}
+                            {docContent(selectedDoc.content) || 'This document is empty.'}
                           </div>
                         </div>
                       ) : (
@@ -670,13 +724,35 @@ export default function ProjectDetailPage() {
       )}
 
       {activeTab === 'agent' && (
-        <div className="flex-1 overflow-auto">
-          <HermesChat
-            orgId={project?.orgId ?? ''}
-            profileEnabled={Boolean(project?.orgId)}
-            projectId={projectId}
-            projectName={project?.name}
-          />
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden -mx-4 -my-8 md:mx-0 md:my-0 h-[calc(100dvh-56px)] lg:h-[calc(100dvh-120px)]">
+          <div className="hidden shrink-0 lg:block mb-4">
+            <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">
+              Project / Agent chat
+            </p>
+            <h2 className="text-2xl font-headline font-bold text-on-surface">Project chat</h2>
+            <p className="text-sm text-on-surface-variant mt-1">
+              Same chat engine as the sidebar, scoped to this project with streaming, approvals, voice, and file uploads.
+            </p>
+          </div>
+          {!project?.orgId || !currentUser ? (
+            <div className="flex flex-1 items-center justify-center rounded-2xl border border-[var(--color-card-border)] bg-[var(--color-card)] p-6 text-center text-sm text-on-surface-variant">
+              {userLoadError ? `Project chat unavailable: ${userLoadError}` : 'Loading project chat…'}
+            </div>
+          ) : (
+            <UnifiedChat
+              orgId={project.orgId}
+              currentUserUid={currentUser.uid}
+              currentUserDisplayName={currentUser.displayName}
+              orgName={project.name}
+              projectId={projectId}
+              scope="project"
+              scopeRefId={projectId}
+              initialAgentId="pip"
+              autoCreateScopedConversation
+              autoCreateTitle={`Project: ${project.name}`}
+              allowDeleteConversations
+            />
+          )}
         </div>
       )}
 

@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useRef, useState } from 'react'
+import VoiceInputButton from '@/components/chat/VoiceInputButton'
 import type { AgentId, AgentMember, Attachment, ChecklistItem, Column, Task, TeamMember } from './types'
 
 interface TaskComposerProps {
@@ -126,6 +127,15 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
   function addFiles(nextFiles: FileList | File[]) {
     const incoming = Array.from(nextFiles)
     setFiles((current) => [...current, ...incoming])
+  }
+
+  function addVoiceTranscriptToDescription(text: string) {
+    const cleanText = text.trim()
+    if (!cleanText) return
+    setDescription((current) => {
+      const trimmed = current.trimEnd()
+      return trimmed ? `${trimmed}\n\n${cleanText}` : cleanText
+    })
   }
 
   function reset() {
@@ -267,13 +277,23 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
               className="w-full rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)] px-4 py-3 text-lg font-headline font-bold text-on-surface placeholder:text-on-surface-variant focus:border-[var(--color-accent-v2)] focus:outline-none"
               autoFocus
             />
-            <textarea
-              value={description}
-              onChange={(event) => setDescription(event.target.value)}
-              placeholder="Description, goals, acceptance criteria, blockers..."
-              rows={7}
-              className="w-full resize-y rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)] px-4 py-3 text-sm leading-relaxed text-on-surface placeholder:text-on-surface-variant focus:border-[var(--color-accent-v2)] focus:outline-none"
-            />
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Description</p>
+                <VoiceInputButton
+                  disabled={saving}
+                  onTranscript={addVoiceTranscriptToDescription}
+                  className="border border-[var(--color-card-border)] bg-[var(--color-card)]"
+                />
+              </div>
+              <textarea
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
+                placeholder="Description, goals, acceptance criteria, blockers..."
+                rows={7}
+                className="w-full resize-y rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)] px-4 py-3 text-sm leading-relaxed text-on-surface placeholder:text-on-surface-variant focus:border-[var(--color-accent-v2)] focus:outline-none"
+              />
+            </div>
 
             <div>
               <p className="mb-2 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Checklist</p>

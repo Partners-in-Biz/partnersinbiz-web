@@ -6,6 +6,7 @@ import { useParams } from 'next/navigation'
 import { collection, onSnapshot, query, where } from 'firebase/firestore'
 import { getClientDb } from '@/lib/firebase/config'
 import { CrossProjectBoard } from '@/components/projects/CrossProjectBoard'
+import { PageHeader, Surface } from '@/components/ui/AppFoundation'
 import type { BoardTask } from '@/components/projects/CrossProjectBoard'
 
 interface Project {
@@ -23,6 +24,7 @@ function Skeleton({ className = '' }: { className?: string }) {
 }
 
 const STATUS_OPTIONS = ['discovery', 'design', 'development', 'review', 'live', 'maintenance']
+const PROJECT_REFRESH_INTERVAL_MS = 10000
 
 const STATUS_META: Record<string, { label: string; color: string; icon: string; progress: number; summary: string }> = {
   discovery: {
@@ -219,6 +221,7 @@ export default function ProjectsPage() {
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<string>('all')
   const [viewMode, setViewMode] = useState<'list' | 'board'>('list')
+  const [boardSortMode, setBoardSortMode] = useState<'latest' | 'manual'>('latest')
   const [boardTasks, setBoardTasks] = useState<BoardTask[]>([])
   const [boardLoading, setBoardLoading] = useState(false)
   const [failedProjectIds, setFailedProjectIds] = useState<string[]>([])
@@ -232,12 +235,36 @@ export default function ProjectsPage() {
   const [formLoading, setFormLoading] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
 
-  useEffect(() => {
-    fetch(`/api/v1/projects?orgSlug=${slug}`)
-      .then(r => r.json())
-      .then(body => { setProjects(body.data ?? []); setLoading(false) })
-      .catch(() => setLoading(false))
+  const loadProjects = useCallback(async ({ showSpinner = false }: { showSpinner?: boolean } = {}) => {
+    if (showSpinner) setLoading(true)
+    try {
+      const res = await fetch(`/api/v1/projects?orgSlug=${slug}`)
+      const body = await res.json()
+      setProjects(body.data ?? [])
+    } finally {
+      if (showSpinner) setLoading(false)
+    }
   }, [slug])
+
+  useEffect(() => {
+    let cancelled = false
+    const refresh = async (options?: { showSpinner?: boolean }) => {
+      if (cancelled) return
+      await loadProjects(options)
+    }
+
+    refresh({ showSpinner: true }).catch(() => {
+      if (!cancelled) setLoading(false)
+    })
+    const interval = window.setInterval(() => {
+      refresh().catch(() => {})
+    }, PROJECT_REFRESH_INTERVAL_MS)
+
+    return () => {
+      cancelled = true
+      window.clearInterval(interval)
+    }
+  }, [loadProjects])
 
   const liveOrgId = useMemo(() => projects.find(project => project.orgId)?.orgId, [projects])
 
@@ -437,48 +464,23 @@ export default function ProjectsPage() {
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">Workspace / Projects</p>
-          <h1 className="text-2xl font-headline font-bold text-on-surface">Projects</h1>
-        </div>
-        <div className="flex items-center gap-3">
-          <div
-            className="flex rounded-[var(--radius-btn)] overflow-hidden border"
-            style={{ borderColor: 'var(--color-outline)' }}
+      <PageHeader
+        eyebrow="Workspace / Projects"
+        title="Projects"
+        description="Kanban-led delivery spaces for client and platform work. Switch between board and list views without leaving the workspace."
+        actions={!showForm ? (
+          <button
+            onClick={() => setShowForm(true)}
+            className="pib-btn-primary text-sm font-label"
           >
-            {(['list', 'board'] as const).map(mode => (
-              <button
-                key={mode}
-                onClick={() => setViewMode(mode)}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-label capitalize transition-colors"
-                style={
-                  viewMode === mode
-                    ? { background: 'var(--color-accent-v2)', color: '#000' }
-                    : { background: 'transparent', color: 'var(--color-on-surface-variant)' }
-                }
-              >
-                <span className="material-symbols-outlined text-[14px]">
-                  {mode === 'list' ? 'list' : 'view_kanban'}
-                </span>
-                {mode}
-              </button>
-            ))}
-          </div>
-          {!showForm && (
-            <button
-              onClick={() => setShowForm(true)}
-              className="pib-btn-primary text-sm font-label"
-            >
-              + New Project
-            </button>
-          )}
-        </div>
-      </div>
+            + New Project
+          </button>
+        ) : null}
+      />
 
       {/* New Project Form */}
       {showForm && (
-        <div className="pib-card p-4">
+        <Surface className="p-4">
           <form onSubmit={handleCreateProject} className="flex gap-2 items-end flex-wrap">
             <div className="flex-1 min-w-[150px]">
               <input
@@ -522,26 +524,64 @@ export default function ProjectsPage() {
           {formError && (
             <p className="text-xs text-[#ef4444] mt-2">{formError}</p>
           )}
-        </div>
+        </Surface>
       )}
 
-      {/* Filters */}
-      <div className="flex gap-2 flex-wrap">
-        {['all', ...STATUS_OPTIONS].map(s => (
-          <button
-            key={s}
-            onClick={() => setFilter(s)}
-            className={[
-              'text-xs font-label px-3 py-1.5 rounded-[var(--radius-btn)] transition-colors capitalize',
-              filter === s
-                ? 'text-black font-medium'
-                : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container',
-            ].join(' ')}
-            style={filter === s ? { background: 'var(--color-accent-v2)' } : {}}
+      {/* Filters and view controls */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex gap-2 flex-wrap">
+          {['all', ...STATUS_OPTIONS].map(s => (
+            <button
+              key={s}
+              onClick={() => setFilter(s)}
+              className={[
+                'text-xs font-label px-3 py-1.5 rounded-[var(--radius-btn)] transition-colors capitalize',
+                filter === s
+                  ? 'text-black font-medium'
+                  : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container',
+              ].join(' ')}
+              style={filter === s ? { background: 'var(--color-accent-v2)' } : {}}
+            >
+              {s === 'all' ? 'All' : s.replace(/_/g, ' ')}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex w-full items-center justify-between gap-3 sm:w-auto sm:justify-end">
+          <div
+            className="flex rounded-[var(--radius-btn)] overflow-hidden border"
+            style={{ borderColor: 'var(--color-outline)' }}
           >
-            {s === 'all' ? 'All' : s.replace(/_/g, ' ')}
-          </button>
-        ))}
+            {(['list', 'board'] as const).map(mode => (
+              <button
+                key={mode}
+                onClick={() => setViewMode(mode)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-label capitalize transition-colors"
+                style={
+                  viewMode === mode
+                    ? { background: 'var(--color-accent-v2)', color: '#000' }
+                    : { background: 'transparent', color: 'var(--color-on-surface-variant)' }
+                }
+              >
+                <span className="material-symbols-outlined text-[14px]">
+                  {mode === 'list' ? 'list' : 'view_kanban'}
+                </span>
+                {mode}
+              </button>
+            ))}
+          </div>
+          {viewMode === 'board' && !boardLoading && boardTasks.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setBoardSortMode(prev => prev === 'latest' ? 'manual' : 'latest')}
+              className="inline-flex shrink-0 items-center gap-2 rounded-[var(--radius-btn)] border border-[var(--color-card-border)] px-3 py-1.5 text-xs font-label uppercase tracking-wide text-on-surface-variant transition-colors hover:text-on-surface"
+              aria-pressed={boardSortMode === 'manual'}
+            >
+              <span className="material-symbols-outlined text-[16px]">sort</span>
+              {boardSortMode === 'latest' ? 'Manual order' : 'Latest first'}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Error banner for partial board load failures */}
@@ -567,6 +607,7 @@ export default function ProjectsPage() {
         <CrossProjectBoard
           tasks={boardTasks}
           loading={boardLoading}
+          sortMode={boardSortMode}
           onTaskUpdate={handleBoardTaskUpdate}
         />
       ) : loading ? (

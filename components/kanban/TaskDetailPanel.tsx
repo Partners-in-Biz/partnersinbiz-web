@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { uploadTaskFile } from './TaskComposer'
+import { buildBlockedTaskRecovery } from '@/lib/projects/blockerRecovery'
 import type { AgentId, AgentMember, Attachment, ChecklistItem, Task, TeamMember } from './types'
 
 interface Comment {
@@ -143,6 +144,8 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
   const [showRevisionForm, setShowRevisionForm] = useState(false)
   const [revisionNote, setRevisionNote] = useState('')
   const [submittingRevision, setSubmittingRevision] = useState(false)
+  const [unblocking, setUnblocking] = useState(false)
+  const [unblockError, setUnblockError] = useState<string | null>(null)
 
   useEffect(() => {
     setEditing(false)
@@ -161,6 +164,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
     setChecklist(task?.checklist ?? [])
     setAttachments(task?.attachments ?? [])
     setAttachmentError(null)
+    setUnblockError(null)
   }, [task?.id, task])
 
   // Fetch comments when task changes
@@ -282,6 +286,35 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
       agentStatus: task.assigneeAgentId ? 'pending' : task.agentStatus,
       reviewStatus: null,
     })
+  }
+
+  async function handleUnblockTask() {
+    if (!task?.id || !projectId) return
+    setUnblocking(true)
+    setUnblockError(null)
+    try {
+      const res = await fetch(`/api/v1/projects/${projectId}/tasks/${task.id}/unblock`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      })
+      const body = await res.json().catch(() => ({})) as { success?: boolean; error?: string; reasons?: string[]; data?: { reasons?: string[] } }
+      if (!res.ok || !body.success) {
+        const reasonList = Array.isArray(body.data?.reasons) && body.data.reasons.length > 0 ? body.data.reasons : body.reasons
+        const reasons = Array.isArray(reasonList) && reasonList.length > 0 ? reasonList : [body.error ?? 'Cannot unblock this task yet.']
+        setUnblockError(reasons.join(' '))
+        return
+      }
+      await onUpdate(task.id, {
+        columnId: 'todo',
+        agentStatus: task.assigneeAgentId ? 'pending' : null,
+        reviewStatus: task.assigneeAgentId ? 'changes-requested' : null,
+        labels: task.labels?.filter((label) => !/^blocked$/i.test(label) && !/^awaiting-input$/i.test(label)),
+      })
+    } catch (err) {
+      setUnblockError(err instanceof Error ? err.message : 'Cannot unblock this task yet.')
+    } finally {
+      setUnblocking(false)
+    }
   }
 
   async function handleApproveReview() {
@@ -474,6 +507,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
   }
 
   const priorityColor = PRIORITY_COLORS[task.priority ?? 'medium'] ?? PRIORITY_COLORS.medium
+  const blockerRecovery = buildBlockedTaskRecovery(task, comments)
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-end" onClick={onClose}>
@@ -870,6 +904,32 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
                           {submittingRevision ? 'Sending…' : 'Re-queue with feedback'}
                         </button>
                       </div>
+                    </div>
+                  )}
+                  {blockerRecovery.isBlocked && (
+                    <div className="rounded border border-orange-500/25 bg-orange-500/5 p-3 text-xs text-on-surface-variant space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-[10px] font-label uppercase tracking-widest text-orange-300">Unblock guidance</p>
+                        {blockerRecovery.canShowUnblockAction && (
+                          <button
+                            type="button"
+                            onClick={handleUnblockTask}
+                            disabled={unblocking}
+                            className="inline-flex items-center gap-1 text-[10px] font-label uppercase tracking-wide px-2 py-1 rounded bg-orange-500/20 text-orange-300 hover:bg-orange-500/30 disabled:opacity-40 transition-colors"
+                            title="Clear the blocked state once approval/input is satisfied"
+                          >
+                            <span className="material-symbols-outlined text-[12px]">lock_open</span>
+                            {unblocking ? 'Unblocking…' : 'Unblock'}
+                          </button>
+                        )}
+                      </div>
+                      <p><span className="text-on-surface">What is wrong:</span> {blockerRecovery.whatIsWrong}</p>
+                      <p><span className="text-on-surface">Who/what can unblock:</span> {blockerRecovery.whoCanUnblock}</p>
+                      <p><span className="text-on-surface">Proof needed:</span> {blockerRecovery.requiredEvidence}</p>
+                      <p><span className="text-on-surface">Message for agent:</span> {blockerRecovery.messageForAgent}</p>
+                      {unblockError && (
+                        <p className="rounded border border-red-500/20 bg-red-500/10 p-2 text-red-300">{unblockError}</p>
+                      )}
                     </div>
                   )}
                 </div>

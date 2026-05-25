@@ -5,11 +5,67 @@ import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { useOrg } from '@/lib/contexts/OrgContext'
 import { copyToClipboard } from '@/lib/utils/clipboard'
+import { PushNotificationsToggle } from '@/components/pwa/PushNotificationsToggle'
 
 interface SessionInfo {
   email?: string | null
   role?: string
   isSuperAdmin?: boolean
+}
+
+interface ClientOrgSummary {
+  id: string
+  name: string
+  type?: string
+  status?: string
+}
+
+interface NotificationChannels {
+  inApp: boolean
+  push: boolean
+  email: boolean
+}
+
+const DEFAULT_CHANNELS: NotificationChannels = { inApp: true, push: true, email: true }
+
+function normaliseChannels(value?: Partial<NotificationChannels>): NotificationChannels {
+  return {
+    inApp: typeof value?.inApp === 'boolean' ? value.inApp : DEFAULT_CHANNELS.inApp,
+    push: typeof value?.push === 'boolean' ? value.push : DEFAULT_CHANNELS.push,
+    email: typeof value?.email === 'boolean' ? value.email : DEFAULT_CHANNELS.email,
+  }
+}
+
+function ChannelSwitch({
+  checked,
+  disabled,
+  label,
+  onChange,
+}: {
+  checked: boolean
+  disabled?: boolean
+  label: string
+  onChange: () => void
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      disabled={disabled}
+      onClick={onChange}
+      className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+        checked
+          ? 'border-[var(--color-accent-v2)] bg-[var(--color-accent-v2)]/80'
+          : 'border-[var(--color-card-border)] bg-[var(--color-surface-container)]'
+      }`}
+    >
+      <span
+        className={`inline-block h-4 w-4 rounded-full bg-white transition-transform ${checked ? 'translate-x-6' : 'translate-x-1'}`}
+      />
+    </button>
+  )
 }
 
 const PLATFORM_ITEMS = [
@@ -23,6 +79,12 @@ export default function SettingsPage() {
   const [copied, setCopied] = useState(false)
   const [isSuperAdmin, setIsSuperAdmin] = useState(false)
   const [session, setSession] = useState<SessionInfo | null>(null)
+  const [clientOrgs, setClientOrgs] = useState<ClientOrgSummary[]>([])
+  const [notificationPrefs, setNotificationPrefs] = useState<Record<string, NotificationChannels>>({})
+  const [notificationLoading, setNotificationLoading] = useState(true)
+  const [savingOrgId, setSavingOrgId] = useState<string | null>(null)
+  const [notificationFeedback, setNotificationFeedback] = useState<string | null>(null)
+  const [notificationError, setNotificationError] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -44,6 +106,77 @@ export default function SettingsPage() {
       cancelled = true
     }
   }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    async function loadNotificationPreferences() {
+      setNotificationLoading(true)
+      setNotificationError(null)
+      try {
+        const orgRes = await fetch('/api/v1/organizations')
+        const orgBody = orgRes.ok ? await orgRes.json() : { data: [] }
+        const clients = ((orgBody.data ?? []) as ClientOrgSummary[]).filter((org) => org.type !== 'platform_owner')
+        if (cancelled) return
+        setClientOrgs(clients)
+
+        const preferenceEntries = await Promise.all(
+          clients.map(async (org) => {
+            try {
+              const prefRes = await fetch(`/api/v1/admin/notification-preferences?orgId=${encodeURIComponent(org.id)}`)
+              if (!prefRes.ok) return [org.id, DEFAULT_CHANNELS] as const
+              const prefBody = await prefRes.json()
+              return [org.id, normaliseChannels(prefBody.data?.preference?.channels)] as const
+            } catch {
+              return [org.id, DEFAULT_CHANNELS] as const
+            }
+          }),
+        )
+        if (!cancelled) setNotificationPrefs(Object.fromEntries(preferenceEntries))
+      } catch {
+        if (!cancelled) setNotificationError('Could not load client notification preferences.')
+      } finally {
+        if (!cancelled) setNotificationLoading(false)
+      }
+    }
+
+    loadNotificationPreferences()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  async function saveNotificationPreference(org: ClientOrgSummary, channels: NotificationChannels) {
+    setSavingOrgId(org.id)
+    setNotificationFeedback(null)
+    setNotificationError(null)
+    const previous = notificationPrefs[org.id] ?? DEFAULT_CHANNELS
+    setNotificationPrefs((current) => ({ ...current, [org.id]: channels }))
+
+    try {
+      const res = await fetch(`/api/v1/admin/notification-preferences?orgId=${encodeURIComponent(org.id)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ channels }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(body?.error || 'Save failed')
+      setNotificationPrefs((current) => ({
+        ...current,
+        [org.id]: normaliseChannels(body.data?.preference?.channels ?? channels),
+      }))
+      setNotificationFeedback(`Saved ${org.name} preferences`)
+    } catch {
+      setNotificationPrefs((current) => ({ ...current, [org.id]: previous }))
+      setNotificationError(`Could not save ${org.name} preferences.`)
+    } finally {
+      setSavingOrgId(null)
+    }
+  }
+
+  function toggleNotificationChannel(org: ClientOrgSummary, channel: keyof NotificationChannels) {
+    const current = notificationPrefs[org.id] ?? DEFAULT_CHANNELS
+    saveNotificationPreference(org, { ...current, [channel]: !current[channel] })
+  }
 
   function copyOrgId() {
     if (!selectedOrgId) return
@@ -137,6 +270,92 @@ export default function SettingsPage() {
           </div>
           <span style={{ color: 'var(--color-accent-v2)' }}>→</span>
         </Link>
+      </div>
+
+      {/* Notification preferences */}
+      <div className="pib-card-section">
+        <div className="pib-card-section-header">
+          <div>
+            <span className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+              Device push notifications
+            </span>
+            <p className="text-xs text-on-surface-variant mt-1 normal-case tracking-normal">
+              Enable browser push delivery on this device before choosing which client alerts can use push.
+            </p>
+          </div>
+        </div>
+        <div className="px-4 py-3">
+          <PushNotificationsToggle />
+        </div>
+      </div>
+
+      <div className="pib-card-section">
+        <div className="pib-card-section-header">
+          <div>
+            <span className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+              Client notification preferences
+            </span>
+            <p className="text-xs text-on-surface-variant mt-1 normal-case tracking-normal">
+              Choose which client workspaces can send you in-app/push alerts and email notifications.
+            </p>
+          </div>
+        </div>
+        {notificationFeedback && (
+          <div className="mx-4 mt-3 rounded-lg border border-green-500/20 bg-green-500/10 px-3 py-2 text-xs text-green-400">
+            {notificationFeedback}
+          </div>
+        )}
+        {notificationError && (
+          <div className="mx-4 mt-3 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+            {notificationError}
+          </div>
+        )}
+        <div className="px-4 py-3">
+          {notificationLoading ? (
+            <p className="text-sm text-on-surface-variant">Loading client notification settings…</p>
+          ) : clientOrgs.length === 0 ? (
+            <p className="text-sm text-on-surface-variant">No client workspaces are available for notification preferences.</p>
+          ) : (
+            <div className="overflow-hidden rounded-xl border border-[var(--color-card-border)]">
+              <div className="grid grid-cols-12 gap-3 border-b border-[var(--color-card-border)] bg-[var(--color-surface-container)] px-4 py-2">
+                <span className="col-span-6 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Client workspace</span>
+                <span className="col-span-3 text-center text-[10px] font-label uppercase tracking-widest text-on-surface-variant">In-app / push</span>
+                <span className="col-span-3 text-center text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Email</span>
+              </div>
+              {clientOrgs.map((org) => {
+                const channels = notificationPrefs[org.id] ?? DEFAULT_CHANNELS
+                const disabled = savingOrgId === org.id
+                return (
+                  <div key={org.id} className="grid grid-cols-12 gap-3 items-center border-b border-[var(--color-card-border)] px-4 py-3 last:border-b-0">
+                    <div className="col-span-6 min-w-0">
+                      <p className="text-sm font-medium text-on-surface truncate">{org.name}</p>
+                      <p className="text-[11px] text-on-surface-variant">{disabled ? 'Saving…' : 'Acceptance, approval, billing, CRM and system alerts'}</p>
+                    </div>
+                    <div className="col-span-3 flex justify-center">
+                      <ChannelSwitch
+                        checked={channels.inApp && channels.push}
+                        disabled={disabled}
+                        label={`In-app and push notifications for ${org.name}`}
+                        onChange={() => {
+                          const nextEnabled = !(channels.inApp && channels.push)
+                          saveNotificationPreference(org, { ...channels, inApp: nextEnabled, push: nextEnabled })
+                        }}
+                      />
+                    </div>
+                    <div className="col-span-3 flex justify-center">
+                      <ChannelSwitch
+                        checked={channels.email}
+                        disabled={disabled}
+                        label={`Email notifications for ${org.name}`}
+                        onChange={() => toggleNotificationChannel(org, 'email')}
+                      />
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Integrations */}

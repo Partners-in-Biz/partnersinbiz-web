@@ -1,399 +1,474 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { StatCardWithChart, RevenueBarChart, DonutChart, TrendAreaChart } from '@/components/ui/Charts'
 
-// ── Types ─────────────────────────────────────────────────────────────────
-
-interface Stats {
-  contacts: { total: number }
-  deals: { total: number; pipelineValue: number; wonValue: number }
-  email: { sent: number; opened: number }
-  sequences: { active: number; activeEnrollments: number }
-}
-
-interface Activity {
+type OrgSummary = {
   id: string
-  type: string
-  contactId: string
-  note: string
-  createdAt: any
+  name: string
+  slug?: string
+  status?: string
+  type?: string
+  memberCount?: number
+  website?: string
 }
 
-interface PendingApproval {
+type AgentTask = {
   id: string
-  content: string
-  platform: string
-  orgId: string
-  orgName: string
-  scheduledAt: any
+  orgId?: string
+  title: string
+  assigneeAgentId?: string | null
+  agentStatus?: string | null
+  priority?: string | null
+  href?: string
+  updatedAt?: string | null
+  createdAt?: string | null
 }
 
-const ACTIVITY_ICONS: Record<string, string> = {
-  email_sent: '✉',
-  note: '◻',
-  stage_change: '→',
-  sequence_enrolled: '◈',
-  call: '◉',
+type Approval = {
+  id: string
+  content?: string
+  platform?: string
+  orgId?: string
+  orgName?: string
+  scheduledAt?: string | null
 }
 
-const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-
-function getGreeting(): string {
-  const hour = new Date().getHours()
-  if (hour < 12) return 'Good morning'
-  if (hour < 17) return 'Good afternoon'
-  return 'Good evening'
+type Activity = {
+  id: string
+  type?: string
+  note?: string
+  description?: string
+  entityTitle?: string
+  createdAt?: string | null
 }
 
-// ── Skeleton ──────────────────────────────────────────────────────────────
+type Health = {
+  ok?: boolean
+  timestamp?: string
+  services?: Record<string, string>
+}
+
+type LoadState = {
+  orgs: OrgSummary[]
+  tasks: AgentTask[]
+  approvals: Approval[]
+  activity: Activity[]
+  health: Health | null
+}
+
+const initialState: LoadState = {
+  orgs: [],
+  tasks: [],
+  approvals: [],
+  activity: [],
+  health: null,
+}
+
+const STATUS_LABELS: Record<string, string> = {
+  pending: 'Pending',
+  'picked-up': 'Picked up',
+  'in-progress': 'In progress',
+  'awaiting-input': 'Awaiting input',
+  blocked: 'Blocked',
+  done: 'Done',
+}
+
+const RISK_STATUSES = new Set(['blocked', 'awaiting-input'])
+const ACTIVE_STATUSES = new Set(['pending', 'picked-up', 'in-progress'])
+const PULSE_STATUSES = new Set(['pending', 'picked-up', 'in-progress', 'awaiting-input', 'blocked'])
+
+function dataFrom<T>(body: unknown, fallback: T): T {
+  if (!body || typeof body !== 'object') return fallback
+  const record = body as Record<string, unknown>
+  if (Array.isArray(record.data)) return record.data as T
+  if (record.data && typeof record.data === 'object') {
+    const data = record.data as Record<string, unknown>
+    if (Array.isArray(data.cards)) return data.cards as T
+    if (Array.isArray(data.items)) return data.items as T
+  }
+  if (Array.isArray(record.cards)) return record.cards as T
+  return fallback
+}
+
+async function fetchJson(url: string) {
+  const response = await fetch(url)
+  const body = await response.json().catch(() => ({}))
+  if (!response.ok) {
+    throw new Error(typeof (body as { error?: unknown }).error === 'string' ? (body as { error: string }).error : `Request failed: ${url}`)
+  }
+  return body
+}
+
+function plural(count: number, one: string, many = `${one}s`) {
+  return `${count} ${count === 1 ? one : many}`
+}
+
+function formatRelative(value?: string | null) {
+  if (!value) return 'Recently'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return 'Recently'
+  const diff = Date.now() - date.getTime()
+  const minutes = Math.max(1, Math.round(diff / 60000))
+  if (minutes < 60) return `${minutes}m ago`
+  const hours = Math.round(minutes / 60)
+  if (hours < 24) return `${hours}h ago`
+  return date.toLocaleDateString('en-ZA', { month: 'short', day: 'numeric' })
+}
+
+function healthTone(health: Health | null, error: string | null) {
+  if (error) return 'border-red-400/30 bg-red-500/10 text-red-200'
+  if (!health) return 'border-slate-500/30 bg-slate-500/10 text-on-surface-variant'
+  return health.ok === false ? 'border-amber-400/30 bg-amber-500/10 text-amber-100' : 'border-emerald-400/30 bg-emerald-500/10 text-emerald-100'
+}
+
+type ConstellationNode = OrgSummary & {
+  x: number
+  y: number
+  tone: 'risk' | 'active' | 'calm'
+}
+
+function constellationNodes(orgs: OrgSummary[], tasks: AgentTask[], approvals: Approval[]): ConstellationNode[] {
+  const fallback = orgs.length > 0 ? orgs : [{ id: 'platform', name: 'PiB Platform', slug: 'partners-in-biz' }]
+  const centerX = 50
+  const centerY = 50
+  const radius = fallback.length < 4 ? 27 : 35
+
+  return fallback.slice(0, 10).map((org, index) => {
+    const angle = (Math.PI * 2 * index) / Math.max(fallback.length, 3) - Math.PI / 2
+    const orgTasks = tasks.filter(task => task.orgId === org.id)
+    const hasRisk = orgTasks.some(task => RISK_STATUSES.has(task.agentStatus ?? '')) || approvals.some(approval => approval.orgId === org.id)
+    const hasActive = orgTasks.some(task => ACTIVE_STATUSES.has(task.agentStatus ?? ''))
+
+    return {
+      ...org,
+      x: Math.round((centerX + Math.cos(angle) * radius) * 10) / 10,
+      y: Math.round((centerY + Math.sin(angle) * radius) * 10) / 10,
+      tone: hasRisk ? 'risk' : hasActive ? 'active' : 'calm',
+    }
+  })
+}
+
+function MissionConstellation({ orgs, tasks, approvals }: { orgs: OrgSummary[]; tasks: AgentTask[]; approvals: Approval[] }) {
+  const nodes = useMemo(() => constellationNodes(orgs, tasks, approvals), [orgs, tasks, approvals])
+  const riskCount = nodes.filter(node => node.tone === 'risk').length
+  const activeCount = nodes.filter(node => node.tone === 'active').length
+
+  return (
+    <div className="relative overflow-hidden rounded-[2rem] border border-[var(--color-border)] bg-[radial-gradient(circle_at_50%_20%,rgba(150,255,214,0.12),transparent_38%),var(--color-surface)] p-4 shadow-sm sm:p-5">
+      <div className="relative z-10 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-[10px] font-label uppercase tracking-[0.25em] text-on-surface-variant">Motion layer: CSS/SVG</p>
+          <h2 className="mt-1 text-lg font-headline font-bold text-on-surface">Organisation constellation</h2>
+          <p className="mt-1 max-w-xl text-xs text-on-surface-variant">A lightweight radar map of client attention. Three.js deferred: the CSS/SVG layer keeps this fast, readable, and respectful of reduced-motion preferences.</p>
+        </div>
+        <div className="flex flex-wrap gap-2 text-[10px] uppercase tracking-wide text-on-surface-variant">
+          <span className="rounded-full bg-[var(--color-surface-container)] px-2.5 py-1">{nodes.length} nodes</span>
+          <span className="rounded-full bg-amber-500/15 px-2.5 py-1 text-amber-100">{riskCount} risk</span>
+          <span className="rounded-full bg-[var(--color-accent-subtle)] px-2.5 py-1" style={{ color: 'var(--color-accent-text)' }}>{activeCount} active</span>
+        </div>
+      </div>
+      <div data-testid="mission-control-constellation" aria-hidden="true" className="relative mt-4 h-64 overflow-hidden rounded-3xl border border-[var(--color-border)] bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:32px_32px]">
+        <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 100" role="presentation" focusable="false">
+          <circle cx="50" cy="50" r="16" className="fill-none stroke-[var(--color-border)]" strokeWidth="0.5" />
+          <circle cx="50" cy="50" r="32" className="fill-none stroke-[var(--color-border)]" strokeWidth="0.5" />
+          <g className="origin-center motion-safe:animate-[pib-radar-spin_18s_linear_infinite]">
+            <line x1="50" y1="50" x2="50" y2="10" stroke="var(--color-accent-v2)" strokeWidth="0.7" strokeLinecap="round" opacity="0.45" />
+          </g>
+          {nodes.map(node => (
+            <line key={`line-${node.id}`} x1="50" y1="50" x2={node.x} y2={node.y} className="stroke-[var(--color-border)]" strokeWidth="0.45" opacity="0.85" />
+          ))}
+        </svg>
+        {nodes.map((node, index) => (
+          <span
+            key={node.id}
+            data-constellation-node="true"
+            className={`absolute h-3 w-3 rounded-full shadow-[0_0_18px_currentColor] motion-safe:animate-[pib-node-float_5s_ease-in-out_infinite] ${node.tone === 'risk' ? 'bg-amber-300 text-amber-300' : node.tone === 'active' ? 'bg-[var(--color-accent-v2)] text-[var(--color-accent-v2)]' : 'bg-emerald-300 text-emerald-300'}`}
+            style={{ left: `${node.x}%`, top: `${node.y}%`, animationDelay: `${index * 180}ms`, transform: 'translate(-50%, -50%)' }}
+          />
+        ))}
+        <div className="absolute left-1/2 top-1/2 h-14 w-14 -translate-x-1/2 -translate-y-1/2 rounded-full border border-[var(--color-accent-v2)]/40 bg-[var(--color-surface)]/80 shadow-[0_0_40px_rgba(150,255,214,0.16)]" />
+      </div>
+    </div>
+  )
+}
 
 function Skeleton({ className = '' }: { className?: string }) {
   return <div className={`pib-skeleton ${className}`} />
 }
 
-// ── Activity Item ─────────────────────────────────────────────────────────
-
-function ActivityItem({ item }: { item: Activity }) {
+function EmptyState({ title, body }: { title: string; body: string }) {
   return (
-    <div className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-[var(--color-row-hover)] transition-colors cursor-default">
-      <span
-        className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-sm"
-        style={{ background: 'var(--color-accent-subtle)', color: 'var(--color-accent-text)' }}
-      >
-        {ACTIVITY_ICONS[item.type] ?? '·'}
-      </span>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm text-on-surface truncate">{item.note}</p>
-      </div>
-      <span className="text-[10px] text-on-surface-variant uppercase tracking-wide shrink-0">
-        {item.type.replace(/_/g, ' ')}
-      </span>
+    <div className="rounded-2xl border border-dashed border-[var(--color-border)] bg-[var(--color-surface-container)]/40 px-5 py-8 text-center">
+      <p className="text-sm font-label text-on-surface">{title}</p>
+      <p className="mt-1 text-xs text-on-surface-variant">{body}</p>
     </div>
   )
 }
 
-// ── Approval Item ────────────────────────────────────────────────────────
-
-function ApprovalItem({ item }: { item: PendingApproval }) {
+function SectionHeader({ title, eyebrow, action }: { title: string; eyebrow?: string; action?: React.ReactNode }) {
   return (
-    <div className="flex items-start gap-3 px-4 py-3 rounded-lg hover:bg-[var(--color-row-hover)] transition-colors">
-      <div
-        className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold mt-0.5"
-        style={{ background: 'var(--color-accent-subtle)', color: 'var(--color-accent-text)' }}
-      >
-        {item.platform[0]?.toUpperCase() || '·'}
+    <div className="flex items-start justify-between gap-3">
+      <div>
+        {eyebrow && <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">{eyebrow}</p>}
+        <h2 className="mt-1 text-lg font-headline font-bold text-on-surface">{title}</h2>
       </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-[10px] text-on-surface-variant uppercase tracking-wide">{item.orgName}</p>
-        <p className="text-sm text-on-surface truncate mt-0.5">{item.content}</p>
-      </div>
-      <Link
-        href="/admin/social/queue"
-        className="text-[10px] font-label uppercase tracking-wide shrink-0 mt-1"
-        style={{ color: 'var(--color-accent-v2)' }}
-      >
-        Review →
-      </Link>
+      {action}
     </div>
   )
 }
 
-// ── Main Page ─────────────────────────────────────────────────────────────
+function OrganisationCard({ org, tasks, approvals }: { org: OrgSummary; tasks: AgentTask[]; approvals: Approval[] }) {
+  const riskyTasks = tasks.filter(task => RISK_STATUSES.has(task.agentStatus ?? '')).length
+  const activeTasks = tasks.filter(task => ACTIVE_STATUSES.has(task.agentStatus ?? '')).length
+  const score = Math.max(35, Math.min(100, 95 - riskyTasks * 20 - approvals.length * 8))
+  const href = org.slug ? `/admin/org/${org.slug}` : '/admin/clients'
 
-export default function CommandCenter() {
-  const [stats, setStats] = useState<Stats | null>(null)
-  const [activity, setActivity] = useState<Activity[]>([])
-  const [pendingApprovals, setPendingApprovals] = useState<PendingApproval[]>([])
+  return (
+    <Link href={href} className="group block rounded-3xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-[var(--color-accent-v2)]/50 hover:shadow-lg">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <p className="truncate text-base font-headline font-bold text-on-surface">{org.name}</p>
+          <p className="mt-1 text-xs text-on-surface-variant">{org.type ?? 'client'} · {org.status ?? 'active'}</p>
+        </div>
+        <div className="rounded-full px-2.5 py-1 text-[10px] font-label uppercase tracking-wide" style={{ background: 'var(--color-accent-subtle)', color: 'var(--color-accent-text)' }}>
+          {score}% health
+        </div>
+      </div>
+      <div className="mt-5 h-2 overflow-hidden rounded-full bg-[var(--color-surface-container)]">
+        <div className="h-full rounded-full bg-[var(--color-accent-v2)] transition-all" style={{ width: `${score}%` }} />
+      </div>
+      <div className="mt-5 grid grid-cols-3 gap-2 text-center">
+        <div className="rounded-2xl bg-[var(--color-surface-container)]/60 px-2 py-3">
+          <p className="text-lg font-bold text-on-surface">{activeTasks}</p>
+          <p className="text-[10px] uppercase tracking-wide text-on-surface-variant">Tasks</p>
+        </div>
+        <div className="rounded-2xl bg-[var(--color-surface-container)]/60 px-2 py-3">
+          <p className="text-lg font-bold text-on-surface">{approvals.length}</p>
+          <p className="text-[10px] uppercase tracking-wide text-on-surface-variant">Approvals</p>
+        </div>
+        <div className="rounded-2xl bg-[var(--color-surface-container)]/60 px-2 py-3">
+          <p className="text-lg font-bold text-on-surface">{org.memberCount ?? 0}</p>
+          <p className="text-[10px] uppercase tracking-wide text-on-surface-variant">Team</p>
+        </div>
+      </div>
+      <p className="mt-4 text-xs text-on-surface-variant">
+        {riskyTasks > 0 ? `${plural(riskyTasks, 'item')} needs attention` : 'Operating normally'}
+      </p>
+    </Link>
+  )
+}
+
+function TaskPulseItem({ task }: { task: AgentTask }) {
+  return (
+    <Link href={task.href ?? '/admin/agent/board'} className="flex items-start gap-3 rounded-2xl px-3 py-3 transition hover:bg-[var(--color-row-hover)]">
+      <span className={`mt-1 h-2.5 w-2.5 rounded-full ${RISK_STATUSES.has(task.agentStatus ?? '') ? 'bg-amber-400' : task.agentStatus === 'done' ? 'bg-emerald-400' : 'bg-[var(--color-accent-v2)]'}`} />
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-medium text-on-surface">{task.title}</span>
+        <span className="mt-1 block text-xs text-on-surface-variant">{task.assigneeAgentId ?? 'agent'} · {STATUS_LABELS[task.agentStatus ?? ''] ?? task.agentStatus ?? 'Queued'} · {formatRelative(task.updatedAt ?? task.createdAt)}</span>
+      </span>
+      {task.priority && <span className="rounded-full bg-[var(--color-surface-container)] px-2 py-1 text-[10px] uppercase tracking-wide text-on-surface-variant">{task.priority}</span>}
+    </Link>
+  )
+}
+
+function ApprovalRadarItem({ approval }: { approval: Approval }) {
+  return (
+    <Link href="/admin/social/queue" className="flex items-start gap-3 rounded-2xl px-3 py-3 transition hover:bg-[var(--color-row-hover)]">
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold" style={{ background: 'var(--color-accent-subtle)', color: 'var(--color-accent-text)' }}>
+        {(approval.platform ?? 'A').slice(0, 1).toUpperCase()}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-xs uppercase tracking-wide text-on-surface-variant">{approval.orgName ?? 'Organisation'} · {approval.platform ?? 'approval'}</span>
+        <span className="mt-1 block line-clamp-2 text-sm text-on-surface">{approval.content ?? 'Approval required'}</span>
+      </span>
+    </Link>
+  )
+}
+
+function TimelineItem({ item }: { item: Activity | AgentTask }) {
+  const isTask = 'title' in item
+  const title = isTask
+    ? item.title
+    : (item.note ?? item.description ?? item.entityTitle ?? item.type ?? 'Activity')
+  const meta = isTask ? `${item.assigneeAgentId ?? 'agent'} · ${STATUS_LABELS[item.agentStatus ?? ''] ?? item.agentStatus ?? 'Queued'}` : (item.type ?? 'activity').replace(/_/g, ' ')
+  const when = isTask ? formatRelative(item.updatedAt ?? item.createdAt) : formatRelative(item.createdAt)
+  return (
+    <div className="relative pl-6">
+      <span className="absolute left-0 top-1.5 h-3 w-3 rounded-full border-2 border-[var(--color-accent-v2)] bg-[var(--color-surface)]" />
+      <p className="text-sm text-on-surface">{title}</p>
+      <p className="mt-1 text-xs text-on-surface-variant">{meta} · {when}</p>
+    </div>
+  )
+}
+
+export default function MissionControlDashboard() {
+  const [data, setData] = useState<LoadState>(initialState)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [healthError, setHealthError] = useState<string | null>(null)
 
   useEffect(() => {
-    Promise.all([
-      fetch('/api/v1/dashboard/stats').then((r) => r.json()),
-      fetch('/api/v1/dashboard/activity?limit=10').then((r) => r.json()),
-      fetch('/api/v1/social/posts/pending?limit=5').then((r) => r.json()),
-    ]).then(([statsBody, activityBody, approvalsBody]) => {
-      setStats(statsBody.data)
-      setActivity(activityBody.data ?? [])
-      setPendingApprovals(approvalsBody.data ?? [])
-      setLoading(false)
-    })
+    let cancelled = false
+
+    async function load() {
+      setLoading(true)
+      setError(null)
+      setHealthError(null)
+      try {
+        const [orgsResult, tasksResult, approvalsResult, activityResult, healthResult] = await Promise.allSettled([
+          fetchJson('/api/v1/organizations'),
+          fetchJson('/api/v1/admin/agent-tasks?assigneeAgentId=theo'),
+          fetchJson('/api/v1/social/posts/pending?limit=12'),
+          fetchJson('/api/v1/dashboard/activity?limit=12'),
+          fetchJson('/api/v1/health'),
+        ])
+
+        if (cancelled) return
+
+        const next: LoadState = { ...initialState }
+        if (orgsResult.status === 'fulfilled') next.orgs = dataFrom<OrgSummary[]>(orgsResult.value, [])
+        if (tasksResult.status === 'fulfilled') next.tasks = dataFrom<AgentTask[]>(tasksResult.value, [])
+        if (approvalsResult.status === 'fulfilled') next.approvals = dataFrom<Approval[]>(approvalsResult.value, [])
+        if (activityResult.status === 'fulfilled') next.activity = dataFrom<Activity[]>(activityResult.value, [])
+        if (healthResult.status === 'fulfilled') next.health = healthResult.value as Health
+        if (healthResult.status === 'rejected') setHealthError(healthResult.reason instanceof Error ? healthResult.reason.message : 'Health unavailable')
+
+        const failures = [orgsResult, tasksResult, approvalsResult, activityResult]
+          .filter((result): result is PromiseRejectedResult => result.status === 'rejected')
+          .map(result => result.reason instanceof Error ? result.reason.message : 'Request failed')
+        setData(next)
+        setError(failures.length > 0 ? failures.join(' · ') : null)
+      } catch (err) {
+        if (!cancelled) {
+          setData(initialState)
+          setError(err instanceof Error ? err.message : 'Dashboard unavailable')
+        }
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+
+    load()
+    return () => { cancelled = true }
   }, [])
 
-  const openRate =
-    stats && stats.email.sent > 0
-      ? Math.round((stats.email.opened / stats.email.sent) * 100)
-      : 0
-
-  // Weekly sparkline data
-  const pipelineWeekly = [12000, 15000, 11000, 18000, 14000, 22000, stats?.deals.pipelineValue ?? 0]
-  const contactsWeekly = [30, 35, 38, 40, 44, 48, stats?.contacts.total ?? 0]
-
-  // Revenue bar chart data (daily)
-  const revenueData = DAY_LABELS.map((label, i) => ({
-    label,
-    value: pipelineWeekly[i] ?? 0,
-  }))
-
-  // Contact growth area chart
-  const contactGrowthData = DAY_LABELS.map((label, i) => ({
-    label,
-    value: contactsWeekly[i] ?? 0,
-  }))
-
-  // Deals by stage donut
-  const dealsDonut = [
-    { name: 'Won', value: stats?.deals.wonValue ? Math.round(stats.deals.wonValue / 1000) : 3 },
-    { name: 'Pipeline', value: stats?.deals.pipelineValue ? Math.round(stats.deals.pipelineValue / 1000) : 8 },
-    { name: 'Pending', value: stats?.deals.total ?? 5 },
-  ]
+  const activeTasks = useMemo(() => data.tasks.filter(task => ACTIVE_STATUSES.has(task.agentStatus ?? '')), [data.tasks])
+  const pulseTasks = useMemo(() => data.tasks.filter(task => PULSE_STATUSES.has(task.agentStatus ?? '')), [data.tasks])
+  const riskTasks = useMemo(() => pulseTasks.filter(task => RISK_STATUSES.has(task.agentStatus ?? '')), [pulseTasks])
+  const timeline = useMemo(() => [...pulseTasks.slice(0, 4), ...data.activity.slice(0, 5)].slice(0, 8), [pulseTasks, data.activity])
+  const serviceEntries = Object.entries(data.health?.services ?? {})
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto">
-
-      {/* ── Header with greeting ── */}
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">
-            Dashboard
-          </p>
-          <h1 className="text-2xl font-headline font-bold text-on-surface">
-            {getGreeting()}, Peet
-          </h1>
-          <p className="text-sm text-on-surface-variant mt-0.5">
-            {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="pib-stat-card !py-2 !px-4 flex items-center gap-3">
-            <span className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
-              Active Deals
-            </span>
-            <span className="text-lg font-headline font-bold" style={{ color: 'var(--color-accent-v2)' }}>
-              {stats?.deals.total ?? '—'}
-            </span>
-          </div>
-          <Link href="/admin/crm/contacts" className="pib-btn-primary text-sm font-label whitespace-nowrap !px-2 !py-1 sm:!px-4 sm:!py-2">
-            <span className="sm:hidden whitespace-nowrap">+ Contact</span>
-            <span className="hidden sm:inline whitespace-nowrap">+ New Contact</span>
-          </Link>
-        </div>
-      </div>
-
-      {/* ── Stat Cards Row ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {loading ? (
-          <>
-            <Skeleton className="h-28" />
-            <Skeleton className="h-28" />
-            <Skeleton className="h-28" />
-            <Skeleton className="h-28" />
-          </>
-        ) : (
-          <>
-            <Link href="/admin/crm/pipeline" className="block">
-              <StatCardWithChart
-                label="Pipeline Value"
-                value={`$${(stats?.deals.pipelineValue ?? 0).toLocaleString()}`}
-                sub={`$${(stats?.deals.wonValue ?? 0).toLocaleString()} won`}
-                trend="up"
-                accent
-                data={pipelineWeekly.map(v => ({ value: v }))}
-                chartType="bar"
-              />
-            </Link>
-            <Link href="/admin/crm/contacts" className="block">
-              <StatCardWithChart
-                label="Contacts"
-                value={stats?.contacts.total ?? 0}
-                sub="in CRM"
-                trend="up"
-                data={contactsWeekly.map(v => ({ value: v }))}
-                chartType="area"
-              />
-            </Link>
-            <Link href="/admin/email" className="block">
-              <StatCardWithChart
-                label="Emails Sent"
-                value={stats?.email.sent ?? 0}
-                sub={`${openRate}% open rate`}
-              />
-            </Link>
-            <Link href="/admin/sequences" className="block">
-              <StatCardWithChart
-                label="Active Sequences"
-                value={stats?.sequences.active ?? 0}
-                sub={`${stats?.sequences.activeEnrollments ?? 0} enrolled`}
-              />
-            </Link>
-          </>
-        )}
-      </div>
-
-      {/* ── Charts Row: Revenue + Deals Donut ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Revenue / Pipeline Bar Chart */}
-        <div className="lg:col-span-2 pib-card space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Revenue</p>
-              <p className="text-xl font-headline font-bold text-on-surface mt-0.5">
-                ${(stats?.deals.pipelineValue ?? 0).toLocaleString()}
-              </p>
-              <p className="text-xs text-on-surface-variant mt-0.5 flex items-center gap-1">
-                <span className="text-green-400">2.5% ↑</span> vs last week
-              </p>
-            </div>
-            <span className="text-[10px] text-on-surface-variant bg-[var(--color-surface-container)] px-2 py-1 rounded">
-              This week
-            </span>
-          </div>
-          {loading ? (
-            <Skeleton className="h-[250px]" />
-          ) : (
-            <RevenueBarChart
-              data={revenueData}
-              target={9340}
-              valueFormatter={(v) => `$${(v / 1000).toFixed(0)}K`}
-              highlightLast
-            />
-          )}
-        </div>
-
-        {/* Deals by Stage Donut */}
-        <div className="pib-card space-y-2">
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
-            Deals by Stage
-          </p>
-          {loading ? (
-            <Skeleton className="h-[220px]" />
-          ) : (
-            <DonutChart
-              data={dealsDonut}
-              centerValue={stats?.deals.total ?? 0}
-              centerLabel="Total"
-            />
-          )}
-        </div>
-      </div>
-
-      {/* ── Contact Growth Area Chart ── */}
-      <div className="pib-card space-y-4">
-        <div className="flex items-center justify-between">
+    <div className="mx-auto max-w-7xl space-y-6 pb-8">
+      <div className="overflow-hidden rounded-[2rem] border border-[var(--color-border)] bg-[radial-gradient(circle_at_top_left,rgba(150,255,214,0.16),transparent_35%),var(--color-surface)] p-5 shadow-sm sm:p-7">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Contact Growth</p>
-            <p className="text-xl font-headline font-bold text-on-surface mt-0.5">
-              {stats?.contacts.total ?? 0} total
-            </p>
+            <p className="text-[10px] font-label uppercase tracking-[0.3em] text-on-surface-variant">Mission control</p>
+            <h1 className="mt-2 text-3xl font-headline font-bold text-on-surface sm:text-4xl">Today’s operating picture</h1>
+            <p className="mt-2 max-w-2xl text-sm text-on-surface-variant">A cross-client view of organisation health, active work, approvals waiting on humans, and the latest command timeline.</p>
           </div>
-          <span className="text-[10px] text-on-surface-variant bg-[var(--color-surface-container)] px-2 py-1 rounded">
-            Last 7 days
-          </span>
+          <div className="grid grid-cols-3 gap-2 sm:min-w-[360px]">
+            <div className="rounded-2xl bg-[var(--color-surface-container)]/70 p-3 text-center">
+              <p className="text-2xl font-bold text-on-surface">{data.orgs.length}</p>
+              <p className="text-[10px] uppercase tracking-wide text-on-surface-variant">Orgs</p>
+            </div>
+            <div className="rounded-2xl bg-[var(--color-surface-container)]/70 p-3 text-center">
+              <p className="text-2xl font-bold text-on-surface">{activeTasks.length}</p>
+              <p className="text-[10px] uppercase tracking-wide text-on-surface-variant">Tasks</p>
+            </div>
+            <div className="rounded-2xl bg-[var(--color-surface-container)]/70 p-3 text-center">
+              <p className="text-2xl font-bold text-on-surface">{data.approvals.length}</p>
+              <p className="text-[10px] uppercase tracking-wide text-on-surface-variant">Approvals</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {error && (
+        <div className="rounded-2xl border border-amber-400/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+          Some dashboard feeds could not load: {error}. Showing everything that is available.
+        </div>
+      )}
+
+      <MissionConstellation orgs={data.orgs} tasks={pulseTasks} approvals={data.approvals} />
+
+      <section className="rounded-3xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 sm:p-5">
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <SectionHeader title="Health strip" eyebrow="Platform signal" />
+          <div className={`rounded-full border px-3 py-1.5 text-xs ${healthTone(data.health, healthError)}`}>
+            {healthError ? `Health unavailable: ${healthError}` : data.health?.ok === false ? 'Service degradation detected' : data.health ? 'All core services reporting' : 'Checking services'}
+          </div>
         </div>
         {loading ? (
-          <Skeleton className="h-[180px]" />
+          <div className="grid gap-3 sm:grid-cols-3"><Skeleton className="h-20" /><Skeleton className="h-20" /><Skeleton className="h-20" /></div>
+        ) : serviceEntries.length === 0 ? (
+          <EmptyState title="Health signal unavailable" body="The dashboard is still usable; service telemetry will appear here when the health endpoint responds." />
         ) : (
-          <TrendAreaChart data={contactGrowthData} height={180} />
+          <div className="grid gap-3 sm:grid-cols-3">
+            {serviceEntries.map(([name, status]) => (
+              <div key={name} className="rounded-2xl bg-[var(--color-surface-container)]/50 p-4">
+                <p className="text-xs uppercase tracking-wide text-on-surface-variant">{name}</p>
+                <p className="mt-2 text-lg font-bold text-on-surface">{status}</p>
+              </div>
+            ))}
+          </div>
         )}
-      </div>
+      </section>
 
-      {/* ── Approvals + Activity ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Pending Approvals */}
-        <div className="pib-card space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
-                Pending Approvals
-              </p>
-              {pendingApprovals.length > 0 && (
-                <span className="w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center bg-[var(--color-accent-v2)] text-black">
-                  {pendingApprovals.length}
-                </span>
-              )}
-            </div>
-            <Link
-              href="/admin/social/queue"
-              className="text-[10px] font-label uppercase tracking-wide"
-              style={{ color: 'var(--color-accent-v2)' }}
-            >
-              View all →
-            </Link>
+      <section className="space-y-4">
+        <SectionHeader title="Organisation cards" eyebrow="Client fleet" action={<Link href="/admin/clients" className="text-xs font-label uppercase tracking-wide" style={{ color: 'var(--color-accent-v2)' }}>Manage clients →</Link>} />
+        {loading ? (
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3"><Skeleton className="h-56" /><Skeleton className="h-56" /><Skeleton className="h-56" /></div>
+        ) : data.orgs.length === 0 ? (
+          <EmptyState title="No active organisations" body="Create or activate a client organisation and its command card will appear here." />
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {data.orgs.slice(0, 9).map(org => (
+              <OrganisationCard key={org.id} org={org} tasks={pulseTasks.filter(task => task.orgId === org.id)} approvals={data.approvals.filter(item => item.orgId === org.id)} />
+            ))}
           </div>
-          {loading ? (
-            <div className="space-y-2">
-              {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-14" />)}
-            </div>
-          ) : pendingApprovals.length === 0 ? (
-            <div className="py-8 text-center">
-              <p className="text-2xl mb-2">&#127881;</p>
-              <p className="text-sm text-on-surface-variant">No posts pending approval</p>
-            </div>
-          ) : (
-            <div className="space-y-1 -mx-4">
-              {pendingApprovals.map((item) => (
-                <ApprovalItem key={item.id} item={item} />
-              ))}
-            </div>
-          )}
-        </div>
+        )}
+      </section>
 
-        {/* Recent Activity */}
-        <div className="pib-card space-y-3">
-          <div className="flex items-center justify-between">
-            <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
-              Recent Activity
-            </p>
-            <Link
-              href="/admin/crm/contacts"
-              className="text-[10px] font-label uppercase tracking-wide"
-              style={{ color: 'var(--color-accent-v2)' }}
-            >
-              View CRM →
-            </Link>
+      <div className="grid gap-4 lg:grid-cols-3">
+        <section className="rounded-3xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 sm:p-5 lg:col-span-1">
+          <SectionHeader title="Task pulse" eyebrow={`${plural(activeTasks.length, 'active task')}`} action={riskTasks.length > 0 ? <span className="rounded-full bg-amber-500/15 px-2 py-1 text-[10px] text-amber-100">{riskTasks.length} at risk</span> : null} />
+          <div className="mt-4 space-y-1">
+            {loading ? (
+              <><Skeleton className="h-16" /><Skeleton className="h-16" /><Skeleton className="h-16" /></>
+            ) : pulseTasks.length === 0 ? (
+              <EmptyState title="No task pulses yet" body="Agent work will surface here as soon as it is queued or in progress." />
+            ) : pulseTasks.slice(0, 6).map(task => <TaskPulseItem key={task.id} task={task} />)}
           </div>
-          {loading ? (
-            <div className="space-y-2">
-              {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-14" />)}
-            </div>
-          ) : activity.length === 0 ? (
-            <div className="py-8 text-center">
-              <p className="text-sm text-on-surface-variant">No activity yet.</p>
-            </div>
-          ) : (
-            <div className="space-y-0.5 -mx-4">
-              {activity.map((item) => <ActivityItem key={item.id} item={item} />)}
-            </div>
-          )}
-        </div>
+        </section>
+
+        <section className="rounded-3xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 sm:p-5 lg:col-span-1">
+          <SectionHeader title="Approval radar" eyebrow={`${plural(data.approvals.length, 'pending approval')}`} action={<Link href="/admin/social/queue" className="text-xs font-label uppercase tracking-wide" style={{ color: 'var(--color-accent-v2)' }}>Review →</Link>} />
+          <div className="mt-4 space-y-1">
+            {loading ? (
+              <><Skeleton className="h-16" /><Skeleton className="h-16" /><Skeleton className="h-16" /></>
+            ) : data.approvals.length === 0 ? (
+              <EmptyState title="Approval radar is clear" body="No posts or deliverables are waiting on review right now." />
+            ) : data.approvals.slice(0, 6).map(approval => <ApprovalRadarItem key={approval.id} approval={approval} />)}
+          </div>
+        </section>
+
+        <section className="rounded-3xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 sm:p-5 lg:col-span-1">
+          <SectionHeader title="Today timeline" eyebrow="Latest movement" />
+          <div className="relative mt-5 space-y-5 before:absolute before:left-[5px] before:top-2 before:h-[calc(100%-1rem)] before:w-px before:bg-[var(--color-border)]">
+            {loading ? (
+              <><Skeleton className="h-12" /><Skeleton className="h-12" /><Skeleton className="h-12" /></>
+            ) : timeline.length === 0 ? (
+              <div className="before:hidden"><EmptyState title="Timeline is quiet" body="Activity, task movement, and handoffs will appear here throughout the day." /></div>
+            ) : timeline.map(item => <TimelineItem key={item.id} item={item} />)}
+          </div>
+        </section>
       </div>
 
-      {/* ── Quick Actions ── */}
-      <div className="pib-card">
-        <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-3">
-          Quick Actions
-        </p>
-        <div className="flex flex-wrap gap-2">
-          {[
-            { label: 'New Contact',    href: '/admin/crm/contacts' },
-            { label: 'Compose Post',   href: '/admin/social/compose' },
-            { label: 'Send Email',     href: '/admin/email/compose' },
-            { label: 'View Pipeline',  href: '/admin/crm/pipeline' },
-            { label: 'Manage Clients', href: '/admin/clients' },
-            { label: 'Analytics',      href: '/admin/social/analytics' },
-          ].map((action) => (
-            <Link
-              key={action.href}
-              href={action.href}
-              className="pib-btn-secondary text-xs font-label"
-            >
-              {action.label}
-            </Link>
-          ))}
-        </div>
-      </div>
+      {loading && <p className="sr-only" aria-live="polite">Dashboard data is loading</p>}
+      {loading && <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-container)]/40 px-4 py-3 text-sm text-on-surface-variant">Loading command signal…</div>}
     </div>
   )
 }

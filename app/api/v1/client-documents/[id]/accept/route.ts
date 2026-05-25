@@ -9,6 +9,7 @@ import { sendDocumentApprovedEmail } from '@/lib/client-documents/notifications'
 import { CLIENT_DOCUMENTS_COLLECTION, getClientDocument } from '@/lib/client-documents/store'
 import type { ClientDocument, DocumentApproval } from '@/lib/client-documents/types'
 import { adminDb } from '@/lib/firebase/admin'
+import { notifyClientDocumentAccepted } from '@/lib/notifications/client-acceptance'
 
 export const dynamic = 'force-dynamic'
 
@@ -111,8 +112,19 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
         checkboxText,
       }
       await sendDocumentApprovedEmail(document, approval, 'notifications@partnersinbiz.online', 'Partners in Biz Team')
+      if (document.orgId) {
+        await notifyClientDocumentAccepted({
+          orgId: document.orgId,
+          documentId: id,
+          documentTitle: document.title,
+          versionId: document.latestPublishedVersionId!,
+          approvalId: approvalRef.id,
+          actorName,
+          mode: 'formal_acceptance',
+        })
+      }
     } catch (err) {
-      console.error('[client-documents/accept] Email notification failed:', err)
+      console.error('[client-documents/accept] Notification failed:', err)
     }
   })()
 

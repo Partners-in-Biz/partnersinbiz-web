@@ -101,9 +101,15 @@ describe('buildApprovedDocumentTaskFanout', () => {
       title: 'Implement approved spec backend',
       priority: 'high',
       assigneeAgentId: 'theo',
+      reviewerAgentId: 'qa-release',
+      riskLevel: 'high',
+      requiredCapability: 'engineering',
+      expectedArtifacts: ['commit', 'test-output', 'build-output', 'preview-url'],
+      approvalGateTaskId: 'approval-1',
       agentStatus: 'pending',
       sourceDocumentId: 'doc-1',
       sourceDocumentVersionId: 'version-1',
+      sourceSpecVersion: 'version-1',
       sourceDocumentSectionId: 'backend',
     })
     expect(result.tasks[0].labels).toEqual(expect.arrayContaining([
@@ -171,6 +177,112 @@ describe('buildApprovedDocumentTaskFanout', () => {
     expect(result.tasks[0].labels).toEqual(expect.arrayContaining(['geo-record-required', 'seo-overlap-check']))
     expect(result.tasks[1].labels).toEqual(expect.arrayContaining(['seo-content-link', 'client-approval-required']))
     expect(result.tasks[3].labels).toEqual(expect.arrayContaining(['approved-only', 'linked-artifacts-required']))
+  })
+
+  it('uses implementation-ready default chains for approved build specs', () => {
+    const result = buildApprovedDocumentTaskFanout({
+      document,
+      versionId: 'version-1',
+      approvalId: 'gate-task-1',
+      blocks: createBlocksFromTemplate('build_spec'),
+      actorId: 'ai-agent',
+      taskRefs: ['task-build', 'task-qa', 'task-release'],
+      plan: {},
+    })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+
+    expect(result.tasks.map((task) => [task.title, task.assigneeAgentId, task.dependsOn ?? []])).toEqual([
+      ['Theo: implement approved build spec', 'theo', ['gate-task-1']],
+      ['QA: verify approved build spec implementation', 'qa-release', ['task-build']],
+      ['Pip: prepare client handoff and release decision', 'pip', ['task-qa']],
+    ])
+    expect(result.tasks[0]).toMatchObject({
+      reviewerAgentId: 'qa-release',
+      riskLevel: 'high',
+      requiredCapability: 'engineering',
+      expectedArtifacts: ['commit', 'test-output', 'build-output', 'preview-url'],
+      approvalGateTaskId: 'gate-task-1',
+      sourceDocumentId: 'doc-1',
+      sourceDocumentSectionId: 'scope',
+      sourceSpecVersion: 'version-1',
+    })
+  })
+
+  it('uses implementation-ready default chains for approved change requests', () => {
+    const result = buildApprovedDocumentTaskFanout({
+      document: {
+        ...document,
+        id: 'change-doc-1',
+        title: 'Approved Change Request',
+        type: 'change_request',
+        templateId: 'change-request-v1',
+      },
+      versionId: 'version-2',
+      approvalId: 'gate-task-2',
+      blocks: createBlocksFromTemplate('change_request'),
+      actorId: 'ai-agent',
+      taskRefs: ['task-change', 'task-change-qa', 'task-change-handoff'],
+      plan: {},
+    })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+
+    expect(result.tasks.map((task) => [task.title, task.assigneeAgentId, task.dependsOn ?? []])).toEqual([
+      ['Theo: implement approved change request', 'theo', ['gate-task-2']],
+      ['QA: verify approved change request', 'qa-release', ['task-change']],
+      ['Pip: update scope/timeline handoff after change request', 'pip', ['task-change-qa']],
+    ])
+    expect(result.tasks[0]).toMatchObject({
+      riskLevel: 'high',
+      requiredCapability: 'engineering',
+      approvalGateTaskId: 'gate-task-2',
+      sourceSpecVersion: 'version-2',
+    })
+  })
+
+  it('creates decision and recommendation follow-ups from an approved research report instead of blind code work', () => {
+    const result = buildApprovedDocumentTaskFanout({
+      document: {
+        ...document,
+        id: 'research-doc-1',
+        title: 'Audience Research Report',
+        type: 'research_report',
+        templateId: 'research-report-v1',
+        linked: {
+          ...document.linked,
+          researchItemIds: ['research-item-1'],
+        },
+      },
+      versionId: 'version-1',
+      approvalId: 'approval-1',
+      blocks: createBlocksFromTemplate('research_report'),
+      actorId: 'ai-agent',
+      taskRefs: ['task-decision', 'task-recommendations'],
+      plan: {},
+    })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+
+    expect(result.tasks.map((task) => [task.title, task.assigneeAgentId, task.dependsOn ?? []])).toEqual([
+      ['Pip: record decision from approved research report', 'pip', ['approval-1']],
+      ['Sage: convert approved research recommendations into next-step options', 'sage', ['task-decision']],
+    ])
+    expect(result.tasks[0]).toMatchObject({
+      requiredCapability: 'decision-routing',
+      riskLevel: 'medium',
+      expectedArtifacts: ['decision-record', 'project-comment-or-task-links'],
+      approvalGateTaskId: 'approval-1',
+      sourceResearchItemId: 'research-item-1',
+    })
+    expect(result.tasks[1]).toMatchObject({
+      requiredCapability: 'research-recommendation-followup',
+      reviewerAgentId: 'pip',
+    })
+    expect(result.tasks.some((task) => task.assigneeAgentId === 'theo')).toBe(false)
   })
 
   it('rejects generation unless the document has a linked project', () => {

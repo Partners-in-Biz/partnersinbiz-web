@@ -33,6 +33,7 @@ export interface Quote {
   updatedByRef?: MemberRef
   companyId?: string
   companyName?: string
+  deleted?: boolean
   createdAt?: unknown
   updatedAt?: unknown
 }

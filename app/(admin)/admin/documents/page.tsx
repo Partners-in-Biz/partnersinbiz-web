@@ -78,7 +78,7 @@ export default async function DocumentsIndexPage({
           <p className="eyebrow">Admin workspace</p>
           <h1 className="pib-page-title mt-2">Client Documents</h1>
           <p className="pib-page-sub mt-2 max-w-2xl">
-            All proposals, specs, strategies, and reports across client workspaces. Use the tabs to review each document state.
+            All proposals, research reports, build specs, change requests, strategies, and monthly reports across client workspaces. Research decides what is true; specs decide what to build.
           </p>
         </div>
         <Link
