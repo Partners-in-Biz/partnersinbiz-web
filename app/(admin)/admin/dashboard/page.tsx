@@ -129,6 +129,13 @@ type ConstellationNode = OrgSummary & {
   x: number
   y: number
   tone: 'risk' | 'active' | 'calm'
+  activeTasks: number
+  riskyTasks: number
+  pendingApprovals: number
+}
+
+function orgDashboardHref(org: Pick<OrgSummary, 'slug'>) {
+  return org.slug ? `/admin/org/${org.slug}/dashboard` : '/admin/clients'
 }
 
 function constellationNodes(orgs: OrgSummary[], tasks: AgentTask[], approvals: Approval[]): ConstellationNode[] {
@@ -140,16 +147,32 @@ function constellationNodes(orgs: OrgSummary[], tasks: AgentTask[], approvals: A
   return fallback.slice(0, 10).map((org, index) => {
     const angle = (Math.PI * 2 * index) / Math.max(fallback.length, 3) - Math.PI / 2
     const orgTasks = tasks.filter(task => task.orgId === org.id)
-    const hasRisk = orgTasks.some(task => RISK_STATUSES.has(task.agentStatus ?? '')) || approvals.some(approval => approval.orgId === org.id)
-    const hasActive = orgTasks.some(task => ACTIVE_STATUSES.has(task.agentStatus ?? ''))
+    const orgApprovals = approvals.filter(approval => approval.orgId === org.id)
+    const riskyTasks = orgTasks.filter(task => RISK_STATUSES.has(task.agentStatus ?? '')).length
+    const activeTasks = orgTasks.filter(task => ACTIVE_STATUSES.has(task.agentStatus ?? '')).length
+    const hasRisk = riskyTasks > 0 || orgApprovals.length > 0
+    const hasActive = activeTasks > 0
 
     return {
       ...org,
       x: Math.round((centerX + Math.cos(angle) * radius) * 10) / 10,
       y: Math.round((centerY + Math.sin(angle) * radius) * 10) / 10,
       tone: hasRisk ? 'risk' : hasActive ? 'active' : 'calm',
+      activeTasks,
+      riskyTasks,
+      pendingApprovals: orgApprovals.length,
     }
   })
+}
+
+function constellationNodeLabel(node: ConstellationNode) {
+  const signals = [
+    plural(node.activeTasks, 'active task'),
+    plural(node.riskyTasks, 'risk item'),
+    plural(node.pendingApprovals, 'approval'),
+  ]
+  const tone = node.tone === 'risk' ? 'Needs attention' : node.tone === 'active' ? 'Work moving' : 'Calm'
+  return `${node.name}: ${tone}. ${signals.join(', ')}.`
 }
 
 function MissionConstellation({ orgs, tasks, approvals }: { orgs: OrgSummary[]; tasks: AgentTask[]; approvals: Approval[] }) {
@@ -161,9 +184,9 @@ function MissionConstellation({ orgs, tasks, approvals }: { orgs: OrgSummary[]; 
     <div className="pib-card overflow-hidden p-4 sm:p-5">
       <div className="relative z-10 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="text-[10px] font-label uppercase tracking-[0.25em] text-on-surface-variant">Motion layer: CSS/SVG</p>
+          <p className="text-[10px] font-label uppercase tracking-[0.25em] text-on-surface-variant">Business signal map</p>
           <h2 className="mt-1 text-lg font-headline font-bold text-on-surface">Organisation constellation</h2>
-          <p className="mt-1 max-w-xl text-xs text-on-surface-variant">A lightweight radar map of client attention. Three.js deferred: the CSS/SVG layer keeps this fast, readable, and respectful of reduced-motion preferences.</p>
+          <p className="mt-1 max-w-xl text-xs text-on-surface-variant">Each dot is a client workspace. Hover or focus a dot to see which organisation it is, whether work is moving, and where approvals or blockers need Peet’s attention.</p>
         </div>
         <div className="flex flex-wrap gap-2 text-[10px] uppercase tracking-wide text-on-surface-variant">
           <span className="rounded-full bg-[var(--color-surface-container)] px-2.5 py-1">{nodes.length} nodes</span>
@@ -171,7 +194,7 @@ function MissionConstellation({ orgs, tasks, approvals }: { orgs: OrgSummary[]; 
           <span className="rounded-full bg-[var(--color-accent-subtle)] px-2.5 py-1" style={{ color: 'var(--color-accent-text)' }}>{activeCount} active</span>
         </div>
       </div>
-      <div data-testid="mission-control-constellation" aria-hidden="true" className="relative mt-4 h-64 overflow-hidden rounded-2xl border border-[var(--color-card-border)] bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:32px_32px]">
+      <div data-testid="mission-control-constellation" role="list" aria-label="Client workspace signal map" className="relative mt-4 h-64 overflow-hidden rounded-2xl border border-[var(--color-card-border)] bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:32px_32px]">
         <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 100" role="presentation" focusable="false">
           <circle cx="50" cy="50" r="16" className="fill-none stroke-[var(--color-card-border)]" strokeWidth="0.5" />
           <circle cx="50" cy="50" r="32" className="fill-none stroke-[var(--color-card-border)]" strokeWidth="0.5" />
@@ -183,12 +206,21 @@ function MissionConstellation({ orgs, tasks, approvals }: { orgs: OrgSummary[]; 
           ))}
         </svg>
         {nodes.map((node, index) => (
-          <span
+          <Link
+            href={orgDashboardHref(node)}
             key={node.id}
+            role="listitem"
+            aria-label={constellationNodeLabel(node)}
+            title={constellationNodeLabel(node)}
             data-constellation-node="true"
-            className={`absolute h-3 w-3 rounded-full shadow-[0_0_18px_currentColor] motion-safe:animate-[pib-node-float_5s_ease-in-out_infinite] ${node.tone === 'risk' ? 'bg-amber-300 text-amber-300' : node.tone === 'active' ? 'bg-[var(--color-accent-v2)] text-[var(--color-accent-v2)]' : 'bg-emerald-300 text-emerald-300'}`}
-            style={{ left: `${node.x}%`, top: `${node.y}%`, animationDelay: `${index * 180}ms`, transform: 'translate(-50%, -50%)' }}
-          />
+            className={`group/node absolute h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full shadow-[0_0_18px_currentColor] outline-none ring-offset-2 ring-offset-[var(--color-card)] transition-transform hover:z-20 hover:scale-125 focus-visible:z-20 focus-visible:scale-125 focus-visible:ring-2 focus-visible:ring-[var(--color-accent-v2)] motion-safe:animate-[pib-node-float_5s_ease-in-out_infinite] ${node.tone === 'risk' ? 'bg-amber-300 text-amber-300' : node.tone === 'active' ? 'bg-[var(--color-accent-v2)] text-[var(--color-accent-v2)]' : 'bg-emerald-300 text-emerald-300'}`}
+            style={{ left: `${node.x}%`, top: `${node.y}%`, animationDelay: `${index * 180}ms` }}
+          >
+            <span className="pointer-events-none absolute left-1/2 top-6 z-30 w-52 -translate-x-1/2 rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/95 px-3 py-2 text-left text-[11px] leading-snug text-on-surface opacity-0 shadow-xl transition group-hover/node:opacity-100 group-focus-visible/node:opacity-100">
+              <span className="block font-label uppercase tracking-wide text-on-surface">{node.name}</span>
+              <span className="mt-1 block text-on-surface-variant">{node.tone === 'risk' ? 'Needs attention' : node.tone === 'active' ? 'Work moving' : 'Calm'} · {plural(node.activeTasks, 'active task')} · {plural(node.riskyTasks, 'risk item')} · {plural(node.pendingApprovals, 'approval')}</span>
+            </span>
+          </Link>
         ))}
         <div className="absolute left-1/2 top-1/2 h-14 w-14 -translate-x-1/2 -translate-y-1/2 rounded-full border border-[var(--color-accent-v2)]/40 bg-[var(--color-card)]/80 shadow-[0_0_40px_rgba(245,166,35,0.14)]" />
       </div>
@@ -225,7 +257,7 @@ function OrganisationCard({ org, tasks, approvals }: { org: OrgSummary; tasks: A
   const riskyTasks = tasks.filter(task => RISK_STATUSES.has(task.agentStatus ?? '')).length
   const activeTasks = tasks.filter(task => ACTIVE_STATUSES.has(task.agentStatus ?? '')).length
   const score = Math.max(35, Math.min(100, 95 - riskyTasks * 20 - approvals.length * 8))
-  const href = org.slug ? `/admin/org/${org.slug}/dashboard` : '/admin/clients'
+  const href = orgDashboardHref(org)
 
   return (
     <Link href={href} className="pib-card pib-card-hover group block p-5 hover:border-[var(--color-accent-v2)]/50">

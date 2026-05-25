@@ -3,8 +3,8 @@ import { render, screen, waitFor } from '@testing-library/react'
 import MissionControlDashboard from '@/app/(admin)/admin/dashboard/page'
 
 jest.mock('next/link', () => {
-  return function MockLink({ href, children, className }: { href: string; children: React.ReactNode; className?: string }) {
-    return <a href={href} className={className}>{children}</a>
+  return function MockLink({ href, children, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { href: string }) {
+    return <a href={href} {...props}>{children}</a>
   }
 })
 
@@ -60,7 +60,7 @@ describe('Mission control dashboard', () => {
     expect(screen.getByText(/mission control/i)).toBeInTheDocument()
     expect(screen.getByText(/loading command signal/i)).toBeInTheDocument()
 
-    await waitFor(() => expect(screen.getByText('Acme Co')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getAllByText('Acme Co').length).toBeGreaterThan(0))
 
     expect(screen.getByText(/health strip/i)).toBeInTheDocument()
     expect(screen.getByText(/task pulse/i)).toBeInTheDocument()
@@ -69,16 +69,16 @@ describe('Mission control dashboard', () => {
     expect(screen.getAllByText('Build campaign').length).toBeGreaterThan(0)
     expect(screen.getByText('Approve the launch post')).toBeInTheDocument()
     expect(screen.getByText('Theo completed QA handoff')).toBeInTheDocument()
-    expect(screen.getByText(/1 active task/i)).toBeInTheDocument()
+    expect(screen.getAllByText(/1 active task/i).length).toBeGreaterThan(0)
 
-    const orgCard = screen.getByText('Acme Co').closest('a')
+    const orgCard = screen.getAllByText('Acme Co').find(element => element.closest('a')?.className.includes('pib-card'))?.closest('a')
     expect(orgCard).toHaveAttribute('href', '/admin/org/acme/dashboard')
     expect(orgCard).toHaveClass('pib-card')
     expect(orgCard).toHaveClass('pib-card-hover')
     expect(orgCard?.className).not.toContain('--color-border')
   })
 
-  it('renders the motion layer as an accessible CSS/SVG progressive enhancement without a WebGL dependency', async () => {
+  it('renders the constellation as an accessible business signal map with hover/focus labels and no WebGL dependency', async () => {
     global.fetch = jest.fn((input: RequestInfo | URL) => {
       const url = String(input)
       if (url === '/api/v1/organizations') {
@@ -111,9 +111,13 @@ describe('Mission control dashboard', () => {
 
     await waitFor(() => expect(container.querySelectorAll('[data-constellation-node]')).toHaveLength(2))
 
-    expect(screen.getByText(/motion layer: css\/svg/i)).toBeInTheDocument()
-    expect(screen.getByText(/three\.js deferred/i)).toBeInTheDocument()
-    expect(screen.getByTestId('mission-control-constellation')).toHaveAttribute('aria-hidden', 'true')
+    expect(screen.getByText(/business signal map/i)).toBeInTheDocument()
+    expect(screen.getByText(/Each dot is a client workspace/i)).toBeInTheDocument()
+    expect(screen.getByTestId('mission-control-constellation')).toHaveAttribute('role', 'list')
+    expect(screen.getByTestId('mission-control-constellation')).toHaveAttribute('aria-label', 'Client workspace signal map')
+    expect(screen.getByLabelText(/Acme Co: Work moving/i)).toHaveAttribute('title', expect.stringContaining('Acme Co: Work moving'))
+    expect(screen.getByLabelText(/Beta Studio: Needs attention/i)).toHaveAttribute('href', '/admin/org/beta/dashboard')
+    expect(screen.getByText(/Needs attention · 0 active tasks · 1 risk item · 1 approval/i)).toBeInTheDocument()
     expect(container.querySelector('canvas')).not.toBeInTheDocument()
   })
 
