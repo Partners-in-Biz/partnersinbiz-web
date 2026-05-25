@@ -156,7 +156,7 @@ function MissionConstellation({ orgs, tasks, approvals }: { orgs: OrgSummary[]; 
   const activeCount = nodes.filter(node => node.tone === 'active').length
 
   return (
-    <div className="relative overflow-hidden rounded-[2rem] border border-[var(--color-border)] bg-[radial-gradient(circle_at_50%_20%,rgba(150,255,214,0.12),transparent_38%),var(--color-surface)] p-4 shadow-sm sm:p-5">
+    <div className="pib-card overflow-hidden p-4 sm:p-5">
       <div className="relative z-10 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-[10px] font-label uppercase tracking-[0.25em] text-on-surface-variant">Motion layer: CSS/SVG</p>
@@ -169,15 +169,15 @@ function MissionConstellation({ orgs, tasks, approvals }: { orgs: OrgSummary[]; 
           <span className="rounded-full bg-[var(--color-accent-subtle)] px-2.5 py-1" style={{ color: 'var(--color-accent-text)' }}>{activeCount} active</span>
         </div>
       </div>
-      <div data-testid="mission-control-constellation" aria-hidden="true" className="relative mt-4 h-64 overflow-hidden rounded-3xl border border-[var(--color-border)] bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:32px_32px]">
+      <div data-testid="mission-control-constellation" aria-hidden="true" className="relative mt-4 h-64 overflow-hidden rounded-2xl border border-[var(--color-card-border)] bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:32px_32px]">
         <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 100" role="presentation" focusable="false">
-          <circle cx="50" cy="50" r="16" className="fill-none stroke-[var(--color-border)]" strokeWidth="0.5" />
-          <circle cx="50" cy="50" r="32" className="fill-none stroke-[var(--color-border)]" strokeWidth="0.5" />
+          <circle cx="50" cy="50" r="16" className="fill-none stroke-[var(--color-card-border)]" strokeWidth="0.5" />
+          <circle cx="50" cy="50" r="32" className="fill-none stroke-[var(--color-card-border)]" strokeWidth="0.5" />
           <g className="origin-center motion-safe:animate-[pib-radar-spin_18s_linear_infinite]">
             <line x1="50" y1="50" x2="50" y2="10" stroke="var(--color-accent-v2)" strokeWidth="0.7" strokeLinecap="round" opacity="0.45" />
           </g>
           {nodes.map(node => (
-            <line key={`line-${node.id}`} x1="50" y1="50" x2={node.x} y2={node.y} className="stroke-[var(--color-border)]" strokeWidth="0.45" opacity="0.85" />
+            <line key={`line-${node.id}`} x1="50" y1="50" x2={node.x} y2={node.y} className="stroke-[var(--color-card-border)]" strokeWidth="0.45" opacity="0.85" />
           ))}
         </svg>
         {nodes.map((node, index) => (
@@ -188,7 +188,7 @@ function MissionConstellation({ orgs, tasks, approvals }: { orgs: OrgSummary[]; 
             style={{ left: `${node.x}%`, top: `${node.y}%`, animationDelay: `${index * 180}ms`, transform: 'translate(-50%, -50%)' }}
           />
         ))}
-        <div className="absolute left-1/2 top-1/2 h-14 w-14 -translate-x-1/2 -translate-y-1/2 rounded-full border border-[var(--color-accent-v2)]/40 bg-[var(--color-surface)]/80 shadow-[0_0_40px_rgba(150,255,214,0.16)]" />
+        <div className="absolute left-1/2 top-1/2 h-14 w-14 -translate-x-1/2 -translate-y-1/2 rounded-full border border-[var(--color-accent-v2)]/40 bg-[var(--color-card)]/80 shadow-[0_0_40px_rgba(245,166,35,0.14)]" />
       </div>
     </div>
   )
@@ -200,7 +200,7 @@ function Skeleton({ className = '' }: { className?: string }) {
 
 function EmptyState({ title, body }: { title: string; body: string }) {
   return (
-    <div className="rounded-2xl border border-dashed border-[var(--color-border)] bg-[var(--color-surface-container)]/40 px-5 py-8 text-center">
+    <div className="rounded-2xl border border-dashed border-[var(--color-card-border)] bg-[var(--color-surface-container)]/40 px-5 py-8 text-center">
       <p className="text-sm font-label text-on-surface">{title}</p>
       <p className="mt-1 text-xs text-on-surface-variant">{body}</p>
     </div>
@@ -226,7 +226,7 @@ function OrganisationCard({ org, tasks, approvals }: { org: OrgSummary; tasks: A
   const href = org.slug ? `/admin/org/${org.slug}` : '/admin/clients'
 
   return (
-    <Link href={href} className="group block rounded-3xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-[var(--color-accent-v2)]/50 hover:shadow-lg">
+    <Link href={href} className="pib-card pib-card-hover group block p-5 hover:border-[var(--color-accent-v2)]/50">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <p className="truncate text-base font-headline font-bold text-on-surface">{org.name}</p>
@@ -296,7 +296,7 @@ function TimelineItem({ item }: { item: Activity | AgentTask }) {
   const when = isTask ? formatRelative(item.updatedAt ?? item.createdAt) : formatRelative(item.createdAt)
   return (
     <div className="relative pl-6">
-      <span className="absolute left-0 top-1.5 h-3 w-3 rounded-full border-2 border-[var(--color-accent-v2)] bg-[var(--color-surface)]" />
+      <span className="absolute left-0 top-1.5 h-3 w-3 rounded-full border-2 border-[var(--color-accent-v2)] bg-[var(--color-card)]" />
       <p className="text-sm text-on-surface">{title}</p>
       <p className="mt-1 text-xs text-on-surface-variant">{meta} · {when}</p>
     </div>
@@ -362,7 +362,7 @@ export default function MissionControlDashboard() {
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 pb-8">
-      <div className="overflow-hidden rounded-[2rem] border border-[var(--color-border)] bg-[radial-gradient(circle_at_top_left,rgba(150,255,214,0.16),transparent_35%),var(--color-surface)] p-5 shadow-sm sm:p-7">
+      <div className="pib-card overflow-hidden p-5 sm:p-7">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <p className="text-[10px] font-label uppercase tracking-[0.3em] text-on-surface-variant">Mission control</p>
@@ -394,7 +394,7 @@ export default function MissionControlDashboard() {
 
       <MissionConstellation orgs={data.orgs} tasks={pulseTasks} approvals={data.approvals} />
 
-      <section className="rounded-3xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 sm:p-5">
+      <section className="pib-card p-4 sm:p-5">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <SectionHeader title="Health strip" eyebrow="Platform signal" />
           <div className={`rounded-full border px-3 py-1.5 text-xs ${healthTone(data.health, healthError)}`}>
@@ -433,7 +433,7 @@ export default function MissionControlDashboard() {
       </section>
 
       <div className="grid gap-4 lg:grid-cols-3">
-        <section className="rounded-3xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 sm:p-5 lg:col-span-1">
+        <section className="pib-card p-4 sm:p-5 lg:col-span-1">
           <SectionHeader title="Task pulse" eyebrow={`${plural(activeTasks.length, 'active task')}`} action={riskTasks.length > 0 ? <span className="rounded-full bg-amber-500/15 px-2 py-1 text-[10px] text-amber-100">{riskTasks.length} at risk</span> : null} />
           <div className="mt-4 space-y-1">
             {loading ? (
@@ -444,7 +444,7 @@ export default function MissionControlDashboard() {
           </div>
         </section>
 
-        <section className="rounded-3xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 sm:p-5 lg:col-span-1">
+        <section className="pib-card p-4 sm:p-5 lg:col-span-1">
           <SectionHeader title="Approval radar" eyebrow={`${plural(data.approvals.length, 'pending approval')}`} action={<Link href="/admin/social/queue" className="text-xs font-label uppercase tracking-wide" style={{ color: 'var(--color-accent-v2)' }}>Review →</Link>} />
           <div className="mt-4 space-y-1">
             {loading ? (
@@ -455,9 +455,9 @@ export default function MissionControlDashboard() {
           </div>
         </section>
 
-        <section className="rounded-3xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 sm:p-5 lg:col-span-1">
+        <section className="pib-card p-4 sm:p-5 lg:col-span-1">
           <SectionHeader title="Today timeline" eyebrow="Latest movement" />
-          <div className="relative mt-5 space-y-5 before:absolute before:left-[5px] before:top-2 before:h-[calc(100%-1rem)] before:w-px before:bg-[var(--color-border)]">
+          <div className="relative mt-5 space-y-5 before:absolute before:left-[5px] before:top-2 before:h-[calc(100%-1rem)] before:w-px before:bg-[var(--color-card-border)]">
             {loading ? (
               <><Skeleton className="h-12" /><Skeleton className="h-12" /><Skeleton className="h-12" /></>
             ) : timeline.length === 0 ? (
@@ -468,7 +468,7 @@ export default function MissionControlDashboard() {
       </div>
 
       {loading && <p className="sr-only" aria-live="polite">Dashboard data is loading</p>}
-      {loading && <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-container)]/40 px-4 py-3 text-sm text-on-surface-variant">Loading command signal…</div>}
+      {loading && <div className="rounded-2xl border border-[var(--color-card-border)] bg-[var(--color-surface-container)]/40 px-4 py-3 text-sm text-on-surface-variant">Loading command signal…</div>}
     </div>
   )
 }

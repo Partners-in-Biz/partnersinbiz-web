@@ -70,6 +70,11 @@ describe('Mission control dashboard', () => {
     expect(screen.getByText('Approve the launch post')).toBeInTheDocument()
     expect(screen.getByText('Theo completed QA handoff')).toBeInTheDocument()
     expect(screen.getByText(/1 active task/i)).toBeInTheDocument()
+
+    const orgCard = screen.getByText('Acme Co').closest('a')
+    expect(orgCard).toHaveClass('pib-card')
+    expect(orgCard).toHaveClass('pib-card-hover')
+    expect(orgCard?.className).not.toContain('--color-border')
   })
 
   it('renders the motion layer as an accessible CSS/SVG progressive enhancement without a WebGL dependency', async () => {
