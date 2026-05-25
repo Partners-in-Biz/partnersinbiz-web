@@ -839,7 +839,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
               <div className="mt-3 rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-card)] p-3 space-y-2">
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-[9px] font-label uppercase tracking-widest text-on-surface-variant">Scheduled release</p>
-                  {task.agentReleaseStatus === 'scheduled' && task.agentReleaseAt && (
+                  {task.agentReleaseStatus === 'scheduled' && Boolean(task.agentReleaseAt) && (
                     <span className="rounded bg-purple-500/15 px-2 py-0.5 text-[9px] font-label uppercase tracking-wide text-purple-300">
                       Backlogged
                     </span>
@@ -854,7 +854,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
                 <p className="text-[10px] leading-snug text-on-surface-variant">
                   Set a future date/time to keep this agent task out of watcher pickup until release. Dependencies and approval gates still apply when it is released.
                 </p>
-                {task.agentReleaseStatus === 'scheduled' && task.agentReleaseAt && (
+                {task.agentReleaseStatus === 'scheduled' && Boolean(task.agentReleaseAt) && (
                   <p className="text-[10px] leading-snug text-purple-300/90">
                     Visible on board as scheduled for {formatTaskDateTime(task.agentReleaseAt)}.
                   </p>
