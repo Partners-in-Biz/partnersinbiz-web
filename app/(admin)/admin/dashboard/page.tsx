@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
 
 type OrgSummary = {
   id: string
@@ -320,7 +321,7 @@ export default function MissionControlDashboard() {
       try {
         const [orgsResult, tasksResult, approvalsResult, activityResult, healthResult] = await Promise.allSettled([
           fetchJson('/api/v1/organizations'),
-          fetchJson('/api/v1/admin/agent-tasks?assigneeAgentId=theo'),
+          fetchJson(`/api/v1/admin/agent-tasks?orgId=${encodeURIComponent(PIB_PLATFORM_ORG_ID)}&assigneeAgentId=theo`),
           fetchJson('/api/v1/social/posts/pending?limit=12'),
           fetchJson('/api/v1/dashboard/activity?limit=12'),
           fetchJson('/api/v1/health'),

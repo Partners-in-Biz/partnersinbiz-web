@@ -24,7 +24,7 @@ describe('Mission control dashboard', () => {
           ] }),
         } as Response)
       }
-      if (url === '/api/v1/admin/agent-tasks?assigneeAgentId=theo') {
+      if (url === '/api/v1/admin/agent-tasks?orgId=pib-platform-owner&assigneeAgentId=theo') {
         return Promise.resolve({
           ok: true,
           json: async () => ({ data: { cards: [
@@ -90,7 +90,7 @@ describe('Mission control dashboard', () => {
           ] }),
         } as Response)
       }
-      if (url === '/api/v1/admin/agent-tasks?assigneeAgentId=theo') {
+      if (url === '/api/v1/admin/agent-tasks?orgId=pib-platform-owner&assigneeAgentId=theo') {
         return Promise.resolve({ ok: true, json: async () => ({ data: { cards: [
           { id: 'task-1', orgId: 'org-1', title: 'Build campaign', assigneeAgentId: 'theo', agentStatus: 'in-progress', href: '/admin/org/acme/projects/proj?task=task-1' },
           { id: 'task-2', orgId: 'org-2', title: 'Blocked handoff', assigneeAgentId: 'theo', agentStatus: 'blocked', href: '/admin/org/beta/projects/proj?task=task-2' },
