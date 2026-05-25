@@ -97,12 +97,13 @@ describe('POST /api/v1/organizations', () => {
     })
   })
 
-  it('creates an org and returns 201', async () => {
+  it('creates an org and returns 201 without seeding AI/API-key users into the team', async () => {
     const res = await POST(adminReq('POST', { name: 'Velox', description: 'Test org' }))
     expect(res.status).toBe(201)
     const body = await res.json()
     expect(body.success).toBe(true)
     expect(body.data.id).toBe('new-org-id')
+    expect(mockAdd).toHaveBeenCalledWith(expect.objectContaining({ members: [] }))
   })
 
   it('requests full VPS client provisioning by default for client orgs', async () => {
@@ -290,6 +291,9 @@ describe('POST /api/v1/organizations/[id]/members', () => {
   const mockUpdate = jest.fn()
   const mockUserQueryGet = jest.fn()
   const mockUserWhere = jest.fn()
+  const mockUserDoc = jest.fn()
+  const mockUserSet = jest.fn()
+  const mockOrgMemberSet = jest.fn()
 
   beforeEach(() => {
     jest.clearAllMocks()
@@ -309,9 +313,16 @@ describe('POST /api/v1/organizations/[id]/members', () => {
       docs: [{ id: 'new-user', data: () => ({ displayName: 'New User', email: 'new@example.com', photoURL: null }) }],
     })
     mockUserWhere.mockReturnValue({ get: mockUserQueryGet })
+    mockUserSet.mockResolvedValue(undefined)
+    mockOrgMemberSet.mockResolvedValue(undefined)
+    mockUserDoc.mockReturnValue({
+      get: jest.fn().mockResolvedValue({ exists: true, data: () => ({}) }),
+      set: mockUserSet,
+    })
     mockCollection.mockImplementation((collName: string) => {
       if (collName === 'organizations') return { doc: mockDoc }
-      if (collName === 'users') return { where: mockUserWhere }
+      if (collName === 'users') return { where: mockUserWhere, doc: mockUserDoc }
+      if (collName === 'orgMembers') return { doc: jest.fn().mockReturnValue({ set: mockOrgMemberSet }) }
       throw new Error(`Unexpected collection: ${collName}`)
     })
   })
@@ -520,6 +531,7 @@ describe('POST /api/v1/organizations/[id]/create-login', () => {
   const mockOrgDoc = jest.fn()
   const mockUserSet = jest.fn()
   const mockUserDoc = jest.fn()
+  const mockOrgMemberSet = jest.fn()
 
   beforeEach(() => {
     jest.clearAllMocks()
@@ -537,6 +549,7 @@ describe('POST /api/v1/organizations/[id]/create-login', () => {
     mockOrgUpdate.mockResolvedValue(undefined)
     mockOrgDoc.mockReturnValue({ get: mockOrgGet, update: mockOrgUpdate })
     mockUserSet.mockResolvedValue(undefined)
+    mockOrgMemberSet.mockResolvedValue(undefined)
     mockUserDoc.mockReturnValue({ set: mockUserSet, get: jest.fn().mockResolvedValue({ exists: false, data: () => undefined }) })
 
     ;(adminAuth.getUserByEmail as jest.Mock).mockRejectedValue({ code: 'auth/user-not-found' })
@@ -546,6 +559,7 @@ describe('POST /api/v1/organizations/[id]/create-login', () => {
     mockCollection.mockImplementation((collName: string) => {
       if (collName === 'organizations') return { doc: mockOrgDoc }
       if (collName === 'users') return { doc: mockUserDoc }
+      if (collName === 'orgMembers') return { doc: jest.fn().mockReturnValue({ set: mockOrgMemberSet }) }
       throw new Error(`Unexpected collection: ${collName}`)
     })
   })
@@ -670,6 +684,31 @@ describe('DELETE /api/v1/organizations/[id]/members/[userId]', () => {
       }),
       { merge: true },
     )
+    expect(mockMemberDelete).toHaveBeenCalled()
+  })
+
+  it('allows removing the historical ai-agent owner even when it is the last owner', async () => {
+    mockOrgGet.mockResolvedValue({
+      exists: true,
+      id: 'org-1',
+      data: () => ({
+        name: 'Lumen', slug: 'lumen', active: true,
+        members: [{ userId: 'ai-agent', role: 'owner' }],
+        description: '', logoUrl: '', website: '', createdBy: 'ai-agent', linkedClientId: '',
+      }),
+    })
+    mockUserGet.mockResolvedValue({ exists: false })
+
+    const res = await removeMember(
+      adminReq('DELETE'),
+      { params: Promise.resolve({ id: 'org-1', userId: 'ai-agent' }) } as any,
+    )
+
+    expect(res.status).toBe(200)
+    expect(mockOrgUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      members: [],
+      updatedAt: expect.anything(),
+    }))
     expect(mockMemberDelete).toHaveBeenCalled()
   })
 
