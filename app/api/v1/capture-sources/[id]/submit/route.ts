@@ -57,6 +57,15 @@ function sanitiseKeyPart(s: string): string {
   return (s || 'unknown').replace(/[^a-zA-Z0-9:.\-_@]/g, '_').slice(0, 120)
 }
 
+function turnstileConfigured(source: CaptureSource): boolean {
+  return (
+    source.turnstileEnabled === true &&
+    typeof source.turnstileSiteKey === 'string' &&
+    source.turnstileSiteKey.trim().length > 0 &&
+    Boolean(process.env.TURNSTILE_SECRET_KEY)
+  )
+}
+
 /**
  * Atomically increment-and-check a Firestore-backed counter for a deterministic
  * bucket id. Returns true if the caller is still under `max`, false if the
@@ -311,8 +320,11 @@ export async function POST(req: NextRequest, context: Params) {
     )
   }
 
-  // 2e. Turnstile CAPTCHA — when enabled, require a valid token.
-  if (source.turnstileEnabled) {
+  // 2e. Turnstile CAPTCHA — optional and only active when fully configured.
+  // Required config: source.turnstileEnabled, per-source site key, and the
+  // server-side TURNSTILE_SECRET_KEY. Missing config leaves Turnstile off so
+  // half-configured sources do not block legitimate submissions.
+  if (turnstileConfigured(source)) {
     const token =
       (typeof body.turnstileToken === 'string' && body.turnstileToken) ||
       (typeof body['cf-turnstile-response'] === 'string' &&

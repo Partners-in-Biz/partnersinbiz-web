@@ -58,6 +58,15 @@ function escapeForJs(s: string): string {
     .replace(/<\//g, '<\\/')
 }
 
+function turnstileConfigured(source: CaptureSource): boolean {
+  return (
+    source.turnstileEnabled === true &&
+    typeof source.turnstileSiteKey === 'string' &&
+    source.turnstileSiteKey.trim().length > 0 &&
+    Boolean(process.env.TURNSTILE_SECRET_KEY)
+  )
+}
+
 export async function GET(req: NextRequest, context: Params) {
   const { sourceId } = await context.params
 
@@ -75,6 +84,7 @@ export async function GET(req: NextRequest, context: Params) {
     )
   }
 
+  const isTurnstileConfigured = turnstileConfigured(source)
   const publicConfig = {
     id: source.id,
     name: source.name,
@@ -83,8 +93,8 @@ export async function GET(req: NextRequest, context: Params) {
     successRedirectUrl: source.successRedirectUrl ?? '',
     doubleOptIn: source.doubleOptIn,
     widgetTheme: source.widgetTheme,
-    turnstileEnabled: source.turnstileEnabled === true && Boolean(source.turnstileSiteKey),
-    turnstileSiteKey: source.turnstileEnabled ? (source.turnstileSiteKey ?? '') : '',
+    turnstileEnabled: isTurnstileConfigured,
+    turnstileSiteKey: isTurnstileConfigured ? source.turnstileSiteKey : '',
     display: source.display ?? { mode: 'inline' },
   }
 

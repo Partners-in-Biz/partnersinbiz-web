@@ -100,6 +100,15 @@ function sanitiseKeyPart(s: string): string {
   return (s || 'unknown').replace(/[^a-zA-Z0-9:.\-_@]/g, '_').slice(0, 120)
 }
 
+function turnstileConfigured(source: CaptureSource): boolean {
+  return (
+    source.turnstileEnabled === true &&
+    typeof source.turnstileSiteKey === 'string' &&
+    source.turnstileSiteKey.trim().length > 0 &&
+    Boolean(process.env.TURNSTILE_SECRET_KEY)
+  )
+}
+
 async function checkAndIncrement(
   docId: string,
   max: number,
@@ -321,8 +330,8 @@ export async function POST(req: NextRequest, context: Params) {
     }
   }
 
-  // Final-step Turnstile check (only if Turnstile is enabled)
-  if (isLastStep && source.turnstileEnabled) {
+  // Final-step Turnstile check (only if Turnstile is fully configured)
+  if (isLastStep && turnstileConfigured(source)) {
     const token =
       (typeof body.turnstileToken === 'string' && body.turnstileToken) ||
       (typeof body['cf-turnstile-response'] === 'string' &&
