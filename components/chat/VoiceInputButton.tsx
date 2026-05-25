@@ -162,9 +162,9 @@ export default function VoiceInputButton({
       typeof clientY === 'number' &&
       startY - clientY >= LOCK_SWIPE_DISTANCE_PX
     const swipedByMovement = pointerMoveDeltaYRef.current <= -LOCK_SWIPE_DISTANCE_PX
-    const clickToLock = pointerType === 'mouse'
+    const tapToLock = pointerType === 'mouse' || pointerType === 'touch' || pointerType === 'pen'
     const swipedToLock =
-      (clickToLock || swipedByPosition || swipedByMovement) &&
+      (tapToLock || swipedByPosition || swipedByMovement) &&
       (typeof pointerId !== 'number' || activePointerIdRef.current === null || activePointerIdRef.current === pointerId)
 
     if (!listening || lockedRef.current || swipedToLock) {
@@ -177,13 +177,14 @@ export default function VoiceInputButton({
   const isDisabled = disabled || !supported
   const title = !supported
     ? 'Voice input is not supported in this browser'
-    : error ?? (locked ? 'Voice recording locked — click to stop' : listening ? 'Swipe up to lock or release to add voice text' : 'Click to record, or hold to dictate')
-  const ariaLabel = locked ? 'Stop voice recording' : listening ? 'Release to add voice text or swipe up to lock' : 'Click to record or hold to dictate'
+    : error ?? (locked ? 'Voice recording locked — tap to stop' : listening ? 'Release to lock voice recording' : 'Tap to start voice recording')
+  const ariaLabel = locked ? 'Stop voice recording' : listening ? 'Release to lock voice recording' : 'Tap to start voice recording'
 
   return (
     <button
       type="button"
       disabled={isDisabled}
+      draggable={false}
       title={title}
       aria-label={ariaLabel}
       aria-pressed={listening}
@@ -208,11 +209,12 @@ export default function VoiceInputButton({
         handlePointerRelease(event.pointerId, event.clientY, event.pointerType)
       }}
       onPointerCancel={(event) => handlePointerRelease(event.pointerId, event.clientY, event.pointerType)}
+      onContextMenu={(event) => event.preventDefault()}
       onPointerLeave={() => {
         if (listening && !locked) stopListening()
       }}
       className={[
-        'relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-on-surface-variant transition-colors',
+        'relative flex h-9 w-9 shrink-0 touch-none select-none items-center justify-center rounded-full text-on-surface-variant transition-colors',
         listening
           ? 'bg-primary text-on-primary shadow-[0_0_0_4px_rgba(245,158,11,0.16)]'
           : 'hover:bg-white/[0.08] hover:text-on-surface',
@@ -225,10 +227,10 @@ export default function VoiceInputButton({
       )}
       {listening && (
         <span className="absolute bottom-full mb-2 whitespace-nowrap rounded-full bg-[var(--color-surface,#1c1c1c)] px-2 py-1 text-[11px] font-medium text-on-surface shadow-lg">
-          {locked ? 'Locked — tap to stop' : 'Swipe up to lock'}
+          {locked ? 'Locked — tap to stop' : 'Release to lock'}
         </span>
       )}
-      <span className="material-symbols-outlined relative text-[20px]">
+      <span className="material-symbols-outlined relative select-none text-[20px]" aria-hidden="true">
         {listening ? (locked ? 'lock' : 'mic') : 'mic_none'}
       </span>
     </button>
