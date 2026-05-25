@@ -17,6 +17,18 @@ interface Project { id: string; orgId?: string; name: string; description?: stri
 interface CurrentUser { uid: string; displayName: string }
 type TaskListSort = 'latest' | 'due'
 
+function upsertTaskById(existingTasks: Task[], task: Task) {
+  const existingIndex = existingTasks.findIndex(existingTask => existingTask.id === task.id)
+  const withoutTask = existingTasks.filter(existingTask => existingTask.id !== task.id)
+  if (existingIndex < 0) return [...withoutTask, task]
+  const insertIndex = Math.min(existingIndex, withoutTask.length)
+  return [
+    ...withoutTask.slice(0, insertIndex),
+    task,
+    ...withoutTask.slice(insertIndex),
+  ]
+}
+
 function mergeLiveTasks(restTasks: Task[], currentTasks: Task[]) {
   const merged = new Map<string, Task>()
   restTasks.forEach(task => merged.set(task.id, task))
@@ -154,15 +166,7 @@ export default function ProjectDetailPage() {
         snap.docChanges().forEach(change => {
           const taskData = { id: change.doc.id, ...change.doc.data() } as Task
           if (change.type === 'added' || change.type === 'modified') {
-            setTasks(prev => {
-              const idx = prev.findIndex(t => t.id === taskData.id)
-              if (idx >= 0) {
-                const next = [...prev]
-                next[idx] = taskData
-                return next
-              }
-              return [...prev, taskData]
-            })
+            setTasks(prev => upsertTaskById(prev, taskData))
             setSelectedTask(prev => prev?.id === taskData.id ? taskData : prev)
           }
           if (change.type === 'removed') {
@@ -202,8 +206,13 @@ export default function ProjectDetailPage() {
     if (!deepLinkedTaskId) return
     const task = tasks.find(t => t.id === deepLinkedTaskId)
     if (!task) return
-    setActiveTab('kanban')
-    setSelectedTask(task)
+    let cancelled = false
+    queueMicrotask(() => {
+      if (cancelled) return
+      setActiveTab('kanban')
+      setSelectedTask(task)
+    })
+    return () => { cancelled = true }
   }, [deepLinkedTaskId, tasks])
 
   useEffect(() => {
@@ -304,7 +313,7 @@ export default function ProjectDetailPage() {
   }
 
   function handleTaskCreated(task: Task) {
-    setTasks(prev => [...prev, task])
+    setTasks(prev => upsertTaskById(prev, task))
   }
 
   const columns = project?.columns?.length ? project.columns : DEFAULT_COLUMNS
