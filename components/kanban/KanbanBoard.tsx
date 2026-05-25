@@ -192,6 +192,12 @@ function TaskCard({
           <p className="mt-1 opacity-90"><span className="font-semibold">Unblock:</span> {blockerRecovery.whoCanUnblock}</p>
         </div>
       )}
+      {releaseLabel && (
+        <div className="mt-2 flex items-center gap-1.5 rounded border border-purple-500/25 bg-purple-500/10 px-2 py-1.5 text-[10px] leading-snug text-purple-200">
+          <span className="material-symbols-outlined text-[13px]">schedule</span>
+          <span><span className="font-semibold">Scheduled release:</span> {releaseLabel}</span>
+        </div>
+      )}
       <div className="flex items-center gap-2 flex-wrap mt-2">
         <span
           className="text-[9px] font-label uppercase tracking-wide px-1.5 py-0.5 rounded"

@@ -9,11 +9,11 @@ import type { AgentId, AgentMember, Attachment, ChecklistItem, Task, TeamMember 
 interface Comment {
   id?: string
   text: string
-  userId: string
-  userName: string
-  userRole: 'admin' | 'client' | 'ai'
-  createdAt: { _seconds: number; _nanoseconds: number }
-  agentPickedUp: boolean
+  userId?: string
+  userName?: string
+  userRole?: 'admin' | 'client' | 'ai' | string
+  createdAt?: { _seconds?: number; _nanoseconds?: number } | string | null
+  agentPickedUp?: boolean
   agentPickedUpAt?: unknown
 }
 
@@ -502,7 +502,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
     return type.startsWith('video/') || ['mp4', 'mov', 'webm'].some(ext => url.endsWith(ext))
   }
 
-  function getCommentAvatarColor(role: 'admin' | 'client' | 'ai'): string {
+  function getCommentAvatarColor(role?: string): string {
     switch (role) {
       case 'admin':
         return 'var(--color-accent-v2)'
@@ -514,25 +514,41 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
     }
   }
 
-  function formatTimestamp(createdAt: { _seconds: number; _nanoseconds: number }): string {
+  function formatTimestamp(createdAt?: { _seconds?: number; _nanoseconds?: number } | string | null): string {
     try {
-      const date = new Date(createdAt._seconds * 1000)
+      const date = typeof createdAt === 'string'
+        ? new Date(createdAt)
+        : typeof createdAt?._seconds === 'number'
+          ? new Date(createdAt._seconds * 1000)
+          : null
+      if (!date || !Number.isFinite(date.getTime())) return ''
       return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     } catch {
       return ''
     }
   }
 
-  function getRoleLabel(role: 'admin' | 'client' | 'ai'): string {
+  function getRoleLabel(role?: string): string {
     switch (role) {
       case 'admin':
         return 'Admin'
       case 'ai':
         return 'AI'
       case 'client':
-      default:
         return 'Client'
+      case 'system':
+        return 'System'
+      default:
+        return 'Comment'
     }
+  }
+
+  function getCommentAuthor(comment: Comment): string {
+    return comment.userName?.trim() || comment.userId?.trim() || getRoleLabel(comment.userRole)
+  }
+
+  function getCommentInitial(comment: Comment): string {
+    return getCommentAuthor(comment).charAt(0).toUpperCase() || '?'
   }
 
   const priorityColor = PRIORITY_COLORS[task.priority ?? 'medium'] ?? PRIORITY_COLORS.medium
@@ -1227,11 +1243,11 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
                         className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white"
                         style={{ background: getCommentAvatarColor(comment.userRole) }}
                       >
-                        {comment.userName.charAt(0).toUpperCase()}
+                        {getCommentInitial(comment)}
                       </div>
 
                       {/* Name and role */}
-                      <span className="text-on-surface font-medium">{comment.userName}</span>
+                      <span className="text-on-surface font-medium">{getCommentAuthor(comment)}</span>
                       <span
                         className="text-[9px] font-label uppercase tracking-wide px-1.5 py-0.5 rounded"
                         style={{

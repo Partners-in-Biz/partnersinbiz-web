@@ -581,7 +581,7 @@ async function contactsWhoClickedLinkUrl(
   if (!urlSubstring) return []
   const needle = urlSubstring.toLowerCase()
 
-  let linkIds: string[]
+  let linkIds: string[] = []
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const linksSnap: any = await adminDb
@@ -598,11 +598,13 @@ async function contactsWhoClickedLinkUrl(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .map((d: any) => d.id)
   } catch {
-    return []
+    // The top-level link_clicks rows carry targetUrl, so a missing/failed
+    // shortened_links lookup should not force a silent false negative.
+    linkIds = []
   }
-  if (linkIds.length === 0) return []
 
   const ids = new Set<string>()
+  const matchingLinkIds = new Set(linkIds)
   const cutoffMs =
     typeof withinDays === 'number' && withinDays > 0
       ? Date.now() - withinDays * DAY_MS

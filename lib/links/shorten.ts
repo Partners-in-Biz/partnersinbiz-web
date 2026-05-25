@@ -180,10 +180,24 @@ export async function trackClick(
       updatedAt: FieldValue.serverTimestamp(),
     })
 
-    // Write a link_click activity so the behavioral `link-url` segment scope
-    // can match contacts who clicked a specific URL. contactId is optional —
-    // it's only present when the link was created with a per-contact token.
+    // Write a top-level click event for behavioral segmentation. Keep this
+    // separate from the per-link subcollection so link-url segment preview can
+    // query all tracked clicks for an org without walking every link document.
     if (orgId) {
+      const clickedAt = FieldValue.serverTimestamp()
+      await adminDb.collection('link_clicks').add({
+        orgId,
+        contactId: opts?.contactId ?? '',
+        shortenedLinkId: linkId,
+        linkId,
+        targetUrl: opts?.destinationUrl ?? '',
+        clickedAt,
+        createdAt: clickedAt,
+        referrer,
+        userAgent,
+        ip,
+      })
+
       await adminDb.collection('activities').add({
         orgId,
         contactId: opts?.contactId ?? '',
