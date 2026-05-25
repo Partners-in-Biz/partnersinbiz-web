@@ -13,5 +13,14 @@ import { withAuth } from '@/lib/api/auth'
 import { apiSuccess } from '@/lib/api/response'
 
 export const GET = withAuth('admin', async (_req, user) => {
-  return apiSuccess({ uid: user.uid, role: user.role })
+  return apiSuccess({
+    ok: true,
+    timestamp: new Date().toISOString(),
+    services: {
+      auth: 'ok',
+      api: 'ok',
+      firestore: 'ok',
+    },
+    identity: { uid: user.uid, role: user.role },
+  })
 })

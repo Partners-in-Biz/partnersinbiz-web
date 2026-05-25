@@ -87,6 +87,7 @@ function dataFrom<T>(body: unknown, fallback: T): T {
     const data = record.data as Record<string, unknown>
     if (Array.isArray(data.cards)) return data.cards as T
     if (Array.isArray(data.items)) return data.items as T
+    return data as T
   }
   if (Array.isArray(record.cards)) return record.cards as T
   return fallback
@@ -332,7 +333,7 @@ export default function MissionControlDashboard() {
         if (tasksResult.status === 'fulfilled') next.tasks = dataFrom<AgentTask[]>(tasksResult.value, [])
         if (approvalsResult.status === 'fulfilled') next.approvals = dataFrom<Approval[]>(approvalsResult.value, [])
         if (activityResult.status === 'fulfilled') next.activity = dataFrom<Activity[]>(activityResult.value, [])
-        if (healthResult.status === 'fulfilled') next.health = healthResult.value as Health
+        if (healthResult.status === 'fulfilled') next.health = dataFrom<Health>(healthResult.value, healthResult.value as Health)
         if (healthResult.status === 'rejected') setHealthError(healthResult.reason instanceof Error ? healthResult.reason.message : 'Health unavailable')
 
         const failures = [orgsResult, tasksResult, approvalsResult, activityResult]

@@ -50,7 +50,7 @@ describe('Mission control dashboard', () => {
         } as Response)
       }
       if (url === '/api/v1/health') {
-        return Promise.resolve({ ok: true, json: async () => ({ ok: true, services: { firestore: 'ok', auth: 'ok', storage: 'ok' } }) } as Response)
+        return Promise.resolve({ ok: true, json: async () => ({ success: true, data: { ok: true, services: { firestore: 'ok', auth: 'ok', storage: 'ok' } } }) } as Response)
       }
       return Promise.resolve({ ok: true, json: async () => ({ data: [] }) } as Response)
     }) as jest.Mock
@@ -101,7 +101,7 @@ describe('Mission control dashboard', () => {
         ] }) } as Response)
       }
       if (url === '/api/v1/health') {
-        return Promise.resolve({ ok: true, json: async () => ({ ok: true, services: { firestore: 'ok' } }) } as Response)
+        return Promise.resolve({ ok: true, json: async () => ({ success: true, data: { ok: true, services: { firestore: 'ok' } } }) } as Response)
       }
       return Promise.resolve({ ok: true, json: async () => ({ data: [] }) } as Response)
     }) as jest.Mock
