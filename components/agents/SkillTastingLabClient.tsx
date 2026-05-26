@@ -304,7 +304,7 @@ export default function SkillTastingLabClient() {
           <p className="mb-1 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Platform / Agents</p>
           <h1 className="text-2xl font-headline font-bold text-on-surface">Skill Tasting Lab</h1>
           <p className="mt-1 max-w-3xl text-sm text-on-surface-variant">
-            Select an agent, select one allowlisted skill, run a sandbox tasting conversation, then turn weak behaviour into a skill-improvement task. No live publishing, sends, spend, billing, destructive work, secrets, or production deploys from here.
+            Select an agent, select one allowlisted skill, run a sandbox tasting conversation, then turn weak behaviour into a routed skill-improvement task. The lab does not edit skills directly; it captures evidence for Pip/the owning agent to review and patch safely. No live publishing, sends, spend, billing, destructive work, secrets, or production deploys from here.
           </p>
         </div>
         <Link href="/admin/agents" className="pib-btn-secondary inline-flex items-center gap-1 text-sm">
@@ -406,7 +406,7 @@ export default function SkillTastingLabClient() {
       <section className="pib-card space-y-4 p-5">
         <div>
           <h2 className="text-sm font-semibold text-on-surface">Review outcome</h2>
-          <p className="mt-1 text-xs text-on-surface-variant">Use this after reading the transcript. Weak or stale behaviour becomes a Pip routing task with the transcript linked.</p>
+          <p className="mt-1 text-xs text-on-surface-variant">Use this after reading the transcript. If the agent produced “Skill improvement notes”, paste them below. Creating the follow-up does not edit the skill immediately; it creates a Pip routing task with the transcript, notes, and safety gates linked.</p>
         </div>
         <div className="grid gap-3 lg:grid-cols-[220px_minmax(0,1fr)_auto] lg:items-end">
           <label className="space-y-1.5">
@@ -417,7 +417,7 @@ export default function SkillTastingLabClient() {
           </label>
           <label className="space-y-1.5">
             <span className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant">Notes</span>
-            <textarea className="pib-input min-h-20 w-full resize-y text-sm" value={reviewNotes} onChange={(e) => setReviewNotes(e.target.value)} placeholder="What felt wrong, stale, unsafe, or off-brand?" />
+            <textarea className="pib-input min-h-20 w-full resize-y text-sm" value={reviewNotes} onChange={(e) => setReviewNotes(e.target.value)} placeholder="Paste the agent’s Skill improvement notes, plus what felt wrong, stale, unsafe, or off-brand." />
           </label>
           <button type="button" className="pib-btn-secondary whitespace-nowrap text-sm" onClick={createImprovementTask} disabled={!labRun || taskCreating}>
             {taskCreating ? 'Creating…' : 'Create improvement task'}
