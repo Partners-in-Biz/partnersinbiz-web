@@ -591,6 +591,46 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
           </div>
         )}
 
+        {/* Workspace switcher — compact, near the top like the admin context. */}
+        {orgs.length > 1 && (
+          <div className="border-b border-[var(--color-pib-line)] shrink-0">
+            {collapsed ? (
+              <button
+                type="button"
+                onClick={toggleCollapsed}
+                title={`Workspace: ${orgName || 'Current workspace'}`}
+                className="mx-2 my-2 w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-bold transition-colors bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent-hover)] ring-1 ring-[var(--color-pib-accent)]/30"
+              >
+                {(orgName || orgs.find(org => org.id === activeOrgId)?.name || 'W')[0]?.toUpperCase() ?? 'W'}
+              </button>
+            ) : (
+              <div className="px-3 py-3">
+                <label htmlFor="portal-workspace-switcher" className="eyebrow !text-[10px] px-1 mb-2 block">
+                  Workspace
+                </label>
+                <div className="relative">
+                  <select
+                    id="portal-workspace-switcher"
+                    value={activeOrgId}
+                    onChange={(event) => handleOrgSwitch(event.target.value)}
+                    disabled={orgSwitching}
+                    className="w-full appearance-none rounded-lg border border-[var(--color-pib-line)] bg-white/[0.02] px-3 py-2 pr-9 text-sm text-[var(--color-pib-text)] outline-none transition-colors hover:bg-white/[0.04] focus:border-[var(--color-pib-accent)] disabled:opacity-60"
+                  >
+                    {orgs.map(org => (
+                      <option key={org.id} value={org.id}>
+                        {org.name}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="pointer-events-none material-symbols-outlined absolute right-2.5 top-1/2 -translate-y-1/2 text-[18px] text-[var(--color-pib-text-muted)]">
+                    expand_more
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Nav — settings mode replaces normal nav */}
         {pathname.startsWith('/portal/settings') ? (
           <SettingsNav
@@ -612,62 +652,6 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
                 ))
             }
           </nav>
-        )}
-
-        {/* Org switcher — only when client belongs to multiple workspaces */}
-        {orgs.length > 1 && (
-          <div className="border-t border-[var(--color-pib-line)] shrink-0">
-            {collapsed ? (
-              <div className="flex flex-col items-center gap-1 py-2 px-2">
-                {orgs.map(org => (
-                  <button
-                    key={org.id}
-                    onClick={() => handleOrgSwitch(org.id)}
-                    disabled={orgSwitching}
-                    title={org.name}
-                    className={[
-                      'w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-bold transition-colors',
-                      org.id === activeOrgId
-                        ? 'bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent-hover)] ring-1 ring-[var(--color-pib-accent)]/40'
-                        : 'text-[var(--color-pib-text-muted)] hover:bg-white/[0.06]',
-                    ].join(' ')}
-                  >
-                    {org.name[0]?.toUpperCase() ?? '·'}
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <div className="px-3 py-3">
-                <p className="eyebrow !text-[10px] px-1 mb-2">Workspace</p>
-                <div className="space-y-0.5">
-                  {orgs.map(org => (
-                    <button
-                      key={org.id}
-                      onClick={() => handleOrgSwitch(org.id)}
-                      disabled={orgSwitching}
-                      className={[
-                        'w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors text-left',
-                        org.id === activeOrgId
-                          ? 'bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent-hover)]'
-                          : 'text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.04]',
-                      ].join(' ')}
-                    >
-                      <span className={[
-                        'w-5 h-5 rounded flex items-center justify-center text-[10px] font-bold shrink-0',
-                        org.id === activeOrgId ? 'bg-[var(--color-pib-accent)]/20' : 'bg-[var(--color-pib-line-strong)]',
-                      ].join(' ')}>
-                        {org.name[0]?.toUpperCase() ?? '·'}
-                      </span>
-                      <span className="flex-1 truncate text-[13px]">{org.name}</span>
-                      {org.id === activeOrgId && (
-                        <span className="material-symbols-outlined text-[14px] text-[var(--color-pib-accent)]">check_circle</span>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
         )}
 
         {/* User chip */}
