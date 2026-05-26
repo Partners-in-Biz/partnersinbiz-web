@@ -51,7 +51,14 @@ function makeCollection(store: Doc[]): CollectionMock {
     add: jest.fn(async (data: Record<string, unknown>) => {
       const id = `auto-${store.length + 1}`
       store.push({ id, data })
-      return { id, get: jest.fn(async () => makeDoc(id, data, store)) }
+      return {
+        id,
+        get: jest.fn(async () => makeDoc(id, data, store)),
+        update: jest.fn(async (patch: Record<string, unknown>) => {
+          const item = store.find((entry) => entry.id === id)
+          if (item) item.data = { ...item.data, ...patch }
+        }),
+      }
     }),
     where: jest.fn(function (field: string, _op: string, value: unknown) {
       return makeCollection(store.filter((entry) => entry.data[field] === value))
