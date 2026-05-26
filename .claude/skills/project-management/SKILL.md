@@ -35,6 +35,19 @@ Authorization: Bearer <AI_API_KEY>
 
 Pick the system that fits: use project-nested when a project is the clear container; use standalone for personal todos or deal-linked tasks.
 
+## PiB-owned project recipient model
+
+Projects can be source/recipient records just like invoices:
+
+- `orgId`, `sourceOrgId`, and `issuerOrgId` are the sender/source workspace. For Partners in Biz-created client work, this is the resolved platform owner org (`pib-platform-owner`).
+- `recipientOrgId` and `targetOrgId` are the client organization that receives/collaborates on the project.
+- `clientOrgId` remains populated with the recipient org for compatibility with existing project, time, and report surfaces.
+- `companyId` / `sourceCompanyId` point to the sender-owned CRM Company. For PiB client projects this should be the platform CRM Company with `linkedOrgId=<clientOrgId>`.
+- `contactId` / `sourceContactId` point to the sender-owned CRM Contact when the project is shared with a specific contact.
+- `claimStatus`, `claimToken`, and `claimableRelationshipId` appear when a project is shared to a CRM recipient that has not joined or claimed yet.
+
+Client-created project requests remain client-originated until PiB accepts/converts them into PiB-sourced work. Client portal project screens must use `GET /projects?view=received`; do not attach unscoped Firestore listeners to the top-level `projects` collection.
+
 ## Project-context routing guard
 
 When a chat, task, or user message originates inside a specific project, that project is the authoritative destination for lists, new tasks, docs, comments, and status updates. Do not reuse a previously mentioned project from another conversation or nearby browser context.
@@ -111,7 +124,11 @@ marked `blocked`. The agent remains responsible for writing a useful blocker rea
 ### Projects
 
 #### `GET /projects` — auth: admin
-Filters: `orgId`, `status` (`active`|`completed`|`on_hold`|`cancelled`), `clientOrgId`, `page`, `limit`.
+Filters: `orgId`, `status` (`active`|`completed`|`on_hold`|`cancelled`), `clientOrgId`, `page`, `limit`, `view`.
+
+- Default/sent view filters by source `orgId`.
+- `view=received` filters by `recipientOrgId` and compatible `clientOrgId` legacy rows.
+- `view=shared` lists claim-token/shared projects.
 
 #### `POST /projects` — auth: admin (idempotent)
 Body:
@@ -121,7 +138,10 @@ Body:
   "name": "Q2 Marketing Campaign",
   "description": "Launch new product line...",
   "brief": "# Background\n...\n## Goals\n...",
+  "recipientOrgId": "org_client",
   "clientOrgId": "org_client",
+  "companyId": "crm_company_id",
+  "contactId": "crm_contact_id",
   "status": "active",
   "startAt": "2026-04-01",
   "endAt": "2026-06-30",
@@ -129,6 +149,8 @@ Body:
   "tags": ["campaign", "q2"]
 }
 ```
+
+For PiB/admin-created client projects, the request `orgId` is the client/recipient org; the API resolves the platform owner as `sourceOrgId` and stores the client in `recipientOrgId`/`targetOrgId`/`clientOrgId`. For CRM-targeted project sharing, pass `companyId`/`contactId` and optional `recipientOrgId`; a Company `linkedOrgId` is reused when already present.
 
 Response (201): `{ id }`.
 
@@ -391,6 +413,19 @@ POST /projects/proj_xyz/docs
 # Break down into tasks
 POST /projects/proj_xyz/tasks
 { "title": "Creative brief", "priority": "high", "dueDate": "2026-04-18", "assignedTo": "uid_creative" }
+```
+
+### 1b. Create a PiB-sourced client project
+
+```bash
+# Admin/AI creates this while managing the client org. PiB becomes source/issuer;
+# the client becomes recipient/clientOrgId.
+POST /projects
+{ "orgId": "org_client", "name": "Website launch", "brief": "# Goals...",
+  "companyId": "pib_platform_crm_company", "status": "active" }
+
+# Client portal list.
+GET /projects?view=received
 ```
 
 ### 2. Agent picks up a project

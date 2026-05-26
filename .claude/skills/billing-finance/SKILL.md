@@ -46,6 +46,18 @@ Two public endpoints:
 
 Required env vars for PayPal: `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, `PAYPAL_ENV` (`live` or `sandbox`), `PAYPAL_WEBHOOK_ID`, `PUBLIC_BASE_URL`.
 
+## PiB-owned billing model
+
+PiB-issued invoices and quotes are source/recipient records:
+
+- `orgId`, `sourceOrgId`, and `issuerOrgId` are the sender/source workspace. For Partners in Biz billing, this is the resolved platform owner org (`type === 'platform_owner'`, normally `pib-platform-owner`).
+- `billingOrgId` identifies the billing entity and is normally the same platform owner org for PiB-issued billing.
+- `recipientOrgId` and `targetOrgId` are the client organization that receives the invoice or quote.
+- `companyId` / `sourceCompanyId` point to the sender-owned CRM Company, normally the PiB platform CRM Company whose `linkedOrgId` is the client org.
+- `contactId` / `sourceContactId` point to the sender-owned CRM Contact when the invoice or quote targets a specific contact.
+
+Do not treat `allowedOrgIds` as client portal/CRM access. It scopes admin billing visibility only. Client users and explicit client members see received billing through `view=received`.
+
 ## Invoice status machine
 
 ```
@@ -73,7 +85,14 @@ Any status → `cancelled`. `partially_paid` exists as a state but is rarely use
 ### Invoices — CRUD
 
 #### `GET /invoices` — auth: admin
-List. `?orgId=X` filters by client org. `?billingOrgId=X` filters by the platform billing entity. Sorted `createdAt desc`, limit 50.
+List invoices. Supports source/recipient views.
+
+- Default/sent view: `?orgId=X` filters by sender/source org.
+- Received view: `?view=received&orgId=<clientOrgId>` filters by `recipientOrgId`.
+- Platform billing view: `?view=received&billingOrgId=pib-platform-owner` lists PiB-issued invoices by recipient client. Super admins see all; restricted admins see only invoices whose `recipientOrgId` is in explicit `allowedOrgIds`.
+- Shared view: `?view=shared` returns token/claim-backed rows without leaking unrelated org data.
+
+Sorted `createdAt desc`, limit 50.
 
 #### `POST /invoices` — auth: admin
 Required: `orgId` (client org), `lineItems: [{ description, quantity, unitPrice }]`.
@@ -81,7 +100,10 @@ Required: `orgId` (client org), `lineItems: [{ description, quantity, unitPrice 
 Body:
 ```json
 {
-  "orgId": "org_abc",
+  "orgId": "org_client",
+  "recipientOrgId": "org_client",
+  "companyId": "crm_company_id",
+  "contactId": "crm_contact_id",
   "lineItems": [
     { "description": "Strategy session", "quantity": 2, "unitPrice": 2500 },
     { "description": "Implementation", "quantity": 1, "unitPrice": 15000 }
@@ -93,11 +115,15 @@ Body:
 }
 ```
 
+For admin/AI PiB-issued invoices without CRM claim fields, `orgId` is the client/recipient org in the request; the API resolves the platform owner as `sourceOrgId` and writes `recipientOrgId=orgId`. For CRM-targeted invoices, pass `companyId`/`contactId` and optional `recipientOrgId`; if the Company already has `linkedOrgId`, the API reuses it.
+
 Auto-snapshots:
 - `fromDetails` from platform owner org (name, address, email, phone, vatNumber, bankingDetails)
 - `clientDetails` from client org (`billingDetails`, `billingEmail`)
 - Sequential `invoiceNumber` like `CLI-001` via `generateInvoiceNumber`
 - `billingOrgId` — identifies the platform org issuing the invoice. Defaults to the `platform_owner` org. Override via `body.billingOrgId` when a workspace runs multiple billing entities. Reports use this to separate revenue per billing entity.
+- `recipientOrgId` / `targetOrgId` — client org when known.
+- `claimStatus` / `claimToken` — present when invoice is claimable from a CRM recipient.
 
 Auto-computes: `subtotal`, `taxAmount`, `total`. Defaults currency from client org `settings.currency` or `USD`.
 
@@ -434,6 +460,20 @@ GET /reports/revenue?orgId=org_abc&from=2026-01-01&to=2026-04-16&groupBy=month
 GET /reports/client-value?orgId=org_abc
 ```
 
+### 8. PiB platform billing views
+
+```bash
+# Partners in Biz admin billing page: PiB is sender, clients are recipients.
+GET /invoices?view=received&billingOrgId=pib-platform-owner
+
+# A specific client org's received invoice list.
+GET /invoices?view=received&orgId=org_client
+
+# Client portal billing tab.
+GET /invoices?view=received
+GET /quotes?view=received
+```
+
 ## Error reference
 
 | HTTP | Error | Fix |
@@ -455,3 +495,4 @@ GET /reports/client-value?orgId=org_abc
 5. **Idempotency on creates** — pass `Idempotency-Key: <uuid>` on `POST /invoices` and `POST /expenses`.
 6. **Webhooks** — subscribe to `invoice.paid`, `invoice.overdue`, `payment.received` (see `platform-ops`).
 7. **Currency consistency** — check client org `settings.currency`; default to `ZAR` for SA clients.
+8. **PiB-issued resources** — keep PiB as source/issuer and clients as recipients. For Partners in Biz billing pages, query received invoices by `billingOrgId=pib-platform-owner`, not `orgId=pib-platform-owner`.
