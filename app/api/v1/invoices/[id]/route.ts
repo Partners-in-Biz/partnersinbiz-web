@@ -1,8 +1,7 @@
-import { NextRequest } from 'next/server'
 import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
-import { apiSuccess, apiError } from '@/lib/api/response'
+import { apiSuccess } from '@/lib/api/response'
 import { notifyInvoiceSent } from '@/lib/notifications/notify'
 import { logActivity } from '@/lib/activity/log'
 import { tryAttributeInvoicePaid } from '@/lib/email-analytics/attribution-hooks'
@@ -12,7 +11,7 @@ export const dynamic = 'force-dynamic'
 
 type RouteContext = { params: Promise<{ id: string }> }
 
-export const GET = withAuth('admin', async (req, user, ctx) => {
+export const GET = withAuth('client', async (_req, user, ctx) => {
   const { id } = await (ctx as RouteContext).params
   const access = await requireInvoiceAccess(user, id)
   if (!access.ok) return access.response
@@ -21,20 +20,25 @@ export const GET = withAuth('admin', async (req, user, ctx) => {
 
 export const PATCH = withAuth('admin', async (req, user, ctx) => {
   const { id } = await (ctx as RouteContext).params
-  const body = await req.json().catch(() => ({}))
+  const body = (await req.json().catch(() => ({}))) as Record<string, unknown>
   const access = await requireInvoiceAccess(user, id)
   if (!access.ok) return access.response
   const ref = access.ref
   const doc = access.snap
 
   // Recalculate totals if line items changed
-  let updates: Record<string, any> = { ...body, updatedAt: FieldValue.serverTimestamp() }
-  if (body.lineItems) {
-    const lineItems = body.lineItems.map((item: any) => ({
-      ...item,
-      amount: Number(item.quantity) * Number(item.unitPrice),
-    }))
-    const subtotal = lineItems.reduce((sum: number, item: any) => sum + item.amount, 0)
+  let updates: Record<string, unknown> = { ...body, updatedAt: FieldValue.serverTimestamp() }
+  if (Array.isArray(body.lineItems)) {
+    const lineItems = body.lineItems.map((item) => {
+      const source = item && typeof item === 'object' ? item as Record<string, unknown> : {}
+      const quantity = Number(source.quantity)
+      const unitPrice = Number(source.unitPrice)
+      return {
+        ...source,
+        amount: quantity * unitPrice,
+      }
+    })
+    const subtotal = lineItems.reduce((sum, item) => sum + item.amount, 0)
     const taxRate = Number(body.taxRate ?? doc.data()?.taxRate ?? 0)
     const taxAmount = subtotal * (taxRate / 100)
     updates = { ...updates, lineItems, subtotal, taxRate, taxAmount, total: subtotal + taxAmount }
