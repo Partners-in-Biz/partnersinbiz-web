@@ -65,13 +65,17 @@ export const GET = withAuth('admin', async (req, user) => {
   if (priority && VALID_TASK_PRIORITIES.includes(priority)) {
     query = query.where('priority', '==', priority)
   }
+  let assignedToFilter: TaskAssignee | null = null
   if (assignedToRaw) {
     const [type, ...rest] = assignedToRaw.split(':')
     const id = rest.join(':')
     if (VALID_ASSIGNEE_TYPES.includes(type as TaskAssignee['type']) && id) {
-      query = query
-        .where('assignedTo.type', '==', type)
-        .where('assignedTo.id', '==', id)
+      assignedToFilter = { type: type as TaskAssignee['type'], id }
+      if (assignedToFilter.type === 'user') {
+        query = query
+          .where('assignedTo.type', '==', assignedToFilter.type)
+          .where('assignedTo.id', '==', assignedToFilter.id)
+      }
     }
   }
   if (projectId) query = query.where('projectId', '==', projectId)
@@ -91,17 +95,38 @@ export const GET = withAuth('admin', async (req, user) => {
     }
   }
 
-  const snapshot = await query
-    .limit(limit)
-    .offset((page - 1) * limit)
-    .get()
+  const needsAgentAssigneeInMemoryFilter = assignedToFilter?.type === 'agent'
+  const queryLimit = needsAgentAssigneeInMemoryFilter
+    ? Math.min(Math.max(limit * page, 500), 1000)
+    : limit
 
-  const tasks: Task[] = snapshot.docs
+  let pagedQuery = query.limit(queryLimit)
+  if (!needsAgentAssigneeInMemoryFilter) {
+    pagedQuery = pagedQuery.offset((page - 1) * limit)
+  }
+
+  const snapshot = await pagedQuery.get()
+
+  let tasks: Task[] = snapshot.docs
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .map((doc: any) => ({ id: doc.id, ...doc.data() }))
     .filter((t: Task) => t.deleted !== true)
 
-  return apiSuccess(tasks, 200, { total: tasks.length, page, limit })
+  if (needsAgentAssigneeInMemoryFilter && assignedToFilter) {
+    tasks = tasks.filter((t: Task) => {
+      const assignee = t.assignedTo
+      return t.assigneeAgentId === assignedToFilter.id || (
+        assignee?.type === 'agent' && assignee.id === assignedToFilter.id
+      )
+    })
+  }
+
+  const total = tasks.length
+  if (needsAgentAssigneeInMemoryFilter) {
+    tasks = tasks.slice((page - 1) * limit, page * limit)
+  }
+
+  return apiSuccess(tasks, 200, { total, page, limit })
 })
 
 export const POST = withAuth(
