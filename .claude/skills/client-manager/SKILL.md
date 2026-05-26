@@ -2,7 +2,7 @@
 name: client-manager
 description: >
   Manage client organisations and onboarding on the Partners in Biz platform. Create orgs, invite and
-  manage team members, link client records, generate client logins, update brand profiles, route portal
+  manage team members, sync platform CRM Company/Contact links, generate client logins, update brand profiles, route portal
   enquiries and messages, and run product onboarding flows. Use this skill whenever the user mentions
   anything related to clients or organisations, including but not limited to: "create a client",
   "new client", "set up a new org", "create organisation", "onboard a client", "client onboarding",
@@ -20,7 +20,7 @@ description: >
 
 # Client Manager — Partners in Biz Platform API
 
-This skill handles the full client lifecycle on Partners in Biz: creating client organisations, managing members and roles, linking CRM contacts to billing orgs, issuing portal logins, running product-specific onboarding flows, routing portal enquiries, and maintaining brand profiles that downstream skills (content, social, email) read from.
+This skill handles the full client lifecycle on Partners in Biz: creating client organisations, managing members and roles, linking each client tenant to its platform-owner CRM Company and real client members to CRM Contacts, issuing portal logins, running product-specific onboarding flows, routing portal enquiries, and maintaining brand profiles that downstream skills (content, social, email) read from.
 
 ## Base URL & Authentication
 
