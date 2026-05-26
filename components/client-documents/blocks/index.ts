@@ -48,6 +48,16 @@ import { FaqBlock } from './FaqBlock'
 import { FaqEditor } from './editors/FaqEditor'
 import { ComparisonBlock } from './ComparisonBlock'
 import { ComparisonEditor } from './editors/ComparisonEditor'
+import {
+  BeforeAfterBlock,
+  CaseStudyResultCardsBlock,
+  FunnelBlock,
+  LogoTestimonialProofBlock,
+  QuadrantMatrixBlock,
+  RadarBlock,
+  RoadmapGanttBlock,
+  WeightedDecisionMatrixBlock,
+} from './ShowcaseBlocks'
 
 type RendererProps = { block: DocumentBlock; index: number }
 type EditorProps = { block: DocumentBlock; onChange: (b: DocumentBlock) => void }
@@ -76,6 +86,14 @@ export const BLOCK_RENDERERS: Partial<Record<DocumentBlockType, FC<RendererProps
   pricing_toggle: PricingToggleBlock,
   faq: FaqBlock,
   comparison: ComparisonBlock,
+  funnel: FunnelBlock,
+  radar: RadarBlock,
+  quadrant_matrix: QuadrantMatrixBlock,
+  before_after: BeforeAfterBlock,
+  roadmap_gantt: RoadmapGanttBlock,
+  logo_testimonial_proof: LogoTestimonialProofBlock,
+  case_study_result_cards: CaseStudyResultCardsBlock,
+  weighted_decision_matrix: WeightedDecisionMatrixBlock,
 }
 
 export const BLOCK_EDITORS: Partial<Record<DocumentBlockType, FC<EditorProps>>> = {

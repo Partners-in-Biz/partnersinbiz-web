@@ -83,7 +83,12 @@ export const POST = withAuth('admin', async (req, user) => {
     .get()
   if (!existing.empty) return apiError(`An organisation with slug "${slug}" already exists`, 409)
 
-  const ownerMember: OrgMember = { userId: user.uid, role: 'owner' }
+  // Only real human/admin users should be seeded into an org's member list.
+  // AI/API-key provisioning creates client workspaces on behalf of the platform;
+  // adding `ai-agent` as an owner produces an unremovable "Unknown" team member.
+  const initialMembers: OrgMember[] = user.role === 'ai'
+    ? []
+    : [{ userId: user.uid, role: 'owner' }]
 
   const doc = {
     name,
@@ -97,7 +102,7 @@ export const POST = withAuth('admin', async (req, user) => {
     billingEmail: typeof body.billingEmail === 'string' ? body.billingEmail.trim() : '',
     plan: typeof body.plan === 'string' ? body.plan : '',
     createdBy: user.uid,
-    members: [ownerMember],
+    members: initialMembers,
     linkedClientId: '',
     active: true,
     createdAt: FieldValue.serverTimestamp(),

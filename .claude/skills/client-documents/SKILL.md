@@ -48,6 +48,7 @@ Use for: client review cycles, collaborative editing with external stakeholders,
 | `build_spec` | Website/App Build Spec | `operational` | Web/app project scopes |
 | `social_strategy` | Social Media Strategy | `operational` | Social channel + content strategies |
 | `content_campaign_plan` | Content Campaign Plan | `operational` | Campaign briefs, asset plans |
+| `research_report` / `research-report-v1` | Research Report | `operational` | Evidence-led research questions, source ledgers, confidence, unknowns, recommendations, and decision support |
 | `monthly_report` | Monthly Report | `operational` | Monthly performance reviews |
 | `launch_signoff` | Launch Sign-off | `operational` | Go-live checklists and sign-off |
 | `change_request` | Change Request | `operational` | Scope/budget/timeline change requests |
@@ -108,6 +109,8 @@ internal_draft → internal_review → client_review → changes_requested → a
 - `approved`: operational approval given
 - `accepted`: formal acceptance signed (proposals only)
 - `archived`: soft-deleted from active views
+
+Research reports follow the same status flow, but keep them internal unless Peet has approved client visibility and the report has passed the research checklist: source ledger is safe to expose, confidence/assumptions are explicit, sensitive internal notes are removed, recommendations do not imply unapproved spend/publishing/implementation, and the linked `research_item` visibility is appropriate.
 
 ---
 

@@ -25,84 +25,130 @@ export const dynamic = 'force-dynamic'
 const STUCK_MS = 5 * 60 * 1000
 const WINDOW_MS = 24 * 60 * 60 * 1000
 
+type QueueStatus = 'pending' | 'delivering' | 'delivered' | 'failed'
+
+type QueueItem = {
+  orgId?: string
+  status?: QueueStatus
+  nextAttemptAt?: Timestamp | Date | number | string | null
+  deliveredAt?: Timestamp | Date | number | string | null
+  claimedAt?: Timestamp | Date | number | string | null
+}
+
+type WebhookDoc = {
+  orgId?: string
+  active?: boolean
+  deleted?: boolean
+  autoDisabledAt?: unknown
+}
+
+function toMillis(value: QueueItem['nextAttemptAt']): number | null {
+  if (!value) return null
+  if (typeof value === 'number') return value
+  if (typeof value === 'string') {
+    const parsed = Date.parse(value)
+    return Number.isNaN(parsed) ? null : parsed
+  }
+  if (value instanceof Date) return value.getTime()
+  if (typeof value.toMillis === 'function') return value.toMillis()
+  return null
+}
+
 export const GET = withAuth('admin', async (req) => {
   const { searchParams } = new URL(req.url)
   const orgId = searchParams.get('orgId')
 
   const queueBase = adminDb.collection('webhook_queue')
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const scope = (q: any) => (orgId ? q.where('orgId', '==', orgId) : q)
+  const webhooksBase = adminDb.collection('outbound_webhooks')
+  const nowMs = Date.now()
+  const windowStartMs = nowMs - WINDOW_MS
+  const stuckCutoffMs = nowMs - STUCK_MS
 
-  const now = Timestamp.now()
-  const windowStart = Timestamp.fromMillis(Date.now() - WINDOW_MS)
-  const stuckCutoff = Timestamp.fromMillis(Date.now() - STUCK_MS)
+  let queueItems: QueueItem[]
+  let deliveredWindowItems: QueueItem[] = []
+  let stuckItems: QueueItem[] = []
 
-  const [
-    pendingSnap,
-    deliveringSnap,
-    deliveredWindowSnap,
-    failedWindowSnap,
-    oldestPendingSnap,
-    webhooksSnap,
-  ] = await Promise.all([
-    scope(queueBase.where('status', '==', 'pending')).count().get(),
-    scope(queueBase.where('status', '==', 'delivering')).count().get(),
-    scope(
-      queueBase
-        .where('status', '==', 'delivered')
-        .where('deliveredAt', '>=', windowStart),
-    )
-      .count()
-      .get(),
-    scope(queueBase.where('status', '==', 'failed')).count().get(),
-    scope(
-      queueBase
-        .where('status', '==', 'pending')
-        .orderBy('nextAttemptAt', 'asc'),
-    )
-      .limit(1)
-      .get(),
-    scope(
-      adminDb.collection('outbound_webhooks').where('deleted', '==', false),
-    ).get(),
-  ])
+  if (orgId) {
+    // Keep the org-scoped health route independent from composite Firestore indexes:
+    // read one single-field slice and derive all counters in memory. The previous
+    // status+orgId/status+date aggregate queries returned HTTP 500 when indexes
+    // were not present in production.
+    const scopedQueueSnap = await queueBase.where('orgId', '==', orgId).get()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    queueItems = scopedQueueSnap.docs.map((doc: any) => doc.data() as QueueItem)
+  } else {
+    const [pendingSnap, deliveringSnap, failedSnap, deliveredWindowSnap, stuckSnap] = await Promise.all([
+      queueBase.where('status', '==', 'pending').get(),
+      queueBase.where('status', '==', 'delivering').get(),
+      queueBase.where('status', '==', 'failed').get(),
+      queueBase.where('deliveredAt', '>=', Timestamp.fromMillis(windowStartMs)).get(),
+      queueBase.where('claimedAt', '<=', Timestamp.fromMillis(stuckCutoffMs)).get(),
+    ])
 
-  let oldestPendingAgeSeconds: number | null = null
-  if (!oldestPendingSnap.empty) {
-    const doc = oldestPendingSnap.docs[0].data() as { nextAttemptAt?: Timestamp }
-    const ts = doc.nextAttemptAt
-    if (ts) {
-      oldestPendingAgeSeconds = Math.max(
-        0,
-        Math.floor((now.toMillis() - ts.toMillis()) / 1000),
-      )
-    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    deliveredWindowItems = deliveredWindowSnap.docs.map((doc: any) => doc.data() as QueueItem)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    stuckItems = stuckSnap.docs.map((doc: any) => doc.data() as QueueItem)
+
+    queueItems = [
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ...pendingSnap.docs.map((doc: any) => doc.data() as QueueItem),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ...deliveringSnap.docs.map((doc: any) => doc.data() as QueueItem),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ...failedSnap.docs.map((doc: any) => doc.data() as QueueItem),
+    ]
   }
 
-  // Stuck: delivering AND claimedAt older than 5 min (worker probably died mid-flight).
-  const stuckSnap = await scope(
-    queueBase
-      .where('status', '==', 'delivering')
-      .where('claimedAt', '<=', stuckCutoff),
+  const byStatus = queueItems.reduce<Record<QueueStatus, number>>(
+    (acc, item) => {
+      if (item.status && item.status in acc) acc[item.status] += 1
+      return acc
+    },
+    { pending: 0, delivering: 0, delivered: 0, failed: 0 },
   )
-    .count()
-    .get()
 
+  let oldestPendingAgeSeconds: number | null = null
+  for (const item of queueItems) {
+    if (item.status !== 'pending') continue
+    const nextAttemptMs = toMillis(item.nextAttemptAt)
+    if (nextAttemptMs === null) continue
+    const age = Math.max(0, Math.floor((nowMs - nextAttemptMs) / 1000))
+    oldestPendingAgeSeconds = oldestPendingAgeSeconds === null ? age : Math.max(oldestPendingAgeSeconds, age)
+  }
+
+  const deliveredMetricItems = orgId ? queueItems : deliveredWindowItems
+  const deliveredLast24h = deliveredMetricItems.filter((item) => {
+    if (item.status !== 'delivered') return false
+    const deliveredAtMs = toMillis(item.deliveredAt)
+    return deliveredAtMs !== null && deliveredAtMs >= windowStartMs
+  }).length
+
+  const stuckMetricItems = orgId ? queueItems : stuckItems
+  const stuckDeliveringCount = stuckMetricItems.filter((item) => {
+    if (item.status !== 'delivering') return false
+    const claimedAtMs = toMillis(item.claimedAt)
+    return claimedAtMs !== null && claimedAtMs <= stuckCutoffMs
+  }).length
+
+  const webhooksSnap = orgId
+    ? await webhooksBase.where('orgId', '==', orgId).get()
+    : await webhooksBase.where('deleted', '==', false).get()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const webhooks: Record<string, unknown>[] = webhooksSnap.docs.map((d: any) => d.data())
+  const webhooks: WebhookDoc[] = webhooksSnap.docs.map((d: any) => d.data() as WebhookDoc).filter((w) => w.deleted !== true)
   const totalWebhooks = webhooks.length
-  const activeWebhooks = webhooks.filter((w: Record<string, unknown>) => w.active === true).length
-  const autoDisabled = webhooks.filter((w: Record<string, unknown>) => Boolean(w.autoDisabledAt)).length
+  const activeWebhooks = webhooks.filter((w) => w.active === true).length
+  const autoDisabled = webhooks.filter((w) => Boolean(w.autoDisabledAt)).length
 
   return apiSuccess({
     byStatus: {
-      pending: pendingSnap.data().count,
-      delivering: deliveringSnap.data().count,
-      failed: failedWindowSnap.data().count,
-      deliveredLast24h: deliveredWindowSnap.data().count,
+      pending: byStatus.pending,
+      delivering: byStatus.delivering,
+      failed: byStatus.failed,
+      deliveredLast24h,
     },
     oldestPendingAgeSeconds,
-    stuckDeliveringCount: stuckSnap.data().count,
+    stuckDeliveringCount,
     webhooks: {
       total: totalWebhooks,
       active: activeWebhooks,

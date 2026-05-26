@@ -34,6 +34,8 @@ export function apiErrorFromException(err: any): NextResponse<ApiResponse<never>
   const isDev = process.env.NODE_ENV !== 'production'
   const message: string = (err?.message ?? String(err)) || 'Internal Server Error'
   const code: string | number | undefined = err?.code
+  const status: number | undefined = typeof err?.status === 'number' ? err.status : undefined
+  if (status && status >= 400 && status < 600) return apiError(message, status)
 
   // Firestore missing composite index
   const isMissingIndex =

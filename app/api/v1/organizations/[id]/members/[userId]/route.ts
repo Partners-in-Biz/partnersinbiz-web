@@ -14,6 +14,10 @@ export const dynamic = 'force-dynamic'
 
 type Params = { params: Promise<{ id: string; userId: string }> }
 
+function isProvisioningAgentUser(userId: string): boolean {
+  return userId === 'ai-agent' || userId.startsWith('agent:')
+}
+
 export const PATCH = withAuth('admin', async (req, user, ctx) => {
   const { id, userId: targetUserId } = await (ctx as Params).params
   if (!canAccessOrg(user, id)) return apiError('Forbidden', 403)
@@ -104,8 +108,11 @@ export const DELETE = withAuth('admin', async (req, user, ctx) => {
   const member = memberIndex >= 0 ? members[memberIndex] : null
 
   if (member) {
-    // Prevent removing the last owner
-    if (member.role === 'owner') {
+    // Prevent removing the last real owner. Historical AI/API-key org provisioning
+    // seeded `ai-agent` as an owner, which renders as an unremovable Unknown user
+    // in client teams. Those synthetic owners are safe to remove even when they
+    // are the only owner; newly provisioned AI-created orgs now start with no members.
+    if (member.role === 'owner' && !isProvisioningAgentUser(targetUserId)) {
       const remainingOwners = members.filter((m) => m.role === 'owner' && m.userId !== targetUserId)
       if (remainingOwners.length === 0) {
         return apiError('Cannot remove the last owner. Assign another owner first.', 409)

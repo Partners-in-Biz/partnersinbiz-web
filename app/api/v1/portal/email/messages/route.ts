@@ -4,6 +4,7 @@ import { withPortalAuthAndRole } from '@/lib/auth/portal-middleware'
 import { apiError, apiErrorFromException, apiSuccess } from '@/lib/api/response'
 import { adminDb } from '@/lib/firebase/admin'
 import { isMailboxFolder, serializeAccount, serializeMessage, splitEmails } from '@/lib/mailbox/serializers'
+import { sendMailboxMessage } from '@/lib/mailbox/sendBridge'
 
 export const dynamic = 'force-dynamic'
 
@@ -66,6 +67,31 @@ export const POST = withPortalAuthAndRole('member', async (req: NextRequest, uid
     if (action === 'send' && to.length === 0) return apiError('At least one recipient is required', 400)
     if (!subject && !bodyText) return apiError('Subject or body is required', 400)
 
+    if (action === 'send') {
+      const sendResult = await sendMailboxMessage({
+        orgId,
+        uid,
+        accountId: account.id,
+        approved: body.approved === true || body.sendApproved === true,
+        dryRun: body.dryRun === true,
+        to,
+        cc,
+        bcc,
+        subject,
+        bodyText,
+        ...(bodyHtml ? { bodyHtml } : {}),
+        actorId: uid,
+        actorType: 'user',
+        approvalGateTaskId: typeof body.approvalGateTaskId === 'string' ? body.approvalGateTaskId : undefined,
+      })
+      if (!sendResult.ok) return apiError(sendResult.error, 400)
+      if (sendResult.dryRun) return apiSuccess({ sendResult }, 200)
+      const sentId = sendResult.messageId
+      if (!sentId) return apiSuccess({ sendResult }, 201)
+      const fresh = await adminDb.collection('mailbox_messages').doc(sentId).get()
+      return apiSuccess({ message: serializeMessage(sentId, fresh.data() ?? {}), sendResult }, 201)
+    }
+
     const now = FieldValue.serverTimestamp()
     const payload: Record<string, unknown> = {
       orgId,
@@ -73,9 +99,9 @@ export const POST = withPortalAuthAndRole('member', async (req: NextRequest, uid
       profileId: `${orgId}_${uid}`,
       accountId: account.id,
       accountEmail: account.emailAddress,
-      folder: action === 'draft' ? 'drafts' : 'sent',
-      direction: action === 'draft' ? 'draft' : 'outbound',
-      status: action === 'draft' ? 'draft' : 'sent',
+      folder: 'drafts',
+      direction: 'draft',
+      status: 'draft',
       read: true,
       starred: false,
       from: account.emailAddress,
@@ -88,21 +114,9 @@ export const POST = withPortalAuthAndRole('member', async (req: NextRequest, uid
       snippet: bodyText.replace(/\s+/g, ' ').slice(0, 180),
       createdAt: now,
       updatedAt: now,
-      ...(action === 'send' ? { sentAt: now } : {}),
     }
 
     const ref = await adminDb.collection('mailbox_messages').add(payload)
-    if (action === 'send') {
-      await adminDb.collection('activities').add({
-        orgId,
-        type: 'email_sent',
-        source: 'portal_mailbox',
-        subject,
-        note: bodyText.slice(0, 500),
-        createdBy: { id: uid, type: 'user' },
-        createdAt: now,
-      })
-    }
     const fresh = await ref.get()
     return apiSuccess({ message: serializeMessage(ref.id, fresh.data() ?? payload) }, 201)
   } catch (err) {
