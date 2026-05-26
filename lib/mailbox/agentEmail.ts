@@ -3,6 +3,7 @@ import { adminDb } from '@/lib/firebase/admin'
 import { serializeAccount, serializeMessage, splitEmails } from '@/lib/mailbox/serializers'
 import type { MailboxFolder, MailboxMessageSafe } from '@/lib/mailbox/types'
 import { sendMailboxMessage, type SendMailboxMessageResult } from '@/lib/mailbox/sendBridge'
+import type { AgentMailboxDelegationEvidence } from '@/lib/mailbox/agentEmailAuthorization'
 
 type ActorType = 'user' | 'agent' | 'system'
 
@@ -14,6 +15,7 @@ export type AgentMailboxActor = {
 export type AgentMailboxContext = {
   orgId: string
   uid: string
+  delegation?: AgentMailboxDelegationEvidence
 }
 
 export type AgentMailboxReadInput = AgentMailboxContext & {

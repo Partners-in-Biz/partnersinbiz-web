@@ -5,6 +5,7 @@ let mockPathname = '/admin'
 
 jest.mock('next/navigation', () => ({
   usePathname: () => mockPathname,
+  useSearchParams: () => new URLSearchParams(),
 }))
 
 jest.mock('@/lib/contexts/OrgContext', () => ({
@@ -41,6 +42,10 @@ jest.mock('@/components/admin/AdminTopbarNav', () => ({
 jest.mock('@/components/chat/UnifiedChat', () => ({
   __esModule: true,
   default: () => <div data-testid="unified-chat" />,
+}))
+
+jest.mock('@/components/mailbox/MailboxDrawer', () => ({
+  MailboxDrawer: () => <button type="button" aria-label="Open email">Email</button>,
 }))
 
 describe('AdminShell message drawer coordination', () => {
