@@ -6,6 +6,7 @@ import { AdminSidebar } from './AdminSidebar'
 import { AdminTopbar } from './AdminTopbar'
 import { AdminTopbarNav } from './AdminTopbarNav'
 import { WelcomeFlashHandler } from '@/components/ui/WelcomeFlashHandler'
+import { MailboxDrawer } from '@/components/mailbox/MailboxDrawer'
 import { MessageDrawer } from '@/components/chat/MessageDrawer'
 import { AppShell } from '@/components/ui/AppFoundation'
 import { useOrg } from '@/lib/contexts/OrgContext'
@@ -74,16 +75,19 @@ export function AdminShell({ userEmail, userUid, children }: AdminShellProps) {
     : 'px-4 md:px-8 py-8'
   const innerClassName = isMessagesPage ? 'max-w-none' : 'max-w-[1400px]'
   const messageAction = (
-    <MessageDrawer
-      orgId={drawerOrgId}
-      orgName={drawerOrgName}
-      currentUserUid={userUid}
-      currentUserDisplayName={userEmail}
-      allowAgentParticipants
-      allowDeleteConversations
-      disabledReason="Messages unavailable"
-      onOpen={closeSidebarForMessages}
-    />
+    <>
+      <MailboxDrawer />
+      <MessageDrawer
+        orgId={drawerOrgId}
+        orgName={drawerOrgName}
+        currentUserUid={userUid}
+        currentUserDisplayName={userEmail}
+        allowAgentParticipants
+        allowDeleteConversations
+        disabledReason="Messages unavailable"
+        onOpen={closeSidebarForMessages}
+      />
+    </>
   )
 
   if (layoutMode === 'topbar') {

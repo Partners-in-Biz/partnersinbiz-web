@@ -30,7 +30,7 @@ jest.mock('@/components/crm/NotificationBell', () => ({
 }))
 
 describe('AdminTopbarNav account display', () => {
-  it('keeps the account email hidden until desktop-wide screens', () => {
+  it('keeps the account email out of the top navbar', () => {
     render(
       <AdminTopbarNav
         userEmail="peet@example.com"
@@ -40,11 +40,7 @@ describe('AdminTopbarNav account display', () => {
       />,
     )
 
-    const email = screen.getByText('peet@example.com')
-
-    expect(email).toHaveClass('hidden')
-    expect(email).toHaveClass('xl:inline')
-    expect(email).not.toHaveClass('lg:inline')
+    expect(screen.queryByText('peet@example.com')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Open notifications' })).toHaveAttribute('data-mode', 'admin')
     expect(screen.getByRole('link', { name: /logout/i })).toBeInTheDocument()
   })
