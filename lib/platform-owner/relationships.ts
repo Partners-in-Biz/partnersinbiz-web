@@ -139,6 +139,12 @@ export async function syncPlatformContactForOrgMember(input: {
   jobTitle?: string
   clientOrg?: OrgLike | null
   platformOrgId?: string
+  companyLifecycleStage?: 'lead' | 'prospect' | 'customer' | 'churned'
+  companySource?: string
+  companyTags?: string[]
+  contactType?: 'lead' | 'prospect' | 'client' | 'churned'
+  contactStage?: 'new' | 'contacted' | 'replied' | 'demo' | 'proposal' | 'won' | 'lost'
+  contactTags?: string[]
 }): Promise<{ platformOrgId: string; companyId: string; contactId: string } | null> {
   const uid = cleanString(input.uid)
   const email = normalizeEmail(input.email)
@@ -148,9 +154,9 @@ export async function syncPlatformContactForOrgMember(input: {
     clientOrgId: input.clientOrgId,
     clientOrg: input.clientOrg,
     platformOrgId: input.platformOrgId,
-    lifecycleStage: 'customer',
-    source: 'platform_member_sync',
-    tags: ['client-org'],
+    lifecycleStage: input.companyLifecycleStage ?? 'customer',
+    source: input.companySource ?? 'platform_member_sync',
+    tags: input.companyTags ?? ['client-org'],
   })
   const now = Timestamp.now()
   const displayName = cleanString(input.displayName) || email || uid
@@ -175,9 +181,9 @@ export async function syncPlatformContactForOrgMember(input: {
     linkedUserId: uid,
     linkedOrgId: input.clientOrgId,
     source: 'manual',
-    type: 'client',
-    stage: 'won',
-    tags: ['client-member'],
+    type: input.contactType ?? 'client',
+    stage: input.contactStage ?? 'won',
+    tags: input.contactTags ?? ['client-member'],
     notes: '',
     assignedTo: '',
     capturedFromId: '',
@@ -196,7 +202,7 @@ export async function syncPlatformContactForOrgMember(input: {
     const existingData = existing.data() ?? {}
     await existing.ref.set({
       ...patch,
-      tags: mergeTags(existingData.tags, ['client-member'], ['former-client-member']),
+      tags: mergeTags(existingData.tags, input.contactTags ?? ['client-member'], ['former-client-member']),
     }, { merge: true })
     return { platformOrgId: company.platformOrgId, companyId: company.companyId, contactId: existing.id }
   }
@@ -268,6 +274,12 @@ export async function ensurePlatformLeadForClaim(input: {
     displayName: input.contactName,
     clientOrg: { name: input.businessName },
     platformOrgId,
+    companyLifecycleStage: 'lead',
+    companySource: 'claimable_relationship',
+    companyTags: ['organic-platform-lead'],
+    contactType: 'lead',
+    contactStage: 'new',
+    contactTags: ['organic-platform-lead'],
   })
   if (!contact) return null
 
