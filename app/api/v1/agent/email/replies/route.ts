@@ -1,32 +1,36 @@
 import { NextRequest } from 'next/server'
 import { withAuth } from '@/lib/api/auth'
 import { apiError, apiErrorFromException, apiSuccess } from '@/lib/api/response'
-import { createAgentMailboxReplyDraft, type AgentMailboxActor } from '@/lib/mailbox/agentEmail'
-import type { ApiUser } from '@/lib/api/types'
+import { createAgentMailboxReplyDraft } from '@/lib/mailbox/agentEmail'
+import { agentMailboxActorFromUser, agentMailboxContextFromBody, authorizeAgentMailboxRequest } from '../_shared'
 
 export const dynamic = 'force-dynamic'
 
-function actorFromUser(user: ApiUser): AgentMailboxActor {
-  return { actorId: user.agentId ? `agent:${user.agentId}` : user.uid, actorType: user.role === 'ai' ? 'agent' : 'user' }
-}
 
 export const POST = withAuth('admin', async (req: NextRequest, user) => {
   try {
     const body = await req.json().catch(() => ({}))
-    const orgId = typeof body.orgId === 'string' ? body.orgId : user.orgId
-    const uid = typeof body.uid === 'string' ? body.uid : typeof body.requestingUserId === 'string' ? body.requestingUserId : user.role === 'ai' ? null : user.uid
-    if (!orgId) return apiError('orgId is required', 400)
-    if (!uid) return apiError('uid or requestingUserId is required', 400)
-    if (user.role === 'ai' && user.orgId && user.orgId !== orgId) return apiError('Forbidden for requested orgId', 403)
+    const ctx = agentMailboxContextFromBody(body, user)
+    if (!ctx.orgId) return apiError('orgId is required', 400)
+    if (!ctx.uid) return apiError('uid or requestingUserId is required', 400)
+    const delegation = await authorizeAgentMailboxRequest({
+      user,
+      orgId: ctx.orgId,
+      uid: ctx.uid,
+      actionClass: 'draft',
+      delegationEvidenceId: body.delegationEvidenceId,
+      delegationEvidence: body.delegationEvidence,
+    })
     if (typeof body.sourceMessageId !== 'string' || !body.sourceMessageId.trim()) return apiError('sourceMessageId is required', 400)
     const result = await createAgentMailboxReplyDraft({
-      orgId,
-      uid,
+      orgId: ctx.orgId,
+      uid: ctx.uid,
+      delegation,
       sourceMessageId: body.sourceMessageId,
       accountId: typeof body.accountId === 'string' ? body.accountId : undefined,
       bodyText: typeof body.bodyText === 'string' ? body.bodyText : '',
       bodyHtml: typeof body.bodyHtml === 'string' ? body.bodyHtml : undefined,
-    }, actorFromUser(user))
+    }, agentMailboxActorFromUser(user))
     return apiSuccess(result, 201)
   } catch (err) {
     return apiErrorFromException(err)

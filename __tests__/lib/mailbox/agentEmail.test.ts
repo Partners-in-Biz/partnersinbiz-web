@@ -142,6 +142,34 @@ describe('agent email mailbox tool contract', () => {
     expect(audits[0].data).toMatchObject({ action: 'send_request_rejected', orgId: 'org-1', uid: 'user-1', actor: { id: 'agent:theo', type: 'agent' } })
   })
 
+  it('includes delegated uid and delegation evidence id in audit records', async () => {
+    const audits: Doc[] = []
+    stageCollections({
+      mailbox_messages: [
+        { id: 'msg-1', data: { orgId: 'org-1', uid: 'user-1', folder: 'inbox', from: 'lead@example.com', to: ['me@example.com'], subject: 'Need pricing', snippet: 'Need pricing', createdAt: '2026-05-26T08:00:00Z' } },
+      ],
+      mailbox_accounts: [],
+      mailbox_agent_tool_events: audits,
+      mailbox_send_requests: [],
+    })
+
+    const { readAgentMailboxMessages } = await import('@/lib/mailbox/agentEmail')
+    await readAgentMailboxMessages({
+      orgId: 'org-1',
+      uid: 'user-1',
+      delegation: { evidenceId: 'delegation-1', evidenceType: 'delegation_record', actorId: 'agent:theo', orgId: 'org-1', uid: 'user-1', actionClass: 'read' },
+    }, { actorId: 'agent:theo', actorType: 'agent' })
+
+    expect(audits[0].data).toMatchObject({
+      action: 'read_context',
+      orgId: 'org-1',
+      uid: 'user-1',
+      delegatedUid: 'user-1',
+      actor: { id: 'agent:theo', type: 'agent' },
+      delegationEvidence: { id: 'delegation-1', type: 'delegation_record', actionClass: 'read' },
+    })
+  })
+
   it('requires approval evidence, records a send request, delegates provider delivery, and audits accepted sends', async () => {
     const requests: Doc[] = []
     const audits: Doc[] = []

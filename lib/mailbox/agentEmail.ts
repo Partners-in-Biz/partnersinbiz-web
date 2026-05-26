@@ -100,7 +100,13 @@ async function writeToolEvent(input: AgentMailboxContext, actor: AgentMailboxAct
   await adminDb.collection('mailbox_agent_tool_events').add({
     orgId: input.orgId,
     uid: input.uid,
+    delegatedUid: input.uid,
     actor: { id: actor.actorId, type: actor.actorType },
+    delegationEvidence: input.delegation ? {
+      id: input.delegation.evidenceId,
+      type: input.delegation.evidenceType,
+      actionClass: input.delegation.actionClass,
+    } : null,
     createdAt: FieldValue.serverTimestamp(),
     ...patch,
   })
