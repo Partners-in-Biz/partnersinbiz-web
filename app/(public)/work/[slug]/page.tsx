@@ -77,14 +77,14 @@ const CONTENT: Record<Slug, CaseContent> = {
     ],
   },
   'ahs-law': {
-    contact: { name: 'Adv. Hendrik Steyn', role: 'Director, AHS Law' },
+    contact: { name: 'AHS Law team', role: 'Client team' },
     pullQuote:
       'Clients were finding our competitors before they found us, and the ones who did find us were emailing PDFs back and forth like it was 2009. We needed both fixed.',
     outcomeQuote: {
       quote:
         'Within two months we were ranking number one for our primary practice area in Pretoria, and our paralegals stopped spending half their week chasing document signatures. The portal alone paid for the project.',
-      author: 'Adv. Hendrik Steyn',
-      role: 'Director, AHS Law',
+      author: 'AHS Law team',
+      role: 'Client team',
       avatar: '/images/case-ahs-law-cover.jpg',
     },
     visuals: ['/images/case-ahs-law-portal.jpg', '/images/case-ahs-law-cover.jpg'],
