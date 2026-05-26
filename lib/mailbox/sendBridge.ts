@@ -1,3 +1,5 @@
+import * as net from 'node:net'
+import * as tls from 'node:tls'
 import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { decryptCredentials, type EncryptedCredentials } from '@/lib/integrations/crypto'
@@ -206,6 +208,86 @@ function hasFreshAccessToken(credentials: GoogleCredentials | null): credentials
   return Boolean(credentials?.accessToken && Number(credentials.expiresAt ?? 0) > Date.now() + REFRESH_SKEW_MS)
 }
 
+function buildSmtpRaw(message: { from: string; to: string[]; cc: string[]; bcc: string[]; subject: string; text: string; html?: string }): string {
+  return buildRawEmail({
+    orgId: '',
+    uid: '',
+    accountId: '',
+    approved: true,
+    to: message.to,
+    cc: message.cc,
+    bcc: [],
+    subject: message.subject,
+    bodyText: message.text,
+    ...(message.html ? { bodyHtml: message.html } : {}),
+  }, message.from)
+}
+
+async function smtpRead(socket: net.Socket | tls.TLSSocket): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const onData = (chunk: Buffer) => {
+      socket.off('error', onError)
+      resolve(chunk.toString('utf8'))
+    }
+    const onError = (error: Error) => {
+      socket.off('data', onData)
+      reject(error)
+    }
+    socket.once('data', onData)
+    socket.once('error', onError)
+  })
+}
+
+async function smtpExpect(socket: net.Socket | tls.TLSSocket, codes: number[]): Promise<string> {
+  const response = await smtpRead(socket)
+  const code = Number(response.slice(0, 3))
+  if (!codes.includes(code)) throw new Error(`SMTP unexpected response ${response.trim()}`)
+  return response
+}
+
+function smtpWrite(socket: net.Socket | tls.TLSSocket, line: string) {
+  socket.write(`${line}\r\n`)
+}
+
+async function defaultSmtpSend(config: SmtpCredentials, message: Parameters<SmtpSend>[1]): Promise<{ messageId?: string; response?: string }> {
+  if (!config.host || !config.port || !config.username || !config.password) throw new Error('SMTP credentials are incomplete')
+  const socket = await new Promise<net.Socket | tls.TLSSocket>((resolve, reject) => {
+    const onError = (error: Error) => reject(error)
+    const connected = () => resolve(socket)
+    const socket = config.secure === false
+      ? net.connect(config.port!, config.host!, connected)
+      : tls.connect({ port: config.port!, host: config.host! }, connected)
+    socket.once('error', onError)
+    socket.setTimeout(30_000, () => reject(new Error('SMTP connection timed out')))
+  })
+  try {
+    await smtpExpect(socket, [220])
+    smtpWrite(socket, 'EHLO partnersinbiz.online')
+    await smtpExpect(socket, [250])
+    smtpWrite(socket, 'AUTH LOGIN')
+    await smtpExpect(socket, [334])
+    smtpWrite(socket, Buffer.from(config.username).toString('base64'))
+    await smtpExpect(socket, [334])
+    smtpWrite(socket, Buffer.from(config.password).toString('base64'))
+    await smtpExpect(socket, [235])
+    smtpWrite(socket, `MAIL FROM:<${message.from}>`)
+    await smtpExpect(socket, [250])
+    for (const recipient of [...message.to, ...message.cc, ...message.bcc]) {
+      smtpWrite(socket, `RCPT TO:<${recipient}>`)
+      await smtpExpect(socket, [250, 251])
+    }
+    smtpWrite(socket, 'DATA')
+    await smtpExpect(socket, [354])
+    smtpWrite(socket, `${buildSmtpRaw(message)}\r\n.`)
+    const response = await smtpExpect(socket, [250])
+    smtpWrite(socket, 'QUIT')
+    const match = response.match(/<([^>]+)>|queued as ([^\s]+)/i)
+    return { messageId: match?.[1] ?? match?.[2] ?? `smtp-${Date.now()}`, response }
+  } finally {
+    socket.end()
+  }
+}
+
 export async function sendMailboxMessage(
   input: SendMailboxMessageInput,
   deps: SendMailboxMessageDeps = {},
@@ -251,7 +333,6 @@ export async function sendMailboxMessage(
   }
 
   if (account.provider === 'smtp_imap') {
-    if (!deps.smtpSend) return { ok: false, error: 'SMTP sender dependency is not configured' }
     let smtp: SmtpCredentials | null
     try {
       smtp = decryptSmtp(account, input.orgId)
@@ -259,7 +340,8 @@ export async function sendMailboxMessage(
       return { ok: false, error: 'SMTP credentials could not be decrypted; reconnect this mailbox' }
     }
     if (!smtp?.host || !smtp.username || !smtp.password) return { ok: false, error: 'SMTP credentials are incomplete' }
-    const sent = await deps.smtpSend(smtp, {
+    const smtpSend = deps.smtpSend ?? defaultSmtpSend
+    const sent = await smtpSend(smtp, {
       from: account.emailAddress ?? smtp.username,
       to,
       cc: normalizeList(input.cc),
