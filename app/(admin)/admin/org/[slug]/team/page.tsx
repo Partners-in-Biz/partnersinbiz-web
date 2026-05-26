@@ -1,7 +1,9 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
 import { useParams } from 'next/navigation'
+import { FiCheckCircle, FiCopy, FiLink, FiSearch, FiUserCheck, FiUserPlus, FiX } from 'react-icons/fi'
 import { copyToClipboard } from '@/lib/utils/clipboard'
 
 interface OrgMember {
@@ -30,6 +32,12 @@ interface ClientCandidate {
   displayName: string
   photoURL?: string
 }
+
+const ROLE_OPTIONS: Array<{ value: OrgMember['role']; label: string; description: string }> = [
+  { value: 'admin', label: 'Admin', description: 'Can manage this client workspace' },
+  { value: 'member', label: 'Member', description: 'Can work inside the client portal' },
+  { value: 'viewer', label: 'Viewer', description: 'Read-only client portal access' },
+]
 
 function Skeleton({ className = '' }: { className?: string }) {
   return <div className={`pib-skeleton ${className}`} />
@@ -85,6 +93,82 @@ function isProvisioningAgentMember(member: OrgMember): boolean {
   return (member.userId === 'ai-agent' || member.userId.startsWith('agent:')) && !member.displayName && !member.email
 }
 
+function InviteCard({
+  icon,
+  title,
+  description,
+  children,
+}: {
+  icon: ReactNode
+  title: string
+  description: string
+  children: ReactNode
+}) {
+  return (
+    <section className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface)]/60 p-4 shadow-sm">
+      <div className="mb-4 flex items-start gap-3">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-[var(--color-accent-v2)]/12 text-[var(--color-accent-v2)]">
+          {icon}
+        </div>
+        <div className="min-w-0">
+          <h2 className="text-sm font-headline font-semibold text-on-surface">{title}</h2>
+          <p className="mt-1 text-xs leading-relaxed text-on-surface-variant">{description}</p>
+        </div>
+      </div>
+      {children}
+    </section>
+  )
+}
+
+function FieldShell({
+  children,
+  className = '',
+}: {
+  children: ReactNode
+  className?: string
+}) {
+  return (
+    <div className={`rounded-md border border-[var(--color-outline)] bg-[var(--color-card)] focus-within:border-[var(--color-accent-v2)] focus-within:ring-1 focus-within:ring-[var(--color-accent-v2)] ${className}`}>
+      {children}
+    </div>
+  )
+}
+
+function RoleSelect({
+  value,
+  onChange,
+  disabled,
+  label = 'Role',
+}: {
+  value: string
+  onChange: (value: string) => void
+  disabled?: boolean
+  label?: string
+}) {
+  return (
+    <label className="block min-w-[150px] flex-1 sm:flex-none">
+      <span className="mb-1.5 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">{label}</span>
+      <FieldShell>
+        <select
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="h-11 w-full bg-transparent px-3 text-sm text-on-surface outline-none"
+          disabled={disabled}
+        >
+          {ROLE_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </FieldShell>
+      <span className="mt-1 block text-[11px] leading-snug text-on-surface-variant">
+        {ROLE_OPTIONS.find((option) => option.value === value)?.description}
+      </span>
+    </label>
+  )
+}
+
 export default function TeamPage() {
   const params = useParams()
   const slug = params.slug as string
@@ -106,6 +190,7 @@ export default function TeamPage() {
   const [addingClient, setAddingClient] = useState(false)
   const [clientSearch, setClientSearch] = useState('')
   const [clientUid, setClientUid] = useState('')
+  const [clientRole, setClientRole] = useState('member')
   const [clientCandidates, setClientCandidates] = useState<ClientCandidate[]>([])
   const [clientDropdownOpen, setClientDropdownOpen] = useState(false)
   const [clientSearchLoading, setClientSearchLoading] = useState(false)
@@ -290,7 +375,7 @@ export default function TeamPage() {
       const res = await fetch(`/api/v1/organizations/${org.id}/members/client`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ uid: clientUid }),
+        body: JSON.stringify({ uid: clientUid, role: clientRole }),
       })
 
       const body = await res.json()
@@ -302,6 +387,7 @@ export default function TeamPage() {
       setMembers([...members, body.data])
       setClientUid('')
       setClientSearch('')
+      setClientRole('member')
       setClientCandidates([])
       setClientDropdownOpen(false)
     } catch (e) {
@@ -386,249 +472,277 @@ export default function TeamPage() {
 
       {/* Create Client Login */}
       {!loading && org && (
-        <div className="pib-card">
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">
-            Create Client Login
-          </p>
-          <p className="text-xs text-on-surface-variant mb-3">
-            Creates a new account and adds the client to this organisation. A setup link is generated for the client to set their password.
-          </p>
-          <form onSubmit={handleCreateLogin} className="flex gap-2 flex-wrap">
-            <input
-              type="text"
-              placeholder="Full name"
-              value={createName}
-              onChange={(e) => setCreateName(e.target.value)}
-              className="flex-1 min-w-[160px] px-3 py-2 rounded-md text-sm"
-              style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-outline)' }}
-              disabled={creatingLogin}
-              required
-            />
-            <input
-              type="email"
-              placeholder="client@example.com"
-              value={createEmail}
-              onChange={(e) => setCreateEmail(e.target.value)}
-              className="flex-1 min-w-[200px] px-3 py-2 rounded-md text-sm"
-              style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-outline)' }}
-              disabled={creatingLogin}
-              required
-            />
-            <select
-              value={createRole}
-              onChange={(e) => setCreateRole(e.target.value)}
-              className="px-3 py-2 rounded-md text-sm"
-              style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-outline)' }}
-              disabled={creatingLogin}
+        <div className="pib-card !p-0 overflow-visible">
+          <div className="border-b border-[var(--color-card-border)] px-5 py-4">
+            <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+              Invites & Access
+            </p>
+            <h2 className="mt-1 text-lg font-headline font-semibold text-on-surface">Add people to this workspace</h2>
+            <p className="mt-1 max-w-2xl text-sm text-on-surface-variant">
+              Create a new client login, attach an existing client account, or grant a PiB staff member explicit portal access.
+            </p>
+          </div>
+          <div className="grid gap-4 p-5 xl:grid-cols-3">
+            <InviteCard
+              icon={<FiLink aria-hidden="true" className="h-4 w-4" />}
+              title="Create client login"
+              description="Creates the Firebase account, adds it to this organisation, emails the welcome setup link, and shows the setup link here."
             >
-              <option value="member">Member</option>
-              <option value="viewer">Viewer</option>
-              <option value="admin">Admin</option>
-            </select>
-            <button
-              type="submit"
-              className="pib-btn-primary text-sm font-label"
-              disabled={creatingLogin || !createEmail || !createName}
-            >
-              {creatingLogin ? 'Creating...' : 'Create Login'}
-            </button>
-          </form>
-          {createError && <p className="text-xs text-[#ef4444] mt-2">{createError}</p>}
-          {setupLink && (
-            <div className="mt-3 p-3 rounded-md" style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-outline)' }}>
-              <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">
-                Setup Link — send this to the client
-              </p>
-              <div className="flex items-center gap-2">
-                <code className="text-xs text-on-surface break-all flex-1">{setupLink}</code>
+              <form onSubmit={handleCreateLogin} className="space-y-3">
+                <label className="block">
+                  <span className="mb-1.5 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Full name</span>
+                  <FieldShell>
+                    <input
+                      type="text"
+                      placeholder="Jane Client"
+                      value={createName}
+                      onChange={(e) => setCreateName(e.target.value)}
+                      className="h-11 w-full bg-transparent px-3 text-sm text-on-surface placeholder:text-on-surface-variant outline-none"
+                      disabled={creatingLogin}
+                      required
+                    />
+                  </FieldShell>
+                </label>
+                <label className="block">
+                  <span className="mb-1.5 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Email</span>
+                  <FieldShell>
+                    <input
+                      type="email"
+                      placeholder="client@example.com"
+                      value={createEmail}
+                      onChange={(e) => setCreateEmail(e.target.value)}
+                      className="h-11 w-full bg-transparent px-3 text-sm text-on-surface placeholder:text-on-surface-variant outline-none"
+                      disabled={creatingLogin}
+                      required
+                    />
+                  </FieldShell>
+                </label>
+                <RoleSelect value={createRole} onChange={setCreateRole} disabled={creatingLogin} />
                 <button
-                  type="button"
-                  onClick={() => { copyToClipboard(setupLink); }}
-                  className="pib-btn-secondary text-xs font-label shrink-0"
+                  type="submit"
+                  className="pib-btn-primary flex w-full items-center justify-center gap-2 text-sm font-label"
+                  disabled={creatingLogin || !createEmail || !createName}
                 >
-                  Copy
+                  <FiUserPlus aria-hidden="true" className="h-4 w-4" />
+                  {creatingLogin ? 'Creating...' : 'Create Login'}
                 </button>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Add Existing Client */}
-      {!loading && org && (
-        <div className="pib-card">
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">
-            Add Existing Client
-          </p>
-          <p className="text-xs text-on-surface-variant mb-3">
-            Search client accounts already on the system and add them to this organisation as client members.
-          </p>
-          <form onSubmit={handleAddClient} className="flex gap-2 flex-wrap">
-            <div ref={clientSearchRef} className="relative flex-1 min-w-[240px]">
-              <input
-                type="text"
-                placeholder="Search existing client by name or email..."
-                value={clientSearch}
-                onChange={(e) => {
-                  setClientSearch(e.target.value)
-                  setClientUid('')
-                  setClientDropdownOpen(true)
-                }}
-                onFocus={() => {
-                  if (clientSearch.trim().length >= 2) setClientDropdownOpen(true)
-                }}
-                className="w-full px-3 py-2 rounded-md text-sm"
-                style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-outline)' }}
-                disabled={addingClient}
-                autoComplete="off"
-              />
-              {clientDropdownOpen && clientSearch.trim().length >= 2 && (
-                <div
-                  className="absolute z-20 top-full mt-1 w-full rounded-md shadow-lg overflow-hidden"
-                  style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-outline)' }}
-                >
-                  {clientSearchLoading ? (
-                    <div className="px-3 py-2 text-xs text-on-surface-variant">
-                      Searching clients...
-                    </div>
-                  ) : clientCandidates.length > 0 ? (
-                    <ul>
-                      {clientCandidates.map((client) => (
-                        <li
-                          key={client.uid}
-                          className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-on-surface/5 text-sm"
-                          onMouseDown={(e) => {
-                            e.preventDefault()
-                            setClientUid(client.uid)
-                            setClientSearch(`${client.displayName} (${client.email})`)
-                            setClientCandidates([])
-                            setClientDropdownOpen(false)
-                          }}
-                        >
-                          <Avatar name={client.displayName || client.email} photoURL={client.photoURL} />
-                          <div className="min-w-0">
-                            <p className="text-on-surface font-medium truncate">{client.displayName}</p>
-                            <p className="text-on-surface-variant text-xs truncate">{client.email}</p>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <div className="px-3 py-2 text-xs text-on-surface-variant">
-                      No matching client accounts found
-                    </div>
-                  )}
+              </form>
+              {createError && <p className="mt-2 text-xs text-[#ef4444]">{createError}</p>}
+              {setupLink && (
+                <div className="mt-3 rounded-md border border-[var(--color-outline)] bg-[var(--color-card)] p-3">
+                  <div className="mb-2 flex items-center gap-2 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+                    <FiCheckCircle aria-hidden="true" className="h-3.5 w-3.5 text-[var(--color-accent-v2)]" />
+                    Setup link ready
+                  </div>
+                  <code className="block max-h-16 overflow-auto break-all text-xs text-on-surface">{setupLink}</code>
+                  <button
+                    type="button"
+                    onClick={() => { copyToClipboard(setupLink); }}
+                    className="pib-btn-secondary mt-3 flex w-full items-center justify-center gap-2 text-xs font-label"
+                  >
+                    <FiCopy aria-hidden="true" className="h-3.5 w-3.5" />
+                    Copy link
+                  </button>
                 </div>
               )}
-            </div>
-            <button
-              type="submit"
-              className="pib-btn-primary text-sm font-label"
-              disabled={addingClient || !clientUid}
-            >
-              {addingClient ? 'Adding...' : 'Add Client'}
-            </button>
-          </form>
-          {clientError && (
-            <p className="text-xs text-[#ef4444] mt-2">{clientError}</p>
-          )}
-        </div>
-      )}
+            </InviteCard>
 
-      {/* Add Member Form */}
-      {!loading && org && (
-        <div className="pib-card">
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">
-            Add Existing Member
-          </p>
-          <p className="text-xs text-on-surface-variant mb-3">
-            Add a PiB staff member who already has an account. This also grants explicit client-portal access to this organisation.
-          </p>
-          <form onSubmit={handleAddMember} className="flex gap-2 flex-wrap">
-            <div ref={addSearchRef} className="relative flex-1 min-w-[200px]">
-              <input
-                type="text"
-                placeholder="Search by name or email..."
-                value={addSearch}
-                onChange={(e) => {
-                  setAddSearch(e.target.value)
-                  setAddEmail(e.target.value)
-                  setShowDropdown(true)
-                }}
-                onFocus={() => setShowDropdown(true)}
-                className="w-full px-3 py-2 rounded-md text-sm"
-                style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-outline)' }}
-                disabled={addingMember}
-                autoComplete="off"
-              />
-              {showDropdown && addSearch.trim().length > 0 && (() => {
-                const q = addSearch.trim().toLowerCase()
-                const matches = platformUsers.filter(
-                  (u) =>
-                    !members.some((m) => m.email === u.email) &&
-                    (u.email.toLowerCase().includes(q) || u.displayName.toLowerCase().includes(q)),
-                )
-                return matches.length > 0 ? (
-                  <ul
-                    className="absolute z-20 top-full mt-1 w-full rounded-md shadow-lg overflow-hidden"
-                    style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-outline)' }}
-                  >
-                    {matches.map((u) => (
-                      <li
-                        key={u.uid}
-                        className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-on-surface/5 text-sm"
-                        onMouseDown={(e) => {
-                          e.preventDefault()
-                          setAddEmail(u.email)
-                          setAddSearch(`${u.displayName} (${u.email})`)
-                          setShowDropdown(false)
+            <InviteCard
+              icon={<FiSearch aria-hidden="true" className="h-4 w-4" />}
+              title="Add existing client"
+              description="Searches client-role accounts, excludes current members, and adds the selected client with the role below."
+            >
+              <form onSubmit={handleAddClient} className="space-y-3">
+                <label className="block">
+                  <span className="mb-1.5 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Client account</span>
+                  <div ref={clientSearchRef} className="relative">
+                    <FieldShell>
+                      <input
+                        type="text"
+                        placeholder="Search existing client..."
+                        value={clientSearch}
+                        onChange={(e) => {
+                          setClientSearch(e.target.value)
+                          setClientUid('')
+                          setClientDropdownOpen(true)
                         }}
-                      >
-                        <div
-                          className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
-                          style={{ backgroundColor: 'var(--color-accent-v2)', color: 'var(--color-on-surface)' }}
+                        onFocus={() => {
+                          if (clientSearch.trim().length >= 2) setClientDropdownOpen(true)
+                        }}
+                        className="h-11 w-full bg-transparent px-3 pr-10 text-sm text-on-surface placeholder:text-on-surface-variant outline-none"
+                        disabled={addingClient}
+                        autoComplete="off"
+                      />
+                      {clientUid && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setClientUid('')
+                            setClientSearch('')
+                            setClientCandidates([])
+                          }}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-on-surface-variant hover:text-on-surface"
+                          aria-label="Clear selected client"
                         >
-                          {(u.displayName || u.email)[0].toUpperCase()}
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-on-surface font-medium truncate">{u.displayName}</p>
-                          <p className="text-on-surface-variant text-xs truncate">{u.email}</p>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <div
-                    className="absolute z-20 top-full mt-1 w-full rounded-md px-3 py-2 text-xs text-on-surface-variant"
-                    style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-outline)' }}
-                  >
-                    No matching staff accounts found
+                          <FiX aria-hidden="true" className="h-4 w-4" />
+                        </button>
+                      )}
+                    </FieldShell>
+                    {clientUid && (
+                      <p className="mt-1.5 flex items-center gap-1.5 text-xs text-[var(--color-accent-v2)]">
+                        <FiCheckCircle aria-hidden="true" className="h-3.5 w-3.5" />
+                        Client selected
+                      </p>
+                    )}
+                    {clientDropdownOpen && clientSearch.trim().length >= 2 && !clientUid && (
+                      <div className="absolute z-20 top-full mt-1 max-h-64 w-full overflow-auto rounded-md border border-[var(--color-outline)] bg-[var(--color-card)] shadow-lg">
+                        {clientSearchLoading ? (
+                          <div className="px-3 py-2 text-xs text-on-surface-variant">
+                            Searching clients...
+                          </div>
+                        ) : clientCandidates.length > 0 ? (
+                          <ul>
+                            {clientCandidates.map((client) => (
+                              <li
+                                key={client.uid}
+                                className="flex cursor-pointer items-center gap-3 px-3 py-2 text-sm hover:bg-[var(--color-row-hover)]"
+                                onMouseDown={(e) => {
+                                  e.preventDefault()
+                                  setClientUid(client.uid)
+                                  setClientSearch(`${client.displayName || client.email} (${client.email})`)
+                                  setClientCandidates([])
+                                  setClientDropdownOpen(false)
+                                }}
+                              >
+                                <Avatar name={client.displayName || client.email} photoURL={client.photoURL} />
+                                <div className="min-w-0">
+                                  <p className="truncate font-medium text-on-surface">{client.displayName || 'Client'}</p>
+                                  <p className="truncate text-xs text-on-surface-variant">{client.email}</p>
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <div className="px-3 py-2 text-xs text-on-surface-variant">
+                            No matching client accounts found
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
-                )
-              })()}
-            </div>
-            <select
-              value={addRole}
-              onChange={(e) => setAddRole(e.target.value)}
-              className="px-3 py-2 rounded-md text-sm"
-              style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-outline)' }}
-              disabled={addingMember}
+                </label>
+                <RoleSelect value={clientRole} onChange={setClientRole} disabled={addingClient} />
+                <button
+                  type="submit"
+                  className="pib-btn-primary flex w-full items-center justify-center gap-2 text-sm font-label"
+                  disabled={addingClient || !clientUid}
+                >
+                  <FiUserCheck aria-hidden="true" className="h-4 w-4" />
+                  {addingClient ? 'Adding...' : 'Add Client'}
+                </button>
+              </form>
+              {clientError && (
+                <p className="mt-2 text-xs text-[#ef4444]">{clientError}</p>
+              )}
+            </InviteCard>
+
+            <InviteCard
+              icon={<FiUserCheck aria-hidden="true" className="h-4 w-4" />}
+              title="Add existing PiB member"
+              description="Searches platform staff accounts and grants explicit access to this client portal workspace."
             >
-              <option value="member">Member</option>
-              <option value="admin">Admin</option>
-              <option value="viewer">Viewer</option>
-            </select>
-            <button
-              type="submit"
-              className="pib-btn-primary text-sm font-label"
-              disabled={addingMember || !addEmail}
-            >
-              {addingMember ? 'Adding...' : 'Add'}
-            </button>
-          </form>
-          {addError && (
-            <p className="text-xs text-[#ef4444] mt-2">{addError}</p>
-          )}
+              <form onSubmit={handleAddMember} className="space-y-3">
+                <label className="block">
+                  <span className="mb-1.5 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Staff account</span>
+                  <div ref={addSearchRef} className="relative">
+                    <FieldShell>
+                      <input
+                        type="text"
+                        placeholder="Search staff..."
+                        value={addSearch}
+                        onChange={(e) => {
+                          setAddSearch(e.target.value)
+                          setAddEmail(e.target.value)
+                          setShowDropdown(true)
+                        }}
+                        onFocus={() => setShowDropdown(true)}
+                        className="h-11 w-full bg-transparent px-3 pr-10 text-sm text-on-surface placeholder:text-on-surface-variant outline-none"
+                        disabled={addingMember}
+                        autoComplete="off"
+                      />
+                      {addEmail && addSearch.includes('(') && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAddEmail('')
+                            setAddSearch('')
+                          }}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-on-surface-variant hover:text-on-surface"
+                          aria-label="Clear selected member"
+                        >
+                          <FiX aria-hidden="true" className="h-4 w-4" />
+                        </button>
+                      )}
+                    </FieldShell>
+                    {addEmail && addSearch.includes('(') && (
+                      <p className="mt-1.5 flex items-center gap-1.5 text-xs text-[var(--color-accent-v2)]">
+                        <FiCheckCircle aria-hidden="true" className="h-3.5 w-3.5" />
+                        Staff member selected
+                      </p>
+                    )}
+                    {showDropdown && addSearch.trim().length > 0 && (() => {
+                      const q = addSearch.trim().toLowerCase()
+                      const matches = platformUsers.filter(
+                        (u) =>
+                          !members.some((m) => m.email === u.email) &&
+                          (u.email.toLowerCase().includes(q) || u.displayName.toLowerCase().includes(q)),
+                      )
+                      return matches.length > 0 ? (
+                        <ul className="absolute z-20 top-full mt-1 max-h-64 w-full overflow-auto rounded-md border border-[var(--color-outline)] bg-[var(--color-card)] shadow-lg">
+                          {matches.map((u) => (
+                            <li
+                              key={u.uid}
+                              className="flex cursor-pointer items-center gap-3 px-3 py-2 text-sm hover:bg-[var(--color-row-hover)]"
+                              onMouseDown={(e) => {
+                                e.preventDefault()
+                                setAddEmail(u.email)
+                                setAddSearch(`${u.displayName || u.email} (${u.email})`)
+                                setShowDropdown(false)
+                              }}
+                            >
+                              <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-[var(--color-accent-v2)] text-xs font-bold text-black">
+                                {(u.displayName || u.email)[0].toUpperCase()}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="truncate font-medium text-on-surface">{u.displayName || 'Team member'}</p>
+                                <p className="truncate text-xs text-on-surface-variant">{u.email}</p>
+                              </div>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <div className="absolute z-20 top-full mt-1 w-full rounded-md border border-[var(--color-outline)] bg-[var(--color-card)] px-3 py-2 text-xs text-on-surface-variant shadow-lg">
+                          No matching staff accounts found
+                        </div>
+                      )
+                    })()}
+                  </div>
+                </label>
+                <RoleSelect value={addRole} onChange={setAddRole} disabled={addingMember} />
+                <button
+                  type="submit"
+                  className="pib-btn-primary flex w-full items-center justify-center gap-2 text-sm font-label"
+                  disabled={addingMember || !addEmail}
+                >
+                  <FiUserCheck aria-hidden="true" className="h-4 w-4" />
+                  {addingMember ? 'Adding...' : 'Add Member'}
+                </button>
+              </form>
+              {addError && (
+                <p className="mt-2 text-xs text-[#ef4444]">{addError}</p>
+              )}
+            </InviteCard>
+          </div>
         </div>
       )}
 

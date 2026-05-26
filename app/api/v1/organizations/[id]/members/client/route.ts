@@ -98,8 +98,14 @@ export const POST = withAuth('admin', async (req: NextRequest, user, ctx) => {
 
   const body = await req.json().catch(() => ({}))
   const uid = typeof body.uid === 'string' ? body.uid.trim() : ''
+  const role = typeof body.role === 'string' ? body.role.trim() : 'member'
 
   if (!uid) return apiError('uid is required', 400)
+
+  const validRoles = ['admin', 'member', 'viewer']
+  if (!validRoles.includes(role)) {
+    return apiError(`role must be one of: ${validRoles.join(', ')}`, 400)
+  }
 
   const org = await loadOrg(id)
   if (!org) return apiError('Organisation not found', 404)
@@ -122,7 +128,7 @@ export const POST = withAuth('admin', async (req: NextRequest, user, ctx) => {
 
   const newMember: OrgMember = {
     userId: uid,
-    role: 'member',
+    role: role as OrgMember['role'],
     joinedAt: Timestamp.now(),
     invitedBy: user.uid,
   }
@@ -138,6 +144,24 @@ export const POST = withAuth('admin', async (req: NextRequest, user, ctx) => {
       orgIds: normalizeOrgIds(userData, id),
       ...(userData.orgId ? {} : { orgId: id }),
       updatedAt: FieldValue.serverTimestamp(),
+    },
+    { merge: true },
+  )
+
+  const [firstName = '', ...lastNameParts] = (userData.displayName ?? '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+  await adminDb.collection('orgMembers').doc(`${id}_${uid}`).set(
+    {
+      orgId: id,
+      uid,
+      firstName,
+      lastName: lastNameParts.join(' '),
+      avatarUrl: userData.photoURL ?? '',
+      role,
+      updatedAt: FieldValue.serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
     },
     { merge: true },
   )
