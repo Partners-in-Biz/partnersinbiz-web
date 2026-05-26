@@ -7,6 +7,7 @@ import { adminDb, adminAuth } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { logActivity } from '@/lib/activity/log'
+import { syncPlatformContactForOrgMember } from '@/lib/platform-owner/relationships'
 import type { Organization, OrgMember, OrgRole } from '@/lib/organizations/types'
 
 export const dynamic = 'force-dynamic'
@@ -164,6 +165,17 @@ export const POST = withAuth('admin', async (req, user, ctx) => {
     },
     { merge: true },
   )
+
+  await syncPlatformContactForOrgMember({
+    clientOrgId: id,
+    uid: userId,
+    email: typeof userData.email === 'string' ? userData.email : undefined,
+    displayName,
+    role,
+    clientOrg: org as unknown as Record<string, unknown>,
+  }).catch((err) => {
+    console.error('[org-member-crm-sync-error]', err)
+  })
 
   logActivity({
     orgId: id,

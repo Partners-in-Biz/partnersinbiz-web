@@ -8,6 +8,10 @@ import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { logActivity } from '@/lib/activity/log'
 import { canAccessOrg } from '@/lib/api/platformAdmin'
+import {
+  markPlatformContactFormerOrgMember,
+  syncPlatformContactForOrgMember,
+} from '@/lib/platform-owner/relationships'
 import type { Organization, OrgRole } from '@/lib/organizations/types'
 
 export const dynamic = 'force-dynamic'
@@ -76,6 +80,19 @@ export const PATCH = withAuth('admin', async (req, user, ctx) => {
     },
     { merge: true },
   )
+
+  const targetUserDoc = await adminDb.collection('users').doc(targetUserId).get()
+  const targetUser = targetUserDoc.exists ? targetUserDoc.data() ?? {} : {}
+  await syncPlatformContactForOrgMember({
+    clientOrgId: id,
+    uid: targetUserId,
+    email: typeof targetUser.email === 'string' ? targetUser.email : undefined,
+    displayName: typeof targetUser.displayName === 'string' ? targetUser.displayName : targetUserId,
+    role: newRole,
+    clientOrg: org as unknown as Record<string, unknown>,
+  }).catch((err) => {
+    console.error('[org-member-crm-sync-error]', err)
+  })
 
   return apiSuccess({ ...updatedMembers[memberIndex] }, 200)
 })
@@ -149,6 +166,14 @@ export const DELETE = withAuth('admin', async (req, user, ctx) => {
   }
 
   await adminDb.collection('orgMembers').doc(`${id}_${targetUserId}`).delete().catch(() => undefined)
+
+  await markPlatformContactFormerOrgMember({
+    clientOrgId: id,
+    uid: targetUserId,
+    email: typeof userData.email === 'string' ? userData.email : undefined,
+  }).catch((err) => {
+    console.error('[org-member-crm-former-sync-error]', err)
+  })
 
   logActivity({
     orgId: id,

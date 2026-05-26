@@ -43,6 +43,10 @@ jest.mock('@/lib/api/auth', () => ({
     handler(req, mockUser, ctx),
 }))
 
+jest.mock('@/lib/platform-owner/relationships', () => ({
+  syncPlatformContactForOrgMember: jest.fn().mockResolvedValue({ companyId: 'company-1', contactId: 'contact-1' }),
+}))
+
 jest.mock('firebase-admin/firestore', () => ({
   FieldValue: {
     serverTimestamp: jest.fn(() => 'SERVER_TIMESTAMP'),

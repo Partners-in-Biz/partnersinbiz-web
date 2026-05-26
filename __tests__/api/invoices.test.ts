@@ -80,6 +80,7 @@ beforeEach(() => {
   mockOrgDoc.mockReturnValue({ get: mockClientOrgGet })
   mockOrgWhere.mockReturnValue(orgQuery)
   mockOrgLimit.mockReturnValue(orgQuery)
+  mockPlatformOrgGet.mockResolvedValue({ empty: true, docs: [] })
   mockCompanyDoc.mockReturnValue({ get: mockCompanyGet })
   mockContactDoc.mockReturnValue({ get: mockContactGet })
   mockCompanyGet.mockResolvedValue({ exists: false, data: () => undefined })
@@ -239,6 +240,16 @@ describe('GET /api/v1/invoices', () => {
 
 describe('POST /api/v1/invoices', () => {
   it('strips undefined billing snapshot fields before writing to Firestore', async () => {
+    mockOrgDoc.mockImplementation((orgId: string) => ({
+      get: orgId === 'pib-platform-owner'
+        ? jest.fn().mockResolvedValue({
+            exists: true,
+            data: () => ({
+              name: 'Partners in Biz',
+            }),
+          })
+        : mockClientOrgGet,
+    }))
     mockClientOrgGet.mockResolvedValue({
       exists: true,
       data: () => ({

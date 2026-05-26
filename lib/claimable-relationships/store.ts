@@ -1,8 +1,7 @@
 import crypto from 'node:crypto'
-import { FieldValue, Timestamp } from 'firebase-admin/firestore'
+import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
-import { AGENT_PIP_REF } from '@/lib/orgMembers/memberRef'
-import { bootstrapDefaultPipeline, getDefaultPipelineForOrg } from '@/lib/pipelines/store'
+import { ensurePlatformLeadForClaim } from '@/lib/platform-owner/relationships'
 import type {
   ApplyClaimLinksInput,
   ClaimableRelationship,
@@ -140,10 +139,6 @@ export async function applyClaimLinks(input: ApplyClaimLinksInput): Promise<void
   await Promise.all(tasks)
 }
 
-function cleanString(value: unknown): string {
-  return typeof value === 'string' ? value.trim() : ''
-}
-
 export async function createPlatformLeadForClaim(input: {
   targetOrgId: string
   targetUserId: string
@@ -154,146 +149,5 @@ export async function createPlatformLeadForClaim(input: {
   resourceType: ClaimableResourceType
   resourceId: string
 }): Promise<{ companyId: string; contactId: string; dealId?: string } | null> {
-  const platformSnap = await adminDb
-    .collection('organizations')
-    .where('type', '==', 'platform_owner')
-    .limit(1)
-    .get()
-  if (platformSnap.empty) return null
-
-  const platformOrgId = platformSnap.docs[0].id
-  const now = Timestamp.now()
-  const normalizedEmail = normalizeEmail(input.contactEmail)
-  const businessName = cleanString(input.businessName) || normalizedEmail || input.targetOrgId
-
-  const companiesSnap = await adminDb.collection('companies')
-    .where('orgId', '==', platformOrgId)
-    .limit(1000)
-    .get()
-  const existingCompany = companiesSnap.docs.find((doc) => {
-    const data = doc.data() ?? {}
-    return data.linkedOrgId === input.targetOrgId ||
-      cleanString(data.name).toLowerCase() === businessName.toLowerCase()
-  })
-
-  let companyId = existingCompany?.id
-  if (existingCompany) {
-    await existingCompany.ref.set({
-      linkedOrgId: input.targetOrgId,
-      updatedAt: now,
-    }, { merge: true })
-  } else {
-    const ref = adminDb.collection('companies').doc()
-    companyId = ref.id
-    await ref.set({
-      orgId: platformOrgId,
-      name: businessName,
-      linkedOrgId: input.targetOrgId,
-      source: 'claimable_relationship',
-      lifecycleStage: 'lead',
-      tags: ['organic-platform-lead'],
-      ownerUid: AGENT_PIP_REF.uid,
-      ownerRef: AGENT_PIP_REF,
-      createdByRef: AGENT_PIP_REF,
-      updatedByRef: AGENT_PIP_REF,
-      deleted: false,
-      createdAt: now,
-      updatedAt: now,
-    })
-  }
-
-  const contactsSnap = await adminDb.collection('contacts')
-    .where('orgId', '==', platformOrgId)
-    .limit(1000)
-    .get()
-  const existingContact = contactsSnap.docs.find((doc) => {
-    const data = doc.data() ?? {}
-    return normalizeEmail(cleanString(data.email)) === normalizedEmail ||
-      data.linkedUserId === input.targetUserId
-  })
-
-  let contactId = existingContact?.id
-  if (existingContact) {
-    await existingContact.ref.set({
-      linkedUserId: input.targetUserId,
-      companyId,
-      companyName: businessName,
-      updatedAt: now,
-    }, { merge: true })
-  } else {
-    const ref = adminDb.collection('contacts').doc()
-    contactId = ref.id
-    await ref.set({
-      orgId: platformOrgId,
-      name: cleanString(input.contactName) || normalizedEmail,
-      email: normalizedEmail,
-      company: businessName,
-      companyId,
-      companyName: businessName,
-      linkedUserId: input.targetUserId,
-      source: 'manual',
-      type: 'lead',
-      stage: 'new',
-      tags: ['organic-platform-lead'],
-      deleted: false,
-      createdByRef: AGENT_PIP_REF,
-      updatedByRef: AGENT_PIP_REF,
-      createdAt: now,
-      updatedAt: now,
-      subscribedAt: now,
-      unsubscribedAt: null,
-      bouncedAt: null,
-    })
-  }
-
-  const pipeline = await getDefaultPipelineForOrg(platformOrgId) ??
-    await bootstrapDefaultPipeline(platformOrgId, AGENT_PIP_REF)
-  const firstOpenStage = pipeline.stages.find((stage) => stage.kind === 'open') ?? pipeline.stages[0]
-
-  const dealsSnap = await adminDb.collection('deals')
-    .where('orgId', '==', platformOrgId)
-    .limit(1000)
-    .get()
-  const existingDeal = dealsSnap.docs.find((doc) => {
-    const data = doc.data() ?? {}
-    return data.companyId === companyId &&
-      data.deleted !== true &&
-      !data.lostReason &&
-      (typeof data.probability !== 'number' || data.probability < 100)
-  })
-
-  let dealId = existingDeal?.id
-  if (!existingDeal && firstOpenStage) {
-    const ref = adminDb.collection('deals').doc()
-    dealId = ref.id
-    await ref.set({
-      orgId: platformOrgId,
-      title: `${businessName} - PiB service opportunity`,
-      contactId,
-      companyId,
-      companyName: businessName,
-      value: 0,
-      currency: 'ZAR',
-      pipelineId: pipeline.id,
-      stageId: firstOpenStage.id,
-      probability: firstOpenStage.probability ?? 10,
-      sourceRelationship: {
-        sourceOrgId: input.sourceOrgId,
-        targetOrgId: input.targetOrgId,
-        resourceType: input.resourceType,
-        resourceId: input.resourceId,
-      },
-      createdByRef: AGENT_PIP_REF,
-      updatedByRef: AGENT_PIP_REF,
-      createdAt: now,
-      updatedAt: now,
-      deleted: false,
-    })
-  } else if (existingDeal) {
-    await existingDeal.ref.set({
-      updatedAt: now,
-    }, { merge: true })
-  }
-
-  return { companyId: companyId!, contactId: contactId!, dealId }
+  return ensurePlatformLeadForClaim(input)
 }

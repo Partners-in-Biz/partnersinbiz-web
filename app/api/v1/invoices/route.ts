@@ -9,6 +9,7 @@ import { logActivity } from '@/lib/activity/log'
 import { canAccessOrg, restrictedAdminOrgIds } from '@/lib/api/platformAdmin'
 import { ensureClaimableRelationship } from '@/lib/claimable-relationships/store'
 import { canManageOrgAs } from '@/lib/orgMembers/permissions'
+import { resolvePlatformOwnerOrgId } from '@/lib/platform-owner/relationships'
 
 export const dynamic = 'force-dynamic'
 
@@ -68,6 +69,33 @@ function cleanString(value: unknown): string {
 
 function normalizeEmail(value: unknown): string {
   return cleanString(value).toLowerCase()
+}
+
+function invoiceLooksLikeLegacyPlatformBill(invoice: InvoiceListItem, recipientOrgId: string, platformOrgId: string): boolean {
+  if (invoice.recipientOrgId || invoice.targetOrgId) return false
+  if (invoice.orgId !== recipientOrgId) return false
+  if (invoice.billingOrgId === platformOrgId) return true
+  const fromDetails = asRecord(invoice.fromDetails)
+  return cleanString(fromDetails.companyName).toLowerCase().includes('partners in biz')
+}
+
+async function loadReceivedInvoicesForOrg(orgId: string): Promise<InvoiceListItem[]> {
+  const platformOrgId = await resolvePlatformOwnerOrgId()
+  const [receivedSnap, targetSnap, legacySnap] = await Promise.all([
+    adminDb.collection('invoices').where('recipientOrgId', '==', orgId).get(),
+    adminDb.collection('invoices').where('targetOrgId', '==', orgId).get(),
+    adminDb.collection('invoices').where('orgId', '==', orgId).get(),
+  ])
+  const byId = new Map<string, InvoiceListItem>()
+  for (const doc of receivedSnap.docs) byId.set(doc.id, { id: doc.id, ...doc.data() })
+  for (const doc of targetSnap.docs) byId.set(doc.id, { id: doc.id, ...doc.data() })
+  for (const doc of legacySnap.docs) {
+    const invoice = { id: doc.id, ...doc.data() } as InvoiceListItem
+    if (invoiceLooksLikeLegacyPlatformBill(invoice, orgId, platformOrgId)) {
+      byId.set(doc.id, invoice)
+    }
+  }
+  return Array.from(byId.values())
 }
 
 function hasClaimableTarget(body: Record<string, unknown>): boolean {
@@ -161,6 +189,13 @@ export const GET = withAuth('client', async (req, user) => {
   if (user.role === 'client') {
     const requestedOrgId = searchParams.get('orgId') ?? user.orgId ?? user.orgIds?.[0]
     if (!requestedOrgId || !canAccessOrg(user, requestedOrgId)) return apiSuccess([])
+    if (view === 'received') {
+      const invoices = (await loadReceivedInvoicesForOrg(requestedOrgId))
+        .filter((invoice) => !sharedOnly || Boolean(invoice.claimableRelationshipId))
+        .sort((a, b) => createdAtMillis(b.createdAt) - createdAtMillis(a.createdAt))
+        .slice(0, 50)
+      return apiSuccess(invoices)
+    }
     query = query.where(orgField, '==', requestedOrgId)
   } else {
     // Admin / AI can filter freely by orgId / billingOrgId query params.
@@ -202,15 +237,25 @@ export const GET = withAuth('client', async (req, user) => {
 
 export const POST = withAuth('client', async (req, user) => {
   const body = (await req.json().catch(() => ({}))) as Record<string, unknown>
-  const sourceOrgId = cleanString(body.orgId)
+  const requestedOrgId = cleanString(body.orgId)
   const rawLineItems = Array.isArray(body.lineItems) ? body.lineItems : []
-  if (!sourceOrgId) return apiError('orgId is required', 400)
+  if (!requestedOrgId) return apiError('orgId is required', 400)
   if (rawLineItems.length === 0) return apiError('At least one line item is required', 400)
-  if (!(await canManageOrgAs(user, sourceOrgId))) return apiError('Forbidden', 403)
   const claimableInvoice = hasClaimableTarget(body)
+  const platformOwnerOrgId = await resolvePlatformOwnerOrgId()
+  const platformIssuedInvoice = !claimableInvoice && (user.role === 'admin' || user.role === 'ai')
+  const sourceOrgId = platformIssuedInvoice ? platformOwnerOrgId : requestedOrgId
+  const recipientOrgId = platformIssuedInvoice ? requestedOrgId : cleanString(body.recipientOrgId)
+  if (!(await canManageOrgAs(user, platformIssuedInvoice ? recipientOrgId : sourceOrgId))) {
+    return apiError('Forbidden', 403)
+  }
 
-  // Fetch client org for name + billing details snapshot
-  const clientOrgDoc = await adminDb.collection('organizations').doc(sourceOrgId).get()
+  // Fetch sender + client org snapshots.
+  const sourceOrgDoc = await adminDb.collection('organizations').doc(sourceOrgId).get()
+  if (!sourceOrgDoc.exists) return apiError('Source organisation not found', 404)
+  const sourceOrg = (sourceOrgDoc.data() ?? {}) as Record<string, unknown>
+  const targetClientOrgId = recipientOrgId || sourceOrgId
+  const clientOrgDoc = await adminDb.collection('organizations').doc(targetClientOrgId).get()
   if (!clientOrgDoc.exists) return apiError('Client organisation not found', 404)
   const clientOrg = (clientOrgDoc.data() ?? {}) as Record<string, unknown>
   const clientBilling = asRecord(clientOrg.billingDetails)
@@ -225,20 +270,7 @@ export const POST = withAuth('client', async (req, user) => {
     return apiError('recipientEmail is required for CRM invoices', 400)
   }
 
-  // Fetch platform owner org for "from" details
-  const platformSnap = await adminDb
-    .collection('organizations')
-    .where('type', '==', 'platform_owner')
-    .limit(1)
-    .get()
-
-  let fromDetails: Record<string, unknown> = claimableInvoice
-    ? orgBillingSnapshot(clientOrg)
-    : { companyName: 'Partners in Biz' }
-  if (!platformSnap.empty) {
-    const platform = (platformSnap.docs[0].data() ?? {}) as Record<string, unknown>
-    if (!claimableInvoice) fromDetails = orgBillingSnapshot(platform)
-  }
+  const fromDetails: Record<string, unknown> = orgBillingSnapshot(sourceOrg)
 
   // Snapshot client details
   const clientDetails = claimableInvoice && crmTarget
@@ -285,9 +317,7 @@ export const POST = withAuth('client', async (req, user) => {
       ? cleanString(body.billingOrgId)
       : claimableInvoice
         ? sourceOrgId
-        : platformSnap.empty
-          ? null
-          : platformSnap.docs[0].id
+        : platformOwnerOrgId
 
   const doc = {
     orgId: sourceOrgId,
@@ -316,13 +346,13 @@ export const POST = withAuth('client', async (req, user) => {
     recipientEmail: crmTarget?.recipientEmail || undefined,
     recipientName: crmTarget?.recipientName || undefined,
     recipientCompanyName: crmTarget?.recipientCompanyName || undefined,
-    recipientOrgId: crmTarget?.recipientOrgId || undefined,
+    recipientOrgId: crmTarget?.recipientOrgId || recipientOrgId || undefined,
     recipientUserId: crmTarget?.recipientUserId || undefined,
-    targetOrgId: crmTarget?.recipientOrgId || undefined,
+    targetOrgId: crmTarget?.recipientOrgId || recipientOrgId || undefined,
     targetUserId: crmTarget?.recipientUserId || undefined,
     claimStatus: claimableInvoice
       ? (crmTarget?.recipientOrgId ? 'claimed' : 'pending')
-      : undefined,
+      : recipientOrgId ? 'claimed' : undefined,
     createdBy: user.uid,
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
@@ -378,8 +408,8 @@ export const POST = withAuth('client', async (req, user) => {
       invoiceNumber,
       total,
       currency: doc.currency,
-      clientOrgId: sourceOrgId,
-      recipientOrgId: crmTarget?.recipientOrgId || null,
+      clientOrgId: recipientOrgId || crmTarget?.recipientOrgId || sourceOrgId,
+      recipientOrgId: recipientOrgId || crmTarget?.recipientOrgId || null,
       dueDate: doc.dueDate,
     })
   } catch (err) {

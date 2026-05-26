@@ -66,37 +66,10 @@ export default function ProjectsPage() {
   const [formError, setFormError] = useState<string | null>(null)
 
   useEffect(() => {
-    fetch('/api/v1/projects')
+    fetch('/api/v1/projects?view=received')
       .then(r => r.json())
       .then(body => { setProjects(body.data ?? []); setLoading(false) })
       .catch(() => setLoading(false))
-  }, [])
-
-  useEffect(() => {
-    const unsubscribe = onSnapshot(
-      collection(getClientDb(), 'projects'),
-      (snap) => {
-        snap.docChanges().forEach(change => {
-          if (change.type === 'removed') {
-            setProjects(prev => prev.filter(project => project.id !== change.doc.id))
-            return
-          }
-
-          const liveProject = { id: change.doc.id, ...change.doc.data() } as Project
-          setProjects(prev => {
-            const idx = prev.findIndex(project => project.id === liveProject.id)
-            if (idx >= 0) {
-              const next = [...prev]
-              next[idx] = { ...next[idx], ...liveProject }
-              return next
-            }
-            return [liveProject, ...prev]
-          })
-        })
-      },
-      () => {} // REST remains the fallback if client Firestore auth/listening fails.
-    )
-    return () => unsubscribe()
   }, [])
 
   const filtered = useMemo(
@@ -212,7 +185,7 @@ export default function ProjectsPage() {
       }
 
       // Refetch the full list so the new project is confirmed from the server
-      const listRes = await fetch('/api/v1/projects')
+      const listRes = await fetch('/api/v1/projects?view=received')
       const listBody = await listRes.json()
       setProjects(listBody.data ?? [])
       setShowForm(false)

@@ -73,6 +73,9 @@ export interface Contact {
   deleted?: boolean
   companyId?: string
   companyName?: string
+  linkedUserId?: string       // PiB user linked through a sender-owned CRM contact
+  linkedOrgId?: string        // PiB client org this contact belongs to when mirrored into platform CRM
+  clientMemberActive?: boolean
   // A4 scoring fields (additive — never required)
   leadScore?: number          // 0-100, formula-based engagement
   icpScore?: number           // 0-100, ICP-match (company attrs vs ICP profile)

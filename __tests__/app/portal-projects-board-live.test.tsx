@@ -1,6 +1,7 @@
 import React from 'react'
 import { fireEvent, render, screen, waitFor, act } from '@testing-library/react'
 import ProjectsPage from '@/app/(portal)/portal/projects/page'
+import { collection, onSnapshot } from 'firebase/firestore'
 
 let snapshotCallback: ((snap: { docChanges: () => Array<{ type: 'added' | 'modified' | 'removed'; doc: { id: string; data: () => Record<string, unknown> } }> }) => void) | null = null
 const unsubscribe = jest.fn()
@@ -42,9 +43,11 @@ describe('Portal projects board live data', () => {
   beforeEach(() => {
     snapshotCallback = null
     unsubscribe.mockClear()
+    ;(collection as jest.Mock).mockClear()
+    ;(onSnapshot as jest.Mock).mockClear()
     global.fetch = jest.fn((input: RequestInfo | URL) => {
       const url = String(input)
-      if (url === '/api/v1/projects') {
+      if (url === '/api/v1/projects?view=received') {
         return Promise.resolve({
           ok: true,
           json: async () => ({ data: [{ id: 'project-1', name: 'Launch Site', status: 'development' }] }),
@@ -89,7 +92,7 @@ describe('Portal projects board live data', () => {
     let resolveTasks: (response: Response) => void = () => {}
     global.fetch = jest.fn((input: RequestInfo | URL) => {
       const url = String(input)
-      if (url === '/api/v1/projects') {
+      if (url === '/api/v1/projects?view=received') {
         return Promise.resolve({
           ok: true,
           json: async () => ({ data: [{ id: 'project-1', name: 'Launch Site', status: 'development' }] }),
@@ -122,18 +125,12 @@ describe('Portal projects board live data', () => {
   })
 
 
-  it('updates project cards when Firestore project snapshots change', async () => {
+  it('does not subscribe to the unscoped top-level projects collection', async () => {
     render(<ProjectsPage />)
 
     await waitFor(() => expect(screen.getByText('Launch Site')).toBeInTheDocument())
 
-    mockSnapshotChange('modified', 'project-1', {
-      name: 'Launch Site Live',
-      status: 'review',
-      description: 'QA changed this without a refresh',
-    })
-
-    expect(screen.getByText('Launch Site Live')).toBeInTheDocument()
-    expect(screen.getByText('QA changed this without a refresh')).toBeInTheDocument()
+    expect(onSnapshot).not.toHaveBeenCalled()
+    expect(collection).not.toHaveBeenCalledWith(expect.anything(), 'projects')
   })
 })

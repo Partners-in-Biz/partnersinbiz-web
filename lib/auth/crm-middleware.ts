@@ -27,6 +27,12 @@ export interface CrmAuthContext {
   role: CrmRole
   isAgent: boolean
   permissions: OrgPermissions
+  user?: {
+    uid: string
+    role?: string
+    orgId?: string
+    allowedOrgIds?: string[]
+  }
 }
 
 export type CrmRouteHandler<RouteCtx = unknown> = (
@@ -81,6 +87,7 @@ export function withCrmAuth<RouteCtx = unknown>(
         role: 'system',
         isAgent: true,
         permissions,
+        user: { uid: AGENT_PIP_REF.uid, role: 'ai' },
       }
       return handler(req, ctx, routeCtx)
     }
@@ -126,7 +133,7 @@ export function withCrmAuth<RouteCtx = unknown>(
       actor = buildHumanRef(uid, m)
     }
 
-    const { permissions, members, exists: _orgExists } = await loadOrgPermissions(orgId)
+    const { permissions, members } = await loadOrgPermissions(orgId)
 
     if (!role) {
       const fallback = members?.find((m) => m.userId === uid)
@@ -139,7 +146,21 @@ export function withCrmAuth<RouteCtx = unknown>(
     if (!role || !actor) return apiError('Workspace membership not found', 403)
     if (rankOf(role) < rankOf(minRole)) return apiError('Insufficient permissions', 403)
 
-    const ctx: CrmAuthContext = { orgId, actor, role, isAgent: false, permissions }
+    const ctx: CrmAuthContext = {
+      orgId,
+      actor,
+      role,
+      isAgent: false,
+      permissions,
+      user: {
+        uid,
+        role: typeof userData.role === 'string' ? userData.role : undefined,
+        orgId: typeof userData.orgId === 'string' ? userData.orgId : orgId,
+        allowedOrgIds: Array.isArray(userData.allowedOrgIds)
+          ? userData.allowedOrgIds.filter((value: unknown): value is string => typeof value === 'string' && value.length > 0)
+          : undefined,
+      },
+    }
     return handler(req, ctx, routeCtx)
   }
 }

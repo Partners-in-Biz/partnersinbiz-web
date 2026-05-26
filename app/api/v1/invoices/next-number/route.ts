@@ -4,6 +4,7 @@ import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { previewNextInvoiceNumber } from '@/lib/invoices/invoice-number'
 import { canAccessOrg } from '@/lib/api/platformAdmin'
+import { resolvePlatformOwnerOrgId } from '@/lib/platform-owner/relationships'
 
 export const dynamic = 'force-dynamic'
 
@@ -18,6 +19,7 @@ export const GET = withAuth('admin', async (req, user) => {
   if (!orgDoc.exists) return apiError('Organisation not found', 404)
   const orgName = orgDoc.data()?.name ?? 'Unknown'
 
-  const invoiceNumber = await previewNextInvoiceNumber(orgId, orgName)
+  const sourceOrgId = await resolvePlatformOwnerOrgId()
+  const invoiceNumber = await previewNextInvoiceNumber(sourceOrgId, orgName)
   return apiSuccess({ invoiceNumber })
 })

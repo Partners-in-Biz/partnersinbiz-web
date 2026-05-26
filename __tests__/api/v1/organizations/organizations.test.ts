@@ -35,6 +35,11 @@ jest.mock('@/lib/client-provisioning/vps', () => ({
   provisionFullClientOnVps: jest.fn(),
 }))
 
+jest.mock('@/lib/platform-owner/relationships', () => ({
+  syncPlatformContactForOrgMember: jest.fn().mockResolvedValue({ companyId: 'company-1', contactId: 'contact-1' }),
+  markPlatformContactFormerOrgMember: jest.fn().mockResolvedValue({ contactId: 'contact-1' }),
+}))
+
 jest.mock('@/lib/firebase/admin', () => ({
   adminAuth: {
     verifyIdToken: jest.fn(),

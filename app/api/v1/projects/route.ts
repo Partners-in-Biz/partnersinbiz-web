@@ -12,6 +12,8 @@ import type { ApiUser } from '@/lib/api/types'
 import { logActivity } from '@/lib/activity/log'
 import { canAccessOrg, restrictedAdminOrgIds } from '@/lib/api/platformAdmin'
 import { ensureClaimableRelationship } from '@/lib/claimable-relationships/store'
+import { resolvePlatformOwnerOrgId } from '@/lib/platform-owner/relationships'
+import { canAccessProject } from '@/lib/projects/access'
 
 const VALID_STATUSES = [
   'discovery',
@@ -131,6 +133,22 @@ function createdAtMillis(value: unknown): number {
   return 0
 }
 
+async function loadClientVisibleProjectsForOrg(orgId: string): Promise<ProjectListItem[]> {
+  const [receivedSnap, targetSnap, clientSnap, legacySnap] = await Promise.all([
+    adminDb.collection('projects').where('recipientOrgId', '==', orgId).get(),
+    adminDb.collection('projects').where('targetOrgId', '==', orgId).get(),
+    adminDb.collection('projects').where('clientOrgId', '==', orgId).get(),
+    adminDb.collection('projects').where('orgId', '==', orgId).get(),
+  ])
+  const byId = new Map<string, ProjectListItem>()
+  for (const snap of [receivedSnap, targetSnap, clientSnap, legacySnap]) {
+    for (const doc of snap.docs) {
+      byId.set(doc.id, { id: doc.id, ...doc.data() })
+    }
+  }
+  return Array.from(byId.values())
+}
+
 export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) => {
   const { searchParams } = new URL(req.url)
   const orgSlug = searchParams.get('orgSlug')
@@ -142,6 +160,12 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
   if (user.role === 'client') {
     const orgId = searchParams.get('orgId') ?? user.orgId
     if (!orgId || !canAccessOrg(user, orgId)) return apiSuccess([])
+    if (view === 'received') {
+      const projects = (await loadClientVisibleProjectsForOrg(orgId))
+        .filter((project) => !sharedOnly || Boolean(project.claimableRelationshipId))
+        .sort((a, b) => createdAtMillis(b.createdAt) - createdAtMillis(a.createdAt))
+      return apiSuccess(projects)
+    }
     query = query.where(view === 'received' ? 'recipientOrgId' : 'orgId', '==', orgId)
   }
 
@@ -210,9 +234,12 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) =
     return apiError('Forbidden', 403)
   }
 
-  const clientId = cleanString(body.clientId) || orgId
   const claimableProject = hasClaimableTarget(body)
-  const crmTarget = claimableProject ? await resolveProjectCrmTarget(body, orgId) : null
+  const platformIssuedProject = !claimableProject && (user.role === 'admin' || user.role === 'ai')
+  const sourceOrgId = platformIssuedProject ? await resolvePlatformOwnerOrgId() : orgId
+  const recipientOrgId = platformIssuedProject ? orgId : cleanString(body.recipientOrgId)
+  const clientId = cleanString(body.clientId) || recipientOrgId || orgId
+  const crmTarget = claimableProject ? await resolveProjectCrmTarget(body, sourceOrgId) : null
   if (claimableProject && crmTarget?.companyId && !crmTarget.company) {
     return apiError('CRM company not found', 404)
   }
@@ -226,11 +253,11 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) =
   const name = body.name.trim()
   const docRef = await adminDb.collection('projects').add(stripUndefined({
     name,
-    orgId,
-    sourceOrgId: orgId,
-    issuerOrgId: orgId,
+    orgId: sourceOrgId,
+    sourceOrgId,
+    issuerOrgId: sourceOrgId,
     clientId,
-    clientOrgId: crmTarget?.recipientOrgId || cleanString(body.clientOrgId) || clientId || null,
+    clientOrgId: crmTarget?.recipientOrgId || recipientOrgId || cleanString(body.clientOrgId) || clientId || null,
     description: body.description?.trim() ?? '',
     brief: body.brief?.trim() ?? '',
     status: (body.status as ProjectStatus) ?? 'discovery',
@@ -243,13 +270,13 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) =
     recipientEmail: crmTarget?.recipientEmail || undefined,
     recipientName: crmTarget?.recipientName || undefined,
     recipientCompanyName: crmTarget?.recipientCompanyName || undefined,
-    recipientOrgId: crmTarget?.recipientOrgId || undefined,
+    recipientOrgId: crmTarget?.recipientOrgId || recipientOrgId || undefined,
     recipientUserId: crmTarget?.recipientUserId || undefined,
-    targetOrgId: crmTarget?.recipientOrgId || undefined,
+    targetOrgId: crmTarget?.recipientOrgId || recipientOrgId || undefined,
     targetUserId: crmTarget?.recipientUserId || undefined,
     claimStatus: claimableProject
       ? (crmTarget?.recipientOrgId ? 'claimed' : 'pending')
-      : undefined,
+      : recipientOrgId ? 'claimed' : undefined,
     createdBy: user.uid,
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
@@ -287,7 +314,7 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) =
   }
 
   logActivity({
-    orgId,
+    orgId: sourceOrgId,
     type: 'project_created',
     actorId: user.uid,
     actorName: user.uid,
@@ -310,8 +337,9 @@ export const DELETE = withAuth('admin', async (req: NextRequest, user: ApiUser) 
   const docRef = adminDb.collection('projects').doc(id)
   const snap = await docRef.get()
   if (!snap.exists) return apiError('Project not found', 404)
-  const orgId = snap.data()?.orgId
-  if (!canAccessOrg(user, orgId)) {
+  const projectData = snap.data() ?? {}
+  const orgId = projectData.orgId
+  if (!canAccessProject(user, projectData)) {
     return apiError('Forbidden', 403)
   }
 
