@@ -68,11 +68,8 @@ export function AdminShell({ userEmail, userUid, children }: AdminShellProps) {
   const drawerOrg = routeOrg ?? selectedOrg
   const drawerOrgId = (drawerOrg?.id ?? selectedOrgId) || PIB_PLATFORM_ORG_ID
   const drawerOrgName = (drawerOrg?.name ?? orgName) || SHARED_SENDER_NAME
-  const isMessagesPage = /^\/admin\/org\/[^/]+\/messages(?:\/|$)/.test(pathname)
-  const mainClassName = isMessagesPage
-    ? 'px-2 md:px-4 py-4'
-    : 'px-4 md:px-8 py-8'
-  const innerClassName = isMessagesPage ? 'max-w-none' : 'max-w-[1400px]'
+  const mainClassName = 'px-4 md:px-8 py-8'
+  const innerClassName = 'max-w-[1400px]'
   const messageAction = (
     <MessageDrawer
       orgId={drawerOrgId}
