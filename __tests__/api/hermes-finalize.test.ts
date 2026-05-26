@@ -105,6 +105,36 @@ describe('finalize route', () => {
     expect(mockUpdateMessage).not.toHaveBeenCalled()
   })
 
+  it('marks missing Hermes runs as interrupted instead of returning a transient upstream error', async () => {
+    const events: ChatEvent[] = [{ event: 'assistant.text_delta', delta: 'partial', timestamp: 1000 }]
+    mockCallHermesJson.mockResolvedValue({
+      response: { ok: false, status: 404 },
+      data: { detail: 'run not found' },
+    })
+
+    const { POST } = await import(
+      '@/app/api/v1/admin/hermes/profiles/[orgId]/conversations/[convId]/messages/[msgId]/finalize/route'
+    )
+    const res = await POST(
+      makeRequest({ runId: 'run-missing', events }),
+      { params: Promise.resolve({ orgId: 'org1', convId: 'conv1', msgId: 'msg1' }) },
+    )
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.data.status).toBe('interrupted')
+    expect(body.data.error).toContain('gateway lost this run')
+    expect(mockUpdateMessage).toHaveBeenCalledWith(
+      'conv1', 'msg1',
+      expect.objectContaining({
+        status: 'failed',
+        runId: 'run-missing',
+        events,
+        error: expect.stringContaining('gateway lost this run'),
+      }),
+    )
+  })
+
   it('returns pending:true for other in-progress statuses', async () => {
     mockCallHermesJson.mockResolvedValue({
       response: { ok: true },

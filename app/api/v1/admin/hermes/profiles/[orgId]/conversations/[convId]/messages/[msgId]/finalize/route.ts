@@ -28,6 +28,21 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
 
   const { response, data } = await callHermesJson(access.link, `/v1/runs/${encodeURIComponent(runId)}`)
   if (!response.ok) {
+    if (response.status === 404) {
+      const lostRunMessage = 'The agent gateway lost this run, likely after a restart. Streamed progress was preserved; start a deliberate follow-up if needed.'
+      await updateMessage(convId, msgId, {
+        content: lostRunMessage,
+        status: 'failed',
+        error: lostRunMessage,
+        runId,
+        ...(events.length > 0 ? { events } : {}),
+      })
+      await touchConversation(convId, {
+        lastMessagePreview: `[run interrupted] ${lostRunMessage}`.slice(0, 200),
+        lastMessageRole: 'assistant',
+      })
+      return apiSuccess({ status: 'interrupted', output: lostRunMessage, error: lostRunMessage })
+    }
     return apiError('Failed to fetch Hermes run', response.status || 502, { hermes: data })
   }
 
