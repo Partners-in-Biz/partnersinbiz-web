@@ -8,6 +8,20 @@ export type QuoteStatus = 'draft' | 'sent' | 'accepted' | 'declined' | 'expired'
 export interface Quote {
   id?: string
   orgId: string
+  sourceOrgId?: string
+  issuerOrgId?: string
+  recipientOrgId?: string
+  recipientUserId?: string
+  targetOrgId?: string
+  targetUserId?: string
+  sourceCompanyId?: string
+  sourceContactId?: string
+  recipientEmail?: string
+  recipientName?: string
+  recipientCompanyName?: string
+  claimableRelationshipId?: string
+  claimToken?: string
+  claimStatus?: 'pending' | 'claimed' | 'revoked'
   quoteNumber: string
   status: QuoteStatus
   issueDate: Timestamp | null

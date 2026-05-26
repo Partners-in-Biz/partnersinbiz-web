@@ -7,7 +7,9 @@ import { useEffect } from 'react'
 import { OrgSwitcher } from './OrgSwitcher'
 // import GlobalSearch from './GlobalSearch'
 import { useOrg } from '@/lib/contexts/OrgContext'
+import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
 import { OPERATOR_NAV, workspaceNav, type NavItem } from './navConfig'
+import { PortalViewSwitch } from './PortalViewSwitch'
 
 const WORKSPACE_GROUP_LABELS: Record<NonNullable<NavItem['group']>, string> = {
   work: 'Workspace',
@@ -74,6 +76,8 @@ export function AdminSidebar({ open = false, onClose, collapsed = false, onToggl
   const selectedOrg = routeOrg ?? orgs.find((o) => o.id === selectedOrgId)
   const workspaceSlug = routeOrgSlug ?? selectedOrg?.slug
   const isWorkspaceMode = !!workspaceSlug
+  const isPlatformWorkspace = selectedOrg?.type === 'platform_owner' || selectedOrg?.id === PIB_PLATFORM_ORG_ID
+  const workspaceLabel = isPlatformWorkspace ? 'Platform' : 'Client'
 
   const navItems = isWorkspaceMode ? workspaceNav(workspaceSlug) : OPERATOR_NAV
   const groupedNav = (['work', 'data', 'comms'] as const).map((group) => ({
@@ -143,26 +147,35 @@ export function AdminSidebar({ open = false, onClose, collapsed = false, onToggl
                 )}
               </div>
               <span className={['ml-auto pill !text-[10px] !py-0.5 !px-2', isWorkspaceMode ? 'pill-accent' : ''].join(' ')}>
-                {isWorkspaceMode ? 'Client' : 'Admin'}
+                {isWorkspaceMode ? workspaceLabel : 'Admin'}
               </span>
             </>
           )}
         </div>
 
-        {/* Collapse toggle */}
-        <button
-          onClick={onToggleCollapsed}
-          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          className={[
-            'hidden md:flex items-center justify-center h-8 text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors border-b border-[var(--color-pib-line)]',
-            collapsed ? 'w-full' : 'w-full px-5',
-          ].join(' ')}
-        >
-          <span className="material-symbols-outlined text-[18px]">
-            {collapsed ? 'chevron_right' : 'chevron_left'}
-          </span>
-          {!collapsed && <span className="ml-auto text-[10px] opacity-50">collapse</span>}
-        </button>
+        {/* Collapse and mode switch controls */}
+        <div className="hidden md:flex items-center h-8 border-b border-[var(--color-pib-line)] shrink-0">
+          <button
+            onClick={onToggleCollapsed}
+            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            className={[
+              'flex h-8 items-center justify-center text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors',
+              collapsed ? 'w-full' : 'flex-1',
+            ].join(' ')}
+          >
+            <span className="material-symbols-outlined text-[18px]">
+              {collapsed ? 'chevron_right' : 'chevron_left'}
+            </span>
+          </button>
+          {!collapsed && isWorkspaceMode && selectedOrg?.id && (
+            <PortalViewSwitch orgId={selectedOrg.id} iconOnly />
+          )}
+        </div>
+
+        {collapsed && isWorkspaceMode && selectedOrg?.id && (
+          <PortalViewSwitch orgId={selectedOrg.id} collapsed iconOnly />
+        )}
 
         {/* Search - temporarily hidden while behavior is being revisited.
         {!collapsed && (
@@ -183,7 +196,7 @@ export function AdminSidebar({ open = false, onClose, collapsed = false, onToggl
         {/* Navigation */}
         {!collapsed && (
           <div className="px-3 pt-3 pb-1">
-            <p className="eyebrow !text-[9px] px-2 mb-2">{isWorkspaceMode ? 'Client view' : 'Navigation'}</p>
+            <p className="eyebrow !text-[9px] px-2 mb-2">{isWorkspaceMode ? `${workspaceLabel} view` : 'Navigation'}</p>
           </div>
         )}
         <nav className={['flex-1 space-y-1', collapsed ? 'px-2 pt-3' : 'px-3'].join(' ')}>

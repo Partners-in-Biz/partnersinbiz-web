@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { FieldValue } from 'firebase-admin/firestore'
 import { withPortalAuth } from '@/lib/auth/portal-middleware'
 import { adminDb } from '@/lib/firebase/admin'
+import { canUsePortalOrg, resolvePortalActiveOrgId } from '@/lib/portal/org-access'
 
 export const dynamic = 'force-dynamic'
 
@@ -12,7 +13,7 @@ export const GET = withPortalAuth(async (_req: NextRequest, uid: string) => {
   const userDoc = await adminDb.collection('users').doc(uid).get()
   if (!userDoc.exists) return NextResponse.json({ error: 'User not found' }, { status: 404 })
   const data = userDoc.data()!
-  const activeOrgId: string = data.activeOrgId ?? data.orgId ?? ''
+  const activeOrgId = await resolvePortalActiveOrgId(uid, data)
   return NextResponse.json({ orgId: activeOrgId })
 })
 
@@ -25,11 +26,7 @@ export const POST = withPortalAuth(async (req: NextRequest, uid: string) => {
   if (!userDoc.exists) return NextResponse.json({ error: 'User not found' }, { status: 404 })
 
   const data = userDoc.data()!
-  const orgIds: string[] = Array.isArray(data.orgIds)
-    ? data.orgIds
-    : (data.orgId ? [data.orgId] : [])
-
-  if (!orgIds.includes(orgId)) {
+  if (!await canUsePortalOrg(uid, data, orgId)) {
     return NextResponse.json({ error: 'You do not have access to this organisation' }, { status: 403 })
   }
 

@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withPortalAuth } from '@/lib/auth/portal-middleware'
 import { adminDb } from '@/lib/firebase/admin'
+import { choosePortalActiveOrgId, getPortalOrgIdsForUser } from '@/lib/portal/org-access'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,10 +14,7 @@ export const GET = withPortalAuth(async (_req: NextRequest, uid: string) => {
   if (!userDoc.exists) return NextResponse.json({ error: 'User not found' }, { status: 404 })
 
   const data = userDoc.data()!
-  const activeOrgId: string | undefined = data.activeOrgId ?? data.orgId
-  const orgIds: string[] = Array.isArray(data.orgIds)
-    ? data.orgIds.filter((v: unknown) => typeof v === 'string' && v.length > 0)
-    : (data.orgId ? [data.orgId] : [])
+  const orgIds = await getPortalOrgIdsForUser(uid, data)
 
   if (!orgIds.length) return NextResponse.json({ orgs: [], activeOrgId: null })
 
@@ -29,8 +27,11 @@ export const GET = withPortalAuth(async (_req: NextRequest, uid: string) => {
     .map((d) => ({
       id: d.id,
       name: (d.data()!.name as string) ?? '',
+      slug: (d.data()!.slug as string) ?? '',
+      type: (d.data()!.type as string) ?? 'client',
       logoUrl: (d.data()!.logoUrl as string) ?? '',
     }))
 
-  return NextResponse.json({ orgs, activeOrgId: activeOrgId ?? orgs[0]?.id ?? null })
+  const activeOrgId = choosePortalActiveOrgId(data, orgIds) ?? orgs[0]?.id ?? null
+  return NextResponse.json({ orgs, activeOrgId })
 })

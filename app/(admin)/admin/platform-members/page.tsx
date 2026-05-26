@@ -201,6 +201,28 @@ export default function PlatformMembersPage() {
     }
   }
 
+  async function updateOrgRole(member: PlatformMember, org: LinkedClientOrg, role: OrgRole) {
+    const label = member.displayName || member.email || member.uid
+    setBusyUid(member.uid)
+    setTopError(null)
+    setNotice(null)
+    try {
+      const res = await fetch(`/api/v1/organizations/${org.id}/members/${member.uid}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ role }),
+      })
+      const body = await res.json()
+      if (!res.ok) throw new Error(body?.error ?? 'Failed to update member role')
+      setNotice(`Updated ${label} to ${role} in ${org.name}.`)
+      await load()
+    } catch (err) {
+      setTopError(err instanceof Error ? err.message : 'Failed to update member role')
+    } finally {
+      setBusyUid(null)
+    }
+  }
+
   async function removeOrgLink(member: PlatformMember, org: LinkedClientOrg) {
     const label = member.displayName || member.email || member.uid
     const confirmed = window.confirm(
@@ -519,7 +541,7 @@ export default function PlatformMembersPage() {
                     member.linkedOrgs.map((org) => (
                       <span
                         key={`${member.uid}-${org.id}`}
-                        className="inline-flex items-center overflow-hidden rounded-full bg-on-surface/10 text-xs text-on-surface-variant"
+                        className="inline-flex flex-wrap items-center overflow-hidden rounded-full bg-on-surface/10 text-xs text-on-surface-variant"
                         title={org.source === 'user' ? 'Linked from user profile' : 'Linked from organisation members'}
                       >
                         <Link
@@ -534,6 +556,23 @@ export default function PlatformMembersPage() {
                             </span>
                           )}
                         </Link>
+                        {org.source === 'membership' ? (
+                          <label className="border-l border-on-surface/10 px-2 py-1 text-[10px] font-label uppercase tracking-wide text-on-surface-variant">
+                            <span className="sr-only">Set {org.name} role</span>
+                            <select
+                              value={org.role ?? 'member'}
+                              onChange={(event) => updateOrgRole(member, org, event.target.value as OrgRole)}
+                              disabled={busy}
+                              className="bg-transparent text-[10px] uppercase outline-none disabled:opacity-50"
+                              title={`Set ${member.email || member.displayName || member.uid} role in ${org.name}`}
+                            >
+                              <option value="owner">Owner</option>
+                              <option value="admin">Admin</option>
+                              <option value="member">Member</option>
+                              <option value="viewer">Viewer</option>
+                            </select>
+                          </label>
+                        ) : null}
                         <button
                           type="button"
                           onClick={() => removeOrgLink(member, org)}

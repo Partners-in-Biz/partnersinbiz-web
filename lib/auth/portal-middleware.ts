@@ -4,6 +4,7 @@ import { adminAuth, adminDb } from '@/lib/firebase/admin'
 import { apiError } from '@/lib/api/response'
 import type { OrgRole } from '@/lib/organizations/types'
 import { ROLE_RANK } from '@/lib/orgMembers/types'
+import { resolvePortalActiveOrgId } from '@/lib/portal/org-access'
 
 type PortalHandler = (
   req: NextRequest,
@@ -46,7 +47,7 @@ export function withPortalAuthAndRole(minRole: OrgRole, handler: PortalRoleHandl
     const userDoc = await adminDb.collection('users').doc(uid).get()
     if (!userDoc.exists) return apiError('User not found', 404)
     const userData = userDoc.data()!
-    const orgId: string = (userData.activeOrgId ?? userData.orgId ?? '') as string
+    const orgId = await resolvePortalActiveOrgId(uid, userData)
     if (!orgId) return apiError('No active workspace', 400)
 
     let role: OrgRole | null = null

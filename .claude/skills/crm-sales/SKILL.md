@@ -43,6 +43,19 @@ Sales opportunities that need client review should produce Sales Proposal docume
 
 Prospect, company, account, stakeholder, and market-fit research should be captured in the Research module through the `research-intelligence` skill and linked to the relevant deal, company, contact, project, or proposal.
 
+## Cross-workspace CRM relationship model
+
+CRM Companies and Contacts are now the bridge between one workspace and another business that later joins PiB.
+
+- A sender workspace can create a CRM Company/Contact, then send an invoice or share a project with `companyId` and/or `contactId`.
+- Secure public claim links use `claimable_relationships` to connect `sourceOrgId/sourceCompanyId/sourceContactId` to `targetOrgId/targetUserId` after signup or sign-in.
+- Sender-owned CRM links are relationship metadata only: `companies.linkedOrgId` and `contacts.linkedUserId` do not grant the sender admin rights inside the recipient workspace.
+- For PiB-issued resources, `pib-platform-owner` is the canonical source/issuer org and the client org is the recipient/target org. Platform CRM Companies are deduped by `linkedOrgId`; platform CRM Contacts are deduped by `linkedUserId`, then email.
+- Future PiB invoices, quotes, and projects to a linked client org should reuse the existing platform CRM Company and write `companyId/sourceCompanyId`.
+- Client-created project requests remain client-originated until PiB accepts or converts them into PiB-sourced work.
+
+Use `lib/platform-owner/relationships.ts` in app code when syncing PiB's platform-owner CRM with client orgs/members. Use the dry-run scripts before touching existing data: `scripts/migrate-pib-owned-client-resources.ts`, `scripts/backfill-platform-owner-crm-relationships.ts`, and `scripts/backfill-platform-owner-resource-company-links.ts`.
+
 ## Auth & org scoping (PR 2+)
 
 All `/api/v1/crm/contacts/*` routes now use the `withCrmAuth` middleware:
@@ -212,7 +225,14 @@ Log an activity not tied to a specific contact resource (e.g., generic meeting n
 ### Quotes
 
 #### `GET /quotes` — auth: viewer
-List quotes. Filter `?orgId=X`. Sorted `createdAt desc`, limit 50.
+List quotes. Filter `?orgId=X`. Supports `view=sent|received|shared`.
+
+- `view=sent` or omitted lists quotes owned/sent by the active org.
+- `view=received` lists quotes where `recipientOrgId` is the client org.
+- `view=shared` lists token-claim/shared quote rows without leaking unrelated org data.
+- For PiB-issued client quotes, the client portal Billing tab uses `GET /quotes?view=received`.
+
+Sorted `createdAt desc`, limit 50.
 
 #### `POST /quotes` — auth: member
 Required: `orgId` (the client org), `lineItems: [{ description, quantity, unitPrice }]`.
@@ -231,6 +251,8 @@ Body:
 
 Auto-snapshots: `fromDetails` (from platform owner org), `clientDetails` (from client org `billingDetails`).
 Auto-computes: `subtotal`, `taxAmount`, `total`. Assigns sequential `quoteNumber`.
+
+PiB-issued quotes should keep PiB as source/issuer and the client as recipient: `orgId/sourceOrgId/issuerOrgId = pib-platform-owner`, `recipientOrgId/targetOrgId = client org`, and `companyId/sourceCompanyId` should point to the PiB platform CRM Company when available. Quote-to-invoice conversion must preserve these source/recipient and CRM fields.
 
 Response (201): `{ id, quoteNumber }`. Dispatches `quote.created`.
 
@@ -884,6 +906,7 @@ Companies are now a first-class CRM entity. Every `Contact`, `Deal`, `Quote`, an
 | `socialProfiles` | SocialProfiles? | `{ linkedin, twitter, facebook, instagram }` |
 | `logoUrl` | string? | Firebase Storage path OR external URL |
 | `parentCompanyId` | string? | Same-org only; cycle-detection enforced (max 10 levels) |
+| `linkedOrgId` | string? | Target/client organization this sender-owned company represents; relationship metadata only |
 | `accountManagerUid` | string? | Must be org member |
 | `accountManagerRef` | MemberRef? | Snapshot at write |
 | `healthScore` | number? | 0-100, nullable until A6 automation |
@@ -910,6 +933,8 @@ Companies are now a first-class CRM entity. Every `Contact`, `Deal`, `Quote`, an
 | both unset | "No company" |
 
 When linking a contact to a company, write both `companyId` + `companyName`. On company rename, best-effort cache-refresh updates `companyName` on all linked records (in-band for ≤30, background for more). On unlink, clear `companyId` + `companyName`, preserve `company` string.
+
+Platform-owner CRM sync adds one PiB Company per client org (`linkedOrgId`) and one PiB Contact per active real client member (`linkedUserId`, `linkedOrgId`, `companyId`). Internal `@partnersinbiz.online` staff are not mirrored as client contacts when backfilling client organizations.
 
 ### Company endpoints
 
@@ -994,6 +1019,9 @@ Deals linked to this company. Query: `limit`. Sorted `updatedAt desc`. Excludes 
 #### `GET /crm/companies/[id]/quotes` — auth: viewer
 Quotes linked to this company. Query: `limit`. Sorted `updatedAt desc`.
 
+#### `GET /crm/companies/[id]/invoices` — auth: viewer
+Invoices linked to this company. Reads `companyId/sourceCompanyId` first and falls back to the company `linkedOrgId` against `recipientOrgId` / `targetOrgId` / compatible legacy org fields for PiB-owned resources.
+
 #### `GET /crm/companies/[id]/activities` — auth: viewer
 Activity timeline for this company. Query: `limit` (default 50, max 200). Sorted `createdAt desc`.
 
@@ -1010,6 +1038,8 @@ Activity timeline for this company. Query: `limit` (default 50, max 200). Sorted
 New fields (additive, W1-A):
 - `companyId?: string` — link to a Company record (same org)
 - `companyName?: string` — denormalized cache of `company.name` at link time
+- `linkedUserId?: string` — user account represented by this sender-owned contact after a claim or platform CRM sync
+- `linkedOrgId?: string` — organization represented by this contact's company relationship
 
 Hybrid: `company: string` (original plain-text field) is preserved unchanged. UI falls back to `company` when `companyId` is unset.
 

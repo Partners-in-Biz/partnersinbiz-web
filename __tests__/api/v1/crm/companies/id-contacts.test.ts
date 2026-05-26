@@ -113,6 +113,24 @@ describe('GET /api/v1/crm/companies/:id/contacts', () => {
     expect(body.data.contacts[0].name).toBe('Alice')
   })
 
+  it('also returns mirrored contacts linked by recipient org id', async () => {
+    const member = seedOrgMember(orgId, uidFor('viewer-linked-org'), { role: 'viewer' })
+    const company = { ...buildCompany({ id: companyId, orgId }), linkedOrgId: 'client-org-1' }
+    ;(loadCompany as jest.Mock).mockResolvedValue({ data: company })
+
+    stageAuth(member, [
+      { id: 'c-linked', data: { orgId, linkedOrgId: 'client-org-1', name: 'Client Member', email: 'client@example.com' } },
+      { id: 'c-other', data: { orgId, linkedOrgId: 'other-org', name: 'Other Member' } },
+    ])
+
+    const req = callAsMember(member, 'GET', `/api/v1/crm/companies/${companyId}/contacts`)
+    const { GET } = await import('@/app/api/v1/crm/companies/[id]/contacts/route')
+    const res = await GET(req, { params: Promise.resolve({ id: companyId }) })
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.data.contacts.map((contact: { id: string }) => contact.id)).toEqual(['c-linked'])
+  })
+
   it('returns empty array when company has no linked contacts', async () => {
     const member = seedOrgMember(orgId, uidFor('viewer-empty'), { role: 'viewer' })
     const company = buildCompany({ id: companyId, orgId })

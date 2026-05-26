@@ -11,7 +11,6 @@
  */
 import crypto from 'node:crypto'
 import { FieldValue } from 'firebase-admin/firestore'
-import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { lastActorFrom } from '@/lib/api/actor'
@@ -20,6 +19,7 @@ import { invoiceSentEmail } from '@/lib/email/templates'
 import { dispatchWebhook } from '@/lib/webhooks/dispatch'
 import { logActivity } from '@/lib/activity/log'
 import { requireInvoiceAccess } from '@/lib/invoices/access'
+import { canManageOrgAs } from '@/lib/orgMembers/permissions'
 
 export const dynamic = 'force-dynamic'
 
@@ -30,12 +30,16 @@ const PUBLIC_BASE_URL =
   process.env.NEXT_PUBLIC_APP_URL ??
   'https://partnersinbiz.online'
 
-export const POST = withAuth('admin', async (req, user, ctx) => {
+export const POST = withAuth('client', async (req, user, ctx) => {
   const { id } = await (ctx as RouteContext).params
   const access = await requireInvoiceAccess(user, id)
   if (!access.ok) return access.response
   const ref = access.ref
   const invoice = access.data
+  const sourceOrgId: string | undefined = invoice.sourceOrgId ?? invoice.orgId
+  if (!sourceOrgId || !(await canManageOrgAs(user, sourceOrgId))) {
+    return apiError('Forbidden', 403)
+  }
 
   if (invoice.status !== 'draft') {
     return apiError(`Invoice cannot be sent from status '${invoice.status}'`, 400)
@@ -64,7 +68,7 @@ export const POST = withAuth('admin', async (req, user, ctx) => {
   }).catch(() => {})
 
   // Email the client — swallow failures, DB update already succeeded.
-  const clientEmail: string | undefined = invoice.clientDetails?.email
+  const clientEmail: string | undefined = invoice.clientDetails?.email ?? invoice.recipientEmail
   if (clientEmail) {
     try {
       const invoiceNumber: string = invoice.invoiceNumber ?? id

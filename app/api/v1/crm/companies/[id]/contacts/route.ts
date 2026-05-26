@@ -11,6 +11,23 @@ import { adminDb } from '@/lib/firebase/admin'
 import { loadCompany } from '@/lib/companies/store'
 
 type RouteCtx = { params: Promise<{ id: string }> }
+type RelatedRow = { id: string; [key: string]: unknown }
+
+function timeValue(value: unknown): number {
+  if (!value) return 0
+  if (value instanceof Date) return value.getTime()
+  if (typeof value === 'object') {
+    const timestamp = value as { toMillis?: () => number; seconds?: number; _seconds?: number }
+    if (typeof timestamp.toMillis === 'function') return timestamp.toMillis()
+    const seconds = timestamp.seconds ?? timestamp._seconds
+    if (typeof seconds === 'number') return seconds * 1000
+  }
+  if (typeof value === 'string') {
+    const parsed = Date.parse(value)
+    return Number.isNaN(parsed) ? 0 : parsed
+  }
+  return 0
+}
 
 export const GET = withCrmAuth<RouteCtx>(
   'viewer',
@@ -27,12 +44,19 @@ export const GET = withCrmAuth<RouteCtx>(
     const snap = await adminDb
       .collection('contacts')
       .where('orgId', '==', ctx.orgId)
-      .where('companyId', '==', companyId)
-      .orderBy('updatedAt', 'desc')
-      .limit(limit)
+      .limit(1000)
       .get()
 
-    const contacts = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+    const linkedOrgId = company.data.linkedOrgId
+    const contacts = snap.docs
+      .map((d): RelatedRow => ({ id: d.id, ...d.data() }))
+      .filter((contact) => contact.deleted !== true)
+      .filter((contact) => (
+        contact.companyId === companyId ||
+        (linkedOrgId && contact.linkedOrgId === linkedOrgId)
+      ))
+      .sort((a, b) => timeValue(b.updatedAt) - timeValue(a.updatedAt))
+      .slice(0, limit)
 
     return apiSuccess({ contacts })
   },

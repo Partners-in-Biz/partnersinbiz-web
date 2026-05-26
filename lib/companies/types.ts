@@ -49,6 +49,7 @@ export interface Company {
   // Branding
   logoUrl?: string        // Firebase Storage upload OR external URL
   // Relationships
+  linkedOrgId?: string       // external PiB client org this sender-owned CRM company represents
   parentCompanyId?: string  // subsidiary tree (same org only — enforced at write)
   accountManagerUid?: string
   accountManagerRef?: MemberRef

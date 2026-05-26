@@ -8,6 +8,7 @@ import { generateInvoiceNumber } from '@/lib/invoices/invoice-number'
 import { dispatchWebhook } from '@/lib/webhooks/dispatch'
 import { notifyQuoteAccepted } from '@/lib/notifications/client-acceptance'
 import { loadCompany } from '@/lib/companies/store'
+import { canAccessOrg } from '@/lib/api/platformAdmin'
 import type { Quote } from '@/lib/quotes/types'
 import type { MemberRef } from '@/lib/orgMembers/memberRef'
 import type { Contact } from '@/lib/crm/types'
@@ -29,19 +30,41 @@ async function deriveCompanyFromContact(contactId: string, orgId: string): Promi
 export const dynamic = 'force-dynamic'
 
 type RouteCtx = { params: Promise<{ id: string }> }
+type QuoteAccess = 'sender' | 'recipient' | 'legacy'
 
 // ---------------------------------------------------------------------------
 // Tenant-scoped loader — returns 404 for missing OR cross-org OR deleted docs
 // ---------------------------------------------------------------------------
 
-async function loadQuote(id: string, ctxOrgId: string) {
+function ctxCanAccessOrg(ctx: CrmAuthContext, orgId: string): boolean {
+  if (ctx.isAgent) return true
+  if (!ctx.user) return orgId === ctx.orgId
+  return canAccessOrg({
+    uid: ctx.user.uid,
+    role: ctx.user.role === 'admin' ? 'admin' : 'client',
+    orgId: ctx.user.orgId,
+    allowedOrgIds: ctx.user.allowedOrgIds,
+  }, orgId)
+}
+
+function accessForQuote(data: Quote, ctx: CrmAuthContext): QuoteAccess | null {
+  const sourceOrgId = data.sourceOrgId || data.orgId
+  const recipientOrgId = data.recipientOrgId || data.targetOrgId
+  if (sourceOrgId && ctxCanAccessOrg(ctx, sourceOrgId)) return 'sender'
+  if (recipientOrgId && ctxCanAccessOrg(ctx, recipientOrgId)) return 'recipient'
+  if (!data.sourceOrgId && !data.recipientOrgId && data.orgId && ctxCanAccessOrg(ctx, data.orgId)) return 'legacy'
+  return null
+}
+
+async function loadQuote(id: string, ctx: CrmAuthContext) {
   const ref = adminDb.collection('quotes').doc(id)
   const snap = await ref.get()
   if (!snap.exists) return { ok: false as const, status: 404, error: 'Quote not found' }
   const data = snap.data() as Quote
-  if (data.orgId !== ctxOrgId) return { ok: false as const, status: 404, error: 'Quote not found' }
   if (data.deleted === true) return { ok: false as const, status: 404, error: 'Quote not found' }
-  return { ok: true as const, ref, data }
+  const access = accessForQuote(data, ctx)
+  if (!access) return { ok: false as const, status: 404, error: 'Quote not found' }
+  return { ok: true as const, ref, data, access }
 }
 
 // ---------------------------------------------------------------------------
@@ -50,7 +73,7 @@ async function loadQuote(id: string, ctxOrgId: string) {
 
 export const GET = withCrmAuth<RouteCtx>('viewer', async (_req, ctx, routeCtx) => {
   const { id } = await routeCtx!.params
-  const r = await loadQuote(id, ctx.orgId)
+  const r = await loadQuote(id, ctx)
   if (!r.ok) return apiError(r.error, r.status)
   return apiSuccess({ quote: { ...r.data, id } })
 })
@@ -68,7 +91,7 @@ async function handleQuoteUpdate(
   routeCtx: RouteCtx | undefined,
 ): Promise<Response> {
   const { id } = await routeCtx!.params
-  const r = await loadQuote(id, ctx.orgId)
+  const r = await loadQuote(id, ctx)
   if (!r.ok) return apiError(r.error, r.status)
 
   const body = await req.json().catch(() => null)
@@ -78,11 +101,25 @@ async function handleQuoteUpdate(
 
   const actorRef: MemberRef = ctx.actor
   const before = r.data
+  const sourceOrgId = before.sourceOrgId || before.orgId
+  const recipientOrgId = before.recipientOrgId || before.targetOrgId
+  const recipientOnly = r.access === 'recipient'
+
+  if (recipientOnly) {
+    const requestedStatus = typeof body.status === 'string' ? body.status : ''
+    const onlyStatus = Object.keys(body).every((key) => key === 'status')
+    if (!onlyStatus || !['accepted', 'declined', 'rejected'].includes(requestedStatus)) {
+      return apiError('Recipients can only accept or decline received quotes', 403)
+    }
+  }
 
   // -------------------------------------------------------------------------
   // SPECIAL PATH: convert-to-invoice
   // -------------------------------------------------------------------------
   if (body.action === 'convert-to-invoice') {
+    if (r.access !== 'sender' && r.access !== 'legacy') {
+      return apiError('Only the sender can convert this quote to an invoice', 403)
+    }
     if (before.status !== 'accepted') {
       return apiError('Only accepted quotes can be converted to invoices', 400)
     }
@@ -91,12 +128,12 @@ async function handleQuoteUpdate(
     }
 
     // Fetch client org name for invoice number generation
-    const clientOrgDoc = await adminDb.collection('organizations').doc(ctx.orgId).get()
+    const clientOrgDoc = await adminDb.collection('organizations').doc(recipientOrgId || sourceOrgId).get()
     const clientName = clientOrgDoc.exists ? clientOrgDoc.data()!.name : 'Unknown'
 
     let invoiceNumber: string
     try {
-      invoiceNumber = await generateInvoiceNumber(ctx.orgId, clientName)
+      invoiceNumber = await generateInvoiceNumber(sourceOrgId, clientName)
     } catch (err) {
       console.error('[invoice-number-error] generateInvoiceNumber', err)
       return apiError('Failed to generate invoice number', 500)
@@ -104,7 +141,24 @@ async function handleQuoteUpdate(
 
     // Create invoice from quote data
     const invoiceDoc: Record<string, unknown> = {
-      orgId: ctx.orgId,
+      orgId: sourceOrgId,
+      sourceOrgId,
+      issuerOrgId: before.issuerOrgId || sourceOrgId,
+      billingOrgId: before.orgId,
+      recipientOrgId,
+      targetOrgId: recipientOrgId,
+      recipientUserId: before.recipientUserId,
+      targetUserId: before.targetUserId,
+      sourceCompanyId: before.sourceCompanyId || before.companyId,
+      sourceContactId: before.sourceContactId || before.contactId,
+      companyId: before.companyId,
+      contactId: before.contactId,
+      recipientEmail: before.recipientEmail,
+      recipientName: before.recipientName,
+      recipientCompanyName: before.recipientCompanyName,
+      claimableRelationshipId: before.claimableRelationshipId,
+      claimToken: before.claimToken,
+      claimStatus: before.claimStatus,
       invoiceNumber,
       status: 'draft' as const,
       issueDate: FieldValue.serverTimestamp(),
@@ -179,15 +233,18 @@ async function handleQuoteUpdate(
     patch.companyName = FieldValue.delete()
   } else if (typeof body.companyId === 'string' && body.companyId) {
     // Explicit set: validate and stamp companyName
-    const loaded = await loadCompany(body.companyId, ctx.orgId)
+    const loaded = await loadCompany(body.companyId, sourceOrgId)
     if (!loaded) return apiError('Invalid companyId', 400)
     patch.companyId = body.companyId
+    patch.sourceCompanyId = body.companyId
     patch.companyName = loaded.data.name
   } else if (typeof body.contactId === 'string' && body.contactId && body.contactId !== before.contactId) {
     // contactId changed: re-derive company from new contact
-    const derived = await deriveCompanyFromContact(body.contactId, ctx.orgId)
+    patch.sourceContactId = body.contactId
+    const derived = await deriveCompanyFromContact(body.contactId, sourceOrgId)
     if (derived.companyId) {
       patch.companyId = derived.companyId
+      patch.sourceCompanyId = derived.companyId
       patch.companyName = derived.companyName
     }
   }
@@ -214,13 +271,14 @@ async function handleQuoteUpdate(
   if (statusChanged) {
     if (toStatus === 'accepted') {
       try {
-        await dispatchWebhook(ctx.orgId, 'quote.accepted', {
+        await dispatchWebhook(sourceOrgId, 'quote.accepted', {
           id,
           quoteNumber: before.quoteNumber,
           total: before.total,
           currency: before.currency,
           companyId: before.companyId,
           companyName: before.companyName,
+          recipientOrgId,
           updatedByRef: actorRef,
         })
       } catch (err) {
@@ -228,7 +286,7 @@ async function handleQuoteUpdate(
       }
       try {
         await notifyQuoteAccepted({
-          orgId: ctx.orgId,
+          orgId: sourceOrgId,
           quoteId: id,
           quoteNumber: before.quoteNumber,
           total: before.total,
@@ -238,15 +296,16 @@ async function handleQuoteUpdate(
       } catch (err) {
         console.error('[notification-dispatch-error] quote.accepted', err)
       }
-    } else if (toStatus === 'rejected') {
+    } else if (toStatus === 'rejected' || toStatus === 'declined') {
       try {
-        await dispatchWebhook(ctx.orgId, 'quote.rejected', {
+        await dispatchWebhook(sourceOrgId, 'quote.rejected', {
           id,
           quoteNumber: before.quoteNumber,
           total: before.total,
           currency: before.currency,
           companyId: before.companyId,
           companyName: before.companyName,
+          recipientOrgId,
           updatedByRef: actorRef,
         })
       } catch (err) {
@@ -266,7 +325,7 @@ async function handleQuoteUpdate(
       } else if (toStatus === 'accepted') {
         activityType = 'note'
         activitySummary = `Quote accepted: ${before.quoteNumber}`
-      } else if (toStatus === 'rejected') {
+      } else if (toStatus === 'rejected' || toStatus === 'declined') {
         activityType = 'note'
         activitySummary = `Quote rejected: ${before.quoteNumber}`
       }
@@ -274,7 +333,7 @@ async function handleQuoteUpdate(
       if (activityType && activitySummary) {
         try {
           const activityData = Object.fromEntries(Object.entries({
-            orgId: ctx.orgId,
+            orgId: sourceOrgId,
             contactId,
             type: activityType,
             summary: activitySummary,
@@ -302,8 +361,9 @@ export const PATCH = withCrmAuth<RouteCtx>('member', handleQuoteUpdate)
 
 export const DELETE = withCrmAuth<RouteCtx>('admin', async (_req, ctx, routeCtx) => {
   const { id } = await routeCtx!.params
-  const r = await loadQuote(id, ctx.orgId)
+  const r = await loadQuote(id, ctx)
   if (!r.ok) return apiError(r.error, r.status)
+  if (r.access === 'recipient') return apiError('Only the sender can delete this quote', 403)
   await r.ref.delete()
   return apiSuccess({ id })
 })

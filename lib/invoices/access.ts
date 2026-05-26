@@ -8,7 +8,7 @@ export type InvoiceAccessOk = {
   ok: true
   ref: FirebaseFirestore.DocumentReference
   snap: FirebaseFirestore.DocumentSnapshot
-  data: Record<string, any>
+  data: FirebaseFirestore.DocumentData
 }
 
 export type InvoiceAccessErr = {
@@ -25,7 +25,9 @@ export async function requireInvoiceAccess(
   if (!snap.exists) return { ok: false, response: apiError('Invoice not found', 404) }
 
   const data = snap.data() ?? {}
-  if (!canAccessOrg(user, data.orgId)) {
+  const orgIds = [data.orgId, data.sourceOrgId, data.recipientOrgId, data.targetOrgId]
+    .filter((value): value is string => typeof value === 'string' && value.length > 0)
+  if (!orgIds.some((orgId) => canAccessOrg(user, orgId))) {
     return { ok: false, response: apiError('Forbidden', 403) }
   }
 

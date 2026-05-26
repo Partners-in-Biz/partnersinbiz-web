@@ -9,7 +9,9 @@ jest.mock('@/lib/firebase/admin', () => ({
   adminDb: { collection: mockCollection },
 }))
 jest.mock('@/lib/auth/portal-middleware', () => ({
-  withPortalAuth: (handler: Function) => (req: NextRequest) => handler(req, 'uid-1'),
+  withPortalAuth:
+    (handler: (req: NextRequest, uid: string) => Promise<Response>) =>
+      (req: NextRequest) => handler(req, 'uid-1'),
 }))
 jest.mock('firebase-admin/firestore', () => ({
   FieldValue: { serverTimestamp: () => 'SERVER_TS' },
@@ -28,6 +30,8 @@ describe('GET /api/v1/portal/settings/profile', () => {
       .mockResolvedValueOnce({ exists: true, data: () => ({ activeOrgId: 'org-1' }) })
       // orgMembers doc
       .mockResolvedValueOnce({ exists: false })
+      // organization fallback role lookup
+      .mockResolvedValueOnce({ exists: true, data: () => ({ members: [] }) })
 
     const { GET } = await import('@/app/api/v1/portal/settings/profile/route')
     const req = new NextRequest('http://localhost/api/v1/portal/settings/profile', {

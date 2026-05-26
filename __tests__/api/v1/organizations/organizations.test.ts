@@ -35,6 +35,11 @@ jest.mock('@/lib/client-provisioning/vps', () => ({
   provisionFullClientOnVps: jest.fn(),
 }))
 
+jest.mock('@/lib/platform-owner/relationships', () => ({
+  syncPlatformContactForOrgMember: jest.fn().mockResolvedValue({ companyId: 'company-1', contactId: 'contact-1' }),
+  markPlatformContactFormerOrgMember: jest.fn().mockResolvedValue({ contactId: 'contact-1' }),
+}))
+
 jest.mock('@/lib/firebase/admin', () => ({
   adminAuth: {
     verifyIdToken: jest.fn(),
@@ -343,6 +348,47 @@ describe('POST /api/v1/organizations/[id]/members', () => {
       members: expect.anything(),
       updatedAt: expect.anything(),
     }))
+    expect(mockUserSet).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orgIds: ['org-1'],
+        orgId: 'org-1',
+        updatedAt: '__SERVER_TS__',
+      }),
+      { merge: true },
+    )
+  })
+
+  it('adds client portal access to existing platform staff without changing their primary org', async () => {
+    mockUserQueryGet.mockResolvedValue({
+      empty: false,
+      docs: [
+        {
+          id: 'staff-user',
+          data: () => ({
+            role: 'admin',
+            orgId: 'pib-platform-owner',
+            orgIds: ['existing-client'],
+            displayName: 'Staff User',
+            email: 'staff@example.com',
+          }),
+        },
+      ],
+    })
+
+    const res = await addMember(
+      adminReq('POST', { email: 'staff@example.com', role: 'admin' }),
+      { params: Promise.resolve({ id: 'org-1' }) } as any,
+    )
+
+    expect(res.status).toBe(201)
+    expect(mockUserSet).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orgIds: ['existing-client', 'org-1'],
+        updatedAt: '__SERVER_TS__',
+      }),
+      { merge: true },
+    )
+    expect(mockUserSet.mock.calls[0][0]).not.toHaveProperty('orgId', 'org-1')
   })
 
   it('returns 409 when user is already a member', async () => {
@@ -441,6 +487,7 @@ describe('POST /api/v1/organizations/[id]/members/client', () => {
   const mockOrgUpdate = jest.fn()
   const mockUserGet = jest.fn()
   const mockUserSet = jest.fn()
+  const mockOrgMemberSet = jest.fn()
 
   beforeEach(() => {
     jest.clearAllMocks()
@@ -466,6 +513,7 @@ describe('POST /api/v1/organizations/[id]/members/client', () => {
       data: () => ({ role: 'client', displayName: 'Jane Client', email: 'jane@example.com', orgIds: ['other-org'] }),
     })
     mockUserSet.mockResolvedValue(undefined)
+    mockOrgMemberSet.mockResolvedValue(undefined)
     mockCollection.mockImplementation((collName: string) => {
       if (collName === 'organizations') {
         return { doc: jest.fn().mockReturnValue({ get: mockOrgGet, update: mockOrgUpdate }) }
@@ -473,13 +521,16 @@ describe('POST /api/v1/organizations/[id]/members/client', () => {
       if (collName === 'users') {
         return { doc: jest.fn().mockReturnValue({ get: mockUserGet, set: mockUserSet }) }
       }
+      if (collName === 'orgMembers') {
+        return { doc: jest.fn().mockReturnValue({ set: mockOrgMemberSet }) }
+      }
       throw new Error(`Unexpected collection: ${collName}`)
     })
   })
 
-  it('adds an existing client user as an org member', async () => {
+  it('adds an existing client user as an org member with the selected role', async () => {
     const res = await addClientMember(
-      adminReq('POST', { uid: 'client-1' }, 'http://localhost/api/v1/organizations/org-1/members/client'),
+      adminReq('POST', { uid: 'client-1', role: 'viewer' }, 'http://localhost/api/v1/organizations/org-1/members/client'),
       { params: Promise.resolve({ id: 'org-1' }) } as any,
     )
 
@@ -487,13 +538,13 @@ describe('POST /api/v1/organizations/[id]/members/client', () => {
     const body = await res.json()
     expect(body.data).toEqual(expect.objectContaining({
       userId: 'client-1',
-      role: 'member',
+      role: 'viewer',
       email: 'jane@example.com',
       joinedAt: '__NOW_TS__',
     }))
     expect(mockOrgUpdate).toHaveBeenCalledWith(expect.objectContaining({
       members: expect.arrayContaining([
-        expect.objectContaining({ userId: 'client-1', role: 'member' }),
+        expect.objectContaining({ userId: 'client-1', role: 'viewer' }),
       ]),
       updatedAt: '__SERVER_TS__',
     }))
@@ -505,6 +556,40 @@ describe('POST /api/v1/organizations/[id]/members/client', () => {
       }),
       { merge: true },
     )
+    expect(mockOrgMemberSet).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orgId: 'org-1',
+        uid: 'client-1',
+        firstName: 'Jane',
+        lastName: 'Client',
+        role: 'viewer',
+        updatedAt: '__SERVER_TS__',
+      }),
+      { merge: true },
+    )
+  })
+
+  it('defaults existing client additions to member role', async () => {
+    const res = await addClientMember(
+      adminReq('POST', { uid: 'client-1' }, 'http://localhost/api/v1/organizations/org-1/members/client'),
+      { params: Promise.resolve({ id: 'org-1' }) } as any,
+    )
+
+    expect(res.status).toBe(201)
+    const body = await res.json()
+    expect(body.data.role).toBe('member')
+  })
+
+  it('rejects invalid existing client roles', async () => {
+    const res = await addClientMember(
+      adminReq('POST', { uid: 'client-1', role: 'owner' }, 'http://localhost/api/v1/organizations/org-1/members/client'),
+      { params: Promise.resolve({ id: 'org-1' }) } as any,
+    )
+
+    expect(res.status).toBe(400)
+    expect(mockOrgUpdate).not.toHaveBeenCalled()
+    expect(mockUserSet).not.toHaveBeenCalled()
+    expect(mockOrgMemberSet).not.toHaveBeenCalled()
   })
 
   it('rejects non-client users', async () => {

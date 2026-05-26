@@ -7,7 +7,7 @@ import {
   buildHumanRef,
   type MemberRef,
 } from '@/lib/orgMembers/memberRef'
-import { canAccessOrg } from '@/lib/api/platformAdmin'
+import { resolvePortalActiveOrgId } from '@/lib/portal/org-access'
 
 export type CrmRole = OrgRole | 'system'
 
@@ -27,6 +27,12 @@ export interface CrmAuthContext {
   role: CrmRole
   isAgent: boolean
   permissions: OrgPermissions
+  user?: {
+    uid: string
+    role?: string
+    orgId?: string
+    allowedOrgIds?: string[]
+  }
 }
 
 export type CrmRouteHandler<RouteCtx = unknown> = (
@@ -81,6 +87,7 @@ export function withCrmAuth<RouteCtx = unknown>(
         role: 'system',
         isAgent: true,
         permissions,
+        user: { uid: AGENT_PIP_REF.uid, role: 'ai' },
       }
       return handler(req, ctx, routeCtx)
     }
@@ -101,21 +108,8 @@ export function withCrmAuth<RouteCtx = unknown>(
     const userDoc = await adminDb.collection('users').doc(uid).get()
     if (!userDoc.exists) return apiError('User not found', 404)
     const userData = userDoc.data() ?? {}
-    const orgId: string =
-      ((userData.activeOrgId as string | undefined) ??
-        (userData.orgId as string | undefined) ??
-        '') as string
+    const orgId = await resolvePortalActiveOrgId(uid, userData)
     if (!orgId) return apiError('No active workspace', 400)
-    if (userData.role === 'admin' && !canAccessOrg({
-      uid,
-      role: 'admin',
-      orgId: typeof userData.orgId === 'string' ? userData.orgId : undefined,
-      allowedOrgIds: Array.isArray(userData.allowedOrgIds)
-        ? userData.allowedOrgIds.filter((v: unknown): v is string => typeof v === 'string' && v.length > 0)
-        : undefined,
-    }, orgId)) {
-      return apiError('You do not have access to this organisation', 403)
-    }
 
     const memberSnap = await adminDb.collection('orgMembers').doc(`${orgId}_${uid}`).get()
     let role: OrgRole | null = null
@@ -126,7 +120,7 @@ export function withCrmAuth<RouteCtx = unknown>(
       actor = buildHumanRef(uid, m)
     }
 
-    const { permissions, members, exists: _orgExists } = await loadOrgPermissions(orgId)
+    const { permissions, members } = await loadOrgPermissions(orgId)
 
     if (!role) {
       const fallback = members?.find((m) => m.userId === uid)
@@ -139,7 +133,21 @@ export function withCrmAuth<RouteCtx = unknown>(
     if (!role || !actor) return apiError('Workspace membership not found', 403)
     if (rankOf(role) < rankOf(minRole)) return apiError('Insufficient permissions', 403)
 
-    const ctx: CrmAuthContext = { orgId, actor, role, isAgent: false, permissions }
+    const ctx: CrmAuthContext = {
+      orgId,
+      actor,
+      role,
+      isAgent: false,
+      permissions,
+      user: {
+        uid,
+        role: typeof userData.role === 'string' ? userData.role : undefined,
+        orgId: typeof userData.orgId === 'string' ? userData.orgId : orgId,
+        allowedOrgIds: Array.isArray(userData.allowedOrgIds)
+          ? userData.allowedOrgIds.filter((value: unknown): value is string => typeof value === 'string' && value.length > 0)
+          : undefined,
+      },
+    }
     return handler(req, ctx, routeCtx)
   }
 }

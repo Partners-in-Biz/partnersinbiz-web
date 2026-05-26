@@ -34,6 +34,10 @@ interface SocialPostData {
   platforms?: unknown
   platform?: unknown
   createdAt?: Timestamp | string | Date | null
+  updatedAt?: Timestamp | string | Date | null
+  scheduledAt?: Timestamp | string | Date | null
+  scheduledFor?: Timestamp | string | Date | null
+  publishedAt?: Timestamp | string | Date | null
 }
 
 const TREND_BUCKETS = 7
@@ -73,6 +77,17 @@ function trendBucketIndex(date: Date, now = Date.now()): number {
   const bucketSize = THIRTY_DAYS_MS / TREND_BUCKETS
   const bucketFromNewest = Math.min(TREND_BUCKETS - 1, Math.floor(ageMs / bucketSize))
   return TREND_BUCKETS - 1 - bucketFromNewest
+}
+
+function trendDateForPost(post: SocialPostData): Date | null {
+  const status = post.status ?? 'draft'
+  if (status === 'published' || status === 'partially_published') {
+    return toDate(post.publishedAt) ?? toDate(post.scheduledAt) ?? toDate(post.scheduledFor) ?? toDate(post.updatedAt) ?? toDate(post.createdAt)
+  }
+  if (status === 'scheduled' || status === 'publishing') {
+    return toDate(post.scheduledAt) ?? toDate(post.scheduledFor) ?? toDate(post.updatedAt) ?? toDate(post.createdAt)
+  }
+  return null
 }
 
 export const GET = withAuth('client', withTenant(async (req, _user, orgId) => {
@@ -121,12 +136,14 @@ export const GET = withAuth('client', withTenant(async (req, _user, orgId) => {
       stats.byPlatform[platform] = (stats.byPlatform[platform] ?? 0) + 1
     })
 
-    // Check if created in last 30 days
-    const createdDate = toDate(post.createdAt as Timestamp | string | Date | undefined)
-    if (createdDate && createdDate > thirtyDaysAgo) {
+    // Publishing trend should follow when the post went out or was scheduled,
+    // not when the draft record was first created.
+    const trendDate = trendDateForPost(post)
+    if (trendDate && trendDate > thirtyDaysAgo) {
+      const bucket = trendBucketIndex(trendDate)
+      if (bucket < 0) return
       stats.last30Days++
-      const bucket = trendBucketIndex(createdDate)
-      if (bucket >= 0) stats.last30DaysSeries[bucket].value++
+      stats.last30DaysSeries[bucket].value++
     }
   })
 

@@ -10,10 +10,12 @@ export async function listProducts(orgId: string): Promise<Product[]> {
   const snap = await adminDb
     .collection(PRODUCTS)
     .where('orgId', '==', orgId)
-    .where('deleted', '!=', true)
-    .orderBy('name', 'asc')
+    .limit(1000)
     .get()
-  return snap.docs.map((d) => ({ ...(d.data() as Omit<Product, 'id'>), id: d.id }))
+  return snap.docs
+    .map((d) => ({ ...(d.data() as Omit<Product, 'id'>), id: d.id }))
+    .filter((product) => product.deleted !== true)
+    .sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''))
 }
 
 export async function getProduct(orgId: string, productId: string): Promise<Product | null> {

@@ -112,7 +112,7 @@ function formatTime(post: ScheduledContentPost): string {
   return date.toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' })
 }
 
-function postHref(slug: string, post: ScheduledContentPost): string {
+function defaultPostHref(slug: string, post: ScheduledContentPost): string {
   const surface = post.campaignId
     ? `/admin/org/${slug}/social/${post.campaignId}`
     : `/admin/org/${slug}/social/standalone`
@@ -148,20 +148,30 @@ export function ScheduledContentPreviewCards({
   slug,
   posts,
   loading,
+  composeHref,
+  composeLabel = 'Compose post →',
+  description = 'Channel-native previews open directly into edit or approval.',
+  hrefForPost,
 }: {
   slug: string
   posts: ScheduledContentPost[]
   loading: boolean
+  composeHref?: string
+  composeLabel?: string
+  description?: string
+  hrefForPost?: (post: ScheduledContentPost) => string
 }) {
+  const resolvedComposeHref = composeHref ?? `/admin/org/${slug}/social/standalone`
+
   return (
     <section className="pib-card space-y-4">
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Today’s scheduled content</p>
-          <p className="text-sm text-on-surface-variant mt-1">Channel-native previews open directly into edit or approval.</p>
+          <p className="text-sm text-on-surface-variant mt-1">{description}</p>
         </div>
-        <Link href={`/admin/org/${slug}/social/standalone`} className="text-[10px] font-label uppercase tracking-wide" style={{ color: 'var(--color-accent-v2)' }}>
-          Compose post →
+        <Link href={resolvedComposeHref} className="text-[10px] font-label uppercase tracking-wide" style={{ color: 'var(--color-accent-v2)' }}>
+          {composeLabel}
         </Link>
       </div>
 
@@ -183,7 +193,7 @@ export function ScheduledContentPreviewCards({
               <Link
                 key={post.id}
                 data-testid={`scheduled-preview-${post.id}`}
-                href={postHref(slug, post)}
+                href={hrefForPost?.(post) ?? defaultPostHref(slug, post)}
                 className="group rounded-3xl border border-white/10 bg-[var(--color-surface-container)]/70 p-3 transition hover:-translate-y-0.5 hover:border-[var(--color-accent-v2)]/60 hover:shadow-lg"
               >
                 <MediaPane post={post} style={style} />

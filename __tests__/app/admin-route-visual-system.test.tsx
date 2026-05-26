@@ -3,8 +3,10 @@ import { render, screen, waitFor } from '@testing-library/react'
 import OrgDocumentsPage from '@/app/(admin)/admin/org/[slug]/documents/page'
 import BillingPage from '@/app/(admin)/admin/org/[slug]/billing/page'
 
+let mockRouteParams = { slug: 'acme-co' }
+
 jest.mock('next/navigation', () => ({
-  useParams: () => ({ slug: 'acme-co' }),
+  useParams: () => mockRouteParams,
   useSearchParams: () => new URLSearchParams(),
 }))
 
@@ -40,7 +42,7 @@ function mockFetchForVisualRoutes() {
         json: async () => ({ data: [{ id: 'doc-1', title: 'Launch spec', status: 'approved' }] }),
       } as Response)
     }
-    if (url === '/api/v1/invoices?orgId=org-1') {
+    if (url === '/api/v1/invoices?view=received&orgId=org-1') {
       return Promise.resolve({
         ok: true,
         json: async () => ({ data: [{ id: 'inv-1', invoiceNumber: 'INV-001', status: 'paid', total: 1200, currency: 'ZAR' }] }),
@@ -52,6 +54,7 @@ function mockFetchForVisualRoutes() {
 
 describe('admin route visual system adoption', () => {
   beforeEach(() => {
+    mockRouteParams = { slug: 'acme-co' }
     mockFetchForVisualRoutes()
   })
 
@@ -73,5 +76,32 @@ describe('admin route visual system adoption', () => {
     expect(container.querySelector('.pib-page-header')).toBeInTheDocument()
     expect(container.querySelector('.pib-surface-table')).toBeInTheDocument()
     expect(container.querySelector('.pib-pill-success')).toHaveTextContent('Paid')
+  })
+
+  it('uses PiB-issued received invoices for the platform owner billing route', async () => {
+    mockRouteParams = { slug: 'partners-in-biz' }
+    global.fetch = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/organizations') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: [{ id: 'org-1', slug: 'acme-co', name: 'Acme Co' }] }),
+        } as Response)
+      }
+      if (url === '/api/v1/invoices?view=received&billingOrgId=pib-platform-owner') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: [{ id: 'inv-pib', invoiceNumber: 'INV-PIB', status: 'sent', total: 900, currency: 'ZAR' }] }),
+        } as Response)
+      }
+      return Promise.resolve({ ok: true, json: async () => ({ data: [] }) } as Response)
+    }) as jest.Mock
+
+    render(<BillingPage />)
+
+    await waitFor(() => expect(screen.getByText('INV-PIB')).toBeInTheDocument())
+
+    expect(global.fetch).toHaveBeenCalledWith('/api/v1/invoices?view=received&billingOrgId=pib-platform-owner')
+    expect(screen.getByRole('link', { name: '+ New Invoice' })).toHaveAttribute('href', '/admin/invoicing/new')
   })
 })

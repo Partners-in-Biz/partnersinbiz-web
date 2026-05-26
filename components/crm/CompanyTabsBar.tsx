@@ -2,13 +2,14 @@
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-export type CompanyTab = 'overview' | 'contacts' | 'deals' | 'quotes' | 'activity'
+export type CompanyTab = 'overview' | 'contacts' | 'deals' | 'quotes' | 'invoices' | 'activity'
 
 export const COMPANY_TABS: { key: CompanyTab; label: string; icon: string }[] = [
   { key: 'overview',  label: 'Overview',  icon: 'info' },
   { key: 'contacts',  label: 'Contacts',  icon: 'person' },
   { key: 'deals',     label: 'Deals',     icon: 'monetization_on' },
   { key: 'quotes',    label: 'Quotes',    icon: 'request_quote' },
+  { key: 'invoices',  label: 'Invoices',  icon: 'receipt_long' },
   { key: 'activity',  label: 'Activity',  icon: 'history' },
 ]
 

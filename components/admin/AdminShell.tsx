@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { AdminSidebar } from './AdminSidebar'
 import { AdminTopbar } from './AdminTopbar'
@@ -25,15 +25,19 @@ export function AdminShell({ userEmail, userUid, children }: AdminShellProps) {
   const searchParams = useSearchParams()
   const { selectedOrgId, orgName, orgs } = useOrg()
   const [open, setOpen] = useState(false)
-  const [collapsed, setCollapsed] = useState(() => {
-    if (typeof window === 'undefined') return false
-    return localStorage.getItem('sidebar_collapsed') === 'true'
-  })
-  const [layoutMode, setLayoutMode] = useState<LayoutMode>(() => {
-    if (typeof window === 'undefined') return 'sidebar'
-    const storedLayout = localStorage.getItem('admin_layout') as LayoutMode | null
-    return storedLayout === 'topbar' || storedLayout === 'sidebar' ? storedLayout : 'sidebar'
-  })
+  const [collapsed, setCollapsed] = useState(false)
+  const [layoutMode, setLayoutMode] = useState<LayoutMode>('sidebar')
+
+  useEffect(() => {
+    const restorePreferences = () => {
+      setCollapsed(localStorage.getItem('sidebar_collapsed') === 'true')
+      const storedLayout = localStorage.getItem('admin_layout') as LayoutMode | null
+      if (storedLayout === 'topbar' || storedLayout === 'sidebar') setLayoutMode(storedLayout)
+    }
+
+    const id = window.setTimeout(restorePreferences, 0)
+    return () => window.clearTimeout(id)
+  }, [])
 
   function toggleCollapsed() {
     setCollapsed((prev) => {

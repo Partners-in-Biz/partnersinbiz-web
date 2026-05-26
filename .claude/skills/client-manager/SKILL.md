@@ -42,6 +42,30 @@ AI agents and admins have full access. Override base URL via `PIB_API_BASE` for 
 - Most endpoints scope by `orgId` in the path or body. When a route takes `orgId` in the path (`/organizations/[id]`), that IS the org.
 - Cross-resource endpoints (`/comments`, `/notifications`) take `orgId` as query or body.
 
+## Admin-as-client portal access
+
+Platform admin access and client portal membership are deliberately separate:
+
+- `allowedOrgIds` scopes what a normal PiB admin can see/manage in admin surfaces. It does not grant access to a client's private portal CRM.
+- Client portal access is explicit membership via `orgMembers/{orgId}_{uid}` and `users.orgIds`.
+- To let a PiB staff/admin user enter a client portal, add that existing staff account on `/admin/org/[slug]/team` or `POST /organizations/[id]/members`.
+- Adding an existing PiB staff/admin member mirrors the client org into `users.orgIds` without changing the staff user's primary `orgId=pib-platform-owner`.
+- `pib-platform-owner` / `partners-in-biz` is PiB's own Platform workspace, so PiB owners/admins can open portal/CRM there. Other client orgs still require explicit membership.
+- The Admin/Portal mode switch only appears when `/api/v1/portal/orgs` includes the selected org.
+
+When debugging "You do not have access to this organisation", first check explicit membership, not `allowedOrgIds`.
+
+## Platform CRM sync for clients
+
+Client organizations and members are mirrored into the Partners in Biz platform-owner CRM:
+
+- One Company per client org in `pib-platform-owner`, deduped by `linkedOrgId` then normalized name/domain.
+- One Contact per active real client member, deduped by `linkedUserId` then email, linked to the Company by `companyId`.
+- Internal `@partnersinbiz.online` staff are skipped as client contacts when backfilling client orgs.
+- Member removal marks the platform Contact inactive/former instead of deleting relationship history.
+
+App code should use `lib/platform-owner/relationships.ts`; existing-data repair uses `scripts/backfill-platform-owner-crm-relationships.ts` in dry-run mode before `--commit`.
+
 ## Collaboration primitives
 
 Every resource this skill creates/modifies records `createdBy` + `createdByType: 'user' | 'agent' | 'system'`. Agents leave trails exactly like humans do.
@@ -118,6 +142,8 @@ Add a member by email. Body: `{ email: string, role?: 'owner'|'admin'|'member' }
 
 If the user exists in Firebase Auth, they're added directly. If not, the route creates an invite record — check response for `{ inviteSent: true, userId? }`.
 
+If the user is an existing PiB staff/admin account, this also grants explicit client-portal access for that organization by updating `orgMembers` and mirroring the org into `users.orgIds`; it does not change the user's primary platform-owner account.
+
 #### `GET /organizations/[id]/members/[userId]` — auth: admin
 Get a single member with user details.
 
@@ -148,6 +174,8 @@ Provision a portal login for a client user. Body:
 ```
 
 Creates a Firebase Auth user (or links an existing one) and adds them to `members`. Sends a welcome email with a sign-in link. Returns `{ userId, inviteSent: true }`.
+
+New client logins and member updates should also keep the PiB platform-owner CRM Company/Contact relationship current through the platform CRM sync helper.
 
 ### Clients (legacy/simple list)
 

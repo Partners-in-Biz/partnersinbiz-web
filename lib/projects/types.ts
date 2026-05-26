@@ -23,6 +23,24 @@ export interface ProjectDocument {
 export interface Project {
   id?: string
   orgId: string
+  sourceOrgId?: string
+  issuerOrgId?: string
+  recipientOrgId?: string
+  recipientUserId?: string
+  targetOrgId?: string
+  targetUserId?: string
+  clientOrgId?: string | null
+  clientId?: string
+  sourceCompanyId?: string
+  sourceContactId?: string
+  companyId?: string
+  contactId?: string
+  recipientEmail?: string
+  recipientName?: string
+  recipientCompanyName?: string
+  claimableRelationshipId?: string
+  claimToken?: string
+  claimStatus?: 'pending' | 'claimed' | 'revoked'
   name: string
   description: string
   status: ProjectStatus

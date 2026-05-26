@@ -101,6 +101,23 @@ export interface PaymentInstructions {
 export interface Invoice {
   id?: string
   orgId: string
+  sourceOrgId?: string
+  issuerOrgId?: string
+  billingOrgId?: string | null
+  recipientOrgId?: string
+  recipientUserId?: string
+  targetOrgId?: string
+  targetUserId?: string
+  sourceCompanyId?: string
+  sourceContactId?: string
+  companyId?: string
+  contactId?: string
+  recipientEmail?: string
+  recipientName?: string
+  recipientCompanyName?: string
+  claimableRelationshipId?: string
+  claimToken?: string
+  claimStatus?: 'pending' | 'claimed' | 'revoked'
   invoiceNumber: string
   status: InvoiceStatus
   issueDate: Timestamp | null

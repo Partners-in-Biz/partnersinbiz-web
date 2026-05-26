@@ -37,6 +37,14 @@ interface SessionInfo {
   orgId?: string
 }
 
+interface OrganizationSummary {
+  id: string
+  name: string
+  slug?: string
+  type?: string
+  status?: string
+}
+
 interface LabRun {
   conversationId: string
   agentId: string
@@ -73,12 +81,48 @@ const REVIEW_OPTIONS = [
   { value: 'broken', label: 'Broken' },
 ]
 
+const LEARNING_REVIEW_SCHEDULES = [
+  { value: '0 7 * * 1', label: 'Weekly Monday 07:00 UTC' },
+  { value: '0 7 1 * *', label: 'Monthly on the 1st 07:00 UTC' },
+  { value: '0 7 1 */3 *', label: 'Quarterly on the 1st 07:00 UTC' },
+]
+
 function unique(values: Array<string | undefined | null>): string[] {
   return Array.from(new Set(values.filter((value): value is string => Boolean(value && value.trim())).map((value) => value.trim()))).sort()
 }
 
 function displayName(session: SessionInfo | null): string {
   return session?.displayName || session?.email || session?.uid || 'Admin'
+}
+
+function buildLearningReviewPrompt(scope: 'system' | 'client', org: OrganizationSummary | undefined, focus: string) {
+  const orgLine = scope === 'system'
+    ? 'Scope: system-wide Partners in Biz parent workspace (orgId: pib-platform-owner). Do not inspect or mutate client-scoped records except as aggregate routing evidence.'
+    : `Scope: client organisation ${org?.name ?? 'Unknown client'} (orgId: ${org?.id ?? 'unknown'}, slug: ${org?.slug ?? 'unknown'}). Keep findings tenant-isolated to this organisation.`
+
+  return [
+    '[Agent Learning Review — scheduled PiB self-improvement run]',
+    orgLine,
+    '',
+    'Purpose:',
+    'Run the PiB version of the Hermes Dreaming pattern: scan → stage → review → validate → approve → apply or discard. This job creates reviewable proposals only. It must not silently mutate skills, memories, wiki facts, client documents, schedules, social posts, email, ads, billing, secrets, production, or live client-visible state.',
+    '',
+    'Sources to consider, only where safely accessible for this scope:',
+    '- Cowork wiki hot.md, topical wiki notes, and recent session logs for this scope.',
+    '- Projects/Kanban tasks, comments, blockers, completed outputs, and approval gates.',
+    '- Research items, skill tasting evidence, repeated failures, stale runbooks, and agent handoff notes.',
+    '- For client scope only: client campaigns/social/SEO/research/project outcomes for the selected orgId, with tenant isolation.',
+    '',
+    'Required output:',
+    '1. If nothing actionable is found, stay concise and say the run is clean.',
+    '2. For useful findings, create or update reviewable internal proposals/tasks through Projects/Kanban or Research; dedupe against existing open tasks first.',
+    '3. Each proposal must include source paths or record IDs, what was noticed, proposed change, target record/file, owner/reviewer, risk level, approval gate needed, validation evidence, rollback/backup plan, and confidence.',
+    '4. Route by ownership: Pip for orchestration/governance, Theo for code/platform, Maya for content/social/voice, Sage for research/SEO/intelligence, Nora for CRM/admin/billing/email ops, Quinn/qa-release for QA/release evidence.',
+    '5. Sensitive actions remain hard-gated: no production deploy, paid spend, public publishing, client-visible sends, invoice/payment changes, destructive data operations, or secret/config changes without explicit approval.',
+    '6. Close material findings in the Cowork wiki daily log/topical note/read-first layer when they create durable knowledge.',
+    '',
+    focus.trim() ? `Operator focus for this run: ${focus.trim()}` : 'Operator focus for this run: general self-improvement and blocker-pattern review.',
+  ].join('\n')
 }
 
 function buildSandboxPrompt(agent: AgentTeamDoc | undefined, skill: string, userPrompt: string) {
@@ -102,6 +146,7 @@ function buildSandboxPrompt(agent: AgentTeamDoc | undefined, skill: string, user
 export default function SkillTastingLabClient() {
   const [session, setSession] = useState<SessionInfo | null>(null)
   const [agents, setAgents] = useState<AgentTeamDoc[]>([])
+  const [organizations, setOrganizations] = useState<OrganizationSummary[]>([])
   const [selectedAgentId, setSelectedAgentId] = useState('')
   const [policy, setPolicy] = useState<SkillPolicyView | null>(null)
   const [selectedSkill, setSelectedSkill] = useState('')
@@ -115,6 +160,11 @@ export default function SkillTastingLabClient() {
   const [labRun, setLabRun] = useState<LabRun | null>(null)
   const [reviewStatus, setReviewStatus] = useState('needs-tweak')
   const [reviewNotes, setReviewNotes] = useState('')
+  const [learningScope, setLearningScope] = useState<'system' | 'client'>('system')
+  const [learningOrgId, setLearningOrgId] = useState('')
+  const [learningSchedule, setLearningSchedule] = useState(LEARNING_REVIEW_SCHEDULES[0].value)
+  const [learningFocus, setLearningFocus] = useState('')
+  const [learningCreating, setLearningCreating] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -122,18 +172,24 @@ export default function SkillTastingLabClient() {
       setLoading(true)
       setError(null)
       try {
-        const [sessionRes, agentsRes] = await Promise.all([
+        const [sessionRes, agentsRes, orgsRes] = await Promise.all([
           fetch('/api/auth/verify', { cache: 'no-store' }),
           fetch('/api/v1/admin/agents', { cache: 'no-store' }),
+          fetch('/api/v1/organizations', { cache: 'no-store' }),
         ])
         const sessionBody = await sessionRes.json().catch(() => null)
         const agentsBody = await agentsRes.json().catch(() => null)
+        const orgsBody = await orgsRes.json().catch(() => null)
         if (!agentsRes.ok) throw new Error(agentsBody?.error || `Failed to load agents (${agentsRes.status})`)
+        if (!orgsRes.ok) throw new Error(orgsBody?.error || `Failed to load organisations (${orgsRes.status})`)
         if (cancelled) return
         const liveAgents = ((agentsBody?.data ?? []) as AgentTeamDoc[]).filter((agent) => agent.enabled)
         setSession(sessionBody ?? null)
+        const orgs = ((orgsBody?.data ?? []) as OrganizationSummary[]).filter((org) => org.id && org.id !== PLATFORM_ORG_ID)
         setAgents(liveAgents)
+        setOrganizations(orgs)
         setSelectedAgentId((current) => current || liveAgents[0]?.agentId || '')
+        setLearningOrgId((current) => current || orgs[0]?.id || '')
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load Skill Tasting Lab')
       } finally {
@@ -237,6 +293,42 @@ export default function SkillTastingLabClient() {
       setError(err instanceof Error ? err.message : 'Failed to start tasting run')
     } finally {
       setStarting(false)
+    }
+  }
+
+
+  async function createLearningReviewJob() {
+    setError(null)
+    setMessage(null)
+    const selectedOrg = organizations.find((org) => org.id === learningOrgId)
+    if (learningScope === 'client' && !selectedOrg) {
+      setError('Select the client organisation this learning review should run against.')
+      return
+    }
+    if (!learningSchedule.trim()) {
+      setError('Set a schedule before creating the learning review job.')
+      return
+    }
+    setLearningCreating(true)
+    try {
+      const scopeLabel = learningScope === 'system' ? 'System' : selectedOrg?.name ?? learningOrgId
+      const res = await fetch('/api/v1/admin/agents/pip/cron', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: `Agent Learning Review — ${scopeLabel}`,
+          schedule: learningSchedule.trim(),
+          prompt: buildLearningReviewPrompt(learningScope, selectedOrg, learningFocus),
+        }),
+      })
+      const body = await res.json().catch(() => null)
+      if (!res.ok) throw new Error(body?.error || `Learning review schedule failed (${res.status})`)
+      const jobId = body?.data?.job_id ?? body?.data?.id ?? body?.job_id ?? body?.id ?? ''
+      setMessage(`Scheduled ${scopeLabel} learning review${jobId ? ` (${jobId})` : ''}. It will run under Pip and create reviewable proposals only.`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to schedule learning review')
+    } finally {
+      setLearningCreating(false)
     }
   }
 
@@ -402,6 +494,60 @@ export default function SkillTastingLabClient() {
           )}
         </section>
       </div>
+
+
+      <section className="pib-card space-y-4 p-5">
+        <div>
+          <h2 className="text-sm font-semibold text-on-surface">Agent Learning Review schedule</h2>
+          <p className="mt-1 text-xs text-on-surface-variant">
+            This schedules the PiB “scan → stage → review” loop under Pip. Pick whether it runs for the system as a whole or one client organisation. Runs only create reviewable proposals/tasks; they do not mutate skills, publish, send, spend, bill, deploy, or change secrets.
+          </p>
+        </div>
+        <div className="grid gap-3 lg:grid-cols-[180px_minmax(0,1fr)_260px] lg:items-end">
+          <label className="space-y-1.5">
+            <span className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant">Scope</span>
+            <select className="pib-input w-full text-sm" value={learningScope} onChange={(e) => setLearningScope(e.target.value as 'system' | 'client')}>
+              <option value="system">System / PiB parent</option>
+              <option value="client">Client organisation</option>
+            </select>
+          </label>
+          <label className="space-y-1.5">
+            <span className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant">Organisation</span>
+            <select className="pib-input w-full text-sm" value={learningOrgId} onChange={(e) => setLearningOrgId(e.target.value)} disabled={learningScope === 'system'}>
+              {organizations.map((org) => (
+                <option key={org.id} value={org.id}>{org.name} ({org.id})</option>
+              ))}
+            </select>
+          </label>
+          <label className="space-y-1.5">
+            <span className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant">When to run</span>
+            <input
+              className="pib-input w-full text-sm font-mono"
+              value={learningSchedule}
+              onChange={(e) => setLearningSchedule(e.target.value)}
+              list="learning-review-schedules"
+              placeholder="0 7 * * 1"
+            />
+            <datalist id="learning-review-schedules">
+              {LEARNING_REVIEW_SCHEDULES.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+            </datalist>
+            <p className="text-[11px] text-on-surface-variant">Use a preset or any Hermes cron expression, e.g. monthly, weekly, or post-campaign one-off ISO timestamp.</p>
+          </label>
+        </div>
+        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+          <label className="space-y-1.5">
+            <span className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant">Optional focus</span>
+            <textarea className="pib-input min-h-20 w-full resize-y text-sm" value={learningFocus} onChange={(e) => setLearningFocus(e.target.value)} placeholder="Example: review repeated blockers from the last month, client voice lessons, or platform skill/runbook improvement opportunities." />
+          </label>
+          <button type="button" className="pib-btn-primary whitespace-nowrap text-sm" onClick={createLearningReviewJob} disabled={learningCreating || (learningScope === 'client' && !learningOrgId)}>
+            {learningCreating ? 'Scheduling…' : 'Schedule learning review'}
+          </button>
+        </div>
+        <details className="rounded-lg border border-[var(--color-card-border)] bg-black/10 p-3">
+          <summary className="cursor-pointer text-xs font-label uppercase tracking-wide text-on-surface-variant">Preview scheduled prompt</summary>
+          <pre className="mt-3 max-h-72 overflow-auto whitespace-pre-wrap break-words text-xs leading-relaxed text-on-surface-variant">{buildLearningReviewPrompt(learningScope, organizations.find((org) => org.id === learningOrgId), learningFocus)}</pre>
+        </details>
+      </section>
 
       <section className="pib-card space-y-4 p-5">
         <div>

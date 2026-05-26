@@ -30,10 +30,12 @@ function setupCollections({
   user,
   member,
   org,
+  memberOrgIds,
 }: {
   user: Record<string, unknown> | null
   member: Record<string, unknown> | null
   org: Record<string, unknown> | null
+  memberOrgIds?: string[]
 }) {
   ;(adminDb.collection as jest.Mock).mockImplementation((name: string) => {
     if (name === 'users') {
@@ -45,6 +47,14 @@ function setupCollections({
     }
     if (name === 'orgMembers') {
       return {
+        where: jest.fn().mockReturnValue({
+          get: jest.fn().mockResolvedValue({
+            docs: (memberOrgIds ?? []).map((orgId) => ({
+              id: `${orgId}_${UID}`,
+              data: () => ({ orgId, uid: UID }),
+            })),
+          }),
+        }),
         doc: jest.fn().mockReturnValue({
           get: jest.fn().mockResolvedValue({ exists: member !== null, data: () => member ?? undefined }),
         }),
@@ -84,6 +94,30 @@ describe('withCrmAuth — cookie path', () => {
     expect(ctx.actor.uid).toBe(UID)
     expect(ctx.actor.kind).toBe('human')
     expect(ctx.permissions.membersCanDeleteContacts).toBe(true)
+  })
+
+  it('allows a platform admin to use client CRM only through explicit org membership', async () => {
+    ;(adminAuth.verifySessionCookie as jest.Mock).mockResolvedValue({ uid: UID })
+    setupCollections({
+      user: {
+        role: 'admin',
+        orgId: 'pib-platform-owner',
+        allowedOrgIds: [],
+      },
+      member: { orgId: ORG_ID, uid: UID, role: 'admin', firstName: 'Staff', lastName: 'User' },
+      memberOrgIds: [ORG_ID],
+      org: { settings: { permissions: {} }, members: [] },
+    })
+    const handler = jest.fn().mockResolvedValue(new Response('ok', { status: 200 }))
+    const route = withCrmAuth('admin', handler)
+    const req = makeReq({ cookie: '__session=valid' })
+    const res = await route(req)
+
+    expect(res.status).toBe(200)
+    const ctx = handler.mock.calls[0][1]
+    expect(ctx.orgId).toBe(ORG_ID)
+    expect(ctx.role).toBe('admin')
+    expect(ctx.user.role).toBe('admin')
   })
 
   it('403s when member role is below minRole', async () => {

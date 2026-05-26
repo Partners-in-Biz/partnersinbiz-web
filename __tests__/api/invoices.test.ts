@@ -9,6 +9,8 @@ const mockInvoiceOrderBy = jest.fn()
 const mockInvoiceLimit = jest.fn()
 const mockInvoiceGet = jest.fn()
 const mockInvoiceAdd = jest.fn()
+const mockInvoiceDoc = jest.fn()
+const mockInvoiceUpdate = jest.fn()
 const mockUserDoc = jest.fn()
 const mockUserGet = jest.fn()
 const mockOrgDoc = jest.fn()
@@ -16,6 +18,11 @@ const mockClientOrgGet = jest.fn()
 const mockOrgWhere = jest.fn()
 const mockOrgLimit = jest.fn()
 const mockPlatformOrgGet = jest.fn()
+const mockCompanyDoc = jest.fn()
+const mockCompanyGet = jest.fn()
+const mockContactDoc = jest.fn()
+const mockContactGet = jest.fn()
+const mockEnsureClaimableRelationship = jest.fn()
 
 let mockUser: MockUser = { uid: 'admin-1', role: 'admin' }
 
@@ -36,6 +43,10 @@ jest.mock('@/lib/webhooks/dispatch', () => ({
   dispatchWebhook: jest.fn(),
 }))
 
+jest.mock('@/lib/claimable-relationships/store', () => ({
+  ensureClaimableRelationship: (input: unknown) => mockEnsureClaimableRelationship(input),
+}))
+
 jest.mock('firebase-admin/firestore', () => ({
   FieldValue: {
     serverTimestamp: jest.fn(() => 'SERVER_TIMESTAMP'),
@@ -52,6 +63,7 @@ beforeEach(() => {
     limit: mockInvoiceLimit,
     get: mockInvoiceGet,
     add: mockInvoiceAdd,
+    doc: mockInvoiceDoc,
   }
   const orgQuery = {
     limit: mockOrgLimit,
@@ -62,15 +74,31 @@ beforeEach(() => {
   mockInvoiceOrderBy.mockReturnValue(invoiceQuery)
   mockInvoiceLimit.mockReturnValue(invoiceQuery)
   mockInvoiceAdd.mockResolvedValue({ id: 'invoice-1' })
+  mockInvoiceDoc.mockReturnValue({ update: mockInvoiceUpdate })
+  mockInvoiceUpdate.mockResolvedValue(undefined)
   mockUserDoc.mockReturnValue({ get: mockUserGet })
   mockOrgDoc.mockReturnValue({ get: mockClientOrgGet })
   mockOrgWhere.mockReturnValue(orgQuery)
   mockOrgLimit.mockReturnValue(orgQuery)
+  mockPlatformOrgGet.mockResolvedValue({ empty: true, docs: [] })
+  mockCompanyDoc.mockReturnValue({ get: mockCompanyGet })
+  mockContactDoc.mockReturnValue({ get: mockContactGet })
+  mockCompanyGet.mockResolvedValue({ exists: false, data: () => undefined })
+  mockContactGet.mockResolvedValue({ exists: false, data: () => undefined })
+  mockEnsureClaimableRelationship.mockResolvedValue({
+    id: 'relationship-1',
+    claimToken: 'claim-token-1',
+    targetOrgId: undefined,
+    targetUserId: undefined,
+    status: 'pending',
+  })
 
   mockCollection.mockImplementation((name: string) => {
     if (name === 'invoices') return invoiceQuery
     if (name === 'users') return { doc: mockUserDoc }
     if (name === 'organizations') return { doc: mockOrgDoc, where: mockOrgWhere }
+    if (name === 'companies') return { doc: mockCompanyDoc }
+    if (name === 'contacts') return { doc: mockContactDoc }
     throw new Error(`Unexpected collection: ${name}`)
   })
 })
@@ -123,6 +151,50 @@ describe('GET /api/v1/invoices', () => {
 
     const body = await res.json()
     expect(body.data.map((invoice: { id: string }) => invoice.id)).toEqual(['new', 'old'])
+  })
+
+  it('filters platform billing invoices for restricted admins by recipient org', async () => {
+    mockUser = { uid: 'admin-1', role: 'admin', orgId: 'pib-platform-owner', allowedOrgIds: ['client-org-1'] }
+    mockInvoiceGet.mockResolvedValue({
+      docs: [
+        {
+          id: 'allowed-recipient',
+          data: () => ({
+            billingOrgId: 'pib-platform-owner',
+            recipientOrgId: 'client-org-1',
+            invoiceNumber: 'INV-001',
+            createdAt: { seconds: 30 },
+          }),
+        },
+        {
+          id: 'unassigned-recipient',
+          data: () => ({
+            billingOrgId: 'pib-platform-owner',
+            recipientOrgId: 'client-org-2',
+            invoiceNumber: 'INV-002',
+            createdAt: { seconds: 20 },
+          }),
+        },
+        {
+          id: 'platform-home-recipient',
+          data: () => ({
+            billingOrgId: 'pib-platform-owner',
+            recipientOrgId: 'pib-platform-owner',
+            invoiceNumber: 'INV-003',
+            createdAt: { seconds: 10 },
+          }),
+        },
+      ],
+    })
+
+    const { GET } = await import('@/app/api/v1/invoices/route')
+    const req = new NextRequest('http://localhost/api/v1/invoices?billingOrgId=pib-platform-owner&view=received')
+    const res = await GET(req)
+
+    expect(res.status).toBe(200)
+    expect(mockInvoiceWhere).toHaveBeenCalledWith('billingOrgId', '==', 'pib-platform-owner')
+    const body = await res.json()
+    expect(body.data.map((invoice: { id: string }) => invoice.id)).toEqual(['allowed-recipient'])
   })
 
   it('keeps combined org and billing filters index-free by applying billingOrgId in memory', async () => {
@@ -190,10 +262,38 @@ describe('GET /api/v1/invoices', () => {
     expect(res.status).toBe(403)
     expect(mockInvoiceGet).not.toHaveBeenCalled()
   })
+
+  it('lists received invoices for the signed-in client org', async () => {
+    mockUser = { uid: 'client-1', role: 'client', orgId: 'recipient-org' }
+    mockInvoiceGet.mockResolvedValue({
+      docs: [
+        { id: 'received', data: () => ({ recipientOrgId: 'recipient-org', invoiceNumber: 'INV-001', createdAt: { seconds: 20 } }) },
+      ],
+    })
+
+    const { GET } = await import('@/app/api/v1/invoices/route')
+    const req = new NextRequest('http://localhost/api/v1/invoices?view=received')
+    const res = await GET(req)
+
+    expect(res.status).toBe(200)
+    expect(mockInvoiceWhere).toHaveBeenCalledWith('recipientOrgId', '==', 'recipient-org')
+    const body = await res.json()
+    expect(body.data.map((invoice: { id: string }) => invoice.id)).toEqual(['received'])
+  })
 })
 
 describe('POST /api/v1/invoices', () => {
   it('strips undefined billing snapshot fields before writing to Firestore', async () => {
+    mockOrgDoc.mockImplementation((orgId: string) => ({
+      get: orgId === 'pib-platform-owner'
+        ? jest.fn().mockResolvedValue({
+            exists: true,
+            data: () => ({
+              name: 'Partners in Biz',
+            }),
+          })
+        : mockClientOrgGet,
+    }))
     mockClientOrgGet.mockResolvedValue({
       exists: true,
       data: () => ({
@@ -253,5 +353,91 @@ describe('POST /api/v1/invoices', () => {
     expect(res.status).toBe(403)
     expect(mockClientOrgGet).not.toHaveBeenCalled()
     expect(mockInvoiceAdd).not.toHaveBeenCalled()
+  })
+
+  it('creates a CRM-targeted invoice with a claimable relationship', async () => {
+    mockClientOrgGet.mockResolvedValue({
+      exists: true,
+      data: () => ({
+        name: 'Sender Org',
+        billingEmail: 'billing@sender.test',
+        settings: { currency: 'ZAR' },
+      }),
+    })
+    mockPlatformOrgGet.mockResolvedValue({ empty: true, docs: [] })
+    mockCompanyGet.mockResolvedValue({
+      exists: true,
+      data: () => ({
+        orgId: 'sender-org',
+        name: 'Buyer Co',
+        linkedOrgId: 'recipient-org',
+      }),
+    })
+    mockContactGet.mockResolvedValue({
+      exists: true,
+      data: () => ({
+        orgId: 'sender-org',
+        name: 'Buyer One',
+        email: 'Buyer@Example.com',
+        linkedUserId: 'recipient-user',
+      }),
+    })
+    mockEnsureClaimableRelationship.mockResolvedValue({
+      id: 'relationship-1',
+      claimToken: 'claim-token-1',
+      targetOrgId: 'recipient-org',
+      targetUserId: 'recipient-user',
+      status: 'claimed',
+    })
+
+    const { POST } = await import('@/app/api/v1/invoices/route')
+    const req = new NextRequest('http://localhost/api/v1/invoices', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        orgId: 'sender-org',
+        companyId: 'company-1',
+        contactId: 'contact-1',
+        lineItems: [{ description: 'Consulting', quantity: 2, unitPrice: 500 }],
+      }),
+    })
+
+    const res = await POST(req)
+
+    expect(res.status).toBe(201)
+    expect(mockEnsureClaimableRelationship).toHaveBeenCalledWith(expect.objectContaining({
+      sourceOrgId: 'sender-org',
+      sourceCompanyId: 'company-1',
+      sourceContactId: 'contact-1',
+      recipientEmail: 'buyer@example.com',
+      recipientName: 'Buyer One',
+      recipientCompanyName: 'Buyer Co',
+      resourceType: 'invoice',
+      resourceId: 'invoice-1',
+    }))
+    expect(mockInvoiceAdd).toHaveBeenCalledWith(expect.objectContaining({
+      orgId: 'sender-org',
+      sourceOrgId: 'sender-org',
+      issuerOrgId: 'sender-org',
+      sourceCompanyId: 'company-1',
+      sourceContactId: 'contact-1',
+      recipientEmail: 'buyer@example.com',
+      recipientCompanyName: 'Buyer Co',
+      recipientOrgId: 'recipient-org',
+      claimStatus: 'claimed',
+    }))
+    expect(mockInvoiceUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      claimableRelationshipId: 'relationship-1',
+      claimToken: 'claim-token-1',
+      claimStatus: 'claimed',
+      recipientOrgId: 'recipient-org',
+      recipientUserId: 'recipient-user',
+    }))
+    const body = await res.json()
+    expect(body.data).toEqual(expect.objectContaining({
+      id: 'invoice-1',
+      claimToken: 'claim-token-1',
+      claimStatus: 'claimed',
+    }))
   })
 })

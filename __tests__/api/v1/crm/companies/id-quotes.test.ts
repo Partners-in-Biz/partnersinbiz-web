@@ -111,7 +111,7 @@ describe('GET /api/v1/crm/companies/:id/quotes', () => {
     expect(res.status).toBe(404)
   })
 
-  it('respects limit query param (capped at 200)', async () => {
+  it('uses an index-light tenant read and applies the request limit in memory', async () => {
     const member = seedOrgMember('org-a', uidFor('m'), { role: 'viewer' })
     const company = buildCompany({ id: 'co-limit', orgId: 'org-a' })
     ;(companiesStore.loadCompany as jest.Mock).mockResolvedValue({ ref: {}, data: company })
@@ -133,7 +133,10 @@ describe('GET /api/v1/crm/companies/:id/quotes', () => {
     const req = callAsMember(member, 'GET', '/api/v1/crm/companies/co-limit/quotes?limit=999')
     const { GET } = await import('@/app/api/v1/crm/companies/[id]/quotes/route')
     await GET(req, routeCtx('co-limit'))
-    expect(quotesQuery.limit).toHaveBeenCalledWith(200)
+    expect(quotesQuery.where).toHaveBeenCalledWith('orgId', '==', 'org-a')
+    expect(quotesQuery.where).not.toHaveBeenCalledWith('companyId', '==', 'co-limit')
+    expect(quotesQuery.orderBy).not.toHaveBeenCalled()
+    expect(quotesQuery.limit).toHaveBeenCalledWith(1000)
   })
 
   it('viewer role can access the endpoint', async () => {

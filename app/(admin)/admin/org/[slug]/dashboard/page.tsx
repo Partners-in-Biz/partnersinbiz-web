@@ -103,7 +103,7 @@ export default function OrgDashboard() {
           }
           return null
         }),
-      fetch(`/api/v1/projects?orgSlug=${slug}`)
+      fetch(`/api/v1/projects?view=received&orgSlug=${encodeURIComponent(slug)}`)
         .then(r => r.json())
         .then(body => {
           setProjects(body.data ?? [])
@@ -283,7 +283,7 @@ export default function OrgDashboard() {
 
       {/* ── Social Analytics Row ── */}
       {!loading && socialStats && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className={`grid grid-cols-1 gap-4 ${platformBarData.length > 0 ? 'lg:grid-cols-2' : ''}`}>
           {/* Platform Breakdown */}
           {platformBarData.length > 0 && (
             <Surface className="space-y-3">

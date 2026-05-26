@@ -3,17 +3,55 @@ import { NextRequest, NextResponse } from 'next/server'
 import { withPortalAuthAndRole } from '@/lib/auth/portal-middleware'
 import { adminDb } from '@/lib/firebase/admin'
 import { apiErrorFromException } from '@/lib/api/response'
-import type { OrgRole } from '@/lib/organizations/types'
+import type { OrgMember, OrgRole } from '@/lib/organizations/types'
 
 export const dynamic = 'force-dynamic'
 
+type StoredMember = OrgMember & {
+  uid?: string
+  displayName?: string
+  photoURL?: string
+}
+
+function splitName(displayName: string) {
+  const [firstName = '', ...rest] = displayName.trim().split(/\s+/).filter(Boolean)
+  return { firstName, lastName: rest.join(' ') }
+}
+
 export const GET = withPortalAuthAndRole('viewer', async (_req: NextRequest, _uid: string, orgId: string) => {
   try {
-    const snapshot = await adminDb
-      .collection('orgMembers')
-      .where('orgId', '==', orgId)
-      .get()
+    const orgDoc = await adminDb.collection('organizations').doc(orgId).get()
+    const orgMembers = (orgDoc.exists ? orgDoc.data()?.members : []) as StoredMember[]
 
+    if (orgMembers.length > 0) {
+      const members = await Promise.all(orgMembers.map(async (member) => {
+        const uid = member.userId || member.uid || ''
+        const [profileDoc, userDoc] = uid
+          ? await Promise.all([
+              adminDb.collection('orgMembers').doc(`${orgId}_${uid}`).get(),
+              adminDb.collection('users').doc(uid).get(),
+            ])
+          : [null, null] as const
+        const profileData = profileDoc?.data() ?? {}
+        const userData = userDoc?.data() ?? {}
+        const displayName = (member.displayName || userData.displayName || '') as string
+        const fallback = splitName(displayName)
+
+        return {
+          uid,
+          firstName: ((profileData.firstName as string | undefined) ?? fallback.firstName) || '',
+          lastName: ((profileData.lastName as string | undefined) ?? fallback.lastName) || '',
+          jobTitle: (profileData.jobTitle as string | undefined) ?? '',
+          avatarUrl: ((profileData.avatarUrl as string | undefined) ?? member.photoURL ?? (userData.photoURL as string | undefined)) || '',
+          role: member.role as OrgRole,
+        }
+      }))
+
+      return NextResponse.json({ members })
+    }
+
+    // Legacy fallback for orgs that have not had organizations.members backfilled yet.
+    const snapshot = await adminDb.collection('orgMembers').where('orgId', '==', orgId).get()
     const members = await Promise.all(snapshot.docs.map(async (d) => {
       const data = d.data()
       const prefix = `${orgId}_`
@@ -21,12 +59,12 @@ export const GET = withPortalAuthAndRole('viewer', async (_req: NextRequest, _ui
       const userDoc = uid ? await adminDb.collection('users').doc(uid).get() : null
       const userData = userDoc?.data() ?? {}
       const displayName = (userData.displayName as string | undefined) ?? ''
-      const [fallbackFirst = '', ...fallbackRest] = displayName.trim().split(/\s+/).filter(Boolean)
+      const fallback = splitName(displayName)
 
       return {
         uid,
-        firstName: ((data.firstName as string | undefined) ?? fallbackFirst) || '',
-        lastName: ((data.lastName as string | undefined) ?? fallbackRest.join(' ')) || '',
+        firstName: ((data.firstName as string | undefined) ?? fallback.firstName) || '',
+        lastName: ((data.lastName as string | undefined) ?? fallback.lastName) || '',
         jobTitle: (data.jobTitle as string) ?? '',
         avatarUrl: ((data.avatarUrl as string | undefined) ?? (userData.photoURL as string | undefined)) || '',
         role: data.role as OrgRole,

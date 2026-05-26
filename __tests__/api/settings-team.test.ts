@@ -13,6 +13,14 @@ const mockBatchUpdate = jest.fn()
 const mockBatchDelete = jest.fn()
 const mockBatchCommit = jest.fn()
 
+type MockPortalRoleHandler = (
+  req: NextRequest,
+  uid: string,
+  orgId: string,
+  role: string,
+  ...args: unknown[]
+) => Promise<Response> | Response
+
 jest.mock('@/lib/firebase/admin', () => ({
   adminDb: {
     collection: mockCollection,
@@ -25,11 +33,15 @@ jest.mock('@/lib/firebase/admin', () => ({
   },
 }))
 jest.mock('@/lib/auth/portal-middleware', () => ({
-  withPortalAuthAndRole: (_minRole: string, handler: Function) =>
-    (req: NextRequest, ...args: any[]) => handler(req, 'uid-owner', 'org-1', 'owner', ...args),
+  withPortalAuthAndRole: (_minRole: string, handler: MockPortalRoleHandler) =>
+    (req: NextRequest, ...args: unknown[]) => handler(req, 'uid-owner', 'org-1', 'owner', ...args),
 }))
 jest.mock('firebase-admin/firestore', () => ({
-  FieldValue: { serverTimestamp: () => 'SERVER_TS', arrayUnion: (v: any) => ({ type: 'arrayUnion', v }), arrayRemove: (v: any) => ({ type: 'arrayRemove', v }) },
+  FieldValue: {
+    serverTimestamp: () => 'SERVER_TS',
+    arrayUnion: (v: unknown) => ({ type: 'arrayUnion', v }),
+    arrayRemove: (v: unknown) => ({ type: 'arrayRemove', v }),
+  },
 }))
 
 beforeEach(() => {
@@ -44,14 +56,55 @@ beforeEach(() => {
 })
 
 describe('GET /api/v1/portal/settings/team', () => {
-  it('returns member profiles for the active org', async () => {
-    mockGet.mockResolvedValue({
+  it('returns canonical organization members for the active org', async () => {
+    mockGet
+      .mockResolvedValueOnce({
+        exists: true,
+        data: () => ({
+          members: [
+            { userId: 'uid-owner', role: 'owner' },
+          ],
+        }),
+      })
+      .mockResolvedValueOnce({
+        exists: true,
+        data: () => ({ firstName: 'Peet', lastName: 'Stander', jobTitle: 'Founder', avatarUrl: '' }),
+      })
+      .mockResolvedValueOnce({
+        exists: true,
+        data: () => ({ displayName: 'Peet Stander', photoURL: '' }),
+      })
+
+    const { GET } = await import('@/app/api/v1/portal/settings/team/route')
+    const req = new NextRequest('http://localhost/api/v1/portal/settings/team', {
+      headers: { Cookie: '__session=valid' },
+    })
+    const res = await GET(req)
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.members).toHaveLength(1)
+    expect(body.members[0].uid).toBe('uid-owner')
+    expect(body.members[0].firstName).toBe('Peet')
+    expect(body.members[0].role).toBe('owner')
+    expect(mockWhere).not.toHaveBeenCalled()
+  })
+
+  it('falls back to orgMembers when organization members are missing', async () => {
+    mockGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({ members: [] }),
+    })
+    mockGet.mockResolvedValueOnce({
       docs: [
         {
           id: 'org-1_uid-1',
           data: () => ({ uid: 'uid-1', firstName: 'Peet', lastName: 'Stander', jobTitle: 'CEO', role: 'owner', avatarUrl: '' }),
         },
       ],
+    })
+    mockGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({ displayName: 'Peet Stander', photoURL: '' }),
     })
 
     const { GET } = await import('@/app/api/v1/portal/settings/team/route')

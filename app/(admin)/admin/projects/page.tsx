@@ -51,14 +51,24 @@ export default function ProjectsPage() {
   const [startDate, setStartDate] = useState('')
 
   const fetchProjects = useCallback(async () => {
-    setLoading(true)
-    const res = await fetch('/api/v1/projects')
+    const res = await fetch('/api/v1/projects?view=received')
     const body = await res.json()
     setProjects(body.data ?? [])
     setLoading(false)
   }, [])
 
-  useEffect(() => { fetchProjects() }, [fetchProjects])
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      const res = await fetch('/api/v1/projects?view=received')
+      const body = await res.json()
+      if (cancelled) return
+      setProjects(body.data ?? [])
+      setLoading(false)
+    }
+    void load()
+    return () => { cancelled = true }
+  }, [])
 
   function openNew() {
     setName('')
@@ -71,8 +81,8 @@ export default function ProjectsPage() {
   }
 
   async function createProject() {
-    if (!name.trim()) {
-      setError('Name is required.')
+    if (!name.trim() || !clientId.trim()) {
+      setError(!name.trim() ? 'Name is required.' : 'Client organisation is required.')
       return
     }
     setSaving(true)
@@ -80,7 +90,7 @@ export default function ProjectsPage() {
     const res = await fetch('/api/v1/projects', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ name, clientId, description, status, startDate: startDate || undefined }),
+      body: JSON.stringify({ name, clientId: clientId.trim(), description, status, startDate: startDate || undefined }),
     })
     const body = await res.json()
     setSaving(false)

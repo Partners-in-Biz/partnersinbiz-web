@@ -7,6 +7,8 @@ import { adminDb, adminAuth } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { logActivity } from '@/lib/activity/log'
+import { syncPlatformContactForOrgMember } from '@/lib/platform-owner/relationships'
+import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
 import type { Organization, OrgMember, OrgRole } from '@/lib/organizations/types'
 
 export const dynamic = 'force-dynamic'
@@ -29,6 +31,25 @@ type StoredMember = OrgMember & {
 function splitName(displayName: string) {
   const [firstName = '', ...rest] = displayName.trim().split(/\s+/).filter(Boolean)
   return { firstName, lastName: rest.join(' ') }
+}
+
+function normalizeOrgIds(userData: Record<string, unknown>, orgId: string): string[] {
+  const ids = new Set<string>()
+  const isPlatformAdmin = userData.role === 'admin'
+  if (Array.isArray(userData.orgIds)) {
+    for (const value of userData.orgIds) {
+      if (typeof value === 'string' && value.trim()) {
+        const linkedOrgId = value.trim()
+        if (!isPlatformAdmin || linkedOrgId !== PIB_PLATFORM_ORG_ID) ids.add(linkedOrgId)
+      }
+    }
+  }
+  if (typeof userData.orgId === 'string' && userData.orgId.trim()) {
+    const primaryOrgId = userData.orgId.trim()
+    if (!isPlatformAdmin || primaryOrgId !== PIB_PLATFORM_ORG_ID) ids.add(primaryOrgId)
+  }
+  ids.add(orgId)
+  return Array.from(ids)
 }
 
 export const GET = withAuth('admin', async (req, user, ctx) => {
@@ -134,19 +155,20 @@ export const POST = withAuth('admin', async (req, user, ctx) => {
     updatedAt: FieldValue.serverTimestamp(),
   })
 
-  // Mirror orgId onto the user doc so resolveOrgScope finds it without an
-  // extra membership query. If the user already belongs to another org,
-  // their existing orgId is preserved (multi-org membership not supported
-  // in Phase 3 — first-org-bound).
-  if (!userData.orgId) {
-    try {
-      await adminDb.collection('users').doc(userId).set(
-        { orgId: id, updatedAt: FieldValue.serverTimestamp() },
-        { merge: true },
-      )
-    } catch (err) {
-      console.error('[members.add] failed to mirror orgId on user doc', err)
-    }
+  // Mirror the membership onto the user doc so the portal workspace switcher
+  // can offer explicit client access to PiB staff/admin accounts as well as
+  // client users. Preserve the user's existing primary org.
+  try {
+    await adminDb.collection('users').doc(userId).set(
+      {
+        orgIds: normalizeOrgIds(userData, id),
+        ...(userData.orgId ? {} : { orgId: id }),
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    )
+  } catch (err) {
+    console.error('[members.add] failed to mirror org membership on user doc', err)
   }
 
   const displayName = (userData.displayName as string | undefined) ?? ''
@@ -164,6 +186,17 @@ export const POST = withAuth('admin', async (req, user, ctx) => {
     },
     { merge: true },
   )
+
+  await syncPlatformContactForOrgMember({
+    clientOrgId: id,
+    uid: userId,
+    email: typeof userData.email === 'string' ? userData.email : undefined,
+    displayName,
+    role,
+    clientOrg: org as unknown as Record<string, unknown>,
+  }).catch((err) => {
+    console.error('[org-member-crm-sync-error]', err)
+  })
 
   logActivity({
     orgId: id,

@@ -15,6 +15,7 @@ import { SettingsNav } from '@/components/settings/SettingsNav'
 import { SupportDrawer } from '@/components/support/SupportDrawer'
 import { NotificationBell } from '@/components/crm/NotificationBell'
 import { MessageDrawer } from '@/components/chat/MessageDrawer'
+import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
 
 const PORTAL_MATERIAL_SYMBOLS =
   'https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap'
@@ -34,31 +35,29 @@ const NAV_LINKS: NavItem[] = [
   { href: '/portal/documents', label: 'Documents', icon: 'description',     group: 'work' },
   { href: '/portal/research',  label: 'Research',  icon: 'travel_explore', group: 'data' },
   { href: '/portal/mobile-apps', label: 'Mobile Apps', icon: 'smartphone', group: 'work' },
-  // CRM is still behind the scenes for now. Keep the route, but do not expose
-  // the unfinished workspace from the client navigation.
-  // {
-  //   href: '/portal/crm',
-  //   label: 'CRM',
-  //   icon: 'contacts',
-  //   group: 'work',
-  //   activePatterns: [
-  //     '/portal/contacts',
-  //     '/portal/companies',
-  //     '/portal/deals',
-  //     '/portal/segments',
-  //     '/portal/capture-sources',
-  //     '/portal/integrations',
-  //     '/portal/reports/crm',
-  //     '/portal/settings/crm-setup',
-  //     '/portal/settings/custom-fields',
-  //     '/portal/settings/pipelines',
-  //     '/portal/settings/scoring',
-  //     '/portal/settings/products',
-  //     '/portal/settings/automations',
-  //     '/portal/settings/sequences',
-  //     '/portal/settings/webhooks',
-  //   ],
-  // },
+  {
+    href: '/portal/crm',
+    label: 'CRM',
+    icon: 'contacts',
+    group: 'work',
+    activePatterns: [
+      '/portal/contacts',
+      '/portal/companies',
+      '/portal/deals',
+      '/portal/segments',
+      '/portal/capture-sources',
+      '/portal/integrations',
+      '/portal/reports/crm',
+      '/portal/settings/crm-setup',
+      '/portal/settings/custom-fields',
+      '/portal/settings/pipelines',
+      '/portal/settings/scoring',
+      '/portal/settings/products',
+      '/portal/settings/automations',
+      '/portal/settings/sequences',
+      '/portal/settings/webhooks',
+    ],
+  },
   {
     href: '/portal/marketing',
     label: 'Marketing',
@@ -107,6 +106,14 @@ const GROUP_LABELS: Record<NavItem['group'], string> = {
 }
 
 type LayoutMode = 'sidebar' | 'topbar'
+
+interface PortalOrgOption {
+  id: string
+  name: string
+  slug: string
+  type?: string
+  logoUrl: string
+}
 
 function active(pathname: string, item: NavItem) {
   if (pathname === item.href || pathname.startsWith(item.href + '/')) return true
@@ -158,8 +165,11 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
   const [collapsed, setCollapsed]   = useState(false)
   const [layoutMode, setLayoutMode] = useState<LayoutMode>('sidebar')
   const [documentCount, setDocumentCount] = useState(0)
-  const [orgs, setOrgs] = useState<{ id: string; name: string; logoUrl: string }[]>([])
+  const [orgs, setOrgs] = useState<PortalOrgOption[]>([])
   const [activeOrgId, setActiveOrgId] = useState('')
+  const [activeOrgSlug, setActiveOrgSlug] = useState('')
+  const [activeOrgType, setActiveOrgType] = useState('')
+  const [userRole, setUserRole] = useState('')
   const [orgSwitching, setOrgSwitching] = useState(false)
   const [memberRole, setMemberRole] = useState<string | null>(null)
   const [profileName, setProfileName] = useState('')
@@ -203,6 +213,9 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
             .then(d => {
               if (d?.org?.name) setOrgName(d.org.name)
               if (d?.org?.id) setActiveOrgId(d.org.id)
+              if (d?.org?.slug) setActiveOrgSlug(d.org.slug)
+              if (d?.org?.type) setActiveOrgType(d.org.type)
+              if (d?.user?.role) setUserRole(d.user.role)
             })
             .catch(() => {})
           fetch('/api/v1/portal/orgs')
@@ -210,6 +223,11 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
             .then(d => {
               if (Array.isArray(d?.orgs)) setOrgs(d.orgs)
               if (d?.activeOrgId) setActiveOrgId(d.activeOrgId)
+              const activeOrg = Array.isArray(d?.orgs)
+                ? d.orgs.find((org: PortalOrgOption) => org.id === d.activeOrgId)
+                : null
+              if (activeOrg?.slug) setActiveOrgSlug(activeOrg.slug)
+              if (activeOrg?.type) setActiveOrgType(activeOrg.type)
             })
             .catch(() => {})
           fetch('/api/v1/portal/settings/profile')
@@ -277,7 +295,11 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
       })
       setActiveOrgId(orgId)
       const switched = orgs.find(o => o.id === orgId)
-      if (switched) setOrgName(switched.name)
+      if (switched) {
+        setOrgName(switched.name)
+        setActiveOrgSlug(switched.slug)
+        setActiveOrgType(switched.type ?? '')
+      }
       router.refresh()
     } finally {
       setOrgSwitching(false)
@@ -315,6 +337,9 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
   }))
 
   const initials = (name || email).split(/[.\s@]/).filter(Boolean).slice(0, 2).map(s => s[0]?.toUpperCase()).join('')
+  const canOpenAdminView = userRole === 'admin' && !!activeOrgSlug
+  const adminViewHref = activeOrgSlug ? `/admin/org/${activeOrgSlug}/dashboard` : '/admin/dashboard'
+  const portalWorkspaceLabel = activeOrgType === 'platform_owner' || activeOrgId === PIB_PLATFORM_ORG_ID ? 'Platform' : 'Client'
 
   const tracker = (
     <>
@@ -338,7 +363,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
             <Link href="/portal/dashboard" className="flex items-center gap-2 shrink-0 mr-2">
               <Image src="/pib-logo-512.png" alt="Partners in Biz" width={24} height={24} className="rounded-md object-contain" />
               <span className="hidden sm:block font-display text-base leading-none">Partners in Biz</span>
-              <span className="pill !text-[10px] !py-0.5 !px-2">Client</span>
+              <span className="pill !text-[10px] !py-0.5 !px-2">{portalWorkspaceLabel}</span>
             </Link>
 
             <div className="w-px h-5 bg-[var(--color-pib-line)] shrink-0 hidden md:block" />
@@ -374,6 +399,16 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
 
             {/* Right side */}
             <div className="flex items-center gap-2 ml-auto shrink-0">
+              {canOpenAdminView && (
+                <Link
+                  href={adminViewHref}
+                  title="Switch to admin view"
+                  className="hidden md:flex items-center gap-1.5 px-2.5 h-8 rounded-lg text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.05] transition-colors"
+                >
+                  <span className="material-symbols-outlined text-[18px]">admin_panel_settings</span>
+                  <span className="hidden lg:inline">Admin</span>
+                </Link>
+              )}
               <NotificationBell />
               <MessageDrawer
                 orgId={activeOrgId}
@@ -451,6 +486,15 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
                 <span className="material-symbols-outlined text-[18px]">dock_to_right</span>
                 Switch to sidebar layout
               </button>
+              {canOpenAdminView && (
+                <Link
+                  href={adminViewHref}
+                  className="flex items-center gap-2 px-3 py-2 text-sm text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] rounded-lg hover:bg-white/[0.04]"
+                >
+                  <span className="material-symbols-outlined text-[18px]">admin_panel_settings</span>
+                  Switch to admin view
+                </Link>
+              )}
             </div>
           </div>
         )}
@@ -511,25 +555,90 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
                 <span className="font-display text-base leading-tight">Partners in Biz</span>
                 {orgName && <span className="text-[11px] text-[var(--color-pib-text-muted)] truncate leading-tight mt-0.5">{orgName}</span>}
               </div>
-              <span className="ml-auto pill !text-[10px] !py-0.5 !px-2 shrink-0">Client</span>
+              <span className="ml-auto pill !text-[10px] !py-0.5 !px-2 shrink-0">{portalWorkspaceLabel}</span>
             </>
           )}
         </Link>
 
-        {/* Collapse toggle (desktop only) */}
-        <button
-          onClick={toggleCollapsed}
-          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          className={[
-            'hidden md:flex items-center justify-center h-8 text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors border-b border-[var(--color-pib-line)] w-full',
-            collapsed ? '' : 'px-5',
-          ].join(' ')}
-        >
-          <span className="material-symbols-outlined text-[18px]">
-            {collapsed ? 'chevron_right' : 'chevron_left'}
-          </span>
-          {!collapsed && <span className="ml-auto text-[10px] opacity-50">collapse</span>}
-        </button>
+        {/* Collapse and mode switch controls */}
+        <div className="hidden md:flex items-center h-8 border-b border-[var(--color-pib-line)] shrink-0">
+          <button
+            onClick={toggleCollapsed}
+            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            className={[
+              'flex h-8 items-center justify-center text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors',
+              collapsed ? 'w-full' : 'flex-1',
+            ].join(' ')}
+          >
+            <span className="material-symbols-outlined text-[18px]">
+              {collapsed ? 'chevron_right' : 'chevron_left'}
+            </span>
+          </button>
+          {!collapsed && canOpenAdminView && (
+            <Link
+              href={adminViewHref}
+              title="Switch to admin view"
+              aria-label="Switch to admin view"
+              className="h-8 w-8 border-l border-[var(--color-pib-line)] flex items-center justify-center text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.05] transition-colors"
+            >
+              <span className="material-symbols-outlined text-[18px]">admin_panel_settings</span>
+            </Link>
+          )}
+        </div>
+
+        {collapsed && canOpenAdminView && (
+          <div className="border-b border-[var(--color-pib-line)] shrink-0">
+            <Link
+              href={adminViewHref}
+              title="Switch to admin view"
+              aria-label="Switch to admin view"
+              className="mx-2 my-2 flex h-8 w-8 items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.05] transition-colors"
+            >
+              <span className="material-symbols-outlined text-[18px]">admin_panel_settings</span>
+            </Link>
+          </div>
+        )}
+
+        {/* Workspace switcher — compact, near the top like the admin context. */}
+        {orgs.length > 1 && (
+          <div className="border-b border-[var(--color-pib-line)] shrink-0">
+            {collapsed ? (
+              <button
+                type="button"
+                onClick={toggleCollapsed}
+                title={`Workspace: ${orgName || 'Current workspace'}`}
+                className="mx-2 my-2 w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-bold transition-colors bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent-hover)] ring-1 ring-[var(--color-pib-accent)]/30"
+              >
+                {(orgName || orgs.find(org => org.id === activeOrgId)?.name || 'W')[0]?.toUpperCase() ?? 'W'}
+              </button>
+            ) : (
+              <div className="px-3 py-3">
+                <label htmlFor="portal-workspace-switcher" className="eyebrow !text-[10px] px-1 mb-2 block">
+                  Workspace
+                </label>
+                <div className="relative">
+                  <select
+                    id="portal-workspace-switcher"
+                    value={activeOrgId}
+                    onChange={(event) => handleOrgSwitch(event.target.value)}
+                    disabled={orgSwitching}
+                    className="w-full appearance-none rounded-lg border border-[var(--color-pib-line)] bg-white/[0.02] px-3 py-2 pr-9 text-sm text-[var(--color-pib-text)] outline-none transition-colors hover:bg-white/[0.04] focus:border-[var(--color-pib-accent)] disabled:opacity-60"
+                  >
+                    {orgs.map(org => (
+                      <option key={org.id} value={org.id}>
+                        {org.name}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="pointer-events-none material-symbols-outlined absolute right-2.5 top-1/2 -translate-y-1/2 text-[18px] text-[var(--color-pib-text-muted)]">
+                    expand_more
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Nav — settings mode replaces normal nav */}
         {pathname.startsWith('/portal/settings') ? (
@@ -552,62 +661,6 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
                 ))
             }
           </nav>
-        )}
-
-        {/* Org switcher — only when client belongs to multiple workspaces */}
-        {orgs.length > 1 && (
-          <div className="border-t border-[var(--color-pib-line)] shrink-0">
-            {collapsed ? (
-              <div className="flex flex-col items-center gap-1 py-2 px-2">
-                {orgs.map(org => (
-                  <button
-                    key={org.id}
-                    onClick={() => handleOrgSwitch(org.id)}
-                    disabled={orgSwitching}
-                    title={org.name}
-                    className={[
-                      'w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-bold transition-colors',
-                      org.id === activeOrgId
-                        ? 'bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent-hover)] ring-1 ring-[var(--color-pib-accent)]/40'
-                        : 'text-[var(--color-pib-text-muted)] hover:bg-white/[0.06]',
-                    ].join(' ')}
-                  >
-                    {org.name[0]?.toUpperCase() ?? '·'}
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <div className="px-3 py-3">
-                <p className="eyebrow !text-[10px] px-1 mb-2">Workspace</p>
-                <div className="space-y-0.5">
-                  {orgs.map(org => (
-                    <button
-                      key={org.id}
-                      onClick={() => handleOrgSwitch(org.id)}
-                      disabled={orgSwitching}
-                      className={[
-                        'w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors text-left',
-                        org.id === activeOrgId
-                          ? 'bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent-hover)]'
-                          : 'text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.04]',
-                      ].join(' ')}
-                    >
-                      <span className={[
-                        'w-5 h-5 rounded flex items-center justify-center text-[10px] font-bold shrink-0',
-                        org.id === activeOrgId ? 'bg-[var(--color-pib-accent)]/20' : 'bg-[var(--color-pib-line-strong)]',
-                      ].join(' ')}>
-                        {org.name[0]?.toUpperCase() ?? '·'}
-                      </span>
-                      <span className="flex-1 truncate text-[13px]">{org.name}</span>
-                      {org.id === activeOrgId && (
-                        <span className="material-symbols-outlined text-[14px] text-[var(--color-pib-accent)]">check_circle</span>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
         )}
 
         {/* User chip */}
@@ -667,6 +720,16 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
             {NAV_LINKS.find(n => active(pathname, n))?.label ?? 'Overview'}
           </span>
           <div className="ml-auto flex items-center gap-3">
+            {canOpenAdminView && (
+              <Link
+                href={adminViewHref}
+                title="Switch to admin view"
+                className="hidden md:flex items-center gap-1.5 px-2.5 h-8 rounded-lg text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.05] transition-colors"
+              >
+                <span className="material-symbols-outlined text-[18px]">admin_panel_settings</span>
+                <span className="hidden lg:inline">Admin</span>
+              </Link>
+            )}
             <NotificationBell />
             <MessageDrawer
               orgId={activeOrgId}

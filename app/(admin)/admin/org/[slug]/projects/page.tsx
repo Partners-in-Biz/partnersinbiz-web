@@ -26,6 +26,10 @@ function Skeleton({ className = '' }: { className?: string }) {
 const STATUS_OPTIONS = ['discovery', 'design', 'development', 'review', 'live', 'maintenance']
 const PROJECT_REFRESH_INTERVAL_MS = 10000
 
+function receivedProjectsUrl(slug: string) {
+  return `/api/v1/projects?view=received&orgSlug=${encodeURIComponent(slug)}`
+}
+
 const STATUS_META: Record<string, { label: string; color: string; icon: string; progress: number; summary: string }> = {
   discovery: {
     label: 'Discovery',
@@ -238,7 +242,7 @@ export default function ProjectsPage() {
   const loadProjects = useCallback(async ({ showSpinner = false }: { showSpinner?: boolean } = {}) => {
     if (showSpinner) setLoading(true)
     try {
-      const res = await fetch(`/api/v1/projects?orgSlug=${slug}`)
+      const res = await fetch(receivedProjectsUrl(slug))
       const body = await res.json()
       setProjects(body.data ?? [])
     } finally {
@@ -411,7 +415,7 @@ export default function ProjectsPage() {
       }
 
       // Refetch the full list so the new project is confirmed from the server
-      const listRes = await fetch(`/api/v1/projects?orgSlug=${slug}`)
+      const listRes = await fetch(receivedProjectsUrl(slug))
       const listBody = await listRes.json()
       setProjects(listBody.data ?? [])
       setShowForm(false)

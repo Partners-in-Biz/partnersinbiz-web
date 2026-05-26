@@ -560,6 +560,8 @@ These endpoints manage PiB **internal staff** (users with `role === 'admin'`). T
 - **Restricted admin** — `allowedOrgIds: ["org_a", "org_b"]`. UI and API scope them to those orgs only.
 - To convert a restricted admin to super admin, PATCH with `allowedOrgIds: []`.
 - A super admin **cannot restrict their own account** via PATCH — they must ask a different super admin. This prevents accidental self-lockout.
+- `allowedOrgIds` is admin-surface visibility only. It does not grant client portal/CRM access. To let a PiB admin enter a client portal, add the staff user as an explicit member of that client org through `/admin/org/[slug]/team` or `POST /organizations/[id]/members`.
+- For `/admin/org/partners-in-biz/billing`, restricted admins see only PiB-issued invoices where the recipient client is inside `allowedOrgIds`; super admins see all PiB-issued invoices.
 
 ### `GET /admin/platform-users` — auth: super-admin
 

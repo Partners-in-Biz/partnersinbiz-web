@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic'
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
+import { PageHeader, PageTabs, Surface, StatusPill } from '@/components/ui/AppFoundation'
 
 type OrgSummary = {
   id: string
@@ -76,6 +77,12 @@ const STATUS_LABELS: Record<string, string> = {
   done: 'Done',
 }
 
+const WORK_LANES = [
+  { id: 'attention', title: 'Needs attention', icon: 'priority_high', color: '#f59e0b' },
+  { id: 'active', title: 'In progress', icon: 'autorenew', color: 'var(--color-accent-v2)' },
+  { id: 'approval', title: 'Approvals', icon: 'rate_review', color: '#c084fc' },
+] as const
+
 const RISK_STATUSES = new Set(['blocked', 'awaiting-input'])
 const ACTIVE_STATUSES = new Set(['pending', 'picked-up', 'in-progress'])
 const PULSE_STATUSES = new Set(['pending', 'picked-up', 'in-progress', 'awaiting-input', 'blocked'])
@@ -103,10 +110,6 @@ async function fetchJson(url: string) {
   return body
 }
 
-function plural(count: number, one: string, many = `${one}s`) {
-  return `${count} ${count === 1 ? one : many}`
-}
-
 function formatRelative(value?: string | null) {
   if (!value) return 'Recently'
   const date = new Date(value)
@@ -125,111 +128,12 @@ function healthTone(health: Health | null, error: string | null) {
   return health.ok === false ? 'border-amber-400/30 bg-amber-500/10 text-amber-100' : 'border-emerald-400/30 bg-emerald-500/10 text-emerald-100'
 }
 
-type ConstellationNode = OrgSummary & {
-  x: number
-  y: number
-  tone: 'risk' | 'active' | 'calm'
-  activeTasks: number
-  riskyTasks: number
-  pendingApprovals: number
-}
-
 function orgDashboardHref(org: Pick<OrgSummary, 'slug'>) {
   return org.slug ? `/admin/org/${org.slug}/dashboard` : '/admin/clients'
 }
 
 function clientOrgs(orgs: OrgSummary[]) {
   return orgs.filter(org => org.type !== 'platform_owner')
-}
-
-function constellationNodes(orgs: OrgSummary[], tasks: AgentTask[], approvals: Approval[]): ConstellationNode[] {
-  const fallback = orgs.length > 0 ? orgs : [{ id: 'platform', name: 'PiB Platform', slug: 'partners-in-biz' }]
-  const centerX = 50
-  const centerY = 50
-  const radius = fallback.length < 4 ? 27 : 35
-
-  return fallback.map((org, index) => {
-    const angle = (Math.PI * 2 * index) / Math.max(fallback.length, 3) - Math.PI / 2
-    const orgTasks = tasks.filter(task => task.orgId === org.id)
-    const orgApprovals = approvals.filter(approval => approval.orgId === org.id)
-    const riskyTasks = orgTasks.filter(task => RISK_STATUSES.has(task.agentStatus ?? '')).length
-    const activeTasks = orgTasks.filter(task => ACTIVE_STATUSES.has(task.agentStatus ?? '')).length
-    const hasRisk = riskyTasks > 0 || orgApprovals.length > 0
-    const hasActive = activeTasks > 0
-
-    return {
-      ...org,
-      x: Math.round((centerX + Math.cos(angle) * radius) * 10) / 10,
-      y: Math.round((centerY + Math.sin(angle) * radius) * 10) / 10,
-      tone: hasRisk ? 'risk' : hasActive ? 'active' : 'calm',
-      activeTasks,
-      riskyTasks,
-      pendingApprovals: orgApprovals.length,
-    }
-  })
-}
-
-function constellationNodeLabel(node: ConstellationNode) {
-  const signals = [
-    plural(node.activeTasks, 'active task'),
-    plural(node.riskyTasks, 'risk item'),
-    plural(node.pendingApprovals, 'approval'),
-  ]
-  const tone = node.tone === 'risk' ? 'Needs attention' : node.tone === 'active' ? 'Work moving' : 'Calm'
-  return `${node.name}: ${tone}. ${signals.join(', ')}.`
-}
-
-function MissionConstellation({ orgs, tasks, approvals }: { orgs: OrgSummary[]; tasks: AgentTask[]; approvals: Approval[] }) {
-  const nodes = useMemo(() => constellationNodes(orgs, tasks, approvals), [orgs, tasks, approvals])
-  const riskCount = nodes.filter(node => node.tone === 'risk').length
-  const activeCount = nodes.filter(node => node.tone === 'active').length
-
-  return (
-    <div className="pib-card overflow-hidden p-4 sm:p-5">
-      <div className="relative z-10 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <p className="text-[10px] font-label uppercase tracking-[0.25em] text-on-surface-variant">Business signal map</p>
-          <h2 className="mt-1 text-lg font-headline font-bold text-on-surface">Organisation constellation</h2>
-          <p className="mt-1 max-w-xl text-xs text-on-surface-variant">Each dot is a client workspace. Hover or focus a dot to see which organisation it is, whether work is moving, and where approvals or blockers need Peet’s attention.</p>
-        </div>
-        <div className="flex flex-wrap gap-2 text-[10px] uppercase tracking-wide text-on-surface-variant">
-          <span className="rounded-full bg-[var(--color-surface-container)] px-2.5 py-1">{nodes.length} nodes</span>
-          <span className="rounded-full bg-amber-500/15 px-2.5 py-1 text-amber-100">{riskCount} risk</span>
-          <span className="rounded-full bg-[var(--color-accent-subtle)] px-2.5 py-1" style={{ color: 'var(--color-accent-text)' }}>{activeCount} active</span>
-        </div>
-      </div>
-      <div data-testid="mission-control-constellation" role="list" aria-label="Client workspace signal map" className="relative mt-4 h-64 overflow-hidden rounded-2xl border border-[var(--color-card-border)] bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:32px_32px]">
-        <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 100" role="presentation" focusable="false">
-          <circle cx="50" cy="50" r="16" className="fill-none stroke-[var(--color-card-border)]" strokeWidth="0.5" />
-          <circle cx="50" cy="50" r="32" className="fill-none stroke-[var(--color-card-border)]" strokeWidth="0.5" />
-          <g className="origin-center motion-safe:animate-[pib-radar-spin_18s_linear_infinite]">
-            <line x1="50" y1="50" x2="50" y2="10" stroke="var(--color-accent-v2)" strokeWidth="0.7" strokeLinecap="round" opacity="0.45" />
-          </g>
-          {nodes.map(node => (
-            <line key={`line-${node.id}`} x1="50" y1="50" x2={node.x} y2={node.y} className="stroke-[var(--color-card-border)]" strokeWidth="0.45" opacity="0.85" />
-          ))}
-        </svg>
-        {nodes.map((node, index) => (
-          <Link
-            href={orgDashboardHref(node)}
-            key={node.id}
-            role="listitem"
-            aria-label={constellationNodeLabel(node)}
-            title={constellationNodeLabel(node)}
-            data-constellation-node="true"
-            className={`group/node absolute h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full shadow-[0_0_18px_currentColor] outline-none ring-offset-2 ring-offset-[var(--color-card)] transition-transform hover:z-20 hover:scale-125 focus-visible:z-20 focus-visible:scale-125 focus-visible:ring-2 focus-visible:ring-[var(--color-accent-v2)] motion-safe:animate-[pib-node-float_5s_ease-in-out_infinite] ${node.tone === 'risk' ? 'bg-amber-300 text-amber-300' : node.tone === 'active' ? 'bg-[var(--color-accent-v2)] text-[var(--color-accent-v2)]' : 'bg-emerald-300 text-emerald-300'}`}
-            style={{ left: `${node.x}%`, top: `${node.y}%`, animationDelay: `${index * 180}ms` }}
-          >
-            <span className="pointer-events-none absolute left-1/2 top-6 z-30 w-52 -translate-x-1/2 rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/95 px-3 py-2 text-left text-[11px] leading-snug text-on-surface opacity-0 shadow-xl transition group-hover/node:opacity-100 group-focus-visible/node:opacity-100">
-              <span className="block font-label uppercase tracking-wide text-on-surface">{node.name}</span>
-              <span className="mt-1 block text-on-surface-variant">{node.tone === 'risk' ? 'Needs attention' : node.tone === 'active' ? 'Work moving' : 'Calm'} · {plural(node.activeTasks, 'active task')} · {plural(node.riskyTasks, 'risk item')} · {plural(node.pendingApprovals, 'approval')}</span>
-            </span>
-          </Link>
-        ))}
-        <div className="absolute left-1/2 top-1/2 h-14 w-14 -translate-x-1/2 -translate-y-1/2 rounded-full border border-[var(--color-accent-v2)]/40 bg-[var(--color-card)]/80 shadow-[0_0_40px_rgba(245,166,35,0.14)]" />
-      </div>
-    </div>
-  )
 }
 
 function Skeleton({ className = '' }: { className?: string }) {
@@ -257,70 +161,211 @@ function SectionHeader({ title, eyebrow, action }: { title: string; eyebrow?: st
   )
 }
 
+function dashboardTone(value: number, goodWhenZero = false): 'success' | 'warn' | 'accent' {
+  if (goodWhenZero) return value === 0 ? 'success' : 'warn'
+  return value > 0 ? 'accent' : 'success'
+}
+
+function softColor(color: string, opacity = 14) {
+  const alpha = Math.round((opacity / 100) * 255).toString(16).padStart(2, '0')
+  return color.startsWith('var(') ? `color-mix(in oklab, ${color} ${opacity}%, transparent)` : `${color}${alpha}`
+}
+
+function MetricCard({
+  label,
+  value,
+  icon,
+  tone = 'accent',
+  detail,
+}: {
+  label: string
+  value: number
+  icon: string
+  tone?: 'accent' | 'success' | 'warn' | 'danger'
+  detail: string
+}) {
+  const toneClass = {
+    accent: 'text-[var(--color-pib-accent)] bg-[var(--color-pib-accent-soft)] border-[var(--color-pib-accent)]/20',
+    success: 'text-emerald-300 bg-emerald-500/10 border-emerald-400/20',
+    warn: 'text-amber-200 bg-amber-500/10 border-amber-400/25',
+    danger: 'text-red-300 bg-red-500/10 border-red-400/25',
+  }[tone]
+
+  return (
+    <Surface className="p-4">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">{label}</p>
+          <p className="mt-3 text-3xl font-headline font-bold leading-none text-on-surface">{value}</p>
+        </div>
+        <span className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border ${toneClass}`}>
+          <span className="material-symbols-outlined text-[21px]">{icon}</span>
+        </span>
+      </div>
+      <p className="mt-4 text-xs leading-5 text-on-surface-variant">{detail}</p>
+    </Surface>
+  )
+}
+
+function DashboardQuickLink({ href, icon, label }: { href: string; icon: string; label: string }) {
+  return (
+    <Link
+      href={href}
+      className="inline-flex items-center gap-2 rounded-[var(--radius-btn)] border border-[var(--color-card-border)] px-3 py-2 text-xs font-label uppercase tracking-wide text-on-surface-variant transition-colors hover:border-[var(--color-pib-accent)]/50 hover:text-on-surface"
+    >
+      <span className="material-symbols-outlined text-[16px]">{icon}</span>
+      {label}
+    </Link>
+  )
+}
+
+function WorkItemCard({
+  title,
+  meta,
+  href,
+  color,
+  icon,
+  priority,
+}: {
+  title: string
+  meta: string
+  href: string
+  color: string
+  icon: string
+  priority?: string | null
+}) {
+  return (
+    <Link
+      href={href}
+      className="pib-card group block p-3 transition-all duration-150 hover:border-[var(--color-accent-v2)]"
+      style={{ borderLeft: `3px solid ${color}` }}
+    >
+      <div className="flex items-start gap-3">
+        <span
+          className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md"
+          style={{ color, background: softColor(color, 10), border: `1px solid ${softColor(color, 18)}` }}
+        >
+          <span className="material-symbols-outlined text-[16px]">{icon}</span>
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block line-clamp-2 text-sm font-medium leading-snug text-on-surface group-hover:text-[var(--color-pib-accent-hover)]">{title}</span>
+          <span className="mt-1 block text-xs leading-5 text-on-surface-variant">{meta}</span>
+        </span>
+      </div>
+      {priority ? (
+        <div className="mt-3 flex justify-end">
+          <span className="rounded-full bg-[var(--color-surface-container)] px-2 py-1 text-[9px] font-label uppercase tracking-wide text-on-surface-variant">{priority}</span>
+        </div>
+      ) : null}
+    </Link>
+  )
+}
+
+function WorkLane({
+  lane,
+  children,
+  count,
+}: {
+  lane: (typeof WORK_LANES)[number]
+  children: React.ReactNode
+  count: number
+}) {
+  return (
+    <div className="flex min-h-[360px] min-w-0 flex-col rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)]/55 p-3">
+      <div className="mb-3 flex items-center justify-between gap-2 px-1">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="h-2 w-2 rounded-full" style={{ background: lane.color }} />
+          <span className="truncate text-xs font-label uppercase tracking-widest text-on-surface-variant">{lane.title}</span>
+        </div>
+        <span className="rounded-full bg-[var(--color-surface-container)] px-2 py-0.5 text-[10px] font-label text-on-surface-variant">{count}</span>
+      </div>
+      <div className="flex flex-1 flex-col gap-2">{children}</div>
+    </div>
+  )
+}
+
+function DashboardLoadingShell() {
+  return (
+    <div className="mx-auto max-w-7xl space-y-6 pb-8">
+      <div className="pib-page-header">
+        <div className="flex min-w-0 flex-1 flex-col gap-3">
+          <div className="eyebrow">Admin / Dashboard</div>
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="min-w-0">
+              <div className="pib-skeleton h-10 w-72 max-w-full rounded-lg" />
+              <div className="pib-skeleton mt-3 h-4 w-[520px] max-w-full rounded" />
+            </div>
+            <div className="flex shrink-0 flex-wrap items-center gap-2">
+              <div className="pib-skeleton h-9 w-28 rounded-[var(--radius-btn)]" />
+              <div className="pib-skeleton h-9 w-32 rounded-[var(--radius-btn)]" />
+            </div>
+          </div>
+        </div>
+      </div>
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <Skeleton className="h-32 rounded-lg" />
+        <Skeleton className="h-32 rounded-lg" />
+        <Skeleton className="h-32 rounded-lg" />
+        <Skeleton className="h-32 rounded-lg" />
+      </div>
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <Skeleton className="h-48 rounded-lg" />
+        <Skeleton className="h-48 rounded-lg" />
+        <Skeleton className="h-48 rounded-lg" />
+      </div>
+      <p className="sr-only" aria-live="polite">Dashboard is loading</p>
+    </div>
+  )
+}
+
 function OrganisationCard({ org, tasks, approvals }: { org: OrgSummary; tasks: AgentTask[]; approvals: Approval[] }) {
   const riskyTasks = tasks.filter(task => RISK_STATUSES.has(task.agentStatus ?? '')).length
   const activeTasks = tasks.filter(task => ACTIVE_STATUSES.has(task.agentStatus ?? '')).length
   const score = Math.max(35, Math.min(100, 95 - riskyTasks * 20 - approvals.length * 8))
   const href = orgDashboardHref(org)
+  const needsAttention = riskyTasks > 0 || approvals.length > 0
+  const rail = needsAttention ? '#f59e0b' : activeTasks > 0 ? 'var(--color-accent-v2)' : '#4ade80'
+  const statusLabel = needsAttention ? 'Attention' : activeTasks > 0 ? 'Active' : 'Steady'
 
   return (
-    <Link href={href} className="pib-card pib-card-hover group block p-5 hover:border-[var(--color-accent-v2)]/50">
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <p className="truncate text-base font-headline font-bold text-on-surface">{org.name}</p>
-          <p className="mt-1 text-xs text-on-surface-variant">{org.type ?? 'client'} · {org.status ?? 'active'}</p>
+    <Link href={href} className="group/card relative flex min-h-[174px] overflow-hidden rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] transition-all duration-200 hover:-translate-y-0.5 hover:border-[var(--color-pib-accent)]/60 hover:shadow-[0_18px_40px_rgba(0,0,0,0.24)]">
+      <span className="absolute inset-y-0 left-0 w-1.5" style={{ background: rail }} />
+      <div className="flex min-w-0 flex-1 flex-col p-5 pl-6">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <h3 className="truncate text-base font-headline font-semibold leading-snug text-on-surface group-hover/card:text-[var(--color-pib-accent-hover)]">{org.name}</h3>
+            <p className="mt-1 text-xs text-on-surface-variant">{org.type ?? 'client'} · {org.status ?? 'active'}</p>
+          </div>
+          <StatusPill tone={needsAttention ? 'warn' : activeTasks > 0 ? 'accent' : 'success'} dot>
+            {statusLabel}
+          </StatusPill>
         </div>
-        <div className="rounded-full px-2.5 py-1 text-[10px] font-label uppercase tracking-wide" style={{ background: 'var(--color-accent-subtle)', color: 'var(--color-accent-text)' }}>
-          {score}% health
-        </div>
-      </div>
-      <div className="mt-5 h-2 overflow-hidden rounded-full bg-[var(--color-surface-container)]">
-        <div className="h-full rounded-full bg-[var(--color-accent-v2)] transition-all" style={{ width: `${score}%` }} />
-      </div>
-      <div className="mt-5 grid grid-cols-3 gap-2 text-center">
-        <div className="rounded-2xl bg-[var(--color-surface-container)]/60 px-2 py-3">
-          <p className="text-lg font-bold text-on-surface">{activeTasks}</p>
-          <p className="text-[10px] uppercase tracking-wide text-on-surface-variant">Tasks</p>
-        </div>
-        <div className="rounded-2xl bg-[var(--color-surface-container)]/60 px-2 py-3">
-          <p className="text-lg font-bold text-on-surface">{approvals.length}</p>
-          <p className="text-[10px] uppercase tracking-wide text-on-surface-variant">Approvals</p>
-        </div>
-        <div className="rounded-2xl bg-[var(--color-surface-container)]/60 px-2 py-3">
-          <p className="text-lg font-bold text-on-surface">{org.memberCount ?? 0}</p>
-          <p className="text-[10px] uppercase tracking-wide text-on-surface-variant">Team</p>
-        </div>
-      </div>
-      <p className="mt-4 text-xs text-on-surface-variant">
-        {riskyTasks > 0 ? `${plural(riskyTasks, 'item')} needs attention` : 'Operating normally'}
-      </p>
-    </Link>
-  )
-}
 
-function TaskPulseItem({ task }: { task: AgentTask }) {
-  return (
-    <Link href={task.href ?? '/admin/agent/board'} className="flex items-start gap-3 rounded-2xl px-3 py-3 transition hover:bg-[var(--color-row-hover)]">
-      <span className={`mt-1 h-2.5 w-2.5 rounded-full ${RISK_STATUSES.has(task.agentStatus ?? '') ? 'bg-amber-400' : task.agentStatus === 'done' ? 'bg-emerald-400' : 'bg-[var(--color-accent-v2)]'}`} />
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-medium text-on-surface">{task.title}</span>
-        <span className="mt-1 block text-xs text-on-surface-variant">{task.assigneeAgentId ?? 'agent'} · {STATUS_LABELS[task.agentStatus ?? ''] ?? task.agentStatus ?? 'Queued'} · {formatRelative(task.updatedAt ?? task.createdAt)}</span>
-      </span>
-      {task.priority && <span className="rounded-full bg-[var(--color-surface-container)] px-2 py-1 text-[10px] uppercase tracking-wide text-on-surface-variant">{task.priority}</span>}
-    </Link>
-  )
-}
+        <div className="mt-5">
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <span className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Workspace health</span>
+            <span className="font-mono text-[11px] text-on-surface-variant">{score}%</span>
+          </div>
+          <div className="h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
+            <div className="h-full rounded-full transition-all duration-300" style={{ width: `${score}%`, background: rail }} />
+          </div>
+        </div>
 
-function ApprovalRadarItem({ approval }: { approval: Approval }) {
-  return (
-    <Link href="/admin/social/queue" className="flex items-start gap-3 rounded-2xl px-3 py-3 transition hover:bg-[var(--color-row-hover)]">
-      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold" style={{ background: 'var(--color-accent-subtle)', color: 'var(--color-accent-text)' }}>
-        {(approval.platform ?? 'A').slice(0, 1).toUpperCase()}
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block text-xs uppercase tracking-wide text-on-surface-variant">{approval.orgName ?? 'Organisation'} · {approval.platform ?? 'approval'}</span>
-        <span className="mt-1 block line-clamp-2 text-sm text-on-surface">{approval.content ?? 'Approval required'}</span>
-      </span>
+        <div className="mt-auto grid grid-cols-3 gap-2 pt-5 text-xs">
+          <div>
+            <p className="font-mono text-lg font-semibold text-on-surface">{activeTasks}</p>
+            <p className="text-[10px] uppercase tracking-wide text-on-surface-variant">Tasks</p>
+          </div>
+          <div>
+            <p className="font-mono text-lg font-semibold text-on-surface">{approvals.length}</p>
+            <p className="text-[10px] uppercase tracking-wide text-on-surface-variant">Approvals</p>
+          </div>
+          <div>
+            <p className="font-mono text-lg font-semibold text-on-surface">{org.memberCount ?? 0}</p>
+            <p className="text-[10px] uppercase tracking-wide text-on-surface-variant">Team</p>
+          </div>
+        </div>
+      </div>
     </Link>
   )
 }
@@ -346,6 +391,12 @@ export default function MissionControlDashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [healthError, setHealthError] = useState<string | null>(null)
+  const [dashboardView, setDashboardView] = useState<'overview' | 'work'>('overview')
+  const [hydrated, setHydrated] = useState(false)
+
+  useEffect(() => {
+    setHydrated(true)
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -398,116 +449,164 @@ export default function MissionControlDashboard() {
   const riskTasks = useMemo(() => pulseTasks.filter(task => RISK_STATUSES.has(task.agentStatus ?? '')), [pulseTasks])
   const timeline = useMemo(() => [...pulseTasks.slice(0, 4), ...data.activity.slice(0, 5)].slice(0, 8), [pulseTasks, data.activity])
   const serviceEntries = Object.entries(data.health?.services ?? {})
+  const approvalLaneItems = data.approvals.slice(0, 6)
+  const activeLaneItems = pulseTasks.filter(task => !RISK_STATUSES.has(task.agentStatus ?? '')).slice(0, 6)
+
+  if (!hydrated) return <DashboardLoadingShell />
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 pb-8">
-      <div className="pib-card overflow-hidden p-5 sm:p-7">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <p className="text-[10px] font-label uppercase tracking-[0.3em] text-on-surface-variant">Mission control</p>
-            <h1 className="mt-2 text-3xl font-headline font-bold text-on-surface sm:text-4xl">Today’s operating picture</h1>
-            <p className="mt-2 max-w-2xl text-sm text-on-surface-variant">A cross-client view of organisation health, active work, approvals waiting on humans, and the latest command timeline.</p>
-          </div>
-          <div className="grid grid-cols-3 gap-2 sm:min-w-[360px]">
-            <div className="rounded-2xl bg-[var(--color-surface-container)]/70 p-3 text-center">
-              <p className="text-2xl font-bold text-on-surface">{visibleOrgs.length}</p>
-              <p className="text-[10px] uppercase tracking-wide text-on-surface-variant">Clients</p>
-            </div>
-            <div className="rounded-2xl bg-[var(--color-surface-container)]/70 p-3 text-center">
-              <p className="text-2xl font-bold text-on-surface">{activeTasks.length}</p>
-              <p className="text-[10px] uppercase tracking-wide text-on-surface-variant">Tasks</p>
-            </div>
-            <div className="rounded-2xl bg-[var(--color-surface-container)]/70 p-3 text-center">
-              <p className="text-2xl font-bold text-on-surface">{data.approvals.length}</p>
-              <p className="text-[10px] uppercase tracking-wide text-on-surface-variant">Approvals</p>
-            </div>
-          </div>
-        </div>
+      <PageHeader
+        eyebrow="Admin / Dashboard"
+        title="Operating dashboard"
+        description="A project-led view of client health, live agent work, approvals, and recent platform movement."
+        actions={(
+          <>
+            <DashboardQuickLink href="/admin/projects" icon="folder_managed" label="Projects" />
+            <DashboardQuickLink href="/admin/agent/board" icon="view_kanban" label="Agent board" />
+          </>
+        )}
+        tabs={(
+          <PageTabs
+            variant="segmented"
+            value={dashboardView}
+            onValueChange={(value) => setDashboardView(value as 'overview' | 'work')}
+            ariaLabel="Dashboard view"
+            tabs={[
+              { label: 'Overview', value: 'overview', icon: 'space_dashboard' },
+              { label: 'Work board', value: 'work', icon: 'view_kanban', badge: pulseTasks.length },
+            ]}
+          />
+        )}
+      />
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <MetricCard label="Clients" value={visibleOrgs.length} icon="groups" detail="Active client workspaces across the platform." />
+        <MetricCard label="Active tasks" value={activeTasks.length} icon="task_alt" detail="Queued or moving agent and delivery tasks." />
+        <MetricCard label="Approvals" value={data.approvals.length} icon="rate_review" tone={dashboardTone(data.approvals.length, true)} detail="Human review items waiting in the queue." />
+        <MetricCard label="At risk" value={riskTasks.length} icon="report" tone={riskTasks.length > 0 ? 'warn' : 'success'} detail="Blocked or awaiting-input work that needs attention." />
       </div>
 
       {error && (
-        <div className="rounded-2xl border border-amber-400/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+        <div className="rounded-lg border border-amber-400/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
           Some dashboard feeds could not load: {error}. Showing everything that is available.
         </div>
       )}
 
-      <MissionConstellation orgs={visibleOrgs} tasks={pulseTasks} approvals={data.approvals} />
-
-      <section className="pib-card p-4 sm:p-5">
-        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <SectionHeader title="Health strip" eyebrow="Platform signal" />
-          <div className={`rounded-full border px-3 py-1.5 text-xs ${healthTone(data.health, healthError)}`}>
-            {healthError ? `Health unavailable: ${healthError}` : data.health?.ok === false ? 'Service degradation detected' : data.health ? 'All core services reporting' : 'Checking services'}
-          </div>
-        </div>
-        {loading ? (
-          <div className="grid gap-3 sm:grid-cols-3"><Skeleton className="h-20" /><Skeleton className="h-20" /><Skeleton className="h-20" /></div>
-        ) : serviceEntries.length === 0 ? (
-          <EmptyState title="Health signal unavailable" body="The dashboard is still usable; service telemetry will appear here when the health endpoint responds." />
-        ) : (
-          <div className="grid gap-3 sm:grid-cols-3">
-            {serviceEntries.map(([name, status]) => (
-              <div key={name} className="rounded-2xl bg-[var(--color-surface-container)]/50 p-4">
-                <p className="text-xs uppercase tracking-wide text-on-surface-variant">{name}</p>
-                <p className="mt-2 text-lg font-bold text-on-surface">{status}</p>
+      {dashboardView === 'overview' ? (
+        <>
+          <section className="space-y-4">
+            <SectionHeader title="Client workspaces" eyebrow="Portfolio" action={<Link href="/admin/clients" className="inline-flex items-center gap-1 text-xs font-label uppercase tracking-wide text-[var(--color-accent-v2)]">Manage clients <span className="material-symbols-outlined text-[15px]">arrow_forward</span></Link>} />
+            {loading ? (
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3"><Skeleton className="h-48 rounded-lg" /><Skeleton className="h-48 rounded-lg" /><Skeleton className="h-48 rounded-lg" /></div>
+            ) : visibleOrgs.length === 0 ? (
+              <EmptyState title="No active organisations" body="Create or activate a client organisation and its command card will appear here." />
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                {visibleOrgs.map(org => (
+                  <OrganisationCard key={org.id} org={org} tasks={pulseTasks.filter(task => task.orgId === org.id)} approvals={data.approvals.filter(item => item.orgId === org.id)} />
+                ))}
               </div>
-            ))}
-          </div>
-        )}
-      </section>
+            )}
+          </section>
 
-      <section className="space-y-4">
-        <SectionHeader title="Organisation cards" eyebrow="Client fleet" action={<Link href="/admin/clients" className="text-xs font-label uppercase tracking-wide" style={{ color: 'var(--color-accent-v2)' }}>Manage clients →</Link>} />
-        {loading ? (
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3"><Skeleton className="h-56" /><Skeleton className="h-56" /><Skeleton className="h-56" /></div>
-        ) : visibleOrgs.length === 0 ? (
-          <EmptyState title="No active organisations" body="Create or activate a client organisation and its command card will appear here." />
-        ) : (
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {visibleOrgs.map(org => (
-              <OrganisationCard key={org.id} org={org} tasks={pulseTasks.filter(task => task.orgId === org.id)} approvals={data.approvals.filter(item => item.orgId === org.id)} />
-            ))}
-          </div>
-        )}
-      </section>
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
+            <Surface className="p-4 sm:p-5">
+              <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <SectionHeader title="Service strip" eyebrow="Platform signal" />
+                <div className={`rounded-full border px-3 py-1.5 text-xs ${healthTone(data.health, healthError)}`}>
+                  {healthError ? `Health unavailable: ${healthError}` : data.health?.ok === false ? 'Service degradation detected' : data.health ? 'All core services reporting' : 'Checking services'}
+                </div>
+              </div>
+              {loading ? (
+                <div className="grid gap-3 sm:grid-cols-3"><Skeleton className="h-20 rounded-lg" /><Skeleton className="h-20 rounded-lg" /><Skeleton className="h-20 rounded-lg" /></div>
+              ) : serviceEntries.length === 0 ? (
+                <EmptyState title="Health signal unavailable" body="The dashboard is still usable; service telemetry will appear here when the health endpoint responds." />
+              ) : (
+                <div className="grid gap-3 sm:grid-cols-3">
+                  {serviceEntries.map(([name, status]) => (
+                    <div key={name} className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface-container)]/35 p-4">
+                      <p className="text-xs uppercase tracking-wide text-on-surface-variant">{name}</p>
+                      <p className="mt-2 text-lg font-bold text-on-surface">{status}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Surface>
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <section className="pib-card p-4 sm:p-5 lg:col-span-1">
-          <SectionHeader title="Task pulse" eyebrow={`${plural(activeTasks.length, 'active task')}`} action={riskTasks.length > 0 ? <span className="rounded-full bg-amber-500/15 px-2 py-1 text-[10px] text-amber-100">{riskTasks.length} at risk</span> : null} />
-          <div className="mt-4 space-y-1">
-            {loading ? (
-              <><Skeleton className="h-16" /><Skeleton className="h-16" /><Skeleton className="h-16" /></>
-            ) : pulseTasks.length === 0 ? (
-              <EmptyState title="No task pulses yet" body="Agent work will surface here as soon as it is queued or in progress." />
-            ) : pulseTasks.slice(0, 6).map(task => <TaskPulseItem key={task.id} task={task} />)}
+            <Surface className="p-4 sm:p-5">
+              <SectionHeader title="Today timeline" eyebrow="Latest movement" />
+              <div className="relative mt-5 space-y-5 before:absolute before:left-[5px] before:top-2 before:h-[calc(100%-1rem)] before:w-px before:bg-[var(--color-card-border)]">
+                {loading ? (
+                  <><Skeleton className="h-12 rounded-lg" /><Skeleton className="h-12 rounded-lg" /><Skeleton className="h-12 rounded-lg" /></>
+                ) : timeline.length === 0 ? (
+                  <div className="before:hidden"><EmptyState title="Timeline is quiet" body="Activity, task movement, and handoffs will appear here throughout the day." /></div>
+                ) : timeline.map(item => <TimelineItem key={item.id} item={item} />)}
+              </div>
+            </Surface>
           </div>
+        </>
+      ) : (
+        <section className="space-y-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <SectionHeader title="Work board" eyebrow="Kanban signal" />
+            <Link href="/admin/agent/board" className="inline-flex items-center gap-1 text-xs font-label uppercase tracking-wide text-[var(--color-accent-v2)]">Open full board <span className="material-symbols-outlined text-[15px]">arrow_forward</span></Link>
+          </div>
+          {loading ? (
+            <div className="grid gap-4 lg:grid-cols-3"><Skeleton className="h-80 rounded-lg" /><Skeleton className="h-80 rounded-lg" /><Skeleton className="h-80 rounded-lg" /></div>
+          ) : (
+            <div className="grid gap-4 lg:grid-cols-3">
+              <WorkLane lane={WORK_LANES[0]} count={riskTasks.length}>
+                {riskTasks.length === 0 ? (
+                  <EmptyState title="No blockers" body="Blocked and awaiting-input tasks will collect here." />
+                ) : riskTasks.slice(0, 6).map(task => (
+                  <WorkItemCard
+                    key={task.id}
+                    title={task.title}
+                    meta={`${task.assigneeAgentId ?? 'agent'} · ${STATUS_LABELS[task.agentStatus ?? ''] ?? task.agentStatus ?? 'Queued'} · ${formatRelative(task.updatedAt ?? task.createdAt)}`}
+                    href={task.href ?? '/admin/agent/board'}
+                    color={WORK_LANES[0].color}
+                    icon={WORK_LANES[0].icon}
+                    priority={task.priority}
+                  />
+                ))}
+              </WorkLane>
+              <WorkLane lane={WORK_LANES[1]} count={activeLaneItems.length}>
+                {activeLaneItems.length === 0 ? (
+                  <EmptyState title="No active pulses" body="Queued and in-progress work will appear here." />
+                ) : activeLaneItems.map(task => (
+                  <WorkItemCard
+                    key={task.id}
+                    title={task.title}
+                    meta={`${task.assigneeAgentId ?? 'agent'} · ${STATUS_LABELS[task.agentStatus ?? ''] ?? task.agentStatus ?? 'Queued'} · ${formatRelative(task.updatedAt ?? task.createdAt)}`}
+                    href={task.href ?? '/admin/agent/board'}
+                    color={WORK_LANES[1].color}
+                    icon={WORK_LANES[1].icon}
+                    priority={task.priority}
+                  />
+                ))}
+              </WorkLane>
+              <WorkLane lane={WORK_LANES[2]} count={approvalLaneItems.length}>
+                {approvalLaneItems.length === 0 ? (
+                  <EmptyState title="Approval lane is clear" body="Social and deliverable approvals will collect here." />
+                ) : approvalLaneItems.map(approval => (
+                  <WorkItemCard
+                    key={approval.id}
+                    title={approval.content ?? 'Approval required'}
+                    meta={`${approval.orgName ?? 'Organisation'} · ${approval.platform ?? 'approval'} · ${formatRelative(approval.scheduledAt)}`}
+                    href="/admin/social/queue"
+                    color={WORK_LANES[2].color}
+                    icon={WORK_LANES[2].icon}
+                  />
+                ))}
+              </WorkLane>
+            </div>
+          )}
         </section>
-
-        <section className="pib-card p-4 sm:p-5 lg:col-span-1">
-          <SectionHeader title="Approval radar" eyebrow={`${plural(data.approvals.length, 'pending approval')}`} action={<Link href="/admin/social/queue" className="text-xs font-label uppercase tracking-wide" style={{ color: 'var(--color-accent-v2)' }}>Review →</Link>} />
-          <div className="mt-4 space-y-1">
-            {loading ? (
-              <><Skeleton className="h-16" /><Skeleton className="h-16" /><Skeleton className="h-16" /></>
-            ) : data.approvals.length === 0 ? (
-              <EmptyState title="Approval radar is clear" body="No posts or deliverables are waiting on review right now." />
-            ) : data.approvals.slice(0, 6).map(approval => <ApprovalRadarItem key={approval.id} approval={approval} />)}
-          </div>
-        </section>
-
-        <section className="pib-card p-4 sm:p-5 lg:col-span-1">
-          <SectionHeader title="Today timeline" eyebrow="Latest movement" />
-          <div className="relative mt-5 space-y-5 before:absolute before:left-[5px] before:top-2 before:h-[calc(100%-1rem)] before:w-px before:bg-[var(--color-card-border)]">
-            {loading ? (
-              <><Skeleton className="h-12" /><Skeleton className="h-12" /><Skeleton className="h-12" /></>
-            ) : timeline.length === 0 ? (
-              <div className="before:hidden"><EmptyState title="Timeline is quiet" body="Activity, task movement, and handoffs will appear here throughout the day." /></div>
-            ) : timeline.map(item => <TimelineItem key={item.id} item={item} />)}
-          </div>
-        </section>
-      </div>
+      )}
 
       {loading && <p className="sr-only" aria-live="polite">Dashboard data is loading</p>}
-      {loading && <div className="rounded-2xl border border-[var(--color-card-border)] bg-[var(--color-surface-container)]/40 px-4 py-3 text-sm text-on-surface-variant">Loading command signal…</div>}
+      {loading && <div className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface-container)]/40 px-4 py-3 text-sm text-on-surface-variant">Loading dashboard signal...</div>}
     </div>
   )
 }

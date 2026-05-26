@@ -6,7 +6,7 @@ const mockAdd = jest.fn()
 const mockDocUpdate = jest.fn()
 const mockCollection = jest.fn()
 const mockWhere = jest.fn()
-const mockOrderBy = jest.fn()
+const mockLimit = jest.fn()
 
 jest.mock('@/lib/firebase/admin', () => ({
   adminDb: { collection: mockCollection },
@@ -16,7 +16,6 @@ jest.mock('firebase-admin/firestore', () => ({
   FieldValue: { serverTimestamp: jest.fn(() => 'SERVER_TIMESTAMP') },
 }))
 
-// eslint-disable-next-line import/first
 import { listProducts, getProduct, createProduct, updateProduct, deleteProduct } from '@/lib/products/store'
 import type { MemberRef } from '@/lib/orgMembers/memberRef'
 
@@ -25,7 +24,7 @@ const ACTOR: MemberRef = { uid: 'user-1', displayName: 'Test User', kind: 'human
 function makeQuery() {
   return {
     where: mockWhere,
-    orderBy: mockOrderBy,
+    limit: mockLimit,
     get: mockGet,
   }
 }
@@ -34,7 +33,7 @@ beforeEach(() => {
   jest.clearAllMocks()
   const query = makeQuery()
   mockWhere.mockReturnValue(query)
-  mockOrderBy.mockReturnValue(query)
+  mockLimit.mockReturnValue(query)
   mockCollection.mockReturnValue({ doc: mockDoc, where: mockWhere, add: mockAdd })
 })
 
@@ -44,22 +43,22 @@ describe('listProducts', () => {
   it('returns active products for the org', async () => {
     mockGet.mockResolvedValue({
       docs: [
-        { id: 'prod-1', data: () => ({ orgId: 'org-a', name: 'Widget', unitPrice: 100, currency: 'USD' }) },
         { id: 'prod-2', data: () => ({ orgId: 'org-a', name: 'Gadget', unitPrice: 200, currency: 'USD' }) },
+        { id: 'prod-1', data: () => ({ orgId: 'org-a', name: 'Widget', unitPrice: 100, currency: 'USD' }) },
+        { id: 'prod-deleted', data: () => ({ orgId: 'org-a', name: 'Archived', unitPrice: 50, currency: 'USD', deleted: true }) },
       ],
     })
     const results = await listProducts('org-a')
     expect(results).toHaveLength(2)
-    expect(results[0].id).toBe('prod-1')
-    expect(results[1].id).toBe('prod-2')
+    expect(results.map((product) => product.id)).toEqual(['prod-2', 'prod-1'])
   })
 
-  it('filters out deleted products via query chain', async () => {
+  it('keeps the Firestore query index-safe', async () => {
     mockGet.mockResolvedValue({ docs: [] })
     await listProducts('org-a')
     expect(mockWhere).toHaveBeenCalledWith('orgId', '==', 'org-a')
-    expect(mockWhere).toHaveBeenCalledWith('deleted', '!=', true)
-    expect(mockOrderBy).toHaveBeenCalledWith('name', 'asc')
+    expect(mockWhere).not.toHaveBeenCalledWith('deleted', '!=', true)
+    expect(mockLimit).toHaveBeenCalledWith(1000)
   })
 
   it('returns empty array when no products found', async () => {

@@ -9,6 +9,7 @@ import { FieldValue, Timestamp } from 'firebase-admin/firestore'
 import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { isSuperAdmin } from '@/lib/api/platformAdmin'
+import { syncPlatformContactForOrgMember } from '@/lib/platform-owner/relationships'
 import type { Organization, OrgRole } from '@/lib/organizations/types'
 
 export const dynamic = 'force-dynamic'
@@ -255,6 +256,17 @@ export const POST = withAuth('admin', async (req, user) => {
       },
       { merge: true },
     )
+
+  await syncPlatformContactForOrgMember({
+    clientOrgId: orgId,
+    uid,
+    email,
+    displayName: name,
+    role,
+    clientOrg: org as unknown as Record<string, unknown>,
+  }).catch((err) => {
+    console.error('[platform-member-crm-sync-error]', err)
+  })
 
   return apiSuccess(
     {

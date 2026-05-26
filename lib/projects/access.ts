@@ -8,7 +8,7 @@ export type ProjectAccessResult =
   | { ok: false; status: number; error: string }
 
 function projectOrgIds(data: DocumentData): string[] {
-  return [data.orgId, data.clientId, data.clientOrgId].filter(
+  return [data.orgId, data.sourceOrgId, data.clientId, data.clientOrgId, data.recipientOrgId, data.targetOrgId].filter(
     (value): value is string => typeof value === 'string' && value.length > 0,
   )
 }
