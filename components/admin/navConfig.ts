@@ -44,6 +44,7 @@ export const OPERATOR_NAV: NavItem[] = [
   { label: 'Knowledge', href: '/admin/knowledge', icon: 'menu_book', group: 'data' },
   { label: 'Support',   href: '/admin/support',   icon: 'support_agent', group: 'comms' },
   { label: 'Agents',   href: '/admin/agents',   icon: 'group_work', group: 'comms' },
+  { label: 'Skill Lab', href: '/admin/skill-lab', icon: 'science', group: 'comms' },
   { label: 'Settings', href: '/admin/settings', icon: 'settings', group: 'comms', activePatterns: ['/admin/platform-users', '/admin/platform-members'] },
 ]
 
@@ -89,6 +90,7 @@ export const OPERATOR_NAV_TOPBAR: NavItem[] = [
   { label: 'Knowledge', href: '/admin/knowledge', icon: 'menu_book' },
   { label: 'Support',  href: '/admin/support',  icon: 'support_agent' },
   { label: 'Agents',   href: '/admin/agents',   icon: 'group_work' },
+  { label: 'Skill Lab', href: '/admin/skill-lab', icon: 'science' },
   {
     label: 'Settings', href: '/admin/settings', icon: 'settings',
     children: [

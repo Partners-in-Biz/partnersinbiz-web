@@ -1,8 +1,11 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { AdminShell } from '@/components/admin/AdminShell'
 
+let mockPathname = '/admin'
+
 jest.mock('next/navigation', () => ({
-  usePathname: () => '/admin',
+  usePathname: () => mockPathname,
+  useSearchParams: () => new URLSearchParams(),
 }))
 
 jest.mock('@/lib/contexts/OrgContext', () => ({
@@ -41,8 +44,13 @@ jest.mock('@/components/chat/UnifiedChat', () => ({
   default: () => <div data-testid="unified-chat" />,
 }))
 
+jest.mock('@/components/mailbox/MailboxDrawer', () => ({
+  MailboxDrawer: () => <button type="button" aria-label="Open email">Email</button>,
+}))
+
 describe('AdminShell message drawer coordination', () => {
   beforeEach(() => {
+    mockPathname = '/admin'
     localStorage.clear()
     window.matchMedia = jest.fn().mockImplementation((query: string) => ({
       matches: true,
@@ -82,5 +90,19 @@ describe('AdminShell message drawer coordination', () => {
     expect(screen.getByTestId('admin-sidebar')).toHaveAttribute('data-open', 'false')
     expect(screen.getByTestId('admin-sidebar')).toHaveAttribute('data-collapsed', 'true')
     expect(localStorage.getItem('sidebar_collapsed')).toBe('true')
+  })
+
+  it('keeps the org messages page on the standard admin content padding', () => {
+    mockPathname = '/admin/org/partners/messages'
+
+    render(<AdminShell userEmail="peet@example.com" userUid="user_1"><main>Messages</main></AdminShell>)
+
+    const main = document.querySelector('[data-slot="app-shell-main"]')
+    const content = document.querySelector('[data-slot="app-shell-content"]')
+
+    expect(main).toHaveClass('px-4', 'md:px-8', 'py-8')
+    expect(main).not.toHaveClass('px-2', 'md:px-4', 'py-4')
+    expect(content).toHaveClass('max-w-[1400px]')
+    expect(content).not.toHaveClass('max-w-none')
   })
 })

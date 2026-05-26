@@ -1,11 +1,12 @@
 'use client'
 
 import { useState } from 'react'
-import { usePathname } from 'next/navigation'
+import { usePathname, useSearchParams } from 'next/navigation'
 import { AdminSidebar } from './AdminSidebar'
 import { AdminTopbar } from './AdminTopbar'
 import { AdminTopbarNav } from './AdminTopbarNav'
 import { WelcomeFlashHandler } from '@/components/ui/WelcomeFlashHandler'
+import { MailboxDrawer } from '@/components/mailbox/MailboxDrawer'
 import { MessageDrawer } from '@/components/chat/MessageDrawer'
 import { AppShell } from '@/components/ui/AppFoundation'
 import { useOrg } from '@/lib/contexts/OrgContext'
@@ -21,6 +22,7 @@ type LayoutMode = 'sidebar' | 'topbar'
 
 export function AdminShell({ userEmail, userUid, children }: AdminShellProps) {
   const pathname = usePathname()
+  const searchParams = useSearchParams()
   const { selectedOrgId, orgName, orgs } = useOrg()
   const [open, setOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(() => {
@@ -68,23 +70,31 @@ export function AdminShell({ userEmail, userUid, children }: AdminShellProps) {
   const drawerOrg = routeOrg ?? selectedOrg
   const drawerOrgId = (drawerOrg?.id ?? selectedOrgId) || PIB_PLATFORM_ORG_ID
   const drawerOrgName = (drawerOrg?.name ?? orgName) || SHARED_SENDER_NAME
-  const isMessagesPage = /^\/admin\/org\/[^/]+\/messages(?:\/|$)/.test(pathname)
-  const mainClassName = isMessagesPage
-    ? 'px-2 md:px-4 py-4'
-    : 'px-4 md:px-8 py-8'
-  const innerClassName = isMessagesPage ? 'max-w-none' : 'max-w-[1400px]'
+  const mainClassName = 'px-4 md:px-8 py-8'
+  const innerClassName = 'max-w-[1400px]'
   const messageAction = (
-    <MessageDrawer
-      orgId={drawerOrgId}
-      orgName={drawerOrgName}
-      currentUserUid={userUid}
-      currentUserDisplayName={userEmail}
-      allowAgentParticipants
-      allowDeleteConversations
-      disabledReason="Messages unavailable"
-      onOpen={closeSidebarForMessages}
-    />
+    <>
+      <MailboxDrawer />
+      <MessageDrawer
+        orgId={drawerOrgId}
+        orgName={drawerOrgName}
+        currentUserUid={userUid}
+        currentUserDisplayName={userEmail}
+        allowAgentParticipants
+        allowDeleteConversations
+        disabledReason="Messages unavailable"
+        onOpen={closeSidebarForMessages}
+      />
+    </>
   )
+
+  if (searchParams.get('compact') === '1') {
+    return (
+      <main className="min-h-dvh bg-[var(--color-pib-bg)] text-[var(--color-pib-text)]">
+        {children}
+      </main>
+    )
+  }
 
   if (layoutMode === 'topbar') {
     return (

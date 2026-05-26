@@ -35,6 +35,20 @@ Authorization: Bearer <AI_API_KEY>
 
 Pick the system that fits: use project-nested when a project is the clear container; use standalone for personal todos or deal-linked tasks.
 
+## Project-context routing guard
+
+When a chat, task, or user message originates inside a specific project, that project is the authoritative destination for lists, new tasks, docs, comments, and status updates. Do not reuse a previously mentioned project from another conversation or nearby browser context.
+
+Before listing, creating, moving, or commenting on project work:
+
+1. Prefer the explicit project context supplied by the runtime/message (`projectId`, project title, selected project, project route, or "I am currently in the X project").
+2. If the user corrects the active project, immediately treat that correction as authoritative for the rest of the request.
+3. Fetch `GET /agent/project/[projectId]` for the active project before acting when a project id is available.
+4. If only a project title is available, search/list projects in the current `orgId` and match by title before acting.
+5. If multiple projects share a similar title, ask for confirmation rather than filing work in the wrong board.
+6. Include both the human-readable project title and project id in task/status replies so the scope is auditable.
+7. Never file Saaiman & Saaiman project work into the Dare to Explore project, or any other previously used board, just because that board was active in an earlier conversation. Cross-project bleed is worse than asking one careful confirmation question.
+
 ## Cross-app handoff rule
 
 Projects are the canonical task bus whenever work crosses module boundaries, agents,

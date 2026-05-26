@@ -140,7 +140,10 @@ in the server logs.
 - **`time_entries` (orgId ==, startAt asc)** — team utilisation (`/reports/team-utilization`) filters by `orgId` and buckets by `startAt`. Collection is owned by A7 (time-tracking) — the index will also be used by that module's list endpoint. (Duplicate with A7's section — dedupe in Phase C.)
 - **`expenses` (orgId ==, date desc)** — expense summary (`/reports/expense-summary`) scopes by `orgId` and buckets by `date`. Collection is owned by A8 (expenses).
 - **`social_posts` (orgId ==, status ==, publishedAt desc)** — activity-summary counts `status='published'` posts in a window; composite mirrors how the scheduler already reads this collection.
-- **`emails` (status ==, sentAt desc)** *(optional)* — activity-summary counts `status='sent'`. The `emails` collection does not always carry `orgId` today, so we filter orgId in memory; upgrade to `(orgId ==, status ==, sentAt desc)` once emails are consistently orgId-tagged.
+- **`emails` (orgId ==, status ==, sentAt desc)** — activity-summary counts `status='sent'`. Email writes now consistently include `orgId` across broadcast, sequence, scheduled, and direct send paths; use this org-scoped composite when report traffic makes the query hot. The older unscoped `(status ==, sentAt desc)` note is superseded.
+- **`lead_capture_sources`** — no composite is currently required for the v2 list route; it queries `orgId` only, then filters `deleted`/`active` and sorts in memory.
+- **`lead_capture_submissions` (captureSourceId ==)** — v2 submissions list queries by `captureSourceId` only and sorts/paginates in memory; create a `(captureSourceId ==, createdAt desc)` composite only if the endpoint is changed to order in Firestore.
+- **`campaigns` (orgId ==, status ==, triggers.captureSourceIds array-contains)** — lead-capture `performAutoEnroll` finds active campaigns triggered by a capture source. Firestore will emit a create link on first production hit if the composite is missing.
 - **`contacts` (orgId ==, createdAt desc)** — activity-summary counts contacts created in range.
 - **`tasks` (orgId ==, status ==, completedAt desc)** — activity-summary counts `status='done'` tasks completed in range.
 - **Status:** create on demand as each report is first hit in each environment.

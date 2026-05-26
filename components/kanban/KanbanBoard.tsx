@@ -155,6 +155,7 @@ function TaskCard({
   const priority = PRIORITY_STYLES[task.priority ?? 'medium']
   const attachmentCount = task.attachments?.length ?? 0
   const dueLabel = formatTaskDate(task.dueDate)
+  const releaseLabel = task.agentReleaseStatus === 'scheduled' ? formatTaskDateTime(task.agentReleaseAt) : ''
   const startDateTimeLabel = formatTaskDateTime(task.startDate)
   const endDateTimeLabel = formatTaskDateTime(task.completedAt ?? task.agentOutput?.completedAt ?? task.endDate ?? task.dueDate)
   const kind = attachmentKind(task)
@@ -189,6 +190,12 @@ function TaskCard({
         <div className="mt-2 rounded border border-orange-500/25 bg-orange-500/5 p-2 text-[10px] leading-snug text-orange-100">
           <p><span className="font-semibold">Blocked:</span> {blockerRecovery.whatIsWrong}</p>
           <p className="mt-1 opacity-90"><span className="font-semibold">Unblock:</span> {blockerRecovery.whoCanUnblock}</p>
+        </div>
+      )}
+      {releaseLabel && (
+        <div className="mt-2 flex items-center gap-1.5 rounded border border-purple-500/25 bg-purple-500/10 px-2 py-1.5 text-[10px] leading-snug text-purple-200">
+          <span className="material-symbols-outlined text-[13px]">schedule</span>
+          <span><span className="font-semibold">Scheduled release:</span> {releaseLabel}</span>
         </div>
       )}
       <div className="flex items-center gap-2 flex-wrap mt-2">

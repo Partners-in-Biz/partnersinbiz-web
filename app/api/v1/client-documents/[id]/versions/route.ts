@@ -7,6 +7,7 @@ import { apiError, apiSuccess } from '@/lib/api/response'
 import type { ApiUser } from '@/lib/api/types'
 import { deserializeBlocksFromFirestore, serializeBlocksForFirestore } from '@/lib/client-documents/firestore-blocks'
 import { CLIENT_DOCUMENTS_COLLECTION, getClientDocument } from '@/lib/client-documents/store'
+import { CANONICAL_DOCUMENT_BLOCK_TYPES } from '@/lib/client-documents/types'
 import type { ClientDocument, DocumentBlock, DocumentBlockType, DocumentTheme } from '@/lib/client-documents/types'
 import { adminDb } from '@/lib/firebase/admin'
 
@@ -14,31 +15,7 @@ export const dynamic = 'force-dynamic'
 
 type RouteContext = { params: Promise<{ id: string }> }
 
-const BLOCK_TYPES = new Set<DocumentBlockType>([
-  'hero',
-  'summary',
-  'problem',
-  'scope',
-  'deliverables',
-  'timeline',
-  'investment',
-  'terms',
-  'approval',
-  'metrics',
-  'risk',
-  'table',
-  'gallery',
-  'callout',
-  'rich_text',
-  'image',
-  'video',
-  'embed',
-  'link_card',
-  'chart',
-  'pricing_toggle',
-  'faq',
-  'comparison',
-])
+const BLOCK_TYPES = new Set<DocumentBlockType>(CANONICAL_DOCUMENT_BLOCK_TYPES)
 const BLOCK_FIELDS = new Set(['id', 'type', 'title', 'content', 'required', 'locked', 'clientEditable', 'display'])
 const MOTIONS = new Set(['none', 'reveal', 'sticky', 'counter', 'timeline'])
 

@@ -57,12 +57,27 @@ type AgentTaskCard = {
   href: string
 }
 
-function tsToIso(value: unknown): string | null {
-  if (!value) return null
-  if (value instanceof Timestamp) return value.toDate().toISOString()
+function tsToMillis(value: unknown): number {
+  if (!value) return 0
+  if (value instanceof Timestamp) return value.toMillis()
+  if (value instanceof Date) return value.getTime()
   if (typeof value === 'object' && value !== null && 'toDate' in value && typeof (value as { toDate: () => Date }).toDate === 'function') {
-    try { return (value as { toDate: () => Date }).toDate().toISOString() } catch { return null }
+    try { return (value as { toDate: () => Date }).toDate().getTime() } catch { return 0 }
   }
+  if (typeof value === 'object' && value !== null) {
+    const seconds = (value as { seconds?: unknown; _seconds?: unknown }).seconds ?? (value as { _seconds?: unknown })._seconds
+    if (typeof seconds === 'number') return seconds * 1000
+  }
+  if (typeof value === 'string') {
+    const millis = Date.parse(value)
+    return Number.isFinite(millis) ? millis : 0
+  }
+  return 0
+}
+
+function tsToIso(value: unknown): string | null {
+  const millis = tsToMillis(value)
+  if (millis > 0) return new Date(millis).toISOString()
   if (typeof value === 'string') return value
   return null
 }
@@ -154,11 +169,16 @@ export const GET = withAuth('admin', async (req: NextRequest, user) => {
   } else {
     q = q.where('assigneeAgentId', 'in', VALID_AGENT_IDS)
   }
-  const snap = await q.orderBy('updatedAt', 'desc').limit(500).get()
+  // Avoid a cross-client composite Firestore index requirement for the mission-control dashboard.
+  // Single-org boards can use the indexed ordered query; cross-client reads sort the bounded result in memory.
+  const snap = orgId
+    ? await q.orderBy('updatedAt', 'desc').limit(500).get()
+    : await q.limit(500).get()
+  const taskDocs = [...snap.docs].sort((a, b) => tsToMillis((b.data() as Record<string, unknown>).updatedAt) - tsToMillis((a.data() as Record<string, unknown>).updatedAt))
 
   // Collect unique projectIds to resolve names in one batch.
   const projectIds = new Set<string>()
-  snap.docs.forEach((d) => {
+  taskDocs.forEach((d) => {
     const data = d.data() as Record<string, unknown>
     if (typeof data.projectId === 'string' && data.projectId) projectIds.add(data.projectId)
     // Project-nested tasks: parent path is projects/{id}/tasks
@@ -182,17 +202,22 @@ export const GET = withAuth('admin', async (req: NextRequest, user) => {
 
   const slug = orgSlugResolved ?? orgId
   const orgNames = new Map<string, string>()
+  const orgSlugs = new Map<string, string>()
   if (crossClientScope) {
-    const orgIds = Array.from(new Set(snap.docs.map((d) => nullableString((d.data() as Record<string, unknown>).orgId)).filter((id): id is string => Boolean(id))))
+    const orgIds = Array.from(new Set(taskDocs.map((d) => nullableString((d.data() as Record<string, unknown>).orgId)).filter((id): id is string => Boolean(id))))
     if (orgIds.length > 0) {
       const orgDocs = await adminDb.getAll(...orgIds.map((id) => adminDb.collection('organizations').doc(id)))
       orgDocs.forEach((org) => {
-        if (org.exists) orgNames.set(org.id, nullableString(org.data()?.name) ?? org.id)
+        if (org.exists) {
+          orgNames.set(org.id, nullableString(org.data()?.name) ?? org.id)
+          const slug = nullableString(org.data()?.slug)
+          if (slug) orgSlugs.set(org.id, slug)
+        }
       })
     }
   }
 
-  const cards = snap.docs.map<AgentTaskCard>((d) => {
+  const cards = taskDocs.map<AgentTaskCard>((d) => {
     const data = d.data() as Record<string, unknown>
     const parentDoc = d.ref.parent.parent
     const isProjectNested = !!parentDoc && parentDoc.parent.id === 'projects'
@@ -206,10 +231,11 @@ export const GET = withAuth('admin', async (req: NextRequest, user) => {
     const labels = Array.isArray(data.labels) ? data.labels.filter((l): l is string => typeof l === 'string') : []
     const tags = Array.isArray(data.tags) ? data.tags.filter((t): t is string => typeof t === 'string') : labels
 
-    const href = isProjectNested && projectId
-      ? `/admin/org/${slug}/projects/${projectId}?task=${d.id}`
-      : `/admin/org/${slug}/agent/board?task=${d.id}`
     const cardOrgId = nullableString(data.orgId) ?? orgId!
+    const cardSlug = (cardOrgId ? orgSlugs.get(cardOrgId) : null) ?? slug ?? cardOrgId
+    const href = isProjectNested && projectId
+      ? `/admin/org/${cardSlug}/projects/${projectId}?task=${d.id}`
+      : `/admin/org/${cardSlug}/agent/board?task=${d.id}`
 
     return {
       id: d.id,

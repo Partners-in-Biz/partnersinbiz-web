@@ -3,15 +3,6 @@ import { NextRequest } from 'next/server'
 
 // ── Firebase mock ─────────────────────────────────────────────────────────────
 const mockContactGet = jest.fn()
-const mockActivityDoc = jest.fn()
-const mockBatchSet = jest.fn()
-const mockBatchUpdate = jest.fn()
-const mockBatchCommit = jest.fn()
-const mockBatch = jest.fn(() => ({
-  set: mockBatchSet,
-  update: mockBatchUpdate,
-  commit: mockBatchCommit,
-}))
 
 jest.mock('@/lib/firebase/admin', () => ({
   adminDb: {
@@ -19,18 +10,14 @@ jest.mock('@/lib/firebase/admin', () => ({
       if (name === 'contacts') {
         return { doc: jest.fn(() => ({ get: mockContactGet })) }
       }
-      if (name === 'activities') {
-        return { doc: mockActivityDoc }
-      }
       throw new Error(`Unexpected collection: ${name}`)
     }),
-    batch: mockBatch,
   },
 }))
 
-// ── SMS mock ──────────────────────────────────────────────────────────────────
-const mockSendSms = jest.fn()
-jest.mock('@/lib/sms/twilio', () => ({ sendSms: mockSendSms }))
+// ── SMS pipeline mock ─────────────────────────────────────────────────────────
+const mockSendSmsToContact = jest.fn()
+jest.mock('@/lib/sms/send', () => ({ sendSmsToContact: mockSendSmsToContact }))
 
 // ── CRM auth mock — pass-through with injected ctx ───────────────────────────
 const ACTOR_REF = { uid: 'uid-tester', displayName: 'Tester', kind: 'human' as const }
@@ -38,7 +25,7 @@ const ORG_ID = 'org-abc'
 
 jest.mock('@/lib/auth/crm-middleware', () => ({
   withCrmAuth:
-    (_minRole: string, handler: Function) =>
+    (_minRole: string, handler: (req: NextRequest, ctx: unknown, routeCtx?: unknown) => unknown) =>
     (req: NextRequest, routeCtx?: unknown) =>
       handler(req, { orgId: ORG_ID, actor: ACTOR_REF, role: 'member', isAgent: false, permissions: {} }, routeCtx),
 }))
@@ -62,24 +49,23 @@ function contactSnap(data: Record<string, unknown> | null) {
 
 beforeEach(() => {
   jest.clearAllMocks()
-  mockBatchCommit.mockResolvedValue(undefined)
-  mockActivityDoc.mockReturnValue({ id: 'new-activity' })
 })
 
 describe('POST /api/v1/crm/contacts/:id/send-sms', () => {
-  it('happy path → { sent: true }', async () => {
+  it('uses the shared SMS send pipeline so suppressions/preferences/frequency gates apply', async () => {
     mockContactGet.mockResolvedValue(
       contactSnap({ orgId: ORG_ID, phone: '+27821234567', name: 'Test Contact' }),
     )
-    mockSendSms.mockResolvedValue({ ok: true, twilioSid: 'SM123', segmentsCount: 1 })
+    mockSendSmsToContact.mockResolvedValue({ status: 'sent', twilioSid: 'SM123', smsId: 'sms-1', segmentsCount: 1 })
 
     const { POST } = await import('@/app/api/v1/crm/contacts/[id]/send-sms/route')
     const res = await POST(makeReq({ message: 'Hello there' }), makeRouteCtx())
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.data.sent).toBe(true)
-    expect(mockSendSms).toHaveBeenCalledWith(
-      expect.objectContaining({ to: '+27821234567', body: 'Hello there' }),
+    expect(body.data.smsId).toBe('sms-1')
+    expect(mockSendSmsToContact).toHaveBeenCalledWith(
+      expect.objectContaining({ orgId: ORG_ID, contactId: 'contact-1', body: 'Hello there', topicId: 'transactional' }),
     )
   })
 
@@ -120,28 +106,29 @@ describe('POST /api/v1/crm/contacts/:id/send-sms', () => {
     expect(body.error).toMatch(/phone/i)
   })
 
-  it('sendSms failure → 500', async () => {
+  it('pipeline failure → 502', async () => {
     mockContactGet.mockResolvedValue(
       contactSnap({ orgId: ORG_ID, phone: '+27821234567' }),
     )
-    mockSendSms.mockResolvedValue({ ok: false, twilioSid: '', error: 'Invalid number', segmentsCount: 1 })
+    mockSendSmsToContact.mockResolvedValue({ status: 'failed', reason: 'Invalid number', smsId: 'sms-failed' })
     const { POST } = await import('@/app/api/v1/crm/contacts/[id]/send-sms/route')
     const res = await POST(makeReq({ message: 'Hi' }), makeRouteCtx())
-    expect(res.status).toBe(500)
+    expect(res.status).toBe(502)
     const body = await res.json()
     expect(body.error).toMatch(/Invalid number/i)
   })
 
-  it('activity write failure does NOT block the 200 response', async () => {
+  it('suppression/preference skip returns 200 skipped without sending directly', async () => {
     mockContactGet.mockResolvedValue(
       contactSnap({ orgId: ORG_ID, phone: '+27821234567' }),
     )
-    mockSendSms.mockResolvedValue({ ok: true, twilioSid: 'SM999', segmentsCount: 1 })
-    mockBatchCommit.mockRejectedValue(new Error('Firestore down'))
+    mockSendSmsToContact.mockResolvedValue({ status: 'skipped', reason: 'sms-suppressed' })
     const { POST } = await import('@/app/api/v1/crm/contacts/[id]/send-sms/route')
     const res = await POST(makeReq({ message: 'Hi' }), makeRouteCtx())
     expect(res.status).toBe(200)
     const body = await res.json()
-    expect(body.data.sent).toBe(true)
+    expect(body.data.sent).toBe(false)
+    expect(body.data.status).toBe('skipped')
+    expect(body.data.reason).toBe('sms-suppressed')
   })
 })

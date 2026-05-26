@@ -583,7 +583,7 @@ describe('client documents API', () => {
     const body = await res.json()
 
     expect(res.status).toBe(200)
-    expect(body.data).toEqual([{ id: 'version-1', versionNumber: 1, status: 'draft' }])
+    expect(body.data).toEqual([{ id: 'version-1', versionNumber: 1, status: 'draft', blocks: [] }])
   })
 
   it('blocks clients from listing standalone internal document versions', async () => {
@@ -654,6 +654,32 @@ describe('client documents API', () => {
     )
   })
 
+  it('creates a draft version with showcase blocks from the internal helper payload', async () => {
+    mockTransactionGet.mockResolvedValueOnce({
+      exists: true,
+      id: 'doc-1',
+      data: () => ({ orgId: 'org-1', title: 'Internal showcase', deleted: false }),
+    })
+
+    const { createInternalShowcaseVersionPayload } = await import('@/lib/client-documents/showcasePayloads')
+    const { POST } = await import('@/app/api/v1/client-documents/[id]/versions/route')
+    const req = jsonRequest('http://localhost/api/v1/client-documents/doc-1/versions', createInternalShowcaseVersionPayload())
+
+    const res = await POST(req, user, { params: Promise.resolve({ id: 'doc-1' }) })
+
+    expect(res.status).toBe(201)
+    expect(mockTransactionSet).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'version-1' }),
+      expect.objectContaining({
+        blocks: expect.arrayContaining([
+          expect.objectContaining({ type: 'funnel' }),
+          expect.objectContaining({ type: 'weighted_decision_matrix' }),
+        ]),
+        changeSummary: 'Internal showcase example for advanced document blocks',
+      }),
+    )
+  })
+
   it('blocks clients from creating document versions', async () => {
     const { POST } = await import('@/app/api/v1/client-documents/[id]/versions/route')
     const req = jsonRequest('http://localhost/api/v1/client-documents/doc-1/versions', { blocks: [] })
@@ -699,7 +725,7 @@ describe('client documents API', () => {
     const body = await res.json()
 
     expect(res.status).toBe(200)
-    expect(body.data).toEqual({ id: 'version-1', versionNumber: 1, status: 'draft' })
+    expect(body.data).toEqual({ id: 'version-1', versionNumber: 1, status: 'draft', blocks: [] })
   })
 })
 

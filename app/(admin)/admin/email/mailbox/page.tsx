@@ -112,6 +112,7 @@ export default function PortalEmailPage() {
   const [compose, setCompose] = useState<ComposeState>(emptyCompose)
   const [notice, setNotice] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [syncingAccountId, setSyncingAccountId] = useState<string | null>(null)
 
   async function loadAccounts() {
     const res = await fetch('/api/v1/admin/mailbox/accounts')
@@ -248,6 +249,7 @@ export default function PortalEmailPage() {
         accountId: compose.accountId || defaultAccountId,
         bodyText: compose.bodyText || htmlToText(compose.bodyHtml),
         action,
+        sendApproved: action === 'send',
       }),
     })
     const body = await res.json()
@@ -273,6 +275,35 @@ export default function PortalEmailPage() {
   async function deleteMessage(id: string) {
     await fetch(`/api/v1/admin/mailbox/messages/${id}`, { method: 'DELETE' })
     await loadMessages()
+  }
+
+  async function syncAccount(account: MailboxAccountSafe) {
+    if (account.provider !== 'google') {
+      setError('Only Google mailbox accounts can sync from the provider right now.')
+      return
+    }
+    setError(null)
+    setNotice(null)
+    setSyncingAccountId(account.id)
+    try {
+      const res = await fetch(`/api/v1/admin/mailbox/accounts/${account.id}/sync`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: account.lastSyncAt ? 'incremental' : 'backfill', maxResults: account.lastSyncAt ? 50 : 100 }),
+      })
+      const body = await res.json()
+      if (!res.ok) throw new Error(body.error ?? 'Could not sync mailbox')
+      const result = body.data?.result
+      const imported = Number(result?.imported ?? 0)
+      const updated = Number(result?.updated ?? 0)
+      setNotice(`Synced ${account.emailAddress}: ${imported} imported, ${updated} updated.`)
+      await loadAccounts()
+      await loadMessages()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not sync mailbox')
+    } finally {
+      setSyncingAccountId(null)
+    }
   }
 
   return (
@@ -367,6 +398,20 @@ export default function PortalEmailPage() {
                     </span>
                   </div>
                   <p className="mt-1 truncate text-[var(--color-pib-text-muted)]">{account.emailAddress}</p>
+                  {account.provider === 'google' && account.status === 'connected' ? (
+                    <button
+                      type="button"
+                      className="mt-2 inline-flex items-center gap-1 rounded-md border border-[var(--color-pib-line)] px-2 py-1 text-[10px] text-[var(--color-pib-text)] transition hover:bg-white/[0.04] disabled:cursor-wait disabled:opacity-60"
+                      onClick={() => syncAccount(account)}
+                      disabled={syncingAccountId === account.id}
+                    >
+                      <span className="material-symbols-outlined text-[14px]">sync</span>
+                      {syncingAccountId === account.id ? 'Syncing…' : account.lastSyncAt ? 'Sync mail' : 'Import mail'}
+                    </button>
+                  ) : null}
+                  {account.lastSyncAt ? (
+                    <p className="mt-1 text-[var(--color-pib-text-muted)]">Last sync: {new Date(account.lastSyncAt).toLocaleString()}</p>
+                  ) : null}
                   {account.status !== 'connected' ? (
                     <p className="mt-1 text-[var(--color-pib-text-muted)]">Needs connection</p>
                   ) : null}

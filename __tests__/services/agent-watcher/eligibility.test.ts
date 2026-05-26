@@ -19,6 +19,24 @@ describe('agent watcher task dispatch eligibility', () => {
     expect(getTaskDispatchBlocker({ assigneeAgentId: 'theo', agentStatus: 'pending', columnId: 'todo', approvalGate: { status: 'approved' } }, validAgents)).toBeNull()
   })
 
+  it('does not pass scheduled backlog tasks before their release time', () => {
+    expect(getTaskDispatchBlocker({
+      assigneeAgentId: 'theo',
+      agentStatus: 'pending',
+      columnId: 'todo',
+      agentReleaseStatus: 'scheduled',
+      agentReleaseAt: '2099-05-26T09:30:00.000Z',
+    }, validAgents)).toBe('scheduled-release-pending')
+
+    expect(getTaskDispatchBlocker({
+      assigneeAgentId: 'theo',
+      agentStatus: 'pending',
+      columnId: 'todo',
+      agentReleaseStatus: 'scheduled',
+      agentReleaseAt: '2020-05-26T09:30:00.000Z',
+    }, validAgents)).toBeNull()
+  })
+
   it('returns only dependency IDs that are not complete yet', () => {
     expect(getUnresolvedDependencyIds(['done-column', 'done-agent', 'todo', 'missing'], {
       'done-column': { columnId: 'done', agentStatus: 'pending' },

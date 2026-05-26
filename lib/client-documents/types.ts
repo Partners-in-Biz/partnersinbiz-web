@@ -48,6 +48,235 @@ export type DocumentBlockType =
   | 'pricing_toggle'
   | 'faq'
   | 'comparison'
+  | ShowcaseDocumentBlockType
+
+export type LegacyDocumentBlockType = Exclude<DocumentBlockType, ShowcaseDocumentBlockType>
+
+export type ShowcaseDocumentBlockType =
+  | 'funnel'
+  | 'radar'
+  | 'quadrant_matrix'
+  | 'before_after'
+  | 'roadmap_gantt'
+  | 'logo_testimonial_proof'
+  | 'case_study_result_cards'
+  | 'weighted_decision_matrix'
+
+export const LEGACY_DOCUMENT_BLOCK_TYPES = [
+  'hero',
+  'summary',
+  'problem',
+  'scope',
+  'deliverables',
+  'timeline',
+  'investment',
+  'terms',
+  'approval',
+  'metrics',
+  'risk',
+  'table',
+  'gallery',
+  'callout',
+  'rich_text',
+  'image',
+  'video',
+  'embed',
+  'link_card',
+  'chart',
+  'pricing_toggle',
+  'faq',
+  'comparison',
+] as const satisfies readonly LegacyDocumentBlockType[]
+
+export const SHOWCASE_DOCUMENT_BLOCK_TYPES = [
+  'funnel',
+  'radar',
+  'quadrant_matrix',
+  'before_after',
+  'roadmap_gantt',
+  'logo_testimonial_proof',
+  'case_study_result_cards',
+  'weighted_decision_matrix',
+] as const satisfies readonly ShowcaseDocumentBlockType[]
+
+export const CANONICAL_DOCUMENT_BLOCK_TYPES = [
+  ...LEGACY_DOCUMENT_BLOCK_TYPES,
+  ...SHOWCASE_DOCUMENT_BLOCK_TYPES,
+] as const satisfies readonly DocumentBlockType[]
+
+export interface ShowcaseBlockContract<TType extends ShowcaseDocumentBlockType = ShowcaseDocumentBlockType> {
+  type: TType
+  payloadKey: string
+  requiredFields: string[]
+  backwardCompatible: true
+}
+
+export interface FunnelBlockContent {
+  eyebrow?: string
+  headline?: string
+  description?: string
+  stages: Array<{
+    id: string
+    label: string
+    value?: number
+    description?: string
+    conversionRate?: number
+    color?: string
+  }>
+}
+
+export interface RadarBlockContent {
+  eyebrow?: string
+  headline?: string
+  description?: string
+  axes: Array<{
+    id: string
+    label: string
+    value: number
+    max?: number
+    benchmark?: number
+    color?: string
+  }>
+}
+
+export interface QuadrantMatrixBlockContent {
+  eyebrow?: string
+  headline?: string
+  description?: string
+  xAxis: { label: string; minLabel?: string; maxLabel?: string }
+  yAxis: { label: string; minLabel?: string; maxLabel?: string }
+  items: Array<{
+    id: string
+    label: string
+    x: number
+    y: number
+    description?: string
+    size?: number
+    color?: string
+  }>
+}
+
+export interface BeforeAfterBlockContent {
+  eyebrow?: string
+  headline?: string
+  description?: string
+  pairs: Array<{
+    id: string
+    label: string
+    before: string
+    after: string
+    evidence?: string
+    mediaBeforeUrl?: string
+    mediaAfterUrl?: string
+  }>
+}
+
+export interface RoadmapGanttBlockContent {
+  eyebrow?: string
+  headline?: string
+  description?: string
+  items: Array<{
+    id: string
+    label: string
+    start: string
+    end: string
+    lane?: string
+    status?: 'planned' | 'in_progress' | 'complete' | 'at_risk' | 'blocked'
+    dependsOn?: string[]
+    owner?: string
+  }>
+  milestones?: Array<{ id: string; label: string; date: string }>
+}
+
+export interface LogoTestimonialProofBlockContent {
+  eyebrow?: string
+  headline?: string
+  description?: string
+  proof: Array<{
+    id: string
+    kind: 'logo' | 'testimonial' | 'credential' | 'stat'
+    logoUrl?: string
+    organisationName?: string
+    quote?: string
+    personName?: string
+    personRole?: string
+    metricLabel?: string
+    metricValue?: string
+    href?: string
+  }>
+}
+
+export interface CaseStudyResultCardsBlockContent {
+  eyebrow?: string
+  headline?: string
+  description?: string
+  cards: Array<{
+    id: string
+    title: string
+    result: string
+    narrative?: string
+    baseline?: string
+    timeframe?: string
+    imageUrl?: string
+    href?: string
+  }>
+}
+
+export interface WeightedDecisionMatrixBlockContent {
+  eyebrow?: string
+  headline?: string
+  description?: string
+  criteria: Array<{ id: string; label: string; weight: number; description?: string }>
+  options: Array<{
+    id: string
+    label: string
+    scores: Record<string, number>
+    summary?: string
+    recommended?: boolean
+  }>
+}
+
+export interface ShowcaseBlockContentByType {
+  funnel: FunnelBlockContent
+  radar: RadarBlockContent
+  quadrant_matrix: QuadrantMatrixBlockContent
+  before_after: BeforeAfterBlockContent
+  roadmap_gantt: RoadmapGanttBlockContent
+  logo_testimonial_proof: LogoTestimonialProofBlockContent
+  case_study_result_cards: CaseStudyResultCardsBlockContent
+  weighted_decision_matrix: WeightedDecisionMatrixBlockContent
+}
+
+export const CANONICAL_SHOWCASE_BLOCK_CONTRACTS = {
+  funnel: { type: 'funnel', payloadKey: 'stages', requiredFields: ['stages'], backwardCompatible: true },
+  radar: { type: 'radar', payloadKey: 'axes', requiredFields: ['axes'], backwardCompatible: true },
+  quadrant_matrix: {
+    type: 'quadrant_matrix',
+    payloadKey: 'items',
+    requiredFields: ['xAxis', 'yAxis', 'items'],
+    backwardCompatible: true,
+  },
+  before_after: { type: 'before_after', payloadKey: 'pairs', requiredFields: ['pairs'], backwardCompatible: true },
+  roadmap_gantt: { type: 'roadmap_gantt', payloadKey: 'items', requiredFields: ['items'], backwardCompatible: true },
+  logo_testimonial_proof: {
+    type: 'logo_testimonial_proof',
+    payloadKey: 'proof',
+    requiredFields: ['proof'],
+    backwardCompatible: true,
+  },
+  case_study_result_cards: {
+    type: 'case_study_result_cards',
+    payloadKey: 'cards',
+    requiredFields: ['cards'],
+    backwardCompatible: true,
+  },
+  weighted_decision_matrix: {
+    type: 'weighted_decision_matrix',
+    payloadKey: 'criteria',
+    requiredFields: ['criteria', 'options'],
+    backwardCompatible: true,
+  },
+} as const satisfies Record<ShowcaseDocumentBlockType, ShowcaseBlockContract>
 
 export interface ClientDocumentLinkSet {
   projectId?: string

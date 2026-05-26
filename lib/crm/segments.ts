@@ -581,7 +581,7 @@ async function contactsWhoClickedLinkUrl(
   if (!urlSubstring) return []
   const needle = urlSubstring.toLowerCase()
 
-  let linkIds: string[]
+  let linkIds: string[] = []
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const linksSnap: any = await adminDb
@@ -598,11 +598,13 @@ async function contactsWhoClickedLinkUrl(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .map((d: any) => d.id)
   } catch {
-    return []
+    // The top-level link_clicks rows carry targetUrl, so a missing/failed
+    // shortened_links lookup should not force a silent false negative.
+    linkIds = []
   }
-  if (linkIds.length === 0) return []
 
   const ids = new Set<string>()
+  const matchingLinkIds = new Set(linkIds)
   const cutoffMs =
     typeof withinDays === 'number' && withinDays > 0
       ? Date.now() - withinDays * DAY_MS
@@ -612,33 +614,39 @@ async function contactsWhoClickedLinkUrl(
       ? Date.now() - notWithinDays * DAY_MS
       : null
 
-  // Firestore "in" supports up to 30 values per chunk.
-  for (let i = 0; i < linkIds.length; i += 30) {
-    const chunk = linkIds.slice(i, i + 30)
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const clicksSnap: any = await adminDb
-        .collection('link_clicks')
-        .where('orgId', '==', orgId)
-        .where('shortenedLinkId', 'in', chunk)
-        .limit(BEHAVIORAL_QUERY_CAP)
-        .get()
-      for (const doc of clicksSnap.docs) {
-        const data = doc.data() as Record<string, unknown>
-        const cid = typeof data.contactId === 'string' ? data.contactId : ''
-        if (!cid) continue
-        const ts = data.clickedAt ?? data.createdAt
-        const ms =
-          ts && typeof (ts as Timestamp).toMillis === 'function'
-            ? (ts as Timestamp).toMillis()
-            : null
-        if (cutoffMs !== null && (ms === null || ms < cutoffMs)) continue
-        if (notCutoffMs !== null && (ms === null || ms >= notCutoffMs)) continue
-        ids.add(cid)
-      }
-    } catch {
-      // link_clicks collection may not exist — skip silently.
+  try {
+    // Scan org click events once and match either the denormalized targetUrl or
+    // a shortened-link id found above. This keeps preview accurate for new
+    // link_clicks rows and older rows that only carried shortenedLinkId/linkId.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const clicksSnap: any = await adminDb
+      .collection('link_clicks')
+      .where('orgId', '==', orgId)
+      .limit(BEHAVIORAL_QUERY_CAP)
+      .get()
+    for (const doc of clicksSnap.docs) {
+      const data = doc.data() as Record<string, unknown>
+      const cid = typeof data.contactId === 'string' ? data.contactId : ''
+      if (!cid) continue
+      const targetUrl = typeof data.targetUrl === 'string' ? data.targetUrl.toLowerCase() : ''
+      const shortenedLinkId =
+        typeof data.shortenedLinkId === 'string'
+          ? data.shortenedLinkId
+          : typeof data.linkId === 'string'
+            ? data.linkId
+            : ''
+      if (!targetUrl.includes(needle) && !matchingLinkIds.has(shortenedLinkId)) continue
+      const ts = data.clickedAt ?? data.createdAt
+      const ms =
+        ts && typeof (ts as Timestamp).toMillis === 'function'
+          ? (ts as Timestamp).toMillis()
+          : null
+      if (cutoffMs !== null && (ms === null || ms < cutoffMs)) continue
+      if (notCutoffMs !== null && (ms === null || ms >= notCutoffMs)) continue
+      ids.add(cid)
     }
+  } catch {
+    // link_clicks collection may not exist — return whatever we matched so far.
   }
   return [...ids]
 }

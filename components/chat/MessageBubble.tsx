@@ -419,12 +419,12 @@ export default function MessageBubble({
     return (
       <>
         <div className="flex justify-end">
-          <div className="group/message max-w-[85%] lg:max-w-[80%] text-right">
-            <div ref={contentRef} className="relative inline-block text-left">
+          <div className="group/message max-w-[85%] min-w-0 lg:max-w-[80%] text-right">
+            <div ref={contentRef} className="relative inline-block max-w-full text-left">
               {selectionPopover}
               <div
                 onMouseUp={handleTextSelection}
-                className="rounded-2xl rounded-br-md px-4 py-2.5 text-[15px] lg:text-sm whitespace-pre-wrap bg-[var(--color-card-active,rgba(255,255,255,0.08))] lg:bg-primary lg:text-on-primary text-on-surface"
+                className="max-w-full overflow-hidden rounded-2xl rounded-br-md px-4 py-2.5 text-[15px] lg:text-sm whitespace-pre-wrap break-words [overflow-wrap:anywhere] bg-[var(--color-card-active,rgba(255,255,255,0.08))] lg:bg-primary lg:text-on-primary text-on-surface"
               >
               {m.content}
               {attachmentList}
@@ -443,7 +443,7 @@ export default function MessageBubble({
   const eventSummary = displayEvents.length > 0 ? summarizeEvents(displayEvents) : ''
 
   return (
-    <div className="flex justify-start gap-2.5 w-full lg:gap-2.5">
+    <div className="flex min-w-0 justify-start gap-2.5 w-full overflow-hidden lg:gap-2.5">
       {/* Avatar — hidden on mobile for cleaner prose-style look */}
       <div className="shrink-0 mt-0.5 hidden lg:block">
         {isAgent ? (
@@ -468,8 +468,8 @@ export default function MessageBubble({
 
         {/* Live events (while pending/streaming/waiting) */}
         {(isPending || isWaiting) && (
-          <div className="mb-1 space-y-1">
-            <div className="rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2">
+            <div className="mb-1 min-w-0 space-y-1">
+              <div className="min-w-0 overflow-hidden rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 text-[10px] font-label uppercase tracking-wide text-on-surface-variant">
@@ -590,16 +590,16 @@ export default function MessageBubble({
         )}
 
         {/* The bubble itself — plain prose on mobile, bubble on desktop */}
-        <div ref={contentRef} className="relative">
+        <div ref={contentRef} className="relative max-w-full overflow-hidden">
           {selectionPopover}
           <div
             onMouseUp={handleTextSelection}
             className={
               isFailed
-                ? 'rounded-2xl rounded-tl-md px-4 py-2.5 text-sm whitespace-pre-wrap bg-red-500/15 text-red-200 border border-red-500/40'
+                ? 'max-w-full overflow-hidden rounded-2xl rounded-tl-md px-4 py-2.5 text-sm whitespace-pre-wrap break-words [overflow-wrap:anywhere] bg-red-500/15 text-red-200 border border-red-500/40'
                 : [
                     // Mobile: plain prose, no background, larger readable text
-                    'text-[15px] leading-relaxed text-on-surface whitespace-pre-wrap',
+                    'max-w-full overflow-hidden text-[15px] leading-relaxed text-on-surface whitespace-pre-wrap break-words [overflow-wrap:anywhere]',
                     // Desktop: keep the bubble look
                     'lg:rounded-2xl lg:rounded-tl-md lg:px-4 lg:py-2.5 lg:text-sm lg:bg-[var(--color-card-active,rgba(255,255,255,0.06))]',
                   ].join(' ')

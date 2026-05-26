@@ -111,6 +111,45 @@ describe('project task payload helpers', () => {
   })
 
   describe('agent dispatch fields', () => {
+    it('CREATE: schedules an agent task into backlog until its release time', () => {
+      const result = buildProjectTaskCreateData(
+        {
+          title: 'Release Theo later',
+          assigneeAgentId: 'theo',
+          agentInput: { spec: 'Run only during office hours.' },
+          agentReleaseAt: '2026-05-26T09:30:00.000Z',
+        },
+        'project-1',
+        'org-1',
+      )
+
+      expect(result.ok).toBe(true)
+      if (!result.ok) return
+      expect(result.value).toEqual(expect.objectContaining({
+        assigneeAgentId: 'theo',
+        agentStatus: 'pending',
+        columnId: 'backlog',
+        agentReleaseStatus: 'scheduled',
+        agentReleaseAt: '2026-05-26T09:30:00.000Z',
+      }))
+    })
+
+    it('PATCH: accepts rescheduling, clearing, and release audit fields', () => {
+      const scheduled = buildProjectTaskUpdateData({ agentReleaseAt: '2026-05-26T09:30:00.000Z' })
+      expect(scheduled.ok).toBe(true)
+      if (!scheduled.ok) return
+      expect(scheduled.value).toEqual({
+        agentReleaseAt: '2026-05-26T09:30:00.000Z',
+        agentReleaseStatus: 'scheduled',
+        columnId: 'backlog',
+      })
+
+      const cleared = buildProjectTaskUpdateData({ agentReleaseAt: null })
+      expect(cleared.ok).toBe(true)
+      if (!cleared.ok) return
+      expect(cleared.value).toEqual({ agentReleaseAt: null, agentReleaseStatus: null })
+    })
+
     it('sets assigneeAgentId + auto-initialises agentStatus=pending on create', () => {
       const result = buildProjectTaskCreateData(
         {

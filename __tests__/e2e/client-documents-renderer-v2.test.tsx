@@ -6,6 +6,7 @@ import type {
   DocumentBlock,
   DocumentBlockType,
 } from '@/lib/client-documents/types'
+import { SHOWCASE_DOCUMENT_BLOCK_TYPES } from '@/lib/client-documents/types'
 
 // jsdom doesn't ship IntersectionObserver; the motion hooks need a no-op stub.
 class IntersectionObserverStub {
@@ -43,6 +44,7 @@ const ALL_TYPES: DocumentBlockType[] = [
   'pricing_toggle',
   'faq',
   'comparison',
+  ...SHOWCASE_DOCUMENT_BLOCK_TYPES,
 ]
 
 const FIXTURES: Record<DocumentBlockType, unknown> = {
@@ -91,6 +93,92 @@ const FIXTURES: Record<DocumentBlockType, unknown> = {
     headers: ['PiB', 'Other'],
     rows: [{ label: 'Speed', values: [true, false] }],
     highlightCol: 0,
+  },
+  funnel: {
+    eyebrow: 'Pipeline',
+    headline: 'Lead journey',
+    stages: [
+      { id: 'aware', label: 'Aware', value: 120, description: 'Top of funnel', conversionRate: 100 },
+      { id: 'booked', label: 'Booked', value: 24, description: 'Sales calls', conversionRate: 20 },
+    ],
+  },
+  radar: {
+    eyebrow: 'Readiness',
+    headline: 'Capability radar',
+    axes: [
+      { id: 'brand', label: 'Brand', value: 8, max: 10, benchmark: 6 },
+      { id: 'sales', label: 'Sales', value: 5, max: 10, benchmark: 7 },
+    ],
+  },
+  quadrant_matrix: {
+    eyebrow: 'Priorities',
+    headline: 'Opportunity matrix',
+    xAxis: { label: 'Impact', minLabel: 'Low', maxLabel: 'High' },
+    yAxis: { label: 'Effort', minLabel: 'Easy', maxLabel: 'Hard' },
+    items: [{ id: 'automation', label: 'Automation', x: 82, y: 35, description: 'Quick win' }],
+  },
+  before_after: {
+    eyebrow: 'Transformation',
+    headline: 'Before and after',
+    pairs: [
+      {
+        id: 'reporting',
+        label: 'Reporting',
+        before: 'Manual spreadsheets',
+        after: 'Live client dashboard',
+        evidence: 'Weekly updates saved',
+      },
+    ],
+  },
+  roadmap_gantt: {
+    eyebrow: 'Delivery',
+    headline: 'Launch roadmap',
+    items: [
+      { id: 'strategy', label: 'Strategy', start: '2026-05-01', end: '2026-05-08', lane: 'Plan', status: 'complete' },
+      {
+        id: 'build',
+        label: 'Build',
+        start: '2026-05-09',
+        end: '2026-05-20',
+        lane: 'Ship',
+        status: 'in_progress',
+        dependsOn: ['strategy'],
+      },
+    ],
+    milestones: [{ id: 'launch', label: 'Launch', date: '2026-05-25' }],
+  },
+  logo_testimonial_proof: {
+    eyebrow: 'Proof',
+    headline: 'Client proof',
+    proof: [
+      { id: 'logo', kind: 'logo', organisationName: 'Acme Co' },
+      { id: 'quote', kind: 'testimonial', quote: 'PiB made the work visible.', personName: 'Alex', personRole: 'Founder' },
+    ],
+  },
+  case_study_result_cards: {
+    eyebrow: 'Results',
+    headline: 'Case study cards',
+    cards: [
+      {
+        id: 'retention',
+        title: 'Retention lift',
+        result: '+32%',
+        narrative: 'Lifecycle follow-up improved repeat bookings.',
+        timeframe: '60 days',
+      },
+    ],
+  },
+  weighted_decision_matrix: {
+    eyebrow: 'Decision',
+    headline: 'Weighted decision',
+    criteria: [
+      { id: 'impact', label: 'Impact', weight: 0.6 },
+      { id: 'speed', label: 'Speed', weight: 0.4 },
+    ],
+    options: [
+      { id: 'crm', label: 'CRM cleanup', scores: { impact: 8, speed: 7 }, recommended: true, summary: 'Best next move' },
+      { id: 'ads', label: 'Ads scale-up', scores: { impact: 7, speed: 4 } },
+    ],
   },
 }
 
@@ -143,6 +231,58 @@ test('renders every registered block type without errors', () => {
   }
   // Should not throw; jsdom doesn't run Recharts measurement but smoke check is enough
   expect(() => render(<DocumentRenderer document={doc} version={version} />)).not.toThrow()
+})
+
+test('renders showcase blocks with native renderers, card surfaces, and semantic labels', () => {
+  const doc: ClientDocument = {
+    id: 'd',
+    orgId: 'o',
+    title: 'Showcase Test',
+    type: 'change_request',
+    templateId: 'change-request-v1',
+    status: 'internal_draft',
+    linked: {},
+    currentVersionId: 'v1',
+    approvalMode: 'operational',
+    clientPermissions: { canComment: true, canSuggest: true, canDirectEdit: false, canApprove: true },
+    assumptions: [],
+    shareToken: 't',
+    shareEnabled: false,
+    editShareEnabled: false,
+    createdBy: 'u',
+    createdByType: 'agent',
+    updatedBy: 'u',
+    updatedByType: 'agent',
+    deleted: false,
+  }
+  const version: ClientDocumentVersion = {
+    id: 'v1',
+    documentId: 'd',
+    versionNumber: 1,
+    status: 'draft',
+    blocks: SHOWCASE_DOCUMENT_BLOCK_TYPES.map((type, i) => ({
+      id: `showcase-${type}`,
+      type,
+      title: `Showcase ${type}`,
+      content: FIXTURES[type],
+      required: true,
+      display: { motion: i % 2 === 0 ? 'reveal' : 'none' },
+    })),
+    theme: {
+      palette: { bg: '#000', text: '#fff', accent: '#F5A623' },
+      typography: { heading: 'sans-serif', body: 'sans-serif' },
+    },
+    createdBy: 'u',
+    createdByType: 'agent',
+  }
+
+  const { container, getByRole, queryByText } = render(<DocumentRenderer document={doc} version={version} />)
+
+  expect(queryByText(/No renderer registered/)).not.toBeInTheDocument()
+  expect(getByRole('img', { name: /Capability radar/i })).toBeInTheDocument()
+  expect(getByRole('table', { name: /Weighted decision/i })).toBeInTheDocument()
+  expect(container.querySelectorAll('.pib-card').length).toBeGreaterThanOrEqual(SHOWCASE_DOCUMENT_BLOCK_TYPES.length)
+  expect(container.querySelector('[data-motion="reveal"]')).toBeInTheDocument()
 })
 
 test('does not crash when legacy generated lists contain objects', () => {

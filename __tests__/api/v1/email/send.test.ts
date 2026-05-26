@@ -28,6 +28,11 @@ jest.mock('@/lib/preferences/store', () => ({
   shouldSendToContact: jest.fn().mockResolvedValue({ allowed: true }),
 }))
 
+jest.mock('@/lib/email/frequency', () => ({
+  isWithinFrequencyCap: jest.fn().mockResolvedValue({ allowed: true }),
+  logFrequencySkip: jest.fn().mockResolvedValue(undefined),
+}))
+
 jest.mock('@/lib/platform/quotas', () => ({
   checkQuota: jest.fn().mockResolvedValue(undefined),
 }))
@@ -37,6 +42,7 @@ jest.mock('@/lib/email/unsubscribeToken', () => ({
 }))
 
 import { adminDb } from '@/lib/firebase/admin'
+import { isWithinFrequencyCap, logFrequencySkip } from '@/lib/email/frequency'
 process.env.AI_API_KEY = 'test-key'
 
 const mockAdd = jest.fn().mockResolvedValue({ id: 'email-doc-1' })
@@ -131,6 +137,28 @@ describe('POST /api/v1/email/send', () => {
   it('does not log activity when contactId is empty', async () => {
     await POST(makeReq(validPayload))
     expect(mockActivitiesAdd).not.toHaveBeenCalled()
+  })
+
+  it('blocks non-transactional one-off sends when the contact frequency cap is exceeded', async () => {
+    ;(isWithinFrequencyCap as jest.Mock).mockResolvedValueOnce({
+      allowed: false,
+      reason: 'daily cap exceeded',
+    })
+
+    const res = await POST(
+      makeReq({ ...validPayload, contactId: 'contact-abc', topicId: 'newsletter' }),
+    )
+
+    expect(res.status).toBe(422)
+    expect(isWithinFrequencyCap).toHaveBeenCalledWith('org-test', 'contact-abc', 'newsletter')
+    expect(logFrequencySkip).toHaveBeenCalledWith(expect.objectContaining({
+      orgId: 'org-test',
+      contactId: 'contact-abc',
+      topicId: 'newsletter',
+      source: 'transactional',
+      reason: 'daily cap exceeded',
+    }))
+    expect(mockAdd).not.toHaveBeenCalled()
   })
 
   it('marks email as failed when the provider returns an error', async () => {

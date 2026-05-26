@@ -96,13 +96,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         : reqUrl
     const valid = validateRequest(authToken, signature, url, params)
     if (!valid) {
-      // eslint-disable-next-line no-console
       console.warn('[sms/status-webhook] Twilio signature verification failed')
       return xml403()
     }
   } else if (!missingTokenWarned) {
     missingTokenWarned = true
-    // eslint-disable-next-line no-console
     console.warn(
       '[sms/status-webhook] TWILIO_AUTH_TOKEN is not set — accepting unsigned webhooks. Set this in production.',
     )
@@ -150,6 +148,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   // "sent" reorderings; once failed, ignore a stray "sent".
   const currentStatus = (docData.status ?? '').toLowerCase()
   const TERMINAL = new Set(['delivered', 'failed', 'undelivered'])
+  if (TERMINAL.has(currentStatus) && currentStatus === mapped.status) {
+    return xml200()
+  }
   if (TERMINAL.has(currentStatus) && !TERMINAL.has(mapped.status)) {
     return xml200()
   }
@@ -178,7 +179,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           updatedAt: FieldValue.serverTimestamp(),
         })
       } catch (err) {
-        // eslint-disable-next-line no-console
         console.error('[sms/status-webhook] broadcast delivered++ failed', err)
       }
     }
@@ -189,7 +189,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           updatedAt: FieldValue.serverTimestamp(),
         })
       } catch (err) {
-        // eslint-disable-next-line no-console
         console.error('[sms/status-webhook] campaign delivered++ failed', err)
       }
     }
@@ -201,7 +200,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           updatedAt: FieldValue.serverTimestamp(),
         })
       } catch (err) {
-        // eslint-disable-next-line no-console
         console.error('[sms/status-webhook] broadcast bounced++ failed', err)
       }
     }
@@ -212,7 +210,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           updatedAt: FieldValue.serverTimestamp(),
         })
       } catch (err) {
-        // eslint-disable-next-line no-console
         console.error('[sms/status-webhook] campaign bounced++ failed', err)
       }
     }
@@ -238,7 +235,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           createdBy: 'system',
         })
       } catch (err) {
-        // eslint-disable-next-line no-console
         console.error('[sms/status-webhook] addSuppression failed', err)
       }
       if (isHard && contactId) {
@@ -247,8 +243,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
             smsBouncedAt: FieldValue.serverTimestamp(),
           })
         } catch (err) {
-          // eslint-disable-next-line no-console
-          console.error('[sms/status-webhook] failed to flag contact smsBouncedAt', err)
+           console.error('[sms/status-webhook] failed to flag contact smsBouncedAt', err)
         }
       }
     }

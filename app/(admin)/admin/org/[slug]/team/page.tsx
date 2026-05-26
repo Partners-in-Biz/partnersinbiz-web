@@ -81,6 +81,10 @@ function Avatar({ name, photoURL }: { name?: string; photoURL?: string }) {
   )
 }
 
+function isProvisioningAgentMember(member: OrgMember): boolean {
+  return (member.userId === 'ai-agent' || member.userId.startsWith('agent:')) && !member.displayName && !member.email
+}
+
 export default function TeamPage() {
   const params = useParams()
   const slug = params.slug as string
@@ -673,7 +677,7 @@ export default function TeamPage() {
                       <div className="flex items-center gap-2">
                         <Avatar name={member.displayName} photoURL={member.photoURL} />
                         <span className="text-on-surface font-medium text-sm">
-                          {member.displayName || 'Unknown'}
+                          {isProvisioningAgentMember(member) ? 'Provisioning agent' : member.displayName || 'Unknown'}
                         </span>
                       </div>
                     </td>
@@ -702,7 +706,7 @@ export default function TeamPage() {
                       </div>
                     </td>
                     <td className="py-3 px-3 text-right">
-                      {member.role !== 'owner' && (
+                      {(member.role !== 'owner' || isProvisioningAgentMember(member)) && (
                         <button
                           onClick={() => handleRemoveMember(member.userId)}
                           className="text-xs text-[#ef4444] hover:text-[#dc2626] font-medium"

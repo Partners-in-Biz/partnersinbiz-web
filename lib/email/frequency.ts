@@ -177,7 +177,7 @@ export async function logFrequencySkip(args: {
   orgId: string
   contactId: string
   topicId: string
-  source: 'broadcast' | 'sequence' | 'transactional'
+  source: 'broadcast' | 'campaign' | 'sequence' | 'transactional'
   sourceId: string
   reason: string
 }): Promise<void> {

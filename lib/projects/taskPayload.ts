@@ -132,6 +132,16 @@ function cleanOptionalDate(value: unknown): string | null {
   return trimmed ? trimmed : null
 }
 
+function cleanOptionalIsoDateTime(value: unknown, fieldName: string): PayloadResult<string | null> {
+  if (value === undefined || value === null || value === '') return { ok: true, value: null }
+  if (typeof value !== 'string') return { ok: false, error: `${fieldName} must be an ISO date/time string or null`, status: 400 }
+  const trimmed = value.trim()
+  if (!trimmed) return { ok: true, value: null }
+  const millis = Date.parse(trimmed)
+  if (!Number.isFinite(millis)) return { ok: false, error: `${fieldName} must be a valid ISO date/time`, status: 400 }
+  return { ok: true, value: new Date(millis).toISOString() }
+}
+
 function cleanEstimate(value: unknown): PayloadResult<number | null> {
   if (value === undefined || value === null || value === '') return { ok: true, value: null }
   if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
@@ -308,6 +318,8 @@ export function buildProjectTaskCreateData(
   if (!agentStatus.ok) return agentStatus
   const agentInput = cleanAgentInput(body.agentInput)
   if (!agentInput.ok) return agentInput
+  const agentReleaseAt = cleanOptionalIsoDateTime(body.agentReleaseAt, 'agentReleaseAt')
+  if (!agentReleaseAt.ok) return agentReleaseAt
   const dependsOn = cleanDependsOn(body.dependsOn)
   if (!dependsOn.ok) return dependsOn
 
@@ -334,7 +346,11 @@ export function buildProjectTaskCreateData(
     const nextAgentStatus = agentStatus.value ?? 'pending'
     value.assigneeAgentId = agentId.value
     value.agentStatus = nextAgentStatus
-    if (body.columnId === undefined) {
+    if (agentReleaseAt.value) {
+      value.agentReleaseAt = agentReleaseAt.value
+      value.agentReleaseStatus = 'scheduled'
+      if (body.columnId === undefined) value.columnId = 'backlog'
+    } else if (body.columnId === undefined) {
       value.columnId = columnForAgentStatus(nextAgentStatus)
     }
     if (nextAgentStatus === 'done') value.reviewStatus = 'pending'
@@ -382,6 +398,25 @@ export function buildProjectTaskUpdateData(body: Record<string, unknown>): Paylo
   if (body.mentionIds !== undefined) updates.mentionIds = cleanStringArray(body.mentionIds)
   if (body.dueDate !== undefined) updates.dueDate = cleanOptionalDate(body.dueDate)
   if (body.startDate !== undefined) updates.startDate = cleanOptionalDate(body.startDate)
+  if (body.agentReleaseAt !== undefined) {
+    const releaseAt = cleanOptionalIsoDateTime(body.agentReleaseAt, 'agentReleaseAt')
+    if (!releaseAt.ok) return releaseAt
+    updates.agentReleaseAt = releaseAt.value
+    updates.agentReleaseStatus = releaseAt.value ? 'scheduled' : null
+    if (releaseAt.value && body.columnId === undefined) updates.columnId = 'backlog'
+  }
+  if (body.agentReleaseStatus !== undefined) {
+    const releaseStatus = cleanString(body.agentReleaseStatus)
+    if (releaseStatus && !['scheduled', 'released', 'cancelled'].includes(releaseStatus)) {
+      return { ok: false, error: 'Invalid agentReleaseStatus; expected scheduled | released | cancelled', status: 400 }
+    }
+    updates.agentReleaseStatus = releaseStatus
+  }
+  if (body.agentReleasedAt !== undefined) {
+    const releasedAt = cleanOptionalIsoDateTime(body.agentReleasedAt, 'agentReleasedAt')
+    if (!releasedAt.ok) return releasedAt
+    updates.agentReleasedAt = releasedAt.value
+  }
   if (body.estimateMinutes !== undefined) {
     const estimate = cleanEstimate(body.estimateMinutes)
     if (!estimate.ok) return estimate

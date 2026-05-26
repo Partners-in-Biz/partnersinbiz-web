@@ -68,7 +68,7 @@ export default function PortalMessagesPage() {
 
   if (checking) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-8">
         <div className="pib-skeleton h-8 w-48" />
         <div className="pib-skeleton h-[600px]" />
       </div>
@@ -77,7 +77,7 @@ export default function PortalMessagesPage() {
 
   if (error || !org || !user) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-8">
         <header>
           <p className="eyebrow">Messages</p>
           <h1 className="pib-page-title mt-2">Messages</h1>
@@ -93,20 +93,24 @@ export default function PortalMessagesPage() {
   }
 
   return (
-    <div className="space-y-6 lg:space-y-6">
-      <header className="hidden lg:block">
-        <p className="eyebrow">Direct line to your team</p>
-        <h1 className="pib-page-title mt-2">Messages</h1>
-        <p className="pib-page-sub">Start a conversation with your team or the Partners in Biz team.</p>
+    <div className="space-y-8">
+      <header className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="eyebrow">Direct line to your team</p>
+          <h1 className="pib-page-title mt-2">Messages</h1>
+          <p className="pib-page-sub mt-2 max-w-2xl">Start a conversation with your team or the Partners in Biz team.</p>
+        </div>
       </header>
 
-      <UnifiedChat
-        orgId={org.id}
-        currentUserUid={user.uid}
-        currentUserDisplayName={user.name}
-        orgName={org.name}
-        allowAgentParticipants={false}
-      />
+      <section className="min-h-[640px]">
+        <UnifiedChat
+          orgId={org.id}
+          currentUserUid={user.uid}
+          currentUserDisplayName={user.name}
+          orgName={org.name}
+          allowAgentParticipants={false}
+        />
+      </section>
     </div>
   )
 }

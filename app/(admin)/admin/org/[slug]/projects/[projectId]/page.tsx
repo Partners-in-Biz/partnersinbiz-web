@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { useParams, useSearchParams } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { collection, onSnapshot } from 'firebase/firestore'
 import { getClientDb } from '@/lib/firebase/config'
 import Link from 'next/link'
@@ -13,9 +13,22 @@ import { ProjectBoardSummary } from '@/components/projects/ProjectBoardSummary'
 import type { AgentMember, Column, Task, TeamMember } from '@/components/kanban/types'
 
 interface ProjectDoc { id: string; title: string; content?: string; type: 'brief' | 'requirements' | 'notes' | 'reference'; createdBy: string; updatedBy?: string; createdAt?: unknown; updatedAt?: unknown }
-interface Project { id: string; orgId?: string; name: string; description?: string; brief?: string; status?: string; columns: Column[] }
+interface Project { id: string; orgId?: string; clientOrgId?: string; name: string; description?: string; brief?: string; status?: string; columns: Column[] }
 interface CurrentUser { uid: string; displayName: string }
+interface OrganizationOption { id: string; name: string; slug?: string; type?: string; status?: string }
 type TaskListSort = 'latest' | 'due'
+
+function upsertTaskById(existingTasks: Task[], task: Task) {
+  const existingIndex = existingTasks.findIndex(existingTask => existingTask.id === task.id)
+  const withoutTask = existingTasks.filter(existingTask => existingTask.id !== task.id)
+  if (existingIndex < 0) return [...withoutTask, task]
+  const insertIndex = Math.min(existingIndex, withoutTask.length)
+  return [
+    ...withoutTask.slice(0, insertIndex),
+    task,
+    ...withoutTask.slice(insertIndex),
+  ]
+}
 
 function mergeLiveTasks(restTasks: Task[], currentTasks: Task[]) {
   const merged = new Map<string, Task>()
@@ -93,6 +106,7 @@ function agentLabel(agent?: AgentMember, agentId?: string | null): string {
 
 export default function ProjectDetailPage() {
   const params = useParams()
+  const router = useRouter()
   const searchParams = useSearchParams()
   const slug = params.slug as string
   const projectId = params.projectId as string
@@ -121,10 +135,26 @@ export default function ProjectDetailPage() {
   const [settingsName, setSettingsName] = useState('')
   const [settingsStatus, setSettingsStatus] = useState('discovery')
   const [settingsDescription, setSettingsDescription] = useState('')
+  const [orgOptions, setOrgOptions] = useState<OrganizationOption[]>([])
+  const [targetOrgId, setTargetOrgId] = useState('')
+  const [movingProject, setMovingProject] = useState(false)
+  const [moveError, setMoveError] = useState<string | null>(null)
   const [savingSettings, setSavingSettings] = useState(false)
   const [settingsSaved, setSettingsSaved] = useState(false)
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
   const [userLoadError, setUserLoadError] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetch('/api/v1/organizations')
+      .then(r => r.json())
+      .then(body => setOrgOptions((body.data ?? []).filter((org: OrganizationOption) => org.type !== 'platform')))
+      .catch(() => setOrgOptions([]))
+  }, [])
+
+  useEffect(() => {
+    if (!project) return
+    setTargetOrgId(project.clientOrgId ?? project.orgId ?? '')
+  }, [project])
 
   useEffect(() => {
     // Project + docs: one-shot fetch
@@ -154,15 +184,7 @@ export default function ProjectDetailPage() {
         snap.docChanges().forEach(change => {
           const taskData = { id: change.doc.id, ...change.doc.data() } as Task
           if (change.type === 'added' || change.type === 'modified') {
-            setTasks(prev => {
-              const idx = prev.findIndex(t => t.id === taskData.id)
-              if (idx >= 0) {
-                const next = [...prev]
-                next[idx] = taskData
-                return next
-              }
-              return [...prev, taskData]
-            })
+            setTasks(prev => upsertTaskById(prev, taskData))
             setSelectedTask(prev => prev?.id === taskData.id ? taskData : prev)
           }
           if (change.type === 'removed') {
@@ -202,8 +224,13 @@ export default function ProjectDetailPage() {
     if (!deepLinkedTaskId) return
     const task = tasks.find(t => t.id === deepLinkedTaskId)
     if (!task) return
-    setActiveTab('kanban')
-    setSelectedTask(task)
+    let cancelled = false
+    queueMicrotask(() => {
+      if (cancelled) return
+      setActiveTab('kanban')
+      setSelectedTask(task)
+    })
+    return () => { cancelled = true }
   }, [deepLinkedTaskId, tasks])
 
   useEffect(() => {
@@ -257,6 +284,38 @@ export default function ProjectDetailPage() {
     setTimeout(() => setSettingsSaved(false), 2500)
   }
 
+  const handleMoveProject = async () => {
+    if (!project || !targetOrgId || targetOrgId === (project.clientOrgId ?? project.orgId)) return
+    const selectedOrg = orgOptions.find(org => org.id === targetOrgId)
+    const targetLabel = selectedOrg?.name ?? targetOrgId
+    const confirmed = window.confirm(`Move "${project.name}" to ${targetLabel}? This updates the project board, project tasks, standalone project tasks, unbilled time/expenses, and project calendar events. Billed financial records stay with the original client for audit history.`)
+    if (!confirmed) return
+
+    setMovingProject(true)
+    setMoveError(null)
+    try {
+      const res = await fetch(`/api/v1/projects/${projectId}/move`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetOrgId }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(body?.error ?? `Move failed (${res.status})`)
+      const result = body.data ?? {}
+      const nextSlug = result.targetOrgSlug || selectedOrg?.slug
+      if (nextSlug) {
+        router.push(`/admin/org/${nextSlug}/projects/${projectId}?moved=1`)
+        return
+      }
+      setProject(prev => prev ? { ...prev, orgId: targetOrgId, clientOrgId: targetOrgId } : null)
+      setMoveError(null)
+    } catch (err) {
+      setMoveError(err instanceof Error ? err.message : 'Failed to move project')
+    } finally {
+      setMovingProject(false)
+    }
+  }
+
   const handleSaveBrief = async () => {
     setSavingBrief(true)
     await fetch(`/api/v1/projects/${projectId}`, {
@@ -304,7 +363,7 @@ export default function ProjectDetailPage() {
   }
 
   function handleTaskCreated(task: Task) {
-    setTasks(prev => [...prev, task])
+    setTasks(prev => upsertTaskById(prev, task))
   }
 
   const columns = project?.columns?.length ? project.columns : DEFAULT_COLUMNS
@@ -820,6 +879,45 @@ export default function ProjectDetailPage() {
                   <span className="rounded-full border border-green-500/40 bg-green-500/10 px-3 py-1 text-xs text-green-300">Saved</span>
                 )}
               </div>
+            </div>
+            <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-5 shadow-sm">
+              <div className="flex items-start gap-3">
+                <span className="material-symbols-outlined mt-0.5 text-amber-300">move_up</span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] font-label uppercase tracking-widest text-amber-200/80">Admin transfer</p>
+                  <h3 className="mt-1 text-lg font-headline font-bold text-on-surface">Move project to another client</h3>
+                  <p className="mt-2 text-sm leading-6 text-on-surface-variant">
+                    Use this when a project was created under the wrong client. The move updates project visibility, project Kanban tasks, standalone tasks linked by projectId, unbilled time/expenses, and related calendar events. Billed financial records are left on the original client for audit safety.
+                  </p>
+                </div>
+              </div>
+              <div className="mt-5 grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+                <div>
+                  <label htmlFor="project-transfer-client" className="mb-2 block text-xs font-label uppercase tracking-widest text-on-surface-variant">Target client</label>
+                  <select
+                    id="project-transfer-client"
+                    value={targetOrgId}
+                    onChange={e => setTargetOrgId(e.target.value)}
+                    className="w-full rounded-xl border border-[var(--color-card-border)] bg-[var(--color-background)] px-4 py-3 text-sm text-on-surface focus:outline-none focus:border-[var(--color-accent-v2)]"
+                  >
+                    <option value="">Choose a client…</option>
+                    {orgOptions.map(org => (
+                      <option key={org.id} value={org.id}>{org.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleMoveProject}
+                  disabled={movingProject || !targetOrgId || targetOrgId === (project?.clientOrgId ?? project?.orgId)}
+                  className="rounded-xl border border-amber-400/50 px-4 py-3 text-sm font-label text-amber-100 transition-colors hover:bg-amber-400/10 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {movingProject ? 'Moving…' : 'Move Project'}
+                </button>
+              </div>
+              {moveError && (
+                <p className="mt-3 rounded-xl border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-100">{moveError}</p>
+              )}
             </div>
           </div>
         </div>

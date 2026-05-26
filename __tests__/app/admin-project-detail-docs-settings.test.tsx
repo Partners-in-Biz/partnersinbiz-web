@@ -23,9 +23,9 @@ jest.mock('@/lib/firebase/config', () => ({
 }))
 
 jest.mock('@/components/kanban/KanbanBoard', () => ({
-  KanbanBoard: ({ tasks }: { tasks: Array<{ title: string }> }) => (
+  KanbanBoard: ({ tasks }: { tasks: Array<{ id: string; title: string; columnId?: string }> }) => (
     <div data-testid="kanban-board">
-      {tasks.map(task => <div key={task.title}>{task.title}</div>)}
+      {tasks.map(task => <div key={`${task.id}-${task.columnId ?? 'none'}`} data-testid="kanban-task">{task.title}</div>)}
     </div>
   ),
 }))
@@ -35,7 +35,15 @@ jest.mock('@/components/kanban/TaskDetailPanel', () => ({
 }))
 
 jest.mock('@/components/kanban/TaskComposer', () => ({
-  TaskComposer: () => <div data-testid="task-composer" />,
+  TaskComposer: ({ open, onCreated }: { open: boolean; onCreated: (task: { id: string; title: string; columnId: string; order: number }) => void }) => open ? (
+    <button
+      type="button"
+      data-testid="task-composer"
+      onClick={() => onCreated({ id: 'task-live-duplicate', title: 'Live-created task', columnId: 'todo', order: 1 })}
+    >
+      Mock create task
+    </button>
+  ) : null,
 }))
 
 jest.mock('@/components/hermes/Chat', () => ({
@@ -302,6 +310,24 @@ describe('Admin project docs and settings tabs', () => {
     })
 
     expect(screen.getByText('Live kanban task survives fallback')).toBeInTheDocument()
+  })
+
+  it('deduplicates a created task when the Firestore listener wins the race before POST returns', async () => {
+    render(<ProjectDetailPage />)
+
+    await waitFor(() => expect(snapshotCallback).toBeTruthy())
+    mockSnapshotChange('added', 'task-live-duplicate', {
+      title: 'Live-created task',
+      columnId: 'todo',
+      order: 1,
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /New Task/i }))
+    fireEvent.click(screen.getByTestId('task-composer'))
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Live-created task')).toHaveLength(1)
+    })
   })
   it('defaults task list sorting to latest first and can toggle back to due date', async () => {
     render(<ProjectDetailPage />)

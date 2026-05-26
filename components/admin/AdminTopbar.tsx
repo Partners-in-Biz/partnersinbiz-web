@@ -44,9 +44,6 @@ export function AdminTopbar({ userEmail, userUid, orgId, onMenuClick, messageAct
           <span className="material-symbols-outlined text-[18px]">dock_to_right</span>
         </button>
         */}
-        <span className="hidden sm:inline text-xs font-mono text-[var(--color-pib-text-muted)] truncate max-w-[200px]">
-          {userEmail}
-        </span>
         <div className="w-8 h-8 rounded-full bg-[var(--color-pib-accent-soft)] border border-[var(--color-pib-line-strong)] flex items-center justify-center text-xs font-medium text-[var(--color-pib-accent-hover)]">
           {initials || '·'}
         </div>

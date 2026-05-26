@@ -14,6 +14,7 @@
 // on warnings too.
 
 import type { Block, EmailDocument } from '@/lib/email-builder/types'
+import { hasAmpBlocks } from '@/lib/email-builder/render-amp'
 
 export type PreflightSeverity = 'error' | 'warning' | 'info'
 
@@ -577,6 +578,18 @@ export async function runPreflight(input: PreflightInput): Promise<PreflightRepo
 
   // ── Document-block checks ─────────────────────────────────────────────────
   if (doc) {
+    if (hasAmpBlocks(doc)) {
+      issues.push(
+        issue(
+          'amp-send-fallback',
+          'info',
+          'AMP blocks will send as HTML fallback',
+          'This template contains AMP-for-Email blocks. PiB renders a valid AMP preview, but the current Resend/provider send path only accepts HTML and text parts, not a separate text/x-amp-html MIME part.',
+          'Keep the HTML fallback content complete. Interactive AMP sending is intentionally deferred until the provider layer supports raw AMP MIME safely.',
+          'document',
+        ),
+      )
+    }
     const walk = (blocks: Block[], path: string) => {
       blocks.forEach((b, idx) => {
         const here = `${path}block:${b.type}#${idx}`
