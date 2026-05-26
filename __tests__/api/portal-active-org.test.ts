@@ -100,4 +100,18 @@ describe('/api/v1/portal/active-org', () => {
     expect(res.status).toBe(403)
     expect(mockUserUpdate).not.toHaveBeenCalled()
   })
+
+  it('does not expose the platform-owner org as a client portal workspace for admins', async () => {
+    mockUserGet.mockResolvedValue({
+      exists: true,
+      data: () => ({ role: 'admin', orgId: 'pib-platform-owner' }),
+    })
+    mockMemberGet.mockResolvedValue({ docs: memberDocs(['pib-platform-owner', 'client-org']) })
+
+    const { GET } = await import('@/app/api/v1/portal/active-org/route')
+    const res = await GET(new NextRequest('http://localhost/api/v1/portal/active-org'))
+
+    expect(res.status).toBe(200)
+    await expect(res.json()).resolves.toEqual({ orgId: 'client-org' })
+  })
 })

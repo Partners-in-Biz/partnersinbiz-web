@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 
 interface PortalViewSwitchProps {
@@ -11,8 +11,46 @@ interface PortalViewSwitchProps {
 
 export function PortalViewSwitch({ orgId, collapsed = false, compact = false }: PortalViewSwitchProps) {
   const router = useRouter()
+  const [hasAccess, setHasAccess] = useState(false)
+  const [checkingAccess, setCheckingAccess] = useState(true)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+
+  useEffect(() => {
+    let cancelled = false
+    setHasAccess(false)
+    setCheckingAccess(true)
+    setError('')
+
+    async function checkAccess() {
+      if (!orgId) {
+        if (!cancelled) setCheckingAccess(false)
+        return
+      }
+
+      try {
+        const res = await fetch('/api/v1/portal/orgs')
+        if (!res.ok) {
+          if (!cancelled) setCheckingAccess(false)
+          return
+        }
+        const body = await res.json().catch(() => ({}))
+        const accessible = Array.isArray(body?.orgs)
+          && body.orgs.some((org: { id?: unknown }) => org.id === orgId)
+        if (!cancelled) {
+          setHasAccess(accessible)
+          setCheckingAccess(false)
+        }
+      } catch {
+        if (!cancelled) setCheckingAccess(false)
+      }
+    }
+
+    checkAccess()
+    return () => {
+      cancelled = true
+    }
+  }, [orgId])
 
   async function switchToPortal() {
     if (!orgId || loading) return
@@ -40,6 +78,8 @@ export function PortalViewSwitch({ orgId, collapsed = false, compact = false }: 
       setLoading(false)
     }
   }
+
+  if (checkingAccess || !hasAccess) return null
 
   if (compact) {
     return (

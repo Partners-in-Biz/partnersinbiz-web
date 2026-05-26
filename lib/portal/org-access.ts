@@ -16,22 +16,25 @@ function isAdminUser(data: PortalUserData): boolean {
   return cleanString(data.role) === 'admin'
 }
 
+function canIncludePortalOrg(data: PortalUserData, orgId: string): boolean {
+  return !isAdminUser(data) || orgId !== PIB_PLATFORM_ORG_ID
+}
+
 function userLinkedOrgIds(data: PortalUserData): string[] {
   const ids = new Set<string>()
-  const isAdmin = isAdminUser(data)
 
   if (Array.isArray(data.orgIds)) {
     for (const value of data.orgIds) {
       const orgId = cleanString(value)
-      if (orgId && (!isAdmin || orgId !== PIB_PLATFORM_ORG_ID)) ids.add(orgId)
+      if (orgId && canIncludePortalOrg(data, orgId)) ids.add(orgId)
     }
   }
 
   const activeOrgId = cleanString(data.activeOrgId)
-  if (activeOrgId && !isAdmin) ids.add(activeOrgId)
+  if (activeOrgId && canIncludePortalOrg(data, activeOrgId)) ids.add(activeOrgId)
 
   const primaryOrgId = cleanString(data.orgId)
-  if (primaryOrgId && (!isAdmin || primaryOrgId !== PIB_PLATFORM_ORG_ID)) {
+  if (primaryOrgId && canIncludePortalOrg(data, primaryOrgId)) {
     ids.add(primaryOrgId)
   }
 
@@ -67,7 +70,9 @@ export function choosePortalActiveOrgId(data: PortalUserData, orgIds: string[]):
 
 export async function getPortalOrgIdsForUser(uid: string, data: PortalUserData): Promise<string[]> {
   const ids = new Set(userLinkedOrgIds(data))
-  for (const orgId of await orgMemberOrgIds(uid)) ids.add(orgId)
+  for (const orgId of await orgMemberOrgIds(uid)) {
+    if (canIncludePortalOrg(data, orgId)) ids.add(orgId)
+  }
   return Array.from(ids)
 }
 
@@ -83,6 +88,7 @@ export async function resolvePortalActiveOrgId(uid: string, data: PortalUserData
 export async function canUsePortalOrg(uid: string, data: PortalUserData, orgId: string): Promise<boolean> {
   const requestedOrgId = cleanString(orgId)
   if (!requestedOrgId) return false
+  if (!canIncludePortalOrg(data, requestedOrgId)) return false
   if (userLinkedOrgIds(data).includes(requestedOrgId)) return true
   const memberOrgIds = await orgMemberOrgIds(uid)
   return memberOrgIds.includes(requestedOrgId)
