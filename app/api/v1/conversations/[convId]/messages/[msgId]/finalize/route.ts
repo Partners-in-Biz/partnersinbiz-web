@@ -86,18 +86,23 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
   // Fetch run status from Hermes
   const { response, data } = await callHermesJson(agentLink, `/v1/runs/${encodeURIComponent(runId)}`)
   if (!response.ok) {
-    // 404 = run expired or never found — mark message as failed so UI stops polling
+    // 404 usually means the profile gateway restarted and lost process-local run state.
+    // Treat it as a terminal interrupted run instead of asking the user to blindly resend,
+    // because the vanished run may already have performed side effects.
     if (response.status === 404) {
+      const lostRunMessage = 'The agent gateway lost this run, likely after a restart. Streamed progress was preserved; start a deliberate follow-up if needed.'
       await messagesCollection(convId).doc(msgId).update({
-        content: '',
+        content: lostRunMessage,
         status: 'failed',
-        error: 'The agent gateway no longer has this run. Please send the message again.',
+        error: lostRunMessage,
         runId,
+        ...(events.length > 0 ? { events } : {}),
       })
+      await touchConversation(convId, `[run interrupted] ${lostRunMessage}`.slice(0, 200), 'assistant')
       return apiSuccess({
-        status: 'failed',
-        content: '',
-        error: 'The agent gateway no longer has this run. Please send the message again.',
+        status: 'interrupted',
+        content: lostRunMessage,
+        error: lostRunMessage,
         runId,
       })
     }
@@ -120,14 +125,16 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
     return apiSuccess({ status, content: output, runId })
   }
 
-  if (status === 'failed' || status === 'cancelled' || status === 'canceled' || status === 'stopped') {
+  if (status === 'failed' || status === 'cancelled' || status === 'canceled' || status === 'stopped' || status === 'interrupted') {
     await messagesCollection(convId).doc(msgId).update({
       content: error || `Run ${status}`,
       status: 'failed',
       error: error ?? null,
       runId,
+      ...(events.length > 0 ? { events } : {}),
     })
-    return apiSuccess({ status, content: error || `Run ${status}`, runId })
+    await touchConversation(convId, `[run ${status}] ${error || ''}`.slice(0, 200), 'assistant')
+    return apiSuccess({ status, content: error || `Run ${status}`, error, runId })
   }
 
   if (status === 'waiting_for_approval' || status === 'approval_required') {
