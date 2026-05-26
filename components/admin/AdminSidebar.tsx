@@ -7,6 +7,7 @@ import { useEffect } from 'react'
 import { OrgSwitcher } from './OrgSwitcher'
 // import GlobalSearch from './GlobalSearch'
 import { useOrg } from '@/lib/contexts/OrgContext'
+import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
 import { OPERATOR_NAV, workspaceNav, type NavItem } from './navConfig'
 import { PortalViewSwitch } from './PortalViewSwitch'
 
@@ -75,6 +76,8 @@ export function AdminSidebar({ open = false, onClose, collapsed = false, onToggl
   const selectedOrg = routeOrg ?? orgs.find((o) => o.id === selectedOrgId)
   const workspaceSlug = routeOrgSlug ?? selectedOrg?.slug
   const isWorkspaceMode = !!workspaceSlug
+  const isPlatformWorkspace = selectedOrg?.type === 'platform_owner' || selectedOrg?.id === PIB_PLATFORM_ORG_ID
+  const workspaceLabel = isPlatformWorkspace ? 'Platform' : 'Client'
 
   const navItems = isWorkspaceMode ? workspaceNav(workspaceSlug) : OPERATOR_NAV
   const groupedNav = (['work', 'data', 'comms'] as const).map((group) => ({
@@ -144,7 +147,7 @@ export function AdminSidebar({ open = false, onClose, collapsed = false, onToggl
                 )}
               </div>
               <span className={['ml-auto pill !text-[10px] !py-0.5 !px-2', isWorkspaceMode ? 'pill-accent' : ''].join(' ')}>
-                {isWorkspaceMode ? 'Client' : 'Admin'}
+                {isWorkspaceMode ? workspaceLabel : 'Admin'}
               </span>
             </>
           )}
@@ -190,7 +193,7 @@ export function AdminSidebar({ open = false, onClose, collapsed = false, onToggl
         {/* Navigation */}
         {!collapsed && (
           <div className="px-3 pt-3 pb-1">
-            <p className="eyebrow !text-[9px] px-2 mb-2">{isWorkspaceMode ? 'Client view' : 'Navigation'}</p>
+            <p className="eyebrow !text-[9px] px-2 mb-2">{isWorkspaceMode ? `${workspaceLabel} view` : 'Navigation'}</p>
           </div>
         )}
         <nav className={['flex-1 space-y-1', collapsed ? 'px-2 pt-3' : 'px-3'].join(' ')}>

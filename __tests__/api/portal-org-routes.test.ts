@@ -47,6 +47,7 @@ describe('portal org routes', () => {
         data: () => ({
           name: 'Client Org',
           slug: 'client-org',
+          type: 'client',
           logoUrl: '/logo.png',
         }),
       }),
@@ -57,7 +58,7 @@ describe('portal org routes', () => {
 
     expect(res.status).toBe(200)
     await expect(res.json()).resolves.toMatchObject({
-      org: { id: 'client-org', name: 'Client Org', slug: 'client-org' },
+      org: { id: 'client-org', name: 'Client Org', slug: 'client-org', type: 'client' },
       user: { uid: 'admin-1', role: 'admin' },
     })
   })
@@ -76,6 +77,7 @@ describe('portal org routes', () => {
         data: () => ({
           name: id === 'client-a' ? 'Client A' : 'Client B',
           slug: id === 'client-a' ? 'client-a' : 'client-b',
+          type: 'client',
           logoUrl: '',
         }),
       }),
@@ -88,8 +90,8 @@ describe('portal org routes', () => {
     await expect(res.json()).resolves.toEqual({
       activeOrgId: 'client-b',
       orgs: [
-        { id: 'client-a', name: 'Client A', slug: 'client-a', logoUrl: '' },
-        { id: 'client-b', name: 'Client B', slug: 'client-b', logoUrl: '' },
+        { id: 'client-a', name: 'Client A', slug: 'client-a', type: 'client', logoUrl: '' },
+        { id: 'client-b', name: 'Client B', slug: 'client-b', type: 'client', logoUrl: '' },
       ],
     })
   })

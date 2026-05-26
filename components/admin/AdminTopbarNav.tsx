@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation'
 import { useState, useEffect, useRef } from 'react'
 import type { ReactNode } from 'react'
 import { useOrg } from '@/lib/contexts/OrgContext'
+import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
 import { OrgSwitcher } from './OrgSwitcher'
 import { NotificationBell } from '@/components/crm/NotificationBell'
 import { PortalViewSwitch } from './PortalViewSwitch'
@@ -134,6 +135,8 @@ export function AdminTopbarNav({ userEmail, userUid, orgId, messageAction }: Adm
   const routeOrg = routeOrgSlug ? orgs.find((o) => o.slug === routeOrgSlug) : undefined
   const selectedOrg = routeOrg ?? orgs.find((o) => o.id === selectedOrgId)
   const isWorkspaceMode = !!selectedOrg
+  const isPlatformWorkspace = selectedOrg?.type === 'platform_owner' || selectedOrg?.id === PIB_PLATFORM_ORG_ID
+  const workspaceLabel = isPlatformWorkspace ? 'Platform' : 'Client'
   const navItems = isWorkspaceMode ? workspaceNav(selectedOrg.slug) : OPERATOR_NAV_TOPBAR
 
   const initials = userEmail.split(/[.\s@]/).filter(Boolean).slice(0, 2).map((s) => s[0]?.toUpperCase()).join('')
@@ -153,7 +156,7 @@ export function AdminTopbarNav({ userEmail, userUid, orgId, messageAction }: Adm
             <Image src="/pib-logo-512.png" alt="Partners in Biz" width={24} height={24} className="rounded-md object-contain" />
             <span className="hidden sm:block font-display text-base leading-none">Partners in Biz</span>
             <span className={['pill !text-[10px] !py-0.5 !px-2', isWorkspaceMode ? 'pill-accent' : ''].join(' ')}>
-              {isWorkspaceMode ? 'Client' : 'Admin'}
+              {isWorkspaceMode ? workspaceLabel : 'Admin'}
             </span>
           </Link>
 

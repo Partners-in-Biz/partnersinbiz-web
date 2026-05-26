@@ -15,6 +15,7 @@ import { SettingsNav } from '@/components/settings/SettingsNav'
 import { SupportDrawer } from '@/components/support/SupportDrawer'
 import { NotificationBell } from '@/components/crm/NotificationBell'
 import { MessageDrawer } from '@/components/chat/MessageDrawer'
+import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
 
 const PORTAL_MATERIAL_SYMBOLS =
   'https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap'
@@ -110,6 +111,7 @@ interface PortalOrgOption {
   id: string
   name: string
   slug: string
+  type?: string
   logoUrl: string
 }
 
@@ -166,6 +168,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
   const [orgs, setOrgs] = useState<PortalOrgOption[]>([])
   const [activeOrgId, setActiveOrgId] = useState('')
   const [activeOrgSlug, setActiveOrgSlug] = useState('')
+  const [activeOrgType, setActiveOrgType] = useState('')
   const [userRole, setUserRole] = useState('')
   const [orgSwitching, setOrgSwitching] = useState(false)
   const [memberRole, setMemberRole] = useState<string | null>(null)
@@ -211,6 +214,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
               if (d?.org?.name) setOrgName(d.org.name)
               if (d?.org?.id) setActiveOrgId(d.org.id)
               if (d?.org?.slug) setActiveOrgSlug(d.org.slug)
+              if (d?.org?.type) setActiveOrgType(d.org.type)
               if (d?.user?.role) setUserRole(d.user.role)
             })
             .catch(() => {})
@@ -223,6 +227,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
                 ? d.orgs.find((org: PortalOrgOption) => org.id === d.activeOrgId)
                 : null
               if (activeOrg?.slug) setActiveOrgSlug(activeOrg.slug)
+              if (activeOrg?.type) setActiveOrgType(activeOrg.type)
             })
             .catch(() => {})
           fetch('/api/v1/portal/settings/profile')
@@ -293,6 +298,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
       if (switched) {
         setOrgName(switched.name)
         setActiveOrgSlug(switched.slug)
+        setActiveOrgType(switched.type ?? '')
       }
       router.refresh()
     } finally {
@@ -333,6 +339,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
   const initials = (name || email).split(/[.\s@]/).filter(Boolean).slice(0, 2).map(s => s[0]?.toUpperCase()).join('')
   const canOpenAdminView = userRole === 'admin' && !!activeOrgSlug
   const adminViewHref = activeOrgSlug ? `/admin/org/${activeOrgSlug}/dashboard` : '/admin/dashboard'
+  const portalWorkspaceLabel = activeOrgType === 'platform_owner' || activeOrgId === PIB_PLATFORM_ORG_ID ? 'Platform' : 'Client'
 
   const tracker = (
     <>
@@ -356,7 +363,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
             <Link href="/portal/dashboard" className="flex items-center gap-2 shrink-0 mr-2">
               <Image src="/pib-logo-512.png" alt="Partners in Biz" width={24} height={24} className="rounded-md object-contain" />
               <span className="hidden sm:block font-display text-base leading-none">Partners in Biz</span>
-              <span className="pill !text-[10px] !py-0.5 !px-2">Client</span>
+              <span className="pill !text-[10px] !py-0.5 !px-2">{portalWorkspaceLabel}</span>
             </Link>
 
             <div className="w-px h-5 bg-[var(--color-pib-line)] shrink-0 hidden md:block" />
@@ -548,7 +555,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
                 <span className="font-display text-base leading-tight">Partners in Biz</span>
                 {orgName && <span className="text-[11px] text-[var(--color-pib-text-muted)] truncate leading-tight mt-0.5">{orgName}</span>}
               </div>
-              <span className="ml-auto pill !text-[10px] !py-0.5 !px-2 shrink-0">Client</span>
+              <span className="ml-auto pill !text-[10px] !py-0.5 !px-2 shrink-0">{portalWorkspaceLabel}</span>
             </>
           )}
         </Link>
