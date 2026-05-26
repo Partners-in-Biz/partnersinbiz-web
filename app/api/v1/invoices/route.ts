@@ -74,6 +74,15 @@ function normalizeEmail(value: unknown): string {
   return cleanString(value).toLowerCase()
 }
 
+function explicitAdminOrgIds(user: { allowedOrgIds?: string[] | null }): string[] {
+  if (!Array.isArray(user.allowedOrgIds) || user.allowedOrgIds.length === 0) return []
+  const ids = new Set<string>()
+  for (const orgId of user.allowedOrgIds) {
+    if (orgId) ids.add(orgId)
+  }
+  return Array.from(ids)
+}
+
 function invoiceLooksLikeLegacyPlatformBill(invoice: InvoiceListItem, recipientOrgId: string, platformOrgId: string): boolean {
   if (invoice.recipientOrgId || invoice.targetOrgId) return false
   if (invoice.orgId !== recipientOrgId) return false
@@ -208,7 +217,9 @@ export const GET = withAuth('client', async (req, user) => {
       if (!canAccessOrg(user, orgId)) return apiError('Forbidden', 403)
       query = query.where(orgField, '==', orgId)
     } else if (user.role === 'admin') {
-      const allowedOrgIds = restrictedAdminOrgIds(user)
+      const allowedOrgIds = billingOrgId && view === 'received'
+        ? explicitAdminOrgIds(user)
+        : restrictedAdminOrgIds(user)
       if (allowedOrgIds.length > 0) {
         if (allowedOrgIds.length <= 30 && !billingOrgId) {
           query = query.where(orgField, 'in', allowedOrgIds)

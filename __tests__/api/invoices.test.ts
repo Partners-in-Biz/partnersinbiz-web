@@ -153,6 +153,50 @@ describe('GET /api/v1/invoices', () => {
     expect(body.data.map((invoice: { id: string }) => invoice.id)).toEqual(['new', 'old'])
   })
 
+  it('filters platform billing invoices for restricted admins by recipient org', async () => {
+    mockUser = { uid: 'admin-1', role: 'admin', orgId: 'pib-platform-owner', allowedOrgIds: ['client-org-1'] }
+    mockInvoiceGet.mockResolvedValue({
+      docs: [
+        {
+          id: 'allowed-recipient',
+          data: () => ({
+            billingOrgId: 'pib-platform-owner',
+            recipientOrgId: 'client-org-1',
+            invoiceNumber: 'INV-001',
+            createdAt: { seconds: 30 },
+          }),
+        },
+        {
+          id: 'unassigned-recipient',
+          data: () => ({
+            billingOrgId: 'pib-platform-owner',
+            recipientOrgId: 'client-org-2',
+            invoiceNumber: 'INV-002',
+            createdAt: { seconds: 20 },
+          }),
+        },
+        {
+          id: 'platform-home-recipient',
+          data: () => ({
+            billingOrgId: 'pib-platform-owner',
+            recipientOrgId: 'pib-platform-owner',
+            invoiceNumber: 'INV-003',
+            createdAt: { seconds: 10 },
+          }),
+        },
+      ],
+    })
+
+    const { GET } = await import('@/app/api/v1/invoices/route')
+    const req = new NextRequest('http://localhost/api/v1/invoices?billingOrgId=pib-platform-owner&view=received')
+    const res = await GET(req)
+
+    expect(res.status).toBe(200)
+    expect(mockInvoiceWhere).toHaveBeenCalledWith('billingOrgId', '==', 'pib-platform-owner')
+    const body = await res.json()
+    expect(body.data.map((invoice: { id: string }) => invoice.id)).toEqual(['allowed-recipient'])
+  })
+
   it('keeps combined org and billing filters index-free by applying billingOrgId in memory', async () => {
     mockInvoiceGet.mockResolvedValue({
       docs: [

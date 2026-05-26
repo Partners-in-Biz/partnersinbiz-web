@@ -4,8 +4,10 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { EmptyState, PageHeader, StatusPill, Surface } from '@/components/ui/AppFoundation'
+import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
 
 type InvoiceStatus = 'draft' | 'sent' | 'viewed' | 'paid' | 'overdue' | 'cancelled'
+type SerializedDate = Date | string | number | { _seconds?: number; seconds?: number; toDate?: () => Date } | null
 
 interface Invoice {
   id: string
@@ -14,9 +16,16 @@ interface Invoice {
   status: InvoiceStatus
   total: number
   currency: string
-  issueDate?: any
-  dueDate?: any
-  paidAt?: any
+  issueDate?: SerializedDate
+  dueDate?: SerializedDate
+  paidAt?: SerializedDate
+}
+
+interface OrgSummary {
+  id: string
+  slug?: string
+  name?: string
+  type?: string
 }
 
 function Skeleton({ className = '' }: { className?: string }) {
@@ -36,10 +45,60 @@ function formatCurrency(amount: number, currency: string) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(amount)
 }
 
-function formatDate(ts: any) {
+function formatDate(ts: SerializedDate | undefined) {
   if (!ts) return '—'
-  const d = ts._seconds ? new Date(ts._seconds * 1000) : new Date(ts)
+  if (ts instanceof Date) {
+    return ts.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  }
+  if (typeof ts === 'object') {
+    if (typeof ts.toDate === 'function') {
+      return ts.toDate().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    }
+    const seconds = ts._seconds ?? ts.seconds
+    if (typeof seconds === 'number') {
+      return new Date(seconds * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    }
+    return '—'
+  }
+  const d = new Date(ts)
+  if (Number.isNaN(d.getTime())) return '—'
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+const PLATFORM_OWNER_SLUGS = new Set(['partners-in-biz', PIB_PLATFORM_ORG_ID])
+
+function isPlatformOwnerSlug(slug?: string) {
+  return Boolean(slug && PLATFORM_OWNER_SLUGS.has(slug))
+}
+
+function isPlatformOwnerOrg(org: OrgSummary, slug?: string) {
+  return org.type === 'platform_owner' ||
+    org.id === PIB_PLATFORM_ORG_ID ||
+    isPlatformOwnerSlug(slug) ||
+    isPlatformOwnerSlug(org.slug)
+}
+
+function fallbackPlatformOwnerOrg(slug: string): OrgSummary | null {
+  if (!isPlatformOwnerSlug(slug)) return null
+  return {
+    id: PIB_PLATFORM_ORG_ID,
+    slug,
+    name: 'Partners in Biz',
+    type: 'platform_owner',
+  }
+}
+
+function invoiceListUrlForOrg(org: OrgSummary, slug: string) {
+  const params = new URLSearchParams()
+  params.set('view', 'received')
+
+  if (isPlatformOwnerOrg(org, slug)) {
+    params.set('billingOrgId', org.id || PIB_PLATFORM_ORG_ID)
+  } else {
+    params.set('orgId', org.id)
+  }
+
+  return `/api/v1/invoices?${params.toString()}`
 }
 
 export default function BillingPage() {
@@ -48,23 +107,32 @@ export default function BillingPage() {
 
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [orgId, setOrgId] = useState<string>('')
+  const [isPlatformBilling, setIsPlatformBilling] = useState(false)
   const [loading, setLoading] = useState(true)
 
   // Fetch org then invoices
   useEffect(() => {
     const fetchOrgAndInvoices = async () => {
       try {
+        setLoading(true)
+        setInvoices([])
+
         // Look up org by slug from the organizations list
         const orgsRes = await fetch('/api/v1/organizations')
         if (!orgsRes.ok) throw new Error('Failed to fetch organisations')
         const orgsBody = await orgsRes.json()
-        const foundOrg = (orgsBody.data ?? []).find((o: any) => o.slug === slug)
+        const foundOrg = ((orgsBody.data ?? []) as OrgSummary[]).find((o) => o.slug === slug) ??
+          fallbackPlatformOwnerOrg(slug)
         if (!foundOrg) throw new Error('Organisation not found')
 
+        const platformBilling = isPlatformOwnerOrg(foundOrg, slug)
         setOrgId(foundOrg.id)
+        setIsPlatformBilling(platformBilling)
 
-        // Fetch invoices scoped to this org
-        const invoicesRes = await fetch(`/api/v1/invoices?orgId=${foundOrg.id}`)
+        // Client workspaces list invoices received by that client.
+        // The PiB billing workspace lists PiB-issued invoices, then the API
+        // filters restricted admins by their allowed recipient client orgs.
+        const invoicesRes = await fetch(invoiceListUrlForOrg(foundOrg, slug))
         if (invoicesRes.ok) {
           const invoicesData = await invoicesRes.json()
           setInvoices(invoicesData.data ?? [])
@@ -88,6 +156,9 @@ export default function BillingPage() {
     .reduce((sum, inv) => sum + (inv.total ?? 0), 0)
 
   const currency = invoices[0]?.currency ?? 'USD'
+  const newInvoiceHref = isPlatformBilling || !orgId
+    ? '/admin/invoicing/new'
+    : `/admin/invoicing/new?orgId=${encodeURIComponent(orgId)}`
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
@@ -97,7 +168,7 @@ export default function BillingPage() {
         description="Invoice pipeline, outstanding balances, and paid revenue for this workspace."
         actions={(
           <Link
-            href={`/admin/invoicing/new?orgId=${orgId}`}
+            href={newInvoiceHref}
             className="pib-btn-primary text-sm font-label"
           >
             + New Invoice
@@ -177,7 +248,7 @@ export default function BillingPage() {
             description="Create the first invoice for this workspace when billing is ready."
             action={(
               <Link
-                href={`/admin/invoicing/new?orgId=${orgId}`}
+                href={newInvoiceHref}
                 className="pib-btn-primary text-sm font-label"
               >
                 Create Invoice
