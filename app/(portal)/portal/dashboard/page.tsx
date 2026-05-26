@@ -280,6 +280,7 @@ interface CampaignStats {
 
 export default function PortalDashboard() {
   const [portalOrg, setPortalOrg] = useState<PortalOrg | null>(null)
+  const [portalOrgLoaded, setPortalOrgLoaded] = useState(false)
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
   const [projects, setProjects] = useState<Project[]>([])
@@ -301,6 +302,7 @@ export default function PortalDashboard() {
       .then((r) => (r.ok ? r.json() : null))
       .then((body) => setPortalOrg(body?.org ?? null))
       .catch(() => setPortalOrg(null))
+      .finally(() => setPortalOrgLoaded(true))
   }, [])
 
   useEffect(() => {
@@ -319,16 +321,20 @@ export default function PortalDashboard() {
   }, [])
 
   useEffect(() => {
-    fetch('/api/v1/social/stats')
+    if (!portalOrg?.id) return
+
+    fetch(`/api/v1/social/stats?orgId=${encodeURIComponent(portalOrg.id)}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((body) => setSocialStats(body?.data ?? null))
       .catch(() => setSocialStats(null))
       .finally(() => setSocialLoading(false))
-  }, [])
+  }, [portalOrg?.id])
 
   useEffect(() => {
+    if (!portalOrg?.id) return
+
     const { from, to } = todayRange()
-    fetch(`/api/v1/social/posts?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&limit=50`)
+    fetch(`/api/v1/social/posts?orgId=${encodeURIComponent(portalOrg.id)}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&limit=50`)
       .then((r) => (r.ok ? r.json() : null))
       .then((body) => {
         const posts = ((body?.data ?? []) as ScheduledContentPost[])
@@ -337,7 +343,7 @@ export default function PortalDashboard() {
       })
       .catch(() => setScheduledPosts([]))
       .finally(() => setScheduledLoading(false))
-  }, [])
+  }, [portalOrg?.id])
 
   useEffect(() => {
     fetch('/api/v1/crm/dashboard')
@@ -351,6 +357,8 @@ export default function PortalDashboard() {
   }, [])
 
   useEffect(() => {
+    if (!portalOrg?.id) return
+
     // Total contacts — read meta.total
     fetch('/api/v1/crm/contacts?limit=1')
       .then((r) => (r.ok ? r.json() : null))
@@ -363,7 +371,7 @@ export default function PortalDashboard() {
       .catch(() => {})
 
     // Active campaigns
-    fetch('/api/v1/campaigns?status=active')
+    fetch(`/api/v1/campaigns?status=active&orgId=${encodeURIComponent(portalOrg.id)}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((b) => {
         if (b) {
@@ -383,11 +391,11 @@ export default function PortalDashboard() {
         }
       })
       .catch(() => {})
-  }, [])
+  }, [portalOrg?.id])
 
   const noData = !loading && (!data || (data?.connections?.length ?? 0) === 0)
   const activeProjects = projects.filter(p => ['active', 'in_progress', 'development', 'review', 'live', 'maintenance'].includes(p.status))
-  const workspaceLoading = loading || projectsLoading || socialLoading
+  const workspaceLoading = !portalOrgLoaded || loading || projectsLoading || socialLoading
   const orgName = portalOrg?.name?.trim() || 'your workspace'
   const orgSlug = portalOrg?.slug?.trim() || 'workspace'
   const statusDonut = socialStats ? [
