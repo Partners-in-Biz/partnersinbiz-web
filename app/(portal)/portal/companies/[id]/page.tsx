@@ -80,7 +80,7 @@ export default function CompanyDetailPage() {
         throw new Error(body.error ?? `HTTP ${res.status}`)
       }
       const body = await res.json()
-      setCompany(body.data ?? body)
+      setCompany(body.data?.company ?? body.data ?? body)
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to load company')
     } finally {
