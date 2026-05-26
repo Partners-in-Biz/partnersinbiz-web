@@ -282,12 +282,7 @@ export async function requestAgentMailboxSend(input: AgentMailboxSendRequestInpu
   requestPayload.status = sendResult.ok ? (sendResult.dryRun ? 'dry_run' : 'sent') : 'failed'
   requestPayload.sendResult = sendResult
   requestPayload.updatedAt = now
+  await ref.update({ status: requestPayload.status, sendResult, updatedAt: now })
   await writeToolEvent(input, actor, { action: 'send_request_accepted', requestId: ref.id, accountId: input.accountId, recipientCount: to.length, status: requestPayload.status })
-  const stored = adminDb.collection('mailbox_send_requests').doc(ref.id)
-  if (stored && typeof stored === 'object' && 'set' in stored && typeof (stored as { set?: unknown }).set === 'function') {
-    await (stored as unknown as { set: (data: Record<string, unknown>, options?: { merge?: boolean }) => Promise<unknown> }).set({ status: requestPayload.status, sendResult, updatedAt: now }, { merge: true })
-  } else {
-    // Unit-test collection mocks expose the added object by reference; production uses the set path above.
-  }
   return { requestId: ref.id, sendResult }
 }
