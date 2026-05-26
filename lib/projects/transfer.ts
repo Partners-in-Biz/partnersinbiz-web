@@ -1,4 +1,4 @@
-import { FieldValue, type Firestore } from 'firebase-admin/firestore'
+import { FieldValue, type DocumentReference, type Firestore } from 'firebase-admin/firestore'
 
 type FirestoreLike = Pick<Firestore, 'collection' | 'batch'>
 
@@ -104,7 +104,7 @@ export async function moveProjectToClientOrg(input: MoveProjectInput): Promise<M
     operations = 0
   }
 
-  const enqueueUpdate = async (ref: unknown, data: Record<string, unknown>) => {
+  const enqueueUpdate = async (ref: DocumentReference, data: Record<string, unknown>) => {
     batch.update(ref, data)
     operations += 1
     await commitIfNeeded(false)
