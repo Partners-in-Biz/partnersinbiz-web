@@ -59,12 +59,14 @@ When debugging "You do not have access to this organisation", first check explic
 
 Client organizations and members are mirrored into the Partners in Biz platform-owner CRM:
 
-- One Company per client org in `pib-platform-owner`, deduped by `linkedOrgId` then normalized name/domain.
-- One Contact per active real client member, deduped by `linkedUserId` then email, linked to the Company by `companyId`.
-- Internal `@partnersinbiz.online` staff are skipped as client contacts when backfilling client orgs.
+- One CRM Company per client org in `pib-platform-owner`, deduped by `linkedOrgId` first, then normalized name/domain.
+- One CRM Contact per active real client member, deduped by `linkedUserId` first, then email, linked to that Company by `companyId` and `linkedOrgId`.
+- Client setup is not complete until the tenant org, its platform CRM Company, and its real member Contacts are in sync. Do not rely on the legacy `/clients` collection as the client/account source of truth.
+- Internal `@partnersinbiz.online` staff can be explicit portal members for support/admin access, but they are skipped as client Contacts during backfills and should not be counted as client stakeholders.
 - Member removal marks the platform Contact inactive/former instead of deleting relationship history.
+- PiB-issued invoices, quotes, projects, and reports should reuse the platform CRM Company (`companyId` / `sourceCompanyId`) whose `linkedOrgId=<clientOrgId>` and the platform CRM Contact (`contactId` / `sourceContactId`) whose `linkedUserId=<client user id>` when a specific stakeholder is involved.
 
-App code should use `lib/platform-owner/relationships.ts`; existing-data repair uses `scripts/backfill-platform-owner-crm-relationships.ts` in dry-run mode before `--commit`.
+App code should use `lib/platform-owner/relationships.ts`; existing-data repair uses `scripts/backfill-platform-owner-crm-relationships.ts` in dry-run mode before `--commit`, then `scripts/backfill-platform-owner-resource-company-links.ts` to attach existing PiB-issued resources to the Company links.
 
 ## Collaboration primitives
 
@@ -121,6 +123,8 @@ Response (201): `{ "id": "org_xyz", "slug": "acme-corp" }`
 
 The creating user is added as `{ userId, role: 'owner' }` in `members`.
 
+Client-org creation should also ensure the platform-owner CRM Company exists for the org (`companies.orgId=pib-platform-owner`, `companies.linkedOrgId=<ORG_ID>`). If the route does not return the Company id, verify through CRM or run the platform-owner relationship backfill before creating PiB-issued invoices, quotes, or projects for the client.
+
 #### `GET /organizations/[id]` — auth: admin
 Full org document including `members[]`, `settings`, `brandProfile`, `billingDetails`.
 
@@ -144,6 +148,8 @@ If the user exists in Firebase Auth, they're added directly. If not, the route c
 
 If the user is an existing PiB staff/admin account, this also grants explicit client-portal access for that organization by updating `orgMembers` and mirroring the org into `users.orgIds`; it does not change the user's primary platform-owner account.
 
+Adding a real client member should sync a platform-owner CRM Contact linked to the client's Company (`contacts.linkedUserId=<uid>`, `contacts.linkedOrgId=<orgId>`, `contacts.companyId=<companyId>`). If the member is PiB internal staff, grant portal access but do not treat them as the client Contact for billing/project handoff.
+
 #### `GET /organizations/[id]/members/[userId]` — auth: admin
 Get a single member with user details.
 
@@ -161,7 +167,9 @@ Returns billing/subscription account details for the org (platform-owner-only re
 ### Link client
 
 #### `POST /organizations/[id]/link-client` — auth: admin
-Associate a CRM contact/client with an org. Body: `{ clientId: string }`. Sets `linkedClientId` on org. Useful when a contact converts to a paying org.
+Legacy association route. Body: `{ clientId: string }`. Sets `linkedClientId` on the org for backwards compatibility with old client/contact records.
+
+For current setup, the durable relationship is the platform-owner CRM Company/Contact link: `companies.linkedOrgId=<orgId>` and member `contacts.linkedUserId=<uid>` / `contacts.linkedOrgId=<orgId>`. Use `link-client` only when you must preserve an older `/clients` record reference.
 
 Response: `{ orgId, clientId, linked: true }`.
 
@@ -175,11 +183,11 @@ Provision a portal login for a client user. Body:
 
 Creates a Firebase Auth user (or links an existing one) and adds them to `members`. Sends a welcome email with a sign-in link. Returns `{ userId, inviteSent: true }`.
 
-New client logins and member updates should also keep the PiB platform-owner CRM Company/Contact relationship current through the platform CRM sync helper.
+New client logins and member updates should also keep the PiB platform-owner CRM Company/Contact relationship current through the platform CRM sync helper. After creating the primary login, verify the client has exactly one current platform CRM Company and that the primary stakeholder Contact is linked to it.
 
-### Clients (legacy/simple list)
+### Clients (legacy/simple list — not the client setup source of truth)
 
-A lightweight "contact-of-contacts" collection used by the admin UI. For full CRM power, use the `crm-sales` skill's `/crm/contacts`.
+A lightweight legacy "contact-of-contacts" collection used by older admin UI paths. Do not use it as the canonical client/account record for new setup. Current setup uses `organizations` for tenants plus platform-owner CRM `companies`/`contacts` for the business and people links. For full CRM power, use the `crm-sales` skill's `/crm/contacts` and `/crm/companies`.
 
 #### `GET /clients` — auth: admin
 List all clients ordered by `createdAt desc`.
@@ -534,6 +542,10 @@ POST /organizations
 { "name": "Acme Corp", "type": "client", "industry": "SaaS", "billingEmail": "billing@acme.com" }
 # → { id: "org_abc", slug: "acme-corp" }
 
+# 1b. Confirm/repair platform-owner CRM relationship before downstream work
+# Expected: one Company in pib-platform-owner with linkedOrgId=org_abc.
+# If missing for existing data, run scripts/backfill-platform-owner-crm-relationships.ts --orgId org_abc first in dry-run, then --commit.
+
 # 2. Set brand profile (optional but recommended before content generation)
 PUT /agent/brand/org_abc
 { "brandProfile": { "voice": "confident, warm", "audience": "SMB founders" },
@@ -548,6 +560,7 @@ PUT /organizations/org_abc
 # 4. Create login for primary contact
 POST /organizations/org_abc/create-login
 { "email": "jane@acme.com", "displayName": "Jane Doe", "role": "owner" }
+# Expected: platform-owner Contact linkedUserId=<created uid>, linkedOrgId=org_abc, companyId=<Acme Company id>
 
 # 5. Kick off onboarding (if applicable product)
 POST /onboarding

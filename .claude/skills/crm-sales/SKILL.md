@@ -51,7 +51,9 @@ CRM Companies and Contacts are now the bridge between one workspace and another 
 - Secure public claim links use `claimable_relationships` to connect `sourceOrgId/sourceCompanyId/sourceContactId` to `targetOrgId/targetUserId` after signup or sign-in.
 - Sender-owned CRM links are relationship metadata only: `companies.linkedOrgId` and `contacts.linkedUserId` do not grant the sender admin rights inside the recipient workspace.
 - For PiB-issued resources, `pib-platform-owner` is the canonical source/issuer org and the client org is the recipient/target org. Platform CRM Companies are deduped by `linkedOrgId`; platform CRM Contacts are deduped by `linkedUserId`, then email.
-- Future PiB invoices, quotes, and projects to a linked client org should reuse the existing platform CRM Company and write `companyId/sourceCompanyId`.
+- For client setup/onboarding, each client tenant org must have exactly one platform-owner CRM Company with `linkedOrgId=<clientOrgId>`, and each real client member should have a platform-owner CRM Contact with `linkedUserId=<uid>`, `linkedOrgId=<clientOrgId>`, and `companyId=<Company id>`.
+- Future PiB invoices, quotes, projects, reports, and account reviews to a linked client org should reuse that existing platform CRM Company and write `companyId/sourceCompanyId`; use `contactId/sourceContactId` when a specific stakeholder/member is the recipient.
+- The legacy `/clients` collection and `organizations.linkedClientId` are compatibility references only. Do not use them as the canonical business/person relationship for new setup.
 - Client-created project requests remain client-originated until PiB accepts or converts them into PiB-sourced work.
 
 Use `lib/platform-owner/relationships.ts` in app code when syncing PiB's platform-owner CRM with client orgs/members. Use the dry-run scripts before touching existing data: `scripts/migrate-pib-owned-client-resources.ts`, `scripts/backfill-platform-owner-crm-relationships.ts`, and `scripts/backfill-platform-owner-resource-company-links.ts`.
