@@ -103,7 +103,7 @@ export default function OrgDashboard() {
           }
           return null
         }),
-      fetch(`/api/v1/projects?orgSlug=${slug}`)
+      fetch(`/api/v1/projects?view=received&orgSlug=${encodeURIComponent(slug)}`)
         .then(r => r.json())
         .then(body => {
           setProjects(body.data ?? [])

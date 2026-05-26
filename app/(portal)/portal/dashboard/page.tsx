@@ -286,7 +286,7 @@ export default function PortalDashboard() {
   }, [])
 
   useEffect(() => {
-    fetch('/api/v1/projects')
+    fetch('/api/v1/projects?view=received')
       .then((r) => (r.ok ? r.json() : null))
       .then((body) => setProjects(Array.isArray(body?.data) ? body.data : []))
       .catch(() => setProjects([]))

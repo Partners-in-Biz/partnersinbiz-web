@@ -53,9 +53,11 @@ function isDueThisWeek(task: Task): boolean {
   if (!due) return false
   const now = new Date()
   now.setHours(0, 0, 0, 0)
+  const weekStart = new Date(now)
+  weekStart.setDate(now.getDate() - now.getDay())
   const nextWeek = new Date(now)
   nextWeek.setDate(now.getDate() + 7)
-  return due >= now.getTime() && due <= nextWeek.getTime()
+  return due >= weekStart.getTime() && due <= nextWeek.getTime()
 }
 
 function timestampToMillis(value: unknown): number {
@@ -125,7 +127,7 @@ export function ProjectBoardSummary({ tasks, columns }: { tasks: Task[]; columns
               <p className="mt-1 text-xs text-on-surface-variant">Done column, completed tasks, and agent-done work</p>
             </div>
             <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[#4ade8040] bg-[#4ade8016] text-[#4ade80]">
-              <span className="material-symbols-outlined text-[24px]">fact_check</span>
+              <span aria-hidden="true" data-icon="fact_check" className="material-symbols-outlined text-[24px] before:content-[attr(data-icon)]" />
             </span>
           </div>
 
@@ -141,11 +143,11 @@ export function ProjectBoardSummary({ tasks, columns }: { tasks: Task[]; columns
 
           <div className="mt-4 flex flex-wrap gap-2 text-[11px] text-on-surface-variant">
             <span className="inline-flex items-center gap-1 rounded-full border border-[var(--color-card-border)] px-2 py-1">
-              <span className="material-symbols-outlined text-[14px]">event</span>
+              <span aria-hidden="true" data-icon="event" className="material-symbols-outlined text-[14px] before:content-[attr(data-icon)]" />
               {summary.dueSoon} due this week
             </span>
             <span className="inline-flex items-center gap-1 rounded-full border border-[var(--color-card-border)] px-2 py-1">
-              <span className="material-symbols-outlined text-[14px]">pending_actions</span>
+              <span aria-hidden="true" data-icon="pending_actions" className="material-symbols-outlined text-[14px] before:content-[attr(data-icon)]" />
               {summary.open} still open
             </span>
           </div>
@@ -161,7 +163,7 @@ export function ProjectBoardSummary({ tasks, columns }: { tasks: Task[]; columns
                 <div className="absolute inset-x-0 top-0 h-0.5" style={{ background: stat.tone }} />
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">{stat.label}</span>
-                  <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white/[0.04] material-symbols-outlined text-[16px]" style={{ color: stat.tone }}>{stat.icon}</span>
+                  <span aria-hidden="true" data-icon={stat.icon} className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white/[0.04] material-symbols-outlined text-[16px] before:content-[attr(data-icon)]" style={{ color: stat.tone }} />
                 </div>
                 <p aria-label={stat.ariaLabel} className="mt-3 text-3xl font-headline font-bold leading-none text-on-surface">{stat.value}</p>
                 <p className="mt-2 min-h-[2.25rem] text-[11px] leading-4 text-on-surface-variant">{stat.helper}</p>

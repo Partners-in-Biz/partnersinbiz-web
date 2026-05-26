@@ -58,7 +58,7 @@ describe('Admin client projects board view', () => {
     unsubscribe.mockClear()
     global.fetch = jest.fn((input: RequestInfo | URL) => {
       const url = String(input)
-      if (url === '/api/v1/projects?orgSlug=acme-client') {
+      if (url === '/api/v1/projects?view=received&orgSlug=acme-client') {
         return Promise.resolve({
           ok: true,
           json: async () => ({ data: [{ id: 'project-1', orgId: 'org-acme', name: 'Client Website', status: 'development' }] }),
@@ -108,7 +108,7 @@ describe('Admin client projects board view', () => {
     let resolveTasks: (response: Response) => void = () => {}
     global.fetch = jest.fn((input: RequestInfo | URL) => {
       const url = String(input)
-      if (url === '/api/v1/projects?orgSlug=acme-client') {
+      if (url === '/api/v1/projects?view=received&orgSlug=acme-client') {
         return Promise.resolve({
           ok: true,
           json: async () => ({ data: [{ id: 'project-1', orgId: 'org-acme', name: 'Client Website', status: 'development' }] }),
@@ -160,7 +160,7 @@ describe('Admin client projects board view', () => {
     let taskCalls = 0
     global.fetch = jest.fn((input: RequestInfo | URL) => {
       const url = String(input)
-      if (url === '/api/v1/projects?orgSlug=acme-client') {
+      if (url === '/api/v1/projects?view=received&orgSlug=acme-client') {
         return Promise.resolve({
           ok: true,
           json: async () => ({ data: [{ id: 'project-1', orgId: 'org-acme', name: 'Client Website', status: 'development' }] }),
@@ -197,7 +197,7 @@ describe('Admin client projects board view', () => {
     let listCalls = 0
     global.fetch = jest.fn((input: RequestInfo | URL) => {
       const url = String(input)
-      if (url === '/api/v1/projects?orgSlug=acme-client') {
+      if (url === '/api/v1/projects?view=received&orgSlug=acme-client') {
         listCalls += 1
         const project = listCalls === 1
           ? { id: 'project-1', orgId: 'org-acme', name: 'Client Website', status: 'development' }

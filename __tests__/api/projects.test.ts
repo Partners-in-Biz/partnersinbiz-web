@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 
-type MockUser = { uid: string; role: 'admin' | 'client'; orgId: string; orgIds?: string[] }
+type MockUser = { uid: string; role: 'admin' | 'client'; orgId: string; orgIds?: string[]; allowedOrgIds?: string[] }
 type MockHandler = (req: NextRequest, user: MockUser, ctx?: unknown) => Promise<Response>
 type ProjectResponse = { data: Array<{ id: string }> }
 
@@ -11,6 +11,8 @@ const mockCollection = jest.fn()
 const mockOrgWhere = jest.fn()
 const mockOrgLimit = jest.fn()
 const mockOrgGet = jest.fn()
+const mockOrgDoc = jest.fn()
+const mockOrgDocGet = jest.fn()
 const mockProjectWhere = jest.fn()
 const mockProjectOrderBy = jest.fn()
 const mockProjectGet = jest.fn()
@@ -19,6 +21,8 @@ const mockCompanyGet = jest.fn()
 const mockContactDoc = jest.fn()
 const mockContactGet = jest.fn()
 const mockEnsureClaimableRelationship = jest.fn()
+const mockResolvePlatformOwnerOrgId = jest.fn()
+const mockEnsurePlatformCompanyForOrg = jest.fn()
 
 let mockUser: MockUser = { uid: 'admin-1', role: 'admin', orgId: 'platform' }
 
@@ -33,6 +37,11 @@ jest.mock('@/lib/api/auth', () => ({
 
 jest.mock('@/lib/claimable-relationships/store', () => ({
   ensureClaimableRelationship: (input: unknown) => mockEnsureClaimableRelationship(input),
+}))
+
+jest.mock('@/lib/platform-owner/relationships', () => ({
+  resolvePlatformOwnerOrgId: () => mockResolvePlatformOwnerOrgId(),
+  ensurePlatformCompanyForOrg: (input: unknown) => mockEnsurePlatformCompanyForOrg(input),
 }))
 
 jest.mock('firebase-admin/firestore', () => ({
@@ -51,6 +60,11 @@ beforeEach(() => {
   }
   mockOrgWhere.mockReturnValue(orgQuery)
   mockOrgLimit.mockReturnValue(orgQuery)
+  mockOrgDoc.mockReturnValue({ get: mockOrgDocGet })
+  mockOrgDocGet.mockResolvedValue({
+    exists: true,
+    data: () => ({ name: 'Covalonic' }),
+  })
 
   const scopedProjectQuery = {
     get: mockProjectGet,
@@ -78,9 +92,15 @@ beforeEach(() => {
     targetUserId: undefined,
     status: 'pending',
   })
+  mockResolvePlatformOwnerOrgId.mockResolvedValue('pib-platform-owner')
+  mockEnsurePlatformCompanyForOrg.mockResolvedValue({
+    platformOrgId: 'pib-platform-owner',
+    companyId: 'company-client',
+    companyName: 'Covalonic',
+  })
 
   mockCollection.mockImplementation((name: string) => {
-    if (name === 'organizations') return { where: mockOrgWhere }
+    if (name === 'organizations') return { where: mockOrgWhere, doc: mockOrgDoc }
     if (name === 'projects') return projectCollection
     if (name === 'companies') return { doc: mockCompanyDoc }
     if (name === 'contacts') return { doc: mockContactDoc }
@@ -130,10 +150,74 @@ describe('GET /api/v1/projects', () => {
     const body = await res.json() as ProjectResponse
     expect(body.data.map((project) => project.id)).toEqual(['received'])
   })
+
+  it('lists received client workspace projects by org slug across new and legacy ownership fields', async () => {
+    mockOrgGet.mockResolvedValue({
+      empty: false,
+      docs: [{ id: 'client-org', data: () => ({ name: 'Client Org' }) }],
+    })
+    mockProjectGet
+      .mockResolvedValueOnce({
+        docs: [
+          { id: 'received', data: () => ({ name: 'Received Project', recipientOrgId: 'client-org', createdAt: { seconds: 20 } }) },
+        ],
+      })
+      .mockResolvedValueOnce({ docs: [] })
+      .mockResolvedValueOnce({ docs: [] })
+      .mockResolvedValueOnce({
+        docs: [
+          { id: 'legacy', data: () => ({ name: 'Legacy Project', orgId: 'client-org', createdAt: { seconds: 10 } }) },
+        ],
+      })
+
+    const { GET } = await import('@/app/api/v1/projects/route')
+    const req = new NextRequest('http://localhost/api/v1/projects?view=received&orgSlug=client-org')
+    const res = await GET(req)
+
+    expect(res.status).toBe(200)
+    expect(mockProjectWhere).toHaveBeenCalledWith('recipientOrgId', '==', 'client-org')
+    expect(mockProjectWhere).toHaveBeenCalledWith('targetOrgId', '==', 'client-org')
+    expect(mockProjectWhere).toHaveBeenCalledWith('clientOrgId', '==', 'client-org')
+    expect(mockProjectWhere).toHaveBeenCalledWith('orgId', '==', 'client-org')
+    expect(mockProjectOrderBy).not.toHaveBeenCalled()
+
+    const body = await res.json() as ProjectResponse
+    expect(body.data.map((project) => project.id)).toEqual(['received', 'legacy'])
+  })
+
+  it('does not treat a restricted admin platform home org as received-project access', async () => {
+    mockUser = {
+      uid: 'admin-1',
+      role: 'admin',
+      orgId: 'pib-platform-owner',
+      allowedOrgIds: ['client-org'],
+    }
+    mockProjectGet
+      .mockResolvedValueOnce({
+        docs: [
+          { id: 'received', data: () => ({ name: 'Received Project', recipientOrgId: 'client-org', createdAt: { seconds: 20 } }) },
+        ],
+      })
+      .mockResolvedValueOnce({ docs: [] })
+      .mockResolvedValueOnce({ docs: [] })
+      .mockResolvedValueOnce({ docs: [] })
+
+    const { GET } = await import('@/app/api/v1/projects/route')
+    const req = new NextRequest('http://localhost/api/v1/projects?view=received')
+    const res = await GET(req)
+
+    expect(res.status).toBe(200)
+    expect(mockProjectWhere).toHaveBeenCalledTimes(4)
+    expect(mockProjectWhere).toHaveBeenCalledWith('recipientOrgId', '==', 'client-org')
+    expect(mockProjectWhere).not.toHaveBeenCalledWith('recipientOrgId', '==', 'pib-platform-owner')
+    expect(mockProjectWhere).not.toHaveBeenCalledWith('orgId', '==', 'pib-platform-owner')
+    const body = await res.json() as ProjectResponse
+    expect(body.data.map((project) => project.id)).toEqual(['received'])
+  })
 })
 
 describe('POST /api/v1/projects', () => {
-  it('links a project created inside a client workspace to that client org', async () => {
+  it('creates a PiB-sourced project for a selected client workspace', async () => {
     mockOrgGet.mockResolvedValue({
       empty: false,
       docs: [{ id: 'org-covalonic', data: () => ({ name: 'Covalonic' }) }],
@@ -157,8 +241,14 @@ describe('POST /api/v1/projects', () => {
     expect(mockAdd).toHaveBeenCalledWith(
       expect.objectContaining({
         name: 'Website rebuild',
-        orgId: 'org-covalonic',
+        orgId: 'pib-platform-owner',
+        sourceOrgId: 'pib-platform-owner',
+        issuerOrgId: 'pib-platform-owner',
         clientId: 'org-covalonic',
+        clientOrgId: 'org-covalonic',
+        recipientOrgId: 'org-covalonic',
+        targetOrgId: 'org-covalonic',
+        companyId: 'company-client',
       }),
     )
   })

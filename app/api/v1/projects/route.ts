@@ -62,6 +62,15 @@ function normalizeEmail(value: unknown): string {
   return cleanString(value).toLowerCase()
 }
 
+function explicitAdminOrgIds(user: { allowedOrgIds?: string[] | null }): string[] {
+  if (!Array.isArray(user.allowedOrgIds) || user.allowedOrgIds.length === 0) return []
+  const ids = new Set<string>()
+  for (const orgId of user.allowedOrgIds) {
+    if (orgId) ids.add(orgId)
+  }
+  return Array.from(ids)
+}
+
 function hasClaimableTarget(body: Record<string, unknown>): boolean {
   return Boolean(
     cleanString(body.companyId) ||
@@ -152,6 +161,16 @@ async function loadClientVisibleProjectsForOrg(orgId: string): Promise<ProjectLi
   return Array.from(byId.values())
 }
 
+async function loadClientVisibleProjectsForOrgs(orgIds: string[]): Promise<ProjectListItem[]> {
+  const byId = new Map<string, ProjectListItem>()
+  const uniqueOrgIds = Array.from(new Set(orgIds.filter(Boolean)))
+  const results = await Promise.all(uniqueOrgIds.map((orgId) => loadClientVisibleProjectsForOrg(orgId)))
+  for (const projects of results) {
+    for (const project of projects) byId.set(project.id, project)
+  }
+  return Array.from(byId.values())
+}
+
 export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) => {
   const { searchParams } = new URL(req.url)
   const orgSlug = searchParams.get('orgSlug')
@@ -163,7 +182,7 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
   if (user.role === 'client') {
     const orgId = searchParams.get('orgId') ?? user.orgId
     if (!orgId || !canAccessOrg(user, orgId)) return apiSuccess([])
-    if (view === 'received') {
+    if (view === 'received' || view === 'shared') {
       const projects = (await loadClientVisibleProjectsForOrg(orgId))
         .filter((project) => !sharedOnly || Boolean(project.claimableRelationshipId))
         .sort((a, b) => createdAtMillis(b.createdAt) - createdAtMillis(a.createdAt))
@@ -188,11 +207,25 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
     if (!canAccessOrg(user, orgId)) {
       return apiError('Forbidden', 403)
     }
-    query = query.where(view === 'received' ? 'recipientOrgId' : 'orgId', '==', orgId)
+    if (view === 'received' || view === 'shared') {
+      const projects = (await loadClientVisibleProjectsForOrg(orgId))
+        .filter((project) => !sharedOnly || Boolean(project.claimableRelationshipId))
+        .sort((a, b) => createdAtMillis(b.createdAt) - createdAtMillis(a.createdAt))
+      return apiSuccess(projects)
+    }
+    query = query.where('orgId', '==', orgId)
   } else if (user.role === 'admin') {
-    const allowedOrgIds = restrictedAdminOrgIds(user)
+    const allowedOrgIds = view === 'received' || view === 'shared'
+      ? explicitAdminOrgIds(user)
+      : restrictedAdminOrgIds(user)
+    if ((view === 'received' || view === 'shared') && allowedOrgIds.length > 0) {
+      const projects = (await loadClientVisibleProjectsForOrgs(allowedOrgIds.slice(0, 30)))
+        .filter((project) => !sharedOnly || Boolean(project.claimableRelationshipId))
+        .sort((a, b) => createdAtMillis(b.createdAt) - createdAtMillis(a.createdAt))
+      return apiSuccess(projects)
+    }
     if (allowedOrgIds.length > 0) {
-      query = query.where(view === 'received' ? 'recipientOrgId' : 'orgId', 'in', allowedOrgIds.slice(0, 30))
+      query = query.where('orgId', 'in', allowedOrgIds.slice(0, 30))
     }
   }
 
@@ -214,7 +247,9 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) =
     return apiError('Invalid status')
   }
 
-  let orgId = user.role === 'client' ? user.orgId ?? '' : cleanString(body.orgId)
+  let orgId = user.role === 'client'
+    ? user.orgId ?? ''
+    : cleanString(body.orgId) || cleanString(body.clientOrgId) || cleanString(body.clientId)
 
   // If orgSlug is provided, look up the org by slug and get its ID
   const orgSlugInput = cleanString(body.orgSlug)
