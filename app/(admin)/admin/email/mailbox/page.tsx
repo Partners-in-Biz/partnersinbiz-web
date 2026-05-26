@@ -249,6 +249,7 @@ export default function PortalEmailPage() {
         accountId: compose.accountId || defaultAccountId,
         bodyText: compose.bodyText || htmlToText(compose.bodyHtml),
         action,
+        sendApproved: action === 'send',
       }),
     })
     const body = await res.json()
