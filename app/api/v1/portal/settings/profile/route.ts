@@ -5,6 +5,7 @@ import { adminDb } from '@/lib/firebase/admin'
 import { apiError, apiErrorFromException } from '@/lib/api/response'
 import { ROLE_RANK } from '@/lib/orgMembers/types'
 import type { OrgRole } from '@/lib/organizations/types'
+import { resolvePortalActiveOrgId } from '@/lib/portal/org-access'
 
 export const dynamic = 'force-dynamic'
 
@@ -12,7 +13,7 @@ async function resolveOrgId(uid: string): Promise<string | null> {
   const userDoc = await adminDb.collection('users').doc(uid).get()
   if (!userDoc.exists) return null
   const d = userDoc.data()!
-  return (d.activeOrgId ?? d.orgId ?? null) as string | null
+  return resolvePortalActiveOrgId(uid, d)
 }
 
 function isOrgRole(value: unknown): value is OrgRole {

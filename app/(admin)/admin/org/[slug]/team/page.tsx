@@ -542,7 +542,7 @@ export default function TeamPage() {
             Add Existing Member
           </p>
           <p className="text-xs text-on-surface-variant mb-3">
-            Add a PiB staff member who already has an account. To give a client access, use &ldquo;Create Client Login&rdquo; above.
+            Add a PiB staff member who already has an account. This also grants explicit client-portal access to this organisation.
           </p>
           <form onSubmit={handleAddMember} className="flex gap-2 flex-wrap">
             <div ref={addSearchRef} className="relative flex-1 min-w-[200px]">

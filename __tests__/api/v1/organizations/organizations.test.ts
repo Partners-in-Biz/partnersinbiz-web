@@ -348,6 +348,47 @@ describe('POST /api/v1/organizations/[id]/members', () => {
       members: expect.anything(),
       updatedAt: expect.anything(),
     }))
+    expect(mockUserSet).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orgIds: ['org-1'],
+        orgId: 'org-1',
+        updatedAt: '__SERVER_TS__',
+      }),
+      { merge: true },
+    )
+  })
+
+  it('adds client portal access to existing platform staff without changing their primary org', async () => {
+    mockUserQueryGet.mockResolvedValue({
+      empty: false,
+      docs: [
+        {
+          id: 'staff-user',
+          data: () => ({
+            role: 'admin',
+            orgId: 'pib-platform-owner',
+            orgIds: ['existing-client'],
+            displayName: 'Staff User',
+            email: 'staff@example.com',
+          }),
+        },
+      ],
+    })
+
+    const res = await addMember(
+      adminReq('POST', { email: 'staff@example.com', role: 'admin' }),
+      { params: Promise.resolve({ id: 'org-1' }) } as any,
+    )
+
+    expect(res.status).toBe(201)
+    expect(mockUserSet).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orgIds: ['existing-client', 'org-1'],
+        updatedAt: '__SERVER_TS__',
+      }),
+      { merge: true },
+    )
+    expect(mockUserSet.mock.calls[0][0]).not.toHaveProperty('orgId', 'org-1')
   })
 
   it('returns 409 when user is already a member', async () => {

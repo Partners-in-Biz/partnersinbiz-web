@@ -4,13 +4,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withPortalAuth } from '@/lib/auth/portal-middleware'
 import { adminDb } from '@/lib/firebase/admin'
+import { resolvePortalActiveOrgId } from '@/lib/portal/org-access'
 
 export const dynamic = 'force-dynamic'
 
 async function resolveOrgId(uid: string): Promise<string | null> {
   const userDoc = await adminDb.collection('users').doc(uid).get()
   const data = userDoc.data() as { orgId?: string; activeOrgId?: string } | undefined
-  return data?.activeOrgId ?? data?.orgId ?? null
+  if (!data) return null
+  return resolvePortalActiveOrgId(uid, data)
 }
 
 export const GET = withPortalAuth(async (_req: NextRequest, uid: string) => {
