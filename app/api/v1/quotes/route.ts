@@ -8,7 +8,10 @@ import { apiSuccess, apiError } from '@/lib/api/response'
 import { dispatchWebhook } from '@/lib/webhooks/dispatch'
 import { loadCompany } from '@/lib/companies/store'
 import { canAccessOrg } from '@/lib/api/platformAdmin'
-import { resolvePlatformOwnerOrgId } from '@/lib/platform-owner/relationships'
+import {
+  ensurePlatformCompanyForOrg,
+  resolvePlatformOwnerOrgId,
+} from '@/lib/platform-owner/relationships'
 import type { Quote } from '@/lib/quotes/types'
 import type { Contact, DealLineItem } from '@/lib/crm/types'
 import type { LineItem } from '@/lib/invoices/types'
@@ -254,6 +257,21 @@ export const POST = withCrmAuth('member', async (req: NextRequest, ctx) => {
     const derived = await deriveCompanyFromContact(contactId, sourceOrgId)
     derivedCompanyId = derived.companyId
     derivedCompanyName = derived.companyName
+  }
+  if (!derivedCompanyId && recipientOrgId && sourceOrgId === platformOrgId) {
+    const platformCompany = await ensurePlatformCompanyForOrg({
+      clientOrgId: recipientOrgId,
+      clientOrg,
+      platformOrgId,
+      lifecycleStage: 'customer',
+      source: 'platform_resource_create',
+      tags: ['client-org'],
+    }).catch((err) => {
+      console.error('[quote-platform-company-link-error]', err)
+      return null
+    })
+    derivedCompanyId = platformCompany?.companyId
+    derivedCompanyName = platformCompany?.companyName
   }
 
   const quoteData: Record<string, unknown> = {

@@ -9,7 +9,10 @@ import { logActivity } from '@/lib/activity/log'
 import { canAccessOrg, restrictedAdminOrgIds } from '@/lib/api/platformAdmin'
 import { ensureClaimableRelationship } from '@/lib/claimable-relationships/store'
 import { canManageOrgAs } from '@/lib/orgMembers/permissions'
-import { resolvePlatformOwnerOrgId } from '@/lib/platform-owner/relationships'
+import {
+  ensurePlatformCompanyForOrg,
+  resolvePlatformOwnerOrgId,
+} from '@/lib/platform-owner/relationships'
 
 export const dynamic = 'force-dynamic'
 
@@ -269,6 +272,19 @@ export const POST = withAuth('client', async (req, user) => {
   if (claimableInvoice && !crmTarget?.recipientEmail) {
     return apiError('recipientEmail is required for CRM invoices', 400)
   }
+  const platformCompany = platformIssuedInvoice && recipientOrgId
+    ? await ensurePlatformCompanyForOrg({
+        clientOrgId: recipientOrgId,
+        clientOrg,
+        platformOrgId: sourceOrgId,
+        lifecycleStage: 'customer',
+        source: 'platform_resource_create',
+        tags: ['client-org'],
+      }).catch((err) => {
+        console.error('[invoice-platform-company-link-error]', err)
+        return null
+      })
+    : null
 
   const fromDetails: Record<string, unknown> = orgBillingSnapshot(sourceOrg)
 
@@ -339,13 +355,13 @@ export const POST = withAuth('client', async (req, user) => {
     clientDetails,
     paidAt: null,
     sentAt: null,
-    sourceCompanyId: crmTarget?.companyId || undefined,
+    sourceCompanyId: crmTarget?.companyId || platformCompany?.companyId || undefined,
     sourceContactId: crmTarget?.contactId || undefined,
-    companyId: crmTarget?.companyId || undefined,
+    companyId: crmTarget?.companyId || platformCompany?.companyId || undefined,
     contactId: crmTarget?.contactId || undefined,
     recipientEmail: crmTarget?.recipientEmail || undefined,
     recipientName: crmTarget?.recipientName || undefined,
-    recipientCompanyName: crmTarget?.recipientCompanyName || undefined,
+    recipientCompanyName: crmTarget?.recipientCompanyName || platformCompany?.companyName || undefined,
     recipientOrgId: crmTarget?.recipientOrgId || recipientOrgId || undefined,
     recipientUserId: crmTarget?.recipientUserId || undefined,
     targetOrgId: crmTarget?.recipientOrgId || recipientOrgId || undefined,

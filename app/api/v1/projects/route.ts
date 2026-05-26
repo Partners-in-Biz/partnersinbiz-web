@@ -12,7 +12,10 @@ import type { ApiUser } from '@/lib/api/types'
 import { logActivity } from '@/lib/activity/log'
 import { canAccessOrg, restrictedAdminOrgIds } from '@/lib/api/platformAdmin'
 import { ensureClaimableRelationship } from '@/lib/claimable-relationships/store'
-import { resolvePlatformOwnerOrgId } from '@/lib/platform-owner/relationships'
+import {
+  ensurePlatformCompanyForOrg,
+  resolvePlatformOwnerOrgId,
+} from '@/lib/platform-owner/relationships'
 import { canAccessProject } from '@/lib/projects/access'
 
 const VALID_STATUSES = [
@@ -249,6 +252,23 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) =
   if (claimableProject && !crmTarget?.recipientEmail) {
     return apiError('recipientEmail is required for CRM project sharing', 400)
   }
+  const recipientOrgDoc = platformIssuedProject && recipientOrgId
+    ? await adminDb.collection('organizations').doc(recipientOrgId).get()
+    : null
+  const recipientOrg = recipientOrgDoc?.exists ? recipientOrgDoc.data() ?? {} : {}
+  const platformCompany = platformIssuedProject && recipientOrgId
+    ? await ensurePlatformCompanyForOrg({
+        clientOrgId: recipientOrgId,
+        clientOrg: recipientOrg,
+        platformOrgId: sourceOrgId,
+        lifecycleStage: 'customer',
+        source: 'platform_resource_create',
+        tags: ['client-org'],
+      }).catch((err) => {
+        console.error('[project-platform-company-link-error]', err)
+        return null
+      })
+    : null
 
   const name = body.name.trim()
   const docRef = await adminDb.collection('projects').add(stripUndefined({
@@ -263,13 +283,13 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) =
     status: (body.status as ProjectStatus) ?? 'discovery',
     startDate: FieldValue.serverTimestamp(),
     targetDate: body.targetDate ?? null,
-    sourceCompanyId: crmTarget?.companyId || undefined,
+    sourceCompanyId: crmTarget?.companyId || platformCompany?.companyId || undefined,
     sourceContactId: crmTarget?.contactId || undefined,
-    companyId: crmTarget?.companyId || undefined,
+    companyId: crmTarget?.companyId || platformCompany?.companyId || undefined,
     contactId: crmTarget?.contactId || undefined,
     recipientEmail: crmTarget?.recipientEmail || undefined,
     recipientName: crmTarget?.recipientName || undefined,
-    recipientCompanyName: crmTarget?.recipientCompanyName || undefined,
+    recipientCompanyName: crmTarget?.recipientCompanyName || platformCompany?.companyName || undefined,
     recipientOrgId: crmTarget?.recipientOrgId || recipientOrgId || undefined,
     recipientUserId: crmTarget?.recipientUserId || undefined,
     targetOrgId: crmTarget?.recipientOrgId || recipientOrgId || undefined,

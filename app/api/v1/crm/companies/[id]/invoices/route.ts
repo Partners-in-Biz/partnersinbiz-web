@@ -1,10 +1,10 @@
-/**
- * GET /api/v1/crm/companies/:id/deals — list deals linked to a company
- */
+// GET /api/v1/crm/companies/:id/invoices — list invoices linked to a company
 import { withCrmAuth } from '@/lib/auth/crm-middleware'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { adminDb } from '@/lib/firebase/admin'
 import { loadCompany } from '@/lib/companies/store'
+
+export const dynamic = 'force-dynamic'
 
 type RouteCtx = { params: Promise<{ id: string }> }
 type RelatedRow = { id: string; [key: string]: unknown }
@@ -33,17 +33,26 @@ export const GET = withCrmAuth<RouteCtx>('viewer', async (req, ctx, routeCtx) =>
   const url = new URL(req.url)
   const limit = Math.min(parseInt(url.searchParams.get('limit') ?? '50'), 200)
 
-  const snap = await adminDb.collection('deals')
+  const snap = await adminDb
+    .collection('invoices')
     .where('orgId', '==', ctx.orgId)
     .limit(1000)
     .get()
 
-  const deals = snap.docs
+  const linkedOrgId = company.data.linkedOrgId
+  const invoices = snap.docs
     .map((d): RelatedRow => ({ id: d.id, ...d.data() }))
-    .filter((deal) => deal.deleted !== true)
-    .filter((deal) => deal.companyId === companyId)
-    .sort((a, b) => timeValue(b.updatedAt) - timeValue(a.updatedAt))
+    .filter((invoice) => (
+      invoice.companyId === companyId ||
+      invoice.sourceCompanyId === companyId ||
+      (linkedOrgId && (
+        invoice.recipientOrgId === linkedOrgId ||
+        invoice.targetOrgId === linkedOrgId ||
+        invoice.legacyOrgId === linkedOrgId
+      ))
+    ))
+    .sort((a, b) => timeValue(b.updatedAt ?? b.createdAt ?? b.issueDate) - timeValue(a.updatedAt ?? a.createdAt ?? a.issueDate))
     .slice(0, limit)
 
-  return apiSuccess({ deals })
+  return apiSuccess({ invoices })
 })
