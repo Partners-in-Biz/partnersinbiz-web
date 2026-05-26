@@ -284,6 +284,40 @@ function WorkLane({
   )
 }
 
+function DashboardLoadingShell() {
+  return (
+    <div className="mx-auto max-w-7xl space-y-6 pb-8">
+      <div className="pib-page-header">
+        <div className="flex min-w-0 flex-1 flex-col gap-3">
+          <div className="eyebrow">Admin / Dashboard</div>
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="min-w-0">
+              <div className="pib-skeleton h-10 w-72 max-w-full rounded-lg" />
+              <div className="pib-skeleton mt-3 h-4 w-[520px] max-w-full rounded" />
+            </div>
+            <div className="flex shrink-0 flex-wrap items-center gap-2">
+              <div className="pib-skeleton h-9 w-28 rounded-[var(--radius-btn)]" />
+              <div className="pib-skeleton h-9 w-32 rounded-[var(--radius-btn)]" />
+            </div>
+          </div>
+        </div>
+      </div>
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <Skeleton className="h-32 rounded-lg" />
+        <Skeleton className="h-32 rounded-lg" />
+        <Skeleton className="h-32 rounded-lg" />
+        <Skeleton className="h-32 rounded-lg" />
+      </div>
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <Skeleton className="h-48 rounded-lg" />
+        <Skeleton className="h-48 rounded-lg" />
+        <Skeleton className="h-48 rounded-lg" />
+      </div>
+      <p className="sr-only" aria-live="polite">Dashboard is loading</p>
+    </div>
+  )
+}
+
 function OrganisationCard({ org, tasks, approvals }: { org: OrgSummary; tasks: AgentTask[]; approvals: Approval[] }) {
   const riskyTasks = tasks.filter(task => RISK_STATUSES.has(task.agentStatus ?? '')).length
   const activeTasks = tasks.filter(task => ACTIVE_STATUSES.has(task.agentStatus ?? '')).length
@@ -358,6 +392,11 @@ export default function MissionControlDashboard() {
   const [error, setError] = useState<string | null>(null)
   const [healthError, setHealthError] = useState<string | null>(null)
   const [dashboardView, setDashboardView] = useState<'overview' | 'work'>('overview')
+  const [hydrated, setHydrated] = useState(false)
+
+  useEffect(() => {
+    setHydrated(true)
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -412,6 +451,8 @@ export default function MissionControlDashboard() {
   const serviceEntries = Object.entries(data.health?.services ?? {})
   const approvalLaneItems = data.approvals.slice(0, 6)
   const activeLaneItems = pulseTasks.filter(task => !RISK_STATUSES.has(task.agentStatus ?? '')).slice(0, 6)
+
+  if (!hydrated) return <DashboardLoadingShell />
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 pb-8">
