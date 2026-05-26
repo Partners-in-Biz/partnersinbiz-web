@@ -42,4 +42,21 @@ describe('ScheduledContentPreviewCards', () => {
     expect(screen.getByText('No scheduled content today.')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Compose post →' })).toHaveAttribute('href', '/admin/org/acme/social/standalone')
   })
+
+  it('supports client portal safe links and copy', () => {
+    render(
+      <ScheduledContentPreviewCards
+        slug="acme"
+        posts={[{ ...basePost, id: 'review-me', status: 'client_review' }]}
+        loading={false}
+        composeHref="/portal/social/compose"
+        description="Client-safe previews open into review or calendar."
+        hrefForPost={(post) => `/portal/social/review/${post.id}`}
+      />,
+    )
+
+    expect(screen.getByText('Client-safe previews open into review or calendar.')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Compose post →' })).toHaveAttribute('href', '/portal/social/compose')
+    expect(screen.getByTestId('scheduled-preview-review-me')).toHaveAttribute('href', '/portal/social/review/review-me')
+  })
 })

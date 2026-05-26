@@ -6,8 +6,9 @@ import Link from 'next/link'
 import { ProfileCompleteBanner } from '@/components/settings/ProfileCompleteBanner'
 import { TopCompaniesByPipelineTile } from '@/components/dashboard/TopCompaniesByPipelineTile'
 import { fmtTimestamp } from '@/components/admin/email/fmtTimestamp'
+import { ScheduledContentPreviewCards, type ScheduledContentPost } from '@/components/admin/ScheduledContentPreviewCards'
 import { DonutChart, HorizontalBarChart, StatCardWithChart, TrendAreaChart } from '@/components/ui/Charts'
-import { EmptyState, PageHeader } from '@/components/ui/AppFoundation'
+import { EmptyState, PageHeader, Surface } from '@/components/ui/AppFoundation'
 
 interface Kpis {
   total_revenue: number
@@ -35,6 +36,12 @@ interface Project {
   name: string
   status: string
   description?: string
+}
+
+interface PortalOrg {
+  id: string
+  name: string
+  slug: string
 }
 
 interface SocialStats {
@@ -154,6 +161,14 @@ function getGreeting(): string {
   return 'Good evening'
 }
 
+function todayRange(): { from: string; to: string } {
+  const from = new Date()
+  from.setHours(0, 0, 0, 0)
+  const to = new Date(from)
+  to.setDate(to.getDate() + 1)
+  return { from: from.toISOString(), to: to.toISOString() }
+}
+
 function Skeleton({ className = '' }: { className?: string }) {
   return <div className={`pib-skeleton ${className}`} />
 }
@@ -264,12 +279,15 @@ interface CampaignStats {
 }
 
 export default function PortalDashboard() {
+  const [portalOrg, setPortalOrg] = useState<PortalOrg | null>(null)
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
   const [projects, setProjects] = useState<Project[]>([])
   const [projectsLoading, setProjectsLoading] = useState(true)
   const [socialStats, setSocialStats] = useState<SocialStats | null>(null)
   const [socialLoading, setSocialLoading] = useState(true)
+  const [scheduledPosts, setScheduledPosts] = useState<ScheduledContentPost[]>([])
+  const [scheduledLoading, setScheduledLoading] = useState(true)
   const [stats, setStats] = useState<CampaignStats>({
     contacts: null,
     activeCampaigns: null,
@@ -277,6 +295,13 @@ export default function PortalDashboard() {
   })
   const [crmData, setCrmData] = useState<CrmDashboardData | null>(null)
   const [crmLoading, setCrmLoading] = useState(true)
+
+  useEffect(() => {
+    fetch('/api/v1/portal/org')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((body) => setPortalOrg(body?.org ?? null))
+      .catch(() => setPortalOrg(null))
+  }, [])
 
   useEffect(() => {
     fetch('/api/v1/portal/dashboard')
@@ -299,6 +324,19 @@ export default function PortalDashboard() {
       .then((body) => setSocialStats(body?.data ?? null))
       .catch(() => setSocialStats(null))
       .finally(() => setSocialLoading(false))
+  }, [])
+
+  useEffect(() => {
+    const { from, to } = todayRange()
+    fetch(`/api/v1/social/posts?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&limit=50`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((body) => {
+        const posts = ((body?.data ?? []) as ScheduledContentPost[])
+          .filter((post) => ['scheduled', 'approved', 'pending_approval', 'client_review', 'qa_review'].includes(post.status ?? ''))
+        setScheduledPosts(posts)
+      })
+      .catch(() => setScheduledPosts([]))
+      .finally(() => setScheduledLoading(false))
   }, [])
 
   useEffect(() => {
@@ -350,6 +388,8 @@ export default function PortalDashboard() {
   const noData = !loading && (!data || (data?.connections?.length ?? 0) === 0)
   const activeProjects = projects.filter(p => ['active', 'in_progress', 'development', 'review', 'live', 'maintenance'].includes(p.status))
   const workspaceLoading = loading || projectsLoading || socialLoading
+  const orgName = portalOrg?.name?.trim() || 'your workspace'
+  const orgSlug = portalOrg?.slug?.trim() || 'workspace'
   const statusDonut = socialStats ? [
     { name: 'Published', value: socialStats.byStatus.published, color: '#4ade80' },
     { name: 'Scheduled', value: socialStats.byStatus.scheduled, color: '#60a5fa' },
@@ -369,25 +409,25 @@ export default function PortalDashboard() {
   const hasLast30DaysData = last30DaysData.some(point => point.value > 0)
 
   return (
-    <div className="mx-auto max-w-6xl space-y-10">
+    <div className="mx-auto max-w-6xl space-y-6">
       <ProfileCompleteBanner />
 
       <section className="space-y-6">
         <PageHeader
-          eyebrow="Client workspace / Overview"
-          title={`${getGreeting()}.`}
+          eyebrow="Workspace"
+          title={`${getGreeting()} — ${orgName}`}
           description={new Date().toLocaleDateString('en-ZA', { weekday: 'long', month: 'long', day: 'numeric' })}
-          meta={<span>Same workspace system as admin, scoped to client-safe actions.</span>}
           actions={(
             <>
-              <Link href="/portal/projects" className="btn-pib-accent text-sm">
+              <Link href="/portal/projects" className="pib-btn-primary text-sm font-label">
                 Request project
               </Link>
-              <Link href="/portal/properties" className="btn-pib-secondary text-sm">
+              <Link href="/portal/properties" className="pib-btn-secondary text-sm font-label">
                 Set properties
               </Link>
             </>
           )}
+          className="capitalize"
         />
 
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -424,8 +464,21 @@ export default function PortalDashboard() {
           )}
         </div>
 
+        <ScheduledContentPreviewCards
+          slug={orgSlug}
+          posts={scheduledPosts}
+          loading={workspaceLoading || scheduledLoading}
+          composeHref="/portal/social/compose"
+          description="Client-safe previews open into review or calendar."
+          hrefForPost={(post) => (
+            post.status === 'pending_approval' || post.status === 'client_review' || post.status === 'qa_review'
+              ? `/portal/social/review/${post.id}`
+              : `/portal/social/calendar?postId=${post.id}`
+          )}
+        />
+
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-          <div className="pib-card space-y-3 lg:col-span-2">
+          <Surface className="space-y-3 lg:col-span-2">
             <div className="flex items-center justify-between">
               <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Projects</p>
               <Link href="/portal/projects" className="text-[10px] font-label uppercase tracking-wide text-[var(--color-pib-accent)]">
@@ -463,9 +516,9 @@ export default function PortalDashboard() {
                 ))}
               </div>
             )}
-          </div>
+          </Surface>
 
-          <div className="pib-card space-y-2">
+          <Surface className="space-y-2">
             <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
               Post Status
             </p>
@@ -478,13 +531,13 @@ export default function PortalDashboard() {
                 No social posts yet.
               </div>
             )}
-          </div>
+          </Surface>
         </div>
 
         {!socialLoading && socialStats && (
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             {platformBarData.length > 0 && (
-              <div className="pib-card space-y-3">
+              <Surface className="space-y-3">
                 <div className="flex items-center justify-between">
                   <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
                     Platform Breakdown
@@ -494,10 +547,10 @@ export default function PortalDashboard() {
                   </Link>
                 </div>
                 <HorizontalBarChart data={platformBarData} />
-              </div>
+              </Surface>
             )}
 
-            <div className="pib-card space-y-3">
+            <Surface className="space-y-3">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
@@ -518,11 +571,11 @@ export default function PortalDashboard() {
                   No posts in the last 30 days.
                 </div>
               )}
-            </div>
+            </Surface>
           </div>
         )}
 
-        <div className="pib-card">
+        <Surface>
           <p className="mb-3 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Quick Actions</p>
           <div className="flex flex-wrap gap-2">
             {[
@@ -536,7 +589,7 @@ export default function PortalDashboard() {
               <Link key={a.href} href={a.href} className="pib-btn-secondary text-xs font-label">{a.label}</Link>
             ))}
           </div>
-        </div>
+        </Surface>
       </section>
 
       {/* Campaigns section */}
