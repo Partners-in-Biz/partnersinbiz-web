@@ -153,20 +153,29 @@ export function AdminSidebar({ open = false, onClose, collapsed = false, onToggl
           )}
         </div>
 
-        {/* Collapse toggle */}
-        <button
-          onClick={onToggleCollapsed}
-          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          className={[
-            'hidden md:flex items-center justify-center h-8 text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors border-b border-[var(--color-pib-line)]',
-            collapsed ? 'w-full' : 'w-full px-5',
-          ].join(' ')}
-        >
-          <span className="material-symbols-outlined text-[18px]">
-            {collapsed ? 'chevron_right' : 'chevron_left'}
-          </span>
-          {!collapsed && <span className="ml-auto text-[10px] opacity-50">collapse</span>}
-        </button>
+        {/* Collapse and mode switch controls */}
+        <div className="hidden md:flex items-center h-8 border-b border-[var(--color-pib-line)] shrink-0">
+          <button
+            onClick={onToggleCollapsed}
+            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            className={[
+              'flex h-8 items-center justify-center text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors',
+              collapsed ? 'w-full' : 'flex-1',
+            ].join(' ')}
+          >
+            <span className="material-symbols-outlined text-[18px]">
+              {collapsed ? 'chevron_right' : 'chevron_left'}
+            </span>
+          </button>
+          {!collapsed && isWorkspaceMode && selectedOrg?.id && (
+            <PortalViewSwitch orgId={selectedOrg.id} iconOnly />
+          )}
+        </div>
+
+        {collapsed && isWorkspaceMode && selectedOrg?.id && (
+          <PortalViewSwitch orgId={selectedOrg.id} collapsed iconOnly />
+        )}
 
         {/* Search - temporarily hidden while behavior is being revisited.
         {!collapsed && (
@@ -181,12 +190,6 @@ export function AdminSidebar({ open = false, onClose, collapsed = false, onToggl
           <div className="border-t border-[var(--color-pib-line)] py-3">
             <p className="eyebrow !text-[9px] px-5 mb-1.5">Context</p>
             <OrgSwitcher />
-          </div>
-        )}
-
-        {isWorkspaceMode && selectedOrg?.id && (
-          <div className="border-t border-[var(--color-pib-line)]">
-            <PortalViewSwitch orgId={selectedOrg.id} collapsed={collapsed} />
           </div>
         )}
 

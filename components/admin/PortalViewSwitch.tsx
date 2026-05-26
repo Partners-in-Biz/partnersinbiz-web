@@ -7,9 +7,10 @@ interface PortalViewSwitchProps {
   orgId: string
   collapsed?: boolean
   compact?: boolean
+  iconOnly?: boolean
 }
 
-export function PortalViewSwitch({ orgId, collapsed = false, compact = false }: PortalViewSwitchProps) {
+export function PortalViewSwitch({ orgId, collapsed = false, compact = false, iconOnly = false }: PortalViewSwitchProps) {
   const router = useRouter()
   const [hasAccess, setHasAccess] = useState(false)
   const [checkingAccess, setCheckingAccess] = useState(true)
@@ -92,6 +93,24 @@ export function PortalViewSwitch({ orgId, collapsed = false, compact = false }: 
       >
         <span className="material-symbols-outlined text-[18px]">web_asset</span>
         <span className="hidden lg:inline">{loading ? 'Opening...' : 'Portal'}</span>
+      </button>
+    )
+  }
+
+  if (iconOnly) {
+    return (
+      <button
+        type="button"
+        onClick={switchToPortal}
+        disabled={loading}
+        title={error || 'Switch to portal view'}
+        aria-label="Switch to portal view"
+        className={[
+          'flex items-center justify-center text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.05] transition-colors disabled:opacity-60',
+          collapsed ? 'mx-2 my-2 h-8 w-8 rounded-lg' : 'h-8 w-8 border-l border-[var(--color-pib-line)]',
+        ].join(' ')}
+      >
+        <span className="material-symbols-outlined text-[18px]">web_asset</span>
       </button>
     )
   }

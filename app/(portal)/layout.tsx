@@ -560,33 +560,42 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
           )}
         </Link>
 
-        {/* Collapse toggle (desktop only) */}
-        <button
-          onClick={toggleCollapsed}
-          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          className={[
-            'hidden md:flex items-center justify-center h-8 text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors border-b border-[var(--color-pib-line)] w-full',
-            collapsed ? '' : 'px-5',
-          ].join(' ')}
-        >
-          <span className="material-symbols-outlined text-[18px]">
-            {collapsed ? 'chevron_right' : 'chevron_left'}
-          </span>
-          {!collapsed && <span className="ml-auto text-[10px] opacity-50">collapse</span>}
-        </button>
+        {/* Collapse and mode switch controls */}
+        <div className="hidden md:flex items-center h-8 border-b border-[var(--color-pib-line)] shrink-0">
+          <button
+            onClick={toggleCollapsed}
+            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            className={[
+              'flex h-8 items-center justify-center text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors',
+              collapsed ? 'w-full' : 'flex-1',
+            ].join(' ')}
+          >
+            <span className="material-symbols-outlined text-[18px]">
+              {collapsed ? 'chevron_right' : 'chevron_left'}
+            </span>
+          </button>
+          {!collapsed && canOpenAdminView && (
+            <Link
+              href={adminViewHref}
+              title="Switch to admin view"
+              aria-label="Switch to admin view"
+              className="h-8 w-8 border-l border-[var(--color-pib-line)] flex items-center justify-center text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.05] transition-colors"
+            >
+              <span className="material-symbols-outlined text-[18px]">admin_panel_settings</span>
+            </Link>
+          )}
+        </div>
 
-        {canOpenAdminView && (
+        {collapsed && canOpenAdminView && (
           <div className="border-b border-[var(--color-pib-line)] shrink-0">
             <Link
               href={adminViewHref}
               title="Switch to admin view"
-              className={[
-                'flex items-center rounded-lg text-sm transition-all duration-150 text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.03]',
-                collapsed ? 'justify-center mx-2 my-2 px-0 py-2.5' : 'gap-3 mx-3 my-3 px-3 py-2',
-              ].join(' ')}
+              aria-label="Switch to admin view"
+              className="mx-2 my-2 flex h-8 w-8 items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.05] transition-colors"
             >
-              <span className="material-symbols-outlined text-[20px] shrink-0 opacity-70">admin_panel_settings</span>
-              {!collapsed && <span className="font-medium">Admin view</span>}
+              <span className="material-symbols-outlined text-[18px]">admin_panel_settings</span>
             </Link>
           </div>
         )}
