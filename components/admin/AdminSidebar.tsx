@@ -8,6 +8,7 @@ import { OrgSwitcher } from './OrgSwitcher'
 // import GlobalSearch from './GlobalSearch'
 import { useOrg } from '@/lib/contexts/OrgContext'
 import { OPERATOR_NAV, workspaceNav, type NavItem } from './navConfig'
+import { PortalViewSwitch } from './PortalViewSwitch'
 
 const WORKSPACE_GROUP_LABELS: Record<NonNullable<NavItem['group']>, string> = {
   work: 'Workspace',
@@ -177,6 +178,12 @@ export function AdminSidebar({ open = false, onClose, collapsed = false, onToggl
           <div className="border-t border-[var(--color-pib-line)] py-3">
             <p className="eyebrow !text-[9px] px-5 mb-1.5">Context</p>
             <OrgSwitcher />
+          </div>
+        )}
+
+        {isWorkspaceMode && selectedOrg?.id && (
+          <div className="border-t border-[var(--color-pib-line)]">
+            <PortalViewSwitch orgId={selectedOrg.id} collapsed={collapsed} />
           </div>
         )}
 

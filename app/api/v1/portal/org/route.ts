@@ -33,6 +33,7 @@ export const GET = withPortalAuth(async (_req: NextRequest, uid: string) => {
     org: {
       id: orgId,
       name: org.name ?? '',
+      slug: org.slug ?? '',
       description: org.description ?? '',
       website: org.website ?? '',
       industry: org.industry ?? '',

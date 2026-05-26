@@ -8,6 +8,7 @@ import type { ReactNode } from 'react'
 import { useOrg } from '@/lib/contexts/OrgContext'
 import { OrgSwitcher } from './OrgSwitcher'
 import { NotificationBell } from '@/components/crm/NotificationBell'
+import { PortalViewSwitch } from './PortalViewSwitch'
 import {
   OPERATOR_NAV_TOPBAR,
   workspaceNav,
@@ -129,8 +130,10 @@ export function AdminTopbarNav({ userEmail, userUid, orgId, messageAction }: Adm
   const { selectedOrgId, orgs } = useOrg()
   const [mobileOpen, setMobileOpen] = useState(false)
 
-  const selectedOrg = orgs.find((o) => o.id === selectedOrgId)
-  const isWorkspaceMode = !!selectedOrgId && !!selectedOrg
+  const routeOrgSlug = pathname.match(/^\/admin\/org\/([^/]+)/)?.[1]
+  const routeOrg = routeOrgSlug ? orgs.find((o) => o.slug === routeOrgSlug) : undefined
+  const selectedOrg = routeOrg ?? orgs.find((o) => o.id === selectedOrgId)
+  const isWorkspaceMode = !!selectedOrg
   const navItems = isWorkspaceMode ? workspaceNav(selectedOrg.slug) : OPERATOR_NAV_TOPBAR
 
   const initials = userEmail.split(/[.\s@]/).filter(Boolean).slice(0, 2).map((s) => s[0]?.toUpperCase()).join('')
@@ -172,6 +175,9 @@ export function AdminTopbarNav({ userEmail, userUid, orgId, messageAction }: Adm
           <div className="flex items-center gap-2 ml-auto shrink-0">
             <NotificationBell mode="admin" orgId={orgId} userId={userUid} />
             {messageAction}
+            {isWorkspaceMode && selectedOrg?.id && (
+              <PortalViewSwitch orgId={selectedOrg.id} compact />
+            )}
             {/* Temporarily hidden while the admin layout switcher is being revisited.
             <button
               onClick={onToggleLayout}
@@ -213,6 +219,12 @@ export function AdminTopbarNav({ userEmail, userUid, orgId, messageAction }: Adm
           <div className="relative z-10 mt-14 bg-[var(--color-sidebar)] border-b border-[var(--color-pib-line)] p-4 flex flex-col gap-1 max-h-[80vh] overflow-y-auto">
             <OrgSwitcher />
             <div className="h-px bg-[var(--color-pib-line)] my-2" />
+            {isWorkspaceMode && selectedOrg?.id && (
+              <PortalViewSwitch orgId={selectedOrg.id} />
+            )}
+            {isWorkspaceMode && selectedOrg?.id && (
+              <div className="h-px bg-[var(--color-pib-line)] my-2" />
+            )}
             {navItems.map((item) => (
               <MobileNavItem key={item.href} item={item} pathname={pathname} />
             ))}

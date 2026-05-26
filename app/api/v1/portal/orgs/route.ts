@@ -27,6 +27,7 @@ export const GET = withPortalAuth(async (_req: NextRequest, uid: string) => {
     .map((d) => ({
       id: d.id,
       name: (d.data()!.name as string) ?? '',
+      slug: (d.data()!.slug as string) ?? '',
       logoUrl: (d.data()!.logoUrl as string) ?? '',
     }))
 

@@ -106,6 +106,13 @@ const GROUP_LABELS: Record<NavItem['group'], string> = {
 
 type LayoutMode = 'sidebar' | 'topbar'
 
+interface PortalOrgOption {
+  id: string
+  name: string
+  slug: string
+  logoUrl: string
+}
+
 function active(pathname: string, item: NavItem) {
   if (pathname === item.href || pathname.startsWith(item.href + '/')) return true
   return item.activePatterns?.some((pattern) => pathname === pattern || pathname.startsWith(pattern + '/')) ?? false
@@ -156,8 +163,10 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
   const [collapsed, setCollapsed]   = useState(false)
   const [layoutMode, setLayoutMode] = useState<LayoutMode>('sidebar')
   const [documentCount, setDocumentCount] = useState(0)
-  const [orgs, setOrgs] = useState<{ id: string; name: string; logoUrl: string }[]>([])
+  const [orgs, setOrgs] = useState<PortalOrgOption[]>([])
   const [activeOrgId, setActiveOrgId] = useState('')
+  const [activeOrgSlug, setActiveOrgSlug] = useState('')
+  const [userRole, setUserRole] = useState('')
   const [orgSwitching, setOrgSwitching] = useState(false)
   const [memberRole, setMemberRole] = useState<string | null>(null)
   const [profileName, setProfileName] = useState('')
@@ -201,6 +210,8 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
             .then(d => {
               if (d?.org?.name) setOrgName(d.org.name)
               if (d?.org?.id) setActiveOrgId(d.org.id)
+              if (d?.org?.slug) setActiveOrgSlug(d.org.slug)
+              if (d?.user?.role) setUserRole(d.user.role)
             })
             .catch(() => {})
           fetch('/api/v1/portal/orgs')
@@ -208,6 +219,10 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
             .then(d => {
               if (Array.isArray(d?.orgs)) setOrgs(d.orgs)
               if (d?.activeOrgId) setActiveOrgId(d.activeOrgId)
+              const activeOrg = Array.isArray(d?.orgs)
+                ? d.orgs.find((org: PortalOrgOption) => org.id === d.activeOrgId)
+                : null
+              if (activeOrg?.slug) setActiveOrgSlug(activeOrg.slug)
             })
             .catch(() => {})
           fetch('/api/v1/portal/settings/profile')
@@ -275,7 +290,10 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
       })
       setActiveOrgId(orgId)
       const switched = orgs.find(o => o.id === orgId)
-      if (switched) setOrgName(switched.name)
+      if (switched) {
+        setOrgName(switched.name)
+        setActiveOrgSlug(switched.slug)
+      }
       router.refresh()
     } finally {
       setOrgSwitching(false)
@@ -313,6 +331,8 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
   }))
 
   const initials = (name || email).split(/[.\s@]/).filter(Boolean).slice(0, 2).map(s => s[0]?.toUpperCase()).join('')
+  const canOpenAdminView = userRole === 'admin' && !!activeOrgSlug
+  const adminViewHref = activeOrgSlug ? `/admin/org/${activeOrgSlug}/dashboard` : '/admin/dashboard'
 
   const tracker = (
     <>
@@ -372,6 +392,16 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
 
             {/* Right side */}
             <div className="flex items-center gap-2 ml-auto shrink-0">
+              {canOpenAdminView && (
+                <Link
+                  href={adminViewHref}
+                  title="Switch to admin view"
+                  className="hidden md:flex items-center gap-1.5 px-2.5 h-8 rounded-lg text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.05] transition-colors"
+                >
+                  <span className="material-symbols-outlined text-[18px]">admin_panel_settings</span>
+                  <span className="hidden lg:inline">Admin</span>
+                </Link>
+              )}
               <NotificationBell />
               <MessageDrawer
                 orgId={activeOrgId}
@@ -449,6 +479,15 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
                 <span className="material-symbols-outlined text-[18px]">dock_to_right</span>
                 Switch to sidebar layout
               </button>
+              {canOpenAdminView && (
+                <Link
+                  href={adminViewHref}
+                  className="flex items-center gap-2 px-3 py-2 text-sm text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] rounded-lg hover:bg-white/[0.04]"
+                >
+                  <span className="material-symbols-outlined text-[18px]">admin_panel_settings</span>
+                  Switch to admin view
+                </Link>
+              )}
             </div>
           </div>
         )}
@@ -528,6 +567,22 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
           </span>
           {!collapsed && <span className="ml-auto text-[10px] opacity-50">collapse</span>}
         </button>
+
+        {canOpenAdminView && (
+          <div className="border-b border-[var(--color-pib-line)] shrink-0">
+            <Link
+              href={adminViewHref}
+              title="Switch to admin view"
+              className={[
+                'flex items-center rounded-lg text-sm transition-all duration-150 text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.03]',
+                collapsed ? 'justify-center mx-2 my-2 px-0 py-2.5' : 'gap-3 mx-3 my-3 px-3 py-2',
+              ].join(' ')}
+            >
+              <span className="material-symbols-outlined text-[20px] shrink-0 opacity-70">admin_panel_settings</span>
+              {!collapsed && <span className="font-medium">Admin view</span>}
+            </Link>
+          </div>
+        )}
 
         {/* Nav — settings mode replaces normal nav */}
         {pathname.startsWith('/portal/settings') ? (
@@ -665,6 +720,16 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
             {NAV_LINKS.find(n => active(pathname, n))?.label ?? 'Overview'}
           </span>
           <div className="ml-auto flex items-center gap-3">
+            {canOpenAdminView && (
+              <Link
+                href={adminViewHref}
+                title="Switch to admin view"
+                className="hidden md:flex items-center gap-1.5 px-2.5 h-8 rounded-lg text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.05] transition-colors"
+              >
+                <span className="material-symbols-outlined text-[18px]">admin_panel_settings</span>
+                <span className="hidden lg:inline">Admin</span>
+              </Link>
+            )}
             <NotificationBell />
             <MessageDrawer
               orgId={activeOrgId}
