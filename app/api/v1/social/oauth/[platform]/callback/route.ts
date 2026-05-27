@@ -43,6 +43,8 @@ export async function GET(req: NextRequest) {
     // Decode and verify state
     const stateData = JSON.parse(Buffer.from(stateToken, 'base64url').toString())
     const { orgId, nonce, redirectUrl: savedRedirect } = stateData
+    const accountScope = stateData.accountScope === 'personal' ? 'personal' : 'org'
+    const ownerUid = typeof stateData.ownerUid === 'string' ? stateData.ownerUid : ''
     const linkedinMode: LinkedInOAuthMode =
       platform === 'linkedin' && stateData.linkedinMode === 'organization'
         ? 'organization'
@@ -149,7 +151,7 @@ export async function GET(req: NextRequest) {
           new URL(`${redirectUrl}?status=error&message=${encodeURIComponent('No Facebook accounts found')}`, url.origin).toString()
         )
       }
-      return writePendingAndRedirect(options, platform, orgId, nonce, redirectUrl, url.origin)
+      return writePendingAndRedirect(options, platform, orgId, nonce, redirectUrl, url.origin, accountScope, ownerUid)
     }
 
     if (platform === 'linkedin') {
@@ -180,7 +182,7 @@ export async function GET(req: NextRequest) {
           new URL(`${redirectUrl}?status=error&message=${encodeURIComponent('No LinkedIn accounts found')}`, url.origin).toString()
         )
       }
-      return writePendingAndRedirect(options, platform, orgId, nonce, redirectUrl, url.origin)
+      return writePendingAndRedirect(options, platform, orgId, nonce, redirectUrl, url.origin, accountScope, ownerUid)
     }
 
     // All other platforms: fetch profile, encrypt, upsert social_accounts, audit log
@@ -259,6 +261,7 @@ export async function GET(req: NextRequest) {
       platformMeta: profile.meta ?? {},
       lastTokenRefresh: now,
       updatedAt: now,
+      ...(accountScope === 'personal' ? { accountScope, ownerUid } : {}),
     }
 
     let accountId: string
@@ -701,12 +704,15 @@ async function writePendingAndRedirect(
   nonce: string,
   redirectUrl: string,
   originUrl: string,
+  accountScope: 'org' | 'personal' = 'org',
+  ownerUid = '',
 ): Promise<NextResponse> {
   const expiresAt = Timestamp.fromDate(new Date(Date.now() + 30 * 60 * 1000))
   const pendingData = {
     nonce,
     orgId,
     platform,
+    ...(accountScope === 'personal' ? { accountScope, ownerUid } : {}),
     createdAt: Timestamp.now(),
     expiresAt,
     options: options.map(opt => ({

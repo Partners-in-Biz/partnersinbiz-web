@@ -17,11 +17,14 @@ import type { LinkedInOAuthMode } from '@/lib/social/oauth-config'
 import type { SocialPlatformType } from '@/lib/social/providers/types'
 import { Timestamp } from 'firebase-admin/firestore'
 
-export const GET = withAuth('client', withTenant(async (req: NextRequest, _user, orgId) => {
+const PERSONAL_SCOPE = 'personal'
+
+export const GET = withAuth('client', withTenant(async (req: NextRequest, user, orgId) => {
   const url = new URL(req.url)
   const rawPlatform = url.pathname.split('/').slice(-1)[0]
   const platform = (rawPlatform === 'x' ? 'twitter' : rawPlatform) as SocialPlatformType
   const redirectUrl = url.searchParams.get('redirectUrl') ?? '/admin/social'
+  const accountScope = url.searchParams.get('scope') === PERSONAL_SCOPE ? PERSONAL_SCOPE : 'org'
   const linkedinMode: LinkedInOAuthMode =
     platform === 'linkedin' && url.searchParams.get('linkedinMode') === 'organization'
       ? 'organization'
@@ -47,7 +50,7 @@ export const GET = withAuth('client', withTenant(async (req: NextRequest, _user,
 
   // Generate state token
   const nonce = crypto.randomBytes(16).toString('hex')
-  const stateData = { orgId, platform, nonce, redirectUrl, ...(platform === 'linkedin' ? { linkedinMode } : {}) }
+  const stateData = { orgId, platform, nonce, redirectUrl, accountScope, ownerUid: user.uid, ...(platform === 'linkedin' ? { linkedinMode } : {}) }
   const stateToken = Buffer.from(JSON.stringify(stateData)).toString('base64url')
 
   // Generate PKCE code_verifier if platform requires it
@@ -62,6 +65,8 @@ export const GET = withAuth('client', withTenant(async (req: NextRequest, _user,
     platform,
     nonce,
     redirectUrl,
+    accountScope,
+    ownerUid: user.uid,
     ...(codeVerifier ? { codeVerifier } : {}),
     expiresAt: Timestamp.fromDate(new Date(Date.now() + 10 * 60 * 1000)),
     createdAt: Timestamp.now(),
