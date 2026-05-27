@@ -54,9 +54,13 @@ beforeEach(() => {
       return jsonResponse({
         data: {
           uid: 'new-client',
-          role: JSON.parse(String(init?.body)).role,
-          email: 'new@example.com',
-          displayName: 'New Client',
+      role: JSON.parse(String(init?.body)).role,
+      jobTitle: JSON.parse(String(init?.body)).jobTitle,
+      department: JSON.parse(String(init?.body)).department,
+      accessScope: JSON.parse(String(init?.body)).accessScope,
+      accessNotes: JSON.parse(String(init?.body)).accessNotes,
+      email: 'new@example.com',
+      displayName: 'New Client',
           setupLink: 'https://partnersinbiz.online/auth/reset?link=test',
         },
       }, 201)
@@ -65,9 +69,13 @@ beforeEach(() => {
     if (url === '/api/v1/organizations/org-1/members/client' && method === 'POST') {
       return jsonResponse({
         data: {
-          userId: 'client-1',
-          role: JSON.parse(String(init?.body)).role,
-          email: 'jane@example.com',
+      userId: 'client-1',
+      role: JSON.parse(String(init?.body)).role,
+      jobTitle: JSON.parse(String(init?.body)).jobTitle,
+      department: JSON.parse(String(init?.body)).department,
+      accessScope: JSON.parse(String(init?.body)).accessScope,
+      accessNotes: JSON.parse(String(init?.body)).accessNotes,
+      email: 'jane@example.com',
           displayName: 'Jane Client',
         },
       }, 201)
@@ -76,9 +84,13 @@ beforeEach(() => {
     if (url === '/api/v1/organizations/org-1/members' && method === 'POST') {
       return jsonResponse({
         data: {
-          userId: 'staff-1',
-          role: JSON.parse(String(init?.body)).role,
-          email: 'maya@partnersinbiz.online',
+      userId: 'staff-1',
+      role: JSON.parse(String(init?.body)).role,
+      jobTitle: JSON.parse(String(init?.body)).jobTitle,
+      department: JSON.parse(String(init?.body)).department,
+      accessScope: JSON.parse(String(init?.body)).accessScope,
+      accessNotes: JSON.parse(String(init?.body)).accessNotes,
+      email: 'maya@partnersinbiz.online',
           displayName: 'Maya Staff',
         },
       }, 201)
@@ -124,6 +136,12 @@ it('submits the create-login form with the selected role', async () => {
   fireEvent.change(screen.getByPlaceholderText('Jane Client'), { target: { value: 'New Client' } })
   fireEvent.change(screen.getByPlaceholderText('client@example.com'), { target: { value: 'new@example.com' } })
   fireEvent.change(screen.getAllByRole('combobox')[0], { target: { value: 'viewer' } })
+  fireEvent.change(screen.getAllByPlaceholderText('Finance Manager')[0], { target: { value: 'Marketing Director' } })
+  fireEvent.change(screen.getAllByPlaceholderText('Operations')[0], { target: { value: 'Marketing' } })
+  fireEvent.change(screen.getAllByRole('combobox')[1], { target: { value: 'marketing' } })
+  fireEvent.change(screen.getAllByPlaceholderText("Context for this person's responsibilities")[0], {
+    target: { value: 'Approves campaign plans' },
+  })
   fireEvent.click(screen.getByRole('button', { name: /Create Login/i }))
 
   await waitFor(() => {
@@ -131,6 +149,10 @@ it('submits the create-login form with the selected role', async () => {
       email: 'new@example.com',
       name: 'New Client',
       role: 'viewer',
+      jobTitle: 'Marketing Director',
+      department: 'Marketing',
+      accessScope: 'marketing',
+      accessNotes: 'Approves campaign plans',
     })
   })
   expect(await screen.findByText('Setup link ready')).toBeInTheDocument()
@@ -145,13 +167,17 @@ it('submits the selected existing client and role', async () => {
     jest.advanceTimersByTime(250)
   })
   fireEvent.mouseDown(await screen.findByText('Jane Client'))
-  fireEvent.change(screen.getAllByRole('combobox')[1], { target: { value: 'admin' } })
+  fireEvent.change(screen.getAllByRole('combobox')[2], { target: { value: 'admin' } })
   fireEvent.click(screen.getByRole('button', { name: /Add Client/i }))
 
   await waitFor(() => {
     expect(lastFetchBodyFor('/api/v1/organizations/org-1/members/client')).toEqual({
       uid: 'client-1',
       role: 'admin',
+      jobTitle: '',
+      department: '',
+      accessScope: 'all',
+      accessNotes: '',
     })
   })
 })
@@ -162,13 +188,17 @@ it('submits the selected existing PiB member and role', async () => {
   await screen.findByText('Invites & Access')
   fireEvent.change(screen.getByPlaceholderText('Search staff...'), { target: { value: 'maya' } })
   fireEvent.mouseDown(await screen.findByText('Maya Staff'))
-  fireEvent.change(screen.getAllByRole('combobox')[2], { target: { value: 'admin' } })
+  fireEvent.change(screen.getAllByRole('combobox')[4], { target: { value: 'admin' } })
   fireEvent.click(screen.getByRole('button', { name: /Add Member/i }))
 
   await waitFor(() => {
     expect(lastFetchBodyFor('/api/v1/organizations/org-1/members')).toEqual({
       email: 'maya@partnersinbiz.online',
       role: 'admin',
+      jobTitle: '',
+      department: '',
+      accessScope: 'all',
+      accessNotes: '',
     })
   })
 })

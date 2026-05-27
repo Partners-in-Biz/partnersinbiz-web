@@ -35,6 +35,7 @@ interface SocialStats {
 interface OrganizationSummary {
   id: string
   slug: string
+  name?: string
 }
 
 const PLATFORM_COLORS: Record<string, string> = {
@@ -90,6 +91,7 @@ export default function OrgDashboard() {
   const [projects, setProjects] = useState<Project[]>([])
   const [socialStats, setSocialStats] = useState<SocialStats | null>(null)
   const [scheduledPosts, setScheduledPosts] = useState<ScheduledContentPost[]>([])
+  const [orgName, setOrgName] = useState('')
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -99,6 +101,7 @@ export default function OrgDashboard() {
         .then(body => {
           const org = ((body.data ?? []) as OrganizationSummary[]).find((o) => o.slug === slug)
           if (org) {
+            setOrgName(org.name?.trim() || '')
             return org.id
           }
           return null
@@ -134,7 +137,7 @@ export default function OrgDashboard() {
   }, [slug])
 
   const activeProjects = projects.filter(p => p.status === 'active' || p.status === 'in_progress')
-  const orgName = slug.replace(/-/g, ' ')
+  const displayOrgName = orgName || slug.replace(/-/g, ' ')
 
   // Social post status donut data
   const statusDonut = socialStats ? [
@@ -162,7 +165,7 @@ export default function OrgDashboard() {
     <div className="space-y-6 max-w-6xl mx-auto">
       <PageHeader
         eyebrow="Workspace"
-        title={`${getGreeting()} — ${orgName}`}
+        title={`${getGreeting()} — ${displayOrgName}`}
         description={new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
         actions={(
           <Link href={`/admin/org/${slug}/projects`} className="pib-btn-primary text-sm font-label">

@@ -89,6 +89,15 @@ export const POST = withAuth('admin', async (req, user) => {
   const initialMembers: OrgMember[] = user.role === 'ai'
     ? []
     : [{ userId: user.uid, role: 'owner' }]
+  const inputSettings = body.settings && typeof body.settings === 'object'
+    ? body.settings as Record<string, unknown>
+    : {}
+  const currency = ['USD', 'EUR', 'ZAR'].includes(String(inputSettings.currency))
+    ? String(inputSettings.currency)
+    : 'ZAR'
+  const timezone = typeof inputSettings.timezone === 'string' && inputSettings.timezone.trim()
+    ? inputSettings.timezone.trim()
+    : 'Africa/Johannesburg'
 
   const doc = {
     name,
@@ -103,6 +112,14 @@ export const POST = withAuth('admin', async (req, user) => {
     plan: typeof body.plan === 'string' ? body.plan : '',
     createdBy: user.uid,
     members: initialMembers,
+    settings: {
+      timezone,
+      currency,
+      defaultApprovalRequired: Boolean(inputSettings.defaultApprovalRequired),
+      notificationEmail: typeof inputSettings.notificationEmail === 'string'
+        ? inputSettings.notificationEmail.trim()
+        : '',
+    },
     linkedClientId: '',
     active: true,
     createdAt: FieldValue.serverTimestamp(),

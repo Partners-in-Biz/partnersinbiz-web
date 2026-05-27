@@ -16,6 +16,7 @@ interface OrgForm {
   notificationEmail: string
   defaultApprovalRequired: boolean
   timezone: string
+  currency: 'USD' | 'EUR' | 'ZAR'
   // Email send-time optimisation
   preferredSendHourLocal: number
   preferredSendDaysOfWeek: number[]
@@ -43,7 +44,7 @@ interface OrgForm {
 
 const emptyForm: OrgForm = {
   name: '', website: '', description: '', industry: '', billingEmail: '',
-  status: 'active', notificationEmail: '', defaultApprovalRequired: false, timezone: '',
+  status: 'active', notificationEmail: '', defaultApprovalRequired: false, timezone: 'Africa/Johannesburg', currency: 'ZAR',
   preferredSendHourLocal: 9, preferredSendDaysOfWeek: [1, 2, 3, 4, 5], replyNotifyEmails: '',
   line1: '', line2: '', city: '', state: '', postalCode: '', country: '',
   vatNumber: '', registrationNumber: '', phone: '',
@@ -132,7 +133,10 @@ export default function OrgSettingsPage() {
           status: d.status ?? 'active',
           notificationEmail: settings.notificationEmail ?? '',
           defaultApprovalRequired: settings.defaultApprovalRequired ?? false,
-          timezone: settings.timezone ?? '',
+          timezone: settings.timezone ?? d.timezone ?? 'Africa/Johannesburg',
+          currency: ['USD', 'EUR', 'ZAR'].includes(settings.currency)
+            ? settings.currency
+            : 'ZAR',
           preferredSendHourLocal:
             typeof settings.preferredSendHourLocal === 'number'
               ? settings.preferredSendHourLocal
@@ -185,6 +189,7 @@ export default function OrgSettingsPage() {
           notificationEmail: form.notificationEmail,
           defaultApprovalRequired: form.defaultApprovalRequired,
           timezone: form.timezone,
+          currency: form.currency,
           preferredSendHourLocal: form.preferredSendHourLocal,
           preferredSendDaysOfWeek: form.preferredSendDaysOfWeek,
           replyNotifyEmails: form.replyNotifyEmails
@@ -395,7 +400,6 @@ export default function OrgSettingsPage() {
             <div>
               <label className="pib-label">Timezone</label>
               <select value={form.timezone} onChange={e => update('timezone', e.target.value)} className="pib-select">
-                <option value="" disabled>Select timezone…</option>
                 <option value="Africa/Johannesburg">Africa/Johannesburg (SAST, UTC+2)</option>
                 <option value="America/Chicago">America/Chicago (CST, UTC-6)</option>
                 <option value="America/Denver">America/Denver (MST, UTC-7)</option>
@@ -413,6 +417,14 @@ export default function OrgSettingsPage() {
                 <option value="Europe/Paris">Europe/Paris (CET, UTC+1)</option>
                 <option value="Pacific/Auckland">Pacific/Auckland (NZST, UTC+12)</option>
                 <option value="UTC">UTC</option>
+              </select>
+            </div>
+            <div>
+              <label className="pib-label">Currency</label>
+              <select value={form.currency} onChange={e => update('currency', e.target.value as OrgForm['currency'])} className="pib-select">
+                <option value="ZAR">ZAR (R)</option>
+                <option value="USD">USD ($)</option>
+                <option value="EUR">EUR (€)</option>
               </select>
             </div>
           </div>

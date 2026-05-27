@@ -142,7 +142,7 @@ export default function LoginPage() {
                 Sign in to access your projects, reports, and conversations with the team.
               </p>
 
-              <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+              <form method="post" action="/login" onSubmit={handleSubmit} className="flex flex-col gap-5">
                 <div className="flex flex-col gap-2">
                   <label className="pib-label">Email</label>
                   <input name="email" type="email" required autoComplete="email" className="pib-input" />

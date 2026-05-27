@@ -5,7 +5,6 @@ import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
 import { ContactForm } from '@/components/admin/crm/ContactForm'
 import { useOrg } from '@/lib/contexts/OrgContext'
-import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
 
 const STAGES = ['new','contacted','replied','demo','proposal','won','lost']
 const TYPES = ['lead','prospect','client','churned']
@@ -56,20 +55,23 @@ function TypeBadge({ type }: { type: string }) {
 }
 
 export default function ContactsPage() {
-  const { selectedOrgId } = useOrg()
-  // Operator mode (no org selected) defaults to the PIB platform org so the
-  // operator's CRM still has a sensible scope. In workspace mode we use the
-  // selected org. The API requires orgId on every contact write/list.
-  const activeOrgId = selectedOrgId || PIB_PLATFORM_ORG_ID
+  const { selectedOrgId, orgs } = useOrg()
 
   const [contacts, setContacts] = useState<Contact[]>([])
   const [loading, setLoading] = useState(true)
+  const [contactOrgId, setContactOrgId] = useState('')
   const [search, setSearch] = useState('')
   const [stageFilter, setStageFilter] = useState('')
   const [typeFilter, setTypeFilter] = useState('')
   const [showNew, setShowNew] = useState(false)
+  const activeOrgId = selectedOrgId || contactOrgId
 
   const fetchContacts = useCallback(async () => {
+    if (!activeOrgId) {
+      setContacts([])
+      setLoading(false)
+      return
+    }
     setLoading(true)
     const params = new URLSearchParams()
     params.set('orgId', activeOrgId)
@@ -82,9 +84,15 @@ export default function ContactsPage() {
     setLoading(false)
   }, [search, stageFilter, typeFilter, activeOrgId])
 
-  useEffect(() => { fetchContacts() }, [fetchContacts])
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void fetchContacts()
+    }, 0)
+    return () => window.clearTimeout(timer)
+  }, [fetchContacts])
 
   async function createContact(data: Record<string, unknown>) {
+    if (!activeOrgId) throw new Error('Select a client workspace before creating a contact')
     const res = await fetch('/api/v1/crm/contacts', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -109,12 +117,35 @@ export default function ContactsPage() {
           </p>
         </div>
         <button
-          onClick={() => setShowNew(true)}
-          className="pib-btn-primary text-sm font-label"
+          onClick={() => activeOrgId && setShowNew(true)}
+          disabled={!activeOrgId}
+          className="pib-btn-primary text-sm font-label disabled:cursor-not-allowed disabled:opacity-50"
         >
           + New Contact
         </button>
       </div>
+
+      {!selectedOrgId && (
+        <div className="pib-card mb-4 space-y-2">
+          <label htmlFor="contactOrgId" className="pib-label">Client workspace</label>
+          <select
+            id="contactOrgId"
+            value={contactOrgId}
+            onChange={(e) => setContactOrgId(e.target.value)}
+            className="pib-select max-w-md"
+          >
+            <option value="">Select workspace before adding or viewing contacts…</option>
+            {orgs
+              .filter((org) => org.type === 'client')
+              .map((org) => (
+                <option key={org.id} value={org.id}>{org.name}</option>
+              ))}
+          </select>
+          <p className="text-xs text-on-surface-variant">
+            Contacts are always scoped to one client organisation so leads, automations, and handoffs do not bleed across workspaces.
+          </p>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex gap-3 mb-4">
@@ -152,7 +183,11 @@ export default function ContactsPage() {
       ) : contacts.length === 0 ? (
         <div className="border border-outline-variant rounded-lg p-12 text-center">
           <p className="text-on-surface-variant mb-4">No contacts yet.</p>
-          <button onClick={() => setShowNew(true)} className="pib-btn-primary text-sm font-label">
+          <button
+            onClick={() => activeOrgId && setShowNew(true)}
+            disabled={!activeOrgId}
+            className="pib-btn-primary text-sm font-label disabled:cursor-not-allowed disabled:opacity-50"
+          >
             Add your first lead →
           </button>
         </div>

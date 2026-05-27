@@ -17,6 +17,8 @@ export default function NewClientPage() {
     description: '',
     billingEmail: '',
     plan: '',
+    timezone: 'Africa/Johannesburg',
+    currency: 'ZAR',
     agentName: '',
     provisionWorkspace: true,
   })
@@ -35,17 +37,28 @@ export default function NewClientPage() {
     setLoading(true)
     setError('')
 
+    const name = formData.name.trim()
+    if (!name) {
+      setError('Organisation name is required before a client workspace can be created.')
+      setLoading(false)
+      return
+    }
+
     try {
       const response = await fetch('/api/v1/organizations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: formData.name,
+          name,
           website: formData.website,
           industry: formData.industry,
           description: formData.description,
           billingEmail: formData.billingEmail,
           plan: formData.plan,
+          settings: {
+            timezone: formData.timezone,
+            currency: formData.currency,
+          },
           agentName: formData.agentName,
           provisionWorkspace: formData.provisionWorkspace,
           type: 'client',
@@ -81,7 +94,7 @@ export default function NewClientPage() {
       <h1 className="text-2xl font-headline font-bold text-on-surface">New Client</h1>
 
       {/* Form */}
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} noValidate className="space-y-4">
         {/* Error message */}
         {error && (
           <div className="pib-card !border-red-500/30 !bg-red-500/5 text-sm text-red-400">
@@ -103,6 +116,30 @@ export default function NewClientPage() {
             <div>
               <label htmlFor="website" className="pib-label">Website</label>
               <input id="website" type="url" name="website" value={formData.website} onChange={handleChange} placeholder="e.g. https://acme.com" className="pib-input" />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="timezone" className="pib-label">Timezone</label>
+              <select id="timezone" name="timezone" value={formData.timezone} onChange={handleChange} className="pib-select">
+                <option value="Africa/Johannesburg">Africa/Johannesburg (SAST)</option>
+                <option value="America/New_York">America/New_York</option>
+                <option value="America/Los_Angeles">America/Los_Angeles</option>
+                <option value="Europe/London">Europe/London</option>
+                <option value="Europe/Amsterdam">Europe/Amsterdam</option>
+                <option value="Asia/Dubai">Asia/Dubai</option>
+                <option value="Australia/Sydney">Australia/Sydney</option>
+                <option value="UTC">UTC</option>
+              </select>
+            </div>
+            <div>
+              <label htmlFor="currency" className="pib-label">Currency</label>
+              <select id="currency" name="currency" value={formData.currency} onChange={handleChange} className="pib-select">
+                <option value="ZAR">ZAR (R)</option>
+                <option value="USD">USD ($)</option>
+                <option value="EUR">EUR (€)</option>
+              </select>
             </div>
           </div>
 

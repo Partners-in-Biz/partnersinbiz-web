@@ -108,7 +108,13 @@ describe('POST /api/v1/organizations', () => {
     const body = await res.json()
     expect(body.success).toBe(true)
     expect(body.data.id).toBe('new-org-id')
-    expect(mockAdd).toHaveBeenCalledWith(expect.objectContaining({ members: [] }))
+    expect(mockAdd).toHaveBeenCalledWith(expect.objectContaining({
+      members: [],
+      settings: expect.objectContaining({
+        timezone: 'Africa/Johannesburg',
+        currency: 'ZAR',
+      }),
+    }))
   })
 
   it('requests full VPS client provisioning by default for client orgs', async () => {
@@ -334,7 +340,14 @@ describe('POST /api/v1/organizations/[id]/members', () => {
 
   it('adds a member and returns 201', async () => {
     const res = await addMember(
-      adminReq('POST', { email: 'new@example.com', role: 'member' }),
+      adminReq('POST', {
+        email: 'new@example.com',
+        role: 'member',
+        jobTitle: 'Operations Lead',
+        department: 'Operations',
+        accessScope: 'projects',
+        accessNotes: 'Delivery contact',
+      }),
       { params: Promise.resolve({ id: 'org-1' }) } as any,
     )
     expect(res.status).toBe(201)
@@ -345,7 +358,15 @@ describe('POST /api/v1/organizations/[id]/members', () => {
     expect(mockUserWhere).toHaveBeenCalledWith('email', '==', 'new@example.com')
     expect(body.data.userId).toBe('new-user')
     expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({
-      members: expect.anything(),
+      members: expect.arrayContaining([
+        expect.objectContaining({
+          userId: 'new-user',
+          jobTitle: 'Operations Lead',
+          department: 'Operations',
+          accessScope: 'projects',
+          accessNotes: 'Delivery contact',
+        }),
+      ]),
       updatedAt: expect.anything(),
     }))
     expect(mockUserSet).toHaveBeenCalledWith(
@@ -530,7 +551,14 @@ describe('POST /api/v1/organizations/[id]/members/client', () => {
 
   it('adds an existing client user as an org member with the selected role', async () => {
     const res = await addClientMember(
-      adminReq('POST', { uid: 'client-1', role: 'viewer' }, 'http://localhost/api/v1/organizations/org-1/members/client'),
+      adminReq('POST', {
+        uid: 'client-1',
+        role: 'viewer',
+        jobTitle: 'Financial Manager',
+        department: 'Finance',
+        accessScope: 'billing',
+        accessNotes: 'Reviews invoices and proposals',
+      }, 'http://localhost/api/v1/organizations/org-1/members/client'),
       { params: Promise.resolve({ id: 'org-1' }) } as any,
     )
 
@@ -541,10 +569,21 @@ describe('POST /api/v1/organizations/[id]/members/client', () => {
       role: 'viewer',
       email: 'jane@example.com',
       joinedAt: '__NOW_TS__',
+      jobTitle: 'Financial Manager',
+      department: 'Finance',
+      accessScope: 'billing',
+      accessNotes: 'Reviews invoices and proposals',
     }))
     expect(mockOrgUpdate).toHaveBeenCalledWith(expect.objectContaining({
       members: expect.arrayContaining([
-        expect.objectContaining({ userId: 'client-1', role: 'viewer' }),
+        expect.objectContaining({
+          userId: 'client-1',
+          role: 'viewer',
+          jobTitle: 'Financial Manager',
+          department: 'Finance',
+          accessScope: 'billing',
+          accessNotes: 'Reviews invoices and proposals',
+        }),
       ]),
       updatedAt: '__SERVER_TS__',
     }))
@@ -563,6 +602,10 @@ describe('POST /api/v1/organizations/[id]/members/client', () => {
         firstName: 'Jane',
         lastName: 'Client',
         role: 'viewer',
+        jobTitle: 'Financial Manager',
+        department: 'Finance',
+        accessScope: 'billing',
+        accessNotes: 'Reviews invoices and proposals',
         updatedAt: '__SERVER_TS__',
       }),
       { merge: true },
@@ -651,7 +694,15 @@ describe('POST /api/v1/organizations/[id]/create-login', () => {
 
   it('creates a client login, stores the user, and appends a member with a concrete timestamp', async () => {
     const res = await createLogin(
-      adminReq('POST', { email: 'client@example.com', name: 'Client User', role: 'viewer' }),
+      adminReq('POST', {
+        email: 'client@example.com',
+        name: 'Client User',
+        role: 'viewer',
+        jobTitle: 'Owner',
+        department: 'Leadership',
+        accessScope: 'all',
+        accessNotes: 'Primary client sponsor',
+      }),
       { params: Promise.resolve({ id: 'org-1' }) } as any,
     )
 
@@ -673,6 +724,10 @@ describe('POST /api/v1/organizations/[id]/create-login', () => {
           role: 'viewer',
           joinedAt: '__NOW_TS__',
           invitedBy: 'ai-agent',
+          jobTitle: 'Owner',
+          department: 'Leadership',
+          accessScope: 'all',
+          accessNotes: 'Primary client sponsor',
         }),
       ]),
       updatedAt: '__SERVER_TS__',

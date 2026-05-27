@@ -92,6 +92,10 @@ export interface OrgMember {
   role: OrgRole
   joinedAt?: Timestamp | null
   invitedBy?: string
+  jobTitle?: string
+  department?: string
+  accessScope?: 'all' | 'crm' | 'marketing' | 'projects' | 'billing' | 'readonly'
+  accessNotes?: string
 }
 
 // ── Organization ──────────────────────────────────────────────────────────

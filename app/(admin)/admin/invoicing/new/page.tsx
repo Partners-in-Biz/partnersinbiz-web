@@ -14,6 +14,7 @@ interface OrgOption {
   id: string
   name: string
   slug: string
+  type?: string
 }
 
 type Currency = 'USD' | 'EUR' | 'ZAR'
@@ -33,7 +34,7 @@ function NewInvoiceForm() {
 
   const [orgs, setOrgs] = useState<OrgOption[]>([])
   const [orgId, setOrgId] = useState(preselectedOrgId)
-  const [currency, setCurrency] = useState<Currency>('USD')
+  const [currency, setCurrency] = useState<Currency>('ZAR')
   const [taxRate, setTaxRate] = useState(0)
   const [notes, setNotes] = useState('')
   const [dueDate, setDueDate] = useState('')
@@ -49,10 +50,10 @@ function NewInvoiceForm() {
   useEffect(() => {
     fetch('/api/v1/organizations')
       .then(r => r.json())
-      .then(body => {
+      .then((body: { data?: OrgOption[] }) => {
         const clientOrgs = (body.data ?? [])
-          .filter((o: any) => o.type === 'client')
-          .map((o: any) => ({ id: o.id, name: o.name, slug: o.slug }))
+          .filter((o) => o.type === 'client')
+          .map((o) => ({ id: o.id, name: o.name, slug: o.slug }))
         setOrgs(clientOrgs)
       })
   }, [])
@@ -150,8 +151,8 @@ function NewInvoiceForm() {
       const body = await res.json()
       if (!res.ok) throw new Error(body.error ?? 'Failed to create invoice')
       router.push(`/admin/invoicing/${body.data.id}`)
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to create invoice')
       setSaving(false)
     }
   }
