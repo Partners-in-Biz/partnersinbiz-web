@@ -71,4 +71,24 @@ describe('agent memory entity resolution', () => {
     expect(result.selectedEntity).toBeNull()
     expect(result.nextActions).toContain('Choose one of the matching entities before taking action.')
   })
+
+  it('filters organization candidates to the allowed tenant scope', async () => {
+    mockGet
+      .mockResolvedValueOnce({ docs: [
+        doc('org-allowed', { name: 'John Allowed', slug: 'john-allowed', type: 'client' }),
+        doc('org-blocked', { name: 'John Blocked', slug: 'john-blocked', type: 'client' }),
+      ]})
+      .mockResolvedValueOnce({ docs: [] })
+      .mockResolvedValueOnce({ docs: [] })
+
+    const { resolveAgentEntities } = await import('@/lib/agent-memory/entity-resolution')
+    const result = await resolveAgentEntities({
+      query: 'John',
+      orgId: 'org-allowed',
+      allowedOrganizationIds: ['org-allowed'],
+    })
+
+    expect(result.entityCandidates.map((candidate) => candidate.id)).toEqual(['org-allowed'])
+    expect(result.entityCandidates).not.toContainEqual(expect.objectContaining({ id: 'org-blocked' }))
+  })
 })

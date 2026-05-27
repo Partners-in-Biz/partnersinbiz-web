@@ -28,7 +28,7 @@ declare global {
 
 beforeEach(() => {
   jest.clearAllMocks()
-  globalThis.__agentLookupUser = { uid: 'agent:pip', role: 'ai', agentId: 'pip', authKind: 'agent_api_key' }
+  globalThis.__agentLookupUser = { uid: 'agent:pip', role: 'ai', agentId: 'pip', authKind: 'agent_api_key', orgId: 'org-john' }
   mockResolveAgentEntities.mockResolvedValue({
     intent: 'entity_lookup',
     entityCandidates: [],
@@ -40,6 +40,7 @@ beforeEach(() => {
 
 describe('POST /api/v1/agent/lookup', () => {
   it('requires an orgId for agent requests', async () => {
+    globalThis.__agentLookupUser = { uid: 'agent:pip', role: 'ai', agentId: 'pip', authKind: 'agent_api_key' }
     const { POST } = await import('@/app/api/v1/agent/lookup/route')
     const req = new NextRequest('http://localhost/api/v1/agent/lookup', {
       method: 'POST',
@@ -86,6 +87,9 @@ describe('POST /api/v1/agent/lookup', () => {
       selectedEntity: { type: 'organization', id: 'org-john', label: 'John Plumbing', score: 100 },
       limit: 5,
     }))
+    expect(mockResolveAgentEntities).toHaveBeenCalledWith(expect.objectContaining({
+      allowedOrganizationIds: ['org-john'],
+    }))
   })
 
   it('blocks admin lookup against inaccessible orgs', async () => {
@@ -122,6 +126,56 @@ describe('POST /api/v1/agent/lookup', () => {
 
     expect(res.status).toBe(403)
     expect(mockResolveAgentEntities).not.toHaveBeenCalled()
+    expect(mockRetrieveAgentMemory).not.toHaveBeenCalled()
+  })
+
+  it('blocks legacy agent keys from choosing arbitrary orgs without delegated permission', async () => {
+    globalThis.__agentLookupUser = {
+      uid: 'ai-agent',
+      role: 'ai',
+      authKind: 'legacy_ai_key',
+    }
+
+    const { POST } = await import('@/app/api/v1/agent/lookup/route')
+    const req = new NextRequest('http://localhost/api/v1/agent/lookup', {
+      method: 'POST',
+      headers: new Headers({ 'x-org-id': 'org-john' }),
+      body: JSON.stringify({ query: 'John' }),
+    })
+
+    const res = await POST(req)
+
+    expect(res.status).toBe(403)
+    expect(mockResolveAgentEntities).not.toHaveBeenCalled()
+    expect(mockRetrieveAgentMemory).not.toHaveBeenCalled()
+  })
+
+  it('blocks retrieval if resolution selects an organization outside the caller scope', async () => {
+    globalThis.__agentLookupUser = {
+      uid: 'agent:pip',
+      role: 'ai',
+      agentId: 'pip',
+      authKind: 'agent_api_key',
+      orgId: 'allowed-org',
+      permissions: [],
+    }
+    mockResolveAgentEntities.mockResolvedValue({
+      intent: 'entity_lookup',
+      entityCandidates: [{ type: 'organization', id: 'blocked-org', label: 'Blocked Client', score: 100 }],
+      selectedEntity: { type: 'organization', id: 'blocked-org', label: 'Blocked Client', score: 100 },
+      nextActions: [],
+    })
+
+    const { POST } = await import('@/app/api/v1/agent/lookup/route')
+    const req = new NextRequest('http://localhost/api/v1/agent/lookup', {
+      method: 'POST',
+      body: JSON.stringify({ query: 'Blocked Client', orgId: 'allowed-org' }),
+    })
+
+    const res = await POST(req)
+
+    expect(res.status).toBe(403)
+    expect(mockResolveAgentEntities).toHaveBeenCalled()
     expect(mockRetrieveAgentMemory).not.toHaveBeenCalled()
   })
 })

@@ -30,8 +30,9 @@ function permissionMatchesOrg(user: ApiUser, orgId: string) {
     const canRead = permission.actions.includes('read') || permission.actions.includes('*')
     if (!canRead) return false
     return permission.resource === '*' ||
-      permission.resource === 'agent_memory' ||
+      permission.resource === 'agent_memory:*' ||
       permission.resource === `agent_memory:${orgId}` ||
+      permission.resource === 'org:*' ||
       permission.resource === `org:${orgId}`
   }) ?? false
 }
@@ -39,8 +40,25 @@ function permissionMatchesOrg(user: ApiUser, orgId: string) {
 function canUseLookupOrg(user: ApiUser, orgId: string) {
   if (user.role === 'admin') return canAccessOrg(user, orgId)
   if (user.role !== 'ai') return false
-  if (!user.orgId) return true
+  if (!user.orgId) return permissionMatchesOrg(user, orgId)
   return user.orgId === orgId || permissionMatchesOrg(user, orgId)
+}
+
+function allowedLookupOrganizations(user: ApiUser, requestedOrgId: string): string[] | 'all' {
+  if (user.role === 'admin') {
+    if (!Array.isArray(user.allowedOrgIds) || user.allowedOrgIds.length === 0) return 'all'
+    return Array.from(new Set([requestedOrgId, user.orgId, ...user.allowedOrgIds].filter((orgId): orgId is string => Boolean(orgId))))
+  }
+
+  const exactPermissionOrgIds = (user.permissions ?? []).flatMap((permission) => {
+    const canRead = permission.actions.includes('read') || permission.actions.includes('*')
+    if (!canRead) return []
+    if (permission.resource === '*' || permission.resource === 'agent_memory:*' || permission.resource === 'org:*') return ['*']
+    const match = /^(?:agent_memory|org):([^:*]+)$/.exec(permission.resource)
+    return match ? [match[1]] : []
+  })
+  if (exactPermissionOrgIds.includes('*')) return 'all'
+  return Array.from(new Set([requestedOrgId, user.orgId, ...exactPermissionOrgIds].filter((orgId): orgId is string => Boolean(orgId))))
 }
 
 export const POST = withAuth('admin', async (req: NextRequest, user: ApiUser) => {
@@ -55,10 +73,18 @@ export const POST = withAuth('admin', async (req: NextRequest, user: ApiUser) =>
 
   const limit = cleanLimit(body.limit)
   const sourceTypes = cleanSourceTypes(body.sourceTypes)
-  const resolution = await resolveAgentEntities({ query, orgId, limit: 10 })
+  const resolution = await resolveAgentEntities({
+    query,
+    orgId,
+    limit: 10,
+    allowedOrganizationIds: allowedLookupOrganizations(user, orgId),
+  })
+  const retrievalOrgId = resolution.selectedEntity?.type === 'organization' ? resolution.selectedEntity.id : orgId
+  if (!canUseLookupOrg(user, retrievalOrgId)) return apiError('Forbidden', 403)
+
   const retrieved = await retrieveAgentMemory({
     query,
-    orgId: resolution.selectedEntity?.type === 'organization' ? resolution.selectedEntity.id : orgId,
+    orgId: retrievalOrgId,
     selectedEntity: resolution.selectedEntity,
     sourceTypes,
     limit,

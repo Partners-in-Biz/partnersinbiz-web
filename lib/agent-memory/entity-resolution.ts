@@ -13,6 +13,7 @@ export interface ResolveAgentEntitiesInput {
   query: string
   orgId: string
   limit?: number
+  allowedOrganizationIds?: string[] | 'all'
 }
 
 function asString(value: unknown): string {
@@ -51,6 +52,10 @@ const TYPE_RANK: Record<AgentEntityCandidate['type'], number> = {
 
 function isOrganizationLookup(query: string): boolean {
   return /\b(client|customer|org|organization|tenant)\b/i.test(query)
+}
+
+function canResolveOrganization(docId: string, allowedOrganizationIds: ResolveAgentEntitiesInput['allowedOrganizationIds']) {
+  return allowedOrganizationIds === 'all' || !allowedOrganizationIds || allowedOrganizationIds.includes(docId)
 }
 
 function candidateFromDoc(args: {
@@ -101,6 +106,7 @@ export async function resolveAgentEntities(input: ResolveAgentEntitiesInput): Pr
   for (const doc of orgDocs) {
     const data = doc.data()
     if (data.type === 'platform_owner' && doc.id !== input.orgId) continue
+    if (!canResolveOrganization(doc.id, input.allowedOrganizationIds)) continue
     const label = asString(data.name) || asString(data.displayName) || asString(data.slug)
     const candidate = candidateFromDoc({
       doc,

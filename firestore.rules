@@ -115,6 +115,12 @@ service cloud.firestore {
       allow read, write: if isAdmin();
     }
 
+    // Agent memory chunks are retrieved only through authenticated API routes
+    // using the Admin SDK. They can contain cross-source private snippets.
+    match /agent_memory_chunks/{id} {
+      allow read, write: if false;
+    }
+
     // ── Organizations ────────────────────────────────────────────────────────
     // Note: members array items must have exactly {userId, role} — no extra fields —
     // for hasAny map-equality checks to work correctly.
