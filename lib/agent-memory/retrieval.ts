@@ -49,7 +49,8 @@ function permissionMatches(permission: ApiPermission, resource: string, action =
 
 function canReadChunk(user: ApiUser, chunk: Pick<AgentMemoryChunk, 'orgId' | 'sourceType' | 'sensitivity' | 'allowedAgentIds'>) {
   const sensitivity: AgentMemorySensitivity = chunk.sensitivity ?? 'internal'
-  if (user.role !== 'ai') return true
+  if (user.role === 'admin') return true
+  if (user.role === 'client') return sensitivity === 'public'
   const agentId = user.agentId ?? user.uid.replace(/^agent:/, '')
   if (chunk.allowedAgentIds?.includes(agentId)) return true
   const hasAgentAllowList = Boolean(chunk.allowedAgentIds?.length)
@@ -67,6 +68,10 @@ function canReadChunk(user: ApiUser, chunk: Pick<AgentMemoryChunk, 'orgId' | 'so
   if (hasDelegatedPermission) return true
   if (hasAgentAllowList) return false
   return sensitivity === 'public' || sensitivity === 'internal'
+}
+
+function shouldHideUnreadableChunk(user: ApiUser) {
+  return user.role === 'client'
 }
 
 function selectedEntityMatches(chunk: AgentMemoryChunk, selectedEntity?: AgentEntityCandidate | null) {
@@ -135,6 +140,7 @@ export async function retrieveAgentMemory(input: RetrieveAgentMemoryInput): Prom
     if (sourceTypeSet && !sourceTypeSet.has(String(chunk.sourceType))) continue
     if (!selectedEntityMatches(chunk, input.selectedEntity)) continue
     if (!canReadChunk(input.user, chunk)) {
+      if (shouldHideUnreadableChunk(input.user)) continue
       memory.push({
         ...chunk,
         text: `Redacted sensitive memory. Source: ${chunk.title}.`,

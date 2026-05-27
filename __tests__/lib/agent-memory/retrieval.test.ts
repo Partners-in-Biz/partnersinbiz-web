@@ -114,4 +114,42 @@ describe('agent memory retrieval', () => {
     expect(result.memory[0].text).toContain('Redacted sensitive memory')
     expect(result.memory[0].redacted).toBe(true)
   })
+
+  it('hides non-public chunks from client-effective lookups', async () => {
+    mockGet.mockResolvedValue({ docs: [
+      {
+        id: 'internal-research',
+        data: () => ({
+          orgId: 'org-1',
+          sourceType: 'research_item',
+          sourceId: 'research-internal',
+          title: 'Internal research',
+          text: 'Internal-only finding.',
+          sensitivity: 'internal',
+          entityRefs: [],
+        }),
+      },
+      {
+        id: 'public-note',
+        data: () => ({
+          orgId: 'org-1',
+          sourceType: 'client_document',
+          sourceId: 'doc-public',
+          title: 'Client note',
+          text: 'Client-visible memory.',
+          sensitivity: 'public',
+          entityRefs: [],
+        }),
+      },
+    ]})
+
+    const { retrieveAgentMemory } = await import('@/lib/agent-memory/retrieval')
+    const result = await retrieveAgentMemory({
+      query: 'client note',
+      orgId: 'org-1',
+      user: { uid: 'client-1', role: 'client', orgId: 'org-1', orgIds: ['org-1'] },
+    })
+
+    expect(result.memory.map((chunk) => chunk.id)).toEqual(['public-note'])
+  })
 })
