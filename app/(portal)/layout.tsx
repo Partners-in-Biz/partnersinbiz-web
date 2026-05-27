@@ -568,7 +568,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
             aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             className={[
               'flex h-8 items-center justify-center text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors',
-              collapsed ? 'w-full' : 'flex-1',
+              collapsed ? 'w-full' : 'w-8 border-r border-[var(--color-pib-line)]',
             ].join(' ')}
           >
             <span className="material-symbols-outlined text-[18px]">
@@ -593,7 +593,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
               href={adminViewHref}
               title="Switch to admin view"
               aria-label="Switch to admin view"
-              className="mx-2 my-2 flex h-8 w-8 items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.05] transition-colors"
+              className="mx-auto my-2 flex h-8 w-8 items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.05] transition-colors"
             >
               <span className="material-symbols-outlined text-[18px]">admin_panel_settings</span>
             </Link>
@@ -608,7 +608,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
                 type="button"
                 onClick={toggleCollapsed}
                 title={`Workspace: ${orgName || 'Current workspace'}`}
-                className="mx-2 my-2 w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-bold transition-colors bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent-hover)] ring-1 ring-[var(--color-pib-accent)]/30"
+                className="mx-auto my-2 w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-bold transition-colors bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent-hover)] ring-1 ring-[var(--color-pib-accent)]/30"
               >
                 {(orgName || orgs.find(org => org.id === activeOrgId)?.name || 'W')[0]?.toUpperCase() ?? 'W'}
               </button>

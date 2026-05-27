@@ -161,7 +161,7 @@ export function AdminSidebar({ open = false, onClose, collapsed = false, onToggl
             aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             className={[
               'flex h-8 items-center justify-center text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors',
-              collapsed ? 'w-full' : 'flex-1',
+              collapsed ? 'w-full' : 'w-8 border-r border-[var(--color-pib-line)]',
             ].join(' ')}
           >
             <span className="material-symbols-outlined text-[18px]">
