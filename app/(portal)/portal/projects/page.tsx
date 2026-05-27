@@ -1,10 +1,10 @@
 'use client'
 
 import { useEffect, useState, useMemo, useCallback } from 'react'
-import Link from 'next/link'
 import { collection, onSnapshot } from 'firebase/firestore'
 import { getClientDb } from '@/lib/firebase/config'
 import { CrossProjectBoard } from '@/components/projects/CrossProjectBoard'
+import { ProjectListCard } from '@/components/projects/ProjectListCard'
 import { EmptyState, PageHeader, PageTabs, Surface } from '@/components/ui/AppFoundation'
 import type { BoardTask } from '@/components/projects/CrossProjectBoard'
 
@@ -13,6 +13,8 @@ interface Project {
   name: string
   status: string
   description?: string
+  createdAt?: unknown
+  updatedAt?: unknown
 }
 
 function Skeleton({ className = '' }: { className?: string }) {
@@ -20,25 +22,6 @@ function Skeleton({ className = '' }: { className?: string }) {
 }
 
 const STATUS_OPTIONS = ['discovery', 'design', 'development', 'review', 'live', 'maintenance']
-
-function StatusBadge({ status }: { status: string }) {
-  const map: Record<string, { label: string; color: string }> = {
-    active:      { label: 'Active',      color: 'var(--color-accent-v2)' },
-    on_hold:     { label: 'On Hold',     color: 'var(--color-secondary)' },
-    completed:   { label: 'Completed',   color: '#4ade80' },
-    archived:    { label: 'Archived',    color: 'var(--color-outline)' },
-    in_progress: { label: 'In Progress', color: 'var(--color-accent-v2)' },
-  }
-  const s = map[status] ?? { label: status, color: 'var(--color-outline)' }
-  return (
-    <span
-      className="text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full"
-      style={{ background: `${s.color}20`, color: s.color }}
-    >
-      {s.label}
-    </span>
-  )
-}
 
 function mergeLiveTasks(restTasks: BoardTask[], currentTasks: BoardTask[]) {
   const merged = new Map<string, BoardTask>()
@@ -377,18 +360,7 @@ export default function ProjectsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {filtered.map(project => (
               <div key={project.id} className="relative group">
-                <Link
-                  href={`/portal/projects/${project.id}`}
-                  className="pib-card pib-card-hover block"
-                >
-                  <div className="flex items-start justify-between gap-3 mb-2">
-                    <h3 className="font-medium text-on-surface pr-6">{project.name}</h3>
-                    <StatusBadge status={project.status} />
-                  </div>
-                  {project.description && (
-                    <p className="text-sm text-on-surface-variant line-clamp-2">{project.description}</p>
-                  )}
-                </Link>
+                <ProjectListCard project={project} href={`/portal/projects/${project.id}`} />
               </div>
             ))}
           </div>
