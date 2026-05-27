@@ -31,10 +31,14 @@ export async function hasActivePublishAccount(post: FirebaseFirestore.DocumentDa
     for (const accountId of accountIds) {
       const doc = await adminDb.collection('social_accounts').doc(accountId).get()
       const account = doc.data()
-      if (doc.exists && account?.orgId === orgId && account.status === 'active') return true
+      const personalMatches = post.accountScope !== 'personal' ||
+        (account?.accountScope === 'personal' && account.ownerUid === post.ownerUid)
+      if (doc.exists && account?.orgId === orgId && account.status === 'active' && personalMatches) return true
     }
     return false
   }
+
+  if (post.accountScope === 'personal') return false
 
   return Boolean(await findDefaultAccount(orgId, platformType))
 }

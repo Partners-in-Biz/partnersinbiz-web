@@ -426,7 +426,9 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
               </button>
               <SupportDrawer triggerClassName="hidden sm:inline-flex items-center gap-1 text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors" />
               <div className="w-8 h-8 rounded-full bg-[var(--color-pib-accent-soft)] border border-[var(--color-pib-line-strong)] flex items-center justify-center text-xs font-medium text-[var(--color-pib-accent-hover)]">
-                {initials || '·'}
+                <Link href="/portal/settings/profile" title="My profile" className="grid h-full w-full place-items-center rounded-full">
+                  {initials || '·'}
+                </Link>
               </div>
               <button
                 onClick={handleLogout}
@@ -668,8 +670,8 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
           {collapsed ? (
             <div className="flex flex-col items-center gap-2">
               <Link
-                href="/portal/settings/account"
-                title="Settings"
+                href="/portal/settings/profile"
+                title="My profile"
                 className="w-8 h-8 rounded-full bg-[var(--color-pib-accent-soft)] border border-[var(--color-pib-line-strong)] flex items-center justify-center text-xs font-medium text-[var(--color-pib-accent-hover)] hover:ring-2 hover:ring-[var(--color-pib-accent)]/40 transition-all"
               >
                 {initials || '·'}
@@ -681,16 +683,16 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
           ) : (
             <div className="flex items-center gap-3 px-2 py-2 rounded-lg">
               <Link
-                href="/portal/settings/account"
-                title="Settings"
+                href="/portal/settings/profile"
+                title="My profile"
                 className="w-8 h-8 rounded-full bg-[var(--color-pib-accent-soft)] border border-[var(--color-pib-line-strong)] flex items-center justify-center text-xs font-medium text-[var(--color-pib-accent-hover)] hover:ring-2 hover:ring-[var(--color-pib-accent)]/40 transition-all shrink-0"
               >
                 {initials || '·'}
               </Link>
-              <div className="flex-1 min-w-0">
+              <Link href="/portal/settings/profile" className="flex-1 min-w-0 rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--color-pib-accent)]/40">
                 <p className="text-xs font-medium truncate">{profileName || name || 'Client'}</p>
                 <p className="text-[11px] text-[var(--color-pib-text-muted)] truncate">{email}</p>
-              </div>
+              </Link>
               <button onClick={handleLogout} title="Sign out" className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors p-1" aria-label="Sign out">
                 <span className="material-symbols-outlined text-[18px]">logout</span>
               </button>

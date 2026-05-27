@@ -174,6 +174,8 @@ export async function resolveProvider(
   orgId: string,
   platformType: SocialPlatformType,
 ): Promise<ResolvedAccount> {
+  const personalScope = post.accountScope === 'personal'
+  const ownerUid = typeof post.ownerUid === 'string' ? post.ownerUid : ''
   // 1. Try explicit accountIds on the post
   const accountIds = post.accountIds as string[] | undefined
   const explicitId = Array.isArray(accountIds) && accountIds.length > 0 ? accountIds[0] : null
@@ -182,6 +184,9 @@ export async function resolveProvider(
     const accountDoc = await adminDb.collection('social_accounts').doc(explicitId).get()
     if (accountDoc.exists && accountDoc.data()?.orgId === orgId) {
       const account = accountDoc.data()!
+      if (personalScope && (account.accountScope !== 'personal' || account.ownerUid !== ownerUid)) {
+        throw new Error('Selected personal account is not available to this user.')
+      }
       const platformNames = platformMap[platformType] ?? []
       if (!isPublishableAccount(account, platformNames)) {
         throw new Error(`Selected ${platformType} account is not publishable. Reconnect it from Social Accounts and try again.`)
@@ -189,6 +194,10 @@ export async function resolveProvider(
       const provider = buildProviderFromAccount(account, orgId, platformType)
       return { provider, accountId: explicitId }
     }
+  }
+
+  if (personalScope) {
+    throw new Error('Select an active personal account before publishing this post.')
   }
 
   // 2. Look up default active account for this org + platform
