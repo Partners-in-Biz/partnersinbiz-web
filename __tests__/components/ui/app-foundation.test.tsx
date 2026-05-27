@@ -42,6 +42,7 @@ describe('app-wide UI foundation primitives', () => {
     expect(screen.getByText('Manage delivery across clients.')).toHaveClass('pib-page-sub')
     expect(screen.getByText('Updated now')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'New task' })).toBeInTheDocument()
+    expect(screen.getByRole('tablist', { name: 'Page tabs' })).toHaveClass('pib-tabs-segmented')
     expect(screen.getByRole('tab', { name: 'Board' })).toHaveAttribute('aria-selected', 'true')
   })
 
@@ -85,7 +86,7 @@ describe('app-wide UI foundation primitives', () => {
       />,
     )
 
-    expect(screen.getByRole('tablist', { name: 'Document status filters' })).toHaveClass('pib-tabs')
+    expect(screen.getByRole('tablist', { name: 'Document status filters' })).toHaveClass('pib-tabs', 'pib-tabs-segmented')
     expect(screen.getByRole('tab', { name: /All/ })).toHaveAttribute('aria-selected', 'false')
     expect(screen.getByRole('tab', { name: /All/ })).toHaveAttribute('href', '/admin/documents')
     expect(screen.getByRole('tab', { name: /Approved/ })).toHaveClass('pib-tab-active')

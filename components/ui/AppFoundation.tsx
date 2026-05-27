@@ -88,7 +88,7 @@ type PageTabsProps = {
   className?: string
 }
 
-export function PageTabs({ tabs, value, onValueChange, ariaLabel = 'Page tabs', variant = 'tabs', className }: PageTabsProps) {
+export function PageTabs({ tabs, value, onValueChange, ariaLabel = 'Page tabs', variant = 'segmented', className }: PageTabsProps) {
   return (
     <div role="tablist" aria-label={ariaLabel} className={cn('pib-tabs', variant === 'segmented' && 'pib-tabs-segmented', className)}>
       {tabs.map((tab) => {
@@ -128,7 +128,7 @@ type PageLinkTabsProps = {
   className?: string
 }
 
-export function PageLinkTabs({ tabs, activeValue, ariaLabel = 'Page tabs', variant = 'tabs', className }: PageLinkTabsProps) {
+export function PageLinkTabs({ tabs, activeValue, ariaLabel = 'Page tabs', variant = 'segmented', className }: PageLinkTabsProps) {
   return (
     <nav role="tablist" aria-label={ariaLabel} className={cn('pib-tabs', variant === 'segmented' && 'pib-tabs-segmented', className)}>
       {tabs.map((tab) => {
