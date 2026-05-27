@@ -11,6 +11,8 @@ interface Member {
   firstName: string
   lastName: string
   jobTitle: string
+  department?: string
+  accessScope?: string
   avatarUrl: string
   role: OrgRole
 }
@@ -25,6 +27,11 @@ export default function TeamPage() {
   const [myProfile, setMyProfile] = useState<MyProfile>({ uid: '', role: null })
   const [loading, setLoading] = useState(true)
   const [inviteEmail, setInviteEmail] = useState('')
+  const [inviteRole, setInviteRole] = useState<Exclude<OrgRole, 'owner'>>('member')
+  const [inviteJobTitle, setInviteJobTitle] = useState('')
+  const [inviteDepartment, setInviteDepartment] = useState('')
+  const [inviteAccessScope, setInviteAccessScope] = useState('all')
+  const [inviteNote, setInviteNote] = useState('')
   const [inviting, setInviting] = useState(false)
   const [inviteError, setInviteError] = useState('')
   const [inviteSent, setInviteSent] = useState(false)
@@ -71,10 +78,22 @@ export default function TeamPage() {
     const res = await fetch('/api/v1/portal/settings/team/invite', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: inviteEmail }),
+      body: JSON.stringify({
+        email: inviteEmail,
+        role: inviteRole,
+        jobTitle: inviteJobTitle,
+        department: inviteDepartment,
+        accessScope: inviteAccessScope,
+        inviteNote,
+      }),
     })
     if (res.ok) {
       setInviteEmail('')
+      setInviteRole('member')
+      setInviteJobTitle('')
+      setInviteDepartment('')
+      setInviteAccessScope('all')
+      setInviteNote('')
       setInviteSent(true)
       fetch('/api/v1/portal/settings/team').then(r => r.ok ? r.json() : null).then(d => {
         if (Array.isArray(d?.members)) setMembers(d.members)
@@ -118,18 +137,62 @@ export default function TeamPage() {
       {canInvite && (
         <div className="bg-[var(--color-pib-surface)] border border-[var(--color-pib-line)] rounded-xl p-5">
           <h2 className="text-sm font-semibold mb-4">Invite team member</h2>
-          <form onSubmit={handleInvite} className="flex gap-3">
-            <input
-              type="email"
-              value={inviteEmail}
-              onChange={e => setInviteEmail(e.target.value)}
-              placeholder="colleague@example.com"
-              required
-              className="input-base text-sm flex-1"
+          <form onSubmit={handleInvite} className="space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <input
+                type="email"
+                value={inviteEmail}
+                onChange={e => setInviteEmail(e.target.value)}
+                placeholder="colleague@example.com"
+                required
+                className="input-base text-sm"
+              />
+              <select
+                value={inviteRole}
+                onChange={e => setInviteRole(e.target.value as Exclude<OrgRole, 'owner'>)}
+                className="input-base text-sm"
+              >
+                {viewerRole === 'owner' && <option value="admin">Admin</option>}
+                <option value="member">Member</option>
+                <option value="viewer">Viewer</option>
+              </select>
+              <input
+                type="text"
+                value={inviteJobTitle}
+                onChange={e => setInviteJobTitle(e.target.value)}
+                placeholder="Job title"
+                className="input-base text-sm"
+              />
+              <input
+                type="text"
+                value={inviteDepartment}
+                onChange={e => setInviteDepartment(e.target.value)}
+                placeholder="Department"
+                className="input-base text-sm"
+              />
+              <select
+                value={inviteAccessScope}
+                onChange={e => setInviteAccessScope(e.target.value)}
+                className="input-base text-sm"
+              >
+                <option value="all">All workspace areas</option>
+                <option value="crm">CRM and sales</option>
+                <option value="marketing">Marketing</option>
+                <option value="projects">Projects</option>
+                <option value="billing">Billing</option>
+                <option value="readonly">Read-only review</option>
+              </select>
+              <button type="submit" disabled={inviting} className="btn-primary shrink-0">
+                {inviting ? 'Inviting…' : 'Invite'}
+              </button>
+            </div>
+            <textarea
+              value={inviteNote}
+              onChange={e => setInviteNote(e.target.value)}
+              placeholder="Invite note or onboarding context"
+              rows={2}
+              className="input-base text-sm w-full resize-none"
             />
-            <button type="submit" disabled={inviting} className="btn-primary shrink-0">
-              {inviting ? 'Inviting…' : 'Invite'}
-            </button>
           </form>
           {inviteSent && <p className="text-xs text-[var(--color-pib-accent)] mt-2">Invite sent.</p>}
           {inviteError && <p className="text-xs text-red-400 mt-2">{inviteError}</p>}

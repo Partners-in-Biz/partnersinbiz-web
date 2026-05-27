@@ -16,6 +16,7 @@ process.env.SESSION_COOKIE_NAME = '__session'
 jest.mock('@/lib/activity/log', () => ({ logActivity: jest.fn().mockResolvedValue(undefined) }))
 jest.mock('@/lib/webhooks/dispatch', () => ({ dispatchWebhook: jest.fn().mockResolvedValue(undefined) }))
 jest.mock('@/lib/email-analytics/attribution-hooks', () => ({ tryAttributeDealWon: jest.fn().mockResolvedValue(undefined) }))
+jest.mock('@/lib/automations/trigger', () => ({ fireTrigger: jest.fn().mockResolvedValue(undefined) }))
 
 // Mock custom fields store for validation tests
 jest.mock('@/lib/customFields/store', () => ({
@@ -68,7 +69,10 @@ function stageAuth(
   ;(adminAuth.verifySessionCookie as jest.Mock).mockResolvedValue({ uid: member.uid })
   ;(adminDb.collection as jest.Mock).mockImplementation((name: string) => {
     if (name === 'users') return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => ({ activeOrgId: member.orgId }) }) }) }
-    if (name === 'orgMembers') return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => member }) }) }
+    if (name === 'orgMembers') return {
+      doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => member }) }),
+      where: () => ({ get: () => Promise.resolve({ docs: [{ data: () => ({ orgId: member.orgId, uid: member.uid, role: member.role }) }] }) }),
+    }
     if (name === 'organizations') return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => ({ settings: { permissions: perms } }) }) }) }
     if (name === 'deals') {
       const setFn = opts?.capturedDealSet ?? jest.fn().mockResolvedValue(undefined)
@@ -107,6 +111,7 @@ function stageAuthWithDeal(
         const ownerData = opts?.ownerLookup?.[ownerUid]
         return { get: () => Promise.resolve(ownerData ? { exists: true, data: () => ({ uid: ownerUid, ...ownerData }) } : { exists: false }) }
       }),
+      where: () => ({ get: () => Promise.resolve({ docs: [{ data: () => ({ orgId: member.orgId, uid: member.uid, role: member.role }) }] }) }),
     }
     if (name === 'organizations') return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => ({ settings: { permissions: perms } }) }) }) }
     if (name === 'deals') {
@@ -155,6 +160,26 @@ describe('GET /api/v1/crm/deals', () => {
     expect(Array.isArray(body.data)).toBe(true)
   })
 
+  it('filters pipeline, deleted rows, search, and pagination in memory after org query', async () => {
+    const member = seedOrgMember('org-test', 'uid-viewer', { role: 'viewer' })
+    stageAuth(member, {}, {
+      existingDeals: [
+        { id: 'd-old', data: { title: 'Old Website', pipelineId: DEFAULT_PIPELINE_ID, stageId: 'discovery', deleted: false, createdAt: { seconds: 1 } } },
+        { id: 'd-match', data: { title: 'Priority Website', pipelineId: DEFAULT_PIPELINE_ID, stageId: 'proposal', deleted: false, createdAt: { seconds: 3 } } },
+        { id: 'd-other-pipeline', data: { title: 'Priority Website', pipelineId: 'other-pipeline', stageId: 'proposal', deleted: false, createdAt: { seconds: 4 } } },
+        { id: 'd-deleted', data: { title: 'Priority Website deleted', pipelineId: DEFAULT_PIPELINE_ID, stageId: 'proposal', deleted: true, createdAt: { seconds: 5 } } },
+      ],
+    })
+
+    const req = callAsMember(member, 'GET', '/api/v1/crm/deals?pipelineId=pl-default&stageId=proposal&search=priority&limit=1&page=1')
+    const { GET } = await import('@/app/api/v1/crm/deals/route')
+    const res = await GET(req)
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.data.map((deal: { id: string }) => deal.id)).toEqual(['d-match'])
+    expect(body.meta.total).toBe(1)
+  })
+
   it('returns 401 without auth', async () => {
     const req = new NextRequest('http://localhost/api/v1/crm/deals')
     const { GET } = await import('@/app/api/v1/crm/deals/route')
@@ -174,9 +199,7 @@ describe('GET /api/v1/crm/deals', () => {
       if (name === 'deals') {
         return {
           where: jest.fn().mockReturnThis(),
-          orderBy: jest.fn().mockReturnThis(),
           limit: jest.fn().mockReturnThis(),
-          offset: jest.fn().mockReturnThis(),
           get: () => Promise.resolve({ docs: [] }),
         }
       }
@@ -343,6 +366,7 @@ describe('POST /api/v1/crm/deals', () => {
               : { exists: false },
           ),
         })),
+        where: () => ({ get: () => Promise.resolve({ docs: [{ data: () => ({ orgId: 'org-1', uid: member.uid, role: member.role }) }] }) }),
       }
       if (name === 'organizations') return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => ({ settings: { permissions: {} } }) }) }) }
       if (name === 'deals') return {
@@ -719,7 +743,10 @@ describe('POST deals with company derivation', () => {
     ;(adminAuth.verifySessionCookie as jest.Mock).mockResolvedValue({ uid: member.uid })
     ;(adminDb.collection as jest.Mock).mockImplementation((name: string) => {
       if (name === 'users') return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => ({ activeOrgId: 'org-1' }) }) }) }
-      if (name === 'orgMembers') return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => member }) }) }
+      if (name === 'orgMembers') return {
+        doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => member }) }),
+        where: () => ({ get: () => Promise.resolve({ docs: [{ data: () => ({ orgId: 'org-1', uid: member.uid, role: member.role }) }] }) }),
+      }
       if (name === 'organizations') return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => ({ settings: { permissions: {} } }) }) }) }
       if (name === 'contacts') return {
         doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => ({ orgId: 'org-1', companyId: 'comp-1', companyName: 'Acme Corp' }) }) }),
@@ -745,7 +772,10 @@ describe('POST deals with company derivation', () => {
     ;(adminAuth.verifySessionCookie as jest.Mock).mockResolvedValue({ uid: member.uid })
     ;(adminDb.collection as jest.Mock).mockImplementation((name: string) => {
       if (name === 'users') return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => ({ activeOrgId: 'org-1' }) }) }) }
-      if (name === 'orgMembers') return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => member }) }) }
+      if (name === 'orgMembers') return {
+        doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => member }) }),
+        where: () => ({ get: () => Promise.resolve({ docs: [{ data: () => ({ orgId: 'org-1', uid: member.uid, role: member.role }) }] }) }),
+      }
       if (name === 'organizations') return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => ({ settings: { permissions: {} } }) }) }) }
       if (name === 'contacts') return {
         doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => ({ orgId: 'org-1', companyId: 'comp-from-contact', companyName: 'Contact Corp' }) }) }),
@@ -775,7 +805,10 @@ describe('POST deals with company derivation', () => {
     ;(adminAuth.verifySessionCookie as jest.Mock).mockResolvedValue({ uid: member.uid })
     ;(adminDb.collection as jest.Mock).mockImplementation((name: string) => {
       if (name === 'users') return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => ({ activeOrgId: 'org-1' }) }) }) }
-      if (name === 'orgMembers') return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => member }) }) }
+      if (name === 'orgMembers') return {
+        doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => member }) }),
+        where: () => ({ get: () => Promise.resolve({ docs: [{ data: () => ({ orgId: 'org-1', uid: member.uid, role: member.role }) }] }) }),
+      }
       if (name === 'organizations') return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => ({ settings: { permissions: {} } }) }) }) }
       if (name === 'contacts') return {
         doc: () => ({ get: () => Promise.reject(new Error('Firestore unavailable')) }),
@@ -806,7 +839,10 @@ describe('PATCH deals companyId', () => {
     ;(adminAuth.verifySessionCookie as jest.Mock).mockResolvedValue({ uid: member.uid })
     ;(adminDb.collection as jest.Mock).mockImplementation((name: string) => {
       if (name === 'users') return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => ({ activeOrgId: 'org-1' }) }) }) }
-      if (name === 'orgMembers') return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => member }) }) }
+      if (name === 'orgMembers') return {
+        doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => member }) }),
+        where: () => ({ get: () => Promise.resolve({ docs: [{ data: () => ({ orgId: 'org-1', uid: member.uid, role: member.role }) }] }) }),
+      }
       if (name === 'organizations') return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => ({ settings: { permissions: {} } }) }) }) }
       if (name === 'contacts') return {
         doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => ({ orgId: 'org-1', companyId: 'comp-new', companyName: 'New Corp' }) }) }),
@@ -840,7 +876,10 @@ describe('PATCH deals companyId', () => {
     ;(adminAuth.verifySessionCookie as jest.Mock).mockResolvedValue({ uid: member.uid })
     ;(adminDb.collection as jest.Mock).mockImplementation((name: string) => {
       if (name === 'users') return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => ({ activeOrgId: 'org-1' }) }) }) }
-      if (name === 'orgMembers') return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => member }) }) }
+      if (name === 'orgMembers') return {
+        doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => member }) }),
+        where: () => ({ get: () => Promise.resolve({ docs: [{ data: () => ({ orgId: 'org-1', uid: member.uid, role: member.role }) }] }) }),
+      }
       if (name === 'organizations') return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => ({ settings: { permissions: {} } }) }) }) }
       if (name === 'activities') return { add: jest.fn().mockResolvedValue({ id: 'act-1' }) }
       if (name === 'deals') return {

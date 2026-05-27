@@ -411,6 +411,12 @@ export default function PortalContactsPage() {
 
   const allSelected = contacts.length > 0 && selectedIds.size === contacts.length
   const someSelected = selectedIds.size > 0 && !allSelected
+  const hasActiveFilters = !!(search.trim() || stageFilter || typeFilter)
+  const contactCountLabel = loading
+    ? 'Loading…'
+    : hasActiveFilters
+      ? `${contacts.length} contact${contacts.length === 1 ? '' : 's'} match this view.`
+      : `${contacts.length} contact${contacts.length === 1 ? '' : 's'} in your audience.`
 
   return (
     <div className="space-y-8">
@@ -422,7 +428,7 @@ export default function PortalContactsPage() {
           <div>
             <h1 className="pib-page-title">Contacts</h1>
             <p className="pib-page-sub max-w-2xl">
-              {loading ? 'Loading…' : `${contacts.length} contact${contacts.length === 1 ? '' : 's'}`} in your audience.
+              {contactCountLabel}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -604,14 +610,28 @@ export default function PortalContactsPage() {
       ) : contacts.length === 0 ? (
         <div className="bento-card p-10 text-center">
           <span className="material-symbols-outlined text-4xl text-[var(--color-pib-accent)]">contacts</span>
-          <h2 className="font-display text-2xl mt-4">No contacts yet.</h2>
+          <h2 className="font-display text-2xl mt-4">
+            {hasActiveFilters ? 'No contacts match this view.' : 'No contacts yet.'}
+          </h2>
           <p className="text-sm text-[var(--color-pib-text-muted)] mt-2">
-            Add your first contact to start building your audience.
+            {hasActiveFilters
+              ? 'Clear the search or filters to return to your full audience.'
+              : 'Add your first contact to start building your audience.'}
           </p>
-          <button onClick={() => setShowNew(true)} className="btn-pib-accent mt-6">
-            <span className="material-symbols-outlined text-base">add</span>
-            Add contact
-          </button>
+          {hasActiveFilters ? (
+            <button
+              onClick={() => { setSearch(''); setStageFilter(''); setTypeFilter('') }}
+              className="btn-pib-secondary mt-6"
+            >
+              <span className="material-symbols-outlined text-base">filter_alt_off</span>
+              Clear filters
+            </button>
+          ) : (
+            <button onClick={() => setShowNew(true)} className="btn-pib-accent mt-6">
+              <span className="material-symbols-outlined text-base">add</span>
+              Add contact
+            </button>
+          )}
         </div>
       ) : (
         <div className="pib-card-section">

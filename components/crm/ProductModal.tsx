@@ -36,8 +36,10 @@ export function ProductModal({ product, onSave, onClose }: Props) {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!name.trim()) { setError('Name is required.'); return }
-    const parsedPrice = Number(unitPrice)
-    if (isNaN(parsedPrice) || parsedPrice < 0) { setError('Unit price must be a valid non-negative number.'); return }
+    const normalizedPrice = unitPrice.trim()
+    if (!normalizedPrice) { setError('Unit price is required.'); return }
+    const parsedPrice = Number(normalizedPrice)
+    if (!Number.isFinite(parsedPrice) || parsedPrice < 0) { setError('Unit price must be a valid non-negative number.'); return }
 
     setSaving(true)
     setError(null)
@@ -92,7 +94,7 @@ export function ProductModal({ product, onSave, onClose }: Props) {
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="px-5 py-4 space-y-4 overflow-y-auto">
+        <form id="product-form" onSubmit={handleSubmit} className="px-5 py-4 space-y-4 overflow-y-auto">
           {/* Name */}
           <div>
             <label className="block text-xs font-medium text-[var(--color-pib-text-muted)] mb-1">
@@ -188,8 +190,7 @@ export function ProductModal({ product, onSave, onClose }: Props) {
           </button>
           <button
             type="submit"
-            form=""
-            onClick={handleSubmit}
+            form="product-form"
             disabled={saving}
             className="cursor-pointer btn-pib-accent text-sm disabled:opacity-60 flex items-center gap-1.5"
           >

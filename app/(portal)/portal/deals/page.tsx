@@ -108,6 +108,15 @@ function fmtRelativeDate(ts: unknown): string {
   return `in ${diffDays}d`
 }
 
+async function readApiJson(res: Response, fallback: string) {
+  const body = await res.json().catch(() => null)
+  if (!res.ok) {
+    const message = typeof body?.error === 'string' ? body.error : `${fallback} (${res.status})`
+    throw new Error(message)
+  }
+  return body
+}
+
 function ProbabilityInput({ deal, onUpdate }: { deal: Deal; onUpdate: (id: string, prob: number) => void }) {
   const [editing, setEditing] = useState(false)
   const [val, setVal] = useState(String(deal.probability ?? 50))
@@ -160,9 +169,11 @@ export default function DealsPage() {
   // Fetch pipelines once on mount
   useEffect(() => {
     let cancelled = false
+    // Existing route-level refresh pattern: show the skeleton while the async fetch resolves.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setPipelinesLoading(true)
     fetch('/api/v1/crm/pipelines')
-      .then(r => r.json())
+      .then(r => readApiJson(r, 'Failed to load pipelines'))
       .then(body => {
         if (cancelled) return
         if (!body.success) throw new Error(body.error ?? 'Failed to load pipelines')
@@ -185,9 +196,11 @@ export default function DealsPage() {
   useEffect(() => {
     if (!selectedPipelineId) return
     let cancelled = false
+    // Existing route-level refresh pattern: show the skeleton while the async fetch resolves.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true)
     fetch(`/api/v1/crm/deals?pipelineId=${encodeURIComponent(selectedPipelineId)}&limit=200`)
-      .then(r => r.json())
+      .then(r => readApiJson(r, 'Failed to load deals'))
       .then(body => {
         if (cancelled) return
         if (!body.success) throw new Error(body.error ?? 'Failed to load deals')
@@ -237,7 +250,7 @@ export default function DealsPage() {
     if (selectedPipelineId) {
       setLoading(true)
       fetch(`/api/v1/crm/deals?pipelineId=${encodeURIComponent(selectedPipelineId)}&limit=200`)
-        .then(r => r.json())
+        .then(r => readApiJson(r, 'Failed to load deals'))
         .then(body => { if (body.success) setDeals(body.data ?? []) })
         .catch(() => {})
         .finally(() => setLoading(false))

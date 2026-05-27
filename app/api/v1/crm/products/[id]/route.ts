@@ -24,6 +24,11 @@ export const PUT = withCrmAuth<RouteCtx>('admin', async (req, ctx, routeCtx) => 
   }
 
   if (Object.keys(body).length === 0) return apiError('Empty body', 400)
+  if (body.unitPrice !== undefined) {
+    if (typeof body.unitPrice !== 'number' || !Number.isFinite(body.unitPrice) || body.unitPrice < 0) {
+      return apiError('unitPrice must be a non-negative finite number', 400)
+    }
+  }
 
   // NEVER_FROM_BODY: id, orgId, createdAt, updatedAt, createdByRef, updatedByRef
   const {

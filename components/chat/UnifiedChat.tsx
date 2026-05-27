@@ -127,6 +127,9 @@ export default function UnifiedChat({
   const [showNewModal, setShowNewModal] = useState(false)
   const [newTitle, setNewTitle] = useState('')
   const [newParticipants, setNewParticipants] = useState<SelectedParticipant[]>([])
+  const [newScope, setNewScope] = useState<'general' | 'project' | 'task' | 'campaign'>(
+    scope ?? (projectId ? 'project' : 'general'),
+  )
   const [creatingConv, setCreatingConv] = useState(false)
 
   // Attachment state
@@ -679,9 +682,9 @@ export default function UnifiedChat({
         participants,
       }
       if (newTitle.trim()) payload.title = newTitle.trim()
-      if (scope) payload.scope = scope
-      if (scopeRefId) payload.scopeRefId = scopeRefId
-      if (projectId) payload.scopeRefId = projectId
+      if (newScope !== 'general') payload.scope = newScope
+      if (newScope === scope && scopeRefId) payload.scopeRefId = scopeRefId
+      if (newScope === 'project' && projectId) payload.scopeRefId = projectId
 
       const res = await fetch('/api/v1/conversations', {
         method: 'POST',
@@ -700,12 +703,13 @@ export default function UnifiedChat({
       setShowNewModal(false)
       setNewTitle('')
       setNewParticipants([])
+      setNewScope(scope ?? (projectId ? 'project' : 'general'))
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to create conversation')
     } finally {
       setCreatingConv(false)
     }
-  }, [creatingConv, newParticipants, newTitle, orgId, projectId, scope, scopeRefId])
+  }, [creatingConv, newParticipants, newTitle, newScope, orgId, projectId, scope, scopeRefId])
 
   // ── Send message ──────────────────────────────────────────────────────────
   const send = useCallback(
@@ -848,6 +852,13 @@ export default function UnifiedChat({
     ? scope.charAt(0).toUpperCase() + scope.slice(1)
     : 'Default'
   const subtitle = [orgName, scopeLabel].filter(Boolean).join(' · ')
+  const availableConversationContexts = [
+    { value: 'general' as const, label: `Workspace-wide${orgName ? `: ${orgName}` : ''}` },
+    ...(projectId ? [{ value: 'project' as const, label: `Current project: ${projectId}` }] : []),
+    ...(scope && scope !== 'general' && scope !== 'project'
+      ? [{ value: scope, label: `Current ${scope}: ${scopeRefId ?? 'selected item'}` }]
+      : []),
+  ]
   const showListOnMobile = mobilePane === 'list'
 
   return (
@@ -1365,6 +1376,23 @@ export default function UnifiedChat({
                     showAgents={allowAgentParticipants}
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant block mb-1.5">
+                  Conversation context
+                </label>
+                <select
+                  value={newScope}
+                  onChange={(e) => setNewScope(e.target.value as 'general' | 'project' | 'task' | 'campaign')}
+                  className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface outline-none focus:border-primary/60"
+                >
+                  {availableConversationContexts.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               {error && (

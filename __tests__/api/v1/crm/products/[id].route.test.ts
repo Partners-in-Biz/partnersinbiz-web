@@ -71,6 +71,9 @@ function stageAuth(member: { uid: string; orgId: string; role: string; firstName
         doc: () => ({
           get: () => Promise.resolve({ exists: true, data: () => member }),
         }),
+        where: () => ({
+          get: () => Promise.resolve({ docs: [{ data: () => ({ orgId: member.orgId, uid: member.uid, role: member.role }) }] }),
+        }),
       }
     }
     if (name === 'organizations') {
@@ -144,6 +147,19 @@ describe('PUT /api/v1/crm/products/:id', () => {
     const req = callAsMember(member, 'PUT', '/api/v1/crm/products/prod-1', {})
     const res = await routeModule.PUT(req, makeCtx('prod-1'))
     expect(res.status).toBe(400)
+  })
+
+  it('returns 400 for invalid unitPrice patch', async () => {
+    const uid = uidFor('admin-put-invalid-price')
+    const member = seedOrgMember('org-1', uid, { role: 'admin' })
+    stageAuth(member)
+
+    const req = callAsMember(member, 'PUT', '/api/v1/crm/products/prod-1', {
+      unitPrice: -10,
+    })
+    const res = await routeModule.PUT(req, makeCtx('prod-1'))
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toMatch(/unitPrice/i)
   })
 
   it('returns 403 when member tries to PUT', async () => {

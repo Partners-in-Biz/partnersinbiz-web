@@ -32,7 +32,7 @@ export default async function AdminLayout({
   const role = userDoc.exists ? userDoc.data()?.role : 'client'
   const email = userDoc.exists ? userDoc.data()?.email : ''
 
-  if (role !== 'admin') redirect('/portal/dashboard')
+  if (role !== 'admin') redirect('/admin-access-denied')
 
   return (
     <>

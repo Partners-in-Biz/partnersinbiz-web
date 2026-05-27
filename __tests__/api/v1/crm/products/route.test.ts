@@ -71,6 +71,9 @@ function stageAuth(member: { uid: string; orgId: string; role: string; firstName
         doc: () => ({
           get: () => Promise.resolve({ exists: true, data: () => member }),
         }),
+        where: () => ({
+          get: () => Promise.resolve({ docs: [{ data: () => ({ orgId: member.orgId, uid: member.uid, role: member.role }) }] }),
+        }),
       }
     }
     if (name === 'organizations') {
@@ -201,6 +204,21 @@ describe('POST /api/v1/crm/products', () => {
 
     const req = callAsMember(member, 'POST', '/api/v1/crm/products', {
       name: 'Widget',
+      currency: 'ZAR',
+    })
+    const res = await routeModule.POST(req)
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toMatch(/unitPrice/i)
+  })
+
+  it('returns 400 when unitPrice is negative', async () => {
+    const uid = uidFor('admin-negative-price')
+    const member = seedOrgMember('org-1', uid, { role: 'admin' })
+    stageAuth(member)
+
+    const req = callAsMember(member, 'POST', '/api/v1/crm/products', {
+      name: 'Widget',
+      unitPrice: -1,
       currency: 'ZAR',
     })
     const res = await routeModule.POST(req)

@@ -11,6 +11,7 @@ export default function ProductsPage() {
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [showModal, setShowModal] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   // ── Fetch ─────────────────────────────────────────────────────────────────────
 
@@ -63,6 +64,7 @@ export default function ProductsPage() {
 
   async function handleDelete(p: Product) {
     if (!window.confirm(`Delete "${p.name}"? This cannot be undone.`)) return
+    setDeletingId(p.id)
     try {
       const res = await fetch(`/api/v1/crm/products/${p.id}`, { method: 'DELETE' })
       if (!res.ok) {
@@ -72,6 +74,8 @@ export default function ProductsPage() {
       setProducts((prev) => prev.filter((x) => x.id !== p.id))
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : 'Delete failed.')
+    } finally {
+      setDeletingId(null)
     }
   }
 
@@ -155,10 +159,11 @@ export default function ProductsPage() {
                       <button
                         type="button"
                         onClick={() => handleDelete(p)}
+                        disabled={deletingId === p.id}
                         title="Delete product"
-                        className="cursor-pointer w-7 h-7 flex items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] hover:text-red-400 hover:bg-red-400/[0.08] transition-colors"
+                        className="cursor-pointer w-7 h-7 flex items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] hover:text-red-400 hover:bg-red-400/[0.08] transition-colors disabled:opacity-50"
                       >
-                        <span className="material-symbols-outlined text-[16px]">delete</span>
+                        <span className="material-symbols-outlined text-[16px]">{deletingId === p.id ? 'hourglass_empty' : 'delete'}</span>
                       </button>
                     </div>
                   </td>

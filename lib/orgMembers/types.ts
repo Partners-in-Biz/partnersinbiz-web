@@ -8,6 +8,8 @@ export interface OrgMemberProfile {
   firstName: string
   lastName: string
   jobTitle?: string
+  department?: string
+  accessScope?: string
   phone?: string
   avatarUrl?: string
   role: OrgRole
