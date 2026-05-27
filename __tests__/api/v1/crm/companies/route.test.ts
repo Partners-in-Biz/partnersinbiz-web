@@ -57,6 +57,24 @@ type CompaniesListBehavior = {
   capturedDocSet?: jest.Mock
 }
 
+function orgMembersCollection(member: { uid: string; orgId: string; role: string }) {
+  const docs = [{ id: `${member.orgId}_${member.uid}`, data: () => member }]
+  const collection: {
+    doc: jest.Mock
+    get: jest.Mock
+    where?: jest.Mock
+  } = {
+    doc: jest.fn((id: string) => ({
+      get: () => Promise.resolve(id === `${member.orgId}_${member.uid}`
+        ? { exists: true, data: () => member }
+        : { exists: false }),
+    })),
+    get: jest.fn(() => Promise.resolve({ docs })),
+  }
+  collection.where = jest.fn(() => collection)
+  return collection
+}
+
 function stageAuth(
   member: { uid: string; orgId: string; role: string; firstName?: string; lastName?: string },
   perms: Record<string, unknown> = {},
@@ -72,11 +90,7 @@ function stageAuth(
       }
     }
     if (name === 'orgMembers') {
-      return {
-        doc: () => ({
-          get: () => Promise.resolve({ exists: true, data: () => member }),
-        }),
-      }
+      return orgMembersCollection(member)
     }
     if (name === 'organizations') {
       return {
@@ -157,11 +171,7 @@ describe('GET /api/v1/crm/companies', () => {
         }
       }
       if (name === 'orgMembers') {
-        return {
-          doc: () => ({
-            get: () => Promise.resolve({ exists: true, data: () => member }),
-          }),
-        }
+        return orgMembersCollection(member)
       }
       if (name === 'organizations') {
         return {

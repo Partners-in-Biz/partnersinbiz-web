@@ -1,6 +1,23 @@
 {
   "indexes": [
     {
+      "collectionGroup": "agent_memory_chunks",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "orgId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "embedding",
+          "vectorConfig": {
+            "dimension": 1536,
+            "flat": {}
+          }
+        }
+      ]
+    },
+    {
       "collectionGroup": "shortened_links",
       "queryScope": "COLLECTION",
       "fields": [
