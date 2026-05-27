@@ -101,7 +101,7 @@ export const POST = withAuth('client', withTenant(async (req: NextRequest, user:
 
     const existing = await existingQuery.limit(1).get()
 
-    const accountData = {
+    const accountData: Record<string, unknown> = {
       orgId,
       platform,
       platformAccountId: option.platformAccountId,
@@ -121,7 +121,7 @@ export const POST = withAuth('client', withTenant(async (req: NextRequest, user:
 
     if (!existing.empty) {
       const ref = existing.docs[0].ref
-      batch.update(ref, accountData)
+      batch.update(ref, accountData as any)
       accountIds.push(existing.docs[0].id)
     } else {
       const ref = adminDb.collection('social_accounts').doc()
