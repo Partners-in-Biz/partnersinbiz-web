@@ -33,6 +33,17 @@ function isValidEmail(e: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)
 }
 
+function timestampMillis(value: unknown): number {
+  if (!value) return 0
+  if (typeof value === 'object' && value !== null) {
+    const candidate = value as { toMillis?: () => number; toDate?: () => Date; seconds?: number }
+    if (typeof candidate.toMillis === 'function') return candidate.toMillis()
+    if (typeof candidate.toDate === 'function') return candidate.toDate().getTime()
+    if (typeof candidate.seconds === 'number') return candidate.seconds * 1000
+  }
+  return 0
+}
+
 export const GET = withCrmAuth('viewer', async (req, ctx) => {
   const { searchParams } = new URL(req.url)
   const { orgId } = ctx
@@ -54,37 +65,34 @@ export const GET = withCrmAuth('viewer', async (req, ctx) => {
     return apiError('tags filter supports up to 10 values (array-contains-any limit)', 400)
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let query: any = adminDb.collection('contacts').orderBy('createdAt', 'desc')
-
-  if (orgId) {
-    query = query.where('orgId', '==', orgId)
-  }
-  if (capturedFromId) {
-    query = query.where('capturedFromId', '==', capturedFromId)
-  }
-  if (stage && VALID_STAGES.includes(stage)) {
-    query = query.where('stage', '==', stage)
-  }
-  if (type && VALID_TYPES.includes(type)) {
-    query = query.where('type', '==', type)
-  }
-  if (source && VALID_SOURCES.includes(source)) {
-    query = query.where('source', '==', source)
-  }
-  if (tagList.length > 0) {
-    query = query.where('tags', 'array-contains-any', tagList)
-  }
-
-  const snapshot = await query
-    .limit(limit)
-    .offset((page - 1) * limit)
+  const snapshot = await adminDb
+    .collection('contacts')
+    .where('orgId', '==', orgId)
     .get()
 
   let contacts: Contact[] = snapshot.docs
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .map((doc: any) => ({ id: doc.id, ...doc.data() }))
-    .filter((c: Contact) => c.deleted !== true)
+    .filter((c: Contact) => c.orgId === orgId && c.deleted !== true)
+
+  if (capturedFromId) {
+    contacts = contacts.filter((c) => c.capturedFromId === capturedFromId)
+  }
+  if (stage && VALID_STAGES.includes(stage)) {
+    contacts = contacts.filter((c) => c.stage === stage)
+  }
+  if (type && VALID_TYPES.includes(type)) {
+    contacts = contacts.filter((c) => c.type === type)
+  }
+  if (source && VALID_SOURCES.includes(source)) {
+    contacts = contacts.filter((c) => c.source === source)
+  }
+  if (tagList.length > 0) {
+    contacts = contacts.filter((c) => {
+      const tags = Array.isArray(c.tags) ? c.tags : []
+      return tagList.some((tag) => tags.includes(tag))
+    })
+  }
 
   if (search) {
     const q = search.toLowerCase()
@@ -96,7 +104,11 @@ export const GET = withCrmAuth('viewer', async (req, ctx) => {
     )
   }
 
-  return apiSuccess(contacts, 200, { total: contacts.length, page, limit })
+  contacts.sort((a, b) => timestampMillis(b.createdAt) - timestampMillis(a.createdAt))
+
+  const total = contacts.length
+  const offset = (page - 1) * limit
+  return apiSuccess(contacts.slice(offset, offset + limit), 200, { total, page, limit })
 })
 
 export const POST = withCrmAuth('member', async (req, ctx) => {

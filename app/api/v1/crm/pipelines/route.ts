@@ -17,6 +17,17 @@ import {
 import { PipelineValidationError } from '@/lib/pipelines/types'
 import type { Pipeline } from '@/lib/pipelines/types'
 
+function timestampMillis(value: unknown): number {
+  if (!value) return 0
+  if (typeof value === 'object' && value !== null) {
+    const candidate = value as { toMillis?: () => number; toDate?: () => Date; seconds?: number }
+    if (typeof candidate.toMillis === 'function') return candidate.toMillis()
+    if (typeof candidate.toDate === 'function') return candidate.toDate().getTime()
+    if (typeof candidate.seconds === 'number') return candidate.seconds * 1000
+  }
+  return 0
+}
+
 // ── GET ───────────────────────────────────────────────────────────────────────
 
 export const GET = withCrmAuth('viewer', async (req, ctx) => {
@@ -24,23 +35,21 @@ export const GET = withCrmAuth('viewer', async (req, ctx) => {
   const archivedParam = searchParams.get('archived')
   const showArchived = archivedParam === 'true'
 
-  let query = adminDb
+  const snap = await adminDb
     .collection('pipelines')
     .where('orgId', '==', ctx.orgId)
-    .where('deleted', '!=', true)
-    .orderBy('deleted')
-
-  if (!showArchived) {
-    // Chain another where after orderBy on 'deleted'
-    query = query.where('archived', '==', false) as typeof query
-  }
-
-  const snap = await query.orderBy('isDefault', 'desc').orderBy('createdAt', 'desc').get()
+    .get()
 
   const pipelines: Pipeline[] = snap.docs.map((doc) => ({
     ...(doc.data() as Pipeline),
     id: doc.id,
   }))
+    .filter((pipeline) => pipeline.orgId === ctx.orgId && pipeline.deleted !== true)
+    .filter((pipeline) => showArchived || pipeline.archived !== true)
+    .sort((a, b) => {
+      if (a.isDefault !== b.isDefault) return a.isDefault ? -1 : 1
+      return timestampMillis(b.createdAt) - timestampMillis(a.createdAt)
+    })
 
   return apiSuccess({ pipelines })
 })
