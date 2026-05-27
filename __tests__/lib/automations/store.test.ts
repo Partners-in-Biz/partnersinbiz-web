@@ -91,16 +91,23 @@ describe('listRules', () => {
     })
     const results = await listRules('org-a')
     expect(results).toHaveLength(2)
-    expect(results[0].id).toBe('rule-1')
-    expect(results[1].id).toBe('rule-2')
+    expect(results[0].id).toBe('rule-2')
+    expect(results[1].id).toBe('rule-1')
   })
 
-  it('filters deleted rules via query chain', async () => {
-    mockGet.mockResolvedValue({ docs: [] })
-    await listRules('org-a')
+  it('filters deleted rules and sorts by name without composite-sensitive query clauses', async () => {
+    mockGet.mockResolvedValue({
+      docs: [
+        { id: 'rule-2', data: () => ({ ...BASE_RULE, name: 'Zulu', deleted: true }) },
+        { id: 'rule-3', data: () => ({ ...BASE_RULE, name: 'Beta' }) },
+        { id: 'rule-1', data: () => ({ ...BASE_RULE, name: 'Alpha', deleted: false }) },
+      ],
+    })
+    const results = await listRules('org-a')
     expect(mockWhere).toHaveBeenCalledWith('orgId', '==', 'org-a')
-    expect(mockWhere).toHaveBeenCalledWith('deleted', '!=', true)
-    expect(mockOrderBy).toHaveBeenCalledWith('name', 'asc')
+    expect(mockWhere).not.toHaveBeenCalledWith('deleted', '!=', true)
+    expect(mockOrderBy).not.toHaveBeenCalled()
+    expect(results.map((rule) => rule.id)).toEqual(['rule-1', 'rule-3'])
   })
 })
 
