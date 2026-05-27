@@ -10,10 +10,11 @@ export async function listSequences(orgId: string): Promise<Sequence[]> {
   const snap = await adminDb
     .collection(SEQUENCES)
     .where('orgId', '==', orgId)
-    .where('deleted', '!=', true)
-    .orderBy('name', 'asc')
     .get()
-  return snap.docs.map((d) => ({ ...(d.data() as Omit<Sequence, 'id'>), id: d.id }))
+  return snap.docs
+    .map((d) => ({ ...(d.data() as Omit<Sequence, 'id'>), id: d.id }))
+    .filter((sequence) => sequence.deleted !== true)
+    .sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''))
 }
 
 export async function getSequence(orgId: string, sequenceId: string): Promise<Sequence | null> {

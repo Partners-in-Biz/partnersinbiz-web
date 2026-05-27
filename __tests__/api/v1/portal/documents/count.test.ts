@@ -1,31 +1,69 @@
 import { NextRequest } from 'next/server'
 
+const mockVerifySessionCookie = jest.fn()
 const mockCollection = jest.fn()
 const mockWhere = jest.fn()
+const mockDoc = jest.fn()
 const mockGet = jest.fn()
 
 jest.mock('@/lib/firebase/admin', () => ({
+  adminAuth: {
+    verifySessionCookie: mockVerifySessionCookie,
+  },
   adminDb: {
     collection: mockCollection,
   },
 }))
 
-jest.mock('@/lib/api/auth', () => ({
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  withAuth: (_requiredRole: 'admin' | 'client', handler: any) => async (req: NextRequest, user: any) =>
-    handler(req, user),
-}))
-
 beforeEach(() => {
   jest.clearAllMocks()
-  const query = { where: mockWhere, get: mockGet }
-  mockWhere.mockReturnValue(query)
-  mockCollection.mockReturnValue(query)
+  mockVerifySessionCookie.mockResolvedValue({ uid: 'client-1' })
+  mockCollection.mockImplementation((name: string) => {
+    if (name === 'users') {
+      return {
+        doc: mockDoc.mockReturnValue({
+          get: () => Promise.resolve({
+            exists: true,
+            data: () => ({ role: 'admin', activeOrgId: 'org-1' }),
+          }),
+        }),
+      }
+    }
+    if (name === 'orgMembers') {
+      return {
+        where: () => ({
+          get: () => Promise.resolve({
+            docs: [
+              {
+                id: 'org-1_client-1',
+                data: () => ({ orgId: 'org-1', uid: 'client-1', role: 'owner' }),
+              },
+            ],
+          }),
+        }),
+        doc: () => ({
+          get: () => Promise.resolve({
+            exists: true,
+            data: () => ({ orgId: 'org-1', uid: 'client-1', role: 'owner' }),
+          }),
+        }),
+      }
+    }
+    if (name === 'client_documents') {
+      const query = { where: mockWhere, get: mockGet }
+      mockWhere.mockReturnValue(query)
+      return query
+    }
+    return {
+      doc: () => ({ get: () => Promise.resolve({ exists: false }) }),
+      where: () => ({ get: () => Promise.resolve({ docs: [] }) }),
+    }
+  })
   mockGet.mockResolvedValue({ docs: [] })
 })
 
 describe('GET /api/v1/portal/documents/count', () => {
-  it('counts only client-visible, non-deleted documents for the active org', async () => {
+  it('counts only client-visible, non-deleted documents for the active portal org', async () => {
     mockGet.mockResolvedValueOnce({
       docs: [
         { data: () => ({ status: 'client_review', deleted: false }) },
@@ -36,8 +74,10 @@ describe('GET /api/v1/portal/documents/count', () => {
     })
 
     const { GET } = await import('@/app/api/v1/portal/documents/count/route')
-    const req = new NextRequest('http://localhost/api/v1/portal/documents/count')
-    const res = await GET(req, { uid: 'client-1', role: 'client', orgId: 'org-1' })
+    const req = new NextRequest('http://localhost/api/v1/portal/documents/count', {
+      headers: { cookie: '__session=test-session' },
+    })
+    const res = await GET(req)
     const body = await res.json()
 
     expect(res.status).toBe(200)

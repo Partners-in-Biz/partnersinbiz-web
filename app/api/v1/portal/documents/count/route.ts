@@ -1,9 +1,7 @@
 import { NextRequest } from 'next/server'
 
-import { withAuth } from '@/lib/api/auth'
-import { resolveOrgScope } from '@/lib/api/orgScope'
-import { apiError, apiSuccess } from '@/lib/api/response'
-import type { ApiUser } from '@/lib/api/types'
+import { withPortalAuthAndRole } from '@/lib/auth/portal-middleware'
+import { apiSuccess } from '@/lib/api/response'
 import { CLIENT_DOCUMENTS_COLLECTION } from '@/lib/client-documents/store'
 import type { ClientDocumentStatus } from '@/lib/client-documents/types'
 import { adminDb } from '@/lib/firebase/admin'
@@ -17,14 +15,10 @@ const CLIENT_VISIBLE_STATUSES = new Set<ClientDocumentStatus>([
   'accepted',
 ])
 
-export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) => {
-  const { searchParams } = new URL(req.url)
-  const scope = resolveOrgScope(user, searchParams.get('orgId'))
-  if (!scope.ok) return apiError(scope.error, scope.status)
-
+export const GET = withPortalAuthAndRole('viewer', async (_req: NextRequest, _uid, orgId) => {
   const docsSnap = await adminDb
     .collection(CLIENT_DOCUMENTS_COLLECTION)
-    .where('orgId', '==', scope.orgId)
+    .where('orgId', '==', orgId)
     .get()
 
   const count = docsSnap.docs.filter((doc) => {

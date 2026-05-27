@@ -74,6 +74,16 @@ function stageAuth(member: { uid: string; orgId: string; role: string; firstName
     }
     if (name === 'orgMembers') {
       return {
+        where: () => ({
+          get: () => Promise.resolve({
+            docs: [
+              {
+                id: `${member.orgId}_${member.uid}`,
+                data: () => member,
+              },
+            ],
+          }),
+        }),
         doc: () => ({
           get: () => Promise.resolve({ exists: true, data: () => member }),
         }),
