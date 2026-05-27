@@ -154,7 +154,7 @@ export function AdminSidebar({ open = false, onClose, collapsed = false, onToggl
         </div>
 
         {/* Collapse and mode switch controls */}
-        <div className="hidden md:flex items-center h-8 border-b border-[var(--color-pib-line)] shrink-0">
+        <div className="hidden md:flex items-center justify-between h-8 border-b border-[var(--color-pib-line)] shrink-0">
           <button
             onClick={onToggleCollapsed}
             title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}

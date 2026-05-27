@@ -561,7 +561,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
         </Link>
 
         {/* Collapse and mode switch controls */}
-        <div className="hidden md:flex items-center h-8 border-b border-[var(--color-pib-line)] shrink-0">
+        <div className="hidden md:flex items-center justify-between h-8 border-b border-[var(--color-pib-line)] shrink-0">
           <button
             onClick={toggleCollapsed}
             title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
