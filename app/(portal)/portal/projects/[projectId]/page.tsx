@@ -9,9 +9,10 @@ import { KanbanBoard } from '@/components/kanban/KanbanBoard'
 import { TaskDetailPanel } from '@/components/kanban/TaskDetailPanel'
 import { TaskComposer } from '@/components/kanban/TaskComposer'
 import { ProjectBoardSummary } from '@/components/projects/ProjectBoardSummary'
+import { ProjectDocsPanel, projectDocContent, type ProjectDoc } from '@/components/projects/ProjectDocsPanel'
+import { ProjectSettingsPanel } from '@/components/projects/ProjectSettingsPanel'
 import type { AgentMember, Column, Task, TeamMember } from '@/components/kanban/types'
 
-interface ProjectDoc { id: string; title: string; content?: string; type: 'brief' | 'requirements' | 'notes' | 'reference'; createdBy: string; updatedBy?: string; createdAt?: unknown; updatedAt?: unknown }
 interface Project { id: string; orgId?: string; name: string; description?: string; brief?: string; status?: string; columns: Column[] }
 type TaskListSort = 'latest' | 'due'
 
@@ -30,17 +31,6 @@ const DEFAULT_COLUMNS: Column[] = [
   { id: 'review',      name: 'Review',      color: '#c084fc',                 order: 4 },
   { id: 'done',        name: 'Done',        color: '#4ade80',                 order: 5 },
 ]
-
-const TYPE_COLORS: Record<string, string> = {
-  brief: 'bg-amber-50 text-amber-700 border-amber-200',
-  requirements: 'bg-blue-50 text-blue-700 border-blue-200',
-  notes: 'bg-gray-50 text-gray-700 border-gray-200',
-  reference: 'bg-purple-50 text-purple-700 border-purple-200',
-}
-
-function docContent(content: unknown): string {
-  return typeof content === 'string' ? content : ''
-}
 
 function Skeleton({ className = '' }: { className?: string }) {
   return <div className={`pib-skeleton ${className}`} />
@@ -102,6 +92,7 @@ export default function ProjectDetailPage() {
   const [editingBrief, setEditingBrief] = useState(false)
   const [briefValue, setBriefValue] = useState('')
   const [editingDoc, setEditingDoc] = useState<ProjectDoc | null>(null)
+  const [selectedDoc, setSelectedDoc] = useState<ProjectDoc | null>(null)
   const [savingBrief, setSavingBrief] = useState(false)
   const [settingsName, setSettingsName] = useState('')
   const [settingsStatus, setSettingsStatus] = useState('discovery')
@@ -221,27 +212,31 @@ export default function ProjectDetailPage() {
     if (!window.confirm('Are you sure?')) return
     await fetch(`/api/v1/projects/${projectId}/docs/${docId}`, { method: 'DELETE' })
     setDocs(prev => prev.filter(d => d.id !== docId))
+    setSelectedDoc(prev => prev?.id === docId ? null : prev)
   }
 
   const handleSaveDoc = async () => {
-    if (!editingDoc?.title.trim() || !docContent(editingDoc.content).trim()) return
+    if (!editingDoc?.title.trim() || !projectDocContent(editingDoc.content).trim()) return
 
     if (editingDoc.id) {
       await fetch(`/api/v1/projects/${projectId}/docs/${editingDoc.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: editingDoc.title, content: docContent(editingDoc.content), type: editingDoc.type }),
+        body: JSON.stringify({ title: editingDoc.title, content: projectDocContent(editingDoc.content), type: editingDoc.type }),
       })
       setDocs(prev => prev.map(d => d.id === editingDoc.id ? editingDoc : d))
+      setSelectedDoc(prev => prev?.id === editingDoc.id ? editingDoc : prev)
     } else {
       const res = await fetch(`/api/v1/projects/${projectId}/docs`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: editingDoc.title, content: docContent(editingDoc.content), type: editingDoc.type }),
+        body: JSON.stringify({ title: editingDoc.title, content: projectDocContent(editingDoc.content), type: editingDoc.type }),
       })
       const body = await res.json()
       if (body.data?.id) {
-        setDocs(prev => [{ ...editingDoc, id: body.data.id } as ProjectDoc, ...prev])
+        const createdDoc = { ...editingDoc, id: body.data.id } as ProjectDoc
+        setDocs(prev => [createdDoc, ...prev])
+        setSelectedDoc(createdDoc)
       }
     }
     setEditingDoc(null)
@@ -454,155 +449,37 @@ export default function ProjectDetailPage() {
       )}
 
       {activeTab === 'docs' && (
-        <div className="flex-1 overflow-auto space-y-6">
-          {/* Brief Section */}
-          <div className="bg-[var(--color-card)] border border-[var(--color-outline)] rounded-lg p-4">
-            <h2 className="text-lg font-headline font-bold text-on-surface mb-3">Project Brief</h2>
-            {editingBrief ? (
-              <div className="space-y-3">
-                <textarea
-                  value={briefValue}
-                  onChange={e => setBriefValue(e.target.value)}
-                  placeholder="Add a project brief... What's this project about? Goals, constraints, key stakeholders."
-                  className="w-full px-3 py-2 text-sm bg-[var(--color-background)] border border-[var(--color-outline)] rounded text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-[var(--color-accent-v2)]"
-                  rows={4}
-                />
-                <div className="flex gap-2">
-                  <button onClick={handleSaveBrief} disabled={savingBrief} className="pib-btn-primary text-sm font-label">
-                    {savingBrief ? 'Saving...' : 'Save'}
-                  </button>
-                  <button onClick={() => { setEditingBrief(false); setBriefValue(project?.brief ?? ''); }} className="pib-btn-secondary text-sm font-label">Cancel</button>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                <p className={`px-3 py-2 text-sm rounded min-h-[80px] ${briefValue ? 'bg-[var(--color-background)] text-on-surface' : 'bg-[var(--color-background)] text-on-surface-variant italic'}`}>
-                  {briefValue || 'No brief yet'}
-                </p>
-                <button onClick={() => setEditingBrief(true)} className="pib-btn-secondary text-sm font-label">Edit</button>
-              </div>
-            )}
-          </div>
-
-          {/* Documents Section */}
-          <div className="bg-[var(--color-card)] border border-[var(--color-outline)] rounded-lg p-4">
-            <h2 className="text-lg font-headline font-bold text-on-surface mb-4">Documents</h2>
-            {editingDoc ? (
-              <div className="space-y-3 mb-4">
-                <input
-                  type="text"
-                  placeholder="Document title..."
-                  value={editingDoc.title}
-                  onChange={e => setEditingDoc({ ...editingDoc, title: e.target.value })}
-                  className="w-full px-3 py-2 text-sm bg-[var(--color-background)] border border-[var(--color-outline)] rounded text-on-surface focus:outline-none focus:border-[var(--color-accent-v2)]"
-                />
-                <select
-                  value={editingDoc.type}
-                  onChange={e => setEditingDoc({ ...editingDoc, type: e.target.value as ProjectDoc['type'] })}
-                  className="w-full px-3 py-2 text-sm bg-[var(--color-background)] border border-[var(--color-outline)] rounded text-on-surface focus:outline-none focus:border-[var(--color-accent-v2)]"
-                >
-                  <option value="brief">Brief</option>
-                  <option value="requirements">Requirements</option>
-                  <option value="notes">Notes</option>
-                  <option value="reference">Reference</option>
-                </select>
-                <textarea
-                  placeholder="Content (markdown)..."
-                  value={docContent(editingDoc.content)}
-                  onChange={e => setEditingDoc({ ...editingDoc, content: e.target.value })}
-                  className="w-full px-3 py-2 text-sm bg-[var(--color-background)] border border-[var(--color-outline)] rounded text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-[var(--color-accent-v2)]"
-                  rows={10}
-                />
-                <div className="flex gap-2">
-                  <button onClick={handleSaveDoc} className="pib-btn-primary text-sm font-label">Save</button>
-                  <button onClick={() => setEditingDoc(null)} className="pib-btn-secondary text-sm font-label">Cancel</button>
-                </div>
-              </div>
-            ) : null}
-
-            {!editingDoc && (
-              <>
-                <div className="space-y-2 mb-4">
-                  {docs.map(doc => (
-                    <div key={doc.id} className="flex items-center justify-between p-3 bg-[var(--color-background)] border border-[var(--color-outline)] rounded">
-                      <div className="flex-1 flex items-center gap-3">
-                        <span className="text-lg">📄</span>
-                        <div>
-                          <p className="text-sm font-semibold text-on-surface">{doc.title}</p>
-                          <span className={`inline-block text-xs px-2 py-1 rounded border mt-1 ${TYPE_COLORS[doc.type] || TYPE_COLORS.notes}`}>
-                            {doc.type}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="flex gap-2">
-                        <button onClick={() => setEditingDoc(doc)} className="pib-btn-secondary text-xs font-label">Edit</button>
-                        <button onClick={() => handleDeleteDoc(doc.id!)} className="text-xs text-red-600 hover:text-red-700">Delete</button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <button
-                  onClick={() => setEditingDoc({ id: '', title: '', content: '', type: 'notes', createdBy: '' })}
-                  className="w-full pib-btn-secondary text-sm font-label"
-                >
-                  + New Document
-                </button>
-              </>
-            )}
-          </div>
-        </div>
+        <ProjectDocsPanel
+          briefValue={briefValue}
+          docs={docs}
+          editingBrief={editingBrief}
+          editingDoc={editingDoc}
+          selectedDoc={selectedDoc}
+          savingBrief={savingBrief}
+          onBriefChange={setBriefValue}
+          onEditBrief={() => setEditingBrief(true)}
+          onCancelBrief={() => { setEditingBrief(false); setBriefValue(project?.brief ?? '') }}
+          onSaveBrief={handleSaveBrief}
+          onEditDoc={setEditingDoc}
+          onEditingDocChange={setEditingDoc}
+          onSelectDoc={setSelectedDoc}
+          onSaveDoc={handleSaveDoc}
+          onDeleteDoc={handleDeleteDoc}
+        />
       )}
 
       {activeTab === 'settings' && (
-        <div className="flex-1 overflow-auto max-w-2xl">
-          <div className="bg-[var(--color-card)] border border-[var(--color-outline)] rounded-lg p-6 space-y-6">
-            <div>
-              <label className="block text-sm font-semibold text-on-surface mb-2">Project Name</label>
-              <input
-                type="text"
-                value={settingsName}
-                onChange={e => setSettingsName(e.target.value)}
-                className="w-full px-4 py-2 text-sm bg-[var(--color-background)] border border-[var(--color-outline)] rounded text-on-surface focus:outline-none focus:border-[var(--color-accent-v2)]"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-on-surface mb-2">Status</label>
-              <select
-                value={settingsStatus}
-                onChange={e => setSettingsStatus(e.target.value)}
-                className="w-full px-4 py-2 text-sm bg-[var(--color-background)] border border-[var(--color-outline)] rounded text-on-surface focus:outline-none focus:border-[var(--color-accent-v2)]"
-              >
-                <option value="discovery">Discovery</option>
-                <option value="design">Design</option>
-                <option value="development">Development</option>
-                <option value="review">Review</option>
-                <option value="live">Live</option>
-                <option value="maintenance">Maintenance</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-on-surface mb-2">Description</label>
-              <textarea
-                value={settingsDescription}
-                onChange={e => setSettingsDescription(e.target.value)}
-                className="w-full px-4 py-2 text-sm bg-[var(--color-background)] border border-[var(--color-outline)] rounded text-on-surface focus:outline-none focus:border-[var(--color-accent-v2)]"
-                rows={4}
-              />
-            </div>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={handleSaveSettings}
-                disabled={savingSettings || !settingsName.trim()}
-                className="pib-btn-primary text-sm font-label"
-              >
-                {savingSettings ? 'Saving...' : 'Save Settings'}
-              </button>
-              {settingsSaved && (
-                <span className="text-xs text-green-400">Saved</span>
-              )}
-            </div>
-          </div>
-        </div>
+        <ProjectSettingsPanel
+          name={settingsName}
+          status={settingsStatus}
+          description={settingsDescription}
+          saving={savingSettings}
+          saved={settingsSaved}
+          onNameChange={setSettingsName}
+          onStatusChange={setSettingsStatus}
+          onDescriptionChange={setSettingsDescription}
+          onSave={handleSaveSettings}
+        />
       )}
 
       {/* Task detail panel */}
