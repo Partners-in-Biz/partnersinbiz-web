@@ -8,6 +8,7 @@ import Link from 'next/link'
 import type { Property } from '@/lib/properties/types'
 import type { PropertyStatus } from '@/lib/properties/types'
 import { copyToClipboard } from '@/lib/utils/clipboard'
+import { PageTabs } from '@/components/ui/AppFoundation'
 
 type Tab = 'overview' | 'config' | 'sequences' | 'creators' | 'analytics' | 'keys'
 
@@ -1045,23 +1046,12 @@ export default function PropertyDetailPage() {
         <span className="text-xs text-on-surface-variant font-mono">{property.domain}</span>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-1 border-b border-[var(--color-outline-variant)]">
-        {TABS.map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={[
-              'px-4 py-2 text-sm font-label border-b-2 -mb-px transition-colors',
-              activeTab === tab.id
-                ? 'border-[var(--color-accent-text)] text-[var(--color-accent-text)]'
-                : 'border-transparent text-on-surface-variant hover:text-on-surface',
-            ].join(' ')}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      <PageTabs
+        ariaLabel="Property detail tabs"
+        value={activeTab}
+        onValueChange={(value) => setActiveTab(value as Tab)}
+        tabs={TABS.map((tab) => ({ label: tab.label, value: tab.id }))}
+      />
 
       {/* Tab content */}
       {activeTab === 'overview'  && <OverviewTab property={property} />}

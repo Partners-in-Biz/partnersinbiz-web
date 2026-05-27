@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import AiAssistantPanel from '@/components/admin/email/AiAssistantPanel'
 import PreflightPanel from '@/components/admin/email/PreflightPanel'
+import { PageTabs } from '@/components/ui/AppFoundation'
 import type { Broadcast, BroadcastStatus } from '@/lib/broadcasts/types'
 import type { PreflightReport } from '@/lib/email/preflight'
 import { countSmsSegments } from '@/lib/sms/segments'
@@ -418,19 +419,12 @@ export default function BroadcastEditor({ id, initial, onBack, onDeleted }: Prop
         </div>
       </div>
 
-      <div className="flex gap-1 border-b border-outline-variant">
-        {TABS.filter((t) => t.show).map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
-              tab === t.key ? 'border-primary text-primary' : 'border-transparent text-on-surface-variant hover:text-on-surface'
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+      <PageTabs
+        ariaLabel="Broadcast editor sections"
+        value={tab}
+        onValueChange={(value) => setTab(value as Tab)}
+        tabs={TABS.filter((item) => item.show).map((item) => ({ label: item.label, value: item.key }))}
+      />
 
       {tab === 'audience' && (
         <div className="space-y-5">

@@ -9,6 +9,7 @@
 //   - 'newsletter' → Generate newsletter document (stories + brand voice)
 
 import { useCallback, useMemo, useState } from 'react'
+import { PageTabs } from '@/components/ui/AppFoundation'
 import type { EmailDocument } from '@/lib/email-builder/types'
 
 interface BrandVoice {
@@ -124,21 +125,13 @@ export default function AiAssistantPanel({
         )}
       </div>
 
-      <div className="flex border-b border-outline-variant px-2">
-        {tabs.map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            className={`px-3 py-2 text-xs font-medium border-b-2 -mb-px transition-colors ${
-              tab === t.key
-                ? 'border-primary text-primary'
-                : 'border-transparent text-on-surface-variant hover:text-on-surface'
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+      <PageTabs
+        className="border-x-0 border-t-0 px-2"
+        ariaLabel="AI assistant mode"
+        value={tab}
+        onValueChange={(value) => setTab(value as Tab)}
+        tabs={tabs.map((item) => ({ label: item.label, value: item.key }))}
+      />
 
       <div className="flex-1 overflow-y-auto p-4">
         {tab === 'email' && (

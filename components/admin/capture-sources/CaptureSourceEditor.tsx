@@ -21,6 +21,7 @@ import {
   DEFAULT_BLOCK_STATS,
   DEFAULT_DISPLAY_CONFIG,
 } from '@/lib/lead-capture/types'
+import { PageTabs } from '@/components/ui/AppFoundation'
 import type { Sequence } from '@/lib/sequences/types'
 import type { Campaign } from '@/lib/campaigns/types'
 
@@ -250,21 +251,12 @@ function Tabs(props: { tab: TabKey; setTab: (t: TabKey) => void; submissionCount
     { key: 'submissions', label: `Submissions (${props.submissionCount})` },
   ]
   return (
-    <div className="flex gap-1 border-b border-outline-variant">
-      {tabs.map((t) => (
-        <button
-          key={t.key}
-          onClick={() => props.setTab(t.key)}
-          className={`px-4 py-2 text-sm font-medium ${
-            props.tab === t.key
-              ? 'border-b-2 border-primary text-primary'
-              : 'text-on-surface-variant'
-          }`}
-        >
-          {t.label}
-        </button>
-      ))}
-    </div>
+    <PageTabs
+      ariaLabel="Capture source editor sections"
+      value={props.tab}
+      onValueChange={(value) => props.setTab(value as TabKey)}
+      tabs={tabs.map((tab) => ({ label: tab.label, value: tab.key }))}
+    />
   )
 }
 

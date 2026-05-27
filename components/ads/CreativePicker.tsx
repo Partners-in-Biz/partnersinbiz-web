@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import type { AdCreative, AdCreativeType } from '@/lib/ads/types'
 import { CreativeUploader } from './CreativeUploader'
+import { PageTabs } from '@/components/ui/AppFoundation'
 
 interface Props {
   open: boolean
@@ -68,22 +69,16 @@ export function CreativePicker({
           </button>
         </div>
 
-        <div className="mt-4 flex gap-2 border-b border-white/10">
-          <button
-            type="button"
-            className={`px-3 py-2 text-sm ${tab === 'library' ? 'border-b-2 border-[#F5A623] text-[#F5A623]' : 'text-white/60'}`}
-            onClick={() => setTab('library')}
-          >
-            Library ({creatives.length})
-          </button>
-          <button
-            type="button"
-            className={`px-3 py-2 text-sm ${tab === 'upload' ? 'border-b-2 border-[#F5A623] text-[#F5A623]' : 'text-white/60'}`}
-            onClick={() => setTab('upload')}
-          >
-            Upload new
-          </button>
-        </div>
+        <PageTabs
+          className="mt-4"
+          ariaLabel="Creative picker source"
+          value={tab}
+          onValueChange={(value) => setTab(value as 'library' | 'upload')}
+          tabs={[
+            { value: 'library', label: 'Library', badge: creatives.length },
+            { value: 'upload', label: 'Upload new' },
+          ]}
+        />
 
         <div className="mt-4 max-h-96 overflow-y-auto">
           {tab === 'library' &&

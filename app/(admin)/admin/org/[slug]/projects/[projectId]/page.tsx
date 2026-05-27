@@ -12,12 +12,20 @@ import UnifiedChat from '@/components/chat/UnifiedChat'
 import { ProjectBoardSummary } from '@/components/projects/ProjectBoardSummary'
 import { ProjectDocsPanel, projectDocContent, type ProjectDoc } from '@/components/projects/ProjectDocsPanel'
 import { ProjectSettingsPanel } from '@/components/projects/ProjectSettingsPanel'
+import { PageTabs } from '@/components/ui/AppFoundation'
 import type { AgentMember, Column, Task, TeamMember } from '@/components/kanban/types'
 
 interface Project { id: string; orgId?: string; clientOrgId?: string; name: string; description?: string; brief?: string; status?: string; columns: Column[] }
 interface CurrentUser { uid: string; displayName: string }
 interface OrganizationOption { id: string; name: string; slug?: string; type?: string; status?: string }
 type TaskListSort = 'latest' | 'due'
+type ProjectTab = 'kanban' | 'docs' | 'agent' | 'settings'
+const PROJECT_TABS: Array<{ id: ProjectTab; label: string; icon: string }> = [
+  { id: 'kanban', label: 'Kanban', icon: 'view_kanban' },
+  { id: 'docs', label: 'Docs', icon: 'description' },
+  { id: 'agent', label: 'Agent', icon: 'smart_toy' },
+  { id: 'settings', label: 'Settings', icon: 'settings' },
+]
 
 function upsertTaskById(existingTasks: Task[], task: Task) {
   const existingIndex = existingTasks.findIndex(existingTask => existingTask.id === task.id)
@@ -104,7 +112,7 @@ export default function ProjectDetailPage() {
   const [loading, setLoading] = useState(true)
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   const [showNewTask, setShowNewTask] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<'kanban' | 'docs' | 'agent' | 'settings'>('kanban')
+  const [activeTab, setActiveTab] = useState<ProjectTab>('kanban')
   const [viewMode, setViewMode] = useState<'board' | 'list'>(() => {
     if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return 'board'
     return window.matchMedia('(max-width: 767px)').matches ? 'list' : 'board'
@@ -390,49 +398,13 @@ export default function ProjectDetailPage() {
         )}
       </div>
 
-      {/* Tabs */}
-      <div className="mb-3 flex shrink-0 gap-4 overflow-x-auto border-b border-[var(--color-outline)] md:mb-6 md:gap-6">
-        <button
-          onClick={() => setActiveTab('kanban')}
-          className={`px-1 pb-3 text-sm font-label transition-colors ${
-            activeTab === 'kanban'
-              ? 'text-on-surface border-b-2 border-[var(--color-accent-v2)]'
-              : 'text-on-surface-variant hover:text-on-surface'
-          }`}
-        >
-          Kanban
-        </button>
-        <button
-          onClick={() => setActiveTab('docs')}
-          className={`px-1 pb-3 text-sm font-label transition-colors ${
-            activeTab === 'docs'
-              ? 'text-on-surface border-b-2 border-[var(--color-accent-v2)]'
-              : 'text-on-surface-variant hover:text-on-surface'
-          }`}
-        >
-          Docs
-        </button>
-        <button
-          onClick={() => setActiveTab('agent')}
-          className={`px-1 pb-3 text-sm font-label transition-colors ${
-            activeTab === 'agent'
-              ? 'text-on-surface border-b-2 border-[var(--color-accent-v2)]'
-              : 'text-on-surface-variant hover:text-on-surface'
-          }`}
-        >
-          Agent
-        </button>
-        <button
-          onClick={() => setActiveTab('settings')}
-          className={`px-1 pb-3 text-sm font-label transition-colors ${
-            activeTab === 'settings'
-              ? 'text-on-surface border-b-2 border-[var(--color-accent-v2)]'
-              : 'text-on-surface-variant hover:text-on-surface'
-          }`}
-        >
-          Settings
-        </button>
-      </div>
+      <PageTabs
+        className="mb-3 shrink-0 md:mb-6"
+        ariaLabel="Project detail tabs"
+        value={activeTab}
+        onValueChange={(value) => setActiveTab(value as ProjectTab)}
+        tabs={PROJECT_TABS.map((tab) => ({ label: tab.label, value: tab.id, icon: tab.icon }))}
+      />
 
       {/* Tab Content */}
       {activeTab === 'kanban' && (

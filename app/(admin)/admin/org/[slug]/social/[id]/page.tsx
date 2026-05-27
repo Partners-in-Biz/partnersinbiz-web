@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { AssetGrid } from '@/components/campaign-cockpit/AssetGrid'
 import { BlogPreviewCard } from '@/components/campaign-preview'
 import { OrgThemedFrame, useOrgBrand } from '@/components/admin/OrgThemedFrame'
+import { PageTabs } from '@/components/ui/AppFoundation'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyObj = any
@@ -205,36 +206,16 @@ function Drillin({ slug, id, orgName }: { slug: string; id: string; orgName: str
         <SmallStat label="Awaiting review" value={totalAwaiting} accent />
       </section>
 
-      {/* Tabs */}
-      <nav className="border-b border-[var(--org-border,var(--color-pib-line))] flex flex-wrap gap-1 overflow-x-auto">
-        {TABS.map(t => {
-          const isActive = t.key === tab
-          const count = countFor(t.key, split)
-          return (
-            <button
-              key={t.key}
-              type="button"
-              onClick={() => setTab(t.key)}
-              className={[
-                'px-4 py-2.5 text-sm font-label whitespace-nowrap border-b-2 -mb-px transition-colors',
-                isActive
-                  ? 'text-[var(--org-text,var(--color-pib-text))]'
-                  : 'border-transparent text-on-surface-variant hover:text-on-surface',
-              ].join(' ')}
-              style={
-                isActive
-                  ? { borderColor: 'var(--org-accent, var(--color-pib-accent))' }
-                  : undefined
-              }
-            >
-              {t.label}
-              {count !== null && (
-                <span className="ml-2 text-[10px] text-on-surface-variant">({count})</span>
-              )}
-            </button>
-          )
-        })}
-      </nav>
+      <PageTabs
+        ariaLabel="Campaign cockpit channels"
+        value={tab}
+        onValueChange={(value) => setTab(value as TabKey)}
+        tabs={TABS.map((item) => ({
+          label: item.label,
+          value: item.key,
+          badge: countFor(item.key, split),
+        }))}
+      />
 
       {/* Tab content */}
       <div>

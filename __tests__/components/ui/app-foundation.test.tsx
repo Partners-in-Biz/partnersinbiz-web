@@ -3,6 +3,7 @@ import {
   AppShell,
   EmptyState,
   PageHeader,
+  PageLinkTabs,
   PageTabs,
   ResponsiveHeaderTabs,
   StatusPill,
@@ -70,6 +71,27 @@ describe('app-wide UI foundation primitives', () => {
 
     expect(onValueChange).toHaveBeenCalledWith('board')
     expect(onValueChange).not.toHaveBeenCalledWith('archive')
+  })
+
+  it('provides matching link tabs for route-backed filters', () => {
+    render(
+      <PageLinkTabs
+        ariaLabel="Document status filters"
+        activeValue="approved"
+        tabs={[
+          { label: 'All', value: 'all', href: '/admin/documents', icon: 'description', badge: 9 },
+          { label: 'Approved', value: 'approved', href: '/admin/documents?status=approved', badge: 2 },
+        ]}
+      />,
+    )
+
+    expect(screen.getByRole('tablist', { name: 'Document status filters' })).toHaveClass('pib-tabs')
+    expect(screen.getByRole('tab', { name: /All/ })).toHaveAttribute('aria-selected', 'false')
+    expect(screen.getByRole('tab', { name: /All/ })).toHaveAttribute('href', '/admin/documents')
+    expect(screen.getByRole('tab', { name: /Approved/ })).toHaveClass('pib-tab-active')
+    expect(screen.getByRole('tab', { name: /Approved/ })).toHaveAttribute('aria-current', 'page')
+    expect(screen.getByText('description')).toHaveClass('material-symbols-outlined')
+    expect(screen.getByText('2')).toHaveClass('pib-tabs-badge')
   })
 
   it('uses one surface primitive for cards, lists, and table containers', () => {

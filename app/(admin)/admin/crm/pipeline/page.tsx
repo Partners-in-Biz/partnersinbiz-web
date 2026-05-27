@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { PageTabs } from '@/components/ui/AppFoundation'
 
 interface Contact {
   id: string
@@ -120,23 +121,18 @@ export default function PipelinePage() {
         </div>
       )}
 
-      {/* Tabs */}
-      <div className="flex gap-1 border-b border-[var(--color-card-border)] pb-0">
-        {(['contacts', 'deals'] as Tab[]).map(t => (
-          <button
-            key={t}
-            onClick={() => { setTab(t); setStageFilter('all') }}
-            className={[
-              'px-4 py-2 text-sm font-label capitalize border-b-2 -mb-px transition-colors',
-              tab === t
-                ? 'border-[var(--color-accent-v2)] text-on-surface'
-                : 'border-transparent text-on-surface-variant hover:text-on-surface',
-            ].join(' ')}
-          >
-            {t} ({t === 'contacts' ? contacts.length : deals.length})
-          </button>
-        ))}
-      </div>
+      <PageTabs
+        ariaLabel="CRM pipeline type"
+        value={tab}
+        onValueChange={(value) => {
+          setTab(value as Tab)
+          setStageFilter('all')
+        }}
+        tabs={[
+          { value: 'contacts', label: 'Contacts', badge: contacts.length },
+          { value: 'deals', label: 'Deals', badge: deals.length },
+        ]}
+      />
 
       {/* Filters */}
       <div className="flex gap-2 flex-wrap items-center">

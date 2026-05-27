@@ -7,6 +7,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { PageTabs } from '@/components/ui/AppFoundation'
 import type { PreflightIssue, PreflightReport, PreflightSeverity } from '@/lib/email/preflight'
 
 interface Props {
@@ -93,25 +94,16 @@ export default function PreflightPanel({ report, loading, onRefresh, onJumpToTab
             </div>
           )}
 
-          {/* Severity tabs */}
-          <div className="flex gap-1 border-b border-outline-variant">
-            {SEVERITY_TABS.map((t) => {
-              const count = groups[t.key].length
-              return (
-                <button
-                  key={t.key}
-                  onClick={() => setActiveTab(t.key)}
-                  className={`px-3 py-2 text-xs font-medium border-b-2 -mb-px transition-colors ${
-                    activeTab === t.key
-                      ? 'border-primary text-primary'
-                      : 'border-transparent text-on-surface-variant hover:text-on-surface'
-                  }`}
-                >
-                  {t.label} ({count})
-                </button>
-              )
-            })}
-          </div>
+          <PageTabs
+            ariaLabel="Preflight severity"
+            value={activeTab}
+            onValueChange={(value) => setActiveTab(value as PreflightSeverity)}
+            tabs={SEVERITY_TABS.map((tab) => ({
+              label: tab.label,
+              value: tab.key,
+              badge: groups[tab.key].length,
+            }))}
+          />
 
           <div className="space-y-2">
             {groups[activeTab].length === 0 ? (

@@ -5,6 +5,7 @@ export const dynamic = 'force-dynamic'
 import { useEffect, useState } from 'react'
 import { IcpProfileEditor } from '@/components/crm/IcpProfileEditor'
 import { LeadWeightsEditor } from '@/components/crm/LeadWeightsEditor'
+import { PageTabs } from '@/components/ui/AppFoundation'
 import type { IcpProfile, LeadSignalsWeights } from '@/lib/scoring/types'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -21,6 +22,10 @@ interface ScoringConfig {
 }
 
 type Tab = 'icp' | 'weights'
+const SCORING_TABS: Array<{ id: Tab; label: string; icon: string }> = [
+  { id: 'icp', label: 'ICP Profile', icon: 'verified_user' },
+  { id: 'weights', label: 'Lead Weights', icon: 'bar_chart' },
+]
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 
@@ -123,28 +128,12 @@ export default function ScoringPage() {
         </div>
       ) : (
         <div className="space-y-6">
-          {/* Tabs */}
-          <div className="flex gap-1 border-b border-[var(--color-pib-line)]">
-            {([
-              { id: 'icp', label: 'ICP Profile', icon: 'verified_user' },
-              { id: 'weights', label: 'Lead Weights', icon: 'bar_chart' },
-            ] as { id: Tab; label: string; icon: string }[]).map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setActiveTab(tab.id)}
-                className={[
-                  'cursor-pointer flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors',
-                  activeTab === tab.id
-                    ? 'border-[var(--color-pib-accent)] text-[var(--color-pib-accent-hover)]'
-                    : 'border-transparent text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]',
-                ].join(' ')}
-              >
-                <span className="material-symbols-outlined text-[16px]">{tab.icon}</span>
-                {tab.label}
-              </button>
-            ))}
-          </div>
+          <PageTabs
+            ariaLabel="Scoring settings"
+            value={activeTab}
+            onValueChange={(value) => setActiveTab(value as Tab)}
+            tabs={SCORING_TABS.map((tab) => ({ label: tab.label, value: tab.id, icon: tab.icon }))}
+          />
 
           {/* Tab content */}
           <div className="bento-card !p-6">

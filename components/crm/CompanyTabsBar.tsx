@@ -1,5 +1,7 @@
 'use client'
 
+import { PageTabs } from '@/components/ui/AppFoundation'
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export type CompanyTab = 'overview' | 'contacts' | 'deals' | 'quotes' | 'invoices' | 'activity'
@@ -22,31 +24,11 @@ export interface CompanyTabsBarProps {
 
 export function CompanyTabsBar({ activeTab, onChange }: CompanyTabsBarProps) {
   return (
-    <div
-      className="flex items-center gap-0 border-b border-[var(--color-pib-line)]"
-      role="tablist"
-      aria-label="Company detail tabs"
-    >
-      {COMPANY_TABS.map((tab) => {
-        const isActive = activeTab === tab.key
-        return (
-          <button
-            key={tab.key}
-            type="button"
-            role="tab"
-            aria-selected={isActive}
-            onClick={() => onChange(tab.key)}
-            className={`cursor-pointer flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px ${
-              isActive
-                ? 'border-[var(--color-accent-v2)] text-[var(--color-accent-v2)]'
-                : 'border-transparent text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]'
-            }`}
-          >
-            <span className="material-symbols-outlined text-[16px]">{tab.icon}</span>
-            {tab.label}
-          </button>
-        )
-      })}
-    </div>
+    <PageTabs
+      ariaLabel="Company detail tabs"
+      value={activeTab}
+      onValueChange={onChange}
+      tabs={COMPANY_TABS.map((tab) => ({ label: tab.label, value: tab.key, icon: tab.icon }))}
+    />
   )
 }

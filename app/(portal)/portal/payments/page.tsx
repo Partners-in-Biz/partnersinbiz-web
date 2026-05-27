@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { PageTabs } from '@/components/ui/AppFoundation'
 
 type BillingTab = 'invoices' | 'quotes'
 type InvoiceStatus = 'draft' | 'sent' | 'viewed' | 'payment_pending_verification' | 'paid' | 'partially_paid' | 'overdue' | 'cancelled'
@@ -168,21 +169,16 @@ export default function PaymentsPage() {
         </section>
       )}
 
-      <div className="inline-flex rounded-[var(--radius-btn)] border border-[var(--color-pib-line)] p-1">
-        {(['invoices', 'quotes'] as const).map((value) => (
-          <button
-            key={value}
-            type="button"
-            onClick={() => setTab(value)}
-            className={[
-              'rounded-[var(--radius-btn)] px-4 py-2 text-xs font-label uppercase tracking-wide transition-colors',
-              tab === value ? 'bg-[var(--color-pib-accent)] text-black' : 'text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]',
-            ].join(' ')}
-          >
-            {label(value)}
-          </button>
-        ))}
-      </div>
+      <PageTabs
+        variant="segmented"
+        ariaLabel="Billing document type"
+        value={tab}
+        onValueChange={(value) => setTab(value as BillingTab)}
+        tabs={[
+          { value: 'invoices', label: label('invoices') },
+          { value: 'quotes', label: label('quotes') },
+        ]}
+      />
 
       {loading ? (
         <div className="pib-skeleton h-64" />

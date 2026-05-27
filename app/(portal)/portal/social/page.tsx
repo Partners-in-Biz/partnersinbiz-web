@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { PageTabs } from '@/components/ui/AppFoundation'
 
 type PostStatus = 'draft' | 'pending_approval' | 'approved' | 'scheduled' | 'published' | 'failed' | 'cancelled'
 type FilterTab = 'pending' | 'scheduled' | 'published'
@@ -466,32 +467,17 @@ export default function PortalSocialDashboard() {
       <section>
         <h2 className="eyebrow mb-4">Posts</h2>
 
-        {/* Tabs */}
-        <div className="flex gap-1 border-b border-[var(--color-pib-line)] mb-6">
-          {(
-            [
-              { key: 'pending' as FilterTab,   label: `Needs approval (${pendingPosts.length})` },
-              { key: 'scheduled' as FilterTab, label: `Scheduled (${scheduledPosts.length})` },
-              { key: 'published' as FilterTab, label: `Published (${publishedPosts.length})` },
-            ]
-          ).map((t) => {
-            const active = tab === t.key
-            return (
-              <button
-                key={t.key}
-                onClick={() => setTab(t.key)}
-                className={[
-                  'px-4 py-3 text-sm font-medium border-b-2 -mb-px transition-colors',
-                  active
-                    ? 'border-[var(--color-pib-accent)] text-[var(--color-pib-text)]'
-                    : 'border-transparent text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]',
-                ].join(' ')}
-              >
-                {t.label}
-              </button>
-            )
-          })}
-        </div>
+        <PageTabs
+          className="mb-6"
+          ariaLabel="Social post filters"
+          value={tab}
+          onValueChange={(value) => setTab(value as FilterTab)}
+          tabs={[
+            { value: 'pending', label: 'Needs approval', badge: pendingPosts.length },
+            { value: 'scheduled', label: 'Scheduled', badge: scheduledPosts.length },
+            { value: 'published', label: 'Published', badge: publishedPosts.length },
+          ]}
+        />
 
         {actionError && (
           <div className="mb-4 bento-card !p-4 !border-[#FCA5A5]/30 !bg-[#FCA5A5]/10 text-[#FECACA] text-sm">

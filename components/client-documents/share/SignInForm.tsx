@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { signInWithPopup } from 'firebase/auth'
 import { auth, googleProvider } from '@/lib/firebase/client'
+import { PageTabs } from '@/components/ui/AppFoundation'
 
 export function SignInForm({
   redirectUrl,
@@ -79,28 +80,16 @@ export function SignInForm({
         Sign in to continue
       </h1>
 
-      <div className="flex border-b border-[var(--doc-border)]">
-        <button
-          onClick={() => setTab('email')}
-          className={`flex-1 py-2 text-sm font-medium ${
-            tab === 'email'
-              ? 'border-b-2 border-[var(--doc-accent)] text-[var(--doc-accent)]'
-              : 'text-[var(--doc-muted)]'
-          }`}
-        >
-          Email link
-        </button>
-        <button
-          onClick={() => setTab('google')}
-          className={`flex-1 py-2 text-sm font-medium ${
-            tab === 'google'
-              ? 'border-b-2 border-[var(--doc-accent)] text-[var(--doc-accent)]'
-              : 'text-[var(--doc-muted)]'
-          }`}
-        >
-          Google
-        </button>
-      </div>
+      <PageTabs
+        variant="segmented"
+        ariaLabel="Sign-in method"
+        value={tab}
+        onValueChange={(value) => setTab(value as 'email' | 'google')}
+        tabs={[
+          { value: 'email', label: 'Email link' },
+          { value: 'google', label: 'Google' },
+        ]}
+      />
 
       {tab === 'email' ? (
         <form onSubmit={sendMagicLink} className="space-y-3">

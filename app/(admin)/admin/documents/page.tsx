@@ -6,6 +6,7 @@ import { adminDb } from '@/lib/firebase/admin'
 import { getCurrentAdminUserFromCookies } from '@/lib/api/currentAdmin'
 import { restrictedAdminOrgIds } from '@/lib/api/platformAdmin'
 import { DocumentIndex } from '@/components/client-documents/DocumentIndex'
+import { PageHeader, PageLinkTabs } from '@/components/ui/AppFoundation'
 import type { ClientDocument, ClientDocumentStatus } from '@/lib/client-documents/types'
 
 export const dynamic = 'force-dynamic'
@@ -38,10 +39,13 @@ const STATUS_TABS: Array<{ label: string; value: ClientDocumentStatus | 'all' }>
 export default async function DocumentsIndexPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string }>
+  searchParams: Promise<{ status?: string; orgId?: string; q?: string }>
 }) {
   const params = await searchParams
   const activeStatus = (params.status ?? 'all') as ClientDocumentStatus | 'all'
+  const selectedOrgId = params.orgId ?? ''
+  const search = (params.q ?? '').trim()
+  const q = search.toLowerCase()
   const user = await getCurrentAdminUserFromCookies()
   if (!user) redirect('/login')
   const allowedOrgIds = restrictedAdminOrgIds(user)
@@ -54,12 +58,32 @@ export default async function DocumentsIndexPage({
   }
 
   const snap = await query.get()
+  const orgSnap = await adminDb.collection('organizations').where('active', '==', true).get()
+  const orgOptions = orgSnap.docs
+    .map((doc) => {
+      const data = doc.data() as { name?: string; type?: string }
+      return { id: doc.id, name: data.name ?? doc.id, type: data.type ?? 'client' }
+    })
+    .filter((org) => org.type === 'client')
+    .filter((org) => allowedOrgIds.length === 0 || allowedOrgIds.includes(org.id))
+    .sort((a, b) => a.name.localeCompare(b.name))
 
   const allDocuments = snap.docs
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .map((d) => serialize({ id: d.id, ...(d.data() as any) }) as ClientDocument)
     .filter((d) => d.deleted !== true)
     .filter((d) => allowedOrgIds.length === 0 || allowedOrgIds.includes(String(d.orgId ?? '')))
+    .filter((d) => !selectedOrgId || String(d.orgId ?? '') === selectedOrgId)
+    .filter((d) => {
+      if (!q) return true
+      const raw = d as ClientDocument & Record<string, unknown>
+      const clientName = orgOptions.find((org) => org.id === d.orgId)?.name ?? ''
+      return [d.title, d.type, d.status, raw.summary, raw.description, clientName]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+        .includes(q)
+    })
     .sort((a, b) => {
       const at = a.createdAt ? new Date(a.createdAt as string).getTime() : 0
       const bt = b.createdAt ? new Date(b.createdAt as string).getTime() : 0
@@ -70,57 +94,79 @@ export default async function DocumentsIndexPage({
     activeStatus === 'all'
       ? allDocuments
       : allDocuments.filter((d) => d.status === activeStatus)
+  const statusTabs = STATUS_TABS.map((tab) => ({
+    label: tab.label,
+    value: tab.value,
+    href: buildDocumentsHref({ status: tab.value, orgId: selectedOrgId, q: search }),
+    badge: allDocuments.filter((d) => tab.value === 'all' || d.status === tab.value).length,
+  }))
 
   return (
     <div className="space-y-8">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="eyebrow">Admin workspace</p>
-          <h1 className="pib-page-title mt-2">Client Documents</h1>
-          <p className="pib-page-sub mt-2 max-w-2xl">
-            All proposals, research reports, build specs, change requests, strategies, and monthly reports across client workspaces. Research decides what is true; specs decide what to build.
-          </p>
-        </div>
-        <Link
-          href="/admin/documents/new"
-          className="btn-pib-accent"
-        >
-          <span className="material-symbols-outlined text-base">add</span>
-          New Document
-        </Link>
-      </header>
+      <PageHeader
+        eyebrow="Admin workspace"
+        title="Client Documents"
+        description="All proposals, research reports, build specs, change requests, strategies, and monthly reports across client workspaces. Research decides what is true; specs decide what to build."
+        actions={(
+          <Link
+            href="/admin/documents/new"
+            className="btn-pib-accent"
+          >
+            <span className="material-symbols-outlined text-base">add</span>
+            New Document
+          </Link>
+        )}
+        tabs={<PageLinkTabs tabs={statusTabs} activeValue={activeStatus} ariaLabel="Document status filters" />}
+      />
 
-      <nav className="bento-card !p-2 flex gap-2 overflow-x-auto" aria-label="Document status filters">
-        {STATUS_TABS.map((tab) => {
-          const count =
-            tab.value === 'all'
-              ? allDocuments.length
-              : allDocuments.filter((d) => d.status === tab.value).length
-          const isActive = activeStatus === tab.value
-          return (
-            <Link
-              key={tab.value}
-              href={tab.value === 'all' ? '/admin/documents' : `/admin/documents?status=${tab.value}`}
-              className={`inline-flex whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-                isActive
-                  ? 'bg-[var(--color-pib-accent)] text-black'
-                  : 'text-[var(--color-pib-text-muted)] hover:bg-[var(--color-surface)] hover:text-on-surface'
-              }`}
-            >
-              {tab.label}
-              {count > 0 && (
-                <span className={`ml-1.5 rounded-full px-1.5 py-0.5 text-[10px] ${
-                  isActive ? 'bg-black/15 text-black' : 'bg-[var(--color-surface-variant)] text-on-surface'
-                }`}>
-                  {count}
-                </span>
-              )}
+      <form className="bento-card !p-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_220px_auto]" action="/admin/documents">
+        {activeStatus !== 'all' && <input type="hidden" name="status" value={activeStatus} />}
+        <label className="block">
+          <span className="eyebrow !text-[9px]">Search</span>
+          <input
+            name="q"
+            defaultValue={search}
+            placeholder="Search title, type, status, summary, or client..."
+            className="pib-input mt-1"
+          />
+        </label>
+        <label className="block">
+          <span className="eyebrow !text-[9px]">Client</span>
+          <select name="orgId" defaultValue={selectedOrgId} className="pib-select mt-1">
+            <option value="">All clients</option>
+            {orgOptions.map((org) => (
+              <option key={org.id} value={org.id}>{org.name}</option>
+            ))}
+          </select>
+        </label>
+        <div className="flex items-end gap-2">
+          <button type="submit" className="btn-pib-accent h-10">Apply</button>
+          {(selectedOrgId || search) && (
+            <Link href={buildDocumentsHref({ status: activeStatus, orgId: '', q: '' })} className="btn-pib-secondary h-10">
+              Clear
             </Link>
-          )
-        })}
-      </nav>
+          )}
+        </div>
+      </form>
 
       <DocumentIndex documents={documents} basePath="/admin/documents" canDelete />
     </div>
   )
+}
+
+function buildDocumentsHref({
+  status,
+  orgId,
+  q,
+}: {
+  status: ClientDocumentStatus | 'all'
+  orgId: string
+  q: string
+}) {
+  const params = new URLSearchParams()
+  if (status !== 'all') params.set('status', status)
+  if (orgId) params.set('orgId', orgId)
+  if (q.trim()) params.set('q', q.trim())
+  const qs = params.toString()
+  return qs ? `/admin/documents?${qs}` : '/admin/documents'
 }

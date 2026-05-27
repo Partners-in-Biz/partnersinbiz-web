@@ -1,4 +1,5 @@
 import type { ComponentPropsWithoutRef, ElementType, ReactNode } from 'react'
+import Link from 'next/link'
 import { cn } from '@/lib/utils'
 
 type AppShellProps = ComponentPropsWithoutRef<'div'> & {
@@ -111,6 +112,44 @@ export function PageTabs({ tabs, value, onValueChange, ariaLabel = 'Page tabs', 
         )
       })}
     </div>
+  )
+}
+
+export type PageLinkTab = PageTab & {
+  href: string
+  prefetch?: boolean
+}
+
+type PageLinkTabsProps = {
+  tabs: PageLinkTab[]
+  activeValue: string
+  ariaLabel?: string
+  variant?: 'tabs' | 'segmented'
+  className?: string
+}
+
+export function PageLinkTabs({ tabs, activeValue, ariaLabel = 'Page tabs', variant = 'tabs', className }: PageLinkTabsProps) {
+  return (
+    <nav role="tablist" aria-label={ariaLabel} className={cn('pib-tabs', variant === 'segmented' && 'pib-tabs-segmented', className)}>
+      {tabs.map((tab) => {
+        const selected = tab.value === activeValue
+        return (
+          <Link
+            key={tab.value}
+            href={tab.href}
+            prefetch={tab.prefetch}
+            role="tab"
+            aria-selected={selected}
+            aria-current={selected ? 'page' : undefined}
+            className={cn('pib-tab', selected && 'pib-tab-active', tab.disabled && 'pointer-events-none opacity-50')}
+          >
+            {tab.icon ? <span aria-hidden="true" className="material-symbols-outlined text-[18px]">{tab.icon}</span> : null}
+            <span>{tab.label}</span>
+            {tab.badge != null ? <span className="pib-tabs-badge">{tab.badge}</span> : null}
+          </Link>
+        )
+      })}
+    </nav>
   )
 }
 

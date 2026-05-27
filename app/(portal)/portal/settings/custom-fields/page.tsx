@@ -5,6 +5,7 @@ export const dynamic = 'force-dynamic'
 import { useEffect, useState, useCallback } from 'react'
 import { CustomFieldDefinitionsList } from '@/components/crm/CustomFieldDefinitionsList'
 import { CustomFieldDefinitionDrawer } from '@/components/crm/CustomFieldDefinitionDrawer'
+import { PageTabs } from '@/components/ui/AppFoundation'
 import type { CustomFieldDefinition, CustomFieldResource } from '@/lib/customFields/types'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -176,24 +177,13 @@ export default function CustomFieldsPage() {
         </div>
       )}
 
-      {/* Tabs */}
-      <div className="flex gap-1 mb-6 border-b border-[var(--color-pib-line)]">
-        {TABS.map(tab => (
-          <button
-            key={tab.resource}
-            type="button"
-            onClick={() => setActiveTab(tab.resource)}
-            className={[
-              'cursor-pointer px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px',
-              activeTab === tab.resource
-                ? 'border-[var(--color-pib-accent)] text-[var(--color-pib-text)]'
-                : 'border-transparent text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]',
-            ].join(' ')}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      <PageTabs
+        className="mb-6"
+        ariaLabel="Custom field resource"
+        value={activeTab}
+        onValueChange={(value) => setActiveTab(value as CustomFieldResource)}
+        tabs={TABS.map((tab) => ({ label: tab.label, value: tab.resource }))}
+      />
 
       {/* Tab content */}
       <div>

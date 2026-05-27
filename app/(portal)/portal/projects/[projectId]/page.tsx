@@ -11,10 +11,17 @@ import { TaskComposer } from '@/components/kanban/TaskComposer'
 import { ProjectBoardSummary } from '@/components/projects/ProjectBoardSummary'
 import { ProjectDocsPanel, projectDocContent, type ProjectDoc } from '@/components/projects/ProjectDocsPanel'
 import { ProjectSettingsPanel } from '@/components/projects/ProjectSettingsPanel'
+import { PageTabs } from '@/components/ui/AppFoundation'
 import type { AgentMember, Column, Task, TeamMember } from '@/components/kanban/types'
 
 interface Project { id: string; orgId?: string; name: string; description?: string; brief?: string; status?: string; columns: Column[] }
 type TaskListSort = 'latest' | 'due'
+type ProjectTab = 'kanban' | 'docs' | 'settings'
+const PROJECT_TABS: Array<{ id: ProjectTab; label: string; icon: string }> = [
+  { id: 'kanban', label: 'Kanban', icon: 'view_kanban' },
+  { id: 'docs', label: 'Docs', icon: 'description' },
+  { id: 'settings', label: 'Settings', icon: 'settings' },
+]
 
 function mergeLiveTasks(restTasks: Task[], currentTasks: Task[]) {
   const merged = new Map<string, Task>()
@@ -85,7 +92,7 @@ export default function ProjectDetailPage() {
   const [loading, setLoading] = useState(true)
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   const [showNewTask, setShowNewTask] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<'kanban' | 'docs' | 'settings'>('kanban')
+  const [activeTab, setActiveTab] = useState<ProjectTab>('kanban')
   const [viewMode, setViewMode] = useState<'board' | 'list'>('board')
   const [boardSortMode, setBoardSortMode] = useState<'latest' | 'manual'>('latest')
   const [taskListSort, setTaskListSort] = useState<TaskListSort>('latest')
@@ -285,39 +292,13 @@ export default function ProjectDetailPage() {
         )}
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-6 mb-6 shrink-0 border-b border-[var(--color-outline)]">
-        <button
-          onClick={() => setActiveTab('kanban')}
-          className={`px-1 pb-3 text-sm font-label transition-colors ${
-            activeTab === 'kanban'
-              ? 'text-on-surface border-b-2 border-[var(--color-accent-v2)]'
-              : 'text-on-surface-variant hover:text-on-surface'
-          }`}
-        >
-          Kanban
-        </button>
-        <button
-          onClick={() => setActiveTab('docs')}
-          className={`px-1 pb-3 text-sm font-label transition-colors ${
-            activeTab === 'docs'
-              ? 'text-on-surface border-b-2 border-[var(--color-accent-v2)]'
-              : 'text-on-surface-variant hover:text-on-surface'
-          }`}
-        >
-          Docs
-        </button>
-        <button
-          onClick={() => setActiveTab('settings')}
-          className={`px-1 pb-3 text-sm font-label transition-colors ${
-            activeTab === 'settings'
-              ? 'text-on-surface border-b-2 border-[var(--color-accent-v2)]'
-              : 'text-on-surface-variant hover:text-on-surface'
-          }`}
-        >
-          Settings
-        </button>
-      </div>
+      <PageTabs
+        className="mb-6 shrink-0"
+        ariaLabel="Project detail tabs"
+        value={activeTab}
+        onValueChange={(value) => setActiveTab(value as ProjectTab)}
+        tabs={PROJECT_TABS.map((tab) => ({ label: tab.label, value: tab.id, icon: tab.icon }))}
+      />
 
       {/* Tab Content */}
       {activeTab === 'kanban' && (

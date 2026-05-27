@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useToast } from '@/components/ui/Toast'
+import { PageTabs } from '@/components/ui/AppFoundation'
 import type { AgentTeamDoc } from './AgentCard'
 import type { HealthStatus } from './AgentCard'
 
@@ -763,22 +764,13 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
         </button>
       </div>
 
-      {/* Tab bar */}
-      <div className="shrink-0 flex items-center gap-1 px-4 py-2 border-b border-white/10 overflow-x-auto">
-        {visibleTabs.map((tab) => (
-          <button
-            key={tab}
-            onClick={() => activateTab(tab)}
-            className={`px-3 py-1 rounded-full text-xs font-label whitespace-nowrap transition-colors ${
-              activeTab === tab
-                ? 'bg-white/15 text-on-surface'
-                : 'text-on-surface-variant hover:text-on-surface hover:bg-white/8'
-            }`}
-          >
-            {TAB_LABELS[tab]}
-          </button>
-        ))}
-      </div>
+      <PageTabs
+        className="shrink-0 border-x-0 border-t-0 px-4 py-2"
+        ariaLabel="Agent detail tabs"
+        value={activeTab}
+        onValueChange={(value) => activateTab(value as Tab)}
+        tabs={visibleTabs.map((tab) => ({ label: TAB_LABELS[tab], value: tab }))}
+      />
 
       {/* Scrollable body */}
       <div className="flex-1 overflow-y-auto px-6 py-5">

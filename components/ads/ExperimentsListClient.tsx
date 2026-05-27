@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { ExperimentSignificanceBadge } from './ExperimentSignificanceBadge'
+import { PageTabs } from '@/components/ui/AppFoundation'
 import type { ExperimentStatus } from '@/lib/ads/experiments/types'
 
 export interface ExperimentRow {
@@ -91,24 +92,12 @@ export function ExperimentsListClient({ experiments, orgSlug }: Props) {
         </Link>
       </header>
 
-      {/* Filter tabs */}
-      <div className="flex flex-wrap gap-1 border-b border-white/10" role="tablist">
-        {FILTER_TABS.map((tab) => (
-          <button
-            key={tab.key}
-            role="tab"
-            aria-selected={activeTab === tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            className={`px-4 py-2 text-sm transition-colors ${
-              activeTab === tab.key
-                ? 'border-b-2 border-[#F5A623] text-white'
-                : 'text-white/50 hover:text-white/80'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      <PageTabs
+        ariaLabel="Experiment filters"
+        value={activeTab}
+        onValueChange={(value) => setActiveTab(value as FilterKey)}
+        tabs={FILTER_TABS.map((tab) => ({ label: tab.label, value: tab.key }))}
+      />
 
       {filtered.length === 0 ? (
         <div className="rounded-lg border border-dashed border-white/10 p-8 text-center">
