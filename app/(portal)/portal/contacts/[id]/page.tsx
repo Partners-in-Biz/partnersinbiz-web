@@ -8,6 +8,7 @@ import { fmtTimestamp } from '@/components/admin/email/fmtTimestamp'
 import { ContactDealsPanel } from '@/components/crm/ContactDealsPanel'
 import { CompanyPanel } from '@/components/crm/CompanyPanel'
 import { CompanyPicker } from '@/components/crm/CompanyPicker'
+import { ContactIdentityPanel } from '@/components/crm/ContactIdentityPanel'
 import { CustomFieldsSection } from '@/components/crm/CustomFieldsSection'
 import { ScoreChip } from '@/components/crm/ScoreChip'
 import type { CustomFieldDefinition } from '@/lib/customFields/types'
@@ -18,6 +19,8 @@ interface ContactRecord {
   name?: string
   email?: string
   phone?: string
+  jobTitle?: string
+  department?: string
   company?: string
   companyId?: string
   companyName?: string
@@ -29,6 +32,14 @@ interface ContactRecord {
   tags?: string[]
   lastContactedAt?: unknown
   createdAt?: unknown
+  timezone?: string
+  phoneVerified?: boolean
+  smsOptedIn?: boolean
+  unsubscribedAt?: unknown
+  bouncedAt?: unknown
+  smsUnsubscribedAt?: unknown
+  lastRepliedAt?: unknown
+  repliesCount?: number
   leadScore?: number
   icpScore?: number
   aiLeadScore?: number
@@ -124,7 +135,10 @@ export default function PortalContactDetailPage() {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
+  const [jobTitle, setJobTitle] = useState('')
+  const [department, setDepartment] = useState('')
   const [website, setWebsite] = useState('')
+  const [timezone, setTimezone] = useState('')
   const [source, setSource] = useState('manual')
   const [type, setType] = useState('lead')
   const [stage, setStage] = useState('new')
@@ -196,7 +210,10 @@ export default function PortalContactDetailPage() {
         setName(c?.name ?? '')
         setEmail(c?.email ?? '')
         setPhone(c?.phone ?? '')
+        setJobTitle(c?.jobTitle ?? '')
+        setDepartment(c?.department ?? '')
         setWebsite(c?.website ?? '')
+        setTimezone(c?.timezone ?? '')
         setSource(c?.source ?? 'manual')
         setType(c?.type ?? 'lead')
         setStage(c?.stage ?? 'new')
@@ -270,7 +287,10 @@ export default function PortalContactDetailPage() {
         name: name.trim(),
         email: email.trim(),
         phone: phone.trim(),
+        jobTitle: jobTitle.trim(),
+        department: department.trim(),
         website: website.trim(),
+        timezone: timezone.trim(),
         source,
         type,
         stage,
@@ -300,7 +320,10 @@ export default function PortalContactDetailPage() {
               name: name.trim(),
               email: email.trim(),
               phone: phone.trim(),
+              jobTitle: jobTitle.trim(),
+              department: department.trim(),
               website: website.trim(),
+              timezone: timezone.trim(),
               source,
               type,
               stage,
@@ -551,7 +574,10 @@ export default function PortalContactDetailPage() {
     (contact.name ?? '') !== name ||
     (contact.email ?? '') !== email ||
     (contact.phone ?? '') !== phone ||
+    (contact.jobTitle ?? '') !== jobTitle ||
+    (contact.department ?? '') !== department ||
     (contact.website ?? '') !== website ||
+    (contact.timezone ?? '') !== timezone ||
     (contact.source ?? 'manual') !== source ||
     (contact.type ?? 'lead') !== type ||
     (contact.stage ?? 'new') !== stage ||
@@ -568,8 +594,11 @@ export default function PortalContactDetailPage() {
     name,
     email,
     phone,
+    jobTitle,
+    department,
     editCompanyId || contact.companyId || editCompanyName || contact.companyName || contact.company,
     website,
+    timezone,
     source,
     type,
     stage,
@@ -795,6 +824,19 @@ export default function PortalContactDetailPage() {
             ) : null}
           </div>
 
+          <ContactIdentityPanel
+            profile={{
+              jobTitle,
+              department,
+              timezone,
+              phoneVerified: contact.phoneVerified,
+              smsOptedIn: contact.smsOptedIn && !contact.smsUnsubscribedAt,
+              unsubscribedAt: contact.unsubscribedAt,
+              bouncedAt: contact.bouncedAt,
+              repliesCount: contact.repliesCount,
+            }}
+          />
+
           {customFieldDefs.length > 0 && (
             <div className="bento-card !p-5 space-y-3 text-sm">
               <p className="eyebrow !text-[10px]">Custom fields</p>
@@ -845,6 +887,39 @@ export default function PortalContactDetailPage() {
                   onChange={(e) => setPhone(e.target.value)}
                   className="pib-input w-full"
                   placeholder="+27..."
+                />
+              </div>
+              <div className="space-y-1">
+                <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">
+                  Job title
+                </p>
+                <input
+                  value={jobTitle}
+                  onChange={(e) => setJobTitle(e.target.value)}
+                  className="pib-input w-full"
+                  placeholder="Decision maker, Finance Director..."
+                />
+              </div>
+              <div className="space-y-1">
+                <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">
+                  Department
+                </p>
+                <input
+                  value={department}
+                  onChange={(e) => setDepartment(e.target.value)}
+                  className="pib-input w-full"
+                  placeholder="Finance, Operations..."
+                />
+              </div>
+              <div className="space-y-1">
+                <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">
+                  Timezone
+                </p>
+                <input
+                  value={timezone}
+                  onChange={(e) => setTimezone(e.target.value)}
+                  className="pib-input w-full"
+                  placeholder="Africa/Johannesburg"
                 />
               </div>
               <div className="space-y-1">
