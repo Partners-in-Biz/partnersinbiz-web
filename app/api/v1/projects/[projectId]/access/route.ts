@@ -50,15 +50,53 @@ async function listCollection(collectionName: string, projectId: string) {
   return snap.docs.map((doc: { id: string; data: () => Record<string, unknown> }) => ({ id: doc.id, ...doc.data() }))
 }
 
+function displayNameFromMember(member: Record<string, unknown>, userData: Record<string, unknown>): string {
+  const embeddedName = [cleanString(member.firstName), cleanString(member.lastName)].filter(Boolean).join(' ')
+  return cleanString(userData.displayName) || cleanString(member.displayName) || embeddedName || cleanEmail(userData.email) || cleanEmail(member.email)
+}
+
+async function listOwnerMemberCandidates(project: Record<string, unknown>, role?: string) {
+  if (!canProjectRole(role ?? 'viewer', 'manage_access')) return []
+
+  const sourceOrgId = ownerOrgId(project)
+  if (!sourceOrgId) return []
+
+  const snap = await adminDb.collection('orgMembers').where('orgId', '==', sourceOrgId).get()
+  const candidates = await Promise.all(
+    snap.docs.map(async (doc: { id: string; data: () => Record<string, unknown> }) => {
+      const member = doc.data() ?? {}
+      const uid = cleanString(member.uid) || cleanString(member.userId)
+      if (!uid) return null
+
+      const userSnap = await adminDb.collection('users').doc(uid).get()
+      const userData = userSnap.exists ? userSnap.data() ?? {} : {}
+      return {
+        id: doc.id,
+        uid,
+        displayName: displayNameFromMember(member, userData) || uid,
+        email: cleanEmail(userData.email) || cleanEmail(member.email),
+        role: cleanString(member.role) || 'member',
+        photoURL: cleanString(userData.photoURL) || cleanString(member.photoURL),
+      }
+    }),
+  )
+
+  return candidates
+    .filter((candidate): candidate is NonNullable<typeof candidate> => Boolean(candidate))
+    .sort((a, b) => (a.displayName || a.email || a.uid).localeCompare(b.displayName || b.email || b.uid))
+}
+
 export const GET = withAuth('client', async (_req: NextRequest, user, ctx) => {
   const { projectId } = await (ctx as RouteContext).params
   const access = await getProjectForUser(projectId, user)
   if (!access.ok) return apiError(access.error, access.status)
 
-  const [members, organizations, invites] = await Promise.all([
+  const project = (access.doc.data() ?? {}) as Record<string, unknown>
+  const [members, organizations, invites, memberCandidates] = await Promise.all([
     listCollection('projectMembers', projectId),
     listCollection('projectOrganizations', projectId),
     listCollection('projectInvites', projectId),
+    listOwnerMemberCandidates(project, access.projectAccess?.role),
   ])
 
   return apiSuccess({
@@ -66,6 +104,7 @@ export const GET = withAuth('client', async (_req: NextRequest, user, ctx) => {
     members,
     organizations,
     invites,
+    memberCandidates,
   })
 })
 

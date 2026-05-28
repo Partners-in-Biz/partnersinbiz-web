@@ -47,6 +47,7 @@ type CrmContact = {
 
 interface AccessData {
   members: AccessMember[]
+  memberCandidates: AccessMember[]
   organizations: AccessOrganization[]
   invites: AccessInvite[]
 }
@@ -70,9 +71,10 @@ function StatusPill({ value }: { value?: string }) {
 }
 
 export function ProjectPeopleAccessPanel({ projectId }: { projectId: string }) {
-  const [data, setData] = useState<AccessData>({ members: [], organizations: [], invites: [] })
+  const [data, setData] = useState<AccessData>({ members: [], memberCandidates: [], organizations: [], invites: [] })
   const [loading, setLoading] = useState(true)
-  const [memberUid, setMemberUid] = useState('')
+  const [memberSearch, setMemberSearch] = useState('')
+  const [selectedMember, setSelectedMember] = useState<AccessMember | null>(null)
   const [memberRole, setMemberRole] = useState('contributor')
   const [companyId, setCompanyId] = useState('')
   const [contactId, setContactId] = useState('')
@@ -95,6 +97,22 @@ export function ProjectPeopleAccessPanel({ projectId }: { projectId: string }) {
     ],
     [data],
   )
+  const currentProjectMemberIds = useMemo(
+    () => new Set(data.members.map((member) => member.uid).filter(Boolean)),
+    [data.members],
+  )
+  const memberMatches = useMemo(() => {
+    const query = memberSearch.trim().toLowerCase()
+    if (query.length < 2) return []
+    return data.memberCandidates
+      .filter((member) => member.uid && !currentProjectMemberIds.has(member.uid))
+      .filter((member) => {
+        const label = labelForMember(member).toLowerCase()
+        const email = (member.email || '').toLowerCase()
+        return label.includes(query) || email.includes(query)
+      })
+      .slice(0, 8)
+  }, [currentProjectMemberIds, data.memberCandidates, memberSearch])
 
   async function loadAccess() {
     setLoading(true)
@@ -104,6 +122,7 @@ export function ProjectPeopleAccessPanel({ projectId }: { projectId: string }) {
       const next = body.data ?? {}
       setData({
         members: Array.isArray(next.members) ? next.members : [],
+        memberCandidates: Array.isArray(next.memberCandidates) ? next.memberCandidates : [],
         organizations: Array.isArray(next.organizations) ? next.organizations : [],
         invites: Array.isArray(next.invites) ? next.invites : [],
       })
@@ -222,21 +241,65 @@ export function ProjectPeopleAccessPanel({ projectId }: { projectId: string }) {
             className="mt-4 flex flex-wrap items-end gap-2"
             onSubmit={(event) => {
               event.preventDefault()
-              if (!memberUid.trim()) return
-              postAccess({ action: 'add_member', uid: memberUid.trim(), role: memberRole }).then(() => setMemberUid(''))
+              if (!selectedMember?.uid) return
+              postAccess({ action: 'add_member', uid: selectedMember.uid, role: memberRole }).then(() => {
+                setMemberSearch('')
+                setSelectedMember(null)
+              })
             }}
           >
-            <label className="min-w-[170px] flex-1">
-              <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Member user ID</span>
-              <input value={memberUid} onChange={(event) => setMemberUid(event.target.value)} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface" />
-            </label>
+            <div className="min-w-[220px] flex-1">
+              <label>
+                <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Search team member</span>
+                <input
+                  value={memberSearch}
+                  onChange={(event) => {
+                    setMemberSearch(event.target.value)
+                    setSelectedMember(null)
+                  }}
+                  placeholder="Search owner-org members by name or email"
+                  className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface"
+                />
+              </label>
+              {selectedMember ? (
+                <div className="mt-2 flex items-center justify-between gap-3 rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-xs text-on-surface">
+                  <span className="min-w-0 truncate">Selected member: {labelForMember(selectedMember)}</span>
+                  <button type="button" className="text-on-surface-variant hover:text-on-surface" onClick={() => setSelectedMember(null)} aria-label="Clear selected member">
+                    <span className="material-symbols-outlined text-[16px]">close</span>
+                  </button>
+                </div>
+              ) : null}
+              {!selectedMember && memberSearch.trim().length >= 2 ? (
+                <div className="mt-2 grid gap-2">
+                  {memberMatches.length === 0 ? <p className="text-xs text-on-surface-variant">No owner-org members match this search.</p> : null}
+                  {memberMatches.map((member) => (
+                    <button
+                      key={member.uid}
+                      type="button"
+                      aria-label={`Select ${labelForMember(member)}`}
+                      onClick={() => {
+                        setSelectedMember(member)
+                        setMemberSearch(labelForMember(member))
+                      }}
+                      className="flex items-center justify-between gap-3 rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-left text-sm text-on-surface hover:border-[var(--color-primary)]"
+                    >
+                      <span className="min-w-0">
+                        <span className="block truncate font-medium">{labelForMember(member)}</span>
+                        {member.email ? <span className="block truncate text-xs text-on-surface-variant">{member.email}</span> : null}
+                      </span>
+                      <span className="material-symbols-outlined text-[18px]">person_add</span>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
             <label>
               <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Role</span>
               <select value={memberRole} onChange={(event) => setMemberRole(event.target.value)} className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface">
                 {ROLE_OPTIONS.map((role) => <option key={role} value={role}>{role}</option>)}
               </select>
             </label>
-            <button type="submit" className="pib-btn-primary text-xs font-label" disabled={submitting || !memberUid.trim()}>Add</button>
+            <button type="submit" className="pib-btn-primary text-xs font-label" disabled={submitting || !selectedMember?.uid}>Add member</button>
           </form>
         </div>
 

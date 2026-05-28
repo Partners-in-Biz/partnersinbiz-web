@@ -174,6 +174,9 @@ function mockFetch() {
             members: [
               { id: 'project-1_owner-1', uid: 'owner-1', displayName: 'Peet Stander', role: 'owner', status: 'active' },
             ],
+            memberCandidates: [
+              { uid: 'team-2', displayName: 'Taylor Team', email: 'taylor@partners.example', role: 'member' },
+            ],
             organizations: [
               { id: 'project-1_partner-org', recipientCompanyName: 'Partner Org', role: 'reviewer', status: 'active' },
             ],
@@ -306,6 +309,27 @@ describe('Admin project docs and settings tabs', () => {
     expect(screen.getAllByText('Peet Stander').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Partner Org').length).toBeGreaterThan(0)
     expect(screen.getByText('pending@example.com')).toBeInTheDocument()
+  })
+
+  it('adds internal project members from a searchable team picker instead of raw user IDs', async () => {
+    render(<ProjectDetailPage />)
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Settings' }))
+
+    await waitFor(() => expect(screen.getByLabelText('Search team member')).toBeInTheDocument())
+    expect(screen.queryByLabelText('Member user ID')).not.toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText('Search team member'), { target: { value: 'taylor' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Select Taylor Team' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Add member' }))
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(
+      '/api/v1/projects/project-1/access',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ action: 'add_member', uid: 'team-2', role: 'contributor' }),
+      }),
+    ))
   })
 
   it('searches CRM companies and contacts when inviting external organisations', async () => {

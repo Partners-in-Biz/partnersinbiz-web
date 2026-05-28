@@ -17,6 +17,8 @@ const mockProjectInviteWhere = jest.fn()
 const mockProjectInviteListGet = jest.fn()
 const mockOrgMemberDoc = jest.fn()
 const mockOrgMemberGet = jest.fn()
+const mockOwnerOrgMemberWhere = jest.fn()
+const mockOwnerOrgMemberListGet = jest.fn()
 const mockUserDoc = jest.fn()
 const mockUserGet = jest.fn()
 const mockCompanyDoc = jest.fn()
@@ -32,7 +34,7 @@ jest.mock('@/lib/firebase/admin', () => ({
 }))
 
 jest.mock('@/lib/api/auth', () => ({
-  withAuth: (_role: string, handler: any) => async (req: NextRequest, ctx?: unknown) =>
+  withAuth: (_role: string, handler: (req: NextRequest, user: typeof mockUser, ctx?: unknown) => unknown) => async (req: NextRequest, ctx?: unknown) =>
     handler(req, mockUser, ctx),
 }))
 
@@ -92,9 +94,23 @@ beforeEach(() => {
     exists: id === 'owner-org_user-2',
     data: () => ({ uid: 'user-2', role: 'member' }),
   }))
+  mockOwnerOrgMemberWhere.mockReturnValue({ get: mockOwnerOrgMemberListGet })
+  mockOwnerOrgMemberListGet.mockResolvedValue({
+    docs: [
+      { id: 'owner-org_owner-1', data: () => ({ uid: 'owner-1', orgId: 'owner-org', firstName: 'Peet', lastName: 'Stander', role: 'owner' }) },
+      { id: 'owner-org_user-2', data: () => ({ uid: 'user-2', orgId: 'owner-org', firstName: 'User', lastName: 'Two', role: 'member' }) },
+    ],
+  })
 
-  mockUserDoc.mockReturnValue({ get: mockUserGet })
-  mockUserGet.mockResolvedValue({ exists: true, data: () => ({ displayName: 'User Two', email: 'user2@example.com' }) })
+  mockUserDoc.mockImplementation((id: string) => ({
+    get: () => mockUserGet(id),
+  }))
+  mockUserGet.mockImplementation(async (id: string) => ({
+    exists: true,
+    data: () => id === 'owner-1'
+      ? { displayName: 'Peet Stander', email: 'peet@partners.example' }
+      : { displayName: 'User Two', email: 'user2@example.com' },
+  }))
 
   mockCompanyDoc.mockImplementation((id: string) => ({
     get: () => mockCompanyGet(id),
@@ -128,7 +144,7 @@ beforeEach(() => {
     if (name === 'projectMembers') return { doc: mockProjectMemberDoc, where: mockProjectMemberWhere }
     if (name === 'projectOrganizations') return { doc: mockProjectOrgDoc, where: mockProjectOrgWhere }
     if (name === 'projectInvites') return { doc: mockProjectInviteDoc, where: mockProjectInviteWhere }
-    if (name === 'orgMembers') return { doc: mockOrgMemberDoc }
+    if (name === 'orgMembers') return { doc: mockOrgMemberDoc, where: mockOwnerOrgMemberWhere }
     if (name === 'users') return { doc: mockUserDoc }
     if (name === 'companies') return { doc: mockCompanyDoc }
     if (name === 'contacts') return { doc: mockContactDoc }
@@ -144,7 +160,28 @@ function request(body: unknown) {
   })
 }
 
+function getRequest() {
+  return new NextRequest('http://localhost/api/v1/projects/project-1/access', {
+    method: 'GET',
+  })
+}
+
 describe('project access API', () => {
+  it('returns owner-org member candidates for project managers to add without raw user ids', async () => {
+    const { GET } = await import('@/app/api/v1/projects/[projectId]/access/route')
+    const res = await GET(getRequest(), {
+      params: Promise.resolve({ projectId: 'project-1' }),
+    })
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(mockOwnerOrgMemberWhere).toHaveBeenCalledWith('orgId', '==', 'owner-org')
+    expect(body.data.memberCandidates).toEqual([
+      expect.objectContaining({ uid: 'owner-1', displayName: 'Peet Stander', email: 'peet@partners.example', role: 'owner' }),
+      expect.objectContaining({ uid: 'user-2', displayName: 'User Two', email: 'user2@example.com', role: 'member' }),
+    ])
+  })
+
   it('adds an owner-org member to a project with a project-scoped role', async () => {
     const { POST } = await import('@/app/api/v1/projects/[projectId]/access/route')
     const res = await POST(request({ action: 'add_member', uid: 'user-2', role: 'contributor' }), {
