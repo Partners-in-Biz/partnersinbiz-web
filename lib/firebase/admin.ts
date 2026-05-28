@@ -2,6 +2,7 @@ import { initializeApp, getApps, cert, App } from 'firebase-admin/app'
 import { getAuth, Auth } from 'firebase-admin/auth'
 import { getFirestore, Firestore } from 'firebase-admin/firestore'
 import { cleanFirebaseEnv } from './env'
+import { wrapFirestoreReadTarget } from './read-audit'
 
 export function getAdminApp(): App {
   if (getApps().length > 0) return getApps()[0]
@@ -20,7 +21,7 @@ export function getAdminAuth(): Auth {
 }
 
 export function getAdminDb(): Firestore {
-  return getFirestore(getAdminApp())
+  return wrapFirestoreReadTarget(getFirestore(getAdminApp()))
 }
 
 // Lazy singleton accessors — only instantiated when first called (not at build time)

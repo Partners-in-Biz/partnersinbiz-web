@@ -7,6 +7,7 @@ import { NextRequest } from 'next/server'
 import { Timestamp } from 'firebase-admin/firestore'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { adminDb } from '@/lib/firebase/admin'
+import { runWithFirestoreReadAudit } from '@/lib/firebase/read-audit'
 import { getDueEnrollments, advanceEnrollment } from '@/lib/sequences/enrollment'
 import { getSequence } from '@/lib/sequences/store'
 import { sendEmail } from '@/lib/email/send'
@@ -28,6 +29,7 @@ export async function GET(req: NextRequest) {
     return apiError('Unauthorized', 401)
   }
 
+  return runWithFirestoreReadAudit('api/v1/crm/cron/process-sequences', async () => {
   // ── Init ─────────────────────────────────────────────────────────────────────
   const startedAt = Date.now()
   let processed = 0
@@ -101,4 +103,5 @@ export async function GET(req: NextRequest) {
   }
 
   return apiSuccess({ processed, succeeded, failed, errors })
+  })
 }

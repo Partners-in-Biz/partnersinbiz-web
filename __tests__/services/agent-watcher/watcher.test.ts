@@ -351,12 +351,12 @@ describe('agent watcher dispatchTask', () => {
   })
 })
 
-describe('agent watcher dependency subscriptions', () => {
+describe('agent watcher dependency retry strategy', () => {
   beforeEach(() => {
     jest.clearAllMocks()
   })
 
-  it('rechecks dependents when a dependency is marked agentStatus done before review approval', async () => {
+  it('does not subscribe to broad done-task queries because periodic sweeps retry dependents', async () => {
     const queries: Array<{ wheres: Array<[string, string, unknown]>; unsubscribe: jest.Mock }> = []
     dbMock.collectionGroup = jest.fn(() => {
       const query = {
@@ -376,9 +376,27 @@ describe('agent watcher dependency subscriptions', () => {
 
     const stop = await startWatcher(['theo'])
 
-    expect(queries).toEqual(expect.arrayContaining([
+    expect(queries).not.toEqual(expect.arrayContaining([
       expect.objectContaining({ wheres: [['columnId', '==', 'done']] }),
+    ]))
+    expect(queries).not.toEqual(expect.arrayContaining([
       expect.objectContaining({ wheres: [['agentStatus', '==', 'done']] }),
+    ]))
+    expect(queries).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        wheres: expect.arrayContaining([
+          ['assigneeAgentId', 'in', ['theo']],
+          ['agentStatus', '==', 'pending'],
+          ['columnId', '==', 'todo'],
+        ]),
+      }),
+      expect.objectContaining({
+        wheres: expect.arrayContaining([
+          ['reviewerAgentId', 'in', ['theo']],
+          ['columnId', '==', 'review'],
+          ['reviewStatus', '==', 'pending'],
+        ]),
+      }),
     ]))
 
     stop()

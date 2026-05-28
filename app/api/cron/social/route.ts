@@ -12,6 +12,7 @@
 import { NextRequest } from 'next/server'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { processQueue } from '@/lib/social/queue'
+import { runWithFirestoreReadAudit } from '@/lib/firebase/read-audit'
 
 export const dynamic = 'force-dynamic'
 
@@ -21,7 +22,7 @@ export async function GET(req: NextRequest) {
   const validApiAuth = auth === `Bearer ${process.env.AI_API_KEY}`
   if (!validCronAuth && !validApiAuth) return apiError('Unauthorized', 401)
 
-  const result = await processQueue()
+  const result = await runWithFirestoreReadAudit('api/cron/social', () => processQueue())
 
   return apiSuccess(result)
 }

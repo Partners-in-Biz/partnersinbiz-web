@@ -7,6 +7,7 @@ import { NextRequest } from 'next/server'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { getPendingDue, markExecuted, markFailed } from '@/lib/automations/store'
 import { executeActions } from '@/lib/automations/executor'
+import { runWithFirestoreReadAudit } from '@/lib/firebase/read-audit'
 
 export const dynamic = 'force-dynamic'
 
@@ -21,6 +22,7 @@ export async function GET(req: NextRequest) {
   const provided = req.headers.get('authorization')
   if (provided !== `Bearer ${cronSecret}`) return apiError('Unauthorized', 401)
 
+  return runWithFirestoreReadAudit('api/v1/crm/cron/process-automations', async () => {
   // ── Init ─────────────────────────────────────────────────────────────────────
   const startedAt = Date.now()
   let processed = 0
@@ -56,4 +58,5 @@ export async function GET(req: NextRequest) {
   }
 
   return apiSuccess({ processed, succeeded, failed, errors })
+  })
 }
