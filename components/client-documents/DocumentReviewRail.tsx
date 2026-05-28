@@ -1,8 +1,11 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { ContextReferenceChips } from '@/components/context-references/ContextReferenceChips'
+import { ContextReferencePicker } from '@/components/context-references/ContextReferencePicker'
 import { PageTabs } from '@/components/ui/AppFoundation'
 import type { ClientDocument, DocumentAssumption, DocumentComment, DocumentCommentReply } from '@/lib/client-documents/types'
+import type { ContextReference } from '@/lib/context-references/types'
 
 function fmtTs(ts: unknown): string {
   if (!ts) return ''
@@ -34,6 +37,7 @@ function CommentReply({ reply }: { reply: DocumentCommentReply }) {
         <span>{fmtTs(reply.createdAt)}</span>
       </div>
       <p className="text-xs text-on-surface mt-0.5 whitespace-pre-wrap">{reply.text}</p>
+      <ContextReferenceChips refs={reply.contextRefs ?? []} compact />
     </div>
   )
 }
@@ -43,13 +47,15 @@ interface CommentItemProps {
   isActive: boolean
   onScroll: () => void
   onResolve: (resolved: boolean) => Promise<void> | void
-  onReply: (text: string) => Promise<void> | void
+  onReply: (text: string, contextRefs: ContextReference[]) => Promise<void> | void
   registerRef: (el: HTMLDivElement | null) => void
+  orgId?: string
 }
 
-function CommentItem({ comment, isActive, onScroll, onResolve, onReply, registerRef }: CommentItemProps) {
+function CommentItem({ comment, isActive, onScroll, onResolve, onReply, registerRef, orgId }: CommentItemProps) {
   const [busyResolve, setBusyResolve] = useState(false)
   const [replyText, setReplyText] = useState('')
+  const [replyContextRefs, setReplyContextRefs] = useState<ContextReference[]>([])
   const [busyReply, setBusyReply] = useState(false)
   const [showReply, setShowReply] = useState(false)
   const isResolved = comment.status === 'resolved'
@@ -69,8 +75,9 @@ function CommentItem({ comment, isActive, onScroll, onResolve, onReply, register
     if (!trimmed || busyReply) return
     setBusyReply(true)
     try {
-      await onReply(trimmed)
+      await onReply(trimmed, replyContextRefs)
       setReplyText('')
+      setReplyContextRefs([])
       setShowReply(false)
     } finally {
       setBusyReply(false)
@@ -108,6 +115,7 @@ function CommentItem({ comment, isActive, onScroll, onResolve, onReply, register
       )}
 
       <p className="text-sm whitespace-pre-wrap break-words">{comment.text}</p>
+      <ContextReferenceChips refs={comment.contextRefs ?? []} compact />
 
       {replies.length > 0 && (
         <div className="space-y-1.5">
@@ -142,6 +150,17 @@ function CommentItem({ comment, isActive, onScroll, onResolve, onReply, register
             placeholder="Write a reply…"
             className="w-full rounded-md border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:ring-1 focus:ring-[var(--color-pib-accent)] resize-none"
           />
+          {orgId ? (
+            <ContextReferencePicker
+              orgId={orgId}
+              value={replyContextRefs}
+              onChange={setReplyContextRefs}
+              inputLabel="Add reply context reference"
+              placeholder="@contacts: @projects: @tasks:"
+              disabled={busyReply}
+              compact
+            />
+          ) : null}
           <button
             type="button"
             onClick={handleReplySubmit}
@@ -163,7 +182,7 @@ export interface DocumentReviewRailProps {
   activeCommentId?: string | null
   onPublish?: () => void
   onResolve?: (commentId: string, resolved: boolean) => Promise<void> | void
-  onReply?: (commentId: string, text: string) => Promise<void> | void
+  onReply?: (commentId: string, text: string, contextRefs: ContextReference[]) => Promise<void> | void
   onScrollToComment?: (commentId: string) => void
 }
 
@@ -248,7 +267,8 @@ export function DocumentReviewRail({
                 isActive={activeCommentId === c.id}
                 onScroll={() => onScrollToComment?.(c.id)}
                 onResolve={async (resolved) => { if (onResolve) await onResolve(c.id, resolved) }}
-                onReply={async (text) => { if (onReply) await onReply(c.id, text) }}
+                onReply={async (text, contextRefs) => { if (onReply) await onReply(c.id, text, contextRefs) }}
+                orgId={document.orgId}
                 registerRef={(el) => { refMap.current.set(c.id, el) }}
               />
             ))}

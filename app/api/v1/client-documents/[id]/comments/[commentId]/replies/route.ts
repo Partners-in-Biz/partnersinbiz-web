@@ -9,6 +9,8 @@ import type { ApiUser } from '@/lib/api/types'
 import { sendDocumentReplyEmail } from '@/lib/client-documents/notifications'
 import { CLIENT_DOCUMENTS_COLLECTION, getClientDocument } from '@/lib/client-documents/store'
 import type { ClientDocument, DocumentComment, DocumentCommentReply } from '@/lib/client-documents/types'
+import { resolveContextReferences } from '@/lib/context-references/registry'
+import { sanitizeContextReferenceSeeds, type ContextReferenceSeed } from '@/lib/context-references/types'
 import { adminDb } from '@/lib/firebase/admin'
 
 export const dynamic = 'force-dynamic'
@@ -41,6 +43,16 @@ async function assertDocumentAccess(id: string, user: ApiUser) {
   return { ok: true as const, document }
 }
 
+function documentContextSeed(id: string, document: ClientDocument): ContextReferenceSeed {
+  return {
+    type: 'document',
+    id,
+    ...(document.orgId ? { orgId: document.orgId } : {}),
+    ...(document.title ? { label: document.title } : {}),
+    origin: 'current_page',
+  }
+}
+
 export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, ctx: RouteContext) => {
   const { id, commentId } = await ctx.params
   const access = await assertDocumentAccess(id, user)
@@ -59,6 +71,15 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
   const snap = await ref.get()
   if (!snap.exists) return apiError('Comment not found', 404)
 
+  const contextRefs = await resolveContextReferences(
+    [
+      documentContextSeed(id, access.document),
+      ...sanitizeContextReferenceSeeds((body as Record<string, unknown>).contextRefs),
+    ],
+    user,
+    access.document.orgId,
+  )
+
   const userName = typeof body.userName === 'string' && body.userName.trim() ? body.userName.trim() : user.uid
   // Note: array elements cannot contain serverTimestamp sentinels — use Date.
   const reply: DocumentCommentReply = {
@@ -68,6 +89,7 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
     userName,
     userRole: userRole(user),
     createdAt: new Date(),
+    ...(contextRefs.length > 0 ? { contextRefs } : {}),
   }
 
   await ref.update({ replies: FieldValue.arrayUnion(reply) })

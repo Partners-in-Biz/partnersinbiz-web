@@ -19,8 +19,38 @@ import {
   type CommentResourceType,
 } from '@/lib/comments/types'
 import { parseMentions, notifyMentions } from '@/lib/comments/mentions'
+import { resolveContextReferences } from '@/lib/context-references/registry'
+import {
+  sanitizeContextReferenceSeeds,
+  type ContextReferenceSeed,
+  type ContextReferenceType,
+} from '@/lib/context-references/types'
 
 export const dynamic = 'force-dynamic'
+
+const COMMENT_RESOURCE_CONTEXT_TYPES: Partial<Record<CommentResourceType, ContextReferenceType>> = {
+  contact: 'contact',
+  project: 'project',
+  task: 'task',
+  research_item: 'research',
+}
+
+function resourceContextSeed(args: {
+  resourceType: CommentResourceType
+  resourceId: string
+  orgId: string
+  projectId?: string
+}): ContextReferenceSeed | null {
+  const type = COMMENT_RESOURCE_CONTEXT_TYPES[args.resourceType]
+  if (!type) return null
+  return {
+    type,
+    id: args.resourceId,
+    orgId: args.orgId,
+    origin: 'current_page',
+    ...(type === 'task' && args.projectId ? { metadata: { projectId: args.projectId } } : {}),
+  }
+}
 
 /**
  * GET — list comments. Requires `orgId`. Optional filters:
@@ -101,6 +131,20 @@ export const POST = withAuth('admin', async (req, user) => {
 
   const mentions = parseMentions(text)
   const mentionIds = mentions.map((m) => `${m.type}:${m.id}`)
+  const currentResourceRef = resourceContextSeed({
+    orgId,
+    resourceType: resourceType as CommentResourceType,
+    resourceId,
+    projectId: typeof body.projectId === 'string' ? body.projectId.trim() : undefined,
+  })
+  const contextRefs = await resolveContextReferences(
+    [
+      ...(currentResourceRef ? [currentResourceRef] : []),
+      ...sanitizeContextReferenceSeeds(body.contextRefs),
+    ],
+    user,
+    orgId,
+  )
 
   const docRef = await adminDb.collection('comments').add({
     orgId,
@@ -111,6 +155,7 @@ export const POST = withAuth('admin', async (req, user) => {
     mentions,
     mentionIds,
     attachments,
+    ...(contextRefs.length > 0 ? { contextRefs } : {}),
     ...(anchor ? { anchor } : {}),
     ...actorFrom(user),
     updatedBy: null,

@@ -6,6 +6,12 @@ import { apiSuccess, apiError } from '@/lib/api/response'
 import { notifyNewComment } from '@/lib/notifications/notify'
 import { logActivity } from '@/lib/activity/log'
 import { getProjectForUser } from '@/lib/projects/access'
+import { resolveContextReferences } from '@/lib/context-references/registry'
+import {
+  sanitizeContextReferenceSeeds,
+  type ContextReference,
+  type ContextReferenceSeed,
+} from '@/lib/context-references/types'
 
 export const dynamic = 'force-dynamic'
 
@@ -15,12 +21,29 @@ interface Comment {
   userId: string
   userName: string
   userRole: 'admin' | 'client' | 'ai'
-  createdAt: Timestamp
+  createdAt: Timestamp | FieldValue
   agentPickedUp: boolean
   agentPickedUpAt?: Timestamp | null
+  contextRefs?: ContextReference[]
 }
 
 type RouteContext = { params: Promise<{ projectId: string; taskId: string }> }
+
+function taskContextSeed(args: {
+  projectId: string
+  taskId: string
+  orgId?: string
+  title?: string
+}): ContextReferenceSeed {
+  return {
+    type: 'task',
+    id: args.taskId,
+    ...(args.orgId ? { orgId: args.orgId } : {}),
+    ...(args.title ? { label: args.title } : {}),
+    origin: 'current_page',
+    metadata: { projectId: args.projectId },
+  }
+}
 
 // GET - List all comments for a task
 export const GET = withAuth('client', async (req: NextRequest, user, ctx) => {
@@ -60,6 +83,19 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
     const taskRef = adminDb.collection('projects').doc(projectId).collection('tasks').doc(taskId)
     const taskDoc = await taskRef.get()
     if (!taskDoc.exists) return apiError('Task not found', 404)
+    const taskData = taskDoc.data() ?? {}
+    const projectData = access.doc.data() ?? {}
+    const orgId = typeof projectData.orgId === 'string' ? projectData.orgId : undefined
+    const taskTitle = typeof taskData.title === 'string' && taskData.title.trim() ? taskData.title.trim() : 'a task'
+
+    const contextRefs = await resolveContextReferences(
+      [
+        taskContextSeed({ projectId, taskId, orgId, title: taskTitle }),
+        ...sanitizeContextReferenceSeeds(body.contextRefs),
+      ],
+      user,
+      orgId,
+    )
 
     // Get user info
     let userName = user.uid
@@ -83,9 +119,10 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
       userId: user.uid,
       userName,
       userRole,
-      createdAt: FieldValue.serverTimestamp() as any,
+      createdAt: FieldValue.serverTimestamp(),
       agentPickedUp: false,
       agentPickedUpAt: null,
+      ...(contextRefs.length > 0 ? { contextRefs } : {}),
     }
 
     const commentRef = taskRef.collection('comments').doc()
@@ -99,22 +136,21 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
 
     // Send notification for new comment
     const projectDoc = await adminDb.collection('projects').doc(projectId).get()
-    const taskTitle = taskDoc.data()?.title ?? 'a task'
-    const orgId = projectDoc.data()?.orgId
+    const notificationOrgId = projectDoc.data()?.orgId
 
     notifyNewComment({
       commentText: text.trim(),
       commenterName: userName,
       commenterRole: userRole,
       context: `task "${taskTitle}"`,
-      orgId,
+      orgId: notificationOrgId,
       viewUrl: `/admin/org/${projectDoc.data()?.orgSlug ?? ''}/projects/${projectId}?taskId=${encodeURIComponent(taskId)}`,
     }).catch(() => {})
 
     // Log activity event (fire and forget)
-    if (orgId) {
+    if (notificationOrgId) {
       logActivity({
-        orgId,
+        orgId: notificationOrgId,
         type: 'comment_added',
         actorId: user.uid,
         actorName: userName,

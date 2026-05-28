@@ -5,6 +5,7 @@
  * new resources (invoices, quotes, tasks, expenses, etc.). Social posts keep
  * their existing per-post comment subcollection for backward compatibility.
  */
+import type { ContextReference } from '@/lib/context-references/types'
 
 /** Resource types that can carry comments. Keep in sync with the POST validator. */
 export type CommentResourceType =
@@ -63,6 +64,7 @@ export interface Comment {
    */
   mentionIds: string[]
   attachments: string[] // file IDs
+  contextRefs?: ContextReference[]
   anchor?: unknown
   createdBy: string
   createdByType: 'user' | 'agent' | 'system'

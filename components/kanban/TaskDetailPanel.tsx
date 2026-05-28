@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { uploadTaskFile } from './TaskComposer'
+import { ContextReferenceChips } from '@/components/context-references/ContextReferenceChips'
 import { ContextReferencePicker } from '@/components/context-references/ContextReferencePicker'
 import { buildBlockedTaskRecovery } from '@/lib/projects/blockerRecovery'
 import type { ContextReference } from '@/lib/context-references/types'
@@ -17,6 +18,7 @@ interface Comment {
   createdAt?: { _seconds?: number; _nanoseconds?: number } | string | null
   agentPickedUp?: boolean
   agentPickedUpAt?: unknown
+  contextRefs?: ContextReference[]
 }
 
 interface TaskDetailPanelProps {
@@ -158,6 +160,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
   const [saving, setSaving] = useState(false)
   const [comments, setComments] = useState<Comment[]>([])
   const [commentText, setCommentText] = useState('')
+  const [commentContextRefs, setCommentContextRefs] = useState<ContextReference[]>([])
   const [submittingComment, setSubmittingComment] = useState(false)
   const [loadingComments, setLoadingComments] = useState(false)
   const [attachments, setAttachments] = useState<Attachment[]>(task?.attachments ?? [])
@@ -184,6 +187,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
     setAssignmentMode(assignmentModeForTask(task))
     setMentionIds(task?.mentionIds ?? [])
     setContextRefs(task?.contextRefs ?? [])
+    setCommentContextRefs([])
     setReviewerIds(task?.reviewerIds ?? [])
     setReviewerAgentId((task?.reviewerAgentId as AgentId | null) ?? '')
     setDueDate(dateInputValue(task?.dueDate))
@@ -368,12 +372,16 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
       const res = await fetch(`/api/v1/projects/${projectId}/tasks/${task.id}/comments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: commentText.trim() }),
+        body: JSON.stringify({
+          text: commentText.trim(),
+          ...(commentContextRefs.length > 0 ? { contextRefs: commentContextRefs } : {}),
+        }),
       })
       const body = await res.json()
       if (body.success && body.data) {
         setComments(prev => [...prev, body.data])
         setCommentText('')
+        setCommentContextRefs([])
       }
     } catch (err) {
       console.error('Failed to submit comment:', err)
@@ -1295,34 +1303,51 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
 
                     {/* Comment text */}
                     <p className="text-on-surface-variant ml-7 leading-snug">{comment.text}</p>
+                    <div className="ml-7 mt-1">
+                      <ContextReferenceChips refs={comment.contextRefs ?? []} compact />
+                    </div>
                   </div>
                 ))}
               </div>
             )}
 
             {/* Comment input */}
-            <div className="flex gap-2">
-              <input
-                type="text"
-                placeholder="Type a comment..."
-                value={commentText}
-                onChange={e => setCommentText(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault()
-                    handleSubmitComment()
-                  }
-                }}
-                disabled={submittingComment}
-                className="flex-1 bg-transparent border border-[var(--color-outline-variant)] rounded-[var(--radius-btn)] px-3 py-2 text-sm text-[var(--color-on-surface)] placeholder:text-on-surface-variant focus:outline-none focus:border-[var(--color-accent-v2)] disabled:opacity-50"
-              />
-              <button
-                onClick={handleSubmitComment}
-                disabled={!commentText.trim() || submittingComment}
-                className="pib-btn-primary text-xs px-3 py-2"
-              >
-                {submittingComment ? '...' : 'Send'}
-              </button>
+            <div className="space-y-2">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Type a comment..."
+                  value={commentText}
+                  onChange={e => setCommentText(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault()
+                      handleSubmitComment()
+                    }
+                  }}
+                  disabled={submittingComment}
+                  className="flex-1 bg-transparent border border-[var(--color-outline-variant)] rounded-[var(--radius-btn)] px-3 py-2 text-sm text-[var(--color-on-surface)] placeholder:text-on-surface-variant focus:outline-none focus:border-[var(--color-accent-v2)] disabled:opacity-50"
+                />
+                <button
+                  onClick={handleSubmitComment}
+                  disabled={!commentText.trim() || submittingComment}
+                  className="pib-btn-primary text-xs px-3 py-2"
+                >
+                  {submittingComment ? '...' : 'Send'}
+                </button>
+              </div>
+              {orgId ? (
+                <ContextReferencePicker
+                  orgId={orgId}
+                  projectId={projectId}
+                  value={commentContextRefs}
+                  onChange={setCommentContextRefs}
+                  inputLabel="Add task comment context reference"
+                  placeholder="@contacts: @projects: @tasks:"
+                  disabled={submittingComment}
+                  compact
+                />
+              ) : null}
             </div>
           </div>
         </div>

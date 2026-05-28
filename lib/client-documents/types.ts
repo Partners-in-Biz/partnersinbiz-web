@@ -1,3 +1,5 @@
+import type { ContextReference } from '@/lib/context-references/types'
+
 export type ClientDocumentType =
   | 'sales_proposal'
   | 'build_spec'
@@ -392,6 +394,7 @@ export interface DocumentCommentReply {
   userId: string
   userName: string
   userRole: DocumentParticipantRole
+  contextRefs?: ContextReference[]
   createdAt?: unknown
 }
 
@@ -410,6 +413,7 @@ export interface DocumentComment {
   createdAt?: unknown
   resolvedAt?: unknown
   resolvedBy?: string
+  contextRefs?: ContextReference[]
   replies?: DocumentCommentReply[]
 }
 
