@@ -111,13 +111,16 @@ describe('ContactDealsPanel', () => {
     })
   })
 
-  it('links each deal title to the deals page with a focus param', async () => {
+  it('summarizes the contact pipeline and links each deal title to its detail page', async () => {
     const deal = makeDeal({ id: 'deal-99', title: 'Linked Deal', stageId: 'discovery' })
     mockFetch.mockReturnValue(apiResponse([deal]))
     render(<ContactDealsPanel contactId="contact-1" />)
     await waitFor(() => {
       const link = screen.getByRole('link', { name: 'Linked Deal' })
-      expect(link).toHaveAttribute('href', '/portal/deals?focus=deal-99')
+      expect(link).toHaveAttribute('href', '/portal/deals/deal-99')
     })
+    expect(screen.getByText('Relationship pipeline')).toBeInTheDocument()
+    expect(screen.getByText('Open deals')).toBeInTheDocument()
+    expect(screen.getByText('Weighted value')).toBeInTheDocument()
   })
 })
