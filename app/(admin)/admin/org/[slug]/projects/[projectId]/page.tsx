@@ -518,7 +518,7 @@ export default function ProjectDetailPage() {
               ))}
             </div>
           ) : viewMode === 'list' ? (
-            <div className="flex-1 overflow-auto rounded-lg border border-[var(--color-card-border)]">
+            <div className="flex-1 overflow-auto rounded-[var(--radius-btn)] border border-[var(--color-card-border)]">
               <div className="space-y-2 p-2 md:hidden">
                 {sortedListTasks.map(task => {
                   const assigneeIds = task.assigneeIds?.length ? task.assigneeIds : task.assigneeId ? [task.assigneeId] : []
@@ -531,7 +531,7 @@ export default function ProjectDetailPage() {
                       key={task.id}
                       type="button"
                       onClick={() => setSelectedTask(task)}
-                      className="w-full rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)] p-3 text-left shadow-sm transition-colors hover:border-[var(--color-accent-v2)]"
+                      className="w-full rounded-[var(--radius-card)] border border-[var(--color-card-border)] bg-[var(--color-card)] p-3 text-left shadow-sm transition-colors hover:border-[var(--color-accent-v2)]"
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
@@ -636,7 +636,7 @@ export default function ProjectDetailPage() {
 
       {activeTab === 'agent' && (
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden -mx-4 -my-8 md:mx-0 md:my-0 h-[calc(100dvh-56px)] lg:h-[calc(100dvh-120px)]">
-          <div className="hidden shrink-0 lg:block mb-4">
+          <div className="mb-4 hidden shrink-0 rounded-[var(--radius-card)] border border-[var(--color-card-border)] bg-[var(--color-card)] p-5 shadow-sm lg:block">
             <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">
               Project / Agent chat
             </p>
@@ -646,7 +646,7 @@ export default function ProjectDetailPage() {
             </p>
           </div>
           {!project?.orgId || !currentUser ? (
-            <div className="flex flex-1 items-center justify-center rounded-2xl border border-[var(--color-card-border)] bg-[var(--color-card)] p-6 text-center text-sm text-on-surface-variant">
+            <div className="flex flex-1 items-center justify-center rounded-[var(--radius-card)] border border-[var(--color-card-border)] bg-[var(--color-card)] p-6 text-center text-sm text-on-surface-variant">
               {userLoadError ? `Project chat unavailable: ${userLoadError}` : 'Loading project chat…'}
             </div>
           ) : (
@@ -680,7 +680,7 @@ export default function ProjectDetailPage() {
           onSave={handleSaveSettings}
           peopleAccessSlot={<ProjectPeopleAccessPanel projectId={projectId} />}
           adminTransferSlot={(
-            <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-5 shadow-sm">
+            <div className="rounded-[var(--radius-card)] border border-amber-500/30 bg-amber-500/5 p-5 shadow-sm">
               <div className="flex items-start gap-3">
                 <span className="material-symbols-outlined mt-0.5 text-amber-300">move_up</span>
                 <div className="min-w-0 flex-1">
@@ -698,7 +698,7 @@ export default function ProjectDetailPage() {
                     id="project-transfer-client"
                     value={targetOrgId}
                     onChange={e => setTargetOrgId(e.target.value)}
-                    className="w-full rounded-xl border border-[var(--color-card-border)] bg-[var(--color-background)] px-4 py-3 text-sm text-on-surface focus:outline-none focus:border-[var(--color-accent-v2)]"
+                    className="w-full rounded-[var(--radius-card)] border border-[var(--color-card-border)] bg-[var(--color-background)] px-4 py-3 text-sm text-on-surface focus:outline-none focus:border-[var(--color-accent-v2)]"
                   >
                     <option value="">Choose a client…</option>
                     {orgOptions.map(org => (
@@ -710,13 +710,13 @@ export default function ProjectDetailPage() {
                   type="button"
                   onClick={handleMoveProject}
                   disabled={movingProject || !targetOrgId || targetOrgId === (project?.clientOrgId ?? project?.orgId)}
-                  className="rounded-xl border border-amber-400/50 px-4 py-3 text-sm font-label text-amber-100 transition-colors hover:bg-amber-400/10 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="rounded-[var(--radius-card)] border border-amber-400/50 px-4 py-3 text-sm font-label text-amber-100 transition-colors hover:bg-amber-400/10 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {movingProject ? 'Moving…' : 'Move Project'}
                 </button>
               </div>
               {moveError && (
-                <p className="mt-3 rounded-xl border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-100">{moveError}</p>
+                <p className="mt-3 rounded-[var(--radius-card)] border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-100">{moveError}</p>
               )}
             </div>
 

@@ -89,7 +89,7 @@ export function ProjectDocsPanel({
 }: ProjectDocsPanelProps) {
   return (
     <div className="flex-1 overflow-auto space-y-6 pb-6">
-      <div className="rounded-2xl border border-[var(--color-card-border)] bg-[var(--color-card)] p-5 shadow-sm">
+      <div className="rounded-[var(--radius-card)] border border-[var(--color-card-border)] bg-[var(--color-card)] p-5 shadow-sm">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Project docs</p>
@@ -107,7 +107,7 @@ export function ProjectDocsPanel({
         </div>
       </div>
 
-      <div className="rounded-2xl border border-[var(--color-card-border)] bg-[var(--color-card)] p-5 shadow-sm">
+      <div className="rounded-[var(--radius-card)] border border-[var(--color-card-border)] bg-[var(--color-card)] p-5 shadow-sm">
         <div className="mb-4 flex items-center justify-between gap-3">
           <div>
             <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Source of truth</p>
@@ -123,7 +123,7 @@ export function ProjectDocsPanel({
               value={briefValue}
               onChange={e => onBriefChange(e.target.value)}
               placeholder="Add a project brief... What's this project about? Goals, constraints, key stakeholders."
-              className="w-full rounded-xl border border-[var(--color-card-border)] bg-[var(--color-background)] px-4 py-3 text-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-[var(--color-accent-v2)]"
+              className="w-full rounded-[var(--radius-card)] border border-[var(--color-card-border)] bg-[var(--color-background)] px-4 py-3 text-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-[var(--color-accent-v2)]"
               rows={4}
             />
             <div className="flex gap-2">
@@ -134,13 +134,13 @@ export function ProjectDocsPanel({
             </div>
           </div>
         ) : (
-          <p className={`min-h-[96px] whitespace-pre-wrap rounded-xl border border-[var(--color-card-border)] px-4 py-3 text-sm leading-6 ${briefValue ? 'bg-[var(--color-background)] text-on-surface' : 'bg-[var(--color-background)] text-on-surface-variant italic'}`}>
+          <p className={`min-h-[96px] whitespace-pre-wrap rounded-[var(--radius-card)] border border-[var(--color-card-border)] px-4 py-3 text-sm leading-6 ${briefValue ? 'bg-[var(--color-background)] text-on-surface' : 'bg-[var(--color-background)] text-on-surface-variant italic'}`}>
             {briefValue || 'No brief yet'}
           </p>
         )}
       </div>
 
-      <div className="rounded-2xl border border-[var(--color-card-border)] bg-[var(--color-card)] p-5 shadow-sm">
+      <div className="rounded-[var(--radius-card)] border border-[var(--color-card-border)] bg-[var(--color-card)] p-5 shadow-sm">
         <div className="mb-4 flex items-center justify-between gap-3">
           <div>
             <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Library</p>
@@ -150,18 +150,18 @@ export function ProjectDocsPanel({
         </div>
 
         {editingDoc ? (
-          <div className="mb-4 rounded-xl border border-[var(--color-card-border)] bg-[var(--color-background)] p-4 space-y-3">
+          <div className="mb-4 rounded-[var(--radius-card)] border border-[var(--color-card-border)] bg-[var(--color-background)] p-4 space-y-3">
             <input
               type="text"
               placeholder="Document title..."
               value={editingDoc.title}
               onChange={e => onEditingDocChange({ ...editingDoc, title: e.target.value })}
-              className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-[var(--color-accent-v2)]"
+              className="w-full rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-[var(--color-accent-v2)]"
             />
             <select
               value={editingDoc.type}
               onChange={e => onEditingDocChange({ ...editingDoc, type: e.target.value as ProjectDoc['type'] })}
-              className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-[var(--color-accent-v2)]"
+              className="w-full rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-[var(--color-accent-v2)]"
             >
               <option value="brief">Brief</option>
               <option value="requirements">Requirements</option>
@@ -172,7 +172,7 @@ export function ProjectDocsPanel({
               placeholder="Content (markdown)..."
               value={projectDocContent(editingDoc.content)}
               onChange={e => onEditingDocChange({ ...editingDoc, content: e.target.value })}
-              className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-[var(--color-accent-v2)]"
+              className="w-full rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-[var(--color-accent-v2)]"
               rows={10}
             />
             <div className="flex gap-2">
@@ -188,11 +188,11 @@ export function ProjectDocsPanel({
               <div className="grid gap-4 lg:grid-cols-[minmax(0,0.95fr)_minmax(360px,1.05fr)]">
                 <div className="space-y-3">
                   {docs.map(doc => (
-                    <div key={doc.id} className={`rounded-xl border bg-[var(--color-background)] p-1 transition-colors ${selectedDoc?.id === doc.id ? 'border-[var(--color-accent-v2)]' : 'border-[var(--color-card-border)] hover:border-[var(--color-outline)]'}`}>
+                    <div key={doc.id} className={`rounded-[var(--radius-card)] border bg-[var(--color-background)] p-1 transition-colors ${selectedDoc?.id === doc.id ? 'border-[var(--color-accent-v2)]' : 'border-[var(--color-card-border)] hover:border-[var(--color-outline)]'}`}>
                       <button
                         type="button"
                         onClick={() => onSelectDoc(doc)}
-                        className="flex w-full items-start gap-3 rounded-lg px-3 py-3 text-left"
+                        className="flex w-full items-start gap-3 rounded-[var(--radius-btn)] px-3 py-3 text-left"
                         aria-label={`Preview ${doc.title}`}
                       >
                         <span className="material-symbols-outlined mt-0.5 text-[22px] text-on-surface-variant">description</span>
@@ -211,7 +211,7 @@ export function ProjectDocsPanel({
                     </div>
                   ))}
                 </div>
-                <div className="min-h-[320px] rounded-xl border border-[var(--color-card-border)] bg-[var(--color-background)] p-5">
+                <div className="min-h-[320px] rounded-[var(--radius-card)] border border-[var(--color-card-border)] bg-[var(--color-background)] p-5">
                   {selectedDoc ? (
                     <div className="space-y-4">
                       <div className="flex items-start justify-between gap-4">
@@ -222,7 +222,7 @@ export function ProjectDocsPanel({
                         </div>
                         <button onClick={() => onEditDoc(selectedDoc)} className="pib-btn-secondary text-xs font-label">Edit</button>
                       </div>
-                      <div className="max-h-[520px] overflow-auto whitespace-pre-wrap rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-4 text-sm leading-6 text-on-surface">
+                      <div className="max-h-[520px] overflow-auto whitespace-pre-wrap rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-card)] p-4 text-sm leading-6 text-on-surface">
                         {projectDocContent(selectedDoc.content) || 'This document is empty.'}
                       </div>
                     </div>
@@ -236,7 +236,7 @@ export function ProjectDocsPanel({
                 </div>
               </div>
             ) : (
-              <div className="rounded-xl border border-dashed border-[var(--color-card-border)] bg-[var(--color-background)] p-8 text-center">
+              <div className="rounded-[var(--radius-card)] border border-dashed border-[var(--color-card-border)] bg-[var(--color-background)] p-8 text-center">
                 <span className="material-symbols-outlined text-[40px] text-on-surface-variant">draft</span>
                 <h3 className="mt-3 text-base font-headline font-bold text-on-surface">No documents yet</h3>
                 <p className="mt-2 text-sm text-on-surface-variant">Create the first project note, brief, requirement, or reference doc.</p>

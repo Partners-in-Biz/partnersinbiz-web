@@ -416,7 +416,7 @@ export default function ProjectDetailPage() {
               ))}
             </div>
           ) : viewMode === 'list' ? (
-            <div className="flex-1 overflow-auto rounded-lg border border-[var(--color-card-border)]">
+            <div className="flex-1 overflow-auto rounded-[var(--radius-btn)] border border-[var(--color-card-border)]">
               <div data-testid="portal-mobile-task-list" className="space-y-2 p-2 md:hidden">
                 {sortedListTasks.map(task => {
                   const assigneeIds = task.assigneeIds?.length ? task.assigneeIds : task.assigneeId ? [task.assigneeId] : []
@@ -429,7 +429,7 @@ export default function ProjectDetailPage() {
                       key={task.id}
                       type="button"
                       onClick={() => setSelectedTask(task)}
-                      className="w-full rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)] p-3 text-left shadow-sm transition-colors hover:border-[var(--color-accent-v2)]"
+                      className="w-full rounded-[var(--radius-card)] border border-[var(--color-card-border)] bg-[var(--color-card)] p-3 text-left shadow-sm transition-colors hover:border-[var(--color-accent-v2)]"
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">

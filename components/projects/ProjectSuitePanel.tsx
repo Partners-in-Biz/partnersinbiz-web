@@ -220,7 +220,7 @@ function widthPercent(start: number, end: number, span: number): number {
 
 function HealthMetric({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-background)] px-4 py-3">
+    <div className="rounded-[var(--radius-card)] border border-[var(--color-card-border)] bg-[var(--color-background)] px-4 py-3">
       <p className="text-2xl font-headline font-bold text-on-surface">{value}</p>
       <p className="mt-1 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">{label}</p>
     </div>
@@ -244,7 +244,7 @@ function TimelineGantt({ items, onEditItem }: { items: TimelineItem[]; onEditIte
   const span = Math.max(maxDate - minDate, DAY_MS)
 
   return (
-    <div aria-label="Project Gantt timeline" className="mb-4 rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-3">
+    <div aria-label="Project Gantt timeline" className="mb-4 rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-card)] p-3">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h4 className="text-sm font-headline font-semibold text-on-surface">Timeline Gantt</h4>
@@ -341,7 +341,7 @@ function TimelinePanel({
   }
 
   return (
-    <section className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-background)] p-4">
+    <section className="rounded-[var(--radius-card)] border border-[var(--color-card-border)] bg-[var(--color-background)] p-4">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h3 className="text-sm font-headline font-semibold text-on-surface">Timeline</h3>
@@ -353,7 +353,7 @@ function TimelinePanel({
       <div className="space-y-2">
         {items.length === 0 ? <p className="text-sm text-on-surface-variant">No timeline items yet.</p> : null}
         {items.map((item, index) => (
-          <article key={item.id || `timeline-${index}`} className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2">
+          <article key={item.id || `timeline-${index}`} className="rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="truncate text-sm font-medium text-on-surface">{item.title || 'Untitled'}</p>
@@ -378,7 +378,7 @@ function TimelinePanel({
             </div>
             {editingId && editingId === item.id ? (
               <form
-                className="mt-3 grid gap-2 rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] p-3 sm:grid-cols-2"
+                className="mt-3 grid gap-2 rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-background)] p-3 sm:grid-cols-2"
                 onSubmit={(event) => {
                   event.preventDefault()
                   onUpdateTimelineItem(item, editDraft).then(() => setEditingId(null)).catch(() => {})
@@ -386,27 +386,27 @@ function TimelinePanel({
               >
                 <label className="sm:col-span-2">
                   <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Edit timeline title</span>
-                  <input value={editDraft.title} onChange={(event) => setEditDraft({ ...editDraft, title: event.target.value })} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface" />
+                  <input value={editDraft.title} onChange={(event) => setEditDraft({ ...editDraft, title: event.target.value })} className="w-full rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface" />
                 </label>
                 <label>
                   <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Edit timeline start date</span>
-                  <input type="date" value={editDraft.startDate} onChange={(event) => setEditDraft({ ...editDraft, startDate: event.target.value })} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface" />
+                  <input type="date" value={editDraft.startDate} onChange={(event) => setEditDraft({ ...editDraft, startDate: event.target.value })} className="w-full rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface" />
                 </label>
                 <label>
                   <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Edit timeline due date</span>
-                  <input type="date" value={editDraft.dueDate} onChange={(event) => setEditDraft({ ...editDraft, dueDate: event.target.value })} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface" />
+                  <input type="date" value={editDraft.dueDate} onChange={(event) => setEditDraft({ ...editDraft, dueDate: event.target.value })} className="w-full rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface" />
                 </label>
                 <label>
                   <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Edit timeline baseline due date</span>
-                  <input type="date" value={editDraft.baselineDueDate} onChange={(event) => setEditDraft({ ...editDraft, baselineDueDate: event.target.value })} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface" />
+                  <input type="date" value={editDraft.baselineDueDate} onChange={(event) => setEditDraft({ ...editDraft, baselineDueDate: event.target.value })} className="w-full rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface" />
                 </label>
                 <label>
                   <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Edit timeline dependencies</span>
-                  <input value={editDraft.dependsOn} onChange={(event) => setEditDraft({ ...editDraft, dependsOn: event.target.value })} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface" />
+                  <input value={editDraft.dependsOn} onChange={(event) => setEditDraft({ ...editDraft, dependsOn: event.target.value })} className="w-full rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface" />
                 </label>
                 <label>
                   <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Edit visibility</span>
-                  <select value={editDraft.visibility} onChange={(event) => setEditDraft({ ...editDraft, visibility: event.target.value })} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface">
+                  <select value={editDraft.visibility} onChange={(event) => setEditDraft({ ...editDraft, visibility: event.target.value })} className="w-full rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface">
                     <option value="project">Project</option>
                     <option value="restricted">Restricted</option>
                     <option value="internal">Internal</option>
@@ -423,7 +423,7 @@ function TimelinePanel({
         ))}
       </div>
       <form
-        className="mt-4 grid gap-2 rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-3 sm:grid-cols-2"
+        className="mt-4 grid gap-2 rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-card)] p-3 sm:grid-cols-2"
         onSubmit={(event) => {
           event.preventDefault()
           onCreateMilestone(draft)
@@ -434,27 +434,27 @@ function TimelinePanel({
         <h4 className="text-sm font-headline font-semibold text-on-surface sm:col-span-2">Add timeline item</h4>
         <label className="sm:col-span-2">
           <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">New timeline title</span>
-          <input value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface" />
+          <input value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} className="w-full rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface" />
         </label>
         <label>
           <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Timeline start date</span>
-          <input type="date" value={draft.startDate} onChange={(event) => setDraft({ ...draft, startDate: event.target.value })} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface" />
+          <input type="date" value={draft.startDate} onChange={(event) => setDraft({ ...draft, startDate: event.target.value })} className="w-full rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface" />
         </label>
         <label>
           <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Timeline due date</span>
-          <input type="date" value={draft.dueDate} onChange={(event) => setDraft({ ...draft, dueDate: event.target.value })} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface" />
+          <input type="date" value={draft.dueDate} onChange={(event) => setDraft({ ...draft, dueDate: event.target.value })} className="w-full rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface" />
         </label>
         <label>
           <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Timeline baseline due date</span>
-          <input type="date" value={draft.baselineDueDate} onChange={(event) => setDraft({ ...draft, baselineDueDate: event.target.value })} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface" />
+          <input type="date" value={draft.baselineDueDate} onChange={(event) => setDraft({ ...draft, baselineDueDate: event.target.value })} className="w-full rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface" />
         </label>
         <label>
           <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Timeline dependencies</span>
-          <input value={draft.dependsOn} onChange={(event) => setDraft({ ...draft, dependsOn: event.target.value })} placeholder="task-1, milestone-1" className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface" />
+          <input value={draft.dependsOn} onChange={(event) => setDraft({ ...draft, dependsOn: event.target.value })} placeholder="task-1, milestone-1" className="w-full rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface" />
         </label>
         <label>
           <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Timeline visibility</span>
-          <select value={draft.visibility} onChange={(event) => setDraft({ ...draft, visibility: event.target.value })} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface">
+          <select value={draft.visibility} onChange={(event) => setDraft({ ...draft, visibility: event.target.value })} className="w-full rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface">
             <option value="project">Project</option>
             <option value="restricted">Restricted</option>
             <option value="internal">Internal</option>
@@ -485,7 +485,7 @@ function WorkloadPanel({ workload }: { workload?: SuiteData['workload'] }) {
   const assignees = Array.isArray(workload?.assignees) ? workload.assignees : []
   const totalOverByMinutes = workload?.totalOverByMinutes ?? 0
   return (
-    <section className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-background)] p-4">
+    <section className="rounded-[var(--radius-card)] border border-[var(--color-card-border)] bg-[var(--color-background)] p-4">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h3 className="text-sm font-headline font-semibold text-on-surface">Workload</h3>
@@ -508,7 +508,7 @@ function WorkloadPanel({ workload }: { workload?: SuiteData['workload'] }) {
           const overByMinutes = assignee.overByMinutes ?? 0
           const remainingMinutes = assignee.remainingMinutes ?? Math.max(0, (assignee.capacityMinutes ?? 0) - (assignee.estimateMinutes ?? 0))
           return (
-            <article key={assignee.uid || assignee.name} className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2">
+            <article key={assignee.uid || assignee.name} className="rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2">
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium text-on-surface">{assignee.name || assignee.uid || 'Unassigned'}</p>
@@ -539,13 +539,13 @@ function WorkloadPanel({ workload }: { workload?: SuiteData['workload'] }) {
 function ReportsPanel({ reports }: { reports?: ProjectReports }) {
   const revenue = reports?.revenue
   return (
-    <section className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-background)] p-4">
+    <section className="rounded-[var(--radius-card)] border border-[var(--color-card-border)] bg-[var(--color-background)] p-4">
       <h3 className="text-sm font-headline font-semibold text-on-surface">Project reports</h3>
       <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <HealthMetric label="Tasks" value={reports?.tasks?.total ?? 0} />
         <HealthMetric label="Blocked" value={reports?.tasks?.blocked ?? 0} />
         <HealthMetric label="Waiting approvals" value={reports?.approvals?.waiting ?? 0} />
-        <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)] px-4 py-3">
+        <div className="rounded-[var(--radius-card)] border border-[var(--color-card-border)] bg-[var(--color-card)] px-4 py-3">
           <p className="text-lg font-headline font-bold text-on-surface">{formatMoney(revenue?.trackedAmount, revenue?.currency)}</p>
           <p className="mt-1 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Revenue</p>
         </div>
@@ -595,14 +595,14 @@ function ControlForms({
   const capacityAssignees = Array.isArray(workload?.assignees) ? workload.assignees.filter((assignee) => assignee.uid) : []
 
   return (
-    <section className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-background)] p-4">
+    <section className="rounded-[var(--radius-card)] border border-[var(--color-card-border)] bg-[var(--color-background)] p-4">
       <div className="mb-3">
         <h3 className="text-sm font-headline font-semibold text-on-surface">Plan controls</h3>
         <p className="mt-1 text-xs text-on-surface-variant">Templates, automations, capacity, revenue, notifications, and item access rules.</p>
       </div>
       <div className="grid gap-3 lg:grid-cols-3">
         <form
-          className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-3"
+          className="rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-card)] p-3"
           onSubmit={(event) => {
             event.preventDefault()
             onCreateSuiteItem({
@@ -628,11 +628,11 @@ function ControlForms({
           <h4 className="text-xs font-headline font-semibold text-on-surface">Recurring playbook</h4>
           <label className="mt-3 block">
             <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Playbook title</span>
-            <input value={playbookTitle} onChange={(event) => setPlaybookTitle(event.target.value)} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface" />
+            <input value={playbookTitle} onChange={(event) => setPlaybookTitle(event.target.value)} className="w-full rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface" />
           </label>
           <label className="mt-2 block">
             <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Playbook cadence</span>
-            <select value={playbookCadence} onChange={(event) => setPlaybookCadence(event.target.value)} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface">
+            <select value={playbookCadence} onChange={(event) => setPlaybookCadence(event.target.value)} className="w-full rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface">
               <option value="weekly">weekly</option>
               <option value="monthly">monthly</option>
               <option value="per_milestone">per milestone</option>
@@ -640,7 +640,7 @@ function ControlForms({
           </label>
           <label className="mt-2 block">
             <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Playbook template</span>
-            <select value={playbookTemplateKind} onChange={(event) => setPlaybookTemplateKind(event.target.value)} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface">
+            <select value={playbookTemplateKind} onChange={(event) => setPlaybookTemplateKind(event.target.value)} className="w-full rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface">
               <option value="delivery">delivery</option>
               <option value="launch">launch</option>
               <option value="reporting">reporting</option>
@@ -650,15 +650,15 @@ function ControlForms({
           </label>
           <label className="mt-2 block">
             <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Recurrence rule</span>
-            <input value={playbookRecurrenceRule} onChange={(event) => setPlaybookRecurrenceRule(event.target.value)} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface" />
+            <input value={playbookRecurrenceRule} onChange={(event) => setPlaybookRecurrenceRule(event.target.value)} className="w-full rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface" />
           </label>
           <label className="mt-2 block">
             <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Next run date</span>
-            <input type="date" value={playbookNextRunAt} onChange={(event) => setPlaybookNextRunAt(event.target.value)} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface" />
+            <input type="date" value={playbookNextRunAt} onChange={(event) => setPlaybookNextRunAt(event.target.value)} className="w-full rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface" />
           </label>
           <label className="mt-2 block">
             <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Template steps</span>
-            <input value={playbookTemplateSteps} onChange={(event) => setPlaybookTemplateSteps(event.target.value)} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface" />
+            <input value={playbookTemplateSteps} onChange={(event) => setPlaybookTemplateSteps(event.target.value)} className="w-full rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface" />
           </label>
           <label className="mt-3 inline-flex items-center gap-2 text-xs text-on-surface">
             <input type="checkbox" checked={playbookAutoCreateTasks} onChange={(event) => setPlaybookAutoCreateTasks(event.target.checked)} className="size-4 rounded border-[var(--color-card-border)] bg-[var(--color-background)]" />
@@ -668,7 +668,7 @@ function ControlForms({
         </form>
 
         <form
-          className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-3"
+          className="rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-card)] p-3"
           onSubmit={(event) => {
             event.preventDefault()
             onCreateSuiteItem({
@@ -685,11 +685,11 @@ function ControlForms({
           <h4 className="text-xs font-headline font-semibold text-on-surface">Automation</h4>
           <label className="mt-3 block">
             <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Automation title</span>
-            <input value={automationTitle} onChange={(event) => setAutomationTitle(event.target.value)} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface" />
+            <input value={automationTitle} onChange={(event) => setAutomationTitle(event.target.value)} className="w-full rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface" />
           </label>
           <label className="mt-2 block">
             <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Automation trigger</span>
-            <select value={automationTrigger} onChange={(event) => setAutomationTrigger(event.target.value)} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface">
+            <select value={automationTrigger} onChange={(event) => setAutomationTrigger(event.target.value)} className="w-full rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface">
               <option value="milestone_drift">milestone drift</option>
               <option value="approval_waiting">approval waiting</option>
               <option value="weekly_status">weekly status</option>
@@ -698,13 +698,13 @@ function ControlForms({
           </label>
           <label className="mt-2 block">
             <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Automation channels</span>
-            <input value={automationChannels} onChange={(event) => setAutomationChannels(event.target.value)} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface" />
+            <input value={automationChannels} onChange={(event) => setAutomationChannels(event.target.value)} className="w-full rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface" />
           </label>
           <button type="submit" className="pib-btn-primary mt-3 text-xs font-label" disabled={saving || !automationTitle.trim()}>Save automation</button>
         </form>
 
         <form
-          className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-3"
+          className="rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-card)] p-3"
           onSubmit={(event) => {
             event.preventDefault()
             onCreateSuiteItem({
@@ -727,11 +727,11 @@ function ControlForms({
           <h4 className="text-xs font-headline font-semibold text-on-surface">Notification control</h4>
           <label className="mt-3 block">
             <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Notification title</span>
-            <input value={notificationTitle} onChange={(event) => setNotificationTitle(event.target.value)} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface" />
+            <input value={notificationTitle} onChange={(event) => setNotificationTitle(event.target.value)} className="w-full rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface" />
           </label>
           <label className="mt-2 block">
             <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Notification event</span>
-            <select value={notificationEvent} onChange={(event) => setNotificationEvent(event.target.value)} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface">
+            <select value={notificationEvent} onChange={(event) => setNotificationEvent(event.target.value)} className="w-full rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface">
               <option value="approval_waiting">approval waiting</option>
               <option value="milestone_drift">milestone drift</option>
               <option value="task_blocked">task blocked</option>
@@ -741,7 +741,7 @@ function ControlForms({
           </label>
           <label className="mt-2 block">
             <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Notification item type</span>
-            <select value={notificationItemType} onChange={(event) => setNotificationItemType(event.target.value)} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface">
+            <select value={notificationItemType} onChange={(event) => setNotificationItemType(event.target.value)} className="w-full rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface">
               <option value="approval">approval</option>
               <option value="milestone">milestone</option>
               <option value="task">task</option>
@@ -751,7 +751,7 @@ function ControlForms({
           </label>
           <label className="mt-2 block">
             <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Notification channel</span>
-            <select value={notificationChannel} onChange={(event) => setNotificationChannel(event.target.value)} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface">
+            <select value={notificationChannel} onChange={(event) => setNotificationChannel(event.target.value)} className="w-full rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface">
               <option value="email">email</option>
               <option value="in_app">in app</option>
               <option value="both">both</option>
@@ -759,7 +759,7 @@ function ControlForms({
           </label>
           <label className="mt-2 block">
             <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Notification recipients</span>
-            <input value={notificationRecipients} onChange={(event) => setNotificationRecipients(event.target.value)} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface" />
+            <input value={notificationRecipients} onChange={(event) => setNotificationRecipients(event.target.value)} className="w-full rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface" />
           </label>
           <label className="mt-3 inline-flex items-center gap-2 text-xs text-on-surface">
             <input type="checkbox" checked={notificationEnabled} onChange={(event) => setNotificationEnabled(event.target.checked)} className="size-4 rounded border-[var(--color-card-border)] bg-[var(--color-background)]" />
@@ -769,7 +769,7 @@ function ControlForms({
         </form>
 
         <form
-          className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-3"
+          className="rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-card)] p-3"
           onSubmit={(event) => {
             event.preventDefault()
             const selected = capacityAssignees.find((assignee) => assignee.uid === capacityUid)
@@ -789,7 +789,7 @@ function ControlForms({
           <h4 className="text-xs font-headline font-semibold text-on-surface">Capacity plan</h4>
           <label className="mt-3 block">
             <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Capacity member</span>
-            <select value={capacityUid} onChange={(event) => setCapacityUid(event.target.value)} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface">
+            <select value={capacityUid} onChange={(event) => setCapacityUid(event.target.value)} className="w-full rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface">
               <option value="">Select member</option>
               {capacityAssignees.map((assignee) => (
                 <option key={assignee.uid} value={assignee.uid}>
@@ -800,13 +800,13 @@ function ControlForms({
           </label>
           <label className="mt-2 block">
             <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Weekly capacity minutes</span>
-            <input type="number" min="0" step="15" value={capacityMinutes} onChange={(event) => setCapacityMinutes(event.target.value)} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface" />
+            <input type="number" min="0" step="15" value={capacityMinutes} onChange={(event) => setCapacityMinutes(event.target.value)} className="w-full rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface" />
           </label>
           <button type="submit" className="pib-btn-primary mt-3 text-xs font-label" disabled={saving || !capacityUid || Number(capacityMinutes) <= 0}>Save capacity</button>
         </form>
 
         <form
-          className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-3"
+          className="rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-card)] p-3"
           onSubmit={(event) => {
             event.preventDefault()
             onCreateSuiteItem({
@@ -826,15 +826,15 @@ function ControlForms({
           <h4 className="text-xs font-headline font-semibold text-on-surface">Revenue tracking</h4>
           <label className="mt-3 block">
             <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Revenue title</span>
-            <input value={revenueTitle} onChange={(event) => setRevenueTitle(event.target.value)} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface" />
+            <input value={revenueTitle} onChange={(event) => setRevenueTitle(event.target.value)} className="w-full rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface" />
           </label>
           <label className="mt-2 block">
             <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Revenue amount</span>
-            <input type="number" min="0" step="1" value={revenueAmount} onChange={(event) => setRevenueAmount(event.target.value)} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface" />
+            <input type="number" min="0" step="1" value={revenueAmount} onChange={(event) => setRevenueAmount(event.target.value)} className="w-full rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface" />
           </label>
           <label className="mt-2 block">
             <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Revenue currency</span>
-            <select value={revenueCurrency} onChange={(event) => setRevenueCurrency(event.target.value)} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface">
+            <select value={revenueCurrency} onChange={(event) => setRevenueCurrency(event.target.value)} className="w-full rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface">
               <option value="ZAR">ZAR</option>
               <option value="USD">USD</option>
               <option value="EUR">EUR</option>
@@ -845,7 +845,7 @@ function ControlForms({
         </form>
 
         <form
-          className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-3"
+          className="rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-card)] p-3"
           onSubmit={(event) => {
             event.preventDefault()
             onCreateSuiteItem({
@@ -870,11 +870,11 @@ function ControlForms({
           <h4 className="text-xs font-headline font-semibold text-on-surface">Access control</h4>
           <label className="mt-3 block">
             <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Permission title</span>
-            <input value={permissionTitle} onChange={(event) => setPermissionTitle(event.target.value)} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface" />
+            <input value={permissionTitle} onChange={(event) => setPermissionTitle(event.target.value)} className="w-full rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface" />
           </label>
           <label className="mt-2 block">
             <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Permission target type</span>
-            <select value={permissionTargetType} onChange={(event) => setPermissionTargetType(event.target.value)} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface">
+            <select value={permissionTargetType} onChange={(event) => setPermissionTargetType(event.target.value)} className="w-full rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface">
               <option value="milestone">milestone</option>
               <option value="task">task</option>
               <option value="approval">approval</option>
@@ -888,11 +888,11 @@ function ControlForms({
           </label>
           <label className="mt-2 block">
             <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Permission target id</span>
-            <input value={permissionTargetId} onChange={(event) => setPermissionTargetId(event.target.value)} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface" />
+            <input value={permissionTargetId} onChange={(event) => setPermissionTargetId(event.target.value)} className="w-full rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface" />
           </label>
           <label className="mt-2 block">
             <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Permission visibility</span>
-            <select value={permissionVisibility} onChange={(event) => setPermissionVisibility(event.target.value)} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface">
+            <select value={permissionVisibility} onChange={(event) => setPermissionVisibility(event.target.value)} className="w-full rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface">
               <option value="restricted">restricted</option>
               <option value="project">project</option>
               <option value="internal">internal</option>
@@ -901,15 +901,15 @@ function ControlForms({
           </label>
           <label className="mt-2 block">
             <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Allowed users</span>
-            <input value={permissionUsers} onChange={(event) => setPermissionUsers(event.target.value)} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface" />
+            <input value={permissionUsers} onChange={(event) => setPermissionUsers(event.target.value)} className="w-full rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface" />
           </label>
           <label className="mt-2 block">
             <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Allowed orgs</span>
-            <input value={permissionOrgs} onChange={(event) => setPermissionOrgs(event.target.value)} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface" />
+            <input value={permissionOrgs} onChange={(event) => setPermissionOrgs(event.target.value)} className="w-full rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface" />
           </label>
           <label className="mt-2 block">
             <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Allowed roles</span>
-            <input value={permissionRoles} onChange={(event) => setPermissionRoles(event.target.value)} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface" />
+            <input value={permissionRoles} onChange={(event) => setPermissionRoles(event.target.value)} className="w-full rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface" />
           </label>
           <button type="submit" className="pib-btn-primary mt-3 text-xs font-label" disabled={saving || !permissionTitle.trim()}>Save access control</button>
         </form>
@@ -936,7 +936,7 @@ function ItemList({
   saving?: boolean
 }) {
   return (
-    <section className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-background)] p-4">
+    <section className="rounded-[var(--radius-card)] border border-[var(--color-card-border)] bg-[var(--color-background)] p-4">
       <div className="mb-3 flex items-center justify-between gap-3">
         <h3 className="text-sm font-headline font-semibold text-on-surface">{title}</h3>
         <span className="rounded-full border border-[var(--color-card-border)] px-2 py-0.5 text-[10px] font-label text-on-surface-variant">
@@ -946,7 +946,7 @@ function ItemList({
       <div className="space-y-2">
         {items.length === 0 ? <p className="text-sm text-on-surface-variant">{emptyLabel}</p> : null}
         {items.map((item, index) => (
-          <article key={item.id || `${title}-${index}`} className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2">
+          <article key={item.id || `${title}-${index}`} className="rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="truncate text-sm font-medium text-on-surface">{item.title || 'Untitled'}</p>
@@ -1280,7 +1280,7 @@ export function ProjectSuitePanel({ projectId }: { projectId: string }) {
   return (
     <div className="flex-1 overflow-auto pb-6">
       <div className="max-w-6xl space-y-5">
-        <section className="rounded-2xl border border-[var(--color-card-border)] bg-[var(--color-card)] p-5 shadow-sm">
+        <section className="rounded-[var(--radius-card)] border border-[var(--color-card-border)] bg-[var(--color-card)] p-5 shadow-sm">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Project health</p>
@@ -1293,7 +1293,7 @@ export function ProjectSuitePanel({ projectId }: { projectId: string }) {
               ))}
             </div>
           </div>
-          {error ? <p className="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">{error}</p> : null}
+          {error ? <p className="mt-4 rounded-[var(--radius-btn)] border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">{error}</p> : null}
         </section>
 
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">

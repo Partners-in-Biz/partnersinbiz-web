@@ -476,11 +476,35 @@ describe('Admin project docs and settings tabs', () => {
     render(<ProjectDetailPage />)
 
     const tabBar = screen.getByRole('tab', { name: 'Kanban' }).parentElement
+    expect(tabBar).toHaveClass('pib-tabs', 'pib-tabs-segmented')
     expect(tabBar).toContainElement(screen.getByRole('tab', { name: 'Plan' }))
     expect(tabBar).toContainElement(screen.getByRole('tab', { name: 'Docs' }))
     expect(tabBar).toContainElement(screen.getByRole('tab', { name: 'Agent' }))
     expect(tabBar).toContainElement(screen.getByRole('tab', { name: 'Settings' }))
     expect(within(tabBar as HTMLElement).queryByText('smart_toy')).not.toBeInTheDocument()
+  })
+
+  it('carries the board card radius through Plan, Docs, Agent, and Settings tabs', async () => {
+    render(<ProjectDetailPage />)
+    const cardClass = 'rounded-[var(--radius-card)]'
+    const closestWithClass = (node: HTMLElement, className: string) => {
+      let current: HTMLElement | null = node
+      while (current && !current.classList.contains(className)) current = current.parentElement
+      return current
+    }
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Plan' }))
+    await waitFor(() => expect(screen.getByText('Project health')).toBeInTheDocument())
+    expect(closestWithClass(screen.getByText('Project health'), cardClass)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Docs' }))
+    expect(closestWithClass(screen.getByText('Project docs'), cardClass)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Agent' }))
+    expect(closestWithClass(screen.getByText('Project chat'), cardClass)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Settings' }))
+    expect(closestWithClass(screen.getByText('Project settings'), cardClass)).toBeInTheDocument()
   })
 
   it('keeps board/list and board sort controls spaced on one toolbar row', async () => {
