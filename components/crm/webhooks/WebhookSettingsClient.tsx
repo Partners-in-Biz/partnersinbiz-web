@@ -22,6 +22,15 @@ type OutboundWebhook = {
   lastDeliveredAt?: unknown
   lastFailureAt?: unknown
   autoDisabledAt?: unknown
+  secretRotatedAt?: unknown
+}
+
+type WebhookDraft = {
+  id: string
+  name: string
+  url: string
+  events: string[]
+  active: boolean
 }
 
 const CRM_EVENT_CATALOG: CatalogEvent[] = [
@@ -175,6 +184,36 @@ function parseApiError(body: unknown, fallback: string) {
   return fallback
 }
 
+function isHealthy(webhook: OutboundWebhook) {
+  return webhook.active && !webhook.autoDisabledAt && (webhook.failureCount ?? 0) === 0
+}
+
+function healthLabel(webhook: OutboundWebhook) {
+  if (webhook.autoDisabledAt) return 'Auto-disabled'
+  if (!webhook.active) return 'Paused'
+  if ((webhook.failureCount ?? 0) > 0) return 'Needs review'
+  return 'Healthy'
+}
+
+function healthClass(webhook: OutboundWebhook) {
+  if (isHealthy(webhook)) return 'border-emerald-400/20 bg-emerald-400/10 text-emerald-300'
+  if (webhook.active) return 'border-amber-400/20 bg-amber-400/10 text-amber-300'
+  return 'border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] text-[var(--color-pib-text-muted)]'
+}
+
+function StatCard({ label, value, sub, icon }: { label: string; value: string; sub: string; icon: string }) {
+  return (
+    <div className="pib-stat-card min-h-[124px]">
+      <div className="flex items-start justify-between gap-3">
+        <p className="eyebrow !text-[10px]">{label}</p>
+        <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">{icon}</span>
+      </div>
+      <p className="mt-3 font-display text-3xl leading-none text-[var(--color-pib-text)]">{value}</p>
+      <p className="mt-3 text-xs text-[var(--color-pib-text-muted)]">{sub}</p>
+    </div>
+  )
+}
+
 export function WebhookSettingsClient() {
   const [orgId, setOrgId] = useState('')
   const [webhooks, setWebhooks] = useState<OutboundWebhook[]>([])
@@ -183,6 +222,7 @@ export function WebhookSettingsClient() {
   const [name, setName] = useState('')
   const [url, setUrl] = useState('')
   const [secretOnce, setSecretOnce] = useState('')
+  const [editing, setEditing] = useState<WebhookDraft | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [busyId, setBusyId] = useState<string | null>(null)
@@ -198,6 +238,14 @@ export function WebhookSettingsClient() {
     () => new Set(webhooks.flatMap((item) => item.events ?? [])),
     [webhooks],
   )
+  const stats = useMemo(() => {
+    const active = webhooks.filter((item) => item.active).length
+    const healthy = webhooks.filter(isHealthy).length
+    const failing = webhooks.filter((item) => (item.failureCount ?? 0) > 0 || Boolean(item.autoDisabledAt)).length
+    const eventCoverage = new Set(webhooks.flatMap((item) => item.events ?? [])).size
+    const totalFailures = webhooks.reduce((sum, item) => sum + (item.failureCount ?? 0), 0)
+    return { active, healthy, failing, eventCoverage, totalFailures }
+  }, [webhooks])
 
   async function loadWebhooks(nextOrgId = orgId) {
     if (!nextOrgId) return
@@ -245,6 +293,30 @@ export function WebhookSettingsClient() {
     )
   }
 
+  function toggleEditEvent(event: string) {
+    if (!SUPPORTED_EVENTS.has(event)) return
+    setEditing((prev) => {
+      if (!prev) return prev
+      const events = prev.events.includes(event)
+        ? prev.events.filter((item) => item !== event)
+        : [...prev.events, event]
+      return { ...prev, events }
+    })
+  }
+
+  function startEdit(webhook: OutboundWebhook) {
+    setEditing({
+      id: webhook.id,
+      name: webhook.name,
+      url: webhook.url,
+      events: webhook.events ?? [],
+      active: webhook.active,
+    })
+    setSecretOnce('')
+    setMessage(null)
+    setError(null)
+  }
+
   async function createWebhook() {
     if (!orgId || saving) return
     setSaving(true)
@@ -280,16 +352,65 @@ export function WebhookSettingsClient() {
     }
   }
 
-  async function postAction(webhook: OutboundWebhook, action: 'enable' | 'disable' | 'test') {
+  async function saveEdit() {
+    if (!editing || saving || editing.events.length === 0) return
+    setSaving(true)
+    setError(null)
+    setMessage(null)
+    setSecretOnce('')
+
+    try {
+      const events = editing.events.filter((event): event is WebhookEvent =>
+        VALID_WEBHOOK_EVENTS.includes(event as WebhookEvent),
+      )
+      const res = await fetch(`/api/v1/crm/webhooks/${editing.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: editing.name.trim(),
+          url: editing.url.trim(),
+          events,
+          active: editing.active,
+        }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(parseApiError(body, 'Failed to update webhook.'))
+      setEditing(null)
+      setMessage('Webhook subscription updated.')
+      await loadWebhooks(orgId)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update webhook.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function postAction(webhook: OutboundWebhook, action: 'enable' | 'disable' | 'test' | 'rotate-secret' | 'delete') {
     if (busyId) return
+    if (action === 'delete' && !window.confirm('Delete this webhook subscription?')) return
+    if (action === 'rotate-secret' && !window.confirm('Rotate this signing secret? Existing consumers must be updated immediately.')) return
+
     setBusyId(`${webhook.id}:${action}`)
     setError(null)
     setMessage(null)
+    setSecretOnce('')
+
     try {
-      const res = await fetch(`/api/v1/crm/webhooks/${webhook.id}/${action}`, { method: 'POST' })
+      const method = action === 'delete' ? 'DELETE' : 'POST'
+      const res = await fetch(`/api/v1/crm/webhooks/${webhook.id}${action === 'delete' ? '' : `/${action}`}`, { method })
       const body = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(parseApiError(body, `Failed to ${action} webhook.`))
-      setMessage(action === 'test' ? 'Test delivery queued.' : `Webhook ${action === 'enable' ? 'enabled' : 'disabled'}.`)
+      if (action === 'rotate-secret') setSecretOnce(body.data?.secretOnce ?? '')
+      setMessage(
+        action === 'test'
+          ? 'Test delivery queued.'
+          : action === 'rotate-secret'
+            ? 'Signing secret rotated.'
+            : action === 'delete'
+              ? 'Webhook deleted.'
+              : `Webhook ${action === 'enable' ? 'enabled' : 'disabled'}.`,
+      )
+      if (editing?.id === webhook.id && action === 'delete') setEditing(null)
       await loadWebhooks(orgId)
     } catch (err) {
       setError(err instanceof Error ? err.message : `Failed to ${action} webhook.`)
@@ -299,14 +420,16 @@ export function WebhookSettingsClient() {
   }
 
   const canCreate = Boolean(name.trim() && url.trim() && selectedEvents.length > 0 && !saving)
+  const canSaveEdit = Boolean(editing?.name.trim() && editing?.url.trim() && editing.events.length > 0 && !saving)
 
   return (
-    <div className="max-w-6xl">
-      <div className="flex flex-col gap-4 mb-6 lg:flex-row lg:items-start lg:justify-between">
+    <div className="max-w-6xl space-y-6">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <h1 className="text-lg font-semibold mb-1">Webhook subscriptions</h1>
-          <p className="text-sm text-[var(--color-pib-text-muted)]">
-            Send CRM events to external systems with signed outbound webhooks.
+          <p className="eyebrow !text-[10px]">CRM integrations</p>
+          <h1 className="pib-page-title mt-2">Webhook command center</h1>
+          <p className="pib-page-sub max-w-2xl">
+            Manage signed outbound CRM events for automations, reporting warehouses, and external operating systems.
           </p>
         </div>
         <button
@@ -320,18 +443,25 @@ export function WebhookSettingsClient() {
         </button>
       </div>
 
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <StatCard label="Subscriptions" value={String(webhooks.length)} sub={`${stats.active} actively delivering`} icon="webhook" />
+        <StatCard label="Healthy endpoints" value={String(stats.healthy)} sub={`${stats.failing} need review`} icon="verified" />
+        <StatCard label="Event coverage" value={`${stats.eventCoverage}/${supportedCatalog.length}`} sub="Subscribable CRM events covered" icon="hub" />
+        <StatCard label="Failure count" value={String(stats.totalFailures)} sub="Consecutive webhook-level failures" icon="monitoring" />
+      </div>
+
       {error && (
-        <div className="mb-4 px-4 py-3 rounded-lg border border-red-400/25 bg-red-400/10 text-sm text-red-200">
+        <div className="px-4 py-3 rounded-lg border border-red-400/25 bg-red-400/10 text-sm text-red-200">
           {error}
         </div>
       )}
       {message && (
-        <div className="mb-4 px-4 py-3 rounded-lg border border-emerald-400/25 bg-emerald-400/10 text-sm text-emerald-200">
+        <div className="px-4 py-3 rounded-lg border border-emerald-400/25 bg-emerald-400/10 text-sm text-emerald-200">
           {message}
         </div>
       )}
       {secretOnce && (
-        <div className="mb-6 bento-card border-amber-400/30 bg-amber-400/10">
+        <div className="bento-card border-amber-400/30 bg-amber-400/10">
           <p className="text-sm font-medium text-amber-100 mb-2">Save this signing secret now</p>
           <code className="block text-xs text-amber-50 break-all rounded-lg bg-black/30 border border-amber-400/20 px-3 py-2">
             {secretOnce}
@@ -345,7 +475,7 @@ export function WebhookSettingsClient() {
             <div className="px-4 py-3 border-b border-[var(--color-pib-line)] flex items-center justify-between gap-3">
               <div>
                 <h2 className="text-sm font-semibold">Event catalog</h2>
-                <p className="text-xs text-[var(--color-pib-text-muted)]">Choose an event to preview its payload.</p>
+                <p className="text-xs text-[var(--color-pib-text-muted)]">Choose an event to preview its signed payload.</p>
               </div>
               <span className="text-[10px] px-2 py-1 rounded-full bg-[var(--color-pib-line-strong)] text-[var(--color-pib-text-muted)]">
                 {supportedCatalog.length} subscribable
@@ -416,7 +546,7 @@ export function WebhookSettingsClient() {
 
         <aside className="space-y-5">
           <div className="bento-card">
-            <h2 className="text-sm font-semibold mb-1">Create subscription</h2>
+            <h2 className="text-sm font-semibold mb-1">{editing ? 'Edit subscription' : 'Create subscription'}</h2>
             <p className="text-xs text-[var(--color-pib-text-muted)] mb-4">
               Use an HTTPS endpoint that accepts signed POST requests.
             </p>
@@ -425,8 +555,10 @@ export function WebhookSettingsClient() {
               <label className="block">
                 <span className="text-xs text-[var(--color-pib-text-muted)]">Name</span>
                 <input
-                  value={name}
-                  onChange={(event) => setName(event.target.value)}
+                  value={editing ? editing.name : name}
+                  onChange={(event) =>
+                    editing ? setEditing({ ...editing, name: event.target.value }) : setName(event.target.value)
+                  }
                   placeholder="CRM events to Zapier"
                   className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-3 py-2 text-sm outline-none focus:border-[var(--color-pib-accent)]"
                 />
@@ -434,19 +566,36 @@ export function WebhookSettingsClient() {
               <label className="block">
                 <span className="text-xs text-[var(--color-pib-text-muted)]">Endpoint URL</span>
                 <input
-                  value={url}
-                  onChange={(event) => setUrl(event.target.value)}
+                  value={editing ? editing.url : url}
+                  onChange={(event) =>
+                    editing ? setEditing({ ...editing, url: event.target.value }) : setUrl(event.target.value)
+                  }
                   placeholder="https://example.com/pib-webhook"
                   className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-3 py-2 text-sm outline-none focus:border-[var(--color-pib-accent)]"
                 />
               </label>
+
+              {editing && (
+                <label className="flex items-center justify-between gap-3 rounded-lg border border-[var(--color-pib-line)] px-3 py-2">
+                  <span>
+                    <span className="block text-sm font-medium">Active delivery</span>
+                    <span className="block text-xs text-[var(--color-pib-text-muted)]">Paused webhooks stay saved but do not receive events.</span>
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={editing.active}
+                    onChange={(event) => setEditing({ ...editing, active: event.target.checked })}
+                    className="h-4 w-4"
+                  />
+                </label>
+              )}
 
               <div>
                 <p className="text-xs text-[var(--color-pib-text-muted)] mb-2">Events</p>
                 <div className="grid gap-2">
                   {CRM_EVENT_CATALOG.map((item) => {
                     const supported = SUPPORTED_EVENTS.has(item.event)
-                    const checked = selectedEvents.includes(item.event)
+                    const checked = editing ? editing.events.includes(item.event) : selectedEvents.includes(item.event)
                     return (
                       <label
                         key={item.event}
@@ -461,7 +610,7 @@ export function WebhookSettingsClient() {
                           type="checkbox"
                           checked={checked}
                           disabled={!supported}
-                          onChange={() => toggleEvent(item.event)}
+                          onChange={() => (editing ? toggleEditEvent(item.event) : toggleEvent(item.event))}
                           className="mt-0.5"
                         />
                         <span className="min-w-0">
@@ -474,15 +623,37 @@ export function WebhookSettingsClient() {
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={createWebhook}
-                disabled={!canCreate}
-                className="cursor-pointer btn-pib-accent w-full flex items-center justify-center gap-1.5 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <span className="material-symbols-outlined text-[16px]">add</span>
-                {saving ? 'Creating...' : 'Create webhook'}
-              </button>
+              {editing ? (
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={saveEdit}
+                    disabled={!canSaveEdit}
+                    className="cursor-pointer btn-pib-accent flex flex-1 items-center justify-center gap-1.5 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">save</span>
+                    {saving ? 'Saving...' : 'Save webhook'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditing(null)}
+                    disabled={saving}
+                    className="cursor-pointer btn-pib-secondary text-sm disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={createWebhook}
+                  disabled={!canCreate}
+                  className="cursor-pointer btn-pib-accent w-full flex items-center justify-center gap-1.5 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <span className="material-symbols-outlined text-[16px]">add</span>
+                  {saving ? 'Creating...' : 'Create webhook'}
+                </button>
+              )}
             </div>
           </div>
 
@@ -510,15 +681,8 @@ export function WebhookSettingsClient() {
                         <p className="text-sm font-medium truncate">{webhook.name}</p>
                         <p className="text-xs text-[var(--color-pib-text-muted)] truncate">{webhook.url}</p>
                       </div>
-                      <span
-                        className={[
-                          'text-[10px] rounded-full border px-2 py-0.5 shrink-0',
-                          webhook.active
-                            ? 'border-emerald-400/20 bg-emerald-400/10 text-emerald-300'
-                            : 'border-amber-400/20 bg-amber-400/10 text-amber-300',
-                        ].join(' ')}
-                      >
-                        {webhook.active ? 'Active' : 'Paused'}
+                      <span className={`text-[10px] rounded-full border px-2 py-0.5 shrink-0 ${healthClass(webhook)}`}>
+                        {healthLabel(webhook)}
                       </span>
                     </div>
 
@@ -536,6 +700,8 @@ export function WebhookSettingsClient() {
                     <div className="grid grid-cols-2 gap-2 text-[11px] text-[var(--color-pib-text-muted)] mb-3">
                       <span>Last delivery: {formatDate(webhook.lastDeliveredAt)}</span>
                       <span>Failures: {webhook.failureCount ?? 0}</span>
+                      <span>Last failure: {formatDate(webhook.lastFailureAt)}</span>
+                      <span>Secret: {formatDate(webhook.secretRotatedAt)}</span>
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2">
@@ -558,6 +724,33 @@ export function WebhookSettingsClient() {
                           {webhook.active ? 'pause' : 'play_arrow'}
                         </span>
                         {webhook.active ? 'Disable' : 'Enable'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => startEdit(webhook)}
+                        disabled={busyId !== null}
+                        className="cursor-pointer btn-pib-secondary flex items-center gap-1.5 text-xs disabled:opacity-50"
+                      >
+                        <span className="material-symbols-outlined text-[14px]">edit</span>
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => postAction(webhook, 'rotate-secret')}
+                        disabled={busyId !== null}
+                        className="cursor-pointer btn-pib-secondary flex items-center gap-1.5 text-xs disabled:opacity-50"
+                      >
+                        <span className="material-symbols-outlined text-[14px]">key</span>
+                        Rotate
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => postAction(webhook, 'delete')}
+                        disabled={busyId !== null}
+                        className="cursor-pointer btn-pib-secondary flex items-center gap-1.5 text-xs text-red-300 hover:bg-red-400/10 disabled:opacity-50"
+                      >
+                        <span className="material-symbols-outlined text-[14px]">delete</span>
+                        Delete
                       </button>
                     </div>
                   </div>
