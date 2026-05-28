@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter, usePathname } from 'next/navigation'
+import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
 import { Suspense } from 'react'
@@ -15,6 +15,7 @@ import { SettingsNav } from '@/components/settings/SettingsNav'
 import { SupportDrawer } from '@/components/support/SupportDrawer'
 import { NotificationBell } from '@/components/crm/NotificationBell'
 import { MessageDrawer } from '@/components/chat/MessageDrawer'
+import { detectCurrentPageContext } from '@/lib/context-references/route-context'
 import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
 
 const PORTAL_MATERIAL_SYMBOLS =
@@ -160,6 +161,7 @@ function NavLink({ item, pathname, collapsed }: { item: NavItem; pathname: strin
 export default function PortalLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
+  const searchParams = useSearchParams()
   const isEmailRoute = pathname === '/portal/email' || pathname.startsWith('/portal/email/')
 
   const [email, setEmail]       = useState('')
@@ -346,6 +348,11 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
   const canOpenAdminView = userRole === 'admin' && !!activeOrgSlug
   const adminViewHref = activeOrgSlug ? `/admin/org/${activeOrgSlug}/dashboard` : '/admin/dashboard'
   const portalWorkspaceLabel = activeOrgType === 'platform_owner' || activeOrgId === PIB_PLATFORM_ORG_ID ? 'Platform' : 'Client'
+  const currentPageContext = detectCurrentPageContext({
+    pathname,
+    searchParams,
+    orgId: activeOrgId,
+  })
 
   const tracker = (
     <>
@@ -421,6 +428,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
                 orgName={orgName}
                 currentUserUid={uid}
                 currentUserDisplayName={profileName || name || email}
+                currentPageContext={currentPageContext}
                 allowAgentParticipants={false}
               />
               <button
@@ -744,6 +752,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
               orgName={orgName}
               currentUserUid={uid}
               currentUserDisplayName={profileName || name || email}
+              currentPageContext={currentPageContext}
               allowAgentParticipants={false}
             />
             <SupportDrawer triggerClassName="hidden sm:inline-flex items-center gap-1.5 text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors" />
