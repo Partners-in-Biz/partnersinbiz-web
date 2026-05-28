@@ -61,10 +61,22 @@ function cleanString(value: unknown): string {
 }
 
 function cleanStringArray(value: unknown): string[] {
+  if (typeof value === 'string') {
+    return value
+      .split(',')
+      .map((item) => cleanString(item))
+      .filter(Boolean)
+  }
   if (!Array.isArray(value)) return []
   return value
     .map((item) => cleanString(item))
     .filter(Boolean)
+}
+
+function cleanBoolean(value: unknown): boolean {
+  if (typeof value === 'boolean') return value
+  if (typeof value === 'string') return value.toLowerCase() === 'true'
+  return false
 }
 
 function cleanNumber(value: unknown): number | undefined {
@@ -117,6 +129,13 @@ function suiteMutableFields(
   if (isCreate || hasOwn(body, 'trigger')) record.trigger = cleanString(body.trigger) || undefined
   if (isCreate || hasOwn(body, 'cadence')) record.cadence = cleanString(body.cadence) || undefined
   if (isCreate || hasOwn(body, 'templateId')) record.templateId = cleanString(body.templateId) || undefined
+  if (type === 'playbook') {
+    if (isCreate || hasOwn(body, 'templateKind')) record.templateKind = cleanString(body.templateKind) || undefined
+    if (isCreate || hasOwn(body, 'recurrenceRule')) record.recurrenceRule = cleanString(body.recurrenceRule) || undefined
+    if (isCreate || hasOwn(body, 'nextRunAt')) record.nextRunAt = cleanString(body.nextRunAt) || null
+    if (isCreate || hasOwn(body, 'autoCreateTasks')) record.autoCreateTasks = cleanBoolean(body.autoCreateTasks)
+    if (isCreate || hasOwn(body, 'templateSteps')) record.templateSteps = cleanStringArray(body.templateSteps)
+  }
   if (isCreate || hasOwn(body, 'channel')) record.channel = cleanString(body.channel) || undefined
   if (isCreate || hasOwn(body, 'visibility') || hasOwn(body, 'internalOnly')) {
     record.visibility = cleanString(body.visibility) || (body.internalOnly === true ? 'internal' : 'project')

@@ -10,7 +10,17 @@ function suiteResponse() {
     risks: [],
     decisions: [],
     baselines: [{ id: 'baseline-1', title: 'Website launch baseline', status: 'active' }],
-    playbooks: [{ id: 'playbook-1', title: 'Weekly launch rhythm', cadence: 'weekly', status: 'active' }],
+    playbooks: [{
+      id: 'playbook-1',
+      title: 'Weekly launch rhythm',
+      cadence: 'weekly',
+      status: 'active',
+      templateKind: 'delivery',
+      recurrenceRule: 'FREQ=WEEKLY;INTERVAL=1',
+      nextRunAt: '2026-06-01',
+      autoCreateTasks: true,
+      templateSteps: ['Kickoff', 'QA'],
+    }],
     automations: [{ id: 'automation-1', title: 'Milestone drift alert', trigger: 'milestone_drift', status: 'active' }],
     permissions: [],
     audit: [],
@@ -121,6 +131,11 @@ describe('ProjectSuitePanel', () => {
         type: 'playbook',
         title: 'Weekly launch rhythm',
         cadence: 'weekly',
+        templateKind: 'delivery',
+        recurrenceRule: 'FREQ=WEEKLY;INTERVAL=1',
+        nextRunAt: null,
+        autoCreateTasks: false,
+        templateSteps: [],
         visibility: 'project',
       }),
     })))
@@ -135,6 +150,39 @@ describe('ProjectSuitePanel', () => {
         type: 'notification',
         title: 'Approval reminder',
         channel: 'email',
+        visibility: 'project',
+      }),
+    })))
+  })
+
+  it('creates recurring playbook templates with recurrence and reusable steps', async () => {
+    render(<ProjectSuitePanel projectId="project-1" />)
+
+    await waitFor(() => expect(screen.getAllByText('Weekly launch rhythm').length).toBeGreaterThan(0))
+    expect(screen.getByText('FREQ=WEEKLY;INTERVAL=1')).toBeInTheDocument()
+    expect(screen.getByText('2 steps')).toBeInTheDocument()
+    expect(screen.getByText('Auto-create')).toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText('Playbook title'), { target: { value: 'Monthly launch template' } })
+    fireEvent.change(screen.getByLabelText('Playbook cadence'), { target: { value: 'monthly' } })
+    fireEvent.change(screen.getByLabelText('Playbook template'), { target: { value: 'delivery' } })
+    fireEvent.change(screen.getByLabelText('Recurrence rule'), { target: { value: 'FREQ=MONTHLY;INTERVAL=1' } })
+    fireEvent.change(screen.getByLabelText('Next run date'), { target: { value: '2026-06-01' } })
+    fireEvent.change(screen.getByLabelText('Template steps'), { target: { value: 'Kickoff, QA, Client signoff' } })
+    fireEvent.click(screen.getByLabelText('Auto-create tasks'))
+    fireEvent.click(screen.getByRole('button', { name: 'Save playbook' }))
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/v1/projects/project-1/suite', expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({
+        type: 'playbook',
+        title: 'Monthly launch template',
+        cadence: 'monthly',
+        templateKind: 'delivery',
+        recurrenceRule: 'FREQ=MONTHLY;INTERVAL=1',
+        nextRunAt: '2026-06-01',
+        autoCreateTasks: true,
+        templateSteps: ['Kickoff', 'QA', 'Client signoff'],
         visibility: 'project',
       }),
     })))

@@ -18,6 +18,7 @@ const mockNotificationSettingsGet = jest.fn()
 const mockCapacitiesGet = jest.fn()
 const mockRevenueGet = jest.fn()
 const mockMilestoneAdd = jest.fn()
+const mockPlaybookAdd = jest.fn()
 const mockAutomationAdd = jest.fn()
 const mockCapacityAdd = jest.fn()
 const mockRevenueAdd = jest.fn()
@@ -129,6 +130,7 @@ beforeEach(() => {
     { id: 'revenue-1', data: { amount: 12500, currency: 'ZAR' } },
   ]))
   mockMilestoneAdd.mockResolvedValue({ id: 'milestone-new' })
+  mockPlaybookAdd.mockResolvedValue({ id: 'playbook-new' })
   mockAutomationAdd.mockResolvedValue({ id: 'automation-new' })
   mockCapacityAdd.mockResolvedValue({ id: 'capacity-new' })
   mockRevenueAdd.mockResolvedValue({ id: 'revenue-new' })
@@ -146,7 +148,7 @@ beforeEach(() => {
     if (name === 'risks') return { get: mockRisksGet }
     if (name === 'decisions') return { get: mockDecisionsGet }
     if (name === 'baselines') return { get: mockBaselinesGet }
-    if (name === 'playbooks') return { get: mockPlaybooksGet, doc: mockPlaybookDoc }
+    if (name === 'playbooks') return { get: mockPlaybooksGet, add: mockPlaybookAdd, doc: mockPlaybookDoc }
     if (name === 'automations') return { get: mockAutomationsGet, add: mockAutomationAdd }
     if (name === 'permissions') return { get: mockPermissionsGet }
     if (name === 'audit') return { get: mockAuditGet, add: mockAuditAdd }
@@ -249,6 +251,40 @@ describe('project suite API', () => {
       visibility: 'restricted',
       allowedRoleIds: ['manager'],
       notificationChannels: ['email', 'in_app'],
+      createdBy: 'owner-1',
+    }))
+  })
+
+  it('creates recurring playbook templates with reusable steps', async () => {
+    const { POST } = await import('@/app/api/v1/projects/[projectId]/suite/route')
+    const res = await POST(new NextRequest('http://localhost/api/v1/projects/project-1/suite', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        type: 'playbook',
+        title: 'Monthly launch template',
+        cadence: 'monthly',
+        templateKind: 'delivery',
+        recurrenceRule: 'FREQ=MONTHLY;INTERVAL=1',
+        nextRunAt: '2026-06-01',
+        autoCreateTasks: true,
+        templateSteps: ['Kickoff', 'QA', 'Client signoff'],
+        visibility: 'project',
+      }),
+    }), {
+      params: Promise.resolve({ projectId: 'project-1' }),
+    })
+
+    expect(res.status).toBe(201)
+    expect(mockPlaybookAdd).toHaveBeenCalledWith(expect.objectContaining({
+      title: 'Monthly launch template',
+      cadence: 'monthly',
+      templateKind: 'delivery',
+      recurrenceRule: 'FREQ=MONTHLY;INTERVAL=1',
+      nextRunAt: '2026-06-01',
+      autoCreateTasks: true,
+      templateSteps: ['Kickoff', 'QA', 'Client signoff'],
+      visibility: 'project',
       createdBy: 'owner-1',
     }))
   })

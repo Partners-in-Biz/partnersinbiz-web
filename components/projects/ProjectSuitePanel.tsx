@@ -15,6 +15,11 @@ type SuiteItem = {
   dependsOn?: string[]
   cadence?: string
   trigger?: string
+  templateKind?: string
+  recurrenceRule?: string
+  nextRunAt?: unknown
+  autoCreateTasks?: boolean
+  templateSteps?: string[]
   notificationChannels?: string[]
   uid?: string
   displayName?: string
@@ -515,6 +520,11 @@ function ControlForms({
 }) {
   const [playbookTitle, setPlaybookTitle] = useState('')
   const [playbookCadence, setPlaybookCadence] = useState('weekly')
+  const [playbookTemplateKind, setPlaybookTemplateKind] = useState('delivery')
+  const [playbookRecurrenceRule, setPlaybookRecurrenceRule] = useState('FREQ=WEEKLY;INTERVAL=1')
+  const [playbookNextRunAt, setPlaybookNextRunAt] = useState('')
+  const [playbookTemplateSteps, setPlaybookTemplateSteps] = useState('')
+  const [playbookAutoCreateTasks, setPlaybookAutoCreateTasks] = useState(false)
   const [automationTitle, setAutomationTitle] = useState('')
   const [automationTrigger, setAutomationTrigger] = useState('milestone_drift')
   const [automationChannels, setAutomationChannels] = useState('email')
@@ -542,8 +552,23 @@ function ControlForms({
           className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-3"
           onSubmit={(event) => {
             event.preventDefault()
-            onCreateSuiteItem({ type: 'playbook', title: playbookTitle, cadence: playbookCadence, visibility: 'project' })
-              .then(() => setPlaybookTitle(''))
+            onCreateSuiteItem({
+              type: 'playbook',
+              title: playbookTitle,
+              cadence: playbookCadence,
+              templateKind: playbookTemplateKind,
+              recurrenceRule: playbookRecurrenceRule,
+              nextRunAt: playbookNextRunAt || null,
+              autoCreateTasks: playbookAutoCreateTasks,
+              templateSteps: csvToIds(playbookTemplateSteps),
+              visibility: 'project',
+            })
+              .then(() => {
+                setPlaybookTitle('')
+                setPlaybookNextRunAt('')
+                setPlaybookTemplateSteps('')
+                setPlaybookAutoCreateTasks(false)
+              })
               .catch(() => {})
           }}
         >
@@ -559,6 +584,32 @@ function ControlForms({
               <option value="monthly">monthly</option>
               <option value="per_milestone">per milestone</option>
             </select>
+          </label>
+          <label className="mt-2 block">
+            <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Playbook template</span>
+            <select value={playbookTemplateKind} onChange={(event) => setPlaybookTemplateKind(event.target.value)} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface">
+              <option value="delivery">delivery</option>
+              <option value="launch">launch</option>
+              <option value="reporting">reporting</option>
+              <option value="client_onboarding">client onboarding</option>
+              <option value="custom">custom</option>
+            </select>
+          </label>
+          <label className="mt-2 block">
+            <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Recurrence rule</span>
+            <input value={playbookRecurrenceRule} onChange={(event) => setPlaybookRecurrenceRule(event.target.value)} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface" />
+          </label>
+          <label className="mt-2 block">
+            <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Next run date</span>
+            <input type="date" value={playbookNextRunAt} onChange={(event) => setPlaybookNextRunAt(event.target.value)} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface" />
+          </label>
+          <label className="mt-2 block">
+            <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Template steps</span>
+            <input value={playbookTemplateSteps} onChange={(event) => setPlaybookTemplateSteps(event.target.value)} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface" />
+          </label>
+          <label className="mt-3 inline-flex items-center gap-2 text-xs text-on-surface">
+            <input type="checkbox" checked={playbookAutoCreateTasks} onChange={(event) => setPlaybookAutoCreateTasks(event.target.checked)} className="size-4 rounded border-[var(--color-card-border)] bg-[var(--color-background)]" />
+            <span>Auto-create tasks</span>
           </label>
           <button type="submit" className="pib-btn-primary mt-3 text-xs font-label" disabled={saving || !playbookTitle.trim()}>Save playbook</button>
         </form>
@@ -808,6 +859,36 @@ function ItemList({
                 <span className="inline-flex items-center gap-1 capitalize">
                   <span className="material-symbols-outlined text-[14px]">event_repeat</span>
                   {labelStatus(item.cadence)}
+                </span>
+              ) : null}
+              {item.templateKind ? (
+                <span className="inline-flex items-center gap-1 capitalize">
+                  <span className="material-symbols-outlined text-[14px]">dynamic_form</span>
+                  {labelStatus(item.templateKind)}
+                </span>
+              ) : null}
+              {item.recurrenceRule ? (
+                <span className="inline-flex items-center gap-1">
+                  <span className="material-symbols-outlined text-[14px]">repeat</span>
+                  {item.recurrenceRule}
+                </span>
+              ) : null}
+              {item.nextRunAt ? (
+                <span className="inline-flex items-center gap-1">
+                  <span className="material-symbols-outlined text-[14px]">today</span>
+                  Next {formatDate(item.nextRunAt)}
+                </span>
+              ) : null}
+              {Array.isArray(item.templateSteps) && item.templateSteps.length > 0 ? (
+                <span className="inline-flex items-center gap-1">
+                  <span className="material-symbols-outlined text-[14px]">checklist</span>
+                  {item.templateSteps.length} steps
+                </span>
+              ) : null}
+              {item.autoCreateTasks ? (
+                <span className="inline-flex items-center gap-1">
+                  <span className="material-symbols-outlined text-[14px]">auto_awesome_motion</span>
+                  Auto-create
                 </span>
               ) : null}
               {item.capacityMinutes ? (
