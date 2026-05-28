@@ -14,6 +14,13 @@ type SuiteItem = {
   baselineDriftDays?: number
   dependsOn?: string[]
   cadence?: string
+  trigger?: string
+  notificationChannels?: string[]
+  uid?: string
+  displayName?: string
+  capacityMinutes?: number
+  amount?: number
+  currency?: string
   ownerUid?: string
   actorName?: string
   channel?: string
@@ -68,6 +75,8 @@ type SuiteData = {
   permissions: SuiteItem[]
   audit: SuiteItem[]
   notificationSettings: SuiteItem[]
+  capacities: SuiteItem[]
+  revenue: SuiteItem[]
 }
 
 const EMPTY_SUITE: SuiteData = {
@@ -81,6 +90,8 @@ const EMPTY_SUITE: SuiteData = {
   permissions: [],
   audit: [],
   notificationSettings: [],
+  capacities: [],
+  revenue: [],
 }
 
 function timestampToMillis(value: unknown): number {
@@ -392,23 +403,35 @@ function ReportsPanel({ reports }: { reports?: ProjectReports }) {
 function ControlForms({
   onCreateSuiteItem,
   saving,
+  workload,
 }: {
   onCreateSuiteItem: (payload: Record<string, unknown>) => Promise<void>
   saving: boolean
+  workload?: SuiteData['workload']
 }) {
   const [playbookTitle, setPlaybookTitle] = useState('')
   const [playbookCadence, setPlaybookCadence] = useState('weekly')
+  const [automationTitle, setAutomationTitle] = useState('')
+  const [automationTrigger, setAutomationTrigger] = useState('milestone_drift')
+  const [automationChannels, setAutomationChannels] = useState('email')
   const [notificationTitle, setNotificationTitle] = useState('')
   const [notificationChannel, setNotificationChannel] = useState('email')
   const [permissionTitle, setPermissionTitle] = useState('')
   const [permissionVisibility, setPermissionVisibility] = useState('restricted')
   const [permissionRoles, setPermissionRoles] = useState('manager')
+  const [capacityUid, setCapacityUid] = useState('')
+  const [capacityMinutes, setCapacityMinutes] = useState('2400')
+  const [revenueTitle, setRevenueTitle] = useState('')
+  const [revenueAmount, setRevenueAmount] = useState('')
+  const [revenueCurrency, setRevenueCurrency] = useState('ZAR')
+
+  const capacityAssignees = Array.isArray(workload?.assignees) ? workload.assignees.filter((assignee) => assignee.uid) : []
 
   return (
     <section className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-background)] p-4">
       <div className="mb-3">
         <h3 className="text-sm font-headline font-semibold text-on-surface">Plan controls</h3>
-        <p className="mt-1 text-xs text-on-surface-variant">Templates, notifications, and item access rules for recurring delivery.</p>
+        <p className="mt-1 text-xs text-on-surface-variant">Templates, automations, capacity, revenue, notifications, and item access rules.</p>
       </div>
       <div className="grid gap-3 lg:grid-cols-3">
         <form
@@ -440,6 +463,42 @@ function ControlForms({
           className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-3"
           onSubmit={(event) => {
             event.preventDefault()
+            onCreateSuiteItem({
+              type: 'automation',
+              title: automationTitle,
+              trigger: automationTrigger,
+              notificationChannels: csvToIds(automationChannels),
+              visibility: 'restricted',
+            })
+              .then(() => setAutomationTitle(''))
+              .catch(() => {})
+          }}
+        >
+          <h4 className="text-xs font-headline font-semibold text-on-surface">Automation</h4>
+          <label className="mt-3 block">
+            <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Automation title</span>
+            <input value={automationTitle} onChange={(event) => setAutomationTitle(event.target.value)} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface" />
+          </label>
+          <label className="mt-2 block">
+            <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Automation trigger</span>
+            <select value={automationTrigger} onChange={(event) => setAutomationTrigger(event.target.value)} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface">
+              <option value="milestone_drift">milestone drift</option>
+              <option value="approval_waiting">approval waiting</option>
+              <option value="weekly_status">weekly status</option>
+              <option value="risk_escalation">risk escalation</option>
+            </select>
+          </label>
+          <label className="mt-2 block">
+            <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Automation channels</span>
+            <input value={automationChannels} onChange={(event) => setAutomationChannels(event.target.value)} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface" />
+          </label>
+          <button type="submit" className="pib-btn-primary mt-3 text-xs font-label" disabled={saving || !automationTitle.trim()}>Save automation</button>
+        </form>
+
+        <form
+          className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-3"
+          onSubmit={(event) => {
+            event.preventDefault()
             onCreateSuiteItem({ type: 'notification', title: notificationTitle, channel: notificationChannel, visibility: 'project' })
               .then(() => setNotificationTitle(''))
               .catch(() => {})
@@ -459,6 +518,82 @@ function ControlForms({
             </select>
           </label>
           <button type="submit" className="pib-btn-primary mt-3 text-xs font-label" disabled={saving || !notificationTitle.trim()}>Save notification</button>
+        </form>
+
+        <form
+          className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-3"
+          onSubmit={(event) => {
+            event.preventDefault()
+            const selected = capacityAssignees.find((assignee) => assignee.uid === capacityUid)
+            const displayName = selected?.name || capacityUid
+            onCreateSuiteItem({
+              type: 'capacity',
+              title: `${displayName} weekly capacity`,
+              uid: capacityUid,
+              displayName,
+              capacityMinutes: Number(capacityMinutes),
+              visibility: 'internal',
+            })
+              .then(() => setCapacityMinutes('2400'))
+              .catch(() => {})
+          }}
+        >
+          <h4 className="text-xs font-headline font-semibold text-on-surface">Capacity plan</h4>
+          <label className="mt-3 block">
+            <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Capacity member</span>
+            <select value={capacityUid} onChange={(event) => setCapacityUid(event.target.value)} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface">
+              <option value="">Select member</option>
+              {capacityAssignees.map((assignee) => (
+                <option key={assignee.uid} value={assignee.uid}>
+                  {assignee.name || assignee.uid}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="mt-2 block">
+            <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Weekly capacity minutes</span>
+            <input type="number" min="0" step="15" value={capacityMinutes} onChange={(event) => setCapacityMinutes(event.target.value)} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface" />
+          </label>
+          <button type="submit" className="pib-btn-primary mt-3 text-xs font-label" disabled={saving || !capacityUid || Number(capacityMinutes) <= 0}>Save capacity</button>
+        </form>
+
+        <form
+          className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-3"
+          onSubmit={(event) => {
+            event.preventDefault()
+            onCreateSuiteItem({
+              type: 'revenue',
+              title: revenueTitle,
+              amount: Number(revenueAmount),
+              currency: revenueCurrency,
+              visibility: 'internal',
+            })
+              .then(() => {
+                setRevenueTitle('')
+                setRevenueAmount('')
+              })
+              .catch(() => {})
+          }}
+        >
+          <h4 className="text-xs font-headline font-semibold text-on-surface">Revenue tracking</h4>
+          <label className="mt-3 block">
+            <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Revenue title</span>
+            <input value={revenueTitle} onChange={(event) => setRevenueTitle(event.target.value)} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface" />
+          </label>
+          <label className="mt-2 block">
+            <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Revenue amount</span>
+            <input type="number" min="0" step="1" value={revenueAmount} onChange={(event) => setRevenueAmount(event.target.value)} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface" />
+          </label>
+          <label className="mt-2 block">
+            <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Revenue currency</span>
+            <select value={revenueCurrency} onChange={(event) => setRevenueCurrency(event.target.value)} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface">
+              <option value="ZAR">ZAR</option>
+              <option value="USD">USD</option>
+              <option value="EUR">EUR</option>
+              <option value="GBP">GBP</option>
+            </select>
+          </label>
+          <button type="submit" className="pib-btn-primary mt-3 text-xs font-label" disabled={saving || !revenueTitle.trim() || Number(revenueAmount) <= 0}>Save revenue</button>
         </form>
 
         <form
@@ -559,6 +694,30 @@ function ItemList({
                   {item.channel}
                 </span>
               ) : null}
+              {item.trigger ? (
+                <span className="inline-flex items-center gap-1 capitalize">
+                  <span className="material-symbols-outlined text-[14px]">bolt</span>
+                  {labelStatus(item.trigger)}
+                </span>
+              ) : null}
+              {item.cadence ? (
+                <span className="inline-flex items-center gap-1 capitalize">
+                  <span className="material-symbols-outlined text-[14px]">event_repeat</span>
+                  {labelStatus(item.cadence)}
+                </span>
+              ) : null}
+              {item.capacityMinutes ? (
+                <span className="inline-flex items-center gap-1">
+                  <span className="material-symbols-outlined text-[14px]">schedule</span>
+                  {formatMinutes(item.capacityMinutes)}
+                </span>
+              ) : null}
+              {typeof item.amount === 'number' ? (
+                <span className="inline-flex items-center gap-1">
+                  <span className="material-symbols-outlined text-[14px]">payments</span>
+                  {formatMoney(item.amount, item.currency)}
+                </span>
+              ) : null}
               {item.actorName ? (
                 <span className="inline-flex items-center gap-1">
                   <span className="material-symbols-outlined text-[14px]">history</span>
@@ -636,6 +795,8 @@ export function ProjectSuitePanel({ projectId }: { projectId: string }) {
         permissions: Array.isArray(next.permissions) ? next.permissions : [],
         audit: Array.isArray(next.audit) ? next.audit : [],
         notificationSettings: Array.isArray(next.notificationSettings) ? next.notificationSettings : [],
+        capacities: Array.isArray(next.capacities) ? next.capacities : [],
+        revenue: Array.isArray(next.revenue) ? next.revenue : [],
       })
       setError(null)
     } catch (err) {
@@ -765,7 +926,7 @@ export function ProjectSuitePanel({ projectId }: { projectId: string }) {
 
         <ReportsPanel reports={data.reports} />
 
-        <ControlForms onCreateSuiteItem={(payload) => mutateSuite(payload)} saving={saving} />
+        <ControlForms onCreateSuiteItem={(payload) => mutateSuite(payload)} saving={saving} workload={data.workload} />
 
         <div className="grid gap-4 xl:grid-cols-2">
           <ItemList title="Milestones" emptyLabel="No milestones yet." items={data.milestones} type="milestone" onArchive={archiveSuiteItem} saving={saving} />
@@ -775,6 +936,8 @@ export function ProjectSuitePanel({ projectId }: { projectId: string }) {
           <ItemList title="Playbooks" emptyLabel="No playbooks yet." items={data.playbooks} type="playbook" onArchive={archiveSuiteItem} saving={saving} />
           <ItemList title="Automations" emptyLabel="No automations yet." items={data.automations} type="automation" onArchive={archiveSuiteItem} saving={saving} />
           <ItemList title="Access controls" emptyLabel="No item-level access controls yet." items={data.permissions} type="permission" onArchive={archiveSuiteItem} saving={saving} />
+          <ItemList title="Capacity plans" emptyLabel="No capacity plans yet." items={data.capacities} type="capacity" onArchive={archiveSuiteItem} saving={saving} />
+          <ItemList title="Revenue tracking" emptyLabel="No revenue records yet." items={data.revenue} type="revenue" onArchive={archiveSuiteItem} saving={saving} />
           <ItemList title="Audit timeline" emptyLabel="No audit events yet." items={data.audit} />
           <ItemList title="Notifications" emptyLabel="No notification rules yet." items={data.notificationSettings} type="notification" onArchive={archiveSuiteItem} saving={saving} />
         </div>

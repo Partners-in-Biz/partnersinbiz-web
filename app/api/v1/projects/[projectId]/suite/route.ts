@@ -131,6 +131,17 @@ function suiteMutableFields(
   if (isCreate || hasOwn(body, 'amount')) record.amount = cleanNumber(body.amount)
   if (isCreate || hasOwn(body, 'currency')) record.currency = cleanString(body.currency) || undefined
   if (isCreate || hasOwn(body, 'capacityMinutes') || hasOwn(body, 'weeklyMinutes')) record.capacityMinutes = cleanNumber(body.capacityMinutes ?? body.weeklyMinutes)
+  if (type === 'capacity') {
+    if (isCreate || hasOwn(body, 'uid') || hasOwn(body, 'userId')) {
+      const uid = cleanString(body.uid ?? body.userId)
+      if (!uid && isCreate) return { ok: false as const, error: 'uid is required for capacity records' }
+      if (uid) record.uid = uid
+    }
+    if (isCreate || hasOwn(body, 'displayName') || hasOwn(body, 'name') || hasOwn(body, 'email')) {
+      const displayName = cleanString(body.displayName ?? body.name ?? body.email)
+      if (displayName) record.displayName = displayName
+    }
+  }
   if (hasOwn(body, 'internalOnly')) record.internalOnly = body.internalOnly === true
   if (isCreate) {
     record.type = type

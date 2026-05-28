@@ -11,10 +11,12 @@ function suiteResponse() {
     decisions: [],
     baselines: [{ id: 'baseline-1', title: 'Website launch baseline', status: 'active' }],
     playbooks: [{ id: 'playbook-1', title: 'Weekly launch rhythm', cadence: 'weekly', status: 'active' }],
-    automations: [],
+    automations: [{ id: 'automation-1', title: 'Milestone drift alert', trigger: 'milestone_drift', status: 'active' }],
     permissions: [],
     audit: [],
     notificationSettings: [],
+    capacities: [{ id: 'capacity-1', title: 'Peet capacity', uid: 'owner-1', displayName: 'Peet Stander', capacityMinutes: 480, status: 'active' }],
+    revenue: [{ id: 'revenue-1', title: 'Launch retainer', amount: 12500, currency: 'ZAR', status: 'active' }],
     timeline: {
       driftCount: 1,
       dependencyCount: 1,
@@ -22,7 +24,12 @@ function suiteResponse() {
         { id: 'milestone-1', kind: 'milestone', title: 'Design sprint', startDate: '2026-06-01', dueDate: '2026-06-10', baselineDueDate: '2026-06-08', baselineDriftDays: 2, dependencies: ['task-1'] },
       ],
     },
-    workload: { assignees: [], totalEstimateMinutes: 0, totalCapacityMinutes: 0, overCapacityCount: 0 },
+    workload: {
+      assignees: [{ uid: 'owner-1', name: 'Peet Stander', assignedTasks: 2, estimateMinutes: 300, capacityMinutes: 480, utilizationPercent: 63 }],
+      totalEstimateMinutes: 300,
+      totalCapacityMinutes: 480,
+      overCapacityCount: 0,
+    },
     reports: { tasks: { total: 0, blocked: 0 }, approvals: { waiting: 0 }, revenue: { trackedAmount: 0, currency: 'ZAR' } },
   }
 }
@@ -134,6 +141,60 @@ describe('ProjectSuitePanel', () => {
       body: JSON.stringify({
         type: 'playbook',
         id: 'playbook-1',
+      }),
+    })))
+  })
+
+  it('creates automation, capacity, and revenue planning records from the Plan controls', async () => {
+    render(<ProjectSuitePanel projectId="project-1" />)
+
+    await waitFor(() => expect(screen.getAllByText('Peet Stander').length).toBeGreaterThan(0))
+
+    fireEvent.change(screen.getByLabelText('Automation title'), { target: { value: 'Weekly status automation' } })
+    fireEvent.change(screen.getByLabelText('Automation trigger'), { target: { value: 'weekly_status' } })
+    fireEvent.change(screen.getByLabelText('Automation channels'), { target: { value: 'email, in_app' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save automation' }))
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/v1/projects/project-1/suite', expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({
+        type: 'automation',
+        title: 'Weekly status automation',
+        trigger: 'weekly_status',
+        notificationChannels: ['email', 'in_app'],
+        visibility: 'restricted',
+      }),
+    })))
+
+    fireEvent.change(screen.getByLabelText('Capacity member'), { target: { value: 'owner-1' } })
+    fireEvent.change(screen.getByLabelText('Weekly capacity minutes'), { target: { value: '1200' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save capacity' }))
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/v1/projects/project-1/suite', expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({
+        type: 'capacity',
+        title: 'Peet Stander weekly capacity',
+        uid: 'owner-1',
+        displayName: 'Peet Stander',
+        capacityMinutes: 1200,
+        visibility: 'internal',
+      }),
+    })))
+
+    fireEvent.change(screen.getByLabelText('Revenue title'), { target: { value: 'Launch retainer' } })
+    fireEvent.change(screen.getByLabelText('Revenue amount'), { target: { value: '25000' } })
+    fireEvent.change(screen.getByLabelText('Revenue currency'), { target: { value: 'ZAR' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save revenue' }))
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/v1/projects/project-1/suite', expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({
+        type: 'revenue',
+        title: 'Launch retainer',
+        amount: 25000,
+        currency: 'ZAR',
+        visibility: 'internal',
       }),
     })))
   })

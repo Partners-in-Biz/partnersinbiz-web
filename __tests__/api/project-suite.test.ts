@@ -19,6 +19,8 @@ const mockCapacitiesGet = jest.fn()
 const mockRevenueGet = jest.fn()
 const mockMilestoneAdd = jest.fn()
 const mockAutomationAdd = jest.fn()
+const mockCapacityAdd = jest.fn()
+const mockRevenueAdd = jest.fn()
 const mockAuditAdd = jest.fn()
 const mockMilestoneDoc = jest.fn()
 const mockPlaybookDoc = jest.fn()
@@ -128,6 +130,8 @@ beforeEach(() => {
   ]))
   mockMilestoneAdd.mockResolvedValue({ id: 'milestone-new' })
   mockAutomationAdd.mockResolvedValue({ id: 'automation-new' })
+  mockCapacityAdd.mockResolvedValue({ id: 'capacity-new' })
+  mockRevenueAdd.mockResolvedValue({ id: 'revenue-new' })
   mockAuditAdd.mockResolvedValue({ id: 'audit-new' })
   mockMilestoneDocGet.mockResolvedValue({ exists: true, data: () => ({ title: 'Launch', status: 'active' }) })
   mockPlaybookDocGet.mockResolvedValue({ exists: true, data: () => ({ title: 'Weekly client report', status: 'active' }) })
@@ -147,8 +151,8 @@ beforeEach(() => {
     if (name === 'permissions') return { get: mockPermissionsGet }
     if (name === 'audit') return { get: mockAuditGet, add: mockAuditAdd }
     if (name === 'notificationSettings') return { get: mockNotificationSettingsGet }
-    if (name === 'capacities') return { get: mockCapacitiesGet }
-    if (name === 'revenue') return { get: mockRevenueGet }
+    if (name === 'capacities') return { get: mockCapacitiesGet, add: mockCapacityAdd }
+    if (name === 'revenue') return { get: mockRevenueGet, add: mockRevenueAdd }
     throw new Error(`Unexpected subcollection ${name}`)
   })
   mockProjectDoc.mockReturnValue({ collection: mockSubCollection })
@@ -245,6 +249,60 @@ describe('project suite API', () => {
       visibility: 'restricted',
       allowedRoleIds: ['manager'],
       notificationChannels: ['email', 'in_app'],
+      createdBy: 'owner-1',
+    }))
+  })
+
+  it('creates capacity records with user identity fields for workload planning', async () => {
+    const { POST } = await import('@/app/api/v1/projects/[projectId]/suite/route')
+    const res = await POST(new NextRequest('http://localhost/api/v1/projects/project-1/suite', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        type: 'capacity',
+        title: 'Peet Stander weekly capacity',
+        uid: 'owner-1',
+        displayName: 'Peet Stander',
+        capacityMinutes: 1200,
+        visibility: 'internal',
+      }),
+    }), {
+      params: Promise.resolve({ projectId: 'project-1' }),
+    })
+
+    expect(res.status).toBe(201)
+    expect(mockCapacityAdd).toHaveBeenCalledWith(expect.objectContaining({
+      title: 'Peet Stander weekly capacity',
+      uid: 'owner-1',
+      displayName: 'Peet Stander',
+      capacityMinutes: 1200,
+      visibility: 'internal',
+      createdBy: 'owner-1',
+    }))
+  })
+
+  it('creates revenue records for project reporting', async () => {
+    const { POST } = await import('@/app/api/v1/projects/[projectId]/suite/route')
+    const res = await POST(new NextRequest('http://localhost/api/v1/projects/project-1/suite', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        type: 'revenue',
+        title: 'Launch retainer',
+        amount: 25000,
+        currency: 'ZAR',
+        visibility: 'internal',
+      }),
+    }), {
+      params: Promise.resolve({ projectId: 'project-1' }),
+    })
+
+    expect(res.status).toBe(201)
+    expect(mockRevenueAdd).toHaveBeenCalledWith(expect.objectContaining({
+      title: 'Launch retainer',
+      amount: 25000,
+      currency: 'ZAR',
+      visibility: 'internal',
       createdBy: 'owner-1',
     }))
   })
