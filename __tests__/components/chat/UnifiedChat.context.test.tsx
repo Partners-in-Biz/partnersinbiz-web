@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import UnifiedChat from '@/components/chat/UnifiedChat'
+import type { ContextReference } from '@/lib/context-references/types'
 
 jest.mock('@/components/chat/VoiceInputButton', () => ({
   __esModule: true,
@@ -16,10 +17,10 @@ const baseConversation = {
   title: 'Launch chat',
   messageCount: 0,
   archived: false,
-  contextRefs: [],
+  contextRefs: [] as ContextReference[],
 }
 
-const contactRef = {
+const contactRef: ContextReference = {
   type: 'contact',
   id: 'contact-1',
   orgId: 'org-1',
@@ -28,7 +29,7 @@ const contactRef = {
   href: '/admin/crm/contacts/contact-1',
 }
 
-const projectRef = {
+const projectRef: ContextReference = {
   type: 'project',
   id: 'project-1',
   orgId: 'org-1',

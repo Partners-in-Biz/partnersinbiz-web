@@ -33,10 +33,6 @@ describe('context reference composer helpers', () => {
     expect(removeMentionToken('Check @projects:launch with me', {
       start: 6,
       end: 22,
-      token: '@projects:launch',
-      namespace: 'projects',
-      type: 'project',
-      query: 'launch',
     })).toBe('Check with me')
   })
 })

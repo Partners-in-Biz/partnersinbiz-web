@@ -1,6 +1,8 @@
 // lib/tasks/types.ts
 // Types for the standalone tasks module (personal + cross-project tasks).
 
+import type { ContextReference } from '@/lib/context-references/types'
+
 export type TaskStatus = 'todo' | 'in_progress' | 'done' | 'cancelled'
 export type TaskPriority = 'low' | 'normal' | 'high' | 'urgent'
 
@@ -78,6 +80,7 @@ export interface Task {
   sourceSpecVersion?: string | null
   sourceResearchItemId?: string | null
   expectedArtifacts?: string[]
+  contextRefs?: ContextReference[]
 }
 
 export interface TaskInput {
@@ -110,6 +113,7 @@ export interface TaskInput {
   sourceSpecVersion?: string | null
   sourceResearchItemId?: string | null
   expectedArtifacts?: string[]
+  contextRefs?: ContextReference[]
 }
 
 export const VALID_TASK_STATUSES: TaskStatus[] = [

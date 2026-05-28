@@ -2,6 +2,9 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { ContextReferencePicker } from '@/components/context-references/ContextReferencePicker'
+import { mergeContextReferences } from '@/components/context-references/ContextReferenceChips'
+import type { ContextReference, ContextReferenceSeed } from '@/lib/context-references/types'
 import type { SupportCategory, SupportMessage, SupportPriority, SupportTicket } from '@/lib/support/types'
 
 const CATEGORY_OPTIONS: Array<{ value: SupportCategory; label: string; icon: string }> = [
@@ -25,7 +28,29 @@ function ticketTime(ticket: SupportTicket) {
   return new Intl.DateTimeFormat('en-ZA', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(value))
 }
 
-export function SupportDrawer({ triggerClassName = '' }: { triggerClassName?: string }) {
+function coerceContextRef(ref: ContextReference | ContextReferenceSeed, orgId?: string): ContextReference {
+  return {
+    type: ref.type,
+    id: ref.id,
+    orgId: ref.orgId ?? orgId ?? '',
+    label: ref.label ?? `${ref.type}:${ref.id}`,
+    origin: ref.origin ?? 'manual',
+    ...(ref.href ? { href: ref.href } : {}),
+    ...(ref.summary ? { summary: ref.summary } : {}),
+    ...(ref.metadata ? { metadata: ref.metadata } : {}),
+    ...('resolvedAt' in ref && ref.resolvedAt ? { resolvedAt: ref.resolvedAt } : {}),
+  }
+}
+
+export function SupportDrawer({
+  triggerClassName = '',
+  orgId,
+  currentPageContext,
+}: {
+  triggerClassName?: string
+  orgId?: string
+  currentPageContext?: ContextReferenceSeed | null
+}) {
   const [open, setOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
   const [tickets, setTickets] = useState<SupportTicket[]>([])
@@ -37,6 +62,7 @@ export function SupportDrawer({ triggerClassName = '' }: { triggerClassName?: st
   const [category, setCategory] = useState<SupportCategory>('question')
   const [subject, setSubject] = useState('')
   const [description, setDescription] = useState('')
+  const [contextRefs, setContextRefs] = useState<ContextReference[]>([])
   const [reply, setReply] = useState('')
 
   const selectedTicket = useMemo(
@@ -111,12 +137,13 @@ export function SupportDrawer({ triggerClassName = '' }: { triggerClassName?: st
       const res = await fetch('/api/v1/portal/support', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ category, priority, subject, description, sourceUrl, sourcePath }),
+        body: JSON.stringify({ category, priority, subject, description, sourceUrl, sourcePath, contextRefs }),
       })
       const body = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(body?.error ?? 'Could not create support ticket')
       setSubject('')
       setDescription('')
+      setContextRefs([])
       setCategory('question')
       await refreshTickets(body.data.id)
       await refreshMessages(body.data.id)
@@ -147,6 +174,12 @@ export function SupportDrawer({ triggerClassName = '' }: { triggerClassName?: st
     } finally {
       setSaving(false)
     }
+  }
+
+  function useCurrentPage() {
+    if (!currentPageContext) return
+    const ref = coerceContextRef(currentPageContext, orgId)
+    setContextRefs((current) => mergeContextReferences(current, [ref]))
   }
 
   const drawer = mounted && open ? (
@@ -212,6 +245,28 @@ export function SupportDrawer({ triggerClassName = '' }: { triggerClassName?: st
                     onChange={(event) => setDescription(event.target.value)}
                     placeholder="Tell us what happened, what you expected, and where you were in the portal."
                   />
+                  <div className="mt-3 space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--color-pib-text-muted)]">Context</p>
+                      {currentPageContext && (
+                        <button
+                          type="button"
+                          onClick={useCurrentPage}
+                          className="inline-flex items-center gap-1 rounded-md border border-[var(--color-pib-line)] px-2 py-1 text-[10px] text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]"
+                        >
+                          <span className="material-symbols-outlined text-[14px]">my_location</span>
+                          Use current page
+                        </button>
+                      )}
+                    </div>
+                    <ContextReferencePicker
+                      orgId={orgId}
+                      value={contextRefs}
+                      onChange={setContextRefs}
+                      inputLabel="Add support context reference"
+                      compact
+                    />
+                  </div>
                   <button
                     type="button"
                     disabled={saving || !subject.trim() || !description.trim()}

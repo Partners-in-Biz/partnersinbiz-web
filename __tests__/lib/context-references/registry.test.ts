@@ -1,3 +1,5 @@
+export {}
+
 const mockCollection = jest.fn()
 
 jest.mock('@/lib/firebase/admin', () => ({
@@ -24,16 +26,30 @@ function doc(id: string, data: Record<string, unknown>) {
   return { id, data: () => data, exists: true }
 }
 
-function queryFor(docs: Array<ReturnType<typeof doc>>) {
-  return {
-    where: jest.fn().mockReturnThis(),
-    limit: jest.fn().mockReturnThis(),
-    get: jest.fn(async () => ({ docs })),
-    doc: jest.fn((id: string) => ({
-      get: jest.fn(async () => docs.find((item) => item.id === id) ?? { id, exists: false, data: () => ({}) }),
-      collection: jest.fn(() => queryFor([])),
-    })),
-  }
+type MockDoc = ReturnType<typeof doc>
+type MissingDoc = { id: string; exists: false; data: () => Record<string, never> }
+interface MockDocHandle {
+  get: jest.Mock<Promise<MockDoc | MissingDoc>, []>
+  collection: jest.Mock<MockQuery, [string]>
+}
+
+interface MockQuery {
+  where: jest.Mock<MockQuery, [string, string, string]>
+  limit: jest.Mock<MockQuery, [number]>
+  get: jest.Mock<Promise<{ docs: MockDoc[] }>, []>
+  doc: jest.Mock<MockDocHandle, [string]>
+}
+
+function queryFor(docs: MockDoc[]): MockQuery {
+  const query = {} as MockQuery
+  query.where = jest.fn<MockQuery, [string, string, string]>(() => query)
+  query.limit = jest.fn<MockQuery, [number]>(() => query)
+  query.get = jest.fn<Promise<{ docs: MockDoc[] }>, []>(async () => ({ docs }))
+  query.doc = jest.fn<MockDocHandle, [string]>((id: string) => ({
+    get: jest.fn<Promise<MockDoc | MissingDoc>, []>(async () => docs.find((item) => item.id === id) ?? { id, exists: false, data: () => ({}) }),
+    collection: jest.fn<MockQuery, [string]>(() => queryFor([])),
+  }))
+  return query
 }
 
 beforeEach(() => {
@@ -67,6 +83,27 @@ beforeEach(() => {
           deleted: false,
         }),
       ])
+    }
+    if (name === 'projects') {
+      return {
+        ...queryFor([]),
+        doc: jest.fn((id: string) => ({
+          get: jest.fn(async () => doc(id, { orgId: 'org-1', name: 'Launch Project' })),
+          collection: jest.fn((subcollection: string) => {
+            if (subcollection !== 'tasks') return queryFor([])
+            return queryFor([
+              doc('task-1', {
+                orgId: 'org-1',
+                projectId: id,
+                title: 'Confirm launch scope',
+                description: 'Review client requirements before handoff.',
+                priority: 'high',
+                deleted: false,
+              }),
+            ])
+          }),
+        })),
+      }
     }
     return queryFor([])
   })
@@ -113,6 +150,26 @@ describe('context reference registry', () => {
       user: { uid: 'client-1', role: 'client', orgId: 'org-1', orgIds: ['org-1'], authKind: 'session' },
     })).resolves.toEqual([
       expect.objectContaining({ type: 'contact', id: 'contact-1', label: 'Jane Client' }),
+    ])
+  })
+
+  it('searches project-scoped tasks when a projectId is supplied', async () => {
+    const { searchContextReferences } = await import('@/lib/context-references/registry')
+
+    await expect(searchContextReferences({
+      type: 'task',
+      projectId: 'project-1',
+      query: 'scope',
+      orgId: 'org-1',
+      limit: 8,
+      user: { uid: 'admin-1', role: 'admin', authKind: 'session' },
+    })).resolves.toEqual([
+      expect.objectContaining({
+        type: 'task',
+        id: 'task-1',
+        label: 'Confirm launch scope',
+        metadata: { projectId: 'project-1' },
+      }),
     ])
   })
 })

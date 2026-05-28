@@ -458,7 +458,11 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
               >
                 <span className="material-symbols-outlined text-[18px]">dock_to_right</span>
               </button>
-              <SupportDrawer triggerClassName="hidden sm:inline-flex items-center gap-1 text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors" />
+              <SupportDrawer
+                orgId={activeOrgId}
+                currentPageContext={currentPageContext}
+                triggerClassName="hidden sm:inline-flex items-center gap-1 text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors"
+              />
               <div className="w-8 h-8 rounded-full bg-[var(--color-pib-accent-soft)] border border-[var(--color-pib-line-strong)] flex items-center justify-center text-xs font-medium text-[var(--color-pib-accent-hover)]">
                 <Link href="/portal/settings/profile" title="My profile" className="grid h-full w-full place-items-center rounded-full">
                   {initials || '·'}
@@ -775,7 +779,11 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
               currentPageContext={currentPageContext}
               allowAgentParticipants={false}
             />
-            <SupportDrawer triggerClassName="hidden sm:inline-flex items-center gap-1.5 text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors" />
+            <SupportDrawer
+              orgId={activeOrgId}
+              currentPageContext={currentPageContext}
+              triggerClassName="hidden sm:inline-flex items-center gap-1.5 text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors"
+            />
           </div>
         </header>
 

@@ -7,6 +7,9 @@ import {
   listPortalSupportTickets,
   validateSupportInput,
 } from '@/lib/support/store'
+import { resolveContextReferences } from '@/lib/context-references/registry'
+import { sanitizeContextReferenceSeeds } from '@/lib/context-references/types'
+import type { ApiUser } from '@/lib/api/types'
 
 export const dynamic = 'force-dynamic'
 
@@ -31,12 +34,25 @@ export const POST = withPortalAuthAndRole('viewer', async (req: NextRequest, uid
         ? user.displayName.trim()
         : 'Client'
   const requesterEmail = typeof user.email === 'string' ? user.email.trim() : ''
+  const apiUser: ApiUser = {
+    uid,
+    role: 'client',
+    orgId,
+    orgIds: [orgId],
+    authKind: 'session',
+  }
+  const contextRefs = await resolveContextReferences(
+    sanitizeContextReferenceSeeds((body as Record<string, unknown>).contextRefs),
+    apiUser,
+    orgId,
+  )
 
   const id = await createSupportTicket({
     orgId,
     uid,
     requesterName,
     requesterEmail,
+    contextRefs,
     ...parsed.value,
   })
 

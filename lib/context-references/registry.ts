@@ -39,6 +39,7 @@ export interface SearchContextReferencesInput {
   type: ContextReferenceType
   query?: string
   orgId: string
+  projectId?: string
   limit?: number
   user: ApiUser
 }
@@ -420,7 +421,12 @@ export async function resolveContextReferences(
   return resolved
 }
 
-function refFromSearchDoc(type: ContextReferenceType, doc: FirestoreDoc, user: ApiUser): ContextReference | null {
+function refFromSearchDoc(
+  type: ContextReferenceType,
+  doc: FirestoreDoc,
+  user: ApiUser,
+  metadata?: Record<string, unknown>,
+): ContextReference | null {
   const data = doc.data() ?? {}
   if (isDeleted(data)) return null
   const orgId = docOrgId(data)
@@ -443,6 +449,7 @@ function refFromSearchDoc(type: ContextReferenceType, doc: FirestoreDoc, user: A
     origin: 'mention',
     href: href(type, doc.id, data),
     summary: compactSummary([data.status, data.description, data.summary, data.notes, data.content, data.email]),
+    ...(metadata ? { metadata } : {}),
   })
 }
 
@@ -452,6 +459,24 @@ export async function searchContextReferences(input: SearchContextReferencesInpu
   if (!type) return []
   const limit = Math.min(Math.max(input.limit ?? 8, 1), MAX_CONTEXT_REFS)
   const query = clean(input.query, 120).toLowerCase()
+
+  if (type === 'task' && input.projectId) {
+    const projectAccess = await getProjectForUser(input.projectId, input.user)
+    if (!projectAccess.ok) return []
+    const projectData = projectAccess.doc.data() ?? {}
+    const projectOrgId = docOrgId(projectData, input.orgId)
+    if (projectOrgId !== input.orgId || !canUseOrg(input.user, projectOrgId)) return []
+    const snap = await adminDb
+      .collection('projects')
+      .doc(input.projectId)
+      .collection('tasks')
+      .get()
+    return (snap.docs as FirestoreDoc[])
+      .map((doc) => refFromSearchDoc('task', doc, input.user, { projectId: input.projectId }))
+      .filter((ref): ref is ContextReference => Boolean(ref))
+      .filter((ref) => matchesQuery({ name: ref.label, summary: ref.summary }, query))
+      .slice(0, limit)
+  }
 
   if (type === 'project') {
     const docs = await queryByOrg('projects', input.orgId, 80)

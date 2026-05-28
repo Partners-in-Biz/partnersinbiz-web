@@ -15,7 +15,7 @@ describe('TaskComposer voice input', () => {
     render(
       <TaskComposer
         open
-        column={{ id: 'todo', name: 'To do', order: 1 }}
+        column={{ id: 'todo', name: 'To do', color: '#60a5fa', order: 1 }}
         projectId="project-1"
         orgId="org-1"
         members={[]}

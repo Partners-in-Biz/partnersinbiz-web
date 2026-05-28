@@ -1,3 +1,5 @@
+import type { ContextReference } from '@/lib/context-references/types'
+
 export const SUPPORT_CATEGORIES = ['bug', 'question', 'content_change', 'billing', 'urgent'] as const
 export const SUPPORT_PRIORITIES = ['low', 'normal', 'high', 'urgent'] as const
 export const SUPPORT_STATUSES = ['new', 'waiting_on_us', 'waiting_on_client', 'resolved'] as const
@@ -22,6 +24,7 @@ export interface SupportTicket {
   priority: SupportPriority
   sourceUrl?: string
   sourcePath?: string
+  contextRefs?: ContextReference[]
   assignedToType?: 'user' | 'agent' | null
   assigneeUserId?: string | null
   assigneeAgentId?: string | null
@@ -45,5 +48,6 @@ export interface SupportMessage {
   authorName: string
   body: string
   attachments: Array<{ name: string; url: string; contentType?: string }>
+  contextRefs?: ContextReference[]
   createdAt?: unknown
 }

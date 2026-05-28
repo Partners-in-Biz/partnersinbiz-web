@@ -26,6 +26,7 @@ export const GET = withAuth(
       type,
       query: searchParams.get('q') ?? '',
       orgId: orgScope.orgId,
+      projectId: searchParams.get('projectId') ?? undefined,
       limit,
       user,
     })

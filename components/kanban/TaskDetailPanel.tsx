@@ -3,7 +3,9 @@
 import { useState, useEffect } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { uploadTaskFile } from './TaskComposer'
+import { ContextReferencePicker } from '@/components/context-references/ContextReferencePicker'
 import { buildBlockedTaskRecovery } from '@/lib/projects/blockerRecovery'
+import type { ContextReference } from '@/lib/context-references/types'
 import type { AgentId, AgentMember, Attachment, ChecklistItem, Task, TeamMember } from './types'
 
 interface Comment {
@@ -145,6 +147,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
   const [assigneeAgentId, setAssigneeAgentId] = useState<AgentId | ''>((task?.assigneeAgentId as AgentId | null) ?? '')
   const [assignmentMode, setAssignmentMode] = useState<AssignmentMode>(assignmentModeForTask(task))
   const [mentionIds, setMentionIds] = useState<string[]>(task?.mentionIds ?? [])
+  const [contextRefs, setContextRefs] = useState<ContextReference[]>(task?.contextRefs ?? [])
   const [reviewerIds, setReviewerIds] = useState<string[]>(task?.reviewerIds ?? [])
   const [reviewerAgentId, setReviewerAgentId] = useState<AgentId | ''>((task?.reviewerAgentId as AgentId | null) ?? '')
   const [dueDate, setDueDate] = useState(dateInputValue(task?.dueDate))
@@ -180,6 +183,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
     setAssigneeAgentId((task?.assigneeAgentId as AgentId | null) ?? '')
     setAssignmentMode(assignmentModeForTask(task))
     setMentionIds(task?.mentionIds ?? [])
+    setContextRefs(task?.contextRefs ?? [])
     setReviewerIds(task?.reviewerIds ?? [])
     setReviewerAgentId((task?.reviewerAgentId as AgentId | null) ?? '')
     setDueDate(dateInputValue(task?.dueDate))
@@ -236,6 +240,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
               orgId: orgId ?? null,
               columnId: task.columnId,
               assignmentMode: effectiveMode,
+              ...(contextRefs.length > 0 ? { contextRefs } : {}),
               ...(effectiveMode === 'orchestration'
                 ? {
                     orchestrationMode: 'pip-orchestrator',
@@ -254,6 +259,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
           }
         : null,
       mentionIds: selectedMentionIds,
+      contextRefs,
       reviewerIds,
       reviewerAgentId: reviewerAgentId || null,
       dueDate: dueDate || null,
@@ -726,6 +732,21 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
                 Add labels
               </button>
             )}
+          </div>
+
+          <div>
+            <p className="text-[9px] font-label uppercase tracking-widest text-on-surface-variant mb-2">Context</p>
+            <ContextReferencePicker
+              orgId={orgId}
+              projectId={projectId}
+              value={contextRefs}
+              onChange={(refs) => {
+                setContextRefs(refs)
+                setEditing(true)
+              }}
+              inputLabel="Add task context reference"
+              compact
+            />
           </div>
 
           <div>
