@@ -52,6 +52,12 @@ function mockSnapshotChange(type: 'added' | 'modified' | 'removed', id: string, 
   })
 }
 
+async function switchToProjectsSection() {
+  await waitFor(() => expect(screen.getByRole('tab', { name: /^projects$/i })).toBeInTheDocument())
+  await waitFor(() => expect(screen.queryByText('Loading portfolio report')).not.toBeInTheDocument())
+  fireEvent.click(screen.getByRole('tab', { name: /^projects$/i }))
+}
+
 describe('Admin client projects board view', () => {
   beforeEach(() => {
     snapshotCallback = null
@@ -92,15 +98,33 @@ describe('Admin client projects board view', () => {
 
     await waitFor(() => expect(screen.getByText('Portfolio report')).toBeInTheDocument())
     expect(global.fetch).toHaveBeenCalledWith('/api/v1/projects/reporting?orgSlug=acme-client', expect.any(Object))
-    expect(screen.getByText('Acme Client')).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByText('Acme Client')).toBeInTheDocument())
     expect(screen.getByText('Peet Stander')).toBeInTheDocument()
     expect(screen.getAllByText('1 blocked').length).toBeGreaterThan(0)
     expect(screen.getByRole('link', { name: 'Open company Acme Client' })).toHaveAttribute('href', '/portal/companies/company-acme')
     expect(screen.getByRole('link', { name: 'Open project Client Website' })).toHaveAttribute('href', '/admin/org/acme-client/projects/project-1')
   })
 
+  it('switches between portfolio reporting and the project workspace from the header', async () => {
+    render(<ProjectsPage />)
+
+    await waitFor(() => expect(screen.getByRole('tab', { name: /portfolio report/i })).toBeInTheDocument())
+    expect(screen.getByRole('tab', { name: /portfolio report/i })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.queryByRole('tablist', { name: 'Project stage filters' })).not.toBeInTheDocument()
+    expect(screen.getAllByText('Portfolio report').length).toBeGreaterThan(0)
+
+    fireEvent.click(screen.getByRole('tab', { name: /^projects$/i }))
+
+    expect(screen.getByRole('tab', { name: /^projects$/i })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.queryByText('Open tasks')).not.toBeInTheDocument()
+    expect(screen.getByRole('tablist', { name: 'Project stage filters' })).toHaveClass('pib-tabs', 'pib-tabs-segmented')
+    expect(screen.getAllByText('Client Website').length).toBeGreaterThan(0)
+  })
+
   it('lets admins switch from project cards to a cross-project task board for the client', async () => {
     render(<ProjectsPage />)
+
+    await switchToProjectsSection()
 
     await waitFor(() => expect(screen.getByRole('button', { name: /board/i })).toBeInTheDocument())
     expect(screen.getByRole('tablist', { name: 'Project stage filters' })).toHaveClass('pib-tabs', 'pib-tabs-segmented')
@@ -150,6 +174,7 @@ describe('Admin client projects board view', () => {
 
     render(<ProjectsPage />)
 
+    await switchToProjectsSection()
     await waitFor(() => expect(screen.getByRole('button', { name: /board/i })).toBeInTheDocument())
     fireEvent.click(screen.getByRole('button', { name: /board/i }))
 
@@ -171,6 +196,7 @@ describe('Admin client projects board view', () => {
   it('updates client project cards when Firestore project snapshots change', async () => {
     render(<ProjectsPage />)
 
+    await switchToProjectsSection()
     await waitFor(() => expect(screen.getAllByText('Client Website').length).toBeGreaterThan(0))
 
     mockSnapshotChange('modified', 'project-1', {
@@ -208,6 +234,7 @@ describe('Admin client projects board view', () => {
 
     render(<ProjectsPage />)
 
+    await switchToProjectsSection()
     await waitFor(() => expect(screen.getByRole('button', { name: /board/i })).toBeInTheDocument())
     fireEvent.click(screen.getByRole('button', { name: /board/i }))
     await waitFor(() => expect(screen.getByTestId('cross-project-board')).toBeInTheDocument())
@@ -237,6 +264,7 @@ describe('Admin client projects board view', () => {
 
     render(<ProjectsPage />)
 
+    await switchToProjectsSection()
     await waitFor(() => expect(screen.getAllByText('Client Website').length).toBeGreaterThan(0))
 
     await act(async () => {
