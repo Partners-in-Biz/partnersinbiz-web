@@ -77,6 +77,16 @@ describe('ProjectSuitePanel', () => {
     })))
   })
 
+  it('renders a Gantt-style timeline with baseline drift and dependency cues', async () => {
+    render(<ProjectSuitePanel projectId="project-1" />)
+
+    await waitFor(() => expect(screen.getByLabelText('Project Gantt timeline')).toBeInTheDocument())
+    expect(screen.getByText('Timeline Gantt')).toBeInTheDocument()
+    expect(screen.getByText('2d drift')).toBeInTheDocument()
+    expect(screen.getByText('Depends on task-1')).toBeInTheDocument()
+    expect(screen.getByLabelText('Design sprint Gantt bar')).toBeInTheDocument()
+  })
+
   it('edits existing timeline records and project controls from the Plan editor', async () => {
     render(<ProjectSuitePanel projectId="project-1" />)
 

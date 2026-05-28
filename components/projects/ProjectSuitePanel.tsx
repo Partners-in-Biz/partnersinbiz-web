@@ -96,6 +96,7 @@ const EMPTY_SUITE: SuiteData = {
 
 function timestampToMillis(value: unknown): number {
   if (!value) return 0
+  if (typeof value === 'number' && Number.isFinite(value)) return value
   if (value instanceof Date) return value.getTime()
   if (typeof value === 'string') {
     const parsed = Date.parse(value)
@@ -176,11 +177,113 @@ function draftFromTimelineItem(item: TimelineItem): TimelineDraft {
   }
 }
 
+const DAY_MS = 24 * 60 * 60 * 1000
+
+function itemStartMillis(item: TimelineItem): number {
+  return timestampToMillis(item.startDate) || timestampToMillis(item.dueDate)
+}
+
+function itemDueMillis(item: TimelineItem): number {
+  return timestampToMillis(item.dueDate) || timestampToMillis(item.startDate)
+}
+
+function clampPercent(value: number): number {
+  if (!Number.isFinite(value)) return 0
+  return Math.min(100, Math.max(0, value))
+}
+
+function offsetPercent(value: number, min: number, span: number): number {
+  return clampPercent(((value - min) / span) * 100)
+}
+
+function widthPercent(start: number, end: number, span: number): number {
+  return Math.max(6, clampPercent(((Math.max(end, start) - start || DAY_MS) / span) * 100))
+}
+
 function HealthMetric({ label, value }: { label: string; value: number }) {
   return (
     <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-background)] px-4 py-3">
       <p className="text-2xl font-headline font-bold text-on-surface">{value}</p>
       <p className="mt-1 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">{label}</p>
+    </div>
+  )
+}
+
+function TimelineGantt({ items }: { items: TimelineItem[] }) {
+  const dated = items
+    .map((item) => {
+      const start = itemStartMillis(item)
+      const due = itemDueMillis(item)
+      const baselineDue = timestampToMillis(item.baselineDueDate)
+      return { item, start, due, baselineDue }
+    })
+    .filter((entry) => entry.start || entry.due)
+
+  if (dated.length === 0) return null
+
+  const minDate = Math.min(...dated.flatMap((entry) => [entry.start, entry.baselineDue || entry.start].filter(Boolean)))
+  const maxDate = Math.max(...dated.flatMap((entry) => [entry.due, entry.baselineDue || entry.due].filter(Boolean)))
+  const span = Math.max(maxDate - minDate, DAY_MS)
+
+  return (
+    <div aria-label="Project Gantt timeline" className="mb-4 rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-3">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h4 className="text-sm font-headline font-semibold text-on-surface">Timeline Gantt</h4>
+          <p className="mt-1 text-xs text-on-surface-variant">{formatDate(minDate)} - {formatDate(maxDate)}</p>
+        </div>
+        <div className="flex items-center gap-3 text-[11px] text-on-surface-variant">
+          <span className="inline-flex items-center gap-1">
+            <span className="h-1.5 w-5 rounded-full bg-[var(--color-primary)]" />
+            Actual
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <span className="h-1.5 w-5 border-t border-dashed border-[#f59e0b]" />
+            Baseline
+          </span>
+        </div>
+      </div>
+      <div className="space-y-3">
+        {dated.map(({ item, start, due, baselineDue }) => {
+          const title = item.title || 'Untitled'
+          const dependencies = item.dependencies || item.dependsOn || []
+          const left = offsetPercent(start, minDate, span)
+          const width = widthPercent(start, due, span)
+          const baselineLeft = baselineDue ? offsetPercent(baselineDue, minDate, span) : null
+          const drift = typeof item.baselineDriftDays === 'number' && item.baselineDriftDays > 0 ? item.baselineDriftDays : 0
+
+          return (
+            <div key={item.id || title} className="grid gap-2 md:grid-cols-[minmax(140px,0.32fr)_minmax(0,1fr)] md:items-center">
+              <div className="min-w-0">
+                <p className="truncate text-xs font-medium text-on-surface">{title}</p>
+                <p className="mt-0.5 text-[11px] capitalize text-on-surface-variant">{item.kind || 'item'} / {formatDate(due)}</p>
+              </div>
+              <div className="min-w-0">
+                <div className="relative h-8 rounded-md bg-[var(--color-background)]">
+                  {baselineLeft !== null ? (
+                    <span
+                      className="absolute top-1 h-6 border-l border-dashed border-[#f59e0b]"
+                      style={{ left: `${baselineLeft}%` }}
+                      title={`Baseline ${formatDate(baselineDue)}`}
+                    />
+                  ) : null}
+                  <span
+                    aria-label={`${title} Gantt bar`}
+                    className="absolute top-2 h-4 rounded-full bg-[var(--color-primary)] shadow-sm"
+                    style={{ left: `${left}%`, width: `${Math.min(width, 100 - left)}%` }}
+                  />
+                </div>
+                <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-on-surface-variant">
+                  {baselineDue ? <span>Baseline {formatDate(baselineDue)}</span> : null}
+                  <span>Due {formatDate(due)}</span>
+                  {drift > 0 ? <span className="text-[#f59e0b]">Drift {drift}d</span> : null}
+                  {dependencies.length > 0 ? <span>Depends on {dependencies.join(', ')}</span> : null}
+                </div>
+              </div>
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }
@@ -211,6 +314,7 @@ function TimelinePanel({
         </div>
         <span className="rounded-full border border-[var(--color-card-border)] px-2 py-0.5 text-[10px] font-label text-on-surface-variant">Baseline drift</span>
       </div>
+      <TimelineGantt items={items} />
       <div className="space-y-2">
         {items.length === 0 ? <p className="text-sm text-on-surface-variant">No timeline items yet.</p> : null}
         {items.map((item, index) => (

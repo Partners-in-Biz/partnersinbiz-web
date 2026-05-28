@@ -339,7 +339,7 @@ describe('Admin project docs and settings tabs', () => {
     expect(screen.getByText('Use staged launch')).toBeInTheDocument()
     expect(screen.getByText('Timeline')).toBeInTheDocument()
     expect(screen.getByText('Baseline drift')).toBeInTheDocument()
-    expect(screen.getByText('Design sprint')).toBeInTheDocument()
+    expect(screen.getAllByText('Design sprint').length).toBeGreaterThan(0)
     expect(screen.getByText('Website launch baseline')).toBeInTheDocument()
     expect(screen.getByText('Workload')).toBeInTheDocument()
     expect(screen.getByText('Capacity')).toBeInTheDocument()
