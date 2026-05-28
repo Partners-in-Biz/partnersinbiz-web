@@ -9,6 +9,7 @@
 
 import { useEffect, useState } from 'react'
 import type { Deal, DealLineItem, Currency } from '@/lib/crm/types'
+import { extractPipelinesList } from '@/lib/pipelines/response'
 import type { Pipeline, PipelineStage } from '@/lib/pipelines/types'
 import { DealLineItemsEditor } from './DealLineItemsEditor'
 
@@ -89,7 +90,7 @@ export function DealDrawer({
       .then(r => r.json())
       .then(body => {
         if (cancelled) return
-        const list: Pipeline[] = body.data ?? []
+        const list = extractPipelinesList(body)
         setPipelines(list)
 
         if (!selectedPipelineId && list.length > 0) {

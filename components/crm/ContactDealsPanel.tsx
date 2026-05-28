@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import type { Deal } from '@/lib/crm/types'
+import { extractPipelinesList } from '@/lib/pipelines/response'
 import type { Pipeline, PipelineStage } from '@/lib/pipelines/types'
 import { DealDrawer } from './DealDrawer'
 
@@ -80,7 +81,7 @@ export function ContactDealsPanel({ contactId, contactName: _contactName, orgId 
         })
         setDeals(sorted)
 
-        const pipelines: Pipeline[] = pipelinesBody.data ?? []
+        const pipelines = extractPipelinesList(pipelinesBody)
         const byId = new Map(pipelines.map((p: Pipeline) => [p.id, p]))
         setPipelinesById(byId)
 

@@ -5,6 +5,7 @@ export const dynamic = 'force-dynamic'
 import { useEffect, useState, useCallback } from 'react'
 import { PipelineDefinitionsList } from '@/components/crm/PipelineDefinitionsList'
 import { PipelineDrawer } from '@/components/crm/PipelineDrawer'
+import { extractPipelinesList } from '@/lib/pipelines/response'
 import type { Pipeline } from '@/lib/pipelines/types'
 
 // ── Page ──────────────────────────────────────────────────────────────────────
@@ -48,7 +49,7 @@ export default function PipelinesPage() {
         return
       }
       const body = await res.json()
-      const list: Pipeline[] = body.data?.pipelines ?? body.pipelines ?? []
+      const list = extractPipelinesList(body)
       setPipelines(list)
     } catch {
       setFetchError('Could not reach the server. Check your connection.')

@@ -8,6 +8,7 @@ import { DealDrawer } from '@/components/crm/DealDrawer'
 import { DealDetailDrawer } from '@/components/crm/DealDetailDrawer'
 import { EmptyState, PageHeader, PageTabs } from '@/components/ui/AppFoundation'
 import type { Deal, Currency } from '@/lib/crm/types'
+import { extractPipelinesList } from '@/lib/pipelines/response'
 import type { Pipeline, PipelineStage } from '@/lib/pipelines/types'
 
 type ViewMode = 'board' | 'list' | 'forecast'
@@ -177,7 +178,7 @@ export default function DealsPage() {
       .then(body => {
         if (cancelled) return
         if (!body.success) throw new Error(body.error ?? 'Failed to load pipelines')
-        const list: Pipeline[] = body.data ?? []
+        const list = extractPipelinesList(body)
         setPipelines(list)
         // Auto-select default pipeline
         const defaultPl = list.find(p => p.isDefault) ?? list[0]
