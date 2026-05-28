@@ -22,9 +22,12 @@ const mockPlaybookAdd = jest.fn()
 const mockAutomationAdd = jest.fn()
 const mockPermissionAdd = jest.fn()
 const mockNotificationAdd = jest.fn()
+const mockNotificationFeedAdd = jest.fn()
 const mockCapacityAdd = jest.fn()
 const mockRevenueAdd = jest.fn()
 const mockAuditAdd = jest.fn()
+const mockProjectMemberWhere = jest.fn()
+const mockProjectMemberGet = jest.fn()
 const mockMilestoneDoc = jest.fn()
 const mockPlaybookDoc = jest.fn()
 const mockMilestoneDocGet = jest.fn()
@@ -136,9 +139,16 @@ beforeEach(() => {
   mockAutomationAdd.mockResolvedValue({ id: 'automation-new' })
   mockPermissionAdd.mockResolvedValue({ id: 'permission-new' })
   mockNotificationAdd.mockResolvedValue({ id: 'notification-new' })
+  mockNotificationFeedAdd.mockResolvedValue({ id: 'feed-notification-new' })
   mockCapacityAdd.mockResolvedValue({ id: 'capacity-new' })
   mockRevenueAdd.mockResolvedValue({ id: 'revenue-new' })
   mockAuditAdd.mockResolvedValue({ id: 'audit-new' })
+  mockProjectMemberWhere.mockReturnValue({ get: mockProjectMemberGet })
+  mockProjectMemberGet.mockResolvedValue(docs([
+    { id: 'pm-owner', data: { projectId: 'project-1', uid: 'owner-1', role: 'owner', status: 'active', orgId: 'owner-org' } },
+    { id: 'pm-manager', data: { projectId: 'project-1', uid: 'manager-1', role: 'manager', status: 'active', orgId: 'owner-org' } },
+    { id: 'pm-reviewer', data: { projectId: 'project-1', uid: 'reviewer-1', role: 'reviewer', status: 'active', orgId: 'client-org' } },
+  ]))
   mockMilestoneDocGet.mockResolvedValue({ exists: true, data: () => ({ title: 'Launch', status: 'active' }) })
   mockPlaybookDocGet.mockResolvedValue({ exists: true, data: () => ({ title: 'Weekly client report', status: 'active' }) })
   mockMilestoneUpdate.mockResolvedValue(undefined)
@@ -164,6 +174,8 @@ beforeEach(() => {
   mockProjectDoc.mockReturnValue({ collection: mockSubCollection })
   mockCollection.mockImplementation((name: string) => {
     if (name === 'projects') return { doc: mockProjectDoc }
+    if (name === 'projectMembers') return { where: mockProjectMemberWhere }
+    if (name === 'notifications') return { add: mockNotificationFeedAdd }
     throw new Error(`Unexpected collection ${name}`)
   })
 })
@@ -492,6 +504,62 @@ describe('project suite API', () => {
       itemType: 'milestone',
       itemId: 'milestone-1',
       actorUid: 'owner-1',
+    }))
+  })
+
+  it('fans out configured suite lifecycle notifications to project collaborators', async () => {
+    mockNotificationSettingsGet.mockResolvedValueOnce(docs([
+      {
+        id: 'notification-suite-update',
+        data: {
+          title: 'Milestone changes',
+          eventType: 'suite_updated',
+          itemType: 'milestone',
+          recipientRoleIds: ['manager'],
+          recipientUserIds: ['reviewer-1'],
+          channel: 'in_app',
+          enabled: true,
+        },
+      },
+    ]))
+
+    const { PATCH } = await import('@/app/api/v1/projects/[projectId]/suite/route')
+    const res = await PATCH(new NextRequest('http://localhost/api/v1/projects/project-1/suite', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        type: 'milestone',
+        id: 'milestone-1',
+        title: 'Launch readiness',
+      }),
+    }), {
+      params: Promise.resolve({ projectId: 'project-1' }),
+    })
+
+    expect(res.status).toBe(200)
+    expect(mockNotificationFeedAdd).toHaveBeenCalledTimes(2)
+    expect(mockNotificationFeedAdd).toHaveBeenCalledWith(expect.objectContaining({
+      orgId: 'owner-org',
+      userId: 'manager-1',
+      type: 'project.suite_updated',
+      title: 'Milestone changes',
+      body: 'Launch readiness',
+      link: '/admin/projects/project-1?suite=milestone&item=milestone-1',
+      data: expect.objectContaining({
+        projectId: 'project-1',
+        itemType: 'milestone',
+        itemId: 'milestone-1',
+        eventType: 'suite_updated',
+        notificationSettingId: 'notification-suite-update',
+      }),
+      status: 'unread',
+      priority: 'normal',
+    }))
+    expect(mockNotificationFeedAdd).toHaveBeenCalledWith(expect.objectContaining({
+      userId: 'reviewer-1',
+    }))
+    expect(mockNotificationFeedAdd).not.toHaveBeenCalledWith(expect.objectContaining({
+      userId: 'owner-1',
     }))
   })
 

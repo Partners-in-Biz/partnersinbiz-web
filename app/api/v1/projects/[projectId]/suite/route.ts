@@ -11,6 +11,7 @@ import {
   buildProjectWorkload,
   canProjectRole,
   filterProjectItemsForAccess,
+  type ProjectMemberRole,
 } from '@/lib/projects/collaboration'
 
 export const dynamic = 'force-dynamic'
@@ -30,6 +31,15 @@ type SuiteType =
   | 'capacity'
   | 'revenue'
 type SuiteRecord = Record<string, unknown> & { id: string; deleted?: unknown }
+type SuiteEventType = 'suite_created' | 'suite_updated' | 'suite_archived'
+
+const PROJECT_ROLE_RANK: Record<ProjectMemberRole, number> = {
+  owner: 50,
+  manager: 40,
+  contributor: 30,
+  reviewer: 20,
+  viewer: 10,
+}
 
 const COLLECTION_BY_TYPE: Record<SuiteType, string> = {
   milestone: 'milestones',
@@ -254,7 +264,7 @@ function suiteMutableFields(
 
 async function writeSuiteAudit(input: {
   projectId: string
-  eventType: 'suite_created' | 'suite_updated' | 'suite_archived'
+  eventType: SuiteEventType
   type: SuiteType
   itemId: string
   title?: string
@@ -270,6 +280,130 @@ async function writeSuiteAudit(input: {
     actorUid: input.actorUid,
     createdAt: FieldValue.serverTimestamp(),
   })
+}
+
+function projectOwnerOrgId(data: Record<string, unknown>): string {
+  return cleanString(data.ownerOrgId) || cleanString(data.sourceOrgId) || cleanString(data.issuerOrgId) || cleanString(data.orgId)
+}
+
+function lifecycleEventMatches(setting: SuiteRecord, input: { eventType: SuiteEventType; type: SuiteType; itemId: string }): boolean {
+  if (setting.deleted === true || setting.enabled === false) return false
+  const status = cleanString(setting.status)
+  if (status === 'archived' || status === 'revoked' || status === 'inactive') return false
+
+  const eventType = cleanString(setting.eventType)
+  if (eventType) {
+    const action = input.eventType.replace('suite_', '')
+    const acceptedEvents = new Set([
+      '*',
+      input.eventType,
+      `project.${input.eventType}`,
+      `${input.type}_${action}`,
+      `${input.type}.${action}`,
+    ])
+    if (!acceptedEvents.has(eventType)) return false
+  }
+
+  const itemType = cleanString(setting.itemType ?? setting.targetType ?? setting.resourceType)
+  if (itemType && itemType !== '*' && itemType !== input.type) return false
+
+  const itemId = cleanString(setting.itemId ?? setting.targetId ?? setting.resourceId)
+  if (itemId && itemId !== '*' && itemId !== input.itemId) return false
+
+  const channel = cleanString(setting.channel)
+  return !channel || channel === 'in_app' || channel === 'app' || channel === 'both'
+}
+
+function memberIsActive(member: Record<string, unknown>): boolean {
+  if (member.deleted === true) return false
+  const status = cleanString(member.status)
+  return !status || (status !== 'revoked' && status !== 'archived' && status !== 'inactive' && status !== 'removed')
+}
+
+function projectRoleRank(role: unknown): number | undefined {
+  const normalized = cleanString(role) as ProjectMemberRole
+  return PROJECT_ROLE_RANK[normalized]
+}
+
+function roleMatchesAny(role: unknown, recipientRoleIds: string[]): boolean {
+  if (recipientRoleIds.length === 0) return false
+  const memberRank = projectRoleRank(role)
+  if (!memberRank) return false
+  const recipientRanks = recipientRoleIds
+    .map((recipientRole) => projectRoleRank(recipientRole))
+    .filter((rank): rank is number => typeof rank === 'number')
+  if (recipientRanks.length === 0) return false
+  return memberRank >= Math.min(...recipientRanks)
+}
+
+async function listProjectMembersForNotifications(projectId: string): Promise<Array<SuiteRecord & { uid?: string }>> {
+  const snap = await adminDb.collection('projectMembers').where('projectId', '==', projectId).get()
+  return snap.docs.map((doc: { id: string; data: () => Record<string, unknown> }) => ({
+    id: doc.id,
+    ...doc.data(),
+  })).filter((member) => memberIsActive(member))
+}
+
+async function writeSuiteNotifications(input: {
+  projectId: string
+  project: Record<string, unknown>
+  eventType: SuiteEventType
+  type: SuiteType
+  itemId: string
+  title?: string
+  actorUid: string
+}) {
+  if (input.type === 'audit') return
+
+  const settings = (await listSubcollection(input.projectId, 'notificationSettings'))
+    .filter((setting) => lifecycleEventMatches(setting, input))
+  if (settings.length === 0) return
+
+  const members = await listProjectMembersForNotifications(input.projectId)
+  const orgId = projectOwnerOrgId(input.project)
+  if (!orgId) return
+
+  const itemLabel = input.type.charAt(0).toUpperCase() + input.type.slice(1)
+  const actionLabel = input.eventType.replace('suite_', '')
+  const body = input.title || `${itemLabel} ${actionLabel}`
+
+  for (const setting of settings) {
+    const recipientUserIds = new Set(cleanStringArray(setting.recipientUserIds))
+    const recipientRoleIds = cleanStringArray(setting.recipientRoleIds ?? setting.recipientRoles)
+    const recipientOrgIds = cleanStringArray(setting.recipientOrgIds)
+
+    for (const member of members) {
+      const uid = cleanString(member.uid ?? member.userId)
+      if (!uid || uid === input.actorUid) continue
+      const matchesUser = recipientUserIds.has(uid)
+      const matchesRole = roleMatchesAny(member.role, recipientRoleIds)
+      const matchesOrg = recipientOrgIds.includes(cleanString(member.orgId))
+      if (!matchesUser && !matchesRole && !matchesOrg) continue
+
+      await adminDb.collection('notifications').add({
+        orgId,
+        userId: uid,
+        agentId: null,
+        type: `project.${input.eventType}`,
+        title: cleanString(setting.title) || `${itemLabel} ${actionLabel}`,
+        body,
+        link: `/admin/projects/${input.projectId}?suite=${input.type}&item=${input.itemId}`,
+        data: {
+          projectId: input.projectId,
+          itemType: input.type,
+          itemId: input.itemId,
+          eventType: input.eventType,
+          notificationSettingId: setting.id,
+          channel: cleanString(setting.channel) || 'in_app',
+        },
+        status: 'unread',
+        priority: 'normal',
+        snoozedUntil: null,
+        readAt: null,
+        createdAt: FieldValue.serverTimestamp(),
+      })
+    }
+  }
 }
 
 export const GET = withAuth('client', async (_req: NextRequest, user, ctx) => {
@@ -369,6 +503,7 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
   if (!record.ok) return apiError(record.error, 400)
   const toWrite = record.value
   const ref = await adminDb.collection('projects').doc(projectId).collection(collectionName).add(toWrite)
+  const project = (access.doc.data() ?? {}) as Record<string, unknown>
   await writeSuiteAudit({
     projectId,
     eventType: 'suite_created',
@@ -377,6 +512,15 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
     title: cleanString(toWrite.title),
     actorUid: user.uid,
   })
+  await writeSuiteNotifications({
+    projectId,
+    project,
+    eventType: 'suite_created',
+    type,
+    itemId: ref.id,
+    title: cleanString(toWrite.title),
+    actorUid: user.uid,
+  }).catch((err) => console.error('[project-suite-notification-error]', err))
   return apiSuccess({ id: ref.id, ...toWrite }, 201)
 })
 
@@ -402,14 +546,25 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
   const doc = await ref.get()
   if (!doc.exists) return apiError('Suite record not found', 404)
   await ref.update(updates.value)
+  const project = (access.doc.data() ?? {}) as Record<string, unknown>
+  const title = cleanString(updates.value.title) || cleanString(doc.data()?.title)
   await writeSuiteAudit({
     projectId,
     eventType: 'suite_updated',
     type,
     itemId: id,
-    title: cleanString(updates.value.title) || cleanString(doc.data()?.title),
+    title,
     actorUid: user.uid,
   })
+  await writeSuiteNotifications({
+    projectId,
+    project,
+    eventType: 'suite_updated',
+    type,
+    itemId: id,
+    title,
+    actorUid: user.uid,
+  }).catch((err) => console.error('[project-suite-notification-error]', err))
   return apiSuccess({ id, ...updates.value })
 })
 
@@ -431,6 +586,8 @@ export const DELETE = withAuth('client', async (req: NextRequest, user, ctx) => 
   const ref = adminDb.collection('projects').doc(projectId).collection(collectionName).doc(id)
   const doc = await ref.get()
   if (!doc.exists) return apiError('Suite record not found', 404)
+  const project = (access.doc.data() ?? {}) as Record<string, unknown>
+  const title = cleanString(doc.data()?.title)
   await ref.update({
     deleted: true,
     status: 'archived',
@@ -444,8 +601,17 @@ export const DELETE = withAuth('client', async (req: NextRequest, user, ctx) => 
     eventType: 'suite_archived',
     type,
     itemId: id,
-    title: cleanString(doc.data()?.title),
+    title,
     actorUid: user.uid,
   })
+  await writeSuiteNotifications({
+    projectId,
+    project,
+    eventType: 'suite_archived',
+    type,
+    itemId: id,
+    title,
+    actorUid: user.uid,
+  }).catch((err) => console.error('[project-suite-notification-error]', err))
   return apiSuccess({ id, deleted: true })
 })
