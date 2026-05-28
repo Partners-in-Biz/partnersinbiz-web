@@ -9,6 +9,7 @@ import { WelcomeFlashHandler } from '@/components/ui/WelcomeFlashHandler'
 import { MailboxDrawer } from '@/components/mailbox/MailboxDrawer'
 import { MessageDrawer } from '@/components/chat/MessageDrawer'
 import { AppShell } from '@/components/ui/AppFoundation'
+import { detectCurrentPageContext } from '@/lib/context-references/route-context'
 import { useOrg } from '@/lib/contexts/OrgContext'
 import { PIB_PLATFORM_ORG_ID, SHARED_SENDER_NAME } from '@/lib/platform/constants'
 
@@ -74,6 +75,11 @@ export function AdminShell({ userEmail, userUid, children }: AdminShellProps) {
   const drawerOrg = routeOrg ?? selectedOrg
   const drawerOrgId = (drawerOrg?.id ?? selectedOrgId) || PIB_PLATFORM_ORG_ID
   const drawerOrgName = (drawerOrg?.name ?? orgName) || SHARED_SENDER_NAME
+  const currentPageContext = detectCurrentPageContext({
+    pathname,
+    searchParams,
+    orgId: drawerOrgId,
+  })
   const mainClassName = 'px-4 md:px-8 py-8'
   const innerClassName = 'max-w-[1400px]'
   const messageAction = (
@@ -84,6 +90,7 @@ export function AdminShell({ userEmail, userUid, children }: AdminShellProps) {
         orgName={drawerOrgName}
         currentUserUid={userUid}
         currentUserDisplayName={userEmail}
+        currentPageContext={currentPageContext}
         allowAgentParticipants
         allowDeleteConversations
         disabledReason="Messages unavailable"
