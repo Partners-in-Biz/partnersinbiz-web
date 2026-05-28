@@ -20,26 +20,32 @@ export default function EditSequencePage({
 
   useEffect(() => {
     if (!id) return
-    setLoading(true)
-    setFetchError(null)
-    fetch('/api/v1/crm/sequences')
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`)
-        return r.json()
-      })
-      .then((body) => {
-        const list: Sequence[] = body.data?.sequences ?? body.data ?? []
-        const found = Array.isArray(list) ? list.find((s) => s.id === id) ?? null : null
-        if (!found) throw new Error('Sequence not found.')
-        setSequence(found)
-      })
-      .catch((err: unknown) =>
-        setFetchError(err instanceof Error ? err.message : 'Failed to load sequence.')
-      )
-      .finally(() => setLoading(false))
+    let cancelled = false
+
+    async function loadSequence() {
+      setLoading(true)
+      setFetchError(null)
+      try {
+        const res = await fetch(`/api/v1/crm/sequences/${id}`)
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        const body = await res.json()
+        const found: Sequence | null = body.data?.sequence ?? body.data ?? body ?? null
+        if (!found?.id) throw new Error('Sequence not found.')
+        if (!cancelled) setSequence(found)
+      } catch (err: unknown) {
+        if (!cancelled) setFetchError(err instanceof Error ? err.message : 'Failed to load sequence.')
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+
+    void loadSequence()
+    return () => {
+      cancelled = true
+    }
   }, [id])
 
-  function handleSave(_seq: Sequence) {
+  function handleSave() {
     router.push('/portal/settings/sequences')
   }
 
@@ -48,27 +54,50 @@ export default function EditSequencePage({
   }
 
   return (
-    <div className="max-w-2xl">
-      <div className="mb-6">
-        <button
-          type="button"
-          onClick={handleCancel}
-          className="cursor-pointer flex items-center gap-1 text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] mb-4 transition-colors"
-        >
-          <span className="material-symbols-outlined text-[14px]">arrow_back</span>
-          Sequences
-        </button>
-        <h1 className="text-lg font-semibold">Edit Sequence</h1>
-        <p className="text-sm text-[var(--color-pib-text-muted)] mt-1">
-          Update steps, timing, and status.
-        </p>
+    <div className="max-w-6xl space-y-6">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <button
+            type="button"
+            onClick={handleCancel}
+            className="cursor-pointer flex items-center gap-1 text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] mb-4 transition-colors"
+          >
+            <span className="material-symbols-outlined text-[14px]">arrow_back</span>
+            Sequences
+          </button>
+          <p className="eyebrow !text-[10px]">Journey builder</p>
+          <h1 className="pib-page-title mt-2">Edit sequence</h1>
+          <p className="pib-page-sub max-w-2xl">
+            Tune the journey content, cadence, and launch state while keeping the CRM follow-up path readable.
+          </p>
+        </div>
+        {sequence && (
+          <div className="bento-card !p-4 w-full max-w-sm">
+            <p className="text-xs font-medium">{sequence.status === 'active' ? 'Currently active' : sequence.status === 'paused' ? 'Currently paused' : 'Currently draft'}</p>
+            <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
+              {sequence.steps.length} step{sequence.steps.length === 1 ? '' : 's'} configured for this journey.
+            </p>
+          </div>
+        )}
       </div>
 
       {loading ? (
-        <p className="text-sm text-[var(--color-pib-text-muted)]">Loading…</p>
+        <div className="bento-card !p-6">
+          <p className="text-sm text-[var(--color-pib-text-muted)]">Loading sequence...</p>
+        </div>
       ) : fetchError ? (
-        <div className="px-4 py-3 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] text-sm text-[var(--color-pib-text-muted)]">
-          {fetchError}
+        <div className="bento-card !p-6 flex items-start gap-2">
+          <span className="material-symbols-outlined text-[16px] text-red-400 mt-0.5">error</span>
+          <div>
+            <p className="text-sm text-red-400">{fetchError}</p>
+            <button
+              type="button"
+              onClick={handleCancel}
+              className="cursor-pointer mt-3 btn-pib-secondary text-sm"
+            >
+              Back to sequences
+            </button>
+          </div>
         </div>
       ) : sequence ? (
         <SequenceForm initial={sequence} onSave={handleSave} onCancel={handleCancel} />
