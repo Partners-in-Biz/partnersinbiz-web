@@ -22,9 +22,28 @@ function suiteResponse() {
       templateSteps: ['Kickoff', 'QA'],
     }],
     automations: [{ id: 'automation-1', title: 'Milestone drift alert', trigger: 'milestone_drift', status: 'active' }],
-    permissions: [],
-    audit: [],
-    notificationSettings: [],
+    permissions: [{
+      id: 'permission-1',
+      title: 'Manager-only launch gate',
+      itemType: 'milestone',
+      itemId: 'milestone-1',
+      visibility: 'restricted',
+      allowedRoleIds: ['manager'],
+      allowedUserIds: ['owner-1'],
+      allowedOrgIds: ['owner-org'],
+      status: 'active',
+    }],
+    audit: [{ id: 'audit-1', title: 'Launch gate updated', eventType: 'suite_updated', itemType: 'milestone', itemId: 'milestone-1', actorName: 'Peet Stander', createdAt: '2026-06-01' }],
+    notificationSettings: [{
+      id: 'notification-1',
+      title: 'Approval waiting reminders',
+      eventType: 'approval_waiting',
+      itemType: 'approval',
+      channel: 'both',
+      recipientRoleIds: ['manager', 'reviewer'],
+      enabled: true,
+      status: 'active',
+    }],
     capacities: [{ id: 'capacity-1', title: 'Peet capacity', uid: 'owner-1', displayName: 'Peet Stander', capacityMinutes: 480, status: 'active' }],
     revenue: [{ id: 'revenue-1', title: 'Launch retainer', amount: 12500, currency: 'ZAR', status: 'active' }],
     timeline: {
@@ -149,7 +168,11 @@ describe('ProjectSuitePanel', () => {
       body: JSON.stringify({
         type: 'notification',
         title: 'Approval reminder',
+        eventType: 'approval_waiting',
+        itemType: 'approval',
         channel: 'email',
+        recipientRoleIds: ['manager'],
+        enabled: false,
         visibility: 'project',
       }),
     })))
@@ -253,6 +276,63 @@ describe('ProjectSuitePanel', () => {
         amount: 25000,
         currency: 'ZAR',
         visibility: 'internal',
+      }),
+    })))
+  })
+
+  it('creates targeted access policies and notification controls from the Plan controls', async () => {
+    render(<ProjectSuitePanel projectId="project-1" />)
+
+    await waitFor(() => expect(screen.getByText('Manager-only launch gate')).toBeInTheDocument())
+    expect(screen.getAllByText('milestone milestone-1').length).toBeGreaterThan(0)
+    expect(screen.getByText('owner-1')).toBeInTheDocument()
+    expect(screen.getByText('owner-org')).toBeInTheDocument()
+    expect(screen.getByText('Approval waiting reminders')).toBeInTheDocument()
+    expect(screen.getAllByText('approval waiting').length).toBeGreaterThan(0)
+    expect(screen.getByText('Enabled')).toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText('Permission title'), { target: { value: 'Manager-only launch gate' } })
+    fireEvent.change(screen.getByLabelText('Permission target type'), { target: { value: 'milestone' } })
+    fireEvent.change(screen.getByLabelText('Permission target id'), { target: { value: 'milestone-1' } })
+    fireEvent.change(screen.getByLabelText('Permission visibility'), { target: { value: 'restricted' } })
+    fireEvent.change(screen.getByLabelText('Allowed users'), { target: { value: 'owner-1' } })
+    fireEvent.change(screen.getByLabelText('Allowed orgs'), { target: { value: 'owner-org' } })
+    fireEvent.change(screen.getByLabelText('Allowed roles'), { target: { value: 'manager' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save access control' }))
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/v1/projects/project-1/suite', expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({
+        type: 'permission',
+        title: 'Manager-only launch gate',
+        itemType: 'milestone',
+        itemId: 'milestone-1',
+        visibility: 'restricted',
+        allowedUserIds: ['owner-1'],
+        allowedOrgIds: ['owner-org'],
+        allowedRoleIds: ['manager'],
+      }),
+    })))
+
+    fireEvent.change(screen.getByLabelText('Notification title'), { target: { value: 'Approval waiting reminders' } })
+    fireEvent.change(screen.getByLabelText('Notification event'), { target: { value: 'approval_waiting' } })
+    fireEvent.change(screen.getByLabelText('Notification item type'), { target: { value: 'approval' } })
+    fireEvent.change(screen.getByLabelText('Notification channel'), { target: { value: 'both' } })
+    fireEvent.change(screen.getByLabelText('Notification recipients'), { target: { value: 'manager, reviewer' } })
+    fireEvent.click(screen.getByLabelText('Notification enabled'))
+    fireEvent.click(screen.getByRole('button', { name: 'Save notification' }))
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/v1/projects/project-1/suite', expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({
+        type: 'notification',
+        title: 'Approval waiting reminders',
+        eventType: 'approval_waiting',
+        itemType: 'approval',
+        channel: 'both',
+        recipientRoleIds: ['manager', 'reviewer'],
+        enabled: true,
+        visibility: 'project',
       }),
     })))
   })

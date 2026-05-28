@@ -20,6 +20,8 @@ const mockRevenueGet = jest.fn()
 const mockMilestoneAdd = jest.fn()
 const mockPlaybookAdd = jest.fn()
 const mockAutomationAdd = jest.fn()
+const mockPermissionAdd = jest.fn()
+const mockNotificationAdd = jest.fn()
 const mockCapacityAdd = jest.fn()
 const mockRevenueAdd = jest.fn()
 const mockAuditAdd = jest.fn()
@@ -132,6 +134,8 @@ beforeEach(() => {
   mockMilestoneAdd.mockResolvedValue({ id: 'milestone-new' })
   mockPlaybookAdd.mockResolvedValue({ id: 'playbook-new' })
   mockAutomationAdd.mockResolvedValue({ id: 'automation-new' })
+  mockPermissionAdd.mockResolvedValue({ id: 'permission-new' })
+  mockNotificationAdd.mockResolvedValue({ id: 'notification-new' })
   mockCapacityAdd.mockResolvedValue({ id: 'capacity-new' })
   mockRevenueAdd.mockResolvedValue({ id: 'revenue-new' })
   mockAuditAdd.mockResolvedValue({ id: 'audit-new' })
@@ -150,9 +154,9 @@ beforeEach(() => {
     if (name === 'baselines') return { get: mockBaselinesGet }
     if (name === 'playbooks') return { get: mockPlaybooksGet, add: mockPlaybookAdd, doc: mockPlaybookDoc }
     if (name === 'automations') return { get: mockAutomationsGet, add: mockAutomationAdd }
-    if (name === 'permissions') return { get: mockPermissionsGet }
+    if (name === 'permissions') return { get: mockPermissionsGet, add: mockPermissionAdd }
     if (name === 'audit') return { get: mockAuditGet, add: mockAuditAdd }
-    if (name === 'notificationSettings') return { get: mockNotificationSettingsGet }
+    if (name === 'notificationSettings') return { get: mockNotificationSettingsGet, add: mockNotificationAdd }
     if (name === 'capacities') return { get: mockCapacitiesGet, add: mockCapacityAdd }
     if (name === 'revenue') return { get: mockRevenueGet, add: mockRevenueAdd }
     throw new Error(`Unexpected subcollection ${name}`)
@@ -195,6 +199,50 @@ describe('project suite API', () => {
     expect(body.data.reports.revenue).toEqual(expect.objectContaining({ trackedAmount: 12500, currency: 'ZAR' }))
     expect(body.data.health.level).toBe('at_risk')
     expect(body.data.health.blockedTasks).toBe(1)
+  })
+
+  it('applies targeted permission policies before filtering suite items', async () => {
+    mockGetProjectForUser.mockResolvedValueOnce({
+      ok: true,
+      doc: {
+        id: 'project-1',
+        data: () => ({ id: 'project-1', orgId: 'owner-org', ownerOrgId: 'owner-org' }),
+      },
+      projectAccess: { role: 'reviewer', source: 'project_member', canViewInternal: false },
+    })
+    mockPermissionsGet.mockResolvedValueOnce(docs([
+      {
+        id: 'permission-manager-milestone',
+        data: {
+          title: 'Manager-only milestone',
+          itemType: 'milestone',
+          itemId: 'milestone-1',
+          visibility: 'restricted',
+          allowedRoleIds: ['manager'],
+        },
+      },
+      {
+        id: 'permission-reviewer-risk',
+        data: {
+          title: 'Reviewer risk',
+          itemType: 'risk',
+          itemId: 'risk-1',
+          visibility: 'restricted',
+          allowedRoleIds: ['reviewer'],
+        },
+      },
+    ]))
+
+    const { GET } = await import('@/app/api/v1/projects/[projectId]/suite/route')
+    const res = await GET(new NextRequest('http://localhost/api/v1/projects/project-1/suite'), {
+      params: Promise.resolve({ projectId: 'project-1' }),
+    })
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.data.milestones.map((milestone: { id: string }) => milestone.id)).not.toContain('milestone-1')
+    expect(body.data.risks.map((risk: { id: string }) => risk.id)).toContain('risk-1')
+    expect(body.data.permissions.map((permission: { id: string }) => permission.id)).toEqual(['permission-reviewer-risk'])
   })
 
   it('creates a milestone record with internal visibility support', async () => {
@@ -251,6 +299,70 @@ describe('project suite API', () => {
       visibility: 'restricted',
       allowedRoleIds: ['manager'],
       notificationChannels: ['email', 'in_app'],
+      createdBy: 'owner-1',
+    }))
+  })
+
+  it('creates targeted permission policies with user, org, and role rules', async () => {
+    const { POST } = await import('@/app/api/v1/projects/[projectId]/suite/route')
+    const res = await POST(new NextRequest('http://localhost/api/v1/projects/project-1/suite', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        type: 'permission',
+        title: 'Manager-only launch gate',
+        itemType: 'milestone',
+        itemId: 'milestone-1',
+        visibility: 'restricted',
+        allowedUserIds: ['owner-1'],
+        allowedOrgIds: ['owner-org'],
+        allowedRoleIds: ['manager'],
+      }),
+    }), {
+      params: Promise.resolve({ projectId: 'project-1' }),
+    })
+
+    expect(res.status).toBe(201)
+    expect(mockPermissionAdd).toHaveBeenCalledWith(expect.objectContaining({
+      title: 'Manager-only launch gate',
+      itemType: 'milestone',
+      itemId: 'milestone-1',
+      visibility: 'restricted',
+      allowedUserIds: ['owner-1'],
+      allowedOrgIds: ['owner-org'],
+      allowedRoleIds: ['manager'],
+      createdBy: 'owner-1',
+    }))
+  })
+
+  it('creates notification controls with event, recipient, and enabled settings', async () => {
+    const { POST } = await import('@/app/api/v1/projects/[projectId]/suite/route')
+    const res = await POST(new NextRequest('http://localhost/api/v1/projects/project-1/suite', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        type: 'notification',
+        title: 'Approval waiting reminders',
+        eventType: 'approval_waiting',
+        itemType: 'approval',
+        channel: 'both',
+        recipientRoleIds: ['manager', 'reviewer'],
+        enabled: true,
+        visibility: 'project',
+      }),
+    }), {
+      params: Promise.resolve({ projectId: 'project-1' }),
+    })
+
+    expect(res.status).toBe(201)
+    expect(mockNotificationAdd).toHaveBeenCalledWith(expect.objectContaining({
+      title: 'Approval waiting reminders',
+      eventType: 'approval_waiting',
+      itemType: 'approval',
+      channel: 'both',
+      recipientRoleIds: ['manager', 'reviewer'],
+      enabled: true,
+      visibility: 'project',
       createdBy: 'owner-1',
     }))
   })

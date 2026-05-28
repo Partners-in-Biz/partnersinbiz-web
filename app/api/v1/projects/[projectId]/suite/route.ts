@@ -92,6 +92,65 @@ function hasOwn(body: Record<string, unknown>, key: string): boolean {
   return Object.prototype.hasOwnProperty.call(body, key)
 }
 
+function mergeStringArrays(...values: unknown[]): string[] {
+  return Array.from(new Set(values.flatMap((value) => cleanStringArray(value))))
+}
+
+const VISIBILITY_RANK: Record<string, number> = {
+  public: 0,
+  external: 1,
+  project: 2,
+  internal: 3,
+  restricted: 4,
+  private: 5,
+}
+
+function mostRestrictiveVisibility(current: unknown, next: unknown): string | undefined {
+  const currentValue = cleanString(current)
+  const nextValue = cleanString(next)
+  if (!currentValue) return nextValue || undefined
+  if (!nextValue) return currentValue
+  return (VISIBILITY_RANK[nextValue] ?? 2) > (VISIBILITY_RANK[currentValue] ?? 2) ? nextValue : currentValue
+}
+
+function permissionTargetType(policy: Record<string, unknown>): string {
+  return cleanString(policy.itemType ?? policy.targetType ?? policy.resourceType)
+}
+
+function permissionTargetId(policy: Record<string, unknown>): string {
+  return cleanString(policy.itemId ?? policy.targetId ?? policy.resourceId)
+}
+
+function applyPermissionPolicies<T extends SuiteRecord>(
+  items: T[],
+  policies: SuiteRecord[],
+  itemType: string,
+): T[] {
+  return items.map((item) => {
+    const matchingPolicies = policies.filter((policy) => {
+      if (policy.deleted === true || policy.status === 'archived' || policy.status === 'revoked') return false
+      const targetType = permissionTargetType(policy)
+      if (!targetType) return false
+      if (targetType && targetType !== itemType && targetType !== '*') return false
+      const targetId = permissionTargetId(policy)
+      return !targetId || targetId === item.id
+    })
+    if (matchingPolicies.length === 0) return item
+
+    const next: SuiteRecord = { ...item }
+    for (const policy of matchingPolicies) {
+      const visibility = mostRestrictiveVisibility(next.visibility, policy.visibility)
+      if (visibility) next.visibility = visibility
+      if (policy.internalOnly === true) next.internalOnly = true
+      next.allowedUserIds = mergeStringArrays(next.allowedUserIds, policy.allowedUserIds)
+      next.allowedOrgIds = mergeStringArrays(next.allowedOrgIds, policy.allowedOrgIds)
+      next.allowedRoleIds = mergeStringArrays(next.allowedRoleIds, policy.allowedRoleIds, policy.allowedRoles)
+      next.permissionPolicyIds = mergeStringArrays(next.permissionPolicyIds, [policy.id])
+    }
+    return next as T
+  })
+}
+
 async function listSubcollection(projectId: string, collectionName: string): Promise<SuiteRecord[]> {
   const snap = await adminDb.collection('projects').doc(projectId).collection(collectionName).get()
   return snap.docs
@@ -129,6 +188,21 @@ function suiteMutableFields(
   if (isCreate || hasOwn(body, 'trigger')) record.trigger = cleanString(body.trigger) || undefined
   if (isCreate || hasOwn(body, 'cadence')) record.cadence = cleanString(body.cadence) || undefined
   if (isCreate || hasOwn(body, 'templateId')) record.templateId = cleanString(body.templateId) || undefined
+  if (type === 'permission' || type === 'notification') {
+    if (isCreate || hasOwn(body, 'itemType') || hasOwn(body, 'targetType') || hasOwn(body, 'resourceType')) {
+      record.itemType = cleanString(body.itemType ?? body.targetType ?? body.resourceType) || undefined
+    }
+    if (isCreate || hasOwn(body, 'itemId') || hasOwn(body, 'targetId') || hasOwn(body, 'resourceId')) {
+      record.itemId = cleanString(body.itemId ?? body.targetId ?? body.resourceId) || undefined
+    }
+  }
+  if (type === 'notification') {
+    if (isCreate || hasOwn(body, 'eventType')) record.eventType = cleanString(body.eventType) || undefined
+    if (isCreate || hasOwn(body, 'recipientRoleIds')) record.recipientRoleIds = cleanStringArray(body.recipientRoleIds)
+    if (isCreate || hasOwn(body, 'recipientUserIds')) record.recipientUserIds = cleanStringArray(body.recipientUserIds)
+    if (isCreate || hasOwn(body, 'recipientOrgIds')) record.recipientOrgIds = cleanStringArray(body.recipientOrgIds)
+    if (isCreate || hasOwn(body, 'enabled')) record.enabled = isCreate && !hasOwn(body, 'enabled') ? true : cleanBoolean(body.enabled)
+  }
   if (type === 'playbook') {
     if (isCreate || hasOwn(body, 'templateKind')) record.templateKind = cleanString(body.templateKind) || undefined
     if (isCreate || hasOwn(body, 'recurrenceRule')) record.recurrenceRule = cleanString(body.recurrenceRule) || undefined
@@ -236,19 +310,19 @@ export const GET = withAuth('client', async (_req: NextRequest, user, ctx) => {
     projectAccess: access.projectAccess,
     user,
   })
-  const tasks = filterItems(tasksRaw)
-  const milestones = filterItems(milestonesRaw)
-  const approvals = filterItems(approvalsRaw)
-  const risks = filterItems(risksRaw)
-  const decisions = filterItems(decisionsRaw)
-  const baselines = filterItems(baselinesRaw)
-  const playbooks = filterItems(playbooksRaw)
-  const automations = filterItems(automationsRaw)
+  const tasks = filterItems(applyPermissionPolicies(tasksRaw, permissionsRaw, 'task'))
+  const milestones = filterItems(applyPermissionPolicies(milestonesRaw, permissionsRaw, 'milestone'))
+  const approvals = filterItems(applyPermissionPolicies(approvalsRaw, permissionsRaw, 'approval'))
+  const risks = filterItems(applyPermissionPolicies(risksRaw, permissionsRaw, 'risk'))
+  const decisions = filterItems(applyPermissionPolicies(decisionsRaw, permissionsRaw, 'decision'))
+  const baselines = filterItems(applyPermissionPolicies(baselinesRaw, permissionsRaw, 'baseline'))
+  const playbooks = filterItems(applyPermissionPolicies(playbooksRaw, permissionsRaw, 'playbook'))
+  const automations = filterItems(applyPermissionPolicies(automationsRaw, permissionsRaw, 'automation'))
   const permissions = filterItems(permissionsRaw)
   const audit = filterItems(auditRaw)
-  const notificationSettings = filterItems(notificationSettingsRaw)
-  const capacities = filterItems(capacitiesRaw)
-  const revenue = filterItems(revenueRaw)
+  const notificationSettings = filterItems(applyPermissionPolicies(notificationSettingsRaw, permissionsRaw, 'notification'))
+  const capacities = filterItems(applyPermissionPolicies(capacitiesRaw, permissionsRaw, 'capacity'))
+  const revenue = filterItems(applyPermissionPolicies(revenueRaw, permissionsRaw, 'revenue'))
 
   return apiSuccess({
     health: buildProjectHealth({ tasks, milestones, approvals }),

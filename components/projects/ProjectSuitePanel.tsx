@@ -21,6 +21,17 @@ type SuiteItem = {
   autoCreateTasks?: boolean
   templateSteps?: string[]
   notificationChannels?: string[]
+  itemType?: string
+  itemId?: string
+  eventType?: string
+  enabled?: boolean
+  allowedUserIds?: string[]
+  allowedOrgIds?: string[]
+  allowedRoleIds?: string[]
+  recipientUserIds?: string[]
+  recipientOrgIds?: string[]
+  recipientRoleIds?: string[]
+  permissionPolicyIds?: string[]
   uid?: string
   displayName?: string
   capacityMinutes?: number
@@ -529,9 +540,17 @@ function ControlForms({
   const [automationTrigger, setAutomationTrigger] = useState('milestone_drift')
   const [automationChannels, setAutomationChannels] = useState('email')
   const [notificationTitle, setNotificationTitle] = useState('')
+  const [notificationEvent, setNotificationEvent] = useState('approval_waiting')
+  const [notificationItemType, setNotificationItemType] = useState('approval')
   const [notificationChannel, setNotificationChannel] = useState('email')
+  const [notificationRecipients, setNotificationRecipients] = useState('manager')
+  const [notificationEnabled, setNotificationEnabled] = useState(false)
   const [permissionTitle, setPermissionTitle] = useState('')
+  const [permissionTargetType, setPermissionTargetType] = useState('milestone')
+  const [permissionTargetId, setPermissionTargetId] = useState('')
   const [permissionVisibility, setPermissionVisibility] = useState('restricted')
+  const [permissionUsers, setPermissionUsers] = useState('')
+  const [permissionOrgs, setPermissionOrgs] = useState('')
   const [permissionRoles, setPermissionRoles] = useState('manager')
   const [capacityUid, setCapacityUid] = useState('')
   const [capacityMinutes, setCapacityMinutes] = useState('2400')
@@ -654,8 +673,20 @@ function ControlForms({
           className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-3"
           onSubmit={(event) => {
             event.preventDefault()
-            onCreateSuiteItem({ type: 'notification', title: notificationTitle, channel: notificationChannel, visibility: 'project' })
-              .then(() => setNotificationTitle(''))
+            onCreateSuiteItem({
+              type: 'notification',
+              title: notificationTitle,
+              eventType: notificationEvent,
+              itemType: notificationItemType,
+              channel: notificationChannel,
+              recipientRoleIds: csvToIds(notificationRecipients),
+              enabled: notificationEnabled,
+              visibility: 'project',
+            })
+              .then(() => {
+                setNotificationTitle('')
+                setNotificationEnabled(false)
+              })
               .catch(() => {})
           }}
         >
@@ -665,12 +696,40 @@ function ControlForms({
             <input value={notificationTitle} onChange={(event) => setNotificationTitle(event.target.value)} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface" />
           </label>
           <label className="mt-2 block">
+            <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Notification event</span>
+            <select value={notificationEvent} onChange={(event) => setNotificationEvent(event.target.value)} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface">
+              <option value="approval_waiting">approval waiting</option>
+              <option value="milestone_drift">milestone drift</option>
+              <option value="task_blocked">task blocked</option>
+              <option value="risk_escalation">risk escalation</option>
+              <option value="weekly_status">weekly status</option>
+            </select>
+          </label>
+          <label className="mt-2 block">
+            <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Notification item type</span>
+            <select value={notificationItemType} onChange={(event) => setNotificationItemType(event.target.value)} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface">
+              <option value="approval">approval</option>
+              <option value="milestone">milestone</option>
+              <option value="task">task</option>
+              <option value="risk">risk</option>
+              <option value="project">project</option>
+            </select>
+          </label>
+          <label className="mt-2 block">
             <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Notification channel</span>
             <select value={notificationChannel} onChange={(event) => setNotificationChannel(event.target.value)} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface">
               <option value="email">email</option>
               <option value="in_app">in app</option>
               <option value="both">both</option>
             </select>
+          </label>
+          <label className="mt-2 block">
+            <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Notification recipients</span>
+            <input value={notificationRecipients} onChange={(event) => setNotificationRecipients(event.target.value)} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface" />
+          </label>
+          <label className="mt-3 inline-flex items-center gap-2 text-xs text-on-surface">
+            <input type="checkbox" checked={notificationEnabled} onChange={(event) => setNotificationEnabled(event.target.checked)} className="size-4 rounded border-[var(--color-card-border)] bg-[var(--color-background)]" />
+            <span>Notification enabled</span>
           </label>
           <button type="submit" className="pib-btn-primary mt-3 text-xs font-label" disabled={saving || !notificationTitle.trim()}>Save notification</button>
         </form>
@@ -758,10 +817,19 @@ function ControlForms({
             onCreateSuiteItem({
               type: 'permission',
               title: permissionTitle,
+              itemType: permissionTargetType,
+              itemId: permissionTargetId,
               visibility: permissionVisibility,
+              allowedUserIds: csvToIds(permissionUsers),
+              allowedOrgIds: csvToIds(permissionOrgs),
               allowedRoleIds: csvToIds(permissionRoles),
             })
-              .then(() => setPermissionTitle(''))
+              .then(() => {
+                setPermissionTitle('')
+                setPermissionTargetId('')
+                setPermissionUsers('')
+                setPermissionOrgs('')
+              })
               .catch(() => {})
           }}
         >
@@ -771,6 +839,24 @@ function ControlForms({
             <input value={permissionTitle} onChange={(event) => setPermissionTitle(event.target.value)} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface" />
           </label>
           <label className="mt-2 block">
+            <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Permission target type</span>
+            <select value={permissionTargetType} onChange={(event) => setPermissionTargetType(event.target.value)} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface">
+              <option value="milestone">milestone</option>
+              <option value="task">task</option>
+              <option value="approval">approval</option>
+              <option value="risk">risk</option>
+              <option value="decision">decision</option>
+              <option value="playbook">playbook</option>
+              <option value="automation">automation</option>
+              <option value="capacity">capacity</option>
+              <option value="revenue">revenue</option>
+            </select>
+          </label>
+          <label className="mt-2 block">
+            <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Permission target id</span>
+            <input value={permissionTargetId} onChange={(event) => setPermissionTargetId(event.target.value)} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface" />
+          </label>
+          <label className="mt-2 block">
             <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Permission visibility</span>
             <select value={permissionVisibility} onChange={(event) => setPermissionVisibility(event.target.value)} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface">
               <option value="restricted">restricted</option>
@@ -778,6 +864,14 @@ function ControlForms({
               <option value="internal">internal</option>
               <option value="external">external</option>
             </select>
+          </label>
+          <label className="mt-2 block">
+            <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Allowed users</span>
+            <input value={permissionUsers} onChange={(event) => setPermissionUsers(event.target.value)} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface" />
+          </label>
+          <label className="mt-2 block">
+            <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Allowed orgs</span>
+            <input value={permissionOrgs} onChange={(event) => setPermissionOrgs(event.target.value)} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface" />
           </label>
           <label className="mt-2 block">
             <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Allowed roles</span>
@@ -849,6 +943,18 @@ function ItemList({
                   {item.channel}
                 </span>
               ) : null}
+              {item.eventType ? (
+                <span className="inline-flex items-center gap-1 capitalize">
+                  <span className="material-symbols-outlined text-[14px]">campaign</span>
+                  {labelStatus(item.eventType)}
+                </span>
+              ) : null}
+              {item.itemType ? (
+                <span className="inline-flex items-center gap-1">
+                  <span className="material-symbols-outlined text-[14px]">my_location</span>
+                  {item.itemId ? `${item.itemType} ${item.itemId}` : item.itemType}
+                </span>
+              ) : null}
               {item.trigger ? (
                 <span className="inline-flex items-center gap-1 capitalize">
                   <span className="material-symbols-outlined text-[14px]">bolt</span>
@@ -907,6 +1013,42 @@ function ItemList({
                 <span className="inline-flex items-center gap-1">
                   <span className="material-symbols-outlined text-[14px]">history</span>
                   {item.actorName}
+                </span>
+              ) : null}
+              {Array.isArray(item.allowedUserIds) && item.allowedUserIds.length > 0 ? (
+                <span className="inline-flex items-center gap-1">
+                  <span className="material-symbols-outlined text-[14px]">person</span>
+                  {item.allowedUserIds.join(', ')}
+                </span>
+              ) : null}
+              {Array.isArray(item.allowedOrgIds) && item.allowedOrgIds.length > 0 ? (
+                <span className="inline-flex items-center gap-1">
+                  <span className="material-symbols-outlined text-[14px]">business</span>
+                  {item.allowedOrgIds.join(', ')}
+                </span>
+              ) : null}
+              {Array.isArray(item.allowedRoleIds) && item.allowedRoleIds.length > 0 ? (
+                <span className="inline-flex items-center gap-1 capitalize">
+                  <span className="material-symbols-outlined text-[14px]">admin_panel_settings</span>
+                  {item.allowedRoleIds.map(labelStatus).join(', ')}
+                </span>
+              ) : null}
+              {Array.isArray(item.recipientRoleIds) && item.recipientRoleIds.length > 0 ? (
+                <span className="inline-flex items-center gap-1 capitalize">
+                  <span className="material-symbols-outlined text-[14px]">groups</span>
+                  {item.recipientRoleIds.map(labelStatus).join(', ')}
+                </span>
+              ) : null}
+              {typeof item.enabled === 'boolean' ? (
+                <span className="inline-flex items-center gap-1">
+                  <span className="material-symbols-outlined text-[14px]">{item.enabled ? 'notifications_active' : 'notifications_off'}</span>
+                  {item.enabled ? 'Enabled' : 'Muted'}
+                </span>
+              ) : null}
+              {Array.isArray(item.permissionPolicyIds) && item.permissionPolicyIds.length > 0 ? (
+                <span className="inline-flex items-center gap-1">
+                  <span className="material-symbols-outlined text-[14px]">policy</span>
+                  {item.permissionPolicyIds.length} policies
                 </span>
               ) : null}
               {item.internalOnly ? (
