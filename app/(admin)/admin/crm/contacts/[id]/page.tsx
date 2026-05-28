@@ -11,7 +11,9 @@ import { ContactForm } from '@/components/admin/crm/ContactForm'
 import { fmtTimestamp } from '@/components/admin/email/fmtTimestamp'
 import { CompanyPanel } from '@/components/crm/CompanyPanel'
 import { ContactDealsPanel } from '@/components/crm/ContactDealsPanel'
+import { ContactIntelligenceStack } from '@/components/crm/ContactIntelligenceStack'
 import { ScoreChip } from '@/components/crm/ScoreChip'
+import type { MemberRef } from '@/lib/orgMembers/memberRef'
 
 const STAGES = ['new', 'contacted', 'replied', 'demo', 'proposal', 'won', 'lost'] as const
 
@@ -33,6 +35,17 @@ type ContactRecord = {
   notes?: string
   tags?: string[]
   assignedTo?: string
+  assignedToRef?: MemberRef
+  createdByRef?: MemberRef
+  updatedByRef?: MemberRef
+  capturedFromId?: string
+  timezone?: string
+  phoneVerified?: boolean
+  smsOptedIn?: boolean
+  smsUnsubscribedAt?: unknown
+  unsubscribedAt?: unknown
+  bouncedAt?: unknown
+  repliesCount?: number
   lastContactedAt?: unknown
   createdAt?: unknown
   updatedAt?: unknown
@@ -456,6 +469,13 @@ export default function ContactDetailPage() {
         </section>
 
         <section className="space-y-5 lg:col-span-2">
+          <ContactIntelligenceStack
+            contact={contact}
+            emails={emails}
+            activities={activities}
+            nextSuggestion={suggestions[0]}
+          />
+
           {suggestions.length > 0 && (
             <div className="pib-card-section">
               <div className="border-b border-[var(--color-card-border)] bg-white/[0.02] px-5 py-3">
