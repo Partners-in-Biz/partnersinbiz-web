@@ -30,9 +30,9 @@ const noop = () => {}
 describe('CompaniesTable', () => {
   it('renders table headers', () => {
     render(<CompaniesTable companies={[]} loading={false} onRowClick={noop} />)
-    expect(screen.getByText('Name')).toBeInTheDocument()
-    expect(screen.getByText('Industry')).toBeInTheDocument()
-    expect(screen.getByText('Tier')).toBeInTheDocument()
+    expect(screen.getByText('Account')).toBeInTheDocument()
+    expect(screen.getByText('Health')).toBeInTheDocument()
+    expect(screen.getByText('Profile')).toBeInTheDocument()
     expect(screen.getByText('Lifecycle')).toBeInTheDocument()
   })
 
@@ -99,5 +99,31 @@ describe('CompaniesTable', () => {
     expect(screen.getByText('Alpha')).toBeInTheDocument()
     expect(screen.getByText('Beta')).toBeInTheDocument()
     expect(screen.getByText('Gamma')).toBeInTheDocument()
+  })
+
+  it('renders selection controls when bulk selection props are provided', () => {
+    const onToggleCompany = jest.fn()
+    const onToggleAll = jest.fn()
+    const companies = [
+      makeCompany({ id: 'co-1', name: 'Alpha' }),
+      makeCompany({ id: 'co-2', name: 'Beta' }),
+    ]
+
+    render(
+      <CompaniesTable
+        companies={companies}
+        loading={false}
+        onRowClick={noop}
+        selectedIds={new Set(['co-1'])}
+        onToggleCompany={onToggleCompany}
+        onToggleAll={onToggleAll}
+      />,
+    )
+
+    fireEvent.click(screen.getByLabelText('Select all companies'))
+    expect(onToggleAll).toHaveBeenCalled()
+
+    fireEvent.click(screen.getByLabelText('Select Beta'))
+    expect(onToggleCompany).toHaveBeenCalledWith('co-2')
   })
 })

@@ -4,6 +4,10 @@ export const dynamic = 'force-dynamic'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import {
+  CompaniesBulkCommandBar,
+  type CompanyBulkActionKey,
+} from '@/components/crm/CompaniesBulkCommandBar'
 import { CompaniesTable } from '@/components/crm/CompaniesTable'
 import { CompanyFiltersBar } from '@/components/crm/CompanyFiltersBar'
 import type { Company, CompanyListParams } from '@/lib/companies/types'
@@ -68,6 +72,16 @@ export default function CompaniesPage() {
   const [companies, setCompanies] = useState<Company[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [bulkAction, setBulkAction] = useState<CompanyBulkActionKey>('lifecycleStage')
+  const [bulkPending, setBulkPending] = useState(false)
+  const [bulkLifecycleStage, setBulkLifecycleStage] = useState('customer')
+  const [bulkTier, setBulkTier] = useState('smb')
+  const [bulkSize, setBulkSize] = useState('11-50')
+  const [bulkIndustry, setBulkIndustry] = useState('')
+  const [bulkTagsInput, setBulkTagsInput] = useState('')
+  const [bulkAccountManagerUid, setBulkAccountManagerUid] = useState('')
 
   // Read filters from URL search params
   const [filters, setFilters] = useState<CompanyListParams>(() => ({
@@ -98,6 +112,15 @@ export default function CompaniesPage() {
     const revenue = revenueRows.reduce((sum, company) => sum + (company.annualRevenue ?? 0), 0)
     const currency = revenueRows.find((company) => company.currency)?.currency ?? 'ZAR'
     return { customers, prospects, linkedOrgs, incomplete, managed, revenue, currency }
+  }, [companies])
+
+  useEffect(() => {
+    setSelectedIds(prev => {
+      if (prev.size === 0) return prev
+      const visible = new Set(companies.map(company => company.id))
+      const next = new Set(Array.from(prev).filter(id => visible.has(id)))
+      return next.size === prev.size ? prev : next
+    })
   }, [companies])
 
   // ── Fetch companies ────────────────────────────────────────────────────────
@@ -157,6 +180,77 @@ export default function CompaniesPage() {
     router.push(`/portal/companies/${id}`)
   }
 
+  function toggleCompany(id: string) {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  function toggleAllCompanies() {
+    if (selectedIds.size === companies.length) {
+      setSelectedIds(new Set())
+    } else {
+      setSelectedIds(new Set(companies.map(company => company.id)))
+    }
+  }
+
+  async function applyBulk() {
+    if (selectedIds.size === 0) return
+
+    let patch: Record<string, unknown> = {}
+    if (bulkAction === 'lifecycleStage') {
+      patch = { lifecycleStage: bulkLifecycleStage }
+    } else if (bulkAction === 'tier') {
+      patch = { tier: bulkTier }
+    } else if (bulkAction === 'size') {
+      patch = { size: bulkSize }
+    } else if (bulkAction === 'industry') {
+      const industry = bulkIndustry.trim()
+      if (!industry) {
+        setNotice('Enter an industry before applying this bulk update.')
+        return
+      }
+      patch = { industry }
+    } else if (bulkAction === 'tags') {
+      const tags = bulkTagsInput.split(',').map(tag => tag.trim()).filter(Boolean)
+      if (!tags.length) {
+        setNotice('Enter at least one tag before applying this bulk update.')
+        return
+      }
+      patch = { tags }
+    } else if (bulkAction === 'accountManagerUid') {
+      const accountManagerUid = bulkAccountManagerUid.trim()
+      if (!accountManagerUid) {
+        setNotice('Enter an account manager UID before applying this bulk update.')
+        return
+      }
+      patch = { accountManagerUid }
+    }
+
+    setBulkPending(true)
+    setNotice(null)
+    try {
+      const res = await fetch('/api/v1/crm/companies/bulk', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ ids: Array.from(selectedIds), patch }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(body.error ?? 'Bulk company update failed')
+      const { updated = 0, skipped = 0 } = body.data ?? {}
+      setNotice(`Updated ${updated} account${updated === 1 ? '' : 's'}, skipped ${skipped}.`)
+      setSelectedIds(new Set())
+      await fetchCompanies(filters)
+    } catch (err) {
+      setNotice(err instanceof Error ? err.message : 'Bulk company update failed')
+    } finally {
+      setBulkPending(false)
+    }
+  }
+
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
@@ -213,11 +307,44 @@ export default function CompaniesPage() {
         </div>
       )}
 
+      {notice && (
+        <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] px-4 py-3 text-sm text-[var(--color-pib-text-muted)]">
+          {notice}
+        </div>
+      )}
+
+      {selectedIds.size > 0 && (
+        <CompaniesBulkCommandBar
+          selectedCount={selectedIds.size}
+          totalCount={companies.length}
+          bulkAction={bulkAction}
+          bulkPending={bulkPending}
+          lifecycleStage={bulkLifecycleStage}
+          tier={bulkTier}
+          size={bulkSize}
+          industry={bulkIndustry}
+          tagsInput={bulkTagsInput}
+          accountManagerUid={bulkAccountManagerUid}
+          onActionChange={setBulkAction}
+          onLifecycleStageChange={setBulkLifecycleStage}
+          onTierChange={setBulkTier}
+          onSizeChange={setBulkSize}
+          onIndustryChange={setBulkIndustry}
+          onTagsInputChange={setBulkTagsInput}
+          onAccountManagerUidChange={setBulkAccountManagerUid}
+          onClear={() => setSelectedIds(new Set())}
+          onApply={applyBulk}
+        />
+      )}
+
       {/* ── Table ── */}
       <CompaniesTable
         companies={companies}
         loading={loading}
         onRowClick={handleRowClick}
+        selectedIds={selectedIds}
+        onToggleCompany={toggleCompany}
+        onToggleAll={toggleAllCompanies}
       />
     </div>
   )

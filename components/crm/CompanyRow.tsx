@@ -75,9 +75,11 @@ const LIFECYCLE_COLOURS: Record<string, string> = {
 export interface CompanyRowProps {
   company: Company
   onClick: (id: string) => void
+  selected?: boolean
+  onToggleSelected?: (id: string) => void
 }
 
-export function CompanyRow({ company, onClick }: CompanyRowProps) {
+export function CompanyRow({ company, onClick, selected = false, onToggleSelected }: CompanyRowProps) {
   const lcCls = company.lifecycleStage
     ? (LIFECYCLE_COLOURS[company.lifecycleStage] ?? 'bg-surface-container text-on-surface-variant')
     : ''
@@ -95,8 +97,20 @@ export function CompanyRow({ company, onClick }: CompanyRowProps) {
   return (
     <tr
       onClick={() => onClick(company.id)}
-      className="cursor-pointer hover:bg-white/[0.03] transition-colors border-b border-[var(--color-pib-line)] last:border-0"
+      className={`cursor-pointer hover:bg-white/[0.03] transition-colors border-b border-[var(--color-pib-line)] last:border-0 ${selected ? 'bg-[var(--color-pib-accent)]/10' : ''}`}
     >
+      {onToggleSelected && (
+        <td className="px-4 py-3 w-10" onClick={(event) => event.stopPropagation()}>
+          <input
+            type="checkbox"
+            checked={selected}
+            onChange={() => onToggleSelected(company.id)}
+            className="h-4 w-4 rounded accent-[var(--color-pib-accent)]"
+            aria-label={`Select ${company.name}`}
+          />
+        </td>
+      )}
+
       {/* Logo / initials */}
       <td className="px-4 py-3 w-10">
         {company.logoUrl ? (
