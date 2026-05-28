@@ -131,7 +131,10 @@ export default function ProjectDetailPage() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   const [showNewTask, setShowNewTask] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<ProjectTab>('kanban')
-  const [viewMode, setViewMode] = useState<'board' | 'list'>('board')
+  const [viewMode, setViewMode] = useState<'board' | 'list'>(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return 'board'
+    return window.matchMedia('(max-width: 767px)').matches ? 'list' : 'board'
+  })
   const [boardSortMode, setBoardSortMode] = useState<'latest' | 'manual'>('latest')
   const [taskListSort, setTaskListSort] = useState<TaskListSort>('latest')
   const [editingBrief, setEditingBrief] = useState(false)
@@ -312,30 +315,31 @@ export default function ProjectDetailPage() {
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6 shrink-0">
-        <div>
-          <div className="flex items-center gap-2 text-xs text-on-surface-variant mb-1">
+      <div className="flex shrink-0 items-start justify-between gap-3 mb-3 md:mb-6">
+        <div className="min-w-0">
+          <div className="mb-1 flex min-w-0 items-center gap-2 overflow-hidden text-[11px] text-on-surface-variant md:text-xs">
             <Link href="/portal/projects" className="hover:text-on-surface transition-colors">Projects</Link>
             <span>/</span>
-            <span className="text-on-surface">{project?.name ?? '...'}</span>
+            <span className="truncate text-on-surface">{project?.name ?? '...'}</span>
           </div>
-          <h1 className="text-2xl font-headline font-bold text-on-surface">
+          <h1 className="truncate text-xl font-headline font-bold text-on-surface md:text-2xl">
             {loading ? '...' : project?.name}
           </h1>
         </div>
         {activeTab === 'kanban' && (
           <button
             onClick={() => setShowNewTask('todo')}
-            className="pib-btn-primary text-sm font-label"
+            className="pib-btn-primary shrink-0 px-3 py-2 text-xs font-label md:text-sm"
           >
             <span className="material-symbols-outlined text-[17px]">add_task</span>
-            New Task
+            <span className="hidden sm:inline">New Task</span>
+            <span className="sm:hidden">New</span>
           </button>
         )}
       </div>
 
       <PageTabs
-        className="mb-6 shrink-0"
+        className="mb-3 shrink-0 md:mb-6"
         ariaLabel="Project detail tabs"
         value={activeTab}
         onValueChange={(value) => setActiveTab(value as ProjectTab)}
@@ -347,7 +351,7 @@ export default function ProjectDetailPage() {
         <>
           <ProjectBoardSummary tasks={tasks} columns={columns} />
 
-          <div className="mb-4 flex shrink-0 items-center justify-between gap-3 overflow-x-auto">
+          <div className="mb-3 flex shrink-0 items-center justify-between gap-3 overflow-x-auto md:mb-4">
             <div className="inline-flex shrink-0 rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)] p-1">
               {(['board', 'list'] as const).map(mode => (
                 <button
@@ -393,7 +397,8 @@ export default function ProjectDetailPage() {
                     aria-pressed={taskListSort === option.key}
                   >
                     <span className="material-symbols-outlined text-[16px]">{option.icon}</span>
-                    {option.label}
+                    <span className="hidden sm:inline">{option.label}</span>
+                    <span className="sm:hidden">{option.key === 'latest' ? 'Latest' : 'Due'}</span>
                   </button>
                 ))}
               </div>
@@ -412,7 +417,39 @@ export default function ProjectDetailPage() {
             </div>
           ) : viewMode === 'list' ? (
             <div className="flex-1 overflow-auto rounded-lg border border-[var(--color-card-border)]">
-              <table className="w-full min-w-[760px] text-left text-sm">
+              <div data-testid="portal-mobile-task-list" className="space-y-2 p-2 md:hidden">
+                {sortedListTasks.map(task => {
+                  const assigneeIds = task.assigneeIds?.length ? task.assigneeIds : task.assigneeId ? [task.assigneeId] : []
+                  const people = [
+                    ...assigneeIds.map(id => memberLabel(members.find(member => member.userId === id))),
+                    task.assigneeAgentId ? agentLabel(agents.find(agent => agent.agentId === task.assigneeAgentId), task.assigneeAgentId) : '',
+                  ].filter(Boolean).join(', ') || 'Unassigned'
+                  return (
+                    <button
+                      key={task.id}
+                      type="button"
+                      onClick={() => setSelectedTask(task)}
+                      className="w-full rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)] p-3 text-left shadow-sm transition-colors hover:border-[var(--color-accent-v2)]"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-on-surface">{task.title}</p>
+                          <p className="mt-1 truncate text-[11px] text-on-surface-variant">{people}</p>
+                        </div>
+                        <span className="shrink-0 rounded-full border border-[var(--color-card-border)] bg-[var(--color-surface-container)] px-2 py-1 text-[10px] text-on-surface-variant">
+                          {columns.find(c => c.id === task.columnId)?.name ?? task.columnId}
+                        </span>
+                      </div>
+                      <div className="mt-3 flex items-center gap-2 text-[11px] text-on-surface-variant">
+                        <span className="inline-flex items-center gap-1"><span className="material-symbols-outlined text-[14px]">event</span>{formatDate(task.dueDate)}</span>
+                        <span className="inline-flex items-center gap-1"><span className="material-symbols-outlined text-[14px]">schedule</span>{formatEstimate(task.estimateMinutes)}</span>
+                        {(task.attachments?.length ?? 0) > 0 && <span className="ml-auto inline-flex items-center gap-1"><span className="material-symbols-outlined text-[14px]">attach_file</span>{task.attachments?.length ?? 0}</span>}
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+              <table className="hidden w-full min-w-[760px] text-left text-sm md:table">
                 <thead className="sticky top-0 bg-[var(--color-sidebar)] text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
                   <tr className="border-b border-[var(--color-card-border)]">
                     <th className="px-4 py-3">Task</th>

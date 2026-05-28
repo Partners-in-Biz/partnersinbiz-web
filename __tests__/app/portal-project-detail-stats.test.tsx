@@ -1,5 +1,5 @@
 import React from 'react'
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import ProjectDetailPage from '@/app/(portal)/portal/projects/[projectId]/page'
 
 let snapshotCallback: ((snap: { docChanges: () => Array<{ type: 'added' | 'modified' | 'removed'; doc: { id: string; data: () => Record<string, unknown> } }> }) => void) | null = null
@@ -119,6 +119,19 @@ describe('Portal project detail kanban stat cards', () => {
   beforeEach(() => {
     snapshotCallback = null
     unsubscribe.mockClear()
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      value: jest.fn().mockImplementation(query => ({
+        matches: false,
+        media: query,
+        onchange: null,
+        addListener: jest.fn(),
+        removeListener: jest.fn(),
+        addEventListener: jest.fn(),
+        removeEventListener: jest.fn(),
+        dispatchEvent: jest.fn(),
+      })),
+    })
     mockFetch()
   })
 
@@ -165,5 +178,26 @@ describe('Portal project detail kanban stat cards', () => {
 
     fireEvent.click(manualSort)
     expect(screen.getByRole('button', { name: /latest first/i })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('uses a compact task-card list by default on phones', async () => {
+    ;(window.matchMedia as jest.Mock).mockImplementation(query => ({
+      matches: query === '(max-width: 767px)',
+      media: query,
+      onchange: null,
+      addListener: jest.fn(),
+      removeListener: jest.fn(),
+      addEventListener: jest.fn(),
+      removeEventListener: jest.fn(),
+      dispatchEvent: jest.fn(),
+    }))
+
+    render(<ProjectDetailPage />)
+
+    await waitFor(() => expect(screen.getAllByText('Board blocker').length).toBeGreaterThan(0))
+    expect(screen.queryByTestId('kanban-board')).not.toBeInTheDocument()
+    const mobileList = screen.getByTestId('portal-mobile-task-list')
+    expect(mobileList).toBeInTheDocument()
+    expect(within(mobileList).getByRole('button', { name: /Board blocker/i })).toHaveTextContent('Blocked')
   })
 })
