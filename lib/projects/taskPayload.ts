@@ -338,6 +338,8 @@ export function buildProjectTaskCreateData(
     checklist: checklist.value,
     dueDate: cleanOptionalDate(body.dueDate),
     startDate: cleanOptionalDate(body.startDate),
+    baselineDueDate: cleanOptionalDate(body.baselineDueDate),
+    baselineStartDate: cleanOptionalDate(body.baselineStartDate),
     estimateMinutes: estimate.value,
     order: order.value,
   }
@@ -399,6 +401,8 @@ export function buildProjectTaskUpdateData(body: Record<string, unknown>): Paylo
   if (body.mentionIds !== undefined) updates.mentionIds = cleanStringArray(body.mentionIds)
   if (body.dueDate !== undefined) updates.dueDate = cleanOptionalDate(body.dueDate)
   if (body.startDate !== undefined) updates.startDate = cleanOptionalDate(body.startDate)
+  if (body.baselineDueDate !== undefined) updates.baselineDueDate = cleanOptionalDate(body.baselineDueDate)
+  if (body.baselineStartDate !== undefined) updates.baselineStartDate = cleanOptionalDate(body.baselineStartDate)
   if (body.agentReleaseAt !== undefined) {
     const releaseAt = cleanOptionalIsoDateTime(body.agentReleaseAt, 'agentReleaseAt')
     if (!releaseAt.ok) return releaseAt

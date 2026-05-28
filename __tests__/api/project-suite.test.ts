@@ -19,6 +19,13 @@ const mockCapacitiesGet = jest.fn()
 const mockRevenueGet = jest.fn()
 const mockMilestoneAdd = jest.fn()
 const mockAutomationAdd = jest.fn()
+const mockAuditAdd = jest.fn()
+const mockMilestoneDoc = jest.fn()
+const mockPlaybookDoc = jest.fn()
+const mockMilestoneDocGet = jest.fn()
+const mockPlaybookDocGet = jest.fn()
+const mockMilestoneUpdate = jest.fn()
+const mockPlaybookUpdate = jest.fn()
 
 const mockUser = { uid: 'owner-1', role: 'admin' as const, orgId: 'owner-org' }
 type MockAuthHandler = (req: NextRequest, user: typeof mockUser, ctx?: unknown) => unknown
@@ -121,17 +128,24 @@ beforeEach(() => {
   ]))
   mockMilestoneAdd.mockResolvedValue({ id: 'milestone-new' })
   mockAutomationAdd.mockResolvedValue({ id: 'automation-new' })
+  mockAuditAdd.mockResolvedValue({ id: 'audit-new' })
+  mockMilestoneDocGet.mockResolvedValue({ exists: true, data: () => ({ title: 'Launch', status: 'active' }) })
+  mockPlaybookDocGet.mockResolvedValue({ exists: true, data: () => ({ title: 'Weekly client report', status: 'active' }) })
+  mockMilestoneUpdate.mockResolvedValue(undefined)
+  mockPlaybookUpdate.mockResolvedValue(undefined)
+  mockMilestoneDoc.mockReturnValue({ get: mockMilestoneDocGet, update: mockMilestoneUpdate })
+  mockPlaybookDoc.mockReturnValue({ get: mockPlaybookDocGet, update: mockPlaybookUpdate })
   mockSubCollection.mockImplementation((name: string) => {
     if (name === 'tasks') return { get: mockTasksGet }
-    if (name === 'milestones') return { get: mockMilestonesGet, add: mockMilestoneAdd }
+    if (name === 'milestones') return { get: mockMilestonesGet, add: mockMilestoneAdd, doc: mockMilestoneDoc }
     if (name === 'approvals') return { get: mockApprovalsGet }
     if (name === 'risks') return { get: mockRisksGet }
     if (name === 'decisions') return { get: mockDecisionsGet }
     if (name === 'baselines') return { get: mockBaselinesGet }
-    if (name === 'playbooks') return { get: mockPlaybooksGet }
+    if (name === 'playbooks') return { get: mockPlaybooksGet, doc: mockPlaybookDoc }
     if (name === 'automations') return { get: mockAutomationsGet, add: mockAutomationAdd }
     if (name === 'permissions') return { get: mockPermissionsGet }
-    if (name === 'audit') return { get: mockAuditGet }
+    if (name === 'audit') return { get: mockAuditGet, add: mockAuditAdd }
     if (name === 'notificationSettings') return { get: mockNotificationSettingsGet }
     if (name === 'capacities') return { get: mockCapacitiesGet }
     if (name === 'revenue') return { get: mockRevenueGet }
@@ -232,6 +246,73 @@ describe('project suite API', () => {
       allowedRoleIds: ['manager'],
       notificationChannels: ['email', 'in_app'],
       createdBy: 'owner-1',
+    }))
+  })
+
+  it('updates editable suite timeline records and writes an audit event', async () => {
+    const { PATCH } = await import('@/app/api/v1/projects/[projectId]/suite/route')
+    const res = await PATCH(new NextRequest('http://localhost/api/v1/projects/project-1/suite', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        type: 'milestone',
+        id: 'milestone-1',
+        title: 'Launch readiness',
+        startDate: '2026-06-01',
+        dueDate: '2026-06-25',
+        baselineDueDate: '2026-06-15',
+        dependsOn: ['task-1', 'approval-1'],
+        visibility: 'restricted',
+        allowedRoleIds: ['manager'],
+      }),
+    }), {
+      params: Promise.resolve({ projectId: 'project-1' }),
+    })
+
+    expect(res.status).toBe(200)
+    expect(mockMilestoneDoc).toHaveBeenCalledWith('milestone-1')
+    expect(mockMilestoneUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      title: 'Launch readiness',
+      startDate: '2026-06-01',
+      dueDate: '2026-06-25',
+      baselineDueDate: '2026-06-15',
+      dependsOn: ['task-1', 'approval-1'],
+      visibility: 'restricted',
+      allowedRoleIds: ['manager'],
+      updatedBy: 'owner-1',
+    }))
+    expect(mockAuditAdd).toHaveBeenCalledWith(expect.objectContaining({
+      eventType: 'suite_updated',
+      itemType: 'milestone',
+      itemId: 'milestone-1',
+      actorUid: 'owner-1',
+    }))
+  })
+
+  it('archives suite records instead of hard deleting them and writes an audit event', async () => {
+    const { DELETE } = await import('@/app/api/v1/projects/[projectId]/suite/route')
+    const res = await DELETE(new NextRequest('http://localhost/api/v1/projects/project-1/suite', {
+      method: 'DELETE',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        type: 'playbook',
+        id: 'playbook-1',
+      }),
+    }), {
+      params: Promise.resolve({ projectId: 'project-1' }),
+    })
+
+    expect(res.status).toBe(200)
+    expect(mockPlaybookDoc).toHaveBeenCalledWith('playbook-1')
+    expect(mockPlaybookUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      deleted: true,
+      status: 'archived',
+      updatedBy: 'owner-1',
+    }))
+    expect(mockAuditAdd).toHaveBeenCalledWith(expect.objectContaining({
+      eventType: 'suite_archived',
+      itemType: 'playbook',
+      itemId: 'playbook-1',
     }))
   })
 })

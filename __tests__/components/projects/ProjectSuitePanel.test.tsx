@@ -1,0 +1,140 @@
+import React from 'react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { ProjectSuitePanel } from '@/components/projects/ProjectSuitePanel'
+
+function suiteResponse() {
+  return {
+    health: { level: 'watch', score: 82, blockedTasks: 0, overdueTasks: 1, waitingApprovals: 1, milestoneDrift: 1 },
+    milestones: [{ id: 'milestone-1', title: 'Design sprint', startDate: '2026-06-01', dueDate: '2026-06-10', baselineDueDate: '2026-06-08', status: 'active' }],
+    approvals: [],
+    risks: [],
+    decisions: [],
+    baselines: [{ id: 'baseline-1', title: 'Website launch baseline', status: 'active' }],
+    playbooks: [{ id: 'playbook-1', title: 'Weekly launch rhythm', cadence: 'weekly', status: 'active' }],
+    automations: [],
+    permissions: [],
+    audit: [],
+    notificationSettings: [],
+    timeline: {
+      driftCount: 1,
+      dependencyCount: 1,
+      items: [
+        { id: 'milestone-1', kind: 'milestone', title: 'Design sprint', startDate: '2026-06-01', dueDate: '2026-06-10', baselineDueDate: '2026-06-08', baselineDriftDays: 2, dependencies: ['task-1'] },
+      ],
+    },
+    workload: { assignees: [], totalEstimateMinutes: 0, totalCapacityMinutes: 0, overCapacityCount: 0 },
+    reports: { tasks: { total: 0, blocked: 0 }, approvals: { waiting: 0 }, revenue: { trackedAmount: 0, currency: 'ZAR' } },
+  }
+}
+
+describe('ProjectSuitePanel', () => {
+  beforeEach(() => {
+    global.fetch = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      const method = init?.method ?? 'GET'
+      if (url === '/api/v1/projects/project-1/suite' && method === 'GET') {
+        return { ok: true, json: async () => ({ data: suiteResponse() }) } as Response
+      }
+      if (url === '/api/v1/projects/project-1/suite' && ['POST', 'PATCH', 'DELETE'].includes(method)) {
+        return { ok: true, json: async () => ({ data: { id: 'saved' } }) } as Response
+      }
+      if (url === '/api/v1/projects/project-1/tasks/task-1' && method === 'PATCH') {
+        return { ok: true, json: async () => ({ data: { id: 'task-1' } }) } as Response
+      }
+      return { ok: true, json: async () => ({ data: {} }) } as Response
+    }) as jest.Mock
+  })
+
+  it('creates timeline milestones with dependencies and baseline dates from the Plan editor', async () => {
+    render(<ProjectSuitePanel projectId="project-1" />)
+
+    await waitFor(() => expect(screen.getAllByText('Design sprint').length).toBeGreaterThan(0))
+    fireEvent.change(screen.getByLabelText('New timeline title'), { target: { value: 'Content QA' } })
+    fireEvent.change(screen.getByLabelText('Timeline start date'), { target: { value: '2026-06-11' } })
+    fireEvent.change(screen.getByLabelText('Timeline due date'), { target: { value: '2026-06-18' } })
+    fireEvent.change(screen.getByLabelText('Timeline baseline due date'), { target: { value: '2026-06-15' } })
+    fireEvent.change(screen.getByLabelText('Timeline dependencies'), { target: { value: 'task-1, milestone-1' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save timeline item' }))
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/v1/projects/project-1/suite', expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({
+        type: 'milestone',
+        title: 'Content QA',
+        startDate: '2026-06-11',
+        dueDate: '2026-06-18',
+        baselineDueDate: '2026-06-15',
+        dependsOn: ['task-1', 'milestone-1'],
+        visibility: 'project',
+      }),
+    })))
+  })
+
+  it('edits existing timeline records and project controls from the Plan editor', async () => {
+    render(<ProjectSuitePanel projectId="project-1" />)
+
+    await waitFor(() => expect(screen.getAllByText('Design sprint').length).toBeGreaterThan(0))
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Design sprint' }))
+    fireEvent.change(screen.getByLabelText('Edit timeline due date'), { target: { value: '2026-06-20' } })
+    fireEvent.change(screen.getByLabelText('Edit timeline baseline due date'), { target: { value: '2026-06-15' } })
+    fireEvent.change(screen.getByLabelText('Edit timeline dependencies'), { target: { value: 'task-1, approval-1' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save timeline changes' }))
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/v1/projects/project-1/suite', expect.objectContaining({
+      method: 'PATCH',
+      body: JSON.stringify({
+        type: 'milestone',
+        id: 'milestone-1',
+        title: 'Design sprint',
+        startDate: '2026-06-01',
+        dueDate: '2026-06-20',
+        baselineDueDate: '2026-06-15',
+        dependsOn: ['task-1', 'approval-1'],
+        visibility: 'project',
+      }),
+    })))
+
+    fireEvent.change(screen.getByLabelText('Playbook title'), { target: { value: 'Weekly launch rhythm' } })
+    fireEvent.change(screen.getByLabelText('Playbook cadence'), { target: { value: 'weekly' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save playbook' }))
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/v1/projects/project-1/suite', expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({
+        type: 'playbook',
+        title: 'Weekly launch rhythm',
+        cadence: 'weekly',
+        visibility: 'project',
+      }),
+    })))
+
+    fireEvent.change(screen.getByLabelText('Notification title'), { target: { value: 'Approval reminder' } })
+    fireEvent.change(screen.getByLabelText('Notification channel'), { target: { value: 'email' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save notification' }))
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/v1/projects/project-1/suite', expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({
+        type: 'notification',
+        title: 'Approval reminder',
+        channel: 'email',
+        visibility: 'project',
+      }),
+    })))
+  })
+
+  it('archives suite control records from the Plan lists', async () => {
+    render(<ProjectSuitePanel projectId="project-1" />)
+
+    await waitFor(() => expect(screen.getAllByText('Weekly launch rhythm').length).toBeGreaterThan(0))
+    fireEvent.click(screen.getByRole('button', { name: 'Archive Weekly launch rhythm' }))
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/v1/projects/project-1/suite', expect.objectContaining({
+      method: 'DELETE',
+      body: JSON.stringify({
+        type: 'playbook',
+        id: 'playbook-1',
+      }),
+    })))
+  })
+})

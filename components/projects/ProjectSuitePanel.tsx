@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
 type SuiteItem = {
   id?: string
@@ -12,6 +12,8 @@ type SuiteItem = {
   startDate?: unknown
   baselineDueDate?: unknown
   baselineDriftDays?: number
+  dependsOn?: string[]
+  cadence?: string
   ownerUid?: string
   actorName?: string
   channel?: string
@@ -119,6 +121,50 @@ function formatMoney(amount?: number, currency?: string): string {
   return `${currency || 'ZAR'} ${Math.round(value).toLocaleString()}`
 }
 
+function dateInputValue(value: unknown): string {
+  const millis = timestampToMillis(value)
+  if (!millis) return ''
+  return new Date(millis).toISOString().slice(0, 10)
+}
+
+function csvToIds(value: string): string[] {
+  return Array.from(new Set(
+    value
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean),
+  ))
+}
+
+type TimelineDraft = {
+  title: string
+  startDate: string
+  dueDate: string
+  baselineDueDate: string
+  dependsOn: string
+  visibility: string
+}
+
+const EMPTY_TIMELINE_DRAFT: TimelineDraft = {
+  title: '',
+  startDate: '',
+  dueDate: '',
+  baselineDueDate: '',
+  dependsOn: '',
+  visibility: 'project',
+}
+
+function draftFromTimelineItem(item: TimelineItem): TimelineDraft {
+  return {
+    title: item.title || '',
+    startDate: dateInputValue(item.startDate),
+    dueDate: dateInputValue(item.dueDate),
+    baselineDueDate: dateInputValue(item.baselineDueDate),
+    dependsOn: (item.dependencies || item.dependsOn || []).join(', '),
+    visibility: item.visibility || 'project',
+  }
+}
+
 function HealthMetric({ label, value }: { label: string; value: number }) {
   return (
     <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-background)] px-4 py-3">
@@ -128,8 +174,23 @@ function HealthMetric({ label, value }: { label: string; value: number }) {
   )
 }
 
-function TimelinePanel({ timeline, baselines }: { timeline?: SuiteData['timeline']; baselines: SuiteItem[] }) {
+function TimelinePanel({
+  timeline,
+  baselines,
+  onCreateMilestone,
+  onUpdateTimelineItem,
+  saving,
+}: {
+  timeline?: SuiteData['timeline']
+  baselines: SuiteItem[]
+  onCreateMilestone: (draft: TimelineDraft) => Promise<void>
+  onUpdateTimelineItem: (item: TimelineItem, draft: TimelineDraft) => Promise<void>
+  saving: boolean
+}) {
   const items = Array.isArray(timeline?.items) ? timeline.items : []
+  const [draft, setDraft] = useState<TimelineDraft>(EMPTY_TIMELINE_DRAFT)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editDraft, setEditDraft] = useState<TimelineDraft>(EMPTY_TIMELINE_DRAFT)
   return (
     <section className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-background)] p-4">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
@@ -155,9 +216,108 @@ function TimelinePanel({ timeline, baselines }: { timeline?: SuiteData['timeline
             {Array.isArray(item.dependencies) && item.dependencies.length > 0 ? (
               <p className="mt-2 text-[11px] text-on-surface-variant">{item.dependencies.length} dependencies</p>
             ) : null}
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                className="pib-btn-secondary px-3 py-1 text-[11px] font-label"
+                aria-label={`Edit ${item.title || 'timeline item'}`}
+                onClick={() => {
+                  setEditingId(item.id || null)
+                  setEditDraft(draftFromTimelineItem(item))
+                }}
+              >
+                Edit
+              </button>
+            </div>
+            {editingId && editingId === item.id ? (
+              <form
+                className="mt-3 grid gap-2 rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] p-3 sm:grid-cols-2"
+                onSubmit={(event) => {
+                  event.preventDefault()
+                  onUpdateTimelineItem(item, editDraft).then(() => setEditingId(null)).catch(() => {})
+                }}
+              >
+                <label className="sm:col-span-2">
+                  <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Edit timeline title</span>
+                  <input value={editDraft.title} onChange={(event) => setEditDraft({ ...editDraft, title: event.target.value })} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface" />
+                </label>
+                <label>
+                  <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Edit timeline start date</span>
+                  <input type="date" value={editDraft.startDate} onChange={(event) => setEditDraft({ ...editDraft, startDate: event.target.value })} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface" />
+                </label>
+                <label>
+                  <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Edit timeline due date</span>
+                  <input type="date" value={editDraft.dueDate} onChange={(event) => setEditDraft({ ...editDraft, dueDate: event.target.value })} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface" />
+                </label>
+                <label>
+                  <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Edit timeline baseline due date</span>
+                  <input type="date" value={editDraft.baselineDueDate} onChange={(event) => setEditDraft({ ...editDraft, baselineDueDate: event.target.value })} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface" />
+                </label>
+                <label>
+                  <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Edit timeline dependencies</span>
+                  <input value={editDraft.dependsOn} onChange={(event) => setEditDraft({ ...editDraft, dependsOn: event.target.value })} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface" />
+                </label>
+                <label>
+                  <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Edit visibility</span>
+                  <select value={editDraft.visibility} onChange={(event) => setEditDraft({ ...editDraft, visibility: event.target.value })} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface">
+                    <option value="project">Project</option>
+                    <option value="restricted">Restricted</option>
+                    <option value="internal">Internal</option>
+                    <option value="external">External</option>
+                  </select>
+                </label>
+                <div className="flex items-end gap-2">
+                  <button type="submit" className="pib-btn-primary text-xs font-label" disabled={saving || !editDraft.title.trim()}>Save timeline changes</button>
+                  <button type="button" className="pib-btn-secondary text-xs font-label" onClick={() => setEditingId(null)}>Cancel</button>
+                </div>
+              </form>
+            ) : null}
           </article>
         ))}
       </div>
+      <form
+        className="mt-4 grid gap-2 rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-3 sm:grid-cols-2"
+        onSubmit={(event) => {
+          event.preventDefault()
+          onCreateMilestone(draft)
+            .then(() => setDraft(EMPTY_TIMELINE_DRAFT))
+            .catch(() => {})
+        }}
+      >
+        <h4 className="text-sm font-headline font-semibold text-on-surface sm:col-span-2">Add timeline item</h4>
+        <label className="sm:col-span-2">
+          <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">New timeline title</span>
+          <input value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface" />
+        </label>
+        <label>
+          <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Timeline start date</span>
+          <input type="date" value={draft.startDate} onChange={(event) => setDraft({ ...draft, startDate: event.target.value })} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface" />
+        </label>
+        <label>
+          <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Timeline due date</span>
+          <input type="date" value={draft.dueDate} onChange={(event) => setDraft({ ...draft, dueDate: event.target.value })} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface" />
+        </label>
+        <label>
+          <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Timeline baseline due date</span>
+          <input type="date" value={draft.baselineDueDate} onChange={(event) => setDraft({ ...draft, baselineDueDate: event.target.value })} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface" />
+        </label>
+        <label>
+          <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Timeline dependencies</span>
+          <input value={draft.dependsOn} onChange={(event) => setDraft({ ...draft, dependsOn: event.target.value })} placeholder="task-1, milestone-1" className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface" />
+        </label>
+        <label>
+          <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Timeline visibility</span>
+          <select value={draft.visibility} onChange={(event) => setDraft({ ...draft, visibility: event.target.value })} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface">
+            <option value="project">Project</option>
+            <option value="restricted">Restricted</option>
+            <option value="internal">Internal</option>
+            <option value="external">External</option>
+          </select>
+        </label>
+        <div className="flex items-end">
+          <button type="submit" className="pib-btn-primary text-xs font-label" disabled={saving || !draft.title.trim()}>Save timeline item</button>
+        </div>
+      </form>
       {baselines.length > 0 ? (
         <div className="mt-3 border-t border-[var(--color-card-border)] pt-3">
           <p className="mb-2 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Baselines</p>
@@ -229,7 +389,132 @@ function ReportsPanel({ reports }: { reports?: ProjectReports }) {
   )
 }
 
-function ItemList({ title, emptyLabel, items }: { title: string; emptyLabel: string; items: SuiteItem[] }) {
+function ControlForms({
+  onCreateSuiteItem,
+  saving,
+}: {
+  onCreateSuiteItem: (payload: Record<string, unknown>) => Promise<void>
+  saving: boolean
+}) {
+  const [playbookTitle, setPlaybookTitle] = useState('')
+  const [playbookCadence, setPlaybookCadence] = useState('weekly')
+  const [notificationTitle, setNotificationTitle] = useState('')
+  const [notificationChannel, setNotificationChannel] = useState('email')
+  const [permissionTitle, setPermissionTitle] = useState('')
+  const [permissionVisibility, setPermissionVisibility] = useState('restricted')
+  const [permissionRoles, setPermissionRoles] = useState('manager')
+
+  return (
+    <section className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-background)] p-4">
+      <div className="mb-3">
+        <h3 className="text-sm font-headline font-semibold text-on-surface">Plan controls</h3>
+        <p className="mt-1 text-xs text-on-surface-variant">Templates, notifications, and item access rules for recurring delivery.</p>
+      </div>
+      <div className="grid gap-3 lg:grid-cols-3">
+        <form
+          className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-3"
+          onSubmit={(event) => {
+            event.preventDefault()
+            onCreateSuiteItem({ type: 'playbook', title: playbookTitle, cadence: playbookCadence, visibility: 'project' })
+              .then(() => setPlaybookTitle(''))
+              .catch(() => {})
+          }}
+        >
+          <h4 className="text-xs font-headline font-semibold text-on-surface">Recurring playbook</h4>
+          <label className="mt-3 block">
+            <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Playbook title</span>
+            <input value={playbookTitle} onChange={(event) => setPlaybookTitle(event.target.value)} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface" />
+          </label>
+          <label className="mt-2 block">
+            <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Playbook cadence</span>
+            <select value={playbookCadence} onChange={(event) => setPlaybookCadence(event.target.value)} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface">
+              <option value="weekly">weekly</option>
+              <option value="monthly">monthly</option>
+              <option value="per_milestone">per milestone</option>
+            </select>
+          </label>
+          <button type="submit" className="pib-btn-primary mt-3 text-xs font-label" disabled={saving || !playbookTitle.trim()}>Save playbook</button>
+        </form>
+
+        <form
+          className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-3"
+          onSubmit={(event) => {
+            event.preventDefault()
+            onCreateSuiteItem({ type: 'notification', title: notificationTitle, channel: notificationChannel, visibility: 'project' })
+              .then(() => setNotificationTitle(''))
+              .catch(() => {})
+          }}
+        >
+          <h4 className="text-xs font-headline font-semibold text-on-surface">Notification control</h4>
+          <label className="mt-3 block">
+            <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Notification title</span>
+            <input value={notificationTitle} onChange={(event) => setNotificationTitle(event.target.value)} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface" />
+          </label>
+          <label className="mt-2 block">
+            <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Notification channel</span>
+            <select value={notificationChannel} onChange={(event) => setNotificationChannel(event.target.value)} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface">
+              <option value="email">email</option>
+              <option value="in_app">in app</option>
+              <option value="both">both</option>
+            </select>
+          </label>
+          <button type="submit" className="pib-btn-primary mt-3 text-xs font-label" disabled={saving || !notificationTitle.trim()}>Save notification</button>
+        </form>
+
+        <form
+          className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-3"
+          onSubmit={(event) => {
+            event.preventDefault()
+            onCreateSuiteItem({
+              type: 'permission',
+              title: permissionTitle,
+              visibility: permissionVisibility,
+              allowedRoleIds: csvToIds(permissionRoles),
+            })
+              .then(() => setPermissionTitle(''))
+              .catch(() => {})
+          }}
+        >
+          <h4 className="text-xs font-headline font-semibold text-on-surface">Access control</h4>
+          <label className="mt-3 block">
+            <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Permission title</span>
+            <input value={permissionTitle} onChange={(event) => setPermissionTitle(event.target.value)} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface" />
+          </label>
+          <label className="mt-2 block">
+            <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Permission visibility</span>
+            <select value={permissionVisibility} onChange={(event) => setPermissionVisibility(event.target.value)} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface">
+              <option value="restricted">restricted</option>
+              <option value="project">project</option>
+              <option value="internal">internal</option>
+              <option value="external">external</option>
+            </select>
+          </label>
+          <label className="mt-2 block">
+            <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Allowed roles</span>
+            <input value={permissionRoles} onChange={(event) => setPermissionRoles(event.target.value)} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface" />
+          </label>
+          <button type="submit" className="pib-btn-primary mt-3 text-xs font-label" disabled={saving || !permissionTitle.trim()}>Save access control</button>
+        </form>
+      </div>
+    </section>
+  )
+}
+
+function ItemList({
+  title,
+  emptyLabel,
+  items,
+  type,
+  onArchive,
+  saving,
+}: {
+  title: string
+  emptyLabel: string
+  items: SuiteItem[]
+  type?: string
+  onArchive?: (type: string, id: string) => Promise<void>
+  saving?: boolean
+}) {
   return (
     <section className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-background)] p-4">
       <div className="mb-3 flex items-center justify-between gap-3">
@@ -287,6 +572,21 @@ function ItemList({ title, emptyLabel, items }: { title: string; emptyLabel: str
                 </span>
               ) : null}
             </div>
+            {type && item.id && onArchive ? (
+              <div className="mt-3 flex justify-end">
+                <button
+                  type="button"
+                  className="pib-btn-secondary px-3 py-1 text-[11px] font-label"
+                  aria-label={`Archive ${item.title || 'item'}`}
+                  disabled={saving}
+                  onClick={() => {
+                    onArchive(type, item.id as string).catch(() => {})
+                  }}
+                >
+                  Archive
+                </button>
+              </div>
+            ) : null}
           </article>
         ))}
       </div>
@@ -297,6 +597,7 @@ function ItemList({ title, emptyLabel, items }: { title: string; emptyLabel: str
 export function ProjectSuitePanel({ projectId }: { projectId: string }) {
   const [data, setData] = useState<SuiteData>(EMPTY_SUITE)
   const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const health = data.health ?? {}
@@ -313,44 +614,124 @@ export function ProjectSuitePanel({ projectId }: { projectId: string }) {
     [health.blockedTasks, health.milestoneDrift, health.overdueTasks, health.waitingApprovals],
   )
 
-  useEffect(() => {
-    let cancelled = false
-    queueMicrotask(() => {
-      if (!cancelled) setLoading(true)
-    })
-    fetch(`/api/v1/projects/${projectId}/suite`)
-      .then(async (res) => {
-        const body = await res.json().catch(() => ({}))
-        if (!res.ok) throw new Error(body.error || 'Project suite failed to load')
-        const next = body.data ?? {}
-        if (!cancelled) {
-          setData({
-            health: next.health ?? {},
-            timeline: next.timeline ?? {},
-            workload: next.workload ?? {},
-            reports: next.reports ?? {},
-            milestones: Array.isArray(next.milestones) ? next.milestones : [],
-            approvals: Array.isArray(next.approvals) ? next.approvals : [],
-            risks: Array.isArray(next.risks) ? next.risks : [],
-            decisions: Array.isArray(next.decisions) ? next.decisions : [],
-            baselines: Array.isArray(next.baselines) ? next.baselines : [],
-            playbooks: Array.isArray(next.playbooks) ? next.playbooks : [],
-            automations: Array.isArray(next.automations) ? next.automations : [],
-            permissions: Array.isArray(next.permissions) ? next.permissions : [],
-            audit: Array.isArray(next.audit) ? next.audit : [],
-            notificationSettings: Array.isArray(next.notificationSettings) ? next.notificationSettings : [],
-          })
-          setError(null)
-        }
+  const loadSuite = useCallback(async (options?: { quiet?: boolean; signal?: AbortSignal }) => {
+    if (!options?.quiet) setLoading(true)
+    try {
+      const res = await fetch(`/api/v1/projects/${projectId}/suite`, { signal: options?.signal })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(body.error || 'Project suite failed to load')
+      const next = body.data ?? {}
+      setData({
+        health: next.health ?? {},
+        timeline: next.timeline ?? {},
+        workload: next.workload ?? {},
+        reports: next.reports ?? {},
+        milestones: Array.isArray(next.milestones) ? next.milestones : [],
+        approvals: Array.isArray(next.approvals) ? next.approvals : [],
+        risks: Array.isArray(next.risks) ? next.risks : [],
+        decisions: Array.isArray(next.decisions) ? next.decisions : [],
+        baselines: Array.isArray(next.baselines) ? next.baselines : [],
+        playbooks: Array.isArray(next.playbooks) ? next.playbooks : [],
+        automations: Array.isArray(next.automations) ? next.automations : [],
+        permissions: Array.isArray(next.permissions) ? next.permissions : [],
+        audit: Array.isArray(next.audit) ? next.audit : [],
+        notificationSettings: Array.isArray(next.notificationSettings) ? next.notificationSettings : [],
       })
-      .catch((err) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Project suite failed to load')
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
-    return () => { cancelled = true }
+      setError(null)
+    } catch (err) {
+      if ((err as { name?: string }).name !== 'AbortError') {
+        setError(err instanceof Error ? err.message : 'Project suite failed to load')
+      }
+    } finally {
+      if (!options?.quiet) setLoading(false)
+    }
   }, [projectId])
+
+  useEffect(() => {
+    const controller = new AbortController()
+    loadSuite({ signal: controller.signal }).catch(() => {})
+    return () => controller.abort()
+  }, [loadSuite])
+
+  async function mutateSuite(payload: Record<string, unknown>, method = 'POST') {
+    setSaving(true)
+    setError(null)
+    try {
+      const res = await fetch(`/api/v1/projects/${projectId}/suite`, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(body.error || 'Project plan update failed')
+      await loadSuite({ quiet: true })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Project plan update failed')
+      throw err
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function patchTaskTimelineItem(item: TimelineItem, draft: TimelineDraft) {
+    if (!item.id) return
+    setSaving(true)
+    setError(null)
+    try {
+      const res = await fetch(`/api/v1/projects/${projectId}/tasks/${item.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: draft.title,
+          startDate: draft.startDate || null,
+          dueDate: draft.dueDate || null,
+          baselineDueDate: draft.baselineDueDate || null,
+          dependsOn: csvToIds(draft.dependsOn),
+        }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(body.error || 'Timeline task update failed')
+      await loadSuite({ quiet: true })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Timeline task update failed')
+      throw err
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function createTimelineMilestone(draft: TimelineDraft) {
+    await mutateSuite({
+      type: 'milestone',
+      title: draft.title.trim(),
+      startDate: draft.startDate || null,
+      dueDate: draft.dueDate || null,
+      baselineDueDate: draft.baselineDueDate || null,
+      dependsOn: csvToIds(draft.dependsOn),
+      visibility: draft.visibility,
+    })
+  }
+
+  async function updateTimelineItem(item: TimelineItem, draft: TimelineDraft) {
+    if (item.kind === 'task') {
+      await patchTaskTimelineItem(item, draft)
+      return
+    }
+    await mutateSuite({
+      type: item.kind || 'milestone',
+      id: item.id,
+      title: draft.title.trim(),
+      startDate: draft.startDate || null,
+      dueDate: draft.dueDate || null,
+      baselineDueDate: draft.baselineDueDate || null,
+      dependsOn: csvToIds(draft.dependsOn),
+      visibility: draft.visibility,
+    }, 'PATCH')
+  }
+
+  async function archiveSuiteItem(type: string, id: string) {
+    await mutateSuite({ type, id }, 'DELETE')
+  }
 
   return (
     <div className="flex-1 overflow-auto pb-6">
@@ -372,22 +753,30 @@ export function ProjectSuitePanel({ projectId }: { projectId: string }) {
         </section>
 
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
-          <TimelinePanel timeline={data.timeline} baselines={data.baselines} />
+          <TimelinePanel
+            timeline={data.timeline}
+            baselines={data.baselines}
+            onCreateMilestone={createTimelineMilestone}
+            onUpdateTimelineItem={updateTimelineItem}
+            saving={saving}
+          />
           <WorkloadPanel workload={data.workload} />
         </div>
 
         <ReportsPanel reports={data.reports} />
 
+        <ControlForms onCreateSuiteItem={(payload) => mutateSuite(payload)} saving={saving} />
+
         <div className="grid gap-4 xl:grid-cols-2">
-          <ItemList title="Milestones" emptyLabel="No milestones yet." items={data.milestones} />
-          <ItemList title="Approvals" emptyLabel="No approval gates yet." items={data.approvals} />
-          <ItemList title="Risk log" emptyLabel="No active risks logged." items={data.risks} />
-          <ItemList title="Decision log" emptyLabel="No decisions recorded yet." items={data.decisions} />
-          <ItemList title="Playbooks" emptyLabel="No playbooks yet." items={data.playbooks} />
-          <ItemList title="Automations" emptyLabel="No automations yet." items={data.automations} />
-          <ItemList title="Access controls" emptyLabel="No item-level access controls yet." items={data.permissions} />
+          <ItemList title="Milestones" emptyLabel="No milestones yet." items={data.milestones} type="milestone" onArchive={archiveSuiteItem} saving={saving} />
+          <ItemList title="Approvals" emptyLabel="No approval gates yet." items={data.approvals} type="approval" onArchive={archiveSuiteItem} saving={saving} />
+          <ItemList title="Risk log" emptyLabel="No active risks logged." items={data.risks} type="risk" onArchive={archiveSuiteItem} saving={saving} />
+          <ItemList title="Decision log" emptyLabel="No decisions recorded yet." items={data.decisions} type="decision" onArchive={archiveSuiteItem} saving={saving} />
+          <ItemList title="Playbooks" emptyLabel="No playbooks yet." items={data.playbooks} type="playbook" onArchive={archiveSuiteItem} saving={saving} />
+          <ItemList title="Automations" emptyLabel="No automations yet." items={data.automations} type="automation" onArchive={archiveSuiteItem} saving={saving} />
+          <ItemList title="Access controls" emptyLabel="No item-level access controls yet." items={data.permissions} type="permission" onArchive={archiveSuiteItem} saving={saving} />
           <ItemList title="Audit timeline" emptyLabel="No audit events yet." items={data.audit} />
-          <ItemList title="Notifications" emptyLabel="No notification rules yet." items={data.notificationSettings} />
+          <ItemList title="Notifications" emptyLabel="No notification rules yet." items={data.notificationSettings} type="notification" onArchive={archiveSuiteItem} saving={saving} />
         </div>
       </div>
     </div>

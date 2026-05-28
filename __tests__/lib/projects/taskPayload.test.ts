@@ -19,6 +19,8 @@ describe('project task payload helpers', () => {
         mentionIds: ['user-2'],
         dueDate: '2026-05-12',
         startDate: '2026-05-08',
+        baselineDueDate: '2026-05-10',
+        baselineStartDate: '2026-05-06',
         estimateMinutes: 180,
         checklist: [{ id: 'check-1', text: 'Confirm scope', done: false }],
         attachments: [{
@@ -47,6 +49,8 @@ describe('project task payload helpers', () => {
       mentionIds: ['user-2'],
       dueDate: '2026-05-12',
       startDate: '2026-05-08',
+      baselineDueDate: '2026-05-10',
+      baselineStartDate: '2026-05-06',
       estimateMinutes: 180,
     }))
     expect(result.value.attachments).toEqual([
@@ -87,6 +91,8 @@ describe('project task payload helpers', () => {
       assigneeIds: ['user-3'],
       estimateMinutes: null,
       internalOnly: true,
+      baselineDueDate: '2026-05-20',
+      baselineStartDate: null,
       ignored: 'nope',
     })
 
@@ -99,6 +105,8 @@ describe('project task payload helpers', () => {
       assigneeId: 'user-3',
       estimateMinutes: null,
       internalOnly: true,
+      baselineDueDate: '2026-05-20',
+      baselineStartDate: null,
     })
   })
 
