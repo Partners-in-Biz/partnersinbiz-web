@@ -2,8 +2,12 @@
 
 import { useMemo, useRef, useState } from 'react'
 import {
+  filterContextReferenceMentionOptions,
   findActiveContextMention,
+  findActiveContextTypePrompt,
   removeMentionToken,
+  replaceTypePromptToken,
+  type ContextReferenceMentionOption,
 } from '@/lib/context-references/composer'
 import {
   contextReferenceKey,
@@ -53,6 +57,14 @@ export function ContextReferencePicker({
   const [loading, setLoading] = useState(false)
   const searchSeq = useRef(0)
   const activeMention = useMemo(() => findActiveContextMention(input), [input])
+  const activeTypePrompt = useMemo(
+    () => (activeMention ? null : findActiveContextTypePrompt(input)),
+    [activeMention, input],
+  )
+  const contextTypeOptions = useMemo(
+    () => (activeTypePrompt ? filterContextReferenceMentionOptions(activeTypePrompt.query) : []),
+    [activeTypePrompt],
+  )
 
   async function searchMention(nextInput: string) {
     const mention = findActiveContextMention(nextInput)
@@ -91,6 +103,13 @@ export function ContextReferencePicker({
     void searchMention(nextInput)
   }
 
+  function chooseContextType(option: ContextReferenceMentionOption) {
+    if (!activeTypePrompt) return
+    const nextInput = replaceTypePromptToken(input, activeTypePrompt, option.namespace)
+    setInput(nextInput)
+    void searchMention(nextInput)
+  }
+
   function addRef(ref: ContextReference) {
     onChange(mergeContextReferences(value, [withProjectMetadata(ref, projectId)]))
     setInput(activeMention ? removeMentionToken(input, activeMention) : '')
@@ -117,6 +136,30 @@ export function ContextReferencePicker({
             compact ? 'px-2.5 py-2 text-xs' : 'px-3 py-2 text-sm',
           ].join(' ')}
         />
+        {orgId && activeTypePrompt && (
+          <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-20 overflow-hidden rounded-md border border-[var(--color-card-border)] bg-[var(--color-sidebar)] shadow-xl">
+            <div className="px-3 py-2 text-[10px] uppercase tracking-wide text-on-surface-variant">
+              Reference types
+            </div>
+            {contextTypeOptions.length === 0 ? (
+              <p className="px-3 py-2 text-xs text-on-surface-variant">No matching reference types</p>
+            ) : (
+              contextTypeOptions.map((option) => (
+                <button
+                  key={option.namespace}
+                  type="button"
+                  aria-label={`Use @${option.namespace}:`}
+                  onClick={() => chooseContextType(option)}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-on-surface hover:bg-[var(--color-surface-container)]"
+                >
+                  <span className="font-label uppercase tracking-wide text-on-surface-variant">{option.type}</span>
+                  <span className="min-w-0 flex-1 truncate">{option.label}</span>
+                  <span className="text-on-surface-variant">@{option.namespace}:</span>
+                </button>
+              ))
+            )}
+          </div>
+        )}
         {orgId && activeMention && (results.length > 0 || loading) && (
           <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-20 overflow-hidden rounded-md border border-[var(--color-card-border)] bg-[var(--color-sidebar)] shadow-xl">
             {loading && results.length === 0 ? (

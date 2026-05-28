@@ -2,7 +2,9 @@ import {
   contextTypeFromMentionNamespace,
   extractCurrentPageContextCommand,
   findActiveContextMention,
+  findActiveContextTypePrompt,
   removeMentionToken,
+  replaceTypePromptToken,
 } from '@/lib/context-references/composer'
 
 describe('context reference composer helpers', () => {
@@ -34,5 +36,21 @@ describe('context reference composer helpers', () => {
       start: 6,
       end: 22,
     })).toBe('Check with me')
+  })
+
+  it('detects bare and partial @reference type prompts', () => {
+    expect(findActiveContextTypePrompt('Compare @')).toMatchObject({
+      token: '@',
+      query: '',
+      start: 8,
+      end: 9,
+    })
+    expect(findActiveContextTypePrompt('Compare @pr')).toMatchObject({
+      token: '@pr',
+      query: 'pr',
+      start: 8,
+      end: 11,
+    })
+    expect(replaceTypePromptToken('Compare @pr', { start: 8, end: 11 }, 'projects')).toBe('Compare @projects:')
   })
 })

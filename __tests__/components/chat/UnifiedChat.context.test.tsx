@@ -164,4 +164,25 @@ describe('UnifiedChat context references', () => {
       expect.anything(),
     )
   })
+
+  it('shows reference type options for bare @ input', async () => {
+    render(
+      <UnifiedChat
+        orgId="org-1"
+        currentUserUid="user-1"
+        currentUserDisplayName="Peet"
+      />,
+    )
+
+    const input = await screen.findByPlaceholderText('Send a message')
+    fireEvent.change(input, { target: { value: '@' } })
+
+    expect(await screen.findByRole('button', { name: 'Use @projects:' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Use @contacts:' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Use @tasks:' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Use @projects:' }))
+
+    expect(input).toHaveValue('@projects:')
+  })
 })

@@ -11,6 +11,42 @@ export interface ActiveContextMention {
   end: number
 }
 
+export interface ActiveContextTypePrompt {
+  token: string
+  query: string
+  start: number
+  end: number
+}
+
+export interface ContextReferenceMentionOption {
+  type: ContextReferenceType
+  namespace: string
+  label: string
+}
+
+export const CONTEXT_REFERENCE_MENTION_OPTIONS: ContextReferenceMentionOption[] = [
+  { type: 'project', namespace: 'projects', label: 'Projects' },
+  { type: 'task', namespace: 'tasks', label: 'Tasks' },
+  { type: 'contact', namespace: 'contacts', label: 'Contacts' },
+  { type: 'company', namespace: 'companies', label: 'Companies' },
+  { type: 'document', namespace: 'docs', label: 'Docs' },
+  { type: 'research', namespace: 'research', label: 'Research' },
+  { type: 'social', namespace: 'social', label: 'Social' },
+  { type: 'campaign', namespace: 'campaigns', label: 'Campaigns' },
+  { type: 'email', namespace: 'emails', label: 'Emails' },
+  { type: 'support', namespace: 'support', label: 'Support' },
+]
+
+export function filterContextReferenceMentionOptions(query: string): ContextReferenceMentionOption[] {
+  const normalized = query.trim().toLowerCase()
+  if (!normalized) return CONTEXT_REFERENCE_MENTION_OPTIONS
+  return CONTEXT_REFERENCE_MENTION_OPTIONS.filter((option) => (
+    option.namespace.includes(normalized) ||
+    option.type.includes(normalized) ||
+    option.label.toLowerCase().includes(normalized)
+  ))
+}
+
 export function contextTypeFromMentionNamespace(namespace: string) {
   return contextReferenceTypeFrom(namespace)
 }
@@ -42,6 +78,29 @@ export function findActiveContextMention(input: string, caretIndex = input.lengt
   }
 }
 
+export function findActiveContextTypePrompt(input: string, caretIndex = input.length): ActiveContextTypePrompt | null {
+  if (findActiveContextMention(input, caretIndex)) return null
+  const beforeCaret = input.slice(0, caretIndex)
+  const match = /(^|\s)@([a-zA-Z]*)$/.exec(beforeCaret)
+  if (!match) return null
+  const token = `@${match[2] ?? ''}`
+  const start = beforeCaret.length - token.length
+  return {
+    token,
+    query: (match[2] ?? '').toLowerCase(),
+    start,
+    end: caretIndex,
+  }
+}
+
 export function removeMentionToken(input: string, mention: Pick<ActiveContextMention, 'start' | 'end'>): string {
   return `${input.slice(0, mention.start)}${input.slice(mention.end)}`.replace(/\s{2,}/g, ' ').trim()
+}
+
+export function replaceTypePromptToken(
+  input: string,
+  prompt: Pick<ActiveContextTypePrompt, 'start' | 'end'>,
+  namespace: string,
+): string {
+  return `${input.slice(0, prompt.start)}@${namespace}:${input.slice(prompt.end)}`
 }

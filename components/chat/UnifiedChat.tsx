@@ -5,9 +5,14 @@ import type { ChatEvent } from '@/lib/hermes/types'
 import { AGENT_IDS } from '@/lib/agents/types'
 import {
   extractCurrentPageContextCommand,
+  filterContextReferenceMentionOptions,
   findActiveContextMention,
+  findActiveContextTypePrompt,
   removeMentionToken,
+  replaceTypePromptToken,
   type ActiveContextMention,
+  type ActiveContextTypePrompt,
+  type ContextReferenceMentionOption,
 } from '@/lib/context-references/composer'
 import {
   contextReferenceKey,
@@ -126,6 +131,7 @@ export default function UnifiedChat({
   const [error, setError] = useState<string | null>(null)
   const [contextRefs, setContextRefs] = useState<ContextReference[]>([])
   const [contextMention, setContextMention] = useState<ActiveContextMention | null>(null)
+  const [contextTypePrompt, setContextTypePrompt] = useState<ActiveContextTypePrompt | null>(null)
   const [contextSearchResults, setContextSearchResults] = useState<ContextReference[]>([])
   const [contextSearchLoading, setContextSearchLoading] = useState(false)
 
@@ -191,6 +197,10 @@ export default function UnifiedChat({
   const activeConversation = useMemo(
     () => conversations.find((c) => c.id === activeId) ?? null,
     [conversations, activeId],
+  )
+  const contextTypeOptions = useMemo(
+    () => (contextTypePrompt ? filterContextReferenceMentionOptions(contextTypePrompt.query) : []),
+    [contextTypePrompt],
   )
 
   const coerceContextRef = useCallback((ref: ContextReference | ContextReferenceSeed): ContextReference => ({
@@ -641,7 +651,9 @@ export default function UnifiedChat({
   }, [])
 
   const updateMentionFromComposer = useCallback((value: string, caret = value.length) => {
-    setContextMention(findActiveContextMention(value, caret))
+    const mention = findActiveContextMention(value, caret)
+    setContextMention(mention)
+    setContextTypePrompt(mention ? null : findActiveContextTypePrompt(value, caret))
   }, [])
 
   const patchContextRefs = useCallback(async (
@@ -701,6 +713,7 @@ export default function UnifiedChat({
           setInput((prev) => removeMentionToken(prev, contextMention))
         }
         setContextMention(null)
+        setContextTypePrompt(null)
         setContextSearchResults([])
         requestAnimationFrame(() => composerRef.current?.focus())
       })
@@ -708,6 +721,19 @@ export default function UnifiedChat({
         setError(err instanceof Error ? err.message : 'Failed to attach context')
       })
   }, [contextMention, patchContextRefs])
+
+  const selectContextType = useCallback((option: ContextReferenceMentionOption) => {
+    if (!contextTypePrompt) return
+    const nextInput = replaceTypePromptToken(input, contextTypePrompt, option.namespace)
+    const caret = contextTypePrompt.start + option.namespace.length + 2
+    setInput(nextInput)
+    setContextTypePrompt(null)
+    setContextMention(findActiveContextMention(nextInput, caret))
+    requestAnimationFrame(() => {
+      composerRef.current?.focus()
+      composerRef.current?.setSelectionRange(caret, caret)
+    })
+  }, [contextTypePrompt, input])
 
   // ── Rename conversation ───────────────────────────────────────────────────
   const renameConversation = useCallback(async (convId: string, title: string) => {
@@ -878,6 +904,7 @@ export default function UnifiedChat({
           if (!messageText.trim() && attachments.length === 0) {
             setInput('')
             setContextMention(null)
+            setContextTypePrompt(null)
             return
           }
         }
@@ -924,6 +951,7 @@ export default function UnifiedChat({
         }
         setInput('')
         setContextMention(null)
+        setContextTypePrompt(null)
         setContextSearchResults([])
         setAttachments([])
         const nowSec = Date.now() / 1000
@@ -1429,6 +1457,33 @@ export default function UnifiedChat({
             </div>
           )}
 
+          {contextTypePrompt && (
+            <div className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-1 shadow-xl">
+              <div className="px-2 py-1 text-[10px] uppercase tracking-wide text-on-surface-variant">
+                Reference types
+              </div>
+              {contextTypeOptions.length === 0 ? (
+                <div className="px-2 py-2 text-xs text-on-surface-variant">No matching reference types</div>
+              ) : (
+                contextTypeOptions.map((option) => (
+                  <button
+                    key={option.namespace}
+                    type="button"
+                    aria-label={`Use @${option.namespace}:`}
+                    onClick={() => selectContextType(option)}
+                    className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm text-on-surface transition-colors hover:bg-white/[0.06]"
+                  >
+                    <span className="material-symbols-outlined text-[16px] text-on-surface-variant">alternate_email</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-xs font-medium">{option.label}</span>
+                      <span className="block truncate text-[11px] text-on-surface-variant">@{option.namespace}:</span>
+                    </span>
+                  </button>
+                ))
+              )}
+            </div>
+          )}
+
           {contextMention && (
             <div className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-1 shadow-xl">
               <div className="px-2 py-1 text-[10px] uppercase tracking-wide text-on-surface-variant">
@@ -1532,8 +1587,9 @@ export default function UnifiedChat({
               onClick={(e) => updateMentionFromComposer(input, e.currentTarget.selectionStart ?? input.length)}
               onKeyUp={(e) => updateMentionFromComposer(input, e.currentTarget.selectionStart ?? input.length)}
               onKeyDown={(e) => {
-                if (e.key === 'Escape' && contextMention) {
+                if (e.key === 'Escape' && (contextMention || contextTypePrompt)) {
                   setContextMention(null)
+                  setContextTypePrompt(null)
                   setContextSearchResults([])
                   return
                 }
