@@ -33,6 +33,40 @@ type RelatedDeal = {
   updatedAt?: unknown
 }
 
+type RelatedProject = {
+  id: string
+  name?: string
+  status?: string
+  description?: string
+  updatedAt?: unknown
+}
+
+type RelatedDocument = {
+  id: string
+  title?: string
+  status?: string
+  type?: string
+  updatedAt?: unknown
+}
+
+type RelatedServiceWorkspace = {
+  id: string
+  name?: string
+  serviceType?: string
+  status?: string
+  visibility?: string
+  updatedAt?: unknown
+}
+
+type RelatedRelationship = {
+  id: string
+  targetName?: string
+  relationshipType?: string
+  status?: string
+  sharedCapabilities?: string[]
+  updatedAt?: unknown
+}
+
 type RelatedQuote = {
   id: string
   quoteNumber?: string
@@ -54,6 +88,35 @@ type RelatedInvoice = {
   updatedAt?: unknown
 }
 
+type RelatedOrder = {
+  id: string
+  title?: string
+  status?: string
+  fulfillmentStatus?: string
+  total?: number
+  currency?: string
+  updatedAt?: unknown
+}
+
+type RelatedShipment = {
+  id: string
+  status?: string
+  carrier?: string
+  trackingNumber?: string
+  expectedDeliveryDate?: unknown
+  updatedAt?: unknown
+}
+
+type RelatedInventoryItem = {
+  id: string
+  name?: string
+  sku?: string
+  status?: string
+  quantityAvailable?: number
+  lowStockThreshold?: number
+  updatedAt?: unknown
+}
+
 type RelatedActivity = {
   id: string
   type?: string
@@ -61,12 +124,43 @@ type RelatedActivity = {
   createdAt?: unknown
 }
 
+type CommandCenterSummary = {
+  projects?: number
+  serviceWorkspaces?: number
+  relationships?: number
+  orders?: number
+  shipments?: number
+  inventoryItems?: number
+  openOrders?: number
+  lowStockItems?: number
+  overdueInvoices?: number
+}
+
+type CommandCenterAnalytics = {
+  accountValue?: number
+  weightedPipelineValue?: number
+  trackedOrderValue?: number
+  openProjectCount?: number
+  activeServiceCount?: number
+  collaborationCount?: number
+  riskSignals?: string[]
+}
+
 type RelatedState = {
   contacts: RelatedContact[]
   deals: RelatedDeal[]
+  projects: RelatedProject[]
+  documents: RelatedDocument[]
+  serviceWorkspaces: RelatedServiceWorkspace[]
+  relationships: RelatedRelationship[]
   quotes: RelatedQuote[]
   invoices: RelatedInvoice[]
+  orders: RelatedOrder[]
+  shipments: RelatedShipment[]
+  inventoryItems: RelatedInventoryItem[]
   activities: RelatedActivity[]
+  summary: CommandCenterSummary
+  analytics: CommandCenterAnalytics
 }
 
 // ── Skeleton ─────────────────────────────────────────────────────────────────
@@ -283,6 +377,93 @@ function InvoicesPanel({ invoices }: { invoices: RelatedInvoice[] }) {
   )
 }
 
+function SimpleRowsPanel({
+  rows,
+  emptyIcon,
+  emptyLabel,
+  title,
+  hrefFor,
+  metaFor,
+}: {
+  rows: Array<{ id: string; [key: string]: unknown }>
+  emptyIcon: string
+  emptyLabel: string
+  title: (row: { id: string; [key: string]: unknown }) => string
+  hrefFor?: (row: { id: string; [key: string]: unknown }) => string | undefined
+  metaFor: (row: { id: string; [key: string]: unknown }) => Array<string | undefined>
+}) {
+  if (rows.length === 0) return <EmptyPanel icon={emptyIcon} label={emptyLabel} />
+  return (
+    <div className="bento-card divide-y divide-[var(--color-pib-line)]">
+      {rows.map((row) => {
+        const rowTitle = title(row)
+        const href = hrefFor?.(row)
+        const meta = metaFor(row).filter(Boolean)
+        return (
+          <div key={row.id} className="px-5 py-4 flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              {href ? (
+                <Link href={href} className="font-medium text-sm text-[var(--color-accent-v2)] hover:underline">
+                  {rowTitle}
+                </Link>
+              ) : (
+                <p className="font-medium text-sm text-[var(--color-pib-text)]">{rowTitle}</p>
+              )}
+              {meta.length > 0 && (
+                <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
+                  {meta.join(' · ')}
+                </p>
+              )}
+            </div>
+            {'status' in row && typeof row.status === 'string' ? <StatusChip value={row.status} /> : null}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function AnalyticsPanel({ analytics, summary }: { analytics: CommandCenterAnalytics; summary: CommandCenterSummary }) {
+  const tiles = [
+    { label: 'Account value', value: formatCurrency(analytics.accountValue ?? 0), icon: 'payments' },
+    { label: 'Weighted pipeline', value: formatCurrency(analytics.weightedPipelineValue ?? 0), icon: 'query_stats' },
+    { label: 'Tracked orders', value: formatCurrency(analytics.trackedOrderValue ?? 0), icon: 'orders' },
+    { label: 'Open projects', value: String(analytics.openProjectCount ?? summary.projects ?? 0), icon: 'folder_managed' },
+    { label: 'Active services', value: String(analytics.activeServiceCount ?? summary.serviceWorkspaces ?? 0), icon: 'workspaces' },
+    { label: 'Collaborations', value: String(analytics.collaborationCount ?? summary.relationships ?? 0), icon: 'hub' },
+  ]
+  const riskSignals = analytics.riskSignals ?? []
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {tiles.map((tile) => (
+          <div key={tile.label} className="pib-stat-card">
+            <div className="flex items-start justify-between gap-3">
+              <p className="eyebrow !text-[10px]">{tile.label}</p>
+              <span aria-hidden="true" className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">{tile.icon}</span>
+            </div>
+            <p className="mt-3 text-2xl font-semibold text-[var(--color-pib-text)]">{tile.value}</p>
+          </div>
+        ))}
+      </div>
+      <div className="bento-card p-5">
+        <p className="eyebrow !text-[10px]">Risk signals</p>
+        {riskSignals.length === 0 ? (
+          <p className="mt-3 text-sm text-[var(--color-pib-text-muted)]">No active risk signals for this company.</p>
+        ) : (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {riskSignals.map((signal) => (
+              <span key={signal} className="rounded-full border border-amber-400/30 bg-amber-400/10 px-2.5 py-1 text-xs text-amber-200">
+                {signal}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function ActivityPanel({ activities }: { activities: RelatedActivity[] }) {
   if (activities.length === 0) return <EmptyPanel icon="history" label="No company activity yet." />
   return (
@@ -315,9 +496,18 @@ export default function CompanyDetailPage() {
   const [related, setRelated] = useState<RelatedState>({
     contacts: [],
     deals: [],
+    projects: [],
+    documents: [],
+    serviceWorkspaces: [],
+    relationships: [],
     quotes: [],
     invoices: [],
+    orders: [],
+    shipments: [],
+    inventoryItems: [],
     activities: [],
+    summary: {},
+    analytics: {},
   })
   const [relatedLoading, setRelatedLoading] = useState(false)
   const [relatedError, setRelatedError] = useState<string | null>(null)
@@ -360,29 +550,29 @@ export default function CompanyDetailPage() {
       setRelatedLoading(true)
       setRelatedError(null)
       try {
-        const [contactsRes, dealsRes, quotesRes, invoicesRes, activitiesRes] = await Promise.all([
-          fetch(`/api/v1/crm/companies/${companyId}/contacts?limit=100`),
-          fetch(`/api/v1/crm/companies/${companyId}/deals?limit=100`),
-          fetch(`/api/v1/crm/companies/${companyId}/quotes?limit=100`),
-          fetch(`/api/v1/crm/companies/${companyId}/invoices?limit=100`),
-          fetch(`/api/v1/crm/companies/${companyId}/activities?limit=100`),
-        ])
-        const responses = [contactsRes, dealsRes, quotesRes, invoicesRes, activitiesRes]
-        const failed = responses.find((res) => !res.ok)
-        if (failed) {
-          const body = await failed.json().catch(() => ({}))
-          throw new Error(body.error ?? `HTTP ${failed.status}`)
+        const commandCenterRes = await fetch(`/api/v1/crm/companies/${companyId}/command-center?limit=100`)
+        if (!commandCenterRes.ok) {
+          const body = await commandCenterRes.json().catch(() => ({}))
+          throw new Error(body.error ?? `HTTP ${commandCenterRes.status}`)
         }
-        const [contactsBody, dealsBody, quotesBody, invoicesBody, activitiesBody] = await Promise.all(
-          responses.map((res) => res.json()),
-        )
+        const commandCenterBody = await commandCenterRes.json()
         if (!cancelled) {
+          const commandData = commandCenterBody?.data ?? commandCenterBody ?? {}
           setRelated({
-            contacts: extractList<RelatedContact>(contactsBody, 'contacts'),
-            deals: extractList<RelatedDeal>(dealsBody, 'deals'),
-            quotes: extractList<RelatedQuote>(quotesBody, 'quotes'),
-            invoices: extractList<RelatedInvoice>(invoicesBody, 'invoices'),
-            activities: extractList<RelatedActivity>(activitiesBody, 'activities'),
+            contacts: extractList<RelatedContact>(commandCenterBody, 'contacts'),
+            deals: extractList<RelatedDeal>(commandCenterBody, 'deals'),
+            projects: extractList<RelatedProject>(commandCenterBody, 'projects'),
+            documents: extractList<RelatedDocument>(commandCenterBody, 'documents'),
+            serviceWorkspaces: extractList<RelatedServiceWorkspace>(commandCenterBody, 'serviceWorkspaces'),
+            relationships: extractList<RelatedRelationship>(commandCenterBody, 'relationships'),
+            quotes: extractList<RelatedQuote>(commandCenterBody, 'quotes'),
+            invoices: extractList<RelatedInvoice>(commandCenterBody, 'invoices'),
+            orders: extractList<RelatedOrder>(commandCenterBody, 'orders'),
+            shipments: extractList<RelatedShipment>(commandCenterBody, 'shipments'),
+            inventoryItems: extractList<RelatedInventoryItem>(commandCenterBody, 'inventoryItems'),
+            activities: extractList<RelatedActivity>(commandCenterBody, 'activities'),
+            summary: (commandData.summary ?? {}) as CommandCenterSummary,
+            analytics: (commandData.analytics ?? {}) as CommandCenterAnalytics,
           })
         }
       } catch (err) {
@@ -477,8 +667,74 @@ export default function CompanyDetailPage() {
         )}
         {!relatedLoading && tab === 'contacts' && <ContactsPanel contacts={related.contacts} />}
         {!relatedLoading && tab === 'deals' && <DealsPanel deals={related.deals} />}
+        {!relatedLoading && tab === 'projects' && (
+          <SimpleRowsPanel
+            rows={related.projects}
+            emptyIcon="folder_off"
+            emptyLabel="No linked projects yet."
+            title={(row) => String(row.name ?? row.id)}
+            hrefFor={(row) => `/portal/projects/${row.id}`}
+            metaFor={(row) => [String(row.description ?? ''), formatDate(row.updatedAt)]}
+          />
+        )}
+        {!relatedLoading && tab === 'documents' && (
+          <SimpleRowsPanel
+            rows={related.documents}
+            emptyIcon="description"
+            emptyLabel="No linked documents yet."
+            title={(row) => String(row.title ?? row.id)}
+            hrefFor={(row) => `/portal/documents/${row.id}`}
+            metaFor={(row) => [String(row.type ?? ''), formatDate(row.updatedAt)]}
+          />
+        )}
+        {!relatedLoading && tab === 'services' && (
+          <SimpleRowsPanel
+            rows={related.serviceWorkspaces}
+            emptyIcon="workspaces"
+            emptyLabel="No service workspaces yet."
+            title={(row) => String(row.name ?? row.id)}
+            metaFor={(row) => [String(row.serviceType ?? ''), String(row.visibility ?? '')]}
+          />
+        )}
+        {!relatedLoading && tab === 'relationships' && (
+          <SimpleRowsPanel
+            rows={related.relationships}
+            emptyIcon="hub"
+            emptyLabel="No business relationships yet."
+            title={(row) => String(row.targetName ?? row.relationshipType ?? row.id)}
+            metaFor={(row) => [String(row.relationshipType ?? ''), Array.isArray(row.sharedCapabilities) ? row.sharedCapabilities.join(', ') : undefined]}
+          />
+        )}
         {!relatedLoading && tab === 'quotes' && <QuotesPanel quotes={related.quotes} />}
         {!relatedLoading && tab === 'invoices' && <InvoicesPanel invoices={related.invoices} />}
+        {!relatedLoading && tab === 'orders' && (
+          <SimpleRowsPanel
+            rows={related.orders}
+            emptyIcon="orders"
+            emptyLabel="No linked orders yet."
+            title={(row) => String(row.title ?? row.id)}
+            metaFor={(row) => [String(row.fulfillmentStatus ?? ''), formatCurrency(typeof row.total === 'number' ? row.total : undefined, String(row.currency ?? 'ZAR'))]}
+          />
+        )}
+        {!relatedLoading && tab === 'shipments' && (
+          <SimpleRowsPanel
+            rows={related.shipments}
+            emptyIcon="local_shipping"
+            emptyLabel="No shipments yet."
+            title={(row) => String(row.carrier ?? row.trackingNumber ?? row.id)}
+            metaFor={(row) => [String(row.trackingNumber ?? ''), formatDate(row.expectedDeliveryDate)]}
+          />
+        )}
+        {!relatedLoading && tab === 'inventory' && (
+          <SimpleRowsPanel
+            rows={related.inventoryItems}
+            emptyIcon="inventory_2"
+            emptyLabel="No inventory items yet."
+            title={(row) => String(row.name ?? row.sku ?? row.id)}
+            metaFor={(row) => [String(row.sku ?? ''), typeof row.quantityAvailable === 'number' ? `${row.quantityAvailable} available` : undefined]}
+          />
+        )}
+        {!relatedLoading && tab === 'analytics' && <AnalyticsPanel analytics={related.analytics} summary={related.summary} />}
         {!relatedLoading && tab === 'activity' && <ActivityPanel activities={related.activities} />}
       </div>
 

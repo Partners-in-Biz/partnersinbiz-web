@@ -32,28 +32,54 @@ describe('Portal company detail page', () => {
           }),
         } as Response)
       }
-      if (url === '/api/v1/crm/companies/company-1/contacts?limit=100') {
+      if (url === '/api/v1/crm/companies/company-1/command-center?limit=100') {
         return Promise.resolve({
           ok: true,
           json: async () => ({
             success: true,
             data: {
+              summary: {
+                projects: 1,
+                serviceWorkspaces: 1,
+                relationships: 1,
+                orders: 1,
+                shipments: 1,
+                inventoryItems: 1,
+                lowStockItems: 1,
+              },
+              analytics: {
+                accountValue: 12000,
+                trackedOrderValue: 2200,
+                riskSignals: ['1 low-stock item'],
+              },
               contacts: [
                 { id: 'contact-1', name: 'Jane Client', email: 'jane@example.com', type: 'client', stage: 'won' },
               ],
-            },
-          }),
-        } as Response)
-      }
-      if (url === '/api/v1/crm/companies/company-1/invoices?limit=100') {
-        return Promise.resolve({
-          ok: true,
-          json: async () => ({
-            success: true,
-            data: {
+              projects: [
+                { id: 'project-1', name: 'SEO Sprint', status: 'active' },
+              ],
+              serviceWorkspaces: [
+                { id: 'svc-1', name: 'SEO Workspace', serviceType: 'seo', status: 'active' },
+              ],
+              relationships: [
+                { id: 'rel-1', targetName: 'Partners in Biz', relationshipType: 'supplier', status: 'active' },
+              ],
               invoices: [
                 { id: 'invoice-1', invoiceNumber: 'INV-001', status: 'sent', total: 1200, currency: 'ZAR' },
               ],
+              orders: [
+                { id: 'order-1', title: 'Quote-to-delivery', status: 'in_progress', total: 2200, currency: 'ZAR' },
+              ],
+              shipments: [
+                { id: 'shipment-1', status: 'in_transit', carrier: 'Internal delivery' },
+              ],
+              inventoryItems: [
+                { id: 'stock-1', name: 'SEO Hours', sku: 'SEO-HOURS', status: 'low_stock', quantityAvailable: 2 },
+              ],
+              deals: [],
+              quotes: [],
+              activities: [],
+              documents: [{ id: 'doc-1', title: 'Client proposal', status: 'client_review' }],
             },
           }),
         } as Response)
@@ -90,5 +116,28 @@ describe('Portal company detail page', () => {
     await waitFor(() => {
       expect(screen.getByText('INV-001')).toBeInTheDocument()
     })
+  })
+
+  it('surfaces CRM OS command-center tabs for delivery, commerce, and collaboration', async () => {
+    render(<CompanyDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Acme Holdings' })).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('tab', { name: /Projects/i }))
+    expect(await screen.findByText('SEO Sprint')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('tab', { name: /Services/i }))
+    expect(await screen.findByText('SEO Workspace')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('tab', { name: /Orders/i }))
+    expect(await screen.findByText('Quote-to-delivery')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('tab', { name: /Inventory/i }))
+    expect(await screen.findByText('SEO Hours')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('tab', { name: /Analytics/i }))
+    expect(await screen.findByText(/Account value/i)).toBeInTheDocument()
   })
 })
