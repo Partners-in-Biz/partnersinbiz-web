@@ -117,6 +117,19 @@ beforeEach(() => {
                   : { ...adminB, role: 'admin' },
             }),
         }),
+        where: (_field: string, _op: string, value: string) => ({
+          get: () =>
+            Promise.resolve({
+              docs: [
+                value === adminA.uid
+                  ? { id: `${adminA.orgId}_${adminA.uid}`, data: () => ({ ...adminA, role: 'admin' }) }
+                  : null,
+                value === adminB.uid
+                  ? { id: `${adminB.orgId}_${adminB.uid}`, data: () => ({ ...adminB, role: 'admin' }) }
+                  : null,
+              ].filter(Boolean),
+            }),
+        }),
       }
     }
     if (name === 'organizations') {
@@ -187,6 +200,14 @@ describe('custom-fields tenant isolation', () => {
                 Promise.resolve({
                   exists: key === `${adminA.orgId}_${adminA.uid}`,
                   data: () => ({ ...adminA, role: 'admin' }),
+                }),
+            }),
+            where: (_field: string, _op: string, value: string) => ({
+              get: () =>
+                Promise.resolve({
+                  docs: value === adminA.uid
+                    ? [{ id: `${adminA.orgId}_${adminA.uid}`, data: () => ({ ...adminA, role: 'admin' }) }]
+                    : [],
                 }),
             }),
           }
