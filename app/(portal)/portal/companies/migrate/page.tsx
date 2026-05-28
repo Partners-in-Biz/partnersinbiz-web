@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 
 import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
+import { CompanyMigrationCommandCenter } from '@/components/crm/CompanyMigrationCommandCenter'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -319,91 +320,83 @@ export default function MigrateCompaniesPage() {
 
       {/* Preview table */}
       {!loading && !previewError && !applyResult && matches.length > 0 && (
-        <div className="pib-card-section overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-[var(--color-pib-line)] bg-white/[0.02]">
-                <th className="px-4 py-3 text-left w-10">
-                  <input
-                    type="checkbox"
-                    checked={allSelected}
-                    onChange={toggleAll}
-                    aria-label="Select all"
-                    className="cursor-pointer"
-                  />
-                </th>
-                <th className="px-4 py-3 text-left text-[10px] font-label uppercase tracking-wider text-[var(--color-pib-text-muted)]">Normalised key</th>
-                <th className="px-4 py-3 text-left text-[10px] font-label uppercase tracking-wider text-[var(--color-pib-text-muted)]">Raw values</th>
-                <th className="px-4 py-3 text-left text-[10px] font-label uppercase tracking-wider text-[var(--color-pib-text-muted)]">Suggested name</th>
-                <th className="px-4 py-3 text-left text-[10px] font-label uppercase tracking-wider text-[var(--color-pib-text-muted)]">Existing match</th>
-                <th className="px-4 py-3 text-left text-[10px] font-label uppercase tracking-wider text-[var(--color-pib-text-muted)]">Contacts</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[var(--color-pib-line)]">
-              {matches.map((m) => (
-                <tr
-                  key={m.normalizedKey}
-                  className={`transition-colors ${selected[m.normalizedKey] ? '' : 'opacity-50'} hover:bg-white/[0.02]`}
-                >
-                  {/* Checkbox */}
-                  <td className="px-4 py-3">
+        <div className="space-y-4">
+          <CompanyMigrationCommandCenter matches={matches} selected={selected} names={names} />
+          <div className="pib-card-section overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-[var(--color-pib-line)] bg-white/[0.02]">
+                  <th className="px-4 py-3 text-left w-10">
                     <input
                       type="checkbox"
-                      checked={!!selected[m.normalizedKey]}
-                      onChange={() => toggleRow(m.normalizedKey)}
-                      aria-label={`Select ${m.normalizedKey}`}
+                      checked={allSelected}
+                      onChange={toggleAll}
+                      aria-label="Select all"
                       className="cursor-pointer"
                     />
-                  </td>
-
-                  {/* Normalised key */}
-                  <td className="px-4 py-3 font-mono text-xs text-[var(--color-pib-text-muted)] max-w-[140px] truncate">
-                    {m.normalizedKey}
-                  </td>
-
-                  {/* Raw values */}
-                  <td className="px-4 py-3 max-w-[180px]">
-                    <p className="text-xs text-[var(--color-pib-text-muted)] truncate" title={m.rawValues.join(', ')}>
-                      {m.rawValues.join(', ')}
-                    </p>
-                  </td>
-
-                  {/* Editable suggested name */}
-                  <td className="px-4 py-3 min-w-[160px]">
-                    <input
-                      type="text"
-                      value={names[m.normalizedKey] ?? m.suggestedCompanyName}
-                      onChange={(e) => setNames((prev) => ({ ...prev, [m.normalizedKey]: e.target.value }))}
-                      className="pib-input w-full text-sm py-1"
-                      aria-label={`Company name for ${m.normalizedKey}`}
-                    />
-                  </td>
-
-                  {/* Existing match */}
-                  <td className="px-4 py-3">
-                    {m.existingCompanyId ? (
-                      <Link
-                        href={`/portal/companies/${m.existingCompanyId}`}
-                        className="text-xs text-[var(--color-accent-v2)] hover:underline flex items-center gap-0.5"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        <span className="material-symbols-outlined text-[12px]">open_in_new</span>
-                        View
-                      </Link>
-                    ) : (
-                      <span className="text-xs text-[var(--color-pib-text-muted)]">—</span>
-                    )}
-                  </td>
-
-                  {/* Contact count */}
-                  <td className="px-4 py-3 font-mono text-xs text-[var(--color-pib-text-muted)]">
-                    {m.contactIds.length}
-                  </td>
+                  </th>
+                  <th className="px-4 py-3 text-left text-[10px] font-label uppercase tracking-wider text-[var(--color-pib-text-muted)]">Normalised key</th>
+                  <th className="px-4 py-3 text-left text-[10px] font-label uppercase tracking-wider text-[var(--color-pib-text-muted)]">Raw values</th>
+                  <th className="px-4 py-3 text-left text-[10px] font-label uppercase tracking-wider text-[var(--color-pib-text-muted)]">Suggested name</th>
+                  <th className="px-4 py-3 text-left text-[10px] font-label uppercase tracking-wider text-[var(--color-pib-text-muted)]">Existing match</th>
+                  <th className="px-4 py-3 text-left text-[10px] font-label uppercase tracking-wider text-[var(--color-pib-text-muted)]">Contacts</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-[var(--color-pib-line)]">
+                {matches.map((m) => (
+                  <tr
+                    key={m.normalizedKey}
+                    className={`transition-colors ${selected[m.normalizedKey] ? '' : 'opacity-50'} hover:bg-white/[0.02]`}
+                  >
+                    <td className="px-4 py-3">
+                      <input
+                        type="checkbox"
+                        checked={!!selected[m.normalizedKey]}
+                        onChange={() => toggleRow(m.normalizedKey)}
+                        aria-label={`Select ${m.normalizedKey}`}
+                        className="cursor-pointer"
+                      />
+                    </td>
+                    <td className="px-4 py-3 font-mono text-xs text-[var(--color-pib-text-muted)] max-w-[140px] truncate">
+                      {m.normalizedKey}
+                    </td>
+                    <td className="px-4 py-3 max-w-[180px]">
+                      <p className="text-xs text-[var(--color-pib-text-muted)] truncate" title={m.rawValues.join(', ')}>
+                        {m.rawValues.join(', ')}
+                      </p>
+                    </td>
+                    <td className="px-4 py-3 min-w-[160px]">
+                      <input
+                        type="text"
+                        value={names[m.normalizedKey] ?? m.suggestedCompanyName}
+                        onChange={(e) => setNames((prev) => ({ ...prev, [m.normalizedKey]: e.target.value }))}
+                        className="pib-input w-full text-sm py-1"
+                        aria-label={`Company name for ${m.normalizedKey}`}
+                      />
+                    </td>
+                    <td className="px-4 py-3">
+                      {m.existingCompanyId ? (
+                        <Link
+                          href={`/portal/companies/${m.existingCompanyId}`}
+                          className="text-xs text-[var(--color-accent-v2)] hover:underline flex items-center gap-0.5"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <span className="material-symbols-outlined text-[12px]">open_in_new</span>
+                          View
+                        </Link>
+                      ) : (
+                        <span className="text-xs text-[var(--color-pib-text-muted)]">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 font-mono text-xs text-[var(--color-pib-text-muted)]">
+                      {m.contactIds.length}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
