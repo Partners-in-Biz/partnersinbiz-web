@@ -3,6 +3,7 @@ import { NextRequest } from 'next/server'
 const mockCollection = jest.fn()
 const mockProjectWhere = jest.fn()
 const mockProjectDoc = jest.fn()
+const mockOrganizationWhere = jest.fn()
 const mockSubCollection = jest.fn()
 const mockGetProjectForUser = jest.fn()
 const mockCanAccessOrg = jest.fn()
@@ -104,6 +105,13 @@ beforeEach(() => {
   mockProjectWhere.mockImplementation((field: string, _op: string, value: string) => ({
     get: jest.fn(async () => field === 'ownerOrgId' && value === 'owner-org' ? snap(projects) : snap([])),
   }))
+  mockOrganizationWhere.mockImplementation((field: string, _op: string, value: string) => ({
+    limit: jest.fn(() => ({
+      get: jest.fn(async () => field === 'slug' && value === 'owner-slug'
+        ? snap([{ id: 'owner-org', data: { name: 'Owner Org', slug: 'owner-slug' } }])
+        : snap([])),
+    })),
+  }))
   mockSubCollection.mockImplementation((name: string) => ({
     get: jest.fn(async () => {
       const projectId = mockProjectDoc.mock.calls[mockProjectDoc.mock.calls.length - 1]?.[0] as string
@@ -117,6 +125,7 @@ beforeEach(() => {
   }))
   mockCollection.mockImplementation((name: string) => {
     if (name === 'projects') return { where: mockProjectWhere, doc: mockProjectDoc }
+    if (name === 'organizations') return { where: mockOrganizationWhere }
     throw new Error(`Unexpected collection ${name}`)
   })
 })
@@ -172,5 +181,17 @@ describe('GET /api/v1/projects/reporting', () => {
 
     expect(res.status).toBe(403)
     expect(body.error).toBe('Forbidden')
+  })
+
+  it('resolves organisation slugs for selected-client project reporting', async () => {
+    const { GET } = await import('@/app/api/v1/projects/reporting/route')
+    const res = await GET(new NextRequest('http://localhost/api/v1/projects/reporting?orgSlug=owner-slug'))
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(mockOrganizationWhere).toHaveBeenCalledWith('slug', '==', 'owner-slug')
+    expect(mockCanAccessOrg).toHaveBeenCalledWith(mockUser, 'owner-org')
+    expect(body.data.orgId).toBe('owner-org')
+    expect(body.data.summary.totalProjects).toBe(2)
   })
 })

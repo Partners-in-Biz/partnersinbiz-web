@@ -6,6 +6,7 @@ import { collection, onSnapshot, query, where } from 'firebase/firestore'
 import { getClientDb } from '@/lib/firebase/config'
 import { CrossProjectBoard } from '@/components/projects/CrossProjectBoard'
 import { ProjectListCard } from '@/components/projects/ProjectListCard'
+import { ProjectPortfolioReportPanel } from '@/components/projects/ProjectPortfolioReportPanel'
 import { PageHeader, PageTabs, Surface } from '@/components/ui/AppFoundation'
 import type { BoardTask } from '@/components/projects/CrossProjectBoard'
 
@@ -356,6 +357,8 @@ export default function ProjectsPage() {
           )}
         </Surface>
       )}
+
+      <ProjectPortfolioReportPanel reportUrl={`/api/v1/projects/reporting?orgSlug=${encodeURIComponent(slug)}`} />
 
       {/* Filters and view controls */}
       <div className="flex items-center justify-between gap-3 flex-wrap">

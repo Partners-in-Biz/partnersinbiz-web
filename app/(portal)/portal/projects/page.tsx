@@ -5,6 +5,7 @@ import { collection, onSnapshot } from 'firebase/firestore'
 import { getClientDb } from '@/lib/firebase/config'
 import { CrossProjectBoard } from '@/components/projects/CrossProjectBoard'
 import { ProjectListCard } from '@/components/projects/ProjectListCard'
+import { ProjectPortfolioReportPanel } from '@/components/projects/ProjectPortfolioReportPanel'
 import { EmptyState, PageHeader, PageTabs, Surface } from '@/components/ui/AppFoundation'
 import type { BoardTask } from '@/components/projects/CrossProjectBoard'
 
@@ -266,6 +267,8 @@ export default function ProjectsPage() {
           )}
         </Surface>
       )}
+
+      <ProjectPortfolioReportPanel />
 
       {/* Filters and view controls */}
       <div className="flex items-center justify-between gap-3 flex-wrap">

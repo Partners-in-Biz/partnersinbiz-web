@@ -70,8 +70,31 @@ describe('Admin client projects board view', () => {
           json: async () => ({ data: [] }),
         } as Response)
       }
+      if (url === '/api/v1/projects/reporting?orgSlug=acme-client') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: {
+              summary: { totalProjects: 1, openTasks: 4, blockedTasks: 1, waitingApprovals: 2, highRisks: 1, trackedRevenue: 25000, currency: 'ZAR' },
+              clients: [{ clientOrgId: 'org-acme', clientName: 'Acme Client', projectCount: 1, trackedRevenue: 25000, openTasks: 4, blockedTasks: 1, highRisks: 1 }],
+              people: [{ uid: 'owner-1', name: 'Peet Stander', assignedTasks: 4, estimateMinutes: 600, capacityMinutes: 480, utilizationPercent: 125, overCapacity: true }],
+              projects: [{ id: 'project-1', name: 'Client Website', status: 'development', health: { status: 'at_risk', score: 68 }, timeline: { driftCount: 1, dependencyCount: 2 }, reports: { tasks: { open: 4, blocked: 1 }, risks: { high: 1 }, revenue: { trackedAmount: 25000, currency: 'ZAR' } } }],
+            },
+          }),
+        } as Response)
+      }
       return Promise.resolve({ ok: true, json: async () => ({ data: [] }) } as Response)
     }) as jest.Mock
+  })
+
+  it('shows the client portfolio report from the project reporting API', async () => {
+    render(<ProjectsPage />)
+
+    await waitFor(() => expect(screen.getByText('Portfolio report')).toBeInTheDocument())
+    expect(global.fetch).toHaveBeenCalledWith('/api/v1/projects/reporting?orgSlug=acme-client', expect.any(Object))
+    expect(screen.getByText('Acme Client')).toBeInTheDocument()
+    expect(screen.getByText('Peet Stander')).toBeInTheDocument()
+    expect(screen.getAllByText('1 blocked').length).toBeGreaterThan(0)
   })
 
   it('lets admins switch from project cards to a cross-project task board for the client', async () => {
@@ -146,7 +169,7 @@ describe('Admin client projects board view', () => {
   it('updates client project cards when Firestore project snapshots change', async () => {
     render(<ProjectsPage />)
 
-    await waitFor(() => expect(screen.getByText('Client Website')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getAllByText('Client Website').length).toBeGreaterThan(0))
 
     mockSnapshotChange('modified', 'project-1', {
       name: 'Client Website Live',
@@ -212,7 +235,7 @@ describe('Admin client projects board view', () => {
 
     render(<ProjectsPage />)
 
-    await waitFor(() => expect(screen.getByText('Client Website')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getAllByText('Client Website').length).toBeGreaterThan(0))
 
     await act(async () => {
       jest.advanceTimersByTime(10000)

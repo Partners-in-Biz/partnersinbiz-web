@@ -20,6 +20,7 @@ const SUITE_COLLECTIONS = ['tasks', 'milestones', 'approvals', 'risks', 'capacit
 type ProjectRow = Record<string, unknown> & { id: string }
 type SuiteRow = Record<string, unknown> & { id: string; deleted?: unknown }
 type FirestoreDoc = { id: string; data: () => Record<string, unknown> }
+type ApiUserLike = { orgId?: string | null }
 
 function cleanString(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
@@ -109,9 +110,33 @@ function compactProjectName(project: ProjectRow): string {
   return cleanString(project.name) || cleanString(project.title) || project.id
 }
 
+async function resolveRequestedOrgId(searchParams: URLSearchParams, user: ApiUserLike): Promise<{ orgId: string; error?: string; status?: number }> {
+  const explicitOrgId = cleanString(searchParams.get('orgId'))
+  if (explicitOrgId) return { orgId: explicitOrgId }
+
+  const orgSlug = cleanString(searchParams.get('orgSlug'))
+  if (orgSlug) {
+    const orgSnapshot = await adminDb
+      .collection('organizations')
+      .where('slug', '==', orgSlug)
+      .limit(1)
+      .get()
+
+    if (orgSnapshot.empty) {
+      return { orgId: '', error: 'Organization not found', status: 404 }
+    }
+
+    return { orgId: orgSnapshot.docs[0].id }
+  }
+
+  return { orgId: cleanString(user.orgId) }
+}
+
 export const GET = withAuth('client', async (req: NextRequest, user) => {
   const { searchParams } = new URL(req.url)
-  const orgId = cleanString(searchParams.get('orgId')) || cleanString(user.orgId)
+  const resolved = await resolveRequestedOrgId(searchParams, user)
+  if (resolved.error) return apiError(resolved.error, resolved.status ?? 400)
+  const orgId = resolved.orgId
   if (!orgId) return apiError('orgId is required', 400)
   if (!canAccessOrg(user, orgId)) return apiError('Forbidden', 403)
 
