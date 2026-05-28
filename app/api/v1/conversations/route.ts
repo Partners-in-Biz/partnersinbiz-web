@@ -17,6 +17,8 @@ import {
   orgChatConfigDoc,
   resolveVisibleAgents,
 } from '@/lib/conversations/conversations'
+import { resolveContextReferences } from '@/lib/context-references/registry'
+import { sanitizeContextReferenceSeeds } from '@/lib/context-references/types'
 import type { AgentId, Participant, Conversation, ConversationScope } from '@/lib/conversations/types'
 import type { ApiUser } from '@/lib/api/types'
 
@@ -189,6 +191,11 @@ export const POST = withAuth(
         ? (rawScope as ConversationScope)
         : undefined
     const scopeRefId = typeof body.scopeRefId === 'string' ? body.scopeRefId.trim() : undefined
+    const contextRefs = await resolveContextReferences(
+      sanitizeContextReferenceSeeds((body as Record<string, unknown>).contextRefs),
+      user,
+      scope.orgId,
+    )
 
     const conversation = await createConversation({
       orgId: scope.orgId,
@@ -198,6 +205,7 @@ export const POST = withAuth(
       title,
       scope: convScope,
       scopeRefId,
+      contextRefs,
     })
 
     return apiSuccess({ conversation }, 201)

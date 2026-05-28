@@ -3,7 +3,12 @@ import { MessageDrawer } from '@/components/chat/MessageDrawer'
 
 jest.mock('@/components/chat/UnifiedChat', () => ({
   __esModule: true,
-  default: () => <div data-testid="unified-chat" />,
+  default: (props: Record<string, unknown>) => (
+    <div
+      data-testid="unified-chat"
+      data-current-context={JSON.stringify(props.currentPageContext ?? null)}
+    />
+  ),
 }))
 
 describe('MessageDrawer', () => {
@@ -62,5 +67,27 @@ describe('MessageDrawer', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Open messages' }))
 
     expect(handleOpen).toHaveBeenCalledTimes(1)
+  })
+
+  it('passes current page context through to UnifiedChat', () => {
+    render(
+      <MessageDrawer
+        orgId="org_1"
+        orgName="Acme"
+        currentUserUid="user_1"
+        currentUserDisplayName="Peet"
+        currentPageContext={{
+          type: 'contact',
+          id: 'contact-1',
+          orgId: 'org_1',
+          origin: 'current_page',
+          href: '/portal/contacts/contact-1',
+        }}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open messages' }))
+
+    expect(screen.getByTestId('unified-chat').dataset.currentContext).toContain('contact-1')
   })
 })
