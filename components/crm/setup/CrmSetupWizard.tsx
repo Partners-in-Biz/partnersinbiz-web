@@ -10,6 +10,7 @@ import type {
   CrmSetupState,
   CrmStarterTemplate,
 } from '@/lib/crm/setup/types'
+import { CrmSetupCommandCenter } from '@/components/crm/setup/CrmSetupCommandCenter'
 
 const SALES_PROCESS_OPTIONS: Array<{ value: CrmSalesProcess; label: string }> = [
   { value: 'new_sales', label: 'New business sales' },
@@ -137,7 +138,7 @@ export function CrmSetupWizard() {
   }
 
   return (
-    <div className="max-w-4xl space-y-6">
+    <div className="max-w-5xl space-y-6">
       <div>
         <h1 className="text-lg font-semibold mb-1">CRM setup</h1>
         <p className="text-sm text-[var(--color-pib-text-muted)]">
@@ -155,6 +156,8 @@ export function CrmSetupWizard() {
           {message}
         </div>
       )}
+
+      <CrmSetupCommandCenter setup={setup} recommendedTemplates={recommendedTemplates} />
 
       <section className="grid gap-4 md:grid-cols-2">
         <Field label="Sales process">

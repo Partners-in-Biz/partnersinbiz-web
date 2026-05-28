@@ -39,6 +39,13 @@ function stageAuth(member: ReturnType<typeof seedOrgMember>) {
     }
     if (name === 'orgMembers') {
       return {
+        where: jest.fn().mockReturnThis(),
+        get: () => Promise.resolve({
+          docs: [{
+            id: `${member.orgId}_${member.uid}`,
+            data: () => member,
+          }],
+        }),
         doc: () => ({
           get: () => Promise.resolve({ exists: true, data: () => member }),
         }),
