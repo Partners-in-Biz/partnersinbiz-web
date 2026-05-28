@@ -1,4 +1,4 @@
-import { render, waitFor } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import { CommunicationsConsole } from '@/components/communications/CommunicationsConsole'
 
 const useOrgMock = jest.fn()
@@ -34,6 +34,14 @@ describe('CommunicationsConsole organisation scoping', () => {
       success: true,
       data: { items: [], total: 0 },
     }))
+  })
+
+  it('uses the shared segmented page tabs for communication views', () => {
+    render(<CommunicationsConsole mode="admin" initialOrgId="org-1" />)
+
+    const tablist = screen.getByRole('tablist', { name: 'Communications views' })
+    expect(tablist).toHaveClass('pib-tabs', 'pib-tabs-segmented')
+    expect(screen.getByRole('tab', { name: /inbox/i })).toHaveClass('pib-tab-active')
   })
 
   it('loads admin workspace conversations using the organisation slug from the entry link', async () => {
