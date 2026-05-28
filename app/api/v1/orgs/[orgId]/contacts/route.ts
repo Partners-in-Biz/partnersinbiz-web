@@ -17,7 +17,7 @@ import { withAuth } from '@/lib/api/auth'
 import { resolveOrgScope } from '@/lib/api/orgScope'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
-import type { Organization, OrgMember } from '@/lib/organizations/types'
+import type { Organization, OrgMember, OrgRole } from '@/lib/organizations/types'
 import type { ApiUser } from '@/lib/api/types'
 
 export const dynamic = 'force-dynamic'
@@ -30,6 +30,36 @@ interface ContactEntry {
   email?: string
   role: 'admin' | 'client'
   photoURL?: string
+}
+
+type LinkedOrgMemberData = Partial<OrgMember> & {
+  uid?: unknown
+  userId?: unknown
+  orgId?: unknown
+  firstName?: unknown
+  lastName?: unknown
+  displayName?: unknown
+  avatarUrl?: unknown
+  photoURL?: unknown
+}
+
+function cleanString(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : ''
+}
+
+function isOrgRole(value: unknown): value is OrgRole {
+  return value === 'owner' || value === 'admin' || value === 'member' || value === 'viewer'
+}
+
+function contactRoleFromOrgRole(role: unknown): 'admin' | 'client' {
+  return role === 'owner' || role === 'admin' ? 'admin' : 'client'
+}
+
+function displayNameFromProfile(profile: LinkedOrgMemberData, userDetails: { displayName?: string }): string | undefined {
+  const firstName = cleanString(profile.firstName)
+  const lastName = cleanString(profile.lastName)
+  const profileName = [firstName, lastName].filter(Boolean).join(' ')
+  return profileName || cleanString(profile.displayName) || cleanString(userDetails.displayName) || undefined
 }
 
 async function fetchUserDetails(
@@ -68,6 +98,41 @@ async function listPlatformAdmins(): Promise<ContactEntry[]> {
     })
 }
 
+function uidFromLinkedMember(orgId: string, docId: string, data: LinkedOrgMemberData): string {
+  const uid = cleanString(data.uid) || cleanString(data.userId)
+  if (uid) return uid
+  const prefix = `${orgId}_`
+  return docId.startsWith(prefix) ? docId.slice(prefix.length) : docId
+}
+
+async function listLinkedOrgMemberContacts(orgId: string): Promise<ContactEntry[]> {
+  const snapshot = await adminDb.collection('orgMembers').where('orgId', '==', orgId).get()
+  const contacts = await Promise.all(snapshot.docs.map(async (doc) => {
+    const data = doc.data() as LinkedOrgMemberData
+    const uid = uidFromLinkedMember(orgId, doc.id, data)
+    if (!uid) return null
+    const details = await fetchUserDetails(uid)
+    return {
+      uid,
+      role: contactRoleFromOrgRole(isOrgRole(data.role) ? data.role : 'viewer'),
+      displayName: displayNameFromProfile(data, details),
+      email: details.email,
+      photoURL: cleanString(data.avatarUrl) || cleanString(data.photoURL) || details.photoURL,
+    } as ContactEntry
+  }))
+
+  return contacts.filter((contact): contact is ContactEntry => Boolean(contact))
+}
+
+function dedupeContacts(contacts: ContactEntry[]): ContactEntry[] {
+  const seen = new Set<string>()
+  return contacts.filter((contact) => {
+    if (seen.has(contact.uid)) return false
+    seen.add(contact.uid)
+    return true
+  })
+}
+
 export const GET = withAuth(
   'client',
   async (_req: NextRequest, user: ApiUser, context?: unknown) => {
@@ -78,7 +143,10 @@ export const GET = withAuth(
     const callerIsAdmin = user.role === 'admin' || user.role === 'ai'
 
     if (scope.orgId === PIB_PLATFORM_ORG_ID && callerIsAdmin) {
-      const contacts = (await listPlatformAdmins()).filter((admin) => admin.uid !== user.uid)
+      const contacts = dedupeContacts([
+        ...(await listPlatformAdmins()),
+        ...(await listLinkedOrgMemberContacts(scope.orgId)),
+      ]).filter((admin) => admin.uid !== user.uid)
       return apiSuccess(contacts)
     }
 
@@ -90,31 +158,29 @@ export const GET = withAuth(
 
     if (callerIsAdmin) {
       // Admin: return all org members with their Firestore user details
-      const resolved = await Promise.all(
-        members.map(async (m) => {
-          const details = await fetchUserDetails(m.userId)
-          // Treat org member roles (owner/admin/member/viewer) as admin vs client
-          const contactRole: 'admin' | 'client' =
-            m.role === 'owner' || m.role === 'admin' ? 'admin' : 'client'
-          return {
-            uid: m.userId,
-            role: contactRole,
-            ...details,
-          } as ContactEntry
-        }),
-      )
+      const resolved = members.length > 0
+        ? await Promise.all(
+            members.map(async (m) => {
+              const details = await fetchUserDetails(m.userId)
+              return {
+                uid: m.userId,
+                role: contactRoleFromOrgRole(m.role),
+                ...details,
+              } as ContactEntry
+            }),
+          )
+        : await listLinkedOrgMemberContacts(scope.orgId)
       contacts.push(...resolved)
     } else {
-      const resolvedMembers = await Promise.all(
-        members
-          .filter((m) => m.userId !== user.uid)
-          .map(async (m) => {
-            const details = await fetchUserDetails(m.userId)
-            const contactRole: 'admin' | 'client' =
-              m.role === 'owner' || m.role === 'admin' ? 'admin' : 'client'
-            return { uid: m.userId, role: contactRole, ...details } as ContactEntry
-          }),
-      )
+      const memberContacts = members.length > 0
+        ? await Promise.all(
+            members.map(async (m) => {
+              const details = await fetchUserDetails(m.userId)
+              return { uid: m.userId, role: contactRoleFromOrgRole(m.role), ...details } as ContactEntry
+            }),
+          )
+        : await listLinkedOrgMemberContacts(scope.orgId)
+      const resolvedMembers = memberContacts.filter((m) => m.uid !== user.uid)
       contacts.push(...resolvedMembers)
 
       const existingUids = new Set(contacts.map((c) => c.uid))

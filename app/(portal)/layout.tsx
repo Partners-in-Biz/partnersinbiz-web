@@ -368,6 +368,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
   const initials = (name || email).split(/[.\s@]/).filter(Boolean).slice(0, 2).map(s => s[0]?.toUpperCase()).join('')
   const canOpenAdminView = userRole === 'admin' && !!activeOrgSlug
   const adminViewHref = activeOrgSlug ? `/admin/org/${activeOrgSlug}/dashboard` : '/admin/dashboard'
+  const allowAgentParticipants = userRole === 'admin'
   const portalWorkspaceLabel = activeOrgType === 'platform_owner' || activeOrgId === PIB_PLATFORM_ORG_ID ? 'Platform' : 'Client'
   const currentPageContext = detectCurrentPageContext({
     pathname,
@@ -450,7 +451,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
                 currentUserUid={uid}
                 currentUserDisplayName={profileName || name || email}
                 currentPageContext={currentPageContext}
-                allowAgentParticipants={false}
+                allowAgentParticipants={allowAgentParticipants}
               />
               <button
                 onClick={toggleLayout}
@@ -778,7 +779,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
               currentUserUid={uid}
               currentUserDisplayName={profileName || name || email}
               currentPageContext={currentPageContext}
-              allowAgentParticipants={false}
+              allowAgentParticipants={allowAgentParticipants}
             />
             <SupportDrawer
               orgId={activeOrgId}
