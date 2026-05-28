@@ -6,6 +6,7 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { fmtTimestamp } from '@/components/admin/email/fmtTimestamp'
 import { DealDrawer } from '@/components/crm/DealDrawer'
+import { lineItemDisplayTotal, lineItemsDisplayTotal } from '@/components/crm/dealFinancials'
 import type { MemberRef } from '@/lib/orgMembers/memberRef'
 import type { Deal } from '@/lib/crm/types'
 
@@ -263,7 +264,7 @@ export default function DealDetailPage() {
   }
 
   const prob = deal.probability ?? 50
-  const lineItemTotal = (deal.lineItems ?? []).reduce((sum, li) => sum + li.qty * li.unitPrice, 0)
+  const lineItemTotal = lineItemsDisplayTotal(deal.lineItems ?? [])
   const weightedValue = (deal.value ?? 0) * (prob / 100)
   const probColor = probabilityColor(prob)
   const isLost = Boolean(deal.lostReason || stageName.toLowerCase().includes('lost'))
@@ -535,7 +536,7 @@ export default function DealDetailPage() {
                         {fmtValue(li.unitPrice, li.currency || deal.currency)}
                       </td>
                       <td className="px-4 py-3 font-mono text-[var(--color-pib-text)]">
-                        {fmtValue(li.qty * li.unitPrice, li.currency || deal.currency)}
+                        {fmtValue(lineItemDisplayTotal(li), li.currency || deal.currency)}
                       </td>
                     </tr>
                   ))}
