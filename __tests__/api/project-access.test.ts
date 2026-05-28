@@ -25,6 +25,9 @@ const mockCompanyDoc = jest.fn()
 const mockCompanyGet = jest.fn()
 const mockContactDoc = jest.fn()
 const mockContactGet = jest.fn()
+const mockProjectRootDoc = jest.fn()
+const mockProjectRootCollection = jest.fn()
+const mockProjectAuditAdd = jest.fn()
 const mockEnsureClaimableRelationship = jest.fn()
 
 let mockUser = { uid: 'owner-1', role: 'admin' as const, orgId: 'owner-org' }
@@ -131,6 +134,12 @@ beforeEach(() => {
       ? { orgId: 'owner-org', name: 'Linked Contact', email: 'linked@example.com', linkedUserId: 'contact-user' }
       : { orgId: 'owner-org', name: 'Pending Contact', email: 'pending@example.com' },
   }))
+  mockProjectAuditAdd.mockResolvedValue({ id: 'audit-1' })
+  mockProjectRootCollection.mockImplementation((name: string) => {
+    if (name === 'audit') return { add: mockProjectAuditAdd }
+    throw new Error(`Unexpected project subcollection ${name}`)
+  })
+  mockProjectRootDoc.mockReturnValue({ collection: mockProjectRootCollection })
 
   mockEnsureClaimableRelationship.mockImplementation(async (input: Record<string, unknown>) => ({
     id: `relationship-${input.sourceCompanyId}`,
@@ -148,6 +157,7 @@ beforeEach(() => {
     if (name === 'users') return { doc: mockUserDoc }
     if (name === 'companies') return { doc: mockCompanyDoc }
     if (name === 'contacts') return { doc: mockContactDoc }
+    if (name === 'projects') return { doc: mockProjectRootDoc }
     throw new Error(`Unexpected collection ${name}`)
   })
 })
@@ -199,6 +209,16 @@ describe('project access API', () => {
       status: 'active',
       memberType: 'internal',
     }), { merge: true })
+    expect(mockProjectAuditAdd).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'audit',
+      eventType: 'access_member_added',
+      itemType: 'projectMember',
+      itemId: 'user-2',
+      actorUid: 'owner-1',
+      uid: 'user-2',
+      role: 'contributor',
+      title: 'Added User Two as contributor',
+    }))
   })
 
   it('rejects internal project members that do not belong to the owner org', async () => {
@@ -257,5 +277,32 @@ describe('project access API', () => {
       claimableRelationshipId: 'relationship-company-pending',
       claimToken: 'claim-company-pending',
     }), { merge: true })
+    expect(mockProjectAuditAdd).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'audit',
+      eventType: 'access_org_linked',
+      itemType: 'projectOrganization',
+      itemId: 'partner-org',
+      actorUid: 'owner-1',
+      companyId: 'company-linked',
+      contactId: 'contact-linked',
+      orgId: 'partner-org',
+      uid: 'contact-user',
+      role: 'reviewer',
+      status: 'active',
+      title: 'Linked Partner Co as reviewer',
+    }))
+    expect(mockProjectAuditAdd).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'audit',
+      eventType: 'access_org_invited',
+      itemType: 'projectOrganization',
+      itemId: 'company-pending',
+      actorUid: 'owner-1',
+      companyId: 'company-pending',
+      contactId: 'contact-pending',
+      recipientEmail: 'pending@example.com',
+      role: 'viewer',
+      status: 'pending',
+      title: 'Invited Pending Co as viewer',
+    }))
   })
 })

@@ -86,6 +86,32 @@ async function listOwnerMemberCandidates(project: Record<string, unknown>, role?
     .sort((a, b) => (a.displayName || a.email || a.uid).localeCompare(b.displayName || b.email || b.uid))
 }
 
+async function writeAccessAudit(input: {
+  projectId: string
+  eventType: string
+  itemType: string
+  itemId: string
+  title: string
+  actorUid: string
+  metadata?: Record<string, unknown>
+}) {
+  const payload = {
+    type: 'audit',
+    eventType: input.eventType,
+    itemType: input.itemType,
+    itemId: input.itemId,
+    title: input.title,
+    actorUid: input.actorUid,
+    ...(input.metadata ?? {}),
+    createdAt: FieldValue.serverTimestamp(),
+  }
+  await adminDb
+    .collection('projects')
+    .doc(input.projectId)
+    .collection('audit')
+    .add(Object.fromEntries(Object.entries(payload).filter(([, value]) => value !== undefined)))
+}
+
 export const GET = withAuth('client', async (_req: NextRequest, user, ctx) => {
   const { projectId } = await (ctx as RouteContext).params
   const access = await getProjectForUser(projectId, user)
@@ -145,6 +171,20 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
     }
 
     await adminDb.collection('projectMembers').doc(projectMemberDocId(projectId, uid)).set(payload, { merge: true })
+    await writeAccessAudit({
+      projectId,
+      eventType: 'access_member_added',
+      itemType: 'projectMember',
+      itemId: uid,
+      title: `Added ${payload.displayName || payload.email || uid} as ${role}`,
+      actorUid: user.uid,
+      metadata: {
+        uid,
+        orgId: sourceOrgId,
+        role,
+        memberType: 'internal',
+      },
+    })
     return apiSuccess(payload, 201)
   }
 
@@ -253,6 +293,25 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
         .collection('projectInvites')
         .doc(inviteDocId(projectId, { contactId, recipientEmail, companyId }))
         .set(Object.fromEntries(Object.entries(invitePayload).filter(([, value]) => value !== undefined)), { merge: true })
+
+      await writeAccessAudit({
+        projectId,
+        eventType: linkedOrgId ? 'access_org_linked' : 'access_org_invited',
+        itemType: 'projectOrganization',
+        itemId: linkedOrgId || companyId,
+        title: `${linkedOrgId ? 'Linked' : 'Invited'} ${recipientCompanyName} as ${role}`,
+        actorUid: user.uid,
+        metadata: {
+          companyId,
+          contactId: contactId || undefined,
+          orgId: linkedOrgId || undefined,
+          uid: linkedUserId || undefined,
+          recipientEmail: recipientEmail || undefined,
+          role,
+          status,
+          claimableRelationshipId: relationship.id,
+        },
+      })
 
       results.push({
         companyId,
