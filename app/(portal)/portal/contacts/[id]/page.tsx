@@ -6,6 +6,7 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { fmtTimestamp } from '@/components/admin/email/fmtTimestamp'
 import { ContactDealsPanel } from '@/components/crm/ContactDealsPanel'
+import { ContactEngagementPanel } from '@/components/crm/ContactEngagementPanel'
 import { CompanyPanel } from '@/components/crm/CompanyPanel'
 import { CompanyPicker } from '@/components/crm/CompanyPicker'
 import { ContactIdentityPanel } from '@/components/crm/ContactIdentityPanel'
@@ -1101,6 +1102,15 @@ export default function PortalContactDetailPage() {
 
         {/* Right: Recent emails + activity */}
         <section className="lg:col-span-2 space-y-6">
+          <ContactEngagementPanel
+            profile={{
+              lastContactedAt: contact.lastContactedAt,
+              emails,
+              activities,
+              nextSuggestion,
+            }}
+          />
+
           <div className="pib-card-section">
             <div className="px-5 py-3.5 border-b border-[var(--color-pib-line)] bg-white/[0.02] flex items-center justify-between">
               <p className="eyebrow !text-[10px]">Recent emails</p>
