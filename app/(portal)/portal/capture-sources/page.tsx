@@ -1,7 +1,7 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
 import Link from 'next/link'
 import type { CaptureSource, CaptureSourceType } from '@/lib/crm/captureSources'
 import { fmtTimestamp } from '@/components/admin/email/fmtTimestamp'
@@ -35,6 +35,58 @@ function TypeBadge({ type }: { type: CaptureSourceType }) {
     <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${TYPE_STYLES[type]}`}>
       {TYPE_LABELS[type]}
     </span>
+  )
+}
+
+function StatusBadge({ source }: { source: CaptureSource }) {
+  const captured = source.capturedCount ?? 0
+  if (!source.enabled) {
+    return (
+      <span className="px-2 py-0.5 rounded-full text-[11px] font-medium border border-amber-500/25 bg-amber-500/10 text-amber-200">
+        Paused
+      </span>
+    )
+  }
+  if (captured === 0) {
+    return (
+      <span className="px-2 py-0.5 rounded-full text-[11px] font-medium border border-sky-500/25 bg-sky-500/10 text-sky-200">
+        No captures yet
+      </span>
+    )
+  }
+  return (
+    <span className="px-2 py-0.5 rounded-full text-[11px] font-medium border border-emerald-500/25 bg-emerald-500/10 text-emerald-200">
+      Ready for traffic
+    </span>
+  )
+}
+
+function MetricCard({
+  label,
+  value,
+  detail,
+  icon,
+}: {
+  label: string
+  value: string | number
+  detail: string
+  icon: string
+}) {
+  return (
+    <div className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[10px] font-medium uppercase tracking-widest text-[var(--color-pib-text-muted)]">
+            {label}
+          </p>
+          <p className="mt-2 text-2xl font-display text-[var(--color-pib-text)]">{value}</p>
+        </div>
+        <span className="material-symbols-outlined rounded-lg border border-[var(--color-pib-line)] bg-white/[0.04] p-2 text-[18px] text-[var(--color-pib-text-muted)]">
+          {icon}
+        </span>
+      </div>
+      <p className="mt-3 text-xs text-[var(--color-pib-text-muted)]">{detail}</p>
+    </div>
   )
 }
 
@@ -186,12 +238,22 @@ function SourceCard({
 
   const captured = source.capturedCount ?? 0
   const lastAt = fmtTimestamp(source.lastCapturedAt)
+  const tagCount = source.autoTags?.length ?? 0
+  const campaignCount = source.autoCampaignIds?.length ?? 0
+  const readinessItems = [
+    source.enabled ? 'Live' : 'Paused',
+    captured > 0 ? `${captured} captured` : 'No captures yet',
+    tagCount > 0 ? `${tagCount} auto-tag${tagCount === 1 ? '' : 's'}` : 'No auto-tags',
+    campaignCount > 0 ? 'Auto-enrolls' : 'No nurture',
+  ]
 
   return (
-    <div className="rounded-xl bg-[var(--color-pib-surface)] border border-[var(--color-pib-line)]">
-      <div className="p-4 flex items-center justify-between gap-3 flex-wrap">
+    <div className="rounded-xl bg-[var(--color-pib-surface)] border border-[var(--color-pib-line)] overflow-hidden">
+      <div className="p-4 flex items-start justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-3 min-w-0 flex-1">
-          <span className="material-symbols-outlined text-[var(--color-pib-text-muted)] text-[20px]">inventory_2</span>
+          <span className="material-symbols-outlined rounded-lg border border-[var(--color-pib-line)] bg-white/[0.04] p-2 text-[var(--color-pib-text-muted)] text-[20px]">
+            inventory_2
+          </span>
           <div className="min-w-0 flex-1">
             {editingName ? (
               <input
@@ -222,8 +284,19 @@ function SourceCard({
               {captured} captured
               {lastAt ? <span> · last {lastAt}</span> : null}
             </p>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {readinessItems.map((item) => (
+                <span
+                  key={item}
+                  className="rounded-full border border-[var(--color-pib-line)] bg-white/[0.03] px-2 py-0.5 text-[11px] text-[var(--color-pib-text-muted)]"
+                >
+                  {item}
+                </span>
+              ))}
+            </div>
           </div>
           <TypeBadge type={source.type} />
+          <StatusBadge source={source} />
         </div>
         <div className="flex items-center gap-2">
           <label className="flex items-center gap-2 text-xs text-[var(--color-pib-text-muted)] cursor-pointer select-none">
@@ -436,6 +509,33 @@ export default function PortalCaptureSourcesPage() {
     loadCampaigns()
   }, [loadSources, loadCampaigns])
 
+  const metrics = useMemo(() => {
+    const totalCaptures = sources.reduce((sum, source) => sum + (source.capturedCount ?? 0), 0)
+    const activeSources = sources.filter((source) => source.enabled).length
+    const conversionReady = sources.filter(
+      (source) =>
+        source.enabled &&
+        ((source.autoTags?.length ?? 0) > 0 ||
+          (source.autoCampaignIds?.length ?? 0) > 0 ||
+          source.consentRequired),
+    ).length
+    const needsAttention = sources.filter(
+      (source) => !source.enabled || (source.enabled && (source.capturedCount ?? 0) === 0),
+    ).length
+    return { totalCaptures, activeSources, conversionReady, needsAttention }
+  }, [sources])
+
+  const sourceMix = useMemo(() => {
+    const counts = sources.reduce<Record<CaptureSourceType, number>>(
+      (acc, source) => {
+        acc[source.type] += 1
+        return acc
+      },
+      { form: 0, api: 0, csv: 0, integration: 0, manual: 0 },
+    )
+    return (Object.keys(counts) as CaptureSourceType[]).filter((type) => counts[type] > 0)
+  }, [sources])
+
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault()
     const name = newName.trim()
@@ -487,9 +587,9 @@ export default function PortalCaptureSourcesPage() {
       <header className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <p className="eyebrow">CRM</p>
-          <h1 className="pib-page-title mt-2">Capture Sources</h1>
+          <h1 className="pib-page-title mt-2">Capture command center</h1>
           <p className="pib-page-sub max-w-2xl">
-            Public ways for contacts to flow into your CRM. Each source has its own ingest key — share the form snippet or call the API endpoint to capture leads.
+            Manage every path that feeds contacts into the CRM, from embedded forms to partner APIs and CSV imports. Keep each channel measurable, tagged, and ready for follow-up.
           </p>
         </div>
         <Link
@@ -501,35 +601,86 @@ export default function PortalCaptureSourcesPage() {
         </Link>
       </header>
 
-      <div className="rounded-xl bg-[var(--color-pib-surface)] border border-[var(--color-pib-line)] p-4">
-        <form onSubmit={handleCreate} className="flex flex-col sm:flex-row gap-2">
-          <input
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            placeholder="Source name (e.g. Homepage form)"
-            className="flex-1 px-3 py-2 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-bg)] text-[var(--color-pib-text)] text-sm"
-            disabled={submitting}
-            autoComplete="off"
-          />
-          <select
-            value={newType}
-            onChange={(e) => setNewType(e.target.value as CaptureSourceType)}
-            className="px-3 py-2 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-bg)] text-[var(--color-pib-text)] text-sm"
-            disabled={submitting}
-          >
-            <option value="form">Form</option>
-            <option value="api">API</option>
-            <option value="manual">Manual</option>
-          </select>
-          <button
-            type="submit"
-            disabled={submitting || !newName.trim()}
-            className="btn-pib-accent !py-2 !px-4 !text-sm disabled:opacity-50"
-          >
-            {submitting ? 'Creating...' : 'Create'}
-          </button>
-        </form>
-        {formError && <p className="mt-2 text-sm text-[#FCA5A5]">{formError}</p>}
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <MetricCard
+          label="Total captures"
+          value={metrics.totalCaptures}
+          detail="Contacts attributed to tracked intake channels."
+          icon="groups"
+        />
+        <MetricCard
+          label="Active channels"
+          value={`${metrics.activeSources}/${sources.length}`}
+          detail="Live forms, APIs, imports, and manual channels."
+          icon="radio_button_checked"
+        />
+        <MetricCard
+          label="Conversion focus"
+          value={metrics.conversionReady}
+          detail="Sources with consent, tags, or nurture routing."
+          icon="conversion_path"
+        />
+        <MetricCard
+          label="Needs attention"
+          value={metrics.needsAttention}
+          detail="Paused or live channels with no recorded captures."
+          icon="priority_high"
+        />
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="rounded-xl bg-[var(--color-pib-surface)] border border-[var(--color-pib-line)] p-4">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-medium text-[var(--color-pib-text)]">Create an intake channel</h2>
+              <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
+                Start with the channel type, then add tags, nurture routing, consent, and embed/API instructions from the source card.
+              </p>
+            </div>
+          </div>
+          <form onSubmit={handleCreate} className="grid gap-2 md:grid-cols-[minmax(0,1fr)_160px_auto]">
+            <input
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder="Source name (e.g. Homepage form)"
+              className="px-3 py-2 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-bg)] text-[var(--color-pib-text)] text-sm"
+              disabled={submitting}
+              autoComplete="off"
+            />
+            <select
+              value={newType}
+              onChange={(e) => setNewType(e.target.value as CaptureSourceType)}
+              className="px-3 py-2 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-bg)] text-[var(--color-pib-text)] text-sm"
+              disabled={submitting}
+            >
+              <option value="form">Form</option>
+              <option value="api">API</option>
+              <option value="manual">Manual</option>
+            </select>
+            <button
+              type="submit"
+              disabled={submitting || !newName.trim()}
+              className="btn-pib-accent !py-2 !px-4 !text-sm disabled:opacity-50"
+            >
+              {submitting ? 'Creating...' : 'Create'}
+            </button>
+          </form>
+          {formError && <p className="mt-2 text-sm text-[#FCA5A5]">{formError}</p>}
+        </div>
+
+        <div className="rounded-xl bg-[var(--color-pib-surface)] border border-[var(--color-pib-line)] p-4">
+          <h2 className="text-sm font-medium text-[var(--color-pib-text)]">Channel mix</h2>
+          <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
+            Balance high-intent forms with imports and partner APIs so CRM growth is not trapped in one channel.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            {sourceMix.length === 0 ? (
+              <span className="text-sm text-[var(--color-pib-text-muted)]">No channels yet</span>
+            ) : (
+              sourceMix.map((type) => <TypeBadge key={type} type={type} />)
+            )}
+          </div>
+        </div>
       </div>
 
       {loading ? (
