@@ -8,6 +8,7 @@ import { restrictedAdminOrgIds } from '@/lib/api/platformAdmin'
 import { DocumentIndex } from '@/components/client-documents/DocumentIndex'
 import { PageHeader, PageLinkTabs } from '@/components/ui/AppFoundation'
 import type { ClientDocument, ClientDocumentStatus } from '@/lib/client-documents/types'
+import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
 
 export const dynamic = 'force-dynamic'
 
@@ -58,7 +59,10 @@ export default async function DocumentsIndexPage({
   }
 
   const snap = await query.get()
-  const orgSnap = await adminDb.collection('organizations').where('active', '==', true).get()
+  const [orgSnap, companySnap] = await Promise.all([
+    adminDb.collection('organizations').where('active', '==', true).get(),
+    adminDb.collection('companies').where('orgId', '==', PIB_PLATFORM_ORG_ID).get(),
+  ])
   const orgOptions = orgSnap.docs
     .map((doc) => {
       const data = doc.data() as { name?: string; type?: string }
@@ -67,6 +71,13 @@ export default async function DocumentsIndexPage({
     .filter((org) => org.type === 'client')
     .filter((org) => allowedOrgIds.length === 0 || allowedOrgIds.includes(org.id))
     .sort((a, b) => a.name.localeCompare(b.name))
+  const orgNameById = new Map(orgOptions.map((org) => [org.id, org.name]))
+  const companyNameById = new Map(
+    companySnap.docs.map((doc) => {
+      const data = doc.data() as { name?: string }
+      return [doc.id, data.name ?? doc.id] as const
+    }),
+  )
 
   const allDocuments = snap.docs
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -94,6 +105,15 @@ export default async function DocumentsIndexPage({
     activeStatus === 'all'
       ? allDocuments
       : allDocuments.filter((d) => d.status === activeStatus)
+  const relationshipLabels = Object.fromEntries(
+    documents.map((document) => [
+      document.id,
+      {
+        companyName: document.linked?.companyId ? companyNameById.get(document.linked.companyId) : undefined,
+        clientOrgName: document.linked?.clientOrgId ? orgNameById.get(document.linked.clientOrgId) : undefined,
+      },
+    ]),
+  )
   const statusTabs = STATUS_TABS.map((tab) => ({
     label: tab.label,
     value: tab.value,
@@ -149,7 +169,7 @@ export default async function DocumentsIndexPage({
         </div>
       </form>
 
-      <DocumentIndex documents={documents} basePath="/admin/documents" canDelete />
+      <DocumentIndex documents={documents} basePath="/admin/documents" canDelete relationshipLabels={relationshipLabels} />
     </div>
   )
 }

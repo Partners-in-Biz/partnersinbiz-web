@@ -59,4 +59,25 @@ describe('DocumentIndex', () => {
 
     expect(screen.queryByText('Client Proposal')).not.toBeInTheDocument()
   })
+
+  it('renders CRM company and client organisation relationship labels', () => {
+    render(
+      <DocumentIndex
+        documents={[{
+          ...document,
+          linked: { companyId: 'company-1', clientOrgId: 'client-org' },
+        }]}
+        basePath="/admin/documents"
+        relationshipLabels={{
+          'doc-1': {
+            companyName: 'Client One CRM',
+            clientOrgName: 'Client One Portal',
+          },
+        }}
+      />,
+    )
+
+    expect(screen.getByText('Client One CRM')).toBeInTheDocument()
+    expect(screen.getByText('Client One Portal')).toBeInTheDocument()
+  })
 })

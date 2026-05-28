@@ -281,6 +281,8 @@ export const CANONICAL_SHOWCASE_BLOCK_CONTRACTS = {
 } as const satisfies Record<ShowcaseDocumentBlockType, ShowcaseBlockContract>
 
 export interface ClientDocumentLinkSet {
+  companyId?: string
+  clientOrgId?: string
   projectId?: string
   campaignId?: string
   reportId?: string

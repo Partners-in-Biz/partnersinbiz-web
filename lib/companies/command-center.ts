@@ -110,8 +110,13 @@ function matchesAnyArray(value: unknown, allowed: Set<string>): boolean {
   return rowIdList(value).some((entry) => allowed.has(entry))
 }
 
-function matchesCompany(row: Record<string, unknown>, company: Company, relationships: BusinessRelationship[] = []): boolean {
+function recordValue(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
+}
+
+export function matchesCompany(row: Record<string, unknown>, company: Company, relationships: BusinessRelationship[] = []): boolean {
   const activeRelationships = activeRelationshipsFor(company, relationships)
+  const linked = recordValue(row.linked)
   const companyIds = new Set<string>([company.id])
   const orgIds = new Set<string>()
   const relationshipIds = new Set<string>()
@@ -130,6 +135,7 @@ function matchesCompany(row: Record<string, unknown>, company: Company, relation
 
   const directFields = [
     row.companyId,
+    linked.companyId,
     row.sourceCompanyId,
     row.clientCompanyId,
     row.targetCompanyId,
@@ -143,6 +149,7 @@ function matchesCompany(row: Record<string, unknown>, company: Company, relation
 
   if (orgIds.size > 0) {
     const linkedFields = [
+      linked.clientOrgId,
       row.recipientOrgId,
       row.targetOrgId,
       row.clientOrgId,

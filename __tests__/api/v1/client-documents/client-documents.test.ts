@@ -58,6 +58,7 @@ jest.mock('@/lib/api/auth', () => ({
 const user = { uid: 'ai-agent', role: 'ai' as const }
 const adminUser = { uid: 'admin-1', role: 'admin' as const }
 const clientUser = { uid: 'client-1', role: 'client' as const, orgId: 'org-1' }
+const linkedClientUser = { uid: 'client-2', role: 'client' as const, orgId: 'client-org' }
 
 function jsonRequest(url: string, body: unknown, method = 'POST') {
   return new NextRequest(url, {
@@ -133,6 +134,25 @@ describe('client documents API', () => {
     })
     expect(mockBatchSet).toHaveBeenCalledTimes(2)
     expect(mockBatchCommit).toHaveBeenCalledTimes(1)
+  })
+
+  it('creates a platform-owned document linked to a CRM company and client org', async () => {
+    const { POST } = await import('@/app/api/v1/client-documents/route')
+    const req = jsonRequest('http://localhost/api/v1/client-documents', {
+      orgId: 'pib-platform-owner',
+      title: 'Client Growth Proposal',
+      type: 'sales_proposal',
+      linked: { companyId: 'company-1', clientOrgId: 'client-org' },
+    })
+
+    const res = await POST(req, adminUser)
+    const documentWrite = mockBatchSet.mock.calls[0]?.[1]
+
+    expect(res.status).toBe(201)
+    expect(documentWrite).toEqual(expect.objectContaining({
+      orgId: 'pib-platform-owner',
+      linked: { companyId: 'company-1', clientOrgId: 'client-org' },
+    }))
   })
 
   it('rejects invalid document type on create', async () => {
@@ -261,6 +281,48 @@ describe('client documents API', () => {
     expect(body.data).toEqual([{ id: 'doc-1', orgId: 'org-1', title: 'Proposal', deleted: false }])
   })
 
+  it('lists direct client documents together with platform-owned documents linked to the client org', async () => {
+    mockQueryGet
+      .mockResolvedValueOnce({
+        docs: [
+          { id: 'doc-direct', data: () => ({ orgId: 'client-org', title: 'Direct document', deleted: false }) },
+        ],
+      })
+      .mockResolvedValueOnce({
+        docs: [
+          {
+            id: 'doc-linked',
+            data: () => ({
+              orgId: 'pib-platform-owner',
+              title: 'Linked platform document',
+              status: 'client_review',
+              linked: { clientOrgId: 'client-org', companyId: 'company-1' },
+              deleted: false,
+            }),
+          },
+          {
+            id: 'doc-other',
+            data: () => ({
+              orgId: 'pib-platform-owner',
+              title: 'Other client document',
+              status: 'client_review',
+              linked: { clientOrgId: 'other-org', companyId: 'company-2' },
+              deleted: false,
+            }),
+          },
+        ],
+      })
+
+    const { GET } = await import('@/app/api/v1/client-documents/route')
+    const req = new NextRequest('http://localhost/api/v1/client-documents')
+
+    const res = await GET(req, linkedClientUser)
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.data.map((doc: { id: string }) => doc.id)).toEqual(['doc-direct', 'doc-linked'])
+  })
+
   it('returns a scoped document when the actor has access', async () => {
     mockDocGet.mockResolvedValueOnce({
       exists: true,
@@ -275,6 +337,52 @@ describe('client documents API', () => {
 
     expect(res.status).toBe(200)
     expect(body.data).toMatchObject({ id: 'doc-1', orgId: 'org-1', title: 'Proposal' })
+  })
+
+  it('returns a platform-owned client-visible document linked to the client org', async () => {
+    mockDocGet.mockResolvedValueOnce({
+      exists: true,
+      id: 'doc-1',
+      data: () => ({
+        orgId: 'pib-platform-owner',
+        title: 'Linked proposal',
+        status: 'client_review',
+        linked: { clientOrgId: 'client-org', companyId: 'company-1' },
+        deleted: false,
+      }),
+    })
+
+    const { GET } = await import('@/app/api/v1/client-documents/[id]/route')
+    const req = new NextRequest('http://localhost/api/v1/client-documents/doc-1')
+    const res = await GET(req, linkedClientUser, { params: Promise.resolve({ id: 'doc-1' }) })
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.data).toMatchObject({
+      id: 'doc-1',
+      orgId: 'pib-platform-owner',
+      linked: { clientOrgId: 'client-org', companyId: 'company-1' },
+    })
+  })
+
+  it('blocks clients from platform-owned internal draft documents even when linked to their org', async () => {
+    mockDocGet.mockResolvedValueOnce({
+      exists: true,
+      id: 'doc-1',
+      data: () => ({
+        orgId: 'pib-platform-owner',
+        title: 'Internal draft',
+        status: 'internal_draft',
+        linked: { clientOrgId: 'client-org', companyId: 'company-1' },
+        deleted: false,
+      }),
+    })
+
+    const { GET } = await import('@/app/api/v1/client-documents/[id]/route')
+    const req = new NextRequest('http://localhost/api/v1/client-documents/doc-1')
+    const res = await GET(req, linkedClientUser, { params: Promise.resolve({ id: 'doc-1' }) })
+
+    expect(res.status).toBe(403)
   })
 
   it('blocks clients from standalone internal documents', async () => {
@@ -315,6 +423,33 @@ describe('client documents API', () => {
         shareEnabled: true,
         updatedBy: 'ai-agent',
         updatedByType: 'agent',
+      }),
+    )
+  })
+
+  it('patches CRM company and client org links', async () => {
+    mockTransactionGet.mockResolvedValueOnce({
+      exists: true,
+      id: 'doc-1',
+      data: () => ({ orgId: 'pib-platform-owner', title: 'Old', deleted: false }),
+    })
+
+    const { PATCH } = await import('@/app/api/v1/client-documents/[id]/route')
+    const req = jsonRequest(
+      'http://localhost/api/v1/client-documents/doc-1',
+      { linked: { companyId: 'company-1', clientOrgId: 'client-org' } },
+      'PATCH',
+    )
+
+    const res = await PATCH(req, adminUser, { params: Promise.resolve({ id: 'doc-1' }) })
+
+    expect(res.status).toBe(200)
+    expect(mockTransactionUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'doc-1' }),
+      expect.objectContaining({
+        linked: { companyId: 'company-1', clientOrgId: 'client-org' },
+        updatedBy: 'admin-1',
+        updatedByType: 'user',
       }),
     )
   })

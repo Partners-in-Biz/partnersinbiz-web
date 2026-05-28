@@ -2,11 +2,12 @@ import { FieldValue } from 'firebase-admin/firestore'
 import { NextRequest } from 'next/server'
 
 import { withAuth } from '@/lib/api/auth'
-import { resolveOrgScope } from '@/lib/api/orgScope'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import type { ApiUser } from '@/lib/api/types'
-import { CLIENT_DOCUMENTS_COLLECTION, getClientDocument } from '@/lib/client-documents/store'
-import type { ClientDocument, ClientDocumentLinkSet, DocumentAssumption } from '@/lib/client-documents/types'
+import { assertClientDocumentDataAccess, getAccessibleClientDocument } from '@/lib/client-documents/access'
+import { validateClientDocumentLinks } from '@/lib/client-documents/linkedValidation'
+import { CLIENT_DOCUMENTS_COLLECTION } from '@/lib/client-documents/store'
+import type { ClientDocument, DocumentAssumption } from '@/lib/client-documents/types'
 import { adminDb } from '@/lib/firebase/admin'
 
 export const dynamic = 'force-dynamic'
@@ -14,8 +15,6 @@ export const dynamic = 'force-dynamic'
 type RouteContext = { params: Promise<{ id: string }> }
 
 const PATCH_FIELDS = new Set(['title', 'linked', 'assumptions', 'shareEnabled'])
-const LINKED_STRING_FIELDS = new Set(['projectId', 'campaignId', 'reportId', 'dealId', 'seoSprintId', 'geoWorkspaceId', 'geoAuditId', 'invoiceId'])
-const LINKED_FIELDS = new Set([...LINKED_STRING_FIELDS, 'socialPostIds', 'geoTaskIds'])
 const ASSUMPTION_FIELDS = new Set([
   'id',
   'text',
@@ -32,77 +31,6 @@ const ASSUMPTION_STATUSES = new Set(['open', 'resolved'])
 
 function actorType(user: ApiUser) {
   return user.role === 'ai' ? 'agent' : 'user'
-}
-
-async function assertDocumentAccess(id: string, user: ApiUser) {
-  const document = await getClientDocument(id)
-  if (!document) {
-    return { ok: false as const, response: apiError('Document not found', 404) }
-  }
-
-  if (!document.orgId) {
-    if (user.role === 'client') {
-      return { ok: false as const, response: apiError('Forbidden', 403) }
-    }
-    return { ok: true as const, document }
-  }
-
-  const scope = resolveOrgScope(user, document.orgId)
-  if (!scope.ok) {
-    return { ok: false as const, response: apiError(scope.error, scope.status) }
-  }
-
-  return { ok: true as const, document }
-}
-
-function assertDocumentDataAccess(document: Partial<ClientDocument>, user: ApiUser) {
-  if (!document.orgId) {
-    if (user.role === 'client') {
-      return { ok: false as const, response: apiError('Forbidden', 403) }
-    }
-    return { ok: true as const }
-  }
-
-  const scope = resolveOrgScope(user, document.orgId)
-  if (!scope.ok) {
-    return { ok: false as const, response: apiError(scope.error, scope.status) }
-  }
-
-  return { ok: true as const }
-}
-
-function validateLinked(value: unknown): { ok: true; value: ClientDocumentLinkSet } | { ok: false; error: string } {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return { ok: false, error: 'linked must be an object' }
-  }
-
-  const linked = value as Record<string, unknown>
-  const unknownFields = Object.keys(linked).filter((field) => !LINKED_FIELDS.has(field))
-  if (unknownFields.length > 0) {
-    return { ok: false, error: `linked contains unsupported field(s): ${unknownFields.join(', ')}` }
-  }
-
-  for (const field of LINKED_STRING_FIELDS) {
-    if (field in linked && typeof linked[field] !== 'string') {
-      return { ok: false, error: `linked.${field} must be a string` }
-    }
-  }
-
-  if (
-    'socialPostIds' in linked &&
-    (!Array.isArray(linked.socialPostIds) || linked.socialPostIds.some((postId) => typeof postId !== 'string'))
-  ) {
-    return { ok: false, error: 'linked.socialPostIds must be an array of strings' }
-  }
-
-  if (
-    'geoTaskIds' in linked &&
-    (!Array.isArray(linked.geoTaskIds) || linked.geoTaskIds.some((taskId) => typeof taskId !== 'string'))
-  ) {
-    return { ok: false, error: 'linked.geoTaskIds must be an array of strings' }
-  }
-
-  return { ok: true, value: linked as ClientDocumentLinkSet }
 }
 
 function validateAssumptions(
@@ -147,7 +75,7 @@ function validateAssumptions(
 
 export const GET = withAuth('client', async (_req: NextRequest, user: ApiUser, ctx: RouteContext) => {
   const { id } = await ctx.params
-  const access = await assertDocumentAccess(id, user)
+  const access = await getAccessibleClientDocument(id, user)
   if (!access.ok) return access.response
 
   return apiSuccess(access.document)
@@ -176,7 +104,7 @@ export const PATCH = withAuth('admin', async (req: NextRequest, user: ApiUser, c
   }
 
   if ('linked' in body) {
-    const linked = validateLinked(body.linked)
+    const linked = validateClientDocumentLinks(body.linked)
     if (!linked.ok) return apiError(linked.error, 400)
     update.linked = linked.value
   }
@@ -199,7 +127,7 @@ export const PATCH = withAuth('admin', async (req: NextRequest, user: ApiUser, c
       return { ok: false as const, response: apiError('Document not found', 404) }
     }
 
-    const access = assertDocumentDataAccess(snap.data() as Partial<ClientDocument>, user)
+    const access = assertClientDocumentDataAccess(snap.data() as Partial<ClientDocument>, user)
     if (!access.ok) return access
 
     transaction.update(documentRef, update)
@@ -221,7 +149,7 @@ export const DELETE = withAuth('admin', async (_req: NextRequest, user: ApiUser,
       return { ok: false as const, response: apiError('Document not found', 404) }
     }
 
-    const access = assertDocumentDataAccess(snap.data() as Partial<ClientDocument>, user)
+    const access = assertClientDocumentDataAccess(snap.data() as Partial<ClientDocument>, user)
     if (!access.ok) return access
 
     transaction.update(documentRef, {

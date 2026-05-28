@@ -4,9 +4,12 @@ import { withAuth } from '@/lib/api/auth'
 import { resolveOrgScope } from '@/lib/api/orgScope'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import type { ApiUser } from '@/lib/api/types'
+import { isClientVisibleClientDocument } from '@/lib/client-documents/access'
+import { validateClientDocumentLinks } from '@/lib/client-documents/linkedValidation'
 import { CLIENT_DOCUMENTS_COLLECTION, createClientDocument } from '@/lib/client-documents/store'
 import { themeFromOrg } from '@/lib/client-documents/themeFromOrg'
 import type {
+  ClientDocument,
   ClientDocumentLinkSet,
   ClientDocumentStatus,
   ClientDocumentType,
@@ -15,6 +18,7 @@ import type {
 } from '@/lib/client-documents/types'
 import { adminDb } from '@/lib/firebase/admin'
 import type { Organization } from '@/lib/organizations/types'
+import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
 
 export const dynamic = 'force-dynamic'
 
@@ -39,8 +43,6 @@ const VALID_STATUSES: ClientDocumentStatus[] = [
   'accepted',
   'archived',
 ]
-const LINKED_STRING_FIELDS = new Set(['projectId', 'campaignId', 'reportId', 'dealId', 'seoSprintId', 'geoWorkspaceId', 'geoAuditId', 'invoiceId'])
-const LINKED_FIELDS = new Set([...LINKED_STRING_FIELDS, 'socialPostIds', 'geoTaskIds', 'researchItemIds'])
 const ASSUMPTION_CREATE_FIELDS = new Set(['text', 'severity', 'blockId'])
 const ASSUMPTION_SEVERITIES = new Set(['info', 'needs_review', 'blocks_publish'])
 
@@ -52,49 +54,6 @@ type CreateAssumptionInput = {
 
 function actorType(user: ApiUser) {
   return user.role === 'ai' ? 'agent' : 'user'
-}
-
-function validateCreateLinked(
-  value: unknown,
-): { ok: true; value: ClientDocumentLinkSet } | { ok: false; error: string } {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return { ok: false, error: 'linked must be an object' }
-  }
-
-  const linked = value as Record<string, unknown>
-  const unknownFields = Object.keys(linked).filter((field) => !LINKED_FIELDS.has(field))
-  if (unknownFields.length > 0) {
-    return { ok: false, error: `linked contains unsupported field(s): ${unknownFields.join(', ')}` }
-  }
-
-  for (const field of LINKED_STRING_FIELDS) {
-    if (field in linked && typeof linked[field] !== 'string') {
-      return { ok: false, error: `linked.${field} must be a string` }
-    }
-  }
-
-  if (
-    'socialPostIds' in linked &&
-    (!Array.isArray(linked.socialPostIds) || linked.socialPostIds.some((postId) => typeof postId !== 'string'))
-  ) {
-    return { ok: false, error: 'linked.socialPostIds must be an array of strings' }
-  }
-
-  if (
-    'geoTaskIds' in linked &&
-    (!Array.isArray(linked.geoTaskIds) || linked.geoTaskIds.some((taskId) => typeof taskId !== 'string'))
-  ) {
-    return { ok: false, error: 'linked.geoTaskIds must be an array of strings' }
-  }
-
-  if (
-    'researchItemIds' in linked &&
-    (!Array.isArray(linked.researchItemIds) || linked.researchItemIds.some((researchId) => typeof researchId !== 'string'))
-  ) {
-    return { ok: false, error: 'linked.researchItemIds must be an array of strings' }
-  }
-
-  return { ok: true, value: linked as ClientDocumentLinkSet }
 }
 
 function validateCreateAssumptions(
@@ -153,17 +112,28 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
     return apiError(`type must be one of: ${VALID_TYPES.join(', ')}`, 400)
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let query: any = adminDb.collection(CLIENT_DOCUMENTS_COLLECTION).where('orgId', '==', scope.orgId)
-  if (status) query = query.where('status', '==', status)
-  if (type) query = query.where('type', '==', type)
+  async function listForOrg(orgId: string): Promise<Array<ClientDocument & { id: string }>> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let query: any = adminDb.collection(CLIENT_DOCUMENTS_COLLECTION).where('orgId', '==', orgId)
+    if (status) query = query.where('status', '==', status)
+    if (type) query = query.where('type', '==', type)
+    const snap = await query.get()
+    return snap.docs
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .map((doc: any) => ({ id: doc.id, ...doc.data() } as ClientDocument & { id: string }))
+      .filter((doc: ClientDocument & { id: string }) => doc.deleted !== true)
+  }
 
-  const snap = await query.get()
-  const documents = snap.docs
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .map((doc: any) => ({ id: doc.id, ...doc.data() }))
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .filter((doc: any) => doc.deleted !== true)
+  let documents = await listForOrg(scope.orgId)
+  if (user.role === 'client' && scope.orgId !== PIB_PLATFORM_ORG_ID) {
+    const platformDocuments = await listForOrg(PIB_PLATFORM_ORG_ID)
+    const linkedPlatformDocuments = platformDocuments.filter((doc) => (
+      doc.linked?.clientOrgId === scope.orgId && isClientVisibleClientDocument(doc)
+    ))
+    const byId = new Map<string, ClientDocument & { id: string }>()
+    for (const document of [...documents, ...linkedPlatformDocuments]) byId.set(document.id, document)
+    documents = Array.from(byId.values())
+  }
 
   return apiSuccess(documents)
 })
@@ -191,7 +161,7 @@ export const POST = withAuth('admin', async (req: NextRequest, user: ApiUser) =>
 
   let linked: ClientDocumentLinkSet = {}
   if ('linked' in body) {
-    const linkedResult = validateCreateLinked(body.linked)
+    const linkedResult = validateClientDocumentLinks(body.linked)
     if (!linkedResult.ok) return apiError(linkedResult.error, 400)
     linked = linkedResult.value
   }

@@ -2,13 +2,13 @@ import { FieldValue } from 'firebase-admin/firestore'
 import { NextRequest } from 'next/server'
 
 import { withAuth } from '@/lib/api/auth'
-import { resolveOrgScope } from '@/lib/api/orgScope'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import type { ApiUser } from '@/lib/api/types'
+import { getAccessibleClientDocument } from '@/lib/client-documents/access'
 import { sendDocumentApprovedEmail } from '@/lib/client-documents/notifications'
 import { generateApprovedDocumentProjectTasks } from '@/lib/client-documents/taskGeneration'
-import { CLIENT_DOCUMENTS_COLLECTION, getClientDocument } from '@/lib/client-documents/store'
-import type { ClientDocument, DocumentApproval } from '@/lib/client-documents/types'
+import { CLIENT_DOCUMENTS_COLLECTION } from '@/lib/client-documents/store'
+import type { DocumentApproval } from '@/lib/client-documents/types'
 import { adminDb } from '@/lib/firebase/admin'
 import { notifyClientDocumentAccepted } from '@/lib/notifications/client-acceptance'
 
@@ -28,31 +28,9 @@ function firstForwardedIp(req: NextRequest) {
   return req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? ''
 }
 
-function assertDocumentDataAccess(document: Partial<ClientDocument>, user: ApiUser) {
-  if (!document.orgId) {
-    if (user.role === 'client') return { ok: false as const, response: apiError('Forbidden', 403) }
-    return { ok: true as const }
-  }
-
-  const scope = resolveOrgScope(user, document.orgId)
-  if (!scope.ok) return { ok: false as const, response: apiError(scope.error, scope.status) }
-
-  return { ok: true as const }
-}
-
-async function assertDocumentAccess(id: string, user: ApiUser) {
-  const document = await getClientDocument(id)
-  if (!document) return { ok: false as const, response: apiError('Document not found', 404) }
-
-  const access = assertDocumentDataAccess(document, user)
-  if (!access.ok) return access
-
-  return { ok: true as const, document }
-}
-
 export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, ctx: RouteContext) => {
   const { id } = await ctx.params
-  const access = await assertDocumentAccess(id, user)
+  const access = await getAccessibleClientDocument(id, user)
   if (!access.ok) return access.response
 
   const document = access.document

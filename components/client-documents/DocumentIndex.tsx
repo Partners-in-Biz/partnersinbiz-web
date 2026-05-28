@@ -53,6 +53,10 @@ function linkedLabel(document: ClientDocument) {
   return fields.join(', ') || 'Standalone'
 }
 
+function relationshipLabelList(labels?: { companyName?: string; clientOrgName?: string }) {
+  return [labels?.companyName, labels?.clientOrgName].filter(Boolean) as string[]
+}
+
 function formatDate(value: unknown) {
   if (!value || typeof value !== 'string') return 'Not dated'
   const date = new Date(value)
@@ -69,11 +73,13 @@ export function DocumentIndex({
   basePath,
   canDelete = false,
   onDeleted,
+  relationshipLabels = {},
 }: {
   documents: ClientDocument[]
   basePath: string
   canDelete?: boolean
   onDeleted?: (documentId: string) => void
+  relationshipLabels?: Record<string, { companyName?: string; clientOrgName?: string }>
 }) {
   const [visibleDocuments, setVisibleDocuments] = useState(documents)
   const [deletingId, setDeletingId] = useState<string | null>(null)
@@ -130,8 +136,10 @@ export function DocumentIndex({
         </div>
       )}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        {visibleDocuments.map((document) => (
-          <article key={document.id} className="bento-card flex min-h-[230px] flex-col gap-5">
+        {visibleDocuments.map((document) => {
+          const relationshipText = relationshipLabelList(relationshipLabels[document.id])
+          return (
+            <article key={document.id} className="bento-card flex min-h-[230px] flex-col gap-5">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0 space-y-2">
                 <p className="text-xs uppercase tracking-[0.18em] text-[var(--color-pib-text-muted)]">
@@ -163,7 +171,15 @@ export function DocumentIndex({
               </div>
               <div className="col-span-2">
                 <dt className="eyebrow !text-[9px]">Linked</dt>
-                <dd className="mt-1 text-[var(--color-pib-text-muted)]">{linkedLabel(document)}</dd>
+                <dd className="mt-1 text-[var(--color-pib-text-muted)]">
+                  {relationshipText.length > 0 ? (
+                    <span className="flex flex-wrap gap-1.5">
+                      {relationshipText.map((label) => (
+                        <span key={label}>{label}</span>
+                      ))}
+                    </span>
+                  ) : linkedLabel(document)}
+                </dd>
               </div>
             </dl>
 
@@ -193,7 +209,8 @@ export function DocumentIndex({
               </div>
             </div>
           </article>
-        ))}
+          )
+        })}
       </div>
     </div>
   )
