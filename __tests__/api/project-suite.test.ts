@@ -5,6 +5,7 @@ const mockCollection = jest.fn()
 const mockProjectDoc = jest.fn()
 const mockSubCollection = jest.fn()
 const mockTasksGet = jest.fn()
+const mockTaskAdd = jest.fn()
 const mockMilestonesGet = jest.fn()
 const mockApprovalsGet = jest.fn()
 const mockRisksGet = jest.fn()
@@ -87,6 +88,7 @@ beforeEach(() => {
     },
     { id: 'task-internal', data: { title: 'Internal blocked task', columnId: 'blocked', internalOnly: true } },
   ]))
+  mockTaskAdd.mockResolvedValueOnce({ id: 'task-from-playbook-1' }).mockResolvedValueOnce({ id: 'task-from-playbook-2' })
   mockMilestonesGet.mockResolvedValue(docs([
     {
       id: 'milestone-1',
@@ -151,13 +153,13 @@ beforeEach(() => {
     { id: 'pm-reviewer', data: { projectId: 'project-1', uid: 'reviewer-1', role: 'reviewer', status: 'active', orgId: 'client-org' } },
   ]))
   mockMilestoneDocGet.mockResolvedValue({ exists: true, data: () => ({ title: 'Launch', status: 'active' }) })
-  mockPlaybookDocGet.mockResolvedValue({ exists: true, data: () => ({ title: 'Weekly client report', status: 'active' }) })
+  mockPlaybookDocGet.mockResolvedValue({ exists: true, data: () => ({ title: 'Weekly client report', status: 'active', templateSteps: ['Kickoff', 'QA'] }) })
   mockMilestoneUpdate.mockResolvedValue(undefined)
   mockPlaybookUpdate.mockResolvedValue(undefined)
   mockMilestoneDoc.mockReturnValue({ get: mockMilestoneDocGet, update: mockMilestoneUpdate })
   mockPlaybookDoc.mockReturnValue({ get: mockPlaybookDocGet, update: mockPlaybookUpdate })
   mockSubCollection.mockImplementation((name: string) => {
-    if (name === 'tasks') return { get: mockTasksGet }
+    if (name === 'tasks') return { get: mockTasksGet, add: mockTaskAdd }
     if (name === 'milestones') return { get: mockMilestonesGet, add: mockMilestoneAdd, doc: mockMilestoneDoc }
     if (name === 'approvals') return { get: mockApprovalsGet }
     if (name === 'risks') return { get: mockRisksGet }
@@ -413,6 +415,52 @@ describe('project suite API', () => {
       templateSteps: ['Kickoff', 'QA', 'Client signoff'],
       visibility: 'project',
       createdBy: 'owner-1',
+    }))
+  })
+
+  it('runs a playbook template into project tasks and records an audit event', async () => {
+    const { POST } = await import('@/app/api/v1/projects/[projectId]/suite/route')
+    const res = await POST(new NextRequest('http://localhost/api/v1/projects/project-1/suite', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        type: 'playbook',
+        id: 'playbook-1',
+        action: 'run',
+      }),
+    }), {
+      params: Promise.resolve({ projectId: 'project-1' }),
+    })
+    const body = await res.json()
+
+    expect(res.status).toBe(201)
+    expect(body.data).toEqual(expect.objectContaining({
+      playbookId: 'playbook-1',
+      createdTaskIds: ['task-from-playbook-1', 'task-from-playbook-2'],
+      taskCount: 2,
+    }))
+    expect(mockTaskAdd).toHaveBeenCalledTimes(2)
+    expect(mockTaskAdd).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      title: 'Kickoff',
+      projectId: 'project-1',
+      orgId: 'owner-org',
+      columnId: 'todo',
+      labels: ['playbook', 'playbook:playbook-1'],
+      sourcePlaybookId: 'playbook-1',
+      sourcePlaybookTitle: 'Weekly client report',
+      createdBy: 'owner-1',
+    }))
+    expect(mockTaskAdd).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      title: 'QA',
+      sourcePlaybookId: 'playbook-1',
+    }))
+    expect(mockAuditAdd).toHaveBeenCalledWith(expect.objectContaining({
+      eventType: 'playbook_run',
+      itemType: 'playbook',
+      itemId: 'playbook-1',
+      actorUid: 'owner-1',
+      taskCount: 2,
+      createdTaskIds: ['task-from-playbook-1', 'task-from-playbook-2'],
     }))
   })
 

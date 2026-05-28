@@ -254,6 +254,22 @@ describe('ProjectSuitePanel', () => {
     })))
   })
 
+  it('runs a recurring playbook from the Plan list', async () => {
+    render(<ProjectSuitePanel projectId="project-1" />)
+
+    await waitFor(() => expect(screen.getAllByText('Weekly launch rhythm').length).toBeGreaterThan(0))
+    fireEvent.click(screen.getByRole('button', { name: 'Run Weekly launch rhythm' }))
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/v1/projects/project-1/suite', expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({
+        type: 'playbook',
+        id: 'playbook-1',
+        action: 'run',
+      }),
+    })))
+  })
+
   it('creates automation, capacity, and revenue planning records from the Plan controls', async () => {
     render(<ProjectSuitePanel projectId="project-1" />)
 

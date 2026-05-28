@@ -4,6 +4,7 @@ import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import { getProjectForUser } from '@/lib/projects/access'
+import { buildProjectTaskCreateData } from '@/lib/projects/taskPayload'
 import {
   buildProjectHealth,
   buildProjectReports,
@@ -31,7 +32,7 @@ type SuiteType =
   | 'capacity'
   | 'revenue'
 type SuiteRecord = Record<string, unknown> & { id: string; deleted?: unknown }
-type SuiteEventType = 'suite_created' | 'suite_updated' | 'suite_archived'
+type SuiteEventType = 'suite_created' | 'suite_updated' | 'suite_archived' | 'playbook_run'
 
 const PROJECT_ROLE_RANK: Record<ProjectMemberRole, number> = {
   owner: 50,
@@ -104,6 +105,10 @@ function hasOwn(body: Record<string, unknown>, key: string): boolean {
 
 function mergeStringArrays(...values: unknown[]): string[] {
   return Array.from(new Set(values.flatMap((value) => cleanStringArray(value))))
+}
+
+function playbookSteps(value: unknown): string[] {
+  return cleanStringArray(value)
 }
 
 const VISIBILITY_RANK: Record<string, number> = {
@@ -269,6 +274,7 @@ async function writeSuiteAudit(input: {
   itemId: string
   title?: string
   actorUid: string
+  metadata?: Record<string, unknown>
 }) {
   if (input.type === 'audit') return
   await adminDb.collection('projects').doc(input.projectId).collection('audit').add({
@@ -278,8 +284,87 @@ async function writeSuiteAudit(input: {
     itemId: input.itemId,
     title: input.title || `${input.type} ${input.eventType.replace('suite_', '')}`,
     actorUid: input.actorUid,
+    ...(input.metadata ?? {}),
     createdAt: FieldValue.serverTimestamp(),
   })
+}
+
+async function runPlaybookTemplate(input: {
+  projectId: string
+  playbookId: string
+  playbook: SuiteRecord
+  project: Record<string, unknown>
+  actorUid: string
+}) {
+  const title = cleanString(input.playbook.title) || 'Project playbook'
+  const steps = playbookSteps(input.playbook.templateSteps)
+  if (steps.length === 0) {
+    return { ok: false as const, response: apiError('Playbook has no reusable template steps to run', 400) }
+  }
+
+  const projectRef = adminDb.collection('projects').doc(input.projectId)
+  const tasksRef = projectRef.collection('tasks')
+  const orgId = cleanString(input.project.orgId) || projectOwnerOrgId(input.project) || undefined
+  const createdTaskIds: string[] = []
+  const runId = `${input.playbookId}_${Date.now()}`
+
+  for (let index = 0; index < steps.length; index += 1) {
+    const task = buildProjectTaskCreateData({
+      title: steps[index],
+      description: `Created from playbook: ${title}`,
+      columnId: 'todo',
+      priority: 'medium',
+      labels: ['playbook', `playbook:${input.playbookId}`],
+      order: Date.now() + index,
+    }, input.projectId, orgId)
+    if (!task.ok) return { ok: false as const, response: apiError(task.error, task.status ?? 400) }
+
+    const ref = await tasksRef.add({
+      ...task.value,
+      sourcePlaybookId: input.playbookId,
+      sourcePlaybookRunId: runId,
+      sourcePlaybookTitle: title,
+      reporterId: input.actorUid,
+      createdBy: input.actorUid,
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    })
+    createdTaskIds.push(ref.id)
+  }
+
+  await projectRef.collection('playbooks').doc(input.playbookId).update({
+    lastRunAt: FieldValue.serverTimestamp(),
+    lastRunBy: input.actorUid,
+    lastRunId: runId,
+    lastRunTaskIds: createdTaskIds,
+    runCount: (typeof input.playbook.runCount === 'number' ? input.playbook.runCount : 0) + 1,
+    updatedBy: input.actorUid,
+    updatedAt: FieldValue.serverTimestamp(),
+  })
+
+  await writeSuiteAudit({
+    projectId: input.projectId,
+    eventType: 'playbook_run',
+    type: 'playbook',
+    itemId: input.playbookId,
+    title: `Ran ${title}`,
+    actorUid: input.actorUid,
+    metadata: {
+      taskCount: createdTaskIds.length,
+      createdTaskIds,
+      playbookRunId: runId,
+    },
+  })
+
+  return {
+    ok: true as const,
+    data: {
+      playbookId: input.playbookId,
+      playbookRunId: runId,
+      createdTaskIds,
+      taskCount: createdTaskIds.length,
+    },
+  }
 }
 
 function projectOwnerOrgId(data: Record<string, unknown>): string {
@@ -489,6 +574,7 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
 
   const body = await req.json().catch(() => ({})) as Record<string, unknown>
   const type = cleanString(body.type) as SuiteType
+  const action = cleanString(body.action)
   const collectionName = COLLECTION_BY_TYPE[type]
   if (!collectionName) {
     return apiError('type must be one of: milestone, approval, risk, decision, baseline, playbook, automation, permission, audit, notification, capacity, revenue', 400)
@@ -497,6 +583,25 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
   const requiredPermission = permissionForSuiteType(type)
   if (!canProjectRole(access.projectAccess?.role ?? 'viewer', requiredPermission)) {
     return apiError('Project manager access is required for this project suite record', 403)
+  }
+
+  if (type === 'playbook' && action === 'run') {
+    const id = cleanString(body.id)
+    if (!id) return apiError('id is required to run a playbook', 400)
+    const ref = adminDb.collection('projects').doc(projectId).collection(collectionName).doc(id)
+    const doc = await ref.get()
+    if (!doc.exists) return apiError('Playbook not found', 404)
+    const playbook = { id, ...(doc.data() ?? {}) } as SuiteRecord
+    if (playbook.deleted === true || playbook.status === 'archived') return apiError('Archived playbooks cannot be run', 400)
+    const run = await runPlaybookTemplate({
+      projectId,
+      playbookId: id,
+      playbook,
+      project: (access.doc.data() ?? {}) as Record<string, unknown>,
+      actorUid: user.uid,
+    })
+    if (!run.ok) return run.response
+    return apiSuccess(run.data, 201)
   }
 
   const record = suiteMutableFields(body, type, user.uid, 'create')

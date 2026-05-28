@@ -924,6 +924,7 @@ function ItemList({
   items,
   type,
   onArchive,
+  onRun,
   saving,
 }: {
   title: string
@@ -931,6 +932,7 @@ function ItemList({
   items: SuiteItem[]
   type?: string
   onArchive?: (type: string, id: string) => Promise<void>
+  onRun?: (type: string, id: string) => Promise<void>
   saving?: boolean
 }) {
   return (
@@ -1092,19 +1094,35 @@ function ItemList({
                 </span>
               ) : null}
             </div>
-            {type && item.id && onArchive ? (
-              <div className="mt-3 flex justify-end">
-                <button
-                  type="button"
-                  className="pib-btn-secondary px-3 py-1 text-[11px] font-label"
-                  aria-label={`Archive ${item.title || 'item'}`}
-                  disabled={saving}
-                  onClick={() => {
-                    onArchive(type, item.id as string).catch(() => {})
-                  }}
-                >
-                  Archive
-                </button>
+            {type && item.id && (onArchive || onRun) ? (
+              <div className="mt-3 flex justify-end gap-2">
+                {type === 'playbook' && onRun && Array.isArray(item.templateSteps) && item.templateSteps.length > 0 ? (
+                  <button
+                    type="button"
+                    className="pib-btn-primary px-3 py-1 text-[11px] font-label"
+                    aria-label={`Run ${item.title || 'playbook'}`}
+                    disabled={saving}
+                    onClick={() => {
+                      onRun(type, item.id as string).catch(() => {})
+                    }}
+                  >
+                    <span className="material-symbols-outlined text-[14px]">play_arrow</span>
+                    Run
+                  </button>
+                ) : null}
+                {onArchive ? (
+                  <button
+                    type="button"
+                    className="pib-btn-secondary px-3 py-1 text-[11px] font-label"
+                    aria-label={`Archive ${item.title || 'item'}`}
+                    disabled={saving}
+                    onClick={() => {
+                      onArchive(type, item.id as string).catch(() => {})
+                    }}
+                  >
+                    Archive
+                  </button>
+                ) : null}
               </div>
             ) : null}
           </article>
@@ -1255,6 +1273,10 @@ export function ProjectSuitePanel({ projectId }: { projectId: string }) {
     await mutateSuite({ type, id }, 'DELETE')
   }
 
+  async function runSuiteItem(type: string, id: string) {
+    await mutateSuite({ type, id, action: 'run' }, 'POST')
+  }
+
   return (
     <div className="flex-1 overflow-auto pb-6">
       <div className="max-w-6xl space-y-5">
@@ -1294,7 +1316,7 @@ export function ProjectSuitePanel({ projectId }: { projectId: string }) {
           <ItemList title="Approvals" emptyLabel="No approval gates yet." items={data.approvals} type="approval" onArchive={archiveSuiteItem} saving={saving} />
           <ItemList title="Risk log" emptyLabel="No active risks logged." items={data.risks} type="risk" onArchive={archiveSuiteItem} saving={saving} />
           <ItemList title="Decision log" emptyLabel="No decisions recorded yet." items={data.decisions} type="decision" onArchive={archiveSuiteItem} saving={saving} />
-          <ItemList title="Playbooks" emptyLabel="No playbooks yet." items={data.playbooks} type="playbook" onArchive={archiveSuiteItem} saving={saving} />
+          <ItemList title="Playbooks" emptyLabel="No playbooks yet." items={data.playbooks} type="playbook" onArchive={archiveSuiteItem} onRun={runSuiteItem} saving={saving} />
           <ItemList title="Automations" emptyLabel="No automations yet." items={data.automations} type="automation" onArchive={archiveSuiteItem} saving={saving} />
           <ItemList title="Access controls" emptyLabel="No item-level access controls yet." items={data.permissions} type="permission" onArchive={archiveSuiteItem} saving={saving} />
           <ItemList title="Capacity plans" emptyLabel="No capacity plans yet." items={data.capacities} type="capacity" onArchive={archiveSuiteItem} saving={saving} />
