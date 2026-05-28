@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation'
 import { adminDb } from '@/lib/firebase/admin'
 import { getCurrentAdminUserFromCookies } from '@/lib/api/currentAdmin'
 import { restrictedAdminOrgIds } from '@/lib/api/platformAdmin'
-import { DocumentIndex } from '@/components/client-documents/DocumentIndex'
+import { DocumentIndex, type ClientDocumentPartyLabels } from '@/components/client-documents/DocumentIndex'
 import { PageHeader, PageLinkTabs } from '@/components/ui/AppFoundation'
 import type { ClientDocument, ClientDocumentStatus } from '@/lib/client-documents/types'
 import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
@@ -114,6 +114,26 @@ export default async function DocumentsIndexPage({
       },
     ]),
   )
+  const partyLabels: Record<string, ClientDocumentPartyLabels> = Object.fromEntries(
+    documents.map((document) => {
+      const recipientOrgId = document.linked?.clientOrgId || (
+        document.orgId && document.orgId !== PIB_PLATFORM_ORG_ID ? document.orgId : ''
+      )
+      const recipientOrgName = recipientOrgId ? orgNameById.get(recipientOrgId) : undefined
+      const recipientCompanyName = document.linked?.companyId
+        ? companyNameById.get(document.linked.companyId) ?? recipientOrgName
+        : recipientOrgName
+      return [
+        document.id,
+        {
+          creatorCompanyName: 'Partners in Biz',
+          creatorContactName: document.createdByType === 'agent' ? 'Pip' : 'PiB team',
+          recipientCompanyName: recipientCompanyName ?? 'Internal workspace',
+          recipientContactName: recipientCompanyName ? 'Client team' : 'Internal team',
+        },
+      ]
+    }),
+  )
   const statusTabs = STATUS_TABS.map((tab) => ({
     label: tab.label,
     value: tab.value,
@@ -169,7 +189,13 @@ export default async function DocumentsIndexPage({
         </div>
       </form>
 
-      <DocumentIndex documents={documents} basePath="/admin/documents" canDelete relationshipLabels={relationshipLabels} />
+      <DocumentIndex
+        documents={documents}
+        basePath="/admin/documents"
+        canDelete
+        relationshipLabels={relationshipLabels}
+        partyLabels={partyLabels}
+      />
     </div>
   )
 }
