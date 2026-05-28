@@ -2,6 +2,17 @@ import { CommunicationsConsole } from '@/components/communications/Communication
 
 export const dynamic = 'force-dynamic'
 
-export default function AdminCommunicationsPage() {
-  return <CommunicationsConsole mode="admin" />
+interface AdminCommunicationsPageProps {
+  searchParams?: Promise<{ orgId?: string; org?: string; orgSlug?: string }>
+}
+
+export default async function AdminCommunicationsPage({ searchParams }: AdminCommunicationsPageProps) {
+  const params = await searchParams
+  return (
+    <CommunicationsConsole
+      mode="admin"
+      initialOrgId={params?.orgId}
+      initialOrgSlug={params?.orgSlug ?? params?.org}
+    />
+  )
 }

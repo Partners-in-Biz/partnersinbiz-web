@@ -11,6 +11,12 @@ import type {
   MessageTemplate,
 } from '@/lib/communications/types'
 
+interface CommunicationsConsoleProps {
+  mode: 'admin' | 'portal'
+  initialOrgId?: string
+  initialOrgSlug?: string
+}
+
 type ConsoleView = 'inbox' | 'templates' | 'campaigns' | 'automations' | 'channels' | 'analytics'
 type InboxFilter = 'open' | 'unassigned' | 'mine' | 'pending' | 'resolved' | 'snoozed'
 
@@ -78,8 +84,8 @@ const FILTER_LABELS: Array<{ id: InboxFilter; label: string }> = [
 
 const FIELD_CLASS = 'w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface-container)] px-3 py-2 text-sm text-[var(--color-pib-text)] outline-none focus:border-[var(--color-pib-accent)]'
 
-export function CommunicationsConsole({ mode }: { mode: 'admin' | 'portal' }) {
-  const { selectedOrgId, orgName } = useOrg()
+export function CommunicationsConsole({ mode, initialOrgId = '', initialOrgSlug = '' }: CommunicationsConsoleProps) {
+  const { selectedOrgId, orgName, orgs } = useOrg()
   const [view, setView] = useState<ConsoleView>('inbox')
   const [filter, setFilter] = useState<InboxFilter>('open')
   const [channel, setChannel] = useState<CommunicationChannel | 'all'>('all')
@@ -93,13 +99,44 @@ export function CommunicationsConsole({ mode }: { mode: 'admin' | 'portal' }) {
   const [loading, setLoading] = useState(false)
   const [feedback, setFeedback] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [portalOrgId, setPortalOrgId] = useState('')
+  const [portalOrgReady, setPortalOrgReady] = useState(mode !== 'portal')
+
+  const requestedOrgId = initialOrgId.trim()
+  const requestedOrgSlug = initialOrgSlug.trim()
+  const linkedOrg = requestedOrgSlug ? orgs.find((org) => org.slug === requestedOrgSlug) : undefined
+  const activeOrgId = mode === 'portal'
+    ? portalOrgId
+    : requestedOrgId || linkedOrg?.id || selectedOrgId
+  const activeOrgName = mode === 'portal'
+    ? ''
+    : linkedOrg?.name || (activeOrgId === selectedOrgId ? orgName : '') || activeOrgId
 
   const orgQuery = useMemo(() => {
-    if (selectedOrgId) return `orgId=${encodeURIComponent(selectedOrgId)}`
+    if (activeOrgId) return `orgId=${encodeURIComponent(activeOrgId)}`
     return ''
-  }, [selectedOrgId])
+  }, [activeOrgId])
 
-  const canLoad = mode === 'portal' || Boolean(selectedOrgId)
+  const canLoad = Boolean(activeOrgId) && (mode === 'admin' || portalOrgReady)
+
+  useEffect(() => {
+    if (mode !== 'portal') return
+    let cancelled = false
+    setPortalOrgReady(false)
+    fetch('/api/v1/portal/active-org', { cache: 'no-store' })
+      .then((response) => response.ok ? response.json() : null)
+      .then((body) => {
+        if (cancelled) return
+        setPortalOrgId(typeof body?.orgId === 'string' ? body.orgId : '')
+        setPortalOrgReady(true)
+      })
+      .catch(() => {
+        if (!cancelled) setPortalOrgReady(true)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [mode])
 
   useEffect(() => {
     if (!canLoad) return
@@ -128,7 +165,7 @@ export function CommunicationsConsole({ mode }: { mode: 'admin' | 'portal' }) {
     setLoading(true)
     setError(null)
     const params = new URLSearchParams()
-    if (selectedOrgId) params.set('orgId', selectedOrgId)
+    if (activeOrgId) params.set('orgId', activeOrgId)
     if (channel !== 'all') params.set('channel', channel)
     if (filter === 'unassigned') params.set('assignee', 'unassigned')
     else if (filter === 'mine') params.set('assignee', 'mine')
@@ -190,7 +227,7 @@ export function CommunicationsConsole({ mode }: { mode: 'admin' | 'portal' }) {
     setError(null)
     try {
       await apiPost(`/api/v1/communications/conversations/${selectedId}/messages`, {
-        orgId: selectedOrgId || undefined,
+        orgId: activeOrgId || undefined,
         body: reply,
         direction: 'outbound',
         sendNow: queueApproved,
@@ -215,7 +252,7 @@ export function CommunicationsConsole({ mode }: { mode: 'admin' | 'portal' }) {
           </p>
           {mode === 'admin' && (
             <p className="text-xs text-[var(--color-pib-text-muted)] mt-2">
-              Active organisation: {orgName || selectedOrgId || 'select an organisation from the admin switcher'}
+              Active organisation: {activeOrgName || 'select an organisation from the admin switcher'}
             </p>
           )}
         </div>
@@ -227,8 +264,10 @@ export function CommunicationsConsole({ mode }: { mode: 'admin' | 'portal' }) {
 
       {!canLoad && (
         <div className="pib-card p-5">
-          <p className="text-sm font-medium text-[var(--color-pib-text)]">Select an organisation to load communications.</p>
-          <p className="text-xs text-[var(--color-pib-text-muted)] mt-1">Admin communications are scoped per organisation for tenant safety.</p>
+          <p className="text-sm font-medium text-[var(--color-pib-text)]">
+            {mode === 'portal' && !portalOrgReady ? 'Loading organisation context...' : 'Select an organisation to load communications.'}
+          </p>
+          <p className="text-xs text-[var(--color-pib-text-muted)] mt-1">Communications are scoped per organisation for tenant safety.</p>
         </div>
       )}
 
@@ -269,8 +308,8 @@ export function CommunicationsConsole({ mode }: { mode: 'admin' | 'portal' }) {
           saveDraft={saveDraft}
         />
       )}
-      {view === 'templates' && <TemplatesView templates={templates} mode={mode} selectedOrgId={selectedOrgId} reload={loadTemplates} />}
-      {view === 'campaigns' && <CampaignsView mode={mode} selectedOrgId={selectedOrgId} />}
+      {view === 'templates' && <TemplatesView templates={templates} mode={mode} selectedOrgId={activeOrgId} reload={loadTemplates} />}
+      {view === 'campaigns' && <CampaignsView mode={mode} selectedOrgId={activeOrgId} />}
       {view === 'automations' && <AutomationView mode={mode} />}
       {view === 'channels' && <ChannelsView channels={channels} />}
       {view === 'analytics' && <AnalyticsView analytics={analytics} />}

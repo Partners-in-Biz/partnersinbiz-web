@@ -120,7 +120,7 @@ export default function OrgMarketingPage() {
             },
             {
               label: 'Communications',
-              href: '/admin/communications',
+              href: `/admin/communications?org=${encodeURIComponent(slug)}`,
               icon: 'forum',
               description: 'Manage conversations, campaign replies, templates, queues, and channel health.',
               eyebrow: 'Omnichannel',
