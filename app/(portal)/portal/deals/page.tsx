@@ -1,7 +1,12 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import Link from 'next/link'
+import {
+  DealPipelineCommandBar,
+  matchesDealFocus,
+  type DealFocusMode,
+} from '@/components/crm/DealPipelineCommandBar'
 import { DealKanban } from '@/components/crm/DealKanban'
 import { PipelineSelector } from '@/components/crm/PipelineSelector'
 import { DealDrawer } from '@/components/crm/DealDrawer'
@@ -161,6 +166,8 @@ export default function DealsPage() {
   const [error, setError] = useState<string | null>(null)
   const [stageFilter, setStageFilter] = useState<string>('all')
   const [viewMode, setViewMode] = useState<ViewMode>('board')
+  const [search, setSearch] = useState('')
+  const [focusMode, setFocusMode] = useState<DealFocusMode>('all')
 
   // A5: drawer state
   const [showCreateDrawer, setShowCreateDrawer] = useState(false)
@@ -218,9 +225,10 @@ export default function DealsPage() {
   }, [selectedPipelineId])
 
   const selectedPipeline = pipelines.find(p => p.id === selectedPipelineId)
-  const stages: PipelineStage[] = selectedPipeline
-    ? [...selectedPipeline.stages].sort((a, b) => a.order - b.order)
-    : []
+  const stages = useMemo<PipelineStage[]>(
+    () => selectedPipeline ? [...selectedPipeline.stages].sort((a, b) => a.order - b.order) : [],
+    [selectedPipeline],
+  )
 
   const handleStageChange = useCallback(async (dealId: string, newStageId: string) => {
     // Optimistic update happens inside DealKanban; we just fire the PATCH
@@ -269,12 +277,23 @@ export default function DealsPage() {
     }).catch(() => {})
   }, [])
 
-  const filteredDeals = stageFilter === 'all' ? deals : deals.filter(d => d.stageId === stageFilter)
+  const filteredDeals = useMemo(() => {
+    const query = search.trim().toLowerCase()
+    return deals.filter((deal) => {
+      const matchesSearch = !query ||
+        deal.title.toLowerCase().includes(query) ||
+        deal.companyName?.toLowerCase().includes(query) ||
+        deal.contactId?.toLowerCase().includes(query) ||
+        deal.id.toLowerCase().includes(query)
+      const matchesStage = stageFilter === 'all' || deal.stageId === stageFilter
+      return matchesSearch && matchesStage && matchesDealFocus(deal, stages, focusMode)
+    })
+  }, [deals, focusMode, search, stageFilter, stages])
 
   // Open deals for forecast view: exclude lost-stage deals
   const lostStageIds = new Set(stages.filter(s => s.kind === 'lost').map(s => s.id))
   const wonStageIds = new Set(stages.filter(s => s.kind === 'won').map(s => s.id))
-  const openDeals = deals
+  const openDeals = filteredDeals
     .filter(d => !lostStageIds.has(d.stageId) && !wonStageIds.has(d.stageId))
     .slice()
     .sort((a, b) => {
@@ -336,6 +355,17 @@ export default function DealsPage() {
 
       {/* Summary strip */}
       {isReady && !error && <PipelineSummary deals={deals} stages={stages} />}
+
+      {isReady && !error && (
+        <DealPipelineCommandBar
+          deals={deals}
+          stages={stages}
+          search={search}
+          focusMode={focusMode}
+          onSearchChange={setSearch}
+          onFocusModeChange={setFocusMode}
+        />
+      )}
 
       {/* Stage filter pills */}
       {stages.length > 0 && (
