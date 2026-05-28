@@ -1,7 +1,7 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import type {
   BehavioralRule,
   EngagementScoreRule,
@@ -9,6 +9,12 @@ import type {
 import { BehavioralRuleEditor } from '@/components/admin/segments/BehavioralRuleEditor'
 import { EngagementRuleEditor } from '@/components/admin/segments/EngagementRuleEditor'
 import { PREDEFINED_SEGMENTS } from '@/lib/crm/predefined-segments'
+import {
+  SegmentCommandCenter,
+  matchesSegmentCommandFocus,
+  matchesSegmentSearch,
+  type SegmentCommandFocus,
+} from '@/components/crm/SegmentCommandCenter'
 
 const STAGES = ['', 'new', 'contacted', 'replied', 'demo', 'proposal', 'won', 'lost']
 const TYPES = ['', 'lead', 'prospect', 'client', 'churned']
@@ -100,6 +106,8 @@ export default function PortalSegmentsPage() {
   const [newForm, setNewForm] = useState<FormState>(EMPTY_FORM)
   const [savingNew, setSavingNew] = useState(false)
   const [newError, setNewError] = useState('')
+  const [search, setSearch] = useState('')
+  const [focus, setFocus] = useState<SegmentCommandFocus>('all')
 
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editForm, setEditForm] = useState<FormState>(EMPTY_FORM)
@@ -242,6 +250,14 @@ export default function PortalSegmentsPage() {
     })
     if (target === 'new') setShowNew(true)
   }
+
+  const filteredSegments = useMemo(
+    () => segments.filter((segment) =>
+      matchesSegmentSearch(segment, search) &&
+      matchesSegmentCommandFocus(segment, counts, focus),
+    ),
+    [counts, focus, search, segments],
+  )
 
   const renderForm = (
     form: FormState,
@@ -408,6 +424,17 @@ export default function PortalSegmentsPage() {
         </div>
       </header>
 
+      {!loading && segments.length > 0 && (
+        <SegmentCommandCenter
+          segments={segments}
+          counts={counts}
+          search={search}
+          focus={focus}
+          onSearchChange={setSearch}
+          onFocusChange={setFocus}
+        />
+      )}
+
       {/* New segment inline form */}
       {showNew && (
         <section className="bento-card !p-6 space-y-4">
@@ -450,9 +477,27 @@ export default function PortalSegmentsPage() {
             </button>
           )}
         </div>
+      ) : filteredSegments.length === 0 ? (
+        <div className="bento-card p-10 text-center">
+          <span className="material-symbols-outlined text-4xl text-[var(--color-pib-accent)]">search_off</span>
+          <h2 className="font-display text-2xl mt-4">No segments match this lens.</h2>
+          <p className="text-sm text-[var(--color-pib-text-muted)] mt-2">
+            Clear the search or switch back to all segments before changing targeting.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              setSearch('')
+              setFocus('all')
+            }}
+            className="btn-pib-secondary mt-6"
+          >
+            Clear segment lens
+          </button>
+        </div>
       ) : (
         <div className="space-y-3">
-          {segments.map((s) => {
+          {filteredSegments.map((s) => {
             const isEditing = editingId === s.id
             const count = counts[s.id]
             const filterChips: string[] = []
