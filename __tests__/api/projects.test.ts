@@ -7,6 +7,8 @@ type ProjectResponse = { data: Array<{ id: string }> }
 const mockAdd = jest.fn()
 const mockProjectDoc = jest.fn()
 const mockProjectUpdate = jest.fn()
+const mockProjectMemberDoc = jest.fn()
+const mockProjectMemberSet = jest.fn()
 const mockCollection = jest.fn()
 const mockOrgWhere = jest.fn()
 const mockOrgLimit = jest.fn()
@@ -81,6 +83,8 @@ beforeEach(() => {
   mockProjectOrderBy.mockReturnValue(scopedProjectQuery)
   mockProjectDoc.mockReturnValue({ update: mockProjectUpdate })
   mockProjectUpdate.mockResolvedValue(undefined)
+  mockProjectMemberDoc.mockReturnValue({ set: mockProjectMemberSet })
+  mockProjectMemberSet.mockResolvedValue(undefined)
   mockCompanyDoc.mockReturnValue({ get: mockCompanyGet })
   mockContactDoc.mockReturnValue({ get: mockContactGet })
   mockCompanyGet.mockResolvedValue({ exists: false, data: () => undefined })
@@ -102,6 +106,7 @@ beforeEach(() => {
   mockCollection.mockImplementation((name: string) => {
     if (name === 'organizations') return { where: mockOrgWhere, doc: mockOrgDoc }
     if (name === 'projects') return projectCollection
+    if (name === 'projectMembers') return { doc: mockProjectMemberDoc }
     if (name === 'companies') return { doc: mockCompanyDoc }
     if (name === 'contacts') return { doc: mockContactDoc }
     throw new Error(`Unexpected collection: ${name}`)
@@ -241,6 +246,8 @@ describe('POST /api/v1/projects', () => {
     expect(mockAdd).toHaveBeenCalledWith(
       expect.objectContaining({
         name: 'Website rebuild',
+        ownerUid: 'admin-1',
+        ownerOrgId: 'pib-platform-owner',
         orgId: 'pib-platform-owner',
         sourceOrgId: 'pib-platform-owner',
         issuerOrgId: 'pib-platform-owner',
@@ -251,6 +258,15 @@ describe('POST /api/v1/projects', () => {
         companyId: 'company-client',
       }),
     )
+    expect(mockProjectMemberDoc).toHaveBeenCalledWith('project-1_admin-1')
+    expect(mockProjectMemberSet).toHaveBeenCalledWith(expect.objectContaining({
+      projectId: 'project-1',
+      uid: 'admin-1',
+      orgId: 'pib-platform-owner',
+      role: 'owner',
+      status: 'active',
+      memberType: 'internal',
+    }), { merge: true })
   })
 
   it('creates a CRM-targeted project share with a claimable relationship', async () => {

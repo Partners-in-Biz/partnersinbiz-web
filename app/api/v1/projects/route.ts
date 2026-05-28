@@ -17,6 +17,7 @@ import {
   resolvePlatformOwnerOrgId,
 } from '@/lib/platform-owner/relationships'
 import { canAccessProject } from '@/lib/projects/access'
+import { ensureProjectOwnerMembership } from '@/lib/projects/collaboration'
 
 const VALID_STATUSES = [
   'discovery',
@@ -306,8 +307,12 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) =
     : null
 
   const name = body.name.trim()
+  const ownerUid = user.uid
+  const ownerOrgId = sourceOrgId
   const docRef = await adminDb.collection('projects').add(stripUndefined({
     name,
+    ownerUid,
+    ownerOrgId,
     orgId: sourceOrgId,
     sourceOrgId,
     issuerOrgId: sourceOrgId,
@@ -336,6 +341,12 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) =
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
   }))
+  await ensureProjectOwnerMembership({
+    projectId: docRef.id,
+    ownerUid,
+    ownerOrgId,
+    actorUid: user.uid,
+  })
   let claimToken: string | undefined
   let claimStatus: string | undefined
 

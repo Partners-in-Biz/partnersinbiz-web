@@ -169,4 +169,66 @@ describe('applyClaimLinks', () => {
       claimStatus: 'claimed',
     }))
   })
+
+  it('activates project-scoped access when a project invite is claimed', async () => {
+    const inviteRefSet = jest.fn(async () => undefined)
+    mockGet.mockResolvedValueOnce({
+      empty: false,
+      docs: [{
+        id: 'invite-1',
+        ref: { set: inviteRefSet },
+        data: () => ({
+          projectId: 'project-1',
+          companyId: 'company-1',
+          contactId: 'contact-1',
+          role: 'contributor',
+          recipientEmail: 'buyer@example.com',
+          recipientName: 'Buyer One',
+          recipientCompanyName: 'Buyer Co',
+          invitedBy: 'owner-1',
+        }),
+      }],
+    })
+
+    const { applyClaimLinks } = await import('@/lib/claimable-relationships/store')
+
+    await applyClaimLinks({
+      relationshipId: 'relationship-1',
+      sourceOrgId: 'sender-org',
+      sourceCompanyId: 'company-1',
+      sourceContactId: 'contact-1',
+      targetOrgId: 'recipient-org',
+      targetUserId: 'recipient-user',
+      resourceType: 'project',
+      resourceId: 'project-1',
+    })
+
+    expect(mockCollection).toHaveBeenCalledWith('projectInvites')
+    expect(mockCollection).toHaveBeenCalledWith('projectOrganizations')
+    expect(mockCollection).toHaveBeenCalledWith('projectMembers')
+    expect(mockDoc).toHaveBeenCalledWith('project-1_recipient-org')
+    expect(mockDoc).toHaveBeenCalledWith('project-1_recipient-user')
+    expect(mockSet).toHaveBeenCalledWith(expect.objectContaining({
+      projectId: 'project-1',
+      orgId: 'recipient-org',
+      companyId: 'company-1',
+      contactId: 'contact-1',
+      role: 'contributor',
+      status: 'active',
+      recipientEmail: 'buyer@example.com',
+    }), { merge: true })
+    expect(mockSet).toHaveBeenCalledWith(expect.objectContaining({
+      projectId: 'project-1',
+      uid: 'recipient-user',
+      orgId: 'recipient-org',
+      role: 'contributor',
+      status: 'active',
+      memberType: 'external',
+    }), { merge: true })
+    expect(inviteRefSet).toHaveBeenCalledWith(expect.objectContaining({
+      orgId: 'recipient-org',
+      uid: 'recipient-user',
+      status: 'claimed',
+    }), { merge: true })
+  })
 })

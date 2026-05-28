@@ -7,6 +7,7 @@ const unsubscribe = jest.fn()
 
 jest.mock('next/navigation', () => ({
   useParams: () => ({ slug: 'acme-client', projectId: 'project-1' }),
+  useRouter: () => ({ push: jest.fn() }),
   useSearchParams: () => ({ get: jest.fn(() => null) }),
 }))
 
@@ -165,6 +166,38 @@ function mockFetch() {
         }),
       } as Response)
     }
+    if (url === '/api/v1/projects/project-1/access') {
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({
+          data: {
+            members: [
+              { id: 'project-1_owner-1', uid: 'owner-1', displayName: 'Peet Stander', role: 'owner', status: 'active' },
+            ],
+            organizations: [
+              { id: 'project-1_partner-org', recipientCompanyName: 'Partner Org', role: 'reviewer', status: 'active' },
+            ],
+            invites: [
+              { id: 'project-1_pending', recipientEmail: 'pending@example.com', status: 'pending' },
+            ],
+          },
+        }),
+      } as Response)
+    }
+    if (url === '/api/v1/projects/project-1/suite') {
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({
+          data: {
+            health: { level: 'at_risk', score: 52, blockedTasks: 1, overdueTasks: 2, waitingApprovals: 1, milestoneDrift: 1 },
+            milestones: [{ id: 'milestone-1', title: 'Launch readiness', dueDate: '2026-06-01', status: 'active' }],
+            approvals: [{ id: 'approval-1', title: 'Homepage approval', status: 'pending' }],
+            risks: [{ id: 'risk-1', title: 'Scope drift', severity: 'high', status: 'open' }],
+            decisions: [{ id: 'decision-1', title: 'Use staged launch', status: 'accepted' }],
+          },
+        }),
+      } as Response)
+    }
     return Promise.resolve({ ok: true, json: async () => ({ data: [] }) } as Response)
   }) as jest.Mock
 }
@@ -192,7 +225,7 @@ describe('Admin project docs and settings tabs', () => {
   it('opens a document preview when an admin clicks a project doc', async () => {
     render(<ProjectDetailPage />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Docs' }))
+    fireEvent.click(screen.getByRole('tab', { name: 'Docs' }))
 
     await waitFor(() => expect(screen.getByText('Delivery Plan')).toBeInTheDocument())
     expect(screen.getByText('Legacy Empty Doc')).toBeInTheDocument()
@@ -208,11 +241,38 @@ describe('Admin project docs and settings tabs', () => {
   it('renders settings with the refreshed board-style surface', async () => {
     render(<ProjectDetailPage />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
+    fireEvent.click(screen.getByRole('tab', { name: 'Settings' }))
 
     await waitFor(() => expect(screen.getByText('Manage this board')).toBeInTheDocument())
     expect(screen.getByLabelText('Project Name')).toHaveValue('Client Website')
     expect(screen.getByText('Current board')).toBeInTheDocument()
+  })
+
+  it('shows project People & Access controls in settings', async () => {
+    render(<ProjectDetailPage />)
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Settings' }))
+
+    await waitFor(() => expect(screen.getByText('People & Access')).toBeInTheDocument())
+    expect(screen.getByText('Internal members')).toBeInTheDocument()
+    expect(screen.getByText('External organisations')).toBeInTheDocument()
+    expect(screen.getByText('Access audit')).toBeInTheDocument()
+    expect(screen.getAllByText('Peet Stander').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Partner Org').length).toBeGreaterThan(0)
+    expect(screen.getByText('pending@example.com')).toBeInTheDocument()
+  })
+
+  it('shows project health, milestones, approvals, risks, and decisions in the Plan tab', async () => {
+    render(<ProjectDetailPage />)
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Plan' }))
+
+    await waitFor(() => expect(screen.getByText('Project health')).toBeInTheDocument())
+    expect(screen.getByText('52')).toBeInTheDocument()
+    expect(screen.getByText('Launch readiness')).toBeInTheDocument()
+    expect(screen.getByText('Homepage approval')).toBeInTheDocument()
+    expect(screen.getByText('Scope drift')).toBeInTheDocument()
+    expect(screen.getByText('Use staged launch')).toBeInTheDocument()
   })
 
   it('shows the board-progress summary with done and active blocker counts', async () => {
@@ -231,10 +291,11 @@ describe('Admin project docs and settings tabs', () => {
   it('keeps project tabs visually consistent without a lone agent icon', async () => {
     render(<ProjectDetailPage />)
 
-    const tabBar = screen.getByRole('button', { name: 'Kanban' }).parentElement
-    expect(tabBar).toContainElement(screen.getByRole('button', { name: 'Docs' }))
-    expect(tabBar).toContainElement(screen.getByRole('button', { name: 'Agent' }))
-    expect(tabBar).toContainElement(screen.getByRole('button', { name: 'Settings' }))
+    const tabBar = screen.getByRole('tab', { name: 'Kanban' }).parentElement
+    expect(tabBar).toContainElement(screen.getByRole('tab', { name: 'Plan' }))
+    expect(tabBar).toContainElement(screen.getByRole('tab', { name: 'Docs' }))
+    expect(tabBar).toContainElement(screen.getByRole('tab', { name: 'Agent' }))
+    expect(tabBar).toContainElement(screen.getByRole('tab', { name: 'Settings' }))
     expect(within(tabBar as HTMLElement).queryByText('smart_toy')).not.toBeInTheDocument()
   })
 
@@ -347,4 +408,3 @@ describe('Admin project docs and settings tabs', () => {
 
 
 })
-

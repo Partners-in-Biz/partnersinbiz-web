@@ -341,6 +341,7 @@ export function buildProjectTaskCreateData(
     estimateMinutes: estimate.value,
     order: order.value,
   }
+  if (body.internalOnly !== undefined) value.internalOnly = body.internalOnly === true
 
   if (agentId.value) {
     const nextAgentStatus = agentStatus.value ?? 'pending'
@@ -422,6 +423,7 @@ export function buildProjectTaskUpdateData(body: Record<string, unknown>): Paylo
     if (!estimate.ok) return estimate
     updates.estimateMinutes = estimate.value
   }
+  if (body.internalOnly !== undefined) updates.internalOnly = body.internalOnly === true
   if (body.attachments !== undefined) {
     const attachments = cleanAttachments(body.attachments)
     if (!attachments.ok) return attachments

@@ -83,6 +83,7 @@ export interface Task {
   sourceResearchItemId?: string | null
   expectedArtifacts?: string[]
   mentionIds?: string[]
+  internalOnly?: boolean
   attachments?: Attachment[]
   checklist?: ChecklistItem[]
   dueDate?: unknown

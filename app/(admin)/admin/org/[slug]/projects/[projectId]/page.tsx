@@ -11,7 +11,9 @@ import { TaskComposer } from '@/components/kanban/TaskComposer'
 import UnifiedChat from '@/components/chat/UnifiedChat'
 import { ProjectBoardSummary } from '@/components/projects/ProjectBoardSummary'
 import { ProjectDocsPanel, projectDocContent, type ProjectDoc } from '@/components/projects/ProjectDocsPanel'
+import { ProjectPeopleAccessPanel } from '@/components/projects/ProjectPeopleAccessPanel'
 import { ProjectSettingsPanel } from '@/components/projects/ProjectSettingsPanel'
+import { ProjectSuitePanel } from '@/components/projects/ProjectSuitePanel'
 import { PageTabs } from '@/components/ui/AppFoundation'
 import type { AgentMember, Column, Task, TeamMember } from '@/components/kanban/types'
 
@@ -19,11 +21,12 @@ interface Project { id: string; orgId?: string; clientOrgId?: string; name: stri
 interface CurrentUser { uid: string; displayName: string }
 interface OrganizationOption { id: string; name: string; slug?: string; type?: string; status?: string }
 type TaskListSort = 'latest' | 'due'
-type ProjectTab = 'kanban' | 'docs' | 'agent' | 'settings'
+type ProjectTab = 'kanban' | 'plan' | 'docs' | 'agent' | 'settings'
 const PROJECT_TABS: Array<{ id: ProjectTab; label: string; icon: string }> = [
   { id: 'kanban', label: 'Kanban', icon: 'view_kanban' },
+  { id: 'plan', label: 'Plan', icon: 'timeline' },
   { id: 'docs', label: 'Docs', icon: 'description' },
-  { id: 'agent', label: 'Agent', icon: 'smart_toy' },
+  { id: 'agent', label: 'Agent', icon: 'forum' },
   { id: 'settings', label: 'Settings', icon: 'settings' },
 ]
 
@@ -94,6 +97,41 @@ function memberLabel(member?: TeamMember): string {
 
 function agentLabel(agent?: AgentMember, agentId?: string | null): string {
   return agent?.name || agentId || ''
+}
+
+type ProjectAccessMember = {
+  uid?: string
+  userId?: string
+  role?: string
+  displayName?: string
+  email?: string
+  photoURL?: string
+  status?: string
+}
+
+function normalizeTeamMemberRole(role?: string): TeamMember['role'] {
+  if (role === 'owner') return 'owner'
+  if (role === 'admin' || role === 'manager') return 'admin'
+  if (role === 'viewer' || role === 'reviewer') return 'viewer'
+  return 'member'
+}
+
+function mergeProjectAccessMembers(orgMembers: TeamMember[], accessMembers: ProjectAccessMember[]): TeamMember[] {
+  const merged = new Map<string, TeamMember>()
+  orgMembers.forEach(member => merged.set(member.userId, member))
+  accessMembers.forEach(member => {
+    const userId = member.userId || member.uid
+    if (!userId || member.status === 'revoked') return
+    const existing = merged.get(userId)
+    merged.set(userId, {
+      userId,
+      role: existing?.role ?? normalizeTeamMemberRole(member.role),
+      displayName: existing?.displayName ?? member.displayName,
+      email: existing?.email ?? member.email,
+      photoURL: existing?.photoURL ?? member.photoURL,
+    })
+  })
+  return Array.from(merged.values())
 }
 
 export default function ProjectDetailPage() {
@@ -227,15 +265,19 @@ export default function ProjectDetailPage() {
 
   useEffect(() => {
     if (!project?.orgId) return
-    fetch(`/api/v1/organizations/${project.orgId}/members`)
-      .then(r => r.json())
-      .then(body => setMembers(body.data ?? []))
+    Promise.all([
+      fetch(`/api/v1/organizations/${project.orgId}/members`).then(r => r.json()),
+      fetch(`/api/v1/projects/${projectId}/access`).then(r => r.json()).catch(() => ({ data: { members: [] } })),
+    ])
+      .then(([orgBody, accessBody]) => {
+        setMembers(mergeProjectAccessMembers(orgBody.data ?? [], accessBody.data?.members ?? []))
+      })
       .catch(() => setMembers([]))
     fetch(`/api/v1/orgs/${project.orgId}/visible-agents`)
       .then(r => r.json())
       .then(body => setAgents(body.data ?? []))
       .catch(() => setAgents([]))
-  }, [project?.orgId])
+  }, [project?.orgId, projectId])
 
   const handleTaskMove = useCallback(async (taskId: string, newColumnId: string, newOrder: number) => {
     setTasks(prev => prev.map(t => t.id === taskId ? { ...t, columnId: newColumnId, order: newOrder } : t))
@@ -588,6 +630,10 @@ export default function ProjectDetailPage() {
         />
       )}
 
+      {activeTab === 'plan' && (
+        <ProjectSuitePanel projectId={projectId} />
+      )}
+
       {activeTab === 'agent' && (
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden -mx-4 -my-8 md:mx-0 md:my-0 h-[calc(100dvh-56px)] lg:h-[calc(100dvh-120px)]">
           <div className="hidden shrink-0 lg:block mb-4">
@@ -632,6 +678,7 @@ export default function ProjectDetailPage() {
           onStatusChange={setSettingsStatus}
           onDescriptionChange={setSettingsDescription}
           onSave={handleSaveSettings}
+          peopleAccessSlot={<ProjectPeopleAccessPanel projectId={projectId} />}
           adminTransferSlot={(
             <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-5 shadow-sm">
               <div className="flex items-start gap-3">

@@ -86,6 +86,7 @@ describe('project task payload helpers', () => {
       labels: ['qa'],
       assigneeIds: ['user-3'],
       estimateMinutes: null,
+      internalOnly: true,
       ignored: 'nope',
     })
 
@@ -97,7 +98,24 @@ describe('project task payload helpers', () => {
       assigneeIds: ['user-3'],
       assigneeId: 'user-3',
       estimateMinutes: null,
+      internalOnly: true,
     })
+  })
+
+  it('preserves internal-only visibility on task create and update', () => {
+    const created = buildProjectTaskCreateData(
+      { title: 'Internal blocker', internalOnly: true },
+      'project-1',
+      'org-1',
+    )
+    expect(created.ok).toBe(true)
+    if (!created.ok) return
+    expect(created.value.internalOnly).toBe(true)
+
+    const updated = buildProjectTaskUpdateData({ internalOnly: false })
+    expect(updated.ok).toBe(true)
+    if (!updated.ok) return
+    expect(updated.value.internalOnly).toBe(false)
   })
 
   it('sorts legacy tasks without order after ordered tasks', () => {

@@ -12,6 +12,7 @@ interface ProjectSettingsPanelProps {
   onStatusChange: (value: string) => void
   onDescriptionChange: (value: string) => void
   onSave: () => void
+  peopleAccessSlot?: ReactNode
   adminTransferSlot?: ReactNode
 }
 
@@ -25,6 +26,7 @@ export function ProjectSettingsPanel({
   onStatusChange,
   onDescriptionChange,
   onSave,
+  peopleAccessSlot,
   adminTransferSlot,
 }: ProjectSettingsPanelProps) {
   return (
@@ -92,6 +94,7 @@ export function ProjectSettingsPanel({
             )}
           </div>
         </div>
+        {peopleAccessSlot}
         {adminTransferSlot}
       </div>
     </div>
