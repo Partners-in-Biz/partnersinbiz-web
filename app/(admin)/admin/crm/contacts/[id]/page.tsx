@@ -4,12 +4,13 @@ export const dynamic = 'force-dynamic'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { ActivityTimeline } from '@/components/admin/crm/ActivityTimeline'
 import ContactBrief from '@/components/admin/crm/ContactBrief'
 import { ContactForm } from '@/components/admin/crm/ContactForm'
 import { fmtTimestamp } from '@/components/admin/email/fmtTimestamp'
 import { CompanyPanel } from '@/components/crm/CompanyPanel'
+import { ContactArchiveControl } from '@/components/crm/ContactArchiveControl'
 import { ContactDealsPanel } from '@/components/crm/ContactDealsPanel'
 import { ContactIntelligenceStack } from '@/components/crm/ContactIntelligenceStack'
 import { ScoreChip } from '@/components/crm/ScoreChip'
@@ -188,6 +189,7 @@ function DetailRow({ label, value }: { label: string; value: unknown }) {
 
 export default function ContactDetailPage() {
   const { id } = useParams<{ id: string }>()
+  const router = useRouter()
   const [contact, setContact] = useState<ContactRecord | null>(null)
   const [activities, setActivities] = useState<ActivityRecord[]>([])
   const [emails, setEmails] = useState<EmailRecord[]>([])
@@ -198,6 +200,7 @@ export default function ContactDetailPage() {
   const [editing, setEditing] = useState(false)
   const [noteText, setNoteText] = useState('')
   const [savingNote, setSavingNote] = useState(false)
+  const [archiving, setArchiving] = useState(false)
   const [pageError, setPageError] = useState('')
 
   const loadContact = useCallback(async () => {
@@ -316,6 +319,20 @@ export default function ContactDetailPage() {
     await loadActivities()
   }
 
+  async function archiveContact() {
+    setArchiving(true)
+    setPageError('')
+    try {
+      const res = await fetch(`/api/v1/crm/contacts/${id}`, { method: 'DELETE' })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error((body as { error?: string }).error ?? 'Archive failed')
+      router.push('/admin/crm/contacts')
+    } catch (err) {
+      setPageError(err instanceof Error ? err.message : 'Archive failed')
+      setArchiving(false)
+    }
+  }
+
   const strength = useMemo(() => (contact ? profileStrength(contact) : 0), [contact])
   const lastTouchAge = daysSince(contact?.lastContactedAt)
   const name = contactDisplayName(contact)
@@ -429,6 +446,8 @@ export default function ContactDetailPage() {
               </div>
             </div>
           </div>
+
+          <ContactArchiveControl contactName={name} archiving={archiving} onArchive={archiveContact} />
 
           <div className="pib-card-section">
             <div className="border-b border-[var(--color-card-border)] bg-white/[0.02] px-5 py-3">
