@@ -159,6 +159,26 @@ function NavLink({ item, pathname, collapsed }: { item: NavItem; pathname: strin
 }
 
 export default function PortalLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <Suspense
+      fallback={(
+        <>
+          <link rel="stylesheet" href={PORTAL_MATERIAL_SYMBOLS} />
+          <div className="min-h-screen bg-[var(--color-pib-bg)] flex items-center justify-center">
+            <span className="relative flex h-3 w-3">
+              <span className="absolute inset-0 rounded-full bg-[var(--color-pib-accent)] opacity-75 animate-ping" />
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-[var(--color-pib-accent)]" />
+            </span>
+          </div>
+        </>
+      )}
+    >
+      <PortalLayoutContent>{children}</PortalLayoutContent>
+    </Suspense>
+  )
+}
+
+function PortalLayoutContent({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
