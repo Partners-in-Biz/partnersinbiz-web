@@ -2,6 +2,7 @@ import { withCrmAuth } from '@/lib/auth/crm-middleware'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import { loadCompany } from '@/lib/companies/store'
 import { buildCompanyCommandCenter } from '@/lib/companies/command-center'
+import { filterCompanyCommandCenterForVisibility } from '@/lib/crm/visibility-policy'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,5 +14,5 @@ export const GET = withCrmAuth<RouteCtx>('viewer', async (req, ctx, routeCtx) =>
   if (!loaded) return apiError('Company not found', 404)
   const limit = Number(new URL(req.url).searchParams.get('limit') ?? 50)
   const commandCenter = await buildCompanyCommandCenter(loaded.data, { limit })
-  return apiSuccess(commandCenter)
+  return apiSuccess(filterCompanyCommandCenterForVisibility(commandCenter, ctx))
 })

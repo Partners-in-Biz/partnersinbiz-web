@@ -1,6 +1,7 @@
 import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import type { MemberRef } from '@/lib/orgMembers/memberRef'
+import { recordCrmAuditEvent } from '@/lib/crm/audit'
 import type { CommerceListParams, InventoryItem, Order, Shipment } from './types'
 import type { Currency, DealLineItem } from '@/lib/crm/types'
 
@@ -123,6 +124,30 @@ function sanitize(kind: CommerceKind, input: Record<string, unknown>): Record<st
   return sanitizeInventoryItem(input)
 }
 
+function resourceType(kind: CommerceKind): string {
+  if (kind === 'orders') return 'order'
+  if (kind === 'shipments') return 'shipment'
+  return 'inventoryItem'
+}
+
+function notificationFor(kind: CommerceKind, action: 'created' | 'updated', row: CommerceRow) {
+  if (kind === 'shipments') {
+    return {
+      type: `crm.shipment.${action}`,
+      title: action === 'created' ? 'Shipment created' : 'Shipment updated',
+      body: row.status ? `Shipment status is ${row.status}.` : 'Shipment tracking changed.',
+    }
+  }
+  if (row.approvalState === 'pending_approval') {
+    return {
+      type: `crm.${resourceType(kind)}.approval_pending`,
+      title: 'Approval required',
+      body: `A ${resourceType(kind)} change is waiting for approval.`,
+    }
+  }
+  return undefined
+}
+
 function defaultFields(kind: CommerceKind, data: Record<string, unknown>) {
   if (kind === 'orders') {
     return {
@@ -184,7 +209,23 @@ async function createRow<T extends CommerceRow>(
     deleted: false,
   })
   const snap = await ref.get()
-  return { id: ref.id, ...snap.data() } as T
+  const row = { id: ref.id, ...snap.data() } as T
+  await recordCrmAuditEvent({
+    orgId,
+    eventType: `${resourceType(kind)}.created`,
+    resourceType: resourceType(kind),
+    resourceId: ref.id,
+    companyId: row.companyId,
+    relationshipId: 'relationshipId' in row ? row.relationshipId : undefined,
+    serviceWorkspaceId: row.serviceWorkspaceId,
+    orderId: kind === 'orders' ? row.id : ('orderId' in row ? row.orderId : undefined),
+    shipmentId: kind === 'shipments' ? row.id : undefined,
+    approvalState: row.approvalState,
+    actorRef: actor,
+    metadata: { status: row.status },
+    notification: notificationFor(kind, 'created', row),
+  })
+  return row
 }
 
 async function updateRow<T extends CommerceRow>(
@@ -206,7 +247,23 @@ async function updateRow<T extends CommerceRow>(
     updatedAt: FieldValue.serverTimestamp(),
   })
   const next = await ref.get()
-  return { id, ...next.data() } as T
+  const row = { id, ...next.data() } as T
+  await recordCrmAuditEvent({
+    orgId,
+    eventType: `${resourceType(kind)}.updated`,
+    resourceType: resourceType(kind),
+    resourceId: id,
+    companyId: row.companyId,
+    relationshipId: 'relationshipId' in row ? row.relationshipId : undefined,
+    serviceWorkspaceId: row.serviceWorkspaceId,
+    orderId: kind === 'orders' ? row.id : ('orderId' in row ? row.orderId : undefined),
+    shipmentId: kind === 'shipments' ? row.id : undefined,
+    approvalState: row.approvalState,
+    actorRef: actor,
+    metadata: sanitized,
+    notification: notificationFor(kind, 'updated', row),
+  })
+  return row
 }
 
 export function listOrders(orgId: string, params?: CommerceListParams) {

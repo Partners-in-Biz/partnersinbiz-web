@@ -1,6 +1,7 @@
 import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import type { MemberRef } from '@/lib/orgMembers/memberRef'
+import { recordCrmAuditEvent } from '@/lib/crm/audit'
 import type {
   ServiceWorkspace,
   ServiceWorkspaceInput,
@@ -136,7 +137,27 @@ export async function createServiceWorkspace(
     deleted: false,
   })
   const snap = await ref.get()
-  return { id: ref.id, ...snap.data() } as ServiceWorkspace
+  const workspace = { id: ref.id, ...snap.data() } as ServiceWorkspace
+  await recordCrmAuditEvent({
+    orgId,
+    eventType: 'service_workspace.created',
+    resourceType: 'serviceWorkspace',
+    resourceId: ref.id,
+    companyId: workspace.companyId,
+    relationshipId: workspace.relationshipId,
+    serviceWorkspaceId: ref.id,
+    approvalState: workspace.approvalState,
+    actorRef: actor,
+    metadata: { serviceType: workspace.serviceType, status: workspace.status, visibility: workspace.visibility },
+    notification: workspace.visibility !== 'internal'
+      ? {
+          type: 'crm.service_workspace.created',
+          title: 'Service workspace created',
+          body: `${workspace.name} is now tracked for this company.`,
+        }
+      : undefined,
+  })
+  return workspace
 }
 
 export async function updateServiceWorkspace(
@@ -157,5 +178,25 @@ export async function updateServiceWorkspace(
     updatedAt: FieldValue.serverTimestamp(),
   })
   const next = await ref.get()
-  return { id: workspaceId, ...next.data() } as ServiceWorkspace
+  const workspace = { id: workspaceId, ...next.data() } as ServiceWorkspace
+  await recordCrmAuditEvent({
+    orgId,
+    eventType: 'service_workspace.updated',
+    resourceType: 'serviceWorkspace',
+    resourceId: workspaceId,
+    companyId: workspace.companyId,
+    relationshipId: workspace.relationshipId,
+    serviceWorkspaceId: workspaceId,
+    approvalState: workspace.approvalState,
+    actorRef: actor,
+    metadata: patch as Record<string, unknown>,
+    notification: patch.status || patch.visibility || patch.approvalState
+      ? {
+          type: 'crm.service_workspace.updated',
+          title: 'Service workspace updated',
+          body: `${workspace.name} changed.`,
+        }
+      : undefined,
+  })
+  return workspace
 }

@@ -1,6 +1,7 @@
 import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import type { MemberRef } from '@/lib/orgMembers/memberRef'
+import { recordCrmAuditEvent } from '@/lib/crm/audit'
 import type {
   BusinessRelationship,
   BusinessRelationshipInput,
@@ -122,7 +123,27 @@ export async function createBusinessRelationship(
     deleted: false,
   })
   const snap = await ref.get()
-  return { id: ref.id, ...snap.data() } as BusinessRelationship
+  const relationship = { id: ref.id, ...snap.data() } as BusinessRelationship
+  await recordCrmAuditEvent({
+    orgId: sourceOrgId,
+    eventType: 'business_relationship.created',
+    resourceType: 'businessRelationship',
+    resourceId: ref.id,
+    companyId: relationship.sourceCompanyId,
+    relationshipId: ref.id,
+    approvalState: relationship.approvalState,
+    actorRef: actor,
+    metadata: { relationshipType, status },
+    notification: relationship.portalVisible
+      ? {
+          type: 'crm.relationship.created',
+          title: 'Business relationship created',
+          body: relationship.targetName ? `Relationship with ${relationship.targetName} is now tracked.` : 'A business relationship is now tracked.',
+          targetOrgIds: relationship.allowedOrgIds ?? [],
+        }
+      : undefined,
+  })
+  return relationship
 }
 
 export async function ensureBusinessRelationship(
@@ -170,7 +191,19 @@ export async function ensureBusinessRelationship(
   if (existing) {
     await existing.ref.set(defaults, { merge: true })
     const next = await existing.ref.get()
-    return { id: existing.id, ...next.data() } as BusinessRelationship
+    const relationship = { id: existing.id, ...next.data() } as BusinessRelationship
+    await recordCrmAuditEvent({
+      orgId: sourceOrgId,
+      eventType: 'business_relationship.reconciled',
+      resourceType: 'businessRelationship',
+      resourceId: existing.id,
+      companyId: relationship.sourceCompanyId,
+      relationshipId: existing.id,
+      approvalState: relationship.approvalState,
+      actorRef: actor,
+      metadata: { relationshipType, targetOrgId, sourceCompanyId, targetCompanyId },
+    })
+    return relationship
   }
 
   const ref = await adminDb.collection(COLLECTION).add({
@@ -179,7 +212,27 @@ export async function ensureBusinessRelationship(
     createdAt: FieldValue.serverTimestamp(),
   })
   const next = await ref.get()
-  return { id: ref.id, ...next.data() } as BusinessRelationship
+  const relationship = { id: ref.id, ...next.data() } as BusinessRelationship
+  await recordCrmAuditEvent({
+    orgId: sourceOrgId,
+    eventType: 'business_relationship.created',
+    resourceType: 'businessRelationship',
+    resourceId: ref.id,
+    companyId: relationship.sourceCompanyId,
+    relationshipId: ref.id,
+    approvalState: relationship.approvalState,
+    actorRef: actor,
+    metadata: { relationshipType, targetOrgId, sourceCompanyId, targetCompanyId },
+    notification: relationship.portalVisible
+      ? {
+          type: 'crm.relationship.created',
+          title: 'Business relationship created',
+          body: relationship.targetName ? `Relationship with ${relationship.targetName} is now tracked.` : 'A business relationship is now tracked.',
+          targetOrgIds: relationship.allowedOrgIds ?? [],
+        }
+      : undefined,
+  })
+  return relationship
 }
 
 export async function updateBusinessRelationship(
@@ -200,5 +253,25 @@ export async function updateBusinessRelationship(
     updatedAt: FieldValue.serverTimestamp(),
   })
   const next = await ref.get()
-  return { id: relationshipId, ...next.data() } as BusinessRelationship
+  const relationship = { id: relationshipId, ...next.data() } as BusinessRelationship
+  await recordCrmAuditEvent({
+    orgId: sourceOrgId,
+    eventType: 'business_relationship.updated',
+    resourceType: 'businessRelationship',
+    resourceId: relationshipId,
+    companyId: relationship.sourceCompanyId,
+    relationshipId,
+    approvalState: relationship.approvalState,
+    actorRef: actor,
+    metadata: patch as Record<string, unknown>,
+    notification: patch.status || patch.portalVisible !== undefined || patch.fieldSharingPolicy
+      ? {
+          type: 'crm.relationship.updated',
+          title: 'Business relationship updated',
+          body: relationship.targetName ? `Relationship with ${relationship.targetName} changed.` : 'A business relationship changed.',
+          targetOrgIds: relationship.allowedOrgIds ?? [],
+        }
+      : undefined,
+  })
+  return relationship
 }

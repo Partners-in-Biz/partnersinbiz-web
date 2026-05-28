@@ -6,6 +6,7 @@ export type OrderStatus = 'draft' | 'confirmed' | 'in_progress' | 'fulfilled' | 
 export type FulfillmentStatus = 'not_started' | 'picking' | 'packed' | 'in_transit' | 'delivered' | 'blocked'
 export type ShipmentStatus = 'pending' | 'ready' | 'in_transit' | 'delivered' | 'failed' | 'cancelled'
 export type InventoryStatus = 'active' | 'low_stock' | 'out_of_stock' | 'archived'
+export type InventoryMovementType = 'reserved' | 'released' | 'received' | 'shipped' | 'adjusted'
 
 export interface CommerceAuditFields {
   visibility?: 'internal' | 'relationship' | 'client_visible'
@@ -37,9 +38,27 @@ export interface Order extends CommerceAuditFields {
   subtotal: number
   taxAmount: number
   total: number
+  costTotal?: number
+  grossProfit?: number
+  grossMargin?: number
   currency: Currency
   expectedDeliveryDate?: unknown
   deliveredAt?: unknown
+  notes?: string
+}
+
+export interface InventoryMovement extends CommerceAuditFields {
+  id: string
+  orgId: string
+  companyId?: string
+  orderId?: string
+  shipmentId?: string
+  quoteId?: string
+  inventoryItemId?: string
+  productId?: string
+  movementType: InventoryMovementType
+  quantity: number
+  lineItems?: DealLineItem[]
   notes?: string
 }
 

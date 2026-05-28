@@ -9,6 +9,7 @@ import { dispatchWebhook } from '@/lib/webhooks/dispatch'
 import { notifyQuoteAccepted } from '@/lib/notifications/client-acceptance'
 import { loadCompany } from '@/lib/companies/store'
 import { canAccessOrg } from '@/lib/api/platformAdmin'
+import { createFulfillmentForAcceptedQuote } from '@/lib/commerce/quote-fulfillment'
 import type { Quote } from '@/lib/quotes/types'
 import type { MemberRef } from '@/lib/orgMembers/memberRef'
 import type { Contact } from '@/lib/crm/types'
@@ -268,8 +269,18 @@ async function handleQuoteUpdate(
   await r.ref.update(sanitized)
 
   // Dispatch status-change webhooks (explicit-field payload, PR 3+ pattern — no body spread)
+  let fulfillment: Awaited<ReturnType<typeof createFulfillmentForAcceptedQuote>> | undefined
   if (statusChanged) {
     if (toStatus === 'accepted') {
+      try {
+        fulfillment = await createFulfillmentForAcceptedQuote({
+          quoteId: id,
+          quote: { ...before, ...sanitized, status: 'accepted', id },
+          actor: actorRef,
+        })
+      } catch (err) {
+        console.error('[quote-fulfillment-error] quote.accepted', err)
+      }
       try {
         await dispatchWebhook(sourceOrgId, 'quote.accepted', {
           id,
@@ -350,7 +361,7 @@ async function handleQuoteUpdate(
     }
   }
 
-  return apiSuccess({ quote: { ...before, ...sanitized, id } })
+  return apiSuccess({ quote: { ...before, ...sanitized, id }, fulfillment })
 }
 
 export const PATCH = withCrmAuth<RouteCtx>('member', handleQuoteUpdate)
