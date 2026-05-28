@@ -65,9 +65,9 @@ describe('Portal projects board live data', () => {
           json: async () => ({
             data: {
               summary: { totalProjects: 1, openTasks: 3, blockedTasks: 0, waitingApprovals: 1, highRisks: 0, trackedRevenue: 12000, currency: 'ZAR' },
-              clients: [{ clientOrgId: 'client-org', clientName: 'Client workspace', projectCount: 1, trackedRevenue: 12000, openTasks: 3, blockedTasks: 0, highRisks: 0 }],
+              clients: [{ clientOrgId: 'client-org', companyId: 'company-client', clientName: 'Client workspace', projectCount: 1, trackedRevenue: 12000, openTasks: 3, blockedTasks: 0, highRisks: 0 }],
               people: [{ uid: 'contact-1', name: 'Client Contact', assignedTasks: 2, estimateMinutes: 180, capacityMinutes: 360, utilizationPercent: 50, overCapacity: false }],
-              projects: [{ id: 'project-1', name: 'Launch Site', status: 'development', health: { status: 'healthy', score: 92 }, timeline: { driftCount: 0, dependencyCount: 1 }, reports: { tasks: { open: 3, blocked: 0 }, risks: { high: 0 }, revenue: { trackedAmount: 12000, currency: 'ZAR' } } }],
+              projects: [{ id: 'project-1', name: 'Launch Site', companyId: 'company-client', status: 'development', health: { status: 'healthy', score: 92 }, timeline: { driftCount: 0, dependencyCount: 1 }, reports: { tasks: { open: 3, blocked: 0 }, risks: { high: 0 }, revenue: { trackedAmount: 12000, currency: 'ZAR' } } }],
             },
           }),
         } as Response)
@@ -84,6 +84,8 @@ describe('Portal projects board live data', () => {
     expect(screen.getByText('Client workspace')).toBeInTheDocument()
     expect(screen.getByText('Client Contact')).toBeInTheDocument()
     expect(screen.getByText('1 approval')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Open company Client workspace' })).toHaveAttribute('href', '/portal/companies/company-client')
+    expect(screen.getByRole('link', { name: 'Open project Launch Site' })).toHaveAttribute('href', '/portal/projects/project-1')
   })
 
   it('updates the cross-project kanban board when Firestore task snapshots change', async () => {

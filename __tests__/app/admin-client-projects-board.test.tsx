@@ -76,9 +76,9 @@ describe('Admin client projects board view', () => {
           json: async () => ({
             data: {
               summary: { totalProjects: 1, openTasks: 4, blockedTasks: 1, waitingApprovals: 2, highRisks: 1, trackedRevenue: 25000, currency: 'ZAR' },
-              clients: [{ clientOrgId: 'org-acme', clientName: 'Acme Client', projectCount: 1, trackedRevenue: 25000, openTasks: 4, blockedTasks: 1, highRisks: 1 }],
+              clients: [{ clientOrgId: 'org-acme', companyId: 'company-acme', clientName: 'Acme Client', projectCount: 1, trackedRevenue: 25000, openTasks: 4, blockedTasks: 1, highRisks: 1 }],
               people: [{ uid: 'owner-1', name: 'Peet Stander', assignedTasks: 4, estimateMinutes: 600, capacityMinutes: 480, utilizationPercent: 125, overCapacity: true }],
-              projects: [{ id: 'project-1', name: 'Client Website', status: 'development', health: { status: 'at_risk', score: 68 }, timeline: { driftCount: 1, dependencyCount: 2 }, reports: { tasks: { open: 4, blocked: 1 }, risks: { high: 1 }, revenue: { trackedAmount: 25000, currency: 'ZAR' } } }],
+              projects: [{ id: 'project-1', name: 'Client Website', companyId: 'company-acme', status: 'development', health: { status: 'at_risk', score: 68 }, timeline: { driftCount: 1, dependencyCount: 2 }, reports: { tasks: { open: 4, blocked: 1 }, risks: { high: 1 }, revenue: { trackedAmount: 25000, currency: 'ZAR' } } }],
             },
           }),
         } as Response)
@@ -95,6 +95,8 @@ describe('Admin client projects board view', () => {
     expect(screen.getByText('Acme Client')).toBeInTheDocument()
     expect(screen.getByText('Peet Stander')).toBeInTheDocument()
     expect(screen.getAllByText('1 blocked').length).toBeGreaterThan(0)
+    expect(screen.getByRole('link', { name: 'Open company Acme Client' })).toHaveAttribute('href', '/portal/companies/company-acme')
+    expect(screen.getByRole('link', { name: 'Open project Client Website' })).toHaveAttribute('href', '/admin/org/acme-client/projects/project-1')
   })
 
   it('lets admins switch from project cards to a cross-project task board for the client', async () => {

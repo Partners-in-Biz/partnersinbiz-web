@@ -41,6 +41,7 @@ const projects = [
       status: 'development',
       ownerOrgId: 'owner-org',
       clientOrgId: 'client-1',
+      companyId: 'company-1',
       clientName: 'Client One',
       createdAt: { seconds: 20 },
     },
@@ -52,6 +53,7 @@ const projects = [
       status: 'review',
       ownerOrgId: 'owner-org',
       clientOrgId: 'client-2',
+      companyId: 'company-2',
       clientName: 'Client Two',
       createdAt: { seconds: 10 },
     },
@@ -148,8 +150,8 @@ describe('GET /api/v1/projects/reporting', () => {
       currency: 'ZAR',
     }))
     expect(body.data.clients).toEqual(expect.arrayContaining([
-      expect.objectContaining({ clientOrgId: 'client-1', clientName: 'Client One', projectCount: 1, trackedRevenue: 25000, openTasks: 1 }),
-      expect.objectContaining({ clientOrgId: 'client-2', clientName: 'Client Two', projectCount: 1, trackedRevenue: 10000, openTasks: 1 }),
+      expect.objectContaining({ clientOrgId: 'client-1', companyId: 'company-1', clientName: 'Client One', projectCount: 1, trackedRevenue: 25000, openTasks: 1 }),
+      expect.objectContaining({ clientOrgId: 'client-2', companyId: 'company-2', clientName: 'Client Two', projectCount: 1, trackedRevenue: 10000, openTasks: 1 }),
     ]))
     expect(body.data.people).toEqual([
       expect.objectContaining({
@@ -166,6 +168,7 @@ describe('GET /api/v1/projects/reporting', () => {
         id: 'project-1',
         name: 'Website launch',
         clientOrgId: 'client-1',
+        companyId: 'company-1',
         reports: expect.objectContaining({
           revenue: expect.objectContaining({ trackedAmount: 25000 }),
         }),

@@ -106,6 +106,10 @@ function clientName(project: ProjectRow, key: string): string {
     key
 }
 
+function companyId(project: ProjectRow): string {
+  return cleanString(project.companyId) || cleanString(project.sourceCompanyId)
+}
+
 function compactProjectName(project: ProjectRow): string {
   return cleanString(project.name) || cleanString(project.title) || project.id
 }
@@ -147,6 +151,7 @@ export const GET = withAuth('client', async (req: NextRequest, user) => {
   const portfolio = []
   const clients = new Map<string, {
     clientOrgId: string
+    companyId?: string
     clientName: string
     projectCount: number
     trackedRevenue: number
@@ -221,8 +226,10 @@ export const GET = withAuth('client', async (req: NextRequest, user) => {
     }
 
     const key = clientKey(project)
+    const projectCompanyId = companyId(project)
     const client = clients.get(key) ?? {
       clientOrgId: key,
+      companyId: projectCompanyId || undefined,
       clientName: clientName(project, key),
       projectCount: 0,
       trackedRevenue: 0,
@@ -230,6 +237,7 @@ export const GET = withAuth('client', async (req: NextRequest, user) => {
       blockedTasks: 0,
       highRisks: 0,
     }
+    if (!client.companyId && projectCompanyId) client.companyId = projectCompanyId
     client.projectCount += 1
     client.trackedRevenue += revenueAmount
     client.openTasks += reports.tasks.open
@@ -242,6 +250,7 @@ export const GET = withAuth('client', async (req: NextRequest, user) => {
       name: compactProjectName(project),
       status: cleanString(project.status) || 'active',
       clientOrgId: key,
+      companyId: projectCompanyId || undefined,
       clientName: client.clientName,
       health,
       timeline: {

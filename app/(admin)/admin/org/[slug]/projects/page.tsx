@@ -358,7 +358,10 @@ export default function ProjectsPage() {
         </Surface>
       )}
 
-      <ProjectPortfolioReportPanel reportUrl={`/api/v1/projects/reporting?orgSlug=${encodeURIComponent(slug)}`} />
+      <ProjectPortfolioReportPanel
+        reportUrl={`/api/v1/projects/reporting?orgSlug=${encodeURIComponent(slug)}`}
+        projectHrefBase={`/admin/org/${slug}/projects`}
+      />
 
       {/* Filters and view controls */}
       <div className="flex items-center justify-between gap-3 flex-wrap">

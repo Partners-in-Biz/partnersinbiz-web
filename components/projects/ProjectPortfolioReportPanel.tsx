@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Surface, StatusPill } from '@/components/ui/AppFoundation'
@@ -20,6 +21,7 @@ type Summary = {
 
 type ClientReport = {
   clientOrgId: string
+  companyId?: string
   clientName: string
   projectCount?: number
   trackedRevenue?: number
@@ -41,6 +43,7 @@ type PersonReport = {
 type ProjectReport = {
   id: string
   name: string
+  companyId?: string
   status?: string
   health?: { status?: string; score?: number }
   timeline?: { driftCount?: number; dependencyCount?: number }
@@ -161,22 +164,55 @@ function RailCard({
   children,
   color = 'var(--color-outline)',
   className,
+  href,
+  ariaLabel,
 }: {
   children: ReactNode
   color?: string
   className?: string
+  href?: string
+  ariaLabel?: string
 }) {
+  const cardClassName = cn(
+    'pib-card min-w-0 transition-all duration-150 hover:border-[var(--color-accent-v2)]',
+    href && 'block cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent-v2)]',
+    className,
+  )
+  const style = { borderLeft: `3px solid ${color}`, padding: '12px' }
+
+  if (href) {
+    return (
+      <Link href={href} aria-label={ariaLabel} className={cardClassName} style={style}>
+        {children}
+      </Link>
+    )
+  }
+
   return (
     <div
-      className={cn('pib-card min-w-0 transition-all duration-150 hover:border-[var(--color-accent-v2)]', className)}
-      style={{ borderLeft: `3px solid ${color}`, padding: '12px' }}
+      className={cardClassName}
+      style={style}
     >
       {children}
     </div>
   )
 }
 
-export function ProjectPortfolioReportPanel({ reportUrl = '/api/v1/projects/reporting' }: { reportUrl?: string }) {
+type ProjectPortfolioReportPanelProps = {
+  reportUrl?: string
+  projectHrefBase?: string
+  companyHrefBase?: string
+}
+
+function joinHref(base: string, id: string): string {
+  return `${base.replace(/\/$/, '')}/${encodeURIComponent(id)}`
+}
+
+export function ProjectPortfolioReportPanel({
+  reportUrl = '/api/v1/projects/reporting',
+  projectHrefBase = '/portal/projects',
+  companyHrefBase = '/portal/companies',
+}: ProjectPortfolioReportPanelProps) {
   const [state, setState] = useState<LoadState>({ status: 'loading', data: null, error: null })
 
   useEffect(() => {
@@ -278,11 +314,20 @@ export function ProjectPortfolioReportPanel({ reportUrl = '/api/v1/projects/repo
             <EmptyLane>No client reporting data yet.</EmptyLane>
           ) : clients.map((client) => {
             const clientBlockedTasks = numberValue(client.blockedTasks)
+            const clientHref = client.companyId ? joinHref(companyHrefBase, client.companyId) : undefined
             return (
-              <RailCard key={client.clientOrgId} color={clientBlockedTasks > 0 ? '#ef4444' : '#60a5fa'}>
+              <RailCard
+                key={client.clientOrgId}
+                color={clientBlockedTasks > 0 ? '#ef4444' : '#60a5fa'}
+                href={clientHref}
+                ariaLabel={clientHref ? `Open company ${client.clientName}` : undefined}
+              >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-on-surface">{client.clientName}</p>
+                    <p className="flex min-w-0 items-center gap-1 truncate text-sm font-medium text-on-surface">
+                      <span className="truncate">{client.clientName}</span>
+                      {clientHref ? <span aria-hidden="true" className="material-symbols-outlined shrink-0 text-[14px] text-on-surface-variant">arrow_outward</span> : null}
+                    </p>
                     <p className="mt-1 text-xs text-on-surface-variant">
                       {plural(numberValue(client.projectCount), 'project')} · {plural(numberValue(client.openTasks), 'open', 'open')} · {plural(clientBlockedTasks, 'blocked', 'blocked')}
                     </p>
@@ -310,10 +355,13 @@ export function ProjectPortfolioReportPanel({ reportUrl = '/api/v1/projects/repo
             const projectBlockedTasks = numberValue(project.reports?.tasks?.blocked)
             const railColor = healthTone(healthStatus) === 'danger' || projectBlockedTasks > 0 ? '#ef4444' : healthTone(healthStatus) === 'warn' ? '#f59e0b' : 'var(--color-accent-v2)'
             return (
-              <RailCard key={project.id} color={railColor}>
+              <RailCard key={project.id} color={railColor} href={joinHref(projectHrefBase, project.id)} ariaLabel={`Open project ${project.name}`}>
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-on-surface">{project.name}</p>
+                    <p className="flex min-w-0 items-center gap-1 truncate text-sm font-medium text-on-surface">
+                      <span className="truncate">{project.name}</span>
+                      <span aria-hidden="true" className="material-symbols-outlined shrink-0 text-[14px] text-on-surface-variant">arrow_outward</span>
+                    </p>
                     <p className="mt-1 text-xs text-on-surface-variant">
                       {displayStatus(project.status)} · {plural(numberValue(project.reports?.tasks?.open), 'open', 'open')} · {plural(numberValue(project.timeline?.dependencyCount), 'dependency', 'dependencies')}
                     </p>

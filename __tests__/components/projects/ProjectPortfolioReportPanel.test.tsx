@@ -21,7 +21,7 @@ describe('ProjectPortfolioReportPanel', () => {
             mixedCurrency: false,
           },
           clients: [
-            { clientOrgId: 'client-1', clientName: 'Client One', projectCount: 1, trackedRevenue: 25000, openTasks: 4, blockedTasks: 1, highRisks: 1 },
+            { clientOrgId: 'client-1', companyId: 'company-1', clientName: 'Client One', projectCount: 1, trackedRevenue: 25000, openTasks: 4, blockedTasks: 1, highRisks: 1 },
           ],
           people: [
             { uid: 'user-1', name: 'Peet Stander', assignedTasks: 5, estimateMinutes: 1200, capacityMinutes: 1000, utilizationPercent: 120, overCapacity: true },
@@ -30,6 +30,7 @@ describe('ProjectPortfolioReportPanel', () => {
             {
               id: 'project-1',
               name: 'Website launch',
+              companyId: 'company-1',
               status: 'development',
               health: { status: 'at_risk', score: 62 },
               reports: {
@@ -60,6 +61,20 @@ describe('ProjectPortfolioReportPanel', () => {
     expect(screen.getByText('120%')).toBeInTheDocument()
     expect(screen.getByText('Website launch')).toBeInTheDocument()
     expect(screen.getByText(/at risk/i)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Open company Client One' })).toHaveAttribute('href', '/portal/companies/company-1')
+    expect(screen.getByRole('link', { name: 'Open project Website launch' })).toHaveAttribute('href', '/portal/projects/project-1')
+  })
+
+  it('uses the supplied admin project base while keeping company links stable', async () => {
+    render(
+      <ProjectPortfolioReportPanel
+        reportUrl="/api/v1/projects/reporting?orgId=owner-org"
+        projectHrefBase="/admin/org/partners-in-biz/projects"
+      />,
+    )
+
+    await waitFor(() => expect(screen.getByRole('link', { name: 'Open project Website launch' })).toBeInTheDocument())
+    expect(screen.getByRole('link', { name: 'Open project Website launch' })).toHaveAttribute('href', '/admin/org/partners-in-biz/projects/project-1')
   })
 
   it('shows a quiet empty state when reporting data is unavailable', async () => {
