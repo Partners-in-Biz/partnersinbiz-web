@@ -9,7 +9,11 @@ type MailboxAccountsResponse = {
   }
 }
 
-export function MailboxDrawer() {
+interface MailboxDrawerProps {
+  onOpen?: () => void
+}
+
+export function MailboxDrawer({ onOpen }: MailboxDrawerProps) {
   const [hasConnectedAccount, setHasConnectedAccount] = useState(false)
   const [loading, setLoading] = useState(true)
   const [open, setOpen] = useState(false)
@@ -81,7 +85,10 @@ export function MailboxDrawer() {
     <>
       <button
         type="button"
-        onClick={() => setOpen((value) => !value)}
+        onClick={() => {
+          if (!open) onOpen?.()
+          setOpen((value) => !value)
+        }}
         title={open ? 'Close email' : 'Open email'}
         aria-label={open ? 'Close email' : 'Open email'}
         aria-pressed={open}

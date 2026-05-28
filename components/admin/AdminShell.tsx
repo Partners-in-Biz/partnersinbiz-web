@@ -84,7 +84,7 @@ export function AdminShell({ userEmail, userUid, children }: AdminShellProps) {
   const innerClassName = 'max-w-[1400px]'
   const messageAction = (
     <>
-      <MailboxDrawer />
+      <MailboxDrawer onOpen={closeSidebarForMessages} />
       <MessageDrawer
         orgId={drawerOrgId}
         orgName={drawerOrgName}
