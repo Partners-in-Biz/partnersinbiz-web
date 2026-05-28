@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic'
 
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
+import { CrmHubCommandRail } from '@/components/crm/CrmHubCommandRail'
 import type { HubSection } from '@/components/navigation/HubPage'
 import type { Deal } from '@/lib/crm/types'
 
@@ -237,6 +238,14 @@ export default function PortalCrmPage() {
   }, [])
 
   const primaryCurrency = useMemo(() => dashboard?.topOpenDeals?.find((deal) => deal.currency)?.currency ?? 'ZAR', [dashboard])
+  const commandMetrics = {
+    openDealsCount: dashboard?.openDealsCount ?? 0,
+    openDealsValue: dashboard?.openDealsValue ?? 0,
+    weightedPipelineValue: dashboard?.weightedPipelineValue ?? 0,
+    recentActivityCount: dashboard?.recentActivities?.length ?? 0,
+    topOpenDealCount: dashboard?.topOpenDeals?.length ?? 0,
+    lostThisMonthCount: dashboard?.lostThisMonth?.count ?? 0,
+  }
 
   return (
     <div className="mx-auto max-w-7xl space-y-8">
@@ -299,6 +308,8 @@ export default function PortalCrmPage() {
         )}
       </section>
 
+      {!loading && <CrmHubCommandRail metrics={commandMetrics} />}
+
       <section className="grid gap-5 xl:grid-cols-[1.15fr_0.85fr]">
         <div className="pib-card-section overflow-hidden">
           <div className="border-b border-[var(--color-pib-line)] bg-white/[0.02] px-5 py-3.5">
@@ -318,7 +329,7 @@ export default function PortalCrmPage() {
               {dashboard.topOpenDeals.map((deal) => (
                 <Link
                   key={deal.id}
-                  href={`/portal/deals?focus=${deal.id}`}
+                  href={`/portal/deals/${deal.id}`}
                   className="grid gap-3 px-5 py-3.5 transition-colors hover:bg-[var(--color-pib-surface-2)] md:grid-cols-[1fr_120px_90px]"
                 >
                   <div className="min-w-0">
