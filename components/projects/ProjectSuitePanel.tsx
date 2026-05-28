@@ -225,7 +225,7 @@ function HealthMetric({ label, value }: { label: string; value: number }) {
   )
 }
 
-function TimelineGantt({ items }: { items: TimelineItem[] }) {
+function TimelineGantt({ items, onEditItem }: { items: TimelineItem[]; onEditItem?: (item: TimelineItem) => void }) {
   const dated = items
     .map((item) => {
       const start = itemStartMillis(item)
@@ -271,7 +271,19 @@ function TimelineGantt({ items }: { items: TimelineItem[] }) {
           return (
             <div key={item.id || title} className="grid gap-2 md:grid-cols-[minmax(140px,0.32fr)_minmax(0,1fr)] md:items-center">
               <div className="min-w-0">
-                <p className="truncate text-xs font-medium text-on-surface">{title}</p>
+                <div className="flex min-w-0 items-center gap-2">
+                  <p className="truncate text-xs font-medium text-on-surface">{title}</p>
+                  {onEditItem ? (
+                    <button
+                      type="button"
+                      aria-label={`Edit Gantt ${title}`}
+                      onClick={() => onEditItem(item)}
+                      className="inline-flex size-6 shrink-0 items-center justify-center rounded-md border border-[var(--color-card-border)] text-on-surface-variant hover:border-[var(--color-primary)] hover:text-on-surface"
+                    >
+                      <span className="material-symbols-outlined text-[14px]" aria-hidden="true">edit</span>
+                    </button>
+                  ) : null}
+                </div>
                 <p className="mt-0.5 text-[11px] capitalize text-on-surface-variant">{item.kind || 'item'} / {formatDate(due)}</p>
               </div>
               <div className="min-w-0">
@@ -321,6 +333,11 @@ function TimelinePanel({
   const [draft, setDraft] = useState<TimelineDraft>(EMPTY_TIMELINE_DRAFT)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editDraft, setEditDraft] = useState<TimelineDraft>(EMPTY_TIMELINE_DRAFT)
+  function startEditing(item: TimelineItem) {
+    setEditingId(item.id || null)
+    setEditDraft(draftFromTimelineItem(item))
+  }
+
   return (
     <section className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-background)] p-4">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
@@ -330,7 +347,7 @@ function TimelinePanel({
         </div>
         <span className="rounded-full border border-[var(--color-card-border)] px-2 py-0.5 text-[10px] font-label text-on-surface-variant">Baseline drift</span>
       </div>
-      <TimelineGantt items={items} />
+      <TimelineGantt items={items} onEditItem={startEditing} />
       <div className="space-y-2">
         {items.length === 0 ? <p className="text-sm text-on-surface-variant">No timeline items yet.</p> : null}
         {items.map((item, index) => (
@@ -352,10 +369,7 @@ function TimelinePanel({
                 type="button"
                 className="pib-btn-secondary px-3 py-1 text-[11px] font-label"
                 aria-label={`Edit ${item.title || 'timeline item'}`}
-                onClick={() => {
-                  setEditingId(item.id || null)
-                  setEditDraft(draftFromTimelineItem(item))
-                }}
+                onClick={() => startEditing(item)}
               >
                 Edit
               </button>

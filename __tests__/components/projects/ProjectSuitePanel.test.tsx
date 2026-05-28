@@ -116,6 +116,30 @@ describe('ProjectSuitePanel', () => {
     expect(screen.getByLabelText('Design sprint Gantt bar')).toBeInTheDocument()
   })
 
+  it('opens timeline editing directly from a Gantt row', async () => {
+    render(<ProjectSuitePanel projectId="project-1" />)
+
+    await waitFor(() => expect(screen.getByLabelText('Project Gantt timeline')).toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Gantt Design sprint' }))
+    fireEvent.change(screen.getByLabelText('Edit timeline due date'), { target: { value: '2026-06-22' } })
+    fireEvent.change(screen.getByLabelText('Edit timeline dependencies'), { target: { value: 'task-1, task-2' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save timeline changes' }))
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/v1/projects/project-1/suite', expect.objectContaining({
+      method: 'PATCH',
+      body: JSON.stringify({
+        type: 'milestone',
+        id: 'milestone-1',
+        title: 'Design sprint',
+        startDate: '2026-06-01',
+        dueDate: '2026-06-22',
+        baselineDueDate: '2026-06-08',
+        dependsOn: ['task-1', 'task-2'],
+        visibility: 'project',
+      }),
+    })))
+  })
+
   it('edits existing timeline records and project controls from the Plan editor', async () => {
     render(<ProjectSuitePanel projectId="project-1" />)
 
