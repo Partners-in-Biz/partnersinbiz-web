@@ -2,7 +2,7 @@
 export const dynamic = 'force-dynamic'
 
 import { useEffect, useState, useCallback } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import type { Company } from '@/lib/companies/types'
 import type { CustomFieldDefinition } from '@/lib/customFields/types'
@@ -485,10 +485,12 @@ function ActivityPanel({ activities }: { activities: RelatedActivity[] }) {
 
 export default function CompanyDetailPage() {
   const { id } = useParams<{ id: string }>()
+  const router = useRouter()
 
   const [company, setCompany] = useState<Company | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   const [tab, setTab] = useState<CompanyTab>('overview')
   const [editOpen, setEditOpen] = useState(false)
@@ -600,6 +602,26 @@ export default function CompanyDetailPage() {
     await fetchCompany()
   }
 
+  async function handleDelete(): Promise<void> {
+    if (!company) return
+    const confirmed = window.confirm(`Archive ${company.name}? Linked contacts, deals, quotes, and activities will keep their history but no longer point at this company.`)
+    if (!confirmed) return
+    setDeleting(true)
+    setError(null)
+    try {
+      const res = await fetch(`/api/v1/crm/companies/${id}`, { method: 'DELETE' })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(body.error ?? `HTTP ${res.status}`)
+      }
+      router.push('/portal/companies')
+      router.refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to archive company')
+      setDeleting(false)
+    }
+  }
+
   // ── Loading / error states ──────────────────────────────────────────────────
 
   if (loading) return <PageSkeleton />
@@ -636,11 +658,40 @@ export default function CompanyDetailPage() {
 
       {/* Header */}
       <div className="bento-card p-5">
-        <CompanyHeader company={company} onEdit={() => setEditOpen(true)} />
+        <CompanyHeader
+          company={company}
+          onEdit={() => setEditOpen(true)}
+          onDelete={handleDelete}
+          deleting={deleting}
+          stats={{
+            contacts: related.contacts.length,
+            deals: related.deals.length,
+            projects: related.projects.length,
+            documents: related.documents.length,
+            activity: related.activities.length,
+          }}
+        />
       </div>
 
       {/* Tabs */}
-      <CompanyTabsBar activeTab={tab} onChange={(t) => setTab(t as CompanyTab)} />
+      <CompanyTabsBar
+        activeTab={tab}
+        onChange={(t) => setTab(t as CompanyTab)}
+        counts={{
+          contacts: related.contacts.length,
+          deals: related.deals.length,
+          projects: related.projects.length,
+          documents: related.documents.length,
+          services: related.serviceWorkspaces.length,
+          relationships: related.relationships.length,
+          quotes: related.quotes.length,
+          invoices: related.invoices.length,
+          orders: related.orders.length,
+          shipments: related.shipments.length,
+          inventory: related.inventoryItems.length,
+          activity: related.activities.length,
+        }}
+      />
 
       {/* Tab content */}
       <div role="tabpanel">

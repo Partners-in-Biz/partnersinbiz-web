@@ -40,17 +40,23 @@ export const COMPANY_TABS: { key: CompanyTab; label: string; icon: string }[] = 
 export interface CompanyTabsBarProps {
   activeTab: string
   onChange: (tab: string) => void
+  counts?: Partial<Record<CompanyTab, number>>
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function CompanyTabsBar({ activeTab, onChange }: CompanyTabsBarProps) {
+export function CompanyTabsBar({ activeTab, onChange, counts }: CompanyTabsBarProps) {
   return (
     <PageTabs
       ariaLabel="Company detail tabs"
       value={activeTab}
       onValueChange={onChange}
-      tabs={COMPANY_TABS.map((tab) => ({ label: tab.label, value: tab.key, icon: tab.icon }))}
+      tabs={COMPANY_TABS.map((tab) => ({
+        label: tab.label,
+        value: tab.key,
+        icon: tab.icon,
+        badge: counts?.[tab.key] ? counts[tab.key] : undefined,
+      }))}
     />
   )
 }
