@@ -53,9 +53,11 @@ describe('ProjectPortfolioReportPanel', () => {
 
     await waitFor(() => expect(screen.getByText('Portfolio report')).toBeInTheDocument())
     expect(global.fetch).toHaveBeenCalledWith('/api/v1/projects/reporting?orgId=owner-org', expect.any(Object))
-    expect(screen.getByText('2 projects')).toBeInTheDocument()
+    expect(screen.getByText('projects')).toBeInTheDocument()
+    expect(screen.getByText('Open tasks')).toBeInTheDocument()
     expect(screen.getAllByText('1 blocked').length).toBeGreaterThan(0)
-    expect(screen.getByText('3 approvals')).toBeInTheDocument()
+    expect(screen.getByText('Approvals')).toBeInTheDocument()
+    expect(screen.getByText('Client or internal decisions waiting.')).toBeInTheDocument()
     expect(screen.getByText('Client One')).toBeInTheDocument()
     expect(screen.getByText('Peet Stander')).toBeInTheDocument()
     expect(screen.getByText('120%')).toBeInTheDocument()

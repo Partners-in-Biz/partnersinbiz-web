@@ -103,21 +103,49 @@ function healthTone(status: string | undefined): 'success' | 'warn' | 'danger' |
   return 'neutral'
 }
 
-function StatTile({ icon, value, label, tone = 'neutral' }: { icon: string; value: string; label: string; tone?: 'neutral' | 'warn' | 'danger' | 'success' }) {
-  const toneClass = {
-    neutral: 'border-[var(--color-card-border)] bg-[var(--color-card)] text-on-surface',
-    warn: 'border-[#f59e0b40] bg-[#f59e0b10] text-[#fbbf24]',
-    danger: 'border-[#ef444440] bg-[#ef444410] text-[#f87171]',
-    success: 'border-[#22c55e40] bg-[#22c55e10] text-[#86efac]',
+function metricToneColor(tone: 'neutral' | 'info' | 'warn' | 'danger' | 'success' | 'purple'): string {
+  return {
+    neutral: 'var(--color-outline)',
+    info: '#60a5fa',
+    warn: '#f59e0b',
+    danger: '#ef4444',
+    success: '#22c55e',
+    purple: '#c084fc',
   }[tone]
+}
+
+function StatTile({
+  icon,
+  value,
+  label,
+  detail,
+  tone = 'neutral',
+}: {
+  icon: string
+  value: string
+  label: string
+  detail: string
+  tone?: 'neutral' | 'info' | 'warn' | 'danger' | 'success' | 'purple'
+}) {
+  const color = metricToneColor(tone)
 
   return (
-    <div className={cn('min-w-0 rounded-md border px-3 py-3', toneClass)}>
-      <div className="flex items-center gap-2 text-xs text-on-surface-variant">
-        <span aria-hidden="true" className="material-symbols-outlined text-[16px]">{icon}</span>
-        <span className="truncate">{label}</span>
+    <div
+      className="min-w-0 rounded-[18px] border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-4 text-on-surface"
+      style={{ borderTop: `2px solid ${color}` }}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <p className="truncate text-[10px] font-label uppercase tracking-widest text-on-surface-variant">{label}</p>
+        <span
+          aria-hidden="true"
+          className="material-symbols-outlined inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-[15px]"
+          style={{ borderColor: `${color}55`, color }}
+        >
+          {icon}
+        </span>
       </div>
-      <div className="mt-2 truncate text-base font-semibold">{value}</div>
+      <div className="mt-3 truncate text-2xl font-semibold text-on-surface">{value}</div>
+      <p className="mt-2 min-h-8 text-xs leading-snug text-on-surface-variant">{detail}</p>
     </div>
   )
 }
@@ -265,46 +293,99 @@ export function ProjectPortfolioReportPanel({
 
   const totalProjects = numberValue(summary.totalProjects)
   const blockedTasks = numberValue(summary.blockedTasks)
+  const openTasks = numberValue(summary.openTasks)
+  const overdueTasks = numberValue(summary.overdueTasks)
   const waitingApprovals = numberValue(summary.waitingApprovals)
   const highRisks = numberValue(summary.highRisks)
   const overCapacityPeople = numberValue(summary.overCapacityPeople)
   const trackedRevenue = numberValue(summary.trackedRevenue)
   const currency = summary.mixedCurrency ? null : summary.currency
+  const activePressure = blockedTasks + overdueTasks + waitingApprovals + highRisks
+  const clearWork = Math.max(openTasks - blockedTasks - overdueTasks, 0)
+  const clearWorkPercent = openTasks > 0 ? Math.round((clearWork / openTasks) * 100) : 100
+  const healthColor = activePressure > 0 ? '#f59e0b' : '#22c55e'
 
   return (
     <Surface className="p-0 overflow-hidden">
-      <div className="border-b border-[var(--color-card-border)] px-4 py-4">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-          <div className="min-w-0">
-            <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Portfolio health</p>
-            <h2 className="mt-1 text-lg font-headline font-semibold text-on-surface">Portfolio report</h2>
-            <p className="mt-1 max-w-2xl text-sm text-on-surface-variant">A kanban-style readout of client load, project health, and team capacity.</p>
+      <div className="grid border-b border-[var(--color-card-border)] lg:grid-cols-[minmax(280px,0.9fr)_minmax(0,1.7fr)]">
+        <div className="relative min-w-0 border-b border-[var(--color-card-border)] px-5 py-5 lg:border-b-0 lg:border-r">
+          <span
+            aria-hidden="true"
+            className="material-symbols-outlined absolute right-5 top-5 inline-flex h-9 w-9 items-center justify-center rounded-full border text-[20px]"
+            style={{ borderColor: `${healthColor}55`, color: healthColor, background: `${healthColor}12` }}
+          >
+            monitoring
+          </span>
+          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Portfolio report</p>
+          <div className="mt-3 flex items-end gap-2">
+            <span className="text-4xl font-semibold leading-none text-on-surface">{totalProjects}</span>
+            <span className="pb-1 text-lg font-medium text-on-surface-variant">{totalProjects === 1 ? 'project' : 'projects'}</span>
           </div>
-          <div className="flex flex-wrap gap-2 text-xs text-on-surface-variant">
-            <span className="inline-flex items-center gap-1 rounded-full border border-[var(--color-card-border)] bg-[var(--color-surface-container)] px-2 py-1">
-              <span aria-hidden="true" className="material-symbols-outlined text-[14px]">folder_managed</span>
-              {plural(totalProjects, 'project')}
-            </span>
-            <span className="inline-flex items-center gap-1 rounded-full border border-[var(--color-card-border)] bg-[var(--color-surface-container)] px-2 py-1">
-              <span aria-hidden="true" className="material-symbols-outlined text-[14px]">database</span>
+          <p className="mt-3 max-w-sm text-sm text-on-surface-variant">
+            {plural(openTasks, 'open', 'open')} across {plural(clients.length, 'client')}. {activePressure > 0 ? `${activePressure} item${activePressure === 1 ? '' : 's'} need attention.` : 'No active blockers in the portfolio report.'}
+          </p>
+
+          <div className="mt-6 flex items-center justify-between gap-3 text-xs text-on-surface-variant">
+            <span>Clear work</span>
+            <span>{clearWorkPercent}%</span>
+          </div>
+          <div className="mt-2 h-2 overflow-hidden rounded-full bg-black/30">
+            <div
+              className="h-full rounded-full"
+              style={{ width: `${clearWorkPercent}%`, background: healthColor }}
+            />
+          </div>
+
+          <div className="mt-5 flex flex-wrap gap-2 text-xs text-on-surface-variant">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-card-border)] bg-[var(--color-surface-container)] px-2.5 py-1.5">
+              <span aria-hidden="true" className="material-symbols-outlined text-[15px]">database</span>
               Live data
             </span>
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-card-border)] bg-[var(--color-surface-container)] px-2.5 py-1.5">
+              <span aria-hidden="true" className="material-symbols-outlined text-[15px]">schedule</span>
+              {plural(overdueTasks, 'overdue', 'overdue')}
+            </span>
             {overCapacityPeople > 0 ? (
-              <span className="inline-flex items-center gap-1 rounded-full border border-[#f59e0b40] bg-[#f59e0b10] px-2 py-1 text-[#fbbf24]">
-                <span aria-hidden="true" className="material-symbols-outlined text-[14px]">groups</span>
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-[#f59e0b40] bg-[#f59e0b10] px-2.5 py-1.5 text-[#fbbf24]">
+                <span aria-hidden="true" className="material-symbols-outlined text-[15px]">groups</span>
                 {plural(overCapacityPeople, 'person', 'people')} over capacity
               </span>
             ) : null}
           </div>
         </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-          <StatTile icon="task_alt" label="Open tasks" value={plural(numberValue(summary.openTasks), 'open', 'open')} />
-          <StatTile icon="block" label="Blocked" value={plural(blockedTasks, 'blocked', 'blocked')} tone={blockedTasks > 0 ? 'danger' : 'success'} />
-          <StatTile icon="schedule" label="Overdue" value={plural(numberValue(summary.overdueTasks), 'overdue', 'overdue')} tone={numberValue(summary.overdueTasks) > 0 ? 'warn' : 'neutral'} />
-          <StatTile icon="approval" label="Approvals" value={plural(waitingApprovals, 'approval')} tone={waitingApprovals > 0 ? 'warn' : 'neutral'} />
-          <StatTile icon="warning" label="High risks" value={plural(highRisks, 'risk')} tone={highRisks > 0 ? 'danger' : 'success'} />
-          <StatTile icon="payments" label="Revenue" value={formatCurrency(trackedRevenue, currency)} />
+        <div className="min-w-0 px-4 py-5">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            <StatTile icon="radio_button_checked" label="Open tasks" value={String(openTasks)} detail="All non-complete task load in this report." tone="info" />
+            <StatTile icon="sync" label="Overdue" value={String(overdueTasks)} detail="Past due work across project boards." tone={overdueTasks > 0 ? 'warn' : 'neutral'} />
+            <StatTile icon="block" label="Blocked now" value={String(blockedTasks)} detail="Active blocked or waiting-only work." tone={blockedTasks > 0 ? 'danger' : 'success'} />
+            <StatTile icon="rate_review" label="Approvals" value={String(waitingApprovals)} detail="Client or internal decisions waiting." tone={waitingApprovals > 0 ? 'purple' : 'neutral'} />
+            <StatTile icon="warning" label="High risks" value={String(highRisks)} detail="Open high-severity project risks." tone={highRisks > 0 ? 'danger' : 'success'} />
+            <StatTile icon="payments" label="Revenue" value={formatCurrency(trackedRevenue, currency)} detail="Tracked project revenue in scope." tone="success" />
+          </div>
+
+          <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/[0.08]">
+            <div className="h-full rounded-full bg-[var(--color-pib-accent)]" style={{ width: `${clearWorkPercent}%` }} />
+          </div>
+
+          <div className="mt-3 flex flex-wrap gap-2 text-[10px] text-on-surface-variant">
+            <span className="inline-flex items-center gap-1 rounded-full border border-[var(--color-card-border)] px-2 py-1">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#60a5fa]" />
+              Open {openTasks}
+            </span>
+            <span className="inline-flex items-center gap-1 rounded-full border border-[var(--color-card-border)] px-2 py-1">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#ef4444]" />
+              Blocked {blockedTasks}
+            </span>
+            <span className="inline-flex items-center gap-1 rounded-full border border-[var(--color-card-border)] px-2 py-1">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#c084fc]" />
+              Review {waitingApprovals}
+            </span>
+            <span className="inline-flex items-center gap-1 rounded-full border border-[var(--color-card-border)] px-2 py-1">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#22c55e]" />
+              Clear {clearWork}
+            </span>
+          </div>
         </div>
       </div>
 
