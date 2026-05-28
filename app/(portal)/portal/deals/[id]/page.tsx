@@ -1,11 +1,13 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useEffect, useState } from 'react'
-import { useParams } from 'next/navigation'
+import { useCallback, useEffect, useState } from 'react'
+import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { fmtTimestamp } from '@/components/admin/email/fmtTimestamp'
+import { DealDrawer } from '@/components/crm/DealDrawer'
 import type { MemberRef } from '@/lib/orgMembers/memberRef'
+import type { Deal } from '@/lib/crm/types'
 
 interface DealRecord {
   id?: string
@@ -32,6 +34,12 @@ interface DealRecord {
     total: number
     currency: string
     productId?: string
+  }>
+  stageHistory?: Array<{
+    pipelineId?: string
+    stageId?: string
+    enteredAt?: unknown
+    enteredByRef?: MemberRef
   }>
   createdAt?: unknown
   updatedAt?: unknown
@@ -74,12 +82,50 @@ function fmtValue(value: number | undefined, currency: string | undefined): stri
   }
 }
 
+function toDate(value: unknown): Date | null {
+  if (!value) return null
+  if (value instanceof Date) return value
+  if (typeof value === 'object') {
+    const timestamp = value as { toDate?: () => Date; seconds?: number; _seconds?: number }
+    if (typeof timestamp.toDate === 'function') return timestamp.toDate()
+    const seconds = timestamp.seconds ?? timestamp._seconds
+    if (typeof seconds === 'number') return new Date(seconds * 1000)
+  }
+  if (typeof value === 'string') {
+    const parsed = new Date(value)
+    return Number.isNaN(parsed.getTime()) ? null : parsed
+  }
+  return null
+}
+
+function closeDateLabel(value: unknown): string {
+  const date = toDate(value)
+  if (!date) return 'No close date'
+  const diffDays = Math.ceil((date.getTime() - Date.now()) / 86400000)
+  if (diffDays === 0) return 'Closes today'
+  if (diffDays < 0) return `${Math.abs(diffDays)}d overdue`
+  return `Closes in ${diffDays}d`
+}
+
+function probabilityColor(probability: number): string {
+  if (probability >= 70) return '#4ade80'
+  if (probability >= 40) return '#facc15'
+  return '#f87171'
+}
+
+function normalizeStageName(name: string): string {
+  return name.replace(/_/g, ' ')
+}
+
 export default function DealDetailPage() {
   const { id } = useParams<{ id: string }>()
+  const router = useRouter()
 
   const [deal, setDeal] = useState<DealRecord | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string>('')
+  const [editOpen, setEditOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   const [pipelineName, setPipelineName] = useState<string>('')
   const [stageName, setStageName] = useState<string>('')
@@ -88,81 +134,101 @@ export default function DealDetailPage() {
   const [activities, setActivities] = useState<ActivityRecord[]>([])
   const [activitiesLoading, setActivitiesLoading] = useState(true)
 
-  // Step 1: fetch deal
-  useEffect(() => {
+  const fetchDeal = useCallback(async () => {
     if (!id) return
-    let cancelled = false
-    fetch(`/api/v1/crm/deals/${id}`)
-      .then(r => r.json())
-      .then(async (body) => {
-        if (cancelled) return
-        const d: DealRecord | null = body.data?.deal ?? body.deal ?? body.data ?? null
-        if (!d) {
-          setError('Deal not found')
-          setLoading(false)
-          return
-        }
-        setDeal(d)
-        setLoading(false)
+    setLoading(true)
+    setError('')
+    setActivitiesLoading(true)
+    setPipelineName('')
+    setStageName('')
+    setContactName('')
 
-        // Step 2: parallel secondary fetches
-        const secondaryFetches: Promise<void>[] = []
+    try {
+      const res = await fetch(`/api/v1/crm/deals/${id}`)
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok || body.success === false) {
+        throw new Error(body.error ?? `HTTP ${res.status}`)
+      }
+      const d: DealRecord | null = body.data?.deal ?? body.deal ?? body.data ?? null
+      if (!d) throw new Error('Deal not found')
+      setDeal(d)
+      setLoading(false)
 
-        if (d.pipelineId) {
-          secondaryFetches.push(
-            fetch(`/api/v1/crm/pipelines/${d.pipelineId}`)
-              .then(r => r.json())
-              .then(pb => {
-                if (cancelled) return
-                const pipeline = pb.data ?? pb
-                setPipelineName(pipeline?.name ?? d.pipelineId ?? '')
-                if (d.stageId && Array.isArray(pipeline?.stages)) {
-                  const stage = (pipeline.stages as Array<{ id: string; label: string }>).find(s => s.id === d.stageId)
-                  setStageName(stage?.label ?? d.stageId ?? '')
-                }
-              })
-              .catch(() => {}),
-          )
-        }
+      const secondaryFetches: Promise<void>[] = []
 
-        if (d.contactId) {
-          secondaryFetches.push(
-            fetch(`/api/v1/crm/contacts/${d.contactId}`)
-              .then(r => r.json())
-              .then(cb => {
-                if (cancelled) return
-                const contact = cb.data ?? cb
-                setContactName(contact?.name ?? '')
-              })
-              .catch(() => {}),
-          )
-          secondaryFetches.push(
-            fetch(`/api/v1/crm/activities?contactId=${encodeURIComponent(d.contactId)}&limit=20`)
-              .then(r => r.json())
-              .then(ab => {
-                if (cancelled) return
-                setActivities(ab.data?.activities ?? ab.data ?? [])
-                setActivitiesLoading(false)
-              })
-              .catch(() => {
-                if (!cancelled) setActivitiesLoading(false)
-              }),
-          )
-        } else {
-          setActivitiesLoading(false)
-        }
+      if (d.pipelineId) {
+        secondaryFetches.push(
+          fetch(`/api/v1/crm/pipelines/${d.pipelineId}`)
+            .then(r => r.json())
+            .then(pb => {
+              const pipeline = pb.data ?? pb
+              setPipelineName(pipeline?.name ?? d.pipelineId ?? '')
+              if (d.stageId && Array.isArray(pipeline?.stages)) {
+                const stage = (pipeline.stages as Array<{ id: string; label: string }>).find(s => s.id === d.stageId)
+                setStageName(stage?.label ?? d.stageId ?? '')
+              }
+            })
+            .catch(() => {}),
+        )
+      }
 
-        await Promise.all(secondaryFetches)
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setError('Failed to load deal')
-          setLoading(false)
-          setActivitiesLoading(false)
-        }
-      })
-    return () => { cancelled = true }
+      if (d.contactId) {
+        secondaryFetches.push(
+          fetch(`/api/v1/crm/contacts/${d.contactId}`)
+            .then(r => r.json())
+            .then(cb => {
+              const contact = cb.data?.contact ?? cb.data ?? cb
+              setContactName(contact?.name ?? contact?.email ?? '')
+            })
+            .catch(() => {}),
+        )
+        secondaryFetches.push(
+          fetch(`/api/v1/crm/activities?contactId=${encodeURIComponent(d.contactId)}&limit=20`)
+            .then(r => r.json())
+            .then(ab => {
+              setActivities(ab.data?.activities ?? ab.data ?? [])
+              setActivitiesLoading(false)
+            })
+            .catch(() => setActivitiesLoading(false)),
+        )
+      } else {
+        setActivitiesLoading(false)
+      }
+
+      await Promise.all(secondaryFetches)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load deal')
+      setLoading(false)
+      setActivitiesLoading(false)
+    }
   }, [id])
+
+  useEffect(() => {
+    void fetchDeal()
+  }, [fetchDeal])
+
+  async function handleArchive() {
+    if (!deal) return
+    const confirmed = window.confirm(`Archive ${deal.title ?? 'this deal'}? The record will be hidden from active CRM views but activity history stays intact.`)
+    if (!confirmed) return
+    setDeleting(true)
+    setError('')
+    try {
+      const res = await fetch(`/api/v1/crm/deals/${id}`, { method: 'DELETE' })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok || body.success === false) throw new Error(body.error ?? `HTTP ${res.status}`)
+      router.push('/portal/deals')
+      router.refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to archive deal')
+      setDeleting(false)
+    }
+  }
+
+  function handleSaved() {
+    setEditOpen(false)
+    void fetchDeal()
+  }
 
   if (loading) {
     return (
@@ -198,6 +264,18 @@ export default function DealDetailPage() {
 
   const prob = deal.probability ?? 50
   const lineItemTotal = (deal.lineItems ?? []).reduce((sum, li) => sum + li.qty * li.unitPrice, 0)
+  const weightedValue = (deal.value ?? 0) * (prob / 100)
+  const probColor = probabilityColor(prob)
+  const isLost = Boolean(deal.lostReason || stageName.toLowerCase().includes('lost'))
+  const isWon = stageName.toLowerCase().includes('won')
+  const stageDisplay = stageName || deal.stageId || 'No stage'
+  const stageHistory = (deal.stageHistory ?? []).slice(-5).reverse()
+  const commandSignals = [
+    deal.contactId ? 'Contact linked' : 'No contact',
+    deal.companyId ? 'Company linked' : 'No company',
+    (deal.lineItems?.length ?? 0) > 0 ? `${deal.lineItems?.length} line items` : 'No line items',
+    deal.expectedCloseDate ? closeDateLabel(deal.expectedCloseDate) : 'Close date missing',
+  ]
 
   return (
     <div className="space-y-6">
@@ -210,32 +288,93 @@ export default function DealDetailPage() {
         Deals
       </Link>
 
-      {/* Title + chips */}
-      <div className="space-y-3">
-        <h1 className="font-display text-2xl font-bold text-[var(--color-pib-text)]">{deal.title ?? '—'}</h1>
-        <div className="flex items-center gap-2 flex-wrap">
-          {deal.value != null && (
-            <span className="text-sm font-mono text-[var(--color-pib-text)]">
-              {fmtValue(deal.value, deal.currency)}
-            </span>
-          )}
-          <span
-            className="text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full"
-            style={{
-              background: prob >= 70 ? '#4ade8020' : prob >= 40 ? '#facc1520' : '#f8717120',
-              color: prob >= 70 ? '#4ade80' : prob >= 40 ? '#facc15' : '#f87171',
-            }}
-          >
-            {prob}%
-          </span>
-          {stageName && (
-            <span
-              className="text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full"
-              style={{ background: 'var(--color-pib-surface)', color: 'var(--color-pib-text-muted)' }}
+      {/* Command header */}
+      <div className="bento-card !p-5 space-y-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0">
+            <p className="eyebrow !text-[10px]">Deal command center</p>
+            <h1 className="mt-1 font-display text-3xl font-bold leading-tight text-[var(--color-pib-text)]">{deal.title ?? '—'}</h1>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <span
+                className="rounded-full px-2.5 py-1 text-[10px] font-label uppercase tracking-wide"
+                style={{ background: `${probColor}20`, color: probColor }}
+              >
+                {prob}% probability
+              </span>
+              <span className="rounded-full bg-white/5 px-2.5 py-1 text-[10px] font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">
+                {normalizeStageName(stageDisplay)}
+              </span>
+              {pipelineName && (
+                <span className="rounded-full bg-white/5 px-2.5 py-1 text-[10px] font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">
+                  {pipelineName}
+                </span>
+              )}
+              {isWon && <span className="rounded-full bg-green-400/15 px-2.5 py-1 text-[10px] font-label uppercase tracking-wide text-green-300">won</span>}
+              {isLost && <span className="rounded-full bg-red-400/15 px-2.5 py-1 text-[10px] font-label uppercase tracking-wide text-red-300">risk/lost</span>}
+            </div>
+          </div>
+
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            {deal.contactId && (
+              <Link href={`/portal/contacts/${deal.contactId}`} className="btn-pib-secondary inline-flex items-center gap-1.5">
+                <span className="material-symbols-outlined text-[16px]">person</span>
+                Contact
+              </Link>
+            )}
+            {deal.companyId && (
+              <Link href={`/portal/companies/${deal.companyId}`} className="btn-pib-secondary inline-flex items-center gap-1.5">
+                <span className="material-symbols-outlined text-[16px]">domain</span>
+                Company
+              </Link>
+            )}
+            <button type="button" onClick={() => setEditOpen(true)} className="btn-pib-secondary inline-flex items-center gap-1.5">
+              <span className="material-symbols-outlined text-[16px]">edit</span>
+              Edit
+            </button>
+            <button
+              type="button"
+              onClick={handleArchive}
+              disabled={deleting}
+              className="cursor-pointer rounded-lg border border-red-400/30 px-3 py-2 text-sm font-medium text-red-300 transition-colors hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {stageName}
+              {deleting ? 'Archiving...' : 'Archive'}
+            </button>
+          </div>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {[
+            { label: 'Deal value', value: fmtValue(deal.value, deal.currency), icon: 'payments' },
+            { label: 'Weighted', value: fmtValue(weightedValue, deal.currency), icon: 'query_stats' },
+            { label: 'Close timing', value: closeDateLabel(deal.expectedCloseDate), icon: 'event_upcoming' },
+            { label: 'Activity', value: activitiesLoading ? '...' : String(activities.length), icon: 'history' },
+          ].map((tile) => (
+            <div key={tile.label} className="rounded-xl border border-[var(--color-pib-line)] bg-white/[0.02] p-3">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">{tile.label}</p>
+                <span className="material-symbols-outlined text-[17px] text-[var(--color-pib-text-muted)]">{tile.icon}</span>
+              </div>
+              <p className="mt-2 text-lg font-semibold text-[var(--color-pib-text)]">{tile.value}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="space-y-2">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Forecast confidence</p>
+            <span className="font-mono text-sm" style={{ color: probColor }}>{prob}%</span>
+          </div>
+          <div className="h-2 overflow-hidden rounded-full bg-white/10">
+            <div className="h-full rounded-full" style={{ width: `${prob}%`, background: probColor }} />
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          {commandSignals.map((signal) => (
+            <span key={signal} className="rounded-full bg-white/5 px-2.5 py-1 text-xs text-[var(--color-pib-text-muted)]">
+              {signal}
             </span>
-          )}
+          ))}
         </div>
 
         {deal.lostReason && (
@@ -301,16 +440,75 @@ export default function DealDetailPage() {
               </div>
             )}
           </div>
+
+          <div className="mt-4 bento-card !p-5 space-y-4">
+            <p className="eyebrow !text-[10px]">Next best actions</p>
+            <div className="space-y-3">
+              {[
+                {
+                  icon: deal.contactId ? 'mail' : 'person_add',
+                  title: deal.contactId ? 'Follow up with the contact' : 'Link a decision-maker',
+                  copy: deal.contactId ? 'Use the contact profile to send email, SMS, or schedule the next touch.' : 'A deal without a contact cannot drive reliable activity or automation.',
+                },
+                {
+                  icon: deal.expectedCloseDate ? 'event_available' : 'event_busy',
+                  title: deal.expectedCloseDate ? closeDateLabel(deal.expectedCloseDate) : 'Set a close date',
+                  copy: deal.expectedCloseDate ? 'Keep the forecast honest by updating probability after each interaction.' : 'Forecast and pipeline velocity need an expected close date.',
+                },
+                {
+                  icon: (deal.lineItems?.length ?? 0) > 0 ? 'request_quote' : 'playlist_add',
+                  title: (deal.lineItems?.length ?? 0) > 0 ? 'Ready to quote' : 'Add line items',
+                  copy: (deal.lineItems?.length ?? 0) > 0 ? 'Line items are captured, so this deal can move into quote creation.' : 'Products and services make the opportunity concrete and easier to approve.',
+                },
+              ].map((action) => (
+                <div key={action.title} className="flex gap-3 rounded-xl border border-[var(--color-pib-line)] bg-white/[0.02] p-3">
+                  <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">{action.icon}</span>
+                  <div>
+                    <p className="text-sm font-medium text-[var(--color-pib-text)]">{action.title}</p>
+                    <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">{action.copy}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-4 bento-card !p-5 space-y-3">
+            <p className="eyebrow !text-[10px]">Stage movement</p>
+            {stageHistory.length === 0 ? (
+              <p className="text-sm text-[var(--color-pib-text-muted)]">No stage movement recorded yet.</p>
+            ) : (
+              <div className="space-y-3">
+                {stageHistory.map((entry, index) => (
+                  <div key={`${entry.pipelineId}-${entry.stageId}-${index}`} className="flex items-start gap-3">
+                    <div className="mt-1 h-2 w-2 rounded-full" style={{ background: index === 0 ? probColor : 'var(--color-pib-text-muted)' }} />
+                    <div>
+                      <p className="text-sm text-[var(--color-pib-text)]">{normalizeStageName(entry.stageId ?? 'Stage')}</p>
+                      <p className="text-xs text-[var(--color-pib-text-muted)]">
+                        {fmtTimestamp(entry.enteredAt)}{entry.enteredByRef?.displayName ? ` · ${entry.enteredByRef.displayName}` : ''}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </section>
 
         {/* Right col */}
         <section className="lg:col-span-2 space-y-6">
           {/* Line items */}
-          {(deal.lineItems?.length ?? 0) > 0 && (
-            <div className="bento-card !p-0 overflow-hidden">
-              <div className="px-5 py-3.5 border-b border-[var(--color-pib-line)] bg-white/[0.02]">
+          <div className="bento-card !p-0 overflow-hidden">
+            <div className="px-5 py-3.5 border-b border-[var(--color-pib-line)] bg-white/[0.02] flex items-center justify-between gap-3">
+              <div>
                 <p className="eyebrow !text-[10px]">Line items</p>
+                <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">Products, services, and quote-ready commercial detail.</p>
               </div>
+              <button type="button" onClick={() => setEditOpen(true)} className="btn-pib-secondary inline-flex items-center gap-1.5 text-xs">
+                <span className="material-symbols-outlined text-[14px]">edit</span>
+                Edit items
+              </button>
+            </div>
+            {(deal.lineItems?.length ?? 0) > 0 ? (
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b" style={{ borderColor: 'var(--color-pib-line)' }}>
@@ -351,8 +549,13 @@ export default function DealDetailPage() {
                   </tr>
                 </tbody>
               </table>
-            </div>
-          )}
+            ) : (
+              <div className="p-10 text-center">
+                <span className="material-symbols-outlined block text-3xl text-[var(--color-pib-text-muted)]">playlist_add</span>
+                <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">No line items yet. Add services or products so the deal can become a quote.</p>
+              </div>
+            )}
+          </div>
 
           {/* Activity */}
           <div className="pib-card-section">
@@ -398,6 +601,15 @@ export default function DealDetailPage() {
           </div>
         </section>
       </div>
+
+      {editOpen && (
+        <DealDrawer
+          deal={deal as Deal}
+          onSaved={handleSaved}
+          onClose={() => setEditOpen(false)}
+          orgId={deal.orgId ?? ''}
+        />
+      )}
     </div>
   )
 }

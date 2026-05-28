@@ -244,7 +244,7 @@ export default function DealsPage() {
   }, [])
 
   // A5: deal saved callback — refresh the deal list
-  const handleDealSaved = useCallback((_dealId: string) => {
+  const handleDealSaved = useCallback(() => {
     setShowCreateDrawer(false)
     setEditingDeal(null)
     setViewingDeal(null)

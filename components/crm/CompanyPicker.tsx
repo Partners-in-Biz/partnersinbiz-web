@@ -62,7 +62,7 @@ export function CompanyPicker({ currentCompanyId, currentCompanyName, onChange }
         const res = await fetch(`/api/v1/crm/companies?search=${encodeURIComponent(q)}&limit=10`)
         if (res.ok) {
           const body = await res.json()
-          const raw: CompanyResult[] = body.data ?? []
+          const raw: CompanyResult[] = body.data?.companies ?? body.data ?? []
           setResults(raw)
           setOpen(true)
         }
@@ -99,7 +99,7 @@ export function CompanyPicker({ currentCompanyId, currentCompanyName, onChange }
       })
       if (res.ok) {
         const body = await res.json()
-        const newCompany: CompanyResult = body.data ?? { id: '', name: createForm.name.trim() }
+        const newCompany: CompanyResult = body.data?.company ?? body.data ?? { id: '', name: createForm.name.trim() }
         setQuery(newCompany.name)
         setOpen(false)
         setShowCreateForm(false)
@@ -119,6 +119,7 @@ export function CompanyPicker({ currentCompanyId, currentCompanyName, onChange }
         <input
           role="combobox"
           aria-expanded={open}
+          aria-controls="company-picker-results"
           aria-autocomplete="list"
           type="text"
           value={query}
@@ -147,9 +148,9 @@ export function CompanyPicker({ currentCompanyId, currentCompanyName, onChange }
       {open && (
         <div className="absolute z-50 top-full mt-1 left-0 right-0 pib-card rounded-lg shadow-lg overflow-hidden">
           {results.length > 0 ? (
-            <ul role="listbox">
+            <ul id="company-picker-results" role="listbox">
               {results.map((company) => (
-                <li key={company.id} role="option">
+                <li key={company.id} role="option" aria-selected={currentCompanyId === company.id}>
                   <button
                     type="button"
                     onClick={() => selectCompany(company)}
