@@ -1,7 +1,7 @@
 // app/(admin)/admin/crm/contacts/page.tsx
 'use client'
 export const dynamic = 'force-dynamic'
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import { ContactForm } from '@/components/admin/crm/ContactForm'
 import { useOrg } from '@/lib/contexts/OrgContext'
@@ -14,10 +14,62 @@ interface Contact {
   name: string
   email: string
   company: string
+  companyName?: string
+  phone?: string
   type: string
   stage: string
   lastContactedAt: unknown
   tags: string[]
+  leadScore?: number
+  icpScore?: number
+  aiLeadScore?: number
+}
+
+function daysSince(value: unknown): number | null {
+  if (!value) return null
+  let ms = 0
+  if (value instanceof Date) ms = value.getTime()
+  if (typeof value === 'string') ms = Date.parse(value)
+  if (typeof value === 'object') {
+    const timestamp = value as { seconds?: number; _seconds?: number; toDate?: () => Date; toMillis?: () => number }
+    if (typeof timestamp.toMillis === 'function') ms = timestamp.toMillis()
+    else if (typeof timestamp.toDate === 'function') ms = timestamp.toDate().getTime()
+    else if (typeof timestamp.seconds === 'number') ms = timestamp.seconds * 1000
+    else if (typeof timestamp._seconds === 'number') ms = timestamp._seconds * 1000
+  }
+  if (!ms || Number.isNaN(ms)) return null
+  return Math.max(0, Math.floor((Date.now() - ms) / 86_400_000))
+}
+
+function averageScore(contacts: Contact[], key: 'leadScore' | 'icpScore' | 'aiLeadScore'): number {
+  const values = contacts
+    .map((contact) => contact[key])
+    .filter((value): value is number => typeof value === 'number' && Number.isFinite(value))
+  if (!values.length) return 0
+  return Math.round(values.reduce((sum, value) => sum + value, 0) / values.length)
+}
+
+function MetricCard({
+  icon,
+  label,
+  value,
+  sub,
+}: {
+  icon: string
+  label: string
+  value: string
+  sub: string
+}) {
+  return (
+    <div className="pib-card min-w-[150px] flex-1 px-4 py-3">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">{label}</p>
+        <span className="material-symbols-outlined text-[17px] text-on-surface-variant">{icon}</span>
+      </div>
+      <p className="mt-2 text-2xl font-headline font-bold leading-none text-on-surface">{value}</p>
+      <p className="mt-1 text-[11px] text-on-surface-variant">{sub}</p>
+    </div>
+  )
 }
 
 function StageBadge({ stage }: { stage: string }) {
@@ -65,6 +117,27 @@ export default function ContactsPage() {
   const [typeFilter, setTypeFilter] = useState('')
   const [showNew, setShowNew] = useState(false)
   const activeOrgId = selectedOrgId || contactOrgId
+  const hasActiveFilters = Boolean(search.trim() || stageFilter || typeFilter)
+
+  const metrics = useMemo(() => {
+    const active = contacts.filter((contact) => !['won', 'lost'].includes(contact.stage))
+    const clients = contacts.filter((contact) => contact.type === 'client').length
+    const stale = contacts.filter((contact) => {
+      const age = daysSince(contact.lastContactedAt)
+      return age === null || age >= 14
+    }).length
+    const withCompany = contacts.filter((contact) => Boolean(contact.companyName || contact.company)).length
+    return {
+      total: contacts.length,
+      active: active.length,
+      clients,
+      stale,
+      withCompany,
+      avgLead: averageScore(contacts, 'leadScore'),
+      avgIcp: averageScore(contacts, 'icpScore'),
+      avgAi: averageScore(contacts, 'aiLeadScore'),
+    }
+  }, [contacts])
 
   const fetchContacts = useCallback(async () => {
     if (!activeOrgId) {
@@ -107,13 +180,17 @@ export default function ContactsPage() {
   }
 
   return (
-    <div>
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="font-headline text-2xl font-bold tracking-tighter">Contacts</h1>
-          <p className="text-sm mt-0.5" style={{ color: 'var(--color-accent-v2)' }}>
-            {contacts.length} total
+    <div className="space-y-6">
+      <header className="flex flex-wrap items-end justify-between gap-4">
+        <div className="max-w-2xl">
+          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">CRM command center</p>
+          <h1 className="mt-2 font-headline text-3xl font-bold tracking-tight text-on-surface">Contacts</h1>
+          <p className="mt-2 text-sm text-on-surface-variant">
+            {activeOrgId
+              ? hasActiveFilters
+                ? `${contacts.length} contact${contacts.length === 1 ? '' : 's'} match this view.`
+                : `${contacts.length} contact${contacts.length === 1 ? '' : 's'} in this workspace.`
+              : 'Select a client workspace to work contacts without cross-client bleed.'}
           </p>
         </div>
         <button
@@ -121,12 +198,13 @@ export default function ContactsPage() {
           disabled={!activeOrgId}
           className="pib-btn-primary text-sm font-label disabled:cursor-not-allowed disabled:opacity-50"
         >
-          + New Contact
+          <span className="material-symbols-outlined text-base">add</span>
+          New contact
         </button>
-      </div>
+      </header>
 
       {!selectedOrgId && (
-        <div className="pib-card mb-4 space-y-2">
+        <div className="pib-card space-y-2">
           <label htmlFor="contactOrgId" className="pib-label">Client workspace</label>
           <select
             id="contactOrgId"
@@ -147,13 +225,22 @@ export default function ContactsPage() {
         </div>
       )}
 
+      {activeOrgId && (
+        <section className="flex flex-wrap gap-3">
+          <MetricCard icon="groups" label="Audience" value={String(metrics.total)} sub={`${metrics.active} active lifecycle records`} />
+          <MetricCard icon="workspace_premium" label="Clients" value={String(metrics.clients)} sub={`${metrics.withCompany} linked to a company`} />
+          <MetricCard icon="schedule" label="Follow-up risk" value={String(metrics.stale)} sub="No recent touch in 14d" />
+          <MetricCard icon="star_rate" label="Avg lead score" value={metrics.avgLead ? String(metrics.avgLead) : '-'} sub={`ICP ${metrics.avgIcp || '-'} · AI ${metrics.avgAi || '-'}`} />
+        </section>
+      )}
+
       {/* Filters */}
-      <div className="flex gap-3 mb-4">
+      <div className="pib-card flex flex-wrap gap-3 p-4">
         <input
           placeholder="Search name, email, company…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="pib-input flex-1"
+          className="pib-input min-w-[240px] flex-1"
         />
         <select
           value={stageFilter}
@@ -171,6 +258,15 @@ export default function ContactsPage() {
           <option value="">All types</option>
           {TYPES.map((t) => <option key={t} value={t} className="bg-black">{t}</option>)}
         </select>
+        {hasActiveFilters && (
+          <button
+            onClick={() => { setSearch(''); setStageFilter(''); setTypeFilter('') }}
+            className="pib-btn-secondary text-sm"
+          >
+            <span className="material-symbols-outlined text-base">filter_alt_off</span>
+            Clear
+          </button>
+        )}
       </div>
 
       {/* Table */}
@@ -181,46 +277,84 @@ export default function ContactsPage() {
           ))}
         </div>
       ) : contacts.length === 0 ? (
-        <div className="border border-outline-variant rounded-lg p-12 text-center">
-          <p className="text-on-surface-variant mb-4">No contacts yet.</p>
-          <button
-            onClick={() => activeOrgId && setShowNew(true)}
-            disabled={!activeOrgId}
-            className="pib-btn-primary text-sm font-label disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Add your first lead →
-          </button>
+        <div className="pib-card p-12 text-center">
+          <span className="material-symbols-outlined text-4xl text-on-surface-variant">contacts</span>
+          <h2 className="mt-4 font-headline text-2xl font-bold tracking-tight text-on-surface">
+            {hasActiveFilters ? 'No contacts match this view.' : 'No contacts yet.'}
+          </h2>
+          <p className="mx-auto mt-2 max-w-md text-sm text-on-surface-variant">
+            {hasActiveFilters
+              ? 'Clear the filters to return to the full workspace audience.'
+              : activeOrgId
+                ? 'Create the first contact and start building pipeline, follow-up, and CRM history.'
+                : 'Choose a client workspace before creating or viewing contacts.'}
+          </p>
+          <div className="mt-6 flex justify-center gap-2">
+            {hasActiveFilters ? (
+              <button onClick={() => { setSearch(''); setStageFilter(''); setTypeFilter('') }} className="pib-btn-secondary text-sm">
+                <span className="material-symbols-outlined text-base">filter_alt_off</span>
+                Clear filters
+              </button>
+            ) : (
+              <button
+                onClick={() => activeOrgId && setShowNew(true)}
+                disabled={!activeOrgId}
+                className="pib-btn-primary text-sm font-label disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <span className="material-symbols-outlined text-base">add</span>
+                Add contact
+              </button>
+            )}
+          </div>
         </div>
       ) : (
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-outline-variant text-left">
-              {['Name', 'Email', 'Company', 'Type', 'Stage', 'Tags'].map((h) => (
-                <th key={h} className="py-2 px-3 text-[10px] font-label uppercase tracking-widest text-on-surface-variant font-normal">
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {contacts.map((c) => (
-              <tr key={c.id} className="border-b border-outline-variant hover:bg-surface-container transition-colors">
-                <td className="py-2.5 px-3">
-                  <Link href={`/admin/crm/contacts/${c.id}`} className="font-medium hover:underline" style={{ color: 'var(--color-accent-v2)' }}>
-                    {c.name}
-                  </Link>
-                </td>
-                <td className="py-2.5 px-3 text-on-surface-variant">{c.email}</td>
-                <td className="py-2.5 px-3 text-on-surface-variant">{c.company || '—'}</td>
-                <td className="py-2.5 px-3"><TypeBadge type={c.type} /></td>
-                <td className="py-2.5 px-3"><StageBadge stage={c.stage} /></td>
-                <td className="py-2.5 px-3 text-on-surface-variant text-xs">
-                  {c.tags?.join(', ') || '—'}
-                </td>
+        <div className="pib-card-section overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-[var(--color-card-border)] bg-white/[0.02] text-left">
+                {['Name', 'Email', 'Company', 'Type', 'Stage', 'Last touch', 'Signals'].map((h) => (
+                  <th key={h} className="px-3 py-3 text-[10px] font-label uppercase tracking-widest text-on-surface-variant font-normal">
+                    {h}
+                  </th>
+                ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {contacts.map((c) => {
+                const lastTouchAge = daysSince(c.lastContactedAt)
+                return (
+                  <tr key={c.id} className="border-b border-[var(--color-card-border)] transition-colors hover:bg-surface-container">
+                    <td className="px-3 py-3">
+                      <Link href={`/admin/crm/contacts/${c.id}`} className="font-medium hover:underline" style={{ color: 'var(--color-accent-v2)' }}>
+                        {c.name || c.email || 'Unnamed contact'}
+                      </Link>
+                      {c.tags?.length > 0 && (
+                        <p className="mt-1 max-w-[220px] truncate text-[11px] text-on-surface-variant">{c.tags.join(', ')}</p>
+                      )}
+                    </td>
+                    <td className="px-3 py-3 text-on-surface-variant">{c.email || '—'}</td>
+                    <td className="px-3 py-3 text-on-surface-variant">{c.companyName || c.company || '—'}</td>
+                    <td className="px-3 py-3"><TypeBadge type={c.type || 'lead'} /></td>
+                    <td className="px-3 py-3"><StageBadge stage={c.stage || 'new'} /></td>
+                    <td className="px-3 py-3 text-xs text-on-surface-variant">
+                      {lastTouchAge === null ? 'Never' : lastTouchAge === 0 ? 'Today' : `${lastTouchAge}d ago`}
+                    </td>
+                    <td className="px-3 py-3">
+                      <div className="flex flex-wrap gap-1">
+                        {typeof c.leadScore === 'number' && <span className="pill !px-2 !py-0.5 !text-[10px]">Lead {c.leadScore}</span>}
+                        {typeof c.icpScore === 'number' && <span className="pill !px-2 !py-0.5 !text-[10px]">ICP {c.icpScore}</span>}
+                        {typeof c.aiLeadScore === 'number' && <span className="pill !px-2 !py-0.5 !text-[10px]">AI {c.aiLeadScore}</span>}
+                        {typeof c.leadScore !== 'number' && typeof c.icpScore !== 'number' && typeof c.aiLeadScore !== 'number' && (
+                          <span className="text-xs text-on-surface-variant">—</span>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
       )}
 
       {/* New Contact Slide-In */}
