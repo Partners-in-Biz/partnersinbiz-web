@@ -1,5 +1,3 @@
-import { NextRequest } from 'next/server'
-
 jest.mock('@/lib/firebase/admin', () => ({
   adminAuth: { verifySessionCookie: jest.fn() },
   adminDb: { collection: jest.fn() },
@@ -390,6 +388,32 @@ describe('PATCH attribution & DELETE toggle', () => {
     const patch = captured.mock.calls[0][0]
     expect(patch.assignedTo).toBe('uid-2')
     expect(patch.assignedToRef.displayName).toBe('Bob C')
+  })
+
+  it("clears assignedToRef when body has assignedTo: ''", async () => {
+    const member = seedOrgMember('org-1', 'uid-1', { role: 'member', firstName: 'Alice', lastName: 'B' })
+    const captured = jest.fn().mockResolvedValue(undefined)
+    stageAuth(member, {}, {
+      contact: {
+        id: 'a1',
+        data: {
+          orgId: 'org-1',
+          name: 'X',
+          email: 'a@y.com',
+          assignedTo: 'uid-2',
+          assignedToRef: { uid: 'uid-2', displayName: 'Bob C', kind: 'human' },
+        },
+      },
+      capturedUpdate: captured,
+    })
+
+    const req = callAsMember(member, 'PATCH', '/api/v1/crm/contacts/a1', { assignedTo: '' })
+    const { PATCH } = await import('@/app/api/v1/crm/contacts/[id]/route')
+    const res = await PATCH(req, { params: Promise.resolve({ id: 'a1' }) })
+    expect(res.status).toBeLessThan(300)
+    const patch = captured.mock.calls[0][0]
+    expect(patch.assignedTo).toBe('')
+    expect(typeof patch.assignedToRef).not.toBe('string')
   })
 
   it('blocks DELETE for member when membersCanDeleteContacts is false', async () => {

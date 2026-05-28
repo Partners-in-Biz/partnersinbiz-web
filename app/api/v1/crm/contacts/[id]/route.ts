@@ -75,6 +75,8 @@ async function handleUpdate(
   // Resolve assignedToRef when assignedTo changes (uses tolerant resolveMemberRef — never throws)
   if (typeof body.assignedTo === 'string' && body.assignedTo !== '') {
     patch.assignedToRef = await resolveMemberRef(ctx.orgId, body.assignedTo)
+  } else if (body.assignedTo === '') {
+    patch.assignedToRef = FieldValue.delete()
   }
 
   // Resolve companyId wiring (hybrid model — existing company string field untouched)

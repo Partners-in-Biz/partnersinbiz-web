@@ -9,6 +9,7 @@ import { ContactDealsPanel } from '@/components/crm/ContactDealsPanel'
 import { CompanyPanel } from '@/components/crm/CompanyPanel'
 import { CompanyPicker } from '@/components/crm/CompanyPicker'
 import { ContactIdentityPanel } from '@/components/crm/ContactIdentityPanel'
+import { ContactOwnershipPanel } from '@/components/crm/ContactOwnershipPanel'
 import { CustomFieldsSection } from '@/components/crm/CustomFieldsSection'
 import { ScoreChip } from '@/components/crm/ScoreChip'
 import type { CustomFieldDefinition } from '@/lib/customFields/types'
@@ -29,6 +30,11 @@ interface ContactRecord {
   type?: string
   stage?: string
   notes?: string
+  assignedTo?: string
+  assignedToRef?: MemberRef
+  createdByRef?: MemberRef
+  updatedByRef?: MemberRef
+  capturedFromId?: string
   tags?: string[]
   lastContactedAt?: unknown
   createdAt?: unknown
@@ -65,6 +71,13 @@ interface ActivityRecord {
   createdAt?: unknown
   metadata?: Record<string, unknown>
   createdByRef?: MemberRef
+}
+
+interface TeamMemberOption {
+  uid: string
+  firstName?: string
+  lastName?: string
+  jobTitle?: string
 }
 
 const ACTIVITY_ICONS: Record<string, string> = {
@@ -121,6 +134,16 @@ function toDateTimeLocalValue(date: Date): string {
   return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16)
 }
 
+function teamMemberRef(member?: TeamMemberOption): MemberRef | undefined {
+  if (!member) return undefined
+  return {
+    uid: member.uid,
+    displayName: [member.firstName, member.lastName].filter(Boolean).join(' ') || member.uid,
+    jobTitle: member.jobTitle,
+    kind: 'human',
+  }
+}
+
 export default function PortalContactDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
@@ -142,6 +165,8 @@ export default function PortalContactDetailPage() {
   const [source, setSource] = useState('manual')
   const [type, setType] = useState('lead')
   const [stage, setStage] = useState('new')
+  const [assignedTo, setAssignedTo] = useState('')
+  const [teamMembers, setTeamMembers] = useState<TeamMemberOption[]>([])
   const [tagsInput, setTagsInput] = useState('')
   const [notes, setNotes] = useState('')
   // companyId/companyName for the picker — undefined = not in edit mode yet, '' = clear intent
@@ -217,6 +242,7 @@ export default function PortalContactDetailPage() {
         setSource(c?.source ?? 'manual')
         setType(c?.type ?? 'lead')
         setStage(c?.stage ?? 'new')
+        setAssignedTo(c?.assignedTo ?? c?.assignedToRef?.uid ?? '')
         setTagsInput(Array.isArray(c?.tags) ? c.tags.join(', ') : '')
         setNotes(c?.notes ?? '')
         setEditCompanyId(c?.companyId ?? undefined)
@@ -233,6 +259,13 @@ export default function PortalContactDetailPage() {
       .then((r) => r.json())
       .then((b) => setCustomFieldDefs(b.data?.definitions ?? b.definitions ?? []))
       .catch(() => setCustomFieldDefs([]))
+  }, [])
+
+  useEffect(() => {
+    fetch('/api/v1/portal/settings/team')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((body) => setTeamMembers(body?.members ?? []))
+      .catch(() => setTeamMembers([]))
   }, [])
 
   useEffect(() => {
@@ -282,6 +315,7 @@ export default function PortalContactDetailPage() {
     setSaving(true)
     setError('')
     try {
+      const selectedOwnerRef = teamMemberRef(teamMembers.find((member) => member.uid === assignedTo))
       // Build payload — companyId: '' signals clear to the API (FieldValue.delete())
       const payload: Record<string, unknown> = {
         name: name.trim(),
@@ -294,6 +328,7 @@ export default function PortalContactDetailPage() {
         source,
         type,
         stage,
+        assignedTo,
         tags: splitTags(tagsInput),
         notes: notes.trim(),
       }
@@ -327,6 +362,8 @@ export default function PortalContactDetailPage() {
               source,
               type,
               stage,
+              assignedTo,
+              assignedToRef: selectedOwnerRef,
               tags: splitTags(tagsInput),
               notes: notes.trim(),
               companyId: editCompanyId,
@@ -581,6 +618,7 @@ export default function PortalContactDetailPage() {
     (contact.source ?? 'manual') !== source ||
     (contact.type ?? 'lead') !== type ||
     (contact.stage ?? 'new') !== stage ||
+    (contact.assignedTo ?? contact.assignedToRef?.uid ?? '') !== assignedTo ||
     (Array.isArray(contact.tags) ? contact.tags.join(', ') : '') !== tagsInput ||
     (contact.notes ?? '') !== notes ||
     editCompanyId !== (contact.companyId ?? undefined) ||
@@ -602,6 +640,7 @@ export default function PortalContactDetailPage() {
     source,
     type,
     stage,
+    assignedTo,
     notes,
     tags.length > 0 ? tags.join(',') : '',
   ]
@@ -626,6 +665,10 @@ export default function PortalContactDetailPage() {
         : lastTouchDays <= 30
           ? 'Follow-up due'
           : 'Cold'
+  const ownerRef =
+    assignedTo && contact.assignedToRef?.uid === assignedTo
+      ? contact.assignedToRef
+      : teamMemberRef(teamMembers.find((member) => member.uid === assignedTo))
 
   return (
     <div className="space-y-8">
@@ -837,6 +880,17 @@ export default function PortalContactDetailPage() {
             }}
           />
 
+          <ContactOwnershipPanel
+            profile={{
+              assignedTo,
+              assignedToRef: ownerRef,
+              source,
+              capturedFromId: contact.capturedFromId,
+              createdByRef: contact.createdByRef,
+              updatedByRef: contact.updatedByRef,
+            }}
+          />
+
           {customFieldDefs.length > 0 && (
             <div className="bento-card !p-5 space-y-3 text-sm">
               <p className="eyebrow !text-[10px]">Custom fields</p>
@@ -954,6 +1008,24 @@ export default function PortalContactDetailPage() {
                   {STAGE_OPTIONS.map((option) => <option key={option} value={option} className="bg-black">{option}</option>)}
                 </select>
               </div>
+            </div>
+
+            <div className="space-y-1 pt-1">
+              <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">
+                Owner
+              </p>
+              <select value={assignedTo} onChange={(e) => setAssignedTo(e.target.value)} className="pib-input w-full">
+                <option value="" className="bg-black">Unassigned</option>
+                {teamMembers.map((member) => {
+                  const name = [member.firstName, member.lastName].filter(Boolean).join(' ') || member.uid
+                  const label = member.jobTitle ? `${name} · ${member.jobTitle}` : name
+                  return (
+                    <option key={member.uid} value={member.uid} className="bg-black">
+                      {label}
+                    </option>
+                  )
+                })}
+              </select>
             </div>
 
             <div className="space-y-1 pt-1">
