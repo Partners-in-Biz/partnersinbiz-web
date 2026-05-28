@@ -19,10 +19,11 @@ export const GET = withCrmAuth('member', async (_req, ctx) => {
     const snap = await adminDb
       .collection('contacts')
       .where('orgId', '==', orgId)
-      .where('deleted', '==', false)
       .get()
 
-    const contacts = snap.docs.map((d) => ({ id: d.id, ...d.data() })) as Contact[]
+    const contacts = snap.docs
+      .map((d) => ({ id: d.id, ...d.data() }) as Contact)
+      .filter((contact) => contact.deleted !== true)
 
     // Group by type
     const byType: Record<ContactType | 'other', number> = {

@@ -64,6 +64,18 @@ describe('GET /api/v1/crm/reports/funnel', () => {
     expect(body.data.byType.other).toBe(0)
   })
 
+  it('excludes soft-deleted contacts in memory after tenant scoping', async () => {
+    setupContacts([
+      { orgId: ORG_A, type: 'lead', stage: 'new', deleted: false },
+      { orgId: ORG_A, type: 'client', stage: 'won', deleted: true },
+    ])
+    const res = await GET(makeReq())
+    const body = await res.json()
+    expect(body.data.total).toBe(1)
+    expect(body.data.byType.lead).toBe(1)
+    expect(body.data.byType.client).toBe(0)
+  })
+
   it('counts unknown types under "other"', async () => {
     setupContacts([
       { orgId: ORG_A, type: 'partner', stage: 'new', deleted: false },
@@ -127,5 +139,6 @@ describe('GET /api/v1/crm/reports/funnel', () => {
     await GET(makeReq(ORG_B))
     // First where call should be orgId scoping
     expect(whereMock).toHaveBeenCalledWith('orgId', '==', ORG_B)
+    expect(whereMock).toHaveBeenCalledTimes(1)
   })
 })
