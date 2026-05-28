@@ -2,7 +2,7 @@
 export const dynamic = 'force-dynamic'
 
 import { useEffect, useState } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { fmtTimestamp } from '@/components/admin/email/fmtTimestamp'
 import { ContactDealsPanel } from '@/components/crm/ContactDealsPanel'
@@ -68,6 +68,43 @@ const ACTIVITY_ICONS: Record<string, string> = {
   stage_change: 'swap_horiz',
 }
 
+const STAGE_OPTIONS = ['new', 'contacted', 'replied', 'demo', 'proposal', 'won', 'lost']
+const TYPE_OPTIONS = ['lead', 'prospect', 'client', 'churned']
+const SOURCE_OPTIONS = ['manual', 'form', 'import', 'outreach']
+
+function timestampMillis(value: unknown): number {
+  if (!value) return 0
+  if (value instanceof Date) return value.getTime()
+  if (typeof value === 'string') {
+    const parsed = Date.parse(value)
+    return Number.isNaN(parsed) ? 0 : parsed
+  }
+  if (typeof value === 'object' && value !== null) {
+    const candidate = value as { toMillis?: () => number; toDate?: () => Date; seconds?: number }
+    if (typeof candidate.toMillis === 'function') return candidate.toMillis()
+    if (typeof candidate.toDate === 'function') return candidate.toDate().getTime()
+    if (typeof candidate.seconds === 'number') return candidate.seconds * 1000
+  }
+  return 0
+}
+
+function daysSince(value: unknown): number | null {
+  const millis = timestampMillis(value)
+  if (!millis) return null
+  return Math.max(0, Math.floor((Date.now() - millis) / 86_400_000))
+}
+
+function fmtPercent(value: number): string {
+  return `${Math.round(Math.max(0, Math.min(value, 1)) * 100)}%`
+}
+
+function splitTags(value: string): string[] {
+  return value
+    .split(',')
+    .map((tag) => tag.trim())
+    .filter(Boolean)
+}
+
 function toDateTimeLocalValue(date: Date): string {
   const offsetMs = date.getTimezoneOffset() * 60_000
   return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16)
@@ -75,6 +112,7 @@ function toDateTimeLocalValue(date: Date): string {
 
 export default function PortalContactDetailPage() {
   const { id } = useParams<{ id: string }>()
+  const router = useRouter()
   const [contact, setContact] = useState<ContactRecord | null>(null)
   const [emails, setEmails] = useState<EmailRecord[]>([])
   const [activities, setActivities] = useState<ActivityRecord[]>([])
@@ -84,6 +122,13 @@ export default function PortalContactDetailPage() {
 
   // edit-in-place
   const [name, setName] = useState('')
+  const [email, setEmail] = useState('')
+  const [phone, setPhone] = useState('')
+  const [website, setWebsite] = useState('')
+  const [source, setSource] = useState('manual')
+  const [type, setType] = useState('lead')
+  const [stage, setStage] = useState('new')
+  const [tagsInput, setTagsInput] = useState('')
   const [notes, setNotes] = useState('')
   // companyId/companyName for the picker — undefined = not in edit mode yet, '' = clear intent
   const [editCompanyId, setEditCompanyId] = useState<string | undefined>(undefined)
@@ -92,6 +137,7 @@ export default function PortalContactDetailPage() {
   const [customFieldDefs, setCustomFieldDefs] = useState<CustomFieldDefinition[]>([])
   const [editCustomFields, setEditCustomFields] = useState<Record<string, unknown>>({})
   const [saving, setSaving] = useState(false)
+  const [archiving, setArchiving] = useState(false)
   const [error, setError] = useState('')
 
   // B2: Log activity quick actions
@@ -145,9 +191,16 @@ export default function PortalContactDetailPage() {
     fetch(`/api/v1/crm/contacts/${id}`)
       .then((r) => r.json())
       .then((b) => {
-        const c = (b.data ?? null) as ContactRecord | null
+        const c = (b.data?.contact ?? b.contact ?? b.data ?? null) as ContactRecord | null
         setContact(c)
         setName(c?.name ?? '')
+        setEmail(c?.email ?? '')
+        setPhone(c?.phone ?? '')
+        setWebsite(c?.website ?? '')
+        setSource(c?.source ?? 'manual')
+        setType(c?.type ?? 'lead')
+        setStage(c?.stage ?? 'new')
+        setTagsInput(Array.isArray(c?.tags) ? c.tags.join(', ') : '')
         setNotes(c?.notes ?? '')
         setEditCompanyId(c?.companyId ?? undefined)
         setEditCompanyName(c?.companyName ?? undefined)
@@ -213,7 +266,17 @@ export default function PortalContactDetailPage() {
     setError('')
     try {
       // Build payload — companyId: '' signals clear to the API (FieldValue.delete())
-      const payload: Record<string, unknown> = { name, notes }
+      const payload: Record<string, unknown> = {
+        name: name.trim(),
+        email: email.trim(),
+        phone: phone.trim(),
+        website: website.trim(),
+        source,
+        type,
+        stage,
+        tags: splitTags(tagsInput),
+        notes: notes.trim(),
+      }
       if (editCompanyId !== undefined) {
         payload.companyId = editCompanyId
       }
@@ -232,13 +295,45 @@ export default function PortalContactDetailPage() {
       }
       setContact((prev) =>
         prev
-          ? { ...prev, name, notes, companyId: editCompanyId, companyName: editCompanyName, customFields: editCustomFields }
+          ? {
+              ...prev,
+              name: name.trim(),
+              email: email.trim(),
+              phone: phone.trim(),
+              website: website.trim(),
+              source,
+              type,
+              stage,
+              tags: splitTags(tagsInput),
+              notes: notes.trim(),
+              companyId: editCompanyId,
+              companyName: editCompanyName,
+              customFields: editCustomFields,
+            }
           : prev,
       )
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Save failed')
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function archiveContact() {
+    if (!contact || !confirm(`Archive ${contact.name ?? 'this contact'}?`)) return
+    setArchiving(true)
+    setError('')
+    try {
+      const res = await fetch(`/api/v1/crm/contacts/${id}`, { method: 'DELETE' })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error ?? 'Archive failed')
+      }
+      router.push('/portal/contacts')
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Archive failed')
+    } finally {
+      setArchiving(false)
     }
   }
 
@@ -454,14 +549,58 @@ export default function PortalContactDetailPage() {
   const storedCustomFields = (contact.customFields as Record<string, unknown>) ?? {}
   const dirty =
     (contact.name ?? '') !== name ||
+    (contact.email ?? '') !== email ||
+    (contact.phone ?? '') !== phone ||
+    (contact.website ?? '') !== website ||
+    (contact.source ?? 'manual') !== source ||
+    (contact.type ?? 'lead') !== type ||
+    (contact.stage ?? 'new') !== stage ||
+    (Array.isArray(contact.tags) ? contact.tags.join(', ') : '') !== tagsInput ||
     (contact.notes ?? '') !== notes ||
     editCompanyId !== (contact.companyId ?? undefined) ||
     JSON.stringify(editCustomFields) !== JSON.stringify(storedCustomFields)
-  const tags = Array.isArray(contact.tags) ? contact.tags : []
+  const tags = splitTags(tagsInput)
+  const contactName = name.trim() || contact.name || 'Unnamed contact'
+  const companyLabel = editCompanyName || contact.companyName || contact.company || 'No company linked'
+  const lastTouchDays = daysSince(contact.lastContactedAt)
+  const createdDays = daysSince(contact.createdAt)
+  const profileFields = [
+    name,
+    email,
+    phone,
+    editCompanyId || contact.companyId || editCompanyName || contact.companyName || contact.company,
+    website,
+    source,
+    type,
+    stage,
+    notes,
+    tags.length > 0 ? tags.join(',') : '',
+  ]
+  const profileStrength = profileFields.filter((value) => String(value ?? '').trim()).length / profileFields.length
+  const bestScore = Math.max(contact.leadScore ?? 0, contact.icpScore ?? 0, contact.aiLeadScore ?? 0)
+  const recentActivityCount = activities.length
+  const sentEmailCount = emails.filter((item) => item.direction !== 'inbound').length
+  const receivedEmailCount = emails.filter((item) => item.direction === 'inbound').length
+  const nextSuggestion = suggestions[0]
+  const missingFields = [
+    !email.trim() ? 'email' : '',
+    !phone.trim() ? 'phone' : '',
+    !(editCompanyId || contact.companyId || editCompanyName || contact.companyName || contact.company) ? 'company' : '',
+    !website.trim() ? 'website' : '',
+    !notes.trim() ? 'relationship notes' : '',
+  ].filter(Boolean)
+  const relationshipSignal =
+    lastTouchDays === null
+      ? 'No touch logged'
+      : lastTouchDays <= 7
+        ? 'Warm'
+        : lastTouchDays <= 30
+          ? 'Follow-up due'
+          : 'Cold'
 
   return (
     <div className="space-y-8">
-      <div>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <Link
           href="/portal/contacts"
           className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] inline-flex items-center gap-1 transition-colors"
@@ -469,34 +608,144 @@ export default function PortalContactDetailPage() {
           <span className="material-symbols-outlined text-sm">arrow_back</span>
           Contacts
         </Link>
+        <div className="flex items-center gap-2">
+          {email.trim() && (
+            <a href={`mailto:${email.trim()}`} className="btn-pib-secondary text-xs inline-flex items-center gap-1.5">
+              <span className="material-symbols-outlined text-[14px]">mail</span>
+              Email
+            </a>
+          )}
+          {phone.trim() && (
+            <a href={`tel:${phone.trim()}`} className="btn-pib-secondary text-xs inline-flex items-center gap-1.5">
+              <span className="material-symbols-outlined text-[14px]">call</span>
+              Call
+            </a>
+          )}
+          <button
+            onClick={archiveContact}
+            disabled={archiving}
+            className="btn-pib-secondary text-xs inline-flex items-center gap-1.5 disabled:opacity-50"
+          >
+            <span className="material-symbols-outlined text-[14px]">archive</span>
+            {archiving ? 'Archiving…' : 'Archive'}
+          </button>
+        </div>
       </div>
 
-      <header className="space-y-3">
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          className="pib-input !text-2xl !font-display !py-2 !px-3 max-w-xl"
-          placeholder="Contact name"
-        />
-        <div className="flex flex-wrap items-center gap-2">
-          {contact.stage && (
-            <span className="pill capitalize">{String(contact.stage)}</span>
-          )}
-          {contact.type && (
-            <span className="pill capitalize">{String(contact.type)}</span>
-          )}
-          {tags.map((t) => (
-            <span key={t} className="pill">
-              {t}
-            </span>
-          ))}
+      <header className="space-y-6">
+        <div className="grid gap-5 lg:grid-cols-[1fr_340px]">
+          <div className="space-y-5">
+            <div className="flex items-start gap-4">
+              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] font-display text-2xl text-[var(--color-pib-accent)]">
+                {contactName.slice(0, 1).toUpperCase()}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="eyebrow">Contact command center</p>
+                <input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="mt-2 w-full border-0 bg-transparent p-0 font-display text-3xl tracking-tight text-[var(--color-pib-text)] outline-none md:text-4xl"
+                  placeholder="Contact name"
+                />
+                <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-[var(--color-pib-text-muted)]">
+                  <span className="inline-flex items-center gap-1">
+                    <span className="material-symbols-outlined text-[16px]">business</span>
+                    {companyLabel}
+                  </span>
+                  {email.trim() && (
+                    <span className="inline-flex items-center gap-1">
+                      <span className="material-symbols-outlined text-[16px]">alternate_email</span>
+                      {email.trim()}
+                    </span>
+                  )}
+                  {createdDays !== null && <span>{createdDays === 0 ? 'Created today' : `Created ${createdDays}d ago`}</span>}
+                </div>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="pill capitalize">{stage}</span>
+              <span className="pill capitalize">{type}</span>
+              <span className="pill">{relationshipSignal}</span>
+              {tags.map((t) => (
+                <span key={t} className="pill">
+                  {t}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          <div className="bento-card !p-5 space-y-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="eyebrow !text-[10px]">Profile strength</p>
+                <p className="mt-2 font-display text-3xl text-[var(--color-pib-text)]">{fmtPercent(profileStrength)}</p>
+              </div>
+              <span className="material-symbols-outlined text-3xl text-[var(--color-pib-accent)]">account_circle</span>
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-[var(--color-pib-line-strong)]">
+              <div
+                className="h-full rounded-full bg-[var(--color-pib-accent)] transition-all duration-500"
+                style={{ width: fmtPercent(profileStrength) }}
+              />
+            </div>
+            <p className="text-xs leading-relaxed text-[var(--color-pib-text-muted)]">
+              {missingFields.length === 0
+                ? 'The core contact profile is complete enough for segmentation, scoring, and follow-up.'
+                : `Missing ${missingFields.slice(0, 3).join(', ')}${missingFields.length > 3 ? ' and more' : ''}.`}
+            </p>
+          </div>
         </div>
-        {(contact.leadScore !== undefined || contact.icpScore !== undefined || contact.aiLeadScore !== undefined) && (
-          <div className="flex items-center gap-2">
-            <ScoreChip score={contact.leadScore} kind="lead" label="Lead score (formula)" size="sm" />
-            <ScoreChip score={contact.icpScore} kind="icp" label="ICP match score" size="sm" />
-            {contact.aiLeadScore !== undefined && (
-              <ScoreChip score={contact.aiLeadScore} kind="ai" label="AI lead score" size="sm" />
+
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div className="pib-stat-card">
+            <p className="eyebrow !text-[10px]">Best score</p>
+            <p className="mt-3 font-display text-3xl text-[var(--color-pib-text)]">{bestScore || '—'}</p>
+            <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">Lead, ICP, or AI signal</p>
+          </div>
+          <div className="pib-stat-card">
+            <p className="eyebrow !text-[10px]">Last touch</p>
+            <p className="mt-3 font-display text-3xl text-[var(--color-pib-text)]">
+              {lastTouchDays === null ? '—' : lastTouchDays === 0 ? 'Today' : `${lastTouchDays}d`}
+            </p>
+            <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">{relationshipSignal}</p>
+          </div>
+          <div className="pib-stat-card">
+            <p className="eyebrow !text-[10px]">Email thread</p>
+            <p className="mt-3 font-display text-3xl text-[var(--color-pib-text)]">{emails.length}</p>
+            <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">{sentEmailCount} sent / {receivedEmailCount} received</p>
+          </div>
+          <div className="pib-stat-card">
+            <p className="eyebrow !text-[10px]">Activity</p>
+            <p className="mt-3 font-display text-3xl text-[var(--color-pib-text)]">{recentActivityCount}</p>
+            <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">timeline records loaded</p>
+          </div>
+        </div>
+
+        {(contact.leadScore !== undefined || contact.icpScore !== undefined || contact.aiLeadScore !== undefined || nextSuggestion) && (
+          <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
+            {(contact.leadScore !== undefined || contact.icpScore !== undefined || contact.aiLeadScore !== undefined) && (
+              <div className="bento-card !p-5">
+                <p className="eyebrow !text-[10px] mb-3">Scoring</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <ScoreChip score={contact.leadScore} kind="lead" label="Lead score (formula)" size="sm" />
+                  <ScoreChip score={contact.icpScore} kind="icp" label="ICP match score" size="sm" />
+                  {contact.aiLeadScore !== undefined && (
+                    <ScoreChip score={contact.aiLeadScore} kind="ai" label="AI lead score" size="sm" />
+                  )}
+                </div>
+              </div>
+            )}
+            {nextSuggestion && (
+              <div className="bento-card !p-5">
+                <p className="eyebrow !text-[10px] mb-3">Next best action</p>
+                <div className="flex items-start gap-3">
+                  <span className="material-symbols-outlined text-[20px] text-[var(--color-pib-accent)]">tips_and_updates</span>
+                  <div>
+                    <p className="text-sm font-semibold text-[var(--color-pib-text)]">{nextSuggestion.action}</p>
+                    <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">{nextSuggestion.reason}</p>
+                  </div>
+                </div>
+              </div>
             )}
           </div>
         )}
@@ -517,11 +766,13 @@ export default function PortalContactDetailPage() {
           <div className="bento-card !p-5 space-y-3 text-sm">
             <p className="eyebrow !text-[10px]">Details</p>
             {[
-              ['Email', contact.email],
-              ['Phone', contact.phone],
+              ['Email', email],
+              ['Phone', phone],
               ['Company (legacy)', contact.company],
-              ['Website', contact.website],
-              ['Source', contact.source],
+              ['Website', website],
+              ['Source', source],
+              ['Type', type],
+              ['Stage', stage],
             ].map(([label, val]) =>
               val ? (
                 <div key={String(label)}>
@@ -556,7 +807,91 @@ export default function PortalContactDetailPage() {
           )}
 
           <div className="bento-card !p-5 space-y-2">
-            <p className="eyebrow !text-[10px]">Edit</p>
+            <div className="flex items-center justify-between gap-3">
+              <p className="eyebrow !text-[10px]">Edit profile</p>
+              {dirty && <span className="text-[11px] text-[var(--color-pib-accent)]">Unsaved changes</span>}
+            </div>
+
+            <div className="space-y-1 pt-1">
+              <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">
+                Name
+              </p>
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="pib-input w-full"
+                placeholder="Contact name"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 pt-1">
+              <div className="space-y-1">
+                <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">
+                  Email
+                </p>
+                <input
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="pib-input w-full"
+                  placeholder="name@example.com"
+                />
+              </div>
+              <div className="space-y-1">
+                <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">
+                  Phone
+                </p>
+                <input
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  className="pib-input w-full"
+                  placeholder="+27..."
+                />
+              </div>
+              <div className="space-y-1">
+                <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">
+                  Website
+                </p>
+                <input
+                  value={website}
+                  onChange={(e) => setWebsite(e.target.value)}
+                  className="pib-input w-full"
+                  placeholder="https://..."
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+              <div className="space-y-1">
+                <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">Source</p>
+                <select value={source} onChange={(e) => setSource(e.target.value)} className="pib-input w-full">
+                  {SOURCE_OPTIONS.map((option) => <option key={option} value={option} className="bg-black">{option}</option>)}
+                </select>
+              </div>
+              <div className="space-y-1">
+                <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">Type</p>
+                <select value={type} onChange={(e) => setType(e.target.value)} className="pib-input w-full">
+                  {TYPE_OPTIONS.map((option) => <option key={option} value={option} className="bg-black">{option}</option>)}
+                </select>
+              </div>
+              <div className="space-y-1">
+                <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">Stage</p>
+                <select value={stage} onChange={(e) => setStage(e.target.value)} className="pib-input w-full">
+                  {STAGE_OPTIONS.map((option) => <option key={option} value={option} className="bg-black">{option}</option>)}
+                </select>
+              </div>
+            </div>
+
+            <div className="space-y-1 pt-1">
+              <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">
+                Tags
+              </p>
+              <input
+                value={tagsInput}
+                onChange={(e) => setTagsInput(e.target.value)}
+                className="pib-input w-full"
+                placeholder="priority, referral, decision maker"
+              />
+            </div>
 
             {/* Company picker — above legacy company string field */}
             <div className="space-y-1">
