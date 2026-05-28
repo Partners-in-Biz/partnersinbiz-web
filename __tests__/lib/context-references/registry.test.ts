@@ -1,5 +1,7 @@
 export {}
 
+import { contextReferenceTypeFrom } from '@/lib/context-references/types'
+
 const mockCollection = jest.fn()
 
 jest.mock('@/lib/firebase/admin', () => ({
@@ -80,6 +82,28 @@ beforeEach(() => {
           title: 'Internal Research',
           summary: 'Internal-only evidence.',
           visibility: 'internal',
+          deleted: false,
+        }),
+      ])
+    }
+    if (name === 'products') {
+      return queryFor([
+        doc('product-1', {
+          orgId: 'org-1',
+          name: 'Growth Retainer',
+          description: 'Monthly growth support package.',
+          unitPrice: 15000,
+          currency: 'ZAR',
+          unit: 'month',
+          sku: 'GR-001',
+          active: true,
+          deleted: false,
+        }),
+        doc('other-product', {
+          orgId: 'org-2',
+          name: 'Blocked Product',
+          unitPrice: 1,
+          currency: 'ZAR',
           deleted: false,
         }),
       ])
@@ -169,6 +193,43 @@ describe('context reference registry', () => {
         id: 'task-1',
         label: 'Confirm launch scope',
         metadata: { projectId: 'project-1' },
+      }),
+    ])
+  })
+
+  it('resolves and searches CRM product references', async () => {
+    const { resolveContextReferences, searchContextReferences } = await import('@/lib/context-references/registry')
+    const productType = contextReferenceTypeFrom('products')
+
+    expect(productType).toBe('product')
+    if (!productType) throw new Error('products context reference type is missing')
+
+    await expect(resolveContextReferences([
+      { type: 'products', id: 'product-1', orgId: 'org-1', origin: 'mention' },
+    ], {
+      uid: 'admin-1',
+      role: 'admin',
+      authKind: 'session',
+    })).resolves.toEqual([
+      expect.objectContaining({
+        type: 'product',
+        id: 'product-1',
+        label: 'Growth Retainer',
+        summary: expect.stringContaining('ZAR'),
+      }),
+    ])
+
+    await expect(searchContextReferences({
+      type: productType,
+      query: 'retainer',
+      orgId: 'org-1',
+      limit: 8,
+      user: { uid: 'admin-1', role: 'admin', authKind: 'session' },
+    })).resolves.toEqual([
+      expect.objectContaining({
+        type: 'product',
+        id: 'product-1',
+        label: 'Growth Retainer',
       }),
     ])
   })

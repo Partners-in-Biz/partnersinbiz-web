@@ -19,9 +19,11 @@ describe('ContextReferencePicker', () => {
     expect(await screen.findByRole('button', { name: 'Use @projects:' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Use @contacts:' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Use @tasks:' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Use @businesses:' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Use @products:' })).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Use @contacts:' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Use @products:' }))
 
-    expect(input).toHaveValue('@contacts:')
+    expect(input).toHaveValue('@products:')
   })
 })

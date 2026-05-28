@@ -56,6 +56,7 @@ export interface PatchConversationContextRefsInput {
 const COLLECTION_BY_TYPE: Partial<Record<ContextReferenceType, string>> = {
   contact: 'contacts',
   company: 'companies',
+  product: 'products',
   document: CLIENT_DOCUMENTS_COLLECTION,
   research: RESEARCH_COLLECTION,
   social: 'social_posts',
@@ -129,6 +130,8 @@ function href(type: ContextReferenceType, id: string, data: RawDoc, seedHref?: s
       return `/admin/crm/contacts/${id}`
     case 'company':
       return `/admin/crm/companies/${id}`
+    case 'product':
+      return '/portal/settings/products'
     case 'document':
       return `/admin/documents/${id}`
     case 'research':
@@ -190,6 +193,7 @@ function matchesQuery(data: RawDoc, q: string): boolean {
     data.subject,
     data.email,
     data.company,
+    data.sku,
     data.description,
     data.summary,
     data.notes,
@@ -272,6 +276,36 @@ async function resolveCrm(type: 'contact' | 'company', input: ResolverInput): Pr
       data.website,
       data.status ? `status: ${clean(data.status)}` : '',
       data.notes,
+    ]),
+  })
+}
+
+function productPriceSummary(data: RawDoc): string {
+  const price = clean(data.unitPrice)
+  if (!price) return ''
+  const currency = clean(data.currency)
+  const unit = clean(data.unit)
+  return `${currency ? `${currency} ` : ''}${price}${unit ? ` / ${unit}` : ''}`
+}
+
+async function resolveProduct(input: ResolverInput): Promise<ContextReference | null> {
+  const doc = await getDoc('products', input.seed.id)
+  if (!doc) return null
+  const data = doc.data() ?? {}
+  const orgId = docOrgId(data, input.seed.orgId ?? input.defaultOrgId)
+  if (isDeleted(data) || !orgId || !sameOrg(data, expectedOrgId(input.seed, input.defaultOrgId)) || !canUseOrg(input.user, orgId)) return null
+  return makeRef({
+    type: 'product',
+    id: doc.id,
+    orgId,
+    label: clean(data.name) || input.seed.label || doc.id,
+    origin: origin(input.seed),
+    href: href('product', doc.id, data, input.seed.href),
+    summary: compactSummary([
+      productPriceSummary(data),
+      data.sku ? `sku: ${clean(data.sku)}` : '',
+      data.active === false ? 'inactive' : '',
+      data.description,
     ]),
   })
 }
@@ -388,6 +422,8 @@ async function resolveOne(seed: ContextReferenceSeed, user: ApiUser, defaultOrgI
       return resolveCrm('contact', { seed, user, defaultOrgId })
     case 'company':
       return resolveCrm('company', { seed, user, defaultOrgId })
+    case 'product':
+      return resolveProduct({ seed, user, defaultOrgId })
     case 'document':
       return resolveDocument({ seed, user, defaultOrgId })
     case 'research':
@@ -448,7 +484,16 @@ function refFromSearchDoc(
     label,
     origin: 'mention',
     href: href(type, doc.id, data),
-    summary: compactSummary([data.status, data.description, data.summary, data.notes, data.content, data.email]),
+    summary: compactSummary([
+      type === 'product' ? productPriceSummary(data) : '',
+      data.status,
+      data.description,
+      data.summary,
+      data.notes,
+      data.content,
+      data.email,
+      data.sku ? `sku: ${clean(data.sku)}` : '',
+    ]),
     ...(metadata ? { metadata } : {}),
   })
 }
