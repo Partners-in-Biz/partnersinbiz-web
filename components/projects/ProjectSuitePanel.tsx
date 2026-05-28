@@ -57,6 +57,8 @@ type WorkloadAssignee = {
   capacityMinutes?: number
   utilizationPercent?: number
   overCapacity?: boolean
+  remainingMinutes?: number
+  overByMinutes?: number
 }
 
 type ProjectHealth = {
@@ -79,7 +81,7 @@ type ProjectReports = {
 type SuiteData = {
   health?: ProjectHealth
   timeline?: { items?: TimelineItem[]; driftCount?: number; dependencyCount?: number; baselines?: SuiteItem[] }
-  workload?: { assignees?: WorkloadAssignee[]; totalEstimateMinutes?: number; totalCapacityMinutes?: number; overCapacityCount?: number }
+  workload?: { assignees?: WorkloadAssignee[]; totalEstimateMinutes?: number; totalCapacityMinutes?: number; totalRemainingMinutes?: number; totalOverByMinutes?: number; averageUtilizationPercent?: number; overCapacityCount?: number }
   reports?: ProjectReports
   milestones: SuiteItem[]
   approvals: SuiteItem[]
@@ -481,36 +483,54 @@ function TimelinePanel({
 
 function WorkloadPanel({ workload }: { workload?: SuiteData['workload'] }) {
   const assignees = Array.isArray(workload?.assignees) ? workload.assignees : []
+  const totalOverByMinutes = workload?.totalOverByMinutes ?? 0
   return (
     <section className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-background)] p-4">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h3 className="text-sm font-headline font-semibold text-on-surface">Workload</h3>
-          <p className="mt-1 text-xs text-on-surface-variant"><span>Capacity</span>: {formatMinutes(workload?.totalEstimateMinutes)} planned / {formatMinutes(workload?.totalCapacityMinutes)} available</p>
+          <p className="mt-1 text-xs text-on-surface-variant">
+            <span>Capacity</span>: {formatMinutes(workload?.totalEstimateMinutes)} planned / {formatMinutes(workload?.totalCapacityMinutes)} available
+          </p>
         </div>
-        <span className="rounded-full border border-[var(--color-card-border)] px-2 py-0.5 text-[10px] font-label text-on-surface-variant">
-          {workload?.overCapacityCount ?? 0} over capacity
-        </span>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="rounded-full border border-[var(--color-card-border)] px-2 py-0.5 text-[10px] font-label text-on-surface-variant">
+            {workload?.overCapacityCount ?? 0} over capacity
+          </span>
+          <span className={`rounded-full border px-2 py-0.5 text-[10px] font-label ${totalOverByMinutes > 0 ? 'border-red-400/40 text-red-300' : 'border-[var(--color-card-border)] text-on-surface-variant'}`}>
+            {totalOverByMinutes > 0 ? `${formatMinutes(totalOverByMinutes)} over` : `${formatMinutes(workload?.totalRemainingMinutes)} remaining`}
+          </span>
+        </div>
       </div>
       <div className="space-y-2">
         {assignees.length === 0 ? <p className="text-sm text-on-surface-variant">No assigned workload yet.</p> : null}
-        {assignees.map((assignee) => (
-          <article key={assignee.uid || assignee.name} className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2">
-            <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-on-surface">{assignee.name || assignee.uid || 'Unassigned'}</p>
-                <p className="text-xs text-on-surface-variant">{assignee.assignedTasks ?? 0} tasks / {formatMinutes(assignee.estimateMinutes)} planned</p>
+        {assignees.map((assignee) => {
+          const overByMinutes = assignee.overByMinutes ?? 0
+          const remainingMinutes = assignee.remainingMinutes ?? Math.max(0, (assignee.capacityMinutes ?? 0) - (assignee.estimateMinutes ?? 0))
+          return (
+            <article key={assignee.uid || assignee.name} className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-on-surface">{assignee.name || assignee.uid || 'Unassigned'}</p>
+                  <p className="text-xs text-on-surface-variant">{assignee.assignedTasks ?? 0} tasks / {formatMinutes(assignee.estimateMinutes)} planned</p>
+                  <p className="mt-0.5 text-[11px] text-on-surface-variant">{formatMinutes(assignee.capacityMinutes)} available</p>
+                </div>
+                <div className="shrink-0 text-right">
+                  <span className="block text-sm font-semibold text-on-surface">{assignee.utilizationPercent ?? 0}%</span>
+                  <span className={`mt-1 inline-flex rounded-full border px-2 py-0.5 text-[10px] font-label ${overByMinutes > 0 ? 'border-red-400/40 text-red-300' : 'border-[var(--color-card-border)] text-on-surface-variant'}`}>
+                    {overByMinutes > 0 ? `${formatMinutes(overByMinutes)} over` : `${formatMinutes(remainingMinutes)} remaining`}
+                  </span>
+                </div>
               </div>
-              <span className="text-sm font-semibold text-on-surface">{assignee.utilizationPercent ?? 0}%</span>
-            </div>
-            <div className="mt-2 h-2 overflow-hidden rounded-full bg-[var(--color-background)]">
-              <div
-                className={`h-full ${assignee.overCapacity ? 'bg-red-400' : 'bg-[var(--color-primary)]'}`}
-                style={{ width: `${Math.min(100, assignee.utilizationPercent ?? 0)}%` }}
-              />
-            </div>
-          </article>
-        ))}
+              <div className="mt-2 h-2 overflow-hidden rounded-full bg-[var(--color-background)]">
+                <div
+                  className={`h-full ${assignee.overCapacity ? 'bg-red-400' : 'bg-[var(--color-primary)]'}`}
+                  style={{ width: `${Math.min(100, assignee.utilizationPercent ?? 0)}%` }}
+                />
+              </div>
+            </article>
+          )
+        })}
       </div>
     </section>
   )

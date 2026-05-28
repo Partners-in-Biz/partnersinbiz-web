@@ -111,7 +111,10 @@ describe('project collaboration helpers', () => {
     const timeline = buildProjectTimeline({ tasks, milestones, baselines: [{ id: 'baseline-1', title: 'Website launch baseline' }] })
     const workload = buildProjectWorkload({
       tasks,
-      capacities: [{ uid: 'owner-1', displayName: 'Peet Stander', capacityMinutes: 480 }],
+      capacities: [
+        { uid: 'owner-1', displayName: 'Peet Stander', capacityMinutes: 480 },
+        { uid: 'designer-1', displayName: 'Design Lead', capacityMinutes: 600 },
+      ],
     })
     const reports = buildProjectReports({
       tasks,
@@ -127,9 +130,11 @@ describe('project collaboration helpers', () => {
     ]))
     expect(timeline.driftCount).toBe(2)
     expect(workload.assignees).toEqual(expect.arrayContaining([
-      expect.objectContaining({ uid: 'owner-1', name: 'Peet Stander', assignedTasks: 2, estimateMinutes: 180, capacityMinutes: 480, utilizationPercent: 38 }),
+      expect.objectContaining({ uid: 'owner-1', name: 'Peet Stander', assignedTasks: 2, estimateMinutes: 180, capacityMinutes: 480, utilizationPercent: 38, remainingMinutes: 300, overByMinutes: 0 }),
       expect.objectContaining({ uid: 'qa-1', assignedTasks: 1, estimateMinutes: 60 }),
+      expect.objectContaining({ uid: 'designer-1', name: 'Design Lead', assignedTasks: 0, estimateMinutes: 0, capacityMinutes: 600, utilizationPercent: 0, remainingMinutes: 600 }),
     ]))
+    expect(workload.totalRemainingMinutes).toBeGreaterThanOrEqual(900)
     expect(reports.tasks).toEqual(expect.objectContaining({ total: 2, done: 1, blocked: 1 }))
     expect(reports.approvals.waiting).toBe(1)
     expect(reports.risks.high).toBe(1)

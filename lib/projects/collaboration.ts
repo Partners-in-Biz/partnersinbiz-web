@@ -426,6 +426,16 @@ export function buildProjectWorkload(input: ProjectWorkloadInput) {
   }
 
   const workloadByUid = new Map<string, { uid: string; name: string; assignedTasks: number; estimateMinutes: number; capacityMinutes: number }>()
+  for (const [uid, capacity] of capacityByUid.entries()) {
+    workloadByUid.set(uid, {
+      uid,
+      name: capacity.name,
+      assignedTasks: 0,
+      estimateMinutes: 0,
+      capacityMinutes: capacity.capacityMinutes,
+    })
+  }
+
   for (const task of input.tasks ?? []) {
     const estimateMinutes = numericValue(task.estimateMinutes ?? task.estimate ?? task.durationMinutes)
     for (const uid of taskAssigneeIds(task)) {
@@ -448,14 +458,21 @@ export function buildProjectWorkload(input: ProjectWorkloadInput) {
       ...row,
       utilizationPercent: row.capacityMinutes > 0 ? Math.round((row.estimateMinutes / row.capacityMinutes) * 100) : 0,
       overCapacity: row.capacityMinutes > 0 && row.estimateMinutes > row.capacityMinutes,
+      remainingMinutes: Math.max(0, row.capacityMinutes - row.estimateMinutes),
+      overByMinutes: Math.max(0, row.estimateMinutes - row.capacityMinutes),
     }))
-    .sort((a, b) => b.estimateMinutes - a.estimateMinutes)
+    .sort((a, b) => b.overByMinutes - a.overByMinutes || b.estimateMinutes - a.estimateMinutes || a.name.localeCompare(b.name))
 
   return {
     assignees,
     totalEstimateMinutes: assignees.reduce((total, row) => total + row.estimateMinutes, 0),
     totalCapacityMinutes: assignees.reduce((total, row) => total + row.capacityMinutes, 0),
+    totalRemainingMinutes: assignees.reduce((total, row) => total + row.remainingMinutes, 0),
+    totalOverByMinutes: assignees.reduce((total, row) => total + row.overByMinutes, 0),
     overCapacityCount: assignees.filter((row) => row.overCapacity).length,
+    averageUtilizationPercent: assignees.length > 0
+      ? Math.round(assignees.reduce((total, row) => total + row.utilizationPercent, 0) / assignees.length)
+      : 0,
   }
 }
 

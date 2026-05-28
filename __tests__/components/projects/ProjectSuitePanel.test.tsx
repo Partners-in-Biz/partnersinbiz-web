@@ -54,9 +54,13 @@ function suiteResponse() {
       ],
     },
     workload: {
-      assignees: [{ uid: 'owner-1', name: 'Peet Stander', assignedTasks: 2, estimateMinutes: 300, capacityMinutes: 480, utilizationPercent: 63 }],
+      assignees: [
+        { uid: 'owner-1', name: 'Peet Stander', assignedTasks: 2, estimateMinutes: 300, capacityMinutes: 480, utilizationPercent: 63, remainingMinutes: 180, overByMinutes: 0 },
+        { uid: 'designer-1', name: 'Design Lead', assignedTasks: 0, estimateMinutes: 0, capacityMinutes: 600, utilizationPercent: 0, remainingMinutes: 600, overByMinutes: 0 },
+      ],
       totalEstimateMinutes: 300,
-      totalCapacityMinutes: 480,
+      totalCapacityMinutes: 1080,
+      totalRemainingMinutes: 780,
       overCapacityCount: 0,
     },
     reports: { tasks: { total: 0, blocked: 0 }, approvals: { waiting: 0 }, revenue: { trackedAmount: 0, currency: 'ZAR' } },
@@ -302,6 +306,15 @@ describe('ProjectSuitePanel', () => {
         visibility: 'internal',
       }),
     })))
+  })
+
+  it('renders capacity-only people and remaining availability in workload planning', async () => {
+    render(<ProjectSuitePanel projectId="project-1" />)
+
+    await waitFor(() => expect(screen.getAllByText('Design Lead').length).toBeGreaterThan(0))
+    expect(screen.getByText('0 tasks / 0m planned')).toBeInTheDocument()
+    expect(screen.getByText('10h remaining')).toBeInTheDocument()
+    expect(screen.getByText('13h remaining')).toBeInTheDocument()
   })
 
   it('creates targeted access policies and notification controls from the Plan controls', async () => {

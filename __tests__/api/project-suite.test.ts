@@ -130,6 +130,7 @@ beforeEach(() => {
   ]))
   mockCapacitiesGet.mockResolvedValue(docs([
     { id: 'capacity-1', data: { uid: 'owner-1', displayName: 'Peet Stander', capacityMinutes: 480 } },
+    { id: 'capacity-2', data: { uid: 'designer-1', displayName: 'Design Lead', capacityMinutes: 600 } },
   ]))
   mockRevenueGet.mockResolvedValue(docs([
     { id: 'revenue-1', data: { amount: 12500, currency: 'ZAR' } },
@@ -205,8 +206,10 @@ describe('project suite API', () => {
       expect.objectContaining({ id: 'milestone-1', kind: 'milestone', dependencies: ['task-1'], baselineDriftDays: 5 }),
     ]))
     expect(body.data.workload.assignees).toEqual(expect.arrayContaining([
-      expect.objectContaining({ uid: 'owner-1', name: 'Peet Stander', assignedTasks: 1, estimateMinutes: 120, capacityMinutes: 480, utilizationPercent: 25 }),
+      expect.objectContaining({ uid: 'owner-1', name: 'Peet Stander', assignedTasks: 1, estimateMinutes: 120, capacityMinutes: 480, utilizationPercent: 25, remainingMinutes: 360 }),
+      expect.objectContaining({ uid: 'designer-1', name: 'Design Lead', assignedTasks: 0, estimateMinutes: 0, capacityMinutes: 600, utilizationPercent: 0, remainingMinutes: 600 }),
     ]))
+    expect(body.data.workload.totalRemainingMinutes).toBeGreaterThanOrEqual(960)
     expect(body.data.reports.tasks).toEqual(expect.objectContaining({ total: 1, blocked: 1 }))
     expect(body.data.reports.revenue).toEqual(expect.objectContaining({ trackedAmount: 12500, currency: 'ZAR' }))
     expect(body.data.health.level).toBe('at_risk')
