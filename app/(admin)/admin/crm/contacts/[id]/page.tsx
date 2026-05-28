@@ -70,8 +70,9 @@ type SuggestionItem = {
 function unwrapContact(body: unknown): ContactRecord | null {
   const response = body as { data?: ContactRecord | { contact?: ContactRecord } }
   if (!response.data) return null
-  if ('contact' in response.data) return response.data.contact ?? null
-  return response.data
+  const data = response.data as Record<string, unknown>
+  if ('contact' in data) return (data.contact as ContactRecord | undefined) ?? null
+  return data as ContactRecord
 }
 
 function unwrapList<T>(body: unknown, nestedKey?: string): T[] {
