@@ -5,6 +5,42 @@ import { useEffect, useState } from 'react'
 import { ProductModal } from '@/components/crm/ProductModal'
 import type { Product } from '@/lib/products/types'
 
+function fmtMoney(value: number, currency = 'ZAR'): string {
+  return new Intl.NumberFormat('en-ZA', {
+    style: 'currency',
+    currency,
+    maximumFractionDigits: value % 1 === 0 ? 0 : 2,
+  }).format(value)
+}
+
+function productHealth(product: Product): { score: number; gaps: string[] } {
+  const checks = [
+    { ok: Boolean(product.name?.trim()), label: 'name' },
+    { ok: Boolean(product.description?.trim()), label: 'description' },
+    { ok: Boolean(product.unit?.trim()), label: 'unit' },
+    { ok: Number.isFinite(product.unitPrice) && product.unitPrice > 0, label: 'price' },
+    { ok: Boolean(product.currency), label: 'currency' },
+  ]
+  const passed = checks.filter((check) => check.ok).length
+  return {
+    score: Math.round((passed / checks.length) * 100),
+    gaps: checks.filter((check) => !check.ok).map((check) => check.label),
+  }
+}
+
+function StatCard({ label, value, sub, icon }: { label: string; value: string; sub: string; icon: string }) {
+  return (
+    <div className="pib-stat-card">
+      <div className="flex items-start justify-between gap-3">
+        <p className="eyebrow !text-[10px]">{label}</p>
+        <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">{icon}</span>
+      </div>
+      <p className="mt-3 font-display text-3xl leading-none text-[var(--color-pib-text)]">{value}</p>
+      <p className="mt-3 text-xs text-[var(--color-pib-text-muted)]">{sub}</p>
+    </div>
+  )
+}
+
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
@@ -12,6 +48,9 @@ export default function ProductsPage() {
   const [showModal, setShowModal] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [search, setSearch] = useState('')
+  const [currencyFilter, setCurrencyFilter] = useState('')
+  const [healthFilter, setHealthFilter] = useState<'all' | 'ready' | 'needs-work'>('all')
 
   // ── Fetch ─────────────────────────────────────────────────────────────────────
 
@@ -81,13 +120,46 @@ export default function ProductsPage() {
 
   // ── Render ────────────────────────────────────────────────────────────────────
 
+  const activeProducts = products.filter((product) => product.active !== false)
+  const zeroPriceCount = products.filter((product) => !Number.isFinite(product.unitPrice) || product.unitPrice <= 0).length
+  const missingDescriptionCount = products.filter((product) => !product.description?.trim()).length
+  const missingUnitCount = products.filter((product) => !product.unit?.trim()).length
+  const currencyCodes = Array.from(new Set(products.map((product) => product.currency).filter(Boolean))).sort()
+  const primaryCurrency = currencyCodes[0] ?? 'ZAR'
+  const totalPrimaryValue = products
+    .filter((product) => product.currency === primaryCurrency)
+    .reduce((sum, product) => sum + (Number.isFinite(product.unitPrice) ? product.unitPrice : 0), 0)
+  const avgPrimaryValue = products.filter((product) => product.currency === primaryCurrency).length > 0
+    ? totalPrimaryValue / products.filter((product) => product.currency === primaryCurrency).length
+    : 0
+  const healthAverage = products.length > 0
+    ? Math.round(products.reduce((sum, product) => sum + productHealth(product).score, 0) / products.length)
+    : 0
+  const filteredProducts = products.filter((product) => {
+    const q = search.trim().toLowerCase()
+    const matchesSearch = !q ||
+      product.name.toLowerCase().includes(q) ||
+      product.description?.toLowerCase().includes(q) ||
+      product.unit?.toLowerCase().includes(q) ||
+      product.currency.toLowerCase().includes(q)
+    const matchesCurrency = !currencyFilter || product.currency === currencyFilter
+    const health = productHealth(product)
+    const matchesHealth =
+      healthFilter === 'all' ||
+      (healthFilter === 'ready' && health.score >= 80) ||
+      (healthFilter === 'needs-work' && health.score < 80)
+    return matchesSearch && matchesCurrency && matchesHealth
+  })
+  const needsWorkCount = products.filter((product) => productHealth(product).score < 80).length
+
   return (
-    <div className="max-w-2xl">
-      <div className="flex items-start justify-between gap-4 mb-6">
+    <div className="space-y-8">
+      <header className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-lg font-semibold mb-1">Product Catalog</h1>
-          <p className="text-sm text-[var(--color-pib-text-muted)]">
-            Manage your workspace&apos;s products and services.
+          <p className="eyebrow">CRM settings</p>
+          <h1 className="pib-page-title mt-2">Product catalog</h1>
+          <p className="pib-page-sub max-w-2xl">
+            Manage the services and products that power deal line items, quote pricing, and revenue forecasting.
           </p>
         </div>
         <button
@@ -98,10 +170,85 @@ export default function ProductsPage() {
           <span className="material-symbols-outlined text-[16px]">add</span>
           New product
         </button>
-      </div>
+      </header>
+
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <StatCard label="Catalog items" value={String(products.length)} sub={`${activeProducts.length} active in this workspace`} icon="inventory_2" />
+        <StatCard label="Catalog value" value={fmtMoney(totalPrimaryValue, primaryCurrency)} sub={`${fmtMoney(avgPrimaryValue, primaryCurrency)} average ${primaryCurrency} price`} icon="payments" />
+        <StatCard label="Catalog health" value={`${healthAverage}%`} sub={`${needsWorkCount} item${needsWorkCount === 1 ? '' : 's'} need setup work`} icon="monitoring" />
+        <StatCard label="Pricing gaps" value={String(zeroPriceCount)} sub={`${missingUnitCount} missing units, ${missingDescriptionCount} missing descriptions`} icon="rule_settings" />
+      </section>
+
+      <section className="grid gap-4 lg:grid-cols-[1fr_320px]">
+        <div className="space-y-4">
+          <div className="flex flex-wrap gap-3">
+            <input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              className="pib-input min-w-[220px] flex-1"
+              placeholder="Search product, unit, currency..."
+            />
+            <select
+              value={currencyFilter}
+              onChange={(event) => setCurrencyFilter(event.target.value)}
+              className="pib-input !w-auto"
+            >
+              <option value="">All currencies</option>
+              {currencyCodes.map((currency) => (
+                <option key={currency} value={currency} className="bg-black">{currency}</option>
+              ))}
+            </select>
+            <select
+              value={healthFilter}
+              onChange={(event) => setHealthFilter(event.target.value as 'all' | 'ready' | 'needs-work')}
+              className="pib-input !w-auto"
+            >
+              <option value="all">All health</option>
+              <option value="ready">Ready</option>
+              <option value="needs-work">Needs work</option>
+            </select>
+          </div>
+
+          {search || currencyFilter || healthFilter !== 'all' ? (
+            <button
+              type="button"
+              onClick={() => { setSearch(''); setCurrencyFilter(''); setHealthFilter('all') }}
+              className="btn-pib-secondary text-xs inline-flex items-center gap-1.5"
+            >
+              <span className="material-symbols-outlined text-[14px]">filter_alt_off</span>
+              Clear filters
+            </button>
+          ) : null}
+        </div>
+
+        <div className="bento-card !p-5 space-y-4">
+          <div>
+            <p className="eyebrow !text-[10px]">Catalog focus</p>
+            <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">
+              Quote-ready products need a price, unit, description, and currency. Gaps here become manual work in deals.
+            </p>
+          </div>
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-3">
+              <p className="font-display text-xl text-[var(--color-pib-text)]">{zeroPriceCount}</p>
+              <p className="mt-1 text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)]">No price</p>
+            </div>
+            <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-3">
+              <p className="font-display text-xl text-[var(--color-pib-text)]">{missingUnitCount}</p>
+              <p className="mt-1 text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)]">No unit</p>
+            </div>
+            <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-3">
+              <p className="font-display text-xl text-[var(--color-pib-text)]">{missingDescriptionCount}</p>
+              <p className="mt-1 text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)]">No copy</p>
+            </div>
+          </div>
+        </div>
+      </section>
 
       {loading ? (
-        <p className="text-sm text-[var(--color-pib-text-muted)]">Loading…</p>
+        <div className="space-y-3">
+          {Array.from({ length: 4 }).map((_, index) => <div key={index} className="pib-skeleton h-16" />)}
+        </div>
       ) : fetchError ? (
         <div className="px-4 py-3 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] text-sm text-[var(--color-pib-text-muted)]">
           {fetchError}
@@ -121,12 +268,19 @@ export default function ProductsPage() {
             New product
           </button>
         </div>
+      ) : filteredProducts.length === 0 ? (
+        <div className="bento-card !p-8 text-center">
+          <span className="material-symbols-outlined text-[32px] text-[var(--color-pib-text-muted)] mb-3 block">search_off</span>
+          <p className="text-sm font-medium text-[var(--color-pib-text)]">No products match this view.</p>
+          <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">Clear the filters to return to the full catalog.</p>
+        </div>
       ) : (
         <div className="bento-card !p-0 overflow-hidden">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-[var(--color-pib-line)]">
                 <th className="text-left px-4 py-3 text-[10px] font-semibold text-[var(--color-pib-text-muted)] uppercase tracking-wider">Name</th>
+                <th className="text-left px-4 py-3 text-[10px] font-semibold text-[var(--color-pib-text-muted)] uppercase tracking-wider">Health</th>
                 <th className="text-left px-4 py-3 text-[10px] font-semibold text-[var(--color-pib-text-muted)] uppercase tracking-wider">Unit</th>
                 <th className="text-right px-4 py-3 text-[10px] font-semibold text-[var(--color-pib-text-muted)] uppercase tracking-wider">Unit Price</th>
                 <th className="text-left px-4 py-3 text-[10px] font-semibold text-[var(--color-pib-text-muted)] uppercase tracking-wider">Currency</th>
@@ -134,41 +288,68 @@ export default function ProductsPage() {
               </tr>
             </thead>
             <tbody>
-              {products.map((p, i) => (
-                <tr
-                  key={p.id}
-                  className={[
-                    'transition-colors hover:bg-white/[0.02]',
-                    i < products.length - 1 ? 'border-b border-[var(--color-pib-line)]' : '',
-                  ].join(' ')}
-                >
-                  <td className="px-4 py-3 font-medium">{p.name}</td>
-                  <td className="px-4 py-3 text-[var(--color-pib-text-muted)]">{p.unit ?? '—'}</td>
-                  <td className="px-4 py-3 text-right tabular-nums">{p.unitPrice.toFixed(2)}</td>
-                  <td className="px-4 py-3 text-[var(--color-pib-text-muted)]">{p.currency}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center justify-end gap-1">
-                      <button
-                        type="button"
-                        onClick={() => handleOpenEdit(p)}
-                        title="Edit product"
-                        className="cursor-pointer w-7 h-7 flex items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.06] transition-colors"
-                      >
-                        <span className="material-symbols-outlined text-[16px]">edit</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(p)}
-                        disabled={deletingId === p.id}
-                        title="Delete product"
-                        className="cursor-pointer w-7 h-7 flex items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] hover:text-red-400 hover:bg-red-400/[0.08] transition-colors disabled:opacity-50"
-                      >
-                        <span className="material-symbols-outlined text-[16px]">{deletingId === p.id ? 'hourglass_empty' : 'delete'}</span>
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              {filteredProducts.map((p, i) => {
+                const health = productHealth(p)
+                return (
+                  <tr
+                    key={p.id}
+                    className={[
+                      'transition-colors hover:bg-white/[0.02]',
+                      i < filteredProducts.length - 1 ? 'border-b border-[var(--color-pib-line)]' : '',
+                    ].join(' ')}
+                  >
+                    <td className="px-4 py-3">
+                      <p className="font-medium text-[var(--color-pib-text)]">{p.name}</p>
+                      <p className="mt-1 max-w-[320px] truncate text-xs text-[var(--color-pib-text-muted)]">
+                        {p.description || 'No product description yet.'}
+                      </p>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="min-w-[110px] space-y-1.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs font-mono text-[var(--color-pib-text)]">{health.score}%</span>
+                          <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${health.score >= 80 ? 'bg-emerald-500/10 text-emerald-300' : 'bg-amber-500/10 text-amber-200'}`}>
+                            {health.score >= 80 ? 'Ready' : 'Needs work'}
+                          </span>
+                        </div>
+                        <div className="h-1.5 overflow-hidden rounded-full bg-[var(--color-pib-line-strong)]">
+                          <div
+                            className="h-full rounded-full bg-[var(--color-pib-accent)]"
+                            style={{ width: `${health.score}%` }}
+                          />
+                        </div>
+                        {health.gaps.length > 0 && (
+                          <p className="text-[10px] text-[var(--color-pib-text-muted)]">Missing {health.gaps.join(', ')}</p>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-[var(--color-pib-text-muted)]">{p.unit ?? '—'}</td>
+                    <td className="px-4 py-3 text-right tabular-nums">{fmtMoney(p.unitPrice, p.currency)}</td>
+                    <td className="px-4 py-3 text-[var(--color-pib-text-muted)]">{p.currency}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEdit(p)}
+                          title="Edit product"
+                          className="cursor-pointer w-7 h-7 flex items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.06] transition-colors"
+                        >
+                          <span className="material-symbols-outlined text-[16px]">edit</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(p)}
+                          disabled={deletingId === p.id}
+                          title="Delete product"
+                          className="cursor-pointer w-7 h-7 flex items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] hover:text-red-400 hover:bg-red-400/[0.08] transition-colors disabled:opacity-50"
+                        >
+                          <span className="material-symbols-outlined text-[16px]">{deletingId === p.id ? 'hourglass_empty' : 'delete'}</span>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>
