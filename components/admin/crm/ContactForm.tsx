@@ -24,6 +24,7 @@ type ContactFormState = {
   type: string
   stage: string
   agreementRoles: string[]
+  tagsInput: string
   notes: string
 }
 
@@ -39,6 +40,9 @@ export function ContactForm({ onSave, onCancel, initial = {} }: ContactFormProps
   const initialRoles = Array.isArray(initial.agreementRoles)
     ? initial.agreementRoles.filter((role): role is string => typeof role === 'string')
     : []
+  const initialTags = Array.isArray(initial.tags)
+    ? initial.tags.filter((tag): tag is string => typeof tag === 'string').join(', ')
+    : ''
   const [form, setForm] = useState<ContactFormState>({
     name: String(initial.name ?? ''),
     email: String(initial.email ?? ''),
@@ -51,6 +55,7 @@ export function ContactForm({ onSave, onCancel, initial = {} }: ContactFormProps
     type: String(initial.type ?? 'lead'),
     stage: String(initial.stage ?? 'new'),
     agreementRoles: initialRoles,
+    tagsInput: initialTags,
     notes: String(initial.notes ?? ''),
   })
   const [saving, setSaving] = useState(false)
@@ -61,7 +66,8 @@ export function ContactForm({ onSave, onCancel, initial = {} }: ContactFormProps
     setSaving(true)
     setError('')
     try {
-      await onSave({ ...form, tags: [] })
+      const { tagsInput, ...payload } = form
+      await onSave({ ...payload, tags: splitTags(tagsInput) })
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Save failed')
     } finally {
@@ -80,6 +86,13 @@ export function ContactForm({ onSave, onCancel, initial = {} }: ContactFormProps
       />
     </div>
   )
+
+  function splitTags(value: string): string[] {
+    return value
+      .split(',')
+      .map((tag) => tag.trim())
+      .filter(Boolean)
+  }
 
   const select = (label: string, key: ContactTextField, options: readonly string[]) => (
     <div className="flex flex-col gap-1">
@@ -117,6 +130,20 @@ export function ContactForm({ onSave, onCancel, initial = {} }: ContactFormProps
       {select('Source', 'source', SOURCES)}
       {select('Type', 'type', TYPES)}
       {select('Stage', 'stage', STAGES)}
+      <div className="flex flex-col gap-1">
+        <label htmlFor="admin-crm-contact-tags" className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+          Tags
+        </label>
+        <input
+          id="admin-crm-contact-tags"
+          type="text"
+          value={form.tagsInput}
+          onChange={(e) => setForm((f) => ({ ...f, tagsInput: e.target.value }))}
+          placeholder="vip, newsletter, key-account"
+          className="pib-input"
+        />
+        <p className="text-[11px] text-on-surface-variant">Separate tags with commas so saved views, filters, and automation segments stay accurate.</p>
+      </div>
       <div className="flex flex-col gap-2">
         <span className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Agreement roles</span>
         <div className="grid gap-2 sm:grid-cols-2">
