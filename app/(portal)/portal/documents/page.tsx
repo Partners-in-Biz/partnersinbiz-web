@@ -45,14 +45,30 @@ export default function PortalDocuments() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch('/api/v1/client-documents')
-      .then((r) => r.json())
-      .then((b: { data?: ClientDocument[] }) => {
-        const all = b.data ?? []
-        setDocs(all.filter((d) => CLIENT_STATUSES.includes(d.status)))
-        setLoading(false)
-      })
-      .catch(() => setLoading(false))
+    let cancelled = false
+
+    async function loadDocuments() {
+      try {
+        const activeOrgRes = await fetch('/api/v1/portal/active-org', { cache: 'no-store' })
+        const activeOrgBody = activeOrgRes.ok ? await activeOrgRes.json() : null
+        const activeOrgId = typeof activeOrgBody?.orgId === 'string' ? activeOrgBody.orgId : ''
+        const documentsUrl = activeOrgId
+          ? `/api/v1/client-documents?orgId=${encodeURIComponent(activeOrgId)}`
+          : '/api/v1/client-documents'
+        const res = await fetch(documentsUrl)
+        const body: { data?: ClientDocument[] } = res.ok ? await res.json() : {}
+        const all = body.data ?? []
+        if (!cancelled) setDocs(all.filter((d) => CLIENT_STATUSES.includes(d.status)))
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+
+    loadDocuments().catch(() => {
+      if (!cancelled) setLoading(false)
+    })
+
+    return () => { cancelled = true }
   }, [])
 
   return (

@@ -2,29 +2,32 @@ import { NextRequest } from 'next/server'
 
 import { withPortalAuthAndRole } from '@/lib/auth/portal-middleware'
 import { apiSuccess } from '@/lib/api/response'
+import { isClientVisibleClientDocument } from '@/lib/client-documents/access'
 import { CLIENT_DOCUMENTS_COLLECTION } from '@/lib/client-documents/store'
-import type { ClientDocumentStatus } from '@/lib/client-documents/types'
+import type { ClientDocument } from '@/lib/client-documents/types'
 import { adminDb } from '@/lib/firebase/admin'
+import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
 
 export const dynamic = 'force-dynamic'
 
-const CLIENT_VISIBLE_STATUSES = new Set<ClientDocumentStatus>([
-  'client_review',
-  'changes_requested',
-  'approved',
-  'accepted',
-])
-
 export const GET = withPortalAuthAndRole('viewer', async (_req: NextRequest, _uid, orgId) => {
-  const docsSnap = await adminDb
-    .collection(CLIENT_DOCUMENTS_COLLECTION)
-    .where('orgId', '==', orgId)
-    .get()
+  async function listForOrg(targetOrgId: string): Promise<ClientDocument[]> {
+    const docsSnap = await adminDb
+      .collection(CLIENT_DOCUMENTS_COLLECTION)
+      .where('orgId', '==', targetOrgId)
+      .get()
+    return docsSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() } as ClientDocument))
+  }
 
-  const count = docsSnap.docs.filter((doc) => {
-    const data = doc.data() as { deleted?: boolean; status?: ClientDocumentStatus }
-    return data.deleted !== true && data.status !== undefined && CLIENT_VISIBLE_STATUSES.has(data.status)
-  }).length
+  const documents = await listForOrg(orgId)
+  if (orgId !== PIB_PLATFORM_ORG_ID) {
+    const platformDocuments = await listForOrg(PIB_PLATFORM_ORG_ID)
+    documents.push(...platformDocuments.filter((doc) => doc.linked?.clientOrgId === orgId))
+  }
+
+  const count = documents.filter((doc) => (
+    doc.deleted !== true && isClientVisibleClientDocument(doc)
+  )).length
 
   return apiSuccess({ count })
 })

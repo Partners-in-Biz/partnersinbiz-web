@@ -85,4 +85,53 @@ describe('GET /api/v1/portal/documents/count', () => {
     expect(mockWhere).toHaveBeenCalledWith('orgId', '==', 'org-1')
     expect(body.data).toEqual({ count: 2 })
   })
+
+  it('counts platform-owned documents linked to the active portal org', async () => {
+    mockGet
+      .mockResolvedValueOnce({
+        docs: [
+          { id: 'direct-1', data: () => ({ status: 'approved' }) },
+        ],
+      })
+      .mockResolvedValueOnce({
+        docs: [
+          {
+            id: 'linked-1',
+            data: () => ({
+              orgId: 'pib-platform-owner',
+              status: 'client_review',
+              linked: { clientOrgId: 'org-1' },
+            }),
+          },
+          {
+            id: 'linked-other',
+            data: () => ({
+              orgId: 'pib-platform-owner',
+              status: 'approved',
+              linked: { clientOrgId: 'org-2' },
+            }),
+          },
+          {
+            id: 'linked-draft',
+            data: () => ({
+              orgId: 'pib-platform-owner',
+              status: 'internal_draft',
+              linked: { clientOrgId: 'org-1' },
+            }),
+          },
+        ],
+      })
+
+    const { GET } = await import('@/app/api/v1/portal/documents/count/route')
+    const req = new NextRequest('http://localhost/api/v1/portal/documents/count', {
+      headers: { cookie: '__session=test-session' },
+    })
+    const res = await GET(req)
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(mockWhere).toHaveBeenCalledWith('orgId', '==', 'org-1')
+    expect(mockWhere).toHaveBeenCalledWith('orgId', '==', 'pib-platform-owner')
+    expect(body.data).toEqual({ count: 2 })
+  })
 })
