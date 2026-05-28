@@ -43,6 +43,16 @@ interface FormState {
   engagement: EngagementScoreRule | null
 }
 
+export function extractSegmentsList(body: unknown): Segment[] {
+  if (!body || typeof body !== 'object') return []
+  const data = (body as { data?: unknown }).data
+  if (Array.isArray(data)) return data as Segment[]
+  if (data && typeof data === 'object' && Array.isArray((data as { segments?: unknown }).segments)) {
+    return (data as { segments: Segment[] }).segments
+  }
+  return []
+}
+
 const EMPTY_FORM: FormState = {
   name: '',
   description: '',
@@ -101,7 +111,7 @@ export default function PortalSegmentsPage() {
     const res = await fetch('/api/v1/crm/segments')
     if (res.ok) {
       const body = await res.json()
-      const list: Segment[] = body.data ?? []
+      const list = extractSegmentsList(body)
       setSegments(list)
       // Lazy count resolution
       list.forEach((s) => {
