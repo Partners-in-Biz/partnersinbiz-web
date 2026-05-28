@@ -7,6 +7,10 @@ import { ContactForm } from '@/components/admin/crm/ContactForm'
 import { fmtTimestamp } from '@/components/admin/email/fmtTimestamp'
 import { SavedViewsBar } from '@/components/crm/SavedViewsBar'
 import { ScoreChip } from '@/components/crm/ScoreChip'
+import {
+  type BulkActionKey,
+  ContactsBulkCommandBar,
+} from '@/components/crm/ContactsBulkCommandBar'
 
 interface DuplicateContact {
   id: string
@@ -90,15 +94,6 @@ function DuplicateGroupCard({
 
 const STAGES = ['new', 'contacted', 'replied', 'demo', 'proposal', 'won', 'lost']
 const TYPES = ['lead', 'prospect', 'client', 'churned']
-const BULK_ACTIONS = ['assign', 'stage', 'type', 'add-tags', 'remove-tags'] as const
-type BulkActionKey = typeof BULK_ACTIONS[number]
-const BULK_ACTION_LABELS: Record<BulkActionKey, string> = {
-  assign: 'Assign to…',
-  stage: 'Change stage to…',
-  type: 'Change type to…',
-  'add-tags': 'Add tags…',
-  'remove-tags': 'Remove tags…',
-}
 
 interface Contact {
   id: string
@@ -494,110 +489,30 @@ export default function PortalContactsPage() {
 
       {/* Bulk action bar */}
       {selectedIds.size > 0 && (
-        <div
-          className="sticky top-4 z-40 flex flex-wrap items-center gap-3 px-4 py-3 rounded-[var(--radius-card)] shadow-lg"
-          style={{ background: 'var(--color-pib-surface)', border: '1px solid var(--color-pib-accent)' }}
-        >
-          <span className="text-sm font-medium text-[var(--color-pib-accent)] shrink-0">
-            {selectedIds.size} selected
-          </span>
-          <button
-            onClick={() => setSelectedIds(new Set())}
-            className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors shrink-0"
-          >
-            Clear
-          </button>
-
-          <div className="h-4 w-px bg-[var(--color-pib-line)] shrink-0" />
-
-          {/* Action picker */}
-          <select
-            value={bulkAction}
-            onChange={(e) => { setBulkAction(e.target.value as BulkActionKey); setBulkTagsInput('') }}
-            className="pib-input !w-auto !py-1.5 !text-sm"
-          >
-            {BULK_ACTIONS.map(a => (
-              <option key={a} value={a} className="bg-black">{BULK_ACTION_LABELS[a]}</option>
-            ))}
-          </select>
-
-          {/* Action-specific input */}
-          {bulkAction === 'assign' && (
-            teamMembers.length > 0 ? (
-              <select
-                value={bulkAssignUid}
-                onChange={(e) => setBulkAssignUid(e.target.value)}
-                className="pib-input !w-auto !py-1.5 !text-sm"
-              >
-                <option value="" className="bg-black">Select member…</option>
-                {teamMembers.map(m => (
-                  <option key={m.uid} value={m.uid} className="bg-black">
-                    {m.firstName} {m.lastName}{m.jobTitle ? ` (${m.jobTitle})` : ''}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <input
-                placeholder="User UID…"
-                value={bulkAssignUid}
-                onChange={(e) => setBulkAssignUid(e.target.value)}
-                className="pib-input !py-1.5 !text-sm w-48"
-              />
-            )
-          )}
-
-          {bulkAction === 'stage' && (
-            <select
-              value={bulkStage}
-              onChange={(e) => setBulkStage(e.target.value)}
-              className="pib-input !w-auto !py-1.5 !text-sm"
-            >
-              {STAGES.map(s => (
-                <option key={s} value={s} className="bg-black">{s}</option>
-              ))}
-            </select>
-          )}
-
-          {bulkAction === 'type' && (
-            <select
-              value={bulkType}
-              onChange={(e) => setBulkType(e.target.value)}
-              className="pib-input !w-auto !py-1.5 !text-sm"
-            >
-              {TYPES.map(t => (
-                <option key={t} value={t} className="bg-black">{t}</option>
-              ))}
-            </select>
-          )}
-
-          {(bulkAction === 'add-tags' || bulkAction === 'remove-tags') && (
-            <input
-              placeholder="tag1, tag2…"
-              value={bulkTagsInput}
-              onChange={(e) => setBulkTagsInput(e.target.value)}
-              className="pib-input !py-1.5 !text-sm w-48"
-            />
-          )}
-
-          <button
-            onClick={applyBulk}
-            disabled={bulkPending}
-            className="btn-pib-accent !py-1.5 !text-sm shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {bulkPending ? 'Applying…' : 'Apply'}
-          </button>
-
-          <div className="h-4 w-px bg-[var(--color-pib-line)] shrink-0" />
-
-          <button
-            onClick={handleBulkDelete}
-            disabled={bulkPending}
-            className="text-sm text-red-400 hover:text-red-300 flex items-center gap-1.5 px-3 py-2 rounded-lg hover:bg-red-400/10 transition-colors shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <span className="material-symbols-outlined text-[16px]">delete</span>
-            Delete selected ({selectedIds.size})
-          </button>
-        </div>
+        <ContactsBulkCommandBar
+          selectedCount={selectedIds.size}
+          totalCount={contacts.length}
+          bulkAction={bulkAction}
+          bulkPending={bulkPending}
+          teamMembers={teamMembers}
+          bulkAssignUid={bulkAssignUid}
+          bulkStage={bulkStage}
+          bulkType={bulkType}
+          bulkTagsInput={bulkTagsInput}
+          stages={STAGES}
+          types={TYPES}
+          onActionChange={(action) => {
+            setBulkAction(action)
+            setBulkTagsInput('')
+          }}
+          onAssignUidChange={setBulkAssignUid}
+          onStageChange={setBulkStage}
+          onTypeChange={setBulkType}
+          onTagsInputChange={setBulkTagsInput}
+          onClear={() => setSelectedIds(new Set())}
+          onApply={applyBulk}
+          onDelete={handleBulkDelete}
+        />
       )}
 
       {/* List */}
