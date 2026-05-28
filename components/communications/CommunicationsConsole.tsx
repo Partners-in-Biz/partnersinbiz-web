@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import { PageTabs } from '@/components/ui/AppFoundation'
 import { useOrg } from '@/lib/contexts/OrgContext'
 import type {
   CommunicationChannel,
@@ -271,23 +272,17 @@ export function CommunicationsConsole({ mode, initialOrgId = '', initialOrgSlug 
         </div>
       )}
 
-      <div className="flex flex-wrap gap-2">
-        {VIEW_LABELS.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            onClick={() => setView(item.id)}
-            className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${
-              view === item.id
-                ? 'border-[var(--color-pib-accent)] bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent)]'
-                : 'border-[var(--color-card-border)] text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.03]'
-            }`}
-          >
-            <span className="material-symbols-outlined text-base">{item.icon}</span>
-            {item.label}
-          </button>
-        ))}
-      </div>
+      <PageTabs
+        ariaLabel="Communications views"
+        tabs={VIEW_LABELS.map((item) => ({
+          label: item.label,
+          value: item.id,
+          icon: item.icon,
+        }))}
+        value={view}
+        onValueChange={(value) => setView(value as ConsoleView)}
+        variant="segmented"
+      />
 
       {feedback && <div className="rounded-lg border border-green-500/20 bg-green-500/10 px-4 py-3 text-sm text-green-300">{feedback}</div>}
       {error && <div className="rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">{error}</div>}

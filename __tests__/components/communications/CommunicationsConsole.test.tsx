@@ -36,12 +36,18 @@ describe('CommunicationsConsole organisation scoping', () => {
     }))
   })
 
-  it('uses the shared segmented page tabs for communication views', () => {
+  it('uses the shared segmented page tabs for communication views', async () => {
     render(<CommunicationsConsole mode="admin" initialOrgId="org-1" />)
 
     const tablist = screen.getByRole('tablist', { name: 'Communications views' })
     expect(tablist).toHaveClass('pib-tabs', 'pib-tabs-segmented')
     expect(screen.getByRole('tab', { name: /inbox/i })).toHaveClass('pib-tab-active')
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        '/api/v1/communications/conversations?orgId=org-1&status=open&limit=100',
+      )
+    })
   })
 
   it('loads admin workspace conversations using the organisation slug from the entry link', async () => {
