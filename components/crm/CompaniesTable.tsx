@@ -7,13 +7,13 @@ import { CompanyRow } from '@/components/crm/CompanyRow'
 
 const COLUMNS = [
   { key: 'logo',         label: '' },
-  { key: 'name',         label: 'Name' },
-  { key: 'tier',         label: 'Tier' },
+  { key: 'name',         label: 'Account' },
+  { key: 'health',       label: 'Health' },
   { key: 'lifecycle',    label: 'Lifecycle' },
-  { key: 'industry',     label: 'Industry' },
-  { key: 'employees',    label: 'Employees' },
-  { key: 'am',           label: 'Account Manager' },
-  { key: 'openDeals',    label: 'Open Deals' },
+  { key: 'profile',      label: 'Profile' },
+  { key: 'value',        label: 'Value' },
+  { key: 'am',           label: 'Owner' },
+  { key: 'signals',      label: 'Signals' },
   { key: 'updatedAt',    label: 'Updated' },
 ]
 
@@ -26,10 +26,9 @@ function SkeletonRow() {
       <td className="px-4 py-3"><div className="pib-skeleton h-4 w-36 rounded" /></td>
       <td className="px-4 py-3"><div className="pib-skeleton h-4 w-20 rounded" /></td>
       <td className="px-4 py-3"><div className="pib-skeleton h-4 w-20 rounded" /></td>
-      <td className="px-4 py-3"><div className="pib-skeleton h-4 w-24 rounded" /></td>
       <td className="px-4 py-3"><div className="pib-skeleton h-4 w-16 rounded" /></td>
       <td className="px-4 py-3"><div className="pib-skeleton h-4 w-24 rounded" /></td>
-      <td className="px-4 py-3"><div className="pib-skeleton h-4 w-8 rounded" /></td>
+      <td className="px-4 py-3"><div className="pib-skeleton h-4 w-28 rounded" /></td>
       <td className="px-4 py-3"><div className="pib-skeleton h-4 w-20 rounded" /></td>
     </tr>
   )
@@ -45,10 +44,10 @@ export interface CompaniesTableProps {
 
 export function CompaniesTable({ companies, loading, onRowClick }: CompaniesTableProps) {
   return (
-    <div className="w-full overflow-x-auto">
+    <div className="pib-card-section w-full overflow-x-auto">
       <table className="w-full border-collapse text-left">
         <thead>
-          <tr className="border-b border-[var(--color-pib-line)]">
+          <tr className="border-b border-[var(--color-pib-line)] bg-white/[0.02]">
             {COLUMNS.map((col) => (
               <th
                 key={col.key}

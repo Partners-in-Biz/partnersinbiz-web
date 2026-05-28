@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import type { Company } from '@/lib/companies/types'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -13,6 +14,35 @@ function fmtDate(ts: unknown): string {
     month: 'short',
     year: 'numeric',
   })
+}
+
+function fmtCurrency(value: unknown, currency = 'ZAR'): string {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return '—'
+  try {
+    return new Intl.NumberFormat('en-ZA', {
+      style: 'currency',
+      currency,
+      maximumFractionDigits: 0,
+    }).format(value)
+  } catch {
+    return `${currency} ${value.toFixed(0)}`
+  }
+}
+
+function profileStrength(company: Company): number {
+  const checks = [
+    company.name,
+    company.domain || company.website,
+    company.industry,
+    company.size || company.employeeCount,
+    company.tier,
+    company.lifecycleStage,
+    company.phone || company.billingEmail || company.accountsContact?.email,
+    company.accountManagerUid || company.accountManagerRef?.uid,
+    company.notes,
+    company.logoUrl,
+  ]
+  return Math.round((checks.filter(Boolean).length / checks.length) * 100)
 }
 
 function initials(name: string): string {
@@ -48,10 +78,19 @@ export interface CompanyRowProps {
 }
 
 export function CompanyRow({ company, onClick }: CompanyRowProps) {
-  const tierCls = company.tier ? (TIER_COLOURS[company.tier] ?? 'bg-surface-container text-on-surface-variant') : ''
   const lcCls = company.lifecycleStage
     ? (LIFECYCLE_COLOURS[company.lifecycleStage] ?? 'bg-surface-container text-on-surface-variant')
     : ''
+  const strength = profileStrength(company)
+  const health = typeof company.healthScore === 'number' ? company.healthScore : strength
+  const healthColor = health >= 75 ? '#4ade80' : health >= 45 ? '#facc15' : '#f87171'
+  const tierCls = company.tier ? (TIER_COLOURS[company.tier] ?? 'bg-surface-container text-on-surface-variant') : ''
+  const signals = [
+    company.linkedOrgId ? 'Client org' : '',
+    company.billingEmail || company.accountsContact?.email ? 'Billing' : '',
+    company.purchaseOrderRequired ? 'PO required' : '',
+    company.tags?.slice(0, 2).join(', '),
+  ].filter(Boolean)
 
   return (
     <tr
@@ -61,9 +100,12 @@ export function CompanyRow({ company, onClick }: CompanyRowProps) {
       {/* Logo / initials */}
       <td className="px-4 py-3 w-10">
         {company.logoUrl ? (
-          <img
+          <Image
             src={company.logoUrl}
             alt={company.name}
+            width={32}
+            height={32}
+            unoptimized
             className="w-8 h-8 rounded-full object-cover"
           />
         ) : (
@@ -78,18 +120,22 @@ export function CompanyRow({ company, onClick }: CompanyRowProps) {
         <p className="text-sm font-medium text-[var(--color-pib-text)] truncate max-w-xs">
           {company.name}
         </p>
-        {company.domain && (
-          <p className="text-[11px] text-[var(--color-pib-text-muted)] font-mono">{company.domain}</p>
-        )}
+        <p className="text-[11px] text-[var(--color-pib-text-muted)] font-mono">
+          {company.domain || company.website || company.legalName || 'No domain captured'}
+        </p>
       </td>
 
-      {/* Tier */}
+      {/* Health */}
       <td className="px-4 py-3">
-        {company.tier && (
-          <span className={`text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full ${tierCls}`}>
-            {company.tier}
-          </span>
-        )}
+        <div className="min-w-24">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs font-mono" style={{ color: healthColor }}>{health}%</span>
+            <span className="text-[10px] text-[var(--color-pib-text-muted)]">health</span>
+          </div>
+          <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-white/10">
+            <div className="h-full rounded-full" style={{ width: `${health}%`, background: healthColor }} />
+          </div>
+        </div>
       </td>
 
       {/* Lifecycle */}
@@ -101,18 +147,37 @@ export function CompanyRow({ company, onClick }: CompanyRowProps) {
         )}
       </td>
 
-      {/* Industry */}
+      {/* Profile */}
       <td className="px-4 py-3">
-        <span className="text-sm text-[var(--color-pib-text-muted)] truncate max-w-[120px] block">
-          {company.industry ?? '—'}
-        </span>
+        <div className="space-y-1">
+          <span className="text-sm text-[var(--color-pib-text-muted)] truncate max-w-[150px] block">
+            {company.industry ?? 'No industry'}
+          </span>
+          <div className="flex flex-wrap gap-1">
+            {company.tier && (
+              <span className={`text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full ${tierCls}`}>
+                {company.tier}
+              </span>
+            )}
+            {company.size && (
+              <span className="text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full bg-white/5 text-[var(--color-pib-text-muted)]">
+                {company.size}
+              </span>
+            )}
+          </div>
+        </div>
       </td>
 
-      {/* Employee count */}
+      {/* Value */}
       <td className="px-4 py-3">
-        <span className="text-sm font-mono text-[var(--color-pib-text-muted)]">
-          {company.employeeCount != null ? company.employeeCount.toLocaleString() : '—'}
-        </span>
+        <div>
+          <span className="text-sm font-mono text-[var(--color-pib-text)]">
+            {fmtCurrency(company.annualRevenue, company.currency)}
+          </span>
+          <p className="text-[11px] text-[var(--color-pib-text-muted)]">
+            {company.employeeCount != null ? `${company.employeeCount.toLocaleString()} people` : 'No size data'}
+          </p>
+        </div>
       </td>
 
       {/* Account manager */}
@@ -120,9 +185,12 @@ export function CompanyRow({ company, onClick }: CompanyRowProps) {
         {company.accountManagerRef ? (
           <div className="flex items-center gap-2">
             {company.accountManagerRef.avatarUrl ? (
-              <img
+              <Image
                 src={company.accountManagerRef.avatarUrl}
                 alt={company.accountManagerRef.displayName}
+                width={24}
+                height={24}
+                unoptimized
                 className="w-6 h-6 rounded-full object-cover"
               />
             ) : (
@@ -139,9 +207,17 @@ export function CompanyRow({ company, onClick }: CompanyRowProps) {
         )}
       </td>
 
-      {/* Open deals (placeholder — Wave 3 populates) */}
+      {/* Signals */}
       <td className="px-4 py-3">
-        <span className="text-sm font-mono text-[var(--color-pib-text-muted)]">—</span>
+        <div className="flex max-w-[180px] flex-wrap gap-1">
+          {signals.length > 0 ? signals.map((signal) => (
+            <span key={signal} className="rounded-full bg-white/5 px-2 py-0.5 text-[10px] text-[var(--color-pib-text-muted)]">
+              {signal}
+            </span>
+          )) : (
+            <span className="text-xs text-[var(--color-pib-text-muted)]">Needs setup</span>
+          )}
+        </div>
       </td>
 
       {/* Updated at */}

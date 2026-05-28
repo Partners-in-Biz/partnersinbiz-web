@@ -1,7 +1,7 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { CompaniesTable } from '@/components/crm/CompaniesTable'
@@ -9,6 +9,57 @@ import { CompanyFiltersBar } from '@/components/crm/CompanyFiltersBar'
 import type { Company, CompanyListParams } from '@/lib/companies/types'
 
 // ── Companies list page ───────────────────────────────────────────────────────
+
+function profileStrength(company: Company): number {
+  const checks = [
+    company.name,
+    company.domain || company.website,
+    company.industry,
+    company.size || company.employeeCount,
+    company.tier,
+    company.lifecycleStage,
+    company.phone || company.billingEmail || company.accountsContact?.email,
+    company.accountManagerUid || company.accountManagerRef?.uid,
+    company.notes,
+    company.logoUrl,
+  ]
+  return Math.round((checks.filter(Boolean).length / checks.length) * 100)
+}
+
+function formatCurrency(value: number, currency = 'ZAR'): string {
+  try {
+    return new Intl.NumberFormat('en-ZA', {
+      style: 'currency',
+      currency,
+      maximumFractionDigits: 0,
+    }).format(value)
+  } catch {
+    return `${currency} ${value.toFixed(0)}`
+  }
+}
+
+function AccountMetric({
+  label,
+  value,
+  sub,
+  icon,
+}: {
+  label: string
+  value: string
+  sub: string
+  icon: string
+}) {
+  return (
+    <div className="pib-card min-w-[150px] flex-1 px-4 py-3">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">{label}</p>
+        <span className="material-symbols-outlined text-[17px] text-[var(--color-pib-text-muted)]">{icon}</span>
+      </div>
+      <p className="mt-2 text-2xl font-display leading-none text-[var(--color-pib-text)]">{value}</p>
+      <p className="mt-1 text-[11px] text-[var(--color-pib-text-muted)]">{sub}</p>
+    </div>
+  )
+}
 
 export default function CompaniesPage() {
   const router = useRouter()
@@ -27,6 +78,27 @@ export default function CompaniesPage() {
     lifecycleStage: (searchParams.get('lifecycleStage') as CompanyListParams['lifecycleStage']) ?? undefined,
     accountManagerUid: searchParams.get('accountManagerUid') ?? undefined,
   }))
+  const hasActiveFilters = Boolean(
+    filters.search ||
+    filters.industry ||
+    filters.size ||
+    filters.tier ||
+    filters.lifecycleStage ||
+    filters.accountManagerUid ||
+    (filters.tags && filters.tags.length > 0),
+  )
+
+  const metrics = useMemo(() => {
+    const customers = companies.filter((company) => company.lifecycleStage === 'customer').length
+    const prospects = companies.filter((company) => company.lifecycleStage === 'prospect' || company.lifecycleStage === 'lead').length
+    const linkedOrgs = companies.filter((company) => company.linkedOrgId).length
+    const incomplete = companies.filter((company) => profileStrength(company) < 60).length
+    const managed = companies.filter((company) => company.accountManagerRef || company.accountManagerUid).length
+    const revenueRows = companies.filter((company) => typeof company.annualRevenue === 'number' && Number.isFinite(company.annualRevenue))
+    const revenue = revenueRows.reduce((sum, company) => sum + (company.annualRevenue ?? 0), 0)
+    const currency = revenueRows.find((company) => company.currency)?.currency ?? 'ZAR'
+    return { customers, prospects, linkedOrgs, incomplete, managed, revenue, currency }
+  }, [companies])
 
   // ── Fetch companies ────────────────────────────────────────────────────────
 
@@ -88,16 +160,15 @@ export default function CompaniesPage() {
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex flex-col gap-6 p-6">
+    <div className="mx-auto flex max-w-7xl flex-col gap-6 p-6">
       {/* ── Page header ── */}
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-xl font-semibold text-[var(--color-pib-text)]">Companies</h1>
-          {!loading && !error && (
-            <p className="text-sm text-[var(--color-pib-text-muted)] mt-0.5">
-              {companies.length} {companies.length === 1 ? 'company' : 'companies'}
-            </p>
-          )}
+      <div className="flex items-end justify-between gap-4 flex-wrap">
+        <div className="max-w-3xl">
+          <p className="eyebrow">CRM accounts</p>
+          <h1 className="pib-page-title mt-2">Companies</h1>
+          <p className="pib-page-sub mt-2">
+            Account context, health, ownership, billing readiness, client-org links, and setup gaps for this workspace.
+          </p>
         </div>
 
         <div className="flex items-center gap-2">
@@ -120,8 +191,20 @@ export default function CompaniesPage() {
         </div>
       </div>
 
+      {!loading && !error && (
+        <section className="flex flex-wrap gap-3">
+          <AccountMetric icon="domain" label="Accounts" value={String(companies.length)} sub={hasActiveFilters ? 'Matching current view' : 'Visible in workspace'} />
+          <AccountMetric icon="handshake" label="Customers" value={String(metrics.customers)} sub={`${metrics.prospects} leads/prospects`} />
+          <AccountMetric icon="hub" label="Client links" value={String(metrics.linkedOrgs)} sub="Linked portal organisations" />
+          <AccountMetric icon="fact_check" label="Setup gaps" value={String(metrics.incomplete)} sub={`${metrics.managed} assigned owners`} />
+          <AccountMetric icon="payments" label="Tracked value" value={formatCurrency(metrics.revenue, metrics.currency)} sub="Annual revenue fields" />
+        </section>
+      )}
+
       {/* ── Filters bar ── */}
-      <CompanyFiltersBar value={filters} onChange={updateFilters} />
+      <div className="pib-card p-4">
+        <CompanyFiltersBar value={filters} onChange={updateFilters} />
+      </div>
 
       {/* ── Error state ── */}
       {error && (
