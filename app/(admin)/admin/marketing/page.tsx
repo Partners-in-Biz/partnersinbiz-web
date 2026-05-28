@@ -45,6 +45,13 @@ export default function AdminMarketingPage() {
           title: 'Email and nurture',
           actions: [
             {
+              label: 'Communications',
+              href: '/admin/communications',
+              icon: 'forum',
+              description: 'Manage WhatsApp, SMS, email, in-app, Messenger, and Instagram conversations and campaigns.',
+              eyebrow: 'Omnichannel',
+            },
+            {
               label: 'Email',
               href: '/admin/email',
               icon: 'mail',

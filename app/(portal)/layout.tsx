@@ -69,6 +69,7 @@ const NAV_LINKS: NavItem[] = [
       '/portal/campaigns',
       '/portal/content-campaigns',
       '/portal/social',
+      '/portal/communications',
       '/portal/seo',
       '/portal/capture-sources',
       '/portal/email-domains',

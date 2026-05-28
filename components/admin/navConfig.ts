@@ -23,7 +23,7 @@ export const OPERATOR_NAV: NavItem[] = [
     href: '/admin/marketing',
     icon: 'campaign',
     group: 'data',
-    activePatterns: ['/admin/social', '/admin/campaigns', '/admin/broadcasts', '/admin/email', '/admin/sequences', '/admin/seo', '/admin/capture-sources'],
+    activePatterns: ['/admin/communications', '/admin/social', '/admin/campaigns', '/admin/broadcasts', '/admin/email', '/admin/sequences', '/admin/seo', '/admin/capture-sources'],
   },
   {
     label: 'Intelligence',
@@ -56,6 +56,7 @@ export const OPERATOR_NAV_TOPBAR: NavItem[] = [
     label: 'Marketing', href: '/admin/marketing', icon: 'campaign',
     children: [
       { label: 'Marketing hub', href: '/admin/marketing' },
+      { label: 'Communications', href: '/admin/communications' },
       { label: 'Social',        href: '/admin/social' },
       { label: 'Campaigns',     href: '/admin/campaigns' },
       { label: 'Email',         href: '/admin/email' },
@@ -63,7 +64,7 @@ export const OPERATOR_NAV_TOPBAR: NavItem[] = [
       { label: 'Sequences',     href: '/admin/sequences' },
       { label: 'SEO',           href: '/admin/seo' },
     ],
-    activePatterns: ['/admin/social', '/admin/campaigns', '/admin/broadcasts', '/admin/email', '/admin/sequences', '/admin/seo', '/admin/capture-sources'],
+    activePatterns: ['/admin/communications', '/admin/social', '/admin/campaigns', '/admin/broadcasts', '/admin/email', '/admin/sequences', '/admin/seo', '/admin/capture-sources'],
   },
   {
     label: 'Intelligence', href: '/admin/intelligence', icon: 'analytics',
@@ -121,6 +122,7 @@ export function workspaceNav(slug: string): NavItem[] {
         `/admin/org/${slug}/brand`,
         `/admin/org/${slug}/social`,
         `/admin/org/${slug}/campaigns`,
+        '/admin/communications',
         `/admin/org/${slug}/seo`,
         `/admin/org/${slug}/capture-sources`,
         `/admin/org/${slug}/integrations`,
