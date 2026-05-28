@@ -4,7 +4,7 @@ import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import { getProjectForUser } from '@/lib/projects/access'
-import { buildProjectTaskCreateData } from '@/lib/projects/taskPayload'
+import { runProjectPlaybookTemplate } from '@/lib/projects/playbooks'
 import {
   buildProjectHealth,
   buildProjectReports,
@@ -105,10 +105,6 @@ function hasOwn(body: Record<string, unknown>, key: string): boolean {
 
 function mergeStringArrays(...values: unknown[]): string[] {
   return Array.from(new Set(values.flatMap((value) => cleanStringArray(value))))
-}
-
-function playbookSteps(value: unknown): string[] {
-  return cleanStringArray(value)
 }
 
 const VISIBILITY_RANK: Record<string, number> = {
@@ -287,84 +283,6 @@ async function writeSuiteAudit(input: {
     ...(input.metadata ?? {}),
     createdAt: FieldValue.serverTimestamp(),
   })
-}
-
-async function runPlaybookTemplate(input: {
-  projectId: string
-  playbookId: string
-  playbook: SuiteRecord
-  project: Record<string, unknown>
-  actorUid: string
-}) {
-  const title = cleanString(input.playbook.title) || 'Project playbook'
-  const steps = playbookSteps(input.playbook.templateSteps)
-  if (steps.length === 0) {
-    return { ok: false as const, response: apiError('Playbook has no reusable template steps to run', 400) }
-  }
-
-  const projectRef = adminDb.collection('projects').doc(input.projectId)
-  const tasksRef = projectRef.collection('tasks')
-  const orgId = cleanString(input.project.orgId) || projectOwnerOrgId(input.project) || undefined
-  const createdTaskIds: string[] = []
-  const runId = `${input.playbookId}_${Date.now()}`
-
-  for (let index = 0; index < steps.length; index += 1) {
-    const task = buildProjectTaskCreateData({
-      title: steps[index],
-      description: `Created from playbook: ${title}`,
-      columnId: 'todo',
-      priority: 'medium',
-      labels: ['playbook', `playbook:${input.playbookId}`],
-      order: Date.now() + index,
-    }, input.projectId, orgId)
-    if (!task.ok) return { ok: false as const, response: apiError(task.error, task.status ?? 400) }
-
-    const ref = await tasksRef.add({
-      ...task.value,
-      sourcePlaybookId: input.playbookId,
-      sourcePlaybookRunId: runId,
-      sourcePlaybookTitle: title,
-      reporterId: input.actorUid,
-      createdBy: input.actorUid,
-      createdAt: FieldValue.serverTimestamp(),
-      updatedAt: FieldValue.serverTimestamp(),
-    })
-    createdTaskIds.push(ref.id)
-  }
-
-  await projectRef.collection('playbooks').doc(input.playbookId).update({
-    lastRunAt: FieldValue.serverTimestamp(),
-    lastRunBy: input.actorUid,
-    lastRunId: runId,
-    lastRunTaskIds: createdTaskIds,
-    runCount: (typeof input.playbook.runCount === 'number' ? input.playbook.runCount : 0) + 1,
-    updatedBy: input.actorUid,
-    updatedAt: FieldValue.serverTimestamp(),
-  })
-
-  await writeSuiteAudit({
-    projectId: input.projectId,
-    eventType: 'playbook_run',
-    type: 'playbook',
-    itemId: input.playbookId,
-    title: `Ran ${title}`,
-    actorUid: input.actorUid,
-    metadata: {
-      taskCount: createdTaskIds.length,
-      createdTaskIds,
-      playbookRunId: runId,
-    },
-  })
-
-  return {
-    ok: true as const,
-    data: {
-      playbookId: input.playbookId,
-      playbookRunId: runId,
-      createdTaskIds,
-      taskCount: createdTaskIds.length,
-    },
-  }
 }
 
 function projectOwnerOrgId(data: Record<string, unknown>): string {
@@ -593,14 +511,14 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
     if (!doc.exists) return apiError('Playbook not found', 404)
     const playbook = { id, ...(doc.data() ?? {}) } as SuiteRecord
     if (playbook.deleted === true || playbook.status === 'archived') return apiError('Archived playbooks cannot be run', 400)
-    const run = await runPlaybookTemplate({
+    const run = await runProjectPlaybookTemplate({
       projectId,
       playbookId: id,
       playbook,
       project: (access.doc.data() ?? {}) as Record<string, unknown>,
       actorUid: user.uid,
     })
-    if (!run.ok) return run.response
+    if (!run.ok) return apiError(run.error, run.status)
     return apiSuccess(run.data, 201)
   }
 
