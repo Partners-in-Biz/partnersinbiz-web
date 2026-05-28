@@ -69,8 +69,9 @@ function mockSnapshotChange(type: 'added' | 'modified' | 'removed', id: string, 
 }
 
 function mockFetch() {
-  global.fetch = jest.fn((input: RequestInfo | URL) => {
+  global.fetch = jest.fn((input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input)
+    const method = init?.method ?? 'GET'
     if (url === '/api/v1/projects/project-1') {
       return Promise.resolve({
         ok: true,
@@ -235,6 +236,22 @@ function mockFetch() {
         }),
       } as Response)
     }
+    if (url === '/api/v1/crm/companies?search=New%20Partner&limit=8') {
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ data: { companies: [] } }),
+      } as Response)
+    }
+    if (url === '/api/v1/crm/companies' && method === 'POST') {
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({
+          data: {
+            company: { id: 'company-new', name: 'New Partner' },
+          },
+        }),
+      } as Response)
+    }
     if (url === '/api/v1/crm/companies/company-1/contacts?limit=20') {
       return Promise.resolve({
         ok: true,
@@ -245,6 +262,18 @@ function mockFetch() {
             ],
           },
         }),
+      } as Response)
+    }
+    if (url === '/api/v1/crm/companies/company-new/contacts?limit=20') {
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ data: { contacts: [] } }),
+      } as Response)
+    }
+    if (url === '/api/v1/crm/contacts' && method === 'POST') {
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ data: { id: 'contact-new' } }),
       } as Response)
     }
     return Promise.resolve({ ok: true, json: async () => ({ data: [] }) } as Response)
@@ -348,6 +377,53 @@ describe('Admin project docs and settings tabs', () => {
 
     expect(screen.getByText('Selected company: Partner Org')).toBeInTheDocument()
     expect(screen.getByText('Selected contact: Priya Contact')).toBeInTheDocument()
+  })
+
+  it('creates missing CRM companies and contacts before inviting an external organisation', async () => {
+    render(<ProjectDetailPage />)
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Settings' }))
+
+    await waitFor(() => expect(screen.getByLabelText('Search CRM company')).toBeInTheDocument())
+    fireEvent.change(screen.getByLabelText('Search CRM company'), { target: { value: 'New Partner' } })
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Create CRM company' })).toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: 'Create CRM company' }))
+
+    await waitFor(() => expect(screen.getByText('Selected company: New Partner')).toBeInTheDocument())
+    fireEvent.change(screen.getByLabelText('New contact name'), { target: { value: 'Nova Buyer' } })
+    fireEvent.change(screen.getByLabelText('New contact email'), { target: { value: 'nova@newpartner.example' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Create contact' }))
+
+    await waitFor(() => expect(screen.getByText('Selected contact: Nova Buyer')).toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: 'Invite' }))
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(
+      '/api/v1/projects/project-1/access',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'invite_organizations',
+          invites: [{ companyId: 'company-new', contactId: 'contact-new', role: 'reviewer' }],
+        }),
+      }),
+    ))
+    expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/companies', expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({ name: 'New Partner' }),
+    }))
+    expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/contacts', expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({
+        name: 'Nova Buyer',
+        email: 'nova@newpartner.example',
+        companyId: 'company-new',
+        company: 'New Partner',
+        source: 'manual',
+        type: 'prospect',
+        stage: 'new',
+      }),
+    }))
   })
 
   it('shows project health, timeline, workload, automations, controls, and reports in the Plan tab', async () => {

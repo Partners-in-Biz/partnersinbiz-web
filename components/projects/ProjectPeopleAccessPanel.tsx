@@ -81,10 +81,14 @@ export function ProjectPeopleAccessPanel({ projectId }: { projectId: string }) {
   const [companySearch, setCompanySearch] = useState('')
   const [companyResults, setCompanyResults] = useState<CrmCompany[]>([])
   const [companySearchLoading, setCompanySearchLoading] = useState(false)
+  const [companyCreating, setCompanyCreating] = useState(false)
   const [selectedCompany, setSelectedCompany] = useState<CrmCompany | null>(null)
   const [contactResults, setContactResults] = useState<CrmContact[]>([])
   const [contactsLoading, setContactsLoading] = useState(false)
   const [selectedContact, setSelectedContact] = useState<CrmContact | null>(null)
+  const [newContactName, setNewContactName] = useState('')
+  const [newContactEmail, setNewContactEmail] = useState('')
+  const [contactCreating, setContactCreating] = useState(false)
   const [orgRole, setOrgRole] = useState('reviewer')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -204,6 +208,79 @@ export function ProjectPeopleAccessPanel({ projectId }: { projectId: string }) {
       setError(err instanceof Error ? err.message : 'Project access update failed')
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  async function createCrmCompany() {
+    const name = companySearch.trim()
+    if (!name) return
+    setCompanyCreating(true)
+    setError(null)
+    try {
+      const res = await fetch('/api/v1/crm/companies', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(body.error || 'CRM company creation failed')
+      const company = body.data?.company ?? body.data ?? {}
+      const nextCompany: CrmCompany = {
+        id: String(company.id || ''),
+        name: String(company.name || name),
+        email: typeof company.email === 'string' ? company.email : undefined,
+        linkedOrgId: typeof company.linkedOrgId === 'string' ? company.linkedOrgId : undefined,
+      }
+      if (!nextCompany.id) throw new Error('CRM company creation did not return an id')
+      setSelectedCompany(nextCompany)
+      setCompanyId(nextCompany.id)
+      setCompanySearch(nextCompany.name || name)
+      setCompanyResults([])
+      setSelectedContact(null)
+      setContactId('')
+      setContactResults([])
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'CRM company creation failed')
+    } finally {
+      setCompanyCreating(false)
+    }
+  }
+
+  async function createCrmContact() {
+    const name = newContactName.trim()
+    const email = newContactEmail.trim()
+    if (!selectedCompany?.id || !name || !email) return
+    setContactCreating(true)
+    setError(null)
+    try {
+      const payload = {
+        name,
+        email,
+        companyId: selectedCompany.id,
+        company: selectedCompany.name || '',
+        source: 'manual',
+        type: 'prospect',
+        stage: 'new',
+      }
+      const res = await fetch('/api/v1/crm/contacts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(body.error || 'CRM contact creation failed')
+      const id = String(body.data?.id || '')
+      if (!id) throw new Error('CRM contact creation did not return an id')
+      const nextContact = { id, name, email }
+      setContactResults((current) => [nextContact, ...current.filter((contact) => contact.id !== id)])
+      setSelectedContact(nextContact)
+      setContactId(id)
+      setNewContactName('')
+      setNewContactEmail('')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'CRM contact creation failed')
+    } finally {
+      setContactCreating(false)
     }
   }
 
@@ -359,6 +436,8 @@ export function ProjectPeopleAccessPanel({ projectId }: { projectId: string }) {
                     onClick={() => {
                       setSelectedCompany(company)
                       setCompanyId(company.id)
+                      setCompanySearch(company.name || company.email || company.id)
+                      setCompanyResults([])
                       setSelectedContact(null)
                       setContactId('')
                     }}
@@ -371,6 +450,17 @@ export function ProjectPeopleAccessPanel({ projectId }: { projectId: string }) {
                     <span className="material-symbols-outlined text-[18px]">chevron_right</span>
                   </button>
                 ))}
+                {!selectedCompany && companySearch.trim().length >= 2 ? (
+                  <button
+                    type="button"
+                    onClick={() => createCrmCompany()}
+                    disabled={companyCreating}
+                    className="flex items-center justify-center gap-2 rounded-lg border border-dashed border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm font-medium text-on-surface hover:border-[var(--color-primary)] disabled:opacity-50"
+                  >
+                    <span className="material-symbols-outlined text-[18px]" aria-hidden="true">add_business</span>
+                    {companyCreating ? 'Creating company...' : 'Create CRM company'}
+                  </button>
+                ) : null}
               </div>
               {selectedCompany ? (
                 <p className="mt-2 rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-xs text-on-surface">
@@ -402,6 +492,36 @@ export function ProjectPeopleAccessPanel({ projectId }: { projectId: string }) {
                       <span className="material-symbols-outlined text-[18px]">person_add</span>
                     </button>
                   ))}
+                  <div className="rounded-lg border border-dashed border-[var(--color-card-border)] bg-[var(--color-card)] p-3">
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <label>
+                        <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">New contact name</span>
+                        <input
+                          value={newContactName}
+                          onChange={(event) => setNewContactName(event.target.value)}
+                          className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface"
+                        />
+                      </label>
+                      <label>
+                        <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">New contact email</span>
+                        <input
+                          type="email"
+                          value={newContactEmail}
+                          onChange={(event) => setNewContactEmail(event.target.value)}
+                          className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface"
+                        />
+                      </label>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => createCrmContact()}
+                      disabled={contactCreating || !newContactName.trim() || !newContactEmail.trim()}
+                      className="mt-2 inline-flex items-center gap-2 rounded-lg border border-[var(--color-card-border)] px-3 py-2 text-xs font-label text-on-surface hover:border-[var(--color-primary)] disabled:opacity-50"
+                    >
+                      <span className="material-symbols-outlined text-[16px]" aria-hidden="true">person_add</span>
+                      {contactCreating ? 'Creating contact...' : 'Create contact'}
+                    </button>
+                  </div>
                 </div>
                 {selectedContact ? (
                   <p className="mt-2 rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-xs text-on-surface">
