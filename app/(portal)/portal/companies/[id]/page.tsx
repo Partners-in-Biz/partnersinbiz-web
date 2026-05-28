@@ -652,7 +652,27 @@ export default function CompanyDetailPage() {
         {relatedLoading && tab !== 'overview' && <Skeleton className="h-36 w-full" />}
         {tab === 'overview' && (
           <div className="space-y-6">
-            <CompanyOverviewPanel company={company} />
+            <CompanyOverviewPanel
+              company={company}
+              loading={relatedLoading}
+              center={{
+                contacts: related.contacts,
+                deals: related.deals,
+                projects: related.projects,
+                documents: related.documents,
+                serviceWorkspaces: related.serviceWorkspaces,
+                relationships: related.relationships,
+                quotes: related.quotes,
+                invoices: related.invoices,
+                orders: related.orders,
+                shipments: related.shipments,
+                inventoryItems: related.inventoryItems,
+                activities: related.activities,
+                summary: related.summary,
+                analytics: related.analytics,
+              }}
+              onSelectTab={(nextTab) => setTab(nextTab as CompanyTab)}
+            />
             {customFieldDefs.length > 0 && (
               <div className="bento-card p-5 space-y-3">
                 <p className="eyebrow !text-[10px]">Custom fields</p>

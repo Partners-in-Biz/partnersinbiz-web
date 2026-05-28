@@ -302,7 +302,13 @@ export default function AdminCompanyCommandCenterPage() {
       <CompanyTabsBar activeTab={tab} onChange={(next) => setTab(next as CompanyTab)} />
 
       <div role="tabpanel">
-        {tab === 'overview' && <CompanyOverviewPanel company={center.company} />}
+        {tab === 'overview' && (
+          <CompanyOverviewPanel
+            company={center.company}
+            center={center}
+            onSelectTab={(nextTab) => setTab(nextTab as CompanyTab)}
+          />
+        )}
         {tab === 'analytics' && <AnalyticsPanel center={center} />}
         {tab !== 'overview' && tab !== 'analytics' && <SimpleRowsPanel tab={tab} rows={rowsFor(center, tab)} />}
       </div>
