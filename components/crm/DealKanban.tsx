@@ -41,9 +41,10 @@ function formatValue(value: number, currency: string): string {
 interface DealCardProps {
   deal: Deal
   stageColor?: string
+  contactBasePath?: string
 }
 
-function DealCard({ deal, stageColor = '#6b7280' }: DealCardProps) {
+function DealCard({ deal, stageColor = '#6b7280', contactBasePath = '/portal/contacts' }: DealCardProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: deal.id })
 
   return (
@@ -64,7 +65,7 @@ function DealCard({ deal, stageColor = '#6b7280' }: DealCardProps) {
           </span>
           {deal.contactId && (
             <Link
-              href={`/portal/contacts/${deal.contactId}`}
+              href={`${contactBasePath}/${deal.contactId}`}
               onClick={e => e.stopPropagation()}
               className="text-[10px] font-label px-2 py-0.5 rounded-full truncate max-w-[120px]"
               style={{ background: 'var(--color-surface-container)', color: 'var(--color-on-surface-variant)' }}
@@ -87,9 +88,10 @@ function DealCard({ deal, stageColor = '#6b7280' }: DealCardProps) {
 interface DealColumnProps {
   stage: PipelineStage
   deals: Deal[]
+  contactBasePath?: string
 }
 
-function DealColumn({ stage, deals }: DealColumnProps) {
+function DealColumn({ stage, deals, contactBasePath }: DealColumnProps) {
   const dealIds = deals.map(d => d.id)
   const { setNodeRef, isOver } = useDroppable({ id: stage.id })
   const color = stage.color ?? '#6b7280'
@@ -118,7 +120,7 @@ function DealColumn({ stage, deals }: DealColumnProps) {
           style={isOver ? { background: 'color-mix(in oklab, var(--color-accent-v2) 8%, transparent)' } : undefined}
         >
           {deals.map(deal => (
-            <DealCard key={deal.id} deal={deal} stageColor={color} />
+            <DealCard key={deal.id} deal={deal} stageColor={color} contactBasePath={contactBasePath} />
           ))}
           {deals.length === 0 && (
             <div
@@ -157,13 +159,14 @@ export interface DealKanbanProps {
   stages: PipelineStage[]   // W3-H: pass pipeline.stages from the parent
   loading?: boolean
   onStageChange: (dealId: string, newStageId: string) => Promise<void>
+  contactBasePath?: string
 }
 
 function Skeleton() {
   return <div className="pib-skeleton h-16 rounded-lg" />
 }
 
-export function DealKanban({ deals: initialDeals, stages, loading = false, onStageChange }: DealKanbanProps) {
+export function DealKanban({ deals: initialDeals, stages, loading = false, onStageChange, contactBasePath = '/portal/contacts' }: DealKanbanProps) {
   const [deals, setDeals] = useState<Deal[]>(initialDeals)
   const [activeId, setActiveId] = useState<string | null>(null)
 
@@ -253,7 +256,7 @@ export function DealKanban({ deals: initialDeals, stages, loading = false, onSta
               </div>
             </div>
           ) : (
-            <DealColumn key={stage.id} stage={stage} deals={getDealsForStage(stage.id)} />
+            <DealColumn key={stage.id} stage={stage} deals={getDealsForStage(stage.id)} contactBasePath={contactBasePath} />
           ),
         )}
       </div>
