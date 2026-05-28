@@ -1,7 +1,9 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import type { ReactNode } from 'react'
 import { Surface, StatusPill } from '@/components/ui/AppFoundation'
+import { cn } from '@/lib/utils'
 
 type Summary = {
   totalProjects?: number
@@ -98,14 +100,78 @@ function healthTone(status: string | undefined): 'success' | 'warn' | 'danger' |
   return 'neutral'
 }
 
-function StatTile({ icon, value, label }: { icon: string; value: string; label: string }) {
+function StatTile({ icon, value, label, tone = 'neutral' }: { icon: string; value: string; label: string; tone?: 'neutral' | 'warn' | 'danger' | 'success' }) {
+  const toneClass = {
+    neutral: 'border-[var(--color-card-border)] bg-[var(--color-card)] text-on-surface',
+    warn: 'border-[#f59e0b40] bg-[#f59e0b10] text-[#fbbf24]',
+    danger: 'border-[#ef444440] bg-[#ef444410] text-[#f87171]',
+    success: 'border-[#22c55e40] bg-[#22c55e10] text-[#86efac]',
+  }[tone]
+
   return (
-    <div className="min-w-0 rounded-md border border-[var(--color-card-border)] bg-black/[0.12] px-3 py-3">
+    <div className={cn('min-w-0 rounded-md border px-3 py-3', toneClass)}>
       <div className="flex items-center gap-2 text-xs text-on-surface-variant">
         <span aria-hidden="true" className="material-symbols-outlined text-[16px]">{icon}</span>
         <span className="truncate">{label}</span>
       </div>
-      <div className="mt-2 truncate text-base font-semibold text-on-surface">{value}</div>
+      <div className="mt-2 truncate text-base font-semibold">{value}</div>
+    </div>
+  )
+}
+
+function Lane({
+  title,
+  icon,
+  count,
+  color,
+  children,
+}: {
+  title: string
+  icon: string
+  count?: number
+  color: string
+  children: ReactNode
+}) {
+  return (
+    <section className="flex min-w-0 flex-col">
+      <div className="mb-3 flex items-center gap-2 px-1">
+        <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: color }} />
+        <span aria-hidden="true" className="material-symbols-outlined text-[16px] text-on-surface-variant">{icon}</span>
+        <h3 className="truncate text-xs font-label uppercase tracking-widest text-on-surface-variant">{title}</h3>
+        {typeof count === 'number' ? (
+          <span className="ml-auto rounded-full bg-[var(--color-surface-container)] px-1.5 py-0.5 text-[9px] font-label text-on-surface-variant">
+            {count}
+          </span>
+        ) : null}
+      </div>
+      <div className="flex flex-1 flex-col gap-2">{children}</div>
+    </section>
+  )
+}
+
+function EmptyLane({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex min-h-24 items-center justify-center rounded-lg border border-dashed border-[var(--color-card-border)] px-3 py-8 text-center text-xs text-on-surface-variant">
+      {children}
+    </div>
+  )
+}
+
+function RailCard({
+  children,
+  color = 'var(--color-outline)',
+  className,
+}: {
+  children: ReactNode
+  color?: string
+  className?: string
+}) {
+  return (
+    <div
+      className={cn('pib-card min-w-0 transition-all duration-150 hover:border-[var(--color-accent-v2)]', className)}
+      style={{ borderLeft: `3px solid ${color}`, padding: '12px' }}
+    >
+      {children}
     </div>
   )
 }
@@ -173,19 +239,24 @@ export function ProjectPortfolioReportPanel({ reportUrl = '/api/v1/projects/repo
     <Surface className="p-0 overflow-hidden">
       <div className="border-b border-[var(--color-card-border)] px-4 py-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-          <div>
+          <div className="min-w-0">
             <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Portfolio health</p>
             <h2 className="mt-1 text-lg font-headline font-semibold text-on-surface">Portfolio report</h2>
+            <p className="mt-1 max-w-2xl text-sm text-on-surface-variant">A kanban-style readout of client load, project health, and team capacity.</p>
           </div>
           <div className="flex flex-wrap gap-2 text-xs text-on-surface-variant">
-            <span className="inline-flex items-center gap-1 rounded-full border border-[var(--color-card-border)] px-2 py-1">
+            <span className="inline-flex items-center gap-1 rounded-full border border-[var(--color-card-border)] bg-[var(--color-surface-container)] px-2 py-1">
               <span aria-hidden="true" className="material-symbols-outlined text-[14px]">folder_managed</span>
               {plural(totalProjects, 'project')}
             </span>
-            {blockedTasks > 0 ? (
-              <span className="inline-flex items-center gap-1 rounded-full border border-[#ef444440] px-2 py-1 text-[#f87171]">
-                <span aria-hidden="true" className="material-symbols-outlined text-[14px]">block</span>
-                {plural(blockedTasks, 'blocked', 'blocked')}
+            <span className="inline-flex items-center gap-1 rounded-full border border-[var(--color-card-border)] bg-[var(--color-surface-container)] px-2 py-1">
+              <span aria-hidden="true" className="material-symbols-outlined text-[14px]">database</span>
+              Live data
+            </span>
+            {overCapacityPeople > 0 ? (
+              <span className="inline-flex items-center gap-1 rounded-full border border-[#f59e0b40] bg-[#f59e0b10] px-2 py-1 text-[#fbbf24]">
+                <span aria-hidden="true" className="material-symbols-outlined text-[14px]">groups</span>
+                {plural(overCapacityPeople, 'person', 'people')} over capacity
               </span>
             ) : null}
           </div>
@@ -193,111 +264,105 @@ export function ProjectPortfolioReportPanel({ reportUrl = '/api/v1/projects/repo
 
         <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
           <StatTile icon="task_alt" label="Open tasks" value={plural(numberValue(summary.openTasks), 'open', 'open')} />
-          <StatTile icon="block" label="Blocked" value={plural(blockedTasks, 'blocked', 'blocked')} />
-          <StatTile icon="schedule" label="Overdue" value={plural(numberValue(summary.overdueTasks), 'overdue', 'overdue')} />
-          <StatTile icon="approval" label="Approvals" value={plural(waitingApprovals, 'approval')} />
-          <StatTile icon="warning" label="High risks" value={plural(highRisks, 'risk')} />
+          <StatTile icon="block" label="Blocked" value={plural(blockedTasks, 'blocked', 'blocked')} tone={blockedTasks > 0 ? 'danger' : 'success'} />
+          <StatTile icon="schedule" label="Overdue" value={plural(numberValue(summary.overdueTasks), 'overdue', 'overdue')} tone={numberValue(summary.overdueTasks) > 0 ? 'warn' : 'neutral'} />
+          <StatTile icon="approval" label="Approvals" value={plural(waitingApprovals, 'approval')} tone={waitingApprovals > 0 ? 'warn' : 'neutral'} />
+          <StatTile icon="warning" label="High risks" value={plural(highRisks, 'risk')} tone={highRisks > 0 ? 'danger' : 'success'} />
           <StatTile icon="payments" label="Revenue" value={formatCurrency(trackedRevenue, currency)} />
         </div>
       </div>
 
-      <div className="grid gap-4 p-4 xl:grid-cols-[1.1fr_0.9fr]">
-        <div className="space-y-4">
-          <section>
-            <div className="mb-2 flex items-center justify-between gap-3">
-              <h3 className="text-sm font-semibold text-on-surface">Client portfolio</h3>
-              <span className="text-xs text-on-surface-variant">{plural(clients.length, 'client')}</span>
-            </div>
-            <div className="space-y-2">
-              {clients.length === 0 ? (
-                <p className="rounded-md border border-dashed border-[var(--color-card-border)] px-3 py-4 text-sm text-on-surface-variant">No client reporting data yet.</p>
-              ) : clients.map((client) => (
-                <div key={client.clientOrgId} className="grid gap-3 rounded-md border border-[var(--color-card-border)] px-3 py-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+      <div className="grid gap-4 p-4 xl:grid-cols-3">
+        <Lane title="Client portfolio" icon="business_center" count={clients.length} color="#60a5fa">
+          {clients.length === 0 ? (
+            <EmptyLane>No client reporting data yet.</EmptyLane>
+          ) : clients.map((client) => {
+            const clientBlockedTasks = numberValue(client.blockedTasks)
+            return (
+              <RailCard key={client.clientOrgId} color={clientBlockedTasks > 0 ? '#ef4444' : '#60a5fa'}>
+                <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium text-on-surface">{client.clientName}</p>
                     <p className="mt-1 text-xs text-on-surface-variant">
-                      {plural(numberValue(client.projectCount), 'project')} · {plural(numberValue(client.openTasks), 'open', 'open')} · {plural(numberValue(client.blockedTasks), 'blocked', 'blocked')}
+                      {plural(numberValue(client.projectCount), 'project')} · {plural(numberValue(client.openTasks), 'open', 'open')} · {plural(clientBlockedTasks, 'blocked', 'blocked')}
                     </p>
                   </div>
-                  <div className="text-left sm:text-right">
-                    <p className="text-sm font-semibold text-on-surface">{formatCurrency(numberValue(client.trackedRevenue), currency)}</p>
-                    {numberValue(client.highRisks) > 0 ? <p className="mt-1 text-xs text-[#f87171]">{plural(numberValue(client.highRisks), 'high risk')}</p> : null}
-                  </div>
+                  <span className="shrink-0 rounded-full bg-[var(--color-surface-container)] px-2 py-0.5 text-[10px] font-semibold text-on-surface">
+                    {formatCurrency(numberValue(client.trackedRevenue), currency)}
+                  </span>
                 </div>
-              ))}
-            </div>
-          </section>
+                {numberValue(client.highRisks) > 0 ? (
+                  <p className="mt-2 inline-flex items-center gap-1 rounded border border-[#ef444440] bg-[#ef444410] px-2 py-1 text-[10px] text-[#f87171]">
+                    <span aria-hidden="true" className="material-symbols-outlined text-[13px]">warning</span>
+                    {plural(numberValue(client.highRisks), 'high risk')}
+                  </p>
+                ) : null}
+              </RailCard>
+            )
+          })}
+        </Lane>
 
-          <section>
-            <div className="mb-2 flex items-center justify-between gap-3">
-              <h3 className="text-sm font-semibold text-on-surface">Project health</h3>
-              {overCapacityPeople > 0 ? <span className="text-xs text-[#f59e0b]">{plural(overCapacityPeople, 'person', 'people')} over capacity</span> : null}
-            </div>
-            <div className="space-y-2">
-              {projects.length === 0 ? (
-                <p className="rounded-md border border-dashed border-[var(--color-card-border)] px-3 py-4 text-sm text-on-surface-variant">No project health data yet.</p>
-              ) : projects.map((project) => {
-                const healthStatus = project.health?.status
-                return (
-                  <div key={project.id} className="grid gap-3 rounded-md border border-[var(--color-card-border)] px-3 py-3 lg:grid-cols-[minmax(0,1fr)_auto]">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-on-surface">{project.name}</p>
-                      <p className="mt-1 text-xs text-on-surface-variant">
-                        {displayStatus(project.status)} · {plural(numberValue(project.reports?.tasks?.open), 'open', 'open')} · {plural(numberValue(project.timeline?.dependencyCount), 'dependency', 'dependencies')}
-                      </p>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2 lg:justify-end">
-                      <StatusPill tone={healthTone(healthStatus)}>{displayStatus(healthStatus)}</StatusPill>
-                      <span className="text-xs text-on-surface-variant">{numberValue(project.timeline?.driftCount)} drift</span>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </section>
-        </div>
-
-        <aside className="space-y-4">
-          <section>
-            <h3 className="mb-2 text-sm font-semibold text-on-surface">Workload</h3>
-            <div className="space-y-2">
-              {people.length === 0 ? (
-                <p className="rounded-md border border-dashed border-[var(--color-card-border)] px-3 py-4 text-sm text-on-surface-variant">No workload data yet.</p>
-              ) : people.map((person) => {
-                const utilization = numberValue(person.utilizationPercent)
-                return (
-                  <div key={person.uid} className="rounded-md border border-[var(--color-card-border)] px-3 py-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="min-w-0 truncate text-sm font-medium text-on-surface">{person.name}</p>
-                      <span className={person.overCapacity ? 'text-sm font-semibold text-[#f59e0b]' : 'text-sm font-semibold text-on-surface'}>
-                        {utilization}%
-                      </span>
-                    </div>
-                    <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
-                      <div
-                        className={person.overCapacity ? 'h-full rounded-full bg-[#f59e0b]' : 'h-full rounded-full bg-[var(--color-pib-accent)]'}
-                        style={{ width: `${Math.min(utilization, 140)}%` }}
-                      />
-                    </div>
-                    <p className="mt-2 text-xs text-on-surface-variant">
-                      {plural(numberValue(person.assignedTasks), 'task')} · {formatMinutes(numberValue(person.estimateMinutes))} planned / {formatMinutes(numberValue(person.capacityMinutes))} capacity
+        <Lane title="Project health" icon="view_kanban" count={projects.length} color="var(--color-accent-v2)">
+          {projects.length === 0 ? (
+            <EmptyLane>No project health data yet.</EmptyLane>
+          ) : projects.map((project) => {
+            const healthStatus = project.health?.status
+            const projectBlockedTasks = numberValue(project.reports?.tasks?.blocked)
+            const railColor = healthTone(healthStatus) === 'danger' || projectBlockedTasks > 0 ? '#ef4444' : healthTone(healthStatus) === 'warn' ? '#f59e0b' : 'var(--color-accent-v2)'
+            return (
+              <RailCard key={project.id} color={railColor}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-on-surface">{project.name}</p>
+                    <p className="mt-1 text-xs text-on-surface-variant">
+                      {displayStatus(project.status)} · {plural(numberValue(project.reports?.tasks?.open), 'open', 'open')} · {plural(numberValue(project.timeline?.dependencyCount), 'dependency', 'dependencies')}
                     </p>
                   </div>
-                )
-              })}
-            </div>
-          </section>
+                  <StatusPill tone={healthTone(healthStatus)}>{displayStatus(healthStatus)}</StatusPill>
+                </div>
+                <div className="mt-3 flex flex-wrap items-center gap-2 text-[10px] text-on-surface-variant">
+                  <span className="inline-flex items-center gap-1">
+                    <span aria-hidden="true" className="material-symbols-outlined text-[13px]">timeline</span>
+                    {numberValue(project.timeline?.driftCount)} drift
+                  </span>
+                  {projectBlockedTasks > 0 ? (
+                    <span className="inline-flex items-center gap-1 text-[#f87171]">
+                      <span aria-hidden="true" className="material-symbols-outlined text-[13px]">block</span>
+                      {plural(projectBlockedTasks, 'blocked', 'blocked')}
+                    </span>
+                  ) : null}
+                </div>
+              </RailCard>
+            )
+          })}
+        </Lane>
 
-          {projects[0]?.id ? (
-            <div className="flex items-center justify-between rounded-md border border-[var(--color-card-border)] px-3 py-3 text-sm text-on-surface-variant">
-              <span className="inline-flex items-center gap-2">
-                <span aria-hidden="true" className="material-symbols-outlined text-[17px]">monitoring</span>
-                Suite source
-              </span>
-              <span className="font-medium text-on-surface">Live data</span>
-            </div>
-          ) : null}
-        </aside>
+        <Lane title="Workload" icon="groups" count={people.length} color="#c084fc">
+          {people.length === 0 ? (
+            <EmptyLane>No workload data yet.</EmptyLane>
+          ) : people.map((person) => {
+            const utilization = numberValue(person.utilizationPercent)
+            return (
+              <RailCard key={person.uid} color={person.overCapacity ? '#f59e0b' : '#c084fc'}>
+                <div className="flex items-center justify-between gap-3">
+                  <p className="min-w-0 truncate text-sm font-medium text-on-surface">{person.name}</p>
+                  <span className={person.overCapacity ? 'text-sm font-semibold text-[#f59e0b]' : 'text-sm font-semibold text-on-surface'}>
+                    {utilization}%
+                  </span>
+                </div>
+                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
+                  <div
+                    className={person.overCapacity ? 'h-full rounded-full bg-[#f59e0b]' : 'h-full rounded-full bg-[var(--color-pib-accent)]'}
+                    style={{ width: `${Math.min(utilization, 140)}%` }}
+                  />
+                </div>
+                <p className="mt-2 text-xs text-on-surface-variant">
+                  {plural(numberValue(person.assignedTasks), 'task')} · {formatMinutes(numberValue(person.estimateMinutes))} planned / {formatMinutes(numberValue(person.capacityMinutes))} capacity
+                </p>
+              </RailCard>
+            )
+          })}
+        </Lane>
       </div>
     </Surface>
   )
