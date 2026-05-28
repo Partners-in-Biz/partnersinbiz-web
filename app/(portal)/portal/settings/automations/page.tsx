@@ -1,23 +1,63 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import type { AutomationRule } from '@/lib/automations/types'
+import type { ActionType, AutomationAction, AutomationRule, TriggerEvent } from '@/lib/automations/types'
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+type ViewFilter = 'all' | 'active' | 'paused' | 'needs-work'
+
+const TRIGGER_META: Record<TriggerEvent, { label: string; icon: string; group: string; sub: string }> = {
+  'deal.created': {
+    label: 'Deal created',
+    icon: 'add_business',
+    group: 'Pipeline',
+    sub: 'Starts when a new opportunity enters CRM.',
+  },
+  'deal.stage_changed': {
+    label: 'Deal stage changed',
+    icon: 'move_group',
+    group: 'Pipeline',
+    sub: 'Runs when an opportunity moves stage.',
+  },
+  'deal.won': {
+    label: 'Deal won',
+    icon: 'trophy',
+    group: 'Revenue',
+    sub: 'Runs after a deal reaches a won stage.',
+  },
+  'deal.lost': {
+    label: 'Deal lost',
+    icon: 'do_not_disturb_on',
+    group: 'Revenue',
+    sub: 'Runs after a deal reaches a lost stage.',
+  },
+  'contact.created': {
+    label: 'Contact created',
+    icon: 'person_add',
+    group: 'Contacts',
+    sub: 'Runs when a new lead or customer is added.',
+  },
+  'contact.lifecycle_changed': {
+    label: 'Contact lifecycle changed',
+    icon: 'published_with_changes',
+    group: 'Contacts',
+    sub: 'Runs when lifecycle stage changes.',
+  },
+}
+
+const ACTION_META: Record<ActionType, { label: string; icon: string; tone: string }> = {
+  send_email: { label: 'Email', icon: 'mail', tone: 'text-sky-300 border-sky-400/20 bg-sky-400/10' },
+  send_notification: { label: 'Notify', icon: 'notifications', tone: 'text-amber-300 border-amber-400/20 bg-amber-400/10' },
+  assign_owner: { label: 'Assign', icon: 'assignment_ind', tone: 'text-violet-300 border-violet-400/20 bg-violet-400/10' },
+  dispatch_webhook: { label: 'Webhook', icon: 'webhook', tone: 'text-emerald-300 border-emerald-400/20 bg-emerald-400/10' },
+  enroll_in_sequence: { label: 'Sequence', icon: 'send_time_extension', tone: 'text-rose-300 border-rose-400/20 bg-rose-400/10' },
+}
 
 function triggerLabel(rule: AutomationRule): string {
-  const labels: Record<string, string> = {
-    'deal.created': 'Deal created',
-    'deal.stage_changed': 'Deal stage changed',
-    'deal.won': 'Deal won',
-    'deal.lost': 'Deal lost',
-    'contact.created': 'Contact created',
-    'contact.lifecycle_changed': 'Contact lifecycle changed',
-  }
-  let label = labels[rule.trigger.event] ?? rule.trigger.event
-  if (rule.trigger.toStageId) label += ' → stage filter'
+  let label = TRIGGER_META[rule.trigger.event]?.label ?? rule.trigger.event
+  if (rule.trigger.toStageId) label += ' to stage'
+  if (rule.trigger.pipelineId) label += ' in pipeline'
   return label
 }
 
@@ -28,6 +68,68 @@ function delayLabel(minutes?: number): string {
   return `After ${Math.round(minutes / 1440)}d`
 }
 
+function actionDetail(action: AutomationAction): string {
+  switch (action.type) {
+    case 'send_email':
+      return action.emailSubject?.trim() || 'Email draft'
+    case 'send_notification':
+      return action.notificationMessage?.trim() || 'Team notification'
+    case 'assign_owner':
+      return action.ownerDisplayName || action.ownerUid || 'Owner assignment'
+    case 'dispatch_webhook':
+      return action.webhookUrl || 'External endpoint'
+    case 'enroll_in_sequence':
+      return action.sequenceName || action.sequenceId || 'Sequence enrollment'
+    default:
+      return 'Action'
+  }
+}
+
+function ruleGaps(rule: AutomationRule): string[] {
+  const gaps: string[] = []
+  if (!rule.name?.trim()) gaps.push('name')
+  if (!rule.actions.length) gaps.push('action')
+  if (rule.trigger.event === 'deal.stage_changed' && !rule.trigger.toStageId) gaps.push('stage filter')
+
+  rule.actions.forEach((action) => {
+    if (action.type === 'send_email' && (!action.emailSubject?.trim() || !action.emailBody?.trim())) gaps.push('email content')
+    if (action.type === 'send_notification' && !action.notificationMessage?.trim()) gaps.push('notification copy')
+    if (action.type === 'assign_owner' && !action.ownerUid?.trim()) gaps.push('owner')
+    if (action.type === 'dispatch_webhook' && !action.webhookUrl?.trim()) gaps.push('webhook URL')
+    if (action.type === 'enroll_in_sequence' && !action.sequenceId?.trim()) gaps.push('sequence')
+  })
+
+  return Array.from(new Set(gaps))
+}
+
+function ruleScore(rule: AutomationRule): number {
+  const gaps = ruleGaps(rule).length
+  return Math.max(0, Math.round(((5 - Math.min(gaps, 5)) / 5) * 100))
+}
+
+function StatCard({ label, value, sub, icon }: { label: string; value: string; sub: string; icon: string }) {
+  return (
+    <div className="pib-stat-card min-h-[124px]">
+      <div className="flex items-start justify-between gap-3">
+        <p className="eyebrow !text-[10px]">{label}</p>
+        <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">{icon}</span>
+      </div>
+      <p className="mt-3 font-display text-3xl leading-none text-[var(--color-pib-text)]">{value}</p>
+      <p className="mt-3 text-xs text-[var(--color-pib-text-muted)]">{sub}</p>
+    </div>
+  )
+}
+
+function ActionChip({ action }: { action: AutomationAction }) {
+  const meta = ACTION_META[action.type]
+  return (
+    <span className={`inline-flex max-w-full items-center gap-1 rounded-full border px-2 py-1 text-[10px] ${meta.tone}`}>
+      <span className="material-symbols-outlined text-[13px] shrink-0">{meta.icon}</span>
+      <span className="truncate">{meta.label}</span>
+    </span>
+  )
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function AutomationsPage() {
@@ -36,8 +138,8 @@ export default function AutomationsPage() {
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [togglingId, setTogglingId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
-
-  // ── Fetch ──────────────────────────────────────────────────────────────────
+  const [filter, setFilter] = useState<ViewFilter>('all')
+  const [search, setSearch] = useState('')
 
   useEffect(() => {
     setLoading(true)
@@ -55,13 +157,40 @@ export default function AutomationsPage() {
       .finally(() => setLoading(false))
   }, [])
 
-  // ── Toggle enabled ─────────────────────────────────────────────────────────
+  const stats = useMemo(() => {
+    const active = rules.filter((rule) => rule.enabled).length
+    const delayed = rules.filter((rule) => Boolean(rule.delayMinutes)).length
+    const needsWork = rules.filter((rule) => ruleGaps(rule).length > 0).length
+    const actions = rules.reduce((sum, rule) => sum + rule.actions.length, 0)
+    const eventCoverage = new Set(rules.map((rule) => rule.trigger.event)).size
+
+    return { active, paused: rules.length - active, delayed, needsWork, actions, eventCoverage }
+  }, [rules])
+
+  const visibleRules = useMemo(() => {
+    const query = search.trim().toLowerCase()
+    return rules.filter((rule) => {
+      if (filter === 'active' && !rule.enabled) return false
+      if (filter === 'paused' && rule.enabled) return false
+      if (filter === 'needs-work' && ruleGaps(rule).length === 0) return false
+      if (!query) return true
+      return [
+        rule.name,
+        rule.description,
+        triggerLabel(rule),
+        ...rule.actions.map(actionDetail),
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+        .includes(query)
+    })
+  }, [filter, rules, search])
 
   async function handleToggle(rule: AutomationRule) {
     if (togglingId) return
     const newEnabled = !rule.enabled
 
-    // Optimistic update
     setRules((prev) =>
       prev.map((r) => (r.id === rule.id ? { ...r, enabled: newEnabled } : r))
     )
@@ -78,7 +207,6 @@ export default function AutomationsPage() {
         throw new Error((body as { error?: string }).error ?? `HTTP ${res.status}`)
       }
     } catch {
-      // Rollback on error
       setRules((prev) =>
         prev.map((r) => (r.id === rule.id ? { ...r, enabled: rule.enabled } : r))
       )
@@ -86,8 +214,6 @@ export default function AutomationsPage() {
       setTogglingId(null)
     }
   }
-
-  // ── Delete ─────────────────────────────────────────────────────────────────
 
   async function handleDelete(rule: AutomationRule) {
     if (!window.confirm('Delete this automation?')) return
@@ -108,165 +234,260 @@ export default function AutomationsPage() {
     }
   }
 
-  // ── Render ─────────────────────────────────────────────────────────────────
-
   return (
-    <div className="max-w-4xl">
-      <div className="flex items-start justify-between gap-4 mb-6">
+    <div className="max-w-6xl space-y-6">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <h1 className="text-lg font-semibold mb-1">Automations</h1>
-          <p className="text-sm text-[var(--color-pib-text-muted)]">
-            Automate actions when CRM events occur.
+          <p className="eyebrow !text-[10px]">CRM operations</p>
+          <h1 className="pib-page-title mt-2">Automation command center</h1>
+          <p className="pib-page-sub max-w-2xl">
+            Design, monitor, and tune the CRM rules that react to contact and deal movement without leaving gaps in follow-up.
           </p>
         </div>
         <Link
           href="/portal/settings/automations/new"
-          className="btn-pib-accent flex items-center gap-1.5 text-sm shrink-0"
+          className="btn-pib-accent flex w-fit shrink-0 items-center gap-1.5 text-sm"
         >
           <span className="material-symbols-outlined text-[16px]">add</span>
           New automation
         </Link>
       </div>
 
-      {loading ? (
-        <p className="text-sm text-[var(--color-pib-text-muted)]">Loading…</p>
-      ) : fetchError ? (
-        <div className="px-4 py-3 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] text-sm text-[var(--color-pib-text-muted)]">
-          {fetchError}
-        </div>
-      ) : rules.length === 0 ? (
-        <div className="bento-card !p-8 text-center">
-          <span className="material-symbols-outlined text-4xl mb-2 block text-[var(--color-pib-text-muted)]">
-            bolt
-          </span>
-          <p className="text-sm text-[var(--color-pib-text-muted)]">
-            No automations yet. Create your first rule.
-          </p>
-          <Link
-            href="/portal/settings/automations/new"
-            className="btn-pib-accent flex items-center gap-1.5 text-sm mx-auto mt-4 w-fit"
-          >
-            <span className="material-symbols-outlined text-[16px]">add</span>
-            New automation
-          </Link>
-        </div>
-      ) : (
-        <div className="bento-card !p-0 overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-[var(--color-pib-line)]">
-                <th className="text-left px-4 py-3 text-[10px] font-semibold text-[var(--color-pib-text-muted)] uppercase tracking-wider">
-                  Name
-                </th>
-                <th className="text-left px-4 py-3 text-[10px] font-semibold text-[var(--color-pib-text-muted)] uppercase tracking-wider">
-                  Trigger
-                </th>
-                <th className="text-left px-4 py-3 text-[10px] font-semibold text-[var(--color-pib-text-muted)] uppercase tracking-wider">
-                  Delay
-                </th>
-                <th className="text-left px-4 py-3 text-[10px] font-semibold text-[var(--color-pib-text-muted)] uppercase tracking-wider">
-                  Actions
-                </th>
-                <th className="text-left px-4 py-3 text-[10px] font-semibold text-[var(--color-pib-text-muted)] uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="text-right px-4 py-3 text-[10px] font-semibold text-[var(--color-pib-text-muted)] uppercase tracking-wider">
-                  Edit / Delete
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {rules.map((rule, i) => {
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <StatCard label="Live rules" value={String(stats.active)} sub={`${stats.paused} paused for review`} icon="bolt" />
+        <StatCard label="Event coverage" value={`${stats.eventCoverage}/6`} sub="CRM triggers with at least one rule" icon="hub" />
+        <StatCard label="Workflow actions" value={String(stats.actions)} sub={`${stats.delayed} delayed handoffs configured`} icon="account_tree" />
+        <StatCard label="Needs work" value={String(stats.needsWork)} sub="Rules missing useful execution details" icon="rule_settings" />
+      </div>
+
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,0.7fr)_minmax(0,1.3fr)]">
+        <aside className="space-y-5">
+          <div className="bento-card !p-5 space-y-4">
+            <div>
+              <h2 className="text-sm font-semibold">Operating view</h2>
+              <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
+                Segment rules by state, then search by trigger, message, owner, sequence, or endpoint.
+              </p>
+            </div>
+            <input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search automations..."
+              className="w-full rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-3 py-2 text-sm outline-none focus:border-[var(--color-pib-accent)]"
+            />
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                ['all', 'All'],
+                ['active', 'Active'],
+                ['paused', 'Paused'],
+                ['needs-work', 'Needs work'],
+              ].map(([id, label]) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setFilter(id as ViewFilter)}
+                  className={[
+                    'cursor-pointer rounded-lg border px-3 py-2 text-left text-xs transition-colors',
+                    filter === id
+                      ? 'border-[var(--color-pib-accent)] bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-text)]'
+                      : 'border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:bg-white/[0.03]',
+                  ].join(' ')}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="bento-card !p-5">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-semibold">Trigger map</h2>
+                <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">Coverage across CRM events.</p>
+              </div>
+              <span className="text-[10px] rounded-full border border-[var(--color-pib-line)] px-2 py-1 text-[var(--color-pib-text-muted)]">
+                {stats.eventCoverage} active
+              </span>
+            </div>
+            <div className="space-y-2">
+              {(Object.entries(TRIGGER_META) as Array<[TriggerEvent, (typeof TRIGGER_META)[TriggerEvent]]>).map(([event, meta]) => {
+                const count = rules.filter((rule) => rule.trigger.event === event).length
+                return (
+                  <div key={event} className="flex items-center justify-between gap-3 rounded-lg border border-[var(--color-pib-line)] px-3 py-2">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <span className="material-symbols-outlined text-[16px] text-[var(--color-pib-text-muted)]">{meta.icon}</span>
+                      <div className="min-w-0">
+                        <p className="truncate text-xs font-medium">{meta.label}</p>
+                        <p className="truncate text-[10px] text-[var(--color-pib-text-muted)]">{meta.group}</p>
+                      </div>
+                    </div>
+                    <span className={count > 0 ? 'text-xs text-emerald-300' : 'text-xs text-[var(--color-pib-text-muted)]'}>
+                      {count}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </aside>
+
+        <section>
+          {loading ? (
+            <div className="bento-card !p-6">
+              <p className="text-sm text-[var(--color-pib-text-muted)]">Loading automations...</p>
+            </div>
+          ) : fetchError ? (
+            <div className="rounded-lg border border-red-400/25 bg-red-400/10 px-4 py-3 text-sm text-red-200">
+              {fetchError}
+            </div>
+          ) : rules.length === 0 ? (
+            <div className="bento-card !p-8 text-center">
+              <span className="material-symbols-outlined mb-3 block text-4xl text-[var(--color-pib-text-muted)]">
+                account_tree
+              </span>
+              <h2 className="text-base font-semibold">No automations yet</h2>
+              <p className="mx-auto mt-2 max-w-md text-sm text-[var(--color-pib-text-muted)]">
+                Start with one rule that covers the highest-risk follow-up, like notifying the owner when a lead becomes sales qualified.
+              </p>
+              <Link
+                href="/portal/settings/automations/new"
+                className="btn-pib-accent mx-auto mt-5 flex w-fit items-center gap-1.5 text-sm"
+              >
+                <span className="material-symbols-outlined text-[16px]">add</span>
+                New automation
+              </Link>
+            </div>
+          ) : visibleRules.length === 0 ? (
+            <div className="bento-card !p-8 text-center">
+              <span className="material-symbols-outlined mb-2 block text-3xl text-[var(--color-pib-text-muted)]">manage_search</span>
+              <p className="text-sm text-[var(--color-pib-text-muted)]">No automations match this view.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {visibleRules.map((rule) => {
                 const isToggling = togglingId === rule.id
                 const isDeleting = deletingId === rule.id
+                const triggerMeta = TRIGGER_META[rule.trigger.event]
+                const gaps = ruleGaps(rule)
+                const score = ruleScore(rule)
 
                 return (
-                  <tr
+                  <article
                     key={rule.id}
                     className={[
-                      'transition-colors hover:bg-white/[0.02]',
-                      i < rules.length - 1 ? 'border-b border-[var(--color-pib-line)]' : '',
+                      'bento-card !p-0 overflow-hidden transition-colors hover:border-[var(--color-pib-accent)]',
                       isDeleting ? 'opacity-50 pointer-events-none' : '',
                     ].join(' ')}
                   >
-                    {/* Name */}
-                    <td className="px-4 py-3 font-medium max-w-[180px] truncate">
-                      {rule.name}
-                    </td>
+                    <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(240px,0.9fr)_auto]">
+                      <div className="min-w-0">
+                        <div className="mb-2 flex flex-wrap items-center gap-2">
+                          <span
+                            className={[
+                              'inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px]',
+                              rule.enabled
+                                ? 'border-emerald-400/20 bg-emerald-400/10 text-emerald-300'
+                                : 'border-amber-400/20 bg-amber-400/10 text-amber-300',
+                            ].join(' ')}
+                          >
+                            <span className="material-symbols-outlined text-[13px]">{rule.enabled ? 'play_arrow' : 'pause'}</span>
+                            {rule.enabled ? 'Active' : 'Paused'}
+                          </span>
+                          <span className="rounded-full border border-[var(--color-pib-line)] px-2 py-1 text-[10px] text-[var(--color-pib-text-muted)]">
+                            {delayLabel(rule.delayMinutes)}
+                          </span>
+                          <span className={score >= 80 ? 'rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2 py-1 text-[10px] text-emerald-300' : 'rounded-full border border-amber-400/20 bg-amber-400/10 px-2 py-1 text-[10px] text-amber-300'}>
+                            {score}% ready
+                          </span>
+                        </div>
+                        <h2 className="truncate text-base font-semibold">{rule.name}</h2>
+                        {rule.description && (
+                          <p className="mt-1 line-clamp-2 text-xs text-[var(--color-pib-text-muted)]">{rule.description}</p>
+                        )}
+                        <div className="mt-4 flex items-start gap-3 rounded-lg border border-[var(--color-pib-line)] bg-black/10 px-3 py-3">
+                          <span className="material-symbols-outlined mt-0.5 text-[18px] text-[var(--color-pib-accent)]">{triggerMeta.icon}</span>
+                          <div className="min-w-0">
+                            <p className="text-xs font-medium">{triggerLabel(rule)}</p>
+                            <p className="mt-1 line-clamp-2 text-[11px] text-[var(--color-pib-text-muted)]">{triggerMeta.sub}</p>
+                          </div>
+                        </div>
+                      </div>
 
-                    {/* Trigger */}
-                    <td className="px-4 py-3 text-[var(--color-pib-text-muted)] text-xs">
-                      {triggerLabel(rule)}
-                    </td>
+                      <div className="min-w-0">
+                        <p className="eyebrow !text-[10px] mb-2">Action chain</p>
+                        <div className="mb-3 flex flex-wrap gap-1.5">
+                          {rule.actions.map((action, index) => (
+                            <ActionChip key={`${action.type}-${index}`} action={action} />
+                          ))}
+                        </div>
+                        <div className="space-y-2">
+                          {rule.actions.slice(0, 3).map((action, index) => (
+                            <div key={`${action.type}-detail-${index}`} className="flex min-w-0 items-center gap-2 text-xs text-[var(--color-pib-text-muted)]">
+                              <span className="h-5 w-5 shrink-0 rounded-full border border-[var(--color-pib-line)] text-center text-[10px] leading-5">
+                                {index + 1}
+                              </span>
+                              <span className="truncate">{actionDetail(action)}</span>
+                            </div>
+                          ))}
+                        </div>
+                        {gaps.length > 0 && (
+                          <p className="mt-3 text-[11px] text-amber-300">
+                            Needs: {gaps.join(', ')}
+                          </p>
+                        )}
+                      </div>
 
-                    {/* Delay */}
-                    <td className="px-4 py-3 text-[var(--color-pib-text-muted)] text-xs whitespace-nowrap">
-                      {delayLabel(rule.delayMinutes)}
-                    </td>
-
-                    {/* Actions count */}
-                    <td className="px-4 py-3 text-[var(--color-pib-text-muted)] text-xs whitespace-nowrap">
-                      {rule.actions.length} action{rule.actions.length !== 1 ? 's' : ''}
-                    </td>
-
-                    {/* Enabled toggle */}
-                    <td className="px-4 py-3">
-                      <button
-                        type="button"
-                        onClick={() => handleToggle(rule)}
-                        disabled={isToggling}
-                        title={rule.enabled ? 'Disable automation' : 'Enable automation'}
-                        className={[
-                          'cursor-pointer relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus-visible:outline-none',
-                          rule.enabled
-                            ? 'bg-[var(--color-pib-accent)]'
-                            : 'bg-[var(--color-pib-line-strong)]',
-                          isToggling ? 'opacity-60' : '',
-                        ].join(' ')}
-                      >
-                        <span
-                          className={[
-                            'inline-block h-3.5 w-3.5 rounded-full bg-white shadow-sm transition-transform',
-                            rule.enabled ? 'translate-x-4' : 'translate-x-0.5',
-                          ].join(' ')}
-                        />
-                      </button>
-                    </td>
-
-                    {/* Edit / Delete */}
-                    <td className="px-4 py-3">
-                      <div className="flex items-center justify-end gap-1">
-                        <Link
-                          href={`/portal/settings/automations/${rule.id}/edit`}
-                          title="Edit automation"
-                          className="w-7 h-7 flex items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.06] transition-colors"
-                        >
-                          <span className="material-symbols-outlined text-[16px]">edit</span>
-                        </Link>
+                      <div className="flex items-center justify-between gap-2 lg:flex-col lg:items-end">
                         <button
                           type="button"
-                          onClick={() => handleDelete(rule)}
-                          disabled={isDeleting}
-                          title="Delete automation"
-                          className="cursor-pointer w-7 h-7 flex items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] hover:text-red-400 hover:bg-red-400/[0.08] transition-colors"
+                          onClick={() => handleToggle(rule)}
+                          disabled={isToggling}
+                          title={rule.enabled ? 'Disable automation' : 'Enable automation'}
+                          className={[
+                            'cursor-pointer relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors focus-visible:outline-none',
+                            rule.enabled ? 'bg-[var(--color-pib-accent)]' : 'bg-[var(--color-pib-line-strong)]',
+                            isToggling ? 'opacity-60' : '',
+                          ].join(' ')}
                         >
-                          {isDeleting ? (
-                            <span className="material-symbols-outlined text-[16px] animate-spin">
-                              progress_activity
-                            </span>
-                          ) : (
-                            <span className="material-symbols-outlined text-[16px]">delete</span>
-                          )}
+                          <span
+                            className={[
+                              'inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform',
+                              rule.enabled ? 'translate-x-6' : 'translate-x-1',
+                            ].join(' ')}
+                          />
                         </button>
+
+                        <div className="flex items-center justify-end gap-1">
+                          <Link
+                            href={`/portal/settings/automations/${rule.id}/edit`}
+                            title="Edit automation"
+                            className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.06] hover:text-[var(--color-pib-text)]"
+                          >
+                            <span className="material-symbols-outlined text-[17px]">edit</span>
+                          </Link>
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(rule)}
+                            disabled={isDeleting}
+                            title="Delete automation"
+                            className="cursor-pointer flex h-8 w-8 items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] transition-colors hover:bg-red-400/[0.08] hover:text-red-400"
+                          >
+                            {isDeleting ? (
+                              <span className="material-symbols-outlined text-[17px] animate-spin">progress_activity</span>
+                            ) : (
+                              <span className="material-symbols-outlined text-[17px]">delete</span>
+                            )}
+                          </button>
+                        </div>
                       </div>
-                    </td>
-                  </tr>
+                    </div>
+                  </article>
                 )
               })}
-            </tbody>
-          </table>
-        </div>
-      )}
+            </div>
+          )}
+        </section>
+      </div>
     </div>
   )
 }

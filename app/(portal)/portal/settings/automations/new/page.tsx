@@ -3,12 +3,11 @@ export const dynamic = 'force-dynamic'
 
 import { useRouter } from 'next/navigation'
 import { AutomationRuleForm } from '@/components/crm/AutomationRuleForm'
-import type { AutomationRule } from '@/lib/automations/types'
 
 export default function NewAutomationPage() {
   const router = useRouter()
 
-  function handleSave(_rule: AutomationRule) {
+  function handleSave() {
     router.push('/portal/settings/automations')
   }
 
@@ -17,20 +16,29 @@ export default function NewAutomationPage() {
   }
 
   return (
-    <div className="max-w-2xl">
-      <div className="mb-6">
-        <button
-          type="button"
-          onClick={handleCancel}
-          className="cursor-pointer flex items-center gap-1 text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] mb-4 transition-colors"
-        >
-          <span className="material-symbols-outlined text-[14px]">arrow_back</span>
-          Automations
-        </button>
-        <h1 className="text-lg font-semibold">New Automation</h1>
-        <p className="text-sm text-[var(--color-pib-text-muted)] mt-1">
-          Define a trigger and one or more actions to run automatically.
-        </p>
+    <div className="max-w-6xl space-y-6">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <button
+            type="button"
+            onClick={handleCancel}
+            className="cursor-pointer flex items-center gap-1 text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] mb-4 transition-colors"
+          >
+            <span className="material-symbols-outlined text-[14px]">arrow_back</span>
+            Automations
+          </button>
+          <p className="eyebrow !text-[10px]">Rule builder</p>
+          <h1 className="pib-page-title mt-2">New automation</h1>
+          <p className="pib-page-sub max-w-2xl">
+            Define the CRM moment, timing, and execution chain so the team gets consistent follow-up without manual chasing.
+          </p>
+        </div>
+        <div className="bento-card !p-4 w-full max-w-sm">
+          <p className="text-xs font-medium">Recommended starting point</p>
+          <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
+            Start with one trigger and one high-confidence action, then expand once the rule is live.
+          </p>
+        </div>
       </div>
 
       <AutomationRuleForm onSave={handleSave} onCancel={handleCancel} />

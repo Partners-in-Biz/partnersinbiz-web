@@ -19,27 +19,33 @@ export default function EditAutomationPage({
   const [fetchError, setFetchError] = useState<string | null>(null)
 
   useEffect(() => {
-    setLoading(true)
-    setFetchError(null)
+    let cancelled = false
 
-    fetch('/api/v1/crm/automations')
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`)
-        return r.json()
-      })
-      .then((body) => {
-        const rules: AutomationRule[] = body.data ?? body
+    async function loadRule() {
+      setLoading(true)
+      setFetchError(null)
+      try {
+        const res = await fetch('/api/v1/crm/automations')
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        const body = await res.json()
+        const rules: AutomationRule[] = body.data?.rules ?? body.data ?? body
         const found = Array.isArray(rules) ? rules.find((r) => r.id === id) : null
         if (!found) throw new Error('Automation rule not found.')
-        setRule(found)
-      })
-      .catch((err: unknown) => {
-        setFetchError(err instanceof Error ? err.message : 'Failed to load rule.')
-      })
-      .finally(() => setLoading(false))
+        if (!cancelled) setRule(found)
+      } catch (err: unknown) {
+        if (!cancelled) setFetchError(err instanceof Error ? err.message : 'Failed to load rule.')
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+
+    void loadRule()
+    return () => {
+      cancelled = true
+    }
   }, [id])
 
-  function handleSave(_updated: AutomationRule) {
+  function handleSave() {
     router.push('/portal/settings/automations')
   }
 
@@ -48,20 +54,31 @@ export default function EditAutomationPage({
   }
 
   return (
-    <div className="max-w-2xl">
-      <div className="mb-6">
-        <button
-          type="button"
-          onClick={handleCancel}
-          className="cursor-pointer flex items-center gap-1 text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] mb-4 transition-colors"
-        >
-          <span className="material-symbols-outlined text-[14px]">arrow_back</span>
-          Automations
-        </button>
-        <h1 className="text-lg font-semibold">Edit Automation</h1>
-        <p className="text-sm text-[var(--color-pib-text-muted)] mt-1">
-          Update this rule&apos;s trigger, timing, or actions.
-        </p>
+    <div className="max-w-6xl space-y-6">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <button
+            type="button"
+            onClick={handleCancel}
+            className="cursor-pointer flex items-center gap-1 text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] mb-4 transition-colors"
+          >
+            <span className="material-symbols-outlined text-[14px]">arrow_back</span>
+            Automations
+          </button>
+          <p className="eyebrow !text-[10px]">Rule builder</p>
+          <h1 className="pib-page-title mt-2">Edit automation</h1>
+          <p className="pib-page-sub max-w-2xl">
+            Tune the trigger, timing, and execution chain without breaking the rule&apos;s operational intent.
+          </p>
+        </div>
+        {rule && (
+          <div className="bento-card !p-4 w-full max-w-sm">
+            <p className="text-xs font-medium">{rule.enabled ? 'Currently live' : 'Currently paused'}</p>
+            <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
+              {rule.actions.length} action{rule.actions.length === 1 ? '' : 's'} configured for this automation.
+            </p>
+          </div>
+        )}
       </div>
 
       {loading ? (

@@ -9,6 +9,39 @@ import type {
   TriggerEvent,
 } from '@/lib/automations/types'
 
+const TRIGGER_LABELS: Record<TriggerEvent, string> = {
+  'deal.created': 'Deal created',
+  'deal.stage_changed': 'Deal stage changed',
+  'deal.won': 'Deal won',
+  'deal.lost': 'Deal lost',
+  'contact.created': 'Contact created',
+  'contact.lifecycle_changed': 'Contact lifecycle changed',
+}
+
+const ACTION_LABELS: Record<ActionType, { label: string; icon: string }> = {
+  send_email: { label: 'Send email', icon: 'mail' },
+  send_notification: { label: 'Send notification', icon: 'notifications' },
+  assign_owner: { label: 'Assign owner', icon: 'assignment_ind' },
+  dispatch_webhook: { label: 'Dispatch webhook', icon: 'webhook' },
+  enroll_in_sequence: { label: 'Enroll in sequence', icon: 'send_time_extension' },
+}
+
+function describeDelay(minutes?: number) {
+  if (!minutes) return 'immediately'
+  if (minutes < 60) return `after ${minutes} minutes`
+  if (minutes < 1440) return `after ${Math.round(minutes / 60)} hours`
+  return `after ${Math.round(minutes / 1440)} days`
+}
+
+function actionCompleteness(action: AutomationAction) {
+  if (action.type === 'send_email') return Boolean(action.emailSubject?.trim() && action.emailBody?.trim())
+  if (action.type === 'send_notification') return Boolean(action.notificationMessage?.trim())
+  if (action.type === 'assign_owner') return Boolean(action.ownerUid?.trim())
+  if (action.type === 'dispatch_webhook') return Boolean(action.webhookUrl?.trim())
+  if (action.type === 'enroll_in_sequence') return Boolean(action.sequenceId?.trim())
+  return true
+}
+
 // ── SequencePickerInline ───────────────────────────────────────────────────────
 
 function SequencePickerInline({ value, onChange }: { value: string; onChange: (id: string, name: string) => void }) {
@@ -144,6 +177,16 @@ function ActionRow({
           onChange={(id, name) => onChange({ ...action, sequenceId: id, sequenceName: name })}
         />
       )}
+
+      <div className="flex items-center gap-2 text-[11px] text-[var(--color-pib-text-muted)]">
+        <span
+          className={[
+            'h-2 w-2 rounded-full',
+            actionCompleteness(action) ? 'bg-emerald-400' : 'bg-amber-400',
+          ].join(' ')}
+        />
+        {actionCompleteness(action) ? 'Ready to execute' : 'Needs execution details'}
+      </div>
     </div>
   )
 }
@@ -175,6 +218,8 @@ export function AutomationRuleForm({ initial, onSave, onCancel }: Props) {
   const [validationError, setValidationError] = useState<string | null>(null)
 
   const isEdit = Boolean(initial?.id)
+  const computedDelay = computeDelayMinutes()
+  const readyActions = actions.filter(actionCompleteness).length
 
   function computeDelayMinutes(): number | undefined {
     if (delayMode === 'immediate') return undefined
@@ -208,6 +253,10 @@ export function AutomationRuleForm({ initial, onSave, onCancel }: Props) {
     }
     if (actions.length === 0) {
       setValidationError('Add at least one action.')
+      return
+    }
+    if (readyActions !== actions.length) {
+      setValidationError('Complete every action before saving this automation.')
       return
     }
 
@@ -245,10 +294,17 @@ export function AutomationRuleForm({ initial, onSave, onCancel }: Props) {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="space-y-4">
       {/* ── Name ── */}
       <div className="bento-card !p-6">
-        <p className="eyebrow !text-[10px] mb-4">Rule name</p>
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div>
+            <p className="eyebrow !text-[10px]">Rule identity</p>
+            <h2 className="mt-2 text-sm font-semibold">Name the business outcome</h2>
+          </div>
+          <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">edit_note</span>
+        </div>
         <input
           type="text"
           placeholder="e.g. Welcome email on contact created"
@@ -260,7 +316,13 @@ export function AutomationRuleForm({ initial, onSave, onCancel }: Props) {
 
       {/* ── Trigger ── */}
       <div className="bento-card !p-6">
-        <p className="eyebrow !text-[10px] mb-4">Trigger</p>
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div>
+            <p className="eyebrow !text-[10px]">Trigger</p>
+            <h2 className="mt-2 text-sm font-semibold">Choose the CRM moment</h2>
+          </div>
+          <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">bolt</span>
+        </div>
         <select
           value={trigger.event}
           onChange={(e) =>
@@ -299,7 +361,13 @@ export function AutomationRuleForm({ initial, onSave, onCancel }: Props) {
 
       {/* ── Timing ── */}
       <div className="bento-card !p-6">
-        <p className="eyebrow !text-[10px] mb-4">Timing</p>
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div>
+            <p className="eyebrow !text-[10px]">Timing</p>
+            <h2 className="mt-2 text-sm font-semibold">Decide when it runs</h2>
+          </div>
+          <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">schedule</span>
+        </div>
         <div className="flex gap-6">
           <label className="flex items-center gap-2 cursor-pointer">
             <input
@@ -347,7 +415,13 @@ export function AutomationRuleForm({ initial, onSave, onCancel }: Props) {
 
       {/* ── Actions ── */}
       <div className="bento-card !p-6">
-        <p className="eyebrow !text-[10px] mb-4">Actions</p>
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div>
+            <p className="eyebrow !text-[10px]">Actions</p>
+            <h2 className="mt-2 text-sm font-semibold">Build the execution chain</h2>
+          </div>
+          <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">account_tree</span>
+        </div>
 
         {actions.length === 0 && (
           <p className="text-sm text-[var(--color-pib-text-muted)] mb-3">
@@ -408,7 +482,7 @@ export function AutomationRuleForm({ initial, onSave, onCancel }: Props) {
           type="button"
           onClick={handleSubmit}
           disabled={saving}
-          className="cursor-pointer btn-pib-accent flex items-center gap-1.5 text-sm disabled:opacity-60"
+          className="cursor-pointer btn-pib-accent flex items-center gap-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-60"
         >
           <span className="material-symbols-outlined text-[16px]">save</span>
           {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Create rule'}
@@ -422,6 +496,55 @@ export function AutomationRuleForm({ initial, onSave, onCancel }: Props) {
           Cancel
         </button>
       </div>
+      </div>
+
+      <aside className="space-y-4 xl:sticky xl:top-6 xl:self-start">
+        <div className="bento-card !p-5">
+          <p className="eyebrow !text-[10px]">Rule preview</p>
+          <h2 className="mt-2 text-sm font-semibold">{name.trim() || 'Untitled automation'}</h2>
+          <p className="mt-3 text-sm text-[var(--color-pib-text-muted)]">
+            When <span className="text-[var(--color-pib-text)]">{TRIGGER_LABELS[trigger.event]}</span> happens, run{' '}
+            <span className="text-[var(--color-pib-text)]">{actions.length || 'no'} action{actions.length === 1 ? '' : 's'}</span>{' '}
+            {describeDelay(computedDelay)}.
+          </p>
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            <div className="rounded-lg border border-[var(--color-pib-line)] px-3 py-2">
+              <p className="text-[10px] text-[var(--color-pib-text-muted)]">Ready actions</p>
+              <p className="mt-1 text-lg font-semibold">{readyActions}/{actions.length}</p>
+            </div>
+            <div className="rounded-lg border border-[var(--color-pib-line)] px-3 py-2">
+              <p className="text-[10px] text-[var(--color-pib-text-muted)]">Status</p>
+              <p className={enabled ? 'mt-1 text-lg font-semibold text-emerald-300' : 'mt-1 text-lg font-semibold text-amber-300'}>
+                {enabled ? 'Live' : 'Paused'}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bento-card !p-5">
+          <p className="eyebrow !text-[10px]">Action stack</p>
+          <div className="mt-4 space-y-2">
+            {actions.length === 0 ? (
+              <p className="text-sm text-[var(--color-pib-text-muted)]">Add at least one action to complete the rule.</p>
+            ) : (
+              actions.map((action, index) => {
+                const meta = ACTION_LABELS[action.type]
+                return (
+                  <div key={`${action.type}-${index}`} className="flex items-center gap-3 rounded-lg border border-[var(--color-pib-line)] px-3 py-2">
+                    <span className="material-symbols-outlined text-[16px] text-[var(--color-pib-text-muted)]">{meta.icon}</span>
+                    <div className="min-w-0">
+                      <p className="truncate text-xs font-medium">{meta.label}</p>
+                      <p className={actionCompleteness(action) ? 'text-[10px] text-emerald-300' : 'text-[10px] text-amber-300'}>
+                        {actionCompleteness(action) ? 'Ready' : 'Needs detail'}
+                      </p>
+                    </div>
+                  </div>
+                )
+              })
+            )}
+          </div>
+        </div>
+      </aside>
     </div>
   )
 }
