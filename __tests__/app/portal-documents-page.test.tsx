@@ -17,10 +17,13 @@ describe('portal documents page', () => {
   it('loads documents for the active portal org when the viewer is an admin', async () => {
     global.fetch = jest.fn((input: RequestInfo | URL) => {
       const url = String(input)
-      if (url === '/api/v1/portal/active-org') {
+      if (url === '/api/v1/portal/org') {
         return Promise.resolve({
           ok: true,
-          json: async () => ({ orgId: 'org-1' }),
+          json: async () => ({
+            org: { id: 'org-1', name: 'Client One' },
+            user: { role: 'admin' },
+          }),
         } as Response)
       }
       if (url === '/api/v1/client-documents?orgId=org-1') {
@@ -51,7 +54,11 @@ describe('portal documents page', () => {
     await waitFor(() => {
       expect(screen.getByText('Foce Property Investments Proposal')).toBeInTheDocument()
     })
-    expect(global.fetch).toHaveBeenCalledWith('/api/v1/portal/active-org', { cache: 'no-store' })
+    expect(screen.getByText('Prepared by')).toBeInTheDocument()
+    expect(screen.getByText('Partners in Biz')).toBeInTheDocument()
+    expect(screen.getByText('Recipient')).toBeInTheDocument()
+    expect(screen.getByText('Client One')).toBeInTheDocument()
+    expect(global.fetch).toHaveBeenCalledWith('/api/v1/portal/org', { cache: 'no-store' })
     expect(global.fetch).toHaveBeenCalledWith('/api/v1/client-documents?orgId=org-1')
     expect(global.fetch).not.toHaveBeenCalledWith('/api/v1/client-documents')
   })

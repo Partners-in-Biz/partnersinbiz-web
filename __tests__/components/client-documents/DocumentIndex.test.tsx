@@ -80,4 +80,28 @@ describe('DocumentIndex', () => {
     expect(screen.getByText('Client One CRM')).toBeInTheDocument()
     expect(screen.getByText('Client One Portal')).toBeInTheDocument()
   })
+
+  it('renders prepared-by and recipient party labels', () => {
+    render(
+      <DocumentIndex
+        documents={[document]}
+        basePath="/portal/documents"
+        partyLabels={{
+          'doc-1': {
+            creatorCompanyName: 'Partners in Biz',
+            creatorContactName: 'Peet Stander',
+            recipientCompanyName: 'Client One',
+            recipientContactName: 'Jane Client',
+          },
+        }}
+      />,
+    )
+
+    expect(screen.getByText('Prepared by')).toBeInTheDocument()
+    expect(screen.getByText('Partners in Biz')).toBeInTheDocument()
+    expect(screen.getByText('Peet Stander')).toBeInTheDocument()
+    expect(screen.getByText('Recipient')).toBeInTheDocument()
+    expect(screen.getByText('Client One')).toBeInTheDocument()
+    expect(screen.getByText('Jane Client')).toBeInTheDocument()
+  })
 })
