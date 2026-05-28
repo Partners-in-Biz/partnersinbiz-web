@@ -10,7 +10,7 @@ import { apiSuccess, apiError } from '@/lib/api/response'
 import { CLIENT_DOCUMENTS_COLLECTION } from '@/lib/client-documents/store'
 import type { ClientDocument } from '@/lib/client-documents/types'
 import { getProjectForUser } from '@/lib/projects/access'
-import { filterInternalItemsForProjectAccess } from '@/lib/projects/collaboration'
+import { filterProjectItemsForAccess } from '@/lib/projects/collaboration'
 
 export const dynamic = 'force-dynamic'
 
@@ -37,9 +37,9 @@ export const GET = withAuth('client', async (req: NextRequest, user, ctx) => {
     .map(doc => ({ id: doc.id, source: 'client_documents', ...(doc.data() as Partial<ClientDocument>) }))
     .filter(doc => doc.deleted !== true)
 
-  return apiSuccess(filterInternalItemsForProjectAccess(
+  return apiSuccess(filterProjectItemsForAccess(
     [...clientDocuments, ...legacyDocs],
-    access.projectAccess?.canViewInternal === true,
+    { projectAccess: access.projectAccess, user },
   ))
 })
 

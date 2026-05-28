@@ -194,6 +194,52 @@ function mockFetch() {
             approvals: [{ id: 'approval-1', title: 'Homepage approval', status: 'pending' }],
             risks: [{ id: 'risk-1', title: 'Scope drift', severity: 'high', status: 'open' }],
             decisions: [{ id: 'decision-1', title: 'Use staged launch', status: 'accepted' }],
+            baselines: [{ id: 'baseline-1', title: 'Website launch baseline', status: 'active' }],
+            playbooks: [{ id: 'playbook-1', title: 'Weekly client report', status: 'active' }],
+            automations: [{ id: 'automation-1', title: 'Notify when milestone slips', status: 'active' }],
+            permissions: [{ id: 'permission-1', title: 'Client-visible tasks only', visibility: 'external' }],
+            audit: [{ id: 'audit-1', title: 'Project created', actorName: 'Peet Stander', createdAt: '2026-05-20T09:00:00.000Z' }],
+            notificationSettings: [{ id: 'notification-1', title: 'Approval reminders', channel: 'email', status: 'active' }],
+            timeline: {
+              driftCount: 1,
+              items: [
+                { id: 'timeline-1', kind: 'milestone', title: 'Design sprint', startDate: '2026-05-20', dueDate: '2026-06-01', baselineDriftDays: 4, dependencies: ['task-1'] },
+              ],
+            },
+            workload: {
+              assignees: [
+                { uid: 'owner-1', name: 'Peet Stander', assignedTasks: 2, estimateMinutes: 75, capacityMinutes: 300, utilizationPercent: 25 },
+              ],
+            },
+            reports: {
+              tasks: { total: 4, done: 2, blocked: 1, overdue: 2 },
+              approvals: { waiting: 1 },
+              revenue: { trackedAmount: 12000, currency: 'ZAR' },
+            },
+          },
+        }),
+      } as Response)
+    }
+    if (url === '/api/v1/crm/companies?search=partner&limit=8') {
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({
+          data: {
+            companies: [
+              { id: 'company-1', name: 'Partner Org', email: 'hello@partner.example' },
+            ],
+          },
+        }),
+      } as Response)
+    }
+    if (url === '/api/v1/crm/companies/company-1/contacts?limit=20') {
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({
+          data: {
+            contacts: [
+              { id: 'contact-1', name: 'Priya Contact', email: 'priya@partner.example' },
+            ],
           },
         }),
       } as Response)
@@ -262,17 +308,55 @@ describe('Admin project docs and settings tabs', () => {
     expect(screen.getByText('pending@example.com')).toBeInTheDocument()
   })
 
-  it('shows project health, milestones, approvals, risks, and decisions in the Plan tab', async () => {
+  it('searches CRM companies and contacts when inviting external organisations', async () => {
+    render(<ProjectDetailPage />)
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Settings' }))
+
+    await waitFor(() => expect(screen.getByLabelText('Search CRM company')).toBeInTheDocument())
+    fireEvent.change(screen.getByLabelText('Search CRM company'), { target: { value: 'partner' } })
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Select Partner Org' })).toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: 'Select Partner Org' }))
+
+    await waitFor(() => expect(screen.getByText('Priya Contact')).toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: 'Select Priya Contact' }))
+
+    expect(screen.getByText('Selected company: Partner Org')).toBeInTheDocument()
+    expect(screen.getByText('Selected contact: Priya Contact')).toBeInTheDocument()
+  })
+
+  it('shows project health, timeline, workload, automations, controls, and reports in the Plan tab', async () => {
     render(<ProjectDetailPage />)
 
     fireEvent.click(screen.getByRole('tab', { name: 'Plan' }))
 
     await waitFor(() => expect(screen.getByText('Project health')).toBeInTheDocument())
-    expect(screen.getByText('52')).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByText('52')).toBeInTheDocument())
     expect(screen.getByText('Launch readiness')).toBeInTheDocument()
     expect(screen.getByText('Homepage approval')).toBeInTheDocument()
     expect(screen.getByText('Scope drift')).toBeInTheDocument()
     expect(screen.getByText('Use staged launch')).toBeInTheDocument()
+    expect(screen.getByText('Timeline')).toBeInTheDocument()
+    expect(screen.getByText('Baseline drift')).toBeInTheDocument()
+    expect(screen.getByText('Design sprint')).toBeInTheDocument()
+    expect(screen.getByText('Website launch baseline')).toBeInTheDocument()
+    expect(screen.getByText('Workload')).toBeInTheDocument()
+    expect(screen.getByText('Capacity')).toBeInTheDocument()
+    expect(screen.getAllByText('Peet Stander').length).toBeGreaterThan(0)
+    expect(screen.getByText('Project reports')).toBeInTheDocument()
+    expect(screen.getByText('Revenue')).toBeInTheDocument()
+    expect(screen.getByText('ZAR 12,000')).toBeInTheDocument()
+    expect(screen.getByText('Playbooks')).toBeInTheDocument()
+    expect(screen.getByText('Weekly client report')).toBeInTheDocument()
+    expect(screen.getByText('Automations')).toBeInTheDocument()
+    expect(screen.getByText('Notify when milestone slips')).toBeInTheDocument()
+    expect(screen.getByText('Access controls')).toBeInTheDocument()
+    expect(screen.getByText('Client-visible tasks only')).toBeInTheDocument()
+    expect(screen.getByText('Audit timeline')).toBeInTheDocument()
+    expect(screen.getByText('Project created')).toBeInTheDocument()
+    expect(screen.getByText('Notifications')).toBeInTheDocument()
+    expect(screen.getByText('Approval reminders')).toBeInTheDocument()
   })
 
   it('shows the board-progress summary with done and active blocker counts', async () => {

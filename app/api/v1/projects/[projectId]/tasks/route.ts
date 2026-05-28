@@ -10,7 +10,7 @@ import {
   notificationPriority,
   taskOrderMillis,
 } from '@/lib/projects/taskPayload'
-import { filterInternalItemsForProjectAccess } from '@/lib/projects/collaboration'
+import { filterProjectItemsForAccess } from '@/lib/projects/collaboration'
 
 export const dynamic = 'force-dynamic'
 
@@ -30,7 +30,7 @@ export const GET = withAuth('client', async (req: NextRequest, user, ctx) => {
   const tasks = snapshot.docs
     .map(doc => ({ id: doc.id, ...doc.data() }))
     .sort((a, b) => taskOrderMillis((a as Record<string, unknown>).order) - taskOrderMillis((b as Record<string, unknown>).order))
-  return apiSuccess(filterInternalItemsForProjectAccess(tasks, access.projectAccess?.canViewInternal === true))
+  return apiSuccess(filterProjectItemsForAccess(tasks, { projectAccess: access.projectAccess, user }))
 })
 
 export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {

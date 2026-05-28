@@ -31,6 +31,20 @@ type AccessInvite = {
   role?: string
 }
 
+type CrmCompany = {
+  id: string
+  name?: string
+  email?: string
+  linkedOrgId?: string
+}
+
+type CrmContact = {
+  id: string
+  name?: string
+  email?: string
+  linkedUserId?: string
+}
+
 interface AccessData {
   members: AccessMember[]
   organizations: AccessOrganization[]
@@ -62,6 +76,13 @@ export function ProjectPeopleAccessPanel({ projectId }: { projectId: string }) {
   const [memberRole, setMemberRole] = useState('contributor')
   const [companyId, setCompanyId] = useState('')
   const [contactId, setContactId] = useState('')
+  const [companySearch, setCompanySearch] = useState('')
+  const [companyResults, setCompanyResults] = useState<CrmCompany[]>([])
+  const [companySearchLoading, setCompanySearchLoading] = useState(false)
+  const [selectedCompany, setSelectedCompany] = useState<CrmCompany | null>(null)
+  const [contactResults, setContactResults] = useState<CrmContact[]>([])
+  const [contactsLoading, setContactsLoading] = useState(false)
+  const [selectedContact, setSelectedContact] = useState<CrmContact | null>(null)
   const [orgRole, setOrgRole] = useState('reviewer')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -98,6 +119,55 @@ export function ProjectPeopleAccessPanel({ projectId }: { projectId: string }) {
     loadAccess().catch(() => {})
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId])
+
+  useEffect(() => {
+    const query = companySearch.trim()
+    if (query.length < 2) {
+      setCompanyResults([])
+      setCompanySearchLoading(false)
+      return
+    }
+
+    let cancelled = false
+    setCompanySearchLoading(true)
+    fetch(`/api/v1/crm/companies?search=${encodeURIComponent(query)}&limit=8`)
+      .then(async (res) => {
+        const body = await res.json().catch(() => ({}))
+        const companies = body.data?.companies
+        if (!cancelled) setCompanyResults(Array.isArray(companies) ? companies : [])
+      })
+      .catch(() => {
+        if (!cancelled) setCompanyResults([])
+      })
+      .finally(() => {
+        if (!cancelled) setCompanySearchLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [companySearch])
+
+  useEffect(() => {
+    if (!selectedCompany?.id) {
+      setContactResults([])
+      setContactsLoading(false)
+      return
+    }
+
+    let cancelled = false
+    setContactsLoading(true)
+    fetch(`/api/v1/crm/companies/${selectedCompany.id}/contacts?limit=20`)
+      .then(async (res) => {
+        const body = await res.json().catch(() => ({}))
+        const contacts = body.data?.contacts
+        if (!cancelled) setContactResults(Array.isArray(contacts) ? contacts : [])
+      })
+      .catch(() => {
+        if (!cancelled) setContactResults([])
+      })
+      .finally(() => {
+        if (!cancelled) setContactsLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [selectedCompany])
 
   async function postAccess(payload: Record<string, unknown>) {
     setSubmitting(true)
@@ -192,17 +262,91 @@ export function ProjectPeopleAccessPanel({ projectId }: { projectId: string }) {
               postAccess({ action: 'invite_organizations', invites: [{ companyId: companyId.trim(), contactId: contactId.trim(), role: orgRole }] }).then(() => {
                 setCompanyId('')
                 setContactId('')
+                setCompanySearch('')
+                setCompanyResults([])
+                setSelectedCompany(null)
+                setSelectedContact(null)
+                setContactResults([])
               })
             }}
           >
-            <label>
-              <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">CRM company ID</span>
-              <input value={companyId} onChange={(event) => setCompanyId(event.target.value)} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface" />
-            </label>
-            <label>
-              <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">CRM contact ID</span>
-              <input value={contactId} onChange={(event) => setContactId(event.target.value)} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface" />
-            </label>
+            <div className="sm:col-span-3">
+              <label>
+                <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Search CRM company</span>
+                <input
+                  value={companySearch}
+                  onChange={(event) => {
+                    setCompanySearch(event.target.value)
+                    setSelectedCompany(null)
+                    setSelectedContact(null)
+                    setCompanyId('')
+                    setContactId('')
+                  }}
+                  placeholder="Search by company name or email"
+                  className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface"
+                />
+              </label>
+              <div className="mt-2 grid gap-2">
+                {companySearchLoading ? <p className="text-xs text-on-surface-variant">Searching companies...</p> : null}
+                {companyResults.map((company) => (
+                  <button
+                    key={company.id}
+                    type="button"
+                    aria-label={`Select ${company.name || company.email || company.id}`}
+                    onClick={() => {
+                      setSelectedCompany(company)
+                      setCompanyId(company.id)
+                      setSelectedContact(null)
+                      setContactId('')
+                    }}
+                    className="flex items-center justify-between gap-3 rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-left text-sm text-on-surface hover:border-[var(--color-primary)]"
+                  >
+                    <span className="min-w-0">
+                      <span className="block truncate font-medium">{company.name || 'Unnamed company'}</span>
+                      {company.email ? <span className="block truncate text-xs text-on-surface-variant">{company.email}</span> : null}
+                    </span>
+                    <span className="material-symbols-outlined text-[18px]">chevron_right</span>
+                  </button>
+                ))}
+              </div>
+              {selectedCompany ? (
+                <p className="mt-2 rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-xs text-on-surface">
+                  Selected company: {selectedCompany.name || selectedCompany.email || selectedCompany.id}
+                </p>
+              ) : null}
+            </div>
+            {selectedCompany ? (
+              <div className="sm:col-span-2">
+                <p className="mb-1 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">CRM contact</p>
+                <div className="grid gap-2">
+                  {contactsLoading ? <p className="text-xs text-on-surface-variant">Loading contacts...</p> : null}
+                  {!contactsLoading && contactResults.length === 0 ? <p className="text-xs text-on-surface-variant">No linked contacts found for this company.</p> : null}
+                  {contactResults.map((contact) => (
+                    <button
+                      key={contact.id}
+                      type="button"
+                      aria-label={`Select ${contact.name || contact.email || contact.id}`}
+                      onClick={() => {
+                        setSelectedContact(contact)
+                        setContactId(contact.id)
+                      }}
+                      className="flex items-center justify-between gap-3 rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-left text-sm text-on-surface hover:border-[var(--color-primary)]"
+                    >
+                      <span className="min-w-0">
+                        <span className="block truncate font-medium">{contact.name || 'Unnamed contact'}</span>
+                        {contact.email ? <span className="block truncate text-xs text-on-surface-variant">{contact.email}</span> : null}
+                      </span>
+                      <span className="material-symbols-outlined text-[18px]">person_add</span>
+                    </button>
+                  ))}
+                </div>
+                {selectedContact ? (
+                  <p className="mt-2 rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-xs text-on-surface">
+                    Selected contact: {selectedContact.name || selectedContact.email || selectedContact.id}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
             <label>
               <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Role</span>
               <select value={orgRole} onChange={(event) => setOrgRole(event.target.value)} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface">

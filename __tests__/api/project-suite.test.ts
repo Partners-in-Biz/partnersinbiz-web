@@ -9,16 +9,26 @@ const mockMilestonesGet = jest.fn()
 const mockApprovalsGet = jest.fn()
 const mockRisksGet = jest.fn()
 const mockDecisionsGet = jest.fn()
+const mockBaselinesGet = jest.fn()
+const mockPlaybooksGet = jest.fn()
+const mockAutomationsGet = jest.fn()
+const mockPermissionsGet = jest.fn()
+const mockAuditGet = jest.fn()
+const mockNotificationSettingsGet = jest.fn()
+const mockCapacitiesGet = jest.fn()
+const mockRevenueGet = jest.fn()
 const mockMilestoneAdd = jest.fn()
+const mockAutomationAdd = jest.fn()
 
-let mockUser = { uid: 'owner-1', role: 'admin' as const, orgId: 'owner-org' }
+const mockUser = { uid: 'owner-1', role: 'admin' as const, orgId: 'owner-org' }
+type MockAuthHandler = (req: NextRequest, user: typeof mockUser, ctx?: unknown) => unknown
 
 jest.mock('@/lib/firebase/admin', () => ({
   adminDb: { collection: mockCollection },
 }))
 
 jest.mock('@/lib/api/auth', () => ({
-  withAuth: (_role: string, handler: any) => async (req: NextRequest, ctx?: unknown) =>
+  withAuth: (_role: string, handler: MockAuthHandler) => async (req: NextRequest, ctx?: unknown) =>
     handler(req, mockUser, ctx),
 }))
 
@@ -47,11 +57,33 @@ beforeEach(() => {
     projectAccess: { role: 'manager', source: 'project_member', canViewInternal: false },
   })
   mockTasksGet.mockResolvedValue(docs([
-    { id: 'task-1', data: { title: 'Public blocked task', columnId: 'blocked', dueDate: '2026-01-01' } },
+    {
+      id: 'task-1',
+      data: {
+        title: 'Public blocked task',
+        columnId: 'blocked',
+        startDate: '2026-01-01',
+        dueDate: '2026-01-10',
+        baselineDueDate: '2026-01-05',
+        estimateMinutes: 120,
+        assigneeIds: ['owner-1'],
+        dependsOn: ['task-0'],
+      },
+    },
     { id: 'task-internal', data: { title: 'Internal blocked task', columnId: 'blocked', internalOnly: true } },
   ]))
   mockMilestonesGet.mockResolvedValue(docs([
-    { id: 'milestone-1', data: { title: 'Launch', dueDate: '2026-01-02', status: 'active' } },
+    {
+      id: 'milestone-1',
+      data: {
+        title: 'Launch',
+        startDate: '2026-01-01',
+        dueDate: '2026-01-15',
+        baselineDueDate: '2026-01-10',
+        status: 'active',
+        dependsOn: ['task-1'],
+      },
+    },
   ]))
   mockApprovalsGet.mockResolvedValue(docs([
     { id: 'approval-1', data: { title: 'Client approval', status: 'pending' } },
@@ -62,13 +94,47 @@ beforeEach(() => {
   mockDecisionsGet.mockResolvedValue(docs([
     { id: 'decision-1', data: { title: 'Use staged launch', status: 'accepted' } },
   ]))
+  mockBaselinesGet.mockResolvedValue(docs([
+    { id: 'baseline-1', data: { title: 'Website launch baseline', status: 'active' } },
+  ]))
+  mockPlaybooksGet.mockResolvedValue(docs([
+    { id: 'playbook-1', data: { title: 'Weekly client report', status: 'active' } },
+  ]))
+  mockAutomationsGet.mockResolvedValue(docs([
+    { id: 'automation-1', data: { title: 'Notify when milestone slips', status: 'active' } },
+  ]))
+  mockPermissionsGet.mockResolvedValue(docs([
+    { id: 'permission-1', data: { title: 'Client-visible tasks only', visibility: 'external', allowedRoleIds: ['reviewer'] } },
+    { id: 'permission-internal', data: { title: 'Internal controls', visibility: 'internal' } },
+  ]))
+  mockAuditGet.mockResolvedValue(docs([
+    { id: 'audit-1', data: { title: 'Project created', actorName: 'Peet Stander', createdAt: '2026-01-01' } },
+  ]))
+  mockNotificationSettingsGet.mockResolvedValue(docs([
+    { id: 'notification-1', data: { title: 'Approval reminders', channel: 'email', status: 'active' } },
+  ]))
+  mockCapacitiesGet.mockResolvedValue(docs([
+    { id: 'capacity-1', data: { uid: 'owner-1', displayName: 'Peet Stander', capacityMinutes: 480 } },
+  ]))
+  mockRevenueGet.mockResolvedValue(docs([
+    { id: 'revenue-1', data: { amount: 12500, currency: 'ZAR' } },
+  ]))
   mockMilestoneAdd.mockResolvedValue({ id: 'milestone-new' })
+  mockAutomationAdd.mockResolvedValue({ id: 'automation-new' })
   mockSubCollection.mockImplementation((name: string) => {
     if (name === 'tasks') return { get: mockTasksGet }
     if (name === 'milestones') return { get: mockMilestonesGet, add: mockMilestoneAdd }
     if (name === 'approvals') return { get: mockApprovalsGet }
     if (name === 'risks') return { get: mockRisksGet }
     if (name === 'decisions') return { get: mockDecisionsGet }
+    if (name === 'baselines') return { get: mockBaselinesGet }
+    if (name === 'playbooks') return { get: mockPlaybooksGet }
+    if (name === 'automations') return { get: mockAutomationsGet, add: mockAutomationAdd }
+    if (name === 'permissions') return { get: mockPermissionsGet }
+    if (name === 'audit') return { get: mockAuditGet }
+    if (name === 'notificationSettings') return { get: mockNotificationSettingsGet }
+    if (name === 'capacities') return { get: mockCapacitiesGet }
+    if (name === 'revenue') return { get: mockRevenueGet }
     throw new Error(`Unexpected subcollection ${name}`)
   })
   mockProjectDoc.mockReturnValue({ collection: mockSubCollection })
@@ -92,6 +158,21 @@ describe('project suite API', () => {
     expect(body.data.approvals).toHaveLength(1)
     expect(body.data.risks).toHaveLength(1)
     expect(body.data.decisions).toHaveLength(1)
+    expect(body.data.baselines).toHaveLength(1)
+    expect(body.data.playbooks).toHaveLength(1)
+    expect(body.data.automations).toHaveLength(1)
+    expect(body.data.permissions.map((permission: { id: string }) => permission.id)).toEqual(['permission-1'])
+    expect(body.data.audit).toHaveLength(1)
+    expect(body.data.notificationSettings).toHaveLength(1)
+    expect(body.data.timeline.items).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'task-1', kind: 'task', dependencies: ['task-0'], baselineDriftDays: 5 }),
+      expect.objectContaining({ id: 'milestone-1', kind: 'milestone', dependencies: ['task-1'], baselineDriftDays: 5 }),
+    ]))
+    expect(body.data.workload.assignees).toEqual(expect.arrayContaining([
+      expect.objectContaining({ uid: 'owner-1', name: 'Peet Stander', assignedTasks: 1, estimateMinutes: 120, capacityMinutes: 480, utilizationPercent: 25 }),
+    ]))
+    expect(body.data.reports.tasks).toEqual(expect.objectContaining({ total: 1, blocked: 1 }))
+    expect(body.data.reports.revenue).toEqual(expect.objectContaining({ trackedAmount: 12500, currency: 'ZAR' }))
     expect(body.data.health.level).toBe('at_risk')
     expect(body.data.health.blockedTasks).toBe(1)
   })
@@ -104,7 +185,10 @@ describe('project suite API', () => {
       body: JSON.stringify({
         type: 'milestone',
         title: 'Public launch',
+        startDate: '2026-06-15',
         dueDate: '2026-07-01',
+        baselineDueDate: '2026-06-20',
+        dependsOn: ['task-1'],
         internalOnly: true,
       }),
     }), {
@@ -114,8 +198,39 @@ describe('project suite API', () => {
     expect(res.status).toBe(201)
     expect(mockMilestoneAdd).toHaveBeenCalledWith(expect.objectContaining({
       title: 'Public launch',
+      startDate: '2026-06-15',
       dueDate: '2026-07-01',
+      baselineDueDate: '2026-06-20',
+      dependsOn: ['task-1'],
       internalOnly: true,
+      createdBy: 'owner-1',
+    }))
+  })
+
+  it('creates automation records with configurable visibility controls', async () => {
+    const { POST } = await import('@/app/api/v1/projects/[projectId]/suite/route')
+    const res = await POST(new NextRequest('http://localhost/api/v1/projects/project-1/suite', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        type: 'automation',
+        title: 'Notify when milestone slips',
+        trigger: 'milestone_drift',
+        visibility: 'restricted',
+        allowedRoleIds: ['manager'],
+        notificationChannels: ['email', 'in_app'],
+      }),
+    }), {
+      params: Promise.resolve({ projectId: 'project-1' }),
+    })
+
+    expect(res.status).toBe(201)
+    expect(mockAutomationAdd).toHaveBeenCalledWith(expect.objectContaining({
+      title: 'Notify when milestone slips',
+      trigger: 'milestone_drift',
+      visibility: 'restricted',
+      allowedRoleIds: ['manager'],
+      notificationChannels: ['email', 'in_app'],
       createdBy: 'owner-1',
     }))
   })
