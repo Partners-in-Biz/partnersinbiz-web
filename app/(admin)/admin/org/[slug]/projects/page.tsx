@@ -6,7 +6,7 @@ import { collection, onSnapshot, query, where } from 'firebase/firestore'
 import { getClientDb } from '@/lib/firebase/config'
 import { CrossProjectBoard } from '@/components/projects/CrossProjectBoard'
 import { ProjectListCard } from '@/components/projects/ProjectListCard'
-import { PageHeader, Surface } from '@/components/ui/AppFoundation'
+import { PageHeader, PageTabs, Surface } from '@/components/ui/AppFoundation'
 import type { BoardTask } from '@/components/projects/CrossProjectBoard'
 
 interface Project {
@@ -24,6 +24,13 @@ function Skeleton({ className = '' }: { className?: string }) {
 }
 
 const STATUS_OPTIONS = ['discovery', 'design', 'development', 'review', 'live', 'maintenance']
+const PROJECT_STAGE_TABS = [
+  { value: 'all', label: 'All' },
+  ...STATUS_OPTIONS.map((status) => ({
+    value: status,
+    label: status.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase()),
+  })),
+]
 const PROJECT_REFRESH_INTERVAL_MS = 10000
 
 function receivedProjectsUrl(slug: string) {
@@ -352,23 +359,12 @@ export default function ProjectsPage() {
 
       {/* Filters and view controls */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex gap-2 flex-wrap">
-          {['all', ...STATUS_OPTIONS].map(s => (
-            <button
-              key={s}
-              onClick={() => setFilter(s)}
-              className={[
-                'text-xs font-label px-3 py-1.5 rounded-[var(--radius-btn)] transition-colors capitalize',
-                filter === s
-                  ? 'text-black font-medium'
-                  : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container',
-              ].join(' ')}
-              style={filter === s ? { background: 'var(--color-accent-v2)' } : {}}
-            >
-              {s === 'all' ? 'All' : s.replace(/_/g, ' ')}
-            </button>
-          ))}
-        </div>
+        <PageTabs
+          ariaLabel="Project stage filters"
+          value={filter}
+          onValueChange={setFilter}
+          tabs={PROJECT_STAGE_TABS}
+        />
 
         <div className="flex w-full items-center justify-between gap-3 sm:w-auto sm:justify-end">
           <div

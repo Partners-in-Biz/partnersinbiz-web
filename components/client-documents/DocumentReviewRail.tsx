@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { PageTabs } from '@/components/ui/AppFoundation'
 import type { ClientDocument, DocumentAssumption, DocumentComment, DocumentCommentReply } from '@/lib/client-documents/types'
 
 function fmtTs(ts: unknown): string {
@@ -223,28 +224,15 @@ export function DocumentReviewRail({
       <div className="pib-card p-3 space-y-3">
         <div className="flex items-center justify-between gap-2">
           <p className="text-xs uppercase tracking-[0.18em] text-on-surface-variant">Comments</p>
-          <div className="flex items-center gap-1 text-[10px]">
-            <button
-              type="button"
-              onClick={() => setFilter('open')}
-              className={[
-                'px-2 py-0.5 rounded-full border',
-                filter === 'open' ? 'border-[var(--color-pib-accent)] text-[var(--color-pib-accent)]' : 'border-white/10 text-on-surface-variant hover:text-on-surface',
-              ].join(' ')}
-            >
-              Open {counts.open}
-            </button>
-            <button
-              type="button"
-              onClick={() => setFilter('all')}
-              className={[
-                'px-2 py-0.5 rounded-full border',
-                filter === 'all' ? 'border-[var(--color-pib-accent)] text-[var(--color-pib-accent)]' : 'border-white/10 text-on-surface-variant hover:text-on-surface',
-              ].join(' ')}
-            >
-              All {counts.all}
-            </button>
-          </div>
+          <PageTabs
+            ariaLabel="Document comment filters"
+            value={filter}
+            onValueChange={(value) => setFilter(value as 'open' | 'all')}
+            tabs={[
+              { value: 'open', label: 'Open', badge: counts.open },
+              { value: 'all', label: 'All', badge: counts.all },
+            ]}
+          />
         </div>
 
         {visible.length === 0 ? (

@@ -78,6 +78,9 @@ describe('Admin client projects board view', () => {
     render(<ProjectsPage />)
 
     await waitFor(() => expect(screen.getByRole('button', { name: /board/i })).toBeInTheDocument())
+    expect(screen.getByRole('tablist', { name: 'Project stage filters' })).toHaveClass('pib-tabs', 'pib-tabs-segmented')
+    expect(screen.getByRole('tab', { name: /All/ })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('tab', { name: /Discovery/ })).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: /board/i }))
 
     await waitFor(() => expect(snapshotCallback).toBeTruthy())
