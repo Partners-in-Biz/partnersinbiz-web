@@ -271,6 +271,43 @@ describe('POST /api/v1/crm/contacts', () => {
     expect(writtenData.createdByRef.kind).toBe('human')
     expect(writtenData.orgId).toBe('org-1')
   })
+
+  it('captures agreement role metadata on POST', async () => {
+    const member = seedOrgMember('org-agreement', 'uid-agreement', { role: 'member' })
+    const captured = jest.fn().mockResolvedValue(undefined)
+    stageAuth(member, {}, { capturedDocSet: captured })
+    const req = callAsMember(member, 'POST', '/api/v1/crm/contacts', {
+      name: 'Jane Signatory',
+      email: 'jane@example.com',
+      source: 'manual',
+      jobTitle: 'Director',
+      department: 'Finance',
+      agreementRoles: ['primary_contact', 'authorized_signatory', 'accounts_contact'],
+    })
+    const { POST } = await import('@/app/api/v1/crm/contacts/route')
+    const res = await POST(req)
+    expect(res.status).toBe(201)
+    const writtenData = captured.mock.calls[0][0]
+    expect(writtenData.jobTitle).toBe('Director')
+    expect(writtenData.department).toBe('Finance')
+    expect(writtenData.agreementRoles).toEqual(['primary_contact', 'authorized_signatory', 'accounts_contact'])
+  })
+
+  it('rejects invalid agreement roles on POST', async () => {
+    const member = seedOrgMember('org-agreement', 'uid-agreement-invalid', { role: 'member' })
+    stageAuth(member)
+    const req = callAsMember(member, 'POST', '/api/v1/crm/contacts', {
+      name: 'Invalid Role',
+      email: 'invalid@example.com',
+      source: 'manual',
+      agreementRoles: ['primary_contact', 'owner_id_number'],
+    })
+    const { POST } = await import('@/app/api/v1/crm/contacts/route')
+    const res = await POST(req)
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body.error).toMatch(/agreementRoles/i)
+  })
 })
 
 // ---------------------------------------------------------------------------

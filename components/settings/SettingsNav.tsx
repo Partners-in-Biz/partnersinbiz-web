@@ -19,6 +19,7 @@ const ACCOUNT_LINKS = [
 
 const WORKSPACE_LINKS = [
   { href: '/portal/settings/profile', label: 'My profile', icon: 'person', minRole: null },
+  { href: '/portal/settings/organization', label: 'Organisation details', icon: 'business', minRole: null },
   { href: '/portal/settings/team', label: 'Team', icon: 'group', minRole: 'admin' },
   { href: '/portal/settings/custom-fields', label: 'Custom fields', icon: 'tune', minRole: 'admin' },
   { href: '/portal/settings/crm-setup', label: 'CRM setup', icon: 'rocket_launch', minRole: 'admin' },

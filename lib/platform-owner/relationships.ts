@@ -47,6 +47,41 @@ function domainForOrg(org: OrgLike | null | undefined): string {
   return website.toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '')
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function agreementFieldsForOrg(org: OrgLike | null | undefined): Record<string, unknown> {
+  if (!org) return {}
+  const billing = isRecord(org.billingDetails) ? org.billingDetails : {}
+  const out: Record<string, unknown> = {}
+
+  const stringFields = [
+    'legalName',
+    'tradingName',
+    'registrationNumber',
+    'vatNumber',
+    'taxNumber',
+    'phone',
+    'purchaseOrderNumber',
+    'invoiceInstructions',
+  ]
+
+  for (const field of stringFields) {
+    const value = cleanString(billing[field])
+    if (value) out[field] = value
+  }
+  const billingEmail = normalizeEmail(org.billingEmail)
+  if (billingEmail) out.billingEmail = billingEmail
+  if (isRecord(billing.address)) out.billingAddress = billing.address
+  if (isRecord(billing.accountsContact)) out.accountsContact = billing.accountsContact
+  if (isRecord(billing.authorizedSignatory)) out.authorizedSignatory = billing.authorizedSignatory
+  if (typeof billing.purchaseOrderRequired === 'boolean') {
+    out.purchaseOrderRequired = billing.purchaseOrderRequired
+  }
+  return out
+}
+
 async function loadOrg(orgId: string): Promise<OrgLike | null> {
   if (!orgId) return null
   const snap = await adminDb.collection('organizations').doc(orgId).get()
@@ -98,6 +133,7 @@ export async function ensurePlatformCompanyForOrg(input: {
     source: input.source ?? 'platform_member_sync',
     lifecycleStage: input.lifecycleStage ?? 'customer',
     tags: input.tags ?? ['client-org'],
+    ...agreementFieldsForOrg(clientOrg),
     updatedAt: now,
     deleted: false,
   }
@@ -127,6 +163,31 @@ export async function ensurePlatformCompanyForOrg(input: {
     createdAt: now,
   })
   return { platformOrgId, companyId: ref.id, companyName }
+}
+
+export async function syncPlatformCompanyAgreementFieldsForOrg(input: {
+  clientOrgId: string
+  clientOrg?: OrgLike | null
+  platformOrgId?: string
+}): Promise<{ platformOrgId: string; companyId: string } | null> {
+  const platformOrgId = input.platformOrgId || await resolvePlatformOwnerOrgId()
+  const clientOrg = input.clientOrg ?? await loadOrg(input.clientOrgId)
+  const companiesSnap = await adminDb.collection('companies')
+    .where('orgId', '==', platformOrgId)
+    .limit(1000)
+    .get()
+  const existing = companiesSnap.docs.find((doc) => {
+    const data = doc.data() ?? {}
+    return data.linkedOrgId === input.clientOrgId
+  })
+  if (!existing) return null
+
+  await existing.ref.set({
+    ...agreementFieldsForOrg(clientOrg),
+    updatedAt: Timestamp.now(),
+    deleted: false,
+  }, { merge: true })
+  return { platformOrgId, companyId: existing.id }
 }
 
 export async function syncPlatformContactForOrgMember(input: {

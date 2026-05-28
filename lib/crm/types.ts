@@ -22,6 +22,11 @@ export interface Attribution {
 
 export type ContactSource = 'manual' | 'form' | 'import' | 'outreach'
 export type ContactType = 'lead' | 'prospect' | 'client' | 'churned'
+export type ContactAgreementRole =
+  | 'primary_contact'
+  | 'accounts_contact'
+  | 'authorized_signatory'
+  | 'approval_contact'
 export type ContactStage =
   | 'new'
   | 'contacted'
@@ -44,6 +49,9 @@ export interface Contact {
   name: string
   email: string
   phone: string
+  jobTitle?: string
+  department?: string
+  agreementRoles?: ContactAgreementRole[]
   company: string
   website: string
   source: ContactSource

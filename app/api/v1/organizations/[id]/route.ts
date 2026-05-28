@@ -3,13 +3,14 @@
  * PUT    /api/v1/organizations/[id] — update org
  * DELETE /api/v1/organizations/[id] — soft delete (active: false)
  */
-import { NextRequest } from 'next/server'
 import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { slugify, isMember, isOwnerOrAdmin, isOwner } from '@/lib/organizations/helpers'
 import { canAccessOrg } from '@/lib/api/platformAdmin'
+import { mergeBillingDetailsForWrite } from '@/lib/organizations/billing-details'
+import { syncPlatformCompanyAgreementFieldsForOrg } from '@/lib/platform-owner/relationships'
 
 export const dynamic = 'force-dynamic'
 
@@ -75,18 +76,20 @@ export const PUT = withAuth('admin', async (req, user, ctx) => {
     updates.settings = { ...existingSettings, ...body.settings }
   }
   if (body.billingDetails && typeof body.billingDetails === 'object') {
-    const existingBilling = data.billingDetails ?? {}
-    updates.billingDetails = { ...existingBilling, ...body.billingDetails }
-    // Deep merge address and bankingDetails
-    if (body.billingDetails.address && typeof body.billingDetails.address === 'object') {
-      updates.billingDetails = { ...(updates.billingDetails as Record<string, unknown>), address: { ...(existingBilling.address ?? {}), ...body.billingDetails.address } }
-    }
-    if (body.billingDetails.bankingDetails && typeof body.billingDetails.bankingDetails === 'object') {
-      updates.billingDetails = { ...(updates.billingDetails as Record<string, unknown>), bankingDetails: { ...(existingBilling.bankingDetails ?? {}), ...body.billingDetails.bankingDetails } }
-    }
+    updates.billingDetails = mergeBillingDetailsForWrite(body.billingDetails, data.billingDetails, {
+      allowBankingDetails: true,
+    })
   }
 
   await adminDb.collection('organizations').doc(id).update(updates)
+  if (body.billingDetails && typeof body.billingDetails === 'object') {
+    await syncPlatformCompanyAgreementFieldsForOrg({
+      clientOrgId: id,
+      clientOrg: { ...data, ...updates },
+    }).catch((err) => {
+      console.error('[organization-agreement-company-sync-error]', err)
+    })
+  }
   return apiSuccess({ id, updated: true })
 })
 

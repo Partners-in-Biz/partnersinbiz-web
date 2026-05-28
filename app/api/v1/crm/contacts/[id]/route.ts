@@ -18,7 +18,7 @@ import { apiSuccess, apiError } from '@/lib/api/response'
 import { dispatchWebhook } from '@/lib/webhooks/dispatch'
 import { logActivity } from '@/lib/activity/log'
 import { loadCompany } from '@/lib/companies/store'
-import { sanitizeContactForWrite } from '@/lib/crm/contacts'
+import { normalizeAgreementRoles, sanitizeContactForWrite } from '@/lib/crm/contacts'
 import { getDefinitionsForResource } from '@/lib/customFields/store'
 import { validateCustomFields } from '@/lib/customFields/validation'
 
@@ -59,6 +59,8 @@ async function handleUpdate(
   if (existing.orgId !== ctx.orgId) return apiError('Contact not found', 404)
 
   const actorRef = ctx.actor
+  const agreementRoles = normalizeAgreementRoles(body.agreementRoles)
+  if (agreementRoles === null) return apiError('Invalid agreementRoles', 400)
 
   // Strip NEVER_FROM_BODY fields (orgId, createdBy*, etc.) before spread —
   // blocks cross-tenant write via body field injection. Mirrors the companies

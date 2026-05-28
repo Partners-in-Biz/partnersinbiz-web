@@ -42,9 +42,42 @@ export function CompanyOverviewPanel({ company }: CompanyOverviewPanelProps) {
   const hasAddress = addr && (addr.street || addr.city || addr.country)
   const hasSocial = social && (social.linkedin || social.twitter || social.facebook || social.instagram)
   const hasContact = company.phone || company.website
+  const hasLegal = company.legalName || company.tradingName || company.registrationNumber || company.vatNumber || company.taxNumber
+  const billingAddress = company.billingAddress
+  const accountsContact = company.accountsContact
+  const authorizedSignatory = company.authorizedSignatory
+  const hasBillingAddress = billingAddress && (billingAddress.line1 || billingAddress.line2 || billingAddress.city || billingAddress.state || billingAddress.postalCode || billingAddress.country)
+  const hasAccountsContact = accountsContact && (accountsContact.name || accountsContact.email || accountsContact.phone || accountsContact.title)
+  const hasAuthorizedSignatory = authorizedSignatory && (authorizedSignatory.name || authorizedSignatory.email || authorizedSignatory.phone || authorizedSignatory.title)
+  const hasBilling = company.billingEmail || hasBillingAddress || hasAccountsContact || hasAuthorizedSignatory || company.purchaseOrderRequired || company.purchaseOrderNumber || company.invoiceInstructions
 
   return (
     <div className="space-y-4">
+      {/* Legal and billing */}
+      {(hasLegal || hasBilling) && (
+        <SectionCard title="Legal & Billing">
+          {company.legalName && <Field label="Legal name" value={company.legalName} />}
+          {company.tradingName && <Field label="Trading name" value={company.tradingName} />}
+          {company.registrationNumber && <Field label="Registration" value={company.registrationNumber} />}
+          {company.vatNumber && <Field label="VAT" value={company.vatNumber} />}
+          {company.taxNumber && <Field label="Tax number" value={company.taxNumber} />}
+          {company.billingEmail && <Field label="Billing email" value={company.billingEmail} />}
+          {company.billingAddress?.line1 && <Field label="Billing address" value={company.billingAddress.line1} />}
+          {company.billingAddress?.line2 && <Field label="Address line 2" value={company.billingAddress.line2} />}
+          {company.billingAddress?.city && <Field label="Billing city" value={company.billingAddress.city} />}
+          {company.billingAddress?.state && <Field label="Province" value={company.billingAddress.state} />}
+          {company.billingAddress?.postalCode && <Field label="Postal code" value={company.billingAddress.postalCode} />}
+          {company.billingAddress?.country && <Field label="Country" value={company.billingAddress.country} />}
+          {company.accountsContact?.name && <Field label="Accounts" value={company.accountsContact.name} />}
+          {company.accountsContact?.email && <Field label="Accounts email" value={company.accountsContact.email} />}
+          {company.authorizedSignatory?.name && <Field label="Signatory" value={company.authorizedSignatory.name} />}
+          {company.authorizedSignatory?.email && <Field label="Signatory email" value={company.authorizedSignatory.email} />}
+          {company.purchaseOrderRequired && <Field label="PO required" value="Yes" />}
+          {company.purchaseOrderNumber && <Field label="PO number" value={company.purchaseOrderNumber} />}
+          {company.invoiceInstructions && <Field label="Invoice notes" value={company.invoiceInstructions} />}
+        </SectionCard>
+      )}
+
       {/* Address */}
       {hasAddress && (
         <SectionCard title="Address">

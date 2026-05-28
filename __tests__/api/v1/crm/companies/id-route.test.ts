@@ -67,6 +67,17 @@ function stageAuth(
     }
     if (name === 'orgMembers') {
       return {
+        where: () => ({
+          get: () =>
+            Promise.resolve({
+              docs: [
+                {
+                  id: `${member.orgId}_${member.uid}`,
+                  data: () => member,
+                },
+              ],
+            }),
+        }),
         doc: () => ({
           get: () => Promise.resolve({ exists: true, data: () => member }),
         }),
@@ -170,6 +181,39 @@ describe('PATCH /api/v1/crm/companies/:id', () => {
     const body = await res.json()
     expect(body.data.company.name).toBe('New Name')
     expect(updateFn).toHaveBeenCalledTimes(1)
+  })
+
+  it('captures structured legal and billing agreement fields on PATCH', async () => {
+    const uid = uidFor('member-agreement-patch')
+    const member = seedOrgMember('org-agreement-patch', uid, { role: 'member', firstName: 'Alex', lastName: 'C' })
+    stageAuth(member)
+    const co = buildCompany({ id: 'co-agreement-patch', orgId: 'org-agreement-patch', name: 'Old Agreement Co' })
+    ;(companiesStore.loadCompany as jest.Mock).mockResolvedValue(makeLoadedCompany(co))
+    const req = callAsMember(member, 'PATCH', '/api/v1/crm/companies/co-agreement-patch', {
+      legalName: 'Updated Agreement Co (Pty) Ltd',
+      vatNumber: '4888888888',
+      registrationNumber: '2025/000001/07',
+      billingAddress: { line1: '2 Updated Road', city: 'Johannesburg' },
+      authorizedSignatory: { name: 'New Signatory', title: 'CEO', email: 'signatory@example.com' },
+      accountsContact: { name: 'Accounts Owner', email: 'accounts@example.com' },
+      purchaseOrderRequired: true,
+      purchaseOrderNumber: 'PO-900',
+      invoiceInstructions: 'Use supplier portal.',
+    })
+    const res = await routeModule.PATCH(req, routeCtx('co-agreement-patch'))
+
+    expect(res.status).toBe(200)
+    expect(updateFn.mock.calls[0][0]).toMatchObject({
+      legalName: 'Updated Agreement Co (Pty) Ltd',
+      vatNumber: '4888888888',
+      registrationNumber: '2025/000001/07',
+      billingAddress: { line1: '2 Updated Road', city: 'Johannesburg' },
+      authorizedSignatory: { title: 'CEO', email: 'signatory@example.com' },
+      accountsContact: { name: 'Accounts Owner' },
+      purchaseOrderRequired: true,
+      purchaseOrderNumber: 'PO-900',
+      invoiceInstructions: 'Use supplier portal.',
+    })
   })
 
   it('returns 400 on empty body', async () => {

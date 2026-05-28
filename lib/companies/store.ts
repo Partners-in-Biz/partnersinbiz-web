@@ -33,6 +33,46 @@ const NEVER_FROM_BODY = new Set([
   'deleted',
 ])
 
+const LEGAL_STRING_FIELDS = new Set([
+  'legalName',
+  'tradingName',
+  'registrationNumber',
+  'vatNumber',
+  'taxNumber',
+  'phone',
+  'purchaseOrderNumber',
+  'invoiceInstructions',
+])
+
+const BILLING_ADDRESS_FIELDS = ['line1', 'line2', 'city', 'state', 'country', 'postalCode'] as const
+const AGREEMENT_CONTACT_FIELDS = ['name', 'title', 'email', 'phone'] as const
+
+function cleanString(value: unknown): string | undefined {
+  return typeof value === 'string' ? value.trim() : undefined
+}
+
+function cleanEmail(value: unknown): string | undefined {
+  return typeof value === 'string' ? value.trim().toLowerCase() : undefined
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function cleanStringMap<T extends readonly string[]>(
+  value: unknown,
+  fields: T,
+  emailFields: Set<string> = new Set(),
+): Record<string, string> | undefined {
+  if (!isRecord(value)) return undefined
+  const out: Record<string, string> = {}
+  for (const field of fields) {
+    const cleaned = emailFields.has(field) ? cleanEmail(value[field]) : cleanString(value[field])
+    if (cleaned !== undefined) out[field] = cleaned
+  }
+  return Object.keys(out).length > 0 ? out : undefined
+}
+
 export function sanitizeCompanyForWrite(input: Partial<CompanyInput>): Record<string, unknown> {
   const out: Record<string, unknown> = {}
   for (const [k, v] of Object.entries(input)) {
@@ -40,6 +80,28 @@ export function sanitizeCompanyForWrite(input: Partial<CompanyInput>): Record<st
     if (NEVER_FROM_BODY.has(k)) continue
     if (k === 'domain' && typeof v === 'string') {
       out[k] = v.toLowerCase().trim().replace(/^https?:\/\//, '').replace(/\/.*$/, '')
+      continue
+    }
+    if (LEGAL_STRING_FIELDS.has(k)) {
+      out[k] = typeof v === 'string' ? v.trim() : v
+      continue
+    }
+    if (k === 'billingEmail') {
+      out[k] = typeof v === 'string' ? v.trim().toLowerCase() : v
+      continue
+    }
+    if (k === 'billingAddress') {
+      const cleaned = cleanStringMap(v, BILLING_ADDRESS_FIELDS)
+      if (cleaned) out[k] = cleaned
+      continue
+    }
+    if (k === 'accountsContact' || k === 'authorizedSignatory') {
+      const cleaned = cleanStringMap(v, AGREEMENT_CONTACT_FIELDS, new Set(['email']))
+      if (cleaned) out[k] = cleaned
+      continue
+    }
+    if (k === 'purchaseOrderRequired') {
+      out[k] = v === true
       continue
     }
     out[k] = v

@@ -37,6 +37,7 @@ jest.mock('@/lib/client-provisioning/vps', () => ({
 
 jest.mock('@/lib/platform-owner/relationships', () => ({
   syncPlatformContactForOrgMember: jest.fn().mockResolvedValue({ companyId: 'company-1', contactId: 'contact-1' }),
+  syncPlatformCompanyAgreementFieldsForOrg: jest.fn().mockResolvedValue({ companyId: 'company-1' }),
   markPlatformContactFormerOrgMember: jest.fn().mockResolvedValue({ contactId: 'contact-1' }),
 }))
 
@@ -253,6 +254,55 @@ describe('PUT /api/v1/organizations/[id]', () => {
     const body = await res.json()
     expect(body.data.updated).toBe(true)
     expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({ updatedAt: expect.anything() }))
+  })
+
+  it('deep-merges whitelisted agreement billing details without accepting unsafe nested fields', async () => {
+    mockDocGet.mockResolvedValue({
+      exists: true,
+      id: 'org-1',
+      data: () => ({
+        name: 'Lumen', slug: 'lumen', active: true,
+        members: [{ userId: 'ai-agent', role: 'owner' }],
+        description: '', logoUrl: '', website: '', createdBy: 'ai-agent', linkedClientId: '',
+        billingDetails: {
+          vatNumber: '4000000000',
+          address: { line1: 'Old Road', city: 'Cape Town', postalCode: '8001', country: 'South Africa' },
+          bankingDetails: { bankName: 'Existing Bank', accountNumber: '123' },
+        },
+      }),
+    })
+
+    const res = await PUT(adminReq('PUT', {
+      billingDetails: {
+        legalName: 'Lumen Legal Pty Ltd',
+        tradingName: 'Lumen Trading',
+        taxNumber: '9999999999',
+        address: { line1: 'New Road' },
+        accountsContact: { name: 'Accounts Lead', email: 'accounts@lumen.test' },
+        authorizedSignatory: { name: 'Jane Director', title: 'Director', email: 'jane@lumen.test' },
+        purchaseOrderRequired: true,
+        purchaseOrderNumber: 'PO-123',
+        invoiceInstructions: 'Use PO.',
+        unknownNested: 'do-not-store',
+      },
+    }), { params: Promise.resolve({ id: 'org-1' }) } as any)
+
+    expect(res.status).toBe(200)
+    const update = mockUpdate.mock.calls[0][0]
+    expect(update.billingDetails).toMatchObject({
+      vatNumber: '4000000000',
+      legalName: 'Lumen Legal Pty Ltd',
+      tradingName: 'Lumen Trading',
+      taxNumber: '9999999999',
+      address: { line1: 'New Road', city: 'Cape Town', postalCode: '8001', country: 'South Africa' },
+      bankingDetails: { bankName: 'Existing Bank', accountNumber: '123' },
+      accountsContact: { name: 'Accounts Lead', email: 'accounts@lumen.test' },
+      authorizedSignatory: { name: 'Jane Director', title: 'Director', email: 'jane@lumen.test' },
+      purchaseOrderRequired: true,
+      purchaseOrderNumber: 'PO-123',
+      invoiceInstructions: 'Use PO.',
+    })
+    expect(update.billingDetails.unknownNested).toBeUndefined()
   })
 
   it('returns 404 when org does not exist', async () => {

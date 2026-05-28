@@ -29,9 +29,23 @@ interface OrgForm {
   postalCode: string
   country: string
   // Company billing details
+  legalName: string
+  tradingName: string
   vatNumber: string
   registrationNumber: string
+  taxNumber: string
   phone: string
+  accountsContactName: string
+  accountsContactTitle: string
+  accountsContactEmail: string
+  accountsContactPhone: string
+  authorizedSignatoryName: string
+  authorizedSignatoryTitle: string
+  authorizedSignatoryEmail: string
+  authorizedSignatoryPhone: string
+  purchaseOrderRequired: boolean
+  purchaseOrderNumber: string
+  invoiceInstructions: string
   // Banking
   bankName: string
   accountHolder: string
@@ -47,7 +61,10 @@ const emptyForm: OrgForm = {
   status: 'active', notificationEmail: '', defaultApprovalRequired: false, timezone: 'Africa/Johannesburg', currency: 'ZAR',
   preferredSendHourLocal: 9, preferredSendDaysOfWeek: [1, 2, 3, 4, 5], replyNotifyEmails: '',
   line1: '', line2: '', city: '', state: '', postalCode: '', country: '',
-  vatNumber: '', registrationNumber: '', phone: '',
+  legalName: '', tradingName: '', vatNumber: '', registrationNumber: '', taxNumber: '', phone: '',
+  accountsContactName: '', accountsContactTitle: '', accountsContactEmail: '', accountsContactPhone: '',
+  authorizedSignatoryName: '', authorizedSignatoryTitle: '', authorizedSignatoryEmail: '', authorizedSignatoryPhone: '',
+  purchaseOrderRequired: false, purchaseOrderNumber: '', invoiceInstructions: '',
   bankName: '', accountHolder: '', accountNumber: '', branchCode: '',
   routingNumber: '', swiftCode: '', iban: '',
 }
@@ -153,9 +170,23 @@ export default function OrgSettingsPage() {
           state: addr.state ?? '',
           postalCode: addr.postalCode ?? '',
           country: addr.country ?? '',
+          legalName: bd.legalName ?? '',
+          tradingName: bd.tradingName ?? '',
           vatNumber: bd.vatNumber ?? '',
           registrationNumber: bd.registrationNumber ?? '',
+          taxNumber: bd.taxNumber ?? '',
           phone: bd.phone ?? '',
+          accountsContactName: bd.accountsContact?.name ?? '',
+          accountsContactTitle: bd.accountsContact?.title ?? '',
+          accountsContactEmail: bd.accountsContact?.email ?? '',
+          accountsContactPhone: bd.accountsContact?.phone ?? '',
+          authorizedSignatoryName: bd.authorizedSignatory?.name ?? '',
+          authorizedSignatoryTitle: bd.authorizedSignatory?.title ?? '',
+          authorizedSignatoryEmail: bd.authorizedSignatory?.email ?? '',
+          authorizedSignatoryPhone: bd.authorizedSignatory?.phone ?? '',
+          purchaseOrderRequired: bd.purchaseOrderRequired === true,
+          purchaseOrderNumber: bd.purchaseOrderNumber ?? '',
+          invoiceInstructions: bd.invoiceInstructions ?? '',
           bankName: bank.bankName ?? '',
           accountHolder: bank.accountHolder ?? '',
           accountNumber: bank.accountNumber ?? '',
@@ -206,9 +237,27 @@ export default function OrgSettingsPage() {
             postalCode: form.postalCode,
             country: form.country,
           },
+          legalName: form.legalName,
+          tradingName: form.tradingName,
           vatNumber: form.vatNumber,
           registrationNumber: form.registrationNumber,
+          taxNumber: form.taxNumber,
           phone: form.phone,
+          accountsContact: {
+            name: form.accountsContactName,
+            title: form.accountsContactTitle,
+            email: form.accountsContactEmail,
+            phone: form.accountsContactPhone,
+          },
+          authorizedSignatory: {
+            name: form.authorizedSignatoryName,
+            title: form.authorizedSignatoryTitle,
+            email: form.authorizedSignatoryEmail,
+            phone: form.authorizedSignatoryPhone,
+          },
+          purchaseOrderRequired: form.purchaseOrderRequired,
+          purchaseOrderNumber: form.purchaseOrderNumber,
+          invoiceInstructions: form.invoiceInstructions,
           bankingDetails: {
             bankName: form.bankName,
             accountHolder: form.accountHolder,
@@ -536,6 +585,14 @@ export default function OrgSettingsPage() {
           <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Company Details</p>
           <div className="grid grid-cols-2 gap-4">
             <div>
+              <label className="pib-label">Legal Company Name</label>
+              <input value={form.legalName} onChange={e => update('legalName', e.target.value)} className="pib-input" placeholder="Acme (Pty) Ltd" />
+            </div>
+            <div>
+              <label className="pib-label">Trading Name</label>
+              <input value={form.tradingName} onChange={e => update('tradingName', e.target.value)} className="pib-input" placeholder="Acme" />
+            </div>
+            <div>
               <label className="pib-label">Phone</label>
               <input value={form.phone} onChange={e => update('phone', e.target.value)} className="pib-input" placeholder="+27 21 000 0000" />
             </div>
@@ -546,6 +603,76 @@ export default function OrgSettingsPage() {
             <div>
               <label className="pib-label">Registration Number</label>
               <input value={form.registrationNumber} onChange={e => update('registrationNumber', e.target.value)} className="pib-input" placeholder="2020/000000/07" />
+            </div>
+            <div>
+              <label className="pib-label">Tax Number</label>
+              <input value={form.taxNumber} onChange={e => update('taxNumber', e.target.value)} className="pib-input" placeholder="Income tax number" />
+            </div>
+          </div>
+        </div>
+
+        {/* Agreement Contacts */}
+        <div className="pib-card space-y-4">
+          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Agreement Contacts</p>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="pib-label">Accounts Contact Name</label>
+              <input value={form.accountsContactName} onChange={e => update('accountsContactName', e.target.value)} className="pib-input" />
+            </div>
+            <div>
+              <label className="pib-label">Accounts Contact Title</label>
+              <input value={form.accountsContactTitle} onChange={e => update('accountsContactTitle', e.target.value)} className="pib-input" />
+            </div>
+            <div>
+              <label className="pib-label">Accounts Contact Email</label>
+              <input type="email" value={form.accountsContactEmail} onChange={e => update('accountsContactEmail', e.target.value)} className="pib-input" />
+            </div>
+            <div>
+              <label className="pib-label">Accounts Contact Phone</label>
+              <input value={form.accountsContactPhone} onChange={e => update('accountsContactPhone', e.target.value)} className="pib-input" />
+            </div>
+            <div>
+              <label className="pib-label">Authorised Signatory Name</label>
+              <input value={form.authorizedSignatoryName} onChange={e => update('authorizedSignatoryName', e.target.value)} className="pib-input" />
+            </div>
+            <div>
+              <label className="pib-label">Authorised Signatory Title</label>
+              <input value={form.authorizedSignatoryTitle} onChange={e => update('authorizedSignatoryTitle', e.target.value)} className="pib-input" />
+            </div>
+            <div>
+              <label className="pib-label">Authorised Signatory Email</label>
+              <input type="email" value={form.authorizedSignatoryEmail} onChange={e => update('authorizedSignatoryEmail', e.target.value)} className="pib-input" />
+            </div>
+            <div>
+              <label className="pib-label">Authorised Signatory Phone</label>
+              <input value={form.authorizedSignatoryPhone} onChange={e => update('authorizedSignatoryPhone', e.target.value)} className="pib-input" />
+            </div>
+          </div>
+        </div>
+
+        {/* Invoicing */}
+        <div className="pib-card space-y-4">
+          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Invoicing</p>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="col-span-2 flex items-center gap-3">
+              <input
+                id="purchaseOrderRequired"
+                type="checkbox"
+                checked={form.purchaseOrderRequired}
+                onChange={e => update('purchaseOrderRequired', e.target.checked)}
+                className="h-4 w-4 rounded border-outline text-primary"
+              />
+              <label htmlFor="purchaseOrderRequired" className="pib-label mb-0 cursor-pointer">
+                Purchase order required
+              </label>
+            </div>
+            <div>
+              <label className="pib-label">Purchase Order Number</label>
+              <input value={form.purchaseOrderNumber} onChange={e => update('purchaseOrderNumber', e.target.value)} className="pib-input" placeholder="PO-123" />
+            </div>
+            <div className="col-span-2">
+              <label className="pib-label">Invoice Instructions</label>
+              <textarea value={form.invoiceInstructions} onChange={e => update('invoiceInstructions', e.target.value)} className="pib-textarea" rows={3} placeholder="Any recurring invoice notes or routing requirements" />
             </div>
           </div>
         </div>

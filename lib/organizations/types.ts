@@ -55,10 +55,28 @@ export interface BankingDetails {
 }
 
 export interface BillingDetails {
+  legalName?: string
+  tradingName?: string
   address?: Address
   vatNumber?: string          // e.g. "4000000000"
   registrationNumber?: string // Company registration
+  taxNumber?: string
   phone?: string
+  accountsContact?: {
+    name?: string
+    title?: string
+    email?: string
+    phone?: string
+  }
+  authorizedSignatory?: {
+    name?: string
+    title?: string
+    email?: string
+    phone?: string
+  }
+  purchaseOrderRequired?: boolean
+  purchaseOrderNumber?: string
+  invoiceInstructions?: string
   bankingDetails?: BankingDetails
 }
 

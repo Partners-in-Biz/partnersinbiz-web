@@ -303,6 +303,44 @@ describe('POST /api/v1/crm/companies', () => {
     expect(written.createdByRef.kind).toBe('human')
   })
 
+  it('captures structured legal and billing agreement fields on POST', async () => {
+    const uid = uidFor('member-agreement-company')
+    const member = seedOrgMember('org-agreement-company', uid, { role: 'member', firstName: 'Casey', lastName: 'F' })
+    const captured = jest.fn().mockResolvedValue(undefined)
+    stageAuth(member, {}, { capturedDocSet: captured })
+    const req = callAsMember(member, 'POST', '/api/v1/crm/companies', {
+      name: 'Agreement Co',
+      legalName: 'Agreement Co (Pty) Ltd',
+      tradingName: 'Agreement Co',
+      registrationNumber: '2024/123456/07',
+      vatNumber: '4999999999',
+      taxNumber: '9999999999',
+      billingEmail: 'accounts@agreement.example',
+      billingAddress: { line1: '1 Contract Road', city: 'Cape Town', country: 'South Africa' },
+      accountsContact: { name: 'Accounts Lead', email: 'accounts@agreement.example' },
+      authorizedSignatory: { name: 'Signing Director', title: 'Director', email: 'sign@agreement.example' },
+      purchaseOrderRequired: true,
+      purchaseOrderNumber: 'PO-789',
+      invoiceInstructions: 'Send invoices to accounts.',
+    })
+    const { POST } = await import('@/app/api/v1/crm/companies/route')
+    const res = await POST(req)
+
+    expect(res.status).toBe(201)
+    expect(captured.mock.calls[0][0]).toMatchObject({
+      orgId: 'org-agreement-company',
+      legalName: 'Agreement Co (Pty) Ltd',
+      registrationNumber: '2024/123456/07',
+      vatNumber: '4999999999',
+      billingAddress: { line1: '1 Contract Road' },
+      accountsContact: { email: 'accounts@agreement.example' },
+      authorizedSignatory: { title: 'Director' },
+      purchaseOrderRequired: true,
+      purchaseOrderNumber: 'PO-789',
+      invoiceInstructions: 'Send invoices to accounts.',
+    })
+  })
+
   it('validates invalid parentCompanyId cycle and returns 400', async () => {
     const { validateParentChain } = await import('@/lib/companies/store')
     ;(validateParentChain as jest.Mock).mockResolvedValueOnce(false)

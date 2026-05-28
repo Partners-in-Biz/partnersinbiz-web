@@ -20,6 +20,7 @@ import type {
 import { dispatchWebhook } from '@/lib/webhooks/dispatch'
 import { logActivity } from '@/lib/activity/log'
 import { loadCompany } from '@/lib/companies/store'
+import { cleanContactString, normalizeAgreementRoles } from '@/lib/crm/contacts'
 import { getDefinitionsForResource } from '@/lib/customFields/store'
 import { validateCustomFields } from '@/lib/customFields/validation'
 
@@ -122,6 +123,11 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
   if (body.source && !VALID_SOURCES.includes(body.source)) return apiError('Invalid source')
 
   const { orgId } = ctx
+  const bodyRaw = body as unknown as Record<string, unknown>
+  const agreementRoles = normalizeAgreementRoles(bodyRaw.agreementRoles)
+  if (agreementRoles === null) return apiError('Invalid agreementRoles', 400)
+  const jobTitle = cleanContactString(bodyRaw.jobTitle)
+  const department = cleanContactString(bodyRaw.department)
 
   const capturedFromId = typeof (body as { capturedFromId?: unknown }).capturedFromId === 'string'
     ? ((body as { capturedFromId?: string }).capturedFromId as string).trim()
@@ -152,6 +158,9 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
     name: body.name.trim(),
     email: body.email.trim().toLowerCase(),
     phone: body.phone?.trim() ?? '',
+    ...(jobTitle !== undefined ? { jobTitle } : {}),
+    ...(department !== undefined ? { department } : {}),
+    ...(agreementRoles !== undefined ? { agreementRoles } : {}),
     company: body.company?.trim() ?? '',
     website: body.website?.trim() ?? '',
     source: body.source ?? 'manual',
@@ -177,7 +186,6 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
   }
 
   // Custom field validation (best-effort — Firestore outage must not block core write)
-  const bodyRaw = body as unknown as Record<string, unknown>
   if (bodyRaw.customFields !== undefined && bodyRaw.customFields !== null) {
     try {
       const defs = await getDefinitionsForResource(orgId, 'contact')
