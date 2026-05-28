@@ -54,8 +54,10 @@ function mockSnapshotChange(type: 'added' | 'modified' | 'removed', id: string, 
 
 async function switchToProjectsSection() {
   await waitFor(() => expect(screen.getByRole('tab', { name: /^projects$/i })).toBeInTheDocument())
-  await waitFor(() => expect(screen.queryByText('Loading portfolio report')).not.toBeInTheDocument())
-  fireEvent.click(screen.getByRole('tab', { name: /^projects$/i }))
+  const projectsTab = screen.getByRole('tab', { name: /^projects$/i })
+  if (projectsTab.getAttribute('aria-selected') !== 'true') {
+    fireEvent.click(projectsTab)
+  }
 }
 
 describe('Admin client projects board view', () => {
@@ -96,7 +98,12 @@ describe('Admin client projects board view', () => {
   it('shows the client portfolio report from the project reporting API', async () => {
     render(<ProjectsPage />)
 
-    await waitFor(() => expect(screen.getByText('Portfolio report')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByRole('tab', { name: /portfolio report/i })).toBeInTheDocument())
+    expect(screen.getByRole('tab', { name: /^projects$/i })).toHaveAttribute('aria-selected', 'true')
+    expect(global.fetch).not.toHaveBeenCalledWith('/api/v1/projects/reporting?orgSlug=acme-client', expect.any(Object))
+
+    fireEvent.click(screen.getByRole('tab', { name: /portfolio report/i }))
+
     expect(global.fetch).toHaveBeenCalledWith('/api/v1/projects/reporting?orgSlug=acme-client', expect.any(Object))
     await waitFor(() => expect(screen.getByText('Acme Client')).toBeInTheDocument())
     expect(screen.getByText('Peet Stander')).toBeInTheDocument()
@@ -109,6 +116,13 @@ describe('Admin client projects board view', () => {
     render(<ProjectsPage />)
 
     await waitFor(() => expect(screen.getByRole('tab', { name: /portfolio report/i })).toBeInTheDocument())
+    expect(screen.getByRole('tab', { name: /^projects$/i })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('tablist', { name: 'Project stage filters' })).toHaveClass('pib-tabs', 'pib-tabs-segmented')
+    await waitFor(() => expect(screen.getAllByText('Client Website').length).toBeGreaterThan(0))
+    expect(global.fetch).not.toHaveBeenCalledWith('/api/v1/projects/reporting?orgSlug=acme-client', expect.any(Object))
+
+    fireEvent.click(screen.getByRole('tab', { name: /portfolio report/i }))
+
     expect(screen.getByRole('tab', { name: /portfolio report/i })).toHaveAttribute('aria-selected', 'true')
     expect(screen.queryByRole('tablist', { name: 'Project stage filters' })).not.toBeInTheDocument()
     expect(screen.getAllByText('Portfolio report').length).toBeGreaterThan(0)
@@ -116,9 +130,7 @@ describe('Admin client projects board view', () => {
     fireEvent.click(screen.getByRole('tab', { name: /^projects$/i }))
 
     expect(screen.getByRole('tab', { name: /^projects$/i })).toHaveAttribute('aria-selected', 'true')
-    expect(screen.queryByText('Open tasks')).not.toBeInTheDocument()
-    expect(screen.getByRole('tablist', { name: 'Project stage filters' })).toHaveClass('pib-tabs', 'pib-tabs-segmented')
-    expect(screen.getAllByText('Client Website').length).toBeGreaterThan(0)
+    expect(screen.getByRole('tablist', { name: 'Project stage filters' })).toBeInTheDocument()
   })
 
   it('lets admins switch from project cards to a cross-project task board for the client', async () => {

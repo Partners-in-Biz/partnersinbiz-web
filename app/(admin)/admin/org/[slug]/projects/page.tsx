@@ -54,7 +54,7 @@ export default function ProjectsPage() {
   const slug = params.slug as string
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
-  const [activeSection, setActiveSection] = useState<'portfolio' | 'projects'>('portfolio')
+  const [activeSection, setActiveSection] = useState<'portfolio' | 'projects'>('projects')
   const [filter, setFilter] = useState<string>('all')
   const [viewMode, setViewMode] = useState<'list' | 'board'>('list')
   const [boardSortMode, setBoardSortMode] = useState<'latest' | 'manual'>('latest')
@@ -139,7 +139,7 @@ export default function ProjectsPage() {
   )
 
   useEffect(() => {
-    if (viewMode !== 'board') return
+    if (activeSection !== 'projects' || viewMode !== 'board') return
     if (filtered.length === 0) {
       setBoardTasks([])
       setFailedProjectIds([])
@@ -220,7 +220,7 @@ export default function ProjectsPage() {
       cancelled = true
       unsubscribers.forEach(unsubscribe => unsubscribe())
     }
-  }, [viewMode, filtered])
+  }, [activeSection, viewMode, filtered])
 
   const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault()

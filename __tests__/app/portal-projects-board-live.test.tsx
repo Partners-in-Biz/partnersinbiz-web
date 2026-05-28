@@ -79,9 +79,15 @@ describe('Portal projects board live data', () => {
   it('shows portfolio reporting in the client project workspace', async () => {
     render(<ProjectsPage />)
 
-    await waitFor(() => expect(screen.getByText('Portfolio report')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByRole('tab', { name: /portfolio report/i })).toBeInTheDocument())
+    expect(screen.getByRole('tab', { name: /^projects$/i })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('button', { name: /request project/i })).toBeInTheDocument()
+    expect(global.fetch).not.toHaveBeenCalledWith('/api/v1/projects/reporting', expect.any(Object))
+
+    fireEvent.click(screen.getByRole('tab', { name: /portfolio report/i }))
+
     expect(global.fetch).toHaveBeenCalledWith('/api/v1/projects/reporting', expect.any(Object))
-    expect(screen.getByText('Client workspace')).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByText('Client workspace')).toBeInTheDocument())
     expect(screen.getByText('Client Contact')).toBeInTheDocument()
     expect(screen.getByText('Approvals')).toBeInTheDocument()
     expect(screen.getByText('Client or internal decisions waiting.')).toBeInTheDocument()
