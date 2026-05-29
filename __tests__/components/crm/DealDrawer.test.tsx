@@ -73,4 +73,18 @@ describe('DealDrawer', () => {
       companyName: 'Acme Growth',
     }))
   })
+
+  it('shows the readable default contact label for preselected contact deals', async () => {
+    render(
+      <DealDrawer
+        defaultContactId="contact-1"
+        defaultContactLabel="Ava Owner"
+        orgId="org-1"
+        onSaved={jest.fn()}
+        onClose={jest.fn()}
+      />,
+    )
+
+    expect(screen.getByPlaceholderText('Search contacts...')).toHaveValue('Ava Owner')
+  })
 })

@@ -88,7 +88,7 @@ interface Props {
   orgId?: string
 }
 
-export function ContactDealsPanel({ contactId, orgId = '' }: Props) {
+export function ContactDealsPanel({ contactId, contactName, orgId = '' }: Props) {
   const [deals, setDeals] = useState<Deal[]>([])
   const [pipelinesById, setPipelinesById] = useState<Map<string, Pipeline>>(new Map())
   const [loading, setLoading] = useState(true)
@@ -241,6 +241,7 @@ export function ContactDealsPanel({ contactId, orgId = '' }: Props) {
       {showDealDrawer && (
         <DealDrawer
           defaultContactId={contactId}
+          defaultContactLabel={contactName}
           orgId={orgId}
           onSaved={(dealId) => {
             setShowDealDrawer(false)

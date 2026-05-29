@@ -13,10 +13,19 @@ jest.mock('next/link', () => ({
 }))
 
 jest.mock('@/components/crm/DealDrawer', () => ({
-  DealDrawer: ({ onSaved }: { onSaved: (dealId: string) => void }) => (
-    <button type="button" onClick={() => onSaved('deal-new')}>
-      Save mocked deal
-    </button>
+  DealDrawer: ({
+    defaultContactLabel,
+    onSaved,
+  }: {
+    defaultContactLabel?: string
+    onSaved: (dealId: string) => void
+  }) => (
+    <div>
+      <p>Drawer contact label: {defaultContactLabel || 'missing'}</p>
+      <button type="button" onClick={() => onSaved('deal-new')}>
+        Save mocked deal
+      </button>
+    </div>
   ),
 }))
 
@@ -180,5 +189,16 @@ describe('ContactDealsPanel', () => {
       expect(screen.getByRole('link', { name: 'Fresh relationship deal' })).toHaveAttribute('href', '/portal/deals/deal-new')
     })
     expect(screen.getByText('1 record')).toBeInTheDocument()
+  })
+
+  it('opens the new deal drawer with the readable contact name', async () => {
+    mockFetch.mockReturnValue(apiResponse([]))
+
+    render(<ContactDealsPanel contactId="contact-1" contactName="Ava Owner" />)
+    await waitFor(() => expect(screen.getByText('No deals linked to this contact yet.')).toBeInTheDocument())
+
+    fireEvent.click(screen.getByRole('button', { name: /New deal/i }))
+
+    expect(screen.getByText('Drawer contact label: Ava Owner')).toBeInTheDocument()
   })
 })
