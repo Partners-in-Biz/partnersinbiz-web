@@ -150,4 +150,15 @@ describe('Portal deal detail page', () => {
 
     await waitFor(() => expect(screen.queryByText('Close date missing')).not.toBeInTheDocument())
   })
+
+  it('lets users add line items from the empty commercial detail panel', async () => {
+    render(<DealDetailPage />)
+
+    await screen.findByText('Unowned expansion')
+    expect(screen.getByText('No line items yet. Add services or products so the deal can become a quote.')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add products or services to Unowned expansion' }))
+
+    expect(screen.getByTestId('deal-drawer')).toBeInTheDocument()
+  })
 })

@@ -792,6 +792,15 @@ export default function DealDetailPage() {
               <div className="p-10 text-center">
                 <span className="material-symbols-outlined block text-3xl text-[var(--color-pib-text-muted)]">playlist_add</span>
                 <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">No line items yet. Add services or products so the deal can become a quote.</p>
+                <button
+                  type="button"
+                  onClick={() => setEditOpen(true)}
+                  className="pib-btn-primary mt-4 inline-flex items-center gap-1.5 text-sm"
+                  aria-label={`Add products or services to ${deal.title ?? 'this deal'}`}
+                >
+                  <span className="material-symbols-outlined text-base">playlist_add</span>
+                  Add products or services
+                </button>
               </div>
             )}
           </div>
