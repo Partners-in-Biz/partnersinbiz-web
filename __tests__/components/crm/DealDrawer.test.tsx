@@ -12,6 +12,13 @@ jest.mock('@/components/crm/CompanyPicker', () => ({
   ),
 }))
 
+jest.mock('next/link', () => ({
+  __esModule: true,
+  default: ({ children, href, ...props }: { children: React.ReactNode; href: string }) => (
+    <a href={href} {...props}>{children}</a>
+  ),
+}))
+
 describe('DealDrawer', () => {
   beforeEach(() => {
     jest.clearAllMocks()
@@ -38,6 +45,13 @@ describe('DealDrawer', () => {
         return Promise.resolve({
           ok: true,
           json: async () => ({ success: true, data: { id: 'deal-1' } }),
+        } as Response)
+      }
+
+      if (path.startsWith('/api/v1/crm/contacts?')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ success: true, data: [] }),
         } as Response)
       }
 
@@ -172,5 +186,25 @@ describe('DealDrawer', () => {
     await screen.findByDisplayValue('Sales pipeline')
 
     expect(screen.getByPlaceholderText('Search contacts...')).toHaveValue('contact-1')
+  })
+
+  it('turns an empty contact search into a contacts workspace action', async () => {
+    render(
+      <DealDrawer
+        orgId="org-1"
+        onSaved={jest.fn()}
+        onClose={jest.fn()}
+      />,
+    )
+
+    await screen.findByDisplayValue('Sales pipeline')
+    fireEvent.change(screen.getByPlaceholderText('Search contacts...'), {
+      target: { value: 'No match' },
+    })
+
+    expect(await screen.findByText('No contacts found.')).toBeInTheDocument()
+
+    const contactsLink = screen.getByRole('link', { name: 'Open contacts to create a deal contact' })
+    expect(contactsLink).toHaveAttribute('href', '/portal/contacts')
   })
 })

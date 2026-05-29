@@ -7,6 +7,7 @@
  * on top of the core deal fields.
  */
 
+import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import type { Deal, DealLineItem, Currency } from '@/lib/crm/types'
 import { extractPipelinesList } from '@/lib/pipelines/response'
@@ -144,7 +145,17 @@ function ContactPicker({
       {open && (
         <div className="absolute z-50 mt-1 max-h-64 w-full overflow-y-auto rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] shadow-xl">
           {results.length === 0 ? (
-            <p className="px-3 py-2 text-xs text-[var(--color-pib-text-muted)]">No contacts found.</p>
+            <div className="px-3 py-2">
+              <p className="text-xs text-[var(--color-pib-text-muted)]">No contacts found.</p>
+              <Link
+                href="/portal/contacts"
+                aria-label="Open contacts to create a deal contact"
+                className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-[var(--color-accent-v2)] hover:underline"
+              >
+                <span className="material-symbols-outlined text-[14px]">contacts</span>
+                Open contacts
+              </Link>
+            </div>
           ) : (
             results.map((contact) => (
               <button
