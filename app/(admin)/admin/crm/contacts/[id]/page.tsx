@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { ActivityTimeline } from '@/components/admin/crm/ActivityTimeline'
@@ -190,6 +190,7 @@ function DetailRow({ label, value }: { label: string; value: unknown }) {
 export default function ContactDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
+  const noteInputRef = useRef<HTMLInputElement | null>(null)
   const [contact, setContact] = useState<ContactRecord | null>(null)
   const [activities, setActivities] = useState<ActivityRecord[]>([])
   const [emails, setEmails] = useState<EmailRecord[]>([])
@@ -297,6 +298,11 @@ export default function ContactDetailPage() {
     } finally {
       setSavingNote(false)
     }
+  }
+
+  function focusNoteComposer() {
+    noteInputRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'center' })
+    noteInputRef.current?.focus()
   }
 
   async function changeStage(stage: string) {
@@ -619,6 +625,7 @@ export default function ContactDetailPage() {
             <div className="border-b border-[var(--color-card-border)] px-5 py-4">
               <div className="flex gap-3">
                 <input
+                  ref={noteInputRef}
                   placeholder="Add an internal note, handoff, decision, or context..."
                   value={noteText}
                   onChange={(event) => setNoteText(event.target.value)}
@@ -636,7 +643,7 @@ export default function ContactDetailPage() {
               </div>
             </div>
             <div className="p-5">
-              <ActivityTimeline activities={activities as never} loading={activitiesLoading} />
+              <ActivityTimeline activities={activities as never} loading={activitiesLoading} onAddNote={focusNoteComposer} />
             </div>
           </div>
         </section>

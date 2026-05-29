@@ -10,7 +10,15 @@ jest.mock('next/navigation', () => ({
 }))
 
 jest.mock('@/components/admin/crm/ActivityTimeline', () => ({
-  ActivityTimeline: () => <div data-testid="activity-timeline" />,
+  ActivityTimeline: ({ onAddNote }: { onAddNote?: () => void }) => (
+    <div data-testid="activity-timeline">
+      {onAddNote && (
+        <button type="button" onClick={onAddNote}>
+          Log first note from activity timeline
+        </button>
+      )}
+    </div>
+  ),
 }))
 
 jest.mock('@/components/admin/crm/ContactBrief', () => ({
@@ -129,5 +137,17 @@ describe('Admin contact detail page', () => {
 
     const composeLink = screen.getByRole('link', { name: 'Compose first email to Jane Client from admin email history' })
     expect(composeLink).toHaveAttribute('href', '/admin/email/compose?to=jane%40example.com&contactId=contact-1')
+  })
+
+  it('turns empty admin activity history into a note composer action', async () => {
+    render(<AdminContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Jane Client' })).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Log first note from activity timeline' }))
+
+    expect(screen.getByPlaceholderText('Add an internal note, handoff, decision, or context...')).toHaveFocus()
   })
 })

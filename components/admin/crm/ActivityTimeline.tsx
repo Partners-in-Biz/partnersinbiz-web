@@ -20,9 +20,10 @@ interface Activity {
 interface ActivityTimelineProps {
   activities: Activity[]
   loading: boolean
+  onAddNote?: () => void
 }
 
-export function ActivityTimeline({ activities, loading }: ActivityTimelineProps) {
+export function ActivityTimeline({ activities, loading, onAddNote }: ActivityTimelineProps) {
   if (loading) {
     return (
       <div className="space-y-3">
@@ -35,9 +36,21 @@ export function ActivityTimeline({ activities, loading }: ActivityTimelineProps)
 
   if (activities.length === 0) {
     return (
-      <p className="text-on-surface-variant text-sm py-6 text-center">
-        No activity yet. Send an email or add a note to get started.
-      </p>
+      <div className="py-6 text-center">
+        <p className="text-on-surface-variant text-sm">
+          No activity yet. Send an email or add a note to get started.
+        </p>
+        {onAddNote && (
+          <button
+            type="button"
+            onClick={onAddNote}
+            className="mt-4 inline-flex items-center justify-center gap-1.5 rounded-lg border border-outline-variant px-3 py-2 text-xs font-semibold text-[var(--color-accent-v2)] transition-colors hover:border-[var(--color-accent-v2)] hover:text-on-surface"
+          >
+            <span className="material-symbols-outlined text-[15px]" aria-hidden="true">add_comment</span>
+            Log first note from activity timeline
+          </button>
+        )}
+      </div>
     )
   }
 
