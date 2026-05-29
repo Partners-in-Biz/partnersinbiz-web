@@ -709,7 +709,17 @@ export default function CrmReportsPage() {
       {/* ── Section 3: Pipeline velocity ───────────────────────────────────── */}
       <Section eyebrow="Pipeline velocity">
         {!velocity || velocity.stages.length === 0 ? (
-          <EmptyState icon="speed" title="No time-in-stage data yet" body="Velocity appears once deals are moving through tracked pipeline stages." />
+          <EmptyState
+            icon="speed"
+            title="No time-in-stage data yet"
+            body="Velocity appears once deals are moving through tracked pipeline stages."
+            action={{
+              href: '/portal/deals',
+              label: 'Open pipeline',
+              ariaLabel: 'Open pipeline to move deals through tracked stages',
+              icon: 'view_kanban',
+            }}
+          />
         ) : (
           <div className="grid lg:grid-cols-[260px_1fr] gap-4">
             <div className="pib-stat-card">
