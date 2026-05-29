@@ -132,6 +132,10 @@ export default function ContactsPage() {
   const [stageFilter, setStageFilter] = useState('')
   const [typeFilter, setTypeFilter] = useState('')
   const [ownerFilter, setOwnerFilter] = useState<'all' | 'unowned'>('all')
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [bulkOwner, setBulkOwner] = useState('')
+  const [bulkPending, setBulkPending] = useState(false)
+  const [bulkError, setBulkError] = useState('')
   const [showNew, setShowNew] = useState(false)
   const activeOrgId = selectedOrgId || contactOrgId
   const hasActiveFilters = Boolean(search.trim() || stageFilter || typeFilter || ownerFilter !== 'all')
@@ -204,6 +208,45 @@ export default function ContactsPage() {
     }
     setShowNew(false)
     fetchContacts()
+  }
+
+  function toggleSelected(id: string) {
+    setSelectedIds((current) => {
+      const next = new Set(current)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  async function assignSelectedOwner() {
+    const owner = bulkOwner.trim()
+    if (!owner || selectedIds.size === 0) return
+
+    setBulkPending(true)
+    setBulkError('')
+    try {
+      const ids = Array.from(selectedIds)
+      const res = await fetch('/api/v1/crm/contacts/bulk', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ ids, patch: { assignedTo: owner } }),
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error((body as { error?: string }).error ?? 'Failed to assign owner')
+      }
+      setContacts((current) => current.map((contact) => (
+        selectedIds.has(contact.id) ? { ...contact, assignedTo: owner } : contact
+      )))
+      setSelectedIds(new Set())
+      setBulkOwner('')
+      setOwnerFilter('all')
+    } catch (err) {
+      setBulkError(err instanceof Error ? err.message : 'Failed to assign owner')
+    } finally {
+      setBulkPending(false)
+    }
   }
 
   return (
@@ -304,6 +347,42 @@ export default function ContactsPage() {
         )}
       </div>
 
+      {selectedIds.size > 0 && (
+        <section className="pib-card flex flex-wrap items-end gap-3 p-4">
+          <div className="min-w-[260px] flex-1">
+            <label htmlFor="adminBulkOwner" className="pib-label">Assign selected contacts to owner</label>
+            <input
+              id="adminBulkOwner"
+              value={bulkOwner}
+              onChange={(event) => setBulkOwner(event.target.value)}
+              placeholder="Owner user id or email"
+              className="pib-input mt-1"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={assignSelectedOwner}
+            disabled={!bulkOwner.trim() || bulkPending}
+            className="pib-btn-primary text-sm disabled:cursor-not-allowed disabled:opacity-50"
+            aria-label={`Assign owner to ${selectedIds.size} selected contact${selectedIds.size === 1 ? '' : 's'}`}
+          >
+            <span className="material-symbols-outlined text-base">supervisor_account</span>
+            {bulkPending ? 'Assigning…' : 'Assign owner'}
+          </button>
+          <button
+            type="button"
+            onClick={() => { setSelectedIds(new Set()); setBulkOwner(''); setBulkError('') }}
+            className="pib-btn-secondary text-sm"
+          >
+            Clear selection
+          </button>
+          <p className="basis-full text-xs text-on-surface-variant">
+            {selectedIds.size} selected for owner assignment.
+          </p>
+          {bulkError && <p className="basis-full text-xs text-red-300">{bulkError}</p>}
+        </section>
+      )}
+
       {/* Table */}
       {loading ? (
         <div className="space-y-2">
@@ -347,7 +426,7 @@ export default function ContactsPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-[var(--color-card-border)] bg-white/[0.02] text-left">
-                {['Name', 'Email', 'Company', 'Owner', 'Type', 'Stage', 'Last touch', 'Signals'].map((h) => (
+                {['Select', 'Name', 'Email', 'Company', 'Owner', 'Type', 'Stage', 'Last touch', 'Signals'].map((h) => (
                   <th key={h} className="px-3 py-3 text-[10px] font-label uppercase tracking-widest text-on-surface-variant font-normal">
                     {h}
                   </th>
@@ -360,6 +439,15 @@ export default function ContactsPage() {
                 const owner = String(c.assignedTo ?? '').trim()
                 return (
                   <tr key={c.id} className="border-b border-[var(--color-card-border)] transition-colors hover:bg-surface-container">
+                    <td className="px-3 py-3">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(c.id)}
+                        onChange={() => toggleSelected(c.id)}
+                        className="h-4 w-4 rounded accent-[var(--color-accent-v2)]"
+                        aria-label={`Select ${c.name || c.email || 'contact'} for bulk owner assignment`}
+                      />
+                    </td>
                     <td className="px-3 py-3">
                       <Link href={`/admin/crm/contacts/${c.id}`} className="font-medium hover:underline" style={{ color: 'var(--color-accent-v2)' }}>
                         {c.name || c.email || 'Unnamed contact'}

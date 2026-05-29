@@ -69,4 +69,34 @@ describe('Admin CRM contacts page', () => {
     expect(row).not.toBeNull()
     expect(within(row as HTMLElement).getByText('Unassigned')).toBeInTheDocument()
   })
+
+  it('assigns selected unowned contacts to an owner from the list view', async () => {
+    render(<AdminContactsPage />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: 'Unowned Prospect' })).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show unowned contacts needing an owner' }))
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Select Unowned Prospect for bulk owner assignment' }))
+    fireEvent.change(screen.getByLabelText('Assign selected contacts to owner'), {
+      target: { value: 'sales-lead-2' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Assign owner to 1 selected contact' }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/contacts/bulk', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          ids: ['contact-unowned'],
+          patch: { assignedTo: 'sales-lead-2' },
+        }),
+      })
+    })
+
+    const row = screen.getByRole('link', { name: 'Unowned Prospect' }).closest('tr')
+    expect(row).not.toBeNull()
+    expect(within(row as HTMLElement).getByText('Owner set')).toBeInTheDocument()
+  })
 })
