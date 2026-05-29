@@ -364,6 +364,9 @@ export default function ContactDetailPage() {
   const tags = Array.isArray(contact?.tags) ? contact.tags : []
   const customFieldCount = contact?.customFields ? Object.keys(contact.customFields).length : 0
   const hasAnyScore = contact?.leadScore != null || contact?.icpScore != null || contact?.aiLeadScore != null
+  const composeEmailHref = contact?.email
+    ? `/admin/email/compose?to=${encodeURIComponent(contact.email)}&contactId=${encodeURIComponent(id)}`
+    : ''
 
   if (loading) {
     return (
@@ -566,6 +569,16 @@ export default function ContactDetailPage() {
                 <div className="p-8 text-center text-sm text-on-surface-variant">
                   <span className="material-symbols-outlined text-3xl">mail</span>
                   <p className="mt-2">No email history yet.</p>
+                  {composeEmailHref && (
+                    <Link
+                      href={composeEmailHref}
+                      aria-label={`Compose first email to ${name} from admin email history`}
+                      className="mt-4 inline-flex items-center justify-center gap-1.5 rounded-lg border border-[var(--color-card-border)] px-3 py-2 text-xs font-semibold text-[var(--color-accent-v2)] transition-colors hover:border-[var(--color-accent-v2)] hover:text-on-surface"
+                    >
+                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">edit_square</span>
+                      Compose first email
+                    </Link>
+                  )}
                 </div>
               ) : (
                 <div className="divide-y divide-[var(--color-card-border)]">

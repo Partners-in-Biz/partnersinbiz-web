@@ -119,4 +119,15 @@ describe('Admin contact detail page', () => {
       expect(screen.getAllByText('90').length).toBeGreaterThan(0)
     })
   })
+
+  it('turns empty admin email history into a prefilled compose action', async () => {
+    render(<AdminContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Jane Client' })).toBeInTheDocument()
+    })
+
+    const composeLink = screen.getByRole('link', { name: 'Compose first email to Jane Client from admin email history' })
+    expect(composeLink).toHaveAttribute('href', '/admin/email/compose?to=jane%40example.com&contactId=contact-1')
+  })
 })

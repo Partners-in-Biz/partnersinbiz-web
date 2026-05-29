@@ -1,7 +1,7 @@
 // components/admin/email/ComposeForm.tsx
 'use client'
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -215,10 +215,11 @@ function ContactAutocomplete({
 
 export function ComposeForm() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [form, setForm] = useState({
-    to: '',
+    to: searchParams.get('to') ?? '',
     cc: '',
-    subject: '',
+    subject: searchParams.get('subject') ?? '',
     bodyText: '',
   })
   const [mode, setMode] = useState<'send' | 'schedule'>('send')
