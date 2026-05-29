@@ -907,4 +907,89 @@ describe('Portal company detail page', () => {
       }),
     )
   })
+
+  it('turns an empty company invoices tab into an accepted quote conversion action', async () => {
+    const convertQuote = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ success: true, data: { invoiceId: 'invoice-new', invoiceNumber: 'INV-002' } }),
+    } as Response)
+
+    global.fetch = jest.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/custom-fields?resource=company') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { definitions: [] } }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/companies/company-1') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              company: {
+                id: 'company-1',
+                orgId: 'org-1',
+                linkedOrgId: 'client-org-1',
+                name: 'Acme Holdings',
+                lifecycleStage: 'customer',
+              },
+            },
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/companies/company-1/command-center?limit=100') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              summary: {},
+              analytics: {},
+              contacts: [
+                { id: 'contact-1', name: 'Jane Client', email: 'jane@example.com', type: 'client', stage: 'won' },
+              ],
+              deals: [],
+              quotes: [
+                { id: 'quote-1', quoteNumber: 'QUO-001', status: 'accepted', total: 12000, currency: 'ZAR' },
+              ],
+              invoices: [],
+              projects: [],
+              serviceWorkspaces: [],
+              relationships: [],
+              documents: [],
+              orders: [],
+              shipments: [],
+              inventoryItems: [],
+              activities: [],
+            },
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/quotes/quote-1' && init?.method === 'PATCH') {
+        return convertQuote(input, init)
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ data: {} }),
+      } as Response)
+    }) as jest.Mock
+
+    render(<CompanyDetailPage />)
+
+    await screen.findByRole('heading', { name: 'Acme Holdings' })
+    fireEvent.click(screen.getByRole('tab', { name: /Invoices/i }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Create invoice from QUO-001' }))
+
+    await waitFor(() => {
+      expect(convertQuote).toHaveBeenCalledWith(
+        '/api/v1/quotes/quote-1',
+        expect.objectContaining({
+          method: 'PATCH',
+          body: JSON.stringify({ action: 'convert-to-invoice' }),
+        }),
+      )
+    })
+  })
 })

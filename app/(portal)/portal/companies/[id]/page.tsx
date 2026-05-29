@@ -387,6 +387,10 @@ function numericDealValue(deal: RelatedDeal) {
   return typeof deal.value === 'number' && Number.isFinite(deal.value) ? deal.value : 0
 }
 
+function quoteLabel(quote: RelatedQuote) {
+  return quote.quoteNumber || quote.id
+}
+
 function ProjectsPanel({
   projects,
   company,
@@ -690,8 +694,60 @@ function QuotesPanel({
   )
 }
 
-function InvoicesPanel({ invoices }: { invoices: RelatedInvoice[] }) {
-  if (invoices.length === 0) return <EmptyPanel icon="receipt_long" label="No linked invoices yet." />
+function InvoicesPanel({
+  invoices,
+  company,
+  quotes,
+  creatingInvoiceId,
+  invoiceError,
+  onCreateInvoiceFromQuote,
+}: {
+  invoices: RelatedInvoice[]
+  company: Company
+  quotes: RelatedQuote[]
+  creatingInvoiceId: string | null
+  invoiceError: string | null
+  onCreateInvoiceFromQuote: (quote: RelatedQuote) => void
+}) {
+  if (invoices.length === 0) {
+    const acceptedQuote = quotes.find((quote) => quote.status === 'accepted')
+    return (
+      <EmptyPanel
+        icon="receipt_long"
+        label={
+          acceptedQuote
+            ? `No linked invoices yet. Convert ${quoteLabel(acceptedQuote)} into a draft invoice so accepted revenue for ${company.name} moves into billing.`
+            : quotes.length > 0
+              ? `No linked invoices yet. Accept a quote for ${company.name} before converting it into billing.`
+              : `No linked invoices yet. Create and accept a quote for ${company.name} before billing this account.`
+        }
+      >
+        <div className="flex flex-col items-center gap-3">
+          {acceptedQuote ? (
+            <button
+              type="button"
+              onClick={() => onCreateInvoiceFromQuote(acceptedQuote)}
+              disabled={creatingInvoiceId === acceptedQuote.id}
+              className="btn-pib-primary inline-flex items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">receipt_long</span>
+              {creatingInvoiceId === acceptedQuote.id ? 'Creating invoice...' : `Create invoice from ${quoteLabel(acceptedQuote)}`}
+            </button>
+          ) : (
+            <button
+              type="button"
+              disabled
+              className="btn-pib-secondary inline-flex cursor-not-allowed items-center gap-1.5 opacity-60"
+            >
+              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">approval</span>
+              Accept quote before invoice
+            </button>
+          )}
+          {invoiceError ? <p className="max-w-md text-xs text-red-300">{invoiceError}</p> : null}
+        </div>
+      </EmptyPanel>
+    )
+  }
   return (
     <TableShell>
       <table className="w-full text-sm">
@@ -964,6 +1020,8 @@ export default function CompanyDetailPage() {
   const [documentError, setDocumentError] = useState<string | null>(null)
   const [creatingRelationship, setCreatingRelationship] = useState(false)
   const [relationshipError, setRelationshipError] = useState<string | null>(null)
+  const [creatingInvoiceId, setCreatingInvoiceId] = useState<string | null>(null)
+  const [invoiceError, setInvoiceError] = useState<string | null>(null)
   const [creatingQuote, setCreatingQuote] = useState(false)
   const [quoteError, setQuoteError] = useState<string | null>(null)
   const [customFieldDefs, setCustomFieldDefs] = useState<CustomFieldDefinition[]>([])
@@ -1306,6 +1364,26 @@ export default function CompanyDetailPage() {
     }
   }
 
+  async function createInvoiceFromQuote(quote: RelatedQuote): Promise<void> {
+    if (!company) return
+    setCreatingInvoiceId(quote.id)
+    setInvoiceError(null)
+    try {
+      const res = await fetch(`/api/v1/quotes/${quote.id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ action: 'convert-to-invoice' }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(body.error ?? 'Failed to create invoice')
+      await loadRelated(company.id)
+    } catch (err) {
+      setInvoiceError(err instanceof Error ? err.message : 'Failed to create invoice')
+    } finally {
+      setCreatingInvoiceId(null)
+    }
+  }
+
   async function handleDelete(): Promise<void> {
     if (!company) return
     const confirmed = window.confirm(`Archive ${company.name}? Linked contacts, deals, quotes, and activities will keep their history but no longer point at this company.`)
@@ -1508,7 +1586,16 @@ export default function CompanyDetailPage() {
             onCreateDeal={() => setNewDealOpen(true)}
           />
         )}
-        {!relatedLoading && tab === 'invoices' && <InvoicesPanel invoices={related.invoices} />}
+        {!relatedLoading && tab === 'invoices' && (
+          <InvoicesPanel
+            invoices={related.invoices}
+            company={company}
+            quotes={related.quotes}
+            creatingInvoiceId={creatingInvoiceId}
+            invoiceError={invoiceError}
+            onCreateInvoiceFromQuote={createInvoiceFromQuote}
+          />
+        )}
         {!relatedLoading && tab === 'orders' && (
           <SimpleRowsPanel
             rows={related.orders}
