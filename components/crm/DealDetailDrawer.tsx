@@ -286,7 +286,20 @@ export function DealDetailDrawer({
                     {readableContact}
                   </a>
                 ) : (
-                  <p className="text-sm text-[var(--color-pib-text-muted)]">No decision-maker linked</p>
+                  <div className="space-y-2">
+                    <p className="text-sm text-[var(--color-pib-text-muted)]">No decision-maker linked</p>
+                    {onEdit ? (
+                      <button
+                        type="button"
+                        aria-label={`Link decision-maker for ${deal.title}`}
+                        onClick={onEdit}
+                        className="inline-flex items-center gap-1 rounded-md border border-[var(--color-pib-line)] px-2 py-1 text-[11px] font-medium text-[var(--color-pib-accent)] transition-colors hover:border-[var(--color-pib-accent)] hover:text-[var(--color-pib-text)]"
+                      >
+                        <span className="material-symbols-outlined text-[13px]" aria-hidden="true">person_add</span>
+                        Link decision-maker
+                      </button>
+                    ) : null}
+                  </div>
                 )}
               </div>
               <div className="rounded-md bg-black/10 px-3 py-2">

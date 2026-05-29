@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { DealDetailDrawer } from '@/components/crm/DealDetailDrawer'
 import type { Deal } from '@/lib/crm/types'
 import type { PipelineStage } from '@/lib/pipelines/types'
@@ -49,5 +49,22 @@ describe('DealDetailDrawer', () => {
     expect(screen.getByRole('link', { name: 'Acme Growth' })).toHaveAttribute('href', '/portal/companies/company-1')
     expect(screen.getByText('Maya Sales')).toBeInTheDocument()
     expect(screen.getByText(/15 Jun 2026/)).toBeInTheDocument()
+  })
+
+  it('turns a missing decision-maker into an edit action', () => {
+    const onEdit = jest.fn()
+    render(
+      <DealDetailDrawer
+        deal={{ ...deal, contactId: '' }}
+        stages={stages}
+        orgId="org-1"
+        onClose={jest.fn()}
+        onEdit={onEdit}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Link decision-maker for Growth retainer' }))
+
+    expect(onEdit).toHaveBeenCalledTimes(1)
   })
 })
