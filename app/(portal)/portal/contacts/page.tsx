@@ -32,6 +32,11 @@ interface Contact {
   leadScore?: number
   icpScore?: number
   aiLeadScore?: number
+  assignedTo?: string
+  assignedToRef?: {
+    uid?: string
+    displayName?: string
+  }
 }
 
 interface TeamMember {
@@ -118,12 +123,21 @@ function TypeBadge({ type }: { type: string }) {
   )
 }
 
+function contactOwnerLabel(contact: Contact): string {
+  return contact.assignedToRef?.displayName || contact.assignedTo || 'Unassigned'
+}
+
+function hasContactOwner(contact: Contact): boolean {
+  return Boolean(String(contact.assignedTo ?? contact.assignedToRef?.uid ?? '').trim())
+}
+
 export default function PortalContactsPage() {
   const [contacts, setContacts] = useState<Contact[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [stageFilter, setStageFilter] = useState('')
   const [typeFilter, setTypeFilter] = useState('')
+  const [ownerLens, setOwnerLens] = useState<'all' | 'unowned'>('all')
   const [showNew, setShowNew] = useState(false)
 
   // Bulk selection state
@@ -202,11 +216,16 @@ export default function PortalContactsPage() {
   }
 
   function toggleSelectAll() {
-    if (selectedIds.size === contacts.length) {
-      setSelectedIds(new Set())
-    } else {
-      setSelectedIds(new Set(contacts.map(c => c.id)))
-    }
+    setSelectedIds(prev => {
+      const visibleIds = displayedContacts.map(c => c.id)
+      const allVisibleSelected = visibleIds.length > 0 && visibleIds.every(id => prev.has(id))
+      if (allVisibleSelected) {
+        const next = new Set(prev)
+        for (const id of visibleIds) next.delete(id)
+        return next
+      }
+      return new Set([...prev, ...visibleIds])
+    })
   }
 
   async function handleBulkDelete() {
@@ -329,14 +348,19 @@ export default function PortalContactsPage() {
     }
   }
 
-  const allSelected = contacts.length > 0 && selectedIds.size === contacts.length
+  const unownedContacts = contacts.filter((contact) => !hasContactOwner(contact))
+  const ownerCoverage = contacts.length > 0 ? (contacts.length - unownedContacts.length) / contacts.length : 1
+  const displayedContacts = ownerLens === 'unowned' ? unownedContacts : contacts
+  const allSelected = displayedContacts.length > 0 && displayedContacts.every((contact) => selectedIds.has(contact.id))
   const someSelected = selectedIds.size > 0 && !allSelected
   const hasActiveFilters = !!(search.trim() || stageFilter || typeFilter)
   const contactCountLabel = loading
     ? 'Loading…'
+    : ownerLens === 'unowned'
+      ? `${displayedContacts.length} unowned contact${displayedContacts.length === 1 ? '' : 's'} need assignment.`
     : hasActiveFilters
-      ? `${contacts.length} contact${contacts.length === 1 ? '' : 's'} match this view.`
-      : `${contacts.length} contact${contacts.length === 1 ? '' : 's'} in your audience.`
+      ? `${displayedContacts.length} contact${displayedContacts.length === 1 ? '' : 's'} match this view.`
+      : `${displayedContacts.length} contact${displayedContacts.length === 1 ? '' : 's'} in your audience.`
 
   return (
     <div className="space-y-8">
@@ -367,6 +391,49 @@ export default function PortalContactsPage() {
           </div>
         </div>
       </header>
+
+      <section className="grid gap-3 md:grid-cols-3">
+        <div className="pib-stat-card">
+          <div className="flex items-start justify-between gap-3">
+            <p className="eyebrow !text-[10px]">Owner coverage</p>
+            <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">supervisor_account</span>
+          </div>
+          <p className="mt-3 font-display tracking-tight leading-none text-3xl text-[var(--color-pib-text)]">
+            {Math.round(ownerCoverage * 100)}%
+          </p>
+          <p className="mt-3 text-xs text-[var(--color-pib-text-muted)]">
+            {unownedContacts.length} unowned
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setOwnerLens(ownerLens === 'unowned' ? 'all' : 'unowned')}
+          className={[
+            'rounded-[var(--radius-card)] border p-4 text-left transition-colors',
+            ownerLens === 'unowned'
+              ? 'border-amber-400/40 bg-amber-400/10'
+              : 'border-[var(--color-pib-line)] bg-white/[0.03] hover:bg-white/[0.05]',
+          ].join(' ')}
+          aria-label={ownerLens === 'unowned' ? 'Show all contacts' : 'Show unowned contacts needing an owner'}
+        >
+          <span className="material-symbols-outlined text-[20px] text-[var(--color-pib-accent)]">manage_accounts</span>
+          <p className="mt-3 text-sm font-semibold text-[var(--color-pib-text)]">
+            {ownerLens === 'unowned' ? 'Showing owner gaps' : 'Review owner gaps'}
+          </p>
+          <p className="mt-1 text-xs leading-relaxed text-[var(--color-pib-text-muted)]">
+            {unownedContacts.length > 0
+              ? `${unownedContacts.length} contacts need an accountable team member before follow-up slips.`
+              : 'Every contact in this view has an owner.'}
+          </p>
+        </button>
+        <div className="rounded-[var(--radius-card)] border border-[var(--color-pib-line)] bg-white/[0.03] p-4">
+          <span className="material-symbols-outlined text-[20px] text-[var(--color-pib-accent)]">groups</span>
+          <p className="mt-3 text-sm font-semibold text-[var(--color-pib-text)]">Team workload</p>
+          <p className="mt-1 text-xs leading-relaxed text-[var(--color-pib-text-muted)]">
+            Select unowned contacts, assign a team member, and keep the customer base accountable from this workspace.
+          </p>
+        </div>
+      </section>
 
       {/* Filters */}
       <section className="space-y-2">
@@ -416,7 +483,7 @@ export default function PortalContactsPage() {
       {selectedIds.size > 0 && (
         <ContactsBulkCommandBar
           selectedCount={selectedIds.size}
-          totalCount={contacts.length}
+          totalCount={displayedContacts.length}
           bulkAction={bulkAction}
           bulkPending={bulkPending}
           teamMembers={teamMembers}
@@ -447,7 +514,7 @@ export default function PortalContactsPage() {
             <div key={i} className="pib-skeleton h-12" />
           ))}
         </div>
-      ) : contacts.length === 0 ? (
+      ) : displayedContacts.length === 0 ? (
         <div className="bento-card p-10 text-center">
           <span className="material-symbols-outlined text-4xl text-[var(--color-pib-accent)]">contacts</span>
           <h2 className="font-display text-2xl mt-4">
@@ -456,15 +523,17 @@ export default function PortalContactsPage() {
           <p className="text-sm text-[var(--color-pib-text-muted)] mt-2">
             {hasActiveFilters
               ? 'Clear the search or filters to return to your full audience.'
+              : ownerLens === 'unowned'
+                ? 'Every contact in this view has an owner.'
               : 'Add your first contact to start building your audience.'}
           </p>
-          {hasActiveFilters ? (
+          {hasActiveFilters || ownerLens === 'unowned' ? (
             <button
-              onClick={() => { setSearch(''); setStageFilter(''); setTypeFilter('') }}
+              onClick={() => { setSearch(''); setStageFilter(''); setTypeFilter(''); setOwnerLens('all') }}
               className="btn-pib-secondary mt-6"
             >
               <span className="material-symbols-outlined text-base">filter_alt_off</span>
-              Clear filters
+              {ownerLens === 'unowned' ? 'Show all contacts' : 'Clear filters'}
             </button>
           ) : (
             <button onClick={() => setShowNew(true)} className="btn-pib-accent mt-6">
@@ -499,11 +568,12 @@ export default function PortalContactsPage() {
             <p className="col-span-1 eyebrow !text-[10px]">AI</p>
           </div>
           <div className="divide-y divide-[var(--color-pib-line)]">
-            {contacts.map((c) => {
+              {displayedContacts.map((c) => {
               const isSelected = selectedIds.has(c.id)
               return (
                 <div
                   key={c.id}
+                  data-contact-row
                   className="grid grid-cols-2 md:grid-cols-15 gap-3 md:gap-4 items-center px-5 py-4 hover:bg-[var(--color-pib-surface-2)] transition-colors"
                   style={isSelected ? { background: 'var(--color-pib-accent, #7c3aed)10' } : undefined}
                 >
@@ -536,6 +606,9 @@ export default function PortalContactsPage() {
                     </div>
                     <div className="md:col-span-2 text-sm text-[var(--color-pib-text-muted)] truncate">
                       {c.company || '—'}
+                      <p className="mt-1 text-[11px] text-[var(--color-pib-text-muted)]">
+                        Owner: <span>{contactOwnerLabel(c)}</span>
+                      </p>
                     </div>
                     <div className="md:col-span-1">
                       <TypeBadge type={c.type} />
