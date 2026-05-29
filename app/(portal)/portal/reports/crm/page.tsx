@@ -84,6 +84,9 @@ interface RepPerformanceData {
     totalWonValue: number
     totalOpenValue: number
     totalActivities: number
+    totalContacts?: number
+    unassignedContacts?: number
+    contactOwnerCoverage?: number
   }
 }
 
@@ -410,6 +413,10 @@ export default function CrmReportsPage() {
   const unassignedRep = repPerformance?.reps.find((rep) => rep.uid === 'unassigned' || /unassigned/i.test(rep.displayName))
   const unassignedDealCount = unassignedRep ? unassignedRep.openDeals + unassignedRep.wonDeals + unassignedRep.lostDeals : 0
   const unassignedDealShare = totalRepDeals > 0 ? unassignedDealCount / totalRepDeals : 0
+  const totalOwnedContactBase = repPerformance?.summary.totalContacts ?? activeContactCount
+  const unassignedContacts = repPerformance?.summary.unassignedContacts ?? 0
+  const contactOwnerCoverage =
+    repPerformance?.summary.contactOwnerCoverage ?? (totalOwnedContactBase > 0 ? 1 - (unassignedContacts / totalOwnedContactBase) : 1)
   const topRep = repPerformance?.reps
     .filter((rep) => rep.uid !== 'unassigned' && !/unassigned/i.test(rep.displayName))
     .sort((a, b) => b.wonValue - a.wonValue || b.activities - a.activities)[0]
@@ -420,7 +427,7 @@ export default function CrmReportsPage() {
   )
   const daysWithoutActivity = activity?.perDay.filter((day) => day.count === 0).length ?? 0
   const pipelineSignal =
-    forecastCoverage >= 0.5 && bottleneckShare <= 0.25 && unassignedDealShare <= 0.1
+    forecastCoverage >= 0.5 && bottleneckShare <= 0.25 && unassignedDealShare <= 0.1 && contactOwnerCoverage >= 0.9
       ? 'Healthy'
       : forecastCoverage >= 0.3
         ? 'Needs focus'
@@ -504,10 +511,11 @@ export default function CrmReportsPage() {
               {pipelineSignal}
             </span>
           </div>
-          <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
             <StatCard label="Contacts" value={fmtNum(funnel?.total ?? 0)} sub={`${fmtPercent(clientMix)} clients in active base`} icon="contacts" />
             <StatCard label="Open pipeline" value={fmtZar(forecast?.summary.totalValue ?? 0)} sub={`${fmtZar(forecast?.summary.weightedValue ?? 0)} weighted`} icon="payments" />
             <StatCard label="Bottlenecks" value={fmtNum(velocity?.summary.bottleneckCount ?? 0)} sub={`${fmtPercent(bottleneckShare)} of tracked stages`} icon="speed" />
+            <StatCard label="Contact owners" value={fmtPercent(contactOwnerCoverage)} sub={`${fmtNum(unassignedContacts)} unowned contacts`} icon="supervisor_account" />
             <StatCard label="Activity" value={fmtNum(activity?.total ?? 0)} sub={`${activityAverage.toFixed(1)} per day over ${days} days`} icon="task_alt" />
           </div>
         </div>
@@ -520,6 +528,7 @@ export default function CrmReportsPage() {
           <HealthBar value={forecastCoverage} label="Forecast confidence" />
           <HealthBar value={1 - bottleneckShare} label="Stage movement health" />
           <HealthBar value={1 - unassignedDealShare} label="Deal ownership hygiene" />
+          <HealthBar value={contactOwnerCoverage} label="Contact owner coverage" />
         </div>
       </section>
 
@@ -548,9 +557,9 @@ export default function CrmReportsPage() {
         <InsightCard
           icon="groups"
           label="Team execution"
-          title={topRep ? `${topRep.displayName} leads won value` : 'No rep leader yet'}
-          body={`${fmtPercent(unassignedDealShare)} of tracked deals are unassigned. ${topRep ? `${fmtNum(topRep.activities)} activities logged.` : 'Assign owners to unlock accountability.'}`}
-          tone={unassignedDealShare <= 0.1 ? 'good' : 'warning'}
+          title={unassignedContacts > 0 ? `${fmtNum(unassignedContacts)} contacts need an owner` : topRep ? `${topRep.displayName} leads won value` : 'Contact ownership is clean'}
+          body={`${fmtPercent(unassignedDealShare)} of tracked deals are unassigned. Contact owner coverage is ${fmtPercent(contactOwnerCoverage)}.`}
+          tone={unassignedDealShare <= 0.1 && contactOwnerCoverage >= 0.9 ? 'good' : 'warning'}
         />
       </section>
 
@@ -752,9 +761,10 @@ export default function CrmReportsPage() {
             <div className="bento-card !p-5 space-y-5">
               <div>
                 <p className="eyebrow !text-[10px]">Ownership</p>
-                <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">Performance reporting is only useful when deal ownership is clean.</p>
+                <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">Performance reporting is only useful when contacts and deals have accountable owners.</p>
               </div>
               <HealthBar value={1 - unassignedDealShare} label="Assigned deal coverage" />
+              <HealthBar value={contactOwnerCoverage} label="Assigned contact coverage" />
               <div className="grid grid-cols-2 gap-3">
                 <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-3">
                   <p className="eyebrow !text-[10px]">Won value</p>
@@ -763,6 +773,14 @@ export default function CrmReportsPage() {
                 <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-3">
                   <p className="eyebrow !text-[10px]">Activities</p>
                   <p className="mt-2 font-display text-xl font-bold text-[var(--color-pib-text)]">{fmtNum(repPerformance.summary.totalActivities)}</p>
+                </div>
+                <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-3">
+                  <p className="eyebrow !text-[10px]">Contact owners</p>
+                  <p className="mt-2 font-display text-xl font-bold text-[var(--color-pib-text)]">{fmtPercent(contactOwnerCoverage)}</p>
+                </div>
+                <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-3">
+                  <p className="eyebrow !text-[10px]">Unowned</p>
+                  <p className="mt-2 font-display text-xl font-bold text-[var(--color-pib-text)]">{fmtNum(unassignedContacts)}</p>
                 </div>
               </div>
             </div>

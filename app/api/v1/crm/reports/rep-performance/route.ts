@@ -6,7 +6,7 @@
 import { adminDb } from '@/lib/firebase/admin'
 import { withCrmAuth } from '@/lib/auth/crm-middleware'
 import { apiSuccess, apiErrorFromException } from '@/lib/api/response'
-import type { Deal, Activity } from '@/lib/crm/types'
+import type { Deal, Activity, Contact } from '@/lib/crm/types'
 import type { MemberRef } from '@/lib/orgMembers/memberRef'
 
 export const dynamic = 'force-dynamic'
@@ -21,6 +21,8 @@ interface RepRow {
   wonValue: number
   activities: number
 }
+
+type ContactRecord = Contact & { deleted?: boolean }
 
 function repKey(ref: MemberRef | undefined, uid: string | undefined): { uid: string; displayName: string } {
   if (ref?.uid) return { uid: ref.uid, displayName: ref.displayName || ref.uid }
@@ -45,14 +47,24 @@ function ensureRow(rows: Map<string, RepRow>, uid: string, displayName: string):
   return row
 }
 
+function hasContactOwner(contact: ContactRecord): boolean {
+  const assignedTo = typeof contact.assignedTo === 'string' ? contact.assignedTo.trim() : ''
+  const assignedToRefUid = typeof contact.assignedToRef?.uid === 'string' ? contact.assignedToRef.uid.trim() : ''
+  return Boolean(assignedTo || assignedToRefUid)
+}
+
 export const GET = withCrmAuth('member', async (_req, ctx) => {
   try {
-    const [dealsSnap, activitiesSnap] = await Promise.all([
+    const [dealsSnap, activitiesSnap, contactsSnap] = await Promise.all([
       adminDb.collection('deals')
         .where('orgId', '==', ctx.orgId)
         .limit(2000)
         .get(),
       adminDb.collection('activities')
+        .where('orgId', '==', ctx.orgId)
+        .limit(2000)
+        .get(),
+      adminDb.collection('contacts')
         .where('orgId', '==', ctx.orgId)
         .limit(2000)
         .get(),
@@ -96,6 +108,15 @@ export const GET = withCrmAuth('member', async (_req, ctx) => {
       }))
       .sort((a, b) => b.wonValue - a.wonValue || b.openValue - a.openValue || b.activities - a.activities)
 
+    const contacts = contactsSnap.docs
+      .map((doc) => ({ id: doc.id, ...doc.data() }) as ContactRecord)
+      .filter((contact) => contact.deleted !== true)
+    const totalContacts = contacts.length
+    const unassignedContacts = contacts.filter((contact) => !hasContactOwner(contact)).length
+    const contactOwnerCoverage = totalContacts > 0
+      ? (totalContacts - unassignedContacts) / totalContacts
+      : 1
+
     return apiSuccess({
       reps,
       summary: {
@@ -103,6 +124,9 @@ export const GET = withCrmAuth('member', async (_req, ctx) => {
         totalWonValue: reps.reduce((sum, rep) => sum + rep.wonValue, 0),
         totalOpenValue: reps.reduce((sum, rep) => sum + rep.openValue, 0),
         totalActivities: reps.reduce((sum, rep) => sum + rep.activities, 0),
+        totalContacts,
+        unassignedContacts,
+        contactOwnerCoverage,
       },
     })
   } catch (err) {
