@@ -312,7 +312,20 @@ export function DealDetailDrawer({
                     {readableCompany}
                   </a>
                 ) : (
-                  <p className="text-sm text-[var(--color-pib-text-muted)]">{readableCompany || 'No company linked'}</p>
+                  <div className="space-y-2">
+                    <p className="text-sm text-[var(--color-pib-text-muted)]">{readableCompany || 'No company linked'}</p>
+                    {onEdit ? (
+                      <button
+                        type="button"
+                        aria-label={`Link company for ${deal.title}`}
+                        onClick={onEdit}
+                        className="inline-flex items-center gap-1 rounded-md border border-[var(--color-pib-line)] px-2 py-1 text-[11px] font-medium text-[var(--color-pib-accent)] transition-colors hover:border-[var(--color-pib-accent)] hover:text-[var(--color-pib-text)]"
+                      >
+                        <span className="material-symbols-outlined text-[13px]" aria-hidden="true">add_business</span>
+                        Link company
+                      </button>
+                    ) : null}
+                  </div>
                 )}
               </div>
               <div className="rounded-md bg-black/10 px-3 py-2">

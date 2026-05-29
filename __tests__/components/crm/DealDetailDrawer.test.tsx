@@ -67,4 +67,21 @@ describe('DealDetailDrawer', () => {
 
     expect(onEdit).toHaveBeenCalledTimes(1)
   })
+
+  it('turns a missing company into an edit action', () => {
+    const onEdit = jest.fn()
+    render(
+      <DealDetailDrawer
+        deal={{ ...deal, companyId: '', companyName: '' }}
+        stages={stages}
+        orgId="org-1"
+        onClose={jest.fn()}
+        onEdit={onEdit}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Link company for Growth retainer' }))
+
+    expect(onEdit).toHaveBeenCalledTimes(1)
+  })
 })
