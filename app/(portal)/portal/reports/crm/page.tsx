@@ -584,6 +584,12 @@ export default function CrmReportsPage() {
           label="Forecast focus"
           title={`${fmtZar(nearTermForecastValue)} weighted near term`}
           body={`${fmtNum(noDateDeals)} open deals have no close date, which limits forecast reliability.`}
+          action={noDateDeals > 0 ? {
+            href: '/portal/deals?view=forecast&focus=no-close-date',
+            label: 'Review dates',
+            ariaLabel: 'Open forecast deals missing close dates',
+            icon: 'edit_calendar',
+          } : undefined}
           tone={noDateDeals === 0 ? 'good' : 'warning'}
         />
         <InsightCard
@@ -728,6 +734,12 @@ export default function CrmReportsPage() {
                   label="Close-date hygiene"
                   title={`${fmtNum(noDateDeals)} deals need a date`}
                   body="No-date deals are still visible, but they should not be allowed to hide from forecast review."
+                  action={noDateDeals > 0 ? {
+                    href: '/portal/deals?view=forecast&focus=no-close-date',
+                    label: 'Review dates',
+                    ariaLabel: 'Open forecast close-date hygiene list',
+                    icon: 'edit_calendar',
+                  } : undefined}
                   tone={noDateDeals === 0 ? 'good' : 'warning'}
                 />
               </div>

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import {
   DealPipelineCommandBar,
   matchesDealFocus,
@@ -194,6 +195,7 @@ function ProbabilityInput({ deal, onUpdate }: { deal: Deal; onUpdate: (id: strin
 // ── Page ───────────────────────────────────────────────────────────────────────
 
 export default function DealsPage() {
+  const searchParams = useSearchParams()
   const [deals, setDeals] = useState<Deal[]>([])
   const [contacts, setContacts] = useState<Contact[]>([])
   const [pipelines, setPipelines] = useState<Pipeline[]>([])
@@ -203,9 +205,17 @@ export default function DealsPage() {
   const [contactsLoading, setContactsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [stageFilter, setStageFilter] = useState<string>('all')
-  const [viewMode, setViewMode] = useState<ViewMode>('board')
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    const view = searchParams.get('view')
+    return view === 'list' || view === 'forecast' ? view : 'board'
+  })
   const [search, setSearch] = useState('')
-  const [focusMode, setFocusMode] = useState<DealFocusMode>('all')
+  const [focusMode, setFocusMode] = useState<DealFocusMode>(() => {
+    const focus = searchParams.get('focus')
+    return focus === 'atRisk' || focus === 'needsContact' || focus === 'quoteReady' || focus === 'no-close-date'
+      ? focus === 'no-close-date' ? 'noCloseDate' : focus
+      : 'all'
+  })
   const [ownerLens, setOwnerLens] = useState<'all' | 'unassigned'>('all')
   const [selectedDealIds, setSelectedDealIds] = useState<Set<string>>(new Set())
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([])

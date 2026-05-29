@@ -99,6 +99,9 @@ describe('Portal CRM reports page', () => {
 
     const ownerGapLink = screen.getByRole('link', { name: 'Open unowned contacts from team execution report' })
     expect(ownerGapLink).toHaveAttribute('href', '/portal/contacts?owner=unowned')
+
+    const closeDateLink = screen.getByRole('link', { name: 'Open forecast deals missing close dates' })
+    expect(closeDateLink).toHaveAttribute('href', '/portal/deals?view=forecast&focus=no-close-date')
   })
 
   it('turns a missing dominant funnel stage insight into a contact stage action', async () => {

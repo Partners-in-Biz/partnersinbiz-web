@@ -1,6 +1,12 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import DealsPage from '@/app/(portal)/portal/deals/page'
 
+let mockSearchParams = new URLSearchParams()
+
+jest.mock('next/navigation', () => ({
+  useSearchParams: () => mockSearchParams,
+}))
+
 jest.mock('next/link', () => ({
   __esModule: true,
   default: ({ children, href, ...props }: { children: React.ReactNode; href: string }) => (
@@ -32,6 +38,7 @@ let mockDealRows: unknown[] = []
 describe('Portal deals page', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    mockSearchParams = new URLSearchParams()
     mockDealRows = [
       {
         id: 'deal-1',
@@ -196,5 +203,50 @@ describe('Portal deals page', () => {
     fireEvent.click(screen.getByRole('button', { name: /create forecastable deal/i }))
 
     expect(screen.getByTestId('deal-drawer')).toBeInTheDocument()
+  })
+
+  it('opens directly to forecast deals missing close dates from CRM reports', async () => {
+    mockSearchParams = new URLSearchParams('view=forecast&focus=no-close-date')
+    mockDealRows = [
+      {
+        id: 'deal-with-date',
+        orgId: 'org-1',
+        contactId: 'contact-1',
+        title: 'Dated expansion',
+        value: 50000,
+        currency: 'ZAR',
+        pipelineId: 'pipeline-1',
+        stageId: 'qualified',
+        ownerUid: 'owner-1',
+        ownerRef: { uid: 'owner-1', displayName: 'Maya Sales' },
+        expectedCloseDate: '2026-06-15',
+        notes: '',
+        createdAt: null,
+        updatedAt: null,
+      },
+      {
+        id: 'deal-no-date',
+        orgId: 'org-1',
+        contactId: 'contact-1',
+        title: 'No close date opportunity',
+        value: 25000,
+        currency: 'ZAR',
+        pipelineId: 'pipeline-1',
+        stageId: 'qualified',
+        ownerUid: 'owner-1',
+        ownerRef: { uid: 'owner-1', displayName: 'Maya Sales' },
+        expectedCloseDate: null,
+        notes: '',
+        createdAt: null,
+        updatedAt: null,
+      },
+    ]
+
+    render(<DealsPage />)
+
+    expect(await screen.findByRole('tab', { name: /Forecast/i })).toHaveAttribute('aria-selected', 'true')
+    expect(await screen.findByText('No close date opportunity')).toBeInTheDocument()
+    expect(screen.queryByText('Dated expansion')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Focus deals missing close dates' })).toHaveAttribute('aria-pressed', 'true')
   })
 })
