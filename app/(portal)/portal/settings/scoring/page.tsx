@@ -80,6 +80,45 @@ function StatCard({ label, value, sub, icon }: { label: string; value: string; s
   )
 }
 
+function PriorityAction({
+  label,
+  value,
+  copy,
+  icon,
+  actionLabel,
+  onClick,
+}: {
+  label: string
+  value: string
+  copy: string
+  icon: string
+  actionLabel: string
+  onClick: () => void
+}) {
+  return (
+    <div className="rounded-xl border border-[var(--color-pib-line)] bg-black/10 p-4">
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/[0.04] text-[var(--color-pib-text)]">
+          <span className="material-symbols-outlined text-[18px]">{icon}</span>
+        </span>
+        <span className="rounded-full border border-[var(--color-pib-line)] px-2 py-1 text-[10px] text-[var(--color-pib-text-muted)]">
+          {value}
+        </span>
+      </div>
+      <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">{label}</h3>
+      <p className="mt-2 min-h-[40px] text-xs leading-5 text-[var(--color-pib-text-muted)]">{copy}</p>
+      <button
+        type="button"
+        onClick={onClick}
+        className="cursor-pointer btn-pib-secondary mt-4 flex w-full items-center justify-center gap-1.5 text-xs"
+      >
+        <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
+        {actionLabel}
+      </button>
+    </div>
+  )
+}
+
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ScoringPage() {
@@ -283,6 +322,48 @@ export default function ScoringPage() {
               </div>
             </div>
           </section>
+
+          {(scoringHealth < 100 || explicitWeightCount < Object.keys(DEFAULT_WEIGHTS).length) && (
+            <section className="bento-card !p-0 overflow-hidden">
+              <div className="grid gap-0 lg:grid-cols-[minmax(0,0.75fr)_minmax(320px,1.25fr)]">
+                <div className="border-b border-[var(--color-pib-line)] p-5 lg:border-b-0 lg:border-r">
+                  <p className="eyebrow !text-[10px]">Model setup priorities</p>
+                  <h2 className="mt-3 text-xl font-semibold text-[var(--color-pib-text)]">
+                    Turn scoring gaps into sales focus
+                  </h2>
+                  <p className="mt-3 text-sm leading-6 text-[var(--color-pib-text-muted)]">
+                    A useful lead score should explain company fit, buying intent, and whether AI is adding judgment. Work these priorities before recomputing scores for the whole team.
+                  </p>
+                </div>
+                <div className="grid gap-3 p-4 md:grid-cols-3">
+                  <PriorityAction
+                    label="Define ICP fit"
+                    value={`${icpDimensions.length}/6 set`}
+                    icon="verified_user"
+                    copy="Capture industries, tiers, regions, or size bands so sales can tell whether a contact matches the company focus."
+                    actionLabel="Review ICP"
+                    onClick={() => setActiveTab('icp')}
+                  />
+                  <PriorityAction
+                    label="Tune lead weights"
+                    value={`${explicitWeightCount}/6 tuned`}
+                    icon="bar_chart"
+                    copy="Replace default engagement weights with what your team actually treats as buying intent."
+                    actionLabel="Tune lead weights"
+                    onClick={() => setActiveTab('weights')}
+                  />
+                  <PriorityAction
+                    label="Enable AI supplement"
+                    value={aiEnabled ? 'On' : 'Off'}
+                    icon="auto_awesome"
+                    copy="Use AI scoring when the team needs a second opinion on fit and urgency beside the formula score."
+                    actionLabel={aiEnabled ? 'Review AI scoring' : 'Enable AI scoring'}
+                    onClick={() => setAiEnabled(true)}
+                  />
+                </div>
+              </div>
+            </section>
+          )}
 
           <PageTabs
             ariaLabel="Scoring settings"
