@@ -223,17 +223,27 @@ export default function PipelinePage() {
   const lostStageIds = useMemo(() => new Set(stages.filter((stage) => stage.kind === 'lost').map((stage) => stage.id)), [stages])
   const wonStageIds = useMemo(() => new Set(stages.filter((stage) => stage.kind === 'won').map((stage) => stage.id)), [stages])
 
+  const contactLabelsById = useMemo(() => {
+    return contacts.reduce<Record<string, string>>((acc, contact) => {
+      const label = contact.name?.trim() || contact.email?.trim()
+      if (label) acc[contact.id] = label
+      return acc
+    }, {})
+  }, [contacts])
+
   const searchedDeals = useMemo(() => {
     const query = search.trim().toLowerCase()
     return deals.filter((deal) => {
+      const contactLabel = contactLabelsById[deal.contactId]
       const matchesSearch = !query ||
         deal.title.toLowerCase().includes(query) ||
         deal.companyName?.toLowerCase().includes(query) ||
-        deal.contactId?.toLowerCase().includes(query)
+        deal.contactId?.toLowerCase().includes(query) ||
+        contactLabel?.toLowerCase().includes(query)
       const matchesStage = stageFilter === 'all' || deal.stageId === stageFilter
       return matchesSearch && matchesStage
     })
-  }, [deals, search, stageFilter])
+  }, [contactLabelsById, deals, search, stageFilter])
 
   const openDeals = useMemo(() => deals
     .filter((deal) => !lostStageIds.has(deal.stageId) && !wonStageIds.has(deal.stageId))
@@ -426,7 +436,14 @@ export default function PipelinePage() {
             ))}
           </div>
         ) : loading ? (
-          <DealKanban deals={[]} stages={stages} loading onStageChange={handleStageChange} contactBasePath="/admin/crm/contacts" />
+          <DealKanban
+            deals={[]}
+            stages={stages}
+            loading
+            onStageChange={handleStageChange}
+            contactBasePath="/admin/crm/contacts"
+            contactLabelsById={contactLabelsById}
+          />
         ) : searchedDeals.length === 0 ? (
           <EmptyState
             icon="monetization_on"
@@ -440,7 +457,13 @@ export default function PipelinePage() {
             )}
           />
         ) : (
-          <DealKanban deals={searchedDeals} stages={stages} onStageChange={handleStageChange} contactBasePath="/admin/crm/contacts" />
+          <DealKanban
+            deals={searchedDeals}
+            stages={stages}
+            onStageChange={handleStageChange}
+            contactBasePath="/admin/crm/contacts"
+            contactLabelsById={contactLabelsById}
+          />
         )
       )}
 
@@ -466,6 +489,7 @@ export default function PipelinePage() {
               <tbody>
                 {searchedDeals.map((deal) => {
                   const stage = stages.find((item) => item.id === deal.stageId)
+                  const contactLabel = contactLabelsById[deal.contactId]
                   const color = stage?.color ?? stageColorByKind(stage?.kind)
                   const probability = deal.probability ?? stage?.probability ?? 50
                   const weighted = (deal.value ?? 0) * (probability / 100)
@@ -488,7 +512,7 @@ export default function PipelinePage() {
                       <td className="px-4 py-3" onClick={(event) => event.stopPropagation()}>
                         {deal.contactId ? (
                           <Link href={`/admin/crm/contacts/${deal.contactId}`} className="text-xs text-[var(--color-accent-v2)] hover:underline">
-                            View contact
+                            {contactLabel || 'View contact'}
                           </Link>
                         ) : (
                           <span className="text-xs text-on-surface-variant">—</span>
