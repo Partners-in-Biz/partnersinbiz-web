@@ -54,6 +54,33 @@ const ACTION_META: Record<ActionType, { label: string; icon: string; tone: strin
   enroll_in_sequence: { label: 'Sequence', icon: 'send_time_extension', tone: 'text-rose-300 border-rose-400/20 bg-rose-400/10' },
 }
 
+const automationBlueprint = [
+  {
+    label: 'Trigger',
+    value: 'CRM signal',
+    icon: 'bolt',
+    copy: 'Pick the contact, deal, or stage movement that must never wait for someone to remember it.',
+  },
+  {
+    label: 'Action',
+    value: 'Team response',
+    icon: 'account_tree',
+    copy: 'Notify, assign, email, enroll, or webhook the next system so work moves without manual chasing.',
+  },
+  {
+    label: 'Owner handoff',
+    value: 'No dropped work',
+    icon: 'assignment_ind',
+    copy: 'Make responsibility obvious for managers and employees when opportunities change state.',
+  },
+  {
+    label: 'Audit trail',
+    value: 'Governed growth',
+    icon: 'history',
+    copy: 'Keep every rule visible, reviewable, and ready to tune as the company scales.',
+  },
+]
+
 function triggerLabel(rule: AutomationRule): string {
   let label = TRIGGER_META[rule.trigger.event]?.label ?? rule.trigger.event
   if (rule.trigger.toStageId) label += ' to stage'
@@ -341,21 +368,52 @@ export default function AutomationsPage() {
               {fetchError}
             </div>
           ) : rules.length === 0 ? (
-            <div className="bento-card !p-8 text-center">
-              <span className="material-symbols-outlined mb-3 block text-4xl text-[var(--color-pib-text-muted)]">
-                account_tree
-              </span>
-              <h2 className="text-base font-semibold">No automations yet</h2>
-              <p className="mx-auto mt-2 max-w-md text-sm text-[var(--color-pib-text-muted)]">
-                Start with one rule that covers the highest-risk follow-up, like notifying the owner when a lead becomes sales qualified.
-              </p>
-              <Link
-                href="/portal/settings/automations/new"
-                className="btn-pib-accent mx-auto mt-5 flex w-fit items-center gap-1.5 text-sm"
-              >
-                <span className="material-symbols-outlined text-[16px]">add</span>
-                New automation
-              </Link>
+            <div className="bento-card !p-0 overflow-hidden">
+              <div className="grid gap-0 lg:grid-cols-[minmax(0,0.9fr)_minmax(320px,1.1fr)]">
+                <div className="flex flex-col justify-between gap-8 border-b border-[var(--color-pib-line)] p-6 lg:border-b-0 lg:border-r">
+                  <div>
+                    <span className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl border border-[var(--color-pib-accent)]/25 bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent)]">
+                      <span className="material-symbols-outlined text-[22px]">account_tree</span>
+                    </span>
+                    <p className="eyebrow !text-[10px]">Automation setup</p>
+                    <h2 className="mt-3 text-2xl font-semibold tracking-normal text-[var(--color-pib-text)]">
+                      Launch your first CRM safety net
+                    </h2>
+                    <p className="mt-3 max-w-xl text-sm leading-6 text-[var(--color-pib-text-muted)]">
+                      Start with the highest-risk handoff in the business: new lead assignment, stage-change notifications, win/loss follow-up, or a webhook into the next operating system. The goal is simple: every employee knows what happens next.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Link
+                      href="/portal/settings/automations/new"
+                      className="btn-pib-accent flex w-fit items-center gap-1.5 text-sm"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">add</span>
+                      Create the first automation
+                    </Link>
+                    <span className="rounded-full border border-[var(--color-pib-line)] px-3 py-1.5 text-xs text-[var(--color-pib-text-muted)]">
+                      Start with one rule, then expand coverage
+                    </span>
+                  </div>
+                </div>
+
+                <div className="grid gap-3 p-4 sm:grid-cols-2">
+                  {automationBlueprint.map((item) => (
+                    <div key={item.label} className="rounded-xl border border-[var(--color-pib-line)] bg-black/10 p-4">
+                      <div className="mb-4 flex items-start justify-between gap-3">
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/[0.04] text-[var(--color-pib-text)]">
+                          <span className="material-symbols-outlined text-[18px]">{item.icon}</span>
+                        </span>
+                        <span className="rounded-full border border-[var(--color-pib-line)] px-2 py-1 text-[10px] text-[var(--color-pib-text-muted)]">
+                          {item.value}
+                        </span>
+                      </div>
+                      <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">{item.label}</h3>
+                      <p className="mt-2 text-xs leading-5 text-[var(--color-pib-text-muted)]">{item.copy}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           ) : visibleRules.length === 0 ? (
             <div className="bento-card !p-8 text-center">

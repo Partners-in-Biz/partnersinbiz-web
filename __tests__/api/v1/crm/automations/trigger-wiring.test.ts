@@ -106,6 +106,16 @@ function setupOrgAuth(opts: {
         doc: jest.fn().mockReturnValue({
           get: () => Promise.resolve({ exists: true, data: () => MEMBER }),
         }),
+        where: jest.fn().mockReturnValue({
+          get: () => Promise.resolve({
+            docs: [
+              {
+                id: `${MEMBER.orgId}_${MEMBER.uid}`,
+                data: () => MEMBER,
+              },
+            ],
+          }),
+        }),
       }
     }
     if (name === 'organizations') {
