@@ -184,6 +184,8 @@ export default function PortalContactDetailPage() {
   const [saving, setSaving] = useState(false)
   const [archiving, setArchiving] = useState(false)
   const [error, setError] = useState('')
+  const [scoreSaving, setScoreSaving] = useState(false)
+  const [scoreError, setScoreError] = useState<string | null>(null)
 
   // B2: Log activity quick actions
   const [logType, setLogType] = useState<string | null>(null)
@@ -400,6 +402,32 @@ export default function PortalContactDetailPage() {
       setError(err instanceof Error ? err.message : 'Archive failed')
     } finally {
       setArchiving(false)
+    }
+  }
+
+  async function handleRecomputeScore() {
+    if (!contact) return
+    setScoreSaving(true)
+    setScoreError(null)
+    try {
+      const res = await fetch(`/api/v1/crm/contacts/${id}/recompute-score`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ includeAi: true }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error((err as { error?: string }).error ?? 'Score recompute failed')
+      }
+      const body = await res.json() as { data?: { update?: Partial<ContactRecord> } }
+      const update = body.data?.update
+      if (update) {
+        setContact((prev) => prev ? { ...prev, ...update } : prev)
+      }
+    } catch (err: unknown) {
+      setScoreError(err instanceof Error ? err.message : 'Score recompute failed')
+    } finally {
+      setScoreSaving(false)
     }
   }
 
@@ -676,7 +704,9 @@ export default function PortalContactDetailPage() {
     tags.length > 0 ? tags.join(',') : '',
   ]
   const profileStrength = profileFields.filter((value) => String(value ?? '').trim()).length / profileFields.length
+  const hasAnyScore = contact.leadScore != null || contact.icpScore != null || contact.aiLeadScore != null
   const bestScore = Math.max(contact.leadScore ?? 0, contact.icpScore ?? 0, contact.aiLeadScore ?? 0)
+  const shouldPromptScoreRecompute = !hasAnyScore
   const recentActivityCount = activities.length
   const shouldPromptActivityLog = recentActivityCount === 0
   const sentEmailCount = emails.filter((item) => item.direction !== 'inbound').length
@@ -881,8 +911,21 @@ export default function PortalContactDetailPage() {
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <div className="pib-stat-card">
             <p className="eyebrow !text-[10px]">Best score</p>
-            <p className="mt-3 font-display text-3xl text-[var(--color-pib-text)]">{bestScore || '—'}</p>
+            <p className="mt-3 font-display text-3xl text-[var(--color-pib-text)]">{hasAnyScore ? bestScore : '—'}</p>
             <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">Lead, ICP, or AI signal</p>
+            {shouldPromptScoreRecompute && (
+              <button
+                type="button"
+                aria-label={`Recompute score for ${contactName} from best score insight`}
+                onClick={handleRecomputeScore}
+                disabled={scoreSaving}
+                className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-[var(--color-pib-line)] px-2 py-1.5 text-xs font-medium text-[var(--color-pib-accent)] transition-colors hover:border-[var(--color-pib-accent)] hover:text-[var(--color-pib-text)] disabled:opacity-50"
+              >
+                <span className="material-symbols-outlined text-[14px]" aria-hidden="true">speed</span>
+                {scoreSaving ? 'Scoring…' : 'Recompute score'}
+              </button>
+            )}
+            {scoreError && <p className="mt-2 text-xs text-red-400">{scoreError}</p>}
           </div>
           <div className="pib-stat-card">
             <p className="eyebrow !text-[10px]">Last touch</p>

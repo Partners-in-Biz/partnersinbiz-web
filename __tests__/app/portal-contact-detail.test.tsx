@@ -69,6 +69,20 @@ describe('Portal contact detail page', () => {
           json: async () => ({ data: { enrollments: [] } }),
         } as Response)
       }
+      if (url === '/api/v1/crm/contacts/contact-1/recompute-score') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: {
+              update: {
+                leadScore: 64,
+                icpScore: 71,
+                aiLeadScore: 82,
+              },
+            },
+          }),
+        } as Response)
+      }
       return Promise.resolve({
         ok: true,
         json: async () => ({ data: {} }),
@@ -189,5 +203,26 @@ describe('Portal contact detail page', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Log activity for Jane Client from activity insight' }))
 
     expect(screen.getByPlaceholderText('Add note notes…')).toBeInTheDocument()
+  })
+
+  it('turns a missing best score insight into a recompute action', async () => {
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Recompute score for Jane Client from best score insight' }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/contacts/contact-1/recompute-score', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ includeAi: true }),
+      })
+    })
+    await waitFor(() => {
+      expect(screen.getAllByText('82').length).toBeGreaterThan(0)
+    })
   })
 })
