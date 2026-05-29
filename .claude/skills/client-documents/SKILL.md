@@ -162,7 +162,7 @@ All responses: `{ success: boolean, data: ... }` — always unwrap `body.data ??
 | Method | Route | Body / Params | Notes |
 |---|---|---|---|
 | `GET` | `/api/v1/client-documents` | `?orgId=&status=&type=&limit=&page=` | List documents |
-| `POST` | `/api/v1/client-documents` | `{ orgId, title, type, templateId?, linked? }` | Create document (starts as `internal_draft`) |
+| `POST` | `/api/v1/client-documents` | `{ orgId?, title, type, templateId?, linked? }` | Create document (starts as `internal_draft`). From CRM company context, send `linked.companyId`; the API resolves the owner org and `linked.clientOrgId` when possible. |
 | `GET` | `/api/v1/client-documents/[id]` | — | Fetch single document |
 | `PATCH` | `/api/v1/client-documents/[id]` | `{ title?, status?, orgId?, linked?, assumptions?, clientPermissions?, shareEnabled? }` | Update metadata |
 | `DELETE` | `/api/v1/client-documents/[id]` | — | Archive (soft delete) |
@@ -237,8 +237,8 @@ All responses: `{ success: boolean, data: ... }` — always unwrap `body.data ??
 
 Use this for substantial client work when Peet says to plan/spec something before implementation, especially coding, multi-agent work, operational setup, or anything that affects cost, timeline, scope, or the client's live assets.
 
-1. Resolve the active client org first. Do not use `pib-platform-owner` for client-scoped work unless the task is truly internal platform work.
-2. Create the client document as `internal_draft` or `internal_review`, linked to the active project with `linked.projectId` when a project exists.
+1. Resolve the active relationship context first. If the current app page is a CRM company, use that company ID. If the context is only a selected client org, resolve its PiB-side platform CRM company when one exists.
+2. Create the client document as `internal_draft` or `internal_review`. For CRM-company work, send `linked.companyId`; for system clients also include/verify `linked.clientOrgId`. Link to the active project with `linked.projectId` when a project exists.
 3. Record assumptions on the document. Any assumption that changes scope, price, timeline, legal terms, final deliverables, or implementation direction must be `severity: "blocks_publish"`.
 4. If there is any `blocks_publish` assumption, do not ask Peet to approve or publish the spec as ready. Return the admin URL and the blocking assumption(s) to resolve first.
 5. Create a Pip approval-gate kanban task linked to the document/spec.
@@ -261,8 +261,8 @@ When a shared spec has client feedback:
 
 ### "Make a proposal for [Client]"
 
-1. **Resolve org:** `GET /api/v1/organizations?search=[client_name]` → get `orgId` and `slug`
-2. **Pull context:** org profile, open CRM deals, projects, wiki at `~/Cowork/Cowork/agents/partners/wiki/`
+1. **Resolve relationship context:** prefer the current CRM company page/context. If not already on a company, find the organisation (`GET /api/v1/organizations?search=[client_name]`) and its PiB-side CRM company. For non-system CRM businesses, there is no `orgId`; use the company only.
+2. **Pull context:** CRM company profile, linked org profile when present, open CRM deals, projects, wiki at `~/Cowork/Cowork/agents/partners/wiki/`
 3. **Choose template:** proposal → `sales_proposal`, website/app → `build_spec`, etc.
 4. **Create document:**
    ```
@@ -272,10 +272,15 @@ When a shared spec has client feedback:
      "title": "[Client Name] — [Type] [Month YYYY]",
      "type": "sales_proposal",
      "templateId": "sales_proposal",
-     "orgId": "<orgId>",
-     "linked": { "dealId": "<dealId if known>" }
+     "orgId": "<orgId if creating from org context>",
+     "linked": {
+       "companyId": "<crmCompanyId>",
+       "clientOrgId": "<linkedOrgId if system client>",
+       "dealId": "<dealId if known>"
+     }
    }
    ```
+   If you are creating directly from a CRM company page, `orgId` can be omitted; the API resolves the source org from `linked.companyId` and stamps `linked.clientOrgId` from the company relationship when available.
 5. **Create first version** with filled blocks (you have all 23 block types available — see "Example Payloads" below):
    ```
    POST /api/v1/client-documents/[id]/versions
@@ -306,6 +311,7 @@ When a shared spec has client feedback:
    - Admin URL: `https://partnersinbiz.online/admin/documents/[id]`
    - Summary of `blocks_publish` assumptions that must be resolved before you can publish
    - Never publish without Peet's explicit instruction
+8. **Publish/send to client:** only after blockers are resolved and Peet approves, call `POST /api/v1/client-documents/[id]/publish`. This moves the document to `client_review` and enables share. For system clients, verify both the PiB CRM company Documents tab and the client/org Documents list.
 
 ---
 
@@ -793,6 +799,7 @@ Default proposals are fine. *Standout* proposals close. When generating a `sales
 - **content-engine** skill creates `content_campaign_plan` documents automatically
 - **project-management** skill links documents to projects via `linked.projectId`
 - **crm-sales** skill links proposals to deals via `linked.dealId`
+- **crm-sales/company context** links documents to CRM companies via `linked.companyId`; system-client visibility also needs `linked.clientOrgId`.
 - **seo-sprint-manager** skill can link sprint reports via `linked.seoSprintId`
 
 ---
