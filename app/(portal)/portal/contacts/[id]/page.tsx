@@ -1,7 +1,7 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type RefObject } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { fmtTimestamp } from '@/components/admin/email/fmtTimestamp'
@@ -149,6 +149,10 @@ export default function PortalContactDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
   const companyPickerRef = useRef<HTMLDivElement | null>(null)
+  const emailFieldRef = useRef<HTMLInputElement | null>(null)
+  const phoneFieldRef = useRef<HTMLInputElement | null>(null)
+  const websiteFieldRef = useRef<HTMLInputElement | null>(null)
+  const notesFieldRef = useRef<HTMLTextAreaElement | null>(null)
   const [contact, setContact] = useState<ContactRecord | null>(null)
   const [emails, setEmails] = useState<EmailRecord[]>([])
   const [activities, setActivities] = useState<ActivityRecord[]>([])
@@ -430,6 +434,12 @@ export default function PortalContactDetailPage() {
     companyPicker?.querySelector<HTMLInputElement>('input[role="combobox"]')?.focus()
   }
 
+  function focusProfileField(fieldRef: RefObject<HTMLElement | null>) {
+    const field = fieldRef.current
+    field?.scrollIntoView?.({ behavior: 'smooth', block: 'center' })
+    field?.focus()
+  }
+
   async function handleLogActivity() {
     setLogSaving(true)
     setLogError(null)
@@ -678,6 +688,15 @@ export default function PortalContactDetailPage() {
     !website.trim() ? 'website' : '',
     !notes.trim() ? 'relationship notes' : '',
   ].filter(Boolean)
+  const profileGapAction = !email.trim()
+    ? { label: 'Add email', icon: 'alternate_email', ariaLabel: `Add email for ${contactName}`, fieldRef: emailFieldRef }
+    : !phone.trim()
+      ? { label: 'Add phone', icon: 'call', ariaLabel: `Add phone for ${contactName}`, fieldRef: phoneFieldRef }
+      : !website.trim()
+        ? { label: 'Add website', icon: 'language', ariaLabel: `Add website for ${contactName}`, fieldRef: websiteFieldRef }
+        : !notes.trim()
+          ? { label: 'Add notes', icon: 'notes', ariaLabel: `Add notes for ${contactName}`, fieldRef: notesFieldRef }
+          : null
   const relationshipSignal =
     lastTouchDays === null
       ? 'No touch logged'
@@ -797,6 +816,17 @@ export default function PortalContactDetailPage() {
                 ? 'The core contact profile is complete enough for segmentation, scoring, and follow-up.'
                 : `Missing ${missingFields.slice(0, 3).join(', ')}${missingFields.length > 3 ? ' and more' : ''}.`}
             </p>
+            {profileGapAction && (
+              <button
+                type="button"
+                aria-label={profileGapAction.ariaLabel}
+                onClick={() => focusProfileField(profileGapAction.fieldRef)}
+                className="btn-pib-secondary inline-flex w-full items-center justify-center gap-1.5 text-xs"
+              >
+                <span className="material-symbols-outlined text-[14px]">{profileGapAction.icon}</span>
+                {profileGapAction.label}
+              </button>
+            )}
           </div>
         </div>
 
@@ -958,6 +988,7 @@ export default function PortalContactDetailPage() {
                   Email
                 </p>
                 <input
+                  ref={emailFieldRef}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="pib-input w-full"
@@ -969,6 +1000,7 @@ export default function PortalContactDetailPage() {
                   Phone
                 </p>
                 <input
+                  ref={phoneFieldRef}
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   className="pib-input w-full"
@@ -1013,6 +1045,7 @@ export default function PortalContactDetailPage() {
                   Website
                 </p>
                 <input
+                  ref={websiteFieldRef}
                   value={website}
                   onChange={(e) => setWebsite(e.target.value)}
                   className="pib-input w-full"
@@ -1092,6 +1125,7 @@ export default function PortalContactDetailPage() {
                 Notes
               </p>
               <textarea
+                ref={notesFieldRef}
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 rows={5}

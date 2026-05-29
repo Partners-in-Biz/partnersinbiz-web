@@ -114,4 +114,16 @@ describe('Portal contact detail page', () => {
 
     expect(screen.getByPlaceholderText('Search companies…')).toHaveFocus()
   })
+
+  it('turns a missing phone into a profile completion action', async () => {
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add phone for Jane Client' }))
+
+    expect(screen.getByPlaceholderText('+27...')).toHaveFocus()
+  })
 })
