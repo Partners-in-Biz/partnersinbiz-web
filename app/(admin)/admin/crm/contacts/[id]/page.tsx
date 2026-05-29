@@ -447,6 +447,17 @@ export default function ContactDetailPage() {
                   Call
                 </a>
               )}
+              {!contact.phone && (
+                <button
+                  type="button"
+                  aria-label={`Add phone for ${name} from contact command center`}
+                  onClick={() => setEditing(true)}
+                  className="pib-btn-secondary text-sm"
+                >
+                  <span className="material-symbols-outlined text-base">add_call</span>
+                  Add phone
+                </button>
+              )}
               <button onClick={() => setEditing((value) => !value)} className="pib-btn-primary text-sm">
                 <span className="material-symbols-outlined text-base">{editing ? 'close' : 'edit'}</span>
                 {editing ? 'Cancel edit' : 'Edit contact'}
