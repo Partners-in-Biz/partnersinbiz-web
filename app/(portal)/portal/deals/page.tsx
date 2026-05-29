@@ -218,7 +218,9 @@ export default function DealsPage() {
       ? focus === 'no-close-date' ? 'noCloseDate' : focus
       : 'all'
   })
-  const [ownerLens, setOwnerLens] = useState<'all' | 'unassigned'>('all')
+  const [ownerLens, setOwnerLens] = useState<'all' | 'unassigned'>(() => (
+    searchParams.get('owner') === 'unassigned' ? 'unassigned' : 'all'
+  ))
   const [selectedDealIds, setSelectedDealIds] = useState<Set<string>>(new Set())
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([])
   const [bulkOwnerUid, setBulkOwnerUid] = useState('')

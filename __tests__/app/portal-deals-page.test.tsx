@@ -168,6 +168,17 @@ describe('Portal deals page', () => {
     expect(screen.getByText('Unassigned')).toBeInTheDocument()
   })
 
+  it('opens directly to unassigned deals from CRM reports', async () => {
+    mockSearchParams = new URLSearchParams('view=list&owner=unassigned')
+
+    render(<DealsPage />)
+
+    expect(await screen.findByRole('tab', { name: /List/i })).toHaveAttribute('aria-selected', 'true')
+    expect(await screen.findByText('Unowned expansion')).toBeInTheDocument()
+    expect(screen.queryByText('Growth retainer')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Show all deals' })).toBeInTheDocument()
+  })
+
   it('assigns selected unassigned deals to a team member', async () => {
     render(<DealsPage />)
 

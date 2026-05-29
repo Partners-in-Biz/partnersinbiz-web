@@ -107,6 +107,83 @@ describe('Portal CRM reports page', () => {
     expect(dominantStageLink).toHaveAttribute('href', '/portal/contacts?stage=new')
   })
 
+  it('turns unassigned deal ownership into a direct deal owner lens', async () => {
+    ;(global.fetch as jest.Mock).mockImplementation((url: RequestInfo | URL) => {
+      const path = String(url)
+      if (path === '/api/v1/crm/reports/funnel') {
+        return apiResponse({
+          byType: { lead: 1, prospect: 1, client: 1, churned: 0, other: 0 },
+          byStage: { qualified: 3 },
+          total: 3,
+        })
+      }
+      if (path === '/api/v1/crm/reports/forecast') {
+        return apiResponse({
+          periods: {
+            thisMonth: { dealCount: 1, totalValue: 10000, weightedValue: 5000 },
+            nextMonth: { dealCount: 0, totalValue: 0, weightedValue: 0 },
+            thisQuarter: { dealCount: 1, totalValue: 10000, weightedValue: 5000 },
+            nextQuarter: { dealCount: 0, totalValue: 0, weightedValue: 0 },
+            beyond: { dealCount: 0, totalValue: 0, weightedValue: 0 },
+            noDate: { dealCount: 0, totalValue: 0, weightedValue: 0 },
+          },
+          summary: { totalOpenDeals: 1, totalValue: 10000, weightedValue: 5000 },
+        })
+      }
+      if (path === '/api/v1/crm/reports/pipeline-velocity') {
+        return apiResponse({ stages: [], summary: { stageCount: 0, bottleneckCount: 0, slowestStage: null } })
+      }
+      if (path === '/api/v1/crm/reports/rep-performance') {
+        return apiResponse({
+          reps: [
+            {
+              uid: 'unassigned',
+              displayName: 'Unassigned',
+              openDeals: 2,
+              wonDeals: 0,
+              lostDeals: 0,
+              openValue: 12000,
+              wonValue: 0,
+              activities: 0,
+              winRate: null,
+            },
+            {
+              uid: 'u1',
+              displayName: 'Mandy Manager',
+              openDeals: 1,
+              wonDeals: 0,
+              lostDeals: 0,
+              openValue: 5000,
+              wonValue: 0,
+              activities: 3,
+              winRate: null,
+            },
+          ],
+          summary: {
+            repCount: 2,
+            totalWonValue: 0,
+            totalOpenValue: 17000,
+            totalActivities: 3,
+            totalContacts: 3,
+            unassignedContacts: 0,
+            contactOwnerCoverage: 1,
+          },
+        })
+      }
+      if (path === '/api/v1/crm/reports/activity-summary?days=30') {
+        return apiResponse({ byType: { call: 1 }, total: 1, perDay: [{ date: '2026-05-29', count: 1 }], since: '2026-04-29', days: 30 })
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${path}`))
+    })
+
+    render(<CrmReportsPage />)
+
+    expect(await screen.findByText('2 deals need an owner')).toBeInTheDocument()
+
+    const unassignedDealsLink = screen.getByRole('link', { name: 'Open unassigned deals from team execution report' })
+    expect(unassignedDealsLink).toHaveAttribute('href', '/portal/deals?view=list&owner=unassigned')
+  })
+
   it('turns a missing dominant funnel stage insight into a contact stage action', async () => {
     ;(global.fetch as jest.Mock).mockImplementation((url: RequestInfo | URL) => {
       const path = String(url)

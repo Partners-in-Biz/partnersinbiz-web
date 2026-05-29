@@ -475,6 +475,22 @@ export default function CrmReportsPage() {
         ? 'Needs focus'
         : 'At risk'
   const pipelineSignalTone = pipelineSignal === 'Healthy' ? 'good' : pipelineSignal === 'Needs focus' ? 'warning' : 'neutral'
+  const teamExecutionAction =
+    unassignedContacts > 0
+      ? {
+          href: '/portal/contacts?owner=unowned',
+          label: 'Review owner gaps',
+          ariaLabel: 'Open unowned contacts from team execution report',
+          icon: 'manage_accounts',
+        }
+      : unassignedDealCount > 0
+        ? {
+            href: '/portal/deals?view=list&owner=unassigned',
+            label: 'Review deal owners',
+            ariaLabel: 'Open unassigned deals from team execution report',
+            icon: 'manage_accounts',
+          }
+        : undefined
 
   // ── Loading state ────────────────────────────────────────────────────────────
 
@@ -627,14 +643,17 @@ export default function CrmReportsPage() {
         <InsightCard
           icon="groups"
           label="Team execution"
-          title={unassignedContacts > 0 ? `${fmtNum(unassignedContacts)} contacts need an owner` : topRep ? `${topRep.displayName} leads won value` : 'Contact ownership is clean'}
+          title={
+            unassignedContacts > 0
+              ? `${fmtNum(unassignedContacts)} contacts need an owner`
+              : unassignedDealCount > 0
+                ? `${fmtNum(unassignedDealCount)} deals need an owner`
+                : topRep
+                  ? `${topRep.displayName} leads won value`
+                  : 'Ownership is clean'
+          }
           body={`${fmtPercent(unassignedDealShare)} of tracked deals are unassigned. Contact owner coverage is ${fmtPercent(contactOwnerCoverage)}.`}
-          action={unassignedContacts > 0 ? {
-            href: '/portal/contacts?owner=unowned',
-            label: 'Review owner gaps',
-            ariaLabel: 'Open unowned contacts from team execution report',
-            icon: 'manage_accounts',
-          } : undefined}
+          action={teamExecutionAction}
           tone={unassignedDealShare <= 0.1 && contactOwnerCoverage >= 0.9 ? 'good' : 'warning'}
         />
       </section>
