@@ -684,6 +684,7 @@ export default function DealsPage() {
           deal={viewingDeal}
           stages={stages}
           orgId={''}
+          contactLabel={contactLabelsById[viewingDeal.contactId]}
           onClose={() => setViewingDeal(null)}
           onEdit={() => { setEditingDeal(viewingDeal); setViewingDeal(null) }}
         />

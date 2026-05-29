@@ -18,6 +18,9 @@ export interface DealDetailDrawerProps {
   orgId: string
   onClose: () => void
   onEdit?: () => void
+  contactLabel?: string
+  contactBasePath?: string
+  companyBasePath?: string
 }
 
 function fmtValue(value: number, currency: Currency): string {
@@ -37,10 +40,33 @@ function isLostStage(stage?: PipelineStage): boolean {
   return stage.kind === 'lost' || stage.label.toLowerCase().includes('lost')
 }
 
-export function DealDetailDrawer({ deal, stages, orgId, onClose, onEdit }: DealDetailDrawerProps) {
+function fmtDate(value: unknown): string {
+  if (!value) return 'No close date'
+  const seconds = typeof value === 'object' && value !== null && 'seconds' in value
+    ? Number((value as { seconds: number }).seconds) * 1000
+    : null
+  const date = seconds ? new Date(seconds) : new Date(value as string | number | Date)
+  if (Number.isNaN(date.getTime())) return 'No close date'
+  return date.toLocaleDateString('en-ZA', { day: '2-digit', month: 'short', year: 'numeric' })
+}
+
+export function DealDetailDrawer({
+  deal,
+  stages,
+  orgId,
+  onClose,
+  onEdit,
+  contactLabel,
+  contactBasePath = '/portal/contacts',
+  companyBasePath = '/portal/companies',
+}: DealDetailDrawerProps) {
   const stage = stages.find(s => s.id === deal.stageId)
   const stageColor = stage?.color ?? (stage?.kind === 'won' ? '#4ade80' : stage?.kind === 'lost' ? '#ef4444' : '#60a5fa')
   const showLostReason = isLostStage(stage)
+  const readableContact = contactLabel?.trim() || deal.contactId
+  const readableCompany = deal.companyName?.trim() || deal.companyId
+  const ownerLabel = deal.ownerRef?.displayName || deal.ownerUid || 'Unassigned'
+  const closeDateLabel = fmtDate(deal.expectedCloseDate)
 
   const probability = deal.probability ?? (stage?.probability ?? 100)
   const weightedValue = (deal.value ?? 0) * (probability / 100)
@@ -229,6 +255,63 @@ export function DealDetailDrawer({ deal, stages, orgId, onClose, onEdit }: DealD
               <p className="text-sm text-[var(--color-pib-text)] whitespace-pre-wrap">{deal.notes}</p>
             </div>
           )}
+
+          <div
+            className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.02] p-4"
+            aria-label="Relationship context"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className={labelCls}>Relationship context</p>
+                <p className="text-sm text-[var(--color-pib-text-muted)]">
+                  People, account, owner, and timing signals for this opportunity.
+                </p>
+              </div>
+              <span
+                className="material-symbols-outlined text-[18px]"
+                style={{ color: stageColor }}
+                aria-hidden="true"
+              >
+                hub
+              </span>
+            </div>
+            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="rounded-md bg-black/10 px-3 py-2">
+                <p className={labelCls}>Contact</p>
+                {deal.contactId ? (
+                  <a
+                    href={`${contactBasePath}/${deal.contactId}`}
+                    className="text-sm font-semibold text-[var(--color-pib-accent)] hover:underline"
+                  >
+                    {readableContact}
+                  </a>
+                ) : (
+                  <p className="text-sm text-[var(--color-pib-text-muted)]">No decision-maker linked</p>
+                )}
+              </div>
+              <div className="rounded-md bg-black/10 px-3 py-2">
+                <p className={labelCls}>Company</p>
+                {deal.companyId ? (
+                  <a
+                    href={`${companyBasePath}/${deal.companyId}`}
+                    className="text-sm font-semibold text-[var(--color-pib-accent)] hover:underline"
+                  >
+                    {readableCompany}
+                  </a>
+                ) : (
+                  <p className="text-sm text-[var(--color-pib-text-muted)]">{readableCompany || 'No company linked'}</p>
+                )}
+              </div>
+              <div className="rounded-md bg-black/10 px-3 py-2">
+                <p className={labelCls}>Owner</p>
+                <p className="text-sm font-semibold text-[var(--color-pib-text)]">{ownerLabel}</p>
+              </div>
+              <div className="rounded-md bg-black/10 px-3 py-2">
+                <p className={labelCls}>Close date</p>
+                <p className="text-sm font-semibold text-[var(--color-pib-text)]">{closeDateLabel}</p>
+              </div>
+            </div>
+          </div>
 
           {/* Line items */}
           <div>
