@@ -387,6 +387,75 @@ function numericDealValue(deal: RelatedDeal) {
   return typeof deal.value === 'number' && Number.isFinite(deal.value) ? deal.value : 0
 }
 
+function ProjectsPanel({
+  projects,
+  company,
+  contacts,
+  creatingProject,
+  projectError,
+  onCreateProject,
+  onCreateContact,
+}: {
+  projects: RelatedProject[]
+  company: Company
+  contacts: RelatedContact[]
+  creatingProject: boolean
+  projectError: string | null
+  onCreateProject: () => void
+  onCreateContact: () => void
+}) {
+  const firstContact = contacts[0]
+  if (projects.length === 0) {
+    return (
+      <EmptyPanel
+        icon="folder_off"
+        label={
+          firstContact?.email
+            ? `No linked projects yet. Start a discovery workspace with ${contactLabel(firstContact)} so delivery, documents, tasks, and account history stay connected.`
+            : firstContact
+              ? `No linked projects yet. ${contactLabel(firstContact)} needs an email before a shared project can be created for this account.`
+              : 'No linked projects yet. Add a stakeholder first so the first project has a client anchor.'
+        }
+      >
+        <div className="flex flex-col items-center gap-3">
+          {firstContact?.email ? (
+            <button
+              type="button"
+              onClick={onCreateProject}
+              disabled={creatingProject}
+              className="btn-pib-primary inline-flex items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add_task</span>
+              {creatingProject ? 'Creating project...' : `Create discovery project for ${company.name}`}
+            </button>
+          ) : firstContact ? (
+            <Link href={`/portal/contacts/${firstContact.id}`} className="btn-pib-secondary inline-flex items-center gap-1.5">
+              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">alternate_email</span>
+              Add email to {contactLabel(firstContact)}
+            </Link>
+          ) : (
+            <button type="button" onClick={onCreateContact} className="btn-pib-secondary inline-flex items-center gap-1.5">
+              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">person_add</span>
+              Add contact before project
+            </button>
+          )}
+          {projectError ? <p className="max-w-md text-xs text-red-300">{projectError}</p> : null}
+        </div>
+      </EmptyPanel>
+    )
+  }
+  return (
+    <SimpleRowsPanel
+      rows={projects}
+      emptyIcon="folder_off"
+      emptyLabel="No linked projects yet."
+      title={(row) => String(row.name ?? row.id)}
+      hrefFor={(row) => `/portal/projects/${row.id}`}
+      metaFor={(row) => [String(row.description ?? ''), formatDate(row.updatedAt)]}
+    />
+  )
+}
+
 function QuotesPanel({
   quotes,
   company,
@@ -729,6 +798,8 @@ export default function CompanyDetailPage() {
   const [companyNote, setCompanyNote] = useState('')
   const [savingNote, setSavingNote] = useState(false)
   const [noteError, setNoteError] = useState<string | null>(null)
+  const [creatingProject, setCreatingProject] = useState(false)
+  const [projectError, setProjectError] = useState<string | null>(null)
   const [creatingQuote, setCreatingQuote] = useState(false)
   const [quoteError, setQuoteError] = useState<string | null>(null)
   const [customFieldDefs, setCustomFieldDefs] = useState<CustomFieldDefinition[]>([])
@@ -905,6 +976,43 @@ export default function CompanyDetailPage() {
       setNoteError(err instanceof Error ? err.message : 'Failed to log activity')
     } finally {
       setSavingNote(false)
+    }
+  }
+
+  async function createDiscoveryProject(): Promise<void> {
+    if (!company) return
+    const firstContact = related.contacts[0]
+    if (!firstContact) {
+      setProjectError('Add a contact before creating a project.')
+      return
+    }
+    if (!firstContact.email) {
+      setProjectError('Add an email to the contact before creating a shared project.')
+      return
+    }
+    setCreatingProject(true)
+    setProjectError(null)
+    try {
+      const res = await fetch('/api/v1/projects', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          name: `${company.name} discovery project`,
+          status: 'discovery',
+          companyId: company.id,
+          contactId: firstContact.id,
+          recipientEmail: firstContact.email,
+          recipientName: contactLabel(firstContact),
+          recipientCompanyName: company.name,
+        }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(body.error ?? 'Failed to create project')
+      await loadRelated(company.id)
+    } catch (err) {
+      setProjectError(err instanceof Error ? err.message : 'Failed to create project')
+    } finally {
+      setCreatingProject(false)
     }
   }
 
@@ -1096,13 +1204,14 @@ export default function CompanyDetailPage() {
           />
         )}
         {!relatedLoading && tab === 'projects' && (
-          <SimpleRowsPanel
-            rows={related.projects}
-            emptyIcon="folder_off"
-            emptyLabel="No linked projects yet."
-            title={(row) => String(row.name ?? row.id)}
-            hrefFor={(row) => `/portal/projects/${row.id}`}
-            metaFor={(row) => [String(row.description ?? ''), formatDate(row.updatedAt)]}
+          <ProjectsPanel
+            projects={related.projects}
+            company={company}
+            contacts={related.contacts}
+            creatingProject={creatingProject}
+            projectError={projectError}
+            onCreateProject={createDiscoveryProject}
+            onCreateContact={() => setNewContactOpen(true)}
           />
         )}
         {!relatedLoading && tab === 'documents' && (
