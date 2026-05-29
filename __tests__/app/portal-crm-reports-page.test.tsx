@@ -96,6 +96,9 @@ describe('Portal CRM reports page', () => {
     expect(screen.getAllByText('67%').length).toBeGreaterThan(0)
     expect(screen.getByText('2 contacts need an owner')).toBeInTheDocument()
     expect(screen.getByText('Assigned contact coverage')).toBeInTheDocument()
+
+    const ownerGapLink = screen.getByRole('link', { name: 'Open unowned contacts from team execution report' })
+    expect(ownerGapLink).toHaveAttribute('href', '/portal/contacts?owner=unowned')
   })
 
   it('turns a missing dominant funnel stage insight into a contact stage action', async () => {

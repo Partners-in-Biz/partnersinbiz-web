@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 
 import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { ContactForm } from '@/components/admin/crm/ContactForm'
 import { fmtTimestamp } from '@/components/admin/email/fmtTimestamp'
 import { SavedViewsBar } from '@/components/crm/SavedViewsBar'
@@ -132,12 +133,13 @@ function hasContactOwner(contact: Contact): boolean {
 }
 
 export default function PortalContactsPage() {
+  const searchParams = useSearchParams()
   const [contacts, setContacts] = useState<Contact[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [stageFilter, setStageFilter] = useState('')
   const [typeFilter, setTypeFilter] = useState('')
-  const [ownerLens, setOwnerLens] = useState<'all' | 'unowned'>('all')
+  const [ownerLens, setOwnerLens] = useState<'all' | 'unowned'>(() => searchParams.get('owner') === 'unowned' ? 'unowned' : 'all')
   const [showNew, setShowNew] = useState(false)
 
   // Bulk selection state
@@ -438,11 +440,12 @@ export default function PortalContactsPage() {
       {/* Filters */}
       <section className="space-y-2">
         <SavedViewsBar
-          currentFilters={{ search, stage: stageFilter, type: typeFilter }}
+          currentFilters={{ search, stage: stageFilter, type: typeFilter, owner: ownerLens === 'unowned' ? 'unowned' : '' }}
           onSelectView={(f) => {
             if (typeof f.search === 'string') setSearch(f.search)
             if (typeof f.stage === 'string') setStageFilter(f.stage)
             if (typeof f.type === 'string') setTypeFilter(f.type)
+            setOwnerLens(f.owner === 'unowned' ? 'unowned' : 'all')
           }}
         />
       </section>

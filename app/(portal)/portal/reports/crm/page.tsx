@@ -604,6 +604,12 @@ export default function CrmReportsPage() {
           label="Team execution"
           title={unassignedContacts > 0 ? `${fmtNum(unassignedContacts)} contacts need an owner` : topRep ? `${topRep.displayName} leads won value` : 'Contact ownership is clean'}
           body={`${fmtPercent(unassignedDealShare)} of tracked deals are unassigned. Contact owner coverage is ${fmtPercent(contactOwnerCoverage)}.`}
+          action={unassignedContacts > 0 ? {
+            href: '/portal/contacts?owner=unowned',
+            label: 'Review owner gaps',
+            ariaLabel: 'Open unowned contacts from team execution report',
+            icon: 'manage_accounts',
+          } : undefined}
           tone={unassignedDealShare <= 0.1 && contactOwnerCoverage >= 0.9 ? 'good' : 'warning'}
         />
       </section>

@@ -1,6 +1,12 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import PortalContactsPage from '@/app/(portal)/portal/contacts/page'
 
+let mockSearchParams = new URLSearchParams()
+
+jest.mock('next/navigation', () => ({
+  useSearchParams: () => mockSearchParams,
+}))
+
 jest.mock('next/link', () => ({
   __esModule: true,
   default: ({ children, href, ...props }: { children: React.ReactNode; href: string }) => (
@@ -11,6 +17,7 @@ jest.mock('next/link', () => ({
 describe('Portal contacts page', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    mockSearchParams = new URLSearchParams()
     global.fetch = jest.fn((input: RequestInfo | URL) => {
       const url = String(input)
       if (url.startsWith('/api/v1/crm/contacts')) {
@@ -90,5 +97,20 @@ describe('Portal contacts page', () => {
     const row = screen.getByRole('link', { name: /Unowned Prospect/i }).closest('[data-contact-row]')
     expect(row).not.toBeNull()
     expect(within(row as HTMLElement).getByText('Unassigned')).toBeInTheDocument()
+  })
+
+  it('opens directly to the unowned-owner lens from CRM reports', async () => {
+    mockSearchParams = new URLSearchParams('owner=unowned')
+
+    render(<PortalContactsPage />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: /Unowned Prospect/i })).toBeInTheDocument()
+    })
+
+    expect(screen.queryByRole('link', { name: /Owned Client/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Show all contacts' })).toBeInTheDocument()
+    expect(screen.getByText('1 unowned contact need assignment.')).toBeInTheDocument()
+    expect(screen.getByText('owner: unowned')).toBeInTheDocument()
   })
 })
