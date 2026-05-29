@@ -103,6 +103,14 @@ function formatDealsTotal(deals: Deal[], mode: 'value' | 'weighted') {
   return fmtDealValue(total, deals.find(d => d.currency)?.currency)
 }
 
+function hasDealOwner(deal: Deal): boolean {
+  return Boolean(String(deal.ownerUid ?? deal.ownerRef?.uid ?? '').trim())
+}
+
+function dealOwnerLabel(deal: Deal): string {
+  return deal.ownerRef?.displayName || deal.ownerUid || 'Unassigned'
+}
+
 function fmtRelativeDate(ts: unknown): string {
   const date = ts && typeof ts === 'object' && 'toDate' in ts
     ? (ts as { toDate: () => Date }).toDate()
@@ -170,6 +178,7 @@ export default function DealsPage() {
   const [viewMode, setViewMode] = useState<ViewMode>('board')
   const [search, setSearch] = useState('')
   const [focusMode, setFocusMode] = useState<DealFocusMode>('all')
+  const [ownerLens, setOwnerLens] = useState<'all' | 'unassigned'>('all')
 
   // A5: drawer state
   const [showCreateDrawer, setShowCreateDrawer] = useState(false)
@@ -318,9 +327,16 @@ export default function DealsPage() {
         contactLabel?.toLowerCase().includes(query) ||
         deal.id.toLowerCase().includes(query)
       const matchesStage = stageFilter === 'all' || deal.stageId === stageFilter
-      return matchesSearch && matchesStage && matchesDealFocus(deal, stages, focusMode)
+      const matchesOwnerLens = ownerLens === 'all' || !hasDealOwner(deal)
+      return matchesSearch && matchesStage && matchesOwnerLens && matchesDealFocus(deal, stages, focusMode)
     })
-  }, [contactLabelsById, deals, focusMode, search, stageFilter, stages])
+  }, [contactLabelsById, deals, focusMode, ownerLens, search, stageFilter, stages])
+
+  const unassignedDeals = useMemo(
+    () => deals.filter((deal) => !hasDealOwner(deal)),
+    [deals],
+  )
+  const ownerCoverage = deals.length > 0 ? (deals.length - unassignedDeals.length) / deals.length : 1
 
   // Open deals for forecast view: exclude lost-stage deals
   const lostStageIds = new Set(stages.filter(s => s.kind === 'lost').map(s => s.id))
@@ -387,6 +403,47 @@ export default function DealsPage() {
 
       {/* Summary strip */}
       {isReady && !error && <PipelineSummary deals={deals} stages={stages} />}
+
+      {isReady && !error && (
+        <section className="grid gap-3 md:grid-cols-[220px_1fr_1fr]">
+          <div className="pib-card px-4 py-3">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Deal owner coverage</p>
+              <span className="material-symbols-outlined text-[17px] text-on-surface-variant">supervisor_account</span>
+            </div>
+            <p className="mt-2 text-2xl font-headline font-bold text-on-surface leading-none">{Math.round(ownerCoverage * 100)}%</p>
+            <p className="mt-1 text-[11px] text-on-surface-variant">{unassignedDeals.length} unassigned</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setOwnerLens(ownerLens === 'unassigned' ? 'all' : 'unassigned')}
+            className={[
+              'rounded-[var(--radius-card)] border p-4 text-left transition-colors',
+              ownerLens === 'unassigned'
+                ? 'border-amber-400/40 bg-amber-400/10'
+                : 'border-[var(--color-pib-line)] bg-white/[0.03] hover:bg-white/[0.05]',
+            ].join(' ')}
+            aria-label={ownerLens === 'unassigned' ? 'Show all deals' : 'Show unassigned deals needing an owner'}
+          >
+            <span className="material-symbols-outlined text-[20px] text-[var(--color-pib-accent)]">manage_accounts</span>
+            <p className="mt-3 text-sm font-semibold text-[var(--color-pib-text)]">
+              {ownerLens === 'unassigned' ? 'Showing unassigned deals' : 'Review unassigned deals'}
+            </p>
+            <p className="mt-1 text-xs leading-relaxed text-[var(--color-pib-text-muted)]">
+              {unassignedDeals.length > 0
+                ? `${unassignedDeals.length} deals need an owner before forecast and follow-up accountability can be trusted.`
+                : 'Every visible deal has an owner.'}
+            </p>
+          </button>
+          <div className="rounded-[var(--radius-card)] border border-[var(--color-pib-line)] bg-white/[0.03] p-4">
+            <span className="material-symbols-outlined text-[20px] text-[var(--color-pib-accent)]">query_stats</span>
+            <p className="mt-3 text-sm font-semibold text-[var(--color-pib-text)]">Pipeline responsibility</p>
+            <p className="mt-1 text-xs leading-relaxed text-[var(--color-pib-text-muted)]">
+              Use owner coverage with the forecast and stage lenses so open revenue always has a named person behind it.
+            </p>
+          </div>
+        </section>
+      )}
 
       {isReady && !error && (
         <DealPipelineCommandBar
@@ -498,7 +555,7 @@ export default function DealsPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b" style={{ borderColor: 'var(--color-card-border)' }}>
-                  {['Deal', 'Stage', 'Value', 'Prob', 'Weighted', 'Contact'].map(h => (
+                  {['Deal', 'Stage', 'Owner', 'Value', 'Prob', 'Weighted', 'Contact'].map(h => (
                     <th
                       key={h}
                       className="text-left text-[10px] font-label uppercase tracking-widest text-on-surface-variant px-4 py-2.5"
@@ -542,6 +599,9 @@ export default function DealsPage() {
                         >
                           {stageLabel}
                         </span>
+                      </td>
+                      <td className="px-4 py-3 text-xs text-on-surface-variant">
+                        {dealOwnerLabel(deal)}
                       </td>
                       <td className="px-4 py-3 font-mono text-on-surface-variant text-xs">
                         {deal.currency} {deal.value?.toFixed(0)}

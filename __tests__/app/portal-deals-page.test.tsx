@@ -76,6 +76,22 @@ describe('Portal deals page', () => {
             currency: 'ZAR',
             pipelineId: 'pipeline-1',
             stageId: 'qualified',
+            ownerUid: 'owner-1',
+            ownerRef: { uid: 'owner-1', displayName: 'Maya Sales' },
+            expectedCloseDate: null,
+            notes: '',
+            createdAt: null,
+            updatedAt: null,
+          },
+          {
+            id: 'deal-2',
+            orgId: 'org-1',
+            contactId: '',
+            title: 'Unowned expansion',
+            value: 25000,
+            currency: 'ZAR',
+            pipelineId: 'pipeline-1',
+            stageId: 'qualified',
             expectedCloseDate: null,
             notes: '',
             createdAt: null,
@@ -101,5 +117,22 @@ describe('Portal deals page', () => {
     })
 
     await waitFor(() => expect(screen.getByText('Growth retainer')).toBeInTheDocument())
+  })
+
+  it('surfaces unassigned deals as a pipeline accountability lens', async () => {
+    render(<DealsPage />)
+
+    fireEvent.click(await screen.findByRole('tab', { name: /List/i }))
+    await screen.findByText('Growth retainer')
+    expect(screen.getByText('Unowned expansion')).toBeInTheDocument()
+
+    expect(screen.getByText('Deal owner coverage')).toBeInTheDocument()
+    expect(screen.getByText('1 unassigned')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show unassigned deals needing an owner' }))
+
+    expect(screen.queryByText('Growth retainer')).not.toBeInTheDocument()
+    expect(screen.getByText('Unowned expansion')).toBeInTheDocument()
+    expect(screen.getByText('Unassigned')).toBeInTheDocument()
   })
 })
