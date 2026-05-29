@@ -6,6 +6,8 @@
 // provider returns an error payload, and that cross-org access is blocked.
 
 // ── Firebase admin mock ────────────────────────────────────────────────────
+import { NextRequest } from 'next/server'
+
 jest.mock('@/lib/firebase/admin', () => ({
   adminAuth: { verifySessionCookie: jest.fn() },
   adminDb: { collection: jest.fn() },
@@ -117,6 +119,15 @@ function stageAuth(
       return {
         doc: () => ({
           get: () => Promise.resolve({ exists: true, data: () => member }),
+        }),
+        where: (_field: string, _op: string, value: string) => ({
+          get: () =>
+            Promise.resolve({
+              docs:
+                value === member.uid
+                  ? [{ id: `${member.orgId}_${member.uid}`, data: () => member }]
+                  : [],
+            }),
         }),
       }
     if (name === 'organizations')
@@ -306,7 +317,6 @@ describe('POST /api/v1/crm/integrations/[id]/sync', () => {
   })
 
   it('returns 401 without auth', async () => {
-    const { NextRequest } = require('next/server')
     const req = new NextRequest('http://localhost/api/v1/crm/integrations/int-1/sync', {
       method: 'POST',
     })

@@ -16,6 +16,22 @@ export interface CompanyAddress {
   label?: string  // 'hq', 'billing', 'shipping', etc.
 }
 
+export interface CompanyBillingAddress {
+  line1?: string
+  line2?: string
+  city?: string
+  state?: string
+  country?: string
+  postalCode?: string
+}
+
+export interface CompanyAgreementContact {
+  name?: string
+  title?: string
+  email?: string
+  phone?: string
+}
+
 export interface SocialProfiles {
   linkedin?: string
   twitter?: string
@@ -31,6 +47,11 @@ export interface Company {
   domain?: string         // primary domain (acme.com); used for fuzzy auto-match
   website?: string
   industry?: string       // free-form for now; A2 will add per-org taxonomies
+  legalName?: string
+  tradingName?: string
+  registrationNumber?: string
+  vatNumber?: string
+  taxNumber?: string
   // Size & financials
   size?: CompanySize
   employeeCount?: number
@@ -44,6 +65,13 @@ export interface Company {
   // Contact info
   phone?: string
   address?: CompanyAddress
+  billingEmail?: string
+  billingAddress?: CompanyBillingAddress
+  accountsContact?: CompanyAgreementContact
+  authorizedSignatory?: CompanyAgreementContact
+  purchaseOrderRequired?: boolean
+  purchaseOrderNumber?: string
+  invoiceInstructions?: string
   secondaryAddresses?: CompanyAddress[]
   socialProfiles?: SocialProfiles
   // Branding
@@ -51,6 +79,7 @@ export interface Company {
   // Relationships
   linkedOrgId?: string       // external PiB client org this sender-owned CRM company represents
   parentCompanyId?: string  // subsidiary tree (same org only — enforced at write)
+  parentCompanyName?: string // display cache for readable hierarchy links
   accountManagerUid?: string
   accountManagerRef?: MemberRef
   // Health & custom

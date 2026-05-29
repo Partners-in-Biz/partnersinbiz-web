@@ -3,6 +3,23 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ChatEvent } from '@/lib/hermes/types'
 import { AGENT_IDS } from '@/lib/agents/types'
+import {
+  extractCurrentPageContextCommand,
+  filterContextReferenceMentionOptions,
+  findActiveContextMention,
+  findActiveContextTypePrompt,
+  removeMentionToken,
+  replaceTypePromptToken,
+  type ActiveContextMention,
+  type ActiveContextTypePrompt,
+  type ContextReferenceMentionOption,
+} from '@/lib/context-references/composer'
+import {
+  contextReferenceKey,
+  MAX_CONTEXT_REFS,
+  type ContextReference,
+  type ContextReferenceSeed,
+} from '@/lib/context-references/types'
 import MessageBubble, { type ConversationAttachment, type ConversationMessage } from './MessageBubble'
 import ParticipantBar from './ParticipantBar'
 import ParticipantPicker, { type SelectedParticipant } from './ParticipantPicker'
@@ -39,6 +56,7 @@ export interface UnifiedChatProps {
   autoCreateTitle?: string
   allowDeleteConversations?: boolean
   allowAgentParticipants?: boolean
+  currentPageContext?: ContextReferenceSeed | null
   compact?: boolean
 }
 
@@ -76,6 +94,16 @@ function tsSeconds(ts: ConversationMessage['createdAt']): number {
     (ts as { seconds?: number; _seconds?: number })._seconds ?? 0
 }
 
+function contextChipLabel(ref: ContextReference | ContextReferenceSeed): string {
+  return ref.label?.trim() || `${ref.type}:${ref.id}`
+}
+
+function mergeContextRefs(existing: ContextReference[], incoming: ContextReference[]): ContextReference[] {
+  const refs = new Map<string, ContextReference>()
+  for (const ref of [...existing, ...incoming]) refs.set(contextReferenceKey(ref), ref)
+  return Array.from(refs.values()).slice(0, MAX_CONTEXT_REFS)
+}
+
 export default function UnifiedChat({
   orgId,
   currentUserUid,
@@ -90,6 +118,7 @@ export default function UnifiedChat({
   autoCreateTitle,
   allowDeleteConversations = false,
   allowAgentParticipants = true,
+  currentPageContext,
   compact = false,
 }: UnifiedChatProps) {
   // ── State ─────────────────────────────────────────────────────────────────
@@ -100,6 +129,11 @@ export default function UnifiedChat({
   const [sending, setSending] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [contextRefs, setContextRefs] = useState<ContextReference[]>([])
+  const [contextMention, setContextMention] = useState<ActiveContextMention | null>(null)
+  const [contextTypePrompt, setContextTypePrompt] = useState<ActiveContextTypePrompt | null>(null)
+  const [contextSearchResults, setContextSearchResults] = useState<ContextReference[]>([])
+  const [contextSearchLoading, setContextSearchLoading] = useState(false)
 
   // Agent map for looking up colorKey / iconKey for bubbles
   const [agentMap, setAgentMap] = useState<Record<AgentId, AgentTeamDoc>>({} as Record<AgentId, AgentTeamDoc>)
@@ -127,6 +161,9 @@ export default function UnifiedChat({
   const [showNewModal, setShowNewModal] = useState(false)
   const [newTitle, setNewTitle] = useState('')
   const [newParticipants, setNewParticipants] = useState<SelectedParticipant[]>([])
+  const [newScope, setNewScope] = useState<'general' | 'project' | 'task' | 'campaign'>(
+    scope ?? (projectId ? 'project' : 'general'),
+  )
   const [creatingConv, setCreatingConv] = useState(false)
 
   // Attachment state
@@ -161,6 +198,22 @@ export default function UnifiedChat({
     () => conversations.find((c) => c.id === activeId) ?? null,
     [conversations, activeId],
   )
+  const contextTypeOptions = useMemo(
+    () => (contextTypePrompt ? filterContextReferenceMentionOptions(contextTypePrompt.query) : []),
+    [contextTypePrompt],
+  )
+
+  const coerceContextRef = useCallback((ref: ContextReference | ContextReferenceSeed): ContextReference => ({
+    type: ref.type,
+    id: ref.id,
+    orgId: ref.orgId ?? orgId,
+    label: contextChipLabel(ref),
+    origin: ref.origin ?? 'manual',
+    ...(ref.href ? { href: ref.href } : {}),
+    ...(ref.summary ? { summary: ref.summary } : {}),
+    ...(ref.metadata ? { metadata: ref.metadata } : {}),
+    ...('resolvedAt' in ref && ref.resolvedAt ? { resolvedAt: ref.resolvedAt } : {}),
+  }), [orgId])
 
   const listQuery = useMemo(() => {
     const params = new URLSearchParams({ orgId })
@@ -264,6 +317,49 @@ export default function UnifiedChat({
   useEffect(() => {
     if (activeId) loadMessages(activeId)
   }, [activeId, loadMessages])
+
+  useEffect(() => {
+    setContextRefs((activeConversation?.contextRefs ?? []).map(coerceContextRef))
+  }, [activeConversation?.id, activeConversation?.contextRefs, coerceContextRef])
+
+  useEffect(() => {
+    if (!contextMention) {
+      setContextSearchResults([])
+      setContextSearchLoading(false)
+      return
+    }
+
+    const controller = new AbortController()
+    const params = new URLSearchParams({
+      orgId,
+      type: contextMention.namespace,
+      q: contextMention.query,
+      limit: '8',
+    })
+    if (currentPageContext?.type && currentPageContext?.id) {
+      params.set('contextType', currentPageContext.type)
+      params.set('contextId', currentPageContext.id)
+    }
+    setContextSearchLoading(true)
+    fetch(`/api/v1/context-references/search?${params.toString()}`, { signal: controller.signal })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((body) => {
+        if (!body?.data?.refs) {
+          setContextSearchResults([])
+          return
+        }
+        setContextSearchResults((body.data.refs as ContextReference[]).map(coerceContextRef))
+      })
+      .catch((err) => {
+        if (err instanceof DOMException && err.name === 'AbortError') return
+        setContextSearchResults([])
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setContextSearchLoading(false)
+      })
+
+    return () => controller.abort()
+  }, [contextMention, coerceContextRef, currentPageContext?.id, currentPageContext?.type, orgId])
 
   useEffect(() => {
     if (!activeId) return
@@ -558,6 +654,91 @@ export default function UnifiedChat({
     })
   }, [])
 
+  const updateMentionFromComposer = useCallback((value: string, caret = value.length) => {
+    const mention = findActiveContextMention(value, caret)
+    setContextMention(mention)
+    setContextTypePrompt(mention ? null : findActiveContextTypePrompt(value, caret))
+  }, [])
+
+  const patchContextRefs = useCallback(async (
+    action: 'add' | 'remove' | 'clear',
+    refs: Array<ContextReference | ContextReferenceSeed> = [],
+  ): Promise<ContextReference[]> => {
+    const localRefs = refs.map(coerceContextRef)
+    if (!activeId) {
+      let next: ContextReference[]
+      if (action === 'clear') next = []
+      else if (action === 'remove') {
+        const removeKeys = new Set(localRefs.map(contextReferenceKey))
+        next = contextRefs.filter((ref) => !removeKeys.has(contextReferenceKey(ref)))
+      } else {
+        next = mergeContextRefs(contextRefs, localRefs)
+      }
+      setContextRefs(next)
+      return next
+    }
+
+    const res = await fetch(`/api/v1/conversations/${activeId}/context`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action, refs: localRefs }),
+    })
+    const body = await res.json().catch(() => null)
+    if (!res.ok) throw new Error(body?.error ?? `context update failed: ${res.status}`)
+    const next = ((body?.data?.contextRefs ?? []) as ContextReference[]).map(coerceContextRef)
+    setContextRefs(next)
+    setConversations((prev) =>
+      prev.map((conversation) =>
+        conversation.id === activeId ? { ...conversation, contextRefs: next } : conversation,
+      ),
+    )
+    return next
+  }, [activeId, coerceContextRef, contextRefs])
+
+  const pinCurrentPageContext = useCallback(async (): Promise<ContextReference[]> => {
+    if (!currentPageContext) {
+      setError('No current page context was detected for this route.')
+      return contextRefs
+    }
+    setError(null)
+    return patchContextRefs('add', [coerceContextRef(currentPageContext)])
+  }, [coerceContextRef, contextRefs, currentPageContext, patchContextRefs])
+
+  const removeContextRef = useCallback((ref: ContextReference) => {
+    patchContextRefs('remove', [ref]).catch((err) => {
+      setError(err instanceof Error ? err.message : 'Failed to remove context')
+    })
+  }, [patchContextRefs])
+
+  const selectMentionContext = useCallback((ref: ContextReference) => {
+    patchContextRefs('add', [ref])
+      .then(() => {
+        if (contextMention) {
+          setInput((prev) => removeMentionToken(prev, contextMention))
+        }
+        setContextMention(null)
+        setContextTypePrompt(null)
+        setContextSearchResults([])
+        requestAnimationFrame(() => composerRef.current?.focus())
+      })
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : 'Failed to attach context')
+      })
+  }, [contextMention, patchContextRefs])
+
+  const selectContextType = useCallback((option: ContextReferenceMentionOption) => {
+    if (!contextTypePrompt) return
+    const nextInput = replaceTypePromptToken(input, contextTypePrompt, option.namespace)
+    const caret = contextTypePrompt.start + option.namespace.length + 2
+    setInput(nextInput)
+    setContextTypePrompt(null)
+    setContextMention(findActiveContextMention(nextInput, caret))
+    requestAnimationFrame(() => {
+      composerRef.current?.focus()
+      composerRef.current?.setSelectionRange(caret, caret)
+    })
+  }, [contextTypePrompt, input])
+
   // ── Rename conversation ───────────────────────────────────────────────────
   const renameConversation = useCallback(async (convId: string, title: string) => {
     const trimmed = title.trim()
@@ -679,9 +860,10 @@ export default function UnifiedChat({
         participants,
       }
       if (newTitle.trim()) payload.title = newTitle.trim()
-      if (scope) payload.scope = scope
-      if (scopeRefId) payload.scopeRefId = scopeRefId
-      if (projectId) payload.scopeRefId = projectId
+      if (newScope !== 'general') payload.scope = newScope
+      if (newScope === scope && scopeRefId) payload.scopeRefId = scopeRefId
+      if (newScope === 'project' && projectId) payload.scopeRefId = projectId
+      if (contextRefs.length > 0) payload.contextRefs = contextRefs
 
       const res = await fetch('/api/v1/conversations', {
         method: 'POST',
@@ -700,12 +882,13 @@ export default function UnifiedChat({
       setShowNewModal(false)
       setNewTitle('')
       setNewParticipants([])
+      setNewScope(scope ?? (projectId ? 'project' : 'general'))
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to create conversation')
     } finally {
       setCreatingConv(false)
     }
-  }, [creatingConv, newParticipants, newTitle, orgId, projectId, scope, scopeRefId])
+  }, [creatingConv, newParticipants, newTitle, newScope, orgId, projectId, scope, scopeRefId, contextRefs])
 
   // ── Send message ──────────────────────────────────────────────────────────
   const send = useCallback(
@@ -717,6 +900,19 @@ export default function UnifiedChat({
       let convId = activeId
 
       try {
+        const currentPageCommand = extractCurrentPageContextCommand(input)
+        const messageText = currentPageCommand.shouldUseCurrentPage ? currentPageCommand.content : input
+        let refsForSend = contextRefs
+        if (currentPageCommand.shouldUseCurrentPage) {
+          refsForSend = await pinCurrentPageContext()
+          if (!messageText.trim() && attachments.length === 0) {
+            setInput('')
+            setContextMention(null)
+            setContextTypePrompt(null)
+            return
+          }
+        }
+
         // Auto-create a conversation if none selected.
         let createdWithAgent = false
         if (!convId) {
@@ -726,10 +922,11 @@ export default function UnifiedChat({
           const payload: Record<string, unknown> = {
             orgId,
             participants,
-            title: input.slice(0, 80),
+            title: messageText.slice(0, 80) || 'Context conversation',
           }
           if (scope) payload.scope = scope
           if (scopeRefId) payload.scopeRefId = scopeRefId
+          if (refsForSend.length > 0) payload.contextRefs = refsForSend
           const r = await fetch('/api/v1/conversations', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -749,7 +946,7 @@ export default function UnifiedChat({
           : []
 
         // Build content: keep file names in the text preview, store URLs separately.
-        let content = input
+        let content = messageText
         if (uploadedAttachments.length > 0) {
           const attNote = uploadedAttachments
             .map((attachment) => `Attachment: ${attachment.name} (${(attachment.sizeBytes / 1024).toFixed(1)} KB)`)
@@ -757,6 +954,9 @@ export default function UnifiedChat({
           content = content.trim() ? `${content}\n\n${attNote}` : attNote
         }
         setInput('')
+        setContextMention(null)
+        setContextTypePrompt(null)
+        setContextSearchResults([])
         setAttachments([])
         const nowSec = Date.now() / 1000
         const shouldExpectAgentReply =
@@ -773,6 +973,7 @@ export default function UnifiedChat({
           authorId: currentUserUid,
           authorDisplayName: currentUserDisplayName,
           ...(uploadedAttachments.length > 0 ? { attachments: uploadedAttachments } : {}),
+          ...(refsForSend.length > 0 ? { contextRefs: refsForSend } : {}),
           status: 'completed',
           createdAt: { seconds: nowSec },
         }
@@ -794,7 +995,7 @@ export default function UnifiedChat({
         const res = await fetch(`/api/v1/conversations/${convId}/messages`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ content, attachments: uploadedAttachments }),
+          body: JSON.stringify({ content, attachments: uploadedAttachments, contextRefs: refsForSend }),
         })
         const body = await res.json()
         if (!res.ok) throw new Error(body.error ?? 'Send failed')
@@ -829,6 +1030,8 @@ export default function UnifiedChat({
       input,
       attachments,
       sending,
+      contextRefs,
+      pinCurrentPageContext,
       allowAgentParticipants,
       orgId,
       currentUserUid,
@@ -848,6 +1051,13 @@ export default function UnifiedChat({
     ? scope.charAt(0).toUpperCase() + scope.slice(1)
     : 'Default'
   const subtitle = [orgName, scopeLabel].filter(Boolean).join(' · ')
+  const availableConversationContexts = [
+    { value: 'general' as const, label: `Workspace-wide${orgName ? `: ${orgName}` : ''}` },
+    ...(projectId ? [{ value: 'project' as const, label: `Current project: ${projectId}` }] : []),
+    ...(scope && scope !== 'general' && scope !== 'project'
+      ? [{ value: scope, label: `Current ${scope}: ${scopeRefId ?? 'selected item'}` }]
+      : []),
+  ]
   const showListOnMobile = mobilePane === 'list'
 
   return (
@@ -1210,6 +1420,104 @@ export default function UnifiedChat({
           onSubmit={send}
           className="shrink-0 min-w-0 flex flex-col gap-2 border-t border-[var(--color-card-border)] p-3"
         >
+          {(currentPageContext || contextRefs.length > 0) && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              {currentPageContext && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    pinCurrentPageContext().catch((err) => {
+                      setError(err instanceof Error ? err.message : 'Failed to attach current page')
+                    })
+                  }}
+                  disabled={sending || contextRefs.some((ref) => contextReferenceKey(ref) === contextReferenceKey(currentPageContext))}
+                  title="Use current page as context"
+                  className="inline-flex h-7 items-center gap-1.5 rounded-full border border-[var(--color-card-border)] bg-white/[0.04] px-2.5 text-[11px] font-medium text-on-surface-variant transition-colors hover:bg-white/[0.08] hover:text-on-surface disabled:opacity-45"
+                >
+                  <span className="material-symbols-outlined text-[14px]">add_link</span>
+                  Use current page
+                </button>
+              )}
+              {contextRefs.map((ref) => (
+                <span
+                  key={contextReferenceKey(ref)}
+                  className="inline-flex h-7 max-w-full items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-2.5 text-[11px] text-on-surface"
+                  title={`${ref.type}: ${contextChipLabel(ref)}`}
+                >
+                  <span className="material-symbols-outlined text-[13px]">
+                    {ref.origin === 'current_page' ? 'tab' : 'alternate_email'}
+                  </span>
+                  <span className="max-w-[180px] truncate">{ref.type}: {contextChipLabel(ref)}</span>
+                  <button
+                    type="button"
+                    onClick={() => removeContextRef(ref)}
+                    aria-label={`Remove ${contextChipLabel(ref)} context`}
+                    className="-mr-1 grid h-5 w-5 place-items-center rounded-full text-on-surface-variant hover:bg-white/[0.08] hover:text-on-surface"
+                  >
+                    <span className="material-symbols-outlined text-[13px]">close</span>
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+
+          {contextTypePrompt && (
+            <div className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-1 shadow-xl">
+              <div className="px-2 py-1 text-[10px] uppercase tracking-wide text-on-surface-variant">
+                Reference types
+              </div>
+              {contextTypeOptions.length === 0 ? (
+                <div className="px-2 py-2 text-xs text-on-surface-variant">No matching reference types</div>
+              ) : (
+                contextTypeOptions.map((option) => (
+                  <button
+                    key={option.namespace}
+                    type="button"
+                    aria-label={`Use @${option.namespace}:`}
+                    onClick={() => selectContextType(option)}
+                    className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm text-on-surface transition-colors hover:bg-white/[0.06]"
+                  >
+                    <span className="material-symbols-outlined text-[16px] text-on-surface-variant">alternate_email</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-xs font-medium">{option.label}</span>
+                      <span className="block truncate text-[11px] text-on-surface-variant">@{option.namespace}:</span>
+                    </span>
+                  </button>
+                ))
+              )}
+            </div>
+          )}
+
+          {contextMention && (
+            <div className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-1 shadow-xl">
+              <div className="px-2 py-1 text-[10px] uppercase tracking-wide text-on-surface-variant">
+                @{contextMention.namespace}: references
+              </div>
+              {contextSearchLoading && (
+                <div className="px-2 py-2 text-xs text-on-surface-variant">Searching…</div>
+              )}
+              {!contextSearchLoading && contextSearchResults.length === 0 && (
+                <div className="px-2 py-2 text-xs text-on-surface-variant">No matching references</div>
+              )}
+              {!contextSearchLoading && contextSearchResults.map((ref) => (
+                <button
+                  key={contextReferenceKey(ref)}
+                  type="button"
+                  onClick={() => selectMentionContext(ref)}
+                  className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm text-on-surface transition-colors hover:bg-white/[0.06]"
+                >
+                  <span className="material-symbols-outlined text-[16px] text-on-surface-variant">alternate_email</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-xs font-medium">{contextChipLabel(ref)}</span>
+                    {ref.summary && (
+                      <span className="block truncate text-[11px] text-on-surface-variant">{ref.summary}</span>
+                    )}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+
           {/* Attachment chips */}
           {attachments.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
@@ -1276,8 +1584,19 @@ export default function UnifiedChat({
             <textarea
               ref={composerRef}
               value={input}
-              onChange={(e) => setInput(e.target.value)}
+              onChange={(e) => {
+                setInput(e.target.value)
+                updateMentionFromComposer(e.target.value, e.target.selectionStart ?? e.target.value.length)
+              }}
+              onClick={(e) => updateMentionFromComposer(input, e.currentTarget.selectionStart ?? input.length)}
+              onKeyUp={(e) => updateMentionFromComposer(input, e.currentTarget.selectionStart ?? input.length)}
               onKeyDown={(e) => {
+                if (e.key === 'Escape' && (contextMention || contextTypePrompt)) {
+                  setContextMention(null)
+                  setContextTypePrompt(null)
+                  setContextSearchResults([])
+                  return
+                }
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault()
                   send(e as unknown as FormEvent)
@@ -1365,6 +1684,23 @@ export default function UnifiedChat({
                     showAgents={allowAgentParticipants}
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant block mb-1.5">
+                  Conversation context
+                </label>
+                <select
+                  value={newScope}
+                  onChange={(e) => setNewScope(e.target.value as 'general' | 'project' | 'task' | 'campaign')}
+                  className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface outline-none focus:border-primary/60"
+                >
+                  {availableConversationContexts.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               {error && (

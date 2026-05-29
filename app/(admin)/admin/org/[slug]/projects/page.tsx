@@ -1,12 +1,13 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { collection, onSnapshot, query, where } from 'firebase/firestore'
 import { getClientDb } from '@/lib/firebase/config'
 import { CrossProjectBoard } from '@/components/projects/CrossProjectBoard'
-import { PageHeader, Surface } from '@/components/ui/AppFoundation'
+import { ProjectListCard } from '@/components/projects/ProjectListCard'
+import { ProjectPortfolioReportPanel } from '@/components/projects/ProjectPortfolioReportPanel'
+import { PageHeader, PageTabs, Surface } from '@/components/ui/AppFoundation'
 import type { BoardTask } from '@/components/projects/CrossProjectBoard'
 
 interface Project {
@@ -24,118 +25,21 @@ function Skeleton({ className = '' }: { className?: string }) {
 }
 
 const STATUS_OPTIONS = ['discovery', 'design', 'development', 'review', 'live', 'maintenance']
+const PROJECT_STAGE_TABS = [
+  { value: 'all', label: 'All' },
+  ...STATUS_OPTIONS.map((status) => ({
+    value: status,
+    label: status.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase()),
+  })),
+]
+const WORKSPACE_TABS = [
+  { value: 'portfolio', label: 'Portfolio report', icon: 'monitoring' },
+  { value: 'projects', label: 'Projects', icon: 'folder_managed' },
+]
 const PROJECT_REFRESH_INTERVAL_MS = 10000
 
 function receivedProjectsUrl(slug: string) {
   return `/api/v1/projects?view=received&orgSlug=${encodeURIComponent(slug)}`
-}
-
-const STATUS_META: Record<string, { label: string; color: string; icon: string; progress: number; summary: string }> = {
-  discovery: {
-    label: 'Discovery',
-    color: '#60a5fa',
-    icon: 'travel_explore',
-    progress: 16,
-    summary: 'Scope, objectives, and project shape are being defined.',
-  },
-  design: {
-    label: 'Design',
-    color: '#c084fc',
-    icon: 'design_services',
-    progress: 34,
-    summary: 'Visual direction, UX, and content structure are in motion.',
-  },
-  development: {
-    label: 'Development',
-    color: '#34d399',
-    icon: 'code_blocks',
-    progress: 58,
-    summary: 'Build work is active and implementation tasks are moving.',
-  },
-  review: {
-    label: 'Review',
-    color: '#f59e0b',
-    icon: 'rate_review',
-    progress: 76,
-    summary: 'Work is ready for feedback, QA, or approval.',
-  },
-  live: {
-    label: 'Live',
-    color: '#4ade80',
-    icon: 'rocket_launch',
-    progress: 100,
-    summary: 'The project is live and being monitored.',
-  },
-  maintenance: {
-    label: 'Maintenance',
-    color: '#38bdf8',
-    icon: 'settings_suggest',
-    progress: 92,
-    summary: 'Ongoing support, updates, and improvements.',
-  },
-  active: {
-    label: 'Active',
-    color: '#34d399',
-    icon: 'play_circle',
-    progress: 50,
-    summary: 'Active project work is underway.',
-  },
-  on_hold: {
-    label: 'On Hold',
-    color: '#f59e0b',
-    icon: 'pause_circle',
-    progress: 25,
-    summary: 'Paused until the next input or decision is ready.',
-  },
-  completed: {
-    label: 'Completed',
-    color: '#4ade80',
-    icon: 'check_circle',
-    progress: 100,
-    summary: 'Completed and ready for reference.',
-  },
-  archived: {
-    label: 'Archived',
-    color: '#94a3b8',
-    icon: 'inventory_2',
-    progress: 100,
-    summary: 'Archived for historical reference.',
-  },
-  in_progress: {
-    label: 'In Progress',
-    color: '#34d399',
-    icon: 'autorenew',
-    progress: 58,
-    summary: 'Work is actively moving forward.',
-  },
-}
-
-function projectMeta(project: Project) {
-  return STATUS_META[project.status] ?? {
-    label: project.status.replace(/_/g, ' '),
-    color: '#94a3b8',
-    icon: 'folder_managed',
-    progress: 25,
-    summary: 'Project workspace is ready for planning and delivery.',
-  }
-}
-
-function timestampLabel(value: unknown) {
-  if (!value) return 'Timeline pending'
-  let date: Date | null = null
-  if (value instanceof Date) date = value
-  if (typeof value === 'string') {
-    const parsed = new Date(value)
-    if (!Number.isNaN(parsed.getTime())) date = parsed
-  }
-  if (typeof value === 'object' && value !== null) {
-    const timestamp = value as { seconds?: number; _seconds?: number; toDate?: () => Date }
-    if (typeof timestamp.toDate === 'function') date = timestamp.toDate()
-    const seconds = timestamp.seconds ?? timestamp._seconds
-    if (!date && typeof seconds === 'number') date = new Date(seconds * 1000)
-  }
-  if (!date) return 'Timeline pending'
-  return `Updated ${new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(date)}`
 }
 
 function mergeLiveTasks(restTasks: BoardTask[], currentTasks: BoardTask[]) {
@@ -145,84 +49,12 @@ function mergeLiveTasks(restTasks: BoardTask[], currentTasks: BoardTask[]) {
   return Array.from(merged.values())
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const s = STATUS_META[status] ?? { label: status.replace(/_/g, ' '), color: 'var(--color-outline)' }
-  return (
-    <span
-      className="inline-flex items-center rounded-full px-2 py-1 text-[10px] font-label uppercase tracking-wide"
-      style={{ background: `${s.color}18`, color: s.color, border: `1px solid ${s.color}33` }}
-    >
-      {s.label}
-    </span>
-  )
-}
-
-function ProjectCard({ project, slug }: { project: Project; slug: string }) {
-  const meta = projectMeta(project)
-  const description = project.description?.trim() || meta.summary
-  const updated = timestampLabel(project.updatedAt ?? project.createdAt)
-
-  return (
-    <Link
-      href={`/admin/org/${slug}/projects/${project.id}`}
-      className="group/card relative flex min-h-[178px] overflow-hidden rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] transition-all duration-200 hover:-translate-y-0.5 hover:border-[var(--color-pib-accent)]/60 hover:shadow-[0_18px_40px_rgba(0,0,0,0.24)]"
-    >
-      <span className="absolute inset-y-0 left-0 w-1.5" style={{ background: meta.color }} />
-      <div className="flex min-w-0 flex-1 flex-col p-5 pl-6">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex min-w-0 items-start gap-3">
-            <span
-              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md"
-              style={{ color: meta.color, background: `${meta.color}14`, border: `1px solid ${meta.color}24` }}
-            >
-              <span className="material-symbols-outlined block text-[20px] leading-none">{meta.icon}</span>
-            </span>
-            <div className="min-w-0">
-              <h3 className="line-clamp-2 text-base font-headline font-semibold leading-snug text-on-surface group-hover/card:text-[var(--color-pib-accent-hover)]">
-                {project.name}
-              </h3>
-              <p className="mt-1 text-xs text-on-surface-variant">{updated}</p>
-            </div>
-          </div>
-          <div className="shrink-0 pr-8">
-            <StatusBadge status={project.status} />
-          </div>
-        </div>
-
-        <p className="mt-4 line-clamp-2 text-sm leading-6 text-on-surface-variant">{description}</p>
-
-        <div className="mt-auto pt-5">
-          <div className="mb-2 flex items-center justify-between gap-3">
-            <span className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Delivery progress</span>
-            <span className="font-mono text-[11px] text-on-surface-variant">{meta.progress}%</span>
-          </div>
-          <div className="h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
-            <div
-              className="h-full rounded-full transition-all duration-300"
-              style={{ width: `${meta.progress}%`, background: meta.color }}
-            />
-          </div>
-          <div className="mt-4 flex items-center justify-between text-xs">
-            <span className="inline-flex items-center gap-1.5 text-on-surface-variant">
-              <span className="material-symbols-outlined text-[15px]">view_kanban</span>
-              Board workspace
-            </span>
-            <span className="inline-flex items-center gap-1 text-[var(--color-pib-accent-hover)] opacity-0 transition-opacity group-hover/card:opacity-100">
-              Open
-              <span className="material-symbols-outlined text-[15px]">arrow_forward</span>
-            </span>
-          </div>
-        </div>
-      </div>
-    </Link>
-  )
-}
-
 export default function ProjectsPage() {
   const params = useParams()
   const slug = params.slug as string
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
+  const [activeSection, setActiveSection] = useState<'portfolio' | 'projects'>('projects')
   const [filter, setFilter] = useState<string>('all')
   const [viewMode, setViewMode] = useState<'list' | 'board'>('list')
   const [boardSortMode, setBoardSortMode] = useState<'latest' | 'manual'>('latest')
@@ -307,7 +139,7 @@ export default function ProjectsPage() {
   )
 
   useEffect(() => {
-    if (viewMode !== 'board') return
+    if (activeSection !== 'projects' || viewMode !== 'board') return
     if (filtered.length === 0) {
       setBoardTasks([])
       setFailedProjectIds([])
@@ -388,7 +220,7 @@ export default function ProjectsPage() {
       cancelled = true
       unsubscribers.forEach(unsubscribe => unsubscribe())
     }
-  }, [viewMode, filtered])
+  }, [activeSection, viewMode, filtered])
 
   const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -473,12 +305,20 @@ export default function ProjectsPage() {
         title="Projects"
         description="Kanban-led delivery spaces for client and platform work. Switch between board and list views without leaving the workspace."
         actions={!showForm ? (
-          <button
-            onClick={() => setShowForm(true)}
-            className="pib-btn-primary text-sm font-label"
-          >
-            + New Project
-          </button>
+          <>
+            <PageTabs
+              ariaLabel="Project workspace sections"
+              value={activeSection}
+              onValueChange={(value) => setActiveSection(value as 'portfolio' | 'projects')}
+              tabs={WORKSPACE_TABS}
+            />
+            <button
+              onClick={() => setShowForm(true)}
+              className="pib-btn-primary text-sm font-label"
+            >
+              + New Project
+            </button>
+          </>
         ) : null}
       />
 
@@ -531,139 +371,139 @@ export default function ProjectsPage() {
         </Surface>
       )}
 
-      {/* Filters and view controls */}
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex gap-2 flex-wrap">
-          {['all', ...STATUS_OPTIONS].map(s => (
-            <button
-              key={s}
-              onClick={() => setFilter(s)}
-              className={[
-                'text-xs font-label px-3 py-1.5 rounded-[var(--radius-btn)] transition-colors capitalize',
-                filter === s
-                  ? 'text-black font-medium'
-                  : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container',
-              ].join(' ')}
-              style={filter === s ? { background: 'var(--color-accent-v2)' } : {}}
-            >
-              {s === 'all' ? 'All' : s.replace(/_/g, ' ')}
-            </button>
-          ))}
-        </div>
-
-        <div className="flex w-full items-center justify-between gap-3 sm:w-auto sm:justify-end">
-          <div
-            className="flex rounded-[var(--radius-btn)] overflow-hidden border"
-            style={{ borderColor: 'var(--color-outline)' }}
-          >
-            {(['list', 'board'] as const).map(mode => (
-              <button
-                key={mode}
-                onClick={() => setViewMode(mode)}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-label capitalize transition-colors"
-                style={
-                  viewMode === mode
-                    ? { background: 'var(--color-accent-v2)', color: '#000' }
-                    : { background: 'transparent', color: 'var(--color-on-surface-variant)' }
-                }
-              >
-                <span className="material-symbols-outlined text-[14px]">
-                  {mode === 'list' ? 'list' : 'view_kanban'}
-                </span>
-                {mode}
-              </button>
-            ))}
-          </div>
-          {viewMode === 'board' && !boardLoading && boardTasks.length > 0 && (
-            <button
-              type="button"
-              onClick={() => setBoardSortMode(prev => prev === 'latest' ? 'manual' : 'latest')}
-              className="inline-flex shrink-0 items-center gap-2 rounded-[var(--radius-btn)] border border-[var(--color-card-border)] px-3 py-1.5 text-xs font-label uppercase tracking-wide text-on-surface-variant transition-colors hover:text-on-surface"
-              aria-pressed={boardSortMode === 'manual'}
-            >
-              <span className="material-symbols-outlined text-[16px]">sort</span>
-              {boardSortMode === 'latest' ? 'Manual order' : 'Latest first'}
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Error banner for partial board load failures */}
-      {viewMode === 'board' && failedProjectIds.length > 0 && (
-        <div
-          className="flex items-center justify-between gap-3 rounded-[var(--radius-card)] px-4 py-2 text-sm"
-          style={{ background: '#ef444420', color: '#f87171', border: '1px solid #ef444430' }}
-        >
-          <span>Could not load tasks for {failedProjectIds.length} project(s).</span>
-          <button
-            onClick={() => {
-              setViewMode('list')
-              setTimeout(() => setViewMode('board'), 0)
-            }}
-            className="underline text-xs shrink-0"
-          >
-            Retry
-          </button>
-        </div>
-      )}
-
-      {viewMode === 'board' ? (
-        <CrossProjectBoard
-          tasks={boardTasks}
-          loading={boardLoading}
-          sortMode={boardSortMode}
-          onTaskUpdate={handleBoardTaskUpdate}
+      {activeSection === 'portfolio' ? (
+        <ProjectPortfolioReportPanel
+          reportUrl={`/api/v1/projects/reporting?orgSlug=${encodeURIComponent(slug)}`}
+          projectHrefBase={`/admin/org/${slug}/projects`}
         />
-      ) : loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-32" />)}
-        </div>
-      ) : filtered.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-[var(--color-card-border)] bg-[var(--color-card)] px-6 py-12 text-center">
-          <span className="mx-auto mb-3 inline-flex h-10 w-10 items-center justify-center rounded-md bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent)]">
-            <span className="material-symbols-outlined block text-[22px] leading-none">folder_managed</span>
-          </span>
-          <p className="font-medium text-on-surface">No projects found</p>
-          <p className="mt-1 text-sm text-on-surface-variant">Try another stage filter or create a new client project.</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {filtered.map(project => (
-            <div key={project.id} className="relative group">
-              <ProjectCard project={project} slug={slug} />
+      ) : null}
 
-              {/* Delete button — appears on hover */}
-              {confirmId === project.id ? (
-                <div className="absolute top-2 right-2 flex items-center gap-1 bg-[var(--color-surface)] border border-[#ef4444] rounded-md px-2 py-1 shadow-sm z-10">
-                  <span className="text-[11px] text-[#ef4444]">Delete?</span>
+      {/* Filters and view controls */}
+      {activeSection === 'projects' ? (
+        <>
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <PageTabs
+              ariaLabel="Project stage filters"
+              value={filter}
+              onValueChange={setFilter}
+              tabs={PROJECT_STAGE_TABS}
+            />
+
+            <div className="flex w-full items-center justify-between gap-3 sm:w-auto sm:justify-end">
+              <div
+                className="flex rounded-[var(--radius-btn)] overflow-hidden border"
+                style={{ borderColor: 'var(--color-outline)' }}
+              >
+                {(['list', 'board'] as const).map(mode => (
                   <button
-                    onClick={() => handleDelete(project.id)}
-                    disabled={deletingId === project.id}
-                    className="text-[11px] font-medium text-[#ef4444] hover:underline disabled:opacity-50"
+                    key={mode}
+                    onClick={() => setViewMode(mode)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-label capitalize transition-colors"
+                    style={
+                      viewMode === mode
+                        ? { background: 'var(--color-accent-v2)', color: '#000' }
+                        : { background: 'transparent', color: 'var(--color-on-surface-variant)' }
+                    }
                   >
-                    {deletingId === project.id ? '…' : 'Yes'}
+                    <span className="material-symbols-outlined text-[14px]">
+                      {mode === 'list' ? 'list' : 'view_kanban'}
+                    </span>
+                    {mode}
                   </button>
-                  <span className="text-[11px] text-on-surface-variant">/</span>
-                  <button
-                    onClick={() => setConfirmId(null)}
-                    className="text-[11px] text-on-surface-variant hover:text-on-surface"
-                  >
-                    No
-                  </button>
-                </div>
-              ) : (
+                ))}
+              </div>
+              {viewMode === 'board' && !boardLoading && boardTasks.length > 0 && (
                 <button
-                  onClick={(e) => { e.preventDefault(); setConfirmId(project.id) }}
-                  className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-[#ef444420] text-[#ef4444]"
-                  title="Delete project"
+                  type="button"
+                  onClick={() => setBoardSortMode(prev => prev === 'latest' ? 'manual' : 'latest')}
+                  className="inline-flex shrink-0 items-center gap-2 rounded-[var(--radius-btn)] border border-[var(--color-card-border)] px-3 py-1.5 text-xs font-label uppercase tracking-wide text-on-surface-variant transition-colors hover:text-on-surface"
+                  aria-pressed={boardSortMode === 'manual'}
                 >
-                  <span className="material-symbols-outlined text-[16px]">delete</span>
+                  <span className="material-symbols-outlined text-[16px]">sort</span>
+                  {boardSortMode === 'latest' ? 'Manual order' : 'Latest first'}
                 </button>
               )}
             </div>
-          ))}
-        </div>
-      )}
+          </div>
+
+          {/* Error banner for partial board load failures */}
+          {viewMode === 'board' && failedProjectIds.length > 0 && (
+            <div
+              className="flex items-center justify-between gap-3 rounded-[var(--radius-card)] px-4 py-2 text-sm"
+              style={{ background: '#ef444420', color: '#f87171', border: '1px solid #ef444430' }}
+            >
+              <span>Could not load tasks for {failedProjectIds.length} project(s).</span>
+              <button
+                onClick={() => {
+                  setViewMode('list')
+                  setTimeout(() => setViewMode('board'), 0)
+                }}
+                className="underline text-xs shrink-0"
+              >
+                Retry
+              </button>
+            </div>
+          )}
+
+          {viewMode === 'board' ? (
+            <CrossProjectBoard
+              tasks={boardTasks}
+              loading={boardLoading}
+              sortMode={boardSortMode}
+              onTaskUpdate={handleBoardTaskUpdate}
+            />
+          ) : loading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-32" />)}
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-[var(--color-card-border)] bg-[var(--color-card)] px-6 py-12 text-center">
+              <span className="mx-auto mb-3 inline-flex h-10 w-10 items-center justify-center rounded-md bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent)]">
+                <span className="material-symbols-outlined block text-[22px] leading-none">folder_managed</span>
+              </span>
+              <p className="font-medium text-on-surface">No projects found</p>
+              <p className="mt-1 text-sm text-on-surface-variant">Try another stage filter or create a new client project.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {filtered.map(project => (
+                <div key={project.id} className="relative group">
+                  <ProjectListCard project={project} href={`/admin/org/${slug}/projects/${project.id}`} />
+
+                  {/* Delete button — appears on hover */}
+                  {confirmId === project.id ? (
+                    <div className="absolute top-2 right-2 flex items-center gap-1 bg-[var(--color-surface)] border border-[#ef4444] rounded-md px-2 py-1 shadow-sm z-10">
+                      <span className="text-[11px] text-[#ef4444]">Delete?</span>
+                      <button
+                        onClick={() => handleDelete(project.id)}
+                        disabled={deletingId === project.id}
+                        className="text-[11px] font-medium text-[#ef4444] hover:underline disabled:opacity-50"
+                      >
+                        {deletingId === project.id ? '…' : 'Yes'}
+                      </button>
+                      <span className="text-[11px] text-on-surface-variant">/</span>
+                      <button
+                        onClick={() => setConfirmId(null)}
+                        className="text-[11px] text-on-surface-variant hover:text-on-surface"
+                      >
+                        No
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={(e) => { e.preventDefault(); setConfirmId(project.id) }}
+                      className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-[#ef444420] text-[#ef4444]"
+                      title="Delete project"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">delete</span>
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      ) : null}
     </div>
   )
 }

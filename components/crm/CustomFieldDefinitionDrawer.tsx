@@ -222,14 +222,12 @@ export function CustomFieldDefinitionDrawer({
   const [form, setForm] = useState<FormState>(() => defToForm(definition ?? {}))
   const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({})
   const [saving, setSaving] = useState(false)
-  const [labelTouched, setLabelTouched] = useState(mode === 'edit')
   const [keyTouched, setKeyTouched] = useState(mode === 'edit')
 
   useEffect(() => {
     if (open) {
       setForm(defToForm(definition ?? {}))
       setErrors({})
-      setLabelTouched(mode === 'edit')
       setKeyTouched(mode === 'edit')
     }
   }, [open, definition, mode])
@@ -247,7 +245,6 @@ export function CustomFieldDefinitionDrawer({
       }
       return next
     })
-    setLabelTouched(true)
     if (errors.label) setErrors((e) => ({ ...e, label: undefined }))
   }
 

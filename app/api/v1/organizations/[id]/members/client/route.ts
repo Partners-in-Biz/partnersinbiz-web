@@ -10,6 +10,7 @@ import { canAccessOrg } from '@/lib/api/platformAdmin'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { logActivity } from '@/lib/activity/log'
 import type { Organization, OrgMember } from '@/lib/organizations/types'
+import { ACCESS_SCOPE_OPTIONS, parseMemberMetadata } from '@/lib/organizations/memberMetadata'
 
 export const dynamic = 'force-dynamic'
 
@@ -99,12 +100,16 @@ export const POST = withAuth('admin', async (req: NextRequest, user, ctx) => {
   const body = await req.json().catch(() => ({}))
   const uid = typeof body.uid === 'string' ? body.uid.trim() : ''
   const role = typeof body.role === 'string' ? body.role.trim() : 'member'
+  const memberMetadata = parseMemberMetadata(body)
 
   if (!uid) return apiError('uid is required', 400)
 
   const validRoles = ['admin', 'member', 'viewer']
   if (!validRoles.includes(role)) {
     return apiError(`role must be one of: ${validRoles.join(', ')}`, 400)
+  }
+  if (typeof body.accessScope === 'string' && !ACCESS_SCOPE_OPTIONS.includes(body.accessScope as never)) {
+    return apiError(`accessScope must be one of: ${ACCESS_SCOPE_OPTIONS.join(', ')}`, 400)
   }
 
   const org = await loadOrg(id)
@@ -131,6 +136,7 @@ export const POST = withAuth('admin', async (req: NextRequest, user, ctx) => {
     role: role as OrgMember['role'],
     joinedAt: Timestamp.now(),
     invitedBy: user.uid,
+    ...memberMetadata,
   }
 
   const updatedMembers = [...(org.members ?? []), newMember]
@@ -160,6 +166,7 @@ export const POST = withAuth('admin', async (req: NextRequest, user, ctx) => {
       lastName: lastNameParts.join(' '),
       avatarUrl: userData.photoURL ?? '',
       role,
+      ...memberMetadata,
       updatedAt: FieldValue.serverTimestamp(),
       createdAt: FieldValue.serverTimestamp(),
     },

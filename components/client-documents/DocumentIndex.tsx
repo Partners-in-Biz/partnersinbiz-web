@@ -5,6 +5,13 @@ import Link from 'next/link'
 
 import type { ClientDocument, ClientDocumentStatus, ClientDocumentType } from '@/lib/client-documents/types'
 
+export interface ClientDocumentPartyLabels {
+  creatorCompanyName?: string
+  creatorContactName?: string
+  recipientCompanyName?: string
+  recipientContactName?: string
+}
+
 const TYPE_LABELS: Record<ClientDocumentType, string> = {
   sales_proposal: 'Sales Proposal',
   build_spec: 'Website/App Build Spec',
@@ -37,7 +44,8 @@ const STATUS_PILL: Record<ClientDocumentStatus, string> = {
   archived: 'pib-pill',
 }
 
-function readable(value: string) {
+function readable(value: unknown) {
+  if (typeof value !== 'string' || !value) return 'Not set'
   return value.replaceAll('_', ' ')
 }
 
@@ -51,6 +59,76 @@ function linkedLabel(document: ClientDocument) {
     .map(([key]) => key)
 
   return fields.join(', ') || 'Standalone'
+}
+
+function relationshipLabelList(labels?: { companyName?: string; clientOrgName?: string }) {
+  return [labels?.companyName, labels?.clientOrgName].filter(Boolean) as string[]
+}
+
+interface LinkedResourceLink {
+  key: string
+  label: string
+  href: string
+}
+
+function cleanString(value: unknown) {
+  return typeof value === 'string' && value.trim() ? value.trim() : ''
+}
+
+function linkedResourceHref(basePath: string, resource: 'project' | 'research', id: string) {
+  const encodedId = encodeURIComponent(id)
+  if (basePath.startsWith('/portal/')) {
+    return resource === 'project' ? `/portal/projects/${encodedId}` : `/portal/research/${encodedId}`
+  }
+
+  const scopedAdminMatch = basePath.match(/^\/admin\/org\/([^/]+)\/documents$/)
+  if (scopedAdminMatch) {
+    const encodedSlug = encodeURIComponent(scopedAdminMatch[1])
+    return resource === 'project'
+      ? `/admin/org/${encodedSlug}/projects/${encodedId}`
+      : `/admin/org/${encodedSlug}/research/${encodedId}`
+  }
+
+  if (basePath.startsWith('/admin/')) {
+    return resource === 'project' ? `/admin/projects/${encodedId}` : `/admin/research/${encodedId}`
+  }
+
+  return ''
+}
+
+function linkedResourceLinks(document: ClientDocument, basePath: string): LinkedResourceLink[] {
+  const links: LinkedResourceLink[] = []
+  const projectId = cleanString(document.linked?.projectId)
+  if (projectId) {
+    const href = linkedResourceHref(basePath, 'project', projectId)
+    if (href) links.push({ key: `project-${projectId}`, label: 'Project', href })
+  }
+
+  const researchItemIds = Array.isArray(document.linked?.researchItemIds) ? document.linked.researchItemIds : []
+  researchItemIds
+    .map(cleanString)
+    .filter(Boolean)
+    .forEach((researchItemId, index) => {
+      const href = linkedResourceHref(basePath, 'research', researchItemId)
+      if (href) {
+        links.push({
+          key: `research-${researchItemId}`,
+          label: researchItemIds.length > 1 ? `Research item ${index + 1}` : 'Research item',
+          href,
+        })
+      }
+    })
+
+  return links
+}
+
+function hasPartyLabels(labels?: ClientDocumentPartyLabels) {
+  return Boolean(
+    labels?.creatorCompanyName ||
+    labels?.creatorContactName ||
+    labels?.recipientCompanyName ||
+    labels?.recipientContactName,
+  )
 }
 
 function formatDate(value: unknown) {
@@ -69,11 +147,15 @@ export function DocumentIndex({
   basePath,
   canDelete = false,
   onDeleted,
+  relationshipLabels = {},
+  partyLabels = {},
 }: {
   documents: ClientDocument[]
   basePath: string
   canDelete?: boolean
   onDeleted?: (documentId: string) => void
+  relationshipLabels?: Record<string, { companyName?: string; clientOrgName?: string }>
+  partyLabels?: Record<string, ClientDocumentPartyLabels>
 }) {
   const [visibleDocuments, setVisibleDocuments] = useState(documents)
   const [deletingId, setDeletingId] = useState<string | null>(null)
@@ -130,70 +212,114 @@ export function DocumentIndex({
         </div>
       )}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        {visibleDocuments.map((document) => (
-          <article key={document.id} className="bento-card flex min-h-[230px] flex-col gap-5">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0 space-y-2">
-                <p className="text-xs uppercase tracking-[0.18em] text-[var(--color-pib-text-muted)]">
-                  {TYPE_LABELS[document.type] ?? readable(document.type)}
-                </p>
-                <h2 className="font-display text-xl leading-snug">
-                  <Link href={`${basePath}/${document.id}`} className="hover:text-[var(--color-pib-accent)]">
-                    {document.title}
-                  </Link>
-                </h2>
+        {visibleDocuments.map((document) => {
+          const relationshipText = relationshipLabelList(relationshipLabels[document.id])
+          const resourceLinks = linkedResourceLinks(document, basePath)
+          const parties = partyLabels[document.id]
+          return (
+            <article key={document.id} className="bento-card flex min-h-[260px] flex-col gap-5">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 space-y-2">
+                  <p className="text-xs uppercase tracking-[0.18em] text-[var(--color-pib-text-muted)]">
+                    {TYPE_LABELS[document.type] ?? readable(document.type)}
+                  </p>
+                  <h2 className="font-display text-xl leading-snug">
+                    <Link href={`${basePath}/${document.id}`} className="hover:text-[var(--color-pib-accent)]">
+                      {document.title}
+                    </Link>
+                  </h2>
+                </div>
+                <span className="material-symbols-outlined shrink-0 text-[var(--color-pib-accent)]">description</span>
               </div>
-              <span className="material-symbols-outlined shrink-0 text-[var(--color-pib-accent)]">description</span>
-            </div>
 
-            <dl className="grid grid-cols-2 gap-3 text-sm">
-              <div>
-                <dt className="eyebrow !text-[9px]">Status</dt>
-                <dd className="mt-1">
-                  <span className={STATUS_PILL[document.status] ?? 'pib-pill'}>
-                    {STATUS_LABELS[document.status] ?? readable(document.status)}
-                  </span>
-                </dd>
-              </div>
-              <div>
-                <dt className="eyebrow !text-[9px]">Updated</dt>
-                <dd className="mt-1 text-[var(--color-pib-text-muted)]">
-                  {formatDate(document.updatedAt ?? document.createdAt)}
-                </dd>
-              </div>
-              <div className="col-span-2">
-                <dt className="eyebrow !text-[9px]">Linked</dt>
-                <dd className="mt-1 text-[var(--color-pib-text-muted)]">{linkedLabel(document)}</dd>
-              </div>
-            </dl>
-
-            <div className="mt-auto flex items-center justify-between gap-3 border-t border-[var(--color-outline)] pt-4">
-              <span className="text-xs text-[var(--color-pib-text-muted)]">
-                {document.approvalMode === 'none' ? 'Review document' : readable(document.approvalMode)}
-              </span>
-              <div className="flex items-center gap-2">
-                {canDelete && (
-                  <button
-                    type="button"
-                    onClick={() => deleteDocument(document)}
-                    disabled={deletingId === document.id}
-                    className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-red-500/30 text-red-300 transition hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-50"
-                    aria-label={`Delete ${document.title}`}
-                    title="Delete document"
-                  >
-                    <span className="material-symbols-outlined text-base">
-                      {deletingId === document.id ? 'progress_activity' : 'delete'}
+              <dl className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <dt className="eyebrow !text-[9px]">Status</dt>
+                  <dd className="mt-1">
+                    <span className={STATUS_PILL[document.status] ?? 'pib-pill'}>
+                      {STATUS_LABELS[document.status] ?? readable(document.status)}
                     </span>
-                  </button>
+                  </dd>
+                </div>
+                <div>
+                  <dt className="eyebrow !text-[9px]">Updated</dt>
+                  <dd className="mt-1 text-[var(--color-pib-text-muted)]">
+                    {formatDate(document.updatedAt ?? document.createdAt)}
+                  </dd>
+                </div>
+                <div className="col-span-2">
+                  <dt className="eyebrow !text-[9px]">Linked</dt>
+                  <dd className="mt-1 text-[var(--color-pib-text-muted)]">
+                    {relationshipText.length > 0 || resourceLinks.length > 0 ? (
+                      <span className="flex flex-wrap gap-1.5">
+                        {relationshipText.map((label) => (
+                          <span key={label}>{label}</span>
+                        ))}
+                        {resourceLinks.map((link) => (
+                          <Link
+                            key={link.key}
+                            href={link.href}
+                            className="cursor-pointer font-medium text-[var(--color-pib-text-muted)] transition hover:text-[var(--color-pib-accent)] hover:underline"
+                          >
+                            {link.label}
+                          </Link>
+                        ))}
+                      </span>
+                    ) : linkedLabel(document)}
+                  </dd>
+                </div>
+                {hasPartyLabels(parties) && (
+                  <>
+                    <div>
+                      <dt className="eyebrow !text-[9px]">Prepared by</dt>
+                      <dd className="mt-1 leading-snug">
+                        {parties?.creatorCompanyName && <span className="block">{parties.creatorCompanyName}</span>}
+                        {parties?.creatorContactName && (
+                          <span className="block text-[var(--color-pib-text-muted)]">{parties.creatorContactName}</span>
+                        )}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="eyebrow !text-[9px]">Recipient</dt>
+                      <dd className="mt-1 leading-snug">
+                        {parties?.recipientCompanyName && <span className="block">{parties.recipientCompanyName}</span>}
+                        {parties?.recipientContactName && (
+                          <span className="block text-[var(--color-pib-text-muted)]">{parties.recipientContactName}</span>
+                        )}
+                      </dd>
+                    </div>
+                  </>
                 )}
-                <Link href={`${basePath}/${document.id}`} className="btn-pib-accent !px-3 !py-1.5 !text-sm">
-                  Open
-                  <span className="material-symbols-outlined text-base">arrow_forward</span>
-                </Link>
+              </dl>
+
+              <div className="mt-auto flex items-center justify-between gap-3 border-t border-[var(--color-outline)] pt-4">
+                <span className="text-xs text-[var(--color-pib-text-muted)]">
+                  {document.approvalMode === 'none' ? 'Review document' : readable(document.approvalMode)}
+                </span>
+                <div className="flex items-center gap-2">
+                  {canDelete && (
+                    <button
+                      type="button"
+                      onClick={() => deleteDocument(document)}
+                      disabled={deletingId === document.id}
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-red-500/30 text-red-300 transition hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-50"
+                      aria-label={`Delete ${document.title}`}
+                      title="Delete document"
+                    >
+                      <span className="material-symbols-outlined text-base">
+                        {deletingId === document.id ? 'progress_activity' : 'delete'}
+                      </span>
+                    </button>
+                  )}
+                  <Link href={`${basePath}/${document.id}`} className="btn-pib-accent !px-3 !py-1.5 !text-sm">
+                    Open
+                    <span className="material-symbols-outlined text-base">arrow_forward</span>
+                  </Link>
+                </div>
               </div>
-            </div>
-          </article>
-        ))}
+            </article>
+          )
+        })}
       </div>
     </div>
   )

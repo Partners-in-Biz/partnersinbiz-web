@@ -2,6 +2,9 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { ContextReferenceChips } from '@/components/context-references/ContextReferenceChips'
+import { ContextReferencePicker } from '@/components/context-references/ContextReferencePicker'
+import type { ContextReference } from '@/lib/context-references/types'
 import type {
   ResearchFindingStatus,
   ResearchItem,
@@ -21,6 +24,7 @@ type Comment = {
   createdBy?: string
   createdAt?: unknown
   anchor?: { type?: string; id?: string; text?: string }
+  contextRefs?: ContextReference[]
 }
 
 type Props = {
@@ -50,6 +54,7 @@ export function ResearchDetailClient({ id, mode, basePath, documentsBasePath = '
   const [status, setStatus] = useState<ResearchStatus>('draft')
   const [visibility, setVisibility] = useState<ResearchVisibility>('internal')
   const [newComment, setNewComment] = useState('')
+  const [commentContextRefs, setCommentContextRefs] = useState<ContextReference[]>([])
   const [sourceTitle, setSourceTitle] = useState('')
   const [sourceUrl, setSourceUrl] = useState('')
   const [busy, setBusy] = useState('')
@@ -133,8 +138,19 @@ export function ResearchDetailClient({ id, mode, basePath, documentsBasePath = '
     setError('')
     const path = mode === 'portal' ? `/api/v1/portal/research/${id}/comments` : '/api/v1/comments'
     const payload = mode === 'portal'
-      ? { body: newComment, anchor }
-      : { orgId: item.orgId, resourceType: 'research_item', resourceId: id, body: newComment, anchor }
+      ? {
+          body: newComment,
+          anchor,
+          ...(commentContextRefs.length > 0 ? { contextRefs: commentContextRefs } : {}),
+        }
+      : {
+          orgId: item.orgId,
+          resourceType: 'research_item',
+          resourceId: id,
+          body: newComment,
+          anchor,
+          ...(commentContextRefs.length > 0 ? { contextRefs: commentContextRefs } : {}),
+        }
     try {
       const res = await fetch(path, {
         method: 'POST',
@@ -144,6 +160,7 @@ export function ResearchDetailClient({ id, mode, basePath, documentsBasePath = '
       const body = await res.json().catch(() => null)
       if (!res.ok) throw new Error(body?.error ?? 'Could not post comment')
       setNewComment('')
+      setCommentContextRefs([])
       await load()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not post comment')
@@ -309,6 +326,15 @@ export function ResearchDetailClient({ id, mode, basePath, documentsBasePath = '
           <section className="bento-card space-y-4">
             <h2 className="font-display text-2xl">Comments</h2>
             <textarea value={newComment} onChange={(event) => setNewComment(event.target.value)} rows={3} className="pib-textarea" placeholder="Comment on this research" />
+            <ContextReferencePicker
+              orgId={item.orgId}
+              value={commentContextRefs}
+              onChange={setCommentContextRefs}
+              inputLabel="Add research comment context reference"
+              placeholder="@projects: @contacts: @docs:"
+              disabled={busy === 'Commenting'}
+              compact
+            />
             <button type="button" className="btn-pib-accent !py-1.5 !text-sm" onClick={() => postComment()}>
               <span className="material-symbols-outlined text-base">comment</span>
               Post Comment
@@ -317,6 +343,9 @@ export function ResearchDetailClient({ id, mode, basePath, documentsBasePath = '
               {comments.map((comment) => (
                 <article key={comment.id} className="rounded-md border border-[var(--color-border)] p-3 text-sm">
                   <p>{comment.body}</p>
+                  <div className="mt-2">
+                    <ContextReferenceChips refs={comment.contextRefs ?? []} compact />
+                  </div>
                   <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">{comment.createdBy ?? 'Someone'} {formatDate(comment.createdAt)}</p>
                 </article>
               ))}

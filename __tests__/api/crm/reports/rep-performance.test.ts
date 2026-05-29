@@ -17,7 +17,11 @@ function makeReq(orgId = 'org-a') {
   })
 }
 
-function setupData(deals: Record<string, unknown>[], activities: Record<string, unknown>[]) {
+function setupData(
+  deals: Record<string, unknown>[],
+  activities: Record<string, unknown>[],
+  contacts: Record<string, unknown>[] = [],
+) {
   ;(adminDb.collection as jest.Mock).mockImplementation((name: string) => {
     if (name === 'organizations') {
       return {
@@ -41,6 +45,15 @@ function setupData(deals: Record<string, unknown>[], activities: Record<string, 
         limit: jest.fn().mockReturnThis(),
         get: jest.fn().mockResolvedValue({
           docs: activities.map((activity, index) => ({ id: `activity-${index}`, data: () => activity })),
+        }),
+      }
+    }
+    if (name === 'contacts') {
+      return {
+        where: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockReturnThis(),
+        get: jest.fn().mockResolvedValue({
+          docs: contacts.map((contact, index) => ({ id: `contact-${index}`, data: () => contact })),
         }),
       }
     }
@@ -95,7 +108,30 @@ describe('GET /api/v1/crm/reports/rep-performance', () => {
     }))
   })
 
-  it('reads deals and activities with org-only query shapes', async () => {
+  it('surfaces contact owner coverage for operating accountability', async () => {
+    setupData(
+      [],
+      [],
+      [
+        { assignedTo: 'u1', deleted: false },
+        { assignedToRef: { uid: 'u2', displayName: 'Bob' }, deleted: false },
+        { assignedTo: '', deleted: false },
+        { assignedTo: 'u3', deleted: true },
+      ],
+    )
+
+    const res = await GET(makeReq())
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.data.summary).toEqual(expect.objectContaining({
+      totalContacts: 3,
+      unassignedContacts: 1,
+      contactOwnerCoverage: 2 / 3,
+    }))
+  })
+
+  it('reads deals, activities, and contacts with org-only query shapes', async () => {
     const whereMocks: jest.Mock[] = []
     ;(adminDb.collection as jest.Mock).mockImplementation((name: string) => {
       if (name === 'organizations') {
@@ -115,8 +151,9 @@ describe('GET /api/v1/crm/reports/rep-performance', () => {
     })
 
     await GET(makeReq('org-b'))
-    expect(whereMocks).toHaveLength(2)
+    expect(whereMocks).toHaveLength(3)
     expect(whereMocks[0]).toHaveBeenCalledWith('orgId', '==', 'org-b')
     expect(whereMocks[1]).toHaveBeenCalledWith('orgId', '==', 'org-b')
+    expect(whereMocks[2]).toHaveBeenCalledWith('orgId', '==', 'org-b')
   })
 })

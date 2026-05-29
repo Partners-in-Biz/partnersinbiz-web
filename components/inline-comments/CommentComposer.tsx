@@ -1,12 +1,16 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { ContextReferencePicker } from '@/components/context-references/ContextReferencePicker'
+import type { ContextReference } from '@/lib/context-references/types'
 import type { AnchorTarget } from './types'
 
 interface Props {
   anchor: AnchorTarget
+  orgId?: string
+  projectId?: string
   onCancel: () => void
-  onSubmit: (text: string) => Promise<void> | void
+  onSubmit: (text: string, contextRefs: ContextReference[]) => Promise<void> | void
   busy?: boolean
 }
 
@@ -15,8 +19,9 @@ interface Props {
  * text-anchored comments and image-anchored comments. Uses a centered
  * overlay so it works regardless of where the anchor lives.
  */
-export function CommentComposer({ anchor, onCancel, onSubmit, busy }: Props) {
+export function CommentComposer({ anchor, orgId, projectId, onCancel, onSubmit, busy }: Props) {
   const [text, setText] = useState('')
+  const [contextRefs, setContextRefs] = useState<ContextReference[]>([])
   const ref = useRef<HTMLTextAreaElement | null>(null)
 
   useEffect(() => {
@@ -73,6 +78,18 @@ export function CommentComposer({ anchor, onCancel, onSubmit, busy }: Props) {
           placeholder="What needs to change? Be specific so the writer knows what to fix."
           className="w-full text-sm bg-[var(--color-surface)] border border-[var(--color-outline)] rounded-md px-3 py-2 text-on-surface placeholder:text-on-surface-variant focus:outline-none"
         />
+        {orgId ? (
+          <ContextReferencePicker
+            orgId={orgId}
+            projectId={projectId}
+            value={contextRefs}
+            onChange={setContextRefs}
+            inputLabel="Add feedback context reference"
+            placeholder="@projects: @tasks: @contacts:"
+            disabled={busy}
+            compact
+          />
+        ) : null}
         <div className="flex items-center justify-end gap-2">
           <button
             type="button"
@@ -84,7 +101,7 @@ export function CommentComposer({ anchor, onCancel, onSubmit, busy }: Props) {
           </button>
           <button
             type="button"
-            onClick={() => onSubmit(text)}
+            onClick={() => onSubmit(text, contextRefs)}
             disabled={busy || text.trim().length === 0}
             className="text-sm font-label px-4 py-2 rounded-md transition-opacity disabled:opacity-50"
             style={{

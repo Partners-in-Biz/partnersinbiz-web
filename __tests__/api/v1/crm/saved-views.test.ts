@@ -66,6 +66,14 @@ function stageAuth(
           get: () =>
             Promise.resolve({ exists: true, data: () => member }),
         }),
+        where: (_field: string, _op: string, value: string) => ({
+          get: () =>
+            Promise.resolve({
+              docs: value === member.uid
+                ? [{ id: `${member.orgId}_${member.uid}`, data: () => member }]
+                : [],
+            }),
+        }),
       }
     }
     if (name === 'organizations') {
@@ -112,7 +120,17 @@ function stageAuthWithWhereCapture(
       return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => ({ activeOrgId: member.orgId }) }) }) }
     }
     if (name === 'orgMembers') {
-      return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => member }) }) }
+      return {
+        doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => member }) }),
+        where: (_field: string, _op: string, value: string) => ({
+          get: () =>
+            Promise.resolve({
+              docs: value === member.uid
+                ? [{ id: `${member.orgId}_${member.uid}`, data: () => member }]
+                : [],
+            }),
+        }),
+      }
     }
     if (name === 'organizations') {
       return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => ({ settings: {} }) }) }) }
@@ -160,7 +178,7 @@ describe('GET /api/v1/crm/saved-views', () => {
     expect(body.data.views[0].name).toBe('My leads')
   })
 
-  it('does NOT return another user\'s views — Firestore filters on uid', async () => {
+  it('keeps Firestore uid filtering out of the list query', async () => {
     const member = seedOrgMember('org-a', 'uid-user-2', { role: 'viewer' })
     const capturedWheres: Array<[string, string, unknown]> = []
     stageAuthWithWhereCapture(member, capturedWheres)
@@ -168,12 +186,10 @@ describe('GET /api/v1/crm/saved-views', () => {
     const req = callAsMember(member, 'GET', '/api/v1/crm/saved-views?resourceKind=contacts')
     await GET(req)
 
-    const uidClause = capturedWheres.find(([f]) => f === 'uid')
-    expect(uidClause).toBeDefined()
-    expect(uidClause![2]).toBe('uid-user-2')
+    expect(capturedWheres).toEqual([['orgId', '==', 'org-a']])
   })
 
-  it('filters by resourceKind', async () => {
+  it('keeps Firestore resourceKind filtering out of the list query', async () => {
     const member = seedOrgMember('org-a', 'uid-rk', { role: 'viewer' })
     const capturedWheres: Array<[string, string, unknown]> = []
     stageAuthWithWhereCapture(member, capturedWheres)
@@ -181,9 +197,7 @@ describe('GET /api/v1/crm/saved-views', () => {
     const req = callAsMember(member, 'GET', '/api/v1/crm/saved-views?resourceKind=deals')
     await GET(req)
 
-    const rkClause = capturedWheres.find(([f]) => f === 'resourceKind')
-    expect(rkClause).toBeDefined()
-    expect(rkClause![2]).toBe('deals')
+    expect(capturedWheres).toEqual([['orgId', '==', 'org-a']])
   })
 })
 

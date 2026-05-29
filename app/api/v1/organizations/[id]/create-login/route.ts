@@ -12,6 +12,7 @@ import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import type { Organization, OrgMember, OrgRole } from '@/lib/organizations/types'
 import { getResendClient, FROM_ADDRESS } from '@/lib/email/resend'
+import { ACCESS_SCOPE_OPTIONS, parseMemberMetadata } from '@/lib/organizations/memberMetadata'
 
 export const dynamic = 'force-dynamic'
 
@@ -29,6 +30,7 @@ export const POST = withAuth('admin', async (req: NextRequest, user, ctx) => {
   const email: string = typeof body.email === 'string' ? body.email.trim().toLowerCase() : ''
   const name: string = typeof body.name === 'string' ? body.name.trim() : ''
   const role: string = body.role ?? 'member'
+  const memberMetadata = parseMemberMetadata(body)
 
   if (!email) return apiError('email is required', 400)
   if (!name) return apiError('name is required', 400)
@@ -36,6 +38,9 @@ export const POST = withAuth('admin', async (req: NextRequest, user, ctx) => {
   const validRoles = ['owner', 'admin', 'member', 'viewer']
   if (!validRoles.includes(role)) {
     return apiError(`role must be one of: ${validRoles.join(', ')}`, 400)
+  }
+  if (typeof body.accessScope === 'string' && !ACCESS_SCOPE_OPTIONS.includes(body.accessScope as never)) {
+    return apiError(`accessScope must be one of: ${ACCESS_SCOPE_OPTIONS.join(', ')}`, 400)
   }
 
   // Fetch organisation
@@ -92,6 +97,7 @@ export const POST = withAuth('admin', async (req: NextRequest, user, ctx) => {
     role: role as OrgRole,
     joinedAt: Timestamp.now(),
     invitedBy: user.uid,
+    ...memberMetadata,
   }
   await adminDb.collection('organizations').doc(id).update({
     members: [...(org.members ?? []), newMember],
@@ -107,6 +113,7 @@ export const POST = withAuth('admin', async (req: NextRequest, user, ctx) => {
       lastName,
       avatarUrl: existingData.photoURL ?? '',
       role,
+      ...memberMetadata,
       updatedAt: FieldValue.serverTimestamp(),
       createdAt: FieldValue.serverTimestamp(),
     },
@@ -144,7 +151,7 @@ export const POST = withAuth('admin', async (req: NextRequest, user, ctx) => {
     }
   }
 
-  return apiSuccess({ uid, email, displayName: name, role, setupLink }, 201)
+  return apiSuccess({ uid, email, displayName: name, role, setupLink, ...memberMetadata }, 201)
 })
 
 // ── Welcome email template ───────────────────────────────────────────────────

@@ -2,6 +2,7 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
+import Link from 'next/link'
 import { useEffect, useState } from 'react'
 
 interface OrgItem {
@@ -46,6 +47,20 @@ export default function WorkspacesPage() {
       <p className="text-sm text-[var(--color-pib-text-muted)] mb-8">All workspaces your account is linked to.</p>
 
       <div className="space-y-2">
+        <Link
+          href="/portal/personal/marketing"
+          className="bg-[var(--color-pib-surface)] border border-[var(--color-pib-accent)]/45 rounded-xl px-5 py-4 flex items-center gap-4 transition-colors hover:border-[var(--color-pib-accent)]"
+        >
+          <div className="w-8 h-8 rounded-lg bg-[var(--color-pib-accent-soft)] flex items-center justify-center text-[var(--color-pib-accent-hover)] shrink-0">
+            <span className="material-symbols-outlined text-[18px]">person</span>
+          </div>
+          <span className="flex-1">
+            <span className="block text-sm font-medium">Personal workspace</span>
+            <span className="mt-0.5 block text-xs text-[var(--color-pib-text-muted)]">Your own social accounts, drafts, and scheduled posts.</span>
+          </span>
+          <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">arrow_forward</span>
+        </Link>
+
         {orgs.map(org => (
           <div
             key={org.id}

@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic'
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
+import { resolvePlatformAgentBoardHref } from '@/lib/admin/dashboard-links'
 import { PageHeader, PageTabs, Surface, StatusPill } from '@/components/ui/AppFoundation'
 
 type OrgSummary = {
@@ -451,6 +452,7 @@ export default function MissionControlDashboard() {
   const serviceEntries = Object.entries(data.health?.services ?? {})
   const approvalLaneItems = data.approvals.slice(0, 6)
   const activeLaneItems = pulseTasks.filter(task => !RISK_STATUSES.has(task.agentStatus ?? '')).slice(0, 6)
+  const agentBoardHref = useMemo(() => resolvePlatformAgentBoardHref(data.orgs), [data.orgs])
 
   if (!hydrated) return <DashboardLoadingShell />
 
@@ -463,7 +465,7 @@ export default function MissionControlDashboard() {
         actions={(
           <>
             <DashboardQuickLink href="/admin/projects" icon="folder_managed" label="Projects" />
-            <DashboardQuickLink href="/admin/agent/board" icon="view_kanban" label="Agent board" />
+            <DashboardQuickLink href={agentBoardHref} icon="view_kanban" label="Agent board" />
           </>
         )}
         tabs={(
@@ -550,7 +552,7 @@ export default function MissionControlDashboard() {
         <section className="space-y-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <SectionHeader title="Work board" eyebrow="Kanban signal" />
-            <Link href="/admin/agent/board" className="inline-flex items-center gap-1 text-xs font-label uppercase tracking-wide text-[var(--color-accent-v2)]">Open full board <span className="material-symbols-outlined text-[15px]">arrow_forward</span></Link>
+            <Link href={agentBoardHref} className="inline-flex items-center gap-1 text-xs font-label uppercase tracking-wide text-[var(--color-accent-v2)]">Open full board <span className="material-symbols-outlined text-[15px]">arrow_forward</span></Link>
           </div>
           {loading ? (
             <div className="grid gap-4 lg:grid-cols-3"><Skeleton className="h-80 rounded-lg" /><Skeleton className="h-80 rounded-lg" /><Skeleton className="h-80 rounded-lg" /></div>
@@ -564,7 +566,7 @@ export default function MissionControlDashboard() {
                     key={task.id}
                     title={task.title}
                     meta={`${task.assigneeAgentId ?? 'agent'} · ${STATUS_LABELS[task.agentStatus ?? ''] ?? task.agentStatus ?? 'Queued'} · ${formatRelative(task.updatedAt ?? task.createdAt)}`}
-                    href={task.href ?? '/admin/agent/board'}
+                    href={task.href ?? agentBoardHref}
                     color={WORK_LANES[0].color}
                     icon={WORK_LANES[0].icon}
                     priority={task.priority}
@@ -579,7 +581,7 @@ export default function MissionControlDashboard() {
                     key={task.id}
                     title={task.title}
                     meta={`${task.assigneeAgentId ?? 'agent'} · ${STATUS_LABELS[task.agentStatus ?? ''] ?? task.agentStatus ?? 'Queued'} · ${formatRelative(task.updatedAt ?? task.createdAt)}`}
-                    href={task.href ?? '/admin/agent/board'}
+                    href={task.href ?? agentBoardHref}
                     color={WORK_LANES[1].color}
                     icon={WORK_LANES[1].icon}
                     priority={task.priority}

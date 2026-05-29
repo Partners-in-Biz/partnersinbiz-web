@@ -2,58 +2,66 @@
 export const dynamic = 'force-dynamic'
 
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
-import { EmptyState, PageHeader, Surface } from '@/components/ui/AppFoundation'
-import type { ClientDocument, ClientDocumentStatus, ClientDocumentType } from '@/lib/client-documents/types'
+import { DocumentIndex, type ClientDocumentPartyLabels } from '@/components/client-documents/DocumentIndex'
+import { PageHeader } from '@/components/ui/AppFoundation'
+import type { ClientDocument, ClientDocumentStatus } from '@/lib/client-documents/types'
 
 const CLIENT_STATUSES: ClientDocumentStatus[] = ['client_review', 'changes_requested', 'approved', 'accepted']
 
-const TYPE_LABELS: Record<ClientDocumentType, string> = {
-  sales_proposal: 'Sales Proposal',
-  build_spec: 'Build Spec',
-  social_strategy: 'Social Strategy',
-  content_campaign_plan: 'Content Campaign Plan',
-  geo_seo_strategy: 'GEO SEO Agent Workflow',
-  research_report: 'Research Report',
-  monthly_report: 'Monthly Report',
-  launch_signoff: 'Launch Sign-off',
-  change_request: 'Change Request',
-}
-
-const STATUS_PILL: Record<ClientDocumentStatus, string> = {
-  internal_draft: 'pib-pill',
-  internal_review: 'pib-pill',
-  client_review: 'pib-pill pib-pill-info',
-  changes_requested: 'pib-pill pib-pill-danger',
-  approved: 'pib-pill pib-pill-success',
-  accepted: 'pib-pill pib-pill-success',
-  archived: 'pib-pill',
-}
-
-const STATUS_LABEL: Record<ClientDocumentStatus, string> = {
-  internal_draft: 'Draft',
-  internal_review: 'Internal review',
-  client_review: 'Awaiting your review',
-  changes_requested: 'Changes requested',
-  approved: 'Approved',
-  accepted: 'Accepted',
-  archived: 'Archived',
+interface PortalOrgResponse {
+  org?: {
+    id?: string
+    name?: string
+  }
 }
 
 export default function PortalDocuments() {
   const [docs, setDocs] = useState<ClientDocument[]>([])
+  const [orgName, setOrgName] = useState('')
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch('/api/v1/client-documents')
-      .then((r) => r.json())
-      .then((b: { data?: ClientDocument[] }) => {
-        const all = b.data ?? []
-        setDocs(all.filter((d) => CLIENT_STATUSES.includes(d.status)))
-        setLoading(false)
-      })
-      .catch(() => setLoading(false))
+    let cancelled = false
+
+    async function loadDocuments() {
+      try {
+        const portalOrgRes = await fetch('/api/v1/portal/org', { cache: 'no-store' })
+        const portalOrgBody: PortalOrgResponse | null = portalOrgRes.ok ? await portalOrgRes.json() : null
+        const activeOrgId = typeof portalOrgBody?.org?.id === 'string' ? portalOrgBody.org.id : ''
+        const activeOrgName = typeof portalOrgBody?.org?.name === 'string' ? portalOrgBody.org.name : ''
+        const documentsUrl = activeOrgId
+          ? `/api/v1/client-documents?orgId=${encodeURIComponent(activeOrgId)}`
+          : '/api/v1/client-documents'
+        const res = await fetch(documentsUrl)
+        const body: { data?: ClientDocument[] } = res.ok ? await res.json() : {}
+        const all = body.data ?? []
+        if (!cancelled) {
+          setOrgName(activeOrgName)
+          setDocs(all.filter((d) => CLIENT_STATUSES.includes(d.status)))
+        }
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+
+    loadDocuments().catch(() => {
+      if (!cancelled) setLoading(false)
+    })
+
+    return () => { cancelled = true }
   }, [])
+
+  const partyLabels: Record<string, ClientDocumentPartyLabels> = Object.fromEntries(
+    docs.map((doc) => [
+      doc.id,
+      {
+        creatorCompanyName: 'Partners in Biz',
+        creatorContactName: doc.createdByType === 'agent' ? 'Pip' : 'PiB team',
+        recipientCompanyName: orgName || 'Client workspace',
+        recipientContactName: 'Client team',
+      },
+    ]),
+  )
 
   return (
     <div className="space-y-10">
@@ -70,37 +78,8 @@ export default function PortalDocuments() {
             <div key={i} className="pib-skeleton h-28" />
           ))}
         </div>
-      ) : docs.length === 0 ? (
-        <EmptyState
-          icon="description"
-          title="No documents shared with you yet."
-          description="Documents will appear here when Partners in Biz shares proposals, specs, or reports with you."
-        />
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {docs.map((doc) => (
-            <Surface key={doc.id} as="article" className="flex flex-col gap-4">
-              <div className="flex-1 space-y-2">
-                <p className="text-xs uppercase tracking-[0.18em] text-[var(--color-pib-text-muted)]">
-                  {TYPE_LABELS[doc.type] ?? doc.type}
-                </p>
-                <h2 className="font-display text-lg leading-snug">{doc.title}</h2>
-              </div>
-              <div className="flex items-center justify-between gap-2 flex-wrap">
-                <span className={STATUS_PILL[doc.status] ?? 'pib-pill'}>
-                  {STATUS_LABEL[doc.status] ?? doc.status}
-                </span>
-                <Link
-                  href={`/portal/documents/${doc.id}`}
-                  className="btn-pib-accent !py-1.5 !px-3 !text-sm"
-                >
-                  View
-                  <span className="material-symbols-outlined text-base">arrow_forward</span>
-                </Link>
-              </div>
-            </Surface>
-          ))}
-        </div>
+        <DocumentIndex documents={docs} basePath="/portal/documents" partyLabels={partyLabels} />
       )}
     </div>
   )

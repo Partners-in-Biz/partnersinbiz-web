@@ -9,6 +9,7 @@ jest.mock('@/lib/firebase/admin', () => ({
 jest.mock('@/lib/webhooks/dispatch', () => ({ dispatchWebhook: jest.fn().mockResolvedValue(undefined) }))
 jest.mock('@/lib/activity/log', () => ({ logActivity: jest.fn().mockResolvedValue(undefined) }))
 jest.mock('@/lib/email-analytics/attribution-hooks', () => ({ tryAttributeDealWon: jest.fn().mockResolvedValue(undefined) }))
+jest.mock('@/lib/automations/trigger', () => ({ fireTrigger: jest.fn().mockResolvedValue(undefined) }))
 
 // Mock pipelines store — tenant isolation tests don't test pipeline logic
 jest.mock('@/lib/pipelines/store', () => ({
@@ -57,8 +58,8 @@ const dealB = seedDeal('org-b', { id: 'b1', title: 'Deal B', pipelineId: 'pl-def
  * PR 3 pattern 3: `deals.where('orgId').get()` mock RESPECTS the filter.
  * If a route forgets `where('orgId')`, this suite would fail (returns both deals).
  *
- * The GET route calls: adminDb.collection('deals').orderBy(...).where('orgId', '==', orgId)...
- * so the chain must be: collection → orderBy → where (captures filter) → limit/offset → get
+ * The GET route calls: adminDb.collection('deals').where('orgId', '==', orgId)...
+ * and filters optional fields in memory to avoid composite-index requirements.
  */
 function setupIsolationFixtures(perms: Record<string, unknown> = {}) {
   const captured = {
@@ -101,6 +102,15 @@ function setupIsolationFixtures(perms: Record<string, unknown> = {}) {
             ),
           }),
         }),
+        where: (_field: string, _op: string, uid: string) => ({
+          get: () => Promise.resolve({
+            docs: [
+              uid === memberA.uid ? { data: () => ({ orgId: 'org-a', uid: memberA.uid, role: memberA.role }) } : null,
+              uid === memberB.uid ? { data: () => ({ orgId: 'org-b', uid: memberB.uid, role: memberB.role }) } : null,
+              uid === adminA.uid ? { data: () => ({ orgId: 'org-a', uid: adminA.uid, role: adminA.role }) } : null,
+            ].filter(Boolean),
+          }),
+        }),
       }
     }
     if (name === 'organizations') {
@@ -122,9 +132,7 @@ function setupIsolationFixtures(perms: Record<string, unknown> = {}) {
           if (field === 'orgId' && op === '==') whereOrgFilter = value
           return queryMock
         }),
-        orderBy: jest.fn().mockReturnThis(),
         limit: jest.fn().mockReturnThis(),
-        offset: jest.fn().mockReturnThis(),
         get: () => Promise.resolve({
           docs: [
             { id: 'a1', data: () => dealA, ref: { id: 'a1' } },

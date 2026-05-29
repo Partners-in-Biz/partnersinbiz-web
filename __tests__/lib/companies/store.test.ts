@@ -83,6 +83,39 @@ describe('lib/companies/store', () => {
       expect(out.tags).toEqual([])
       expect(out.notes).toBe('')
     })
+
+    it('normalizes structured legal and billing agreement fields', () => {
+      const out = sanitizeCompanyForWrite({
+        name: 'ACME',
+        legalName: '  ACME Legal Pty Ltd  ',
+        tradingName: '  ACME Trading  ',
+        registrationNumber: '  2020/000000/07  ',
+        vatNumber: '  4000000000  ',
+        taxNumber: '  9999999999  ',
+        billingEmail: '  ACCOUNTS@ACME.COM  ',
+        billingAddress: { line1: '  1 Main Road  ', city: '  Cape Town  ', country: '  South Africa  ' },
+        accountsContact: { name: '  Accounts Lead  ', email: '  Accounts@Acme.com  ', phone: '  +27 82 000 0000  ' },
+        authorizedSignatory: { name: '  Jane Director  ', title: '  Director  ', email: '  Jane@Acme.com  ' },
+        purchaseOrderRequired: true,
+        purchaseOrderNumber: '  PO-123  ',
+        invoiceInstructions: '  Use PO on every invoice.  ',
+      } as never)
+
+      expect(out).toMatchObject({
+        legalName: 'ACME Legal Pty Ltd',
+        tradingName: 'ACME Trading',
+        registrationNumber: '2020/000000/07',
+        vatNumber: '4000000000',
+        taxNumber: '9999999999',
+        billingEmail: 'accounts@acme.com',
+        billingAddress: { line1: '1 Main Road', city: 'Cape Town', country: 'South Africa' },
+        accountsContact: { name: 'Accounts Lead', email: 'accounts@acme.com', phone: '+27 82 000 0000' },
+        authorizedSignatory: { name: 'Jane Director', title: 'Director', email: 'jane@acme.com' },
+        purchaseOrderRequired: true,
+        purchaseOrderNumber: 'PO-123',
+        invoiceInstructions: 'Use PO on every invoice.',
+      })
+    })
   })
 
   describe('validateParentChain', () => {

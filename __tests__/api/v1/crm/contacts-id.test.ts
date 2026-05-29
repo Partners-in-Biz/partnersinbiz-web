@@ -1,5 +1,3 @@
-import { NextRequest } from 'next/server'
-
 jest.mock('@/lib/firebase/admin', () => ({
   adminAuth: { verifySessionCookie: jest.fn() },
   adminDb: { collection: jest.fn() },
@@ -52,6 +50,17 @@ function stageAuth(
     }
     if (name === 'orgMembers') {
       return {
+        where: () => ({
+          get: () =>
+            Promise.resolve({
+              docs: [
+                {
+                  id: `${member.orgId}_${member.uid}`,
+                  data: () => member,
+                },
+              ],
+            }),
+        }),
         doc: () => ({
           get: () =>
             Promise.resolve({
@@ -192,6 +201,17 @@ describe('GET /api/v1/crm/contacts/:id/activities', () => {
       }
       if (name === 'orgMembers') {
         return {
+          where: () => ({
+            get: () =>
+              Promise.resolve({
+                docs: [
+                  {
+                    id: 'org-test_uid-agent',
+                    data: () => ({ uid: 'uid-agent', orgId: 'org-test', role: 'member' }),
+                  },
+                ],
+              }),
+          }),
           doc: () => ({
             get: () => Promise.resolve({ exists: true, data: () => ({ uid: 'uid-agent', orgId: 'org-test', role: 'member' }) }),
           }),
@@ -259,6 +279,43 @@ describe('PATCH attribution & DELETE toggle', () => {
     expect(patch.updatedByRef.kind).toBe('human')
   })
 
+  it('captures agreement role metadata on PATCH', async () => {
+    const member = seedOrgMember('org-1', 'uid-1', { role: 'member', firstName: 'Alice', lastName: 'B' })
+    const captured = jest.fn().mockResolvedValue(undefined)
+    stageAuth(member, {}, {
+      contact: { id: 'a1', data: { orgId: 'org-1', name: 'Old', email: 'a@y.com' } },
+      capturedUpdate: captured,
+    })
+    const req = callAsMember(member, 'PATCH', '/api/v1/crm/contacts/a1', {
+      jobTitle: 'Director',
+      department: 'Finance',
+      agreementRoles: ['primary_contact', 'authorized_signatory'],
+    })
+    const { PATCH } = await import('@/app/api/v1/crm/contacts/[id]/route')
+    const res = await PATCH(req, { params: Promise.resolve({ id: 'a1' }) })
+    expect(res.status).toBeLessThan(300)
+    const patch = captured.mock.calls[0][0]
+    expect(patch.jobTitle).toBe('Director')
+    expect(patch.department).toBe('Finance')
+    expect(patch.agreementRoles).toEqual(['primary_contact', 'authorized_signatory'])
+  })
+
+  it('rejects invalid agreement roles on PATCH', async () => {
+    const member = seedOrgMember('org-1', 'uid-1', { role: 'member', firstName: 'Alice', lastName: 'B' })
+    const captured = jest.fn().mockResolvedValue(undefined)
+    stageAuth(member, {}, {
+      contact: { id: 'a1', data: { orgId: 'org-1', name: 'Old', email: 'a@y.com' } },
+      capturedUpdate: captured,
+    })
+    const req = callAsMember(member, 'PATCH', '/api/v1/crm/contacts/a1', {
+      agreementRoles: ['authorized_signatory', 'personal_id_holder'],
+    })
+    const { PATCH } = await import('@/app/api/v1/crm/contacts/[id]/route')
+    const res = await PATCH(req, { params: Promise.resolve({ id: 'a1' }) })
+    expect(res.status).toBe(400)
+    expect(captured).not.toHaveBeenCalled()
+  })
+
   it('writes assignedToRef when assignedTo changes', async () => {
     const member = seedOrgMember('org-1', 'uid-1', { role: 'member', firstName: 'Alice', lastName: 'B' })
     const captured = jest.fn().mockResolvedValue(undefined)
@@ -277,6 +334,17 @@ describe('PATCH attribution & DELETE toggle', () => {
       }
       if (name === 'orgMembers') {
         return {
+          where: () => ({
+            get: () =>
+              Promise.resolve({
+                docs: [
+                  {
+                    id: 'org-1_uid-1',
+                    data: () => member,
+                  },
+                ],
+              }),
+          }),
           doc: jest.fn().mockImplementation((id: string) => ({
             get: () =>
               Promise.resolve(
@@ -320,6 +388,32 @@ describe('PATCH attribution & DELETE toggle', () => {
     const patch = captured.mock.calls[0][0]
     expect(patch.assignedTo).toBe('uid-2')
     expect(patch.assignedToRef.displayName).toBe('Bob C')
+  })
+
+  it("clears assignedToRef when body has assignedTo: ''", async () => {
+    const member = seedOrgMember('org-1', 'uid-1', { role: 'member', firstName: 'Alice', lastName: 'B' })
+    const captured = jest.fn().mockResolvedValue(undefined)
+    stageAuth(member, {}, {
+      contact: {
+        id: 'a1',
+        data: {
+          orgId: 'org-1',
+          name: 'X',
+          email: 'a@y.com',
+          assignedTo: 'uid-2',
+          assignedToRef: { uid: 'uid-2', displayName: 'Bob C', kind: 'human' },
+        },
+      },
+      capturedUpdate: captured,
+    })
+
+    const req = callAsMember(member, 'PATCH', '/api/v1/crm/contacts/a1', { assignedTo: '' })
+    const { PATCH } = await import('@/app/api/v1/crm/contacts/[id]/route')
+    const res = await PATCH(req, { params: Promise.resolve({ id: 'a1' }) })
+    expect(res.status).toBeLessThan(300)
+    const patch = captured.mock.calls[0][0]
+    expect(patch.assignedTo).toBe('')
+    expect(typeof patch.assignedToRef).not.toBe('string')
   })
 
   it('blocks DELETE for member when membersCanDeleteContacts is false', async () => {

@@ -25,6 +25,7 @@ const COLORS = {
 }
 
 const DONUT_PALETTE = [COLORS.accent, COLORS.green, COLORS.blue, COLORS.pink, COLORS.purple, COLORS.cyan, COLORS.red]
+const DEFAULT_CHART_WIDTH = 320
 
 // ── Custom Tooltip ───────────────────────────────────────────────────────
 
@@ -79,7 +80,7 @@ export function StatCardWithChart({
       </div>
       {data && data.length > 0 && (
         <div className="w-24 h-14 shrink-0">
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 96, height: 56 }}>
             {chartType === 'area' ? (
               <AreaChart data={data}>
                 <defs>
@@ -132,7 +133,7 @@ export function RevenueBarChart({
   const fmt = valueFormatter ?? ((v: number) => v.toLocaleString())
 
   return (
-    <ResponsiveContainer width="100%" height={height}>
+    <ResponsiveContainer width="100%" height={height} initialDimension={{ width: DEFAULT_CHART_WIDTH, height }}>
       <BarChart data={data} barCategoryGap="20%">
         <CartesianGrid vertical={false} stroke="rgba(255,255,255,0.04)" />
         <XAxis
@@ -191,7 +192,7 @@ export function TrendAreaChart({
   const gradientId = `area-grad-${color.replace('#', '')}`
 
   return (
-    <ResponsiveContainer width="100%" height={height}>
+    <ResponsiveContainer width="100%" height={height} initialDimension={{ width: DEFAULT_CHART_WIDTH, height }}>
       <AreaChart data={data}>
         <defs>
           <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
@@ -246,7 +247,7 @@ export function DonutChart({
 
   return (
     <div className="relative">
-      <ResponsiveContainer width="100%" height={height}>
+      <ResponsiveContainer width="100%" height={height} initialDimension={{ width: DEFAULT_CHART_WIDTH, height }}>
         <PieChart>
           <Pie
             data={data}
@@ -308,7 +309,7 @@ export function HorizontalBarChart({
   const chartHeight = height ?? Math.max(data.length * 40, 120)
 
   return (
-    <ResponsiveContainer width="100%" height={chartHeight}>
+    <ResponsiveContainer width="100%" height={chartHeight} initialDimension={{ width: DEFAULT_CHART_WIDTH, height: chartHeight }}>
       <BarChart data={data} layout="vertical" barCategoryGap="25%">
         <CartesianGrid horizontal={false} stroke="rgba(255,255,255,0.04)" />
         <XAxis

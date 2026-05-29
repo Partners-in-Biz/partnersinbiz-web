@@ -21,6 +21,13 @@ import {
 } from '@/lib/conversations/conversations'
 import { createHermesRun } from '@/lib/hermes/server'
 import { getAgentDecryptedKey } from '@/lib/agents/team'
+import { buildAttachedContextBlock, resolveContextReferences } from '@/lib/context-references/registry'
+import {
+  contextReferenceKey,
+  MAX_CONTEXT_REFS,
+  sanitizeContextReferenceSeeds,
+  type ContextReferenceSeed,
+} from '@/lib/context-references/types'
 import type { HermesProfileLink } from '@/lib/hermes/types'
 import type { ApiUser } from '@/lib/api/types'
 import type { AgentTeamDoc } from '@/lib/agents/types'
@@ -72,6 +79,14 @@ function sanitizeAttachments(value: unknown): ConversationAttachment[] {
       ...(storagePath ? { storagePath } : {}),
     }]
   })
+}
+
+function mergeContextReferenceSeeds(...groups: ContextReferenceSeed[][]): ContextReferenceSeed[] {
+  const byKey = new Map<string, ContextReferenceSeed>()
+  for (const group of groups) {
+    for (const ref of group) byKey.set(contextReferenceKey(ref), ref)
+  }
+  return Array.from(byKey.values()).slice(0, MAX_CONTEXT_REFS)
 }
 
 async function buildOrgContext(orgId: string): Promise<string> {
@@ -185,6 +200,14 @@ export const POST = withAuth(
     const content = typeof body.content === 'string' ? body.content.trim() : ''
     const attachments = sanitizeAttachments((body as Record<string, unknown>).attachments)
     if (!content && attachments.length === 0) return apiError('content or attachments are required', 400)
+    const resolvedContextRefs = await resolveContextReferences(
+      mergeContextReferenceSeeds(
+        sanitizeContextReferenceSeeds(conversation.contextRefs ?? []),
+        sanitizeContextReferenceSeeds((body as Record<string, unknown>).contextRefs),
+      ),
+      user,
+      conversation.orgId,
+    )
 
     // Resolve author display name from Firestore
     let authorDisplayName = user.uid
@@ -203,6 +226,7 @@ export const POST = withAuth(
       role: 'user',
       content,
       ...(attachments.length > 0 ? { attachments } : {}),
+      ...(resolvedContextRefs.length > 0 ? { contextRefs: resolvedContextRefs } : {}),
       authorKind: 'user',
       authorId: user.uid,
       authorDisplayName,
@@ -276,10 +300,11 @@ export const POST = withAuth(
       const orgContext = await buildOrgContext(conversation.orgId)
       const convContext = buildConversationContext(conversation, authorDisplayName)
       const orchestrationContext = buildOrchestrationContext(conversation, agentId)
+      const attachedContext = buildAttachedContextBlock(resolvedContextRefs)
       const attachmentContext = attachments.length > 0
         ? `\n\n[Attachments]\n${attachments.map((attachment) => `- ${attachment.name}: ${attachment.url} (${attachment.contentType}, ${attachment.sizeBytes} bytes)`).join('\n')}`
         : ''
-      const hermesInput = orgContext + convContext + orchestrationContext + content + attachmentContext
+      const hermesInput = orgContext + convContext + orchestrationContext + attachedContext + content + attachmentContext
 
       // Dispatch Hermes run
       const runResult = await createHermesRun(agentLink, user.uid, {
@@ -293,6 +318,7 @@ export const POST = withAuth(
           requestedAgentIds: conversation.orchestration?.requestedAgentIds ?? conversation.participantAgentIds,
           orchestrationMode: conversation.orchestration?.mode ?? (conversation.participantAgentIds.length > 1 ? 'pip-orchestrator' : 'direct'),
           source: 'pib-unified-chat',
+          ...(resolvedContextRefs.length > 0 ? { contextRefs: resolvedContextRefs } : {}),
         },
       }).catch(async (err) => {
         console.error('[conversation-agent-dispatch-failed]', {

@@ -313,12 +313,23 @@ export default function PortalDashboard() {
   }, [])
 
   useEffect(() => {
-    fetch('/api/v1/projects?view=received')
+    if (!portalOrgLoaded) return
+    if (!portalOrg?.id) {
+      const timer = window.setTimeout(() => {
+        setProjects([])
+        setProjectsLoading(false)
+      }, 0)
+      return () => window.clearTimeout(timer)
+    }
+
+    const timer = window.setTimeout(() => setProjectsLoading(true), 0)
+    fetch(`/api/v1/projects?view=received&orgId=${encodeURIComponent(portalOrg.id)}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((body) => setProjects(Array.isArray(body?.data) ? body.data : []))
       .catch(() => setProjects([]))
       .finally(() => setProjectsLoading(false))
-  }, [])
+    return () => window.clearTimeout(timer)
+  }, [portalOrgLoaded, portalOrg?.id])
 
   useEffect(() => {
     if (!portalOrg?.id) return

@@ -40,6 +40,9 @@ export const POST = withCrmAuth('admin', async (req, ctx) => {
   if (body.unitPrice === undefined || body.unitPrice === null || typeof body.unitPrice !== 'number') {
     return apiError('unitPrice is required and must be a number', 400)
   }
+  if (!Number.isFinite(body.unitPrice) || body.unitPrice < 0) {
+    return apiError('unitPrice must be a non-negative finite number', 400)
+  }
   if (!body.currency || typeof body.currency !== 'string' || !body.currency.trim()) {
     return apiError('currency is required', 400)
   }

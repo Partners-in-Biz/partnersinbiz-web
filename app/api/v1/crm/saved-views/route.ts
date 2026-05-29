@@ -10,6 +10,26 @@ import { adminDb } from '@/lib/firebase/admin'
 import { withCrmAuth } from '@/lib/auth/crm-middleware'
 import { apiSuccess, apiError, apiErrorFromException } from '@/lib/api/response'
 
+type SavedViewListItem = {
+  id: string
+  orgId?: string
+  uid?: string
+  resourceKind?: string
+  createdAt?: unknown
+  [key: string]: unknown
+}
+
+function timestampMillis(value: unknown): number {
+  if (!value) return 0
+  if (typeof value === 'object' && value !== null) {
+    const candidate = value as { toMillis?: () => number; toDate?: () => Date; seconds?: number }
+    if (typeof candidate.toMillis === 'function') return candidate.toMillis()
+    if (typeof candidate.toDate === 'function') return candidate.toDate().getTime()
+    if (typeof candidate.seconds === 'number') return candidate.seconds * 1000
+  }
+  return 0
+}
+
 export const GET = withCrmAuth('viewer', async (req, ctx) => {
   const { searchParams } = new URL(req.url)
   const resourceKind = (searchParams.get('resourceKind') ?? 'contacts').trim()
@@ -20,12 +40,12 @@ export const GET = withCrmAuth('viewer', async (req, ctx) => {
     const snapshot = await adminDb
       .collection('saved_views')
       .where('orgId', '==', orgId)
-      .where('uid', '==', uid)
-      .where('resourceKind', '==', resourceKind)
-      .orderBy('createdAt', 'desc')
       .get()
 
-    const views = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }))
+    const views: SavedViewListItem[] = snapshot.docs
+      .map((doc) => ({ id: doc.id, ...doc.data() }) as SavedViewListItem)
+      .filter((view) => view.orgId === orgId && view.uid === uid && view.resourceKind === resourceKind)
+      .sort((a, b) => timestampMillis(b.createdAt) - timestampMillis(a.createdAt))
     return apiSuccess({ views })
   } catch (err) {
     return apiErrorFromException(err)

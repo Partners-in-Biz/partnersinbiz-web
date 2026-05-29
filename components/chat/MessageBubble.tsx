@@ -4,6 +4,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import type { ChatEvent } from '@/lib/hermes/types'
+import type { ContextReference } from '@/lib/context-references/types'
 import { copyToClipboard } from '@/lib/utils/clipboard'
 
 // Matches Phase 1 ConversationMessage shape
@@ -13,6 +14,7 @@ export interface ConversationMessage {
   role: string
   content: string
   attachments?: ConversationAttachment[]
+  contextRefs?: ContextReference[]
   runId?: string
   status?: string
   error?: string

@@ -1,5 +1,3 @@
-import { NextRequest } from 'next/server'
-
 jest.mock('@/lib/firebase/admin', () => ({
   adminAuth: { verifySessionCookie: jest.fn() },
   adminDb: { collection: jest.fn() },
@@ -30,6 +28,18 @@ import { seedOrgMember, callAsMember, callAsAgent } from '../../../helpers/crm'
 const AI_API_KEY = 'test-ai-key'
 process.env.AI_API_KEY = AI_API_KEY
 process.env.SESSION_COOKIE_NAME = '__session'
+
+type OrgDoc = { id: string; data: () => { orgId: string } }
+type ChainQuery = {
+  where: jest.Mock
+  orderBy: jest.Mock
+  limit: jest.Mock
+  get: () => Promise<{ docs: OrgDoc[] }>
+}
+
+function memberRef(value: unknown): { uid?: string; displayName?: string } {
+  return value as { uid?: string; displayName?: string }
+}
 
 // Use distinct uids to avoid substring collisions (PR 3 lesson)
 const memberA = seedOrgMember('org-a', 'uid-amem', { role: 'member', firstName: 'A', lastName: 'M' })
@@ -152,6 +162,16 @@ function setupIsolationFixtures() {
             ),
           }),
         }),
+        where: (_field: string, _op: string, value: string) => ({
+          get: () =>
+            Promise.resolve({
+              docs: [
+                { id: `org-a_${memberA.uid}`, data: () => memberA },
+                { id: `org-a_${adminA.uid}`, data: () => adminA },
+                { id: `org-b_${memberB.uid}`, data: () => memberB },
+              ].filter((doc) => doc.data().uid === value),
+            }),
+        }),
       }
     }
 
@@ -170,23 +190,25 @@ function setupIsolationFixtures() {
     // ── capture_sources ──────────────────────────────────────────────
     if (name === 'capture_sources') {
       let whereOrgFilter: string | undefined
-      const query: any = {
-        where: jest.fn((field: string, op: string, value: any) => {
-          if (field === 'orgId' && op === '==') whereOrgFilter = value
+      const query = {} as ChainQuery
+      query.where = jest.fn((field: string, op: string, value: unknown) => {
+          if (field === 'orgId' && op === '==') {
+            whereOrgFilter = typeof value === 'string' ? value : undefined
+          }
           return query
-        }),
-        orderBy: jest.fn().mockReturnThis(),
-        limit: jest.fn().mockReturnThis(),
-        get: () => Promise.resolve({
+        })
+      query.orderBy = jest.fn(() => query)
+      query.limit = jest.fn(() => query)
+      query.get = () =>
+        Promise.resolve({
           docs: [
             { id: 'cs-a', data: () => captureSourceA },
             { id: 'cs-b', data: () => captureSourceB },
           ].filter(d =>
             whereOrgFilter === undefined ||
-            (d.data() as any).orgId === whereOrgFilter,
+            d.data().orgId === whereOrgFilter,
           ),
-        }),
-      }
+        })
       return {
         add: jest.fn((data: Record<string, unknown>) => {
           captured.captureSourceAdds.push(data)
@@ -222,23 +244,25 @@ function setupIsolationFixtures() {
     // ── crm_integrations ─────────────────────────────────────────────
     if (name === 'crm_integrations') {
       let whereOrgFilter: string | undefined
-      const query: any = {
-        where: jest.fn((field: string, op: string, value: any) => {
-          if (field === 'orgId' && op === '==') whereOrgFilter = value
+      const query = {} as ChainQuery
+      query.where = jest.fn((field: string, op: string, value: unknown) => {
+          if (field === 'orgId' && op === '==') {
+            whereOrgFilter = typeof value === 'string' ? value : undefined
+          }
           return query
-        }),
-        orderBy: jest.fn().mockReturnThis(),
-        limit: jest.fn().mockReturnThis(),
-        get: () => Promise.resolve({
+        })
+      query.orderBy = jest.fn(() => query)
+      query.limit = jest.fn(() => query)
+      query.get = () =>
+        Promise.resolve({
           docs: [
             { id: 'int-a', data: () => integrationA },
             { id: 'int-b', data: () => integrationB },
           ].filter(d =>
             whereOrgFilter === undefined ||
-            (d.data() as any).orgId === whereOrgFilter,
+            d.data().orgId === whereOrgFilter,
           ),
-        }),
-      }
+        })
       return {
         add: jest.fn((data: Record<string, unknown>) => {
           captured.integrationAdds.push(data)
@@ -295,7 +319,7 @@ describe('cross-tenant isolation: capture-sources + integrations', () => {
     expect(res.status).toBeLessThan(300)
     const written = captured.captureSourceAdds.at(-1)
     expect(written?.orgId).toBe('org-a')
-    expect((written?.createdByRef as any)?.displayName).toBe('A A')
+    expect(memberRef(written?.createdByRef).displayName).toBe('A A')
   })
 
   it('agent (Bearer) POST capture-source uses AGENT_PIP_REF', async () => {
@@ -307,7 +331,7 @@ describe('cross-tenant isolation: capture-sources + integrations', () => {
     const res = await POST(req)
     expect(res.status).toBeLessThan(300)
     const written = captured.captureSourceAdds.at(-1)
-    expect((written?.createdByRef as any)?.uid).toBe('agent:pip')
+    expect(memberRef(written?.createdByRef).uid).toBe('agent:pip')
     expect(written?.orgId).toBe('org-a')
   })
 
@@ -362,7 +386,7 @@ describe('cross-tenant isolation: capture-sources + integrations', () => {
     expect(res.status).toBeLessThan(300)
     const written = captured.integrationAdds.at(-1)
     expect(written?.orgId).toBe('org-a')
-    expect((written?.createdByRef as any)?.displayName).toBe('A A')
+    expect(memberRef(written?.createdByRef).displayName).toBe('A A')
   })
 
   it('agent POST integration uses AGENT_PIP_REF and response is toPublicView shape (no raw configEnc)', async () => {
@@ -376,7 +400,7 @@ describe('cross-tenant isolation: capture-sources + integrations', () => {
     const res = await POST(req)
     expect(res.status).toBeLessThan(300)
     const written = captured.integrationAdds.at(-1)
-    expect((written?.createdByRef as any)?.uid).toBe('agent:pip')
+    expect(memberRef(written?.createdByRef).uid).toBe('agent:pip')
     // Response must be toPublicView shape — no raw configEnc in body
     const body = await res.json()
     expect(body.data).not.toHaveProperty('configEnc')

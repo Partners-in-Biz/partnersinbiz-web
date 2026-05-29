@@ -422,27 +422,6 @@ async function dispatchReview(taskRef: DocumentReference, taskData: TaskData): P
   }
 }
 
-async function dispatchDependents(completedTaskId: string): Promise<void> {
-  try {
-    const snap = await db
-      .collectionGroup('tasks')
-      .where('dependsOn', 'array-contains', completedTaskId)
-      .where('agentStatus', '==', 'pending')
-      .where('columnId', '==', 'todo')
-      .get()
-
-    snap.docs.forEach((doc) => {
-      const data = (doc.data() ?? {}) as TaskData
-      void dispatchTask(doc.ref, data)
-    })
-  } catch (err) {
-    logger.error('dependent task dispatch query failed', {
-      completedTaskId,
-      error: err instanceof Error ? err.message : String(err),
-    })
-  }
-}
-
 async function releaseDueScheduledTasks(now = Date.now()): Promise<void> {
   try {
     const snap = await db
@@ -552,21 +531,8 @@ export async function startWatcher(agentIds?: readonly string[]): Promise<() => 
       (err: Error) => logger.error('Firestore review snapshot listener error', { error: err.message }),
     ))
 
-  const onDependencyResolved = (snap: QuerySnapshot) => {
-    snap.docChanges().forEach((change) => {
-      if (change.type !== 'added' && change.type !== 'modified') return
-      void dispatchDependents(change.doc.id)
-    })
-  }
-
-  const dependencyUnsubscribes = [
-    db.collectionGroup('tasks').where('columnId', '==', 'done'),
-    db.collectionGroup('tasks').where('agentStatus', '==', 'done'),
-  ].map((query) => query.onSnapshot(
-    onDependencyResolved,
-    (err: Error) => logger.error('Firestore dependency snapshot listener error', { error: err.message }),
-  ))
-
+  // Dependency transitions are retried by sweepReadyPendingTasks(). Keeping this
+  // as a bounded sweep avoids two broad "all done tasks" listeners per watcher.
   const readyTaskSweep = setInterval(() => {
     void sweepReadyPendingTasks()
   }, READY_TASK_SWEEP_MS)
@@ -577,7 +543,6 @@ export async function startWatcher(agentIds?: readonly string[]): Promise<() => 
       clearInterval(readyTaskSweep)
       unsubscribes.forEach((unsubscribe) => unsubscribe())
       reviewUnsubscribes.forEach((unsubscribe) => unsubscribe())
-      dependencyUnsubscribes.forEach((unsubscribe) => unsubscribe())
     } catch (err) {
       logger.warn('unsubscribe threw', { error: err instanceof Error ? err.message : String(err) })
     }

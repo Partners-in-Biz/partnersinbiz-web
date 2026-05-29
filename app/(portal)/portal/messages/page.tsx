@@ -17,6 +17,7 @@ interface UserInfo {
   uid: string
   name: string
   email: string
+  role: string
 }
 
 export default function PortalMessagesPage() {
@@ -49,6 +50,7 @@ export default function PortalMessagesPage() {
                 uid: firebaseUser.uid,
                 name: body.user?.name || firebaseUser.displayName || firebaseUser.email?.split('@')[0] || firebaseUser.uid,
                 email: body.user?.email || firebaseUser.email || '',
+                role: body.user?.role || 'client',
               })
               setChecking(false)
             })
@@ -108,7 +110,7 @@ export default function PortalMessagesPage() {
           currentUserUid={user.uid}
           currentUserDisplayName={user.name}
           orgName={org.name}
-          allowAgentParticipants={false}
+          allowAgentParticipants={user.role === 'admin'}
         />
       </section>
     </div>

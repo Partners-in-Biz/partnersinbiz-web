@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter, usePathname } from 'next/navigation'
+import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
 import { Suspense } from 'react'
@@ -15,6 +15,7 @@ import { SettingsNav } from '@/components/settings/SettingsNav'
 import { SupportDrawer } from '@/components/support/SupportDrawer'
 import { NotificationBell } from '@/components/crm/NotificationBell'
 import { MessageDrawer } from '@/components/chat/MessageDrawer'
+import { detectCurrentPageContext } from '@/lib/context-references/route-context'
 import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
 
 const PORTAL_MATERIAL_SYMBOLS =
@@ -68,6 +69,7 @@ const NAV_LINKS: NavItem[] = [
       '/portal/campaigns',
       '/portal/content-campaigns',
       '/portal/social',
+      '/portal/communications',
       '/portal/seo',
       '/portal/capture-sources',
       '/portal/email-domains',
@@ -93,7 +95,13 @@ const NAV_LINKS: NavItem[] = [
     label: 'Reports',
     icon: 'analytics',
     group: 'data',
-    activePatterns: ['/portal/properties', '/portal/data', '/portal/reports/crm'],
+    activePatterns: ['/portal/data', '/portal/reports/crm'],
+  },
+  {
+    href: '/portal/properties',
+    label: 'Properties',
+    icon: 'web_asset',
+    group: 'data',
   },
   { href: '/portal/wiki',      label: 'Wiki',      icon: 'menu_book',       group: 'data' },
   { href: '/portal/payments', label: 'Billing', icon: 'payments', group: 'comms' },
@@ -152,8 +160,29 @@ function NavLink({ item, pathname, collapsed }: { item: NavItem; pathname: strin
 }
 
 export default function PortalLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <Suspense
+      fallback={(
+        <>
+          <link rel="stylesheet" href={PORTAL_MATERIAL_SYMBOLS} />
+          <div className="min-h-screen bg-[var(--color-pib-bg)] flex items-center justify-center">
+            <span className="relative flex h-3 w-3">
+              <span className="absolute inset-0 rounded-full bg-[var(--color-pib-accent)] opacity-75 animate-ping" />
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-[var(--color-pib-accent)]" />
+            </span>
+          </div>
+        </>
+      )}
+    >
+      <PortalLayoutContent>{children}</PortalLayoutContent>
+    </Suspense>
+  )
+}
+
+function PortalLayoutContent({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
+  const searchParams = useSearchParams()
   const isEmailRoute = pathname === '/portal/email' || pathname.startsWith('/portal/email/')
 
   const [email, setEmail]       = useState('')
@@ -339,7 +368,13 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
   const initials = (name || email).split(/[.\s@]/).filter(Boolean).slice(0, 2).map(s => s[0]?.toUpperCase()).join('')
   const canOpenAdminView = userRole === 'admin' && !!activeOrgSlug
   const adminViewHref = activeOrgSlug ? `/admin/org/${activeOrgSlug}/dashboard` : '/admin/dashboard'
+  const allowAgentParticipants = userRole === 'admin'
   const portalWorkspaceLabel = activeOrgType === 'platform_owner' || activeOrgId === PIB_PLATFORM_ORG_ID ? 'Platform' : 'Client'
+  const currentPageContext = detectCurrentPageContext({
+    pathname,
+    searchParams,
+    orgId: activeOrgId,
+  })
 
   const tracker = (
     <>
@@ -415,7 +450,8 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
                 orgName={orgName}
                 currentUserUid={uid}
                 currentUserDisplayName={profileName || name || email}
-                allowAgentParticipants={false}
+                currentPageContext={currentPageContext}
+                allowAgentParticipants={allowAgentParticipants}
               />
               <button
                 onClick={toggleLayout}
@@ -424,9 +460,15 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
               >
                 <span className="material-symbols-outlined text-[18px]">dock_to_right</span>
               </button>
-              <SupportDrawer triggerClassName="hidden sm:inline-flex items-center gap-1 text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors" />
+              <SupportDrawer
+                orgId={activeOrgId}
+                currentPageContext={currentPageContext}
+                triggerClassName="hidden sm:inline-flex items-center gap-1 text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors"
+              />
               <div className="w-8 h-8 rounded-full bg-[var(--color-pib-accent-soft)] border border-[var(--color-pib-line-strong)] flex items-center justify-center text-xs font-medium text-[var(--color-pib-accent-hover)]">
-                {initials || '·'}
+                <Link href="/portal/settings/profile" title="My profile" className="grid h-full w-full place-items-center rounded-full">
+                  {initials || '·'}
+                </Link>
               </div>
               <button
                 onClick={handleLogout}
@@ -561,14 +603,14 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
         </Link>
 
         {/* Collapse and mode switch controls */}
-        <div className="hidden md:flex items-center h-8 border-b border-[var(--color-pib-line)] shrink-0">
+        <div className="hidden md:flex items-center justify-between h-8 border-b border-[var(--color-pib-line)] shrink-0">
           <button
             onClick={toggleCollapsed}
             title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             className={[
               'flex h-8 items-center justify-center text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors',
-              collapsed ? 'w-full' : 'flex-1',
+              collapsed ? 'w-full' : 'w-8 border-r border-[var(--color-pib-line)]',
             ].join(' ')}
           >
             <span className="material-symbols-outlined text-[18px]">
@@ -593,7 +635,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
               href={adminViewHref}
               title="Switch to admin view"
               aria-label="Switch to admin view"
-              className="mx-2 my-2 flex h-8 w-8 items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.05] transition-colors"
+              className="mx-auto my-2 flex h-8 w-8 items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.05] transition-colors"
             >
               <span className="material-symbols-outlined text-[18px]">admin_panel_settings</span>
             </Link>
@@ -608,7 +650,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
                 type="button"
                 onClick={toggleCollapsed}
                 title={`Workspace: ${orgName || 'Current workspace'}`}
-                className="mx-2 my-2 w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-bold transition-colors bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent-hover)] ring-1 ring-[var(--color-pib-accent)]/30"
+                className="mx-auto my-2 w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-bold transition-colors bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent-hover)] ring-1 ring-[var(--color-pib-accent)]/30"
               >
                 {(orgName || orgs.find(org => org.id === activeOrgId)?.name || 'W')[0]?.toUpperCase() ?? 'W'}
               </button>
@@ -668,8 +710,8 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
           {collapsed ? (
             <div className="flex flex-col items-center gap-2">
               <Link
-                href="/portal/settings/account"
-                title="Settings"
+                href="/portal/settings/profile"
+                title="My profile"
                 className="w-8 h-8 rounded-full bg-[var(--color-pib-accent-soft)] border border-[var(--color-pib-line-strong)] flex items-center justify-center text-xs font-medium text-[var(--color-pib-accent-hover)] hover:ring-2 hover:ring-[var(--color-pib-accent)]/40 transition-all"
               >
                 {initials || '·'}
@@ -681,16 +723,16 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
           ) : (
             <div className="flex items-center gap-3 px-2 py-2 rounded-lg">
               <Link
-                href="/portal/settings/account"
-                title="Settings"
+                href="/portal/settings/profile"
+                title="My profile"
                 className="w-8 h-8 rounded-full bg-[var(--color-pib-accent-soft)] border border-[var(--color-pib-line-strong)] flex items-center justify-center text-xs font-medium text-[var(--color-pib-accent-hover)] hover:ring-2 hover:ring-[var(--color-pib-accent)]/40 transition-all shrink-0"
               >
                 {initials || '·'}
               </Link>
-              <div className="flex-1 min-w-0">
+              <Link href="/portal/settings/profile" className="flex-1 min-w-0 rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--color-pib-accent)]/40">
                 <p className="text-xs font-medium truncate">{profileName || name || 'Client'}</p>
                 <p className="text-[11px] text-[var(--color-pib-text-muted)] truncate">{email}</p>
-              </div>
+              </Link>
               <button onClick={handleLogout} title="Sign out" className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors p-1" aria-label="Sign out">
                 <span className="material-symbols-outlined text-[18px]">logout</span>
               </button>
@@ -736,9 +778,14 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
               orgName={orgName}
               currentUserUid={uid}
               currentUserDisplayName={profileName || name || email}
-              allowAgentParticipants={false}
+              currentPageContext={currentPageContext}
+              allowAgentParticipants={allowAgentParticipants}
             />
-            <SupportDrawer triggerClassName="hidden sm:inline-flex items-center gap-1.5 text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors" />
+            <SupportDrawer
+              orgId={activeOrgId}
+              currentPageContext={currentPageContext}
+              triggerClassName="hidden sm:inline-flex items-center gap-1.5 text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors"
+            />
           </div>
         </header>
 

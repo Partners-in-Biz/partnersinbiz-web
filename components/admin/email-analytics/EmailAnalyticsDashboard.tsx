@@ -8,6 +8,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { LineChart, BarChart, Donut, heatmapShade, heatmapTextColor } from './charts'
+import { PageTabs } from '@/components/ui/AppFoundation'
 import type {
   OrgEmailOverview,
   EngagementTimeseries,
@@ -88,21 +89,15 @@ export default function EmailAnalyticsDashboard({
         </div>
       </div>
 
-      <div className="flex gap-1 border-b border-outline-variant">
-        {TABS.filter((t) => !t.adminOnly || isAdmin).map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            className={`px-4 py-2 text-sm font-medium ${
-              tab === t.key
-                ? 'text-on-surface border-b-2 border-amber-500'
-                : 'text-on-surface-variant hover:text-on-surface'
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+      <PageTabs
+        ariaLabel="Email analytics sections"
+        value={tab}
+        onValueChange={(value) => setTab(value as TabKey)}
+        tabs={TABS.filter((item) => !item.adminOnly || isAdmin).map((item) => ({
+          label: item.label,
+          value: item.key,
+        }))}
+      />
 
       {tab === 'overview' && <OverviewTab orgId={orgId} from={from} to={to} />}
       {tab === 'engagement' && <EngagementTab orgId={orgId} />}

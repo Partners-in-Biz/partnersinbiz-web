@@ -60,12 +60,19 @@ describe('listSequences', () => {
     expect(results[1].id).toBe('seq-2')
   })
 
-  it('filters deleted sequences via query chain', async () => {
-    mockGet.mockResolvedValue({ docs: [] })
-    await listSequences('org-a')
+  it('filters deleted sequences and sorts by name without composite-sensitive query clauses', async () => {
+    mockGet.mockResolvedValue({
+      docs: [
+        { id: 'seq-2', data: () => ({ orgId: 'org-a', name: 'Winback', deleted: true, status: 'active', steps: [], description: '' }) },
+        { id: 'seq-3', data: () => ({ orgId: 'org-a', name: 'Beta', status: 'active', steps: [], description: '' }) },
+        { id: 'seq-1', data: () => ({ orgId: 'org-a', name: 'Alpha', deleted: false, status: 'active', steps: [], description: '' }) },
+      ],
+    })
+    const results = await listSequences('org-a')
     expect(mockWhere).toHaveBeenCalledWith('orgId', '==', 'org-a')
-    expect(mockWhere).toHaveBeenCalledWith('deleted', '!=', true)
-    expect(mockOrderBy).toHaveBeenCalledWith('name', 'asc')
+    expect(mockWhere).not.toHaveBeenCalledWith('deleted', '!=', true)
+    expect(mockOrderBy).not.toHaveBeenCalled()
+    expect(results.map((seq) => seq.id)).toEqual(['seq-1', 'seq-3'])
   })
 
   it('returns empty array when no sequences found', async () => {

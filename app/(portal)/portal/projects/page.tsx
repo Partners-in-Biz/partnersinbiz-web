@@ -1,10 +1,11 @@
 'use client'
 
 import { useEffect, useState, useMemo, useCallback } from 'react'
-import Link from 'next/link'
 import { collection, onSnapshot } from 'firebase/firestore'
 import { getClientDb } from '@/lib/firebase/config'
 import { CrossProjectBoard } from '@/components/projects/CrossProjectBoard'
+import { ProjectListCard } from '@/components/projects/ProjectListCard'
+import { ProjectPortfolioReportPanel } from '@/components/projects/ProjectPortfolioReportPanel'
 import { EmptyState, PageHeader, PageTabs, Surface } from '@/components/ui/AppFoundation'
 import type { BoardTask } from '@/components/projects/CrossProjectBoard'
 
@@ -13,6 +14,8 @@ interface Project {
   name: string
   status: string
   description?: string
+  createdAt?: unknown
+  updatedAt?: unknown
 }
 
 function Skeleton({ className = '' }: { className?: string }) {
@@ -20,25 +23,17 @@ function Skeleton({ className = '' }: { className?: string }) {
 }
 
 const STATUS_OPTIONS = ['discovery', 'design', 'development', 'review', 'live', 'maintenance']
-
-function StatusBadge({ status }: { status: string }) {
-  const map: Record<string, { label: string; color: string }> = {
-    active:      { label: 'Active',      color: 'var(--color-accent-v2)' },
-    on_hold:     { label: 'On Hold',     color: 'var(--color-secondary)' },
-    completed:   { label: 'Completed',   color: '#4ade80' },
-    archived:    { label: 'Archived',    color: 'var(--color-outline)' },
-    in_progress: { label: 'In Progress', color: 'var(--color-accent-v2)' },
-  }
-  const s = map[status] ?? { label: status, color: 'var(--color-outline)' }
-  return (
-    <span
-      className="text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full"
-      style={{ background: `${s.color}20`, color: s.color }}
-    >
-      {s.label}
-    </span>
-  )
-}
+const PROJECT_STAGE_TABS = [
+  { value: 'all', label: 'All' },
+  ...STATUS_OPTIONS.map((status) => ({
+    value: status,
+    label: status.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase()),
+  })),
+]
+const WORKSPACE_TABS = [
+  { value: 'portfolio', label: 'Portfolio report', icon: 'monitoring' },
+  { value: 'projects', label: 'Projects', icon: 'folder_managed' },
+]
 
 function mergeLiveTasks(restTasks: BoardTask[], currentTasks: BoardTask[]) {
   const merged = new Map<string, BoardTask>()
@@ -50,6 +45,7 @@ function mergeLiveTasks(restTasks: BoardTask[], currentTasks: BoardTask[]) {
 export default function ProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
+  const [activeSection, setActiveSection] = useState<'portfolio' | 'projects'>('projects')
   const [filter, setFilter] = useState<string>('all')
 
   const [viewMode, setViewMode]                 = useState<'list' | 'board'>('list')
@@ -78,7 +74,7 @@ export default function ProjectsPage() {
   )
 
   useEffect(() => {
-    if (viewMode !== 'board') return
+    if (activeSection !== 'projects' || viewMode !== 'board') return
     if (filtered.length === 0) {
       setBoardTasks([])
       setFailedProjectIds([])
@@ -159,7 +155,7 @@ export default function ProjectsPage() {
       cancelled = true
       unsubscribers.forEach(unsubscribe => unsubscribe())
     }
-  }, [viewMode, filtered])
+  }, [activeSection, viewMode, filtered])
 
   const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -226,12 +222,20 @@ export default function ProjectsPage() {
         title="Projects"
         description="Follow active work, timelines, and task progress without exposing internal admin controls."
         actions={showForm ? null : (
-          <button
-            onClick={() => setShowForm(true)}
-            className="pib-btn-primary text-sm font-label"
-          >
-            Request project
-          </button>
+          <>
+            <PageTabs
+              ariaLabel="Project workspace sections"
+              value={activeSection}
+              onValueChange={(value) => setActiveSection(value as 'portfolio' | 'projects')}
+              tabs={WORKSPACE_TABS}
+            />
+            <button
+              onClick={() => setShowForm(true)}
+              className="pib-btn-primary text-sm font-label"
+            >
+              Request project
+            </button>
+          </>
         )}
       />
 
@@ -284,116 +288,107 @@ export default function ProjectsPage() {
         </Surface>
       )}
 
-      {/* Filters and view controls */}
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="min-w-0 overflow-x-auto">
-          <PageTabs
-            variant="segmented"
-            value={filter}
-            onValueChange={setFilter}
-            ariaLabel="Project status filter"
-            tabs={['all', ...STATUS_OPTIONS].map(s => ({
-              value: s,
-              label: s === 'all' ? 'All' : s.replace(/_/g, ' '),
-            }))}
-          />
-        </div>
+      {activeSection === 'portfolio' ? (
+        <ProjectPortfolioReportPanel />
+      ) : null}
 
-        <div className="flex w-full items-center justify-between gap-3 sm:w-auto sm:justify-end">
-          <div
-            className="flex rounded-[var(--radius-btn)] overflow-hidden border"
-            style={{ borderColor: 'var(--color-outline)' }}
-          >
-            {(['list', 'board'] as const).map(mode => (
-              <button
-                key={mode}
-                onClick={() => setViewMode(mode)}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-label capitalize transition-colors"
-                style={
-                  viewMode === mode
-                    ? { background: 'var(--color-accent-v2)', color: '#000' }
-                    : { background: 'transparent', color: 'var(--color-on-surface-variant)' }
-                }
+      {activeSection === 'projects' ? (
+        <>
+          {/* Filters and view controls */}
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div className="min-w-0 overflow-x-auto">
+              <PageTabs
+                value={filter}
+                onValueChange={setFilter}
+                ariaLabel="Project status filter"
+                tabs={PROJECT_STAGE_TABS}
+              />
+            </div>
+
+            <div className="flex w-full items-center justify-between gap-3 sm:w-auto sm:justify-end">
+              <div
+                className="flex rounded-[var(--radius-btn)] overflow-hidden border"
+                style={{ borderColor: 'var(--color-outline)' }}
               >
-                <span className="material-symbols-outlined text-[14px]">
-                  {mode === 'list' ? 'list' : 'view_kanban'}
-                </span>
-                {mode}
-              </button>
-            ))}
-          </div>
-          {viewMode === 'board' && !boardLoading && boardTasks.length > 0 && (
-            <button
-              type="button"
-              onClick={() => setBoardSortMode(prev => prev === 'latest' ? 'manual' : 'latest')}
-              className="inline-flex shrink-0 items-center gap-2 rounded-[var(--radius-btn)] border border-[var(--color-card-border)] px-3 py-1.5 text-xs font-label uppercase tracking-wide text-on-surface-variant transition-colors hover:text-on-surface"
-              aria-pressed={boardSortMode === 'manual'}
-            >
-              <span className="material-symbols-outlined text-[16px]">sort</span>
-              {boardSortMode === 'latest' ? 'Manual order' : 'Latest first'}
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Error banner for partial board load failures */}
-      {viewMode === 'board' && failedProjectIds.length > 0 && (
-        <div
-          className="flex items-center justify-between gap-3 rounded-[var(--radius-card)] px-4 py-2 text-sm"
-          style={{ background: '#ef444420', color: '#f87171', border: '1px solid #ef444430' }}
-        >
-          <span>Could not load tasks for {failedProjectIds.length} project(s).</span>
-          <button
-            onClick={() => {
-              setViewMode('list')
-              setTimeout(() => setViewMode('board'), 0)
-            }}
-            className="underline text-xs shrink-0"
-          >
-            Retry
-          </button>
-        </div>
-      )}
-
-      {viewMode === 'board' ? (
-        <CrossProjectBoard
-          tasks={boardTasks}
-          loading={boardLoading}
-          sortMode={boardSortMode}
-          onTaskUpdate={handleBoardTaskUpdate}
-        />
-      ) : (
-        loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-32" />)}
-          </div>
-        ) : filtered.length === 0 ? (
-          <EmptyState
-            icon="rocket_launch"
-            title="No projects found."
-            description={filter === 'all' ? 'Projects will appear here once work has been opened for your workspace.' : 'Try a different status filter to see more projects.'}
-          />
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {filtered.map(project => (
-              <div key={project.id} className="relative group">
-                <Link
-                  href={`/portal/projects/${project.id}`}
-                  className="pib-card pib-card-hover block"
-                >
-                  <div className="flex items-start justify-between gap-3 mb-2">
-                    <h3 className="font-medium text-on-surface pr-6">{project.name}</h3>
-                    <StatusBadge status={project.status} />
-                  </div>
-                  {project.description && (
-                    <p className="text-sm text-on-surface-variant line-clamp-2">{project.description}</p>
-                  )}
-                </Link>
+                {(['list', 'board'] as const).map(mode => (
+                  <button
+                    key={mode}
+                    onClick={() => setViewMode(mode)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-label capitalize transition-colors"
+                    style={
+                      viewMode === mode
+                        ? { background: 'var(--color-accent-v2)', color: '#000' }
+                        : { background: 'transparent', color: 'var(--color-on-surface-variant)' }
+                    }
+                  >
+                    <span className="material-symbols-outlined text-[14px]">
+                      {mode === 'list' ? 'list' : 'view_kanban'}
+                    </span>
+                    {mode}
+                  </button>
+                ))}
               </div>
-            ))}
+              {viewMode === 'board' && !boardLoading && boardTasks.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setBoardSortMode(prev => prev === 'latest' ? 'manual' : 'latest')}
+                  className="inline-flex shrink-0 items-center gap-2 rounded-[var(--radius-btn)] border border-[var(--color-card-border)] px-3 py-1.5 text-xs font-label uppercase tracking-wide text-on-surface-variant transition-colors hover:text-on-surface"
+                  aria-pressed={boardSortMode === 'manual'}
+                >
+                  <span className="material-symbols-outlined text-[16px]">sort</span>
+                  {boardSortMode === 'latest' ? 'Manual order' : 'Latest first'}
+                </button>
+              )}
+            </div>
           </div>
-        )
-      )}
+
+          {/* Error banner for partial board load failures */}
+          {viewMode === 'board' && failedProjectIds.length > 0 && (
+            <div
+              className="flex items-center justify-between gap-3 rounded-[var(--radius-card)] px-4 py-2 text-sm"
+              style={{ background: '#ef444420', color: '#f87171', border: '1px solid #ef444430' }}
+            >
+              <span>Could not load tasks for {failedProjectIds.length} project(s).</span>
+              <button
+                onClick={() => {
+                  setViewMode('list')
+                  setTimeout(() => setViewMode('board'), 0)
+                }}
+                className="underline text-xs shrink-0"
+              >
+                Retry
+              </button>
+            </div>
+          )}
+
+          {viewMode === 'board' ? (
+            <CrossProjectBoard
+              tasks={boardTasks}
+              loading={boardLoading}
+              sortMode={boardSortMode}
+              onTaskUpdate={handleBoardTaskUpdate}
+            />
+          ) : loading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-32" />)}
+            </div>
+          ) : filtered.length === 0 ? (
+            <EmptyState
+              icon="rocket_launch"
+              title="No projects found."
+              description={filter === 'all' ? 'Projects will appear here once work has been opened for your workspace.' : 'Try a different status filter to see more projects.'}
+            />
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {filtered.map(project => (
+                <div key={project.id} className="relative group">
+                  <ProjectListCard project={project} href={`/portal/projects/${project.id}`} />
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      ) : null}
     </div>
   )
 }

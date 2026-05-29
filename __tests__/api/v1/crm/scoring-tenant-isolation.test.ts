@@ -79,11 +79,10 @@ const configB = {
 // ── Collection mock builder ───────────────────────────────────────────────────
 
 function buildCollectionMock(opts: {
-  actor?: typeof adminA
   contactOverride?: { id: string; orgId: string } | null
   capturedDocSet?: jest.Mock
 } = {}) {
-  const { actor = adminA, contactOverride, capturedDocSet } = opts
+  const { contactOverride, capturedDocSet } = opts
 
   return (name: string) => {
     // ── orgMembers ──────────────────────────────────────────────────────────────
@@ -99,6 +98,19 @@ function buildCollectionMock(opts: {
                 key === `${adminA.orgId}_${adminA.uid}`
                   ? { ...adminA, role: 'admin' }
                   : { ...adminB, role: 'admin' },
+            }),
+        }),
+        where: (_field: string, _op: string, value: string) => ({
+          get: () =>
+            Promise.resolve({
+              docs: [
+                value === adminA.uid
+                  ? { id: `${adminA.orgId}_${adminA.uid}`, data: () => ({ ...adminA, role: 'admin' }) }
+                  : null,
+                value === adminB.uid
+                  ? { id: `${adminB.orgId}_${adminB.uid}`, data: () => ({ ...adminB, role: 'admin' }) }
+                  : null,
+              ].filter(Boolean),
             }),
         }),
       }

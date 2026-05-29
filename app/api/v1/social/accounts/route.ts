@@ -15,13 +15,23 @@ import { logAudit } from '@/lib/social/audit'
 export const dynamic = 'force-dynamic'
 
 const VALID_STATUSES: AccountStatus[] = ['active', 'token_expired', 'disconnected', 'rate_limited']
+const PERSONAL_SCOPE = 'personal'
 
-export const GET = withAuth('client', withTenant(async (req, _user, orgId) => {
+function wantsPersonalScope(req: NextRequest): boolean {
+  return new URL(req.url).searchParams.get('scope') === PERSONAL_SCOPE
+}
+
+function isPersonalAccountForUser(account: Record<string, unknown>, uid: string): boolean {
+  return account.accountScope === PERSONAL_SCOPE && account.ownerUid === uid
+}
+
+export const GET = withAuth('client', withTenant(async (req, user, orgId) => {
   const { searchParams } = new URL(req.url)
   const platform = searchParams.get('platform')
   const status = searchParams.get('status') as AccountStatus | null
   const page = Math.max(1, parseInt(searchParams.get('page') ?? '1', 10))
   const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') ?? '50', 10)))
+  const personalScope = wantsPersonalScope(req)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let query: any = adminDb.collection('social_accounts').where('orgId', '==', orgId)
@@ -41,6 +51,9 @@ export const GET = withAuth('client', withTenant(async (req, _user, orgId) => {
     const data = doc.data()
     const { encryptedTokens: _, ...safe } = data
     return { id: doc.id, ...safe }
+  }).filter((account: Record<string, unknown>) => {
+    if (personalScope) return isPersonalAccountForUser(account, user.uid)
+    return account.accountScope !== PERSONAL_SCOPE
   })
 
   const total = allAccounts.length
@@ -52,6 +65,7 @@ export const GET = withAuth('client', withTenant(async (req, _user, orgId) => {
 
 export const POST = withAuth('client', withTenant(async (req, user, orgId) => {
   const body = await req.json()
+  const personalScope = wantsPersonalScope(req)
 
   if (!body.platform || !ACTIVE_PLATFORMS.includes(body.platform)) {
     return apiError(`platform must be one of: ${ACTIVE_PLATFORMS.join(', ')}`)
@@ -81,6 +95,7 @@ export const POST = withAuth('client', withTenant(async (req, user, orgId) => {
     },
     platformMeta: body.platformMeta ?? {},
     connectedBy: user.uid,
+    ...(personalScope ? { accountScope: PERSONAL_SCOPE, ownerUid: user.uid } : {}),
     connectedAt: FieldValue.serverTimestamp(),
     lastTokenRefresh: null,
     lastUsed: null,

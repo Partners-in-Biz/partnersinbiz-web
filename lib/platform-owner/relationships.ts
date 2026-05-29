@@ -3,6 +3,7 @@ import { adminDb } from '@/lib/firebase/admin'
 import { AGENT_PIP_REF } from '@/lib/orgMembers/memberRef'
 import { bootstrapDefaultPipeline, getDefaultPipelineForOrg } from '@/lib/pipelines/store'
 import type { ClaimableResourceType } from '@/lib/claimable-relationships/types'
+import { ensureBusinessRelationship } from '@/lib/business-relationships/store'
 
 export const PLATFORM_OWNER_FALLBACK_ID = 'pib-platform-owner'
 
@@ -47,10 +48,109 @@ function domainForOrg(org: OrgLike | null | undefined): string {
   return website.toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '')
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function agreementFieldsForOrg(org: OrgLike | null | undefined): Record<string, unknown> {
+  if (!org) return {}
+  const billing = isRecord(org.billingDetails) ? org.billingDetails : {}
+  const out: Record<string, unknown> = {}
+
+  const stringFields = [
+    'legalName',
+    'tradingName',
+    'registrationNumber',
+    'vatNumber',
+    'taxNumber',
+    'phone',
+    'purchaseOrderNumber',
+    'invoiceInstructions',
+  ]
+
+  for (const field of stringFields) {
+    const value = cleanString(billing[field])
+    if (value) out[field] = value
+  }
+  const billingEmail = normalizeEmail(org.billingEmail)
+  if (billingEmail) out.billingEmail = billingEmail
+  if (isRecord(billing.address)) out.billingAddress = billing.address
+  if (isRecord(billing.accountsContact)) out.accountsContact = billing.accountsContact
+  if (isRecord(billing.authorizedSignatory)) out.authorizedSignatory = billing.authorizedSignatory
+  if (typeof billing.purchaseOrderRequired === 'boolean') {
+    out.purchaseOrderRequired = billing.purchaseOrderRequired
+  }
+  return out
+}
+
 async function loadOrg(orgId: string): Promise<OrgLike | null> {
   if (!orgId) return null
   const snap = await adminDb.collection('organizations').doc(orgId).get()
   return snap.exists ? snap.data() ?? null : null
+}
+
+async function ensurePlatformClientRelationshipLinks(input: {
+  platformOrgId: string
+  clientOrgId: string
+  platformCompanyId: string
+  clientCompanyId?: string
+  clientName: string
+  platformName: string
+}) {
+  const sharedCapabilities = [
+    'crm',
+    'projects',
+    'documents',
+    'services',
+    'orders',
+    'shipments',
+    'inventory',
+    'invoices',
+    'analytics',
+    'support',
+  ]
+  const fieldSharingPolicy = {
+    companyProfile: true,
+    contacts: true,
+    projects: true,
+    documents: true,
+    commerce: true,
+    analytics: true,
+  }
+
+  await ensureBusinessRelationship(input.platformOrgId, {
+    sourceCompanyId: input.platformCompanyId,
+    targetOrgId: input.clientOrgId,
+    targetCompanyId: input.clientCompanyId,
+    targetName: input.clientName,
+    relationshipType: 'customer',
+    status: 'active',
+    sharedCapabilities,
+    fieldSharingPolicy,
+    visibility: 'client_visible',
+    portalVisible: true,
+    approvalState: 'approved',
+    allowedOrgIds: [input.platformOrgId, input.clientOrgId],
+    notes: 'Platform-owner CRM relationship for the client company and shared operating-system records.',
+  }, AGENT_PIP_REF)
+
+  if (!input.clientCompanyId) return
+
+  await ensureBusinessRelationship(input.clientOrgId, {
+    sourceCompanyId: input.clientCompanyId,
+    targetOrgId: input.platformOrgId,
+    targetCompanyId: input.platformCompanyId,
+    targetName: input.platformName,
+    relationshipType: 'supplier',
+    status: 'active',
+    sharedCapabilities,
+    fieldSharingPolicy,
+    visibility: 'client_visible',
+    portalVisible: true,
+    approvalState: 'approved',
+    allowedOrgIds: [input.clientOrgId, input.platformOrgId],
+    notes: 'Client portal supplier relationship for Partners in Biz service delivery.',
+  }, AGENT_PIP_REF)
 }
 
 export async function resolvePlatformOwnerOrgId(): Promise<string> {
@@ -98,6 +198,7 @@ export async function ensurePlatformCompanyForOrg(input: {
     source: input.source ?? 'platform_member_sync',
     lifecycleStage: input.lifecycleStage ?? 'customer',
     tags: input.tags ?? ['client-org'],
+    ...agreementFieldsForOrg(clientOrg),
     updatedAt: now,
     deleted: false,
   }
@@ -113,6 +214,24 @@ export async function ensurePlatformCompanyForOrg(input: {
       lifecycleStage,
       tags: mergeTags(existingData.tags, input.tags ?? ['client-org']),
     }, { merge: true })
+    const reciprocalCompany = await ensureReciprocalSupplierCompanyForOrg({
+      clientOrgId: input.clientOrgId,
+      clientOrg,
+      platformOrgId,
+    }).catch((err) => {
+      console.error('[reciprocal-pib-supplier-link-error]', err)
+      return null
+    })
+    await ensurePlatformClientRelationshipLinks({
+      platformOrgId,
+      clientOrgId: input.clientOrgId,
+      platformCompanyId: existing.id,
+      clientCompanyId: reciprocalCompany?.companyId,
+      clientName: companyName,
+      platformName: reciprocalCompany?.companyName ?? 'Partners in Biz',
+    }).catch((err) => {
+      console.error('[platform-client-relationship-link-error]', err)
+    })
     return { platformOrgId, companyId: existing.id, companyName }
   }
 
@@ -126,7 +245,110 @@ export async function ensurePlatformCompanyForOrg(input: {
     updatedByRef: AGENT_PIP_REF,
     createdAt: now,
   })
+  const reciprocalCompany = await ensureReciprocalSupplierCompanyForOrg({
+    clientOrgId: input.clientOrgId,
+    clientOrg,
+    platformOrgId,
+  }).catch((err) => {
+    console.error('[reciprocal-pib-supplier-link-error]', err)
+    return null
+  })
+  await ensurePlatformClientRelationshipLinks({
+    platformOrgId,
+    clientOrgId: input.clientOrgId,
+    platformCompanyId: ref.id,
+    clientCompanyId: reciprocalCompany?.companyId,
+    clientName: companyName,
+    platformName: reciprocalCompany?.companyName ?? 'Partners in Biz',
+  }).catch((err) => {
+    console.error('[platform-client-relationship-link-error]', err)
+  })
   return { platformOrgId, companyId: ref.id, companyName }
+}
+
+export async function ensureReciprocalSupplierCompanyForOrg(input: {
+  clientOrgId: string
+  clientOrg?: OrgLike | null
+  platformOrgId?: string
+}): Promise<{ clientOrgId: string; companyId: string; companyName: string } | null> {
+  const clientOrgId = cleanString(input.clientOrgId)
+  const platformOrgId = cleanString(input.platformOrgId) || await resolvePlatformOwnerOrgId()
+  if (!clientOrgId || clientOrgId === platformOrgId) return null
+
+  const platformOrg = await loadOrg(platformOrgId)
+  const companyName = companyNameForOrg(platformOrgId, platformOrg, 'Partners in Biz')
+  const domain = domainForOrg(platformOrg) || 'partnersinbiz.online'
+  const companiesSnap = await adminDb.collection('companies')
+    .where('orgId', '==', clientOrgId)
+    .limit(1000)
+    .get()
+  const existing = companiesSnap.docs.find((doc) => {
+    const data = doc.data() ?? {}
+    return data.linkedOrgId === platformOrgId ||
+      normalizeComparable(data.name) === normalizeComparable(companyName) ||
+      normalizeComparable(data.domain) === normalizeComparable(domain)
+  })
+  const patch = {
+    orgId: clientOrgId,
+    name: companyName,
+    domain,
+    website: `https://${domain}`,
+    linkedOrgId: platformOrgId,
+    lifecycleStage: 'customer',
+    source: 'reciprocal_platform_supplier',
+    tags: ['supplier', 'partners-in-biz'],
+    visibility: 'client_visible',
+    allowedOrgIds: [clientOrgId, platformOrgId],
+    approvalState: 'approved',
+    notes: 'Partners in Biz service-provider relationship created from the platform relationship graph.',
+    updatedByRef: AGENT_PIP_REF,
+    updatedAt: Timestamp.now(),
+    deleted: false,
+  }
+
+  if (existing) {
+    const data = existing.data() ?? {}
+    await existing.ref.set({
+      ...patch,
+      tags: mergeTags(data.tags, ['supplier', 'partners-in-biz']),
+    }, { merge: true })
+    return { clientOrgId, companyId: existing.id, companyName }
+  }
+
+  const ref = adminDb.collection('companies').doc()
+  await ref.set({
+    ...patch,
+    ownerUid: AGENT_PIP_REF.uid,
+    ownerRef: AGENT_PIP_REF,
+    createdByRef: AGENT_PIP_REF,
+    createdAt: Timestamp.now(),
+  })
+  return { clientOrgId, companyId: ref.id, companyName }
+}
+
+export async function syncPlatformCompanyAgreementFieldsForOrg(input: {
+  clientOrgId: string
+  clientOrg?: OrgLike | null
+  platformOrgId?: string
+}): Promise<{ platformOrgId: string; companyId: string } | null> {
+  const platformOrgId = input.platformOrgId || await resolvePlatformOwnerOrgId()
+  const clientOrg = input.clientOrg ?? await loadOrg(input.clientOrgId)
+  const companiesSnap = await adminDb.collection('companies')
+    .where('orgId', '==', platformOrgId)
+    .limit(1000)
+    .get()
+  const existing = companiesSnap.docs.find((doc) => {
+    const data = doc.data() ?? {}
+    return data.linkedOrgId === input.clientOrgId
+  })
+  if (!existing) return null
+
+  await existing.ref.set({
+    ...agreementFieldsForOrg(clientOrg),
+    updatedAt: Timestamp.now(),
+    deleted: false,
+  }, { merge: true })
+  return { platformOrgId, companyId: existing.id }
 }
 
 export async function syncPlatformContactForOrgMember(input: {

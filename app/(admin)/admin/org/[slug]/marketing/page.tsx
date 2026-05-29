@@ -119,6 +119,13 @@ export default function OrgMarketingPage() {
               eyebrow: 'Comms',
             },
             {
+              label: 'Communications',
+              href: `/admin/communications?org=${encodeURIComponent(slug)}`,
+              icon: 'forum',
+              description: 'Manage conversations, campaign replies, templates, queues, and channel health.',
+              eyebrow: 'Omnichannel',
+            },
+            {
               label: 'Email analytics',
               href: '/admin/email-analytics',
               icon: 'query_stats',

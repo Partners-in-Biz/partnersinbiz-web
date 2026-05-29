@@ -18,7 +18,10 @@ POLICY_JSON="/Users/peetstander/Cowork/Partners in Biz — Client Growth/partner
 # Only top-level PiB platform/runtime skills are exposed Cowork-wide. Nested
 # marketing and software-development skills are specialist runtime skills and
 # are mounted per agent on the VPS from the policy catalog.
-mapfile -t PLATFORM_SKILLS < <(node -e "const p=require('$POLICY_JSON'); console.log(p.repoPibSkills.join('\n'))")
+PLATFORM_SKILLS=()
+while IFS= read -r skill; do
+  [ -n "$skill" ] && PLATFORM_SKILLS+=("$skill")
+done < <(node -e "const p=require('$POLICY_JSON'); console.log(p.repoPibSkills.join('\n'))")
 
 mkdir -p "$DEST"
 

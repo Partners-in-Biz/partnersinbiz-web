@@ -154,7 +154,7 @@ export default function CampaignDetailPage() {
       .catch(() => {})
     fetch(`/api/v1/crm/segments?orgId=${encodeURIComponent(orgId)}`)
       .then((r) => r.json())
-      .then((b) => setSegments((b.data ?? []) as Segment[]))
+      .then((b) => setSegments((Array.isArray(b.data) ? b.data : b.data?.segments ?? []) as Segment[]))
       .catch(() => {})
     fetch(`/api/v1/sequences?orgId=${encodeURIComponent(orgId)}`)
       .then((r) => r.json())

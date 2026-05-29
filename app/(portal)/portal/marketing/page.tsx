@@ -113,6 +113,13 @@ export default function PortalMarketingPage() {
               eyebrow: 'Audience',
             },
             {
+              label: 'Communications',
+              href: '/portal/communications',
+              icon: 'forum',
+              description: 'Manage customer conversations, campaign replies, templates, and channel performance.',
+              eyebrow: 'Comms',
+            },
+            {
               label: 'Email analytics',
               href: '/portal/email-analytics',
               icon: 'query_stats',

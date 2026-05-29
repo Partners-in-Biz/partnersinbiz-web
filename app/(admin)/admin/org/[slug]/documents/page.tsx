@@ -4,8 +4,8 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams, useSearchParams } from 'next/navigation'
 import { OrgThemedFrame } from '@/components/admin/OrgThemedFrame'
-import { PageHeader } from '@/components/ui/AppFoundation'
-import { DocumentIndex } from '@/components/client-documents/DocumentIndex'
+import { PageHeader, PageLinkTabs } from '@/components/ui/AppFoundation'
+import { DocumentIndex, type ClientDocumentPartyLabels } from '@/components/client-documents/DocumentIndex'
 import type { ClientDocument, ClientDocumentStatus } from '@/lib/client-documents/types'
 
 const STATUS_TABS: Array<{ label: string; value: ClientDocumentStatus | 'all' }> = [
@@ -66,6 +66,23 @@ export default function OrgDocumentsPage() {
 
   const filtered =
     activeStatus === 'all' ? documents : documents.filter((d) => d.status === activeStatus)
+  const partyLabels: Record<string, ClientDocumentPartyLabels> = Object.fromEntries(
+    filtered.map((document) => [
+      document.id,
+      {
+        creatorCompanyName: 'Partners in Biz',
+        creatorContactName: document.createdByType === 'agent' ? 'Pip' : 'PiB team',
+        recipientCompanyName: orgName || 'Client workspace',
+        recipientContactName: 'Client team',
+      },
+    ]),
+  )
+  const statusTabs = STATUS_TABS.map((tab) => ({
+    label: tab.label,
+    value: tab.value,
+    href: tab.value === 'all' ? `/admin/org/${slug}/documents` : `/admin/org/${slug}/documents?status=${tab.value}`,
+    badge: documents.filter((d) => tab.value === 'all' || d.status === tab.value).length,
+  }))
 
   return (
     <OrgThemedFrame orgId={orgId} className="-m-6 min-h-screen p-6">
@@ -83,35 +100,8 @@ export default function OrgDocumentsPage() {
               New Document
             </Link>
           )}
+          tabs={<PageLinkTabs tabs={statusTabs} activeValue={activeStatus} ariaLabel="Document status filters" />}
         />
-
-        <nav className="pib-tabs" aria-label="Document status filters">
-          {STATUS_TABS.map((tab) => {
-            const count =
-              tab.value === 'all'
-                ? documents.length
-                : documents.filter((d) => d.status === tab.value).length
-            const isActive = activeStatus === tab.value
-            const href =
-              tab.value === 'all'
-                ? `/admin/org/${slug}/documents`
-                : `/admin/org/${slug}/documents?status=${tab.value}`
-            return (
-              <Link
-                key={tab.value}
-                href={href}
-                className={`pib-tab ${isActive ? 'pib-tab-active' : ''}`}
-              >
-                {tab.label}
-                {count > 0 && (
-                  <span className="pib-tabs-badge">
-                    {count}
-                  </span>
-                )}
-              </Link>
-            )
-          })}
-        </nav>
 
         {loading ? (
           <div className="space-y-3">
@@ -124,6 +114,7 @@ export default function OrgDocumentsPage() {
             documents={filtered}
             basePath={`/admin/org/${slug}/documents`}
             canDelete
+            partyLabels={partyLabels}
             onDeleted={(documentId) => setDocuments((current) => current.filter((doc) => doc.id !== documentId))}
           />
         )}

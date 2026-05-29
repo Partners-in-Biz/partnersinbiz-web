@@ -56,6 +56,8 @@ PiB-issued invoices and quotes are source/recipient records:
 - `companyId` / `sourceCompanyId` point to the sender-owned CRM Company, normally the PiB platform CRM Company whose `linkedOrgId` is the client org.
 - `contactId` / `sourceContactId` point to the sender-owned CRM Contact when the invoice or quote targets a specific contact.
 
+Before creating PiB-issued billing for a client, confirm the client org has a platform-owner CRM Company (`linkedOrgId=<clientOrgId>`) and, for stakeholder-specific billing, a Contact linked by `linkedUserId`/email and `companyId`. If these links are missing on older data, run the platform-owner CRM backfill before issuing the invoice/quote so reporting, account review, and CRM timelines stay connected.
+
 Do not treat `allowedOrgIds` as client portal/CRM access. It scopes admin billing visibility only. Client users and explicit client members see received billing through `view=received`.
 
 ## Invoice status machine
@@ -116,6 +118,8 @@ Body:
 ```
 
 For admin/AI PiB-issued invoices without CRM claim fields, `orgId` is the client/recipient org in the request; the API resolves the platform owner as `sourceOrgId` and writes `recipientOrgId=orgId`. For CRM-targeted invoices, pass `companyId`/`contactId` and optional `recipientOrgId`; if the Company already has `linkedOrgId`, the API reuses it.
+
+When the client is already onboarded, prefer passing the platform-owner CRM `companyId` and primary stakeholder `contactId` explicitly rather than relying on fallback matching. This keeps the invoice visible from the CRM Company/Contact timeline and from client lifetime-value/account views.
 
 Auto-snapshots:
 - `fromDetails` from platform owner org (name, address, email, phone, vatNumber, bankingDetails)

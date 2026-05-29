@@ -28,8 +28,33 @@ jest.mock('@/lib/customFields/store', () => ({
 }))
 import { getDefinitionsForResource } from '@/lib/customFields/store'
 
+type TestMember = { uid: string; orgId: string; role: string; firstName?: string; lastName?: string }
+
+function orgMembersCollection(members: TestMember[]) {
+  const docs = members.map((member) => ({ id: `${member.orgId}_${member.uid}`, data: () => member }))
+  const collection: {
+    doc: jest.Mock
+    get: jest.Mock
+    where?: jest.Mock
+  } = {
+    doc: jest.fn((id: string) => {
+      const doc = docs.find((candidate) => candidate.id === id)
+      return {
+        get: () => Promise.resolve(doc ? { exists: true, data: doc.data } : { exists: false }),
+      }
+    }),
+    get: jest.fn(() => Promise.resolve({ docs })),
+  }
+  collection.where = jest.fn((_field: string, _op: string, value: string) => ({
+    get: () => Promise.resolve({
+      docs: docs.filter((doc) => doc.data().uid === value),
+    }),
+  }))
+  return collection
+}
+
 function stageAuth(
-  member: { uid: string; orgId: string; role: string; firstName?: string; lastName?: string },
+  member: TestMember,
   perms: Record<string, unknown> = {},
   contactsBehavior?: {
     list?: () => Promise<{ docs: Array<{ id: string; data: () => unknown }> }>
@@ -50,15 +75,7 @@ function stageAuth(
       }
     }
     if (name === 'orgMembers') {
-      return {
-        doc: () => ({
-          get: () =>
-            Promise.resolve({
-              exists: true,
-              data: () => member,
-            }),
-        }),
-      }
+      return orgMembersCollection([member])
     }
     if (name === 'organizations') {
       return {
@@ -212,15 +229,10 @@ describe('POST /api/v1/crm/contacts', () => {
     ;(adminAuth.verifySessionCookie as jest.Mock).mockResolvedValue({ uid: member.uid })
     ;(adminDb.collection as jest.Mock).mockImplementation((name: string) => {
       if (name === 'users') return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => ({ activeOrgId: 'org-1' }) }) }) }
-      if (name === 'orgMembers') return {
-        doc: jest.fn().mockImplementation((id: string) => ({
-          get: () => Promise.resolve(
-            id === 'org-1_uid-1' ? { exists: true, data: () => member }
-              : id === 'org-1_uid-2' ? { exists: true, data: () => ({ uid: 'uid-2', firstName: 'Bob', lastName: 'C' }) }
-              : { exists: false },
-          ),
-        })),
-      }
+      if (name === 'orgMembers') return orgMembersCollection([
+        member,
+        { uid: 'uid-2', orgId: 'org-1', role: 'member', firstName: 'Bob', lastName: 'C' },
+      ])
       if (name === 'organizations') return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => ({ settings: { permissions: {} } }) }) }) }
       if (name === 'contacts') return {
         doc: jest.fn().mockReturnValue({ id: 'auto-id-x', set: captured, get: jest.fn().mockResolvedValue({ exists: true, data: () => ({}) }) }),
@@ -258,6 +270,43 @@ describe('POST /api/v1/crm/contacts', () => {
     expect(writtenData.createdByRef.displayName).toBe('Alice B')
     expect(writtenData.createdByRef.kind).toBe('human')
     expect(writtenData.orgId).toBe('org-1')
+  })
+
+  it('captures agreement role metadata on POST', async () => {
+    const member = seedOrgMember('org-agreement', 'uid-agreement', { role: 'member' })
+    const captured = jest.fn().mockResolvedValue(undefined)
+    stageAuth(member, {}, { capturedDocSet: captured })
+    const req = callAsMember(member, 'POST', '/api/v1/crm/contacts', {
+      name: 'Jane Signatory',
+      email: 'jane@example.com',
+      source: 'manual',
+      jobTitle: 'Director',
+      department: 'Finance',
+      agreementRoles: ['primary_contact', 'authorized_signatory', 'accounts_contact'],
+    })
+    const { POST } = await import('@/app/api/v1/crm/contacts/route')
+    const res = await POST(req)
+    expect(res.status).toBe(201)
+    const writtenData = captured.mock.calls[0][0]
+    expect(writtenData.jobTitle).toBe('Director')
+    expect(writtenData.department).toBe('Finance')
+    expect(writtenData.agreementRoles).toEqual(['primary_contact', 'authorized_signatory', 'accounts_contact'])
+  })
+
+  it('rejects invalid agreement roles on POST', async () => {
+    const member = seedOrgMember('org-agreement', 'uid-agreement-invalid', { role: 'member' })
+    stageAuth(member)
+    const req = callAsMember(member, 'POST', '/api/v1/crm/contacts', {
+      name: 'Invalid Role',
+      email: 'invalid@example.com',
+      source: 'manual',
+      agreementRoles: ['primary_contact', 'owner_id_number'],
+    })
+    const { POST } = await import('@/app/api/v1/crm/contacts/route')
+    const res = await POST(req)
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body.error).toMatch(/agreementRoles/i)
   })
 })
 

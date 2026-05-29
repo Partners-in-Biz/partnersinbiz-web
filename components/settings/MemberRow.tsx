@@ -8,6 +8,8 @@ interface MemberRowProps {
   firstName: string
   lastName: string
   jobTitle: string
+  department?: string
+  accessScope?: string
   avatarUrl: string
   role: OrgRole
   viewerRole: OrgRole
@@ -25,7 +27,7 @@ const ROLE_COLORS: Record<OrgRole, string> = {
 
 const ROLE_RANK: Record<OrgRole, number> = { owner: 4, admin: 3, member: 2, viewer: 1 }
 
-export function MemberRow({ uid, firstName, lastName, jobTitle, avatarUrl, role, viewerRole, isSelf, onRemove, onRoleChange }: MemberRowProps) {
+export function MemberRow({ uid, firstName, lastName, jobTitle, department, accessScope, avatarUrl, role, viewerRole, isSelf, onRemove, onRoleChange }: MemberRowProps) {
   const displayName = [firstName, lastName].filter(Boolean).join(' ') || uid
   const initials = [firstName[0], lastName[0]].filter(Boolean).join('').toUpperCase() || '?'
   const canRemove = !isSelf && ROLE_RANK[viewerRole] >= 3 && role !== 'owner'
@@ -45,6 +47,11 @@ export function MemberRow({ uid, firstName, lastName, jobTitle, avatarUrl, role,
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium truncate">{displayName}</p>
         {jobTitle && <p className="text-xs text-[var(--color-pib-text-muted)] truncate">{jobTitle}</p>}
+        {(department || accessScope) && (
+          <p className="text-[11px] text-[var(--color-pib-text-muted)] truncate">
+            {[department, accessScope].filter(Boolean).join(' · ')}
+          </p>
+        )}
       </div>
 
       <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full capitalize ${ROLE_COLORS[role]}`}>

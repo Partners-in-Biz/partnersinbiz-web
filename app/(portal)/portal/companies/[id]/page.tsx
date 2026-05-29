@@ -2,7 +2,7 @@
 export const dynamic = 'force-dynamic'
 
 import { useEffect, useState, useCallback } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import type { Company } from '@/lib/companies/types'
 import type { CustomFieldDefinition } from '@/lib/customFields/types'
@@ -12,6 +12,8 @@ import type { CompanyTab } from '@/components/crm/CompanyTabsBar'
 import { CompanyOverviewPanel } from '@/components/crm/CompanyOverviewPanel'
 import { CompanyEditDrawer } from '@/components/crm/CompanyEditDrawer'
 import { CustomFieldsSection } from '@/components/crm/CustomFieldsSection'
+import { ContactForm } from '@/components/admin/crm/ContactForm'
+import { DealDrawer } from '@/components/crm/DealDrawer'
 
 type RelatedContact = {
   id: string
@@ -26,10 +28,45 @@ type RelatedContact = {
 type RelatedDeal = {
   id: string
   title?: string
+  contactId?: string
   value?: number
   currency?: string
   stageId?: string
   probability?: number
+  updatedAt?: unknown
+}
+
+type RelatedProject = {
+  id: string
+  name?: string
+  status?: string
+  description?: string
+  updatedAt?: unknown
+}
+
+type RelatedDocument = {
+  id: string
+  title?: string
+  status?: string
+  type?: string
+  updatedAt?: unknown
+}
+
+type RelatedServiceWorkspace = {
+  id: string
+  name?: string
+  serviceType?: string
+  status?: string
+  visibility?: string
+  updatedAt?: unknown
+}
+
+type RelatedRelationship = {
+  id: string
+  targetName?: string
+  relationshipType?: string
+  status?: string
+  sharedCapabilities?: string[]
   updatedAt?: unknown
 }
 
@@ -54,6 +91,35 @@ type RelatedInvoice = {
   updatedAt?: unknown
 }
 
+type RelatedOrder = {
+  id: string
+  title?: string
+  status?: string
+  fulfillmentStatus?: string
+  total?: number
+  currency?: string
+  updatedAt?: unknown
+}
+
+type RelatedShipment = {
+  id: string
+  status?: string
+  carrier?: string
+  trackingNumber?: string
+  expectedDeliveryDate?: unknown
+  updatedAt?: unknown
+}
+
+type RelatedInventoryItem = {
+  id: string
+  name?: string
+  sku?: string
+  status?: string
+  quantityAvailable?: number
+  lowStockThreshold?: number
+  updatedAt?: unknown
+}
+
 type RelatedActivity = {
   id: string
   type?: string
@@ -61,12 +127,43 @@ type RelatedActivity = {
   createdAt?: unknown
 }
 
+type CommandCenterSummary = {
+  projects?: number
+  serviceWorkspaces?: number
+  relationships?: number
+  orders?: number
+  shipments?: number
+  inventoryItems?: number
+  openOrders?: number
+  lowStockItems?: number
+  overdueInvoices?: number
+}
+
+type CommandCenterAnalytics = {
+  accountValue?: number
+  weightedPipelineValue?: number
+  trackedOrderValue?: number
+  openProjectCount?: number
+  activeServiceCount?: number
+  collaborationCount?: number
+  riskSignals?: string[]
+}
+
 type RelatedState = {
   contacts: RelatedContact[]
   deals: RelatedDeal[]
+  projects: RelatedProject[]
+  documents: RelatedDocument[]
+  serviceWorkspaces: RelatedServiceWorkspace[]
+  relationships: RelatedRelationship[]
   quotes: RelatedQuote[]
   invoices: RelatedInvoice[]
+  orders: RelatedOrder[]
+  shipments: RelatedShipment[]
+  inventoryItems: RelatedInventoryItem[]
   activities: RelatedActivity[]
+  summary: CommandCenterSummary
+  analytics: CommandCenterAnalytics
 }
 
 // ── Skeleton ─────────────────────────────────────────────────────────────────
@@ -92,13 +189,14 @@ function PageSkeleton() {
   )
 }
 
-function EmptyPanel({ icon, label }: { icon: string; label: string }) {
+function EmptyPanel({ icon, label, children }: { icon: string; label: string; children?: React.ReactNode }) {
   return (
     <div className="bento-card p-10 text-center">
       <span className="material-symbols-outlined text-4xl text-[var(--color-pib-text-muted)]">{icon}</span>
       <p className="text-sm text-[var(--color-pib-text-muted)] mt-3">
         {label}
       </p>
+      {children ? <div className="mt-5 flex justify-center">{children}</div> : null}
     </div>
   )
 }
@@ -157,8 +255,28 @@ function extractList<T>(body: unknown, key: keyof RelatedState): T[] {
   return Array.isArray(value) ? value as T[] : []
 }
 
-function ContactsPanel({ contacts }: { contacts: RelatedContact[] }) {
-  if (contacts.length === 0) return <EmptyPanel icon="person_off" label="No linked contacts yet." />
+function ContactsPanel({
+  contacts,
+  company,
+  onCreateContact,
+}: {
+  contacts: RelatedContact[]
+  company: Company
+  onCreateContact: () => void
+}) {
+  if (contacts.length === 0) {
+    return (
+      <EmptyPanel
+        icon="person_add"
+        label="No linked contacts yet. Add the first stakeholder so emails, deals, quotes, and activity have a real relationship anchor."
+      >
+        <button type="button" onClick={onCreateContact} className="btn-pib-primary inline-flex items-center gap-1.5">
+          <span className="material-symbols-outlined text-[16px]" aria-hidden="true">person_add</span>
+          Add first contact for {company.name}
+        </button>
+      </EmptyPanel>
+    )
+  }
   return (
     <TableShell>
       <table className="w-full text-sm">
@@ -189,8 +307,48 @@ function ContactsPanel({ contacts }: { contacts: RelatedContact[] }) {
   )
 }
 
-function DealsPanel({ deals }: { deals: RelatedDeal[] }) {
-  if (deals.length === 0) return <EmptyPanel icon="work_off" label="No linked deals yet." />
+function contactLabel(contact: RelatedContact) {
+  return contact.name || contact.email || contact.id
+}
+
+function DealsPanel({
+  deals,
+  company,
+  contacts,
+  onCreateDeal,
+  onCreateContact,
+}: {
+  deals: RelatedDeal[]
+  company: Company
+  contacts: RelatedContact[]
+  onCreateDeal: () => void
+  onCreateContact: () => void
+}) {
+  if (deals.length === 0) {
+    const firstContact = contacts[0]
+    return (
+      <EmptyPanel
+        icon="work_off"
+        label={
+          firstContact
+            ? `No linked deals yet. Start the first opportunity against ${contactLabel(firstContact)} so pipeline, forecast, quotes, and activity stay anchored to this account.`
+            : 'No linked deals yet. Add a stakeholder first so the first opportunity has a contact anchor.'
+        }
+      >
+        {firstContact ? (
+          <button type="button" onClick={onCreateDeal} className="btn-pib-primary inline-flex items-center gap-1.5">
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add_business</span>
+            Create first deal for {company.name}
+          </button>
+        ) : (
+          <button type="button" onClick={onCreateContact} className="btn-pib-secondary inline-flex items-center gap-1.5">
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">person_add</span>
+            Add contact before deal
+          </button>
+        )}
+      </EmptyPanel>
+    )
+  }
   return (
     <TableShell>
       <table className="w-full text-sm">
@@ -221,8 +379,312 @@ function DealsPanel({ deals }: { deals: RelatedDeal[] }) {
   )
 }
 
-function QuotesPanel({ quotes }: { quotes: RelatedQuote[] }) {
-  if (quotes.length === 0) return <EmptyPanel icon="request_quote" label="No linked quotes yet." />
+function dealLabel(deal: RelatedDeal) {
+  return deal.title || deal.id
+}
+
+function numericDealValue(deal: RelatedDeal) {
+  return typeof deal.value === 'number' && Number.isFinite(deal.value) ? deal.value : 0
+}
+
+function quoteLabel(quote: RelatedQuote) {
+  return quote.quoteNumber || quote.id
+}
+
+function invoiceLabel(invoice: RelatedInvoice) {
+  return invoice.invoiceNumber || invoice.id
+}
+
+function orderLabel(order: RelatedOrder) {
+  return order.title || order.id
+}
+
+function inventorySkuForCompany(company: Company) {
+  const base = company.name
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 32)
+  return `${base || 'ACCOUNT'}-TRACKED`
+}
+
+function ProjectsPanel({
+  projects,
+  company,
+  contacts,
+  creatingProject,
+  projectError,
+  onCreateProject,
+  onCreateContact,
+}: {
+  projects: RelatedProject[]
+  company: Company
+  contacts: RelatedContact[]
+  creatingProject: boolean
+  projectError: string | null
+  onCreateProject: () => void
+  onCreateContact: () => void
+}) {
+  const firstContact = contacts[0]
+  if (projects.length === 0) {
+    return (
+      <EmptyPanel
+        icon="folder_off"
+        label={
+          firstContact?.email
+            ? `No linked projects yet. Start a discovery workspace with ${contactLabel(firstContact)} so delivery, documents, tasks, and account history stay connected.`
+            : firstContact
+              ? `No linked projects yet. ${contactLabel(firstContact)} needs an email before a shared project can be created for this account.`
+              : 'No linked projects yet. Add a stakeholder first so the first project has a client anchor.'
+        }
+      >
+        <div className="flex flex-col items-center gap-3">
+          {firstContact?.email ? (
+            <button
+              type="button"
+              onClick={onCreateProject}
+              disabled={creatingProject}
+              className="btn-pib-primary inline-flex items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add_task</span>
+              {creatingProject ? 'Creating project...' : `Create discovery project for ${company.name}`}
+            </button>
+          ) : firstContact ? (
+            <Link href={`/portal/contacts/${firstContact.id}`} className="btn-pib-secondary inline-flex items-center gap-1.5">
+              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">alternate_email</span>
+              Add email to {contactLabel(firstContact)}
+            </Link>
+          ) : (
+            <button type="button" onClick={onCreateContact} className="btn-pib-secondary inline-flex items-center gap-1.5">
+              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">person_add</span>
+              Add contact before project
+            </button>
+          )}
+          {projectError ? <p className="max-w-md text-xs text-red-300">{projectError}</p> : null}
+        </div>
+      </EmptyPanel>
+    )
+  }
+  return (
+    <SimpleRowsPanel
+      rows={projects}
+      emptyIcon="folder_off"
+      emptyLabel="No linked projects yet."
+      title={(row) => String(row.name ?? row.id)}
+      hrefFor={(row) => `/portal/projects/${row.id}`}
+      metaFor={(row) => [String(row.description ?? ''), formatDate(row.updatedAt)]}
+    />
+  )
+}
+
+function ServicesPanel({
+  serviceWorkspaces,
+  company,
+  contacts,
+  projects,
+  creatingService,
+  serviceError,
+  onCreateService,
+}: {
+  serviceWorkspaces: RelatedServiceWorkspace[]
+  company: Company
+  contacts: RelatedContact[]
+  projects: RelatedProject[]
+  creatingService: boolean
+  serviceError: string | null
+  onCreateService: () => void
+}) {
+  const firstProject = projects[0]
+  const firstContact = contacts[0]
+  if (serviceWorkspaces.length === 0) {
+    return (
+      <EmptyPanel
+        icon="workspaces"
+        label={
+          firstProject
+            ? `No service workspaces yet. Create the first workspace around ${firstProject.name || firstProject.id} so delivery, documents, reports, and account activity stay together.`
+            : firstContact
+              ? `No service workspaces yet. Start the first operational workspace for ${contactLabel(firstContact)} so delivery does not live outside the CRM.`
+              : 'No service workspaces yet. Start the first operational workspace for this account.'
+        }
+      >
+        <div className="flex flex-col items-center gap-3">
+          <button
+            type="button"
+            onClick={onCreateService}
+            disabled={creatingService}
+            className="btn-pib-primary inline-flex items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">workspaces</span>
+            {creatingService ? 'Creating workspace...' : `Create service workspace for ${company.name}`}
+          </button>
+          {serviceError ? <p className="max-w-md text-xs text-red-300">{serviceError}</p> : null}
+        </div>
+      </EmptyPanel>
+    )
+  }
+  return (
+    <SimpleRowsPanel
+      rows={serviceWorkspaces}
+      emptyIcon="workspaces"
+      emptyLabel="No service workspaces yet."
+      title={(row) => String(row.name ?? row.id)}
+      metaFor={(row) => [String(row.serviceType ?? ''), String(row.visibility ?? '')]}
+    />
+  )
+}
+
+function DocumentsPanel({
+  documents,
+  company,
+  creatingDocument,
+  documentError,
+  onCreateDocument,
+}: {
+  documents: RelatedDocument[]
+  company: Company
+  creatingDocument: boolean
+  documentError: string | null
+  onCreateDocument: () => void
+}) {
+  if (documents.length === 0) {
+    return (
+      <EmptyPanel
+        icon="description"
+        label={`No linked documents yet. Start a sales proposal draft for ${company.name} so commercial context, approvals, and client-facing history stay attached to this account.`}
+      >
+        <div className="flex flex-col items-center gap-3">
+          <button
+            type="button"
+            onClick={onCreateDocument}
+            disabled={creatingDocument}
+            className="btn-pib-primary inline-flex items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">note_add</span>
+            {creatingDocument ? 'Creating proposal...' : `Create sales proposal for ${company.name}`}
+          </button>
+          {documentError ? <p className="max-w-md text-xs text-red-300">{documentError}</p> : null}
+        </div>
+      </EmptyPanel>
+    )
+  }
+  return (
+    <SimpleRowsPanel
+      rows={documents}
+      emptyIcon="description"
+      emptyLabel="No linked documents yet."
+      title={(row) => String(row.title ?? row.id)}
+      hrefFor={(row) => `/portal/documents/${row.id}`}
+      metaFor={(row) => [String(row.type ?? ''), formatDate(row.updatedAt)]}
+    />
+  )
+}
+
+function RelationshipsPanel({
+  relationships,
+  company,
+  contacts,
+  creatingRelationship,
+  relationshipError,
+  onCreateRelationship,
+}: {
+  relationships: RelatedRelationship[]
+  company: Company
+  contacts: RelatedContact[]
+  creatingRelationship: boolean
+  relationshipError: string | null
+  onCreateRelationship: () => void
+}) {
+  const firstContact = contacts[0]
+  if (relationships.length === 0) {
+    return (
+      <EmptyPanel
+        icon="hub"
+        label={
+          firstContact
+            ? `No business relationships yet. Create the account relationship for ${contactLabel(firstContact)} so shared CRM, projects, documents, and services become visible from one place.`
+            : `No business relationships yet. Create the account relationship for ${company.name} so collaboration history does not stay hidden from the CRM.`
+        }
+      >
+        <div className="flex flex-col items-center gap-3">
+          <button
+            type="button"
+            onClick={onCreateRelationship}
+            disabled={creatingRelationship}
+            className="btn-pib-primary inline-flex items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add_link</span>
+            {creatingRelationship ? 'Creating relationship...' : `Create relationship for ${company.name}`}
+          </button>
+          {relationshipError ? <p className="max-w-md text-xs text-red-300">{relationshipError}</p> : null}
+        </div>
+      </EmptyPanel>
+    )
+  }
+  return (
+    <SimpleRowsPanel
+      rows={relationships}
+      emptyIcon="hub"
+      emptyLabel="No business relationships yet."
+      title={(row) => String(row.targetName ?? row.relationshipType ?? row.id)}
+      metaFor={(row) => [
+        String(row.relationshipType ?? ''),
+        Array.isArray(row.sharedCapabilities) ? row.sharedCapabilities.join(', ') : undefined,
+      ]}
+    />
+  )
+}
+
+function QuotesPanel({
+  quotes,
+  company,
+  deals,
+  creatingQuote,
+  quoteError,
+  onCreateQuote,
+  onCreateDeal,
+}: {
+  quotes: RelatedQuote[]
+  company: Company
+  deals: RelatedDeal[]
+  creatingQuote: boolean
+  quoteError: string | null
+  onCreateQuote: () => void
+  onCreateDeal: () => void
+}) {
+  if (quotes.length === 0) {
+    const firstDeal = deals[0]
+    return (
+      <EmptyPanel
+        icon="request_quote"
+        label={
+          firstDeal
+            ? `No linked quotes yet. Turn ${dealLabel(firstDeal)} into the first commercial proposal for ${company.name}.`
+            : 'No linked quotes yet. Create a deal first so pricing, forecast, and quote history stay connected.'
+        }
+      >
+        <div className="flex flex-col items-center gap-3">
+          {firstDeal ? (
+            <button
+              type="button"
+              onClick={onCreateQuote}
+              disabled={creatingQuote}
+              className="btn-pib-primary inline-flex items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">request_quote</span>
+              {creatingQuote ? 'Creating quote...' : `Create quote from ${dealLabel(firstDeal)}`}
+            </button>
+          ) : (
+            <button type="button" onClick={onCreateDeal} className="btn-pib-secondary inline-flex items-center gap-1.5">
+              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add_business</span>
+              Create deal before quote
+            </button>
+          )}
+          {quoteError ? <p className="max-w-md text-xs text-red-300">{quoteError}</p> : null}
+        </div>
+      </EmptyPanel>
+    )
+  }
   return (
     <TableShell>
       <table className="w-full text-sm">
@@ -249,8 +711,60 @@ function QuotesPanel({ quotes }: { quotes: RelatedQuote[] }) {
   )
 }
 
-function InvoicesPanel({ invoices }: { invoices: RelatedInvoice[] }) {
-  if (invoices.length === 0) return <EmptyPanel icon="receipt_long" label="No linked invoices yet." />
+function InvoicesPanel({
+  invoices,
+  company,
+  quotes,
+  creatingInvoiceId,
+  invoiceError,
+  onCreateInvoiceFromQuote,
+}: {
+  invoices: RelatedInvoice[]
+  company: Company
+  quotes: RelatedQuote[]
+  creatingInvoiceId: string | null
+  invoiceError: string | null
+  onCreateInvoiceFromQuote: (quote: RelatedQuote) => void
+}) {
+  if (invoices.length === 0) {
+    const acceptedQuote = quotes.find((quote) => quote.status === 'accepted')
+    return (
+      <EmptyPanel
+        icon="receipt_long"
+        label={
+          acceptedQuote
+            ? `No linked invoices yet. Convert ${quoteLabel(acceptedQuote)} into a draft invoice so accepted revenue for ${company.name} moves into billing.`
+            : quotes.length > 0
+              ? `No linked invoices yet. Accept a quote for ${company.name} before converting it into billing.`
+              : `No linked invoices yet. Create and accept a quote for ${company.name} before billing this account.`
+        }
+      >
+        <div className="flex flex-col items-center gap-3">
+          {acceptedQuote ? (
+            <button
+              type="button"
+              onClick={() => onCreateInvoiceFromQuote(acceptedQuote)}
+              disabled={creatingInvoiceId === acceptedQuote.id}
+              className="btn-pib-primary inline-flex items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">receipt_long</span>
+              {creatingInvoiceId === acceptedQuote.id ? 'Creating invoice...' : `Create invoice from ${quoteLabel(acceptedQuote)}`}
+            </button>
+          ) : (
+            <button
+              type="button"
+              disabled
+              className="btn-pib-secondary inline-flex cursor-not-allowed items-center gap-1.5 opacity-60"
+            >
+              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">approval</span>
+              Accept quote before invoice
+            </button>
+          )}
+          {invoiceError ? <p className="max-w-md text-xs text-red-300">{invoiceError}</p> : null}
+        </div>
+      </EmptyPanel>
+    )
+  }
   return (
     <TableShell>
       <table className="w-full text-sm">
@@ -283,19 +797,481 @@ function InvoicesPanel({ invoices }: { invoices: RelatedInvoice[] }) {
   )
 }
 
-function ActivityPanel({ activities }: { activities: RelatedActivity[] }) {
-  if (activities.length === 0) return <EmptyPanel icon="history" label="No company activity yet." />
+function OrdersPanel({
+  orders,
+  company,
+  invoices,
+  creatingOrder,
+  orderError,
+  onCreateOrderFromInvoice,
+}: {
+  orders: RelatedOrder[]
+  company: Company
+  invoices: RelatedInvoice[]
+  creatingOrder: boolean
+  orderError: string | null
+  onCreateOrderFromInvoice: (invoice: RelatedInvoice) => void
+}) {
+  if (orders.length === 0) {
+    const firstInvoice = invoices[0]
+    return (
+      <EmptyPanel
+        icon="orders"
+        label={
+          firstInvoice
+            ? `No linked orders yet. Turn ${invoiceLabel(firstInvoice)} into the first fulfillment order so delivery, shipments, and inventory work stay tied to ${company.name}.`
+            : `No linked orders yet. Create an invoice for ${company.name} before opening fulfillment work.`
+        }
+      >
+        <div className="flex flex-col items-center gap-3">
+          {firstInvoice ? (
+            <button
+              type="button"
+              onClick={() => onCreateOrderFromInvoice(firstInvoice)}
+              disabled={creatingOrder}
+              className="btn-pib-primary inline-flex items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add_shopping_cart</span>
+              {creatingOrder ? 'Creating order...' : `Create fulfillment order from ${invoiceLabel(firstInvoice)}`}
+            </button>
+          ) : (
+            <button
+              type="button"
+              disabled
+              className="btn-pib-secondary inline-flex cursor-not-allowed items-center gap-1.5 opacity-60"
+            >
+              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">receipt_long</span>
+              Create invoice before order
+            </button>
+          )}
+          {orderError ? <p className="max-w-md text-xs text-red-300">{orderError}</p> : null}
+        </div>
+      </EmptyPanel>
+    )
+  }
+  return (
+    <SimpleRowsPanel
+      rows={orders}
+      emptyIcon="orders"
+      emptyLabel="No linked orders yet."
+      title={(row) => String(row.title ?? row.id)}
+      metaFor={(row) => [
+        String(row.fulfillmentStatus ?? ''),
+        formatCurrency(typeof row.total === 'number' ? row.total : undefined, String(row.currency ?? 'ZAR')),
+      ]}
+    />
+  )
+}
+
+function ShipmentsPanel({
+  shipments,
+  company,
+  orders,
+  creatingShipment,
+  shipmentError,
+  onCreateShipmentFromOrder,
+}: {
+  shipments: RelatedShipment[]
+  company: Company
+  orders: RelatedOrder[]
+  creatingShipment: boolean
+  shipmentError: string | null
+  onCreateShipmentFromOrder: (order: RelatedOrder) => void
+}) {
+  if (shipments.length === 0) {
+    const firstOrder = orders[0]
+    return (
+      <EmptyPanel
+        icon="local_shipping"
+        label={
+          firstOrder
+            ? `No shipments yet. Open the first delivery record for ${orderLabel(firstOrder)} so carrier, tracking, and expected delivery stay tied to ${company.name}.`
+            : `No shipments yet. Create a fulfillment order for ${company.name} before tracking delivery.`
+        }
+      >
+        <div className="flex flex-col items-center gap-3">
+          {firstOrder ? (
+            <button
+              type="button"
+              onClick={() => onCreateShipmentFromOrder(firstOrder)}
+              disabled={creatingShipment}
+              className="btn-pib-primary inline-flex items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">local_shipping</span>
+              {creatingShipment ? 'Creating shipment...' : `Create shipment for ${orderLabel(firstOrder)}`}
+            </button>
+          ) : (
+            <button
+              type="button"
+              disabled
+              className="btn-pib-secondary inline-flex cursor-not-allowed items-center gap-1.5 opacity-60"
+            >
+              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">orders</span>
+              Create order before shipment
+            </button>
+          )}
+          {shipmentError ? <p className="max-w-md text-xs text-red-300">{shipmentError}</p> : null}
+        </div>
+      </EmptyPanel>
+    )
+  }
+  return (
+    <SimpleRowsPanel
+      rows={shipments}
+      emptyIcon="local_shipping"
+      emptyLabel="No shipments yet."
+      title={(row) => String(row.carrier ?? row.trackingNumber ?? row.id)}
+      metaFor={(row) => [String(row.trackingNumber ?? ''), formatDate(row.expectedDeliveryDate)]}
+    />
+  )
+}
+
+function InventoryPanel({
+  inventoryItems,
+  company,
+  creatingInventoryItem,
+  inventoryError,
+  onCreateInventoryItem,
+}: {
+  inventoryItems: RelatedInventoryItem[]
+  company: Company
+  creatingInventoryItem: boolean
+  inventoryError: string | null
+  onCreateInventoryItem: () => void
+}) {
+  if (inventoryItems.length === 0) {
+    return (
+      <EmptyPanel
+        icon="inventory_2"
+        label={`No inventory items yet. Start a tracked item for ${company.name} so stock, reservations, low-stock warnings, and fulfillment history have an operational anchor.`}
+      >
+        <div className="flex flex-col items-center gap-3">
+          <button
+            type="button"
+            onClick={onCreateInventoryItem}
+            disabled={creatingInventoryItem}
+            className="btn-pib-primary inline-flex items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add_box</span>
+            {creatingInventoryItem ? 'Creating item...' : `Create inventory item for ${company.name}`}
+          </button>
+          {inventoryError ? <p className="max-w-md text-xs text-red-300">{inventoryError}</p> : null}
+        </div>
+      </EmptyPanel>
+    )
+  }
+  return (
+    <SimpleRowsPanel
+      rows={inventoryItems}
+      emptyIcon="inventory_2"
+      emptyLabel="No inventory items yet."
+      title={(row) => String(row.name ?? row.sku ?? row.id)}
+      metaFor={(row) => [
+        String(row.sku ?? ''),
+        typeof row.quantityAvailable === 'number' ? `${row.quantityAvailable} available` : undefined,
+      ]}
+    />
+  )
+}
+
+function SimpleRowsPanel({
+  rows,
+  emptyIcon,
+  emptyLabel,
+  title,
+  hrefFor,
+  metaFor,
+}: {
+  rows: Array<{ id: string; [key: string]: unknown }>
+  emptyIcon: string
+  emptyLabel: string
+  title: (row: { id: string; [key: string]: unknown }) => string
+  hrefFor?: (row: { id: string; [key: string]: unknown }) => string | undefined
+  metaFor: (row: { id: string; [key: string]: unknown }) => Array<string | undefined>
+}) {
+  if (rows.length === 0) return <EmptyPanel icon={emptyIcon} label={emptyLabel} />
   return (
     <div className="bento-card divide-y divide-[var(--color-pib-line)]">
-      {activities.map((activity) => (
-        <div key={activity.id} className="px-5 py-4 flex items-start justify-between gap-4">
-          <div>
-            <p className="font-medium text-sm text-[var(--color-pib-text)]">{activity.summary || activity.type || 'Activity'}</p>
-            {activity.type && <p className="text-xs text-[var(--color-pib-text-muted)] mt-1">{activity.type.replace(/_/g, ' ')}</p>}
+      {rows.map((row) => {
+        const rowTitle = title(row)
+        const href = hrefFor?.(row)
+        const meta = metaFor(row).filter(Boolean)
+        return (
+          <div key={row.id} className="px-5 py-4 flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              {href ? (
+                <Link href={href} className="font-medium text-sm text-[var(--color-accent-v2)] hover:underline">
+                  {rowTitle}
+                </Link>
+              ) : (
+                <p className="font-medium text-sm text-[var(--color-pib-text)]">{rowTitle}</p>
+              )}
+              {meta.length > 0 && (
+                <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
+                  {meta.join(' · ')}
+                </p>
+              )}
+            </div>
+            {'status' in row && typeof row.status === 'string' ? <StatusChip value={row.status} /> : null}
           </div>
-          <span className="text-xs text-[var(--color-pib-text-muted)] shrink-0">{formatDate(activity.createdAt)}</span>
+        )
+      })}
+    </div>
+  )
+}
+
+function AnalyticsPanel({
+  analytics,
+  summary,
+  onOpenTab,
+}: {
+  analytics: CommandCenterAnalytics
+  summary: CommandCenterSummary
+  onOpenTab: (tab: CompanyTab) => void
+}) {
+  const tiles = [
+    { label: 'Account value', value: formatCurrency(analytics.accountValue ?? 0), icon: 'payments' },
+    { label: 'Weighted pipeline', value: formatCurrency(analytics.weightedPipelineValue ?? 0), icon: 'query_stats' },
+    { label: 'Tracked orders', value: formatCurrency(analytics.trackedOrderValue ?? 0), icon: 'orders' },
+    { label: 'Open projects', value: String(analytics.openProjectCount ?? summary.projects ?? 0), icon: 'folder_managed' },
+    { label: 'Active services', value: String(analytics.activeServiceCount ?? summary.serviceWorkspaces ?? 0), icon: 'workspaces' },
+    { label: 'Collaborations', value: String(analytics.collaborationCount ?? summary.relationships ?? 0), icon: 'hub' },
+  ]
+  const riskSignals = analytics.riskSignals ?? []
+  const lowStockItems = summary.lowStockItems ?? 0
+  const openOrders = summary.openOrders ?? 0
+  const overdueInvoices = summary.overdueInvoices ?? 0
+  const weightedPipelineValue = analytics.weightedPipelineValue ?? 0
+  const operatingActions: Array<{
+    label: string
+    value: string
+    icon: string
+    tab: CompanyTab
+    tone: 'risk' | 'watch' | 'good'
+  }> = [
+    ...(lowStockItems > 0
+      ? [{
+          label: 'Inventory risk',
+          value: `${lowStockItems} low-stock ${lowStockItems === 1 ? 'item' : 'items'}`,
+          icon: 'inventory_2',
+          tab: 'inventory' as CompanyTab,
+          tone: 'risk' as const,
+        }]
+      : [{
+          label: 'Inventory coverage',
+          value: 'No low-stock items',
+          icon: 'inventory_2',
+          tab: 'inventory' as CompanyTab,
+          tone: 'good' as const,
+        }]),
+    {
+      label: 'Fulfillment',
+      value: openOrders > 0 ? `${openOrders} open ${openOrders === 1 ? 'order' : 'orders'}` : 'No open order blockers',
+      icon: 'orders',
+      tab: 'orders',
+      tone: openOrders > 0 ? 'watch' : 'good',
+    },
+    {
+      label: 'Cash collection',
+      value: overdueInvoices > 0 ? `${overdueInvoices} overdue ${overdueInvoices === 1 ? 'invoice' : 'invoices'}` : 'No overdue invoices',
+      icon: 'receipt_long',
+      tab: 'invoices',
+      tone: overdueInvoices > 0 ? 'risk' : 'good',
+    },
+    {
+      label: 'Pipeline',
+      value: weightedPipelineValue > 0 ? `${formatCurrency(weightedPipelineValue)} weighted` : 'No weighted pipeline',
+      icon: 'query_stats',
+      tab: 'deals',
+      tone: weightedPipelineValue > 0 ? 'watch' : 'risk',
+    },
+  ]
+  const toneClass = {
+    risk: 'border-red-400/30 bg-red-500/10 text-red-200',
+    watch: 'border-amber-400/30 bg-amber-400/10 text-amber-100',
+    good: 'border-emerald-400/30 bg-emerald-400/10 text-emerald-100',
+  }
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {tiles.map((tile) => (
+          <div key={tile.label} className="pib-stat-card">
+            <div className="flex items-start justify-between gap-3">
+              <p className="eyebrow !text-[10px]">{tile.label}</p>
+              <span aria-hidden="true" className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">{tile.icon}</span>
+            </div>
+            <p className="mt-3 text-2xl font-semibold text-[var(--color-pib-text)]">{tile.value}</p>
+          </div>
+        ))}
+      </div>
+      <div className="bento-card p-5">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className="eyebrow !text-[10px]">Account operating brief</p>
+            <h3 className="mt-1 font-display text-xl text-[var(--color-pib-text)]">Where the team should act next</h3>
+          </div>
+          <span className="rounded-full border border-[var(--color-pib-line)] px-2.5 py-1 text-xs text-[var(--color-pib-text-muted)]">
+            {riskSignals.length > 0 ? `${riskSignals.length} active signal${riskSignals.length === 1 ? '' : 's'}` : 'No active risks'}
+          </span>
         </div>
-      ))}
+        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          {operatingActions.map((action) => (
+            <button
+              key={action.label}
+              type="button"
+              onClick={() => onOpenTab(action.tab)}
+              aria-label={`Open ${action.tab.charAt(0).toUpperCase()}${action.tab.slice(1)} tab`}
+              className={`rounded-xl border p-4 text-left transition-transform hover:-translate-y-0.5 ${toneClass[action.tone]}`}
+            >
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-[10px] font-label uppercase tracking-widest opacity-80">{action.label}</span>
+                <span className="material-symbols-outlined text-[18px]" aria-hidden="true">{action.icon}</span>
+              </div>
+              <p className="mt-3 text-sm font-semibold">{action.value}</p>
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="bento-card p-5">
+        <p className="eyebrow !text-[10px]">Risk signals</p>
+        {riskSignals.length === 0 ? (
+          <p className="mt-3 text-sm text-[var(--color-pib-text-muted)]">No active risk signals for this company.</p>
+        ) : (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {riskSignals.map((signal) => (
+              <span key={signal} className="rounded-full border border-amber-400/30 bg-amber-400/10 px-2.5 py-1 text-xs text-amber-200">
+                {signal}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function ActivityPanel({
+  activities,
+  company,
+  contacts,
+  noteOpen,
+  note,
+  savingNote,
+  noteError,
+  onOpenNote,
+  onNoteChange,
+  onSaveNote,
+  onCancelNote,
+  onCreateContact,
+}: {
+  activities: RelatedActivity[]
+  company: Company
+  contacts: RelatedContact[]
+  noteOpen: boolean
+  note: string
+  savingNote: boolean
+  noteError: string | null
+  onOpenNote: () => void
+  onNoteChange: (value: string) => void
+  onSaveNote: () => void
+  onCancelNote: () => void
+  onCreateContact: () => void
+}) {
+  const firstContact = contacts[0]
+  const composer = noteOpen && firstContact ? (
+    <div className="bento-card p-5 text-left">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="eyebrow !text-[10px]">Company note</p>
+          <h3 className="mt-1 font-display text-lg text-[var(--color-pib-text)]">Log context for {company.name}</h3>
+          <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
+            Anchored to {contactLabel(firstContact)} so this note joins the contact and company timeline.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onCancelNote}
+          className="text-[var(--color-pib-text-muted)] transition-colors hover:text-[var(--color-pib-text)]"
+          aria-label="Cancel note"
+        >
+          <span className="material-symbols-outlined text-[20px]">close</span>
+        </button>
+      </div>
+      <div className="mt-4 space-y-3">
+        <label htmlFor="company-activity-note" className="block text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
+          Company note
+        </label>
+        <textarea
+          id="company-activity-note"
+          value={note}
+          onChange={(event) => onNoteChange(event.target.value)}
+          rows={4}
+          className="pib-input w-full resize-none"
+          placeholder="Capture a decision, call summary, risk, or follow-up..."
+        />
+        {noteError ? <p className="text-xs text-red-300">{noteError}</p> : null}
+        <div className="flex flex-wrap justify-end gap-2">
+          <button type="button" onClick={onCancelNote} disabled={savingNote} className="btn-pib-secondary">
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onSaveNote}
+            disabled={savingNote || !note.trim()}
+            className="btn-pib-primary disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {savingNote ? 'Saving...' : 'Save note'}
+          </button>
+        </div>
+      </div>
+    </div>
+  ) : null
+
+  if (activities.length === 0) {
+    if (composer) return composer
+    return (
+      <EmptyPanel
+        icon="history"
+        label={
+          firstContact
+            ? `No company activity yet. Log the first note against ${contactLabel(firstContact)} so the account timeline starts with real sales context.`
+            : 'No company activity yet. Add a stakeholder first so notes, calls, and emails have a contact anchor.'
+        }
+      >
+        {firstContact ? (
+          <button type="button" onClick={onOpenNote} className="btn-pib-primary inline-flex items-center gap-1.5">
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">edit_note</span>
+            Log first note for {company.name}
+          </button>
+        ) : (
+          <button type="button" onClick={onCreateContact} className="btn-pib-secondary inline-flex items-center gap-1.5">
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">person_add</span>
+            Add contact before activity
+          </button>
+        )}
+      </EmptyPanel>
+    )
+  }
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        <button type="button" onClick={onOpenNote} className="btn-pib-secondary inline-flex items-center gap-1.5">
+          <span className="material-symbols-outlined text-[16px]" aria-hidden="true">edit_note</span>
+          Log note
+        </button>
+      </div>
+      {composer}
+      <div className="bento-card divide-y divide-[var(--color-pib-line)]">
+        {activities.map((activity) => (
+          <div key={activity.id} className="px-5 py-4 flex items-start justify-between gap-4">
+            <div>
+              <p className="font-medium text-sm text-[var(--color-pib-text)]">{activity.summary || activity.type || 'Activity'}</p>
+              {activity.type && <p className="text-xs text-[var(--color-pib-text-muted)] mt-1">{activity.type.replace(/_/g, ' ')}</p>}
+            </div>
+            <span className="text-xs text-[var(--color-pib-text-muted)] shrink-0">{formatDate(activity.createdAt)}</span>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
@@ -304,21 +1280,63 @@ function ActivityPanel({ activities }: { activities: RelatedActivity[] }) {
 
 export default function CompanyDetailPage() {
   const { id } = useParams<{ id: string }>()
+  const router = useRouter()
+  const searchParams = useSearchParams()
 
   const [company, setCompany] = useState<Company | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   const [tab, setTab] = useState<CompanyTab>('overview')
   const [editOpen, setEditOpen] = useState(false)
+  const [newContactOpen, setNewContactOpen] = useState(false)
+  const [newDealOpen, setNewDealOpen] = useState(false)
+  const [noteOpen, setNoteOpen] = useState(false)
+  const [companyNote, setCompanyNote] = useState('')
+  const [savingNote, setSavingNote] = useState(false)
+  const [noteError, setNoteError] = useState<string | null>(null)
+  const [creatingProject, setCreatingProject] = useState(false)
+  const [projectError, setProjectError] = useState<string | null>(null)
+  const [creatingService, setCreatingService] = useState(false)
+  const [serviceError, setServiceError] = useState<string | null>(null)
+  const [creatingDocument, setCreatingDocument] = useState(false)
+  const [documentError, setDocumentError] = useState<string | null>(null)
+  const [creatingRelationship, setCreatingRelationship] = useState(false)
+  const [relationshipError, setRelationshipError] = useState<string | null>(null)
+  const [creatingInvoiceId, setCreatingInvoiceId] = useState<string | null>(null)
+  const [invoiceError, setInvoiceError] = useState<string | null>(null)
+  const [creatingOrder, setCreatingOrder] = useState(false)
+  const [orderError, setOrderError] = useState<string | null>(null)
+  const [creatingShipment, setCreatingShipment] = useState(false)
+  const [shipmentError, setShipmentError] = useState<string | null>(null)
+  const [creatingInventoryItem, setCreatingInventoryItem] = useState(false)
+  const [inventoryError, setInventoryError] = useState<string | null>(null)
+  const [creatingQuote, setCreatingQuote] = useState(false)
+  const [quoteError, setQuoteError] = useState<string | null>(null)
   const [customFieldDefs, setCustomFieldDefs] = useState<CustomFieldDefinition[]>([])
   const [related, setRelated] = useState<RelatedState>({
     contacts: [],
     deals: [],
+    projects: [],
+    documents: [],
+    serviceWorkspaces: [],
+    relationships: [],
     quotes: [],
     invoices: [],
+    orders: [],
+    shipments: [],
+    inventoryItems: [],
     activities: [],
+    summary: {},
+    analytics: {},
   })
+
+  useEffect(() => {
+    if (searchParams.get('edit') === 'profile') {
+      setEditOpen(true)
+    }
+  }, [searchParams])
   const [relatedLoading, setRelatedLoading] = useState(false)
   const [relatedError, setRelatedError] = useState<string | null>(null)
 
@@ -352,50 +1370,51 @@ export default function CompanyDetailPage() {
     void fetchCompany()
   }, [fetchCompany])
 
+  const loadRelated = useCallback(async (nextCompanyId: string, isCancelled: () => boolean = () => false) => {
+      setRelatedLoading(true)
+      setRelatedError(null)
+      try {
+        const commandCenterRes = await fetch(`/api/v1/crm/companies/${nextCompanyId}/command-center?limit=100`)
+        if (!commandCenterRes.ok) {
+          const body = await commandCenterRes.json().catch(() => ({}))
+          throw new Error(body.error ?? `HTTP ${commandCenterRes.status}`)
+        }
+        const commandCenterBody = await commandCenterRes.json()
+        if (!isCancelled()) {
+          const commandData = commandCenterBody?.data ?? commandCenterBody ?? {}
+          setRelated({
+            contacts: extractList<RelatedContact>(commandCenterBody, 'contacts'),
+            deals: extractList<RelatedDeal>(commandCenterBody, 'deals'),
+            projects: extractList<RelatedProject>(commandCenterBody, 'projects'),
+            documents: extractList<RelatedDocument>(commandCenterBody, 'documents'),
+            serviceWorkspaces: extractList<RelatedServiceWorkspace>(commandCenterBody, 'serviceWorkspaces'),
+            relationships: extractList<RelatedRelationship>(commandCenterBody, 'relationships'),
+            quotes: extractList<RelatedQuote>(commandCenterBody, 'quotes'),
+            invoices: extractList<RelatedInvoice>(commandCenterBody, 'invoices'),
+            orders: extractList<RelatedOrder>(commandCenterBody, 'orders'),
+            shipments: extractList<RelatedShipment>(commandCenterBody, 'shipments'),
+            inventoryItems: extractList<RelatedInventoryItem>(commandCenterBody, 'inventoryItems'),
+            activities: extractList<RelatedActivity>(commandCenterBody, 'activities'),
+            summary: (commandData.summary ?? {}) as CommandCenterSummary,
+            analytics: (commandData.analytics ?? {}) as CommandCenterAnalytics,
+          })
+        }
+      } catch (err) {
+        if (!isCancelled()) setRelatedError(err instanceof Error ? err.message : 'Failed to load linked records')
+      } finally {
+        if (!isCancelled()) setRelatedLoading(false)
+      }
+  }, [])
+
   const companyId = company?.id
   useEffect(() => {
     if (!companyId) return
     let cancelled = false
-    async function fetchRelated() {
-      setRelatedLoading(true)
-      setRelatedError(null)
-      try {
-        const [contactsRes, dealsRes, quotesRes, invoicesRes, activitiesRes] = await Promise.all([
-          fetch(`/api/v1/crm/companies/${companyId}/contacts?limit=100`),
-          fetch(`/api/v1/crm/companies/${companyId}/deals?limit=100`),
-          fetch(`/api/v1/crm/companies/${companyId}/quotes?limit=100`),
-          fetch(`/api/v1/crm/companies/${companyId}/invoices?limit=100`),
-          fetch(`/api/v1/crm/companies/${companyId}/activities?limit=100`),
-        ])
-        const responses = [contactsRes, dealsRes, quotesRes, invoicesRes, activitiesRes]
-        const failed = responses.find((res) => !res.ok)
-        if (failed) {
-          const body = await failed.json().catch(() => ({}))
-          throw new Error(body.error ?? `HTTP ${failed.status}`)
-        }
-        const [contactsBody, dealsBody, quotesBody, invoicesBody, activitiesBody] = await Promise.all(
-          responses.map((res) => res.json()),
-        )
-        if (!cancelled) {
-          setRelated({
-            contacts: extractList<RelatedContact>(contactsBody, 'contacts'),
-            deals: extractList<RelatedDeal>(dealsBody, 'deals'),
-            quotes: extractList<RelatedQuote>(quotesBody, 'quotes'),
-            invoices: extractList<RelatedInvoice>(invoicesBody, 'invoices'),
-            activities: extractList<RelatedActivity>(activitiesBody, 'activities'),
-          })
-        }
-      } catch (err) {
-        if (!cancelled) setRelatedError(err instanceof Error ? err.message : 'Failed to load linked records')
-      } finally {
-        if (!cancelled) setRelatedLoading(false)
-      }
-    }
-    void fetchRelated()
+    void loadRelated(companyId, () => cancelled)
     return () => {
       cancelled = true
     }
-  }, [companyId])
+  }, [companyId, loadRelated])
 
   async function handleSave(patch: Partial<Company>): Promise<void> {
     const res = await fetch(`/api/v1/crm/companies/${id}`, {
@@ -408,6 +1427,373 @@ export default function CompanyDetailPage() {
       throw new Error(body.error ?? 'Save failed')
     }
     await fetchCompany()
+  }
+
+  async function createCompanyContact(data: Record<string, unknown>): Promise<void> {
+    if (!company) return
+    const res = await fetch('/api/v1/crm/contacts', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        ...data,
+        company: company.name,
+        companyId: company.id,
+        companyName: company.name,
+      }),
+    })
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}))
+      throw new Error(body.error ?? 'Failed to create contact')
+    }
+    setNewContactOpen(false)
+    await loadRelated(company.id)
+  }
+
+  async function handleDealSaved(): Promise<void> {
+    if (!company) return
+    setNewDealOpen(false)
+    await loadRelated(company.id)
+  }
+
+  async function saveCompanyNote(): Promise<void> {
+    if (!company) return
+    const firstContact = related.contacts[0]
+    if (!firstContact) {
+      setNoteError('Add a contact before logging activity.')
+      return
+    }
+    const summary = companyNote.trim()
+    if (!summary) return
+
+    setSavingNote(true)
+    setNoteError(null)
+    try {
+      const res = await fetch('/api/v1/crm/activities', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          contactId: firstContact.id,
+          companyId: company.id,
+          type: 'note',
+          summary,
+          metadata: {
+            source: 'company_detail',
+            companyName: company.name,
+            contactName: contactLabel(firstContact),
+          },
+        }),
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(body.error ?? 'Failed to log activity')
+      }
+      setCompanyNote('')
+      setNoteOpen(false)
+      await loadRelated(company.id)
+    } catch (err) {
+      setNoteError(err instanceof Error ? err.message : 'Failed to log activity')
+    } finally {
+      setSavingNote(false)
+    }
+  }
+
+  async function createDiscoveryProject(): Promise<void> {
+    if (!company) return
+    const firstContact = related.contacts[0]
+    if (!firstContact) {
+      setProjectError('Add a contact before creating a project.')
+      return
+    }
+    if (!firstContact.email) {
+      setProjectError('Add an email to the contact before creating a shared project.')
+      return
+    }
+    setCreatingProject(true)
+    setProjectError(null)
+    try {
+      const res = await fetch('/api/v1/projects', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          name: `${company.name} discovery project`,
+          status: 'discovery',
+          companyId: company.id,
+          contactId: firstContact.id,
+          recipientEmail: firstContact.email,
+          recipientName: contactLabel(firstContact),
+          recipientCompanyName: company.name,
+        }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(body.error ?? 'Failed to create project')
+      await loadRelated(company.id)
+    } catch (err) {
+      setProjectError(err instanceof Error ? err.message : 'Failed to create project')
+    } finally {
+      setCreatingProject(false)
+    }
+  }
+
+  async function createServiceWorkspace(): Promise<void> {
+    if (!company) return
+    const firstContact = related.contacts[0]
+    const firstProject = related.projects[0]
+    setCreatingService(true)
+    setServiceError(null)
+    try {
+      const res = await fetch('/api/v1/service-workspaces', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          companyId: company.id,
+          contactId: firstContact?.id,
+          projectId: firstProject?.id,
+          linkedProjectIds: firstProject ? [firstProject.id] : undefined,
+          name: `${company.name} service workspace`,
+          serviceType: 'custom',
+          status: 'active',
+          visibility: 'relationship',
+        }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(body.error ?? 'Failed to create service workspace')
+      await loadRelated(company.id)
+    } catch (err) {
+      setServiceError(err instanceof Error ? err.message : 'Failed to create service workspace')
+    } finally {
+      setCreatingService(false)
+    }
+  }
+
+  async function createSalesProposalDocument(): Promise<void> {
+    if (!company) return
+    setCreatingDocument(true)
+    setDocumentError(null)
+    try {
+      const res = await fetch('/api/v1/client-documents', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          title: `${company.name} sales proposal`,
+          type: 'sales_proposal',
+          linked: {
+            companyId: company.id,
+            clientOrgId: company.linkedOrgId,
+          },
+        }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(body.error ?? 'Failed to create document')
+      await loadRelated(company.id)
+    } catch (err) {
+      setDocumentError(err instanceof Error ? err.message : 'Failed to create document')
+    } finally {
+      setCreatingDocument(false)
+    }
+  }
+
+  async function createBusinessRelationship(): Promise<void> {
+    if (!company) return
+    const firstContact = related.contacts[0]
+    setCreatingRelationship(true)
+    setRelationshipError(null)
+    try {
+      const res = await fetch('/api/v1/crm/relationships', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          sourceCompanyId: company.id,
+          sourceContactId: firstContact?.id,
+          targetOrgId: company.linkedOrgId,
+          targetName: company.name,
+          relationshipType: 'customer',
+          status: 'active',
+          sharedCapabilities: ['crm', 'projects', 'documents', 'services'],
+          visibility: 'relationship',
+          approvalState: 'approved',
+        }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(body.error ?? 'Failed to create relationship')
+      await loadRelated(company.id)
+    } catch (err) {
+      setRelationshipError(err instanceof Error ? err.message : 'Failed to create relationship')
+    } finally {
+      setCreatingRelationship(false)
+    }
+  }
+
+  async function createQuoteFromFirstDeal(): Promise<void> {
+    if (!company) return
+    const firstDeal = related.deals[0]
+    if (!firstDeal) {
+      setQuoteError('Create a deal before creating a quote.')
+      return
+    }
+    setCreatingQuote(true)
+    setQuoteError(null)
+    try {
+      const res = await fetch('/api/v1/quotes', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          dealId: firstDeal.id,
+          contactId: firstDeal.contactId || related.contacts[0]?.id,
+          companyId: company.id,
+          currency: firstDeal.currency || 'ZAR',
+          lineItems: numericDealValue(firstDeal) > 0 ? [
+            {
+              description: dealLabel(firstDeal),
+              quantity: 1,
+              unitPrice: numericDealValue(firstDeal),
+            },
+          ] : undefined,
+        }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(body.error ?? 'Failed to create quote')
+      await loadRelated(company.id)
+    } catch (err) {
+      setQuoteError(err instanceof Error ? err.message : 'Failed to create quote')
+    } finally {
+      setCreatingQuote(false)
+    }
+  }
+
+  async function createInvoiceFromQuote(quote: RelatedQuote): Promise<void> {
+    if (!company) return
+    setCreatingInvoiceId(quote.id)
+    setInvoiceError(null)
+    try {
+      const res = await fetch(`/api/v1/quotes/${quote.id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ action: 'convert-to-invoice' }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(body.error ?? 'Failed to create invoice')
+      await loadRelated(company.id)
+    } catch (err) {
+      setInvoiceError(err instanceof Error ? err.message : 'Failed to create invoice')
+    } finally {
+      setCreatingInvoiceId(null)
+    }
+  }
+
+  async function createOrderFromInvoice(invoice: RelatedInvoice): Promise<void> {
+    if (!company) return
+    const firstContact = related.contacts[0]
+    setCreatingOrder(true)
+    setOrderError(null)
+    try {
+      const res = await fetch('/api/v1/orders', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          companyId: company.id,
+          contactId: firstContact?.id,
+          invoiceId: invoice.id,
+          title: `${company.name} fulfillment order`,
+          status: 'confirmed',
+          fulfillmentStatus: 'not_started',
+          lineItems: [],
+          subtotal: typeof invoice.total === 'number' ? invoice.total : 0,
+          taxAmount: 0,
+          total: typeof invoice.total === 'number' ? invoice.total : 0,
+          currency: invoice.currency || 'ZAR',
+          visibility: 'relationship',
+          approvalState: 'approved',
+          notes: `Created from ${invoiceLabel(invoice)} on the company command center.`,
+        }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(body.error ?? 'Failed to create order')
+      await loadRelated(company.id)
+    } catch (err) {
+      setOrderError(err instanceof Error ? err.message : 'Failed to create order')
+    } finally {
+      setCreatingOrder(false)
+    }
+  }
+
+  async function createShipmentFromOrder(order: RelatedOrder): Promise<void> {
+    if (!company) return
+    setCreatingShipment(true)
+    setShipmentError(null)
+    try {
+      const res = await fetch('/api/v1/shipments', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          companyId: company.id,
+          orderId: order.id,
+          status: 'pending',
+          carrier: 'Internal delivery',
+          visibility: 'relationship',
+          approvalState: 'approved',
+          notes: `Created from ${orderLabel(order)} on the company command center.`,
+        }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(body.error ?? 'Failed to create shipment')
+      await loadRelated(company.id)
+    } catch (err) {
+      setShipmentError(err instanceof Error ? err.message : 'Failed to create shipment')
+    } finally {
+      setCreatingShipment(false)
+    }
+  }
+
+  async function createTrackedInventoryItem(): Promise<void> {
+    if (!company) return
+    setCreatingInventoryItem(true)
+    setInventoryError(null)
+    try {
+      const res = await fetch('/api/v1/inventory-items', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          companyId: company.id,
+          name: `${company.name} tracked inventory`,
+          sku: inventorySkuForCompany(company),
+          quantityAvailable: 0,
+          quantityReserved: 0,
+          lowStockThreshold: 1,
+          unit: 'item',
+          location: 'Client account',
+          visibility: 'relationship',
+          approvalState: 'approved',
+          notes: `Created on the ${company.name} company command center.`,
+        }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(body.error ?? 'Failed to create inventory item')
+      await loadRelated(company.id)
+    } catch (err) {
+      setInventoryError(err instanceof Error ? err.message : 'Failed to create inventory item')
+    } finally {
+      setCreatingInventoryItem(false)
+    }
+  }
+
+  async function handleDelete(): Promise<void> {
+    if (!company) return
+    const confirmed = window.confirm(`Archive ${company.name}? Linked contacts, deals, quotes, and activities will keep their history but no longer point at this company.`)
+    if (!confirmed) return
+    setDeleting(true)
+    setError(null)
+    try {
+      const res = await fetch(`/api/v1/crm/companies/${id}`, { method: 'DELETE' })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(body.error ?? `HTTP ${res.status}`)
+      }
+      router.push('/portal/companies')
+      router.refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to archive company')
+      setDeleting(false)
+    }
   }
 
   // ── Loading / error states ──────────────────────────────────────────────────
@@ -446,11 +1832,40 @@ export default function CompanyDetailPage() {
 
       {/* Header */}
       <div className="bento-card p-5">
-        <CompanyHeader company={company} onEdit={() => setEditOpen(true)} />
+        <CompanyHeader
+          company={company}
+          onEdit={() => setEditOpen(true)}
+          onDelete={handleDelete}
+          deleting={deleting}
+          stats={{
+            contacts: related.contacts.length,
+            deals: related.deals.length,
+            projects: related.projects.length,
+            documents: related.documents.length,
+            activity: related.activities.length,
+          }}
+        />
       </div>
 
       {/* Tabs */}
-      <CompanyTabsBar activeTab={tab} onChange={(t) => setTab(t as CompanyTab)} />
+      <CompanyTabsBar
+        activeTab={tab}
+        onChange={(t) => setTab(t as CompanyTab)}
+        counts={{
+          contacts: related.contacts.length,
+          deals: related.deals.length,
+          projects: related.projects.length,
+          documents: related.documents.length,
+          services: related.serviceWorkspaces.length,
+          relationships: related.relationships.length,
+          quotes: related.quotes.length,
+          invoices: related.invoices.length,
+          orders: related.orders.length,
+          shipments: related.shipments.length,
+          inventory: related.inventoryItems.length,
+          activity: related.activities.length,
+        }}
+      />
 
       {/* Tab content */}
       <div role="tabpanel">
@@ -462,7 +1877,28 @@ export default function CompanyDetailPage() {
         {relatedLoading && tab !== 'overview' && <Skeleton className="h-36 w-full" />}
         {tab === 'overview' && (
           <div className="space-y-6">
-            <CompanyOverviewPanel company={company} />
+            <CompanyOverviewPanel
+              company={company}
+              loading={relatedLoading}
+              center={{
+                contacts: related.contacts,
+                deals: related.deals,
+                projects: related.projects,
+                documents: related.documents,
+                serviceWorkspaces: related.serviceWorkspaces,
+                relationships: related.relationships,
+                quotes: related.quotes,
+                invoices: related.invoices,
+                orders: related.orders,
+                shipments: related.shipments,
+                inventoryItems: related.inventoryItems,
+                activities: related.activities,
+                summary: related.summary,
+                analytics: related.analytics,
+              }}
+              onSelectTab={(nextTab) => setTab(nextTab as CompanyTab)}
+              onEditCompany={() => setEditOpen(true)}
+            />
             {customFieldDefs.length > 0 && (
               <div className="bento-card p-5 space-y-3">
                 <p className="eyebrow !text-[10px]">Custom fields</p>
@@ -475,11 +1911,134 @@ export default function CompanyDetailPage() {
             )}
           </div>
         )}
-        {!relatedLoading && tab === 'contacts' && <ContactsPanel contacts={related.contacts} />}
-        {!relatedLoading && tab === 'deals' && <DealsPanel deals={related.deals} />}
-        {!relatedLoading && tab === 'quotes' && <QuotesPanel quotes={related.quotes} />}
-        {!relatedLoading && tab === 'invoices' && <InvoicesPanel invoices={related.invoices} />}
-        {!relatedLoading && tab === 'activity' && <ActivityPanel activities={related.activities} />}
+        {!relatedLoading && tab === 'contacts' && (
+          <ContactsPanel
+            contacts={related.contacts}
+            company={company}
+            onCreateContact={() => setNewContactOpen(true)}
+          />
+        )}
+        {!relatedLoading && tab === 'deals' && (
+          <DealsPanel
+            deals={related.deals}
+            company={company}
+            contacts={related.contacts}
+            onCreateDeal={() => setNewDealOpen(true)}
+            onCreateContact={() => setNewContactOpen(true)}
+          />
+        )}
+        {!relatedLoading && tab === 'projects' && (
+          <ProjectsPanel
+            projects={related.projects}
+            company={company}
+            contacts={related.contacts}
+            creatingProject={creatingProject}
+            projectError={projectError}
+            onCreateProject={createDiscoveryProject}
+            onCreateContact={() => setNewContactOpen(true)}
+          />
+        )}
+        {!relatedLoading && tab === 'documents' && (
+          <DocumentsPanel
+            documents={related.documents}
+            company={company}
+            creatingDocument={creatingDocument}
+            documentError={documentError}
+            onCreateDocument={createSalesProposalDocument}
+          />
+        )}
+        {!relatedLoading && tab === 'services' && (
+          <ServicesPanel
+            serviceWorkspaces={related.serviceWorkspaces}
+            company={company}
+            contacts={related.contacts}
+            projects={related.projects}
+            creatingService={creatingService}
+            serviceError={serviceError}
+            onCreateService={createServiceWorkspace}
+          />
+        )}
+        {!relatedLoading && tab === 'relationships' && (
+          <RelationshipsPanel
+            relationships={related.relationships}
+            company={company}
+            contacts={related.contacts}
+            creatingRelationship={creatingRelationship}
+            relationshipError={relationshipError}
+            onCreateRelationship={createBusinessRelationship}
+          />
+        )}
+        {!relatedLoading && tab === 'quotes' && (
+          <QuotesPanel
+            quotes={related.quotes}
+            company={company}
+            deals={related.deals}
+            creatingQuote={creatingQuote}
+            quoteError={quoteError}
+            onCreateQuote={createQuoteFromFirstDeal}
+            onCreateDeal={() => setNewDealOpen(true)}
+          />
+        )}
+        {!relatedLoading && tab === 'invoices' && (
+          <InvoicesPanel
+            invoices={related.invoices}
+            company={company}
+            quotes={related.quotes}
+            creatingInvoiceId={creatingInvoiceId}
+            invoiceError={invoiceError}
+            onCreateInvoiceFromQuote={createInvoiceFromQuote}
+          />
+        )}
+        {!relatedLoading && tab === 'orders' && (
+          <OrdersPanel
+            orders={related.orders}
+            company={company}
+            invoices={related.invoices}
+            creatingOrder={creatingOrder}
+            orderError={orderError}
+            onCreateOrderFromInvoice={createOrderFromInvoice}
+          />
+        )}
+        {!relatedLoading && tab === 'shipments' && (
+          <ShipmentsPanel
+            shipments={related.shipments}
+            company={company}
+            orders={related.orders}
+            creatingShipment={creatingShipment}
+            shipmentError={shipmentError}
+            onCreateShipmentFromOrder={createShipmentFromOrder}
+          />
+        )}
+        {!relatedLoading && tab === 'inventory' && (
+          <InventoryPanel
+            inventoryItems={related.inventoryItems}
+            company={company}
+            creatingInventoryItem={creatingInventoryItem}
+            inventoryError={inventoryError}
+            onCreateInventoryItem={createTrackedInventoryItem}
+          />
+        )}
+        {!relatedLoading && tab === 'analytics' && <AnalyticsPanel analytics={related.analytics} summary={related.summary} onOpenTab={setTab} />}
+        {!relatedLoading && tab === 'activity' && (
+          <ActivityPanel
+            activities={related.activities}
+            company={company}
+            contacts={related.contacts}
+            noteOpen={noteOpen}
+            note={companyNote}
+            savingNote={savingNote}
+            noteError={noteError}
+            onOpenNote={() => setNoteOpen(true)}
+            onNoteChange={setCompanyNote}
+            onSaveNote={saveCompanyNote}
+            onCancelNote={() => {
+              setNoteOpen(false)
+              setCompanyNote('')
+              setNoteError(null)
+            }}
+            onCreateContact={() => setNewContactOpen(true)}
+          />
+        )}
       </div>
 
       {/* Edit drawer */}
@@ -490,6 +2049,49 @@ export default function CompanyDetailPage() {
           onSave={handleSave}
           onClose={() => setEditOpen(false)}
           customFieldDefinitions={customFieldDefs}
+        />
+      )}
+
+      {newContactOpen && (
+        <div className="fixed inset-0 z-50 flex">
+          <div className="flex-1 bg-black/60 backdrop-blur-sm" onClick={() => setNewContactOpen(false)} />
+          <div className="w-full max-w-md overflow-y-auto border-l border-[var(--color-pib-line)] bg-[var(--color-pib-surface)]">
+            <div className="flex items-center justify-between border-b border-[var(--color-pib-line)] px-6 py-4">
+              <div>
+                <p className="eyebrow !text-[10px]">Company contact</p>
+                <h2 className="font-display text-lg">New contact</h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setNewContactOpen(false)}
+                className="text-[var(--color-pib-text-muted)] transition-colors hover:text-[var(--color-pib-text)]"
+                aria-label="Close"
+              >
+                <span className="material-symbols-outlined text-[20px]">close</span>
+              </button>
+            </div>
+            <ContactForm
+              onSave={createCompanyContact}
+              onCancel={() => setNewContactOpen(false)}
+              initial={{
+                company: company.name,
+                companyId: company.id,
+                companyName: company.name,
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {newDealOpen && related.contacts[0] && (
+        <DealDrawer
+          defaultContactId={related.contacts[0].id}
+          defaultContactLabel={contactLabel(related.contacts[0])}
+          defaultCompanyId={company.id}
+          defaultCompanyName={company.name}
+          orgId={company.orgId}
+          onSaved={handleDealSaved}
+          onClose={() => setNewDealOpen(false)}
         />
       )}
     </div>

@@ -10,6 +10,7 @@ import { logActivity } from '@/lib/activity/log'
 import { syncPlatformContactForOrgMember } from '@/lib/platform-owner/relationships'
 import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
 import type { Organization, OrgMember, OrgRole } from '@/lib/organizations/types'
+import { ACCESS_SCOPE_OPTIONS, parseMemberMetadata } from '@/lib/organizations/memberMetadata'
 
 export const dynamic = 'force-dynamic'
 
@@ -103,6 +104,7 @@ export const POST = withAuth('admin', async (req, user, ctx) => {
   const body = await req.json().catch(() => ({}))
   const email = typeof body.email === 'string' ? body.email.trim() : ''
   const role = body.role ?? 'member'
+  const memberMetadata = parseMemberMetadata(body)
 
   if (!email) return apiError('email is required', 400)
 
@@ -110,6 +112,9 @@ export const POST = withAuth('admin', async (req, user, ctx) => {
   const validRoles = ['owner', 'admin', 'member', 'viewer']
   if (!validRoles.includes(role)) {
     return apiError(`role must be one of: ${validRoles.join(', ')}`, 400)
+  }
+  if (typeof body.accessScope === 'string' && !ACCESS_SCOPE_OPTIONS.includes(body.accessScope as never)) {
+    return apiError(`accessScope must be one of: ${ACCESS_SCOPE_OPTIONS.join(', ')}`, 400)
   }
 
   // Fetch organization
@@ -147,6 +152,7 @@ export const POST = withAuth('admin', async (req, user, ctx) => {
     role: role as OrgRole,
     joinedAt: Timestamp.now(),
     invitedBy: user.uid,
+    ...memberMetadata,
   }
 
   const updatedMembers = [...(org.members ?? []), newMember]
@@ -181,6 +187,7 @@ export const POST = withAuth('admin', async (req, user, ctx) => {
       lastName,
       avatarUrl: userData.photoURL ?? '',
       role,
+      ...memberMetadata,
       updatedAt: FieldValue.serverTimestamp(),
       createdAt: FieldValue.serverTimestamp(),
     },

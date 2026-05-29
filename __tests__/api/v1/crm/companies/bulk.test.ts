@@ -26,7 +26,7 @@ jest.mock('firebase-admin/firestore', () => {
 
 import { adminAuth, adminDb } from '@/lib/firebase/admin'
 import { seedOrgMember, callAsMember, callAsAgent } from '../../../../helpers/crm'
-import { buildCompany, uidFor } from './_fixtures'
+import { uidFor } from './_fixtures'
 
 const AI_API_KEY = 'test-ai-key-companies-bulk'
 process.env.AI_API_KEY = AI_API_KEY
@@ -83,9 +83,24 @@ function stageAuth(
       }
     }
     if (name === 'orgMembers') {
+      const callerKey = `${member.orgId}_${member.uid}`
+      const callerDoc = {
+        id: callerKey,
+        exists: true,
+        data: () => ({ ...member, orgId: member.orgId, uid: member.uid }),
+      }
+
       return {
+        where: (field: string, op: string, value: string) => ({
+          get: () => {
+            if (field === 'uid' && op === '==' && value === member.uid) {
+              return Promise.resolve({ docs: [callerDoc] })
+            }
+            return Promise.resolve({ docs: [] })
+          },
+        }),
         doc: () => ({
-          get: () => Promise.resolve({ exists: true, data: () => member }),
+          get: () => Promise.resolve(callerDoc),
         }),
       }
     }

@@ -125,6 +125,21 @@ describe('DealKanban', () => {
     expect(link).toHaveAttribute('href', '/portal/contacts/c-99')
   })
 
+  it('uses readable contact labels when provided for deal cards', () => {
+    const deal = makeDeal({ id: 'd1', contactId: 'c-99', stageId: 'negotiation' })
+    render(
+      <DealKanban
+        deals={[deal]}
+        stages={TEST_STAGES}
+        contactLabelsById={{ 'c-99': 'Ava Owner' }}
+        onStageChange={noop}
+      />,
+    )
+
+    const link = screen.getByRole('link', { name: 'Ava Owner' })
+    expect(link).toHaveAttribute('href', '/portal/contacts/c-99')
+  })
+
   it('does not render a contact link when contactId is empty', () => {
     const deal = makeDeal({ id: 'd1', contactId: '', stageId: 'negotiation' })
     render(<DealKanban deals={[deal]} stages={TEST_STAGES} onStageChange={noop} />)

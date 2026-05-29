@@ -18,6 +18,17 @@ function redactSecret<T extends Record<string, unknown>>(doc: T): T {
   return 'secret' in doc ? { ...doc, secret: '***' } : doc
 }
 
+function timestampMillis(value: unknown): number {
+  if (!value) return 0
+  if (typeof value === 'object' && value !== null) {
+    const candidate = value as { toMillis?: () => number; toDate?: () => Date; seconds?: number }
+    if (typeof candidate.toMillis === 'function') return candidate.toMillis()
+    if (typeof candidate.toDate === 'function') return candidate.toDate().getTime()
+    if (typeof candidate.seconds === 'number') return candidate.seconds * 1000
+  }
+  return 0
+}
+
 function isHttpsUrl(url: string): boolean {
   try {
     const parsed = new URL(url)
@@ -35,16 +46,20 @@ export const GET = withCrmAuth('admin', async (req: NextRequest, ctx) => {
   const limit = Math.min(Math.max(Number.isFinite(rawLimit) ? rawLimit : 50, 1), 200)
 
   try {
-    let query = adminDb
+    const snap = await adminDb
       .collection('outbound_webhooks')
       .where('orgId', '==', ctx.orgId)
-      .where('deleted', '==', false) as FirebaseFirestore.Query
+      .get()
 
-    if (activeParam === 'true') query = query.where('active', '==', true)
-    else if (activeParam === 'false') query = query.where('active', '==', false)
-
-    const snap = await query.orderBy('createdAt', 'desc').limit(limit).get()
-    const items = snap.docs.map((doc) => redactSecret({ id: doc.id, ...doc.data() } as Record<string, unknown>))
+    let items = snap.docs
+      .map((doc) => ({ id: doc.id, ...doc.data() } as Record<string, unknown>))
+      .filter((item) => item.orgId === ctx.orgId && item.deleted === false)
+    if (activeParam === 'true') items = items.filter((item) => item.active === true)
+    else if (activeParam === 'false') items = items.filter((item) => item.active === false)
+    items = items
+      .sort((a, b) => timestampMillis(b.createdAt) - timestampMillis(a.createdAt))
+      .slice(0, limit)
+      .map((item) => redactSecret(item))
     return apiSuccess({ items, nextCursor: null }, 200, { total: items.length, page: 1, limit })
   } catch (err) {
     console.error('[crm-webhooks-list-error]', err)

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import type { Company } from '@/lib/companies/types'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -16,22 +17,43 @@ function initials(name: string): string {
     .toUpperCase()
 }
 
+function labelize(value?: string): string | null {
+  if (!value) return null
+  return value
+    .split(/[-_\s]+/)
+    .filter(Boolean)
+    .map((part, index) => (
+      index === 0
+        ? part.charAt(0).toUpperCase() + part.slice(1).toLowerCase()
+        : part.toLowerCase()
+    ))
+    .join('-')
+}
+
 // ── Props ─────────────────────────────────────────────────────────────────────
 
 export interface CompanyPanelProps {
   companyId?: string
   companyName?: string
+  emptyAction?: {
+    label: string
+    ariaLabel: string
+    icon?: string
+    onClick: () => void
+  }
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function CompanyPanel({ companyId, companyName }: CompanyPanelProps) {
+export function CompanyPanel({ companyId, companyName, emptyAction }: CompanyPanelProps) {
   const [company, setCompany] = useState<Company | null>(null)
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
     if (!companyId) return
     let cancelled = false
+    // Existing async fetch pattern: show a compact skeleton while the linked company resolves.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true)
     fetch(`/api/v1/crm/companies/${companyId}`)
       .then((r) => (r.ok ? r.json() : null))
@@ -48,7 +70,22 @@ export function CompanyPanel({ companyId, companyName }: CompanyPanelProps) {
   // Neither set
   if (!companyId && !companyName) {
     return (
-      <p className="text-sm text-[var(--color-pib-text-muted)]">No company linked</p>
+      <div className="rounded-md border border-dashed border-[var(--color-pib-line)] bg-white/[0.015] p-3">
+        <p className="text-sm text-[var(--color-pib-text-muted)]">No company linked</p>
+        {emptyAction && (
+          <button
+            type="button"
+            aria-label={emptyAction.ariaLabel}
+            onClick={emptyAction.onClick}
+            className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-[var(--color-pib-line)] px-2.5 py-1.5 text-xs font-medium text-[var(--color-pib-accent)] transition-colors hover:border-[var(--color-pib-accent)] hover:text-[var(--color-pib-text)]"
+          >
+            {emptyAction.icon && (
+              <span className="material-symbols-outlined text-[14px]" aria-hidden="true">{emptyAction.icon}</span>
+            )}
+            {emptyAction.label}
+          </button>
+        )}
+      </div>
     )
   }
 
@@ -70,13 +107,19 @@ export function CompanyPanel({ companyId, companyName }: CompanyPanelProps) {
   // Full company card
   const displayName = company?.name ?? companyName ?? 'Unknown company'
   const am = company?.accountManagerRef
+  const lifecycle = labelize(company?.lifecycleStage)
+  const tier = labelize(company?.tier)
+  const health = typeof company?.healthScore === 'number' ? `Health ${company.healthScore}%` : null
+  const signals = [lifecycle, tier, health].filter(Boolean)
 
   return (
-    <div className="pib-card p-3 flex items-center gap-3">
+    <div className="pib-card p-3 flex items-start gap-3">
       {company?.logoUrl ? (
-        <img
+        <Image
           src={company.logoUrl}
           alt={displayName}
+          width={40}
+          height={40}
           className="w-10 h-10 rounded-full object-cover shrink-0"
         />
       ) : (
@@ -85,20 +128,33 @@ export function CompanyPanel({ companyId, companyName }: CompanyPanelProps) {
         </div>
       )}
 
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-0 space-y-2">
         <p className="text-sm font-medium text-[var(--color-pib-text)] truncate">{displayName}</p>
         {am && (
           <p className="text-[11px] text-[var(--color-pib-text-muted)] truncate">{am.displayName}</p>
+        )}
+        {signals.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {signals.map((signal) => (
+              <span
+                key={signal}
+                className="rounded-full border border-[var(--color-pib-line)] bg-white/[0.03] px-2 py-0.5 text-[10px] font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]"
+              >
+                {signal}
+              </span>
+            ))}
+          </div>
         )}
       </div>
 
       {companyId && (
         <Link
           href={`/portal/companies/${companyId}`}
+          aria-label={`Open ${displayName}`}
           className="text-xs text-[var(--color-accent-v2)] hover:underline shrink-0 flex items-center gap-0.5"
         >
-          View
-          <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
+          Open
+          <span className="material-symbols-outlined text-[14px]" aria-hidden="true">arrow_forward</span>
         </Link>
       )}
     </div>

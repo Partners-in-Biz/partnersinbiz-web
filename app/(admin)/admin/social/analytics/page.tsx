@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic'
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useOrg } from '@/lib/contexts/OrgContext'
 import { HorizontalBarChart, DonutChart, TrendAreaChart } from '@/components/ui/Charts'
+import { PageTabs } from '@/components/ui/AppFoundation'
 
 /* ------------------------------------------------------------------ */
 /*  Types & constants                                                  */
@@ -238,24 +239,17 @@ export default function AnalyticsPage() {
         <p className="text-sm text-on-surface-variant mt-0.5">Engagement data and performance insights</p>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-1">
-        {([
-          { key: 'overview' as Tab, label: 'Overview' },
-          { key: 'posts' as Tab, label: 'Per Post' },
-          { key: 'best-times' as Tab, label: 'Best Times' },
-        ]).map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            className={`px-3 py-1.5 rounded-lg font-label text-xs font-medium transition-colors ${
-              tab === t.key ? 'bg-white text-black' : 'bg-surface-container text-on-surface-variant hover:bg-surface-container-high'
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+      <PageTabs
+        variant="segmented"
+        ariaLabel="Social analytics sections"
+        value={tab}
+        onValueChange={(value) => setTab(value as Tab)}
+        tabs={[
+          { value: 'overview', label: 'Overview' },
+          { value: 'posts', label: 'Per Post' },
+          { value: 'best-times', label: 'Best Times' },
+        ]}
+      />
 
       {/* Date range filter */}
       <div className="flex gap-1">

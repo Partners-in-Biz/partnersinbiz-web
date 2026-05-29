@@ -52,6 +52,14 @@ function mockSnapshotChange(type: 'added' | 'modified' | 'removed', id: string, 
   })
 }
 
+async function switchToProjectsSection() {
+  await waitFor(() => expect(screen.getByRole('tab', { name: /^projects$/i })).toBeInTheDocument())
+  const projectsTab = screen.getByRole('tab', { name: /^projects$/i })
+  if (projectsTab.getAttribute('aria-selected') !== 'true') {
+    fireEvent.click(projectsTab)
+  }
+}
+
 describe('Admin client projects board view', () => {
   beforeEach(() => {
     snapshotCallback = null
@@ -70,14 +78,70 @@ describe('Admin client projects board view', () => {
           json: async () => ({ data: [] }),
         } as Response)
       }
+      if (url === '/api/v1/projects/reporting?orgSlug=acme-client') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: {
+              summary: { totalProjects: 1, openTasks: 4, blockedTasks: 1, waitingApprovals: 2, highRisks: 1, trackedRevenue: 25000, currency: 'ZAR' },
+              clients: [{ clientOrgId: 'org-acme', companyId: 'company-acme', clientName: 'Acme Client', projectCount: 1, trackedRevenue: 25000, openTasks: 4, blockedTasks: 1, highRisks: 1 }],
+              people: [{ uid: 'owner-1', name: 'Peet Stander', assignedTasks: 4, estimateMinutes: 600, capacityMinutes: 480, utilizationPercent: 125, overCapacity: true }],
+              projects: [{ id: 'project-1', name: 'Client Website', companyId: 'company-acme', status: 'development', health: { status: 'at_risk', score: 68 }, timeline: { driftCount: 1, dependencyCount: 2 }, reports: { tasks: { open: 4, blocked: 1 }, risks: { high: 1 }, revenue: { trackedAmount: 25000, currency: 'ZAR' } } }],
+            },
+          }),
+        } as Response)
+      }
       return Promise.resolve({ ok: true, json: async () => ({ data: [] }) } as Response)
     }) as jest.Mock
+  })
+
+  it('shows the client portfolio report from the project reporting API', async () => {
+    render(<ProjectsPage />)
+
+    await waitFor(() => expect(screen.getByRole('tab', { name: /portfolio report/i })).toBeInTheDocument())
+    expect(screen.getByRole('tab', { name: /^projects$/i })).toHaveAttribute('aria-selected', 'true')
+    expect(global.fetch).not.toHaveBeenCalledWith('/api/v1/projects/reporting?orgSlug=acme-client', expect.any(Object))
+
+    fireEvent.click(screen.getByRole('tab', { name: /portfolio report/i }))
+
+    expect(global.fetch).toHaveBeenCalledWith('/api/v1/projects/reporting?orgSlug=acme-client', expect.any(Object))
+    await waitFor(() => expect(screen.getByText('Acme Client')).toBeInTheDocument())
+    expect(screen.getByText('Peet Stander')).toBeInTheDocument()
+    expect(screen.getAllByText('1 blocked').length).toBeGreaterThan(0)
+    expect(screen.getByRole('link', { name: 'Open company Acme Client' })).toHaveAttribute('href', '/portal/companies/company-acme')
+    expect(screen.getByRole('link', { name: 'Open project Client Website' })).toHaveAttribute('href', '/admin/org/acme-client/projects/project-1')
+  })
+
+  it('switches between portfolio reporting and the project workspace from the header', async () => {
+    render(<ProjectsPage />)
+
+    await waitFor(() => expect(screen.getByRole('tab', { name: /portfolio report/i })).toBeInTheDocument())
+    expect(screen.getByRole('tab', { name: /^projects$/i })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('tablist', { name: 'Project stage filters' })).toHaveClass('pib-tabs', 'pib-tabs-segmented')
+    await waitFor(() => expect(screen.getAllByText('Client Website').length).toBeGreaterThan(0))
+    expect(global.fetch).not.toHaveBeenCalledWith('/api/v1/projects/reporting?orgSlug=acme-client', expect.any(Object))
+
+    fireEvent.click(screen.getByRole('tab', { name: /portfolio report/i }))
+
+    expect(screen.getByRole('tab', { name: /portfolio report/i })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.queryByRole('tablist', { name: 'Project stage filters' })).not.toBeInTheDocument()
+    expect(screen.getAllByText('Portfolio report').length).toBeGreaterThan(0)
+
+    fireEvent.click(screen.getByRole('tab', { name: /^projects$/i }))
+
+    expect(screen.getByRole('tab', { name: /^projects$/i })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('tablist', { name: 'Project stage filters' })).toBeInTheDocument()
   })
 
   it('lets admins switch from project cards to a cross-project task board for the client', async () => {
     render(<ProjectsPage />)
 
+    await switchToProjectsSection()
+
     await waitFor(() => expect(screen.getByRole('button', { name: /board/i })).toBeInTheDocument())
+    expect(screen.getByRole('tablist', { name: 'Project stage filters' })).toHaveClass('pib-tabs', 'pib-tabs-segmented')
+    expect(screen.getByRole('tab', { name: /All/ })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('tab', { name: /Discovery/ })).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: /board/i }))
 
     await waitFor(() => expect(snapshotCallback).toBeTruthy())
@@ -122,6 +186,7 @@ describe('Admin client projects board view', () => {
 
     render(<ProjectsPage />)
 
+    await switchToProjectsSection()
     await waitFor(() => expect(screen.getByRole('button', { name: /board/i })).toBeInTheDocument())
     fireEvent.click(screen.getByRole('button', { name: /board/i }))
 
@@ -143,7 +208,8 @@ describe('Admin client projects board view', () => {
   it('updates client project cards when Firestore project snapshots change', async () => {
     render(<ProjectsPage />)
 
-    await waitFor(() => expect(screen.getByText('Client Website')).toBeInTheDocument())
+    await switchToProjectsSection()
+    await waitFor(() => expect(screen.getAllByText('Client Website').length).toBeGreaterThan(0))
 
     mockSnapshotChange('modified', 'project-1', {
       name: 'Client Website Live',
@@ -180,6 +246,7 @@ describe('Admin client projects board view', () => {
 
     render(<ProjectsPage />)
 
+    await switchToProjectsSection()
     await waitFor(() => expect(screen.getByRole('button', { name: /board/i })).toBeInTheDocument())
     fireEvent.click(screen.getByRole('button', { name: /board/i }))
     await waitFor(() => expect(screen.getByTestId('cross-project-board')).toBeInTheDocument())
@@ -209,7 +276,8 @@ describe('Admin client projects board view', () => {
 
     render(<ProjectsPage />)
 
-    await waitFor(() => expect(screen.getByText('Client Website')).toBeInTheDocument())
+    await switchToProjectsSection()
+    await waitFor(() => expect(screen.getAllByText('Client Website').length).toBeGreaterThan(0))
 
     await act(async () => {
       jest.advanceTimersByTime(10000)

@@ -53,7 +53,7 @@ jest.mock('@/lib/companies/migration', () => ({
 
 import { adminAuth, adminDb } from '@/lib/firebase/admin'
 import { uidFor, buildCompany } from './companies/_fixtures'
-import { seedOrgMember, callAsMember, callAsAgent } from '../../../helpers/crm'
+import { seedOrgMember, callAsMember } from '../../../helpers/crm'
 
 const AI_API_KEY = 'test-ai-key'
 process.env.AI_API_KEY = AI_API_KEY
@@ -70,6 +70,21 @@ const memberB = seedOrgMember('org-b', orgBUid, { role: 'member', firstName: 'Us
 
 const coA = buildCompany({ id: 'co-a-1', orgId: 'org-a', name: 'Org A Company' })
 const coB = buildCompany({ id: 'co-b-1', orgId: 'org-b', name: 'Org B Company' })
+
+type MockDoc<T extends { orgId?: string }> = {
+  id: string
+  data: () => T
+  ref: { id: string; update: jest.Mock }
+}
+
+type ChainableQuery<T extends { orgId?: string }> = {
+  where: jest.Mock
+  orderBy: jest.Mock
+  limit: jest.Mock
+  offset?: jest.Mock
+  startAfter?: jest.Mock
+  get: () => Promise<{ docs: Array<MockDoc<T>>; empty?: boolean }>
+}
 
 // ── where-respecting Firestore mock ──────────────────────────────────────────
 
@@ -101,7 +116,7 @@ function setupIsolationFixtures() {
   })
 
   // Shared batch stub (used by bulk + cascade-on-delete internally)
-  ;(adminDb as any).batch = jest.fn().mockReturnValue({
+  ;(adminDb as { batch: jest.Mock }).batch = jest.fn().mockReturnValue({
     update: jest.fn((ref: unknown, data: Record<string, unknown>) => {
       captured.batchUpdateCalls.push(data)
     }),
@@ -127,15 +142,32 @@ function setupIsolationFixtures() {
 
     // ── orgMembers ───────────────────────────────────────────────────────
     if (name === 'orgMembers') {
+      const docs = [
+        {
+          id: `org-a_${adminA.uid}`,
+          exists: true,
+          data: () => ({ ...adminA, orgId: 'org-a', uid: adminA.uid }),
+        },
+        {
+          id: `org-b_${memberB.uid}`,
+          exists: true,
+          data: () => ({ ...memberB, orgId: 'org-b', uid: memberB.uid }),
+        },
+      ]
+
       return {
+        where: (field: string, op: string, value: string) => ({
+          get: () => {
+            if (field === 'uid' && op === '==') {
+              return Promise.resolve({ docs: docs.filter(doc => doc.data().uid === value) })
+            }
+            return Promise.resolve({ docs: [] })
+          },
+        }),
         doc: (id: string) => ({
           get: () => Promise.resolve({
             exists: true,
-            data: () => (
-              id === `org-a_${adminA.uid}`  ? adminA  :
-              id === `org-b_${memberB.uid}` ? memberB :
-              { uid: id.split('_')[1], firstName: 'X', lastName: 'Y', role: 'member' }
-            ),
+            data: () => docs.find(doc => doc.id === id)?.data() ?? { uid: id.split('_')[1], firstName: 'X', lastName: 'Y', role: 'member' },
           }),
         }),
       }
@@ -157,9 +189,14 @@ function setupIsolationFixtures() {
     if (name === 'companies') {
       let whereOrgFilter: string | undefined
 
-      const queryMock: any = {
-        where: jest.fn((field: string, op: string, value: any) => {
-          if (field === 'orgId' && op === '==') whereOrgFilter = value
+      const docs: Array<MockDoc<typeof coA>> = [
+        { id: 'co-a-1', data: () => coA, ref: { id: 'co-a-1', update: jest.fn().mockResolvedValue(undefined) } },
+        { id: 'co-b-1', data: () => coB, ref: { id: 'co-b-1', update: jest.fn().mockResolvedValue(undefined) } },
+      ]
+
+      const queryMock: ChainableQuery<typeof coA> = {
+        where: jest.fn((field: string, op: string, value: unknown) => {
+          if (field === 'orgId' && op === '==' && typeof value === 'string') whereOrgFilter = value
           return queryMock
         }),
         orderBy:    jest.fn().mockReturnThis(),
@@ -167,13 +204,10 @@ function setupIsolationFixtures() {
         offset:     jest.fn().mockReturnThis(),
         startAfter: jest.fn().mockReturnThis(),
         get: () => Promise.resolve({
-          docs: [
-            { id: 'co-a-1', data: () => coA, ref: { id: 'co-a-1', update: jest.fn().mockResolvedValue(undefined) } },
-            { id: 'co-b-1', data: () => coB, ref: { id: 'co-b-1', update: jest.fn().mockResolvedValue(undefined) } },
-          ].filter(d =>
+          docs: docs.filter(d =>
             // A missing orgId filter returns ALL rows — that's the test trap.
             whereOrgFilter === undefined ||
-            (d.data() as any).orgId === whereOrgFilter,
+            d.data().orgId === whereOrgFilter,
           ),
         }),
       }
@@ -211,23 +245,25 @@ function setupIsolationFixtures() {
       const orgAContact = { id: 'c-a-1', orgId: 'org-a', companyId: 'co-a-1', company: 'Org A Co' }
       const orgBContact = { id: 'c-b-1', orgId: 'org-b', companyId: 'co-b-1', company: 'Org B Co' }
 
-      const contactQuery: any = {
-        where: jest.fn((field: string, op: string, value: any) => {
+      const contactDocs: Array<MockDoc<typeof orgAContact>> = [
+        { id: 'c-a-1', data: () => orgAContact, ref: { id: 'c-a-1', update: jest.fn() } },
+        { id: 'c-b-1', data: () => orgBContact, ref: { id: 'c-b-1', update: jest.fn() } },
+      ]
+
+      const contactQuery: ChainableQuery<typeof orgAContact> = {
+        where: jest.fn((field: string, op: string, value: unknown) => {
           if (field === 'orgId' && op === '==') {
-            whereOrgFilter = value
-            captured.contactsWhereOrgFilters.push(value)
+            whereOrgFilter = typeof value === 'string' ? value : undefined
+            captured.contactsWhereOrgFilters.push(whereOrgFilter)
           }
           return contactQuery
         }),
         orderBy: jest.fn().mockReturnThis(),
         limit:   jest.fn().mockReturnThis(),
         get: () => Promise.resolve({
-          docs: [
-            { id: 'c-a-1', data: () => orgAContact, ref: { id: 'c-a-1', update: jest.fn() } },
-            { id: 'c-b-1', data: () => orgBContact, ref: { id: 'c-b-1', update: jest.fn() } },
-          ].filter(d =>
+          docs: contactDocs.filter(d =>
             whereOrgFilter === undefined ||
-            (d.data() as any).orgId === whereOrgFilter,
+            d.data().orgId === whereOrgFilter,
           ),
         }),
       }
@@ -367,12 +403,11 @@ describe('cross-tenant isolation: companies (consolidated)', () => {
     // Build a minimal multipart request — the 404 fires before storage is touched
     const formData = new FormData()
     formData.append('file', new Blob(['x'], { type: 'image/png' }), 'logo.png')
-    const { NextRequest: NR } = require('next/server')
-    const req = new NR('http://localhost/api/v1/crm/companies/co-b-1/upload-logo', {
+    const req = new NextRequest('http://localhost/api/v1/crm/companies/co-b-1/upload-logo', {
       method: 'POST',
       headers: new Headers({ cookie: `__session=test-session-${adminA.uid}` }),
       body: formData,
-    }) as NextRequest
+    })
     const { POST } = await import('@/app/api/v1/crm/companies/[id]/upload-logo/route')
     const res = await POST(req, routeCtx('co-b-1'))
     expect(res.status).toBe(404)

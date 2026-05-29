@@ -15,6 +15,30 @@ interface FormState {
   domain: string
   website: string
   industry: string
+  phone: string
+  legalName: string
+  tradingName: string
+  registrationNumber: string
+  vatNumber: string
+  taxNumber: string
+  billingEmail: string
+  billingLine1: string
+  billingLine2: string
+  billingCity: string
+  billingState: string
+  billingCountry: string
+  billingPostalCode: string
+  accountsContactName: string
+  accountsContactTitle: string
+  accountsContactEmail: string
+  accountsContactPhone: string
+  authorizedSignatoryName: string
+  authorizedSignatoryTitle: string
+  authorizedSignatoryEmail: string
+  authorizedSignatoryPhone: string
+  purchaseOrderRequired: boolean
+  purchaseOrderNumber: string
+  invoiceInstructions: string
   // Address
   street: string
   city: string
@@ -40,12 +64,40 @@ interface FormState {
   notes: string
 }
 
+type TextFormField = {
+  [K in keyof FormState]: FormState[K] extends string ? K : never
+}[keyof FormState]
+
 function companyToForm(company: Partial<Company>): FormState {
   return {
     name: company.name ?? '',
     domain: company.domain ?? '',
     website: company.website ?? '',
     industry: company.industry ?? '',
+    phone: company.phone ?? '',
+    legalName: company.legalName ?? '',
+    tradingName: company.tradingName ?? '',
+    registrationNumber: company.registrationNumber ?? '',
+    vatNumber: company.vatNumber ?? '',
+    taxNumber: company.taxNumber ?? '',
+    billingEmail: company.billingEmail ?? '',
+    billingLine1: company.billingAddress?.line1 ?? '',
+    billingLine2: company.billingAddress?.line2 ?? '',
+    billingCity: company.billingAddress?.city ?? '',
+    billingState: company.billingAddress?.state ?? '',
+    billingCountry: company.billingAddress?.country ?? '',
+    billingPostalCode: company.billingAddress?.postalCode ?? '',
+    accountsContactName: company.accountsContact?.name ?? '',
+    accountsContactTitle: company.accountsContact?.title ?? '',
+    accountsContactEmail: company.accountsContact?.email ?? '',
+    accountsContactPhone: company.accountsContact?.phone ?? '',
+    authorizedSignatoryName: company.authorizedSignatory?.name ?? '',
+    authorizedSignatoryTitle: company.authorizedSignatory?.title ?? '',
+    authorizedSignatoryEmail: company.authorizedSignatory?.email ?? '',
+    authorizedSignatoryPhone: company.authorizedSignatory?.phone ?? '',
+    purchaseOrderRequired: company.purchaseOrderRequired ?? false,
+    purchaseOrderNumber: company.purchaseOrderNumber ?? '',
+    invoiceInstructions: company.invoiceInstructions ?? '',
     street: company.address?.street ?? '',
     city: company.address?.city ?? '',
     state: company.address?.state ?? '',
@@ -60,18 +112,64 @@ function companyToForm(company: Partial<Company>): FormState {
     tags: (company.tags ?? []).join(', '),
     logoUrl: company.logoUrl ?? '',
     parentCompanyId: company.parentCompanyId ?? '',
-    parentCompanyName: '',
+    parentCompanyName: company.parentCompanyName ?? '',
     accountManagerUid: company.accountManagerUid ?? '',
     notes: company.notes ?? '',
   }
 }
 
 function formToPartialCompany(f: FormState): Partial<Company> {
+  const clean = (value: string) => value.trim() || undefined
+  const billingAddress = (f.billingLine1 || f.billingLine2 || f.billingCity || f.billingState || f.billingCountry || f.billingPostalCode)
+    ? {
+        line1: clean(f.billingLine1),
+        line2: clean(f.billingLine2),
+        city: clean(f.billingCity),
+        state: clean(f.billingState),
+        country: clean(f.billingCountry),
+        postalCode: clean(f.billingPostalCode),
+      }
+    : undefined
+  const accountsContact = (f.accountsContactName || f.accountsContactTitle || f.accountsContactEmail || f.accountsContactPhone)
+    ? {
+        name: clean(f.accountsContactName),
+        title: clean(f.accountsContactTitle),
+        email: clean(f.accountsContactEmail),
+        phone: clean(f.accountsContactPhone),
+      }
+    : undefined
+  const authorizedSignatory = (
+    f.authorizedSignatoryName ||
+    f.authorizedSignatoryTitle ||
+    f.authorizedSignatoryEmail ||
+    f.authorizedSignatoryPhone
+  )
+    ? {
+        name: clean(f.authorizedSignatoryName),
+        title: clean(f.authorizedSignatoryTitle),
+        email: clean(f.authorizedSignatoryEmail),
+        phone: clean(f.authorizedSignatoryPhone),
+      }
+    : undefined
+
   return {
     name: f.name.trim(),
     domain: f.domain.trim() || undefined,
     website: f.website.trim() || undefined,
     industry: f.industry.trim() || undefined,
+    phone: clean(f.phone),
+    legalName: clean(f.legalName),
+    tradingName: clean(f.tradingName),
+    registrationNumber: clean(f.registrationNumber),
+    vatNumber: clean(f.vatNumber),
+    taxNumber: clean(f.taxNumber),
+    billingEmail: clean(f.billingEmail),
+    billingAddress,
+    accountsContact,
+    authorizedSignatory,
+    purchaseOrderRequired: f.purchaseOrderRequired,
+    purchaseOrderNumber: clean(f.purchaseOrderNumber),
+    invoiceInstructions: clean(f.invoiceInstructions),
     address: (f.street || f.city || f.state || f.country || f.postalCode)
       ? {
           street: f.street || undefined,
@@ -90,6 +188,7 @@ function formToPartialCompany(f: FormState): Partial<Company> {
     tags: f.tags ? f.tags.split(',').map((t) => t.trim()).filter(Boolean) : [],
     logoUrl: f.logoUrl.trim() || undefined,
     parentCompanyId: f.parentCompanyId || undefined,
+    parentCompanyName: f.parentCompanyId ? clean(f.parentCompanyName) : undefined,
     accountManagerUid: f.accountManagerUid.trim() || undefined,
     notes: f.notes,
   }
@@ -146,7 +245,7 @@ export function CompanyEditDrawer({ company, onSave, onClose, mode, customFieldD
   const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({})
   const [saving, setSaving] = useState(false)
 
-  function set(field: keyof FormState) {
+  function set(field: TextFormField) {
     return (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
       setForm((f) => ({ ...f, [field]: e.target.value }))
       if (errors[field]) setErrors((errs) => ({ ...errs, [field]: undefined }))
@@ -248,6 +347,106 @@ export function CompanyEditDrawer({ company, onSave, onClose, mode, customFieldD
               className="pib-input w-full"
               placeholder="SaaS"
             />
+          </Field>
+          <Field label="Phone" htmlFor="co-phone">
+            <input id="co-phone" type="text" value={form.phone} onChange={set('phone')} className="pib-input w-full" placeholder="+27 21 000 0000" />
+          </Field>
+
+          {/* Legal & billing */}
+          <Section title="Legal & Billing" />
+          <Field label="Legal Name" htmlFor="co-legal-name">
+            <input id="co-legal-name" type="text" value={form.legalName} onChange={set('legalName')} className="pib-input w-full" placeholder="ACME (Pty) Ltd" />
+          </Field>
+          <Field label="Trading Name" htmlFor="co-trading-name">
+            <input id="co-trading-name" type="text" value={form.tradingName} onChange={set('tradingName')} className="pib-input w-full" placeholder="ACME" />
+          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Registration Number" htmlFor="co-registration-number">
+              <input id="co-registration-number" type="text" value={form.registrationNumber} onChange={set('registrationNumber')} className="pib-input w-full" placeholder="2020/000000/07" />
+            </Field>
+            <Field label="VAT Number" htmlFor="co-vat-number">
+              <input id="co-vat-number" type="text" value={form.vatNumber} onChange={set('vatNumber')} className="pib-input w-full" placeholder="4000000000" />
+            </Field>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Tax Number" htmlFor="co-tax-number">
+              <input id="co-tax-number" type="text" value={form.taxNumber} onChange={set('taxNumber')} className="pib-input w-full" />
+            </Field>
+            <Field label="Billing Email" htmlFor="co-billing-email">
+              <input id="co-billing-email" type="email" value={form.billingEmail} onChange={set('billingEmail')} className="pib-input w-full" placeholder="accounts@company.com" />
+            </Field>
+          </div>
+          <Field label="Billing Street Address" htmlFor="co-billing-line1">
+            <input id="co-billing-line1" type="text" value={form.billingLine1} onChange={set('billingLine1')} className="pib-input w-full" />
+          </Field>
+          <Field label="Billing Address Line 2" htmlFor="co-billing-line2">
+            <input id="co-billing-line2" type="text" value={form.billingLine2} onChange={set('billingLine2')} className="pib-input w-full" />
+          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Billing City" htmlFor="co-billing-city">
+              <input id="co-billing-city" type="text" value={form.billingCity} onChange={set('billingCity')} className="pib-input w-full" />
+            </Field>
+            <Field label="Billing State / Province" htmlFor="co-billing-state">
+              <input id="co-billing-state" type="text" value={form.billingState} onChange={set('billingState')} className="pib-input w-full" />
+            </Field>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Billing Postal Code" htmlFor="co-billing-postal-code">
+              <input id="co-billing-postal-code" type="text" value={form.billingPostalCode} onChange={set('billingPostalCode')} className="pib-input w-full" />
+            </Field>
+            <Field label="Billing Country" htmlFor="co-billing-country">
+              <input id="co-billing-country" type="text" value={form.billingCountry} onChange={set('billingCountry')} className="pib-input w-full" />
+            </Field>
+          </div>
+
+          {/* Agreement contacts */}
+          <Section title="Agreement Contacts" />
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Accounts Contact Name" htmlFor="co-accounts-name">
+              <input id="co-accounts-name" type="text" value={form.accountsContactName} onChange={set('accountsContactName')} className="pib-input w-full" />
+            </Field>
+            <Field label="Accounts Contact Title" htmlFor="co-accounts-title">
+              <input id="co-accounts-title" type="text" value={form.accountsContactTitle} onChange={set('accountsContactTitle')} className="pib-input w-full" />
+            </Field>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Accounts Contact Email" htmlFor="co-accounts-email">
+              <input id="co-accounts-email" type="email" value={form.accountsContactEmail} onChange={set('accountsContactEmail')} className="pib-input w-full" />
+            </Field>
+            <Field label="Accounts Contact Phone" htmlFor="co-accounts-phone">
+              <input id="co-accounts-phone" type="text" value={form.accountsContactPhone} onChange={set('accountsContactPhone')} className="pib-input w-full" />
+            </Field>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Authorised Signatory Name" htmlFor="co-signatory-name">
+              <input id="co-signatory-name" type="text" value={form.authorizedSignatoryName} onChange={set('authorizedSignatoryName')} className="pib-input w-full" />
+            </Field>
+            <Field label="Authorised Signatory Title" htmlFor="co-signatory-title">
+              <input id="co-signatory-title" type="text" value={form.authorizedSignatoryTitle} onChange={set('authorizedSignatoryTitle')} className="pib-input w-full" />
+            </Field>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Authorised Signatory Email" htmlFor="co-signatory-email">
+              <input id="co-signatory-email" type="email" value={form.authorizedSignatoryEmail} onChange={set('authorizedSignatoryEmail')} className="pib-input w-full" />
+            </Field>
+            <Field label="Authorised Signatory Phone" htmlFor="co-signatory-phone">
+              <input id="co-signatory-phone" type="text" value={form.authorizedSignatoryPhone} onChange={set('authorizedSignatoryPhone')} className="pib-input w-full" />
+            </Field>
+          </div>
+          <label className="flex items-center gap-2 text-xs text-[var(--color-pib-text-muted)]">
+            <input
+              type="checkbox"
+              checked={form.purchaseOrderRequired}
+              onChange={(e) => setForm((f) => ({ ...f, purchaseOrderRequired: e.target.checked }))}
+              className="h-4 w-4 rounded border-outline text-primary"
+            />
+            Purchase order required
+          </label>
+          <Field label="Purchase Order Number" htmlFor="co-po-number">
+            <input id="co-po-number" type="text" value={form.purchaseOrderNumber} onChange={set('purchaseOrderNumber')} className="pib-input w-full" />
+          </Field>
+          <Field label="Invoice Instructions" htmlFor="co-invoice-instructions">
+            <textarea id="co-invoice-instructions" value={form.invoiceInstructions} onChange={set('invoiceInstructions')} rows={3} className="pib-input w-full resize-none" />
           </Field>
 
           {/* Address */}

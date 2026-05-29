@@ -5,6 +5,7 @@ import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
 import { useOrg } from '@/lib/contexts/OrgContext'
 import { useToast } from '@/components/ui/Toast'
+import { PageTabs } from '@/components/ui/AppFoundation'
 
 type SocialPlatform =
   | 'twitter'
@@ -190,39 +191,15 @@ export default function QaQueuePage() {
         </button>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-1 border-b border-outline-variant">
-        {(
-          [
-            { value: 'qa_review' as const, label: 'Pending QA' },
-            { value: 'regenerating' as const, label: 'Regenerating' },
-          ]
-        ).map((t) => {
-          const active = tab === t.value
-          return (
-            <button
-              key={t.value}
-              onClick={() => setTab(t.value)}
-              className={`px-4 py-2.5 text-sm font-label transition-colors border-b-2 -mb-px flex items-center gap-2 ${
-                active
-                  ? 'border-amber-500 text-on-surface'
-                  : 'border-transparent text-on-surface-variant hover:text-on-surface'
-              }`}
-            >
-              {t.label}
-              <span
-                className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
-                  active
-                    ? 'bg-amber-500/15 text-amber-400'
-                    : 'bg-surface-container text-on-surface-variant'
-                }`}
-              >
-                {counts[t.value]}
-              </span>
-            </button>
-          )
-        })}
-      </div>
+      <PageTabs
+        ariaLabel="Social QA status"
+        value={tab}
+        onValueChange={(value) => setTab(value as QaStatus)}
+        tabs={[
+          { value: 'qa_review', label: 'Pending QA', badge: counts.qa_review },
+          { value: 'regenerating', label: 'Regenerating', badge: counts.regenerating },
+        ]}
+      />
 
       {/* List */}
       {isLoading ? (

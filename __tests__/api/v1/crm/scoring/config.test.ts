@@ -56,6 +56,14 @@ function stageAuth(
         doc: () => ({
           get: () => Promise.resolve({ exists: true, data: () => member }),
         }),
+        where: (_field: string, _op: string, value: string) => ({
+          get: () =>
+            Promise.resolve({
+              docs: value === member.uid
+                ? [{ id: `${member.orgId}_${member.uid}`, data: () => member }]
+                : [],
+            }),
+        }),
       }
     }
     if (name === 'organizations') {
@@ -154,7 +162,6 @@ describe('PUT /api/v1/crm/scoring/config', () => {
   it('400 for empty body', async () => {
     stageAuth(adminA)
 
-    const { NextRequest } = require('next/server')
     const req = new NextRequest('http://localhost/api/v1/crm/scoring/config', {
       method: 'PUT',
       headers: new Headers({ cookie: `__session=test-session-${adminA.uid}`, 'content-type': 'application/json' }),

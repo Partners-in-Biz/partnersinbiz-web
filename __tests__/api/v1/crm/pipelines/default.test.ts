@@ -47,7 +47,17 @@ function stageAuth(
       return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => ({ activeOrgId: member.orgId }) }) }) }
     }
     if (name === 'orgMembers') {
-      return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => member }) }) }
+      return {
+        doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => member }) }),
+        where: (_field: string, _op: string, value: string) => ({
+          get: () =>
+            Promise.resolve({
+              docs: value === member.uid
+                ? [{ id: `${member.orgId}_${member.uid}`, data: () => member }]
+                : [],
+            }),
+        }),
+      }
     }
     if (name === 'organizations') {
       return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => ({ settings: { permissions: {} } }) }) }) }

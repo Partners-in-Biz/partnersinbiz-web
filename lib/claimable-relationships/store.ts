@@ -2,6 +2,11 @@ import crypto from 'node:crypto'
 import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { ensurePlatformLeadForClaim } from '@/lib/platform-owner/relationships'
+import {
+  normalizeProjectRole,
+  projectMemberDocId,
+  projectOrganizationDocId,
+} from '@/lib/projects/collaboration'
 import type {
   ApplyClaimLinksInput,
   ClaimableRelationship,
@@ -27,6 +32,81 @@ async function loadExistingCrmLink(collectionName: 'companies' | 'contacts', id:
   const data = snap.data() ?? {}
   if (data.orgId !== sourceOrgId) return {}
   return data
+}
+
+async function activateProjectScopedAccess(input: ApplyClaimLinksInput): Promise<void> {
+  if (input.resourceType !== 'project') return
+
+  const now = FieldValue.serverTimestamp()
+  const inviteSnap = await adminDb
+    .collection('projectInvites')
+    .where('projectId', '==', input.resourceId)
+    .where('claimableRelationshipId', '==', input.relationshipId)
+    .limit(10)
+    .get()
+
+  const inviteDocs = inviteSnap.docs ?? []
+  const invite = inviteDocs[0]?.data?.() ?? {}
+  const role = normalizeProjectRole(invite.role)
+  const companyId = typeof invite.companyId === 'string' ? invite.companyId : input.sourceCompanyId
+  const contactId = typeof invite.contactId === 'string' ? invite.contactId : input.sourceContactId
+  const recipientEmail = typeof invite.recipientEmail === 'string' ? invite.recipientEmail : undefined
+  const recipientName = typeof invite.recipientName === 'string' ? invite.recipientName : undefined
+  const recipientCompanyName = typeof invite.recipientCompanyName === 'string' ? invite.recipientCompanyName : undefined
+
+  const orgAccessPayload = Object.fromEntries(Object.entries({
+    projectId: input.resourceId,
+    orgId: input.targetOrgId,
+    companyId,
+    contactId,
+    role,
+    status: 'active',
+    recipientEmail,
+    recipientName,
+    recipientCompanyName,
+    invitedBy: invite.invitedBy || 'system:claimable_relationship',
+    claimedAt: now,
+    updatedAt: now,
+  }).filter(([, value]) => value !== undefined))
+
+  const tasks: Array<Promise<unknown>> = [
+    adminDb.collection('projectOrganizations')
+      .doc(projectOrganizationDocId(input.resourceId, input.targetOrgId))
+      .set(orgAccessPayload, { merge: true }),
+    adminDb.collection('projectMembers')
+      .doc(projectMemberDocId(input.resourceId, input.targetUserId))
+      .set(Object.fromEntries(Object.entries({
+        projectId: input.resourceId,
+        uid: input.targetUserId,
+        orgId: input.targetOrgId,
+        role,
+        status: 'active',
+        memberType: 'external',
+        email: recipientEmail,
+        displayName: recipientName,
+        invitedBy: invite.invitedBy || 'system:claimable_relationship',
+        claimedAt: now,
+        updatedAt: now,
+      }).filter(([, value]) => value !== undefined)), { merge: true }),
+  ]
+
+  if (companyId && companyId !== input.targetOrgId) {
+    tasks.push(adminDb.collection('projectOrganizations')
+      .doc(projectOrganizationDocId(input.resourceId, companyId))
+      .set(orgAccessPayload, { merge: true }))
+  }
+
+  for (const inviteDoc of inviteDocs) {
+    tasks.push(inviteDoc.ref.set({
+      orgId: input.targetOrgId,
+      uid: input.targetUserId,
+      status: 'claimed',
+      claimedAt: now,
+      updatedAt: now,
+    }, { merge: true }))
+  }
+
+  await Promise.all(tasks)
 }
 
 export async function ensureClaimableRelationship(
@@ -104,6 +184,7 @@ export async function ensureClaimableRelationship(
 export async function applyClaimLinks(input: ApplyClaimLinksInput): Promise<void> {
   const now = FieldValue.serverTimestamp()
   const tasks: Array<Promise<unknown>> = []
+  const projectAccessTask = activateProjectScopedAccess(input)
 
   tasks.push(adminDb.collection(COLLECTION).doc(input.relationshipId).update({
     targetOrgId: input.targetOrgId,
@@ -136,7 +217,7 @@ export async function applyClaimLinks(input: ApplyClaimLinksInput): Promise<void
     updatedAt: now,
   }))
 
-  await Promise.all(tasks)
+  await Promise.all([...tasks, projectAccessTask])
 }
 
 export async function createPlatformLeadForClaim(input: {

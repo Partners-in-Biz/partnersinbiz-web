@@ -1,5 +1,7 @@
 'use client'
 
+import type { ContextReference } from '@/lib/context-references/types'
+
 type AgentId = string
 
 type Participant =
@@ -21,6 +23,7 @@ export interface Conversation {
   title: string
   scope?: string
   scopeRefId?: string
+  contextRefs?: ContextReference[]
   lastMessagePreview?: string
   lastMessageRole?: string
   lastMessageAt?: { seconds?: number; _seconds?: number } | string

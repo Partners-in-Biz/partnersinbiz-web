@@ -8,6 +8,7 @@ import { DocumentReviewRail } from '@/components/client-documents/DocumentReview
 import { CommentComposer } from '@/components/inline-comments/CommentComposer'
 import type { AnchorTarget } from '@/components/inline-comments/types'
 import type { ClientDocument, ClientDocumentVersion, DocumentComment } from '@/lib/client-documents/types'
+import type { ContextReference } from '@/lib/context-references/types'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -97,7 +98,7 @@ export default function PortalDocumentDetail({ params }: Props) {
     window.setTimeout(() => setActiveCommentId(null), 2500)
   }, [comments])
 
-  async function submitComposer(text: string) {
+  async function submitComposer(text: string, contextRefs: ContextReference[]) {
     if (!pendingAnchor) return
     setComposerBusy(true)
     try {
@@ -110,6 +111,7 @@ export default function PortalDocumentDetail({ params }: Props) {
         if (pendingAnchor.blockId) payload.blockId = pendingAnchor.blockId
       }
       if (version) payload.versionId = version.id
+      if (contextRefs.length > 0) payload.contextRefs = contextRefs
 
       const res = await fetch(`/api/v1/client-documents/${id}/comments`, {
         method: 'POST',
@@ -134,11 +136,14 @@ export default function PortalDocumentDetail({ params }: Props) {
     if (res.ok) await refreshComments()
   }
 
-  async function handleReply(commentId: string, text: string) {
+  async function handleReply(commentId: string, text: string, contextRefs: ContextReference[]) {
     const res = await fetch(`/api/v1/client-documents/${id}/comments/${commentId}/replies`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text }),
+      body: JSON.stringify({
+        text,
+        ...(contextRefs.length > 0 ? { contextRefs } : {}),
+      }),
     })
     if (res.ok) await refreshComments()
   }
@@ -292,6 +297,7 @@ export default function PortalDocumentDetail({ params }: Props) {
       {pendingAnchor && composerAnchor && (
         <CommentComposer
           anchor={composerAnchor}
+          orgId={doc.orgId}
           onCancel={() => setPendingAnchor(null)}
           onSubmit={submitComposer}
           busy={composerBusy}

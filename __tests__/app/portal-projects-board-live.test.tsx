@@ -59,8 +59,40 @@ describe('Portal projects board live data', () => {
           json: async () => ({ data: [] }),
         } as Response)
       }
+      if (url === '/api/v1/projects/reporting') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: {
+              summary: { totalProjects: 1, openTasks: 3, blockedTasks: 0, waitingApprovals: 1, highRisks: 0, trackedRevenue: 12000, currency: 'ZAR' },
+              clients: [{ clientOrgId: 'client-org', companyId: 'company-client', clientName: 'Client workspace', projectCount: 1, trackedRevenue: 12000, openTasks: 3, blockedTasks: 0, highRisks: 0 }],
+              people: [{ uid: 'contact-1', name: 'Client Contact', assignedTasks: 2, estimateMinutes: 180, capacityMinutes: 360, utilizationPercent: 50, overCapacity: false }],
+              projects: [{ id: 'project-1', name: 'Launch Site', companyId: 'company-client', status: 'development', health: { status: 'healthy', score: 92 }, timeline: { driftCount: 0, dependencyCount: 1 }, reports: { tasks: { open: 3, blocked: 0 }, risks: { high: 0 }, revenue: { trackedAmount: 12000, currency: 'ZAR' } } }],
+            },
+          }),
+        } as Response)
+      }
       return Promise.resolve({ ok: true, json: async () => ({ data: [] }) } as Response)
     }) as jest.Mock
+  })
+
+  it('shows portfolio reporting in the client project workspace', async () => {
+    render(<ProjectsPage />)
+
+    await waitFor(() => expect(screen.getByRole('tab', { name: /portfolio report/i })).toBeInTheDocument())
+    expect(screen.getByRole('tab', { name: /^projects$/i })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('button', { name: /request project/i })).toBeInTheDocument()
+    expect(global.fetch).not.toHaveBeenCalledWith('/api/v1/projects/reporting', expect.any(Object))
+
+    fireEvent.click(screen.getByRole('tab', { name: /portfolio report/i }))
+
+    expect(global.fetch).toHaveBeenCalledWith('/api/v1/projects/reporting', expect.any(Object))
+    await waitFor(() => expect(screen.getByText('Client workspace')).toBeInTheDocument())
+    expect(screen.getByText('Client Contact')).toBeInTheDocument()
+    expect(screen.getByText('Approvals')).toBeInTheDocument()
+    expect(screen.getByText('Client or internal decisions waiting.')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Open company Client workspace' })).toHaveAttribute('href', '/portal/companies/company-client')
+    expect(screen.getByRole('link', { name: 'Open project Launch Site' })).toHaveAttribute('href', '/portal/projects/project-1')
   })
 
   it('updates the cross-project kanban board when Firestore task snapshots change', async () => {
@@ -128,7 +160,7 @@ describe('Portal projects board live data', () => {
   it('does not subscribe to the unscoped top-level projects collection', async () => {
     render(<ProjectsPage />)
 
-    await waitFor(() => expect(screen.getByText('Launch Site')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getAllByText('Launch Site').length).toBeGreaterThan(0))
 
     expect(onSnapshot).not.toHaveBeenCalled()
     expect(collection).not.toHaveBeenCalledWith(expect.anything(), 'projects')

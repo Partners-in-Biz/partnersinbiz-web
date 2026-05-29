@@ -2,9 +2,10 @@ import type { DocumentData, DocumentSnapshot } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import type { ApiUser } from '@/lib/api/types'
 import { canAccessOrg, isSuperAdmin } from '@/lib/api/platformAdmin'
+import { resolveProjectAccessForUser } from '@/lib/projects/collaboration'
 
 export type ProjectAccessResult =
-  | { ok: true; doc: DocumentSnapshot<DocumentData> }
+  | { ok: true; doc: DocumentSnapshot<DocumentData>; projectAccess: Awaited<ReturnType<typeof resolveProjectAccessForUser>> }
   | { ok: false; status: number; error: string }
 
 function projectOrgIds(data: DocumentData): string[] {
@@ -24,6 +25,8 @@ export function canAccessProject(user: ApiUser, data: DocumentData): boolean {
 export async function getProjectForUser(projectId: string, user: ApiUser): Promise<ProjectAccessResult> {
   const doc = await adminDb.collection('projects').doc(projectId).get()
   if (!doc.exists) return { ok: false, status: 404, error: 'Project not found' }
-  if (!canAccessProject(user, doc.data() ?? {})) return { ok: false, status: 403, error: 'Forbidden' }
-  return { ok: true, doc }
+  const data = doc.data() ?? {}
+  const projectAccess = await resolveProjectAccessForUser(projectId, user, data)
+  if (!projectAccess && !canAccessProject(user, data)) return { ok: false, status: 403, error: 'Forbidden' }
+  return { ok: true, doc, projectAccess: projectAccess ?? null }
 }

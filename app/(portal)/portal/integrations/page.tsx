@@ -1,7 +1,7 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
 import {
   CRM_INTEGRATION_PROVIDERS,
   findProvider,
@@ -44,6 +44,64 @@ function StatusBadge({ status }: { status: CrmIntegrationStatus }) {
   )
 }
 
+function HealthBadge({ integration }: { integration: PublicCrmIntegrationView }) {
+  if (integration.status === 'error' || integration.lastSyncStats.errored > 0 || integration.lastError) {
+    return (
+      <span className="px-2 py-0.5 rounded-full text-[11px] font-medium border border-red-500/25 bg-red-500/10 text-red-200">
+        Needs review
+      </span>
+    )
+  }
+  if (integration.status === 'active' && integration.lastSyncedAt) {
+    return (
+      <span className="px-2 py-0.5 rounded-full text-[11px] font-medium border border-emerald-500/25 bg-emerald-500/10 text-emerald-200">
+        Healthy sync
+      </span>
+    )
+  }
+  if (integration.status === 'paused' || integration.status === 'disabled') {
+    return (
+      <span className="px-2 py-0.5 rounded-full text-[11px] font-medium border border-amber-500/25 bg-amber-500/10 text-amber-200">
+        Paused
+      </span>
+    )
+  }
+  return (
+    <span className="px-2 py-0.5 rounded-full text-[11px] font-medium border border-sky-500/25 bg-sky-500/10 text-sky-200">
+      Setup pending
+    </span>
+  )
+}
+
+function MetricCard({
+  label,
+  value,
+  detail,
+  icon,
+}: {
+  label: string
+  value: string | number
+  detail: string
+  icon: string
+}) {
+  return (
+    <div className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[10px] font-medium uppercase tracking-widest text-[var(--color-pib-text-muted)]">
+            {label}
+          </p>
+          <p className="mt-2 truncate text-2xl font-display text-[var(--color-pib-text)]">{value}</p>
+        </div>
+        <span className="material-symbols-outlined rounded-lg border border-[var(--color-pib-line)] bg-white/[0.04] p-2 text-[18px] text-[var(--color-pib-text-muted)]">
+          {icon}
+        </span>
+      </div>
+      <p className="mt-3 text-xs text-[var(--color-pib-text-muted)]">{detail}</p>
+    </div>
+  )
+}
+
 function cadenceLabel(mins: number): string {
   if (!mins) return 'manual'
   if (mins < 60) return `every ${mins} min`
@@ -65,9 +123,11 @@ const CADENCE_OPTIONS: Array<{ value: number; label: string }> = [
 ]
 
 function ProviderTile({
+  connectedCount,
   entry,
   onAdd,
 }: {
+  connectedCount: number
   entry: ProviderRegistryEntry
   onAdd: (p: CrmIntegrationProvider) => void
 }) {
@@ -86,6 +146,11 @@ function ProviderTile({
     >
       <div className="flex items-center justify-between gap-2 mb-1">
         <span className="font-medium text-[var(--color-pib-text)]">{entry.displayName}</span>
+        {connectedCount > 0 && (
+          <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/15 text-emerald-300 border border-emerald-500/25 uppercase tracking-wide">
+            {connectedCount} connected
+          </span>
+        )}
         {entry.comingSoon && (
           <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-white/10 text-[var(--color-pib-text-muted)] border border-[var(--color-pib-line-strong)] uppercase tracking-wide">
             Coming soon
@@ -320,12 +385,22 @@ function IntegrationCard({
   const isPaused = integration.status === 'paused'
   const isSyncingState = integration.status === 'syncing' || syncing
   const sensitiveFields = entry?.configFields.filter((f) => f.sensitive) ?? []
+  const campaignCount = integration.autoCampaignIds?.length ?? 0
+  const tagCount = integration.autoTags?.length ?? 0
+  const readinessItems = [
+    cadenceLabel(integration.cadenceMinutes),
+    integration.lastSyncedAt ? `${integration.lastSyncStats.imported} imported` : 'Never synced',
+    tagCount > 0 ? `${tagCount} auto-tag${tagCount === 1 ? '' : 's'}` : 'No auto-tags',
+    campaignCount > 0 ? 'Auto-enrolls' : 'No nurture routing',
+  ]
 
   return (
-    <div className="rounded-xl bg-[var(--color-pib-surface)] border border-[var(--color-pib-line)]">
-      <div className="p-4 flex items-center justify-between gap-3 flex-wrap">
+    <div className="rounded-xl bg-[var(--color-pib-surface)] border border-[var(--color-pib-line)] overflow-hidden">
+      <div className="p-4 flex items-start justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-3 min-w-0 flex-1">
-          <span className="material-symbols-outlined text-[var(--color-pib-text-muted)] text-[20px]">extension</span>
+          <span className="material-symbols-outlined rounded-lg border border-[var(--color-pib-line)] bg-white/[0.04] p-2 text-[var(--color-pib-text-muted)] text-[20px]">
+            extension
+          </span>
           <div className="min-w-0 flex-1">
             <p className="font-medium text-[var(--color-pib-text)] truncate">
               {integration.name}
@@ -342,8 +417,19 @@ function IntegrationCard({
                 {statsSummary(integration.lastSyncStats)}
               </p>
             )}
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {readinessItems.map((item) => (
+                <span
+                  key={item}
+                  className="rounded-full border border-[var(--color-pib-line)] bg-white/[0.03] px-2 py-0.5 text-[11px] text-[var(--color-pib-text-muted)]"
+                >
+                  {item}
+                </span>
+              ))}
+            </div>
           </div>
           <StatusBadge status={integration.status} />
+          <HealthBadge integration={integration} />
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -528,8 +614,11 @@ export default function PortalIntegrationsPage() {
   }, [])
 
   useEffect(() => {
-    loadIntegrations()
-    loadCampaigns()
+    const handle = window.setTimeout(() => {
+      loadIntegrations()
+      loadCampaigns()
+    }, 0)
+    return () => window.clearTimeout(handle)
   }, [loadIntegrations, loadCampaigns])
 
   function handleCreated(created: PublicCrmIntegrationView) {
@@ -544,27 +633,101 @@ export default function PortalIntegrationsPage() {
   }
 
   const addingEntry = addingProvider ? findProvider(addingProvider) : null
+  const metrics = useMemo(() => {
+    const connected = integrations.length
+    const healthy = integrations.filter(
+      (integration) => integration.status === 'active' && Boolean(integration.lastSyncedAt) && !integration.lastError && integration.lastSyncStats.errored === 0,
+    ).length
+    const imported = integrations.reduce((sum, integration) => sum + (integration.lastSyncStats.imported ?? 0), 0)
+    const attention = integrations.filter(
+      (integration) =>
+        integration.status === 'error' ||
+        integration.status === 'pending' ||
+        integration.status === 'paused' ||
+        integration.lastSyncStats.errored > 0 ||
+        Boolean(integration.lastError),
+    ).length
+    return { connected, healthy, imported, attention }
+  }, [integrations])
+  const connectedByProvider = useMemo(() => {
+    return integrations.reduce<Record<CrmIntegrationProvider, number>>(
+      (acc, integration) => {
+        acc[integration.provider] += 1
+        return acc
+      },
+      { mailchimp: 0, hubspot: 0, gmail: 0, zapier: 0 },
+    )
+  }, [integrations])
 
   return (
     <div className="space-y-8">
       <header>
         <p className="eyebrow">CRM</p>
-        <h1 className="pib-page-title mt-2">Integrations</h1>
+        <h1 className="pib-page-title mt-2">Integration command center</h1>
         <p className="pib-page-sub max-w-2xl">
-          Pull contacts from Mailchimp, HubSpot, Google, and more. Captured contacts are auto-tagged and can auto-enroll into active campaigns.
+          Monitor every external system that feeds your CRM. Keep imports healthy, credentials current, contacts tagged, and nurture routing intentional.
         </p>
       </header>
 
-      <div>
-        <h2 className="text-sm font-medium text-[var(--color-pib-text)] mb-3">Available providers</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {CRM_INTEGRATION_PROVIDERS.map((entry) => (
-            <ProviderTile
-              key={entry.provider}
-              entry={entry}
-              onAdd={(p) => setAddingProvider(p)}
-            />
-          ))}
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <MetricCard
+          label="Connected sources"
+          value={metrics.connected}
+          detail="External systems currently configured for CRM intake."
+          icon="hub"
+        />
+        <MetricCard
+          label="Healthy syncs"
+          value={`${metrics.healthy}/${metrics.connected}`}
+          detail="Active integrations with a clean latest sync."
+          icon="sync_saved_locally"
+        />
+        <MetricCard
+          label="Imported contacts"
+          value={metrics.imported}
+          detail="Contacts pulled during the most recent sync cycle."
+          icon="groups"
+        />
+        <MetricCard
+          label="Needs attention"
+          value={metrics.attention}
+          detail="Pending, paused, or failed integrations to review."
+          icon="priority_high"
+        />
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <div>
+          <h2 className="text-sm font-medium text-[var(--color-pib-text)] mb-3">Available providers</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {CRM_INTEGRATION_PROVIDERS.map((entry) => (
+              <ProviderTile
+                key={entry.provider}
+                connectedCount={connectedByProvider[entry.provider]}
+                entry={entry}
+                onAdd={(p) => setAddingProvider(p)}
+              />
+            ))}
+          </div>
+        </div>
+
+        <div className="rounded-xl bg-[var(--color-pib-surface)] border border-[var(--color-pib-line)] p-4">
+          <h2 className="text-sm font-medium text-[var(--color-pib-text)]">Sync discipline</h2>
+          <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
+            Healthy CRM imports need three things: a recent sync, source tags, and a deliberate nurture path for the right leads.
+          </p>
+          <div className="mt-4 space-y-2">
+            {[
+              ['Credentials', 'Rotate secrets when providers report auth errors.'],
+              ['Attribution', 'Use auto-tags so imported contacts keep source context.'],
+              ['Follow-up', 'Enroll only the imports that should enter a campaign.'],
+            ].map(([label, detail]) => (
+              <div key={label} className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-bg)] p-3">
+                <p className="text-sm font-medium text-[var(--color-pib-text)]">{label}</p>
+                <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">{detail}</p>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 

@@ -1,13 +1,16 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useEffect, useState } from 'react'
-import { useParams } from 'next/navigation'
+import { useEffect, useRef, useState, type RefObject } from 'react'
+import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { fmtTimestamp } from '@/components/admin/email/fmtTimestamp'
 import { ContactDealsPanel } from '@/components/crm/ContactDealsPanel'
+import { ContactEngagementPanel } from '@/components/crm/ContactEngagementPanel'
 import { CompanyPanel } from '@/components/crm/CompanyPanel'
 import { CompanyPicker } from '@/components/crm/CompanyPicker'
+import { ContactIdentityPanel } from '@/components/crm/ContactIdentityPanel'
+import { ContactOwnershipPanel } from '@/components/crm/ContactOwnershipPanel'
 import { CustomFieldsSection } from '@/components/crm/CustomFieldsSection'
 import { ScoreChip } from '@/components/crm/ScoreChip'
 import type { CustomFieldDefinition } from '@/lib/customFields/types'
@@ -18,6 +21,8 @@ interface ContactRecord {
   name?: string
   email?: string
   phone?: string
+  jobTitle?: string
+  department?: string
   company?: string
   companyId?: string
   companyName?: string
@@ -26,9 +31,22 @@ interface ContactRecord {
   type?: string
   stage?: string
   notes?: string
+  assignedTo?: string
+  assignedToRef?: MemberRef
+  createdByRef?: MemberRef
+  updatedByRef?: MemberRef
+  capturedFromId?: string
   tags?: string[]
   lastContactedAt?: unknown
   createdAt?: unknown
+  timezone?: string
+  phoneVerified?: boolean
+  smsOptedIn?: boolean
+  unsubscribedAt?: unknown
+  bouncedAt?: unknown
+  smsUnsubscribedAt?: unknown
+  lastRepliedAt?: unknown
+  repliesCount?: number
   leadScore?: number
   icpScore?: number
   aiLeadScore?: number
@@ -56,6 +74,13 @@ interface ActivityRecord {
   createdByRef?: MemberRef
 }
 
+interface TeamMemberOption {
+  uid: string
+  firstName?: string
+  lastName?: string
+  jobTitle?: string
+}
+
 const ACTIVITY_ICONS: Record<string, string> = {
   note: 'notes',
   email_sent: 'mail',
@@ -68,13 +93,70 @@ const ACTIVITY_ICONS: Record<string, string> = {
   stage_change: 'swap_horiz',
 }
 
+const STAGE_OPTIONS = ['new', 'contacted', 'replied', 'demo', 'proposal', 'won', 'lost']
+const TYPE_OPTIONS = ['lead', 'prospect', 'client', 'churned']
+const SOURCE_OPTIONS = ['manual', 'form', 'import', 'outreach']
+
+function timestampMillis(value: unknown): number {
+  if (!value) return 0
+  if (value instanceof Date) return value.getTime()
+  if (typeof value === 'string') {
+    const parsed = Date.parse(value)
+    return Number.isNaN(parsed) ? 0 : parsed
+  }
+  if (typeof value === 'object' && value !== null) {
+    const candidate = value as { toMillis?: () => number; toDate?: () => Date; seconds?: number }
+    if (typeof candidate.toMillis === 'function') return candidate.toMillis()
+    if (typeof candidate.toDate === 'function') return candidate.toDate().getTime()
+    if (typeof candidate.seconds === 'number') return candidate.seconds * 1000
+  }
+  return 0
+}
+
+function daysSince(value: unknown): number | null {
+  const millis = timestampMillis(value)
+  if (!millis) return null
+  return Math.max(0, Math.floor((Date.now() - millis) / 86_400_000))
+}
+
+function fmtPercent(value: number): string {
+  return `${Math.round(Math.max(0, Math.min(value, 1)) * 100)}%`
+}
+
+function splitTags(value: string): string[] {
+  return value
+    .split(',')
+    .map((tag) => tag.trim())
+    .filter(Boolean)
+}
+
 function toDateTimeLocalValue(date: Date): string {
   const offsetMs = date.getTimezoneOffset() * 60_000
   return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16)
 }
 
+function teamMemberRef(member?: TeamMemberOption): MemberRef | undefined {
+  if (!member) return undefined
+  return {
+    uid: member.uid,
+    displayName: [member.firstName, member.lastName].filter(Boolean).join(' ') || member.uid,
+    jobTitle: member.jobTitle,
+    kind: 'human',
+  }
+}
+
 export default function PortalContactDetailPage() {
   const { id } = useParams<{ id: string }>()
+  const router = useRouter()
+  const companyPickerRef = useRef<HTMLDivElement | null>(null)
+  const emailFieldRef = useRef<HTMLInputElement | null>(null)
+  const phoneFieldRef = useRef<HTMLInputElement | null>(null)
+  const jobTitleFieldRef = useRef<HTMLInputElement | null>(null)
+  const departmentFieldRef = useRef<HTMLInputElement | null>(null)
+  const timezoneFieldRef = useRef<HTMLInputElement | null>(null)
+  const websiteFieldRef = useRef<HTMLInputElement | null>(null)
+  const notesFieldRef = useRef<HTMLTextAreaElement | null>(null)
+  const ownerFieldRef = useRef<HTMLSelectElement | null>(null)
   const [contact, setContact] = useState<ContactRecord | null>(null)
   const [emails, setEmails] = useState<EmailRecord[]>([])
   const [activities, setActivities] = useState<ActivityRecord[]>([])
@@ -84,6 +166,18 @@ export default function PortalContactDetailPage() {
 
   // edit-in-place
   const [name, setName] = useState('')
+  const [email, setEmail] = useState('')
+  const [phone, setPhone] = useState('')
+  const [jobTitle, setJobTitle] = useState('')
+  const [department, setDepartment] = useState('')
+  const [website, setWebsite] = useState('')
+  const [timezone, setTimezone] = useState('')
+  const [source, setSource] = useState('manual')
+  const [type, setType] = useState('lead')
+  const [stage, setStage] = useState('new')
+  const [assignedTo, setAssignedTo] = useState('')
+  const [teamMembers, setTeamMembers] = useState<TeamMemberOption[]>([])
+  const [tagsInput, setTagsInput] = useState('')
   const [notes, setNotes] = useState('')
   // companyId/companyName for the picker — undefined = not in edit mode yet, '' = clear intent
   const [editCompanyId, setEditCompanyId] = useState<string | undefined>(undefined)
@@ -92,7 +186,10 @@ export default function PortalContactDetailPage() {
   const [customFieldDefs, setCustomFieldDefs] = useState<CustomFieldDefinition[]>([])
   const [editCustomFields, setEditCustomFields] = useState<Record<string, unknown>>({})
   const [saving, setSaving] = useState(false)
+  const [archiving, setArchiving] = useState(false)
   const [error, setError] = useState('')
+  const [scoreSaving, setScoreSaving] = useState(false)
+  const [scoreError, setScoreError] = useState<string | null>(null)
 
   // B2: Log activity quick actions
   const [logType, setLogType] = useState<string | null>(null)
@@ -145,9 +242,20 @@ export default function PortalContactDetailPage() {
     fetch(`/api/v1/crm/contacts/${id}`)
       .then((r) => r.json())
       .then((b) => {
-        const c = (b.data ?? null) as ContactRecord | null
+        const c = (b.data?.contact ?? b.contact ?? b.data ?? null) as ContactRecord | null
         setContact(c)
         setName(c?.name ?? '')
+        setEmail(c?.email ?? '')
+        setPhone(c?.phone ?? '')
+        setJobTitle(c?.jobTitle ?? '')
+        setDepartment(c?.department ?? '')
+        setWebsite(c?.website ?? '')
+        setTimezone(c?.timezone ?? '')
+        setSource(c?.source ?? 'manual')
+        setType(c?.type ?? 'lead')
+        setStage(c?.stage ?? 'new')
+        setAssignedTo(c?.assignedTo ?? c?.assignedToRef?.uid ?? '')
+        setTagsInput(Array.isArray(c?.tags) ? c.tags.join(', ') : '')
         setNotes(c?.notes ?? '')
         setEditCompanyId(c?.companyId ?? undefined)
         setEditCompanyName(c?.companyName ?? undefined)
@@ -163,6 +271,13 @@ export default function PortalContactDetailPage() {
       .then((r) => r.json())
       .then((b) => setCustomFieldDefs(b.data?.definitions ?? b.definitions ?? []))
       .catch(() => setCustomFieldDefs([]))
+  }, [])
+
+  useEffect(() => {
+    fetch('/api/v1/portal/settings/team')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((body) => setTeamMembers(body?.members ?? []))
+      .catch(() => setTeamMembers([]))
   }, [])
 
   useEffect(() => {
@@ -212,8 +327,23 @@ export default function PortalContactDetailPage() {
     setSaving(true)
     setError('')
     try {
+      const selectedOwnerRef = teamMemberRef(teamMembers.find((member) => member.uid === assignedTo))
       // Build payload — companyId: '' signals clear to the API (FieldValue.delete())
-      const payload: Record<string, unknown> = { name, notes }
+      const payload: Record<string, unknown> = {
+        name: name.trim(),
+        email: email.trim(),
+        phone: phone.trim(),
+        jobTitle: jobTitle.trim(),
+        department: department.trim(),
+        website: website.trim(),
+        timezone: timezone.trim(),
+        source,
+        type,
+        stage,
+        assignedTo,
+        tags: splitTags(tagsInput),
+        notes: notes.trim(),
+      }
       if (editCompanyId !== undefined) {
         payload.companyId = editCompanyId
       }
@@ -232,13 +362,76 @@ export default function PortalContactDetailPage() {
       }
       setContact((prev) =>
         prev
-          ? { ...prev, name, notes, companyId: editCompanyId, companyName: editCompanyName, customFields: editCustomFields }
+          ? {
+              ...prev,
+              name: name.trim(),
+              email: email.trim(),
+              phone: phone.trim(),
+              jobTitle: jobTitle.trim(),
+              department: department.trim(),
+              website: website.trim(),
+              timezone: timezone.trim(),
+              source,
+              type,
+              stage,
+              assignedTo,
+              assignedToRef: selectedOwnerRef,
+              tags: splitTags(tagsInput),
+              notes: notes.trim(),
+              companyId: editCompanyId,
+              companyName: editCompanyName,
+              customFields: editCustomFields,
+            }
           : prev,
       )
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Save failed')
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function archiveContact() {
+    if (!contact || !confirm(`Archive ${contact.name ?? 'this contact'}?`)) return
+    setArchiving(true)
+    setError('')
+    try {
+      const res = await fetch(`/api/v1/crm/contacts/${id}`, { method: 'DELETE' })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error ?? 'Archive failed')
+      }
+      router.push('/portal/contacts')
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Archive failed')
+    } finally {
+      setArchiving(false)
+    }
+  }
+
+  async function handleRecomputeScore() {
+    if (!contact) return
+    setScoreSaving(true)
+    setScoreError(null)
+    try {
+      const res = await fetch(`/api/v1/crm/contacts/${id}/recompute-score`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ includeAi: true }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error((err as { error?: string }).error ?? 'Score recompute failed')
+      }
+      const body = await res.json() as { data?: { update?: Partial<ContactRecord> } }
+      const update = body.data?.update
+      if (update) {
+        setContact((prev) => prev ? { ...prev, ...update } : prev)
+      }
+    } catch (err: unknown) {
+      setScoreError(err instanceof Error ? err.message : 'Score recompute failed')
+    } finally {
+      setScoreSaving(false)
     }
   }
 
@@ -253,6 +446,43 @@ export default function PortalContactDetailPage() {
     } catch {
       // silent — user can retry by clicking again
     }
+  }
+
+  function openFirstEmailComposer() {
+    setLogType('email_sent')
+    setShowAiComposer(false)
+    setLogError(null)
+  }
+
+  function openFirstNoteComposer() {
+    setLogType('note')
+    setShowAiComposer(false)
+    setLogError(null)
+  }
+
+  function openFirstMeetingComposer() {
+    if (!meetingStartAt) {
+      const start = new Date(Date.now() + 60 * 60 * 1000)
+      const end = new Date(start.getTime() + 30 * 60 * 1000)
+      setMeetingStartAt(toDateTimeLocalValue(start))
+      setMeetingEndAt(toDateTimeLocalValue(end))
+      setMeetingTitle(contact?.name ? `Meeting with ${contact.name}` : '')
+    }
+    setLogType('meeting')
+    setShowAiComposer(false)
+    setLogError(null)
+  }
+
+  function focusCompanyPicker() {
+    const companyPicker = companyPickerRef.current
+    companyPicker?.scrollIntoView?.({ behavior: 'smooth', block: 'center' })
+    companyPicker?.querySelector<HTMLInputElement>('input[role="combobox"]')?.focus()
+  }
+
+  function focusProfileField(fieldRef: RefObject<HTMLElement | null>) {
+    const field = fieldRef.current
+    field?.scrollIntoView?.({ behavior: 'smooth', block: 'center' })
+    field?.focus()
   }
 
   async function handleLogActivity() {
@@ -454,14 +684,130 @@ export default function PortalContactDetailPage() {
   const storedCustomFields = (contact.customFields as Record<string, unknown>) ?? {}
   const dirty =
     (contact.name ?? '') !== name ||
+    (contact.email ?? '') !== email ||
+    (contact.phone ?? '') !== phone ||
+    (contact.jobTitle ?? '') !== jobTitle ||
+    (contact.department ?? '') !== department ||
+    (contact.website ?? '') !== website ||
+    (contact.timezone ?? '') !== timezone ||
+    (contact.source ?? 'manual') !== source ||
+    (contact.type ?? 'lead') !== type ||
+    (contact.stage ?? 'new') !== stage ||
+    (contact.assignedTo ?? contact.assignedToRef?.uid ?? '') !== assignedTo ||
+    (Array.isArray(contact.tags) ? contact.tags.join(', ') : '') !== tagsInput ||
     (contact.notes ?? '') !== notes ||
     editCompanyId !== (contact.companyId ?? undefined) ||
     JSON.stringify(editCustomFields) !== JSON.stringify(storedCustomFields)
-  const tags = Array.isArray(contact.tags) ? contact.tags : []
+  const tags = splitTags(tagsInput)
+  const contactName = name.trim() || contact.name || 'Unnamed contact'
+  const companyLabel = editCompanyName || contact.companyName || contact.company || 'No company linked'
+  const hasLinkedCompany = !!(editCompanyId || contact.companyId || editCompanyName || contact.companyName || contact.company)
+  const lastTouchDays = daysSince(contact.lastContactedAt)
+  const createdDays = daysSince(contact.createdAt)
+  const profileFields = [
+    name,
+    email,
+    phone,
+    jobTitle,
+    department,
+    hasLinkedCompany ? companyLabel : '',
+    website,
+    timezone,
+    source,
+    type,
+    stage,
+    assignedTo,
+    notes,
+    tags.length > 0 ? tags.join(',') : '',
+  ]
+  const profileStrength = profileFields.filter((value) => String(value ?? '').trim()).length / profileFields.length
+  const hasAnyScore = contact.leadScore != null || contact.icpScore != null || contact.aiLeadScore != null
+  const bestScore = Math.max(contact.leadScore ?? 0, contact.icpScore ?? 0, contact.aiLeadScore ?? 0)
+  const shouldPromptScoreRecompute = !hasAnyScore
+  const recentActivityCount = activities.length
+  const shouldPromptActivityLog = recentActivityCount === 0
+  const sentEmailCount = emails.filter((item) => item.direction !== 'inbound').length
+  const receivedEmailCount = emails.filter((item) => item.direction === 'inbound').length
+  const shouldPromptFirstEmail = emails.length === 0 && !!email.trim()
+  const nextSuggestion = suggestions[0]
+  const missingFields = [
+    !email.trim() ? 'email' : '',
+    !phone.trim() ? 'phone' : '',
+    !hasLinkedCompany ? 'company' : '',
+    !website.trim() ? 'website' : '',
+    !notes.trim() ? 'relationship notes' : '',
+  ].filter(Boolean)
+  const profileGapAction = !email.trim()
+    ? { label: 'Add email', icon: 'alternate_email', ariaLabel: `Add email for ${contactName}`, fieldRef: emailFieldRef }
+    : !phone.trim()
+      ? { label: 'Add phone', icon: 'call', ariaLabel: `Add phone for ${contactName}`, fieldRef: phoneFieldRef }
+      : !website.trim()
+        ? { label: 'Add website', icon: 'language', ariaLabel: `Add website for ${contactName}`, fieldRef: websiteFieldRef }
+        : !notes.trim()
+          ? { label: 'Add notes', icon: 'notes', ariaLabel: `Add notes for ${contactName}`, fieldRef: notesFieldRef }
+          : null
+  const relationshipSignal =
+    lastTouchDays === null
+      ? 'No touch logged'
+      : lastTouchDays <= 7
+        ? 'Warm'
+        : lastTouchDays <= 30
+          ? 'Follow-up due'
+          : 'Cold'
+  const shouldPromptTouchLog = lastTouchDays === null || lastTouchDays > 30
+  const ownerRef =
+    assignedTo && contact.assignedToRef?.uid === assignedTo
+      ? contact.assignedToRef
+      : teamMemberRef(teamMembers.find((member) => member.uid === assignedTo))
+  const detailRows = [
+    {
+      label: 'Email',
+      value: email.trim(),
+      empty: 'No email captured',
+      actionLabel: 'Add email',
+      actionAriaLabel: `Add email from details for ${contactName}`,
+      onAction: () => focusProfileField(emailFieldRef),
+    },
+    {
+      label: 'Phone',
+      value: phone.trim(),
+      empty: 'No phone captured',
+      actionLabel: 'Add phone',
+      actionAriaLabel: `Add phone from details for ${contactName}`,
+      onAction: () => focusProfileField(phoneFieldRef),
+    },
+    {
+      label: 'Linked company',
+      value: hasLinkedCompany ? companyLabel : '',
+      empty: 'No company linked',
+      actionLabel: 'Link company',
+      actionAriaLabel: `Link company from details for ${contactName}`,
+      onAction: focusCompanyPicker,
+    },
+    {
+      label: 'Website',
+      value: website.trim(),
+      empty: 'No website captured',
+      actionLabel: 'Add website',
+      actionAriaLabel: `Add website from details for ${contactName}`,
+      onAction: () => focusProfileField(websiteFieldRef),
+    },
+    {
+      label: 'Relationship notes',
+      value: notes.trim(),
+      empty: 'No relationship notes captured',
+      actionLabel: 'Add notes',
+      actionAriaLabel: `Add relationship notes from details for ${contactName}`,
+      onAction: () => focusProfileField(notesFieldRef),
+    },
+    { label: 'Source', value: source },
+    { label: 'Type', value: type },
+    { label: 'Stage', value: stage },
+  ]
 
   return (
     <div className="space-y-8">
-      <div>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <Link
           href="/portal/contacts"
           className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] inline-flex items-center gap-1 transition-colors"
@@ -469,34 +815,212 @@ export default function PortalContactDetailPage() {
           <span className="material-symbols-outlined text-sm">arrow_back</span>
           Contacts
         </Link>
+        <div className="flex items-center gap-2">
+          {email.trim() && (
+            <a href={`mailto:${email.trim()}`} className="btn-pib-secondary text-xs inline-flex items-center gap-1.5">
+              <span className="material-symbols-outlined text-[14px]">mail</span>
+              Email
+            </a>
+          )}
+          {phone.trim() && (
+            <a href={`tel:${phone.trim()}`} className="btn-pib-secondary text-xs inline-flex items-center gap-1.5">
+              <span className="material-symbols-outlined text-[14px]">call</span>
+              Call
+            </a>
+          )}
+          <button
+            onClick={archiveContact}
+            disabled={archiving}
+            className="btn-pib-secondary text-xs inline-flex items-center gap-1.5 disabled:opacity-50"
+          >
+            <span className="material-symbols-outlined text-[14px]">archive</span>
+            {archiving ? 'Archiving…' : 'Archive'}
+          </button>
+        </div>
       </div>
 
-      <header className="space-y-3">
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          className="pib-input !text-2xl !font-display !py-2 !px-3 max-w-xl"
-          placeholder="Contact name"
-        />
-        <div className="flex flex-wrap items-center gap-2">
-          {contact.stage && (
-            <span className="pill capitalize">{String(contact.stage)}</span>
-          )}
-          {contact.type && (
-            <span className="pill capitalize">{String(contact.type)}</span>
-          )}
-          {tags.map((t) => (
-            <span key={t} className="pill">
-              {t}
-            </span>
-          ))}
+      <header className="space-y-6">
+        <div className="grid gap-5 lg:grid-cols-[1fr_340px]">
+          <div className="space-y-5">
+            <div className="flex items-start gap-4">
+              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] font-display text-2xl text-[var(--color-pib-accent)]">
+                {contactName.slice(0, 1).toUpperCase()}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="eyebrow">Contact command center</p>
+                <input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="mt-2 w-full border-0 bg-transparent p-0 font-display text-3xl tracking-tight text-[var(--color-pib-text)] outline-none md:text-4xl"
+                  placeholder="Contact name"
+                />
+                <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-[var(--color-pib-text-muted)]">
+                  <span className="inline-flex items-center gap-1">
+                    <span className="material-symbols-outlined text-[16px]">business</span>
+                    {companyLabel}
+                  </span>
+                  {!hasLinkedCompany && (
+                    <button
+                      type="button"
+                      aria-label={`Link company for ${contactName}`}
+                      onClick={focusCompanyPicker}
+                      className="inline-flex items-center gap-1 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-2 py-1 text-xs font-medium text-[var(--color-pib-accent)] transition-colors hover:border-[var(--color-pib-accent)] hover:text-[var(--color-pib-text)]"
+                    >
+                      <span className="material-symbols-outlined text-[14px]">add_business</span>
+                      Link company
+                    </button>
+                  )}
+                  {email.trim() && (
+                    <span className="inline-flex items-center gap-1">
+                      <span className="material-symbols-outlined text-[16px]">alternate_email</span>
+                      {email.trim()}
+                    </span>
+                  )}
+                  {createdDays !== null && <span>{createdDays === 0 ? 'Created today' : `Created ${createdDays}d ago`}</span>}
+                </div>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="pill capitalize">{stage}</span>
+              <span className="pill capitalize">{type}</span>
+              <span className="pill">{relationshipSignal}</span>
+              {tags.map((t) => (
+                <span key={t} className="pill">
+                  {t}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          <div className="bento-card !p-5 space-y-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="eyebrow !text-[10px]">Profile strength</p>
+                <p className="mt-2 font-display text-3xl text-[var(--color-pib-text)]">{fmtPercent(profileStrength)}</p>
+              </div>
+              <span className="material-symbols-outlined text-3xl text-[var(--color-pib-accent)]">account_circle</span>
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-[var(--color-pib-line-strong)]">
+              <div
+                className="h-full rounded-full bg-[var(--color-pib-accent)] transition-all duration-500"
+                style={{ width: fmtPercent(profileStrength) }}
+              />
+            </div>
+            <p className="text-xs leading-relaxed text-[var(--color-pib-text-muted)]">
+              {missingFields.length === 0
+                ? 'The core contact profile is complete enough for segmentation, scoring, and follow-up.'
+                : `Missing ${missingFields.slice(0, 3).join(', ')}${missingFields.length > 3 ? ' and more' : ''}.`}
+            </p>
+            {profileGapAction && (
+              <button
+                type="button"
+                aria-label={profileGapAction.ariaLabel}
+                onClick={() => focusProfileField(profileGapAction.fieldRef)}
+                className="btn-pib-secondary inline-flex w-full items-center justify-center gap-1.5 text-xs"
+              >
+                <span className="material-symbols-outlined text-[14px]">{profileGapAction.icon}</span>
+                {profileGapAction.label}
+              </button>
+            )}
+          </div>
         </div>
-        {(contact.leadScore !== undefined || contact.icpScore !== undefined || contact.aiLeadScore !== undefined) && (
-          <div className="flex items-center gap-2">
-            <ScoreChip score={contact.leadScore} kind="lead" label="Lead score (formula)" size="sm" />
-            <ScoreChip score={contact.icpScore} kind="icp" label="ICP match score" size="sm" />
-            {contact.aiLeadScore !== undefined && (
-              <ScoreChip score={contact.aiLeadScore} kind="ai" label="AI lead score" size="sm" />
+
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div className="pib-stat-card">
+            <p className="eyebrow !text-[10px]">Best score</p>
+            <p className="mt-3 font-display text-3xl text-[var(--color-pib-text)]">{hasAnyScore ? bestScore : '—'}</p>
+            <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">Lead, ICP, or AI signal</p>
+            {shouldPromptScoreRecompute && (
+              <button
+                type="button"
+                aria-label={`Recompute score for ${contactName} from best score insight`}
+                onClick={handleRecomputeScore}
+                disabled={scoreSaving}
+                className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-[var(--color-pib-line)] px-2 py-1.5 text-xs font-medium text-[var(--color-pib-accent)] transition-colors hover:border-[var(--color-pib-accent)] hover:text-[var(--color-pib-text)] disabled:opacity-50"
+              >
+                <span className="material-symbols-outlined text-[14px]" aria-hidden="true">speed</span>
+                {scoreSaving ? 'Scoring…' : 'Recompute score'}
+              </button>
+            )}
+            {scoreError && <p className="mt-2 text-xs text-red-400">{scoreError}</p>}
+          </div>
+          <div className="pib-stat-card">
+            <p className="eyebrow !text-[10px]">Last touch</p>
+            <p className="mt-3 font-display text-3xl text-[var(--color-pib-text)]">
+              {lastTouchDays === null ? '—' : lastTouchDays === 0 ? 'Today' : `${lastTouchDays}d`}
+            </p>
+            <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">{relationshipSignal}</p>
+            {shouldPromptTouchLog && (
+              <button
+                type="button"
+                aria-label={`Log touch for ${contactName} from last touch insight`}
+                onClick={openFirstNoteComposer}
+                className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-[var(--color-pib-line)] px-2 py-1.5 text-xs font-medium text-[var(--color-pib-accent)] transition-colors hover:border-[var(--color-pib-accent)] hover:text-[var(--color-pib-text)]"
+              >
+                <span className="material-symbols-outlined text-[14px]" aria-hidden="true">edit_note</span>
+                Log touch
+              </button>
+            )}
+          </div>
+          <div className="pib-stat-card">
+            <p className="eyebrow !text-[10px]">Email thread</p>
+            <p className="mt-3 font-display text-3xl text-[var(--color-pib-text)]">{emails.length}</p>
+            <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">{sentEmailCount} sent / {receivedEmailCount} received</p>
+            {shouldPromptFirstEmail && (
+              <button
+                type="button"
+                aria-label={`Send email to ${contactName} from email thread insight`}
+                onClick={openFirstEmailComposer}
+                className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-[var(--color-pib-line)] px-2 py-1.5 text-xs font-medium text-[var(--color-pib-accent)] transition-colors hover:border-[var(--color-pib-accent)] hover:text-[var(--color-pib-text)]"
+              >
+                <span className="material-symbols-outlined text-[14px]" aria-hidden="true">mail</span>
+                Send email
+              </button>
+            )}
+          </div>
+          <div className="pib-stat-card">
+            <p className="eyebrow !text-[10px]">Activity</p>
+            <p className="mt-3 font-display text-3xl text-[var(--color-pib-text)]">{recentActivityCount}</p>
+            <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">timeline records loaded</p>
+            {shouldPromptActivityLog && (
+              <button
+                type="button"
+                aria-label={`Log activity for ${contactName} from activity insight`}
+                onClick={openFirstNoteComposer}
+                className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-[var(--color-pib-line)] px-2 py-1.5 text-xs font-medium text-[var(--color-pib-accent)] transition-colors hover:border-[var(--color-pib-accent)] hover:text-[var(--color-pib-text)]"
+              >
+                <span className="material-symbols-outlined text-[14px]" aria-hidden="true">edit_note</span>
+                Log activity
+              </button>
+            )}
+          </div>
+        </div>
+
+        {(contact.leadScore !== undefined || contact.icpScore !== undefined || contact.aiLeadScore !== undefined || nextSuggestion) && (
+          <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
+            {(contact.leadScore !== undefined || contact.icpScore !== undefined || contact.aiLeadScore !== undefined) && (
+              <div className="bento-card !p-5">
+                <p className="eyebrow !text-[10px] mb-3">Scoring</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <ScoreChip score={contact.leadScore} kind="lead" label="Lead score (formula)" size="sm" />
+                  <ScoreChip score={contact.icpScore} kind="icp" label="ICP match score" size="sm" />
+                  {contact.aiLeadScore !== undefined && (
+                    <ScoreChip score={contact.aiLeadScore} kind="ai" label="AI lead score" size="sm" />
+                  )}
+                </div>
+              </div>
+            )}
+            {nextSuggestion && (
+              <div className="bento-card !p-5">
+                <p className="eyebrow !text-[10px] mb-3">Next best action</p>
+                <div className="flex items-start gap-3">
+                  <span className="material-symbols-outlined text-[20px] text-[var(--color-pib-accent)]">tips_and_updates</span>
+                  <div>
+                    <p className="text-sm font-semibold text-[var(--color-pib-text)]">{nextSuggestion.action}</p>
+                    <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">{nextSuggestion.reason}</p>
+                  </div>
+                </div>
+              </div>
             )}
           </div>
         )}
@@ -511,27 +1035,42 @@ export default function PortalContactDetailPage() {
             <CompanyPanel
               companyId={contact.companyId}
               companyName={contact.companyName ?? contact.company}
+              emptyAction={{
+                label: 'Link company',
+                ariaLabel: `Link company from company card for ${contactName}`,
+                icon: 'add_business',
+                onClick: focusCompanyPicker,
+              }}
             />
           </div>
 
           <div className="bento-card !p-5 space-y-3 text-sm">
             <p className="eyebrow !text-[10px]">Details</p>
-            {[
-              ['Email', contact.email],
-              ['Phone', contact.phone],
-              ['Company (legacy)', contact.company],
-              ['Website', contact.website],
-              ['Source', contact.source],
-            ].map(([label, val]) =>
-              val ? (
-                <div key={String(label)}>
-                  <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">
-                    {String(label)}
-                  </p>
-                  <p className="text-[var(--color-pib-text)] mt-0.5 break-words">{String(val)}</p>
-                </div>
-              ) : null,
-            )}
+            {detailRows.map((row) => (
+              <div key={row.label} className="rounded-md border border-[var(--color-pib-line)] bg-white/[0.015] p-3">
+                <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">
+                  {row.label}
+                </p>
+                {row.value ? (
+                  <p className="text-[var(--color-pib-text)] mt-1 break-words">{row.value}</p>
+                ) : (
+                  <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-[var(--color-pib-text-muted)]">{row.empty}</p>
+                    {row.onAction && (
+                      <button
+                        type="button"
+                        aria-label={row.actionAriaLabel}
+                        onClick={row.onAction}
+                        className="inline-flex items-center gap-1 rounded-md border border-[var(--color-pib-line)] px-2 py-1 text-[11px] font-medium text-[var(--color-pib-accent)] transition-colors hover:border-[var(--color-pib-accent)] hover:text-[var(--color-pib-text)]"
+                      >
+                        <span className="material-symbols-outlined text-[13px]">add</span>
+                        {row.actionLabel}
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
             {contact.lastContactedAt ? (
               <div>
                 <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">
@@ -543,6 +1082,54 @@ export default function PortalContactDetailPage() {
               </div>
             ) : null}
           </div>
+
+          <ContactIdentityPanel
+            profile={{
+              jobTitle,
+              department,
+              timezone,
+              phoneVerified: contact.phoneVerified,
+              smsOptedIn: contact.smsOptedIn && !contact.smsUnsubscribedAt,
+              unsubscribedAt: contact.unsubscribedAt,
+              bouncedAt: contact.bouncedAt,
+              repliesCount: contact.repliesCount,
+            }}
+            fieldActions={{
+              jobTitle: {
+                label: 'Add role',
+                ariaLabel: `Add role for ${contactName} from identity intelligence`,
+                onClick: () => focusProfileField(jobTitleFieldRef),
+              },
+              department: {
+                label: 'Add department',
+                ariaLabel: `Add department for ${contactName} from identity intelligence`,
+                onClick: () => focusProfileField(departmentFieldRef),
+              },
+              timezone: {
+                label: 'Add timezone',
+                ariaLabel: `Add timezone for ${contactName} from identity intelligence`,
+                onClick: () => focusProfileField(timezoneFieldRef),
+              },
+            }}
+          />
+
+          <ContactOwnershipPanel
+            profile={{
+              assignedTo,
+              assignedToRef: ownerRef,
+              source,
+              capturedFromId: contact.capturedFromId,
+              createdByRef: contact.createdByRef,
+              updatedByRef: contact.updatedByRef,
+            }}
+            actions={{
+              assignOwner: {
+                label: 'Assign owner',
+                ariaLabel: `Assign owner for ${contactName} from relationship ownership`,
+                onClick: () => focusProfileField(ownerFieldRef),
+              },
+            }}
+          />
 
           {customFieldDefs.length > 0 && (
             <div className="bento-card !p-5 space-y-3 text-sm">
@@ -556,10 +1143,151 @@ export default function PortalContactDetailPage() {
           )}
 
           <div className="bento-card !p-5 space-y-2">
-            <p className="eyebrow !text-[10px]">Edit</p>
+            <div className="flex items-center justify-between gap-3">
+              <p className="eyebrow !text-[10px]">Edit profile</p>
+              {dirty && <span className="text-[11px] text-[var(--color-pib-accent)]">Unsaved changes</span>}
+            </div>
+
+            <div className="space-y-1 pt-1">
+              <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">
+                Name
+              </p>
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="pib-input w-full"
+                placeholder="Contact name"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 pt-1">
+              <div className="space-y-1">
+                <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">
+                  Email
+                </p>
+                <input
+                  ref={emailFieldRef}
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="pib-input w-full"
+                  placeholder="name@example.com"
+                />
+              </div>
+              <div className="space-y-1">
+                <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">
+                  Phone
+                </p>
+                <input
+                  ref={phoneFieldRef}
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  className="pib-input w-full"
+                  placeholder="+27..."
+                />
+              </div>
+              <div className="space-y-1">
+                <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">
+                  Job title
+                </p>
+                <input
+                  ref={jobTitleFieldRef}
+                  value={jobTitle}
+                  onChange={(e) => setJobTitle(e.target.value)}
+                  className="pib-input w-full"
+                  placeholder="Decision maker, Finance Director..."
+                />
+              </div>
+              <div className="space-y-1">
+                <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">
+                  Department
+                </p>
+                <input
+                  ref={departmentFieldRef}
+                  value={department}
+                  onChange={(e) => setDepartment(e.target.value)}
+                  className="pib-input w-full"
+                  placeholder="Finance, Operations..."
+                />
+              </div>
+              <div className="space-y-1">
+                <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">
+                  Timezone
+                </p>
+                <input
+                  ref={timezoneFieldRef}
+                  value={timezone}
+                  onChange={(e) => setTimezone(e.target.value)}
+                  className="pib-input w-full"
+                  placeholder="Africa/Johannesburg"
+                />
+              </div>
+              <div className="space-y-1">
+                <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">
+                  Website
+                </p>
+                <input
+                  ref={websiteFieldRef}
+                  value={website}
+                  onChange={(e) => setWebsite(e.target.value)}
+                  className="pib-input w-full"
+                  placeholder="https://..."
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+              <div className="space-y-1">
+                <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">Source</p>
+                <select value={source} onChange={(e) => setSource(e.target.value)} className="pib-input w-full">
+                  {SOURCE_OPTIONS.map((option) => <option key={option} value={option} className="bg-black">{option}</option>)}
+                </select>
+              </div>
+              <div className="space-y-1">
+                <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">Type</p>
+                <select value={type} onChange={(e) => setType(e.target.value)} className="pib-input w-full">
+                  {TYPE_OPTIONS.map((option) => <option key={option} value={option} className="bg-black">{option}</option>)}
+                </select>
+              </div>
+              <div className="space-y-1">
+                <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">Stage</p>
+                <select value={stage} onChange={(e) => setStage(e.target.value)} className="pib-input w-full">
+                  {STAGE_OPTIONS.map((option) => <option key={option} value={option} className="bg-black">{option}</option>)}
+                </select>
+              </div>
+            </div>
+
+            <div className="space-y-1 pt-1">
+              <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">
+                Owner
+              </p>
+              <select ref={ownerFieldRef} value={assignedTo} onChange={(e) => setAssignedTo(e.target.value)} className="pib-input w-full">
+                <option value="" className="bg-black">Unassigned</option>
+                {teamMembers.map((member) => {
+                  const name = [member.firstName, member.lastName].filter(Boolean).join(' ') || member.uid
+                  const label = member.jobTitle ? `${name} · ${member.jobTitle}` : name
+                  return (
+                    <option key={member.uid} value={member.uid} className="bg-black">
+                      {label}
+                    </option>
+                  )
+                })}
+              </select>
+            </div>
+
+            <div className="space-y-1 pt-1">
+              <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">
+                Tags
+              </p>
+              <input
+                value={tagsInput}
+                onChange={(e) => setTagsInput(e.target.value)}
+                className="pib-input w-full"
+                placeholder="priority, referral, decision maker"
+              />
+            </div>
 
             {/* Company picker — above legacy company string field */}
-            <div className="space-y-1">
+            <div ref={companyPickerRef} className="space-y-1">
               <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">
                 Linked company
               </p>
@@ -578,6 +1306,7 @@ export default function PortalContactDetailPage() {
                 Notes
               </p>
               <textarea
+                ref={notesFieldRef}
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 rows={5}
@@ -619,6 +1348,21 @@ export default function PortalContactDetailPage() {
 
         {/* Right: Recent emails + activity */}
         <section className="lg:col-span-2 space-y-6">
+          <ContactEngagementPanel
+            profile={{
+              lastContactedAt: contact.lastContactedAt,
+              emails,
+              activities,
+              nextSuggestion,
+            }}
+            actions={{
+              contactName,
+              onLogNote: openFirstNoteComposer,
+              onSendEmail: email.trim() ? openFirstEmailComposer : undefined,
+              onScheduleMeeting: openFirstMeetingComposer,
+            }}
+          />
+
           <div className="pib-card-section">
             <div className="px-5 py-3.5 border-b border-[var(--color-pib-line)] bg-white/[0.02] flex items-center justify-between">
               <p className="eyebrow !text-[10px]">Recent emails</p>
@@ -640,6 +1384,21 @@ export default function PortalContactDetailPage() {
                 <p className="text-sm text-[var(--color-pib-text-muted)] mt-2">
                   No emails sent or received yet.
                 </p>
+                {contact.email ? (
+                  <button
+                    type="button"
+                    onClick={openFirstEmailComposer}
+                    aria-label={`Send first email to ${contact.name ?? 'this contact'}`}
+                    className="btn-pib-primary mt-4 inline-flex items-center gap-1.5 text-xs"
+                  >
+                    <span className="material-symbols-outlined text-[14px]" aria-hidden="true">outgoing_mail</span>
+                    Send first email
+                  </button>
+                ) : (
+                  <p className="mx-auto mt-3 max-w-sm text-xs text-[var(--color-pib-text-muted)]">
+                    Add an email address in the profile panel before starting outreach.
+                  </p>
+                )}
               </div>
             ) : (
               <div className="divide-y divide-[var(--color-pib-line)]">
@@ -715,11 +1474,8 @@ export default function PortalContactDetailPage() {
                         return
                       }
                       if (type === 'meeting' && !meetingStartAt) {
-                        const start = new Date(Date.now() + 60 * 60 * 1000)
-                        const end = new Date(start.getTime() + 30 * 60 * 1000)
-                        setMeetingStartAt(toDateTimeLocalValue(start))
-                        setMeetingEndAt(toDateTimeLocalValue(end))
-                        setMeetingTitle(contact?.name ? `Meeting with ${contact.name}` : '')
+                        openFirstMeetingComposer()
+                        return
                       }
                       setLogType(type)
                     }}
@@ -909,6 +1665,15 @@ export default function PortalContactDetailPage() {
                 <p className="text-sm text-[var(--color-pib-text-muted)] mt-2">
                   No activity logged yet.
                 </p>
+                <button
+                  type="button"
+                  onClick={openFirstNoteComposer}
+                  aria-label={`Log first note for ${contact.name ?? 'this contact'}`}
+                  className="btn-pib-primary mt-4 inline-flex items-center gap-1.5 text-xs"
+                >
+                  <span className="material-symbols-outlined text-[14px]" aria-hidden="true">edit_note</span>
+                  Log first note
+                </button>
               </div>
             ) : (
               <div className="px-5 pb-4">

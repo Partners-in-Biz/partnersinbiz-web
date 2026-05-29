@@ -42,28 +42,38 @@ export const GET = withCrmAuth('viewer', async (req, ctx) => {
   const page = Math.max(parseInt(searchParams.get('page') ?? '1'), 1)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let query: any = adminDb.collection('deals').orderBy('createdAt', 'desc')
-  if (orgId) query = query.where('orgId', '==', orgId)
-  if (pipelineId) query = query.where('pipelineId', '==', pipelineId)
-  if (stageId) query = query.where('stageId', '==', stageId)
-  if (contactId) query = query.where('contactId', '==', contactId)
+  const query: any = adminDb.collection('deals').where('orgId', '==', orgId)
 
-  const snapshot = await query
-    .limit(limit)
-    .offset((page - 1) * limit)
-    .get()
+  const snapshot = await query.limit(1000).get()
 
   let deals: Deal[] = snapshot.docs
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .map((doc: any) => ({ id: doc.id, ...doc.data() }))
     .filter((d: Deal) => d.deleted !== true)
+    .filter((d: Deal) => !pipelineId || d.pipelineId === pipelineId)
+    .filter((d: Deal) => !stageId || d.stageId === stageId)
+    .filter((d: Deal) => !contactId || d.contactId === contactId)
 
   if (search) {
     const q = search.toLowerCase()
     deals = deals.filter((d) => d.title?.toLowerCase().includes(q))
   }
 
-  return apiSuccess(deals, 200, { total: deals.length, page, limit })
+  deals = deals.sort((a, b) => {
+    const aSeconds = (a.createdAt as { seconds?: number; _seconds?: number } | null | undefined)?.seconds
+      ?? (a.createdAt as { seconds?: number; _seconds?: number } | null | undefined)?._seconds
+      ?? 0
+    const bSeconds = (b.createdAt as { seconds?: number; _seconds?: number } | null | undefined)?.seconds
+      ?? (b.createdAt as { seconds?: number; _seconds?: number } | null | undefined)?._seconds
+      ?? 0
+    return bSeconds - aSeconds
+  })
+
+  const total = deals.length
+  const start = (page - 1) * limit
+  const paged = deals.slice(start, start + limit)
+
+  return apiSuccess(paged, 200, { total, page, limit })
 })
 
 export const POST = withCrmAuth('member', async (req, ctx) => {

@@ -17,10 +17,11 @@ export async function listRules(orgId: string): Promise<AutomationRule[]> {
   const snap = await adminDb
     .collection(RULES)
     .where('orgId', '==', orgId)
-    .where('deleted', '!=', true)
-    .orderBy('name', 'asc')
     .get()
-  return snap.docs.map((d) => ({ ...(d.data() as Omit<AutomationRule, 'id'>), id: d.id }))
+  return snap.docs
+    .map((d) => ({ ...(d.data() as Omit<AutomationRule, 'id'>), id: d.id }))
+    .filter((rule) => rule.deleted !== true)
+    .sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''))
 }
 
 export async function getRule(orgId: string, ruleId: string): Promise<AutomationRule | null> {

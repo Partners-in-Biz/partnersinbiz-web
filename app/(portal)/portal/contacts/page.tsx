@@ -7,98 +7,18 @@ import { ContactForm } from '@/components/admin/crm/ContactForm'
 import { fmtTimestamp } from '@/components/admin/email/fmtTimestamp'
 import { SavedViewsBar } from '@/components/crm/SavedViewsBar'
 import { ScoreChip } from '@/components/crm/ScoreChip'
-
-interface DuplicateContact {
-  id: string
-  name?: string
-  email?: string
-  company?: string
-  stage?: string
-}
-
-interface DuplicateGroup {
-  contacts: DuplicateContact[]
-  reason: 'email' | 'name'
-}
-
-function DuplicateGroupCard({
-  group,
-  isMerging,
-  onMerge,
-}: {
-  group: DuplicateGroup
-  isMerging: boolean
-  onMerge: (winnerId: string, loserId: string) => void
-}) {
-  const [winnerId, setWinnerId] = useState(group.contacts[0]?.id ?? '')
-
-  return (
-    <div className="border border-[var(--color-pib-line)] rounded-xl p-4 space-y-3">
-      <p className="text-xs text-[var(--color-pib-text-muted)]">
-        Matched by: <span className="font-medium">{group.reason}</span>
-        {' · '}{group.contacts.length} contacts
-      </p>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {group.contacts.map(c => (
-          <label
-            key={c.id}
-            className={`flex items-start gap-2 p-3 rounded-lg border cursor-pointer transition-colors ${
-              winnerId === c.id
-                ? 'border-[var(--color-pib-accent)] bg-[var(--color-pib-accent)]/5'
-                : 'border-[var(--color-pib-line)] hover:border-[var(--color-pib-line-strong)]'
-            }`}
-          >
-            <input
-              type="radio"
-              name={`winner-${group.contacts.map(x => x.id).join('-')}`}
-              value={c.id}
-              checked={winnerId === c.id}
-              onChange={() => setWinnerId(c.id)}
-              className="mt-0.5"
-            />
-            <div className="min-w-0">
-              <p className="text-sm font-medium truncate">{c.name ?? '—'}</p>
-              <p className="text-xs text-[var(--color-pib-text-muted)] truncate">{c.email ?? '—'}</p>
-              {c.company && (
-                <p className="text-xs text-[var(--color-pib-text-muted)] truncate">{c.company}</p>
-              )}
-              {winnerId === c.id && (
-                <span className="text-xs text-[var(--color-pib-accent)] font-medium">Keep this one</span>
-              )}
-            </div>
-          </label>
-        ))}
-      </div>
-
-      <div className="flex justify-end">
-        <button
-          onClick={() => {
-            const losers = group.contacts.filter(c => c.id !== winnerId)
-            if (losers.length > 0) onMerge(winnerId, losers[0].id)
-          }}
-          disabled={isMerging}
-          className="btn-pib-accent text-xs disabled:opacity-50 flex items-center gap-1"
-        >
-          <span className="material-symbols-outlined text-[14px]">merge</span>
-          {isMerging ? 'Merging…' : 'Merge'}
-        </button>
-      </div>
-    </div>
-  )
-}
+import {
+  type BulkActionKey,
+  ContactsBulkCommandBar,
+} from '@/components/crm/ContactsBulkCommandBar'
+import {
+  applyContactMergeToDuplicateGroups,
+  ContactDuplicateCommandCenter,
+  type DuplicateGroup,
+} from '@/components/crm/ContactDuplicateCommandCenter'
 
 const STAGES = ['new', 'contacted', 'replied', 'demo', 'proposal', 'won', 'lost']
 const TYPES = ['lead', 'prospect', 'client', 'churned']
-const BULK_ACTIONS = ['assign', 'stage', 'type', 'add-tags', 'remove-tags'] as const
-type BulkActionKey = typeof BULK_ACTIONS[number]
-const BULK_ACTION_LABELS: Record<BulkActionKey, string> = {
-  assign: 'Assign to…',
-  stage: 'Change stage to…',
-  type: 'Change type to…',
-  'add-tags': 'Add tags…',
-  'remove-tags': 'Remove tags…',
-}
 
 interface Contact {
   id: string
@@ -112,6 +32,11 @@ interface Contact {
   leadScore?: number
   icpScore?: number
   aiLeadScore?: number
+  assignedTo?: string
+  assignedToRef?: {
+    uid?: string
+    displayName?: string
+  }
 }
 
 interface TeamMember {
@@ -198,12 +123,21 @@ function TypeBadge({ type }: { type: string }) {
   )
 }
 
+function contactOwnerLabel(contact: Contact): string {
+  return contact.assignedToRef?.displayName || contact.assignedTo || 'Unassigned'
+}
+
+function hasContactOwner(contact: Contact): boolean {
+  return Boolean(String(contact.assignedTo ?? contact.assignedToRef?.uid ?? '').trim())
+}
+
 export default function PortalContactsPage() {
   const [contacts, setContacts] = useState<Contact[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [stageFilter, setStageFilter] = useState('')
   const [typeFilter, setTypeFilter] = useState('')
+  const [ownerLens, setOwnerLens] = useState<'all' | 'unowned'>('all')
   const [showNew, setShowNew] = useState(false)
 
   // Bulk selection state
@@ -282,11 +216,16 @@ export default function PortalContactsPage() {
   }
 
   function toggleSelectAll() {
-    if (selectedIds.size === contacts.length) {
-      setSelectedIds(new Set())
-    } else {
-      setSelectedIds(new Set(contacts.map(c => c.id)))
-    }
+    setSelectedIds(prev => {
+      const visibleIds = displayedContacts.map(c => c.id)
+      const allVisibleSelected = visibleIds.length > 0 && visibleIds.every(id => prev.has(id))
+      if (allVisibleSelected) {
+        const next = new Set(prev)
+        for (const id of visibleIds) next.delete(id)
+        return next
+      }
+      return new Set([...prev, ...visibleIds])
+    })
   }
 
   async function handleBulkDelete() {
@@ -400,7 +339,7 @@ export default function PortalContactsPage() {
         body: JSON.stringify({ winnerId, loserId }),
       })
       if (!res.ok) throw new Error('Merge failed')
-      setDuplicateGroups(prev => prev.filter((_, i) => i !== groupIndex))
+      setDuplicateGroups(prev => applyContactMergeToDuplicateGroups(prev, groupIndex, loserId))
       setContacts(prev => prev.filter(c => c.id !== loserId))
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Merge failed')
@@ -409,8 +348,19 @@ export default function PortalContactsPage() {
     }
   }
 
-  const allSelected = contacts.length > 0 && selectedIds.size === contacts.length
+  const unownedContacts = contacts.filter((contact) => !hasContactOwner(contact))
+  const ownerCoverage = contacts.length > 0 ? (contacts.length - unownedContacts.length) / contacts.length : 1
+  const displayedContacts = ownerLens === 'unowned' ? unownedContacts : contacts
+  const allSelected = displayedContacts.length > 0 && displayedContacts.every((contact) => selectedIds.has(contact.id))
   const someSelected = selectedIds.size > 0 && !allSelected
+  const hasActiveFilters = !!(search.trim() || stageFilter || typeFilter)
+  const contactCountLabel = loading
+    ? 'Loading…'
+    : ownerLens === 'unowned'
+      ? `${displayedContacts.length} unowned contact${displayedContacts.length === 1 ? '' : 's'} need assignment.`
+    : hasActiveFilters
+      ? `${displayedContacts.length} contact${displayedContacts.length === 1 ? '' : 's'} match this view.`
+      : `${displayedContacts.length} contact${displayedContacts.length === 1 ? '' : 's'} in your audience.`
 
   return (
     <div className="space-y-8">
@@ -422,7 +372,7 @@ export default function PortalContactsPage() {
           <div>
             <h1 className="pib-page-title">Contacts</h1>
             <p className="pib-page-sub max-w-2xl">
-              {loading ? 'Loading…' : `${contacts.length} contact${contacts.length === 1 ? '' : 's'}`} in your audience.
+              {contactCountLabel}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -441,6 +391,49 @@ export default function PortalContactsPage() {
           </div>
         </div>
       </header>
+
+      <section className="grid gap-3 md:grid-cols-3">
+        <div className="pib-stat-card">
+          <div className="flex items-start justify-between gap-3">
+            <p className="eyebrow !text-[10px]">Owner coverage</p>
+            <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">supervisor_account</span>
+          </div>
+          <p className="mt-3 font-display tracking-tight leading-none text-3xl text-[var(--color-pib-text)]">
+            {Math.round(ownerCoverage * 100)}%
+          </p>
+          <p className="mt-3 text-xs text-[var(--color-pib-text-muted)]">
+            {unownedContacts.length} unowned
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setOwnerLens(ownerLens === 'unowned' ? 'all' : 'unowned')}
+          className={[
+            'rounded-[var(--radius-card)] border p-4 text-left transition-colors',
+            ownerLens === 'unowned'
+              ? 'border-amber-400/40 bg-amber-400/10'
+              : 'border-[var(--color-pib-line)] bg-white/[0.03] hover:bg-white/[0.05]',
+          ].join(' ')}
+          aria-label={ownerLens === 'unowned' ? 'Show all contacts' : 'Show unowned contacts needing an owner'}
+        >
+          <span className="material-symbols-outlined text-[20px] text-[var(--color-pib-accent)]">manage_accounts</span>
+          <p className="mt-3 text-sm font-semibold text-[var(--color-pib-text)]">
+            {ownerLens === 'unowned' ? 'Showing owner gaps' : 'Review owner gaps'}
+          </p>
+          <p className="mt-1 text-xs leading-relaxed text-[var(--color-pib-text-muted)]">
+            {unownedContacts.length > 0
+              ? `${unownedContacts.length} contacts need an accountable team member before follow-up slips.`
+              : 'Every contact in this view has an owner.'}
+          </p>
+        </button>
+        <div className="rounded-[var(--radius-card)] border border-[var(--color-pib-line)] bg-white/[0.03] p-4">
+          <span className="material-symbols-outlined text-[20px] text-[var(--color-pib-accent)]">groups</span>
+          <p className="mt-3 text-sm font-semibold text-[var(--color-pib-text)]">Team workload</p>
+          <p className="mt-1 text-xs leading-relaxed text-[var(--color-pib-text-muted)]">
+            Select unowned contacts, assign a team member, and keep the customer base accountable from this workspace.
+          </p>
+        </div>
+      </section>
 
       {/* Filters */}
       <section className="space-y-2">
@@ -488,110 +481,30 @@ export default function PortalContactsPage() {
 
       {/* Bulk action bar */}
       {selectedIds.size > 0 && (
-        <div
-          className="sticky top-4 z-40 flex flex-wrap items-center gap-3 px-4 py-3 rounded-[var(--radius-card)] shadow-lg"
-          style={{ background: 'var(--color-pib-surface)', border: '1px solid var(--color-pib-accent)' }}
-        >
-          <span className="text-sm font-medium text-[var(--color-pib-accent)] shrink-0">
-            {selectedIds.size} selected
-          </span>
-          <button
-            onClick={() => setSelectedIds(new Set())}
-            className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors shrink-0"
-          >
-            Clear
-          </button>
-
-          <div className="h-4 w-px bg-[var(--color-pib-line)] shrink-0" />
-
-          {/* Action picker */}
-          <select
-            value={bulkAction}
-            onChange={(e) => { setBulkAction(e.target.value as BulkActionKey); setBulkTagsInput('') }}
-            className="pib-input !w-auto !py-1.5 !text-sm"
-          >
-            {BULK_ACTIONS.map(a => (
-              <option key={a} value={a} className="bg-black">{BULK_ACTION_LABELS[a]}</option>
-            ))}
-          </select>
-
-          {/* Action-specific input */}
-          {bulkAction === 'assign' && (
-            teamMembers.length > 0 ? (
-              <select
-                value={bulkAssignUid}
-                onChange={(e) => setBulkAssignUid(e.target.value)}
-                className="pib-input !w-auto !py-1.5 !text-sm"
-              >
-                <option value="" className="bg-black">Select member…</option>
-                {teamMembers.map(m => (
-                  <option key={m.uid} value={m.uid} className="bg-black">
-                    {m.firstName} {m.lastName}{m.jobTitle ? ` (${m.jobTitle})` : ''}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <input
-                placeholder="User UID…"
-                value={bulkAssignUid}
-                onChange={(e) => setBulkAssignUid(e.target.value)}
-                className="pib-input !py-1.5 !text-sm w-48"
-              />
-            )
-          )}
-
-          {bulkAction === 'stage' && (
-            <select
-              value={bulkStage}
-              onChange={(e) => setBulkStage(e.target.value)}
-              className="pib-input !w-auto !py-1.5 !text-sm"
-            >
-              {STAGES.map(s => (
-                <option key={s} value={s} className="bg-black">{s}</option>
-              ))}
-            </select>
-          )}
-
-          {bulkAction === 'type' && (
-            <select
-              value={bulkType}
-              onChange={(e) => setBulkType(e.target.value)}
-              className="pib-input !w-auto !py-1.5 !text-sm"
-            >
-              {TYPES.map(t => (
-                <option key={t} value={t} className="bg-black">{t}</option>
-              ))}
-            </select>
-          )}
-
-          {(bulkAction === 'add-tags' || bulkAction === 'remove-tags') && (
-            <input
-              placeholder="tag1, tag2…"
-              value={bulkTagsInput}
-              onChange={(e) => setBulkTagsInput(e.target.value)}
-              className="pib-input !py-1.5 !text-sm w-48"
-            />
-          )}
-
-          <button
-            onClick={applyBulk}
-            disabled={bulkPending}
-            className="btn-pib-accent !py-1.5 !text-sm shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {bulkPending ? 'Applying…' : 'Apply'}
-          </button>
-
-          <div className="h-4 w-px bg-[var(--color-pib-line)] shrink-0" />
-
-          <button
-            onClick={handleBulkDelete}
-            disabled={bulkPending}
-            className="text-sm text-red-400 hover:text-red-300 flex items-center gap-1.5 px-3 py-2 rounded-lg hover:bg-red-400/10 transition-colors shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <span className="material-symbols-outlined text-[16px]">delete</span>
-            Delete selected ({selectedIds.size})
-          </button>
-        </div>
+        <ContactsBulkCommandBar
+          selectedCount={selectedIds.size}
+          totalCount={displayedContacts.length}
+          bulkAction={bulkAction}
+          bulkPending={bulkPending}
+          teamMembers={teamMembers}
+          bulkAssignUid={bulkAssignUid}
+          bulkStage={bulkStage}
+          bulkType={bulkType}
+          bulkTagsInput={bulkTagsInput}
+          stages={STAGES}
+          types={TYPES}
+          onActionChange={(action) => {
+            setBulkAction(action)
+            setBulkTagsInput('')
+          }}
+          onAssignUidChange={setBulkAssignUid}
+          onStageChange={setBulkStage}
+          onTypeChange={setBulkType}
+          onTagsInputChange={setBulkTagsInput}
+          onClear={() => setSelectedIds(new Set())}
+          onApply={applyBulk}
+          onDelete={handleBulkDelete}
+        />
       )}
 
       {/* List */}
@@ -601,17 +514,33 @@ export default function PortalContactsPage() {
             <div key={i} className="pib-skeleton h-12" />
           ))}
         </div>
-      ) : contacts.length === 0 ? (
+      ) : displayedContacts.length === 0 ? (
         <div className="bento-card p-10 text-center">
           <span className="material-symbols-outlined text-4xl text-[var(--color-pib-accent)]">contacts</span>
-          <h2 className="font-display text-2xl mt-4">No contacts yet.</h2>
+          <h2 className="font-display text-2xl mt-4">
+            {hasActiveFilters ? 'No contacts match this view.' : 'No contacts yet.'}
+          </h2>
           <p className="text-sm text-[var(--color-pib-text-muted)] mt-2">
-            Add your first contact to start building your audience.
+            {hasActiveFilters
+              ? 'Clear the search or filters to return to your full audience.'
+              : ownerLens === 'unowned'
+                ? 'Every contact in this view has an owner.'
+              : 'Add your first contact to start building your audience.'}
           </p>
-          <button onClick={() => setShowNew(true)} className="btn-pib-accent mt-6">
-            <span className="material-symbols-outlined text-base">add</span>
-            Add contact
-          </button>
+          {hasActiveFilters || ownerLens === 'unowned' ? (
+            <button
+              onClick={() => { setSearch(''); setStageFilter(''); setTypeFilter(''); setOwnerLens('all') }}
+              className="btn-pib-secondary mt-6"
+            >
+              <span className="material-symbols-outlined text-base">filter_alt_off</span>
+              {ownerLens === 'unowned' ? 'Show all contacts' : 'Clear filters'}
+            </button>
+          ) : (
+            <button onClick={() => setShowNew(true)} className="btn-pib-accent mt-6">
+              <span className="material-symbols-outlined text-base">add</span>
+              Add contact
+            </button>
+          )}
         </div>
       ) : (
         <div className="pib-card-section">
@@ -639,11 +568,12 @@ export default function PortalContactsPage() {
             <p className="col-span-1 eyebrow !text-[10px]">AI</p>
           </div>
           <div className="divide-y divide-[var(--color-pib-line)]">
-            {contacts.map((c) => {
+              {displayedContacts.map((c) => {
               const isSelected = selectedIds.has(c.id)
               return (
                 <div
                   key={c.id}
+                  data-contact-row
                   className="grid grid-cols-2 md:grid-cols-15 gap-3 md:gap-4 items-center px-5 py-4 hover:bg-[var(--color-pib-surface-2)] transition-colors"
                   style={isSelected ? { background: 'var(--color-pib-accent, #7c3aed)10' } : undefined}
                 >
@@ -676,6 +606,9 @@ export default function PortalContactsPage() {
                     </div>
                     <div className="md:col-span-2 text-sm text-[var(--color-pib-text-muted)] truncate">
                       {c.company || '—'}
+                      <p className="mt-1 text-[11px] text-[var(--color-pib-text-muted)]">
+                        Owner: <span>{contactOwnerLabel(c)}</span>
+                      </p>
                     </div>
                     <div className="md:col-span-1">
                       <TypeBadge type={c.type} />
@@ -711,29 +644,13 @@ export default function PortalContactsPage() {
       {/* Duplicates modal */}
       {showDuplicatesModal && (
         <div className="fixed inset-0 bg-black/60 flex items-start justify-center pt-16 z-50 overflow-y-auto">
-          <div className="bento-card !p-6 w-full max-w-2xl mx-4 mb-8 space-y-4">
-            <div className="flex items-center justify-between">
-              <p className="text-base font-semibold">Duplicate contacts</p>
-              <button onClick={() => setShowDuplicatesModal(false)}>
-                <span className="material-symbols-outlined">close</span>
-              </button>
-            </div>
-
-            {duplicateGroups.length === 0 ? (
-              <p className="text-sm text-[var(--color-pib-text-muted)] py-4 text-center">
-                <span className="material-symbols-outlined text-3xl block mb-2">check_circle</span>
-                No duplicates found.
-              </p>
-            ) : (
-              duplicateGroups.map((group, gi) => (
-                <DuplicateGroupCard
-                  key={gi}
-                  group={group}
-                  isMerging={mergingGroup === String(gi)}
-                  onMerge={(winnerId, loserId) => handleMerge(gi, winnerId, loserId)}
-                />
-              ))
-            )}
+          <div className="bento-card !p-6 w-full max-w-4xl mx-4 mb-8">
+            <ContactDuplicateCommandCenter
+              groups={duplicateGroups}
+              mergingGroup={mergingGroup}
+              onClose={() => setShowDuplicatesModal(false)}
+              onMerge={handleMerge}
+            />
           </div>
         </div>
       )}

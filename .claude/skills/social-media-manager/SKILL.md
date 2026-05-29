@@ -154,7 +154,7 @@ Every endpoint scopes to an org via `orgId`.
 - **Admin/AI agents**: pass `orgId` as query param (GET) or body field (POST/PUT/PATCH)
 - **Client users**: scoped automatically
 
-If you don't know the `orgId`, look it up from client records first.
+If you don't know the `orgId`, look it up from `organizations` or the platform-owner CRM Company (`companies.linkedOrgId`). Do not treat legacy `/clients` rows as the canonical client/account source.
 
 ---
 

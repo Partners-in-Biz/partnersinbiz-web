@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
+import type { ContextReferenceSeed } from '@/lib/context-references/types'
 import UnifiedChat from './UnifiedChat'
 
 interface MessageDrawerProps {
@@ -11,6 +12,7 @@ interface MessageDrawerProps {
   currentUserDisplayName: string
   allowAgentParticipants?: boolean
   allowDeleteConversations?: boolean
+  currentPageContext?: ContextReferenceSeed | null
   disabledReason?: string
   onOpen?: () => void
 }
@@ -22,6 +24,7 @@ export function MessageDrawer({
   currentUserDisplayName,
   allowAgentParticipants = true,
   allowDeleteConversations = false,
+  currentPageContext,
   disabledReason,
   onOpen,
 }: MessageDrawerProps) {
@@ -117,6 +120,7 @@ export function MessageDrawer({
                 orgName={orgName}
                 allowAgentParticipants={allowAgentParticipants}
                 allowDeleteConversations={allowDeleteConversations}
+                currentPageContext={currentPageContext}
                 compact
               />
             </div>

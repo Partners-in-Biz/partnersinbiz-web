@@ -1,4 +1,5 @@
 /**
+ * GET    /api/v1/crm/deals/:id  — get one deal (viewer+)
  * PUT    /api/v1/crm/deals/:id  — update deal (member+)
  * PATCH  /api/v1/crm/deals/:id  — alias for PUT
  * DELETE /api/v1/crm/deals/:id  — soft delete (admin+)
@@ -34,6 +35,20 @@ async function deriveCompanyFromContact(contactId: string, orgId: string): Promi
 }
 
 type RouteCtx = { params: Promise<{ id: string }> }
+
+// ---------------------------------------------------------------------------
+// GET — viewer+
+// ---------------------------------------------------------------------------
+
+export const GET = withCrmAuth<RouteCtx>('viewer', async (_req, ctx, routeCtx) => {
+  const { id } = await routeCtx!.params
+  const ref = adminDb.collection('deals').doc(id)
+  const snap = await ref.get()
+  if (!snap.exists) return apiError('Deal not found', 404)
+  const data = snap.data()!
+  if (data.orgId !== ctx.orgId || data.deleted === true) return apiError('Deal not found', 404)
+  return apiSuccess({ deal: { id, ...data } })
+})
 
 // ---------------------------------------------------------------------------
 // PUT/PATCH — member+

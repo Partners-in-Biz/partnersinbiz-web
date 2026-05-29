@@ -42,6 +42,8 @@ export const GET = withPortalAuthAndRole('viewer', async (_req: NextRequest, _ui
           firstName: ((profileData.firstName as string | undefined) ?? fallback.firstName) || '',
           lastName: ((profileData.lastName as string | undefined) ?? fallback.lastName) || '',
           jobTitle: (profileData.jobTitle as string | undefined) ?? '',
+          department: (profileData.department as string | undefined) ?? '',
+          accessScope: (profileData.accessScope as string | undefined) ?? '',
           avatarUrl: ((profileData.avatarUrl as string | undefined) ?? member.photoURL ?? (userData.photoURL as string | undefined)) || '',
           role: member.role as OrgRole,
         }
@@ -66,6 +68,8 @@ export const GET = withPortalAuthAndRole('viewer', async (_req: NextRequest, _ui
         firstName: ((data.firstName as string | undefined) ?? fallback.firstName) || '',
         lastName: ((data.lastName as string | undefined) ?? fallback.lastName) || '',
         jobTitle: (data.jobTitle as string) ?? '',
+        department: (data.department as string) ?? '',
+        accessScope: (data.accessScope as string) ?? '',
         avatarUrl: ((data.avatarUrl as string | undefined) ?? (userData.photoURL as string | undefined)) || '',
         role: data.role as OrgRole,
       }

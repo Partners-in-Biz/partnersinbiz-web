@@ -1,6 +1,6 @@
 # Email deliverability/security v3 runbook
 
-Status: production readiness checklist for Resend deliverability, webhook security, suppressions, inbound replies, and sequence auto-pause. Do not send live email while using this runbook unless Peet has approved a live-send test.
+Status: production readiness checklist for the Email v3 platform. Outbound sending is provider-switched by `EMAIL_PROVIDER`; Production and the `development` Preview branch are currently configured for SES. Resend is still used for domain/admin APIs and Resend-specific inbound/outbound webhook paths until those are migrated or intentionally retired. Do not send live email while using this runbook unless Peet has approved a live-send test.
 
 ## Required environment
 
@@ -11,11 +11,22 @@ Set these in the target Vercel environment before live production traffic:
 - `CRON_SECRET` — bearer token for `/api/cron/emails`, `/api/cron/sequences`, and `/api/cron/broadcasts`.
 - `UNSUBSCRIBE_TOKEN_SECRET` — HMAC secret for unsubscribe and preference tokens.
 - `NEXT_PUBLIC_APP_URL` — canonical app URL used for one-click unsubscribe/preference links.
+- `EMAIL_PROVIDER=ses` — selects Amazon SES for the shared send adapter.
+- `AWS_REGION=eu-north-1` — SES region for Partners in Biz.
+- `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` — IAM credentials used by the SES adapter.
+- `SES_CONFIGURATION_SET` — required for SES bounce/open/click event publishing.
 
 Optional hardening:
 
 - `RESEND_WEBHOOK_REQUIRE_SIGNATURE=true` — forces Svix signature verification in preview/dev too. Production fails closed automatically when `RESEND_WEBHOOK_SECRET` is missing.
-- `EMAIL_PROVIDER=resend` — default; set explicitly when confirming Resend-only behavior.
+- `EMAIL_PROVIDER=resend` — fallback/default; set only when intentionally forcing Resend outbound sends.
+
+## Current provider state
+
+- 2026-05-29: `EMAIL_PROVIDER=ses` was added in Vercel for Production and `Preview (development)`.
+- Vercel already had SES credentials and configuration-set variables for Production and Preview.
+- Existing live deployments may need a redeploy before they pick up changed environment variables.
+- Last local historical note said AWS denied the original 50,000/day quota request on 2026-05-13. Recheck AWS Service Quotas before assuming more than the SES sandbox quota.
 
 ## Required external Resend setup
 
@@ -28,6 +39,13 @@ Optional hardening:
    - Forward reply mailbox/domain such as `reply.<sending-domain>` to `https://partnersinbiz.online/api/v1/email/inbound-webhook`.
    - Use the same Resend signing setup; do not disable signing in production.
 4. Configure Vercel cron for email, sequence, and broadcast processors with `Authorization: Bearer $CRON_SECRET`.
+
+## Required external SES setup
+
+1. Confirm `partnersinbiz.online` remains verified in SES in `eu-north-1`.
+2. Confirm the account is out of sandbox or record the current 24-hour sending quota before bulk sends.
+3. Confirm `SES_CONFIGURATION_SET` emits bounce/complaint/delivery/open/click events to SNS.
+4. Confirm the SNS topic posts to `https://partnersinbiz.online/api/v1/email/webhook/ses` and the subscription is confirmed.
 
 ## Verification checklist
 

@@ -52,4 +52,18 @@ describe('MailboxDrawer', () => {
     expect(await screen.findByRole('complementary', { name: 'Email mailbox' })).toBeInTheDocument()
     expect(screen.getByTitle('Email mailbox')).toHaveAttribute('src', '/admin/email/mailbox?compact=1')
   })
+
+  it('notifies the shell when email is opened so mobile navigation can close', async () => {
+    const handleOpen = jest.fn()
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ data: { accounts: [{ id: 'acct_1' }] } }),
+    }) as jest.Mock
+
+    render(<MailboxDrawer onOpen={handleOpen} />)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Open email' }))
+
+    expect(handleOpen).toHaveBeenCalledTimes(1)
+  })
 })

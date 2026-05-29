@@ -1,4 +1,5 @@
 import {
+  applyAgentColumnMoveState,
   applyAgentTodoRequeue,
   buildProjectTaskCreateData,
   buildProjectTaskUpdateData,
@@ -19,6 +20,8 @@ describe('project task payload helpers', () => {
         mentionIds: ['user-2'],
         dueDate: '2026-05-12',
         startDate: '2026-05-08',
+        baselineDueDate: '2026-05-10',
+        baselineStartDate: '2026-05-06',
         estimateMinutes: 180,
         checklist: [{ id: 'check-1', text: 'Confirm scope', done: false }],
         attachments: [{
@@ -47,6 +50,8 @@ describe('project task payload helpers', () => {
       mentionIds: ['user-2'],
       dueDate: '2026-05-12',
       startDate: '2026-05-08',
+      baselineDueDate: '2026-05-10',
+      baselineStartDate: '2026-05-06',
       estimateMinutes: 180,
     }))
     expect(result.value.attachments).toEqual([
@@ -86,6 +91,9 @@ describe('project task payload helpers', () => {
       labels: ['qa'],
       assigneeIds: ['user-3'],
       estimateMinutes: null,
+      internalOnly: true,
+      baselineDueDate: '2026-05-20',
+      baselineStartDate: null,
       ignored: 'nope',
     })
 
@@ -97,7 +105,26 @@ describe('project task payload helpers', () => {
       assigneeIds: ['user-3'],
       assigneeId: 'user-3',
       estimateMinutes: null,
+      internalOnly: true,
+      baselineDueDate: '2026-05-20',
+      baselineStartDate: null,
     })
+  })
+
+  it('preserves internal-only visibility on task create and update', () => {
+    const created = buildProjectTaskCreateData(
+      { title: 'Internal blocker', internalOnly: true },
+      'project-1',
+      'org-1',
+    )
+    expect(created.ok).toBe(true)
+    if (!created.ok) return
+    expect(created.value.internalOnly).toBe(true)
+
+    const updated = buildProjectTaskUpdateData({ internalOnly: false })
+    expect(updated.ok).toBe(true)
+    if (!updated.ok) return
+    expect(updated.value.internalOnly).toBe(false)
   })
 
   it('sorts legacy tasks without order after ordered tasks', () => {
@@ -396,6 +423,24 @@ describe('project task payload helpers', () => {
         agentOutput: null,
         agentConversationId: null,
         agentHeartbeatAt: null,
+      })
+    })
+
+    it('PATCH: moving an agent task into progress marks it as actively in progress', () => {
+      const raw = buildProjectTaskUpdateData({ columnId: 'in_progress' })
+      expect(raw.ok).toBe(true)
+      if (!raw.ok) return
+
+      const result = applyAgentColumnMoveState(
+        { assigneeAgentId: 'theo', agentStatus: 'pending', reviewStatus: 'pending' },
+        raw.value,
+        { columnId: 'in_progress' },
+      )
+
+      expect(result).toEqual({
+        columnId: 'in_progress',
+        agentStatus: 'in-progress',
+        reviewStatus: null,
       })
     })
 

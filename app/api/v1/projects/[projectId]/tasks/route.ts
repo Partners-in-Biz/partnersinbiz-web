@@ -10,10 +10,30 @@ import {
   notificationPriority,
   taskOrderMillis,
 } from '@/lib/projects/taskPayload'
+import { filterProjectItemsForAccess } from '@/lib/projects/collaboration'
+import { resolveContextReferences } from '@/lib/context-references/registry'
+import { sanitizeContextReferenceSeeds, type ContextReference } from '@/lib/context-references/types'
 
 export const dynamic = 'force-dynamic'
 
 type RouteContext = { params: Promise<{ projectId: string }> }
+
+function attachContextRefsToAgentInput(value: Record<string, unknown>, contextRefs: ContextReference[]) {
+  if (contextRefs.length === 0) return
+  const agentInput = value.agentInput
+  if (!agentInput || typeof agentInput !== 'object' || Array.isArray(agentInput)) return
+  const input = agentInput as Record<string, unknown>
+  const existingContext = input.context && typeof input.context === 'object' && !Array.isArray(input.context)
+    ? input.context as Record<string, unknown>
+    : {}
+  value.agentInput = {
+    ...input,
+    context: {
+      ...existingContext,
+      contextRefs,
+    },
+  }
+}
 
 export const GET = withAuth('client', async (req: NextRequest, user, ctx) => {
   const { projectId } = await (ctx as RouteContext).params
@@ -29,7 +49,7 @@ export const GET = withAuth('client', async (req: NextRequest, user, ctx) => {
   const tasks = snapshot.docs
     .map(doc => ({ id: doc.id, ...doc.data() }))
     .sort((a, b) => taskOrderMillis((a as Record<string, unknown>).order) - taskOrderMillis((b as Record<string, unknown>).order))
-  return apiSuccess(tasks)
+  return apiSuccess(filterProjectItemsForAccess(tasks, { projectAccess: access.projectAccess, user }))
 })
 
 export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
@@ -42,6 +62,16 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
 
   const taskData = buildProjectTaskCreateData(body, projectId, typeof project.orgId === 'string' ? project.orgId : undefined)
   if (!taskData.ok) return apiError(taskData.error, taskData.status ?? 400)
+  const orgId = typeof taskData.value.orgId === 'string' ? taskData.value.orgId : typeof project.orgId === 'string' ? project.orgId : undefined
+  const contextRefs = await resolveContextReferences(
+    sanitizeContextReferenceSeeds(body.contextRefs),
+    user,
+    orgId,
+  )
+  if (contextRefs.length > 0) {
+    taskData.value.contextRefs = contextRefs
+    attachContextRefsToAgentInput(taskData.value, contextRefs)
+  }
 
   const doc: Record<string, unknown> = {
     ...taskData.value,
@@ -57,7 +87,6 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
     .collection('tasks')
     .add(doc)
 
-  const orgId = typeof doc.orgId === 'string' ? doc.orgId : undefined
   if (orgId) {
     const actorName = user.uid === 'ai-agent'
       ? 'AI Agent'

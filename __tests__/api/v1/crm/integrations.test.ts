@@ -11,17 +11,19 @@ jest.mock('@/lib/firebase/admin', () => ({
 }))
 
 jest.mock('@/lib/integrations/crypto', () => ({
-  encryptCredentials: jest.fn((_config: unknown, _orgId: string) => ({
+  encryptCredentials: jest.fn(() => ({
     enc: 'ENCRYPTED',
     tag: 'tag',
     iv: 'iv',
     keyVersion: 1,
   })),
-  decryptCredentials: jest.fn((_blob: unknown, _orgId: string) => ({ apiKey: 'decrypted-key' })),
+  decryptCredentials: jest.fn(() => ({ apiKey: 'decrypted-key' })),
 }))
 
+import { NextRequest } from 'next/server'
 import { adminAuth, adminDb } from '@/lib/firebase/admin'
-import { encryptCredentials } from '@/lib/integrations/crypto'
+import { decryptCredentials, encryptCredentials } from '@/lib/integrations/crypto'
+import { syncMailchimp } from '@/lib/crm/integrations/handlers/mailchimp'
 import { seedOrgMember, callAsMember, callAsAgent } from '../../../helpers/crm'
 
 const AI_API_KEY = 'test-ai-key-abc'
@@ -53,6 +55,15 @@ function stageAuth(
       return {
         doc: () => ({
           get: () => Promise.resolve({ exists: true, data: () => member }),
+        }),
+        where: (_field: string, _op: string, value: string) => ({
+          get: () =>
+            Promise.resolve({
+              docs:
+                value === member.uid
+                  ? [{ id: `${member.orgId}_${member.uid}`, data: () => member }]
+                  : [],
+            }),
         }),
       }
     if (name === 'organizations')
@@ -206,7 +217,6 @@ describe('GET /api/v1/crm/integrations', () => {
   })
 
   it('returns 401 without auth', async () => {
-    const { NextRequest } = require('next/server')
     const req = new NextRequest('http://localhost/api/v1/crm/integrations')
     const { GET } = await import('@/app/api/v1/crm/integrations/route')
     const res = await GET(req)
@@ -374,7 +384,6 @@ describe('POST /api/v1/crm/integrations', () => {
     const { POST } = await import('@/app/api/v1/crm/integrations/route')
     const res = await POST(req)
     expect(res.status).toBe(201)
-    const body = await res.json()
 
     const addArg = capturedAdd.mock.calls[0][0]
     expect(addArg.createdByRef.uid).toBe('agent:pip')
@@ -508,6 +517,15 @@ function stageAuthWithDoc(
         doc: () => ({
           get: () => Promise.resolve({ exists: true, data: () => member }),
         }),
+        where: (_field: string, _op: string, value: string) => ({
+          get: () =>
+            Promise.resolve({
+              docs:
+                value === member.uid
+                  ? [{ id: `${member.orgId}_${member.uid}`, data: () => member }]
+                  : [],
+            }),
+        }),
       }
     if (name === 'organizations')
       return {
@@ -604,7 +622,6 @@ describe('GET /api/v1/crm/integrations/[id]', () => {
   })
 
   it('returns 401 without auth', async () => {
-    const { NextRequest } = require('next/server')
     const req = new NextRequest('http://localhost/api/v1/crm/integrations/int-1')
     const { GET } = await import('@/app/api/v1/crm/integrations/[id]/route')
     const res = await GET(req, { params: Promise.resolve({ id: 'int-1' }) })
@@ -649,7 +666,8 @@ describe('PUT /api/v1/crm/integrations/[id]', () => {
     const capturedUpdate = jest.fn().mockResolvedValue(undefined)
     stageAuthWithDoc(admin, fakeIntegrationData('org-1'), { capturedUpdate })
 
-    const { decryptCredentials: mockDecrypt, encryptCredentials: mockEncrypt } = require('@/lib/integrations/crypto')
+    const mockDecrypt = decryptCredentials as jest.Mock
+    const mockEncrypt = encryptCredentials as jest.Mock
 
     const req = callAsMember(admin, 'PUT', '/api/v1/crm/integrations/int-1', {
       config: { apiKey: 'new-key-us10', listId: 'new-list' },
@@ -809,7 +827,6 @@ describe('POST /api/v1/crm/integrations/[id]/sync', () => {
     const capturedUpdate = jest.fn().mockResolvedValue(undefined)
     stageAuthWithDoc(admin, fakeIntegrationData('org-1', { status: 'active' }), { capturedUpdate })
 
-    const { syncMailchimp } = require('@/lib/crm/integrations/handlers/mailchimp')
     ;(syncMailchimp as jest.Mock).mockResolvedValue(SYNC_RESULT_OK)
 
     const req = callAsMember(admin, 'POST', '/api/v1/crm/integrations/int-1/sync')
@@ -836,7 +853,6 @@ describe('POST /api/v1/crm/integrations/[id]/sync', () => {
     const capturedUpdate = jest.fn().mockResolvedValue(undefined)
     stageAuthWithDoc(admin, fakeIntegrationData('org-1', { status: 'active' }), { capturedUpdate })
 
-    const { syncMailchimp } = require('@/lib/crm/integrations/handlers/mailchimp')
     ;(syncMailchimp as jest.Mock).mockResolvedValue(SYNC_RESULT_OK)
 
     const req = callAsMember(admin, 'POST', '/api/v1/crm/integrations/int-1/sync')
@@ -857,7 +873,6 @@ describe('POST /api/v1/crm/integrations/[id]/sync', () => {
     const capturedUpdate = jest.fn().mockResolvedValue(undefined)
     stageAuthWithDoc(admin, fakeIntegrationData('org-1', { status: 'active' }), { capturedUpdate })
 
-    const { syncMailchimp } = require('@/lib/crm/integrations/handlers/mailchimp')
     ;(syncMailchimp as jest.Mock).mockResolvedValue({ ok: false, stats: { imported: 0, created: 0, updated: 0, skipped: 0, errored: 1 }, error: 'API rate limit' })
 
     const req = callAsMember(admin, 'POST', '/api/v1/crm/integrations/int-1/sync')

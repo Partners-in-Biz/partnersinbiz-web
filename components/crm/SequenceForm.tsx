@@ -8,6 +8,22 @@ import type { Sequence, SequenceStep, SequenceStatus } from '@/lib/sequences/typ
 const inputCls =
   'w-full text-sm px-3 py-2 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] text-[var(--color-pib-text)] placeholder-[var(--color-pib-text-muted)] focus:outline-none focus:ring-1 focus:ring-[var(--color-pib-accent)]'
 
+function stepChannel(step: SequenceStep) {
+  return step.channel === 'sms' ? 'sms' : 'email'
+}
+
+function stepReady(step: SequenceStep) {
+  if (stepChannel(step) === 'sms') return Boolean(step.smsBody?.trim())
+  return Boolean(step.subject?.trim() && (step.bodyHtml?.trim() || step.bodyText?.trim()))
+}
+
+function describeCadence(steps: SequenceStep[]) {
+  if (!steps.length) return 'No steps configured'
+  const totalDays = steps.reduce((sum, step) => sum + Math.max(0, Number(step.delayDays) || 0), 0)
+  if (totalDays === 0) return 'same-day journey'
+  return `${totalDays} day${totalDays === 1 ? '' : 's'} from first to last touch`
+}
+
 // ── StepRow ───────────────────────────────────────────────────────────────────
 
 function StepRow({
@@ -33,9 +49,14 @@ function StepRow({
     <div className="bento-card !p-4 mb-3">
       {/* Header row */}
       <div className="flex items-center justify-between gap-2 mb-3">
-        <span className="text-xs font-semibold text-[var(--color-pib-text-muted)] uppercase tracking-wide">
-          Step {index + 1}
-        </span>
+        <div className="min-w-0">
+          <span className="text-xs font-semibold text-[var(--color-pib-text-muted)] uppercase tracking-wide">
+            Step {index + 1}
+          </span>
+          <p className="mt-1 truncate text-[11px] text-[var(--color-pib-text-muted)]">
+            {stepChannel(step).toUpperCase()} · day {Math.max(0, Number(step.delayDays) || 0)}
+          </p>
+        </div>
         <div className="flex items-center gap-1">
           <button
             type="button"
@@ -144,6 +165,11 @@ function StepRow({
           </div>
         )}
       </div>
+
+      <div className="mt-3 flex items-center gap-2 text-[11px] text-[var(--color-pib-text-muted)]">
+        <span className={stepReady(step) ? 'h-2 w-2 rounded-full bg-emerald-400' : 'h-2 w-2 rounded-full bg-amber-400'} />
+        {stepReady(step) ? 'Ready to send' : 'Needs subject/body copy before launch'}
+      </div>
     </div>
   )
 }
@@ -183,6 +209,14 @@ export function SequenceForm({ initial, onSave, onCancel }: Props) {
   const [validationError, setValidationError] = useState<string | null>(null)
 
   const isEdit = Boolean(initial?.id)
+  const readySteps = steps.filter(stepReady).length
+  const emailSteps = steps.filter((step) => stepChannel(step) === 'email').length
+  const smsSteps = steps.filter((step) => stepChannel(step) === 'sms').length
+  const firstTouch = steps[0]
+    ? stepChannel(steps[0]) === 'sms'
+      ? steps[0].smsBody?.trim() || 'SMS body missing'
+      : steps[0].subject?.trim() || 'Email subject missing'
+    : 'No first touch configured'
 
   // ── Step helpers ───────────────────────────────────────────────────────────
 
@@ -266,7 +300,10 @@ export function SequenceForm({ initial, onSave, onCancel }: Props) {
       const body = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error((body as { error?: string }).error ?? `HTTP ${res.status}`)
 
-      const returnedSeq: Sequence = (body as { data?: Sequence }).data ?? (body as Sequence)
+      const returnedSeq: Sequence =
+        (body as { data?: { sequence?: Sequence } }).data?.sequence ??
+        (body as { data?: Sequence }).data ??
+        (body as Sequence)
       onSave(returnedSeq)
     } catch (err: unknown) {
       setSaveError(err instanceof Error ? err.message : 'Save failed.')
@@ -278,10 +315,17 @@ export function SequenceForm({ initial, onSave, onCancel }: Props) {
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <div className="space-y-4">
+    <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="space-y-4">
       {/* ── Section 1: Details ── */}
       <div className="bento-card !p-6">
-        <p className="eyebrow !text-[10px] mb-4">Details</p>
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div>
+            <p className="eyebrow !text-[10px]">Journey identity</p>
+            <h2 className="mt-2 text-sm font-semibold">Name the follow-up outcome</h2>
+          </div>
+          <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">route</span>
+        </div>
 
         <div className="space-y-3">
           <div>
@@ -327,7 +371,15 @@ export function SequenceForm({ initial, onSave, onCancel }: Props) {
 
       {/* ── Section 2: Steps ── */}
       <div className="bento-card !p-6">
-        <p className="eyebrow !text-[10px] mb-4">Email Steps</p>
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div>
+            <p className="eyebrow !text-[10px]">Journey steps</p>
+            <h2 className="mt-2 text-sm font-semibold">Design the touchpoint path</h2>
+          </div>
+          <span className="rounded-full border border-[var(--color-pib-line)] px-2 py-1 text-[10px] text-[var(--color-pib-text-muted)]">
+            {readySteps}/{steps.length} ready
+          </span>
+        </div>
 
         {steps.length === 0 && (
           <p className="text-sm text-[var(--color-pib-text-muted)] mb-3">
@@ -386,6 +438,56 @@ export function SequenceForm({ initial, onSave, onCancel }: Props) {
           Cancel
         </button>
       </div>
+      </div>
+
+      <aside className="space-y-4 xl:sticky xl:top-6 xl:self-start">
+        <div className="bento-card !p-5">
+          <p className="eyebrow !text-[10px]">Sequence preview</p>
+          <h2 className="mt-2 text-sm font-semibold">{name.trim() || 'Untitled sequence'}</h2>
+          <p className="mt-3 text-sm text-[var(--color-pib-text-muted)]">
+            {status === 'active' ? 'Active' : status === 'paused' ? 'Paused' : 'Draft'} journey with{' '}
+            <span className="text-[var(--color-pib-text)]">{steps.length} step{steps.length === 1 ? '' : 's'}</span> over{' '}
+            <span className="text-[var(--color-pib-text)]">{describeCadence(steps)}</span>.
+          </p>
+          <div className="mt-4 grid grid-cols-3 gap-2">
+            <div className="rounded-lg border border-[var(--color-pib-line)] px-3 py-2">
+              <p className="text-[10px] text-[var(--color-pib-text-muted)]">Ready</p>
+              <p className="mt-1 text-lg font-semibold">{readySteps}</p>
+            </div>
+            <div className="rounded-lg border border-[var(--color-pib-line)] px-3 py-2">
+              <p className="text-[10px] text-[var(--color-pib-text-muted)]">Email</p>
+              <p className="mt-1 text-lg font-semibold">{emailSteps}</p>
+            </div>
+            <div className="rounded-lg border border-[var(--color-pib-line)] px-3 py-2">
+              <p className="text-[10px] text-[var(--color-pib-text-muted)]">SMS</p>
+              <p className="mt-1 text-lg font-semibold">{smsSteps}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bento-card !p-5">
+          <p className="eyebrow !text-[10px]">First touch</p>
+          <p className="mt-3 line-clamp-3 text-sm">{firstTouch}</p>
+          <div className="mt-4 space-y-2">
+            {steps.map((step, index) => (
+              <div key={`${step.stepNumber}-${index}`} className="flex items-center gap-3 rounded-lg border border-[var(--color-pib-line)] px-3 py-2">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-[var(--color-pib-line)] text-[10px]">
+                  {index + 1}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-xs font-medium">
+                    {stepChannel(step) === 'sms' ? step.smsBody || 'SMS body missing' : step.subject || 'Subject missing'}
+                  </p>
+                  <p className="text-[10px] text-[var(--color-pib-text-muted)]">
+                    {stepChannel(step).toUpperCase()} · day {Math.max(0, Number(step.delayDays) || 0)}
+                  </p>
+                </div>
+                <span className={stepReady(step) ? 'h-2 w-2 rounded-full bg-emerald-400' : 'h-2 w-2 rounded-full bg-amber-400'} />
+              </div>
+            ))}
+          </div>
+        </div>
+      </aside>
     </div>
   )
 }

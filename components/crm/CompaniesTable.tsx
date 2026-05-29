@@ -1,19 +1,20 @@
 'use client'
 
 import type { Company } from '@/lib/companies/types'
+import Link from 'next/link'
 import { CompanyRow } from '@/components/crm/CompanyRow'
 
 // ── Column headers ────────────────────────────────────────────────────────────
 
 const COLUMNS = [
   { key: 'logo',         label: '' },
-  { key: 'name',         label: 'Name' },
-  { key: 'tier',         label: 'Tier' },
+  { key: 'name',         label: 'Account' },
+  { key: 'health',       label: 'Health' },
   { key: 'lifecycle',    label: 'Lifecycle' },
-  { key: 'industry',     label: 'Industry' },
-  { key: 'employees',    label: 'Employees' },
-  { key: 'am',           label: 'Account Manager' },
-  { key: 'openDeals',    label: 'Open Deals' },
+  { key: 'profile',      label: 'Profile' },
+  { key: 'value',        label: 'Value' },
+  { key: 'am',           label: 'Owner' },
+  { key: 'signals',      label: 'Signals' },
   { key: 'updatedAt',    label: 'Updated' },
 ]
 
@@ -26,10 +27,9 @@ function SkeletonRow() {
       <td className="px-4 py-3"><div className="pib-skeleton h-4 w-36 rounded" /></td>
       <td className="px-4 py-3"><div className="pib-skeleton h-4 w-20 rounded" /></td>
       <td className="px-4 py-3"><div className="pib-skeleton h-4 w-20 rounded" /></td>
-      <td className="px-4 py-3"><div className="pib-skeleton h-4 w-24 rounded" /></td>
       <td className="px-4 py-3"><div className="pib-skeleton h-4 w-16 rounded" /></td>
       <td className="px-4 py-3"><div className="pib-skeleton h-4 w-24 rounded" /></td>
-      <td className="px-4 py-3"><div className="pib-skeleton h-4 w-8 rounded" /></td>
+      <td className="px-4 py-3"><div className="pib-skeleton h-4 w-28 rounded" /></td>
       <td className="px-4 py-3"><div className="pib-skeleton h-4 w-20 rounded" /></td>
     </tr>
   )
@@ -41,14 +41,40 @@ export interface CompaniesTableProps {
   companies: Company[]
   loading: boolean
   onRowClick: (id: string) => void
+  onSetupCompany?: (id: string) => void
+  selectedIds?: Set<string>
+  onToggleCompany?: (id: string) => void
+  onToggleAll?: () => void
 }
 
-export function CompaniesTable({ companies, loading, onRowClick }: CompaniesTableProps) {
+export function CompaniesTable({
+  companies,
+  loading,
+  onRowClick,
+  onSetupCompany,
+  selectedIds,
+  onToggleCompany,
+  onToggleAll,
+}: CompaniesTableProps) {
+  const selectable = Boolean(selectedIds && onToggleCompany && onToggleAll)
+  const allSelected = selectable && companies.length > 0 && selectedIds?.size === companies.length
+
   return (
-    <div className="w-full overflow-x-auto">
+    <div className="pib-card-section w-full overflow-x-auto">
       <table className="w-full border-collapse text-left">
         <thead>
-          <tr className="border-b border-[var(--color-pib-line)]">
+          <tr className="border-b border-[var(--color-pib-line)] bg-white/[0.02]">
+            {selectable && (
+              <th className="px-4 py-2.5">
+                <input
+                  type="checkbox"
+                  checked={allSelected}
+                  onChange={onToggleAll}
+                  className="h-4 w-4 rounded accent-[var(--color-pib-accent)]"
+                  aria-label="Select all companies"
+                />
+              </th>
+            )}
             {COLUMNS.map((col) => (
               <th
                 key={col.key}
@@ -69,18 +95,45 @@ export function CompaniesTable({ companies, loading, onRowClick }: CompaniesTabl
             </>
           ) : companies.length === 0 ? (
             <tr>
-              <td colSpan={COLUMNS.length} className="px-4 py-16 text-center">
-                <span className="material-symbols-outlined text-3xl text-[var(--color-pib-text-muted)] block mb-2">
-                  domain
-                </span>
-                <p className="text-sm text-[var(--color-pib-text-muted)]">
-                  No companies yet. Create one to start tracking your accounts.
-                </p>
+              <td colSpan={COLUMNS.length + (selectable ? 1 : 0)} className="px-4 py-16 text-center">
+                <div className="mx-auto flex max-w-2xl flex-col items-center rounded-xl border border-dashed border-[var(--color-pib-line)] bg-white/[0.03] px-5 py-6">
+                  <span className="material-symbols-outlined flex h-12 w-12 items-center justify-center rounded-xl bg-white/[0.04] text-3xl text-[var(--color-pib-text-muted)]">
+                    domain
+                  </span>
+                  <p className="eyebrow mt-4 !text-[10px]">Start account setup</p>
+                  <h3 className="mt-2 text-lg font-semibold text-[var(--color-pib-text)]">No companies yet</h3>
+                  <p className="mt-2 max-w-md text-sm leading-6 text-[var(--color-pib-text-muted)]">
+                    Create the first account from company details, owner, lifecycle, and revenue context.
+                  </p>
+                  <div className="mt-5 flex flex-wrap justify-center gap-2">
+                    <Link
+                      href="/portal/companies/new"
+                      className="btn-pib-accent inline-flex items-center gap-1.5 text-xs"
+                    >
+                      <span className="material-symbols-outlined text-[15px]">add_business</span>
+                      Create first company
+                    </Link>
+                    <Link
+                      href="/portal/companies/migrate"
+                      className="btn-pib-secondary inline-flex items-center gap-1.5 text-xs"
+                    >
+                      <span className="material-symbols-outlined text-[15px]">sync_alt</span>
+                      Migrate from contacts
+                    </Link>
+                  </div>
+                </div>
               </td>
             </tr>
           ) : (
             companies.map((company) => (
-              <CompanyRow key={company.id} company={company} onClick={onRowClick} />
+              <CompanyRow
+                key={company.id}
+                company={company}
+                onClick={onRowClick}
+                onSetupProfile={onSetupCompany}
+                selected={selectedIds?.has(company.id) ?? false}
+                onToggleSelected={onToggleCompany}
+              />
             ))
           )}
         </tbody>

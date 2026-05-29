@@ -1,5 +1,6 @@
 import { FieldValue, Timestamp, type Query } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
+import type { ContextReference } from '@/lib/context-references/types'
 import {
   SUPPORT_CATEGORIES,
   SUPPORT_PRIORITIES,
@@ -82,6 +83,7 @@ function toTicket(id: string, data: RawDoc, orgName?: string): SupportTicket {
     priority: data.priority ?? 'normal',
     sourceUrl: data.sourceUrl ?? '',
     sourcePath: data.sourcePath ?? '',
+    contextRefs: Array.isArray(data.contextRefs) ? data.contextRefs : [],
     assignedToType: data.assignedToType ?? null,
     assigneeUserId: data.assigneeUserId ?? null,
     assigneeAgentId: data.assigneeAgentId ?? null,
@@ -107,6 +109,7 @@ function toMessage(id: string, data: RawDoc): SupportMessage {
     authorName: data.authorName ?? 'Client',
     body: data.body ?? '',
     attachments: Array.isArray(data.attachments) ? data.attachments : [],
+    contextRefs: Array.isArray(data.contextRefs) ? data.contextRefs : [],
     createdAt: data.createdAt ?? null,
   }) as SupportMessage
 }
@@ -136,6 +139,7 @@ export async function createSupportTicket(args: {
   description: string
   sourceUrl?: string
   sourcePath?: string
+  contextRefs?: ContextReference[]
 }) {
   const ref = adminDb.collection(SUPPORT_TICKETS_COLLECTION).doc()
   const batch = adminDb.batch()
@@ -152,6 +156,7 @@ export async function createSupportTicket(args: {
     priority: args.priority,
     sourceUrl: args.sourceUrl ?? '',
     sourcePath: args.sourcePath ?? '',
+    contextRefs: args.contextRefs ?? [],
     assignedToType: null,
     assigneeUserId: null,
     assigneeAgentId: null,
@@ -175,6 +180,7 @@ export async function createSupportTicket(args: {
     authorName: args.requesterName || 'Client',
     body: args.description,
     attachments: [],
+    contextRefs: args.contextRefs ?? [],
     createdAt: FieldValue.serverTimestamp(),
   })
   batch.set(adminDb.collection('notifications').doc(), {
@@ -251,6 +257,7 @@ export async function addSupportMessage(args: {
   authorRole: SupportAuthorRole
   authorName: string
   body: string
+  contextRefs?: ContextReference[]
 }) {
   const body = cleanText(args.body)
   if (!body) return { ok: false as const, error: 'Message body is required' }
@@ -265,6 +272,7 @@ export async function addSupportMessage(args: {
     authorName: args.authorName || (args.authorRole === 'client' ? 'Client' : 'Partners in Biz'),
     body,
     attachments: [],
+    contextRefs: args.contextRefs ?? [],
     createdAt: FieldValue.serverTimestamp(),
   })
 

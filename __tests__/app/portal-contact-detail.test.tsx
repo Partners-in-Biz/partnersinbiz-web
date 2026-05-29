@@ -1,0 +1,282 @@
+import React from 'react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import PortalContactDetailPage from '@/app/(portal)/portal/contacts/[id]/page'
+
+jest.mock('next/navigation', () => ({
+  useParams: () => ({ id: 'contact-1' }),
+  useRouter: () => ({ push: jest.fn() }),
+}))
+
+jest.mock('@/components/crm/ContactDealsPanel', () => ({
+  ContactDealsPanel: () => <div data-testid="contact-deals-panel" />,
+}))
+
+describe('Portal contact detail page', () => {
+  beforeEach(() => {
+    global.fetch = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/contacts/contact-1') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              contact: {
+                id: 'contact-1',
+                orgId: 'org-1',
+                name: 'Jane Client',
+                email: 'jane@example.com',
+                type: 'lead',
+                stage: 'new',
+              },
+            },
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/custom-fields?resource=contact') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { definitions: [] } }),
+        } as Response)
+      }
+      if (url === '/api/v1/portal/settings/team') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ members: [] }),
+        } as Response)
+      }
+      if (url === '/api/v1/email?contactId=contact-1&limit=20') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: [] }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/activities?contactId=contact-1&limit=50') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { activities: [] } }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/contacts/contact-1/suggestions') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { suggestions: [] } }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/contacts/contact-1/enrollments') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { enrollments: [] } }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/contacts/contact-1/recompute-score') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: {
+              update: {
+                leadScore: 64,
+                icpScore: 71,
+                aiLeadScore: 82,
+              },
+            },
+          }),
+        } as Response)
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ data: {} }),
+      } as Response)
+    }) as jest.Mock
+  })
+
+  it('turns an empty email history into a first-email action', async () => {
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    expect(await screen.findByText('No emails sent or received yet.')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Send first email to Jane Client' }))
+
+    expect(screen.getByPlaceholderText('Subject…')).toBeInTheDocument()
+    expect(screen.getByPlaceholderText('Message…')).toBeInTheDocument()
+  })
+
+  it('turns an empty activity timeline into a first-note action', async () => {
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    expect(await screen.findByText('No activity logged yet.')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Log first note for Jane Client' }))
+
+    expect(screen.getByPlaceholderText('Add note notes…')).toBeInTheDocument()
+  })
+
+  it('turns a missing company into a profile linking action', async () => {
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Link company for Jane Client' }))
+
+    expect(screen.getByPlaceholderText('Search companies…')).toHaveFocus()
+  })
+
+  it('turns the company card empty state into a company picker action', async () => {
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Link company from company card for Jane Client' }))
+
+    expect(screen.getByPlaceholderText('Search companies…')).toHaveFocus()
+  })
+
+  it('turns a missing phone into a profile completion action', async () => {
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add phone for Jane Client' }))
+
+    expect(screen.getByPlaceholderText('+27...')).toHaveFocus()
+  })
+
+  it('keeps missing details visible instead of hiding empty fields', async () => {
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    expect(screen.getByText('No phone captured')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Add phone from details for Jane Client' }))
+
+    expect(screen.getByPlaceholderText('+27...')).toHaveFocus()
+  })
+
+  it('keeps relationship notes visible as contact detail context', async () => {
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    expect(screen.getByText('No relationship notes captured')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Add relationship notes from details for Jane Client' }))
+
+    expect(screen.getByPlaceholderText('Add a note about this contact…')).toHaveFocus()
+  })
+
+  it('turns a missing last touch insight into an activity action', async () => {
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    expect(screen.getAllByText('No touch logged').length).toBeGreaterThan(0)
+    fireEvent.click(screen.getByRole('button', { name: 'Log touch for Jane Client from last touch insight' }))
+
+    expect(screen.getByPlaceholderText('Add note notes…')).toBeInTheDocument()
+  })
+
+  it('turns an empty email thread insight into a send action', async () => {
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Send email to Jane Client from email thread insight' }))
+
+    expect(screen.getByPlaceholderText('Subject…')).toBeInTheDocument()
+    expect(screen.getByPlaceholderText('Message…')).toBeInTheDocument()
+  })
+
+  it('turns an empty activity insight into a note action', async () => {
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Log activity for Jane Client from activity insight' }))
+
+    expect(screen.getByPlaceholderText('Add note notes…')).toBeInTheDocument()
+  })
+
+  it('wires engagement cockpit actions to contact composers', async () => {
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Schedule meeting from engagement cockpit with Jane Client' }))
+
+    expect(screen.getByPlaceholderText('Meeting title…')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('Meeting with Jane Client')).toBeInTheDocument()
+  })
+
+  it('turns a missing best score insight into a recompute action', async () => {
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Recompute score for Jane Client from best score insight' }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/contacts/contact-1/recompute-score', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ includeAi: true }),
+      })
+    })
+    await waitFor(() => {
+      expect(screen.getAllByText('82').length).toBeGreaterThan(0)
+    })
+  })
+
+  it('turns an unassigned relationship owner into an accountability action', async () => {
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Assign owner for Jane Client from relationship ownership' }))
+
+    expect(screen.getByDisplayValue('Unassigned')).toHaveFocus()
+  })
+
+  it('turns missing identity intelligence into profile field actions', async () => {
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add role for Jane Client from identity intelligence' }))
+    expect(screen.getByPlaceholderText('Decision maker, Finance Director...')).toHaveFocus()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add department for Jane Client from identity intelligence' }))
+    expect(screen.getByPlaceholderText('Finance, Operations...')).toHaveFocus()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add timezone for Jane Client from identity intelligence' }))
+    expect(screen.getByPlaceholderText('Africa/Johannesburg')).toHaveFocus()
+  })
+})

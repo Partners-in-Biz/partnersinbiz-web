@@ -92,13 +92,27 @@ function stageAuth(
       }
     }
     if (name === 'orgMembers') {
+      const callerKey = `${member.orgId}_${member.uid}`
+      const callerDoc = {
+        id: callerKey,
+        exists: true,
+        data: () => ({ ...member, orgId: member.orgId, uid: member.uid }),
+      }
+
       return {
+        where: (field: string, op: string, value: string) => ({
+          get: () => {
+            if (field === 'uid' && op === '==' && value === member.uid) {
+              return Promise.resolve({ docs: [callerDoc] })
+            }
+            return Promise.resolve({ docs: [] })
+          },
+        }),
         doc: (id: string) => ({
           get: () => {
             // Always resolve the caller's own member doc
-            const callerKey = `${member.orgId}_${member.uid}`
             if (id === callerKey) {
-              return Promise.resolve({ exists: true, data: () => member })
+              return Promise.resolve(callerDoc)
             }
             // Look up assignedTo resolutions
             const extra = orgMemberDocs[id]
@@ -416,10 +430,23 @@ describe('POST /api/v1/crm/contacts/bulk', () => {
         }
       }
       if (name === 'orgMembers') {
+        const callerDoc = {
+          id: 'org-1_uid-admin',
+          exists: true,
+          data: () => ({ ...member, orgId: 'org-1', uid: 'uid-admin' }),
+        }
         return {
+          where: (field: string, op: string, value: string) => ({
+            get: () => {
+              if (field === 'uid' && op === '==' && value === 'uid-admin') {
+                return Promise.resolve({ docs: [callerDoc] })
+              }
+              return Promise.resolve({ docs: [] })
+            },
+          }),
           doc: (id: string) => ({
             get: () => {
-              if (id === 'org-1_uid-admin') return Promise.resolve({ exists: true, data: () => member })
+              if (id === 'org-1_uid-admin') return Promise.resolve(callerDoc)
               if (id === 'org-1_uid-assign') return Promise.resolve({ exists: true, data: () => targetMember })
               return Promise.resolve({ exists: false })
             },

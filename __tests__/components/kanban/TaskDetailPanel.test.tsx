@@ -2,6 +2,7 @@ import React from 'react'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { TaskDetailPanel } from '@/components/kanban/TaskDetailPanel'
 import type { Task } from '@/components/kanban/types'
+import type { ContextReference } from '@/lib/context-references/types'
 
 jest.mock('next/navigation', () => ({
   useRouter: () => ({ push: jest.fn() }),
@@ -15,6 +16,16 @@ const task: Task = {
   columnId: 'todo',
   order: 1,
   priority: 'medium',
+}
+
+const contextRef: ContextReference = {
+  type: 'contact',
+  id: 'contact-1',
+  orgId: 'org-1',
+  label: 'Jane Client',
+  origin: 'mention',
+  href: '/admin/crm/contacts/contact-1',
+  summary: 'jane@example.com',
 }
 
 function renderPanel(overrides: Partial<React.ComponentProps<typeof TaskDetailPanel>> = {}) {
@@ -88,6 +99,57 @@ describe('TaskDetailPanel', () => {
 
     expect(await screen.findByText('Legacy status update')).toBeInTheDocument()
     expect(screen.getAllByText('System').length).toBeGreaterThan(0)
+  })
+
+  it('attaches selected context refs to submitted task comments', async () => {
+    global.fetch = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/v1/projects/project-1/tasks/task-1/comments' && !init) {
+        return { json: () => Promise.resolve({ success: true, data: [] }) } as Response
+      }
+      if (url.startsWith('/api/v1/context-references/search')) {
+        return {
+          ok: true,
+          json: () => Promise.resolve({ success: true, data: { refs: [contextRef] } }),
+        } as Response
+      }
+      if (url === '/api/v1/projects/project-1/tasks/task-1/comments' && init?.method === 'POST') {
+        return {
+          json: () => Promise.resolve({
+            success: true,
+            data: {
+              id: 'comment-1',
+              text: 'Jane confirmed the requirements.',
+              contextRefs: [contextRef],
+            },
+          }),
+        } as Response
+      }
+      throw new Error(`Unexpected fetch ${url}`)
+    })
+
+    renderPanel({ orgId: 'org-1' })
+
+    await waitFor(() => expect(screen.queryByText('Loading comments...')).not.toBeInTheDocument())
+    fireEvent.change(screen.getByPlaceholderText('Type a comment...'), {
+      target: { value: 'Jane confirmed the requirements.' },
+    })
+    fireEvent.change(screen.getByLabelText('Add task comment context reference'), {
+      target: { value: '@contacts:jane' },
+    })
+    fireEvent.click(await screen.findByRole('button', { name: 'Attach Jane Client' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }))
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(
+      '/api/v1/projects/project-1/tasks/task-1/comments',
+      expect.objectContaining({ method: 'POST' }),
+    ))
+    const createCall = (global.fetch as jest.Mock).mock.calls.find(([url, init]) => (
+      url === '/api/v1/projects/project-1/tasks/task-1/comments' && init?.method === 'POST'
+    ))
+    expect(JSON.parse(createCall[1].body)).toEqual(expect.objectContaining({
+      contextRefs: [expect.objectContaining({ type: 'contact', id: 'contact-1', label: 'Jane Client' })],
+    }))
   })
 
   it('shows actionable unblock guidance for blocked cards from the latest blocker comment', async () => {

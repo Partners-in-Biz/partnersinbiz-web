@@ -16,6 +16,8 @@ const mockOrgChatConfigGet = jest.fn()
 const mockResolveVisibleAgents = jest.fn()
 
 let mockUser: MockUser = { uid: 'admin-1', role: 'admin' }
+let organizationMembers: Array<{ userId: string; role: string }> = []
+let orgMemberRows: Array<{ id: string; data: Record<string, unknown> }> = []
 
 jest.mock('@/lib/firebase/admin', () => ({
   adminDb: { collection: mockCollection },
@@ -37,6 +39,11 @@ beforeEach(() => {
   jest.resetModules()
   jest.clearAllMocks()
   mockUser = { uid: 'admin-1', role: 'admin' }
+  organizationMembers = [
+    { userId: 'client-1', role: 'member' },
+    { userId: 'admin-2', role: 'member' },
+  ]
+  orgMemberRows = []
   mockOrgChatConfigGet.mockResolvedValue({ exists: false, data: () => ({}) })
   mockResolveVisibleAgents.mockReturnValue(['pip', 'theo', 'maya', 'sage', 'nora', 'ads', 'qa-release', 'support', 'data', 'docs', 'seo'])
   mockCreateConversation.mockImplementation(async (input) => ({ id: 'conv-1', ...input }))
@@ -77,13 +84,21 @@ beforeEach(() => {
       return {
         doc: (orgId: string) => ({
           get: async () => ({
-            exists: orgId === 'pib-platform-owner',
+            exists: orgId === 'pib-platform-owner' || orgId === 'org-1',
             data: () => ({
-              members: [
-                { userId: 'client-1', role: 'member' },
-                { userId: 'admin-2', role: 'member' },
-              ],
+              members: organizationMembers,
             }),
+          }),
+        }),
+      }
+    }
+    if (name === 'orgMembers') {
+      return {
+        where: (field: string, _op: string, value: string) => ({
+          get: async () => ({
+            docs: orgMemberRows
+              .filter((row) => row.data[field] === value)
+              .map((row) => ({ id: row.id, data: () => row.data })),
           }),
         }),
       }
@@ -162,6 +177,39 @@ describe('platform-scoped unified conversations', () => {
     const body = await readJson(res)
     expect(body.data).toEqual([
       expect.objectContaining({ uid: 'admin-2', role: 'admin', email: 'ops@example.com' }),
+    ])
+  })
+
+  it('returns linked orgMember profiles when embedded organisation members are missing', async () => {
+    organizationMembers = []
+    orgMemberRows = [
+      {
+        id: 'org-1_client-1',
+        data: {
+          orgId: 'org-1',
+          uid: 'client-1',
+          role: 'admin',
+          firstName: 'Client',
+          lastName: 'Owner',
+        },
+      },
+    ]
+
+    const { GET } = await import('@/app/api/v1/orgs/[orgId]/contacts/route')
+
+    const res = await GET(new NextRequest('http://localhost/api/v1/orgs/org-1/contacts'), {
+      params: Promise.resolve({ orgId: 'org-1' }),
+    })
+
+    expect(res.status).toBe(200)
+    const body = await readJson(res)
+    expect(body.data).toEqual([
+      expect.objectContaining({
+        uid: 'client-1',
+        role: 'admin',
+        displayName: 'Client Owner',
+        email: 'client@example.com',
+      }),
     ])
   })
 })

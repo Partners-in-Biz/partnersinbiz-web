@@ -536,6 +536,8 @@ GET /webhooks/wh_xyz/deliveries?limit=50
 
 These endpoints manage PiB **internal staff** (users with `role === 'admin'`). They are restricted to **super admins only** — an admin whose `allowedOrgIds` array is empty. A restricted admin (non-empty `allowedOrgIds`) cannot call these endpoints; this prevents silent self-elevation.
 
+Staff access is not the same thing as client membership. `allowedOrgIds` controls admin-surface visibility; it does not create client portal/CRM membership and it does not create the client's CRM Company/Contact relationship. To let staff enter a client portal, add them as explicit org members. To represent the client business and stakeholders, use the platform-owner CRM Company/Contact links described in `client-manager` and `crm-sales`.
+
 ### User model
 
 ```json

@@ -46,6 +46,8 @@ Projects can be source/recipient records just like invoices:
 - `contactId` / `sourceContactId` point to the sender-owned CRM Contact when the project is shared with a specific contact.
 - `claimStatus`, `claimToken`, and `claimableRelationshipId` appear when a project is shared to a CRM recipient that has not joined or claimed yet.
 
+Before creating a PiB-sourced project for an onboarded client, confirm the client org is linked to a platform-owner CRM Company and real members are linked to Contacts. Pass the Company `companyId` and, when relevant, the stakeholder `contactId` so Projects/Kanban, CRM timelines, billing, and account reviews all point at the same business/person relationship.
+
 Client-created project requests remain client-originated until PiB accepts/converts them into PiB-sourced work. Client portal project screens must use `GET /projects?view=received`; do not attach unscoped Firestore listeners to the top-level `projects` collection.
 
 ## Project-context routing guard

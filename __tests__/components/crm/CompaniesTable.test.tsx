@@ -30,9 +30,9 @@ const noop = () => {}
 describe('CompaniesTable', () => {
   it('renders table headers', () => {
     render(<CompaniesTable companies={[]} loading={false} onRowClick={noop} />)
-    expect(screen.getByText('Name')).toBeInTheDocument()
-    expect(screen.getByText('Industry')).toBeInTheDocument()
-    expect(screen.getByText('Tier')).toBeInTheDocument()
+    expect(screen.getByText('Account')).toBeInTheDocument()
+    expect(screen.getByText('Health')).toBeInTheDocument()
+    expect(screen.getByText('Profile')).toBeInTheDocument()
     expect(screen.getByText('Lifecycle')).toBeInTheDocument()
   })
 
@@ -41,6 +41,15 @@ describe('CompaniesTable', () => {
     expect(
       screen.getByText(/No companies yet/i),
     ).toBeInTheDocument()
+  })
+
+  it('turns the empty company list into direct account setup actions', () => {
+    render(<CompaniesTable companies={[]} loading={false} onRowClick={noop} />)
+
+    expect(screen.getByText('Start account setup')).toBeInTheDocument()
+    expect(screen.getByText('Create the first account from company details, owner, lifecycle, and revenue context.')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /create first company/i })).toHaveAttribute('href', '/portal/companies/new')
+    expect(screen.getByRole('link', { name: /migrate from contacts/i })).toHaveAttribute('href', '/portal/companies/migrate')
   })
 
   it('renders loading state when loading=true', () => {
@@ -59,6 +68,27 @@ describe('CompaniesTable', () => {
     render(<CompaniesTable companies={companies} loading={false} onRowClick={noop} />)
     expect(screen.getByText('ACME Corp')).toBeInTheDocument()
     expect(screen.getByText('Globex Inc')).toBeInTheDocument()
+  })
+
+  it('turns sparse company rows into a profile completion action', () => {
+    const handleSetup = jest.fn()
+    const company = makeCompany({ id: 'co-setup', name: 'Setup Needed Ltd' })
+
+    render(
+      <CompaniesTable
+        companies={[company]}
+        loading={false}
+        onRowClick={noop}
+        onSetupCompany={handleSetup}
+      />,
+    )
+
+    expect(screen.getByText('No domain captured')).toBeInTheDocument()
+    expect(screen.getByText('No size data')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Complete account profile for Setup Needed Ltd' }))
+
+    expect(handleSetup).toHaveBeenCalledWith('co-setup')
   })
 
   it('calls onRowClick with the company id when a row is clicked', () => {
@@ -99,5 +129,31 @@ describe('CompaniesTable', () => {
     expect(screen.getByText('Alpha')).toBeInTheDocument()
     expect(screen.getByText('Beta')).toBeInTheDocument()
     expect(screen.getByText('Gamma')).toBeInTheDocument()
+  })
+
+  it('renders selection controls when bulk selection props are provided', () => {
+    const onToggleCompany = jest.fn()
+    const onToggleAll = jest.fn()
+    const companies = [
+      makeCompany({ id: 'co-1', name: 'Alpha' }),
+      makeCompany({ id: 'co-2', name: 'Beta' }),
+    ]
+
+    render(
+      <CompaniesTable
+        companies={companies}
+        loading={false}
+        onRowClick={noop}
+        selectedIds={new Set(['co-1'])}
+        onToggleCompany={onToggleCompany}
+        onToggleAll={onToggleAll}
+      />,
+    )
+
+    fireEvent.click(screen.getByLabelText('Select all companies'))
+    expect(onToggleAll).toHaveBeenCalled()
+
+    fireEvent.click(screen.getByLabelText('Select Beta'))
+    expect(onToggleCompany).toHaveBeenCalledWith('co-2')
   })
 })

@@ -9,11 +9,22 @@ import { KanbanBoard } from '@/components/kanban/KanbanBoard'
 import { TaskDetailPanel } from '@/components/kanban/TaskDetailPanel'
 import { TaskComposer } from '@/components/kanban/TaskComposer'
 import { ProjectBoardSummary } from '@/components/projects/ProjectBoardSummary'
+import { ProjectDocsPanel, projectDocContent, type ProjectDoc } from '@/components/projects/ProjectDocsPanel'
+import { ProjectPeopleAccessPanel } from '@/components/projects/ProjectPeopleAccessPanel'
+import { ProjectSettingsPanel } from '@/components/projects/ProjectSettingsPanel'
+import { ProjectSuitePanel } from '@/components/projects/ProjectSuitePanel'
+import { PageTabs } from '@/components/ui/AppFoundation'
 import type { AgentMember, Column, Task, TeamMember } from '@/components/kanban/types'
 
-interface ProjectDoc { id: string; title: string; content?: string; type: 'brief' | 'requirements' | 'notes' | 'reference'; createdBy: string; updatedBy?: string; createdAt?: unknown; updatedAt?: unknown }
 interface Project { id: string; orgId?: string; name: string; description?: string; brief?: string; status?: string; columns: Column[] }
 type TaskListSort = 'latest' | 'due'
+type ProjectTab = 'kanban' | 'plan' | 'docs' | 'settings'
+const PROJECT_TABS: Array<{ id: ProjectTab; label: string; icon: string }> = [
+  { id: 'kanban', label: 'Kanban', icon: 'view_kanban' },
+  { id: 'plan', label: 'Plan', icon: 'timeline' },
+  { id: 'docs', label: 'Docs', icon: 'description' },
+  { id: 'settings', label: 'Settings', icon: 'settings' },
+]
 
 function mergeLiveTasks(restTasks: Task[], currentTasks: Task[]) {
   const merged = new Map<string, Task>()
@@ -30,17 +41,6 @@ const DEFAULT_COLUMNS: Column[] = [
   { id: 'review',      name: 'Review',      color: '#c084fc',                 order: 4 },
   { id: 'done',        name: 'Done',        color: '#4ade80',                 order: 5 },
 ]
-
-const TYPE_COLORS: Record<string, string> = {
-  brief: 'bg-amber-50 text-amber-700 border-amber-200',
-  requirements: 'bg-blue-50 text-blue-700 border-blue-200',
-  notes: 'bg-gray-50 text-gray-700 border-gray-200',
-  reference: 'bg-purple-50 text-purple-700 border-purple-200',
-}
-
-function docContent(content: unknown): string {
-  return typeof content === 'string' ? content : ''
-}
 
 function Skeleton({ className = '' }: { className?: string }) {
   return <div className={`pib-skeleton ${className}`} />
@@ -83,6 +83,41 @@ function agentLabel(agent?: AgentMember, agentId?: string | null): string {
   return agent?.name || agentId || ''
 }
 
+type ProjectAccessMember = {
+  uid?: string
+  userId?: string
+  role?: string
+  displayName?: string
+  email?: string
+  photoURL?: string
+  status?: string
+}
+
+function normalizeTeamMemberRole(role?: string): TeamMember['role'] {
+  if (role === 'owner') return 'owner'
+  if (role === 'admin' || role === 'manager') return 'admin'
+  if (role === 'viewer' || role === 'reviewer') return 'viewer'
+  return 'member'
+}
+
+function mergeProjectAccessMembers(orgMembers: TeamMember[], accessMembers: ProjectAccessMember[]): TeamMember[] {
+  const merged = new Map<string, TeamMember>()
+  orgMembers.forEach(member => merged.set(member.userId, member))
+  accessMembers.forEach(member => {
+    const userId = member.userId || member.uid
+    if (!userId || member.status === 'revoked') return
+    const existing = merged.get(userId)
+    merged.set(userId, {
+      userId,
+      role: existing?.role ?? normalizeTeamMemberRole(member.role),
+      displayName: existing?.displayName ?? member.displayName,
+      email: existing?.email ?? member.email,
+      photoURL: existing?.photoURL ?? member.photoURL,
+    })
+  })
+  return Array.from(merged.values())
+}
+
 export default function ProjectDetailPage() {
   const params = useParams()
   const projectId = params.projectId as string
@@ -95,13 +130,17 @@ export default function ProjectDetailPage() {
   const [loading, setLoading] = useState(true)
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   const [showNewTask, setShowNewTask] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<'kanban' | 'docs' | 'settings'>('kanban')
-  const [viewMode, setViewMode] = useState<'board' | 'list'>('board')
+  const [activeTab, setActiveTab] = useState<ProjectTab>('kanban')
+  const [viewMode, setViewMode] = useState<'board' | 'list'>(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return 'board'
+    return window.matchMedia('(max-width: 767px)').matches ? 'list' : 'board'
+  })
   const [boardSortMode, setBoardSortMode] = useState<'latest' | 'manual'>('latest')
   const [taskListSort, setTaskListSort] = useState<TaskListSort>('latest')
   const [editingBrief, setEditingBrief] = useState(false)
   const [briefValue, setBriefValue] = useState('')
   const [editingDoc, setEditingDoc] = useState<ProjectDoc | null>(null)
+  const [selectedDoc, setSelectedDoc] = useState<ProjectDoc | null>(null)
   const [savingBrief, setSavingBrief] = useState(false)
   const [settingsName, setSettingsName] = useState('')
   const [settingsStatus, setSettingsStatus] = useState('discovery')
@@ -156,15 +195,19 @@ export default function ProjectDetailPage() {
 
   useEffect(() => {
     if (!project?.orgId) return
-    fetch(`/api/v1/organizations/${project.orgId}/members`)
-      .then(r => r.json())
-      .then(body => setMembers(body.data ?? []))
+    Promise.all([
+      fetch(`/api/v1/organizations/${project.orgId}/members`).then(r => r.json()),
+      fetch(`/api/v1/projects/${projectId}/access`).then(r => r.json()).catch(() => ({ data: { members: [] } })),
+    ])
+      .then(([orgBody, accessBody]) => {
+        setMembers(mergeProjectAccessMembers(orgBody.data ?? [], accessBody.data?.members ?? []))
+      })
       .catch(() => setMembers([]))
     fetch(`/api/v1/orgs/${project.orgId}/visible-agents`)
       .then(r => r.json())
       .then(body => setAgents(body.data ?? []))
       .catch(() => setAgents([]))
-  }, [project?.orgId])
+  }, [project?.orgId, projectId])
 
   const handleTaskMove = useCallback(async (taskId: string, newColumnId: string, newOrder: number) => {
     setTasks(prev => prev.map(t => t.id === taskId ? { ...t, columnId: newColumnId, order: newOrder } : t))
@@ -221,27 +264,31 @@ export default function ProjectDetailPage() {
     if (!window.confirm('Are you sure?')) return
     await fetch(`/api/v1/projects/${projectId}/docs/${docId}`, { method: 'DELETE' })
     setDocs(prev => prev.filter(d => d.id !== docId))
+    setSelectedDoc(prev => prev?.id === docId ? null : prev)
   }
 
   const handleSaveDoc = async () => {
-    if (!editingDoc?.title.trim() || !docContent(editingDoc.content).trim()) return
+    if (!editingDoc?.title.trim() || !projectDocContent(editingDoc.content).trim()) return
 
     if (editingDoc.id) {
       await fetch(`/api/v1/projects/${projectId}/docs/${editingDoc.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: editingDoc.title, content: docContent(editingDoc.content), type: editingDoc.type }),
+        body: JSON.stringify({ title: editingDoc.title, content: projectDocContent(editingDoc.content), type: editingDoc.type }),
       })
       setDocs(prev => prev.map(d => d.id === editingDoc.id ? editingDoc : d))
+      setSelectedDoc(prev => prev?.id === editingDoc.id ? editingDoc : prev)
     } else {
       const res = await fetch(`/api/v1/projects/${projectId}/docs`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: editingDoc.title, content: docContent(editingDoc.content), type: editingDoc.type }),
+        body: JSON.stringify({ title: editingDoc.title, content: projectDocContent(editingDoc.content), type: editingDoc.type }),
       })
       const body = await res.json()
       if (body.data?.id) {
-        setDocs(prev => [{ ...editingDoc, id: body.data.id } as ProjectDoc, ...prev])
+        const createdDoc = { ...editingDoc, id: body.data.id } as ProjectDoc
+        setDocs(prev => [createdDoc, ...prev])
+        setSelectedDoc(createdDoc)
       }
     }
     setEditingDoc(null)
@@ -268,68 +315,43 @@ export default function ProjectDetailPage() {
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6 shrink-0">
-        <div>
-          <div className="flex items-center gap-2 text-xs text-on-surface-variant mb-1">
+      <div className="flex shrink-0 items-start justify-between gap-3 mb-3 md:mb-6">
+        <div className="min-w-0">
+          <div className="mb-1 flex min-w-0 items-center gap-2 overflow-hidden text-[11px] text-on-surface-variant md:text-xs">
             <Link href="/portal/projects" className="hover:text-on-surface transition-colors">Projects</Link>
             <span>/</span>
-            <span className="text-on-surface">{project?.name ?? '...'}</span>
+            <span className="truncate text-on-surface">{project?.name ?? '...'}</span>
           </div>
-          <h1 className="text-2xl font-headline font-bold text-on-surface">
+          <h1 className="truncate text-xl font-headline font-bold text-on-surface md:text-2xl">
             {loading ? '...' : project?.name}
           </h1>
         </div>
         {activeTab === 'kanban' && (
           <button
             onClick={() => setShowNewTask('todo')}
-            className="pib-btn-primary text-sm font-label"
+            className="pib-btn-primary shrink-0 px-3 py-2 text-xs font-label md:text-sm"
           >
             <span className="material-symbols-outlined text-[17px]">add_task</span>
-            New Task
+            <span className="hidden sm:inline">New Task</span>
+            <span className="sm:hidden">New</span>
           </button>
         )}
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-6 mb-6 shrink-0 border-b border-[var(--color-outline)]">
-        <button
-          onClick={() => setActiveTab('kanban')}
-          className={`px-1 pb-3 text-sm font-label transition-colors ${
-            activeTab === 'kanban'
-              ? 'text-on-surface border-b-2 border-[var(--color-accent-v2)]'
-              : 'text-on-surface-variant hover:text-on-surface'
-          }`}
-        >
-          Kanban
-        </button>
-        <button
-          onClick={() => setActiveTab('docs')}
-          className={`px-1 pb-3 text-sm font-label transition-colors ${
-            activeTab === 'docs'
-              ? 'text-on-surface border-b-2 border-[var(--color-accent-v2)]'
-              : 'text-on-surface-variant hover:text-on-surface'
-          }`}
-        >
-          Docs
-        </button>
-        <button
-          onClick={() => setActiveTab('settings')}
-          className={`px-1 pb-3 text-sm font-label transition-colors ${
-            activeTab === 'settings'
-              ? 'text-on-surface border-b-2 border-[var(--color-accent-v2)]'
-              : 'text-on-surface-variant hover:text-on-surface'
-          }`}
-        >
-          Settings
-        </button>
-      </div>
+      <PageTabs
+        className="mb-3 shrink-0 md:mb-6"
+        ariaLabel="Project detail tabs"
+        value={activeTab}
+        onValueChange={(value) => setActiveTab(value as ProjectTab)}
+        tabs={PROJECT_TABS.map((tab) => ({ label: tab.label, value: tab.id, icon: tab.icon }))}
+      />
 
       {/* Tab Content */}
       {activeTab === 'kanban' && (
         <>
           <ProjectBoardSummary tasks={tasks} columns={columns} />
 
-          <div className="mb-4 flex shrink-0 items-center justify-between gap-3 overflow-x-auto">
+          <div className="mb-3 flex shrink-0 items-center justify-between gap-3 overflow-x-auto md:mb-4">
             <div className="inline-flex shrink-0 rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)] p-1">
               {(['board', 'list'] as const).map(mode => (
                 <button
@@ -375,7 +397,8 @@ export default function ProjectDetailPage() {
                     aria-pressed={taskListSort === option.key}
                   >
                     <span className="material-symbols-outlined text-[16px]">{option.icon}</span>
-                    {option.label}
+                    <span className="hidden sm:inline">{option.label}</span>
+                    <span className="sm:hidden">{option.key === 'latest' ? 'Latest' : 'Due'}</span>
                   </button>
                 ))}
               </div>
@@ -393,8 +416,40 @@ export default function ProjectDetailPage() {
               ))}
             </div>
           ) : viewMode === 'list' ? (
-            <div className="flex-1 overflow-auto rounded-lg border border-[var(--color-card-border)]">
-              <table className="w-full min-w-[760px] text-left text-sm">
+            <div className="flex-1 overflow-auto rounded-[var(--radius-btn)] border border-[var(--color-card-border)]">
+              <div data-testid="portal-mobile-task-list" className="space-y-2 p-2 md:hidden">
+                {sortedListTasks.map(task => {
+                  const assigneeIds = task.assigneeIds?.length ? task.assigneeIds : task.assigneeId ? [task.assigneeId] : []
+                  const people = [
+                    ...assigneeIds.map(id => memberLabel(members.find(member => member.userId === id))),
+                    task.assigneeAgentId ? agentLabel(agents.find(agent => agent.agentId === task.assigneeAgentId), task.assigneeAgentId) : '',
+                  ].filter(Boolean).join(', ') || 'Unassigned'
+                  return (
+                    <button
+                      key={task.id}
+                      type="button"
+                      onClick={() => setSelectedTask(task)}
+                      className="w-full rounded-[var(--radius-card)] border border-[var(--color-card-border)] bg-[var(--color-card)] p-3 text-left shadow-sm transition-colors hover:border-[var(--color-accent-v2)]"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-on-surface">{task.title}</p>
+                          <p className="mt-1 truncate text-[11px] text-on-surface-variant">{people}</p>
+                        </div>
+                        <span className="shrink-0 rounded-full border border-[var(--color-card-border)] bg-[var(--color-surface-container)] px-2 py-1 text-[10px] text-on-surface-variant">
+                          {columns.find(c => c.id === task.columnId)?.name ?? task.columnId}
+                        </span>
+                      </div>
+                      <div className="mt-3 flex items-center gap-2 text-[11px] text-on-surface-variant">
+                        <span className="inline-flex items-center gap-1"><span className="material-symbols-outlined text-[14px]">event</span>{formatDate(task.dueDate)}</span>
+                        <span className="inline-flex items-center gap-1"><span className="material-symbols-outlined text-[14px]">schedule</span>{formatEstimate(task.estimateMinutes)}</span>
+                        {(task.attachments?.length ?? 0) > 0 && <span className="ml-auto inline-flex items-center gap-1"><span className="material-symbols-outlined text-[14px]">attach_file</span>{task.attachments?.length ?? 0}</span>}
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+              <table className="hidden w-full min-w-[760px] text-left text-sm md:table">
                 <thead className="sticky top-0 bg-[var(--color-sidebar)] text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
                   <tr className="border-b border-[var(--color-card-border)]">
                     <th className="px-4 py-3">Task</th>
@@ -454,155 +509,42 @@ export default function ProjectDetailPage() {
       )}
 
       {activeTab === 'docs' && (
-        <div className="flex-1 overflow-auto space-y-6">
-          {/* Brief Section */}
-          <div className="bg-[var(--color-card)] border border-[var(--color-outline)] rounded-lg p-4">
-            <h2 className="text-lg font-headline font-bold text-on-surface mb-3">Project Brief</h2>
-            {editingBrief ? (
-              <div className="space-y-3">
-                <textarea
-                  value={briefValue}
-                  onChange={e => setBriefValue(e.target.value)}
-                  placeholder="Add a project brief... What's this project about? Goals, constraints, key stakeholders."
-                  className="w-full px-3 py-2 text-sm bg-[var(--color-background)] border border-[var(--color-outline)] rounded text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-[var(--color-accent-v2)]"
-                  rows={4}
-                />
-                <div className="flex gap-2">
-                  <button onClick={handleSaveBrief} disabled={savingBrief} className="pib-btn-primary text-sm font-label">
-                    {savingBrief ? 'Saving...' : 'Save'}
-                  </button>
-                  <button onClick={() => { setEditingBrief(false); setBriefValue(project?.brief ?? ''); }} className="pib-btn-secondary text-sm font-label">Cancel</button>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                <p className={`px-3 py-2 text-sm rounded min-h-[80px] ${briefValue ? 'bg-[var(--color-background)] text-on-surface' : 'bg-[var(--color-background)] text-on-surface-variant italic'}`}>
-                  {briefValue || 'No brief yet'}
-                </p>
-                <button onClick={() => setEditingBrief(true)} className="pib-btn-secondary text-sm font-label">Edit</button>
-              </div>
-            )}
-          </div>
+        <ProjectDocsPanel
+          briefValue={briefValue}
+          docs={docs}
+          editingBrief={editingBrief}
+          editingDoc={editingDoc}
+          selectedDoc={selectedDoc}
+          savingBrief={savingBrief}
+          onBriefChange={setBriefValue}
+          onEditBrief={() => setEditingBrief(true)}
+          onCancelBrief={() => { setEditingBrief(false); setBriefValue(project?.brief ?? '') }}
+          onSaveBrief={handleSaveBrief}
+          onEditDoc={setEditingDoc}
+          onEditingDocChange={setEditingDoc}
+          onSelectDoc={setSelectedDoc}
+          onSaveDoc={handleSaveDoc}
+          onDeleteDoc={handleDeleteDoc}
+        />
+      )}
 
-          {/* Documents Section */}
-          <div className="bg-[var(--color-card)] border border-[var(--color-outline)] rounded-lg p-4">
-            <h2 className="text-lg font-headline font-bold text-on-surface mb-4">Documents</h2>
-            {editingDoc ? (
-              <div className="space-y-3 mb-4">
-                <input
-                  type="text"
-                  placeholder="Document title..."
-                  value={editingDoc.title}
-                  onChange={e => setEditingDoc({ ...editingDoc, title: e.target.value })}
-                  className="w-full px-3 py-2 text-sm bg-[var(--color-background)] border border-[var(--color-outline)] rounded text-on-surface focus:outline-none focus:border-[var(--color-accent-v2)]"
-                />
-                <select
-                  value={editingDoc.type}
-                  onChange={e => setEditingDoc({ ...editingDoc, type: e.target.value as ProjectDoc['type'] })}
-                  className="w-full px-3 py-2 text-sm bg-[var(--color-background)] border border-[var(--color-outline)] rounded text-on-surface focus:outline-none focus:border-[var(--color-accent-v2)]"
-                >
-                  <option value="brief">Brief</option>
-                  <option value="requirements">Requirements</option>
-                  <option value="notes">Notes</option>
-                  <option value="reference">Reference</option>
-                </select>
-                <textarea
-                  placeholder="Content (markdown)..."
-                  value={docContent(editingDoc.content)}
-                  onChange={e => setEditingDoc({ ...editingDoc, content: e.target.value })}
-                  className="w-full px-3 py-2 text-sm bg-[var(--color-background)] border border-[var(--color-outline)] rounded text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-[var(--color-accent-v2)]"
-                  rows={10}
-                />
-                <div className="flex gap-2">
-                  <button onClick={handleSaveDoc} className="pib-btn-primary text-sm font-label">Save</button>
-                  <button onClick={() => setEditingDoc(null)} className="pib-btn-secondary text-sm font-label">Cancel</button>
-                </div>
-              </div>
-            ) : null}
-
-            {!editingDoc && (
-              <>
-                <div className="space-y-2 mb-4">
-                  {docs.map(doc => (
-                    <div key={doc.id} className="flex items-center justify-between p-3 bg-[var(--color-background)] border border-[var(--color-outline)] rounded">
-                      <div className="flex-1 flex items-center gap-3">
-                        <span className="text-lg">📄</span>
-                        <div>
-                          <p className="text-sm font-semibold text-on-surface">{doc.title}</p>
-                          <span className={`inline-block text-xs px-2 py-1 rounded border mt-1 ${TYPE_COLORS[doc.type] || TYPE_COLORS.notes}`}>
-                            {doc.type}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="flex gap-2">
-                        <button onClick={() => setEditingDoc(doc)} className="pib-btn-secondary text-xs font-label">Edit</button>
-                        <button onClick={() => handleDeleteDoc(doc.id!)} className="text-xs text-red-600 hover:text-red-700">Delete</button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <button
-                  onClick={() => setEditingDoc({ id: '', title: '', content: '', type: 'notes', createdBy: '' })}
-                  className="w-full pib-btn-secondary text-sm font-label"
-                >
-                  + New Document
-                </button>
-              </>
-            )}
-          </div>
-        </div>
+      {activeTab === 'plan' && (
+        <ProjectSuitePanel projectId={projectId} />
       )}
 
       {activeTab === 'settings' && (
-        <div className="flex-1 overflow-auto max-w-2xl">
-          <div className="bg-[var(--color-card)] border border-[var(--color-outline)] rounded-lg p-6 space-y-6">
-            <div>
-              <label className="block text-sm font-semibold text-on-surface mb-2">Project Name</label>
-              <input
-                type="text"
-                value={settingsName}
-                onChange={e => setSettingsName(e.target.value)}
-                className="w-full px-4 py-2 text-sm bg-[var(--color-background)] border border-[var(--color-outline)] rounded text-on-surface focus:outline-none focus:border-[var(--color-accent-v2)]"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-on-surface mb-2">Status</label>
-              <select
-                value={settingsStatus}
-                onChange={e => setSettingsStatus(e.target.value)}
-                className="w-full px-4 py-2 text-sm bg-[var(--color-background)] border border-[var(--color-outline)] rounded text-on-surface focus:outline-none focus:border-[var(--color-accent-v2)]"
-              >
-                <option value="discovery">Discovery</option>
-                <option value="design">Design</option>
-                <option value="development">Development</option>
-                <option value="review">Review</option>
-                <option value="live">Live</option>
-                <option value="maintenance">Maintenance</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-on-surface mb-2">Description</label>
-              <textarea
-                value={settingsDescription}
-                onChange={e => setSettingsDescription(e.target.value)}
-                className="w-full px-4 py-2 text-sm bg-[var(--color-background)] border border-[var(--color-outline)] rounded text-on-surface focus:outline-none focus:border-[var(--color-accent-v2)]"
-                rows={4}
-              />
-            </div>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={handleSaveSettings}
-                disabled={savingSettings || !settingsName.trim()}
-                className="pib-btn-primary text-sm font-label"
-              >
-                {savingSettings ? 'Saving...' : 'Save Settings'}
-              </button>
-              {settingsSaved && (
-                <span className="text-xs text-green-400">Saved</span>
-              )}
-            </div>
-          </div>
-        </div>
+        <ProjectSettingsPanel
+          name={settingsName}
+          status={settingsStatus}
+          description={settingsDescription}
+          saving={savingSettings}
+          saved={settingsSaved}
+          onNameChange={setSettingsName}
+          onStatusChange={setSettingsStatus}
+          onDescriptionChange={setSettingsDescription}
+          onSave={handleSaveSettings}
+          peopleAccessSlot={<ProjectPeopleAccessPanel projectId={projectId} />}
+        />
       )}
 
       {/* Task detail panel */}

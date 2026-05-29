@@ -71,6 +71,7 @@ function ChannelSwitch({
 const PLATFORM_ITEMS = [
   { label: 'Platform Users', desc: 'Manage admin and operator user accounts', href: '/admin/platform-users', superAdminOnly: true },
   { label: 'Platform Members', desc: 'View client logins and linked client accounts', href: '/admin/platform-members', superAdminOnly: true },
+  { label: 'Communications', desc: 'Inspect channel readiness, queues, routing, and customer messaging operations', href: '/admin/communications' },
   { label: 'API Keys', desc: 'Manage API keys for AI agents and integrations', href: '/admin/settings/api-keys' },
 ]
 

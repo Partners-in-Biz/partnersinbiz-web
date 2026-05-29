@@ -65,12 +65,23 @@ function stageAuth(member: { uid: string; orgId: string; role: string; firstName
     if (name === 'users') {
       return {
         doc: () => ({
-          get: () => Promise.resolve({ exists: true, data: () => ({ activeOrgId: member.orgId }) }),
+          get: () => Promise.resolve({ exists: true, data: () => ({ activeOrgId: member.orgId, orgIds: [member.orgId] }) }),
         }),
       }
     }
     if (name === 'orgMembers') {
       return {
+        where: () => ({
+          get: () =>
+            Promise.resolve({
+              docs: [
+                {
+                  id: `${member.orgId}_${member.uid}`,
+                  data: () => member,
+                },
+              ],
+            }),
+        }),
         doc: () => ({
           get: () => Promise.resolve({ exists: true, data: () => member }),
         }),

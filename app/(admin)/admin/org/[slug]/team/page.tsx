@@ -12,6 +12,10 @@ interface OrgMember {
   displayName?: string
   email?: string
   photoURL?: string
+  jobTitle?: string
+  department?: string
+  accessScope?: AccessScope
+  accessNotes?: string
 }
 
 interface Organization {
@@ -38,6 +42,21 @@ const ROLE_OPTIONS: Array<{ value: OrgMember['role']; label: string; description
   { value: 'member', label: 'Member', description: 'Can work inside the client portal' },
   { value: 'viewer', label: 'Viewer', description: 'Read-only client portal access' },
 ]
+
+type AccessScope = 'all' | 'crm' | 'marketing' | 'projects' | 'billing' | 'readonly'
+
+const ACCESS_SCOPE_OPTIONS: Array<{ value: AccessScope; label: string }> = [
+  { value: 'all', label: 'All workspace areas' },
+  { value: 'crm', label: 'CRM and contacts' },
+  { value: 'marketing', label: 'Marketing and content' },
+  { value: 'projects', label: 'Projects and delivery' },
+  { value: 'billing', label: 'Billing and documents' },
+  { value: 'readonly', label: 'Read-only oversight' },
+]
+
+function accessScopeLabel(value?: AccessScope) {
+  return ACCESS_SCOPE_OPTIONS.find((option) => option.value === value)?.label ?? 'All workspace areas'
+}
 
 function Skeleton({ className = '' }: { className?: string }) {
   return <div className={`pib-skeleton ${className}`} />
@@ -169,6 +188,91 @@ function RoleSelect({
   )
 }
 
+function AccessFields({
+  jobTitle,
+  department,
+  accessScope,
+  accessNotes,
+  onJobTitle,
+  onDepartment,
+  onAccessScope,
+  onAccessNotes,
+  disabled,
+}: {
+  jobTitle: string
+  department: string
+  accessScope: AccessScope
+  accessNotes: string
+  onJobTitle: (value: string) => void
+  onDepartment: (value: string) => void
+  onAccessScope: (value: AccessScope) => void
+  onAccessNotes: (value: string) => void
+  disabled?: boolean
+}) {
+  return (
+    <div className="space-y-3 rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)]/60 p-3">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+        <label className="block">
+          <span className="mb-1.5 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Job title</span>
+          <FieldShell>
+            <input
+              type="text"
+              placeholder="Finance Manager"
+              value={jobTitle}
+              onChange={(e) => onJobTitle(e.target.value)}
+              className="h-10 w-full bg-transparent px-3 text-sm text-on-surface placeholder:text-on-surface-variant outline-none"
+              disabled={disabled}
+            />
+          </FieldShell>
+        </label>
+        <label className="block">
+          <span className="mb-1.5 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Department</span>
+          <FieldShell>
+            <input
+              type="text"
+              placeholder="Operations"
+              value={department}
+              onChange={(e) => onDepartment(e.target.value)}
+              className="h-10 w-full bg-transparent px-3 text-sm text-on-surface placeholder:text-on-surface-variant outline-none"
+              disabled={disabled}
+            />
+          </FieldShell>
+        </label>
+      </div>
+      <label className="block">
+        <span className="mb-1.5 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Access scope</span>
+        <FieldShell>
+          <select
+            value={accessScope}
+            onChange={(e) => onAccessScope(e.target.value as AccessScope)}
+            className="h-10 w-full bg-transparent px-3 text-sm text-on-surface outline-none"
+            disabled={disabled}
+          >
+            {ACCESS_SCOPE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </FieldShell>
+      </label>
+      <label className="block">
+        <span className="mb-1.5 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Internal access note</span>
+        <FieldShell>
+          <textarea
+            rows={2}
+            placeholder="Context for this person's responsibilities"
+            value={accessNotes}
+            onChange={(e) => onAccessNotes(e.target.value)}
+            className="w-full resize-none bg-transparent px-3 py-2 text-sm text-on-surface placeholder:text-on-surface-variant outline-none"
+            disabled={disabled}
+          />
+        </FieldShell>
+      </label>
+    </div>
+  )
+}
+
 export default function TeamPage() {
   const params = useParams()
   const slug = params.slug as string
@@ -183,6 +287,10 @@ export default function TeamPage() {
   const [createName, setCreateName] = useState('')
   const [createEmail, setCreateEmail] = useState('')
   const [createRole, setCreateRole] = useState('member')
+  const [createJobTitle, setCreateJobTitle] = useState('')
+  const [createDepartment, setCreateDepartment] = useState('')
+  const [createAccessScope, setCreateAccessScope] = useState<AccessScope>('all')
+  const [createAccessNotes, setCreateAccessNotes] = useState('')
   const [createError, setCreateError] = useState<string | null>(null)
   const [setupLink, setSetupLink] = useState<string | null>(null)
 
@@ -191,6 +299,10 @@ export default function TeamPage() {
   const [clientSearch, setClientSearch] = useState('')
   const [clientUid, setClientUid] = useState('')
   const [clientRole, setClientRole] = useState('member')
+  const [clientJobTitle, setClientJobTitle] = useState('')
+  const [clientDepartment, setClientDepartment] = useState('')
+  const [clientAccessScope, setClientAccessScope] = useState<AccessScope>('all')
+  const [clientAccessNotes, setClientAccessNotes] = useState('')
   const [clientCandidates, setClientCandidates] = useState<ClientCandidate[]>([])
   const [clientDropdownOpen, setClientDropdownOpen] = useState(false)
   const [clientSearchLoading, setClientSearchLoading] = useState(false)
@@ -202,6 +314,10 @@ export default function TeamPage() {
   const [addEmail, setAddEmail] = useState('')
   const [addSearch, setAddSearch] = useState('')
   const [addRole, setAddRole] = useState('member')
+  const [addJobTitle, setAddJobTitle] = useState('')
+  const [addDepartment, setAddDepartment] = useState('')
+  const [addAccessScope, setAddAccessScope] = useState<AccessScope>('all')
+  const [addAccessNotes, setAddAccessNotes] = useState('')
   const [addError, setAddError] = useState<string | null>(null)
   const [platformUsers, setPlatformUsers] = useState<PlatformUser[]>([])
   const [showDropdown, setShowDropdown] = useState(false)
@@ -316,15 +432,39 @@ export default function TeamPage() {
       const res = await fetch(`/api/v1/organizations/${org.id}/create-login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: createEmail, name: createName, role: createRole }),
+        body: JSON.stringify({
+          email: createEmail,
+          name: createName,
+          role: createRole,
+          jobTitle: createJobTitle,
+          department: createDepartment,
+          accessScope: createAccessScope,
+          accessNotes: createAccessNotes,
+        }),
       })
       const body = await res.json()
       if (!res.ok) throw new Error(body.error || 'Failed to create login')
-      setMembers([...members, { userId: body.data.uid, role: body.data.role, email: body.data.email, displayName: body.data.displayName }])
+      setMembers([
+        ...members,
+        {
+          userId: body.data.uid,
+          role: body.data.role,
+          email: body.data.email,
+          displayName: body.data.displayName,
+          jobTitle: body.data.jobTitle,
+          department: body.data.department,
+          accessScope: body.data.accessScope,
+          accessNotes: body.data.accessNotes,
+        },
+      ])
       setSetupLink(body.data.setupLink)
       setCreateName('')
       setCreateEmail('')
       setCreateRole('member')
+      setCreateJobTitle('')
+      setCreateDepartment('')
+      setCreateAccessScope('all')
+      setCreateAccessNotes('')
     } catch (e) {
       setCreateError(e instanceof Error ? e.message : 'An error occurred')
     } finally {
@@ -343,7 +483,14 @@ export default function TeamPage() {
       const res = await fetch(`/api/v1/organizations/${org.id}/members`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: addEmail, role: addRole }),
+        body: JSON.stringify({
+          email: addEmail,
+          role: addRole,
+          jobTitle: addJobTitle,
+          department: addDepartment,
+          accessScope: addAccessScope,
+          accessNotes: addAccessNotes,
+        }),
       })
 
       const body = await res.json()
@@ -357,6 +504,10 @@ export default function TeamPage() {
       setAddEmail('')
       setAddSearch('')
       setAddRole('member')
+      setAddJobTitle('')
+      setAddDepartment('')
+      setAddAccessScope('all')
+      setAddAccessNotes('')
     } catch (e) {
       setAddError(e instanceof Error ? e.message : 'An error occurred')
     } finally {
@@ -375,7 +526,14 @@ export default function TeamPage() {
       const res = await fetch(`/api/v1/organizations/${org.id}/members/client`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ uid: clientUid, role: clientRole }),
+        body: JSON.stringify({
+          uid: clientUid,
+          role: clientRole,
+          jobTitle: clientJobTitle,
+          department: clientDepartment,
+          accessScope: clientAccessScope,
+          accessNotes: clientAccessNotes,
+        }),
       })
 
       const body = await res.json()
@@ -388,6 +546,10 @@ export default function TeamPage() {
       setClientUid('')
       setClientSearch('')
       setClientRole('member')
+      setClientJobTitle('')
+      setClientDepartment('')
+      setClientAccessScope('all')
+      setClientAccessNotes('')
       setClientCandidates([])
       setClientDropdownOpen(false)
     } catch (e) {
@@ -518,6 +680,17 @@ export default function TeamPage() {
                   </FieldShell>
                 </label>
                 <RoleSelect value={createRole} onChange={setCreateRole} disabled={creatingLogin} />
+                <AccessFields
+                  jobTitle={createJobTitle}
+                  department={createDepartment}
+                  accessScope={createAccessScope}
+                  accessNotes={createAccessNotes}
+                  onJobTitle={setCreateJobTitle}
+                  onDepartment={setCreateDepartment}
+                  onAccessScope={setCreateAccessScope}
+                  onAccessNotes={setCreateAccessNotes}
+                  disabled={creatingLogin}
+                />
                 <button
                   type="submit"
                   className="pib-btn-primary flex w-full items-center justify-center gap-2 text-sm font-label"
@@ -632,6 +805,17 @@ export default function TeamPage() {
                   </div>
                 </label>
                 <RoleSelect value={clientRole} onChange={setClientRole} disabled={addingClient} />
+                <AccessFields
+                  jobTitle={clientJobTitle}
+                  department={clientDepartment}
+                  accessScope={clientAccessScope}
+                  accessNotes={clientAccessNotes}
+                  onJobTitle={setClientJobTitle}
+                  onDepartment={setClientDepartment}
+                  onAccessScope={setClientAccessScope}
+                  onAccessNotes={setClientAccessNotes}
+                  disabled={addingClient}
+                />
                 <button
                   type="submit"
                   className="pib-btn-primary flex w-full items-center justify-center gap-2 text-sm font-label"
@@ -729,6 +913,17 @@ export default function TeamPage() {
                   </div>
                 </label>
                 <RoleSelect value={addRole} onChange={setAddRole} disabled={addingMember} />
+                <AccessFields
+                  jobTitle={addJobTitle}
+                  department={addDepartment}
+                  accessScope={addAccessScope}
+                  accessNotes={addAccessNotes}
+                  onJobTitle={setAddJobTitle}
+                  onDepartment={setAddDepartment}
+                  onAccessScope={setAddAccessScope}
+                  onAccessNotes={setAddAccessNotes}
+                  disabled={addingMember}
+                />
                 <button
                   type="submit"
                   className="pib-btn-primary flex w-full items-center justify-center gap-2 text-sm font-label"
@@ -774,7 +969,13 @@ export default function TeamPage() {
                     Email
                   </th>
                   <th className="text-left py-2 px-3 font-label text-[10px] uppercase tracking-widest text-on-surface-variant">
+                    Position
+                  </th>
+                  <th className="text-left py-2 px-3 font-label text-[10px] uppercase tracking-widest text-on-surface-variant">
                     Role
+                  </th>
+                  <th className="text-left py-2 px-3 font-label text-[10px] uppercase tracking-widest text-on-surface-variant">
+                    Access
                   </th>
                   <th className="text-right py-2 px-3 font-label text-[10px] uppercase tracking-widest text-on-surface-variant">
                     Actions
@@ -799,6 +1000,14 @@ export default function TeamPage() {
                       <span className="text-on-surface-variant text-sm">{member.email || '—'}</span>
                     </td>
                     <td className="py-3 px-3">
+                      <div className="max-w-[180px] text-sm">
+                        <p className="truncate text-on-surface">{member.jobTitle || '—'}</p>
+                        {member.department && (
+                          <p className="truncate text-xs text-on-surface-variant">{member.department}</p>
+                        )}
+                      </div>
+                    </td>
+                    <td className="py-3 px-3">
                       <div className="flex items-center gap-2">
                         <RoleBadge role={member.role} />
                         {member.role !== 'owner' && (
@@ -816,6 +1025,14 @@ export default function TeamPage() {
                             <option value="admin">Admin</option>
                             <option value="viewer">Viewer</option>
                           </select>
+                        )}
+                      </div>
+                    </td>
+                    <td className="py-3 px-3">
+                      <div className="max-w-[190px] text-sm">
+                        <p className="text-on-surface-variant">{accessScopeLabel(member.accessScope)}</p>
+                        {member.accessNotes && (
+                          <p className="mt-0.5 truncate text-xs text-on-surface-variant/70">{member.accessNotes}</p>
                         )}
                       </div>
                     </td>

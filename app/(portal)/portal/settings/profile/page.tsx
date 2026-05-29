@@ -69,14 +69,16 @@ export default function ProfilePage() {
   if (loading) return <div className="text-sm text-[var(--color-pib-text-muted)]">Loading…</div>
 
   return (
-    <div className="max-w-xl">
-      <h1 className="text-lg font-semibold mb-1">My profile</h1>
-      <p className="text-sm text-[var(--color-pib-text-muted)] mb-8">
-        Your identity in this workspace. Used on CRM records, comments, and activity.
-      </p>
+    <div className="max-w-4xl space-y-10">
+      <div>
+        <h1 className="text-lg font-semibold mb-1">My profile</h1>
+        <p className="text-sm text-[var(--color-pib-text-muted)]">
+          Your identity in this workspace. Used on CRM records, comments, and activity.
+        </p>
+      </div>
 
       {profile.role && (
-        <div className="mb-6 flex items-center gap-2">
+        <div className="flex items-center gap-2">
           <span className="text-xs text-[var(--color-pib-text-muted)]">Workspace role:</span>
           <span className="pill !text-[11px] !py-0.5 !px-2 capitalize">{profile.role}</span>
         </div>

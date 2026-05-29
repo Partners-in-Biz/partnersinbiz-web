@@ -25,6 +25,11 @@ const VALID_STATUSES: PostStatus[] = [
   'approved', 'vaulted', 'scheduled', 'publishing', 'published',
   'partially_published', 'failed', 'cancelled',
 ]
+const PERSONAL_SCOPE = 'personal'
+
+function wantsPersonalScope(req: Request): boolean {
+  return new URL(req.url).searchParams.get('scope') === PERSONAL_SCOPE
+}
 
 function toLegacyPlatform(platform: string): SocialPlatform | null {
   if (platform === 'x' || platform === 'twitter') return 'x'
@@ -38,12 +43,13 @@ function toProviderPlatform(platform: string): SocialPlatformType | null {
   return ACTIVE_PLATFORMS.includes(p) ? p : null
 }
 
-export const GET = withAuth('client', withTenant(async (req, _user, orgId) => {
+export const GET = withAuth('client', withTenant(async (req, user, orgId) => {
   const { searchParams } = new URL(req.url)
   const platform = searchParams.get('platform') as SocialPlatform | null
   const status = searchParams.get('status') as PostStatus | null
   const from = searchParams.get('from')
   const to = searchParams.get('to')
+  const personalScope = wantsPersonalScope(req)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let query: any = adminDb.collection('social_posts').where('orgId', '==', orgId)
@@ -62,7 +68,10 @@ export const GET = withAuth('client', withTenant(async (req, _user, orgId) => {
   let posts = snapshot.docs.map((doc: any) => ({
     id: doc.id,
     ...doc.data(),
-  }))
+  })).filter((post: Record<string, unknown>) => {
+    if (personalScope) return post.accountScope === PERSONAL_SCOPE && post.ownerUid === user.uid
+    return post.accountScope !== PERSONAL_SCOPE
+  })
 
   // In-memory date range filtering
   if (from) {
@@ -101,6 +110,7 @@ export const GET = withAuth('client', withTenant(async (req, _user, orgId) => {
 
 export const POST = withAuth('client', withTenant(async (req, user, orgId) => {
   const body = await req.json()
+  const personalScope = wantsPersonalScope(req)
 
   // --- Resolve content ---
   let contentText: string
@@ -149,6 +159,34 @@ export const POST = withAuth('client', withTenant(async (req, user, orgId) => {
     return apiError(`Validation failed: ${validation.errors.map(e => e.message).join('; ')}`)
   }
 
+  const accountIds = Array.isArray(body.accountIds)
+    ? body.accountIds.filter((id: unknown): id is string => typeof id === 'string' && id.trim().length > 0)
+    : []
+
+  if (personalScope) {
+    if (accountIds.length === 0) {
+      return apiError('Select at least one personal account before creating a personal post', 400)
+    }
+
+    for (const accountId of accountIds) {
+      const accountDoc = await adminDb.collection('social_accounts').doc(accountId).get()
+      const account = accountDoc.data()
+      if (
+        !accountDoc.exists ||
+        account?.orgId !== orgId ||
+        account.accountScope !== PERSONAL_SCOPE ||
+        account.ownerUid !== user.uid ||
+        account.status !== 'active'
+      ) {
+        return apiError('Selected personal account is not available to this user', 403)
+      }
+      const accountPlatform = toProviderPlatform(String(account.platform ?? ''))
+      if (!accountPlatform || !platforms.includes(accountPlatform)) {
+        return apiError('Selected personal account does not match the chosen platform', 400)
+      }
+    }
+  }
+
   // --- Resolve scheduling ---
   const scheduledForRaw = body.scheduledFor ?? body.scheduledAt
   let scheduledAt: Timestamp | null = null
@@ -174,7 +212,8 @@ export const POST = withAuth('client', withTenant(async (req, user, orgId) => {
     },
     media: body.media ?? [],
     platforms,
-    accountIds: body.accountIds ?? [],
+    accountIds,
+    ...(personalScope ? { accountScope: PERSONAL_SCOPE, ownerUid: user.uid } : {}),
     status,
     scheduledAt,
     scheduledFor: scheduledAt,

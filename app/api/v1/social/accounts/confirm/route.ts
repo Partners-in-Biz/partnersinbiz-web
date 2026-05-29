@@ -6,6 +6,7 @@ import { withTenant } from '@/lib/api/tenant'
 import { apiSuccess, apiError } from '@/lib/api/response'
 
 export const dynamic = 'force-dynamic'
+const PERSONAL_SCOPE = 'personal'
 
 interface PendingOption {
   platformAccountId: string
@@ -38,6 +39,8 @@ export const POST = withAuth('client', withTenant(async (req: NextRequest, user:
 
   const pending = pendingDoc.data()!
   if (pending.orgId !== orgId) return apiError('Not found', 404)
+  const personalScope = pending.accountScope === PERSONAL_SCOPE
+  if (personalScope && pending.ownerUid !== user?.uid) return apiError('Not found', 404)
   if (pending.expiresAt.toDate() < new Date()) return apiError('Not found', 404)
 
   const platform: string = pending.platform
@@ -53,15 +56,23 @@ export const POST = withAuth('client', withTenant(async (req: NextRequest, user:
 
   const batch = adminDb.batch()
 
-  const existingDefaults = await adminDb
+  let defaultsQuery: any = adminDb
     .collection('social_accounts')
     .where('orgId', '==', orgId)
     .where('platform', '==', platform)
     .where('isDefault', '==', true)
-    .get()
+
+  if (personalScope) {
+    defaultsQuery = defaultsQuery.where('accountScope', '==', PERSONAL_SCOPE).where('ownerUid', '==', user?.uid ?? '')
+  }
+
+  const existingDefaults = await defaultsQuery.get()
 
   for (const d of existingDefaults.docs) {
-    batch.update(d.ref, { isDefault: false, updatedAt: FieldValue.serverTimestamp() })
+    const data = d.data?.() ?? {}
+    if (personalScope || data.accountScope !== PERSONAL_SCOPE) {
+      batch.update(d.ref, { isDefault: false, updatedAt: FieldValue.serverTimestamp() })
+    }
   }
 
   const accountIds: string[] = []
@@ -78,15 +89,19 @@ export const POST = withAuth('client', withTenant(async (req: NextRequest, user:
         : null,
     }
 
-    const existing = await adminDb
+    let existingQuery: any = adminDb
       .collection('social_accounts')
       .where('orgId', '==', orgId)
       .where('platform', '==', platform)
       .where('platformAccountId', '==', option.platformAccountId)
-      .limit(1)
-      .get()
 
-    const accountData = {
+    if (personalScope) {
+      existingQuery = existingQuery.where('accountScope', '==', PERSONAL_SCOPE).where('ownerUid', '==', user?.uid ?? '')
+    }
+
+    const existing = await existingQuery.limit(1).get()
+
+    const accountData: Record<string, unknown> = {
       orgId,
       platform,
       platformAccountId: option.platformAccountId,
@@ -100,12 +115,13 @@ export const POST = withAuth('client', withTenant(async (req: NextRequest, user:
       scopes: option.scopes ?? [],
       encryptedTokens,
       platformMeta: option.platformMeta ?? {},
+      ...(personalScope ? { accountScope: PERSONAL_SCOPE, ownerUid: user?.uid ?? '' } : {}),
       updatedAt: FieldValue.serverTimestamp(),
     }
 
     if (!existing.empty) {
       const ref = existing.docs[0].ref
-      batch.update(ref, accountData)
+      batch.update(ref, accountData as any)
       accountIds.push(existing.docs[0].id)
     } else {
       const ref = adminDb.collection('social_accounts').doc()

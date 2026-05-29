@@ -44,6 +44,8 @@ jest.mock('firebase-admin/firestore', () => ({
   },
 }))
 
+import { adminAuth } from '@/lib/firebase/admin'
+
 beforeEach(() => {
   jest.clearAllMocks()
   const batchObj = { set: mockBatchSet, update: mockBatchUpdate, delete: mockBatchDelete, commit: mockBatchCommit }
@@ -186,5 +188,58 @@ describe('PATCH /api/v1/portal/settings/team/[uid]/role', () => {
     })
     const res = await PATCH(req, { params: Promise.resolve({ uid: 'uid-target' }) })
     expect(res.status).toBe(400)
+  })
+})
+
+describe('POST /api/v1/portal/settings/team/invite', () => {
+  it('stores role, job title, department, access scope, and invite note', async () => {
+    ;(adminAuth.getUserByEmail as jest.Mock).mockRejectedValueOnce(new Error('missing'))
+    ;(adminAuth.createUser as jest.Mock).mockResolvedValueOnce({ uid: 'uid-new' })
+    ;(adminAuth.generatePasswordResetLink as jest.Mock).mockResolvedValueOnce('https://firebase/reset')
+    mockGet
+      .mockResolvedValueOnce({ exists: false })
+      .mockResolvedValueOnce({ exists: true, data: () => ({ members: [] }) })
+    mockSet.mockResolvedValue(undefined)
+    mockUpdate.mockResolvedValue(undefined)
+
+    const { POST } = await import('@/app/api/v1/portal/settings/team/invite/route')
+    const req = new NextRequest('http://localhost/api/v1/portal/settings/team/invite', {
+      method: 'POST',
+      headers: { Cookie: '__session=valid', 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: 'new@example.com',
+        role: 'admin',
+        jobTitle: 'Sales Manager',
+        department: 'Sales',
+        accessScope: 'crm',
+        inviteNote: 'Please manage new leads.',
+      }),
+    })
+
+    const res = await POST(req)
+    expect(res.status).toBe(200)
+    expect(mockSet).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orgId: 'org-1',
+        uid: 'uid-new',
+        role: 'admin',
+        jobTitle: 'Sales Manager',
+        department: 'Sales',
+        accessScope: 'crm',
+        inviteNote: 'Please manage new leads.',
+      }),
+      { merge: true },
+    )
+    expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      members: expect.objectContaining({
+        v: expect.objectContaining({
+          userId: 'uid-new',
+          role: 'admin',
+          jobTitle: 'Sales Manager',
+          department: 'Sales',
+          accessScope: 'crm',
+        }),
+      }),
+    }))
   })
 })

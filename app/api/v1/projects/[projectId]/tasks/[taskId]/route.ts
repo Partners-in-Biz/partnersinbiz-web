@@ -5,16 +5,37 @@ import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { getProjectForUser } from '@/lib/projects/access'
 import {
-  applyAgentTodoRequeue,
+  applyAgentColumnMoveState,
   buildProjectTaskUpdateData,
   notificationPriority,
 } from '@/lib/projects/taskPayload'
 import { logActivity } from '@/lib/activity/log'
 import { adminProjectTaskLink } from '@/lib/projects/links'
+import { resolveContextReferences } from '@/lib/context-references/registry'
+import { sanitizeContextReferenceSeeds, type ContextReference } from '@/lib/context-references/types'
 
 export const dynamic = 'force-dynamic'
 
 type RouteContext = { params: Promise<{ projectId: string; taskId: string }> }
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === 'object' && !Array.isArray(value)
+}
+
+function agentInputWithContextRefs(
+  agentInput: unknown,
+  contextRefs: ContextReference[],
+): Record<string, unknown> | null {
+  if (!isRecord(agentInput)) return null
+  const existingContext = isRecord(agentInput.context) ? agentInput.context : {}
+  return {
+    ...agentInput,
+    context: {
+      ...existingContext,
+      contextRefs,
+    },
+  }
+}
 
 export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
   const { projectId, taskId } = await (ctx as RouteContext).params
@@ -29,7 +50,19 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
   const existing = doc.data() ?? {}
   const updates = buildProjectTaskUpdateData(body)
   if (!updates.ok) return apiError(updates.error, updates.status ?? 400)
-  const updateValue = applyAgentTodoRequeue(existing, updates.value, body)
+  const updateValue = applyAgentColumnMoveState(existing, updates.value, body)
+  const projectOrgId = access.doc.data()?.orgId as string | undefined
+
+  if (body.contextRefs !== undefined) {
+    const contextRefs = await resolveContextReferences(
+      sanitizeContextReferenceSeeds(body.contextRefs),
+      user,
+      projectOrgId,
+    )
+    updateValue.contextRefs = contextRefs
+    const nextAgentInput = agentInputWithContextRefs(updateValue.agentInput ?? existing.agentInput, contextRefs)
+    if (nextAgentInput) updateValue.agentInput = nextAgentInput
+  }
 
   // Sentinel swap — the payload builder is pure JSON and can't emit FieldValue.serverTimestamp() itself.
   if (updateValue.agentHeartbeatAt === '__server_timestamp__') {
@@ -38,7 +71,6 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
 
   await ref.update({ ...updateValue, updatedAt: FieldValue.serverTimestamp() })
 
-  const projectOrgId = access.doc.data()?.orgId as string | undefined
   if (projectOrgId) {
     logActivity({
       orgId: projectOrgId,

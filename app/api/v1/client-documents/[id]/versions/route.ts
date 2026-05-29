@@ -2,11 +2,11 @@ import { FieldValue } from 'firebase-admin/firestore'
 import { NextRequest } from 'next/server'
 
 import { withAuth } from '@/lib/api/auth'
-import { resolveOrgScope } from '@/lib/api/orgScope'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import type { ApiUser } from '@/lib/api/types'
+import { assertClientDocumentDataAccess, getAccessibleClientDocument } from '@/lib/client-documents/access'
 import { deserializeBlocksFromFirestore, serializeBlocksForFirestore } from '@/lib/client-documents/firestore-blocks'
-import { CLIENT_DOCUMENTS_COLLECTION, getClientDocument } from '@/lib/client-documents/store'
+import { CLIENT_DOCUMENTS_COLLECTION } from '@/lib/client-documents/store'
 import { CANONICAL_DOCUMENT_BLOCK_TYPES } from '@/lib/client-documents/types'
 import type { ClientDocument, DocumentBlock, DocumentBlockType, DocumentTheme } from '@/lib/client-documents/types'
 import { adminDb } from '@/lib/firebase/admin'
@@ -34,28 +34,6 @@ const DEFAULT_THEME: DocumentTheme = {
 
 function actorType(user: ApiUser) {
   return user.role === 'ai' ? 'agent' : 'user'
-}
-
-function assertDocumentDataAccess(document: Partial<ClientDocument>, user: ApiUser) {
-  if (!document.orgId) {
-    if (user.role === 'client') return { ok: false as const, response: apiError('Forbidden', 403) }
-    return { ok: true as const }
-  }
-
-  const scope = resolveOrgScope(user, document.orgId)
-  if (!scope.ok) return { ok: false as const, response: apiError(scope.error, scope.status) }
-
-  return { ok: true as const }
-}
-
-async function assertDocumentAccess(id: string, user: ApiUser) {
-  const document = await getClientDocument(id)
-  if (!document) return { ok: false as const, response: apiError('Document not found', 404) }
-
-  const access = assertDocumentDataAccess(document, user)
-  if (!access.ok) return access
-
-  return { ok: true as const, document }
 }
 
 function validateBlocks(value: unknown): { ok: true; value: DocumentBlock[] } | { ok: false; error: string } {
@@ -176,7 +154,7 @@ function validateTheme(value: unknown): { ok: true; value: DocumentTheme } | { o
 
 export const GET = withAuth('client', async (_req: NextRequest, user: ApiUser, ctx: RouteContext) => {
   const { id } = await ctx.params
-  const access = await assertDocumentAccess(id, user)
+  const access = await getAccessibleClientDocument(id, user)
   if (!access.ok) return access.response
 
   const snap = await adminDb.collection(CLIENT_DOCUMENTS_COLLECTION).doc(id).collection('versions').get()
@@ -221,7 +199,7 @@ export const POST = withAuth('admin', async (req: NextRequest, user: ApiUser, ct
         return { ok: false as const, response: apiError('Document not found', 404) }
       }
 
-      const access = assertDocumentDataAccess(snap.data() as Partial<ClientDocument>, user)
+      const access = assertClientDocumentDataAccess(snap.data() as Partial<ClientDocument>, user)
       if (!access.ok) return access
 
       transaction.set(versionRef, {

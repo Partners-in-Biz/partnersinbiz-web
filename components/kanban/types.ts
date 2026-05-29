@@ -1,3 +1,5 @@
+import type { ContextReference } from '@/lib/context-references/types'
+
 export interface Attachment {
   id?: string
   uploadId?: string
@@ -83,6 +85,8 @@ export interface Task {
   sourceResearchItemId?: string | null
   expectedArtifacts?: string[]
   mentionIds?: string[]
+  contextRefs?: ContextReference[]
+  internalOnly?: boolean
   attachments?: Attachment[]
   checklist?: ChecklistItem[]
   dueDate?: unknown

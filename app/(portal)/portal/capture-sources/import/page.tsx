@@ -272,25 +272,78 @@ export default function PortalCaptureSourceImportPage() {
   }
 
   const previewRows = rows.slice(0, 10)
+  const selectedSource = sources.find((s) => s.id === selectedSourceId)
+  const readySteps = [
+    fileName ? 'File selected' : 'Choose a CSV',
+    rows.length > 0 ? `${rows.length} row${rows.length === 1 ? '' : 's'} parsed` : 'Parse rows',
+    selectedSource ? 'Source attributed' : 'No source attribution',
+    validateResult || importResult ? 'Validated' : 'Validate before import',
+  ]
 
   return (
     <div className="space-y-8">
-      <header>
-        <p className="eyebrow">CRM</p>
-        <h1 className="pib-page-title mt-2">Import contacts from CSV</h1>
-        <p className="pib-page-sub max-w-2xl">
-          Bulk-import contacts into your CRM. Existing contacts (matched by email) get their tags merged — names and other fields are not overwritten. CSV imports skip campaign auto-enrollment to avoid surprise sends.
-        </p>
-        <div className="mt-4">
+      <header className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <p className="eyebrow">CRM</p>
+          <h1 className="pib-page-title mt-2">CSV intake command center</h1>
+          <p className="pib-page-sub max-w-2xl">
+            Govern bulk CRM intake before records land in the database. Preview rows, apply source attribution, merge tags, and validate the import before any contacts are created or updated.
+          </p>
+        </div>
+        <div>
           <Link
             href="/portal/capture-sources"
-            className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] inline-flex items-center gap-1 transition-colors"
+            className="btn-pib-secondary !py-2 !px-4 !text-sm"
           >
-            <span className="material-symbols-outlined text-sm">arrow_back</span>
+            <span className="material-symbols-outlined text-base">arrow_back</span>
             Back to capture sources
           </Link>
         </div>
       </header>
+
+      <div className="grid gap-3 md:grid-cols-4">
+        <ImportStat
+          label="Import readiness"
+          value={rows.length > 0 && !parseError ? 'Ready' : 'Draft'}
+          detail={parseError ? 'CSV needs review' : 'Validation controls import risk'}
+          icon="rule_settings"
+        />
+        <ImportStat
+          label="Rows parsed"
+          value={rows.length}
+          detail={fileName || 'No file selected'}
+          icon="table_rows"
+        />
+        <ImportStat
+          label="Attribution source"
+          value={selectedSource ? selectedSource.name : 'Unassigned'}
+          detail={selectedSource ? selectedSource.type : 'Optional but recommended'}
+          icon="hub"
+        />
+        <ImportStat
+          label="Validation gate"
+          value={validateResult || importResult ? 'Checked' : 'Pending'}
+          detail="Dry-run before final import"
+          icon="verified"
+        />
+      </div>
+
+      <div className="rounded-xl bg-[var(--color-pib-surface)] border border-[var(--color-pib-line)] p-4">
+        <h2 className="text-sm font-medium text-[var(--color-pib-text)]">Import path</h2>
+        <div className="mt-3 grid gap-2 sm:grid-cols-4">
+          {readySteps.map((step, index) => (
+            <div
+              key={`${step}-${index}`}
+              className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-bg)] px-3 py-2"
+            >
+              <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)]">
+                Step {index + 1}
+              </p>
+              <p className="mt-1 text-sm text-[var(--color-pib-text)]">{step}</p>
+            </div>
+          ))}
+        </div>
+      </div>
 
       <div className="rounded-xl bg-[var(--color-pib-surface)] border border-[var(--color-pib-line)] p-4 space-y-4">
         <div>
@@ -344,7 +397,7 @@ export default function PortalCaptureSourceImportPage() {
             <option value="">(none)</option>
             {sources.map((s) => (
               <option key={s.id} value={s.id}>
-                {s.name} — {s.type}
+                {s.name} - {s.type}
               </option>
             ))}
           </select>
@@ -486,6 +539,37 @@ function Stat({ label, value }: { label: string; value: number }) {
         {label}
       </p>
       <p className="text-2xl font-display text-[var(--color-pib-text)]">{value}</p>
+    </div>
+  )
+}
+
+function ImportStat({
+  label,
+  value,
+  detail,
+  icon,
+}: {
+  label: string
+  value: string | number
+  detail: string
+  icon: string
+}) {
+  return (
+    <div className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[10px] font-medium uppercase tracking-widest text-[var(--color-pib-text-muted)]">
+            {label}
+          </p>
+          <p className="mt-2 truncate text-2xl font-display text-[var(--color-pib-text)]">
+            {value}
+          </p>
+        </div>
+        <span className="material-symbols-outlined rounded-lg border border-[var(--color-pib-line)] bg-white/[0.04] p-2 text-[18px] text-[var(--color-pib-text-muted)]">
+          {icon}
+        </span>
+      </div>
+      <p className="mt-3 text-xs text-[var(--color-pib-text-muted)]">{detail}</p>
     </div>
   )
 }

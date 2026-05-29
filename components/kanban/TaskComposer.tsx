@@ -2,6 +2,8 @@
 
 import { useMemo, useRef, useState } from 'react'
 import VoiceInputButton from '@/components/chat/VoiceInputButton'
+import { ContextReferencePicker } from '@/components/context-references/ContextReferencePicker'
+import type { ContextReference } from '@/lib/context-references/types'
 import type { AgentId, AgentMember, Attachment, ChecklistItem, Column, Task, TeamMember } from './types'
 
 interface TaskComposerProps {
@@ -102,6 +104,7 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
   const [assigneeAgentId, setAssigneeAgentId] = useState<AgentId | ''>('')
   const [assignmentMode, setAssignmentMode] = useState<AssignmentMode>('people')
   const [mentionIds, setMentionIds] = useState<string[]>([])
+  const [contextRefs, setContextRefs] = useState<ContextReference[]>([])
   const [dependsOn, setDependsOn] = useState<string[]>([])
   const [reviewerIds, setReviewerIds] = useState<string[]>([])
   const [reviewerAgentId, setReviewerAgentId] = useState<AgentId | ''>('')
@@ -150,6 +153,7 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
     setAssigneeAgentId('')
     setAssignmentMode('people')
     setMentionIds([])
+    setContextRefs([])
     setDependsOn([])
     setReviewerIds([])
     setReviewerAgentId('')
@@ -193,6 +197,7 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
                 orgId: orgId ?? null,
                 columnId: column.id,
                 assignmentMode: effectiveMode,
+                ...(contextRefs.length > 0 ? { contextRefs } : {}),
                 ...(effectiveMode === 'orchestration'
                   ? {
                       orchestrationMode: 'pip-orchestrator',
@@ -211,6 +216,7 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
             }
           : null,
         mentionIds: selectedMentionIds,
+        contextRefs,
         dependsOn,
         reviewerIds,
         reviewerAgentId: reviewerAgentId || null,
@@ -427,6 +433,18 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
                 className="w-full rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface placeholder:text-on-surface-variant focus:border-[var(--color-accent-v2)] focus:outline-none"
               />
             </label>
+
+            <div>
+              <p className="mb-2 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Context</p>
+              <ContextReferencePicker
+                orgId={orgId}
+                projectId={projectId}
+                value={contextRefs}
+                onChange={setContextRefs}
+                inputLabel="Add task context reference"
+                compact
+              />
+            </div>
 
             <div>
               <p className="mb-2 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Assignment</p>

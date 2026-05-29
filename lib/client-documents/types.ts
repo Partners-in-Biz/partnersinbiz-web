@@ -1,3 +1,5 @@
+import type { ContextReference } from '@/lib/context-references/types'
+
 export type ClientDocumentType =
   | 'sales_proposal'
   | 'build_spec'
@@ -279,6 +281,8 @@ export const CANONICAL_SHOWCASE_BLOCK_CONTRACTS = {
 } as const satisfies Record<ShowcaseDocumentBlockType, ShowcaseBlockContract>
 
 export interface ClientDocumentLinkSet {
+  companyId?: string
+  clientOrgId?: string
   projectId?: string
   campaignId?: string
   reportId?: string
@@ -392,6 +396,7 @@ export interface DocumentCommentReply {
   userId: string
   userName: string
   userRole: DocumentParticipantRole
+  contextRefs?: ContextReference[]
   createdAt?: unknown
 }
 
@@ -410,6 +415,7 @@ export interface DocumentComment {
   createdAt?: unknown
   resolvedAt?: unknown
   resolvedBy?: string
+  contextRefs?: ContextReference[]
   replies?: DocumentCommentReply[]
 }
 

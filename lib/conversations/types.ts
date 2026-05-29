@@ -8,6 +8,7 @@
 import type { Timestamp } from 'firebase-admin/firestore'
 
 import { AGENT_IDS, type AgentId } from '@/lib/agents/types'
+import type { ContextReference } from '@/lib/context-references/types'
 export type { AgentId }
 
 export interface OrgChatConfig {
@@ -73,6 +74,7 @@ export interface Conversation {
   title: string
   scope?: ConversationScope
   scopeRefId?: string
+  contextRefs?: ContextReference[]
   lastMessagePreview?: string
   lastMessageRole?: 'user' | 'agent' | 'system' | 'tool'
   lastMessageAt?: Timestamp
@@ -89,6 +91,7 @@ export interface ConversationMessage {
   role: 'user' | 'assistant' | 'system' | 'tool'
   content: string
   attachments?: ConversationAttachment[]
+  contextRefs?: ContextReference[]
   runId?: string
   runDocId?: string
   status?: 'pending' | 'streaming' | 'completed' | 'failed' | 'waiting_approval'

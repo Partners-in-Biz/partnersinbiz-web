@@ -12,20 +12,43 @@ export const dynamic = 'force-dynamic'
 
 const INVITABLE_ROLES = ['admin', 'member', 'viewer'] as const
 type InvitableRole = typeof INVITABLE_ROLES[number]
+const ACCESS_SCOPES = ['all', 'crm', 'marketing', 'projects', 'billing', 'readonly'] as const
+
+function cleanText(value: unknown, max = 120) {
+  return typeof value === 'string' ? value.trim().slice(0, max) : ''
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
 
 export const POST = withPortalAuthAndRole('admin', async (req: NextRequest, _uid: string, orgId: string, callerRole: OrgRole) => {
   try {
     const body = await req.json().catch(() => ({}))
     const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : ''
+    const requestedRole = typeof body.role === 'string' ? body.role : ''
+    const jobTitle = cleanText(body.jobTitle)
+    const department = cleanText(body.department)
+    const inviteNote = cleanText(body.inviteNote, 500)
+    const requestedAccessScope = typeof body.accessScope === 'string' ? body.accessScope : ''
+    const accessScope = ACCESS_SCOPES.includes(requestedAccessScope as typeof ACCESS_SCOPES[number])
+      ? requestedAccessScope
+      : 'all'
 
     if (!email || !email.includes('@')) {
       return apiError('Valid email is required', 400)
     }
 
-    if (body.role && !INVITABLE_ROLES.includes(body.role)) {
+    if (requestedRole && !INVITABLE_ROLES.includes(requestedRole as InvitableRole)) {
       return apiError('Invalid role. Allowed: admin, member, viewer', 400)
     }
-    const role: InvitableRole = INVITABLE_ROLES.includes(body.role) ? body.role : 'member'
+    const role: InvitableRole = INVITABLE_ROLES.includes(requestedRole as InvitableRole)
+      ? requestedRole as InvitableRole
+      : 'member'
 
     // Callers cannot grant roles at or above their own level (owner-only privilege)
     if (callerRole !== 'owner' && ROLE_RANK[role] >= ROLE_RANK[callerRole]) {
@@ -71,7 +94,14 @@ export const POST = withPortalAuthAndRole('admin', async (req: NextRequest, _uid
     }
 
     await adminDb.collection('organizations').doc(orgId).update({
-      members: FieldValue.arrayUnion({ userId: targetUid, role, joinedAt: FieldValue.serverTimestamp() }),
+      members: FieldValue.arrayUnion({
+        userId: targetUid,
+        role,
+        joinedAt: FieldValue.serverTimestamp(),
+        ...(jobTitle ? { jobTitle } : {}),
+        ...(department ? { department } : {}),
+        ...(accessScope !== 'all' ? { accessScope } : {}),
+      }),
       updatedAt: FieldValue.serverTimestamp(),
     })
 
@@ -84,7 +114,10 @@ export const POST = withPortalAuthAndRole('admin', async (req: NextRequest, _uid
           uid: targetUid,
           firstName: '',
           lastName: '',
-          jobTitle: '',
+          jobTitle,
+          department,
+          accessScope,
+          inviteNote,
           phone: '',
           avatarUrl: '',
           role,
@@ -106,7 +139,14 @@ export const POST = withPortalAuthAndRole('admin', async (req: NextRequest, _uid
           from: FROM_ADDRESS,
           to: email,
           subject: 'You have been invited to a workspace on Partners in Biz',
-          html: `<p>You have been invited to join a workspace on Partners in Biz.</p><p><a href="${setupLink}">Set up your account →</a></p><p>This link expires after use. If you did not expect this email, you can ignore it.</p>`,
+          html: [
+            '<p>You have been invited to join a workspace on Partners in Biz.</p>',
+            jobTitle ? `<p>Role: ${escapeHtml(jobTitle)}</p>` : '',
+            department ? `<p>Department: ${escapeHtml(department)}</p>` : '',
+            inviteNote ? `<p>${escapeHtml(inviteNote)}</p>` : '',
+            `<p><a href="${setupLink}">Set up your account &rarr;</a></p>`,
+            '<p>This link expires after use. If you did not expect this email, you can ignore it.</p>',
+          ].filter(Boolean).join(''),
         })
       } catch {
         // Non-fatal — user can request a password reset from the login page

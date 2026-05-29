@@ -1,3 +1,5 @@
+import type { ContextReference } from '@/lib/context-references/types'
+
 export type ProjectStatus = 'active' | 'on_hold' | 'completed' | 'archived'
 export type TaskPriority = 'urgent' | 'high' | 'medium' | 'low'
 
@@ -129,6 +131,7 @@ export interface Task {
   sourceSpecVersion?: string | null
   sourceResearchItemId?: string | null
   expectedArtifacts?: string[]
+  contextRefs?: ContextReference[]
 
   createdAt?: unknown
   updatedAt?: unknown

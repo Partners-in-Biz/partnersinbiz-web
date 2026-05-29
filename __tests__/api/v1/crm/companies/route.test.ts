@@ -57,6 +57,24 @@ type CompaniesListBehavior = {
   capturedDocSet?: jest.Mock
 }
 
+function orgMembersCollection(member: { uid: string; orgId: string; role: string }) {
+  const docs = [{ id: `${member.orgId}_${member.uid}`, data: () => member }]
+  const collection: {
+    doc: jest.Mock
+    get: jest.Mock
+    where?: jest.Mock
+  } = {
+    doc: jest.fn((id: string) => ({
+      get: () => Promise.resolve(id === `${member.orgId}_${member.uid}`
+        ? { exists: true, data: () => member }
+        : { exists: false }),
+    })),
+    get: jest.fn(() => Promise.resolve({ docs })),
+  }
+  collection.where = jest.fn(() => collection)
+  return collection
+}
+
 function stageAuth(
   member: { uid: string; orgId: string; role: string; firstName?: string; lastName?: string },
   perms: Record<string, unknown> = {},
@@ -72,11 +90,7 @@ function stageAuth(
       }
     }
     if (name === 'orgMembers') {
-      return {
-        doc: () => ({
-          get: () => Promise.resolve({ exists: true, data: () => member }),
-        }),
-      }
+      return orgMembersCollection(member)
     }
     if (name === 'organizations') {
       return {
@@ -157,11 +171,7 @@ describe('GET /api/v1/crm/companies', () => {
         }
       }
       if (name === 'orgMembers') {
-        return {
-          doc: () => ({
-            get: () => Promise.resolve({ exists: true, data: () => member }),
-          }),
-        }
+        return orgMembersCollection(member)
       }
       if (name === 'organizations') {
         return {
@@ -291,6 +301,44 @@ describe('POST /api/v1/crm/companies', () => {
     expect(written.orgId).toBe('org-d')
     expect(written.createdByRef.displayName).toBe('Bob K')
     expect(written.createdByRef.kind).toBe('human')
+  })
+
+  it('captures structured legal and billing agreement fields on POST', async () => {
+    const uid = uidFor('member-agreement-company')
+    const member = seedOrgMember('org-agreement-company', uid, { role: 'member', firstName: 'Casey', lastName: 'F' })
+    const captured = jest.fn().mockResolvedValue(undefined)
+    stageAuth(member, {}, { capturedDocSet: captured })
+    const req = callAsMember(member, 'POST', '/api/v1/crm/companies', {
+      name: 'Agreement Co',
+      legalName: 'Agreement Co (Pty) Ltd',
+      tradingName: 'Agreement Co',
+      registrationNumber: '2024/123456/07',
+      vatNumber: '4999999999',
+      taxNumber: '9999999999',
+      billingEmail: 'accounts@agreement.example',
+      billingAddress: { line1: '1 Contract Road', city: 'Cape Town', country: 'South Africa' },
+      accountsContact: { name: 'Accounts Lead', email: 'accounts@agreement.example' },
+      authorizedSignatory: { name: 'Signing Director', title: 'Director', email: 'sign@agreement.example' },
+      purchaseOrderRequired: true,
+      purchaseOrderNumber: 'PO-789',
+      invoiceInstructions: 'Send invoices to accounts.',
+    })
+    const { POST } = await import('@/app/api/v1/crm/companies/route')
+    const res = await POST(req)
+
+    expect(res.status).toBe(201)
+    expect(captured.mock.calls[0][0]).toMatchObject({
+      orgId: 'org-agreement-company',
+      legalName: 'Agreement Co (Pty) Ltd',
+      registrationNumber: '2024/123456/07',
+      vatNumber: '4999999999',
+      billingAddress: { line1: '1 Contract Road' },
+      accountsContact: { email: 'accounts@agreement.example' },
+      authorizedSignatory: { title: 'Director' },
+      purchaseOrderRequired: true,
+      purchaseOrderNumber: 'PO-789',
+      invoiceInstructions: 'Send invoices to accounts.',
+    })
   })
 
   it('validates invalid parentCompanyId cycle and returns 400', async () => {

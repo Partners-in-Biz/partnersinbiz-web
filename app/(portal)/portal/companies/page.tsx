@@ -1,14 +1,73 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import {
+  CompaniesBulkCommandBar,
+  type CompanyBulkActionKey,
+} from '@/components/crm/CompaniesBulkCommandBar'
 import { CompaniesTable } from '@/components/crm/CompaniesTable'
 import { CompanyFiltersBar } from '@/components/crm/CompanyFiltersBar'
 import type { Company, CompanyListParams } from '@/lib/companies/types'
 
 // ── Companies list page ───────────────────────────────────────────────────────
+
+function profileStrength(company: Company): number {
+  const checks = [
+    company.name,
+    company.domain || company.website,
+    company.industry,
+    company.size || company.employeeCount,
+    company.tier,
+    company.lifecycleStage,
+    company.phone || company.billingEmail || company.accountsContact?.email,
+    company.accountManagerUid || company.accountManagerRef?.uid,
+    company.notes,
+    company.logoUrl,
+  ]
+  return Math.round((checks.filter(Boolean).length / checks.length) * 100)
+}
+
+function hasAccountManager(company: Company): boolean {
+  return Boolean(String(company.accountManagerUid ?? company.accountManagerRef?.uid ?? '').trim())
+}
+
+function formatCurrency(value: number, currency = 'ZAR'): string {
+  try {
+    return new Intl.NumberFormat('en-ZA', {
+      style: 'currency',
+      currency,
+      maximumFractionDigits: 0,
+    }).format(value)
+  } catch {
+    return `${currency} ${value.toFixed(0)}`
+  }
+}
+
+function AccountMetric({
+  label,
+  value,
+  sub,
+  icon,
+}: {
+  label: string
+  value: string
+  sub: string
+  icon: string
+}) {
+  return (
+    <div className="pib-card min-w-[150px] flex-1 px-4 py-3">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">{label}</p>
+        <span className="material-symbols-outlined text-[17px] text-[var(--color-pib-text-muted)]">{icon}</span>
+      </div>
+      <p className="mt-2 text-2xl font-display leading-none text-[var(--color-pib-text)]">{value}</p>
+      <p className="mt-1 text-[11px] text-[var(--color-pib-text-muted)]">{sub}</p>
+    </div>
+  )
+}
 
 export default function CompaniesPage() {
   const router = useRouter()
@@ -17,6 +76,17 @@ export default function CompaniesPage() {
   const [companies, setCompanies] = useState<Company[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [bulkAction, setBulkAction] = useState<CompanyBulkActionKey>('lifecycleStage')
+  const [bulkPending, setBulkPending] = useState(false)
+  const [bulkLifecycleStage, setBulkLifecycleStage] = useState('customer')
+  const [bulkTier, setBulkTier] = useState('smb')
+  const [bulkSize, setBulkSize] = useState('11-50')
+  const [bulkIndustry, setBulkIndustry] = useState('')
+  const [bulkTagsInput, setBulkTagsInput] = useState('')
+  const [bulkAccountManagerUid, setBulkAccountManagerUid] = useState('')
+  const [managerLens, setManagerLens] = useState<'all' | 'unmanaged'>('all')
 
   // Read filters from URL search params
   const [filters, setFilters] = useState<CompanyListParams>(() => ({
@@ -27,6 +97,43 @@ export default function CompaniesPage() {
     lifecycleStage: (searchParams.get('lifecycleStage') as CompanyListParams['lifecycleStage']) ?? undefined,
     accountManagerUid: searchParams.get('accountManagerUid') ?? undefined,
   }))
+  const hasActiveFilters = Boolean(
+    filters.search ||
+    filters.industry ||
+    filters.size ||
+    filters.tier ||
+    filters.lifecycleStage ||
+    filters.accountManagerUid ||
+    (filters.tags && filters.tags.length > 0),
+  )
+
+  const metrics = useMemo(() => {
+    const customers = companies.filter((company) => company.lifecycleStage === 'customer').length
+    const prospects = companies.filter((company) => company.lifecycleStage === 'prospect' || company.lifecycleStage === 'lead').length
+    const linkedOrgs = companies.filter((company) => company.linkedOrgId).length
+    const incomplete = companies.filter((company) => profileStrength(company) < 60).length
+    const managed = companies.filter(hasAccountManager).length
+    const unmanaged = companies.length - managed
+    const revenueRows = companies.filter((company) => typeof company.annualRevenue === 'number' && Number.isFinite(company.annualRevenue))
+    const revenue = revenueRows.reduce((sum, company) => sum + (company.annualRevenue ?? 0), 0)
+    const currency = revenueRows.find((company) => company.currency)?.currency ?? 'ZAR'
+    const managerCoverage = companies.length > 0 ? managed / companies.length : 1
+    return { customers, prospects, linkedOrgs, incomplete, managed, unmanaged, managerCoverage, revenue, currency }
+  }, [companies])
+
+  const displayedCompanies = useMemo(
+    () => managerLens === 'unmanaged' ? companies.filter((company) => !hasAccountManager(company)) : companies,
+    [companies, managerLens],
+  )
+
+  useEffect(() => {
+    setSelectedIds(prev => {
+      if (prev.size === 0) return prev
+      const visible = new Set(displayedCompanies.map(company => company.id))
+      const next = new Set(Array.from(prev).filter(id => visible.has(id)))
+      return next.size === prev.size ? prev : next
+    })
+  }, [displayedCompanies])
 
   // ── Fetch companies ────────────────────────────────────────────────────────
 
@@ -85,19 +192,99 @@ export default function CompaniesPage() {
     router.push(`/portal/companies/${id}`)
   }
 
+  function handleSetupCompany(id: string) {
+    router.push(`/portal/companies/${id}?edit=profile`)
+  }
+
+  function toggleCompany(id: string) {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  function toggleAllCompanies() {
+    const visibleIds = displayedCompanies.map(company => company.id)
+    const allVisibleSelected = visibleIds.length > 0 && visibleIds.every(id => selectedIds.has(id))
+    if (allVisibleSelected) {
+      setSelectedIds(prev => {
+        const next = new Set(prev)
+        for (const id of visibleIds) next.delete(id)
+        return next
+      })
+    } else {
+      setSelectedIds(prev => new Set([...prev, ...visibleIds]))
+    }
+  }
+
+  async function applyBulk() {
+    if (selectedIds.size === 0) return
+
+    let patch: Record<string, unknown> = {}
+    if (bulkAction === 'lifecycleStage') {
+      patch = { lifecycleStage: bulkLifecycleStage }
+    } else if (bulkAction === 'tier') {
+      patch = { tier: bulkTier }
+    } else if (bulkAction === 'size') {
+      patch = { size: bulkSize }
+    } else if (bulkAction === 'industry') {
+      const industry = bulkIndustry.trim()
+      if (!industry) {
+        setNotice('Enter an industry before applying this bulk update.')
+        return
+      }
+      patch = { industry }
+    } else if (bulkAction === 'tags') {
+      const tags = bulkTagsInput.split(',').map(tag => tag.trim()).filter(Boolean)
+      if (!tags.length) {
+        setNotice('Enter at least one tag before applying this bulk update.')
+        return
+      }
+      patch = { tags }
+    } else if (bulkAction === 'accountManagerUid') {
+      const accountManagerUid = bulkAccountManagerUid.trim()
+      if (!accountManagerUid) {
+        setNotice('Enter an account manager UID before applying this bulk update.')
+        return
+      }
+      patch = { accountManagerUid }
+    }
+
+    setBulkPending(true)
+    setNotice(null)
+    try {
+      const res = await fetch('/api/v1/crm/companies/bulk', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ ids: Array.from(selectedIds), patch }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(body.error ?? 'Bulk company update failed')
+      const { updated = 0, skipped = 0 } = body.data ?? {}
+      setNotice(`Updated ${updated} account${updated === 1 ? '' : 's'}, skipped ${skipped}.`)
+      setSelectedIds(new Set())
+      await fetchCompanies(filters)
+    } catch (err) {
+      setNotice(err instanceof Error ? err.message : 'Bulk company update failed')
+    } finally {
+      setBulkPending(false)
+    }
+  }
+
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex flex-col gap-6 p-6">
+    <div className="mx-auto flex max-w-7xl flex-col gap-6 p-6">
       {/* ── Page header ── */}
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-xl font-semibold text-[var(--color-pib-text)]">Companies</h1>
-          {!loading && !error && (
-            <p className="text-sm text-[var(--color-pib-text-muted)] mt-0.5">
-              {companies.length} {companies.length === 1 ? 'company' : 'companies'}
-            </p>
-          )}
+      <div className="flex items-end justify-between gap-4 flex-wrap">
+        <div className="max-w-3xl">
+          <p className="eyebrow">CRM accounts</p>
+          <h1 className="pib-page-title mt-2">Companies</h1>
+          <p className="pib-page-sub mt-2">
+            Account context, health, ownership, billing readiness, client-org links, and setup gaps for this workspace.
+          </p>
         </div>
 
         <div className="flex items-center gap-2">
@@ -120,8 +307,54 @@ export default function CompaniesPage() {
         </div>
       </div>
 
+      {!loading && !error && (
+        <section className="flex flex-wrap gap-3">
+          <AccountMetric icon="domain" label="Accounts" value={String(companies.length)} sub={hasActiveFilters ? 'Matching current view' : 'Visible in workspace'} />
+          <AccountMetric icon="handshake" label="Customers" value={String(metrics.customers)} sub={`${metrics.prospects} leads/prospects`} />
+          <AccountMetric icon="hub" label="Client links" value={String(metrics.linkedOrgs)} sub="Linked portal organisations" />
+          <AccountMetric icon="supervisor_account" label="Manager coverage" value={`${Math.round(metrics.managerCoverage * 100)}%`} sub={`${metrics.unmanaged} unmanaged`} />
+          <AccountMetric icon="fact_check" label="Setup gaps" value={String(metrics.incomplete)} sub={`${metrics.managed} assigned owners`} />
+          <AccountMetric icon="payments" label="Tracked value" value={formatCurrency(metrics.revenue, metrics.currency)} sub="Annual revenue fields" />
+        </section>
+      )}
+
+      {!loading && !error && (
+        <section className="grid gap-3 md:grid-cols-[1fr_1fr]">
+          <button
+            type="button"
+            onClick={() => setManagerLens(managerLens === 'unmanaged' ? 'all' : 'unmanaged')}
+            className={[
+              'rounded-[var(--radius-card)] border p-4 text-left transition-colors',
+              managerLens === 'unmanaged'
+                ? 'border-amber-400/40 bg-amber-400/10'
+                : 'border-[var(--color-pib-line)] bg-white/[0.03] hover:bg-white/[0.05]',
+            ].join(' ')}
+            aria-label={managerLens === 'unmanaged' ? 'Show all companies' : 'Show unmanaged companies needing an account manager'}
+          >
+            <span className="material-symbols-outlined text-[20px] text-[var(--color-pib-accent)]">manage_accounts</span>
+            <p className="mt-3 text-sm font-semibold text-[var(--color-pib-text)]">
+              {managerLens === 'unmanaged' ? 'Showing unmanaged accounts' : 'Review unmanaged accounts'}
+            </p>
+            <p className="mt-1 text-xs leading-relaxed text-[var(--color-pib-text-muted)]">
+              {metrics.unmanaged > 0
+                ? `${metrics.unmanaged} companies need an account manager before revenue, service, or billing ownership slips.`
+                : 'Every visible company has an account manager.'}
+            </p>
+          </button>
+          <div className="rounded-[var(--radius-card)] border border-[var(--color-pib-line)] bg-white/[0.03] p-4">
+            <span className="material-symbols-outlined text-[20px] text-[var(--color-pib-accent)]">assignment_ind</span>
+            <p className="mt-3 text-sm font-semibold text-[var(--color-pib-text)]">Account responsibility</p>
+            <p className="mt-1 text-xs leading-relaxed text-[var(--color-pib-text-muted)]">
+              Use the visible lens with bulk updates to assign account managers and keep each company owned by a person.
+            </p>
+          </div>
+        </section>
+      )}
+
       {/* ── Filters bar ── */}
-      <CompanyFiltersBar value={filters} onChange={updateFilters} />
+      <div className="pib-card p-4">
+        <CompanyFiltersBar value={filters} onChange={updateFilters} />
+      </div>
 
       {/* ── Error state ── */}
       {error && (
@@ -130,11 +363,45 @@ export default function CompaniesPage() {
         </div>
       )}
 
+      {notice && (
+        <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] px-4 py-3 text-sm text-[var(--color-pib-text-muted)]">
+          {notice}
+        </div>
+      )}
+
+      {selectedIds.size > 0 && (
+        <CompaniesBulkCommandBar
+          selectedCount={selectedIds.size}
+          totalCount={displayedCompanies.length}
+          bulkAction={bulkAction}
+          bulkPending={bulkPending}
+          lifecycleStage={bulkLifecycleStage}
+          tier={bulkTier}
+          size={bulkSize}
+          industry={bulkIndustry}
+          tagsInput={bulkTagsInput}
+          accountManagerUid={bulkAccountManagerUid}
+          onActionChange={setBulkAction}
+          onLifecycleStageChange={setBulkLifecycleStage}
+          onTierChange={setBulkTier}
+          onSizeChange={setBulkSize}
+          onIndustryChange={setBulkIndustry}
+          onTagsInputChange={setBulkTagsInput}
+          onAccountManagerUidChange={setBulkAccountManagerUid}
+          onClear={() => setSelectedIds(new Set())}
+          onApply={applyBulk}
+        />
+      )}
+
       {/* ── Table ── */}
       <CompaniesTable
-        companies={companies}
+        companies={displayedCompanies}
         loading={loading}
         onRowClick={handleRowClick}
+        onSetupCompany={handleSetupCompany}
+        selectedIds={selectedIds}
+        onToggleCompany={toggleCompany}
+        onToggleAll={toggleAllCompanies}
       />
     </div>
   )

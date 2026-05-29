@@ -338,9 +338,12 @@ export function buildProjectTaskCreateData(
     checklist: checklist.value,
     dueDate: cleanOptionalDate(body.dueDate),
     startDate: cleanOptionalDate(body.startDate),
+    baselineDueDate: cleanOptionalDate(body.baselineDueDate),
+    baselineStartDate: cleanOptionalDate(body.baselineStartDate),
     estimateMinutes: estimate.value,
     order: order.value,
   }
+  if (body.internalOnly !== undefined) value.internalOnly = body.internalOnly === true
 
   if (agentId.value) {
     const nextAgentStatus = agentStatus.value ?? 'pending'
@@ -398,6 +401,8 @@ export function buildProjectTaskUpdateData(body: Record<string, unknown>): Paylo
   if (body.mentionIds !== undefined) updates.mentionIds = cleanStringArray(body.mentionIds)
   if (body.dueDate !== undefined) updates.dueDate = cleanOptionalDate(body.dueDate)
   if (body.startDate !== undefined) updates.startDate = cleanOptionalDate(body.startDate)
+  if (body.baselineDueDate !== undefined) updates.baselineDueDate = cleanOptionalDate(body.baselineDueDate)
+  if (body.baselineStartDate !== undefined) updates.baselineStartDate = cleanOptionalDate(body.baselineStartDate)
   if (body.agentReleaseAt !== undefined) {
     const releaseAt = cleanOptionalIsoDateTime(body.agentReleaseAt, 'agentReleaseAt')
     if (!releaseAt.ok) return releaseAt
@@ -422,6 +427,7 @@ export function buildProjectTaskUpdateData(body: Record<string, unknown>): Paylo
     if (!estimate.ok) return estimate
     updates.estimateMinutes = estimate.value
   }
+  if (body.internalOnly !== undefined) updates.internalOnly = body.internalOnly === true
   if (body.attachments !== undefined) {
     const attachments = cleanAttachments(body.attachments)
     if (!attachments.ok) return attachments
@@ -499,25 +505,40 @@ export function buildProjectTaskUpdateData(body: Record<string, unknown>): Paylo
   return { ok: true, value: updates }
 }
 
-export function applyAgentTodoRequeue(
+export function applyAgentColumnMoveState(
   existing: Record<string, unknown>,
   updates: Record<string, unknown>,
   body: Record<string, unknown>,
 ): Record<string, unknown> {
   const hasAgent = typeof existing.assigneeAgentId === 'string' && existing.assigneeAgentId.trim().length > 0
-  const movedToTodo = updates.columnId === 'todo'
+  const columnId = typeof updates.columnId === 'string' ? updates.columnId : null
   const callerDidNotSetStatus = body.agentStatus === undefined
   const currentStatus = typeof existing.agentStatus === 'string' ? existing.agentStatus : null
-  const requeueable = currentStatus === 'done' || currentStatus === 'blocked' || currentStatus === 'awaiting-input'
 
-  if (!hasAgent || !movedToTodo || !callerDidNotSetStatus || !requeueable) return updates
+  if (!hasAgent || !columnId || !callerDidNotSetStatus) return updates
 
-  return {
-    ...updates,
-    agentStatus: 'pending',
-    reviewStatus: 'changes-requested',
-    agentOutput: null,
-    agentConversationId: null,
-    agentHeartbeatAt: null,
+  if (columnId === 'todo') {
+    const requeueable = currentStatus === 'done' || currentStatus === 'blocked' || currentStatus === 'awaiting-input'
+    if (!requeueable) return updates
+    return {
+      ...updates,
+      agentStatus: 'pending',
+      reviewStatus: 'changes-requested',
+      agentOutput: null,
+      agentConversationId: null,
+      agentHeartbeatAt: null,
+    }
   }
+
+  if (columnId === 'in_progress') {
+    return {
+      ...updates,
+      agentStatus: 'in-progress',
+      reviewStatus: null,
+    }
+  }
+
+  return updates
 }
+
+export const applyAgentTodoRequeue = applyAgentColumnMoveState

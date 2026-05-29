@@ -7,9 +7,12 @@
  * on top of the core deal fields.
  */
 
+import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import type { Deal, DealLineItem, Currency } from '@/lib/crm/types'
+import { extractPipelinesList } from '@/lib/pipelines/response'
 import type { Pipeline, PipelineStage } from '@/lib/pipelines/types'
+import { CompanyPicker } from './CompanyPicker'
 import { DealLineItemsEditor } from './DealLineItemsEditor'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -21,6 +24,12 @@ export interface DealDrawerProps {
   defaultPipelineId?: string
   /** Pre-selected contactId. Required when creating. */
   defaultContactId?: string
+  /** Display label for a pre-selected contact. */
+  defaultContactLabel?: string
+  /** Pre-selected companyId for account-scoped deal creation. */
+  defaultCompanyId?: string
+  /** Display label for a pre-selected company. */
+  defaultCompanyName?: string
   /** Called after a successful save. Receives the saved deal ID. */
   onSaved: (dealId: string) => void
   /** Called when the drawer should close without saving. */
@@ -33,9 +42,137 @@ export interface DealDrawerProps {
 
 const CURRENCIES: Currency[] = ['ZAR', 'USD', 'EUR']
 
+type ContactResult = {
+  id: string
+  name?: string
+  email?: string
+  company?: string
+}
+
 function isLostStage(stage?: PipelineStage): boolean {
   if (!stage) return false
   return stage.kind === 'lost' || stage.label.toLowerCase().includes('lost')
+}
+
+function readableContactLabel(label?: string): string | undefined {
+  const trimmed = label?.trim()
+  return trimmed || undefined
+}
+
+function ContactPicker({
+  contactId,
+  contactLabel,
+  onChange,
+}: {
+  contactId: string
+  contactLabel: string
+  onChange: (contact: { id: string; label: string } | null) => void
+}) {
+  const [query, setQuery] = useState(contactLabel)
+  const [results, setResults] = useState<ContactResult[]>([])
+  const [open, setOpen] = useState(false)
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    setQuery(contactLabel)
+  }, [contactLabel])
+
+  useEffect(() => {
+    if (query.trim().length < 2 || query === contactLabel) {
+      setResults([])
+      return
+    }
+    let cancelled = false
+    const timer = window.setTimeout(async () => {
+      setLoading(true)
+      try {
+        const res = await fetch(`/api/v1/crm/contacts?search=${encodeURIComponent(query)}&limit=8`)
+        const body = await res.json().catch(() => ({}))
+        if (!cancelled) {
+          const list = body.data?.contacts ?? body.data ?? []
+          setResults(Array.isArray(list) ? list : [])
+          setOpen(true)
+        }
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }, 250)
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [contactLabel, query])
+
+  function select(contact: ContactResult) {
+    const label = contact.name || contact.email || contact.id
+    setQuery(label)
+    setResults([])
+    setOpen(false)
+    onChange({ id: contact.id, label })
+  }
+
+  return (
+    <div className="relative">
+      <div className="relative">
+        <input
+          type="text"
+          value={query}
+          onChange={(event) => {
+            setQuery(event.target.value)
+            if (!event.target.value) onChange(null)
+          }}
+          onFocus={() => results.length > 0 && setOpen(true)}
+          placeholder="Search contacts..."
+          className="pib-input w-full pr-8"
+        />
+        {loading ? (
+          <span className="material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 text-[16px] text-[var(--color-pib-text-muted)] animate-spin">progress_activity</span>
+        ) : contactId ? (
+          <button
+            type="button"
+            onClick={() => {
+              setQuery('')
+              setResults([])
+              onChange(null)
+            }}
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]"
+            aria-label="Clear contact"
+          >
+            <span className="material-symbols-outlined text-[16px]">close</span>
+          </button>
+        ) : null}
+      </div>
+      {open && (
+        <div className="absolute z-50 mt-1 max-h-64 w-full overflow-y-auto rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] shadow-xl">
+          {results.length === 0 ? (
+            <div className="px-3 py-2">
+              <p className="text-xs text-[var(--color-pib-text-muted)]">No contacts found.</p>
+              <Link
+                href="/portal/contacts"
+                aria-label="Open contacts to create a deal contact"
+                className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-[var(--color-accent-v2)] hover:underline"
+              >
+                <span className="material-symbols-outlined text-[14px]">contacts</span>
+                Open contacts
+              </Link>
+            </div>
+          ) : (
+            results.map((contact) => (
+              <button
+                key={contact.id}
+                type="button"
+                onClick={() => select(contact)}
+                className="w-full px-3 py-2 text-left transition-colors hover:bg-white/[0.05]"
+              >
+                <p className="text-sm font-medium text-[var(--color-pib-text)]">{contact.name || contact.email || contact.id}</p>
+                <p className="text-[11px] text-[var(--color-pib-text-muted)]">{[contact.email, contact.company].filter(Boolean).join(' · ')}</p>
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  )
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -44,6 +181,9 @@ export function DealDrawer({
   deal,
   defaultPipelineId,
   defaultContactId,
+  defaultContactLabel,
+  defaultCompanyId,
+  defaultCompanyName,
   onSaved,
   onClose,
   orgId,
@@ -52,7 +192,10 @@ export function DealDrawer({
 
   // Core fields
   const [title, setTitle] = useState(deal?.title ?? '')
-  const [contactId] = useState(deal?.contactId ?? defaultContactId ?? '')
+  const [contactId, setContactId] = useState(deal?.contactId ?? defaultContactId ?? '')
+  const [contactLabel, setContactLabel] = useState(readableContactLabel(defaultContactLabel) ?? deal?.contactId ?? defaultContactId ?? '')
+  const [companyId, setCompanyId] = useState(deal?.companyId ?? defaultCompanyId ?? '')
+  const [companyName, setCompanyName] = useState(deal?.companyName ?? defaultCompanyName ?? '')
   const [value, setValue] = useState(deal?.value ?? 0)
   const [currency, setCurrency] = useState<Currency>(deal?.currency ?? 'ZAR')
   const [notes, setNotes] = useState(deal?.notes ?? '')
@@ -89,7 +232,7 @@ export function DealDrawer({
       .then(r => r.json())
       .then(body => {
         if (cancelled) return
-        const list: Pipeline[] = body.data ?? []
+        const list = extractPipelinesList(body)
         setPipelines(list)
 
         if (!selectedPipelineId && list.length > 0) {
@@ -145,6 +288,7 @@ export function DealDrawer({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!title.trim()) { setError('Title is required'); return }
+    if (!contactId.trim()) { setError('Contact is required'); return }
     if (!selectedPipelineId) { setError('Pipeline is required'); return }
     if (!selectedStageId) { setError('Stage is required'); return }
 
@@ -155,6 +299,8 @@ export function DealDrawer({
       const payload: Record<string, unknown> = {
         title: title.trim(),
         contactId,
+        companyId: companyId || undefined,
+        companyName: companyName || undefined,
         value,
         currency,
         pipelineId: selectedPipelineId,
@@ -239,6 +385,31 @@ export function DealDrawer({
               required
               className="pib-input w-full"
             />
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-2">
+            <div>
+              <label className={labelCls}>Contact *</label>
+              <ContactPicker
+                contactId={contactId}
+                contactLabel={contactLabel}
+                onChange={(contact) => {
+                  setContactId(contact?.id ?? '')
+                  setContactLabel(contact?.label ?? '')
+                }}
+              />
+            </div>
+            <div>
+              <label className={labelCls}>Company</label>
+              <CompanyPicker
+                currentCompanyId={companyId || undefined}
+                currentCompanyName={companyName || undefined}
+                onChange={({ companyId: nextCompanyId, companyName: nextCompanyName }) => {
+                  setCompanyId(nextCompanyId ?? '')
+                  setCompanyName(nextCompanyName ?? '')
+                }}
+              />
+            </div>
           </div>
 
           {/* Value + Currency */}
