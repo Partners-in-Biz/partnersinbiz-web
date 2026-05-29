@@ -35,11 +35,17 @@ function labelize(value?: string): string | null {
 export interface CompanyPanelProps {
   companyId?: string
   companyName?: string
+  emptyAction?: {
+    label: string
+    ariaLabel: string
+    icon?: string
+    onClick: () => void
+  }
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function CompanyPanel({ companyId, companyName }: CompanyPanelProps) {
+export function CompanyPanel({ companyId, companyName, emptyAction }: CompanyPanelProps) {
   const [company, setCompany] = useState<Company | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -64,7 +70,22 @@ export function CompanyPanel({ companyId, companyName }: CompanyPanelProps) {
   // Neither set
   if (!companyId && !companyName) {
     return (
-      <p className="text-sm text-[var(--color-pib-text-muted)]">No company linked</p>
+      <div className="rounded-md border border-dashed border-[var(--color-pib-line)] bg-white/[0.015] p-3">
+        <p className="text-sm text-[var(--color-pib-text-muted)]">No company linked</p>
+        {emptyAction && (
+          <button
+            type="button"
+            aria-label={emptyAction.ariaLabel}
+            onClick={emptyAction.onClick}
+            className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-[var(--color-pib-line)] px-2.5 py-1.5 text-xs font-medium text-[var(--color-pib-accent)] transition-colors hover:border-[var(--color-pib-accent)] hover:text-[var(--color-pib-text)]"
+          >
+            {emptyAction.icon && (
+              <span className="material-symbols-outlined text-[14px]" aria-hidden="true">{emptyAction.icon}</span>
+            )}
+            {emptyAction.label}
+          </button>
+        )}
+      </div>
     )
   }
 

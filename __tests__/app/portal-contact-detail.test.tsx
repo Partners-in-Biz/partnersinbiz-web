@@ -129,6 +129,18 @@ describe('Portal contact detail page', () => {
     expect(screen.getByPlaceholderText('Search companies…')).toHaveFocus()
   })
 
+  it('turns the company card empty state into a company picker action', async () => {
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Link company from company card for Jane Client' }))
+
+    expect(screen.getByPlaceholderText('Search companies…')).toHaveFocus()
+  })
+
   it('turns a missing phone into a profile completion action', async () => {
     render(<PortalContactDetailPage />)
 

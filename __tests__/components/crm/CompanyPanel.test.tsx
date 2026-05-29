@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { CompanyPanel } from '@/components/crm/CompanyPanel'
 
 jest.mock('next/link', () => ({
@@ -9,6 +9,26 @@ jest.mock('next/link', () => ({
 describe('CompanyPanel', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+  })
+
+  it('turns a missing linked company into a supplied CRM action', () => {
+    const onLinkCompany = jest.fn()
+
+    render(
+      <CompanyPanel
+        emptyAction={{
+          label: 'Link company',
+          ariaLabel: 'Link company from company card for Jane Client',
+          icon: 'add_business',
+          onClick: onLinkCompany,
+        }}
+      />,
+    )
+
+    expect(screen.getByText('No company linked')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Link company from company card for Jane Client' }))
+
+    expect(onLinkCompany).toHaveBeenCalledTimes(1)
   })
 
   it('renders linked company context with readable action and business signals', async () => {

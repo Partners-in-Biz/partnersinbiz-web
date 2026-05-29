@@ -1032,6 +1032,12 @@ export default function PortalContactDetailPage() {
             <CompanyPanel
               companyId={contact.companyId}
               companyName={contact.companyName ?? contact.company}
+              emptyAction={{
+                label: 'Link company',
+                ariaLabel: `Link company from company card for ${contactName}`,
+                icon: 'add_business',
+                onClick: focusCompanyPicker,
+              }}
             />
           </div>
 
