@@ -591,6 +591,12 @@ export default function CrmReportsPage() {
           label="Velocity"
           title={slowestStage ? `${labelize(slowestStage.stageId)} is slowest` : 'No slowest stage yet'}
           body={slowestStage ? `Average age is ${slowestStage.avgDays.toFixed(1)} days with a max of ${slowestStage.maxDays.toFixed(1)} days.` : 'Stage age will appear once deals have enough movement history.'}
+          action={!slowestStage ? {
+            href: '/portal/deals',
+            label: 'Review pipeline',
+            ariaLabel: 'Open pipeline to build stage velocity insight',
+            icon: 'view_kanban',
+          } : undefined}
           tone={velocity && velocity.summary.bottleneckCount === 0 ? 'good' : 'warning'}
         />
         <InsightCard
@@ -750,6 +756,16 @@ export default function CrmReportsPage() {
                   ? `${labelize(velocity.summary.slowestStage.stageId)} averages ${velocity.summary.slowestStage.avgDays.toFixed(1)} days`
                   : 'No slow stages yet'}
               </p>
+              {!velocity.summary.slowestStage && (
+                <Link
+                  href="/portal/deals"
+                  aria-label="Review pipeline movement from bottleneck summary"
+                  className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-[var(--color-pib-accent)] hover:underline"
+                >
+                  <span className="material-symbols-outlined text-[14px]" aria-hidden="true">view_kanban</span>
+                  Review movement
+                </Link>
+              )}
               <div className="mt-5">
                 <HealthBar value={1 - bottleneckShare} label="Movement health" />
               </div>
