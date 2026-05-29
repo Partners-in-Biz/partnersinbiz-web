@@ -136,6 +136,27 @@ function searchParamInList(value: string | null, allowedValues: readonly string[
   return value && allowedValues.includes(value) ? value : ''
 }
 
+function timestampMs(value: unknown): number {
+  if (!value) return 0
+  if (value instanceof Date) return value.getTime()
+  if (typeof value === 'string') return Date.parse(value) || 0
+  if (typeof value === 'object') {
+    const timestamp = value as { seconds?: number; _seconds?: number; toDate?: () => Date; toMillis?: () => number }
+    if (typeof timestamp.toMillis === 'function') return timestamp.toMillis()
+    if (typeof timestamp.toDate === 'function') return timestamp.toDate().getTime()
+    const seconds = timestamp.seconds ?? timestamp._seconds
+    if (typeof seconds === 'number') return seconds * 1000
+  }
+  return 0
+}
+
+function needsFollowUp(contact: Contact): boolean {
+  const lastContactedMs = timestampMs(contact.lastContactedAt)
+  if (!lastContactedMs) return true
+  const staleAfterMs = 14 * 24 * 60 * 60 * 1000
+  return Date.now() - lastContactedMs > staleAfterMs
+}
+
 export default function PortalContactsPage() {
   const searchParams = useSearchParams()
   const [contacts, setContacts] = useState<Contact[]>([])
@@ -144,6 +165,7 @@ export default function PortalContactsPage() {
   const [stageFilter, setStageFilter] = useState(() => searchParamInList(searchParams.get('stage'), STAGES))
   const [typeFilter, setTypeFilter] = useState(() => searchParamInList(searchParams.get('type'), TYPES))
   const [ownerLens, setOwnerLens] = useState<'all' | 'unowned'>(() => searchParams.get('owner') === 'unowned' ? 'unowned' : 'all')
+  const [followUpLens, setFollowUpLens] = useState<'all' | 'stale'>(() => searchParams.get('followUp') === 'stale' ? 'stale' : 'all')
   const [showNew, setShowNew] = useState(false)
 
   // Bulk selection state
@@ -356,12 +378,17 @@ export default function PortalContactsPage() {
 
   const unownedContacts = contacts.filter((contact) => !hasContactOwner(contact))
   const ownerCoverage = contacts.length > 0 ? (contacts.length - unownedContacts.length) / contacts.length : 1
-  const displayedContacts = ownerLens === 'unowned' ? unownedContacts : contacts
+  const ownerFilteredContacts = ownerLens === 'unowned' ? unownedContacts : contacts
+  const displayedContacts = followUpLens === 'stale'
+    ? ownerFilteredContacts.filter(needsFollowUp)
+    : ownerFilteredContacts
   const allSelected = displayedContacts.length > 0 && displayedContacts.every((contact) => selectedIds.has(contact.id))
   const someSelected = selectedIds.size > 0 && !allSelected
-  const hasActiveFilters = !!(search.trim() || stageFilter || typeFilter)
+  const hasActiveFilters = !!(search.trim() || stageFilter || typeFilter || followUpLens === 'stale')
   const contactCountLabel = loading
     ? 'Loading…'
+    : followUpLens === 'stale'
+      ? `${displayedContacts.length} contact${displayedContacts.length === 1 ? '' : 's'} need follow-up.`
     : ownerLens === 'unowned'
       ? `${displayedContacts.length} unowned contact${displayedContacts.length === 1 ? '' : 's'} need assignment.`
     : hasActiveFilters
@@ -444,12 +471,19 @@ export default function PortalContactsPage() {
       {/* Filters */}
       <section className="space-y-2">
         <SavedViewsBar
-          currentFilters={{ search, stage: stageFilter, type: typeFilter, owner: ownerLens === 'unowned' ? 'unowned' : '' }}
+          currentFilters={{
+            search,
+            stage: stageFilter,
+            type: typeFilter,
+            owner: ownerLens === 'unowned' ? 'unowned' : '',
+            followUp: followUpLens === 'stale' ? 'stale' : '',
+          }}
           onSelectView={(f) => {
             if (typeof f.search === 'string') setSearch(f.search)
             if (typeof f.stage === 'string') setStageFilter(f.stage)
             if (typeof f.type === 'string') setTypeFilter(f.type)
             setOwnerLens(f.owner === 'unowned' ? 'unowned' : 'all')
+            setFollowUpLens(f.followUp === 'stale' ? 'stale' : 'all')
           }}
         />
       </section>
@@ -536,7 +570,7 @@ export default function PortalContactsPage() {
           </p>
           {hasActiveFilters || ownerLens === 'unowned' ? (
             <button
-              onClick={() => { setSearch(''); setStageFilter(''); setTypeFilter(''); setOwnerLens('all') }}
+              onClick={() => { setSearch(''); setStageFilter(''); setTypeFilter(''); setOwnerLens('all'); setFollowUpLens('all') }}
               className="btn-pib-secondary mt-6"
             >
               <span className="material-symbols-outlined text-base">filter_alt_off</span>

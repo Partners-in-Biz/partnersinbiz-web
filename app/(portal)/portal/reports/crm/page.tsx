@@ -1014,6 +1014,16 @@ export default function CrmReportsPage() {
                   <p className="eyebrow !text-[10px]">Quiet days</p>
                   <p className="mt-2 font-display text-2xl font-bold text-[var(--color-pib-text)]">{fmtNum(daysWithoutActivity)}</p>
                   <p className="mt-1 font-mono text-xs text-[var(--color-pib-text-muted)]">of {fmtNum(activity.perDay.length)}</p>
+                  {daysWithoutActivity > 0 && (
+                    <Link
+                      href="/portal/contacts?followUp=stale"
+                      aria-label="Open contacts needing follow-up from activity rhythm"
+                      className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-[var(--color-pib-accent)] hover:underline"
+                    >
+                      <span className="material-symbols-outlined text-[14px]" aria-hidden="true">event_note</span>
+                      Review follow-up
+                    </Link>
+                  )}
                 </div>
               </div>
               <HealthBar value={activity.days > 0 ? 1 - daysWithoutActivity / activity.days : 0} label="Activity consistency" />

@@ -47,6 +47,18 @@ describe('Portal contacts page', () => {
             tags: [],
             lastContactedAt: null,
           },
+          {
+            id: 'contact-fresh',
+            name: 'Fresh Followup',
+            email: 'fresh@example.com',
+            company: 'Fresh Co',
+            type: 'lead',
+            stage: 'contacted',
+            assignedTo: 'sales-lead-1',
+            assignedToRef: { uid: 'sales-lead-1', displayName: 'Ava Owner' },
+            tags: [],
+            lastContactedAt: '2026-05-28T08:00:00.000Z',
+          },
         ]
         return Promise.resolve({
           ok: true,
@@ -129,5 +141,20 @@ describe('Portal contacts page', () => {
     expect(screen.queryByRole('link', { name: /Owned Client/i })).not.toBeInTheDocument()
     expect(screen.getByText('1 contact match this view.')).toBeInTheDocument()
     expect(screen.getByText('stage: new')).toBeInTheDocument()
+  })
+
+  it('opens directly to stale follow-up contacts from CRM reports', async () => {
+    mockSearchParams = new URLSearchParams('followUp=stale')
+
+    render(<PortalContactsPage />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: /Owned Client/i })).toBeInTheDocument()
+    })
+
+    expect(screen.getByRole('link', { name: /Unowned Prospect/i })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /Fresh Followup/i })).not.toBeInTheDocument()
+    expect(screen.getByText('2 contacts need follow-up.')).toBeInTheDocument()
+    expect(screen.getByText('followUp: stale')).toBeInTheDocument()
   })
 })
