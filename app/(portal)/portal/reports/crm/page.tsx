@@ -1,6 +1,7 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
+import Link from 'next/link'
 import { useEffect, useState, useCallback } from 'react'
 
 // ── API response types ─────────────────────────────────────────────────────────
@@ -199,12 +200,32 @@ function StatCard({ label, value, sub, icon }: { label: string; value: string; s
   )
 }
 
-function EmptyState({ icon, title, body }: { icon: string; title: string; body: string }) {
+function EmptyState({
+  icon,
+  title,
+  body,
+  action,
+}: {
+  icon: string
+  title: string
+  body: string
+  action?: { href: string; label: string; ariaLabel: string; icon: string }
+}) {
   return (
     <div className="bento-card p-10 text-center">
       <span className="material-symbols-outlined text-4xl text-[var(--color-pib-accent)]">{icon}</span>
       <p className="mt-4 text-sm font-semibold text-[var(--color-pib-text)]">{title}</p>
       <p className="mx-auto mt-2 max-w-md text-sm text-[var(--color-pib-text-muted)]">{body}</p>
+      {action && (
+        <Link
+          href={action.href}
+          aria-label={action.ariaLabel}
+          className="pib-btn-primary mt-4 inline-flex items-center gap-1.5 text-sm"
+        >
+          <span className="material-symbols-outlined text-base">{action.icon}</span>
+          {action.label}
+        </Link>
+      )}
     </div>
   )
 }
@@ -609,7 +630,17 @@ export default function CrmReportsPage() {
       {/* ── Section 2: Revenue forecast ─────────────────────────────────────── */}
       <Section eyebrow="Revenue forecast">
         {!forecast ? (
-          <EmptyState icon="trending_up" title="No forecast data yet" body="Open deals with values and close dates will build the forecast automatically." />
+          <EmptyState
+            icon="trending_up"
+            title="No forecast data yet"
+            body="Open deals with values and close dates will build the forecast automatically."
+            action={{
+              href: '/portal/deals',
+              label: 'Open pipeline',
+              ariaLabel: 'Open pipeline to create forecast deals',
+              icon: 'view_kanban',
+            }}
+          />
         ) : (
           <>
             {/* Summary chips */}

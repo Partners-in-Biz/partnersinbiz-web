@@ -1,6 +1,13 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import CrmReportsPage from '@/app/(portal)/portal/reports/crm/page'
 
+jest.mock('next/link', () => ({
+  __esModule: true,
+  default: ({ children, href, ...props }: { children: React.ReactNode; href: string }) => (
+    <a href={href} {...props}>{children}</a>
+  ),
+}))
+
 function apiResponse(data: unknown) {
   return Promise.resolve({
     ok: true,
@@ -89,5 +96,36 @@ describe('Portal CRM reports page', () => {
     expect(screen.getAllByText('67%').length).toBeGreaterThan(0)
     expect(screen.getByText('2 contacts need an owner')).toBeInTheDocument()
     expect(screen.getByText('Assigned contact coverage')).toBeInTheDocument()
+  })
+
+  it('turns missing forecast data into a pipeline action', async () => {
+    ;(global.fetch as jest.Mock).mockImplementation((url: RequestInfo | URL) => {
+      const path = String(url)
+      if (path === '/api/v1/crm/reports/forecast') return apiResponse(null)
+      if (path === '/api/v1/crm/reports/funnel') {
+        return apiResponse({
+          byType: { lead: 0, prospect: 0, client: 0, churned: 0, other: 0 },
+          byStage: {},
+          total: 0,
+        })
+      }
+      if (path === '/api/v1/crm/reports/pipeline-velocity') {
+        return apiResponse({ stages: [], summary: { stageCount: 0, bottleneckCount: 0, slowestStage: null } })
+      }
+      if (path === '/api/v1/crm/reports/rep-performance') {
+        return apiResponse({ reps: [], summary: { repCount: 0, totalWonValue: 0, totalOpenValue: 0, totalActivities: 0 } })
+      }
+      if (path === '/api/v1/crm/reports/activity-summary?days=30') {
+        return apiResponse({ byType: {}, total: 0, perDay: [], since: '2026-04-29', days: 30 })
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${path}`))
+    })
+
+    render(<CrmReportsPage />)
+
+    expect(await screen.findByText('No forecast data yet')).toBeInTheDocument()
+
+    const pipelineLink = screen.getByRole('link', { name: 'Open pipeline to create forecast deals' })
+    expect(pipelineLink).toHaveAttribute('href', '/portal/deals')
   })
 })
