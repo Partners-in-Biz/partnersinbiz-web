@@ -28,4 +28,28 @@ describe('ContactForm', () => {
       tags: ['vip', 'key-account', 'newsletter'],
     }))
   })
+
+  it('captures the contact owner so employee accountability is saved', async () => {
+    const onSave = jest.fn().mockResolvedValue(undefined)
+
+    render(
+      <ContactForm
+        onSave={onSave}
+        onCancel={jest.fn()}
+        initial={{
+          name: 'Ava Owner',
+          email: 'ava@example.com',
+          assignedTo: '',
+        }}
+      />,
+    )
+
+    fireEvent.change(screen.getByLabelText('Owner'), { target: { value: 'sales-lead-1' } })
+    fireEvent.click(screen.getByRole('button', { name: /Save Contact/i }))
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1))
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
+      assignedTo: 'sales-lead-1',
+    }))
+  })
 })

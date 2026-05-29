@@ -223,6 +223,20 @@ describe('Admin contact detail page', () => {
     expect(screen.getByTestId('contact-form')).toBeInTheDocument()
   })
 
+  it('turns a missing admin contact owner into an accountability completion action', async () => {
+    contactOverride = { assignedTo: '' }
+
+    render(<AdminContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Jane Client' })).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add owner for Jane Client from relationship profile' }))
+
+    expect(screen.getByTestId('contact-form')).toBeInTheDocument()
+  })
+
   it('turns empty admin activity history into a note composer action', async () => {
     render(<AdminContactDetailPage />)
 

@@ -20,6 +20,7 @@ type ContactFormState = {
   department: string
   company: string
   website: string
+  assignedTo: string
   source: string
   type: string
   stage: string
@@ -51,6 +52,7 @@ export function ContactForm({ onSave, onCancel, initial = {} }: ContactFormProps
     department: String(initial.department ?? ''),
     company: String(initial.company ?? ''),
     website: String(initial.website ?? ''),
+    assignedTo: String(initial.assignedTo ?? ''),
     source: String(initial.source ?? 'manual'),
     type: String(initial.type ?? 'lead'),
     stage: String(initial.stage ?? 'new'),
@@ -136,6 +138,7 @@ export function ContactForm({ onSave, onCancel, initial = {} }: ContactFormProps
       </div>
       {field('Company', 'company')}
       {field('Website', 'website')}
+      {field('Owner', 'assignedTo')}
       {select('Source', 'source', SOURCES)}
       {select('Type', 'type', TYPES)}
       {select('Stage', 'stage', STAGES)}

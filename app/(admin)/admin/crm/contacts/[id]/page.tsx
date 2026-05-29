@@ -546,7 +546,13 @@ export default function ContactDetailPage() {
                   onAction={() => setEditing(true)}
                   actionIcon="language"
                 />
-                <DetailRow label="Owner" value={contact.assignedTo} />
+                <DetailRow
+                  label="Owner"
+                  value={contact.assignedTo}
+                  actionLabel={`Add owner for ${name} from relationship profile`}
+                  onAction={() => setEditing(true)}
+                  actionIcon="supervisor_account"
+                />
                 <DetailRow label="Created" value={fmtTimestamp(contact.createdAt)} />
                 <DetailRow label="Updated" value={fmtTimestamp(contact.updatedAt)} />
               </div>
