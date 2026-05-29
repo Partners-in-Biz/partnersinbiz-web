@@ -775,7 +775,17 @@ export default function CrmReportsPage() {
       {/* ── Section 4: Rep performance ─────────────────────────────────────── */}
       <Section eyebrow="Rep performance">
         {!repPerformance || repPerformance.reps.length === 0 ? (
-          <EmptyState icon="groups" title="No rep performance data yet" body="Rep metrics will appear once deals and activities have owners." />
+          <EmptyState
+            icon="groups"
+            title="No rep performance data yet"
+            body="Rep metrics will appear once deals and activities have owners."
+            action={{
+              href: '/portal/settings/team',
+              label: 'Open team',
+              ariaLabel: 'Open team settings to prepare CRM rep reporting',
+              icon: 'groups',
+            }}
+          />
         ) : (
           <div className="grid gap-4 xl:grid-cols-[1fr_320px]">
             <div className="bento-card !p-0 overflow-hidden">
