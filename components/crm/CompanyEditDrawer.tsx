@@ -112,7 +112,7 @@ function companyToForm(company: Partial<Company>): FormState {
     tags: (company.tags ?? []).join(', '),
     logoUrl: company.logoUrl ?? '',
     parentCompanyId: company.parentCompanyId ?? '',
-    parentCompanyName: '',
+    parentCompanyName: company.parentCompanyName ?? '',
     accountManagerUid: company.accountManagerUid ?? '',
     notes: company.notes ?? '',
   }
@@ -188,6 +188,7 @@ function formToPartialCompany(f: FormState): Partial<Company> {
     tags: f.tags ? f.tags.split(',').map((t) => t.trim()).filter(Boolean) : [],
     logoUrl: f.logoUrl.trim() || undefined,
     parentCompanyId: f.parentCompanyId || undefined,
+    parentCompanyName: f.parentCompanyId ? clean(f.parentCompanyName) : undefined,
     accountManagerUid: f.accountManagerUid.trim() || undefined,
     notes: f.notes,
   }

@@ -117,4 +117,17 @@ describe('CompanyOverviewPanel', () => {
     expect(screen.getByText('No business identity fields captured yet.')).toBeInTheDocument()
     expect(screen.getByText('No billing or contact fields captured yet.')).toBeInTheDocument()
   })
+
+  it('labels parent-account navigation with the resolved parent company name', () => {
+    const companyWithParent = company({
+      parentCompanyId: 'co-parent',
+      parentCompanyName: 'Parent Co',
+    })
+
+    render(<CompanyOverviewPanel company={companyWithParent} />)
+
+    const link = screen.getByRole('link', { name: /open parent co/i })
+    expect(link).toHaveAttribute('href', '/portal/companies/co-parent')
+    expect(screen.queryByText('View parent company')).not.toBeInTheDocument()
+  })
 })

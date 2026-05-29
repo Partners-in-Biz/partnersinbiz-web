@@ -79,6 +79,7 @@ export interface Company {
   // Relationships
   linkedOrgId?: string       // external PiB client org this sender-owned CRM company represents
   parentCompanyId?: string  // subsidiary tree (same org only — enforced at write)
+  parentCompanyName?: string // display cache for readable hierarchy links
   accountManagerUid?: string
   accountManagerRef?: MemberRef
   // Health & custom

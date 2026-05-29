@@ -368,6 +368,7 @@ function BusinessProfile({ company }: { company: Company }) {
   const hasSocial = social && (social.linkedin || social.twitter || social.facebook || social.instagram)
   const billingAddress = company.billingAddress
   const hasBillingAddress = billingAddress && (billingAddress.line1 || billingAddress.line2 || billingAddress.city || billingAddress.state || billingAddress.postalCode || billingAddress.country)
+  const parentCompanyLabel = company.parentCompanyName?.trim() || 'parent company'
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">
@@ -431,9 +432,14 @@ function BusinessProfile({ company }: { company: Company }) {
           {social?.facebook && <SocialLink label="Facebook" href={social.facebook} />}
           {social?.instagram && <SocialLink label="Instagram" href={social.instagram} />}
           {company.parentCompanyId && (
-            <Link href={`/portal/companies/${company.parentCompanyId}`} className="flex items-center gap-2 py-1 text-sm text-[var(--color-accent-v2)] hover:underline">
+            <Link
+              href={`/portal/companies/${company.parentCompanyId}`}
+              className="inline-flex max-w-full items-center gap-2 rounded-md border border-[var(--color-pib-line)] bg-white/[0.03] px-2.5 py-1.5 text-sm text-[var(--color-accent-v2)] transition-colors hover:border-[var(--color-accent-v2)]/50 hover:bg-white/[0.06]"
+              aria-label={`Open ${parentCompanyLabel}`}
+              title={`Open ${parentCompanyLabel}`}
+            >
               <span aria-hidden="true" className="material-symbols-outlined text-[16px]">domain</span>
-              View parent company
+              <span className="truncate">Open {parentCompanyLabel}</span>
             </Link>
           )}
           {customFields.map(([key, val]) => (

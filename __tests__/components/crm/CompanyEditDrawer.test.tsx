@@ -13,7 +13,7 @@ global.fetch = jest.fn().mockResolvedValue({
 
 jest.mock('@/components/crm/CompanyPicker', () => ({
   CompanyPicker: ({ onChange }: { onChange: (v: { companyId: string | null; companyName: string | null }) => void }) => (
-    <button onClick={() => onChange({ companyId: 'co-parent', companyName: 'Parent Co' })}>
+    <button type="button" onClick={() => onChange({ companyId: 'co-parent', companyName: 'Parent Co' })}>
       MockCompanyPicker
     </button>
   ),
@@ -39,7 +39,6 @@ const makeCompany = (overrides: Partial<Company> = {}): Partial<Company> => ({
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe('CompanyEditDrawer', () => {
-  const noop = jest.fn()
   const noopClose = jest.fn()
 
   beforeEach(() => {
@@ -101,6 +100,33 @@ describe('CompanyEditDrawer', () => {
     await waitFor(() => {
       expect(handleSave).toHaveBeenCalledWith(
         expect.objectContaining({ name: 'New Company Ltd' }),
+      )
+    })
+  })
+
+  it('preserves the resolved parent company name when saving hierarchy changes', async () => {
+    const handleSave = jest.fn().mockResolvedValue(undefined)
+    render(
+      <CompanyEditDrawer
+        mode="create"
+        onSave={handleSave}
+        onClose={noopClose}
+      />,
+    )
+
+    fireEvent.change(screen.getByLabelText(/Company Name/i), {
+      target: { value: 'Subsidiary Ltd' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'MockCompanyPicker' }))
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
+
+    await waitFor(() => {
+      expect(handleSave).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: 'Subsidiary Ltd',
+          parentCompanyId: 'co-parent',
+          parentCompanyName: 'Parent Co',
+        }),
       )
     })
   })
