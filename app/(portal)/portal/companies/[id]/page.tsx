@@ -395,6 +395,10 @@ function invoiceLabel(invoice: RelatedInvoice) {
   return invoice.invoiceNumber || invoice.id
 }
 
+function orderLabel(order: RelatedOrder) {
+  return order.title || order.id
+}
+
 function ProjectsPanel({
   projects,
   company,
@@ -850,6 +854,69 @@ function OrdersPanel({
   )
 }
 
+function ShipmentsPanel({
+  shipments,
+  company,
+  orders,
+  creatingShipment,
+  shipmentError,
+  onCreateShipmentFromOrder,
+}: {
+  shipments: RelatedShipment[]
+  company: Company
+  orders: RelatedOrder[]
+  creatingShipment: boolean
+  shipmentError: string | null
+  onCreateShipmentFromOrder: (order: RelatedOrder) => void
+}) {
+  if (shipments.length === 0) {
+    const firstOrder = orders[0]
+    return (
+      <EmptyPanel
+        icon="local_shipping"
+        label={
+          firstOrder
+            ? `No shipments yet. Open the first delivery record for ${orderLabel(firstOrder)} so carrier, tracking, and expected delivery stay tied to ${company.name}.`
+            : `No shipments yet. Create a fulfillment order for ${company.name} before tracking delivery.`
+        }
+      >
+        <div className="flex flex-col items-center gap-3">
+          {firstOrder ? (
+            <button
+              type="button"
+              onClick={() => onCreateShipmentFromOrder(firstOrder)}
+              disabled={creatingShipment}
+              className="btn-pib-primary inline-flex items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">local_shipping</span>
+              {creatingShipment ? 'Creating shipment...' : `Create shipment for ${orderLabel(firstOrder)}`}
+            </button>
+          ) : (
+            <button
+              type="button"
+              disabled
+              className="btn-pib-secondary inline-flex cursor-not-allowed items-center gap-1.5 opacity-60"
+            >
+              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">orders</span>
+              Create order before shipment
+            </button>
+          )}
+          {shipmentError ? <p className="max-w-md text-xs text-red-300">{shipmentError}</p> : null}
+        </div>
+      </EmptyPanel>
+    )
+  }
+  return (
+    <SimpleRowsPanel
+      rows={shipments}
+      emptyIcon="local_shipping"
+      emptyLabel="No shipments yet."
+      title={(row) => String(row.carrier ?? row.trackingNumber ?? row.id)}
+      metaFor={(row) => [String(row.trackingNumber ?? ''), formatDate(row.expectedDeliveryDate)]}
+    />
+  )
+}
+
 function SimpleRowsPanel({
   rows,
   emptyIcon,
@@ -1094,6 +1161,8 @@ export default function CompanyDetailPage() {
   const [invoiceError, setInvoiceError] = useState<string | null>(null)
   const [creatingOrder, setCreatingOrder] = useState(false)
   const [orderError, setOrderError] = useState<string | null>(null)
+  const [creatingShipment, setCreatingShipment] = useState(false)
+  const [shipmentError, setShipmentError] = useState<string | null>(null)
   const [creatingQuote, setCreatingQuote] = useState(false)
   const [quoteError, setQuoteError] = useState<string | null>(null)
   const [customFieldDefs, setCustomFieldDefs] = useState<CustomFieldDefinition[]>([])
@@ -1492,6 +1561,34 @@ export default function CompanyDetailPage() {
     }
   }
 
+  async function createShipmentFromOrder(order: RelatedOrder): Promise<void> {
+    if (!company) return
+    setCreatingShipment(true)
+    setShipmentError(null)
+    try {
+      const res = await fetch('/api/v1/shipments', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          companyId: company.id,
+          orderId: order.id,
+          status: 'pending',
+          carrier: 'Internal delivery',
+          visibility: 'relationship',
+          approvalState: 'approved',
+          notes: `Created from ${orderLabel(order)} on the company command center.`,
+        }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(body.error ?? 'Failed to create shipment')
+      await loadRelated(company.id)
+    } catch (err) {
+      setShipmentError(err instanceof Error ? err.message : 'Failed to create shipment')
+    } finally {
+      setCreatingShipment(false)
+    }
+  }
+
   async function handleDelete(): Promise<void> {
     if (!company) return
     const confirmed = window.confirm(`Archive ${company.name}? Linked contacts, deals, quotes, and activities will keep their history but no longer point at this company.`)
@@ -1715,12 +1812,13 @@ export default function CompanyDetailPage() {
           />
         )}
         {!relatedLoading && tab === 'shipments' && (
-          <SimpleRowsPanel
-            rows={related.shipments}
-            emptyIcon="local_shipping"
-            emptyLabel="No shipments yet."
-            title={(row) => String(row.carrier ?? row.trackingNumber ?? row.id)}
-            metaFor={(row) => [String(row.trackingNumber ?? ''), formatDate(row.expectedDeliveryDate)]}
+          <ShipmentsPanel
+            shipments={related.shipments}
+            company={company}
+            orders={related.orders}
+            creatingShipment={creatingShipment}
+            shipmentError={shipmentError}
+            onCreateShipmentFromOrder={createShipmentFromOrder}
           />
         )}
         {!relatedLoading && tab === 'inventory' && (
