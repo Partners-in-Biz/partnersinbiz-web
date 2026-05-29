@@ -235,12 +235,14 @@ function InsightCard({
   label,
   title,
   body,
+  action,
   tone = 'neutral',
 }: {
   icon: string
   label: string
   title: string
   body: string
+  action?: { href: string; label: string; ariaLabel: string; icon: string }
   tone?: 'neutral' | 'good' | 'warning'
 }) {
   const toneClass =
@@ -257,6 +259,16 @@ function InsightCard({
           <p className="eyebrow !text-[10px]">{label}</p>
           <p className="mt-2 text-sm font-semibold text-[var(--color-pib-text)]">{title}</p>
           <p className="mt-1 text-xs leading-relaxed text-[var(--color-pib-text-muted)]">{body}</p>
+          {action && (
+            <Link
+              href={action.href}
+              aria-label={action.ariaLabel}
+              className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-[var(--color-pib-accent)] hover:underline"
+            >
+              <span className="material-symbols-outlined text-[14px]">{action.icon}</span>
+              {action.label}
+            </Link>
+          )}
         </div>
       </div>
     </div>
@@ -559,6 +571,12 @@ export default function CrmReportsPage() {
           label="Funnel shape"
           title={topStage ? `${labelize(topStage[0])} holds ${fmtNum(topStage[1])} contacts` : 'No dominant stage yet'}
           body={`${fmtPercent(prospectMix)} of active contacts are prospects and ${fmtNum(churnedCount)} contacts are churned.`}
+          action={!topStage ? {
+            href: '/portal/contacts',
+            label: 'Classify contact stages',
+            ariaLabel: 'Open contacts to classify funnel stages',
+            icon: 'contacts',
+          } : undefined}
           tone={clientMix >= 0.25 ? 'good' : prospectMix >= 0.35 ? 'warning' : 'neutral'}
         />
         <InsightCard
