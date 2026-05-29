@@ -142,7 +142,26 @@ describe('world-class CRM OS foundation gaps', () => {
     const center = {
       company: { id: 'company-1', orgId: 'client-org', name: 'Acme' },
       contacts: [{ id: 'contact-private', visibility: 'private' }, { id: 'contact-visible', visibility: 'client_visible' }],
-      documents: [{ id: 'doc-internal', visibility: 'internal' }, { id: 'doc-shared', visibility: 'relationship' }],
+      documents: [
+        { id: 'doc-internal', visibility: 'internal' },
+        { id: 'doc-direct-draft', orgId: 'client-org', status: 'internal_draft', currentVersionId: 'version-1' },
+        { id: 'doc-direct-visible', orgId: 'client-org', status: 'approved', currentVersionId: 'version-2' },
+        {
+          id: 'doc-platform-visible',
+          orgId: 'pib-platform-owner',
+          status: 'client_review',
+          currentVersionId: 'version-3',
+          linked: { clientOrgId: 'client-org' },
+        },
+        {
+          id: 'doc-platform-other',
+          orgId: 'pib-platform-owner',
+          status: 'client_review',
+          currentVersionId: 'version-4',
+          linked: { clientOrgId: 'other-org' },
+        },
+        { id: 'doc-shared', visibility: 'relationship' },
+      ],
       orders: [{ id: 'order-hidden', visibility: 'private' }, { id: 'order-allowed', visibility: 'private', allowedOrgIds: ['client-org'] }],
       relationships: [{
         id: 'rel-1',
@@ -171,7 +190,7 @@ describe('world-class CRM OS foundation gaps', () => {
     })
 
     expect(filtered.contacts).toEqual([])
-    expect(filtered.documents.map((row) => row.id)).toEqual(['doc-shared'])
+    expect(filtered.documents.map((row) => row.id)).toEqual(['doc-direct-visible', 'doc-platform-visible', 'doc-shared'])
     expect(filtered.orders.map((row) => row.id)).toEqual(['order-allowed'])
     expect(filtered.analytics.accountValue).toBeUndefined()
     expect(filtered.summary.contacts).toBe(0)

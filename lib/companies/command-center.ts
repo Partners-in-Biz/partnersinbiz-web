@@ -101,6 +101,23 @@ function activeRelationshipsFor(company: Company, relationships: BusinessRelatio
   ))
 }
 
+function documentCandidateOrgIds(company: Company, relationships: BusinessRelationship[] = []): string[] {
+  const activeRelationships = activeRelationshipsFor(company, relationships)
+  const orgIds = new Set<string>([company.orgId])
+  const linkedOrgId = cleanString(company.linkedOrgId)
+  if (linkedOrgId) orgIds.add(linkedOrgId)
+
+  for (const relationship of activeRelationships) {
+    const row = relationship as BusinessRelationship & { sourceOrgId?: string }
+    const sourceOrgId = cleanString(row.sourceOrgId)
+    const targetOrgId = cleanString(row.targetOrgId)
+    if (sourceOrgId) orgIds.add(sourceOrgId)
+    if (targetOrgId) orgIds.add(targetOrgId)
+  }
+
+  return Array.from(orgIds)
+}
+
 function matchesAny(value: unknown, allowed: Set<string>): boolean {
   const direct = cleanString(value)
   return Boolean(direct && allowed.has(direct))
@@ -190,6 +207,24 @@ async function listCompanyRows(collectionName: string, company: Company, options
   return sortRows(rows.filter((row) => matchesCompany(row, company)), limit)
 }
 
+export async function listCompanyDocuments(company: Company, options: CommandCenterOptions = {}): Promise<CommandCenterRow[]> {
+  const limit = limitValue(options.limit)
+  const relationships = await listBusinessRelationships(company.orgId, {
+    companyId: company.id,
+    status: 'active',
+    limit: 500,
+  })
+  const candidateRows = await Promise.all(
+    documentCandidateOrgIds(company, relationships).map((orgId) => listOrgRows('client_documents', orgId, 1000)),
+  )
+  const byId = new Map<string, CommandCenterRow>()
+  for (const row of candidateRows.flat()) {
+    byId.set(row.id, row)
+  }
+
+  return sortRows(Array.from(byId.values()).filter((row) => matchesCompany(row, company, relationships)), limit)
+}
+
 function isOpenOrder(order: Order): boolean {
   return !['fulfilled', 'cancelled', 'archived'].includes(order.status)
 }
@@ -221,7 +256,7 @@ export async function buildCompanyCommandCenter(
     listCompanyRows('contacts', company, { limit }),
     listCompanyRows('deals', company, { limit }),
     listCompanyProjects(company, { limit }),
-    listCompanyRows('client_documents', company, { limit }),
+    listCompanyDocuments(company, { limit }),
     listServiceWorkspaces(company.orgId, { companyId: company.id, limit }),
     listBusinessRelationships(company.orgId, { companyId: company.id, limit }),
     listCompanyRows('quotes', company, { limit }),

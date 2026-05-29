@@ -56,6 +56,32 @@ function actorType(user: ApiUser) {
   return user.role === 'ai' ? 'agent' : 'user'
 }
 
+async function platformCompanyForClientOrg(clientOrgId: string): Promise<{ id: string } | null> {
+  if (!clientOrgId || clientOrgId === PIB_PLATFORM_ORG_ID) return null
+  const snap = await adminDb
+    .collection('companies')
+    .where('orgId', '==', PIB_PLATFORM_ORG_ID)
+    .get()
+  const match = snap.docs.find((doc) => {
+    const data = doc.data() as { linkedOrgId?: string; deleted?: boolean }
+    return data.deleted !== true && data.linkedOrgId === clientOrgId
+  })
+  return match ? { id: match.id } : null
+}
+
+async function companyForLinkedDocument(companyId: string): Promise<{ id: string; orgId: string; linkedOrgId?: string } | null> {
+  if (!companyId) return null
+  const snap = await adminDb.collection('companies').doc(companyId).get()
+  if (!snap.exists) return null
+  const data = snap.data() as { orgId?: string; linkedOrgId?: string; deleted?: boolean }
+  if (data.deleted === true || !data.orgId) return null
+  return {
+    id: companyId,
+    orgId: data.orgId,
+    linkedOrgId: data.linkedOrgId,
+  }
+}
+
 function validateCreateAssumptions(
   value: unknown,
 ): { ok: true; value: CreateAssumptionInput[] } | { ok: false; error: string } {
@@ -125,14 +151,17 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
   }
 
   let documents = await listForOrg(scope.orgId)
-  if (user.role === 'client' && scope.orgId !== PIB_PLATFORM_ORG_ID) {
+  if (scope.orgId !== PIB_PLATFORM_ORG_ID) {
     const platformDocuments = await listForOrg(PIB_PLATFORM_ORG_ID)
-    const linkedPlatformDocuments = platformDocuments.filter((doc) => (
-      doc.linked?.clientOrgId === scope.orgId && isClientVisibleClientDocument(doc)
-    ))
+    const linkedPlatformDocuments = platformDocuments
+      .filter((doc) => doc.linked?.clientOrgId === scope.orgId)
+      .filter((doc) => user.role !== 'client' || isClientVisibleClientDocument(doc))
     const byId = new Map<string, ClientDocument & { id: string }>()
     for (const document of [...documents, ...linkedPlatformDocuments]) byId.set(document.id, document)
     documents = Array.from(byId.values())
+  }
+  if (user.role === 'client') {
+    documents = documents.filter((doc) => isClientVisibleClientDocument(doc))
   }
 
   return apiSuccess(documents)
@@ -173,13 +202,31 @@ export const POST = withAuth('admin', async (req: NextRequest, user: ApiUser) =>
     assumptions = assumptionsResult.value
   }
 
+  const platformCompany = orgId ? await platformCompanyForClientOrg(orgId) : null
+  const linkedCompany = !orgId && linked.companyId ? await companyForLinkedDocument(linked.companyId) : null
+  const documentOrgId = platformCompany ? PIB_PLATFORM_ORG_ID : linkedCompany?.orgId ?? orgId
+  const documentLinked: ClientDocumentLinkSet = platformCompany
+    ? {
+        ...linked,
+        companyId: linked.companyId || platformCompany.id,
+        clientOrgId: linked.clientOrgId || orgId,
+      }
+    : linkedCompany
+      ? {
+          ...linked,
+          companyId: linked.companyId || linkedCompany.id,
+          ...(linkedCompany.linkedOrgId ? { clientOrgId: linked.clientOrgId || linkedCompany.linkedOrgId } : {}),
+        }
+      : linked
+
   // Auto-populate the first version's theme from the org's brand colors. If
   // the request body supplied its own theme, that wins. If there is no orgId
   // (internal-only drafts) or the org has no brand colors yet, the store falls
   // back to the PiB default theme.
   let autoTheme: DocumentTheme | null = null
-  if (orgId) {
-    const orgSnap = await adminDb.collection('organizations').doc(orgId).get()
+  const themeOrgId = documentLinked.clientOrgId || documentOrgId
+  if (themeOrgId) {
+    const orgSnap = await adminDb.collection('organizations').doc(themeOrgId).get()
     if (orgSnap?.exists) {
       const orgData = { id: orgSnap.id, ...orgSnap.data() } as Organization
       autoTheme = themeFromOrg(orgData)
@@ -191,12 +238,12 @@ export const POST = withAuth('admin', async (req: NextRequest, user: ApiUser) =>
   const created = await createClientDocument({
     title,
     type: body.type,
-    orgId,
-    linked,
+    orgId: documentOrgId,
+    linked: documentLinked,
     assumptions,
     user,
     theme: versionTheme,
   })
 
-  return apiSuccess({ ...created, orgId, status: 'internal_draft', actorType: actorType(user) }, 201)
+  return apiSuccess({ ...created, orgId: documentOrgId, linked: documentLinked, status: 'internal_draft', actorType: actorType(user) }, 201)
 })

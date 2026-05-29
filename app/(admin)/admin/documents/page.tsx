@@ -51,14 +51,20 @@ export default async function DocumentsIndexPage({
   if (!user) redirect('/login')
   const allowedOrgIds = restrictedAdminOrgIds(user)
 
-  let query: FirebaseFirestore.Query = adminDb.collection('client_documents')
+  let documentSnaps: FirebaseFirestore.QueryDocumentSnapshot[]
   if (allowedOrgIds.length > 0 && allowedOrgIds.length <= 30) {
-    query = query.where('orgId', 'in', allowedOrgIds)
+    const snaps = await Promise.all([
+      adminDb.collection('client_documents').where('orgId', 'in', allowedOrgIds).get(),
+      adminDb.collection('client_documents').where('orgId', '==', PIB_PLATFORM_ORG_ID).get(),
+    ])
+    const byId = new Map<string, FirebaseFirestore.QueryDocumentSnapshot>()
+    for (const doc of snaps.flatMap((snap) => snap.docs)) byId.set(doc.id, doc)
+    documentSnaps = Array.from(byId.values())
   } else {
-    query = query.where('deleted', '==', false)
+    const snap = await adminDb.collection('client_documents').where('deleted', '==', false).get()
+    documentSnaps = snap.docs
   }
 
-  const snap = await query.get()
   const [orgSnap, companySnap] = await Promise.all([
     adminDb.collection('organizations').where('active', '==', true).get(),
     adminDb.collection('companies').where('orgId', '==', PIB_PLATFORM_ORG_ID).get(),
@@ -79,16 +85,34 @@ export default async function DocumentsIndexPage({
     }),
   )
 
-  const allDocuments = snap.docs
+  function documentClientOrgId(document: ClientDocument): string {
+    return document.linked?.clientOrgId || (
+      document.orgId && document.orgId !== PIB_PLATFORM_ORG_ID ? document.orgId : ''
+    )
+  }
+
+  function canAccessDocument(document: ClientDocument): boolean {
+    if (allowedOrgIds.length === 0) return true
+    const orgId = String(document.orgId ?? '')
+    const clientOrgId = document.linked?.clientOrgId ?? ''
+    return allowedOrgIds.includes(orgId) || allowedOrgIds.includes(clientOrgId)
+  }
+
+  function selectedOrgMatches(document: ClientDocument): boolean {
+    if (!selectedOrgId) return true
+    return String(document.orgId ?? '') === selectedOrgId || document.linked?.clientOrgId === selectedOrgId
+  }
+
+  const allDocuments = documentSnaps
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .map((d) => serialize({ id: d.id, ...(d.data() as any) }) as ClientDocument)
     .filter((d) => d.deleted !== true)
-    .filter((d) => allowedOrgIds.length === 0 || allowedOrgIds.includes(String(d.orgId ?? '')))
-    .filter((d) => !selectedOrgId || String(d.orgId ?? '') === selectedOrgId)
+    .filter(canAccessDocument)
+    .filter(selectedOrgMatches)
     .filter((d) => {
       if (!q) return true
       const raw = d as ClientDocument & Record<string, unknown>
-      const clientName = orgOptions.find((org) => org.id === d.orgId)?.name ?? ''
+      const clientName = orgOptions.find((org) => org.id === documentClientOrgId(d))?.name ?? ''
       return [d.title, d.type, d.status, raw.summary, raw.description, clientName]
         .filter(Boolean)
         .join(' ')

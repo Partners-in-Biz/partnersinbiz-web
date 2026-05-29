@@ -155,6 +155,66 @@ describe('client documents API', () => {
     }))
   })
 
+  it('source-owns new selected-client documents under Partners in Biz when a platform CRM company exists', async () => {
+    mockQueryGet.mockResolvedValueOnce({
+      docs: [
+        {
+          id: 'company-1',
+          data: () => ({ orgId: 'pib-platform-owner', linkedOrgId: 'client-org', deleted: false }),
+        },
+      ],
+    })
+
+    const { POST } = await import('@/app/api/v1/client-documents/route')
+    const req = jsonRequest('http://localhost/api/v1/client-documents', {
+      orgId: 'client-org',
+      title: 'Client Growth Proposal',
+      type: 'sales_proposal',
+    })
+
+    const res = await POST(req, adminUser)
+    const body = await res.json()
+    const documentWrite = mockBatchSet.mock.calls[0]?.[1]
+
+    expect(res.status).toBe(201)
+    expect(body.data).toEqual(expect.objectContaining({
+      orgId: 'pib-platform-owner',
+      linked: { companyId: 'company-1', clientOrgId: 'client-org' },
+    }))
+    expect(documentWrite).toEqual(expect.objectContaining({
+      orgId: 'pib-platform-owner',
+      linked: { companyId: 'company-1', clientOrgId: 'client-org' },
+    }))
+  })
+
+  it('source-owns new company-only documents from the linked CRM company org without requiring a client org', async () => {
+    mockDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({ orgId: 'pib-platform-owner', name: 'Standalone Prospect', deleted: false }),
+    })
+
+    const { POST } = await import('@/app/api/v1/client-documents/route')
+    const req = jsonRequest('http://localhost/api/v1/client-documents', {
+      title: 'Standalone Prospect Proposal',
+      type: 'sales_proposal',
+      linked: { companyId: 'company-plain' },
+    })
+
+    const res = await POST(req, adminUser)
+    const body = await res.json()
+    const documentWrite = mockBatchSet.mock.calls[0]?.[1]
+
+    expect(res.status).toBe(201)
+    expect(body.data).toEqual(expect.objectContaining({
+      orgId: 'pib-platform-owner',
+      linked: { companyId: 'company-plain' },
+    }))
+    expect(documentWrite).toEqual(expect.objectContaining({
+      orgId: 'pib-platform-owner',
+      linked: { companyId: 'company-plain' },
+    }))
+  })
+
   it('rejects invalid document type on create', async () => {
     const { POST } = await import('@/app/api/v1/client-documents/route')
     const req = jsonRequest('http://localhost/api/v1/client-documents', {
@@ -285,7 +345,8 @@ describe('client documents API', () => {
     mockQueryGet
       .mockResolvedValueOnce({
         docs: [
-          { id: 'doc-direct', data: () => ({ orgId: 'client-org', title: 'Direct document', deleted: false }) },
+          { id: 'doc-direct', data: () => ({ orgId: 'client-org', title: 'Direct document', status: 'approved', deleted: false }) },
+          { id: 'doc-internal', data: () => ({ orgId: 'client-org', title: 'Internal document', status: 'internal_draft', deleted: false }) },
         ],
       })
       .mockResolvedValueOnce({
@@ -317,6 +378,56 @@ describe('client documents API', () => {
     const req = new NextRequest('http://localhost/api/v1/client-documents')
 
     const res = await GET(req, linkedClientUser)
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.data.map((doc: { id: string }) => doc.id)).toEqual(['doc-direct', 'doc-linked'])
+  })
+
+  it('lists selected-client documents for admins together with platform-owned documents linked to that client org', async () => {
+    mockQueryGet
+      .mockResolvedValueOnce({
+        docs: [
+          {
+            id: 'doc-direct',
+            data: () => ({
+              orgId: 'client-org',
+              title: 'Direct client draft',
+              status: 'internal_draft',
+              deleted: false,
+            }),
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        docs: [
+          {
+            id: 'doc-linked',
+            data: () => ({
+              orgId: 'pib-platform-owner',
+              title: 'PiB-owned linked draft',
+              status: 'internal_review',
+              linked: { clientOrgId: 'client-org', companyId: 'company-1' },
+              deleted: false,
+            }),
+          },
+          {
+            id: 'doc-other',
+            data: () => ({
+              orgId: 'pib-platform-owner',
+              title: 'Other client document',
+              status: 'internal_review',
+              linked: { clientOrgId: 'other-org', companyId: 'company-2' },
+              deleted: false,
+            }),
+          },
+        ],
+      })
+
+    const { GET } = await import('@/app/api/v1/client-documents/route')
+    const req = new NextRequest('http://localhost/api/v1/client-documents?orgId=client-org')
+
+    const res = await GET(req, adminUser)
     const body = await res.json()
 
     expect(res.status).toBe(200)

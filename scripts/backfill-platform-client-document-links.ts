@@ -27,6 +27,7 @@ export interface PlatformCompanyLink {
 
 export interface PlatformClientDocumentRow {
   id: string
+  orgId?: string
   title?: string
   linked?: Record<string, unknown>
 }
@@ -41,6 +42,7 @@ export interface DocumentLinkPlan {
 
 export interface DocumentLinkReportRow extends DocumentLinkPlan {
   id: string
+  orgId: string
   title: string
 }
 
@@ -91,6 +93,18 @@ export function buildDocumentLinkPlan(
   }
 
   const title = normalizeComparable(row.title)
+  const ownerOrgId = cleanString(row.orgId)
+  const ownerOrgMatch = companies.find((company) => company.linkedOrgId === ownerOrgId)
+  if (ownerOrgMatch) {
+    return {
+      action: 'link',
+      confidence: 'high',
+      companyId: ownerOrgMatch.companyId,
+      clientOrgId: ownerOrgMatch.linkedOrgId,
+      reason: 'matched document owner org to platform CRM company',
+    }
+  }
+
   const matches = companies.filter((company) => {
     const name = normalizeComparable(company.companyName)
     const domain = normalizeComparable(company.domain)
@@ -194,6 +208,7 @@ function writeReport(rows: DocumentLinkReportRow[], dryRun: boolean): string {
   const reportPath = resolve(reportDir, `${stamp}-platform-client-document-links-${dryRun ? 'dryrun' : 'commit'}.csv`)
   const header: Array<keyof DocumentLinkReportRow> = [
     'id',
+    'orgId',
     'title',
     'action',
     'confidence',
@@ -213,21 +228,33 @@ export async function run(flags: CliFlags): Promise<DocumentLinkReportRow[]> {
   const platformOrgId = await resolvePlatformOrgId(db)
   const companies = await loadCompanyLinks(db, platformOrgId, flags.orgId)
   const snap = await db.collection('client_documents').where('orgId', '==', platformOrgId).get()
+  const allDocsSnap = await db.collection('client_documents').get()
+  const clientOrgIds = new Set(companies.map((company) => company.linkedOrgId))
   const rows: DocumentLinkReportRow[] = []
   let batch = db.batch()
   let inBatch = 0
 
-  for (const doc of snap.docs) {
+  const candidateDocs = new Map<string, FirebaseFirestore.QueryDocumentSnapshot>()
+  for (const doc of [...snap.docs, ...allDocsSnap.docs]) {
+    const data = doc.data() ?? {}
+    const ownerOrgId = cleanString(data.orgId)
+    if (ownerOrgId !== platformOrgId && !clientOrgIds.has(ownerOrgId)) continue
+    if (data.deleted === true) continue
+    candidateDocs.set(doc.id, doc)
+  }
+
+  for (const doc of candidateDocs.values()) {
     const data = doc.data() ?? {}
     const plan = buildDocumentLinkPlan({
       id: doc.id,
+      orgId: cleanString(data.orgId),
       title: cleanString(data.title),
       linked: data.linked && typeof data.linked === 'object' && !Array.isArray(data.linked)
         ? data.linked as Record<string, unknown>
         : {},
     }, companies)
-    if (flags.orgId && plan.clientOrgId && plan.clientOrgId !== flags.orgId) continue
-    rows.push({ id: doc.id, title: cleanString(data.title), ...plan })
+    if (flags.orgId && plan.clientOrgId !== flags.orgId) continue
+    rows.push({ id: doc.id, orgId: cleanString(data.orgId), title: cleanString(data.title), ...plan })
 
     if (flags.dryRun || plan.action !== 'link' || plan.confidence !== 'high') continue
     batch.set(doc.ref, {

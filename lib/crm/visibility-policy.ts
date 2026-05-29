@@ -34,6 +34,8 @@ const COUNT_FIELDS = [
   'inventoryItems',
 ] as const
 
+const CLIENT_DOCUMENT_VISIBLE_STATUSES = new Set(['client_review', 'changes_requested', 'approved', 'accepted'])
+
 function isPrivilegedContext(ctx: VisibilityContext): boolean {
   return Boolean(ctx.isAgent || ctx.role === 'system' || ctx.role === 'admin' || ctx.role === 'owner' || ctx.user?.role === 'admin')
 }
@@ -56,7 +58,29 @@ function includesClean(values: unknown, target: string): boolean {
   return values.some((value) => cleanString(value) === target)
 }
 
+function recordValue(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
+}
+
+function clientDocumentVisibility(row: RowWithVisibility, ctx: VisibilityContext): boolean | null {
+  const looksLikeClientDocument = Boolean(row.templateId || row.currentVersionId || row.shareToken || row.approvalMode)
+  if (!looksLikeClientDocument) return null
+  if (row.deleted === true || row.archived === true || row.status === 'archived') return false
+  if (!CLIENT_DOCUMENT_VISIBLE_STATUSES.has(cleanString(row.status))) return false
+
+  const linked = recordValue(row.linked)
+  if (cleanString(row.orgId) === ctx.orgId) return true
+  if (cleanString(linked.clientOrgId) === ctx.orgId) return true
+  if (includesClean(row.allowedOrgIds, ctx.orgId)) return true
+
+  const actorUid = ctx.actor?.uid || ctx.user?.uid || ''
+  return includesClean(row.allowedUserIds, actorUid)
+}
+
 function rowAllowed(row: RowWithVisibility, ctx: VisibilityContext): boolean {
+  const clientDocumentAllowed = clientDocumentVisibility(row, ctx)
+  if (clientDocumentAllowed !== null) return clientDocumentAllowed
+
   if (row.deleted === true || row.archived === true || row.status === 'archived') return false
   if (includesClean(row.allowedOrgIds, ctx.orgId)) return true
   const actorUid = ctx.actor?.uid || ctx.user?.uid || ''

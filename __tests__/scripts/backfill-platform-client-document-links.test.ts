@@ -58,6 +58,21 @@ describe('backfill-platform-client-document-links helpers', () => {
     })
   })
 
+  it('links direct client-owned documents by matching their owner org to a platform CRM company', () => {
+    expect(buildDocumentLinkPlan({
+      id: 'doc-1',
+      orgId: 'client-org',
+      title: 'Growth Proposal',
+      linked: {},
+    }, companies)).toEqual({
+      action: 'link',
+      confidence: 'high',
+      companyId: 'company-1',
+      clientOrgId: 'client-org',
+      reason: 'matched document owner org to platform CRM company',
+    })
+  })
+
   it('flags ambiguous document matches for review', () => {
     expect(buildDocumentLinkPlan({
       id: 'doc-1',

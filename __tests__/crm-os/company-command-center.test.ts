@@ -28,12 +28,22 @@ function snap(rows: Array<{ id: string; data: Row }>) {
 }
 
 function queryFor(rows: Array<{ id: string; data: Row }>) {
-  const query = {
-    where: jest.fn(() => query),
-    limit: jest.fn(() => query),
-    get: jest.fn(async () => snap(rows)),
+  const makeQuery = (filters: Array<{ field: string; value: unknown }> = [], maxRows?: number): {
+    where: jest.Mock
+    limit: jest.Mock
+    get: jest.Mock
+  } => {
+    const query = {
+      where: jest.fn((field: string, _op: string, value: unknown) => makeQuery([...filters, { field, value }], maxRows)),
+      limit: jest.fn((limit: number) => makeQuery(filters, limit)),
+      get: jest.fn(async () => {
+        const filtered = rows.filter((row) => filters.every((filter) => row.data[filter.field] === filter.value))
+        return snap(typeof maxRows === 'number' ? filtered.slice(0, maxRows) : filtered)
+      }),
+    }
+    return query
   }
-  return query
+  return makeQuery()
 }
 
 function collectionFor(rows: Array<{ id: string; data: Row }> = []) {
@@ -103,6 +113,122 @@ describe('CRM OS company command center foundations', () => {
     expect(projectsCollection.where).toHaveBeenCalledTimes(1)
     expect(relationshipsCollection.where).toHaveBeenCalledWith('sourceOrgId', '==', 'org-1')
     expect(relationshipsCollection.where).toHaveBeenCalledTimes(1)
+  })
+
+  it('lists company documents across platform, linked client, and reciprocal supplier relationships', async () => {
+    const clientDocumentsCollection = collectionFor([
+      {
+        id: 'platform-linked',
+        data: {
+          orgId: 'pib-platform-owner',
+          linked: { companyId: 'platform-company', clientOrgId: 'client-org' },
+          title: 'Platform proposal',
+          status: 'client_review',
+          updatedAt: timestamp(20),
+        },
+      },
+      {
+        id: 'direct-client',
+        data: {
+          orgId: 'client-org',
+          linked: { companyId: 'platform-company', clientOrgId: 'client-org' },
+          title: 'Direct client proposal',
+          status: 'internal_draft',
+          updatedAt: timestamp(30),
+        },
+      },
+      {
+        id: 'other-client',
+        data: {
+          orgId: 'other-org',
+          linked: { companyId: 'other-company', clientOrgId: 'other-org' },
+          title: 'Other proposal',
+          status: 'client_review',
+          updatedAt: timestamp(40),
+        },
+      },
+    ])
+    const relationshipsCollection = collectionFor([
+      {
+        id: 'rel-platform-client',
+        data: {
+          sourceOrgId: 'pib-platform-owner',
+          sourceCompanyId: 'platform-company',
+          targetOrgId: 'client-org',
+          targetCompanyId: 'supplier-company',
+          status: 'active',
+        },
+      },
+      {
+        id: 'rel-client-platform',
+        data: {
+          sourceOrgId: 'client-org',
+          sourceCompanyId: 'supplier-company',
+          targetOrgId: 'pib-platform-owner',
+          targetCompanyId: 'platform-company',
+          status: 'active',
+        },
+      },
+    ])
+    mockCollection.mockImplementation((name: string) => {
+      if (name === 'client_documents') return clientDocumentsCollection
+      if (name === 'businessRelationships') return relationshipsCollection
+      return collectionFor()
+    })
+
+    const { listCompanyDocuments } = await import('@/lib/companies/command-center')
+
+    const platformDocs = await listCompanyDocuments(company({
+      id: 'platform-company',
+      orgId: 'pib-platform-owner',
+      linkedOrgId: 'client-org',
+    }), { limit: 10 })
+    const supplierDocs = await listCompanyDocuments(company({
+      id: 'supplier-company',
+      orgId: 'client-org',
+      linkedOrgId: 'pib-platform-owner',
+    }), { limit: 10 })
+
+    expect(platformDocs.map((doc) => doc.id)).toEqual(['direct-client', 'platform-linked'])
+    expect(supplierDocs.map((doc) => doc.id)).toEqual(['direct-client', 'platform-linked'])
+  })
+
+  it('lists company-only documents for CRM companies that are not linked to a system organisation', async () => {
+    mockCollection.mockImplementation((name: string) => {
+      if (name === 'client_documents') return collectionFor([
+        {
+          id: 'plain-company-doc',
+          data: {
+            orgId: 'pib-platform-owner',
+            linked: { companyId: 'company-plain' },
+            title: 'Standalone CRM proposal',
+            status: 'internal_review',
+            updatedAt: timestamp(10),
+          },
+        },
+        {
+          id: 'other-doc',
+          data: {
+            orgId: 'pib-platform-owner',
+            linked: { companyId: 'other-company' },
+            title: 'Other proposal',
+            status: 'internal_review',
+            updatedAt: timestamp(20),
+          },
+        },
+      ])
+      if (name === 'businessRelationships') return collectionFor()
+      return collectionFor()
+    })
+
+    const { listCompanyDocuments } = await import('@/lib/companies/command-center')
+    const docs = await listCompanyDocuments(company({
+      id: 'company-plain',
+      orgId: 'pib-platform-owner',
+      linkedOrgId: undefined,
+    }), { limit: 10 })
+
+    expect(docs.map((doc) => doc.id)).toEqual(['plain-company-doc'])
   })
 
   it('builds a command center with CRM, delivery, commerce, relationship, and analytics rollups', async () => {
