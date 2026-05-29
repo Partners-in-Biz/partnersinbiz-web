@@ -74,6 +74,40 @@ describe('DealDrawer', () => {
     }))
   })
 
+  it('sends default company context with account-scoped deal creation', async () => {
+    const onSaved = jest.fn()
+
+    render(
+      <DealDrawer
+        defaultContactId="contact-1"
+        defaultContactLabel="Ava Owner"
+        defaultCompanyId="company-1"
+        defaultCompanyName="Acme Growth"
+        orgId="org-1"
+        onSaved={onSaved}
+        onClose={jest.fn()}
+      />,
+    )
+
+    fireEvent.change(screen.getByPlaceholderText(/Annual License/i), {
+      target: { value: 'Acme expansion package' },
+    })
+    await screen.findByDisplayValue('Sales pipeline')
+    await screen.findByDisplayValue('Discovery')
+    fireEvent.click(screen.getByRole('button', { name: /Create deal/i }))
+
+    await waitFor(() => expect(onSaved).toHaveBeenCalledWith('deal-1'))
+
+    const postCall = (global.fetch as jest.Mock).mock.calls.find(([url, init]) => (
+      url === '/api/v1/crm/deals' && init?.method === 'POST'
+    ))
+    expect(JSON.parse(postCall[1].body)).toEqual(expect.objectContaining({
+      contactId: 'contact-1',
+      companyId: 'company-1',
+      companyName: 'Acme Growth',
+    }))
+  })
+
   it('shows the readable default contact label for preselected contact deals', async () => {
     render(
       <DealDrawer

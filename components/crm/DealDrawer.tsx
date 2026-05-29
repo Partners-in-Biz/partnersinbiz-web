@@ -25,6 +25,10 @@ export interface DealDrawerProps {
   defaultContactId?: string
   /** Display label for a pre-selected contact. */
   defaultContactLabel?: string
+  /** Pre-selected companyId for account-scoped deal creation. */
+  defaultCompanyId?: string
+  /** Display label for a pre-selected company. */
+  defaultCompanyName?: string
   /** Called after a successful save. Receives the saved deal ID. */
   onSaved: (dealId: string) => void
   /** Called when the drawer should close without saving. */
@@ -167,6 +171,8 @@ export function DealDrawer({
   defaultPipelineId,
   defaultContactId,
   defaultContactLabel,
+  defaultCompanyId,
+  defaultCompanyName,
   onSaved,
   onClose,
   orgId,
@@ -177,8 +183,8 @@ export function DealDrawer({
   const [title, setTitle] = useState(deal?.title ?? '')
   const [contactId, setContactId] = useState(deal?.contactId ?? defaultContactId ?? '')
   const [contactLabel, setContactLabel] = useState(readableContactLabel(defaultContactLabel) ?? deal?.contactId ?? defaultContactId ?? '')
-  const [companyId, setCompanyId] = useState(deal?.companyId ?? '')
-  const [companyName, setCompanyName] = useState(deal?.companyName ?? '')
+  const [companyId, setCompanyId] = useState(deal?.companyId ?? defaultCompanyId ?? '')
+  const [companyName, setCompanyName] = useState(deal?.companyName ?? defaultCompanyName ?? '')
   const [value, setValue] = useState(deal?.value ?? 0)
   const [currency, setCurrency] = useState<Currency>(deal?.currency ?? 'ZAR')
   const [notes, setNotes] = useState(deal?.notes ?? '')

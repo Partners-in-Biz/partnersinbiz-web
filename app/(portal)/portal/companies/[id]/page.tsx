@@ -13,6 +13,7 @@ import { CompanyOverviewPanel } from '@/components/crm/CompanyOverviewPanel'
 import { CompanyEditDrawer } from '@/components/crm/CompanyEditDrawer'
 import { CustomFieldsSection } from '@/components/crm/CustomFieldsSection'
 import { ContactForm } from '@/components/admin/crm/ContactForm'
+import { DealDrawer } from '@/components/crm/DealDrawer'
 
 type RelatedContact = {
   id: string
@@ -305,8 +306,48 @@ function ContactsPanel({
   )
 }
 
-function DealsPanel({ deals }: { deals: RelatedDeal[] }) {
-  if (deals.length === 0) return <EmptyPanel icon="work_off" label="No linked deals yet." />
+function contactLabel(contact: RelatedContact) {
+  return contact.name || contact.email || contact.id
+}
+
+function DealsPanel({
+  deals,
+  company,
+  contacts,
+  onCreateDeal,
+  onCreateContact,
+}: {
+  deals: RelatedDeal[]
+  company: Company
+  contacts: RelatedContact[]
+  onCreateDeal: () => void
+  onCreateContact: () => void
+}) {
+  if (deals.length === 0) {
+    const firstContact = contacts[0]
+    return (
+      <EmptyPanel
+        icon="work_off"
+        label={
+          firstContact
+            ? `No linked deals yet. Start the first opportunity against ${contactLabel(firstContact)} so pipeline, forecast, quotes, and activity stay anchored to this account.`
+            : 'No linked deals yet. Add a stakeholder first so the first opportunity has a contact anchor.'
+        }
+      >
+        {firstContact ? (
+          <button type="button" onClick={onCreateDeal} className="btn-pib-primary inline-flex items-center gap-1.5">
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add_business</span>
+            Create first deal for {company.name}
+          </button>
+        ) : (
+          <button type="button" onClick={onCreateContact} className="btn-pib-secondary inline-flex items-center gap-1.5">
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">person_add</span>
+            Add contact before deal
+          </button>
+        )}
+      </EmptyPanel>
+    )
+  }
   return (
     <TableShell>
       <table className="w-full text-sm">
@@ -517,6 +558,7 @@ export default function CompanyDetailPage() {
   const [tab, setTab] = useState<CompanyTab>('overview')
   const [editOpen, setEditOpen] = useState(false)
   const [newContactOpen, setNewContactOpen] = useState(false)
+  const [newDealOpen, setNewDealOpen] = useState(false)
   const [customFieldDefs, setCustomFieldDefs] = useState<CustomFieldDefinition[]>([])
   const [related, setRelated] = useState<RelatedState>({
     contacts: [],
@@ -643,6 +685,12 @@ export default function CompanyDetailPage() {
       throw new Error(body.error ?? 'Failed to create contact')
     }
     setNewContactOpen(false)
+    await loadRelated(company.id)
+  }
+
+  async function handleDealSaved(): Promise<void> {
+    if (!company) return
+    setNewDealOpen(false)
     await loadRelated(company.id)
   }
 
@@ -787,7 +835,15 @@ export default function CompanyDetailPage() {
             onCreateContact={() => setNewContactOpen(true)}
           />
         )}
-        {!relatedLoading && tab === 'deals' && <DealsPanel deals={related.deals} />}
+        {!relatedLoading && tab === 'deals' && (
+          <DealsPanel
+            deals={related.deals}
+            company={company}
+            contacts={related.contacts}
+            onCreateDeal={() => setNewDealOpen(true)}
+            onCreateContact={() => setNewContactOpen(true)}
+          />
+        )}
         {!relatedLoading && tab === 'projects' && (
           <SimpleRowsPanel
             rows={related.projects}
@@ -899,6 +955,18 @@ export default function CompanyDetailPage() {
             />
           </div>
         </div>
+      )}
+
+      {newDealOpen && related.contacts[0] && (
+        <DealDrawer
+          defaultContactId={related.contacts[0].id}
+          defaultContactLabel={contactLabel(related.contacts[0])}
+          defaultCompanyId={company.id}
+          defaultCompanyName={company.name}
+          orgId={company.orgId}
+          onSaved={handleDealSaved}
+          onClose={() => setNewDealOpen(false)}
+        />
       )}
     </div>
   )
