@@ -151,6 +151,32 @@ export default function ProductsPage() {
     return matchesSearch && matchesCurrency && matchesHealth
   })
   const needsWorkCount = products.filter((product) => productHealth(product).score < 80).length
+  const catalogBlueprint = [
+    {
+      label: 'Pricing',
+      value: 'Unit price',
+      icon: 'sell',
+      copy: 'So sales can quote without guessing or rebuilding the same line item.',
+    },
+    {
+      label: 'Units',
+      value: 'Per item',
+      icon: 'straighten',
+      copy: 'Make retainers, hours, audits, licences, and once-off services easy to compare.',
+    },
+    {
+      label: 'Sales copy',
+      value: 'Description',
+      icon: 'notes',
+      copy: 'Give every employee consistent wording for proposals, deals, and handovers.',
+    },
+    {
+      label: 'Forecasting',
+      value: 'Currency',
+      icon: 'monitoring',
+      copy: 'Keep deal values and revenue reports trustworthy across the whole company.',
+    },
+  ]
 
   return (
     <div className="space-y-8">
@@ -254,19 +280,43 @@ export default function ProductsPage() {
           {fetchError}
         </div>
       ) : products.length === 0 ? (
-        <div className="bento-card !p-8 text-center">
-          <span className="material-symbols-outlined text-[32px] text-[var(--color-pib-text-muted)] mb-3 block">inventory_2</span>
-          <p className="text-sm text-[var(--color-pib-text-muted)]">
-            No products yet. Add your first product.
-          </p>
-          <button
-            type="button"
-            onClick={handleOpenCreate}
-            className="cursor-pointer btn-pib-accent flex items-center gap-1.5 text-sm mx-auto mt-4"
-          >
-            <span className="material-symbols-outlined text-[16px]">add</span>
-            New product
-          </button>
+        <div className="bento-card !p-0 overflow-hidden">
+          <div className="grid gap-0 lg:grid-cols-[1.1fr_1.4fr]">
+            <div className="border-b border-[var(--color-pib-line)] p-6 lg:border-b-0 lg:border-r">
+              <span className="material-symbols-outlined mb-4 block text-[34px] text-[var(--color-accent-v2)]">inventory_2</span>
+              <p className="eyebrow !text-[10px]">Catalog setup</p>
+              <h2 className="mt-2 font-display text-2xl leading-tight text-[var(--color-pib-text)]">
+                Build a quote-ready catalog
+              </h2>
+              <p className="mt-3 text-sm leading-6 text-[var(--color-pib-text-muted)]">
+                Start with the products and services your team sells most often. A clean catalog turns deal line items,
+                quote pricing, and revenue forecasts into repeatable company data instead of manual admin work.
+              </p>
+              <button
+                type="button"
+                onClick={handleOpenCreate}
+                className="btn-pib-accent mt-5 inline-flex cursor-pointer items-center gap-1.5 text-sm"
+              >
+                <span className="material-symbols-outlined text-[16px]">add</span>
+                Create the first catalog item
+              </button>
+            </div>
+
+            <div className="grid gap-px bg-[var(--color-pib-line)] sm:grid-cols-2">
+              {catalogBlueprint.map((item) => (
+                <div key={item.label} className="bg-[var(--color-pib-surface)] p-5">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-widest text-[var(--color-pib-text-muted)]">{item.label}</p>
+                      <p className="mt-2 font-display text-xl leading-none text-[var(--color-pib-text)]">{item.value}</p>
+                    </div>
+                    <span className="material-symbols-outlined text-[21px] text-[var(--color-pib-text-muted)]">{item.icon}</span>
+                  </div>
+                  <p className="mt-4 text-xs leading-5 text-[var(--color-pib-text-muted)]">{item.copy}</p>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       ) : filteredProducts.length === 0 ? (
         <div className="bento-card !p-8 text-center">
