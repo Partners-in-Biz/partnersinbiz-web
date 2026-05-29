@@ -1,6 +1,9 @@
 import React from 'react'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import PortalContactDetailPage from '@/app/(portal)/portal/contacts/[id]/page'
+import type { CustomFieldDefinition } from '@/lib/customFields/types'
+
+let mockContactCustomFieldDefinitions: CustomFieldDefinition[] = []
 
 jest.mock('next/navigation', () => ({
   useParams: () => ({ id: 'contact-1' }),
@@ -13,6 +16,7 @@ jest.mock('@/components/crm/ContactDealsPanel', () => ({
 
 describe('Portal contact detail page', () => {
   beforeEach(() => {
+    mockContactCustomFieldDefinitions = []
     global.fetch = jest.fn((input: RequestInfo | URL) => {
       const url = String(input)
       if (url === '/api/v1/crm/contacts/contact-1') {
@@ -36,7 +40,7 @@ describe('Portal contact detail page', () => {
       if (url === '/api/v1/crm/custom-fields?resource=contact') {
         return Promise.resolve({
           ok: true,
-          json: async () => ({ data: { definitions: [] } }),
+          json: async () => ({ data: { definitions: mockContactCustomFieldDefinitions } }),
         } as Response)
       }
       if (url === '/api/v1/portal/settings/team') {
@@ -127,6 +131,29 @@ describe('Portal contact detail page', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Link company for Jane Client' }))
 
     expect(screen.getByPlaceholderText('Search companies…')).toHaveFocus()
+  })
+
+  it('turns empty contact custom fields into a focused capture action', async () => {
+    mockContactCustomFieldDefinitions = [{
+      id: 'field-1',
+      orgId: 'org-1',
+      resource: 'contact',
+      key: 'decision_role',
+      label: 'Decision role',
+      type: 'text',
+      required: false,
+      order: 0,
+      createdAt: null,
+      updatedAt: null,
+    }]
+
+    render(<PortalContactDetailPage />)
+
+    expect(await screen.findByText('No custom fields set.')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Capture custom fields for Jane Client' }))
+
+    expect(screen.getByLabelText('Decision role')).toHaveFocus()
   })
 
   it('turns the company card empty state into a company picker action', async () => {

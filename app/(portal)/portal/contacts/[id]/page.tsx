@@ -157,6 +157,7 @@ export default function PortalContactDetailPage() {
   const websiteFieldRef = useRef<HTMLInputElement | null>(null)
   const notesFieldRef = useRef<HTMLTextAreaElement | null>(null)
   const ownerFieldRef = useRef<HTMLSelectElement | null>(null)
+  const customFieldsEditRef = useRef<HTMLDivElement | null>(null)
   const [contact, setContact] = useState<ContactRecord | null>(null)
   const [emails, setEmails] = useState<EmailRecord[]>([])
   const [activities, setActivities] = useState<ActivityRecord[]>([])
@@ -483,6 +484,12 @@ export default function PortalContactDetailPage() {
     const field = fieldRef.current
     field?.scrollIntoView?.({ behavior: 'smooth', block: 'center' })
     field?.focus()
+  }
+
+  function focusCustomFields() {
+    const section = customFieldsEditRef.current
+    section?.scrollIntoView?.({ behavior: 'smooth', block: 'center' })
+    section?.querySelector<HTMLElement>('input, select, textarea')?.focus()
   }
 
   async function handleLogActivity() {
@@ -1138,6 +1145,11 @@ export default function PortalContactDetailPage() {
                 definitions={customFieldDefs}
                 values={storedCustomFields}
                 mode="read"
+                emptyAction={{
+                  label: 'Capture fields',
+                  ariaLabel: `Capture custom fields for ${contactName}`,
+                  onClick: focusCustomFields,
+                }}
               />
             </div>
           )}
@@ -1316,7 +1328,7 @@ export default function PortalContactDetailPage() {
             </div>
 
             {customFieldDefs.length > 0 && (
-              <div className="space-y-1 pt-1">
+              <div ref={customFieldsEditRef} className="space-y-1 pt-1">
                 <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">
                   Custom fields
                 </p>

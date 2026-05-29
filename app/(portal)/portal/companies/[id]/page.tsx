@@ -1906,6 +1906,11 @@ export default function CompanyDetailPage() {
                   definitions={customFieldDefs}
                   values={(company.customFields as Record<string, unknown>) ?? {}}
                   mode="read"
+                  emptyAction={{
+                    label: 'Capture fields',
+                    ariaLabel: `Capture custom fields for ${company.name}`,
+                    onClick: () => setEditOpen(true),
+                  }}
                 />
               </div>
             )}

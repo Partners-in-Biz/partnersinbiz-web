@@ -1,8 +1,10 @@
 import React from 'react'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import CompanyDetailPage from '@/app/(portal)/portal/companies/[id]/page'
+import type { CustomFieldDefinition } from '@/lib/customFields/types'
 
 let mockSearchParams = new URLSearchParams()
+let mockCompanyCustomFieldDefinitions: CustomFieldDefinition[] = []
 
 jest.mock('next/navigation', () => ({
   useParams: () => ({ id: 'company-1' }),
@@ -13,12 +15,13 @@ jest.mock('next/navigation', () => ({
 describe('Portal company detail page', () => {
   beforeEach(() => {
     mockSearchParams = new URLSearchParams()
+    mockCompanyCustomFieldDefinitions = []
     global.fetch = jest.fn((input: RequestInfo | URL) => {
       const url = String(input)
       if (url === '/api/v1/crm/custom-fields?resource=company') {
         return Promise.resolve({
           ok: true,
-          json: async () => ({ data: { definitions: [] } }),
+          json: async () => ({ data: { definitions: mockCompanyCustomFieldDefinitions } }),
         } as Response)
       }
       if (url === '/api/v1/crm/companies/company-1') {
@@ -110,6 +113,29 @@ describe('Portal company detail page', () => {
     render(<CompanyDetailPage />)
 
     expect(await screen.findByRole('dialog', { name: 'Edit Company' })).toBeInTheDocument()
+  })
+
+  it('turns empty company custom fields into a profile capture action', async () => {
+    mockCompanyCustomFieldDefinitions = [{
+      id: 'field-1',
+      orgId: 'org-1',
+      resource: 'company',
+      key: 'decision_role',
+      label: 'Decision role',
+      type: 'text',
+      required: false,
+      order: 0,
+      createdAt: null,
+      updatedAt: null,
+    }]
+
+    render(<CompanyDetailPage />)
+
+    expect(await screen.findByText('No custom fields set.')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Capture custom fields for Acme Holdings' }))
+
+    expect(screen.getByRole('dialog', { name: 'Edit Company' })).toBeInTheDocument()
   })
 
   it('renders linked contacts and invoices instead of placeholder copy', async () => {
