@@ -876,7 +876,17 @@ export default function CrmReportsPage() {
         {activityLoading ? (
           <Skeleton className="h-52" />
         ) : !activity ? (
-          <EmptyState icon="event_note" title="No activity data yet" body="Calls, emails, meetings, notes, and tasks will build the activity pulse." />
+          <EmptyState
+            icon="event_note"
+            title="No activity data yet"
+            body="Calls, emails, meetings, notes, and tasks will build the activity pulse."
+            action={{
+              href: '/portal/contacts',
+              label: 'Open contacts',
+              ariaLabel: 'Open contacts to log CRM activity',
+              icon: 'contacts',
+            }}
+          />
         ) : (
           <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1fr_1fr_320px]">
             {/* Total + sparkline */}
