@@ -12,7 +12,7 @@ import { PipelineSelector } from '@/components/crm/PipelineSelector'
 import { DealDrawer } from '@/components/crm/DealDrawer'
 import { DealDetailDrawer } from '@/components/crm/DealDetailDrawer'
 import { EmptyState, PageHeader, PageTabs } from '@/components/ui/AppFoundation'
-import type { Deal, Currency } from '@/lib/crm/types'
+import type { Contact, Deal, Currency } from '@/lib/crm/types'
 import { extractPipelinesList } from '@/lib/pipelines/response'
 import type { Pipeline, PipelineStage } from '@/lib/pipelines/types'
 
@@ -159,10 +159,12 @@ function ProbabilityInput({ deal, onUpdate }: { deal: Deal; onUpdate: (id: strin
 
 export default function DealsPage() {
   const [deals, setDeals] = useState<Deal[]>([])
+  const [contacts, setContacts] = useState<Contact[]>([])
   const [pipelines, setPipelines] = useState<Pipeline[]>([])
   const [selectedPipelineId, setSelectedPipelineId] = useState<string | undefined>(undefined)
   const [loading, setLoading] = useState(true)
   const [pipelinesLoading, setPipelinesLoading] = useState(true)
+  const [contactsLoading, setContactsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [stageFilter, setStageFilter] = useState<string>('all')
   const [viewMode, setViewMode] = useState<ViewMode>('board')
@@ -200,6 +202,26 @@ export default function DealsPage() {
     return () => { cancelled = true }
   }, [])
 
+  useEffect(() => {
+    let cancelled = false
+    // Existing route-level refresh pattern: keep deal relationship labels in a loading state while contacts resolve.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setContactsLoading(true)
+    fetch('/api/v1/crm/contacts?limit=200')
+      .then(r => readApiJson(r, 'Failed to load contacts'))
+      .then(body => {
+        if (cancelled) return
+        setContacts(Array.isArray(body.data) ? body.data : [])
+        setContactsLoading(false)
+      })
+      .catch(() => {
+        if (cancelled) return
+        setContacts([])
+        setContactsLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [])
+
   // Fetch deals whenever selected pipeline changes
   useEffect(() => {
     if (!selectedPipelineId) return
@@ -229,6 +251,14 @@ export default function DealsPage() {
     () => selectedPipeline ? [...selectedPipeline.stages].sort((a, b) => a.order - b.order) : [],
     [selectedPipeline],
   )
+
+  const contactLabelsById = useMemo(() => {
+    return contacts.reduce<Record<string, string>>((acc, contact) => {
+      const label = contact.name?.trim() || contact.email?.trim()
+      if (label) acc[contact.id] = label
+      return acc
+    }, {})
+  }, [contacts])
 
   const handleStageChange = useCallback(async (dealId: string, newStageId: string) => {
     // Optimistic update happens inside DealKanban; we just fire the PATCH
@@ -280,15 +310,17 @@ export default function DealsPage() {
   const filteredDeals = useMemo(() => {
     const query = search.trim().toLowerCase()
     return deals.filter((deal) => {
+      const contactLabel = contactLabelsById[deal.contactId]
       const matchesSearch = !query ||
         deal.title.toLowerCase().includes(query) ||
         deal.companyName?.toLowerCase().includes(query) ||
         deal.contactId?.toLowerCase().includes(query) ||
+        contactLabel?.toLowerCase().includes(query) ||
         deal.id.toLowerCase().includes(query)
       const matchesStage = stageFilter === 'all' || deal.stageId === stageFilter
       return matchesSearch && matchesStage && matchesDealFocus(deal, stages, focusMode)
     })
-  }, [deals, focusMode, search, stageFilter, stages])
+  }, [contactLabelsById, deals, focusMode, search, stageFilter, stages])
 
   // Open deals for forecast view: exclude lost-stage deals
   const lostStageIds = new Set(stages.filter(s => s.kind === 'lost').map(s => s.id))
@@ -311,7 +343,7 @@ export default function DealsPage() {
       return aMs - bMs
     })
 
-  const isReady = !pipelinesLoading && !loading
+  const isReady = !pipelinesLoading && !loading && !contactsLoading
 
   return (
     <div className="space-y-6">
@@ -403,7 +435,13 @@ export default function DealsPage() {
       {/* Board view */}
       {!error && viewMode === 'board' && stages.length > 0 && (
         loading ? (
-          <DealKanban deals={[]} stages={stages} loading onStageChange={handleStageChange} />
+          <DealKanban
+            deals={[]}
+            stages={stages}
+            loading
+            onStageChange={handleStageChange}
+            contactLabelsById={contactLabelsById}
+          />
         ) : filteredDeals.length === 0 && stageFilter === 'all' ? (
           <EmptyState
             icon="monetization_on"
@@ -420,7 +458,12 @@ export default function DealsPage() {
             )}
           />
         ) : (
-          <DealKanban deals={filteredDeals} stages={stages} onStageChange={handleStageChange} />
+          <DealKanban
+            deals={filteredDeals}
+            stages={stages}
+            onStageChange={handleStageChange}
+            contactLabelsById={contactLabelsById}
+          />
         )
       )}
 
@@ -472,6 +515,7 @@ export default function DealsPage() {
                   const stageLabel = stage?.label ?? deal.stageId
                   const prob = deal.probability ?? stage?.probability ?? 100
                   const weighted = (deal.value ?? 0) * (prob / 100)
+                  const contactLabel = contactLabelsById[deal.contactId]
                   return (
                     <tr
                       key={deal.id}
@@ -522,7 +566,7 @@ export default function DealsPage() {
                             href={`/portal/contacts/${deal.contactId}`}
                             className="text-xs text-[var(--color-accent-v2)] hover:underline"
                           >
-                            View
+                            {contactLabel || 'View'}
                           </a>
                         ) : (
                           <span className="text-xs text-on-surface-variant">—</span>
@@ -627,6 +671,7 @@ export default function DealsPage() {
       {editingDeal && (
         <DealDrawer
           deal={editingDeal}
+          defaultContactLabel={contactLabelsById[editingDeal.contactId]}
           onSaved={handleDealSaved}
           onClose={() => setEditingDeal(null)}
           orgId={''}
