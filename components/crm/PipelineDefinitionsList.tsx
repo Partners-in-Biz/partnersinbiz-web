@@ -62,6 +62,7 @@ function PipelineRow({
   ]
   const healthScore = Math.round((healthChecks.filter(Boolean).length / healthChecks.length) * 100)
   const visibleStages = [...pipeline.stages].sort((a, b) => a.order - b.order).slice(0, 6)
+  const hasOperatingNote = Boolean(pipeline.description?.trim())
 
   return (
     <div className="bento-card !p-0 overflow-hidden">
@@ -76,9 +77,24 @@ function PipelineRow({
               {healthScore >= 100 ? 'Ready' : `${healthScore}% setup`}
             </span>
           </div>
-          <p className="mt-1 text-xs text-[var(--color-pib-text-muted)] line-clamp-2">
-            {pipeline.description || 'No operating note yet. Add when this path should be used and what qualifies a deal for each stage.'}
-          </p>
+          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+            <p className="text-xs text-[var(--color-pib-text-muted)] line-clamp-2">
+              {hasOperatingNote
+                ? pipeline.description
+                : 'No operating note yet. Add when this path should be used and what qualifies a deal for each stage.'}
+            </p>
+            {isAdmin && !hasOperatingNote && (
+              <button
+                type="button"
+                aria-label={`Add operating note for ${pipeline.name}`}
+                onClick={() => onEdit(pipeline)}
+                className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] px-2 py-1 text-[11px] font-medium text-[var(--color-pib-text)] transition-colors hover:border-[var(--color-accent-v2)]/40 hover:bg-[var(--color-accent-v2)]/10"
+              >
+                <span className="material-symbols-outlined text-[13px]">edit_note</span>
+                Add note
+              </button>
+            )}
+          </div>
 
           <div className="mt-4 flex flex-wrap items-center gap-2">
             {visibleStages.length > 0 ? visibleStages.map((stage) => (
@@ -100,7 +116,20 @@ function PipelineRow({
                 {stage.label}
               </span>
             )) : (
-              <span className="text-xs text-amber-200">No stages configured.</span>
+              <span className="inline-flex flex-wrap items-center gap-2 text-xs text-amber-200">
+                No stages configured.
+                {isAdmin && (
+                  <button
+                    type="button"
+                    aria-label={`Add stages for ${pipeline.name}`}
+                    onClick={() => onEdit(pipeline)}
+                    className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-amber-300/20 bg-amber-300/10 px-2 py-1 text-[11px] font-medium text-amber-100 transition-colors hover:border-amber-200/50 hover:bg-amber-300/15"
+                  >
+                    <span className="material-symbols-outlined text-[13px]">add_circle</span>
+                    Add stages
+                  </button>
+                )}
+              </span>
             )}
             {pipeline.stages.length > visibleStages.length && (
               <span className="text-xs text-[var(--color-pib-text-muted)]">+{pipeline.stages.length - visibleStages.length} more</span>

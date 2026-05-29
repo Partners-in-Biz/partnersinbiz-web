@@ -72,4 +72,35 @@ describe('PipelineDefinitionsList', () => {
     expect(screen.getByText('default')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Edit New sales/i })).toBeInTheDocument()
   })
+
+  it('turns a missing operating note into an admin edit action', () => {
+    const onEdit = jest.fn()
+
+    renderList({ pipelines: [pipeline({ description: '' })], onEdit })
+
+    expect(screen.getByText(/No operating note yet/i)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /Add operating note for New sales/i }))
+    expect(onEdit).toHaveBeenCalledWith(expect.objectContaining({ id: 'pipeline-1' }))
+  })
+
+  it('turns missing stages into an admin setup action', () => {
+    const onEdit = jest.fn()
+
+    renderList({ pipelines: [pipeline({ stages: [] })], onEdit })
+
+    expect(screen.getByText(/No stages configured/i)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /Add stages for New sales/i }))
+    expect(onEdit).toHaveBeenCalledWith(expect.objectContaining({ id: 'pipeline-1' }))
+  })
+
+  it('keeps row setup gap actions hidden from non-admin users', () => {
+    renderList({ pipelines: [pipeline({ description: '', stages: [] })], isAdmin: false })
+
+    expect(screen.getByText(/No operating note yet/i)).toBeInTheDocument()
+    expect(screen.getByText(/No stages configured/i)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Add operating note for New sales/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Add stages for New sales/i })).not.toBeInTheDocument()
+  })
 })
