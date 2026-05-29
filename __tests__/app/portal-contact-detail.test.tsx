@@ -102,4 +102,16 @@ describe('Portal contact detail page', () => {
 
     expect(screen.getByPlaceholderText('Add note notes…')).toBeInTheDocument()
   })
+
+  it('turns a missing company into a profile linking action', async () => {
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Link company for Jane Client' }))
+
+    expect(screen.getByPlaceholderText('Search companies…')).toHaveFocus()
+  })
 })

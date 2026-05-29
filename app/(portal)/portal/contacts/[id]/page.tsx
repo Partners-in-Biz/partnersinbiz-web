@@ -1,7 +1,7 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { fmtTimestamp } from '@/components/admin/email/fmtTimestamp'
@@ -148,6 +148,7 @@ function teamMemberRef(member?: TeamMemberOption): MemberRef | undefined {
 export default function PortalContactDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
+  const companyPickerRef = useRef<HTMLDivElement | null>(null)
   const [contact, setContact] = useState<ContactRecord | null>(null)
   const [emails, setEmails] = useState<EmailRecord[]>([])
   const [activities, setActivities] = useState<ActivityRecord[]>([])
@@ -423,6 +424,12 @@ export default function PortalContactDetailPage() {
     setLogError(null)
   }
 
+  function focusCompanyPicker() {
+    const companyPicker = companyPickerRef.current
+    companyPicker?.scrollIntoView?.({ behavior: 'smooth', block: 'center' })
+    companyPicker?.querySelector<HTMLInputElement>('input[role="combobox"]')?.focus()
+  }
+
   async function handleLogActivity() {
     setLogSaving(true)
     setLogError(null)
@@ -639,6 +646,7 @@ export default function PortalContactDetailPage() {
   const tags = splitTags(tagsInput)
   const contactName = name.trim() || contact.name || 'Unnamed contact'
   const companyLabel = editCompanyName || contact.companyName || contact.company || 'No company linked'
+  const hasLinkedCompany = !!(editCompanyId || contact.companyId || editCompanyName || contact.companyName || contact.company)
   const lastTouchDays = daysSince(contact.lastContactedAt)
   const createdDays = daysSince(contact.createdAt)
   const profileFields = [
@@ -647,7 +655,7 @@ export default function PortalContactDetailPage() {
     phone,
     jobTitle,
     department,
-    editCompanyId || contact.companyId || editCompanyName || contact.companyName || contact.company,
+    hasLinkedCompany ? companyLabel : '',
     website,
     timezone,
     source,
@@ -666,7 +674,7 @@ export default function PortalContactDetailPage() {
   const missingFields = [
     !email.trim() ? 'email' : '',
     !phone.trim() ? 'phone' : '',
-    !(editCompanyId || contact.companyId || editCompanyName || contact.companyName || contact.company) ? 'company' : '',
+    !hasLinkedCompany ? 'company' : '',
     !website.trim() ? 'website' : '',
     !notes.trim() ? 'relationship notes' : '',
   ].filter(Boolean)
@@ -737,6 +745,17 @@ export default function PortalContactDetailPage() {
                     <span className="material-symbols-outlined text-[16px]">business</span>
                     {companyLabel}
                   </span>
+                  {!hasLinkedCompany && (
+                    <button
+                      type="button"
+                      aria-label={`Link company for ${contactName}`}
+                      onClick={focusCompanyPicker}
+                      className="inline-flex items-center gap-1 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-2 py-1 text-xs font-medium text-[var(--color-pib-accent)] transition-colors hover:border-[var(--color-pib-accent)] hover:text-[var(--color-pib-text)]"
+                    >
+                      <span className="material-symbols-outlined text-[14px]">add_business</span>
+                      Link company
+                    </button>
+                  )}
                   {email.trim() && (
                     <span className="inline-flex items-center gap-1">
                       <span className="material-symbols-outlined text-[16px]">alternate_email</span>
@@ -1054,7 +1073,7 @@ export default function PortalContactDetailPage() {
             </div>
 
             {/* Company picker — above legacy company string field */}
-            <div className="space-y-1">
+            <div ref={companyPickerRef} className="space-y-1">
               <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">
                 Linked company
               </p>
