@@ -33,6 +33,33 @@ const TYPE_LABELS: Record<CustomFieldType, string> = {
 
 type ReadinessFilter = 'all' | 'ready' | 'needs-work'
 
+const FIELD_SETUP_BLUEPRINT = [
+  {
+    label: 'Qualification',
+    value: 'Better fit calls',
+    icon: 'verified_user',
+    copy: 'Capture the extra signal sales needs to decide whether a record is worth attention.',
+  },
+  {
+    label: 'Reporting',
+    value: 'Cleaner dashboards',
+    icon: 'monitoring',
+    copy: 'Group fields so management can compare the same data across contacts, deals, and companies.',
+  },
+  {
+    label: 'Handover',
+    value: 'Employee clarity',
+    icon: 'assignment_ind',
+    copy: 'Add help text and required flags so every team member knows why the field matters.',
+  },
+  {
+    label: 'Governance',
+    value: 'Safe data shape',
+    icon: 'rule',
+    copy: 'Use options, constraints, and formats to keep CRM data consistent as the company scales.',
+  },
+]
+
 function fieldHealth(def: CustomFieldDefinition): { score: number; gaps: string[] } {
   const needsOptions = def.type === 'dropdown' || def.type === 'multi_select'
   const hasConstraints = Boolean(def.minLength || def.maxLength || def.min != null || def.max != null || def.currencyCode)
@@ -373,21 +400,54 @@ export default function CustomFieldsPage() {
             {fetchError}
           </div>
         ) : definitions.length === 0 ? (
-          <div className="bento-card !p-8 text-center">
-            <span className="material-symbols-outlined text-[34px] text-[var(--color-pib-text-muted)] mb-3 block">data_object</span>
-            <p className="text-sm text-[var(--color-pib-text-muted)]">
-              No {currentTab.label.toLowerCase()} custom fields yet. Add the first field that would make records easier to qualify or report on.
-            </p>
-            {isAdmin && (
-              <button
-                type="button"
-                onClick={openCreate}
-                className="cursor-pointer btn-pib-accent flex items-center gap-1.5 text-sm mx-auto mt-4"
-              >
-                <span className="material-symbols-outlined text-[16px]">add</span>
-                New field
-              </button>
-            )}
+          <div className="bento-card !p-0 overflow-hidden">
+            <div className="grid gap-0 lg:grid-cols-[minmax(0,0.9fr)_minmax(320px,1.1fr)]">
+              <div className="flex flex-col justify-between gap-8 border-b border-[var(--color-pib-line)] p-6 lg:border-b-0 lg:border-r">
+                <div>
+                  <span className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl border border-[var(--color-pib-accent)]/25 bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent)]">
+                    <span className="material-symbols-outlined text-[22px]">data_object</span>
+                  </span>
+                  <p className="eyebrow !text-[10px]">Schema setup</p>
+                  <h3 className="mt-3 text-2xl font-semibold tracking-normal text-[var(--color-pib-text)]">
+                    Design your first CRM data field
+                  </h3>
+                  <p className="mt-3 max-w-xl text-sm leading-6 text-[var(--color-pib-text-muted)]">
+                    Start with the missing {currentTab.label.toLowerCase()} detail that would improve qualification, reporting, segmentation, or employee handover. A useful field has a clear group, help text, and a data guardrail before the team relies on it.
+                  </p>
+                </div>
+                {isAdmin ? (
+                  <button
+                    type="button"
+                    onClick={openCreate}
+                    className="cursor-pointer btn-pib-accent flex w-fit items-center gap-1.5 text-sm"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">add</span>
+                    Create the first {currentTab.label.toLowerCase()} field
+                  </button>
+                ) : (
+                  <p className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] px-3 py-2 text-xs text-[var(--color-pib-text-muted)]">
+                    Ask an admin to create the first {currentTab.label.toLowerCase()} field before teams standardise this schema.
+                  </p>
+                )}
+              </div>
+
+              <div className="grid gap-3 p-4 sm:grid-cols-2">
+                {FIELD_SETUP_BLUEPRINT.map((item) => (
+                  <div key={item.label} className="rounded-xl border border-[var(--color-pib-line)] bg-black/10 p-4">
+                    <div className="mb-4 flex items-start justify-between gap-3">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/[0.04] text-[var(--color-pib-text)]">
+                        <span className="material-symbols-outlined text-[18px]">{item.icon}</span>
+                      </span>
+                      <span className="rounded-full border border-[var(--color-pib-line)] px-2 py-1 text-[10px] text-[var(--color-pib-text-muted)]">
+                        {item.value}
+                      </span>
+                    </div>
+                    <h4 className="text-sm font-semibold text-[var(--color-pib-text)]">{item.label}</h4>
+                    <p className="mt-2 text-xs leading-5 text-[var(--color-pib-text-muted)]">{item.copy}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         ) : filteredDefinitions.length === 0 ? (
           <div className="bento-card !p-8 text-center">
