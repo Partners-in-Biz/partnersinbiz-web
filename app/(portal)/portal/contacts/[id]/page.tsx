@@ -151,6 +151,9 @@ export default function PortalContactDetailPage() {
   const companyPickerRef = useRef<HTMLDivElement | null>(null)
   const emailFieldRef = useRef<HTMLInputElement | null>(null)
   const phoneFieldRef = useRef<HTMLInputElement | null>(null)
+  const jobTitleFieldRef = useRef<HTMLInputElement | null>(null)
+  const departmentFieldRef = useRef<HTMLInputElement | null>(null)
+  const timezoneFieldRef = useRef<HTMLInputElement | null>(null)
   const websiteFieldRef = useRef<HTMLInputElement | null>(null)
   const notesFieldRef = useRef<HTMLTextAreaElement | null>(null)
   const ownerFieldRef = useRef<HTMLSelectElement | null>(null)
@@ -1091,6 +1094,23 @@ export default function PortalContactDetailPage() {
               bouncedAt: contact.bouncedAt,
               repliesCount: contact.repliesCount,
             }}
+            fieldActions={{
+              jobTitle: {
+                label: 'Add role',
+                ariaLabel: `Add role for ${contactName} from identity intelligence`,
+                onClick: () => focusProfileField(jobTitleFieldRef),
+              },
+              department: {
+                label: 'Add department',
+                ariaLabel: `Add department for ${contactName} from identity intelligence`,
+                onClick: () => focusProfileField(departmentFieldRef),
+              },
+              timezone: {
+                label: 'Add timezone',
+                ariaLabel: `Add timezone for ${contactName} from identity intelligence`,
+                onClick: () => focusProfileField(timezoneFieldRef),
+              },
+            }}
           />
 
           <ContactOwnershipPanel
@@ -1170,6 +1190,7 @@ export default function PortalContactDetailPage() {
                   Job title
                 </p>
                 <input
+                  ref={jobTitleFieldRef}
                   value={jobTitle}
                   onChange={(e) => setJobTitle(e.target.value)}
                   className="pib-input w-full"
@@ -1181,6 +1202,7 @@ export default function PortalContactDetailPage() {
                   Department
                 </p>
                 <input
+                  ref={departmentFieldRef}
                   value={department}
                   onChange={(e) => setDepartment(e.target.value)}
                   className="pib-input w-full"
@@ -1192,6 +1214,7 @@ export default function PortalContactDetailPage() {
                   Timezone
                 </p>
                 <input
+                  ref={timezoneFieldRef}
                   value={timezone}
                   onChange={(e) => setTimezone(e.target.value)}
                   className="pib-input w-full"

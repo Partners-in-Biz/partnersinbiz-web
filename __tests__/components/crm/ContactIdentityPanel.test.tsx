@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import {
   contactIdentityHealth,
   ContactIdentityPanel,
@@ -32,5 +32,43 @@ describe('ContactIdentityPanel', () => {
     expect(screen.getByText('Africa/Johannesburg')).toBeInTheDocument()
     expect(screen.getByText('SMS ready')).toBeInTheDocument()
     expect(screen.getByText('3 replies')).toBeInTheDocument()
+  })
+
+  it('turns missing identity fields into supplied profile actions', () => {
+    const onAddRole = jest.fn()
+    const onAddDepartment = jest.fn()
+    const onAddTimezone = jest.fn()
+
+    render(
+      <ContactIdentityPanel
+        profile={{}}
+        fieldActions={{
+          jobTitle: {
+            label: 'Add role',
+            ariaLabel: 'Add role for Jane Client from identity intelligence',
+            onClick: onAddRole,
+          },
+          department: {
+            label: 'Add department',
+            ariaLabel: 'Add department for Jane Client from identity intelligence',
+            onClick: onAddDepartment,
+          },
+          timezone: {
+            label: 'Add timezone',
+            ariaLabel: 'Add timezone for Jane Client from identity intelligence',
+            onClick: onAddTimezone,
+          },
+        }}
+      />,
+    )
+
+    expect(screen.getAllByText('Not captured')).toHaveLength(3)
+    fireEvent.click(screen.getByRole('button', { name: 'Add role for Jane Client from identity intelligence' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Add department for Jane Client from identity intelligence' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Add timezone for Jane Client from identity intelligence' }))
+
+    expect(onAddRole).toHaveBeenCalledTimes(1)
+    expect(onAddDepartment).toHaveBeenCalledTimes(1)
+    expect(onAddTimezone).toHaveBeenCalledTimes(1)
   })
 })

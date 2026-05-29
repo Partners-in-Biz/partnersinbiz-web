@@ -262,4 +262,21 @@ describe('Portal contact detail page', () => {
 
     expect(screen.getByDisplayValue('Unassigned')).toHaveFocus()
   })
+
+  it('turns missing identity intelligence into profile field actions', async () => {
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add role for Jane Client from identity intelligence' }))
+    expect(screen.getByPlaceholderText('Decision maker, Finance Director...')).toHaveFocus()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add department for Jane Client from identity intelligence' }))
+    expect(screen.getByPlaceholderText('Finance, Operations...')).toHaveFocus()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add timezone for Jane Client from identity intelligence' }))
+    expect(screen.getByPlaceholderText('Africa/Johannesburg')).toHaveFocus()
+  })
 })

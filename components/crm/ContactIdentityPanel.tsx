@@ -11,6 +11,16 @@ export interface ContactIdentityProfile {
   repliesCount?: number
 }
 
+type IdentityFieldKey = 'jobTitle' | 'department' | 'timezone'
+
+interface IdentityFieldAction {
+  label: string
+  ariaLabel: string
+  onClick: () => void
+}
+
+type IdentityFieldActions = Partial<Record<IdentityFieldKey, IdentityFieldAction>>
+
 export function contactIdentityHealth(profile: ContactIdentityProfile): number {
   const checks = [
     Boolean(profile.jobTitle?.trim()),
@@ -24,11 +34,22 @@ export function contactIdentityHealth(profile: ContactIdentityProfile): number {
   return Math.round((checks.filter(Boolean).length / checks.length) * 100)
 }
 
-function Field({ label, value }: { label: string; value?: string }) {
+function Field({ label, value, action }: { label: string; value?: string; action?: IdentityFieldAction }) {
   return (
     <div>
       <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">{label}</p>
       <p className="mt-1 text-sm text-[var(--color-pib-text)]">{value || 'Not captured'}</p>
+      {!value && action && (
+        <button
+          type="button"
+          aria-label={action.ariaLabel}
+          onClick={action.onClick}
+          className="mt-2 inline-flex items-center gap-1 rounded-md border border-[var(--color-pib-line)] px-2 py-1 text-[11px] font-medium text-[var(--color-pib-accent)] transition-colors hover:border-[var(--color-pib-accent)] hover:text-[var(--color-pib-text)]"
+        >
+          <span className="material-symbols-outlined text-[13px]" aria-hidden="true">edit</span>
+          {action.label}
+        </button>
+      )}
     </div>
   )
 }
@@ -49,7 +70,13 @@ function Signal({ icon, label, healthy }: { icon: string; label: string; healthy
   )
 }
 
-export function ContactIdentityPanel({ profile }: { profile: ContactIdentityProfile }) {
+export function ContactIdentityPanel({
+  profile,
+  fieldActions,
+}: {
+  profile: ContactIdentityProfile
+  fieldActions?: IdentityFieldActions
+}) {
   const health = contactIdentityHealth(profile)
   const smsReady = profile.phoneVerified === true && profile.smsOptedIn === true
   const emailReachable = !profile.unsubscribedAt && !profile.bouncedAt
@@ -78,9 +105,9 @@ export function ContactIdentityPanel({ profile }: { profile: ContactIdentityProf
       </div>
 
       <div className="grid gap-3 sm:grid-cols-3">
-        <Field label="Role" value={profile.jobTitle} />
-        <Field label="Department" value={profile.department} />
-        <Field label="Timezone" value={profile.timezone} />
+        <Field label="Role" value={profile.jobTitle} action={fieldActions?.jobTitle} />
+        <Field label="Department" value={profile.department} action={fieldActions?.department} />
+        <Field label="Timezone" value={profile.timezone} action={fieldActions?.timezone} />
       </div>
 
       <div className="flex flex-wrap gap-2">
