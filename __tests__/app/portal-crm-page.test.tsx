@@ -41,4 +41,13 @@ describe('Portal CRM hub', () => {
     const createDealLink = screen.getByRole('link', { name: 'Create first deal from CRM command center' })
     expect(createDealLink).toHaveAttribute('href', '/portal/deals')
   })
+
+  it('turns the empty activity panel into a contact activity action', async () => {
+    render(<PortalCrmPage />)
+
+    expect(await screen.findByText('No CRM activity logged yet.')).toBeInTheDocument()
+
+    const contactsLink = screen.getByRole('link', { name: 'Open contacts to log CRM activity from the command center' })
+    expect(contactsLink).toHaveAttribute('href', '/portal/contacts')
+  })
 })
