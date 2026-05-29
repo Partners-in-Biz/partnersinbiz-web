@@ -149,6 +149,13 @@ describe('UnifiedChat context references', () => {
         orgId="org-1"
         currentUserUid="user-1"
         currentUserDisplayName="Peet"
+        currentPageContext={{
+          type: 'company',
+          id: 'company-1',
+          orgId: 'org-1',
+          origin: 'current_page',
+          href: '/portal/companies/company-1',
+        }}
       />,
     )
 
@@ -160,7 +167,11 @@ describe('UnifiedChat context references', () => {
     await waitFor(() => expect(screen.getByTitle('project: Launch Project')).toBeInTheDocument())
     expect(input).toHaveValue('Compare')
     expect(mockFetch).toHaveBeenCalledWith(
-      expect.stringContaining('/api/v1/context-references/search?'),
+      expect.stringContaining('contextType=company'),
+      expect.anything(),
+    )
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining('contextId=company-1'),
       expect.anything(),
     )
   })

@@ -336,6 +336,10 @@ export default function UnifiedChat({
       q: contextMention.query,
       limit: '8',
     })
+    if (currentPageContext?.type && currentPageContext?.id) {
+      params.set('contextType', currentPageContext.type)
+      params.set('contextId', currentPageContext.id)
+    }
     setContextSearchLoading(true)
     fetch(`/api/v1/context-references/search?${params.toString()}`, { signal: controller.signal })
       .then((res) => (res.ok ? res.json() : null))
@@ -355,7 +359,7 @@ export default function UnifiedChat({
       })
 
     return () => controller.abort()
-  }, [contextMention, coerceContextRef, orgId])
+  }, [contextMention, coerceContextRef, currentPageContext?.id, currentPageContext?.type, orgId])
 
   useEffect(() => {
     if (!activeId) return

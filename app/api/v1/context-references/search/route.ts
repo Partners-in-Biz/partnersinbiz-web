@@ -19,6 +19,7 @@ export const GET = withAuth(
 
     const type = contextReferenceTypeFrom(searchParams.get('type'))
     if (!type) return apiError('type is required', 400)
+    const contextType = contextReferenceTypeFrom(searchParams.get('contextType'))
 
     const rawLimit = Number.parseInt(searchParams.get('limit') ?? '8', 10)
     const limit = Number.isFinite(rawLimit) ? rawLimit : 8
@@ -27,6 +28,8 @@ export const GET = withAuth(
       query: searchParams.get('q') ?? '',
       orgId: orgScope.orgId,
       projectId: searchParams.get('projectId') ?? undefined,
+      contextType: contextType ?? undefined,
+      contextId: searchParams.get('contextId') ?? undefined,
       limit,
       user,
     })

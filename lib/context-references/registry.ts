@@ -3,6 +3,8 @@ import { FieldValue } from 'firebase-admin/firestore'
 import { canAccessOrg } from '@/lib/api/platformAdmin'
 import type { ApiUser } from '@/lib/api/types'
 import { CLIENT_DOCUMENTS_COLLECTION, getClientDocument } from '@/lib/client-documents/store'
+import { listCompanyDocuments } from '@/lib/companies/command-center'
+import type { Company } from '@/lib/companies/types'
 import { convDoc } from '@/lib/conversations/conversations'
 import { adminDb } from '@/lib/firebase/admin'
 import { getProjectForUser } from '@/lib/projects/access'
@@ -40,6 +42,8 @@ export interface SearchContextReferencesInput {
   query?: string
   orgId: string
   projectId?: string
+  contextType?: ContextReferenceType
+  contextId?: string
   limit?: number
   user: ApiUser
 }
@@ -457,13 +461,13 @@ export async function resolveContextReferences(
   return resolved
 }
 
-function refFromSearchDoc(
+function refFromSearchRow(
   type: ContextReferenceType,
-  doc: FirestoreDoc,
+  id: string,
+  data: RawDoc,
   user: ApiUser,
   metadata?: Record<string, unknown>,
 ): ContextReference | null {
-  const data = doc.data() ?? {}
   if (isDeleted(data)) return null
   const orgId = docOrgId(data)
   if (!orgId || !canUseOrg(user, orgId)) return null
@@ -476,14 +480,14 @@ function refFromSearchDoc(
     clean(data.subject) ||
     clean(data.email) ||
     clean(data.content, 80) ||
-    doc.id
+    id
   return makeRef({
     type,
-    id: doc.id,
+    id,
     orgId,
     label,
     origin: 'mention',
-    href: href(type, doc.id, data),
+    href: href(type, id, data),
     summary: compactSummary([
       type === 'product' ? productPriceSummary(data) : '',
       data.status,
@@ -496,6 +500,15 @@ function refFromSearchDoc(
     ]),
     ...(metadata ? { metadata } : {}),
   })
+}
+
+function refFromSearchDoc(
+  type: ContextReferenceType,
+  doc: FirestoreDoc,
+  user: ApiUser,
+  metadata?: Record<string, unknown>,
+): ContextReference | null {
+  return refFromSearchRow(type, doc.id, doc.data() ?? {}, user, metadata)
 }
 
 export async function searchContextReferences(input: SearchContextReferencesInput): Promise<ContextReference[]> {
@@ -530,6 +543,35 @@ export async function searchContextReferences(input: SearchContextReferencesInpu
       .filter((ref): ref is ContextReference => Boolean(ref))
       .filter((ref) => matchesQuery({ name: ref.label, summary: ref.summary }, query))
       .slice(0, limit)
+  }
+
+  if (type === 'document' && input.contextType === 'company' && input.contextId) {
+    const companyDoc = await getDoc('companies', input.contextId)
+    if (companyDoc) {
+      const companyData = companyDoc.data() ?? {}
+      const companyOrgId = docOrgId(companyData, input.orgId)
+      const canUseCompany = !isDeleted(companyData) &&
+        companyOrgId &&
+        sameOrg(companyData, input.orgId) &&
+        canUseOrg(input.user, companyOrgId)
+      if (canUseCompany) {
+        const rows = await listCompanyDocuments({
+          id: companyDoc.id,
+          ...companyData,
+          orgId: companyOrgId,
+          name: clean(companyData.name) || companyDoc.id,
+          tags: Array.isArray(companyData.tags) ? companyData.tags : [],
+          notes: clean(companyData.notes, 1000),
+          createdAt: null,
+          updatedAt: null,
+        } as Company, { limit: 80 })
+        return rows
+          .map((row) => refFromSearchRow('document', row.id, row, input.user))
+          .filter((ref): ref is ContextReference => Boolean(ref))
+          .filter((ref) => matchesQuery({ name: ref.label, summary: ref.summary }, query))
+          .slice(0, limit)
+      }
+    }
   }
 
   const collection = COLLECTION_BY_TYPE[type]

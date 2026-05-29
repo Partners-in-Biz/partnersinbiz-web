@@ -75,6 +75,41 @@ beforeEach(() => {
         }),
       ])
     }
+    if (name === 'companies') {
+      return queryFor([
+        doc('company-1', {
+          orgId: 'org-1',
+          name: 'Elemental',
+          lifecycleStage: 'customer',
+          tags: [],
+          notes: '',
+          deleted: false,
+        }),
+      ])
+    }
+    if (name === 'client_documents') {
+      return queryFor([
+        doc('doc-1', {
+          orgId: 'org-1',
+          title: 'Elemental Sustainability — Digital Growth Partnership — May 2026',
+          type: 'sales_proposal',
+          status: 'client_review',
+          linked: { companyId: 'company-1' },
+          deleted: false,
+        }),
+        doc('doc-2', {
+          orgId: 'org-1',
+          title: 'Unrelated Product Spec',
+          type: 'build_spec',
+          status: 'internal_draft',
+          linked: {},
+          deleted: false,
+        }),
+      ])
+    }
+    if (name === 'businessRelationships') {
+      return queryFor([])
+    }
     if (name === 'research_items') {
       return queryFor([
         doc('research-1', {
@@ -230,6 +265,27 @@ describe('context reference registry', () => {
         type: 'product',
         id: 'product-1',
         label: 'Growth Retainer',
+      }),
+    ])
+  })
+
+  it('searches company-linked documents when the current page context is a company', async () => {
+    const { searchContextReferences } = await import('@/lib/context-references/registry')
+
+    await expect(searchContextReferences({
+      type: 'document',
+      query: 'elemental',
+      orgId: 'org-1',
+      contextType: 'company',
+      contextId: 'company-1',
+      limit: 8,
+      user: { uid: 'admin-1', role: 'admin', authKind: 'session' },
+    })).resolves.toEqual([
+      expect.objectContaining({
+        type: 'document',
+        id: 'doc-1',
+        label: 'Elemental Sustainability — Digital Growth Partnership — May 2026',
+        summary: expect.stringContaining('client_review'),
       }),
     ])
   })
