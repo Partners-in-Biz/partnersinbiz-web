@@ -456,6 +456,63 @@ function ProjectsPanel({
   )
 }
 
+function ServicesPanel({
+  serviceWorkspaces,
+  company,
+  contacts,
+  projects,
+  creatingService,
+  serviceError,
+  onCreateService,
+}: {
+  serviceWorkspaces: RelatedServiceWorkspace[]
+  company: Company
+  contacts: RelatedContact[]
+  projects: RelatedProject[]
+  creatingService: boolean
+  serviceError: string | null
+  onCreateService: () => void
+}) {
+  const firstProject = projects[0]
+  const firstContact = contacts[0]
+  if (serviceWorkspaces.length === 0) {
+    return (
+      <EmptyPanel
+        icon="workspaces"
+        label={
+          firstProject
+            ? `No service workspaces yet. Create the first workspace around ${firstProject.name || firstProject.id} so delivery, documents, reports, and account activity stay together.`
+            : firstContact
+              ? `No service workspaces yet. Start the first operational workspace for ${contactLabel(firstContact)} so delivery does not live outside the CRM.`
+              : 'No service workspaces yet. Start the first operational workspace for this account.'
+        }
+      >
+        <div className="flex flex-col items-center gap-3">
+          <button
+            type="button"
+            onClick={onCreateService}
+            disabled={creatingService}
+            className="btn-pib-primary inline-flex items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">workspaces</span>
+            {creatingService ? 'Creating workspace...' : `Create service workspace for ${company.name}`}
+          </button>
+          {serviceError ? <p className="max-w-md text-xs text-red-300">{serviceError}</p> : null}
+        </div>
+      </EmptyPanel>
+    )
+  }
+  return (
+    <SimpleRowsPanel
+      rows={serviceWorkspaces}
+      emptyIcon="workspaces"
+      emptyLabel="No service workspaces yet."
+      title={(row) => String(row.name ?? row.id)}
+      metaFor={(row) => [String(row.serviceType ?? ''), String(row.visibility ?? '')]}
+    />
+  )
+}
+
 function QuotesPanel({
   quotes,
   company,
@@ -800,6 +857,8 @@ export default function CompanyDetailPage() {
   const [noteError, setNoteError] = useState<string | null>(null)
   const [creatingProject, setCreatingProject] = useState(false)
   const [projectError, setProjectError] = useState<string | null>(null)
+  const [creatingService, setCreatingService] = useState(false)
+  const [serviceError, setServiceError] = useState<string | null>(null)
   const [creatingQuote, setCreatingQuote] = useState(false)
   const [quoteError, setQuoteError] = useState<string | null>(null)
   const [customFieldDefs, setCustomFieldDefs] = useState<CustomFieldDefinition[]>([])
@@ -1016,6 +1075,37 @@ export default function CompanyDetailPage() {
     }
   }
 
+  async function createServiceWorkspace(): Promise<void> {
+    if (!company) return
+    const firstContact = related.contacts[0]
+    const firstProject = related.projects[0]
+    setCreatingService(true)
+    setServiceError(null)
+    try {
+      const res = await fetch('/api/v1/service-workspaces', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          companyId: company.id,
+          contactId: firstContact?.id,
+          projectId: firstProject?.id,
+          linkedProjectIds: firstProject ? [firstProject.id] : undefined,
+          name: `${company.name} service workspace`,
+          serviceType: 'custom',
+          status: 'active',
+          visibility: 'relationship',
+        }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(body.error ?? 'Failed to create service workspace')
+      await loadRelated(company.id)
+    } catch (err) {
+      setServiceError(err instanceof Error ? err.message : 'Failed to create service workspace')
+    } finally {
+      setCreatingService(false)
+    }
+  }
+
   async function createQuoteFromFirstDeal(): Promise<void> {
     if (!company) return
     const firstDeal = related.deals[0]
@@ -1225,12 +1315,14 @@ export default function CompanyDetailPage() {
           />
         )}
         {!relatedLoading && tab === 'services' && (
-          <SimpleRowsPanel
-            rows={related.serviceWorkspaces}
-            emptyIcon="workspaces"
-            emptyLabel="No service workspaces yet."
-            title={(row) => String(row.name ?? row.id)}
-            metaFor={(row) => [String(row.serviceType ?? ''), String(row.visibility ?? '')]}
+          <ServicesPanel
+            serviceWorkspaces={related.serviceWorkspaces}
+            company={company}
+            contacts={related.contacts}
+            projects={related.projects}
+            creatingService={creatingService}
+            serviceError={serviceError}
+            onCreateService={createServiceWorkspace}
           />
         )}
         {!relatedLoading && tab === 'relationships' && (
