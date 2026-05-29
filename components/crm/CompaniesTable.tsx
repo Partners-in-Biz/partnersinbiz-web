@@ -1,6 +1,7 @@
 'use client'
 
 import type { Company } from '@/lib/companies/types'
+import Link from 'next/link'
 import { CompanyRow } from '@/components/crm/CompanyRow'
 
 // ── Column headers ────────────────────────────────────────────────────────────
@@ -93,12 +94,32 @@ export function CompaniesTable({
           ) : companies.length === 0 ? (
             <tr>
               <td colSpan={COLUMNS.length + (selectable ? 1 : 0)} className="px-4 py-16 text-center">
-                <span className="material-symbols-outlined text-3xl text-[var(--color-pib-text-muted)] block mb-2">
-                  domain
-                </span>
-                <p className="text-sm text-[var(--color-pib-text-muted)]">
-                  No companies yet. Create one to start tracking your accounts.
-                </p>
+                <div className="mx-auto flex max-w-2xl flex-col items-center rounded-xl border border-dashed border-[var(--color-pib-line)] bg-white/[0.03] px-5 py-6">
+                  <span className="material-symbols-outlined flex h-12 w-12 items-center justify-center rounded-xl bg-white/[0.04] text-3xl text-[var(--color-pib-text-muted)]">
+                    domain
+                  </span>
+                  <p className="eyebrow mt-4 !text-[10px]">Start account setup</p>
+                  <h3 className="mt-2 text-lg font-semibold text-[var(--color-pib-text)]">No companies yet</h3>
+                  <p className="mt-2 max-w-md text-sm leading-6 text-[var(--color-pib-text-muted)]">
+                    Create the first account from company details, owner, lifecycle, and revenue context.
+                  </p>
+                  <div className="mt-5 flex flex-wrap justify-center gap-2">
+                    <Link
+                      href="/portal/companies/new"
+                      className="btn-pib-accent inline-flex items-center gap-1.5 text-xs"
+                    >
+                      <span className="material-symbols-outlined text-[15px]">add_business</span>
+                      Create first company
+                    </Link>
+                    <Link
+                      href="/portal/companies/migrate"
+                      className="btn-pib-secondary inline-flex items-center gap-1.5 text-xs"
+                    >
+                      <span className="material-symbols-outlined text-[15px]">sync_alt</span>
+                      Migrate from contacts
+                    </Link>
+                  </div>
+                </div>
               </td>
             </tr>
           ) : (

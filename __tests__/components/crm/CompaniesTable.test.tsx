@@ -43,6 +43,15 @@ describe('CompaniesTable', () => {
     ).toBeInTheDocument()
   })
 
+  it('turns the empty company list into direct account setup actions', () => {
+    render(<CompaniesTable companies={[]} loading={false} onRowClick={noop} />)
+
+    expect(screen.getByText('Start account setup')).toBeInTheDocument()
+    expect(screen.getByText('Create the first account from company details, owner, lifecycle, and revenue context.')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /create first company/i })).toHaveAttribute('href', '/portal/companies/new')
+    expect(screen.getByRole('link', { name: /migrate from contacts/i })).toHaveAttribute('href', '/portal/companies/migrate')
+  })
+
   it('renders loading state when loading=true', () => {
     const { container } = render(
       <CompaniesTable companies={[]} loading={true} onRowClick={noop} />,
