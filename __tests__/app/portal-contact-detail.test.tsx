@@ -238,4 +238,16 @@ describe('Portal contact detail page', () => {
       expect(screen.getAllByText('82').length).toBeGreaterThan(0)
     })
   })
+
+  it('turns an unassigned relationship owner into an accountability action', async () => {
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Assign owner for Jane Client from relationship ownership' }))
+
+    expect(screen.getByDisplayValue('Unassigned')).toHaveFocus()
+  })
 })

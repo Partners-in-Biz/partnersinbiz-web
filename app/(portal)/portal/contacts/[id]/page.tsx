@@ -153,6 +153,7 @@ export default function PortalContactDetailPage() {
   const phoneFieldRef = useRef<HTMLInputElement | null>(null)
   const websiteFieldRef = useRef<HTMLInputElement | null>(null)
   const notesFieldRef = useRef<HTMLTextAreaElement | null>(null)
+  const ownerFieldRef = useRef<HTMLSelectElement | null>(null)
   const [contact, setContact] = useState<ContactRecord | null>(null)
   const [emails, setEmails] = useState<EmailRecord[]>([])
   const [activities, setActivities] = useState<ActivityRecord[]>([])
@@ -1095,6 +1096,13 @@ export default function PortalContactDetailPage() {
               createdByRef: contact.createdByRef,
               updatedByRef: contact.updatedByRef,
             }}
+            actions={{
+              assignOwner: {
+                label: 'Assign owner',
+                ariaLabel: `Assign owner for ${contactName} from relationship ownership`,
+                onClick: () => focusProfileField(ownerFieldRef),
+              },
+            }}
           />
 
           {customFieldDefs.length > 0 && (
@@ -1223,7 +1231,7 @@ export default function PortalContactDetailPage() {
               <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">
                 Owner
               </p>
-              <select value={assignedTo} onChange={(e) => setAssignedTo(e.target.value)} className="pib-input w-full">
+              <select ref={ownerFieldRef} value={assignedTo} onChange={(e) => setAssignedTo(e.target.value)} className="pib-input w-full">
                 <option value="" className="bg-black">Unassigned</option>
                 {teamMembers.map((member) => {
                   const name = [member.firstName, member.lastName].filter(Boolean).join(' ') || member.uid
