@@ -13,7 +13,7 @@ import { normalizeActor, hashSourceDocument, extractMultiFieldExcerpt, normalize
 /**
  * Notification document shape.
  */
-interface NotificationDocument {
+interface NotificationDocument extends Record<string, unknown> {
   id: string
   orgId: string
   userId: string
@@ -33,7 +33,7 @@ interface NotificationDocument {
 /**
  * Activity log document shape.
  */
-interface ActivityDocument {
+interface ActivityDocument extends Record<string, unknown> {
   id: string
   orgId: string
   actorId: string

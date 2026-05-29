@@ -69,7 +69,8 @@ function normalizeForHash(value: unknown): unknown {
 
   // Handle { seconds, nanoseconds } pattern
   if (typeof value === 'object' && value !== null && 'seconds' in value) {
-    const seconds = (value as { seconds: number; _seconds?: number }).seconds ?? (value as { _seconds: number })._seconds
+    const timestampLike = value as Record<string, unknown>
+    const seconds = timestampLike.seconds ?? timestampLike._seconds
     if (typeof seconds === 'number') {
       return new Date(seconds * 1000).toISOString()
     }
@@ -204,7 +205,8 @@ export function normalizeTimestamp(value: unknown): Date | null {
 
   // { seconds, nanoseconds } pattern
   if (typeof value === 'object' && value !== null) {
-    const seconds = (value as { seconds?: number; _seconds?: number }).seconds ?? (value as { _seconds: number })._seconds
+    const timestampLike = value as Record<string, unknown>
+    const seconds = timestampLike.seconds ?? timestampLike._seconds
     if (typeof seconds === 'number') {
       return new Date(seconds * 1000)
     }

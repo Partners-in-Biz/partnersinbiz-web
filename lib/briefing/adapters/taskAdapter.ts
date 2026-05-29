@@ -9,12 +9,12 @@
  */
 
 import type { BriefingSourceAdapter, BriefingPriority } from '../types'
-import { normalizeActor, hashSourceDocument, extractSafeExcerpt, normalizeTimestamp, extractOrgId, extractProjectId, extractTaskId, generateSourceUrl, comparePriority, priorityRequiresAction } from '../utils'
+import { normalizeActor, hashSourceDocument, extractSafeExcerpt, extractMultiFieldExcerpt, normalizeTimestamp, extractOrgId, extractProjectId, extractTaskId, generateSourceUrl, comparePriority, priorityRequiresAction } from '../utils'
 
 /**
  * Project/Task Firestore document shape.
  */
-interface TaskDocument {
+interface TaskDocument extends Record<string, unknown> {
   id: string
   orgId: string
   projectId: string
@@ -323,7 +323,7 @@ export const taskAdapter: BriefingSourceAdapter<TaskDocument> = {
 /**
  * Project Firestore document shape.
  */
-interface ProjectDocument {
+interface ProjectDocument extends Record<string, unknown> {
   id: string
   orgId: string
   name: string

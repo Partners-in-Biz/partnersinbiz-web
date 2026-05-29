@@ -12,7 +12,7 @@ import { normalizeActor, hashSourceDocument, extractMultiFieldExcerpt, normalize
 /**
  * Report document shape.
  */
-interface ReportDocument {
+interface ReportDocument extends Record<string, unknown> {
   id: string
   orgId: string
   type: string

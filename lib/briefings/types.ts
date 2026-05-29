@@ -206,6 +206,5 @@ export const PRIORITY_WEIGHTS: Record<BriefingPriority, number> = {
 
 export const KIND_BOOSTS: Partial<Record<BriefingKind, number>> = {
   risk: 10,
-  critical: 5,
   market_signal: 5
 } as const

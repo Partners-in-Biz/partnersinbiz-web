@@ -4,8 +4,8 @@
  * Generates briefing items for task lifecycle events (creation, assignment, completion).
  */
 
-import type { BriefingSourceAdapter, BriefingPriority, BriefingActor, BriefingContext } from '../types'
-import { normalizeActor, hashSourceDocument, extractMultiFieldExcerpt, normalizeTimestamp, extractOrgId, extractTaskId, generateSourceUrl } from '../utils'
+import type { BriefingSourceAdapter, BriefingPriority, BriefingActor } from '../types'
+import { normalizeActor, hashSourceDocument, extractMultiFieldExcerpt, normalizeTimestamp, extractOrgId, generateSourceUrl } from '../utils'
 
 interface TaskDocument extends Record<string, unknown> {
   id: string
@@ -34,18 +34,6 @@ interface TaskDocument extends Record<string, unknown> {
   evidence?: unknown
   comments?: unknown
   briefings?: unknown
-}
-
-interface ProjectDocument extends Record<string, unknown> {
-  id: string
-  orgId: string
-  name: string
-  slug: string
-  status: string
-  createdAt?: unknown
-  updatedAt?: unknown
-  createdBy?: string
-  updatedBy?: string
 }
 
 /**
@@ -106,7 +94,7 @@ export const kanbanAdapter: BriefingSourceAdapter<TaskDocument> = {
   /**
    * Determine if this task should generate a briefing item.
    */
-  shouldGenerate(doc: TaskDocument, docId: string): boolean {
+  shouldGenerate(doc: TaskDocument): boolean {
     // Skip archived/deleted tasks
     const status = doc.status?.toLowerCase()
     if (status === 'archived' || status === 'deleted') {
@@ -126,7 +114,7 @@ export const kanbanAdapter: BriefingSourceAdapter<TaskDocument> = {
   /**
    * Extract priority from the task.
    */
-  extractPriority(doc: TaskDocument, docId: string): BriefingPriority {
+  extractPriority(doc: TaskDocument): BriefingPriority {
     const taskPriority = mapTaskPriority(doc.priority)
     const statusPriority = mapTaskStatusPriority(doc.status)
 
@@ -147,7 +135,7 @@ export const kanbanAdapter: BriefingSourceAdapter<TaskDocument> = {
   /**
    * Extract actor information from the task.
    */
-  extractActor(doc: TaskDocument, docId: string): BriefingActor {
+  extractActor(doc: TaskDocument): BriefingActor {
     const userId = doc.updatedBy || doc.createdBy || 'system'
     return normalizeActor({
       userId: typeof userId === 'string' ? userId : undefined,
@@ -160,7 +148,7 @@ export const kanbanAdapter: BriefingSourceAdapter<TaskDocument> = {
   /**
    * Extract context metadata from the task.
    */
-  extractContext(doc: TaskDocument, docId: string) {
+  extractContext(doc: TaskDocument) {
     return {
       orgId: extractOrgId(doc) ?? '',
       projectId: doc.projectId ?? '',
@@ -173,7 +161,7 @@ export const kanbanAdapter: BriefingSourceAdapter<TaskDocument> = {
   /**
    * Extract title from the task.
    */
-  extractTitle(doc: TaskDocument, docId: string): string {
+  extractTitle(doc: TaskDocument): string {
     const content = typeof doc.content === 'string' ? doc.content : 'Task'
     return content.slice(0, 100) + (content.length > 100 ? '...' : '')
   },
@@ -181,7 +169,7 @@ export const kanbanAdapter: BriefingSourceAdapter<TaskDocument> = {
   /**
    * Extract summary from the task.
    */
-  extractSummary(doc: TaskDocument, docId: string): string {
+  extractSummary(doc: TaskDocument): string {
     const status = typeof doc.status === 'string' ? doc.status : 'unknown'
     const agentStatus = typeof doc.agentStatus === 'string' ? doc.agentStatus : ''
     const priority = typeof doc.priority === 'string' ? doc.priority : ''
@@ -197,20 +185,21 @@ export const kanbanAdapter: BriefingSourceAdapter<TaskDocument> = {
    * Extract a safe excerpt from the task.
    */
   extractExcerpt(doc: TaskDocument, docId: string, maxLength = 280): string | null {
+    void docId
     return extractMultiFieldExcerpt(doc, ['content'], { maxLength })
   },
 
   /**
    * Extract the timestamp when the task event occurred.
    */
-  extractOccurredAt(doc: TaskDocument, docId: string): Date | null {
+  extractOccurredAt(doc: TaskDocument): Date | null {
     return normalizeTimestamp(doc.updatedAt || doc.createdAt)
   },
 
   /**
    * Extract additional metadata specific to tasks.
    */
-  extractMetadata(doc: TaskDocument, docId: string): Record<string, unknown> | null {
+  extractMetadata(doc: TaskDocument): Record<string, unknown> | null {
     return {
       taskStatus: doc.status,
       agentStatus: doc.agentStatus,
@@ -238,6 +227,7 @@ export const kanbanAdapter: BriefingSourceAdapter<TaskDocument> = {
    * Convert the full task document to a briefing source item.
    */
   toItem(doc: TaskDocument, docId: string) {
+    const orgId = extractOrgId(doc) ?? ''
     const priority = this.extractPriority(doc, docId)
     const actor = this.extractActor(doc, docId)
     const context = this.extractContext(doc, docId)
@@ -248,23 +238,23 @@ export const kanbanAdapter: BriefingSourceAdapter<TaskDocument> = {
     const metadata = this.extractMetadata?.(doc, docId)
     const sourceHash = this.hashSource(doc, docId)
 
-    // Determine URL based on context
-    const url = context.projectId && context.taskId
-      ? `https://partnersinbiz.online/admin/projects/${context.projectId}?taskId=${context.taskId}`
-      : '/admin'
-
     return {
-      sourceType: this.sourceType as const,
-      sourceId: docId,
-      sourceHash,
+      orgId,
+      source: {
+        type: this.sourceType,
+        id: docId,
+        collectionPath: this.collectionPath.replace('{projectId}', context.projectId ?? ''),
+        url: generateSourceUrl(this.sourceType, docId, { projectId: context.projectId ?? undefined }),
+      },
       context,
       actor,
       priority,
+      status: 'active' as const,
       title,
       summary,
       excerpt,
       occurredAt,
-      url,
+      sourceHash,
       metadata: metadata ?? {},
     }
   },
