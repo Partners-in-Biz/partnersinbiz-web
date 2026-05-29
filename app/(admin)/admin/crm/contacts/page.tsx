@@ -16,6 +16,7 @@ interface Contact {
   company: string
   companyName?: string
   phone?: string
+  assignedTo?: string
   type: string
   stage: string
   lastContactedAt: unknown
@@ -54,11 +55,15 @@ function MetricCard({
   label,
   value,
   sub,
+  actionLabel,
+  onAction,
 }: {
   icon: string
   label: string
   value: string
   sub: string
+  actionLabel?: string
+  onAction?: () => void
 }) {
   return (
     <div className="pib-card min-w-[150px] flex-1 px-4 py-3">
@@ -68,6 +73,17 @@ function MetricCard({
       </div>
       <p className="mt-2 text-2xl font-headline font-bold leading-none text-on-surface">{value}</p>
       <p className="mt-1 text-[11px] text-on-surface-variant">{sub}</p>
+      {actionLabel && onAction && (
+        <button
+          type="button"
+          onClick={onAction}
+          className="mt-3 inline-flex items-center gap-1 rounded-md border border-[var(--color-card-border)] px-2 py-1 text-[11px] font-label text-on-surface-variant transition-colors hover:border-[var(--color-accent-v2)] hover:text-on-surface"
+          aria-label={actionLabel}
+        >
+          <span className="material-symbols-outlined text-[14px]">filter_alt</span>
+          Review
+        </button>
+      )}
     </div>
   )
 }
@@ -115,9 +131,15 @@ export default function ContactsPage() {
   const [search, setSearch] = useState('')
   const [stageFilter, setStageFilter] = useState('')
   const [typeFilter, setTypeFilter] = useState('')
+  const [ownerFilter, setOwnerFilter] = useState<'all' | 'unowned'>('all')
   const [showNew, setShowNew] = useState(false)
   const activeOrgId = selectedOrgId || contactOrgId
-  const hasActiveFilters = Boolean(search.trim() || stageFilter || typeFilter)
+  const hasActiveFilters = Boolean(search.trim() || stageFilter || typeFilter || ownerFilter !== 'all')
+
+  const visibleContacts = useMemo(() => {
+    if (ownerFilter !== 'unowned') return contacts
+    return contacts.filter((contact) => !String(contact.assignedTo ?? '').trim())
+  }, [contacts, ownerFilter])
 
   const metrics = useMemo(() => {
     const active = contacts.filter((contact) => !['won', 'lost'].includes(contact.stage))
@@ -127,12 +149,17 @@ export default function ContactsPage() {
       return age === null || age >= 14
     }).length
     const withCompany = contacts.filter((contact) => Boolean(contact.companyName || contact.company)).length
+    const assigned = contacts.filter((contact) => Boolean(String(contact.assignedTo ?? '').trim())).length
+    const unowned = contacts.length - assigned
     return {
       total: contacts.length,
       active: active.length,
       clients,
       stale,
       withCompany,
+      assigned,
+      unowned,
+      ownerCoverage: contacts.length ? Math.round((assigned / contacts.length) * 100) : 0,
       avgLead: averageScore(contacts, 'leadScore'),
       avgIcp: averageScore(contacts, 'icpScore'),
       avgAi: averageScore(contacts, 'aiLeadScore'),
@@ -188,7 +215,7 @@ export default function ContactsPage() {
           <p className="mt-2 text-sm text-on-surface-variant">
             {activeOrgId
               ? hasActiveFilters
-                ? `${contacts.length} contact${contacts.length === 1 ? '' : 's'} match this view.`
+                ? `${visibleContacts.length} contact${visibleContacts.length === 1 ? '' : 's'} match this view.`
                 : `${contacts.length} contact${contacts.length === 1 ? '' : 's'} in this workspace.`
               : 'Select a client workspace to work contacts without cross-client bleed.'}
           </p>
@@ -230,6 +257,14 @@ export default function ContactsPage() {
           <MetricCard icon="groups" label="Audience" value={String(metrics.total)} sub={`${metrics.active} active lifecycle records`} />
           <MetricCard icon="workspace_premium" label="Clients" value={String(metrics.clients)} sub={`${metrics.withCompany} linked to a company`} />
           <MetricCard icon="schedule" label="Follow-up risk" value={String(metrics.stale)} sub="No recent touch in 14d" />
+          <MetricCard
+            icon="supervisor_account"
+            label="Owner coverage"
+            value={`${metrics.ownerCoverage}%`}
+            sub={`${metrics.unowned} unowned`}
+            actionLabel={metrics.unowned ? 'Show unowned contacts needing an owner' : undefined}
+            onAction={metrics.unowned ? () => setOwnerFilter('unowned') : undefined}
+          />
           <MetricCard icon="star_rate" label="Avg lead score" value={metrics.avgLead ? String(metrics.avgLead) : '-'} sub={`ICP ${metrics.avgIcp || '-'} · AI ${metrics.avgAi || '-'}`} />
         </section>
       )}
@@ -260,7 +295,7 @@ export default function ContactsPage() {
         </select>
         {hasActiveFilters && (
           <button
-            onClick={() => { setSearch(''); setStageFilter(''); setTypeFilter('') }}
+            onClick={() => { setSearch(''); setStageFilter(''); setTypeFilter(''); setOwnerFilter('all') }}
             className="pib-btn-secondary text-sm"
           >
             <span className="material-symbols-outlined text-base">filter_alt_off</span>
@@ -276,7 +311,7 @@ export default function ContactsPage() {
             <div key={i} className="h-10 pib-skeleton" />
           ))}
         </div>
-      ) : contacts.length === 0 ? (
+      ) : visibleContacts.length === 0 ? (
         <div className="pib-card p-12 text-center">
           <span className="material-symbols-outlined text-4xl text-on-surface-variant">contacts</span>
           <h2 className="mt-4 font-headline text-2xl font-bold tracking-tight text-on-surface">
@@ -291,7 +326,7 @@ export default function ContactsPage() {
           </p>
           <div className="mt-6 flex justify-center gap-2">
             {hasActiveFilters ? (
-              <button onClick={() => { setSearch(''); setStageFilter(''); setTypeFilter('') }} className="pib-btn-secondary text-sm">
+              <button onClick={() => { setSearch(''); setStageFilter(''); setTypeFilter(''); setOwnerFilter('all') }} className="pib-btn-secondary text-sm">
                 <span className="material-symbols-outlined text-base">filter_alt_off</span>
                 Clear filters
               </button>
@@ -312,7 +347,7 @@ export default function ContactsPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-[var(--color-card-border)] bg-white/[0.02] text-left">
-                {['Name', 'Email', 'Company', 'Type', 'Stage', 'Last touch', 'Signals'].map((h) => (
+                {['Name', 'Email', 'Company', 'Owner', 'Type', 'Stage', 'Last touch', 'Signals'].map((h) => (
                   <th key={h} className="px-3 py-3 text-[10px] font-label uppercase tracking-widest text-on-surface-variant font-normal">
                     {h}
                   </th>
@@ -320,8 +355,9 @@ export default function ContactsPage() {
               </tr>
             </thead>
             <tbody>
-              {contacts.map((c) => {
+              {visibleContacts.map((c) => {
                 const lastTouchAge = daysSince(c.lastContactedAt)
+                const owner = String(c.assignedTo ?? '').trim()
                 return (
                   <tr key={c.id} className="border-b border-[var(--color-card-border)] transition-colors hover:bg-surface-container">
                     <td className="px-3 py-3">
@@ -334,6 +370,15 @@ export default function ContactsPage() {
                     </td>
                     <td className="px-3 py-3 text-on-surface-variant">{c.email || '—'}</td>
                     <td className="px-3 py-3 text-on-surface-variant">{c.companyName || c.company || '—'}</td>
+                    <td className="px-3 py-3">
+                      {owner ? (
+                        <span className="pill !px-2 !py-0.5 !text-[10px]">Owner set</span>
+                      ) : (
+                        <span className="rounded-full border border-amber-400/40 bg-amber-400/10 px-2 py-0.5 text-[10px] font-label uppercase tracking-wide text-amber-200">
+                          Unassigned
+                        </span>
+                      )}
+                    </td>
                     <td className="px-3 py-3"><TypeBadge type={c.type || 'lead'} /></td>
                     <td className="px-3 py-3"><StageBadge stage={c.stage || 'new'} /></td>
                     <td className="px-3 py-3 text-xs text-on-surface-variant">
