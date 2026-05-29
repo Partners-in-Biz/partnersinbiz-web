@@ -18,6 +18,16 @@ import type { Pipeline, PipelineStage } from '@/lib/pipelines/types'
 
 type ViewMode = 'board' | 'list' | 'forecast'
 
+type TeamMember = {
+  uid: string
+  firstName?: string
+  lastName?: string
+  displayName?: string
+  email?: string
+  jobTitle?: string
+  role?: string
+}
+
 function Skeleton({ className = '' }: { className?: string }) {
   return <div className={`pib-skeleton ${className}`} />
 }
@@ -111,6 +121,24 @@ function dealOwnerLabel(deal: Deal): string {
   return deal.ownerRef?.displayName || deal.ownerUid || 'Unassigned'
 }
 
+function teamMemberLabel(member: TeamMember): string {
+  const name = member.displayName || [member.firstName, member.lastName].filter(Boolean).join(' ').trim() || member.email || member.uid
+  return member.jobTitle ? `${name} - ${member.jobTitle}` : name
+}
+
+function teamMemberDisplayName(member: TeamMember): string {
+  return member.displayName || [member.firstName, member.lastName].filter(Boolean).join(' ').trim() || member.email || member.uid
+}
+
+function teamMemberOwnerRef(member: TeamMember) {
+  return {
+    uid: member.uid,
+    displayName: teamMemberDisplayName(member),
+    ...(member.jobTitle ? { jobTitle: member.jobTitle } : {}),
+    kind: 'human' as const,
+  }
+}
+
 function fmtRelativeDate(ts: unknown): string {
   const date = ts && typeof ts === 'object' && 'toDate' in ts
     ? (ts as { toDate: () => Date }).toDate()
@@ -179,6 +207,11 @@ export default function DealsPage() {
   const [search, setSearch] = useState('')
   const [focusMode, setFocusMode] = useState<DealFocusMode>('all')
   const [ownerLens, setOwnerLens] = useState<'all' | 'unassigned'>('all')
+  const [selectedDealIds, setSelectedDealIds] = useState<Set<string>>(new Set())
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([])
+  const [bulkOwnerUid, setBulkOwnerUid] = useState('')
+  const [bulkOwnerPending, setBulkOwnerPending] = useState(false)
+  const [bulkOwnerError, setBulkOwnerError] = useState('')
 
   // A5: drawer state
   const [showCreateDrawer, setShowCreateDrawer] = useState(false)
@@ -189,7 +222,6 @@ export default function DealsPage() {
   useEffect(() => {
     let cancelled = false
     // Existing route-level refresh pattern: show the skeleton while the async fetch resolves.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setPipelinesLoading(true)
     fetch('/api/v1/crm/pipelines')
       .then(r => readApiJson(r, 'Failed to load pipelines'))
@@ -213,8 +245,22 @@ export default function DealsPage() {
 
   useEffect(() => {
     let cancelled = false
+    fetch('/api/v1/portal/settings/team')
+      .then((res) => res.ok ? res.json() : null)
+      .then((body) => {
+        if (cancelled) return
+        const members = Array.isArray(body?.members) ? body.members : []
+        setTeamMembers(members.filter((member: TeamMember) => member.uid))
+      })
+      .catch(() => {
+        if (!cancelled) setTeamMembers([])
+      })
+    return () => { cancelled = true }
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
     // Existing route-level refresh pattern: keep deal relationship labels in a loading state while contacts resolve.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setContactsLoading(true)
     fetch('/api/v1/crm/contacts?limit=200')
       .then(r => readApiJson(r, 'Failed to load contacts'))
@@ -236,7 +282,6 @@ export default function DealsPage() {
     if (!selectedPipelineId) return
     let cancelled = false
     // Existing route-level refresh pattern: show the skeleton while the async fetch resolves.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true)
     fetch(`/api/v1/crm/deals?pipelineId=${encodeURIComponent(selectedPipelineId)}&limit=200`)
       .then(r => readApiJson(r, 'Failed to load deals'))
@@ -337,6 +382,77 @@ export default function DealsPage() {
     [deals],
   )
   const ownerCoverage = deals.length > 0 ? (deals.length - unassignedDeals.length) / deals.length : 1
+
+  useEffect(() => {
+    setSelectedDealIds((current) => {
+      if (current.size === 0) return current
+      const visibleIds = new Set(filteredDeals.map((deal) => deal.id))
+      const next = new Set(Array.from(current).filter((id) => visibleIds.has(id)))
+      return next.size === current.size ? current : next
+    })
+  }, [filteredDeals])
+
+  function toggleDealSelection(id: string) {
+    setSelectedDealIds((current) => {
+      const next = new Set(current)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  function toggleVisibleDeals() {
+    const visibleIds = filteredDeals.map((deal) => deal.id)
+    const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedDealIds.has(id))
+    if (allVisibleSelected) {
+      setSelectedDealIds((current) => {
+        const next = new Set(current)
+        for (const id of visibleIds) next.delete(id)
+        return next
+      })
+    } else {
+      setSelectedDealIds((current) => new Set([...current, ...visibleIds]))
+    }
+  }
+
+  async function assignSelectedDealOwner() {
+    const ownerUid = bulkOwnerUid.trim()
+    if (!ownerUid || selectedDealIds.size === 0) return
+    const owner = teamMembers.find((member) => member.uid === ownerUid)
+
+    setBulkOwnerPending(true)
+    setBulkOwnerError('')
+    try {
+      const ids = Array.from(selectedDealIds)
+      await Promise.all(ids.map(async (dealId) => {
+        const res = await fetch(`/api/v1/crm/deals/${dealId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ownerUid }),
+        })
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}))
+          throw new Error(typeof body?.error === 'string' ? body.error : 'Failed to assign deal owner')
+        }
+      }))
+      setDeals((current) => current.map((deal) => (
+        selectedDealIds.has(deal.id)
+          ? {
+              ...deal,
+              ownerUid,
+              ownerRef: owner ? teamMemberOwnerRef(owner) : deal.ownerRef,
+            }
+          : deal
+      )))
+      setSelectedDealIds(new Set())
+      setBulkOwnerUid('')
+      setOwnerLens('all')
+    } catch (err) {
+      setBulkOwnerError(err instanceof Error ? err.message : 'Failed to assign deal owner')
+    } finally {
+      setBulkOwnerPending(false)
+    }
+  }
 
   // Open deals for forecast view: exclude lost-stage deals
   const lostStageIds = new Set(stages.filter(s => s.kind === 'lost').map(s => s.id))
@@ -456,6 +572,48 @@ export default function DealsPage() {
         />
       )}
 
+      {isReady && !error && selectedDealIds.size > 0 && (
+        <section className="pib-card flex flex-wrap items-end gap-3 p-4">
+          <div className="min-w-[260px] flex-1">
+            <label htmlFor="dealBulkOwner" className="pib-label">Assign selected deals to owner</label>
+            <select
+              id="dealBulkOwner"
+              value={bulkOwnerUid}
+              onChange={(event) => setBulkOwnerUid(event.target.value)}
+              className="pib-select mt-1"
+            >
+              <option value="">Select a team member</option>
+              {teamMembers.map((member) => (
+                <option key={member.uid} value={member.uid}>
+                  {teamMemberLabel(member)}
+                </option>
+              ))}
+            </select>
+          </div>
+          <button
+            type="button"
+            onClick={assignSelectedDealOwner}
+            disabled={!bulkOwnerUid.trim() || bulkOwnerPending}
+            className="pib-btn-primary text-sm disabled:cursor-not-allowed disabled:opacity-50"
+            aria-label={`Assign owner to ${selectedDealIds.size} selected deal${selectedDealIds.size === 1 ? '' : 's'}`}
+          >
+            <span className="material-symbols-outlined text-base">supervisor_account</span>
+            {bulkOwnerPending ? 'Assigning...' : 'Assign owner'}
+          </button>
+          <button
+            type="button"
+            onClick={() => { setSelectedDealIds(new Set()); setBulkOwnerUid(''); setBulkOwnerError('') }}
+            className="pib-btn-secondary text-sm"
+          >
+            Clear selection
+          </button>
+          <p className="basis-full text-xs text-on-surface-variant">
+            {selectedDealIds.size} selected for owner assignment.
+          </p>
+          {bulkOwnerError && <p className="basis-full text-xs text-red-300">{bulkOwnerError}</p>}
+        </section>
+      )}
+
       {/* Stage filter pills */}
       {stages.length > 0 && (
         <div className="flex gap-2 flex-wrap">
@@ -555,6 +713,15 @@ export default function DealsPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b" style={{ borderColor: 'var(--color-card-border)' }}>
+                  <th className="w-10 px-4 py-2.5">
+                    <input
+                      type="checkbox"
+                      aria-label="Select visible deals for owner assignment"
+                      checked={filteredDeals.length > 0 && filteredDeals.every((deal) => selectedDealIds.has(deal.id))}
+                      onChange={toggleVisibleDeals}
+                      className="h-4 w-4 rounded border-[var(--color-pib-line)] bg-transparent"
+                    />
+                  </th>
                   {['Deal', 'Stage', 'Owner', 'Value', 'Prob', 'Weighted', 'Contact'].map(h => (
                     <th
                       key={h}
@@ -576,10 +743,20 @@ export default function DealsPage() {
                   return (
                     <tr
                       key={deal.id}
+                      data-deal-row
                       className="border-b transition-colors hover:bg-[var(--color-surface-container)] cursor-pointer"
                       style={{ borderColor: 'var(--color-card-border)' }}
                       onClick={() => setViewingDeal(deal)}
                     >
+                      <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          aria-label={`Select ${deal.title} for deal owner assignment`}
+                          checked={selectedDealIds.has(deal.id)}
+                          onChange={() => toggleDealSelection(deal.id)}
+                          className="h-4 w-4 rounded border-[var(--color-pib-line)] bg-transparent"
+                        />
+                      </td>
                       <td className="px-4 py-3 font-medium text-on-surface">
                         <Link
                           href={`/portal/deals/${deal.id}`}

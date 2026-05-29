@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import DealsPage from '@/app/(portal)/portal/deals/page'
 
 jest.mock('next/link', () => ({
@@ -65,6 +65,22 @@ describe('Portal deals page', () => {
           },
         ])
       }
+      if (path === '/api/v1/portal/settings/team') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            members: [
+              {
+                uid: 'sales-lead-2',
+                firstName: 'Mandy',
+                lastName: 'Manager',
+                jobTitle: 'Sales lead',
+                role: 'admin',
+              },
+            ],
+          }),
+        } as Response)
+      }
       if (path === '/api/v1/crm/deals?pipelineId=pipeline-1&limit=200') {
         return apiResponse([
           {
@@ -98,6 +114,9 @@ describe('Portal deals page', () => {
             updatedAt: null,
           },
         ])
+      }
+      if (path === '/api/v1/crm/deals/deal-2') {
+        return apiResponse({ id: 'deal-2' })
       }
       return Promise.reject(new Error(`Unexpected fetch: ${path}`))
     })
@@ -134,5 +153,32 @@ describe('Portal deals page', () => {
     expect(screen.queryByText('Growth retainer')).not.toBeInTheDocument()
     expect(screen.getByText('Unowned expansion')).toBeInTheDocument()
     expect(screen.getByText('Unassigned')).toBeInTheDocument()
+  })
+
+  it('assigns selected unassigned deals to a team member', async () => {
+    render(<DealsPage />)
+
+    fireEvent.click(await screen.findByRole('tab', { name: /List/i }))
+    await screen.findByText('Growth retainer')
+    fireEvent.click(screen.getByRole('button', { name: 'Show unassigned deals needing an owner' }))
+
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Select Unowned expansion for deal owner assignment' }))
+    fireEvent.change(screen.getByLabelText('Assign selected deals to owner'), {
+      target: { value: 'sales-lead-2' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Assign owner to 1 selected deal' }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/deals/deal-2', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ownerUid: 'sales-lead-2' }),
+      })
+    })
+
+    expect(screen.getByText('0 unassigned')).toBeInTheDocument()
+    const row = screen.getByText('Unowned expansion').closest('[data-deal-row]')
+    expect(row).not.toBeNull()
+    expect(within(row as HTMLElement).getByText('Mandy Manager')).toBeInTheDocument()
   })
 })
