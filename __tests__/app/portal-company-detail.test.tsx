@@ -811,4 +811,100 @@ describe('Portal company detail page', () => {
       }),
     )
   })
+
+  it('turns an empty company relationships tab into a linked relationship action', async () => {
+    const postRelationship = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ success: true, data: { relationship: { id: 'rel-new' } } }),
+    } as Response)
+
+    global.fetch = jest.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/custom-fields?resource=company') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { definitions: [] } }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/companies/company-1') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              company: {
+                id: 'company-1',
+                orgId: 'org-1',
+                linkedOrgId: 'client-org-1',
+                name: 'Acme Holdings',
+                lifecycleStage: 'customer',
+              },
+            },
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/companies/company-1/command-center?limit=100') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              summary: {},
+              analytics: {},
+              contacts: [
+                { id: 'contact-1', name: 'Jane Client', email: 'jane@example.com', type: 'client', stage: 'won' },
+              ],
+              deals: [],
+              quotes: [],
+              invoices: [],
+              projects: [],
+              serviceWorkspaces: [],
+              relationships: [],
+              documents: [],
+              orders: [],
+              shipments: [],
+              inventoryItems: [],
+              activities: [],
+            },
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/relationships' && init?.method === 'POST') {
+        return postRelationship(input, init)
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ data: {} }),
+      } as Response)
+    }) as jest.Mock
+
+    render(<CompanyDetailPage />)
+
+    await screen.findByRole('heading', { name: 'Acme Holdings' })
+    fireEvent.click(screen.getByRole('tab', { name: /Relationships/i }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Create relationship for Acme Holdings' }))
+
+    await waitFor(() => {
+      expect(postRelationship).toHaveBeenCalledWith(
+        '/api/v1/crm/relationships',
+        expect.objectContaining({
+          method: 'POST',
+          body: expect.stringContaining('"sourceCompanyId":"company-1"'),
+        }),
+      )
+    })
+    expect(JSON.parse((postRelationship.mock.calls[0][1] as RequestInit).body as string)).toEqual(
+      expect.objectContaining({
+        sourceCompanyId: 'company-1',
+        sourceContactId: 'contact-1',
+        targetOrgId: 'client-org-1',
+        targetName: 'Acme Holdings',
+        relationshipType: 'customer',
+        status: 'active',
+        sharedCapabilities: ['crm', 'projects', 'documents', 'services'],
+        visibility: 'relationship',
+        approvalState: 'approved',
+      }),
+    )
+  })
 })

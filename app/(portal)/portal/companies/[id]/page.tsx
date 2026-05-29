@@ -559,6 +559,61 @@ function DocumentsPanel({
   )
 }
 
+function RelationshipsPanel({
+  relationships,
+  company,
+  contacts,
+  creatingRelationship,
+  relationshipError,
+  onCreateRelationship,
+}: {
+  relationships: RelatedRelationship[]
+  company: Company
+  contacts: RelatedContact[]
+  creatingRelationship: boolean
+  relationshipError: string | null
+  onCreateRelationship: () => void
+}) {
+  const firstContact = contacts[0]
+  if (relationships.length === 0) {
+    return (
+      <EmptyPanel
+        icon="hub"
+        label={
+          firstContact
+            ? `No business relationships yet. Create the account relationship for ${contactLabel(firstContact)} so shared CRM, projects, documents, and services become visible from one place.`
+            : `No business relationships yet. Create the account relationship for ${company.name} so collaboration history does not stay hidden from the CRM.`
+        }
+      >
+        <div className="flex flex-col items-center gap-3">
+          <button
+            type="button"
+            onClick={onCreateRelationship}
+            disabled={creatingRelationship}
+            className="btn-pib-primary inline-flex items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add_link</span>
+            {creatingRelationship ? 'Creating relationship...' : `Create relationship for ${company.name}`}
+          </button>
+          {relationshipError ? <p className="max-w-md text-xs text-red-300">{relationshipError}</p> : null}
+        </div>
+      </EmptyPanel>
+    )
+  }
+  return (
+    <SimpleRowsPanel
+      rows={relationships}
+      emptyIcon="hub"
+      emptyLabel="No business relationships yet."
+      title={(row) => String(row.targetName ?? row.relationshipType ?? row.id)}
+      metaFor={(row) => [
+        String(row.relationshipType ?? ''),
+        Array.isArray(row.sharedCapabilities) ? row.sharedCapabilities.join(', ') : undefined,
+      ]}
+    />
+  )
+}
+
 function QuotesPanel({
   quotes,
   company,
@@ -907,6 +962,8 @@ export default function CompanyDetailPage() {
   const [serviceError, setServiceError] = useState<string | null>(null)
   const [creatingDocument, setCreatingDocument] = useState(false)
   const [documentError, setDocumentError] = useState<string | null>(null)
+  const [creatingRelationship, setCreatingRelationship] = useState(false)
+  const [relationshipError, setRelationshipError] = useState<string | null>(null)
   const [creatingQuote, setCreatingQuote] = useState(false)
   const [quoteError, setQuoteError] = useState<string | null>(null)
   const [customFieldDefs, setCustomFieldDefs] = useState<CustomFieldDefinition[]>([])
@@ -1181,6 +1238,37 @@ export default function CompanyDetailPage() {
     }
   }
 
+  async function createBusinessRelationship(): Promise<void> {
+    if (!company) return
+    const firstContact = related.contacts[0]
+    setCreatingRelationship(true)
+    setRelationshipError(null)
+    try {
+      const res = await fetch('/api/v1/crm/relationships', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          sourceCompanyId: company.id,
+          sourceContactId: firstContact?.id,
+          targetOrgId: company.linkedOrgId,
+          targetName: company.name,
+          relationshipType: 'customer',
+          status: 'active',
+          sharedCapabilities: ['crm', 'projects', 'documents', 'services'],
+          visibility: 'relationship',
+          approvalState: 'approved',
+        }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(body.error ?? 'Failed to create relationship')
+      await loadRelated(company.id)
+    } catch (err) {
+      setRelationshipError(err instanceof Error ? err.message : 'Failed to create relationship')
+    } finally {
+      setCreatingRelationship(false)
+    }
+  }
+
   async function createQuoteFromFirstDeal(): Promise<void> {
     if (!company) return
     const firstDeal = related.deals[0]
@@ -1400,12 +1488,13 @@ export default function CompanyDetailPage() {
           />
         )}
         {!relatedLoading && tab === 'relationships' && (
-          <SimpleRowsPanel
-            rows={related.relationships}
-            emptyIcon="hub"
-            emptyLabel="No business relationships yet."
-            title={(row) => String(row.targetName ?? row.relationshipType ?? row.id)}
-            metaFor={(row) => [String(row.relationshipType ?? ''), Array.isArray(row.sharedCapabilities) ? row.sharedCapabilities.join(', ') : undefined]}
+          <RelationshipsPanel
+            relationships={related.relationships}
+            company={company}
+            contacts={related.contacts}
+            creatingRelationship={creatingRelationship}
+            relationshipError={relationshipError}
+            onCreateRelationship={createBusinessRelationship}
           />
         )}
         {!relatedLoading && tab === 'quotes' && (
