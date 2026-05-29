@@ -126,4 +126,17 @@ describe('Portal contact detail page', () => {
 
     expect(screen.getByPlaceholderText('+27...')).toHaveFocus()
   })
+
+  it('keeps missing details visible instead of hiding empty fields', async () => {
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    expect(screen.getByText('No phone captured')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Add phone from details for Jane Client' }))
+
+    expect(screen.getByPlaceholderText('+27...')).toHaveFocus()
+  })
 })

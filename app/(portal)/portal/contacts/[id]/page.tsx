@@ -709,6 +709,43 @@ export default function PortalContactDetailPage() {
     assignedTo && contact.assignedToRef?.uid === assignedTo
       ? contact.assignedToRef
       : teamMemberRef(teamMembers.find((member) => member.uid === assignedTo))
+  const detailRows = [
+    {
+      label: 'Email',
+      value: email.trim(),
+      empty: 'No email captured',
+      actionLabel: 'Add email',
+      actionAriaLabel: `Add email from details for ${contactName}`,
+      onAction: () => focusProfileField(emailFieldRef),
+    },
+    {
+      label: 'Phone',
+      value: phone.trim(),
+      empty: 'No phone captured',
+      actionLabel: 'Add phone',
+      actionAriaLabel: `Add phone from details for ${contactName}`,
+      onAction: () => focusProfileField(phoneFieldRef),
+    },
+    {
+      label: 'Linked company',
+      value: hasLinkedCompany ? companyLabel : '',
+      empty: 'No company linked',
+      actionLabel: 'Link company',
+      actionAriaLabel: `Link company from details for ${contactName}`,
+      onAction: focusCompanyPicker,
+    },
+    {
+      label: 'Website',
+      value: website.trim(),
+      empty: 'No website captured',
+      actionLabel: 'Add website',
+      actionAriaLabel: `Add website from details for ${contactName}`,
+      onAction: () => focusProfileField(websiteFieldRef),
+    },
+    { label: 'Source', value: source },
+    { label: 'Type', value: type },
+    { label: 'Stage', value: stage },
+  ]
 
   return (
     <div className="space-y-8">
@@ -899,24 +936,31 @@ export default function PortalContactDetailPage() {
 
           <div className="bento-card !p-5 space-y-3 text-sm">
             <p className="eyebrow !text-[10px]">Details</p>
-            {[
-              ['Email', email],
-              ['Phone', phone],
-              ['Company (legacy)', contact.company],
-              ['Website', website],
-              ['Source', source],
-              ['Type', type],
-              ['Stage', stage],
-            ].map(([label, val]) =>
-              val ? (
-                <div key={String(label)}>
-                  <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">
-                    {String(label)}
-                  </p>
-                  <p className="text-[var(--color-pib-text)] mt-0.5 break-words">{String(val)}</p>
-                </div>
-              ) : null,
-            )}
+            {detailRows.map((row) => (
+              <div key={row.label} className="rounded-md border border-[var(--color-pib-line)] bg-white/[0.015] p-3">
+                <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">
+                  {row.label}
+                </p>
+                {row.value ? (
+                  <p className="text-[var(--color-pib-text)] mt-1 break-words">{row.value}</p>
+                ) : (
+                  <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-[var(--color-pib-text-muted)]">{row.empty}</p>
+                    {row.onAction && (
+                      <button
+                        type="button"
+                        aria-label={row.actionAriaLabel}
+                        onClick={row.onAction}
+                        className="inline-flex items-center gap-1 rounded-md border border-[var(--color-pib-line)] px-2 py-1 text-[11px] font-medium text-[var(--color-pib-accent)] transition-colors hover:border-[var(--color-pib-accent)] hover:text-[var(--color-pib-text)]"
+                      >
+                        <span className="material-symbols-outlined text-[13px]">add</span>
+                        {row.actionLabel}
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
             {contact.lastContactedAt ? (
               <div>
                 <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">
