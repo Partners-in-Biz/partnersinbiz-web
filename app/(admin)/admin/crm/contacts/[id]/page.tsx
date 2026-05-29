@@ -202,6 +202,8 @@ export default function ContactDetailPage() {
   const [savingNote, setSavingNote] = useState(false)
   const [archiving, setArchiving] = useState(false)
   const [pageError, setPageError] = useState('')
+  const [scoreSaving, setScoreSaving] = useState(false)
+  const [scoreError, setScoreError] = useState<string | null>(null)
 
   const loadContact = useCallback(async () => {
     if (!id) return
@@ -333,11 +335,35 @@ export default function ContactDetailPage() {
     }
   }
 
+  async function recomputeScore() {
+    if (!contact) return
+    setScoreSaving(true)
+    setScoreError(null)
+    try {
+      const res = await fetch(`/api/v1/crm/contacts/${id}/recompute-score`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ includeAi: true }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error((body as { error?: string }).error ?? 'Score recompute failed')
+      const update = (body as { data?: { update?: Partial<ContactRecord> } }).data?.update
+      if (update) {
+        setContact((prev) => prev ? { ...prev, ...update } : prev)
+      }
+    } catch (err) {
+      setScoreError(err instanceof Error ? err.message : 'Score recompute failed')
+    } finally {
+      setScoreSaving(false)
+    }
+  }
+
   const strength = useMemo(() => (contact ? profileStrength(contact) : 0), [contact])
   const lastTouchAge = daysSince(contact?.lastContactedAt)
   const name = contactDisplayName(contact)
   const tags = Array.isArray(contact?.tags) ? contact.tags : []
   const customFieldCount = contact?.customFields ? Object.keys(contact.customFields).length : 0
+  const hasAnyScore = contact?.leadScore != null || contact?.icpScore != null || contact?.aiLeadScore != null
 
   if (loading) {
     return (
@@ -459,6 +485,19 @@ export default function ContactDetailPage() {
                 <ScoreChip score={numberValue(contact.icpScore)} kind="icp" label="ICP match score" size="sm" />
                 <ScoreChip score={numberValue(contact.aiLeadScore)} kind="ai" label="AI lead score" size="sm" />
               </div>
+              {!hasAnyScore && (
+                <button
+                  type="button"
+                  aria-label={`Recompute score for ${name} from admin qualification panel`}
+                  onClick={recomputeScore}
+                  disabled={scoreSaving}
+                  className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-[var(--color-card-border)] px-3 py-2 text-xs font-semibold text-[var(--color-accent-v2)] transition-colors hover:border-[var(--color-accent-v2)] hover:text-on-surface disabled:opacity-50"
+                >
+                  <span className="material-symbols-outlined text-[15px]" aria-hidden="true">speed</span>
+                  {scoreSaving ? 'Scoring...' : 'Recompute score'}
+                </button>
+              )}
+              {scoreError && <p className="text-xs text-red-300">{scoreError}</p>}
               <DetailRow label="Score updated" value={fmtTimestamp(contact.scoreUpdatedAt)} />
               <DetailRow label="Agreement roles" value={contact.agreementRoles?.join(', ')} />
               <DetailRow label="Notes" value={contact.notes} />
