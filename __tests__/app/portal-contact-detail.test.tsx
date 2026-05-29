@@ -139,4 +139,17 @@ describe('Portal contact detail page', () => {
 
     expect(screen.getByPlaceholderText('+27...')).toHaveFocus()
   })
+
+  it('keeps relationship notes visible as contact detail context', async () => {
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    expect(screen.getByText('No relationship notes captured')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Add relationship notes from details for Jane Client' }))
+
+    expect(screen.getByPlaceholderText('Add a note about this contact…')).toHaveFocus()
+  })
 })
