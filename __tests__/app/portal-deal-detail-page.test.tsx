@@ -20,8 +20,14 @@ jest.mock('@/components/crm/DealDrawer', () => ({
 describe('Portal deal detail page', () => {
   beforeEach(() => {
     jest.clearAllMocks()
-    global.fetch = jest.fn((input: RequestInfo | URL) => {
+    global.fetch = jest.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
+      if (url === '/api/v1/crm/deals/deal-1' && init?.method === 'PATCH') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ success: true }),
+        } as Response)
+      }
       if (url === '/api/v1/crm/deals/deal-1') {
         return Promise.resolve({
           ok: true,
@@ -99,5 +105,27 @@ describe('Portal deal detail page', () => {
     })
 
     await waitFor(() => expect(screen.getByText('Mandy Manager')).toBeInTheDocument())
+  })
+
+  it('lets users update forecast probability from the deal command center', async () => {
+    render(<DealDetailPage />)
+
+    await screen.findByText('Unowned expansion')
+    expect(screen.getAllByText('40%').length).toBeGreaterThan(0)
+
+    fireEvent.change(screen.getByLabelText('Update forecast probability'), {
+      target: { value: '65' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Update forecast probability for Unowned expansion' }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/deals/deal-1', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ probability: 65 }),
+      })
+    })
+
+    await waitFor(() => expect(screen.getAllByText('65%').length).toBeGreaterThan(0))
   })
 })

@@ -124,6 +124,11 @@ function probabilityColor(probability: number): string {
   return '#f87171'
 }
 
+function clampProbability(value: number): number {
+  if (Number.isNaN(value)) return 0
+  return Math.max(0, Math.min(100, Math.round(value)))
+}
+
 function normalizeStageName(name: string): string {
   return name.replace(/_/g, ' ')
 }
@@ -166,6 +171,9 @@ export default function DealDetailPage() {
   const [ownerUid, setOwnerUid] = useState('')
   const [ownerPending, setOwnerPending] = useState(false)
   const [ownerError, setOwnerError] = useState('')
+  const [probabilityInput, setProbabilityInput] = useState('')
+  const [probabilityPending, setProbabilityPending] = useState(false)
+  const [probabilityError, setProbabilityError] = useState('')
 
   const fetchDeal = useCallback(async () => {
     if (!id) return
@@ -185,6 +193,7 @@ export default function DealDetailPage() {
       const d: DealRecord | null = body.data?.deal ?? body.deal ?? body.data ?? null
       if (!d) throw new Error('Deal not found')
       setDeal(d)
+      setProbabilityInput(String(d.probability ?? 50))
       setLoading(false)
 
       const secondaryFetches: Promise<void>[] = []
@@ -283,6 +292,33 @@ export default function DealDetailPage() {
       setOwnerError(err instanceof Error ? err.message : 'Failed to assign owner')
     } finally {
       setOwnerPending(false)
+    }
+  }
+
+  async function updateProbability() {
+    if (!deal || !id) return
+    const nextProbability = clampProbability(Number(probabilityInput))
+    setProbabilityPending(true)
+    setProbabilityError('')
+    try {
+      const res = await fetch(`/api/v1/crm/deals/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ probability: nextProbability }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok || body.success === false) {
+        throw new Error(typeof body?.error === 'string' ? body.error : 'Failed to update probability')
+      }
+      setDeal({
+        ...deal,
+        probability: nextProbability,
+      })
+      setProbabilityInput(String(nextProbability))
+    } catch (err) {
+      setProbabilityError(err instanceof Error ? err.message : 'Failed to update probability')
+    } finally {
+      setProbabilityPending(false)
     }
   }
 
@@ -445,6 +481,34 @@ export default function DealDetailPage() {
           </div>
           <div className="h-2 overflow-hidden rounded-full bg-white/10">
             <div className="h-full rounded-full" style={{ width: `${prob}%`, background: probColor }} />
+          </div>
+          <div className="flex flex-wrap items-end gap-2 rounded-xl border border-[var(--color-pib-line)] bg-white/[0.02] p-3">
+            <div className="min-w-[180px] flex-1">
+              <label htmlFor="dealForecastProbability" className="pib-label">Update forecast probability</label>
+              <input
+                id="dealForecastProbability"
+                type="number"
+                min={0}
+                max={100}
+                value={probabilityInput}
+                onChange={(event) => setProbabilityInput(event.target.value)}
+                className="pib-input mt-1"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={updateProbability}
+              disabled={probabilityPending || probabilityInput.trim() === ''}
+              className="pib-btn-primary text-sm disabled:cursor-not-allowed disabled:opacity-50"
+              aria-label={`Update forecast probability for ${deal.title ?? 'this deal'}`}
+            >
+              <span className="material-symbols-outlined text-base">trending_up</span>
+              {probabilityPending ? 'Updating...' : 'Update'}
+            </button>
+            <p className="basis-full text-xs leading-5 text-[var(--color-pib-text-muted)]">
+              Adjust confidence after real buyer signals so the weighted forecast stays honest for leadership.
+            </p>
+            {probabilityError && <p className="basis-full text-xs text-red-300">{probabilityError}</p>}
           </div>
         </div>
 
