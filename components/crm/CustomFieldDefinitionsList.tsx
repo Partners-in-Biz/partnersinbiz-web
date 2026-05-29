@@ -85,6 +85,9 @@ function SortableRow({
   const health = fieldHealth(def)
   const optionCount = def.options?.length ?? 0
   const hasConstraint = Boolean(def.minLength || def.maxLength || def.min != null || def.max != null || def.currencyCode)
+  const hasHelpText = Boolean(def.helpText?.trim())
+  const needsOptions = def.type === 'dropdown' || def.type === 'multi_select'
+  const missingOptions = needsOptions && optionCount === 0
 
   return (
     <div
@@ -120,9 +123,24 @@ function SortableRow({
               </span>
             </div>
             <p className="mt-1 text-xs text-[var(--color-pib-text-muted)] font-mono truncate">{def.key}</p>
-            <p className="mt-2 text-xs text-[var(--color-pib-text-muted)] line-clamp-2">
-              {def.helpText || 'No help text yet. Add context so the team knows when and why to capture this data.'}
-            </p>
+            <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
+              <p className="text-xs text-[var(--color-pib-text-muted)] line-clamp-2">
+                {hasHelpText
+                  ? def.helpText
+                  : 'No help text yet. Add context so the team knows when and why to capture this data.'}
+              </p>
+              {isAdmin && !hasHelpText && (
+                <button
+                  type="button"
+                  aria-label={`Add help text for ${def.label}`}
+                  onClick={() => onEdit(def)}
+                  className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] px-2 py-1 text-[11px] font-medium text-[var(--color-pib-text)] transition-colors hover:border-[var(--color-accent-v2)]/40 hover:bg-[var(--color-accent-v2)]/10"
+                >
+                  <span className="material-symbols-outlined text-[13px]">edit_note</span>
+                  Add help text
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
@@ -132,7 +150,24 @@ function SortableRow({
             <p className="mt-1 text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)]">Group</p>
           </div>
           <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-2">
-            <p className="font-display text-lg text-[var(--color-pib-text)]">{optionCount || (hasConstraint ? 'Set' : '-')}</p>
+            {missingOptions ? (
+              <div className="flex min-h-[28px] flex-col items-center justify-center gap-1">
+                <p className="text-[11px] font-medium text-amber-200">Options missing</p>
+                {isAdmin && (
+                  <button
+                    type="button"
+                    aria-label={`Add options for ${def.label}`}
+                    onClick={() => onEdit(def)}
+                    className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-amber-300/20 bg-amber-300/10 px-2 py-1 text-[11px] font-medium text-amber-100 transition-colors hover:border-amber-200/50 hover:bg-amber-300/15"
+                  >
+                    <span className="material-symbols-outlined text-[13px]">add_circle</span>
+                    Add
+                  </button>
+                )}
+              </div>
+            ) : (
+              <p className="font-display text-lg text-[var(--color-pib-text)]">{optionCount || (hasConstraint ? 'Set' : '-')}</p>
+            )}
             <p className="mt-1 text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)]">Rules</p>
           </div>
           <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-2">
