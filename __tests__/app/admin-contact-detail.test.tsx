@@ -139,6 +139,17 @@ describe('Admin contact detail page', () => {
     expect(composeLink).toHaveAttribute('href', '/admin/email/compose?to=jane%40example.com&contactId=contact-1')
   })
 
+  it('keeps the admin header email action inside the in-app composer', async () => {
+    render(<AdminContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Jane Client' })).toBeInTheDocument()
+    })
+
+    const headerEmailLink = screen.getByRole('link', { name: 'Email Jane Client from contact command center' })
+    expect(headerEmailLink).toHaveAttribute('href', '/admin/email/compose?to=jane%40example.com&contactId=contact-1')
+  })
+
   it('turns empty admin activity history into a note composer action', async () => {
     render(<AdminContactDetailPage />)
 

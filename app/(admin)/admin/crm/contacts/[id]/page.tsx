@@ -424,11 +424,11 @@ export default function ContactDetailPage() {
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              {contact.email && (
-                <a href={`mailto:${contact.email}`} className="pib-btn-secondary text-sm">
+              {composeEmailHref && (
+                <Link href={composeEmailHref} aria-label={`Email ${name} from contact command center`} className="pib-btn-secondary text-sm">
                   <span className="material-symbols-outlined text-base">mail</span>
                   Email
-                </a>
+                </Link>
               )}
               {contact.phone && (
                 <a href={`tel:${contact.phone}`} className="pib-btn-secondary text-sm">
