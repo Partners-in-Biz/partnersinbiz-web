@@ -714,7 +714,18 @@ export default function DealDetailPage() {
           <div className="mt-4 bento-card !p-5 space-y-3">
             <p className="eyebrow !text-[10px]">Stage movement</p>
             {stageHistory.length === 0 ? (
-              <p className="text-sm text-[var(--color-pib-text-muted)]">No stage movement recorded yet.</p>
+              <div className="rounded-xl border border-[var(--color-pib-line)] bg-white/[0.02] p-3">
+                <p className="text-sm text-[var(--color-pib-text-muted)]">No stage movement recorded yet.</p>
+                <button
+                  type="button"
+                  onClick={() => setEditOpen(true)}
+                  className="pib-btn-primary mt-3 inline-flex items-center gap-1.5 text-sm"
+                  aria-label={`Update stage for ${deal.title ?? 'this deal'}`}
+                >
+                  <span className="material-symbols-outlined text-base">sync_alt</span>
+                  Update stage
+                </button>
+              </div>
             ) : (
               <div className="space-y-3">
                 {stageHistory.map((entry, index) => (

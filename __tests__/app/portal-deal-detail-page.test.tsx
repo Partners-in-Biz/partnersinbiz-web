@@ -172,4 +172,15 @@ describe('Portal deal detail page', () => {
 
     expect(screen.getByTestId('deal-drawer')).toBeInTheDocument()
   })
+
+  it('turns missing stage movement into a stage update action', async () => {
+    render(<DealDetailPage />)
+
+    await screen.findByText('Unowned expansion')
+    expect(screen.getByText('No stage movement recorded yet.')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Update stage for Unowned expansion' }))
+
+    expect(screen.getByTestId('deal-drawer')).toBeInTheDocument()
+  })
 })
