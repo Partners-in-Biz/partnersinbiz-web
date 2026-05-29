@@ -505,25 +505,40 @@ export function buildProjectTaskUpdateData(body: Record<string, unknown>): Paylo
   return { ok: true, value: updates }
 }
 
-export function applyAgentTodoRequeue(
+export function applyAgentColumnMoveState(
   existing: Record<string, unknown>,
   updates: Record<string, unknown>,
   body: Record<string, unknown>,
 ): Record<string, unknown> {
   const hasAgent = typeof existing.assigneeAgentId === 'string' && existing.assigneeAgentId.trim().length > 0
-  const movedToTodo = updates.columnId === 'todo'
+  const columnId = typeof updates.columnId === 'string' ? updates.columnId : null
   const callerDidNotSetStatus = body.agentStatus === undefined
   const currentStatus = typeof existing.agentStatus === 'string' ? existing.agentStatus : null
-  const requeueable = currentStatus === 'done' || currentStatus === 'blocked' || currentStatus === 'awaiting-input'
 
-  if (!hasAgent || !movedToTodo || !callerDidNotSetStatus || !requeueable) return updates
+  if (!hasAgent || !columnId || !callerDidNotSetStatus) return updates
 
-  return {
-    ...updates,
-    agentStatus: 'pending',
-    reviewStatus: 'changes-requested',
-    agentOutput: null,
-    agentConversationId: null,
-    agentHeartbeatAt: null,
+  if (columnId === 'todo') {
+    const requeueable = currentStatus === 'done' || currentStatus === 'blocked' || currentStatus === 'awaiting-input'
+    if (!requeueable) return updates
+    return {
+      ...updates,
+      agentStatus: 'pending',
+      reviewStatus: 'changes-requested',
+      agentOutput: null,
+      agentConversationId: null,
+      agentHeartbeatAt: null,
+    }
   }
+
+  if (columnId === 'in_progress') {
+    return {
+      ...updates,
+      agentStatus: 'in-progress',
+      reviewStatus: null,
+    }
+  }
+
+  return updates
 }
+
+export const applyAgentTodoRequeue = applyAgentColumnMoveState

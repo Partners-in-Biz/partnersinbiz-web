@@ -1,4 +1,5 @@
 import {
+  applyAgentColumnMoveState,
   applyAgentTodoRequeue,
   buildProjectTaskCreateData,
   buildProjectTaskUpdateData,
@@ -422,6 +423,24 @@ describe('project task payload helpers', () => {
         agentOutput: null,
         agentConversationId: null,
         agentHeartbeatAt: null,
+      })
+    })
+
+    it('PATCH: moving an agent task into progress marks it as actively in progress', () => {
+      const raw = buildProjectTaskUpdateData({ columnId: 'in_progress' })
+      expect(raw.ok).toBe(true)
+      if (!raw.ok) return
+
+      const result = applyAgentColumnMoveState(
+        { assigneeAgentId: 'theo', agentStatus: 'pending', reviewStatus: 'pending' },
+        raw.value,
+        { columnId: 'in_progress' },
+      )
+
+      expect(result).toEqual({
+        columnId: 'in_progress',
+        agentStatus: 'in-progress',
+        reviewStatus: null,
       })
     })
 

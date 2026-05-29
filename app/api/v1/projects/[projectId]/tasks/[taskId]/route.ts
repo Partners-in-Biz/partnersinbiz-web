@@ -5,7 +5,7 @@ import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { getProjectForUser } from '@/lib/projects/access'
 import {
-  applyAgentTodoRequeue,
+  applyAgentColumnMoveState,
   buildProjectTaskUpdateData,
   notificationPriority,
 } from '@/lib/projects/taskPayload'
@@ -50,7 +50,7 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
   const existing = doc.data() ?? {}
   const updates = buildProjectTaskUpdateData(body)
   if (!updates.ok) return apiError(updates.error, updates.status ?? 400)
-  const updateValue = applyAgentTodoRequeue(existing, updates.value, body)
+  const updateValue = applyAgentColumnMoveState(existing, updates.value, body)
   const projectOrgId = access.doc.data()?.orgId as string | undefined
 
   if (body.contextRefs !== undefined) {
