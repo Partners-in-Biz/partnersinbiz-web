@@ -1,5 +1,8 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import ProductsPage from '@/app/(portal)/portal/settings/products/page'
+import type { Product } from '@/lib/products/types'
+
+let products: Product[] = []
 
 jest.mock('@/components/crm/ProductModal', () => ({
   ProductModal: ({ product, onClose }: { product: unknown; onClose: () => void }) => (
@@ -13,12 +16,13 @@ jest.mock('@/components/crm/ProductModal', () => ({
 describe('Portal settings products page', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    products = []
     global.fetch = jest.fn((input: RequestInfo | URL) => {
       const url = String(input)
       if (url === '/api/v1/crm/products') {
         return Promise.resolve({
           ok: true,
-          json: async () => ({ data: { products: [] } }),
+          json: async () => ({ data: { products } }),
         } as Response)
       }
       return Promise.reject(new Error(`Unexpected fetch: ${url}`))
@@ -36,5 +40,49 @@ describe('Portal settings products page', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /create the first catalog item/i }))
     expect(screen.getByRole('dialog', { name: 'New product' })).toBeInTheDocument()
+  })
+
+  it('turns missing product description into a direct edit action', async () => {
+    products = [{
+      id: 'product-1',
+      orgId: 'org-1',
+      name: 'Growth retainer',
+      description: '',
+      unit: 'month',
+      unitPrice: 15000,
+      currency: 'ZAR',
+      createdAt: null,
+      updatedAt: null,
+    }]
+
+    render(<ProductsPage />)
+
+    expect(await screen.findByText('Growth retainer')).toBeInTheDocument()
+    expect(screen.getByText('No product description yet.')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /Add description for Growth retainer/i }))
+    expect(screen.getByRole('dialog', { name: 'Edit product' })).toBeInTheDocument()
+  })
+
+  it('turns missing product pricing rules into a direct edit action', async () => {
+    products = [{
+      id: 'product-1',
+      orgId: 'org-1',
+      name: 'Strategy workshop',
+      description: 'Discovery session',
+      unit: '',
+      unitPrice: 0,
+      currency: 'ZAR',
+      createdAt: null,
+      updatedAt: null,
+    }]
+
+    render(<ProductsPage />)
+
+    expect(await screen.findByText('Strategy workshop')).toBeInTheDocument()
+    expect(screen.getByText('Missing unit, price')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /Fix pricing setup for Strategy workshop/i }))
+    expect(screen.getByRole('dialog', { name: 'Edit product' })).toBeInTheDocument()
   })
 })

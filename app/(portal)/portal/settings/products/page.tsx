@@ -340,6 +340,8 @@ export default function ProductsPage() {
             <tbody>
               {filteredProducts.map((p, i) => {
                 const health = productHealth(p)
+                const hasDescription = Boolean(p.description?.trim())
+                const pricingGaps = health.gaps.filter((gap) => gap === 'unit' || gap === 'price' || gap === 'currency')
                 return (
                   <tr
                     key={p.id}
@@ -350,9 +352,22 @@ export default function ProductsPage() {
                   >
                     <td className="px-4 py-3">
                       <p className="font-medium text-[var(--color-pib-text)]">{p.name}</p>
-                      <p className="mt-1 max-w-[320px] truncate text-xs text-[var(--color-pib-text-muted)]">
-                        {p.description || 'No product description yet.'}
-                      </p>
+                      <div className="mt-1 flex max-w-[360px] flex-wrap items-center gap-x-2 gap-y-1">
+                        <p className="max-w-[320px] truncate text-xs text-[var(--color-pib-text-muted)]">
+                          {hasDescription ? p.description : 'No product description yet.'}
+                        </p>
+                        {!hasDescription && (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEdit(p)}
+                            aria-label={`Add description for ${p.name}`}
+                            className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] px-2 py-1 text-[11px] font-medium text-[var(--color-pib-text)] transition-colors hover:border-[var(--color-accent-v2)]/40 hover:bg-[var(--color-accent-v2)]/10"
+                          >
+                            <span className="material-symbols-outlined text-[13px]" aria-hidden="true">edit_note</span>
+                            Add copy
+                          </button>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-3">
                       <div className="min-w-[110px] space-y-1.5">
@@ -369,7 +384,20 @@ export default function ProductsPage() {
                           />
                         </div>
                         {health.gaps.length > 0 && (
-                          <p className="text-[10px] text-[var(--color-pib-text-muted)]">Missing {health.gaps.join(', ')}</p>
+                          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                            <p className="text-[10px] text-[var(--color-pib-text-muted)]">Missing {health.gaps.join(', ')}</p>
+                            {pricingGaps.length > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => handleOpenEdit(p)}
+                                aria-label={`Fix pricing setup for ${p.name}`}
+                                className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-amber-300/20 bg-amber-300/10 px-2 py-1 text-[11px] font-medium text-amber-100 transition-colors hover:border-amber-200/50 hover:bg-amber-300/15"
+                              >
+                                <span className="material-symbols-outlined text-[13px]" aria-hidden="true">price_check</span>
+                                Fix pricing
+                              </button>
+                            )}
+                          </div>
                         )}
                       </div>
                     </td>
@@ -381,6 +409,7 @@ export default function ProductsPage() {
                         <button
                           type="button"
                           onClick={() => handleOpenEdit(p)}
+                          aria-label={`Edit ${p.name}`}
                           title="Edit product"
                           className="cursor-pointer w-7 h-7 flex items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.06] transition-colors"
                         >
@@ -390,6 +419,7 @@ export default function ProductsPage() {
                           type="button"
                           onClick={() => handleDelete(p)}
                           disabled={deletingId === p.id}
+                          aria-label={`Delete ${p.name}`}
                           title="Delete product"
                           className="cursor-pointer w-7 h-7 flex items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] hover:text-red-400 hover:bg-red-400/[0.08] transition-colors disabled:opacity-50"
                         >
