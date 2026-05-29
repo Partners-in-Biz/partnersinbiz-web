@@ -27,9 +27,43 @@ function apiResponse(data: unknown) {
   } as Response)
 }
 
+let mockDealRows: unknown[] = []
+
 describe('Portal deals page', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    mockDealRows = [
+      {
+        id: 'deal-1',
+        orgId: 'org-1',
+        contactId: 'contact-1',
+        title: 'Growth retainer',
+        value: 50000,
+        currency: 'ZAR',
+        pipelineId: 'pipeline-1',
+        stageId: 'qualified',
+        ownerUid: 'owner-1',
+        ownerRef: { uid: 'owner-1', displayName: 'Maya Sales' },
+        expectedCloseDate: null,
+        notes: '',
+        createdAt: null,
+        updatedAt: null,
+      },
+      {
+        id: 'deal-2',
+        orgId: 'org-1',
+        contactId: '',
+        title: 'Unowned expansion',
+        value: 25000,
+        currency: 'ZAR',
+        pipelineId: 'pipeline-1',
+        stageId: 'qualified',
+        expectedCloseDate: null,
+        notes: '',
+        createdAt: null,
+        updatedAt: null,
+      },
+    ]
     global.fetch = jest.fn((url: RequestInfo | URL) => {
       const path = String(url)
       if (path === '/api/v1/crm/pipelines') {
@@ -82,38 +116,7 @@ describe('Portal deals page', () => {
         } as Response)
       }
       if (path === '/api/v1/crm/deals?pipelineId=pipeline-1&limit=200') {
-        return apiResponse([
-          {
-            id: 'deal-1',
-            orgId: 'org-1',
-            contactId: 'contact-1',
-            title: 'Growth retainer',
-            value: 50000,
-            currency: 'ZAR',
-            pipelineId: 'pipeline-1',
-            stageId: 'qualified',
-            ownerUid: 'owner-1',
-            ownerRef: { uid: 'owner-1', displayName: 'Maya Sales' },
-            expectedCloseDate: null,
-            notes: '',
-            createdAt: null,
-            updatedAt: null,
-          },
-          {
-            id: 'deal-2',
-            orgId: 'org-1',
-            contactId: '',
-            title: 'Unowned expansion',
-            value: 25000,
-            currency: 'ZAR',
-            pipelineId: 'pipeline-1',
-            stageId: 'qualified',
-            expectedCloseDate: null,
-            notes: '',
-            createdAt: null,
-            updatedAt: null,
-          },
-        ])
+        return apiResponse(mockDealRows)
       }
       if (path === '/api/v1/crm/deals/deal-2') {
         return apiResponse({ id: 'deal-2' })
@@ -180,5 +183,18 @@ describe('Portal deals page', () => {
     const row = screen.getByText('Unowned expansion').closest('[data-deal-row]')
     expect(row).not.toBeNull()
     expect(within(row as HTMLElement).getByText('Mandy Manager')).toBeInTheDocument()
+  })
+
+  it('turns an empty forecast into a create-deal action', async () => {
+    mockDealRows = []
+
+    render(<DealsPage />)
+
+    fireEvent.click(await screen.findByRole('tab', { name: /Forecast/i }))
+
+    expect(await screen.findByText('No forecastable deals yet')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /create forecastable deal/i }))
+
+    expect(screen.getByTestId('deal-drawer')).toBeInTheDocument()
   })
 })

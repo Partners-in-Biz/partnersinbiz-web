@@ -852,7 +852,26 @@ export default function DealsPage() {
               <tbody>
                 {openDeals.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-4 py-8 text-center text-[var(--color-pib-text-muted)]">No open deals</td>
+                    <td colSpan={6} className="px-4 py-10 text-center">
+                      <div className="mx-auto flex max-w-xl flex-col items-center rounded-xl border border-dashed border-[var(--color-pib-line)] bg-white/[0.03] px-5 py-6">
+                        <span className="material-symbols-outlined flex h-11 w-11 items-center justify-center rounded-xl bg-white/[0.04] text-[24px] text-[var(--color-pib-text-muted)]">
+                          trending_up
+                        </span>
+                        <p className="eyebrow mt-4 !text-[10px]">Forecast setup</p>
+                        <h3 className="mt-2 text-lg font-semibold text-[var(--color-pib-text)]">No forecastable deals yet</h3>
+                        <p className="mt-2 max-w-md text-sm leading-6 text-[var(--color-pib-text-muted)]">
+                          Create an open opportunity with value, probability, owner, and close date so leadership can trust the forecast.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => setShowCreateDrawer(true)}
+                          className="btn-pib-accent mt-5 inline-flex items-center gap-1.5 text-xs"
+                        >
+                          <span className="material-symbols-outlined text-[15px]">add</span>
+                          Create forecastable deal
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 ) : (
                   openDeals.map(deal => {
