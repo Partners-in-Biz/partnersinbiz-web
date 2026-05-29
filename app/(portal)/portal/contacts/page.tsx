@@ -132,13 +132,17 @@ function hasContactOwner(contact: Contact): boolean {
   return Boolean(String(contact.assignedTo ?? contact.assignedToRef?.uid ?? '').trim())
 }
 
+function searchParamInList(value: string | null, allowedValues: readonly string[]): string {
+  return value && allowedValues.includes(value) ? value : ''
+}
+
 export default function PortalContactsPage() {
   const searchParams = useSearchParams()
   const [contacts, setContacts] = useState<Contact[]>([])
   const [loading, setLoading] = useState(true)
-  const [search, setSearch] = useState('')
-  const [stageFilter, setStageFilter] = useState('')
-  const [typeFilter, setTypeFilter] = useState('')
+  const [search, setSearch] = useState(() => searchParams.get('search') ?? '')
+  const [stageFilter, setStageFilter] = useState(() => searchParamInList(searchParams.get('stage'), STAGES))
+  const [typeFilter, setTypeFilter] = useState(() => searchParamInList(searchParams.get('type'), TYPES))
   const [ownerLens, setOwnerLens] = useState<'all' | 'unowned'>(() => searchParams.get('owner') === 'unowned' ? 'unowned' : 'all')
   const [showNew, setShowNew] = useState(false)
 

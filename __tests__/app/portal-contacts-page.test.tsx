@@ -21,34 +21,37 @@ describe('Portal contacts page', () => {
     global.fetch = jest.fn((input: RequestInfo | URL) => {
       const url = String(input)
       if (url.startsWith('/api/v1/crm/contacts')) {
+        const requestUrl = new URL(url, 'http://localhost')
+        const stage = requestUrl.searchParams.get('stage')
+        const contacts = [
+          {
+            id: 'contact-owned',
+            name: 'Owned Client',
+            email: 'owned@example.com',
+            company: 'Owned Co',
+            type: 'client',
+            stage: 'won',
+            assignedTo: 'sales-lead-1',
+            assignedToRef: { uid: 'sales-lead-1', displayName: 'Ava Owner' },
+            tags: [],
+            lastContactedAt: null,
+          },
+          {
+            id: 'contact-unowned',
+            name: 'Unowned Prospect',
+            email: 'unowned@example.com',
+            company: 'Open Co',
+            type: 'lead',
+            stage: 'new',
+            assignedTo: '',
+            tags: [],
+            lastContactedAt: null,
+          },
+        ]
         return Promise.resolve({
           ok: true,
           json: async () => ({
-            data: [
-              {
-                id: 'contact-owned',
-                name: 'Owned Client',
-                email: 'owned@example.com',
-                company: 'Owned Co',
-                type: 'client',
-                stage: 'won',
-                assignedTo: 'sales-lead-1',
-                assignedToRef: { uid: 'sales-lead-1', displayName: 'Ava Owner' },
-                tags: [],
-                lastContactedAt: null,
-              },
-              {
-                id: 'contact-unowned',
-                name: 'Unowned Prospect',
-                email: 'unowned@example.com',
-                company: 'Open Co',
-                type: 'lead',
-                stage: 'new',
-                assignedTo: '',
-                tags: [],
-                lastContactedAt: null,
-              },
-            ],
+            data: stage ? contacts.filter(contact => contact.stage === stage) : contacts,
           }),
         } as Response)
       }
@@ -112,5 +115,19 @@ describe('Portal contacts page', () => {
     expect(screen.getByRole('button', { name: 'Show all contacts' })).toBeInTheDocument()
     expect(screen.getByText('1 unowned contact need assignment.')).toBeInTheDocument()
     expect(screen.getByText('owner: unowned')).toBeInTheDocument()
+  })
+
+  it('opens directly to a stage lens from CRM reports', async () => {
+    mockSearchParams = new URLSearchParams('stage=new')
+
+    render(<PortalContactsPage />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: /Unowned Prospect/i })).toBeInTheDocument()
+    })
+
+    expect(screen.queryByRole('link', { name: /Owned Client/i })).not.toBeInTheDocument()
+    expect(screen.getByText('1 contact match this view.')).toBeInTheDocument()
+    expect(screen.getByText('stage: new')).toBeInTheDocument()
   })
 })

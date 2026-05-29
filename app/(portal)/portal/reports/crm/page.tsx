@@ -571,12 +571,17 @@ export default function CrmReportsPage() {
           label="Funnel shape"
           title={topStage ? `${labelize(topStage[0])} holds ${fmtNum(topStage[1])} contacts` : 'No dominant stage yet'}
           body={`${fmtPercent(prospectMix)} of active contacts are prospects and ${fmtNum(churnedCount)} contacts are churned.`}
-          action={!topStage ? {
+          action={topStage ? {
+            href: `/portal/contacts?stage=${encodeURIComponent(topStage[0])}`,
+            label: 'Review stage',
+            ariaLabel: `Open contacts in dominant ${labelize(topStage[0])} stage`,
+            icon: 'contacts',
+          } : {
             href: '/portal/contacts',
             label: 'Classify contact stages',
             ariaLabel: 'Open contacts to classify funnel stages',
             icon: 'contacts',
-          } : undefined}
+          }}
           tone={clientMix >= 0.25 ? 'good' : prospectMix >= 0.35 ? 'warning' : 'neutral'}
         />
         <InsightCard
