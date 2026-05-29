@@ -532,7 +532,13 @@ export default function ContactDetailPage() {
               <div className="grid gap-3">
                 <DetailRow label="Email" value={contact.email} />
                 <DetailRow label="Phone" value={contact.phone} />
-                <DetailRow label="Role" value={[contact.jobTitle, contact.department].filter(Boolean).join(' · ')} />
+                <DetailRow
+                  label="Role"
+                  value={[contact.jobTitle, contact.department].filter(Boolean).join(' · ')}
+                  actionLabel={`Add role for ${name} from relationship profile`}
+                  onAction={() => setEditing(true)}
+                  actionIcon="badge"
+                />
                 <DetailRow
                   label="Website"
                   value={contact.website}
