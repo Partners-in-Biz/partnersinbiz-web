@@ -94,6 +94,9 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
   const strength = typeof company.healthScore === 'number' ? company.healthScore : profileStrength(company)
   const strengthColor = strength >= 75 ? '#4ade80' : strength >= 45 ? '#facc15' : '#f87171'
   const siteHref = websiteHref(company)
+  const missingIdentity = !company.domain && !company.website && !company.legalName
+  const missingIndustry = !company.industry
+  const missingSize = company.employeeCount == null && !company.size
   const signals = [
     company.linkedOrgId ? 'Client org linked' : undefined,
     company.billingEmail || company.accountsContact?.email ? 'Billing contact ready' : undefined,
@@ -106,6 +109,8 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
     { label: 'Projects', value: stats?.projects ?? 0, icon: 'folder_managed' },
     { label: 'Docs', value: stats?.documents ?? 0, icon: 'description' },
   ]
+  const setupButtonClass =
+    'inline-flex items-center gap-1 rounded-md border border-[var(--color-pib-line)] px-2 py-0.5 text-[11px] font-medium text-[var(--color-pib-text)] transition-colors hover:bg-white/10'
 
   return (
     <div className="space-y-5">
@@ -131,9 +136,33 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
           <div className="min-w-0 flex-1">
             <p className="eyebrow !text-[10px]">Account command center</p>
             <h1 className="mt-1 truncate text-3xl font-display leading-tight text-[var(--color-pib-text)]">{company.name}</h1>
-            <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
-              {company.domain || company.website || company.legalName || 'No domain captured'} · {company.industry || 'Industry not set'}
-            </p>
+            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-[var(--color-pib-text-muted)]">
+              <span>{company.domain || company.website || company.legalName || 'No domain captured'}</span>
+              {missingIdentity && (
+                <button
+                  type="button"
+                  onClick={onEdit}
+                  aria-label={`Add domain for ${company.name}`}
+                  className={setupButtonClass}
+                >
+                  <span className="material-symbols-outlined text-[14px]">add_link</span>
+                  Add domain
+                </button>
+              )}
+              <span aria-hidden="true">·</span>
+              <span>{company.industry || 'Industry not set'}</span>
+              {missingIndustry && (
+                <button
+                  type="button"
+                  onClick={onEdit}
+                  aria-label={`Add industry for ${company.name}`}
+                  className={setupButtonClass}
+                >
+                  <span className="material-symbols-outlined text-[14px]">category</span>
+                  Add industry
+                </button>
+              )}
+            </div>
 
             <div className="mt-3 flex flex-wrap items-center gap-2">
               {company.tier && (
@@ -197,6 +226,7 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
           <button
             type="button"
             onClick={onEdit}
+            aria-label={`Edit ${company.name}`}
             className="cursor-pointer btn-pib-secondary flex items-center gap-1.5 shrink-0"
           >
             <span className="material-symbols-outlined text-[16px]">edit</span>
@@ -224,9 +254,22 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
           <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/10">
             <div className="h-full rounded-full" style={{ width: `${strength}%`, background: strengthColor }} />
           </div>
-          <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">
-            {formatCurrency(company.annualRevenue, company.currency)} · {company.employeeCount != null ? `${company.employeeCount.toLocaleString()} people` : 'No size data'}
-          </p>
+          <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[var(--color-pib-text-muted)]">
+            <span>{formatCurrency(company.annualRevenue, company.currency)}</span>
+            <span aria-hidden="true">·</span>
+            <span>{company.employeeCount != null ? `${company.employeeCount.toLocaleString()} people` : 'No size data'}</span>
+            {missingSize && (
+              <button
+                type="button"
+                onClick={onEdit}
+                aria-label={`Add company size for ${company.name}`}
+                className={setupButtonClass}
+              >
+                <span className="material-symbols-outlined text-[14px]">groups</span>
+                Add size
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
