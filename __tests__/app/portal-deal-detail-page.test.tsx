@@ -161,4 +161,15 @@ describe('Portal deal detail page', () => {
 
     expect(screen.getByTestId('deal-drawer')).toBeInTheDocument()
   })
+
+  it('turns empty activity into a contact-link action when the deal has no contact', async () => {
+    render(<DealDetailPage />)
+
+    await screen.findByText('Unowned expansion')
+    expect(screen.getByText('No activity yet.')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Link contact to start activity for Unowned expansion' }))
+
+    expect(screen.getByTestId('deal-drawer')).toBeInTheDocument()
+  })
 })

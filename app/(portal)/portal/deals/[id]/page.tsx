@@ -826,6 +826,15 @@ export default function DealDetailPage() {
                   history
                 </span>
                 <p className="text-sm text-[var(--color-pib-text-muted)] mt-2">No activity yet.</p>
+                <button
+                  type="button"
+                  onClick={() => setEditOpen(true)}
+                  className="pib-btn-primary mt-4 inline-flex items-center gap-1.5 text-sm"
+                  aria-label={`Link contact to start activity for ${deal.title ?? 'this deal'}`}
+                >
+                  <span className="material-symbols-outlined text-base">person_add</span>
+                  Link contact to start activity
+                </button>
               </div>
             ) : (
               <div className="px-5 pb-4">
