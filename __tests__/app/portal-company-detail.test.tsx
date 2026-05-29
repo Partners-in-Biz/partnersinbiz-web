@@ -1186,4 +1186,99 @@ describe('Portal company detail page', () => {
       }),
     )
   })
+
+  it('turns an empty company inventory tab into a tracked inventory item action', async () => {
+    const postInventoryItem = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ success: true, data: { inventoryItem: { id: 'stock-new' } } }),
+    } as Response)
+
+    global.fetch = jest.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/custom-fields?resource=company') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { definitions: [] } }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/companies/company-1') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              company: {
+                id: 'company-1',
+                orgId: 'org-1',
+                linkedOrgId: 'client-org-1',
+                name: 'Acme Holdings',
+                lifecycleStage: 'customer',
+              },
+            },
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/companies/company-1/command-center?limit=100') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              summary: {},
+              analytics: {},
+              contacts: [],
+              deals: [],
+              quotes: [],
+              invoices: [],
+              projects: [],
+              serviceWorkspaces: [],
+              relationships: [],
+              documents: [],
+              orders: [],
+              shipments: [],
+              inventoryItems: [],
+              activities: [],
+            },
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/inventory-items' && init?.method === 'POST') {
+        return postInventoryItem(input, init)
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ data: {} }),
+      } as Response)
+    }) as jest.Mock
+
+    render(<CompanyDetailPage />)
+
+    await screen.findByRole('heading', { name: 'Acme Holdings' })
+    fireEvent.click(screen.getByRole('tab', { name: /Inventory/i }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Create inventory item for Acme Holdings' }))
+
+    await waitFor(() => {
+      expect(postInventoryItem).toHaveBeenCalledWith(
+        '/api/v1/inventory-items',
+        expect.objectContaining({
+          method: 'POST',
+          body: expect.stringContaining('"companyId":"company-1"'),
+        }),
+      )
+    })
+    expect(JSON.parse((postInventoryItem.mock.calls[0][1] as RequestInit).body as string)).toEqual(
+      expect.objectContaining({
+        companyId: 'company-1',
+        name: 'Acme Holdings tracked inventory',
+        sku: 'ACME-HOLDINGS-TRACKED',
+        quantityAvailable: 0,
+        quantityReserved: 0,
+        lowStockThreshold: 1,
+        unit: 'item',
+        location: 'Client account',
+        visibility: 'relationship',
+        approvalState: 'approved',
+      }),
+    )
+  })
 })

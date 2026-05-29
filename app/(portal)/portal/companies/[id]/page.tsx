@@ -399,6 +399,15 @@ function orderLabel(order: RelatedOrder) {
   return order.title || order.id
 }
 
+function inventorySkuForCompany(company: Company) {
+  const base = company.name
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 32)
+  return `${base || 'ACCOUNT'}-TRACKED`
+}
+
 function ProjectsPanel({
   projects,
   company,
@@ -917,6 +926,54 @@ function ShipmentsPanel({
   )
 }
 
+function InventoryPanel({
+  inventoryItems,
+  company,
+  creatingInventoryItem,
+  inventoryError,
+  onCreateInventoryItem,
+}: {
+  inventoryItems: RelatedInventoryItem[]
+  company: Company
+  creatingInventoryItem: boolean
+  inventoryError: string | null
+  onCreateInventoryItem: () => void
+}) {
+  if (inventoryItems.length === 0) {
+    return (
+      <EmptyPanel
+        icon="inventory_2"
+        label={`No inventory items yet. Start a tracked item for ${company.name} so stock, reservations, low-stock warnings, and fulfillment history have an operational anchor.`}
+      >
+        <div className="flex flex-col items-center gap-3">
+          <button
+            type="button"
+            onClick={onCreateInventoryItem}
+            disabled={creatingInventoryItem}
+            className="btn-pib-primary inline-flex items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add_box</span>
+            {creatingInventoryItem ? 'Creating item...' : `Create inventory item for ${company.name}`}
+          </button>
+          {inventoryError ? <p className="max-w-md text-xs text-red-300">{inventoryError}</p> : null}
+        </div>
+      </EmptyPanel>
+    )
+  }
+  return (
+    <SimpleRowsPanel
+      rows={inventoryItems}
+      emptyIcon="inventory_2"
+      emptyLabel="No inventory items yet."
+      title={(row) => String(row.name ?? row.sku ?? row.id)}
+      metaFor={(row) => [
+        String(row.sku ?? ''),
+        typeof row.quantityAvailable === 'number' ? `${row.quantityAvailable} available` : undefined,
+      ]}
+    />
+  )
+}
+
 function SimpleRowsPanel({
   rows,
   emptyIcon,
@@ -1163,6 +1220,8 @@ export default function CompanyDetailPage() {
   const [orderError, setOrderError] = useState<string | null>(null)
   const [creatingShipment, setCreatingShipment] = useState(false)
   const [shipmentError, setShipmentError] = useState<string | null>(null)
+  const [creatingInventoryItem, setCreatingInventoryItem] = useState(false)
+  const [inventoryError, setInventoryError] = useState<string | null>(null)
   const [creatingQuote, setCreatingQuote] = useState(false)
   const [quoteError, setQuoteError] = useState<string | null>(null)
   const [customFieldDefs, setCustomFieldDefs] = useState<CustomFieldDefinition[]>([])
@@ -1589,6 +1648,38 @@ export default function CompanyDetailPage() {
     }
   }
 
+  async function createTrackedInventoryItem(): Promise<void> {
+    if (!company) return
+    setCreatingInventoryItem(true)
+    setInventoryError(null)
+    try {
+      const res = await fetch('/api/v1/inventory-items', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          companyId: company.id,
+          name: `${company.name} tracked inventory`,
+          sku: inventorySkuForCompany(company),
+          quantityAvailable: 0,
+          quantityReserved: 0,
+          lowStockThreshold: 1,
+          unit: 'item',
+          location: 'Client account',
+          visibility: 'relationship',
+          approvalState: 'approved',
+          notes: `Created on the ${company.name} company command center.`,
+        }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(body.error ?? 'Failed to create inventory item')
+      await loadRelated(company.id)
+    } catch (err) {
+      setInventoryError(err instanceof Error ? err.message : 'Failed to create inventory item')
+    } finally {
+      setCreatingInventoryItem(false)
+    }
+  }
+
   async function handleDelete(): Promise<void> {
     if (!company) return
     const confirmed = window.confirm(`Archive ${company.name}? Linked contacts, deals, quotes, and activities will keep their history but no longer point at this company.`)
@@ -1822,12 +1913,12 @@ export default function CompanyDetailPage() {
           />
         )}
         {!relatedLoading && tab === 'inventory' && (
-          <SimpleRowsPanel
-            rows={related.inventoryItems}
-            emptyIcon="inventory_2"
-            emptyLabel="No inventory items yet."
-            title={(row) => String(row.name ?? row.sku ?? row.id)}
-            metaFor={(row) => [String(row.sku ?? ''), typeof row.quantityAvailable === 'number' ? `${row.quantityAvailable} available` : undefined]}
+          <InventoryPanel
+            inventoryItems={related.inventoryItems}
+            company={company}
+            creatingInventoryItem={creatingInventoryItem}
+            inventoryError={inventoryError}
+            onCreateInventoryItem={createTrackedInventoryItem}
           />
         )}
         {!relatedLoading && tab === 'analytics' && <AnalyticsPanel analytics={related.analytics} summary={related.summary} />}
