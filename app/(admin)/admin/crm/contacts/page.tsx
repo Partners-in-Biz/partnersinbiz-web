@@ -26,6 +26,20 @@ interface Contact {
   aiLeadScore?: number
 }
 
+interface TeamMember {
+  uid: string
+  firstName?: string
+  lastName?: string
+  jobTitle?: string
+  role?: string
+}
+
+function teamMemberLabel(member: TeamMember): string {
+  const name = [member.firstName, member.lastName].filter(Boolean).join(' ').trim()
+  const title = member.jobTitle?.trim() || member.role?.trim()
+  return [name || member.uid, title].filter(Boolean).join(' - ')
+}
+
 function daysSince(value: unknown): number | null {
   if (!value) return null
   let ms = 0
@@ -136,6 +150,7 @@ export default function ContactsPage() {
   const [bulkOwner, setBulkOwner] = useState('')
   const [bulkPending, setBulkPending] = useState(false)
   const [bulkError, setBulkError] = useState('')
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([])
   const [showNew, setShowNew] = useState(false)
   const activeOrgId = selectedOrgId || contactOrgId
   const hasActiveFilters = Boolean(search.trim() || stageFilter || typeFilter || ownerFilter !== 'all')
@@ -194,6 +209,27 @@ export default function ContactsPage() {
     }, 0)
     return () => window.clearTimeout(timer)
   }, [fetchContacts])
+
+  useEffect(() => {
+    if (!activeOrgId) {
+      setTeamMembers([])
+      return
+    }
+    let cancelled = false
+    fetch('/api/v1/portal/settings/team')
+      .then((res) => res.ok ? res.json() : null)
+      .then((body) => {
+        if (cancelled) return
+        const members = Array.isArray(body?.members) ? body.members : []
+        setTeamMembers(members.filter((member: TeamMember) => member.uid))
+      })
+      .catch(() => {
+        if (!cancelled) setTeamMembers([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [activeOrgId])
 
   async function createContact(data: Record<string, unknown>) {
     if (!activeOrgId) throw new Error('Select a client workspace before creating a contact')
@@ -351,13 +387,19 @@ export default function ContactsPage() {
         <section className="pib-card flex flex-wrap items-end gap-3 p-4">
           <div className="min-w-[260px] flex-1">
             <label htmlFor="adminBulkOwner" className="pib-label">Assign selected contacts to owner</label>
-            <input
+            <select
               id="adminBulkOwner"
               value={bulkOwner}
               onChange={(event) => setBulkOwner(event.target.value)}
-              placeholder="Owner user id or email"
-              className="pib-input mt-1"
-            />
+              className="pib-select mt-1"
+            >
+              <option value="">Select a team member</option>
+              {teamMembers.map((member) => (
+                <option key={member.uid} value={member.uid}>
+                  {teamMemberLabel(member)}
+                </option>
+              ))}
+            </select>
           </div>
           <button
             type="button"

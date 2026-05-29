@@ -42,6 +42,22 @@ describe('Admin CRM contacts page', () => {
           }),
         } as Response)
       }
+      if (url === '/api/v1/portal/settings/team') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            members: [
+              {
+                uid: 'sales-lead-2',
+                firstName: 'Mandy',
+                lastName: 'Manager',
+                jobTitle: 'Sales lead',
+                role: 'admin',
+              },
+            ],
+          }),
+        } as Response)
+      }
       return Promise.resolve({
         ok: true,
         json: async () => ({ data: [] }),
@@ -79,6 +95,9 @@ describe('Admin CRM contacts page', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Show unowned contacts needing an owner' }))
     fireEvent.click(screen.getByRole('checkbox', { name: 'Select Unowned Prospect for bulk owner assignment' }))
+    await waitFor(() => {
+      expect(screen.getByRole('option', { name: 'Mandy Manager - Sales lead' })).toBeInTheDocument()
+    })
     fireEvent.change(screen.getByLabelText('Assign selected contacts to owner'), {
       target: { value: 'sales-lead-2' },
     })
