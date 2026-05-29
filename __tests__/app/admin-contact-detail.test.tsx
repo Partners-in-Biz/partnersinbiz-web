@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import AdminContactDetailPage from '@/app/(admin)/admin/crm/contacts/[id]/page'
 
 const push = jest.fn()
+let contactOverride: Record<string, unknown> = {}
 
 jest.mock('next/navigation', () => ({
   useParams: () => ({ id: 'contact-1' }),
@@ -49,6 +50,7 @@ jest.mock('@/components/crm/ContactIntelligenceStack', () => ({
 describe('Admin contact detail page', () => {
   beforeEach(() => {
     push.mockClear()
+    contactOverride = {}
     global.fetch = jest.fn((input: RequestInfo | URL) => {
       const url = String(input)
       if (url === '/api/v1/crm/contacts/contact-1') {
@@ -63,6 +65,7 @@ describe('Admin contact detail page', () => {
                 email: 'jane@example.com',
                 type: 'lead',
                 stage: 'new',
+                ...contactOverride,
               },
             },
           }),
@@ -148,6 +151,20 @@ describe('Admin contact detail page', () => {
 
     const headerEmailLink = screen.getByRole('link', { name: 'Email Jane Client from contact command center' })
     expect(headerEmailLink).toHaveAttribute('href', '/admin/email/compose?to=jane%40example.com&contactId=contact-1')
+  })
+
+  it('turns a missing admin contact email into a profile completion action', async () => {
+    contactOverride = { email: '' }
+
+    render(<AdminContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Jane Client' })).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add email for Jane Client from contact command center' }))
+
+    expect(screen.getByTestId('contact-form')).toBeInTheDocument()
   })
 
   it('turns empty admin activity history into a note composer action', async () => {

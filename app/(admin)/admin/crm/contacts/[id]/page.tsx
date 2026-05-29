@@ -430,6 +430,17 @@ export default function ContactDetailPage() {
                   Email
                 </Link>
               )}
+              {!composeEmailHref && (
+                <button
+                  type="button"
+                  aria-label={`Add email for ${name} from contact command center`}
+                  onClick={() => setEditing(true)}
+                  className="pib-btn-secondary text-sm"
+                >
+                  <span className="material-symbols-outlined text-base">alternate_email</span>
+                  Add email
+                </button>
+              )}
               {contact.phone && (
                 <a href={`tel:${contact.phone}`} className="pib-btn-secondary text-sm">
                   <span className="material-symbols-outlined text-base">call</span>
