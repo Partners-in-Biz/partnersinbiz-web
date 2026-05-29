@@ -198,6 +198,17 @@ export function ContactDealsPanel({ contactId, contactName, orgId = '' }: Props)
           <p className="text-sm text-[var(--color-pib-text-muted)] mt-2">
             No deals linked to this contact yet.
           </p>
+          <p className="mx-auto mt-2 max-w-sm text-xs leading-relaxed text-[var(--color-pib-text-muted)]">
+            Start a pipeline record here so follow-up, quotes, and revenue forecasts stay connected to this relationship.
+          </p>
+          <button
+            type="button"
+            onClick={() => setShowDealDrawer(true)}
+            className="btn-pib-secondary mx-auto mt-4 inline-flex items-center gap-1.5 text-xs"
+          >
+            <span className="material-symbols-outlined text-[14px]" aria-hidden="true">add</span>
+            Create first deal
+          </button>
         </div>
       ) : (
         <div className="divide-y divide-[var(--color-pib-line)]">

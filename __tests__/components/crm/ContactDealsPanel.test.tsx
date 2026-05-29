@@ -201,4 +201,15 @@ describe('ContactDealsPanel', () => {
 
     expect(screen.getByText('Drawer contact label: Ava Owner')).toBeInTheDocument()
   })
+
+  it('opens the deal drawer from the empty-state first-deal action', async () => {
+    mockFetch.mockReturnValue(apiResponse([]))
+
+    render(<ContactDealsPanel contactId="contact-1" contactName="Ava Owner" />)
+    await waitFor(() => expect(screen.getByText('No deals linked to this contact yet.')).toBeInTheDocument())
+
+    fireEvent.click(screen.getByRole('button', { name: /Create first deal/i }))
+
+    expect(screen.getByText('Drawer contact label: Ava Owner')).toBeInTheDocument()
+  })
 })
