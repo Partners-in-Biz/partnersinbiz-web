@@ -391,6 +391,10 @@ function quoteLabel(quote: RelatedQuote) {
   return quote.quoteNumber || quote.id
 }
 
+function invoiceLabel(invoice: RelatedInvoice) {
+  return invoice.invoiceNumber || invoice.id
+}
+
 function ProjectsPanel({
   projects,
   company,
@@ -780,6 +784,72 @@ function InvoicesPanel({
   )
 }
 
+function OrdersPanel({
+  orders,
+  company,
+  invoices,
+  creatingOrder,
+  orderError,
+  onCreateOrderFromInvoice,
+}: {
+  orders: RelatedOrder[]
+  company: Company
+  invoices: RelatedInvoice[]
+  creatingOrder: boolean
+  orderError: string | null
+  onCreateOrderFromInvoice: (invoice: RelatedInvoice) => void
+}) {
+  if (orders.length === 0) {
+    const firstInvoice = invoices[0]
+    return (
+      <EmptyPanel
+        icon="orders"
+        label={
+          firstInvoice
+            ? `No linked orders yet. Turn ${invoiceLabel(firstInvoice)} into the first fulfillment order so delivery, shipments, and inventory work stay tied to ${company.name}.`
+            : `No linked orders yet. Create an invoice for ${company.name} before opening fulfillment work.`
+        }
+      >
+        <div className="flex flex-col items-center gap-3">
+          {firstInvoice ? (
+            <button
+              type="button"
+              onClick={() => onCreateOrderFromInvoice(firstInvoice)}
+              disabled={creatingOrder}
+              className="btn-pib-primary inline-flex items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add_shopping_cart</span>
+              {creatingOrder ? 'Creating order...' : `Create fulfillment order from ${invoiceLabel(firstInvoice)}`}
+            </button>
+          ) : (
+            <button
+              type="button"
+              disabled
+              className="btn-pib-secondary inline-flex cursor-not-allowed items-center gap-1.5 opacity-60"
+            >
+              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">receipt_long</span>
+              Create invoice before order
+            </button>
+          )}
+          {orderError ? <p className="max-w-md text-xs text-red-300">{orderError}</p> : null}
+        </div>
+      </EmptyPanel>
+    )
+  }
+  return (
+    <SimpleRowsPanel
+      rows={orders}
+      emptyIcon="orders"
+      emptyLabel="No linked orders yet."
+      title={(row) => String(row.title ?? row.id)}
+      metaFor={(row) => [
+        String(row.fulfillmentStatus ?? ''),
+        formatCurrency(typeof row.total === 'number' ? row.total : undefined, String(row.currency ?? 'ZAR')),
+      ]}
+    />
+  )
+}
+
 function SimpleRowsPanel({
   rows,
   emptyIcon,
@@ -1022,6 +1092,8 @@ export default function CompanyDetailPage() {
   const [relationshipError, setRelationshipError] = useState<string | null>(null)
   const [creatingInvoiceId, setCreatingInvoiceId] = useState<string | null>(null)
   const [invoiceError, setInvoiceError] = useState<string | null>(null)
+  const [creatingOrder, setCreatingOrder] = useState(false)
+  const [orderError, setOrderError] = useState<string | null>(null)
   const [creatingQuote, setCreatingQuote] = useState(false)
   const [quoteError, setQuoteError] = useState<string | null>(null)
   const [customFieldDefs, setCustomFieldDefs] = useState<CustomFieldDefinition[]>([])
@@ -1384,6 +1456,42 @@ export default function CompanyDetailPage() {
     }
   }
 
+  async function createOrderFromInvoice(invoice: RelatedInvoice): Promise<void> {
+    if (!company) return
+    const firstContact = related.contacts[0]
+    setCreatingOrder(true)
+    setOrderError(null)
+    try {
+      const res = await fetch('/api/v1/orders', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          companyId: company.id,
+          contactId: firstContact?.id,
+          invoiceId: invoice.id,
+          title: `${company.name} fulfillment order`,
+          status: 'confirmed',
+          fulfillmentStatus: 'not_started',
+          lineItems: [],
+          subtotal: typeof invoice.total === 'number' ? invoice.total : 0,
+          taxAmount: 0,
+          total: typeof invoice.total === 'number' ? invoice.total : 0,
+          currency: invoice.currency || 'ZAR',
+          visibility: 'relationship',
+          approvalState: 'approved',
+          notes: `Created from ${invoiceLabel(invoice)} on the company command center.`,
+        }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(body.error ?? 'Failed to create order')
+      await loadRelated(company.id)
+    } catch (err) {
+      setOrderError(err instanceof Error ? err.message : 'Failed to create order')
+    } finally {
+      setCreatingOrder(false)
+    }
+  }
+
   async function handleDelete(): Promise<void> {
     if (!company) return
     const confirmed = window.confirm(`Archive ${company.name}? Linked contacts, deals, quotes, and activities will keep their history but no longer point at this company.`)
@@ -1597,12 +1705,13 @@ export default function CompanyDetailPage() {
           />
         )}
         {!relatedLoading && tab === 'orders' && (
-          <SimpleRowsPanel
-            rows={related.orders}
-            emptyIcon="orders"
-            emptyLabel="No linked orders yet."
-            title={(row) => String(row.title ?? row.id)}
-            metaFor={(row) => [String(row.fulfillmentStatus ?? ''), formatCurrency(typeof row.total === 'number' ? row.total : undefined, String(row.currency ?? 'ZAR'))]}
+          <OrdersPanel
+            orders={related.orders}
+            company={company}
+            invoices={related.invoices}
+            creatingOrder={creatingOrder}
+            orderError={orderError}
+            onCreateOrderFromInvoice={createOrderFromInvoice}
           />
         )}
         {!relatedLoading && tab === 'shipments' && (

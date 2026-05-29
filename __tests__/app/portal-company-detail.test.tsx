@@ -992,4 +992,103 @@ describe('Portal company detail page', () => {
       )
     })
   })
+
+  it('turns an empty company orders tab into a fulfillment order action from the first invoice', async () => {
+    const postOrder = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ success: true, data: { order: { id: 'order-new' } } }),
+    } as Response)
+
+    global.fetch = jest.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/custom-fields?resource=company') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { definitions: [] } }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/companies/company-1') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              company: {
+                id: 'company-1',
+                orgId: 'org-1',
+                linkedOrgId: 'client-org-1',
+                name: 'Acme Holdings',
+                lifecycleStage: 'customer',
+              },
+            },
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/companies/company-1/command-center?limit=100') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              summary: {},
+              analytics: {},
+              contacts: [
+                { id: 'contact-1', name: 'Jane Client', email: 'jane@example.com', type: 'client', stage: 'won' },
+              ],
+              deals: [],
+              quotes: [],
+              invoices: [
+                { id: 'invoice-1', invoiceNumber: 'INV-001', status: 'sent', total: 12000, currency: 'ZAR' },
+              ],
+              projects: [],
+              serviceWorkspaces: [],
+              relationships: [],
+              documents: [],
+              orders: [],
+              shipments: [],
+              inventoryItems: [],
+              activities: [],
+            },
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/orders' && init?.method === 'POST') {
+        return postOrder(input, init)
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ data: {} }),
+      } as Response)
+    }) as jest.Mock
+
+    render(<CompanyDetailPage />)
+
+    await screen.findByRole('heading', { name: 'Acme Holdings' })
+    fireEvent.click(screen.getByRole('tab', { name: /Orders/i }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Create fulfillment order from INV-001' }))
+
+    await waitFor(() => {
+      expect(postOrder).toHaveBeenCalledWith(
+        '/api/v1/orders',
+        expect.objectContaining({
+          method: 'POST',
+          body: expect.stringContaining('"invoiceId":"invoice-1"'),
+        }),
+      )
+    })
+    expect(JSON.parse((postOrder.mock.calls[0][1] as RequestInit).body as string)).toEqual(
+      expect.objectContaining({
+        companyId: 'company-1',
+        contactId: 'contact-1',
+        invoiceId: 'invoice-1',
+        title: 'Acme Holdings fulfillment order',
+        status: 'confirmed',
+        fulfillmentStatus: 'not_started',
+        total: 12000,
+        currency: 'ZAR',
+        visibility: 'relationship',
+        approvalState: 'approved',
+      }),
+    )
+  })
 })
