@@ -195,6 +195,20 @@ describe('Admin contact detail page', () => {
     expect(screen.getByTestId('contact-form')).toBeInTheDocument()
   })
 
+  it('turns a missing admin contact website into a relationship profile completion action', async () => {
+    contactOverride = { website: '' }
+
+    render(<AdminContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Jane Client' })).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add website for Jane Client from relationship profile' }))
+
+    expect(screen.getByTestId('contact-form')).toBeInTheDocument()
+  })
+
   it('turns empty admin activity history into a note composer action', async () => {
     render(<AdminContactDetailPage />)
 

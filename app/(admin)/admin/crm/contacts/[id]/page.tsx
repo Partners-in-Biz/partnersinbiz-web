@@ -175,11 +175,36 @@ function CommandMetric({
   )
 }
 
-function DetailRow({ label, value }: { label: string; value: unknown }) {
+function DetailRow({
+  label,
+  value,
+  actionLabel,
+  onAction,
+  actionIcon = 'add',
+}: {
+  label: string
+  value: unknown
+  actionLabel?: string
+  onAction?: () => void
+  actionIcon?: string
+}) {
   const captured = Boolean(textValue(value))
   return (
     <div className="rounded-lg border border-[var(--color-card-border)] bg-white/[0.02] px-3 py-2.5">
-      <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">{label}</p>
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">{label}</p>
+        {!captured && actionLabel && onAction && (
+          <button
+            type="button"
+            aria-label={actionLabel}
+            onClick={onAction}
+            className="inline-flex shrink-0 items-center gap-1 rounded-full border border-[var(--color-card-border)] px-2 py-1 text-[10px] font-semibold text-[var(--color-accent-v2)] transition-colors hover:border-[var(--color-accent-v2)] hover:text-on-surface"
+          >
+            <span className="material-symbols-outlined text-[13px]" aria-hidden="true">{actionIcon}</span>
+            Add
+          </button>
+        )}
+      </div>
       <p className={`mt-1 text-sm break-words ${captured ? 'text-on-surface' : 'text-on-surface-variant'}`}>
         {displayValue(value)}
       </p>
@@ -508,7 +533,13 @@ export default function ContactDetailPage() {
                 <DetailRow label="Email" value={contact.email} />
                 <DetailRow label="Phone" value={contact.phone} />
                 <DetailRow label="Role" value={[contact.jobTitle, contact.department].filter(Boolean).join(' · ')} />
-                <DetailRow label="Website" value={contact.website} />
+                <DetailRow
+                  label="Website"
+                  value={contact.website}
+                  actionLabel={`Add website for ${name} from relationship profile`}
+                  onAction={() => setEditing(true)}
+                  actionIcon="language"
+                />
                 <DetailRow label="Owner" value={contact.assignedTo} />
                 <DetailRow label="Created" value={fmtTimestamp(contact.createdAt)} />
                 <DetailRow label="Updated" value={fmtTimestamp(contact.updatedAt)} />
