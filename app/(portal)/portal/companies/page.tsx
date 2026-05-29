@@ -192,6 +192,10 @@ export default function CompaniesPage() {
     router.push(`/portal/companies/${id}`)
   }
 
+  function handleSetupCompany(id: string) {
+    router.push(`/portal/companies/${id}?edit=profile`)
+  }
+
   function toggleCompany(id: string) {
     setSelectedIds(prev => {
       const next = new Set(prev)
@@ -394,6 +398,7 @@ export default function CompaniesPage() {
         companies={displayedCompanies}
         loading={loading}
         onRowClick={handleRowClick}
+        onSetupCompany={handleSetupCompany}
         selectedIds={selectedIds}
         onToggleCompany={toggleCompany}
         onToggleAll={toggleAllCompanies}

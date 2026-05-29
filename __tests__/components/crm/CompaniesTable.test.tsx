@@ -70,6 +70,27 @@ describe('CompaniesTable', () => {
     expect(screen.getByText('Globex Inc')).toBeInTheDocument()
   })
 
+  it('turns sparse company rows into a profile completion action', () => {
+    const handleSetup = jest.fn()
+    const company = makeCompany({ id: 'co-setup', name: 'Setup Needed Ltd' })
+
+    render(
+      <CompaniesTable
+        companies={[company]}
+        loading={false}
+        onRowClick={noop}
+        onSetupCompany={handleSetup}
+      />,
+    )
+
+    expect(screen.getByText('No domain captured')).toBeInTheDocument()
+    expect(screen.getByText('No size data')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Complete account profile for Setup Needed Ltd' }))
+
+    expect(handleSetup).toHaveBeenCalledWith('co-setup')
+  })
+
   it('calls onRowClick with the company id when a row is clicked', () => {
     const handleClick = jest.fn()
     const company = makeCompany({ id: 'co-42', name: 'Click Me Inc' })

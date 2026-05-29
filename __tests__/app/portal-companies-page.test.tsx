@@ -77,4 +77,16 @@ describe('Portal companies page', () => {
     expect(screen.getByText('Unmanaged Account')).toBeInTheDocument()
     expect(screen.getByText('Unassigned')).toBeInTheDocument()
   })
+
+  it('routes sparse company rows directly to profile setup', async () => {
+    render(<CompaniesPage />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Unmanaged Account')).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Complete account profile for Unmanaged Account' }))
+
+    expect(mockPush).toHaveBeenCalledWith('/portal/companies/company-unmanaged?edit=profile')
+  })
 })

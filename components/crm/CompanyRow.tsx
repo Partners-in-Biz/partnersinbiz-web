@@ -81,9 +81,10 @@ export interface CompanyRowProps {
   onClick: (id: string) => void
   selected?: boolean
   onToggleSelected?: (id: string) => void
+  onSetupProfile?: (id: string) => void
 }
 
-export function CompanyRow({ company, onClick, selected = false, onToggleSelected }: CompanyRowProps) {
+export function CompanyRow({ company, onClick, selected = false, onToggleSelected, onSetupProfile }: CompanyRowProps) {
   const lcCls = company.lifecycleStage
     ? (LIFECYCLE_COLOURS[company.lifecycleStage] ?? 'bg-surface-container text-on-surface-variant')
     : ''
@@ -91,6 +92,9 @@ export function CompanyRow({ company, onClick, selected = false, onToggleSelecte
   const health = typeof company.healthScore === 'number' ? company.healthScore : strength
   const healthColor = health >= 75 ? '#4ade80' : health >= 45 ? '#facc15' : '#f87171'
   const tierCls = company.tier ? (TIER_COLOURS[company.tier] ?? 'bg-surface-container text-on-surface-variant') : ''
+  const hasSetupGap = !company.domain && !company.website && !company.legalName
+    || !company.industry
+    || company.employeeCount == null && !company.size
   const signals = [
     company.linkedOrgId ? 'Client org' : '',
     company.billingEmail || company.accountsContact?.email ? 'Billing' : '',
@@ -228,6 +232,20 @@ export function CompanyRow({ company, onClick, selected = false, onToggleSelecte
       {/* Signals */}
       <td className="px-4 py-3">
         <div className="flex max-w-[180px] flex-wrap gap-1">
+          {hasSetupGap && onSetupProfile && (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation()
+                onSetupProfile(company.id)
+              }}
+              aria-label={`Complete account profile for ${company.name}`}
+              className="inline-flex items-center gap-1 rounded-md border border-amber-400/30 bg-amber-400/10 px-2 py-0.5 text-[10px] font-medium text-amber-200 transition-colors hover:bg-amber-400/20"
+            >
+              <span className="material-symbols-outlined text-[13px]">fact_check</span>
+              Complete profile
+            </button>
+          )}
           {signals.length > 0 ? signals.map((signal) => (
             <span key={signal} className="rounded-full bg-white/5 px-2 py-0.5 text-[10px] text-[var(--color-pib-text-muted)]">
               {signal}

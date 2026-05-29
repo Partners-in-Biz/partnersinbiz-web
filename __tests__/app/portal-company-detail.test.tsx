@@ -2,13 +2,17 @@ import React from 'react'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import CompanyDetailPage from '@/app/(portal)/portal/companies/[id]/page'
 
+let mockSearchParams = new URLSearchParams()
+
 jest.mock('next/navigation', () => ({
   useParams: () => ({ id: 'company-1' }),
   useRouter: () => ({ push: jest.fn() }),
+  useSearchParams: () => mockSearchParams,
 }))
 
 describe('Portal company detail page', () => {
   beforeEach(() => {
+    mockSearchParams = new URLSearchParams()
     global.fetch = jest.fn((input: RequestInfo | URL) => {
       const url = String(input)
       if (url === '/api/v1/crm/custom-fields?resource=company') {
@@ -98,6 +102,14 @@ describe('Portal company detail page', () => {
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: 'Acme Holdings' })).toBeInTheDocument()
     })
+  })
+
+  it('opens profile editing when routed from a list setup action', async () => {
+    mockSearchParams = new URLSearchParams('edit=profile')
+
+    render(<CompanyDetailPage />)
+
+    expect(await screen.findByRole('dialog', { name: 'Edit Company' })).toBeInTheDocument()
   })
 
   it('renders linked contacts and invoices instead of placeholder copy', async () => {

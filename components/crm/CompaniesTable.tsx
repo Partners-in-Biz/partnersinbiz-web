@@ -41,6 +41,7 @@ export interface CompaniesTableProps {
   companies: Company[]
   loading: boolean
   onRowClick: (id: string) => void
+  onSetupCompany?: (id: string) => void
   selectedIds?: Set<string>
   onToggleCompany?: (id: string) => void
   onToggleAll?: () => void
@@ -50,6 +51,7 @@ export function CompaniesTable({
   companies,
   loading,
   onRowClick,
+  onSetupCompany,
   selectedIds,
   onToggleCompany,
   onToggleAll,
@@ -128,6 +130,7 @@ export function CompaniesTable({
                 key={company.id}
                 company={company}
                 onClick={onRowClick}
+                onSetupProfile={onSetupCompany}
                 selected={selectedIds?.has(company.id) ?? false}
                 onToggleSelected={onToggleCompany}
               />

@@ -2,7 +2,7 @@
 export const dynamic = 'force-dynamic'
 
 import { useEffect, useState, useCallback } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import type { Company } from '@/lib/companies/types'
 import type { CustomFieldDefinition } from '@/lib/customFields/types'
@@ -1281,6 +1281,7 @@ function ActivityPanel({
 export default function CompanyDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
+  const searchParams = useSearchParams()
 
   const [company, setCompany] = useState<Company | null>(null)
   const [loading, setLoading] = useState(true)
@@ -1330,6 +1331,12 @@ export default function CompanyDetailPage() {
     summary: {},
     analytics: {},
   })
+
+  useEffect(() => {
+    if (searchParams.get('edit') === 'profile') {
+      setEditOpen(true)
+    }
+  }, [searchParams])
   const [relatedLoading, setRelatedLoading] = useState(false)
   const [relatedError, setRelatedError] = useState<string | null>(null)
 
