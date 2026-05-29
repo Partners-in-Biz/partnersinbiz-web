@@ -15,6 +15,16 @@ import type { Pipeline, PipelineStage } from '@/lib/pipelines/types'
 
 type ViewMode = 'board' | 'list' | 'forecast' | 'contacts'
 
+type TeamMember = {
+  uid: string
+  firstName?: string
+  lastName?: string
+  displayName?: string
+  email?: string
+  jobTitle?: string
+  role?: string
+}
+
 function Skeleton({ className = '' }: { className?: string }) {
   return <div className={`pib-skeleton ${className}`} />
 }
@@ -61,6 +71,32 @@ function formatDealsTotal(deals: Deal[], mode: 'value' | 'weighted') {
     return sum + (deal.value ?? 0)
   }, 0)
   return fmtDealValue(total, deals.find((deal) => deal.currency)?.currency)
+}
+
+function hasDealOwner(deal: Deal): boolean {
+  return Boolean(String(deal.ownerUid ?? deal.ownerRef?.uid ?? '').trim())
+}
+
+function dealOwnerLabel(deal: Deal): string {
+  return deal.ownerRef?.displayName || deal.ownerUid || 'Unassigned'
+}
+
+function teamMemberLabel(member: TeamMember): string {
+  const name = member.displayName || [member.firstName, member.lastName].filter(Boolean).join(' ').trim() || member.email || member.uid
+  return member.jobTitle ? `${name} - ${member.jobTitle}` : name
+}
+
+function teamMemberDisplayName(member: TeamMember): string {
+  return member.displayName || [member.firstName, member.lastName].filter(Boolean).join(' ').trim() || member.email || member.uid
+}
+
+function teamMemberOwnerRef(member: TeamMember) {
+  return {
+    uid: member.uid,
+    displayName: teamMemberDisplayName(member),
+    ...(member.jobTitle ? { jobTitle: member.jobTitle } : {}),
+    kind: 'human' as const,
+  }
 }
 
 async function readApiJson(res: Response, fallback: string) {
@@ -145,6 +181,12 @@ export default function PipelinePage() {
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [stageFilter, setStageFilter] = useState('all')
+  const [ownerLens, setOwnerLens] = useState<'all' | 'unassigned'>('all')
+  const [selectedDealIds, setSelectedDealIds] = useState<Set<string>>(new Set())
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([])
+  const [bulkOwnerUid, setBulkOwnerUid] = useState('')
+  const [bulkOwnerPending, setBulkOwnerPending] = useState(false)
+  const [bulkOwnerError, setBulkOwnerError] = useState('')
   const [viewMode, setViewMode] = useState<ViewMode>('board')
   const [showCreateDrawer, setShowCreateDrawer] = useState(false)
   const [editingDeal, setEditingDeal] = useState<Deal | null>(null)
@@ -185,6 +227,21 @@ export default function PipelinePage() {
         if (cancelled) return
         setContacts([])
         setContactsLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/v1/portal/settings/team')
+      .then((res) => res.ok ? res.json() : null)
+      .then((body) => {
+        if (cancelled) return
+        const members = Array.isArray(body?.members) ? body.members : []
+        setTeamMembers(members.filter((member: TeamMember) => member.uid))
+      })
+      .catch(() => {
+        if (!cancelled) setTeamMembers([])
       })
     return () => { cancelled = true }
   }, [])
@@ -241,9 +298,19 @@ export default function PipelinePage() {
         deal.contactId?.toLowerCase().includes(query) ||
         contactLabel?.toLowerCase().includes(query)
       const matchesStage = stageFilter === 'all' || deal.stageId === stageFilter
-      return matchesSearch && matchesStage
+      const matchesOwnerLens = ownerLens === 'all' || !hasDealOwner(deal)
+      return matchesSearch && matchesStage && matchesOwnerLens
     })
-  }, [contactLabelsById, deals, search, stageFilter])
+  }, [contactLabelsById, deals, ownerLens, search, stageFilter])
+
+  useEffect(() => {
+    setSelectedDealIds((current) => {
+      if (current.size === 0) return current
+      const visibleIds = new Set(searchedDeals.map((deal) => deal.id))
+      const next = new Set(Array.from(current).filter((id) => visibleIds.has(id)))
+      return next.size === current.size ? current : next
+    })
+  }, [searchedDeals])
 
   const openDeals = useMemo(() => deals
     .filter((deal) => !lostStageIds.has(deal.stageId) && !wonStageIds.has(deal.stageId))
@@ -279,6 +346,8 @@ export default function PipelinePage() {
       return sum + (deal.value ?? 0) * (probability / 100)
     }, 0)
     const won = deals.filter((deal) => wonStageIds.has(deal.stageId)).reduce((sum, deal) => sum + (deal.value ?? 0), 0)
+    const assignedDeals = deals.filter(hasDealOwner).length
+    const unassignedDeals = deals.length - assignedDeals
     const staleContacts = contacts.filter((contact) => {
       const ms = timestampMs(contact.lastContactedAt)
       if (!ms) return true
@@ -291,6 +360,8 @@ export default function PipelinePage() {
       won,
       open: openDeals.length,
       totalDeals: deals.length,
+      ownerCoverage: deals.length ? Math.round((assignedDeals / deals.length) * 100) : 100,
+      unassignedDeals,
       contacts: contacts.length,
       staleContacts,
     }
@@ -331,6 +402,68 @@ export default function PipelinePage() {
     }).catch(() => undefined)
   }, [])
 
+  function toggleDealSelection(id: string) {
+    setSelectedDealIds((current) => {
+      const next = new Set(current)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  function toggleVisibleDeals() {
+    const visibleIds = searchedDeals.map((deal) => deal.id)
+    const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedDealIds.has(id))
+    if (allVisibleSelected) {
+      setSelectedDealIds((current) => {
+        const next = new Set(current)
+        for (const id of visibleIds) next.delete(id)
+        return next
+      })
+    } else {
+      setSelectedDealIds((current) => new Set([...current, ...visibleIds]))
+    }
+  }
+
+  async function assignSelectedDealOwner() {
+    const ownerUid = bulkOwnerUid.trim()
+    if (!ownerUid || selectedDealIds.size === 0) return
+    const owner = teamMembers.find((member) => member.uid === ownerUid)
+
+    setBulkOwnerPending(true)
+    setBulkOwnerError('')
+    try {
+      const ids = Array.from(selectedDealIds)
+      await Promise.all(ids.map(async (dealId) => {
+        const res = await fetch(`/api/v1/crm/deals/${dealId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ownerUid }),
+        })
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}))
+          throw new Error(typeof body?.error === 'string' ? body.error : 'Failed to assign deal owner')
+        }
+      }))
+      setDeals((current) => current.map((deal) => (
+        selectedDealIds.has(deal.id)
+          ? {
+              ...deal,
+              ownerUid,
+              ownerRef: owner ? teamMemberOwnerRef(owner) : deal.ownerRef,
+            }
+          : deal
+      )))
+      setSelectedDealIds(new Set())
+      setBulkOwnerUid('')
+      setOwnerLens('all')
+    } catch (err) {
+      setBulkOwnerError(err instanceof Error ? err.message : 'Failed to assign deal owner')
+    } finally {
+      setBulkOwnerPending(false)
+    }
+  }
+
   const ready = !pipelinesLoading && !loading
 
   return (
@@ -367,7 +500,41 @@ export default function PipelinePage() {
           <PipelineMetric icon="trending_up" label="Weighted forecast" value={fmtDealValue(metrics.weighted, metrics.primaryCurrency)} sub="Probability adjusted" />
           <PipelineMetric icon="emoji_events" label="Won value" value={fmtDealValue(metrics.won, metrics.primaryCurrency)} sub="Current loaded pipeline" />
           <PipelineMetric icon="view_kanban" label="Open deals" value={String(metrics.open)} sub={`${metrics.totalDeals} total deals`} />
+          <PipelineMetric icon="supervisor_account" label="Deal owner coverage" value={`${metrics.ownerCoverage}%`} sub={`${metrics.unassignedDeals} unassigned`} />
           <PipelineMetric icon="schedule" label="Follow-up risk" value={String(metrics.staleContacts)} sub={`${metrics.contacts} contacts loaded`} />
+        </section>
+      )}
+
+      {ready && !error && (
+        <section className="grid gap-3 md:grid-cols-[1fr_1fr]">
+          <button
+            type="button"
+            onClick={() => setOwnerLens(ownerLens === 'unassigned' ? 'all' : 'unassigned')}
+            className={[
+              'rounded-[var(--radius-card)] border p-4 text-left transition-colors',
+              ownerLens === 'unassigned'
+                ? 'border-amber-400/40 bg-amber-400/10'
+                : 'border-[var(--color-pib-line)] bg-white/[0.03] hover:bg-white/[0.05]',
+            ].join(' ')}
+            aria-label={ownerLens === 'unassigned' ? 'Show all admin deals' : 'Show unassigned admin deals needing an owner'}
+          >
+            <span className="material-symbols-outlined text-[20px] text-[var(--color-pib-accent)]">manage_accounts</span>
+            <p className="mt-3 text-sm font-semibold text-[var(--color-pib-text)]">
+              {ownerLens === 'unassigned' ? 'Showing unassigned deals' : 'Review unassigned deals'}
+            </p>
+            <p className="mt-1 text-xs leading-relaxed text-[var(--color-pib-text-muted)]">
+              {metrics.unassignedDeals > 0
+                ? `${metrics.unassignedDeals} deals need an owner before internal forecast and handoff accountability can be trusted.`
+                : 'Every loaded deal has an owner.'}
+            </p>
+          </button>
+          <div className="rounded-[var(--radius-card)] border border-[var(--color-pib-line)] bg-white/[0.03] p-4">
+            <span className="material-symbols-outlined text-[20px] text-[var(--color-pib-accent)]">assignment_ind</span>
+            <p className="mt-3 text-sm font-semibold text-[var(--color-pib-text)]">Admin pipeline ownership</p>
+            <p className="mt-1 text-xs leading-relaxed text-[var(--color-pib-text-muted)]">
+              Use the lens with row selection to assign sales responsibility before revenue reviews or client handoffs.
+            </p>
+          </div>
         </section>
       )}
 
@@ -418,6 +585,48 @@ export default function PipelinePage() {
           </>
         )}
       </div>
+
+      {ready && !error && selectedDealIds.size > 0 && (
+        <section className="pib-card flex flex-wrap items-end gap-3 p-4">
+          <div className="min-w-[260px] flex-1">
+            <label htmlFor="adminDealBulkOwner" className="pib-label">Assign selected admin deals to owner</label>
+            <select
+              id="adminDealBulkOwner"
+              value={bulkOwnerUid}
+              onChange={(event) => setBulkOwnerUid(event.target.value)}
+              className="pib-select mt-1"
+            >
+              <option value="">Select a team member</option>
+              {teamMembers.map((member) => (
+                <option key={member.uid} value={member.uid}>
+                  {teamMemberLabel(member)}
+                </option>
+              ))}
+            </select>
+          </div>
+          <button
+            type="button"
+            onClick={assignSelectedDealOwner}
+            disabled={!bulkOwnerUid.trim() || bulkOwnerPending}
+            className="pib-btn-primary text-sm disabled:cursor-not-allowed disabled:opacity-50"
+            aria-label={`Assign owner to ${selectedDealIds.size} selected admin deal${selectedDealIds.size === 1 ? '' : 's'}`}
+          >
+            <span className="material-symbols-outlined text-base">supervisor_account</span>
+            {bulkOwnerPending ? 'Assigning...' : 'Assign owner'}
+          </button>
+          <button
+            type="button"
+            onClick={() => { setSelectedDealIds(new Set()); setBulkOwnerUid(''); setBulkOwnerError('') }}
+            className="pib-btn-secondary text-sm"
+          >
+            Clear selection
+          </button>
+          <p className="basis-full text-xs text-on-surface-variant">
+            {selectedDealIds.size} selected for owner assignment.
+          </p>
+          {bulkOwnerError && <p className="basis-full text-xs text-red-300">{bulkOwnerError}</p>}
+        </section>
+      )}
 
       {error && (
         <EmptyState icon="error" title="Unable to load pipeline." description={error} />
@@ -479,7 +688,16 @@ export default function PipelinePage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-[var(--color-card-border)] bg-white/[0.02]">
-                  {['Deal', 'Stage', 'Value', 'Prob', 'Weighted', 'Company', 'Contact'].map((heading) => (
+                  <th className="w-10 px-4 py-3">
+                    <input
+                      type="checkbox"
+                      aria-label="Select visible admin deals for owner assignment"
+                      checked={searchedDeals.length > 0 && searchedDeals.every((deal) => selectedDealIds.has(deal.id))}
+                      onChange={toggleVisibleDeals}
+                      className="h-4 w-4 rounded border-[var(--color-pib-line)] bg-transparent"
+                    />
+                  </th>
+                  {['Deal', 'Stage', 'Owner', 'Value', 'Prob', 'Weighted', 'Company', 'Contact'].map((heading) => (
                     <th key={heading} className="px-4 py-3 text-left text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
                       {heading}
                     </th>
@@ -496,15 +714,26 @@ export default function PipelinePage() {
                   return (
                     <tr
                       key={deal.id}
+                      data-admin-deal-row
                       onClick={() => setViewingDeal(deal)}
                       className="cursor-pointer border-b border-[var(--color-card-border)] transition-colors hover:bg-surface-container"
                     >
+                      <td className="px-4 py-3" onClick={(event) => event.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          aria-label={`Select ${deal.title} for admin deal owner assignment`}
+                          checked={selectedDealIds.has(deal.id)}
+                          onChange={() => toggleDealSelection(deal.id)}
+                          className="h-4 w-4 rounded border-[var(--color-pib-line)] bg-transparent"
+                        />
+                      </td>
                       <td className="px-4 py-3 font-medium text-on-surface">{deal.title}</td>
                       <td className="px-4 py-3">
                         <span className="rounded-full px-2 py-0.5 text-[10px] font-label uppercase tracking-wide" style={{ background: `${color}20`, color }}>
                           {stage?.label ?? deal.stageId}
                         </span>
                       </td>
+                      <td className="px-4 py-3 text-xs text-on-surface-variant">{dealOwnerLabel(deal)}</td>
                       <td className="px-4 py-3 font-mono text-xs text-on-surface-variant">{fmtDealValue(deal.value, deal.currency)}</td>
                       <td className="px-4 py-3 font-mono text-xs text-on-surface-variant">{probability}%</td>
                       <td className="px-4 py-3 font-mono text-xs text-on-surface-variant">{fmtDealValue(weighted, deal.currency)}</td>
