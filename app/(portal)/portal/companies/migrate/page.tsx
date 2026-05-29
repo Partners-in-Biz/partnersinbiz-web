@@ -44,6 +44,24 @@ function Skeleton({ className = '' }: { className?: string }) {
   return <div className={`pib-skeleton ${className}`} />
 }
 
+export function ExistingCompanyReviewLink({ companyId, companyName }: { companyId: string; companyName: string }) {
+  const label = companyName.trim() || 'matched company'
+
+  return (
+    <Link
+      href={`/portal/companies/${companyId}`}
+      className="inline-flex max-w-[220px] items-center gap-1 rounded-md border border-[var(--color-pib-line)] bg-white/[0.03] px-2.5 py-1 text-xs font-medium text-[var(--color-accent-v2)] transition-colors hover:border-[var(--color-accent-v2)]/50 hover:bg-white/[0.06]"
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label={`Open ${label}`}
+      title={`Open ${label}`}
+    >
+      <span className="material-symbols-outlined text-[13px]" aria-hidden="true">open_in_new</span>
+      <span className="truncate">Open {label}</span>
+    </Link>
+  )
+}
+
 // ── Result summary banner ─────────────────────────────────────────────────────
 
 function ResultBanner({ summary }: { summary: ApplyResponse['summary'] }) {
@@ -376,15 +394,10 @@ export default function MigrateCompaniesPage() {
                     </td>
                     <td className="px-4 py-3">
                       {m.existingCompanyId ? (
-                        <Link
-                          href={`/portal/companies/${m.existingCompanyId}`}
-                          className="text-xs text-[var(--color-accent-v2)] hover:underline flex items-center gap-0.5"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          <span className="material-symbols-outlined text-[12px]">open_in_new</span>
-                          View
-                        </Link>
+                        <ExistingCompanyReviewLink
+                          companyId={m.existingCompanyId}
+                          companyName={names[m.normalizedKey] ?? m.suggestedCompanyName}
+                        />
                       ) : (
                         <span className="text-xs text-[var(--color-pib-text-muted)]">—</span>
                       )}
