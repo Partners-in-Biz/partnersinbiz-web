@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useEffect, useRef, useState } from 'react'
 import type { Product } from '@/lib/products/types'
 
@@ -11,18 +12,17 @@ export interface ProductPickerProps {
   className?: string
 }
 
-export function ProductPicker({ orgId: _orgId, onSelect, onAdHoc, placeholder = 'Search products…', className = '' }: ProductPickerProps) {
+export function ProductPicker({ onSelect, onAdHoc, placeholder = 'Search products…', className = '' }: ProductPickerProps) {
   const [products, setProducts] = useState<Product[]>([])
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
   // Fetch product list once on mount
   useEffect(() => {
     let cancelled = false
-    setLoading(true)
     fetch('/api/v1/crm/products?limit=200')
       .then(r => r.json())
       .then(body => {
@@ -115,7 +115,7 @@ export function ProductPicker({ orgId: _orgId, onSelect, onAdHoc, placeholder = 
           {filtered.length > 0 ? (
             <ul role="listbox">
               {filtered.map(product => (
-                <li key={product.id} role="option">
+                <li key={product.id} role="option" aria-selected={false}>
                   <button
                     type="button"
                     onClick={() => selectProduct(product)}
@@ -131,9 +131,21 @@ export function ProductPicker({ orgId: _orgId, onSelect, onAdHoc, placeholder = 
               ))}
             </ul>
           ) : (
-            <p className="text-xs text-[var(--color-pib-text-muted)] px-3 py-2">
-              {query.trim() ? 'No matching products' : 'No products set up yet'}
-            </p>
+            <div className="px-3 py-2">
+              <p className="text-xs text-[var(--color-pib-text-muted)]">
+                {query.trim() ? 'No matching products' : 'No products set up yet'}
+              </p>
+              {!query.trim() && (
+                <Link
+                  href="/portal/settings/products"
+                  aria-label="Open product catalog to create quote-ready products"
+                  className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-[var(--color-accent-v2)] hover:underline"
+                >
+                  <span className="material-symbols-outlined text-[14px]">inventory_2</span>
+                  Open product catalog
+                </Link>
+              )}
+            </div>
           )}
 
           {/* Ad-hoc option when query has text and no exact match */}
