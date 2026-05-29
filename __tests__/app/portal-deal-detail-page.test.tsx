@@ -128,4 +128,26 @@ describe('Portal deal detail page', () => {
 
     await waitFor(() => expect(screen.getAllByText('65%').length).toBeGreaterThan(0))
   })
+
+  it('lets users set a close date from the deal command center', async () => {
+    render(<DealDetailPage />)
+
+    await screen.findByText('Unowned expansion')
+    expect(screen.getByText('Close date missing')).toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText('Set expected close date'), {
+      target: { value: '2026-06-15' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Update close date for Unowned expansion' }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/deals/deal-1', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ expectedCloseDate: '2026-06-15' }),
+      })
+    })
+
+    await waitFor(() => expect(screen.queryByText('Close date missing')).not.toBeInTheDocument())
+  })
 })

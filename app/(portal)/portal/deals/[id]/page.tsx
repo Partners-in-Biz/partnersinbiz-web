@@ -118,6 +118,12 @@ function closeDateLabel(value: unknown): string {
   return `Closes in ${diffDays}d`
 }
 
+function dateInputValue(value: unknown): string {
+  const date = toDate(value)
+  if (!date) return ''
+  return date.toISOString().slice(0, 10)
+}
+
 function probabilityColor(probability: number): string {
   if (probability >= 70) return '#4ade80'
   if (probability >= 40) return '#facc15'
@@ -174,6 +180,9 @@ export default function DealDetailPage() {
   const [probabilityInput, setProbabilityInput] = useState('')
   const [probabilityPending, setProbabilityPending] = useState(false)
   const [probabilityError, setProbabilityError] = useState('')
+  const [closeDateInput, setCloseDateInput] = useState('')
+  const [closeDatePending, setCloseDatePending] = useState(false)
+  const [closeDateError, setCloseDateError] = useState('')
 
   const fetchDeal = useCallback(async () => {
     if (!id) return
@@ -194,6 +203,7 @@ export default function DealDetailPage() {
       if (!d) throw new Error('Deal not found')
       setDeal(d)
       setProbabilityInput(String(d.probability ?? 50))
+      setCloseDateInput(dateInputValue(d.expectedCloseDate))
       setLoading(false)
 
       const secondaryFetches: Promise<void>[] = []
@@ -319,6 +329,33 @@ export default function DealDetailPage() {
       setProbabilityError(err instanceof Error ? err.message : 'Failed to update probability')
     } finally {
       setProbabilityPending(false)
+    }
+  }
+
+  async function updateCloseDate() {
+    if (!deal || !id) return
+    const nextCloseDate = closeDateInput.trim()
+    if (!nextCloseDate) return
+    setCloseDatePending(true)
+    setCloseDateError('')
+    try {
+      const res = await fetch(`/api/v1/crm/deals/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ expectedCloseDate: nextCloseDate }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok || body.success === false) {
+        throw new Error(typeof body?.error === 'string' ? body.error : 'Failed to update close date')
+      }
+      setDeal({
+        ...deal,
+        expectedCloseDate: nextCloseDate,
+      })
+    } catch (err) {
+      setCloseDateError(err instanceof Error ? err.message : 'Failed to update close date')
+    } finally {
+      setCloseDatePending(false)
     }
   }
 
@@ -510,6 +547,33 @@ export default function DealDetailPage() {
             </p>
             {probabilityError && <p className="basis-full text-xs text-red-300">{probabilityError}</p>}
           </div>
+        </div>
+
+        <div className="flex flex-wrap items-end gap-2 rounded-xl border border-[var(--color-pib-line)] bg-white/[0.02] p-3">
+          <div className="min-w-[180px] flex-1">
+            <label htmlFor="dealExpectedCloseDate" className="pib-label">Set expected close date</label>
+            <input
+              id="dealExpectedCloseDate"
+              type="date"
+              value={closeDateInput}
+              onChange={(event) => setCloseDateInput(event.target.value)}
+              className="pib-input mt-1"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={updateCloseDate}
+            disabled={closeDatePending || closeDateInput.trim() === ''}
+            className="pib-btn-primary text-sm disabled:cursor-not-allowed disabled:opacity-50"
+            aria-label={`Update close date for ${deal.title ?? 'this deal'}`}
+          >
+            <span className="material-symbols-outlined text-base">event_upcoming</span>
+            {closeDatePending ? 'Updating...' : 'Update'}
+          </button>
+          <p className="basis-full text-xs leading-5 text-[var(--color-pib-text-muted)]">
+            Keep pipeline velocity and month-end forecast timing visible before this opportunity stalls.
+          </p>
+          {closeDateError && <p className="basis-full text-xs text-red-300">{closeDateError}</p>}
         </div>
 
         <div className="flex flex-wrap gap-2">
