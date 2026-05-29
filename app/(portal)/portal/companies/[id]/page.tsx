@@ -527,19 +527,128 @@ function AnalyticsPanel({ analytics, summary }: { analytics: CommandCenterAnalyt
   )
 }
 
-function ActivityPanel({ activities }: { activities: RelatedActivity[] }) {
-  if (activities.length === 0) return <EmptyPanel icon="history" label="No company activity yet." />
-  return (
-    <div className="bento-card divide-y divide-[var(--color-pib-line)]">
-      {activities.map((activity) => (
-        <div key={activity.id} className="px-5 py-4 flex items-start justify-between gap-4">
-          <div>
-            <p className="font-medium text-sm text-[var(--color-pib-text)]">{activity.summary || activity.type || 'Activity'}</p>
-            {activity.type && <p className="text-xs text-[var(--color-pib-text-muted)] mt-1">{activity.type.replace(/_/g, ' ')}</p>}
-          </div>
-          <span className="text-xs text-[var(--color-pib-text-muted)] shrink-0">{formatDate(activity.createdAt)}</span>
+function ActivityPanel({
+  activities,
+  company,
+  contacts,
+  noteOpen,
+  note,
+  savingNote,
+  noteError,
+  onOpenNote,
+  onNoteChange,
+  onSaveNote,
+  onCancelNote,
+  onCreateContact,
+}: {
+  activities: RelatedActivity[]
+  company: Company
+  contacts: RelatedContact[]
+  noteOpen: boolean
+  note: string
+  savingNote: boolean
+  noteError: string | null
+  onOpenNote: () => void
+  onNoteChange: (value: string) => void
+  onSaveNote: () => void
+  onCancelNote: () => void
+  onCreateContact: () => void
+}) {
+  const firstContact = contacts[0]
+  const composer = noteOpen && firstContact ? (
+    <div className="bento-card p-5 text-left">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="eyebrow !text-[10px]">Company note</p>
+          <h3 className="mt-1 font-display text-lg text-[var(--color-pib-text)]">Log context for {company.name}</h3>
+          <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
+            Anchored to {contactLabel(firstContact)} so this note joins the contact and company timeline.
+          </p>
         </div>
-      ))}
+        <button
+          type="button"
+          onClick={onCancelNote}
+          className="text-[var(--color-pib-text-muted)] transition-colors hover:text-[var(--color-pib-text)]"
+          aria-label="Cancel note"
+        >
+          <span className="material-symbols-outlined text-[20px]">close</span>
+        </button>
+      </div>
+      <div className="mt-4 space-y-3">
+        <label htmlFor="company-activity-note" className="block text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
+          Company note
+        </label>
+        <textarea
+          id="company-activity-note"
+          value={note}
+          onChange={(event) => onNoteChange(event.target.value)}
+          rows={4}
+          className="pib-input w-full resize-none"
+          placeholder="Capture a decision, call summary, risk, or follow-up..."
+        />
+        {noteError ? <p className="text-xs text-red-300">{noteError}</p> : null}
+        <div className="flex flex-wrap justify-end gap-2">
+          <button type="button" onClick={onCancelNote} disabled={savingNote} className="btn-pib-secondary">
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onSaveNote}
+            disabled={savingNote || !note.trim()}
+            className="btn-pib-primary disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {savingNote ? 'Saving...' : 'Save note'}
+          </button>
+        </div>
+      </div>
+    </div>
+  ) : null
+
+  if (activities.length === 0) {
+    if (composer) return composer
+    return (
+      <EmptyPanel
+        icon="history"
+        label={
+          firstContact
+            ? `No company activity yet. Log the first note against ${contactLabel(firstContact)} so the account timeline starts with real sales context.`
+            : 'No company activity yet. Add a stakeholder first so notes, calls, and emails have a contact anchor.'
+        }
+      >
+        {firstContact ? (
+          <button type="button" onClick={onOpenNote} className="btn-pib-primary inline-flex items-center gap-1.5">
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">edit_note</span>
+            Log first note for {company.name}
+          </button>
+        ) : (
+          <button type="button" onClick={onCreateContact} className="btn-pib-secondary inline-flex items-center gap-1.5">
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">person_add</span>
+            Add contact before activity
+          </button>
+        )}
+      </EmptyPanel>
+    )
+  }
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        <button type="button" onClick={onOpenNote} className="btn-pib-secondary inline-flex items-center gap-1.5">
+          <span className="material-symbols-outlined text-[16px]" aria-hidden="true">edit_note</span>
+          Log note
+        </button>
+      </div>
+      {composer}
+      <div className="bento-card divide-y divide-[var(--color-pib-line)]">
+        {activities.map((activity) => (
+          <div key={activity.id} className="px-5 py-4 flex items-start justify-between gap-4">
+            <div>
+              <p className="font-medium text-sm text-[var(--color-pib-text)]">{activity.summary || activity.type || 'Activity'}</p>
+              {activity.type && <p className="text-xs text-[var(--color-pib-text-muted)] mt-1">{activity.type.replace(/_/g, ' ')}</p>}
+            </div>
+            <span className="text-xs text-[var(--color-pib-text-muted)] shrink-0">{formatDate(activity.createdAt)}</span>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
@@ -559,6 +668,10 @@ export default function CompanyDetailPage() {
   const [editOpen, setEditOpen] = useState(false)
   const [newContactOpen, setNewContactOpen] = useState(false)
   const [newDealOpen, setNewDealOpen] = useState(false)
+  const [noteOpen, setNoteOpen] = useState(false)
+  const [companyNote, setCompanyNote] = useState('')
+  const [savingNote, setSavingNote] = useState(false)
+  const [noteError, setNoteError] = useState<string | null>(null)
   const [customFieldDefs, setCustomFieldDefs] = useState<CustomFieldDefinition[]>([])
   const [related, setRelated] = useState<RelatedState>({
     contacts: [],
@@ -692,6 +805,48 @@ export default function CompanyDetailPage() {
     if (!company) return
     setNewDealOpen(false)
     await loadRelated(company.id)
+  }
+
+  async function saveCompanyNote(): Promise<void> {
+    if (!company) return
+    const firstContact = related.contacts[0]
+    if (!firstContact) {
+      setNoteError('Add a contact before logging activity.')
+      return
+    }
+    const summary = companyNote.trim()
+    if (!summary) return
+
+    setSavingNote(true)
+    setNoteError(null)
+    try {
+      const res = await fetch('/api/v1/crm/activities', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          contactId: firstContact.id,
+          companyId: company.id,
+          type: 'note',
+          summary,
+          metadata: {
+            source: 'company_detail',
+            companyName: company.name,
+            contactName: contactLabel(firstContact),
+          },
+        }),
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(body.error ?? 'Failed to log activity')
+      }
+      setCompanyNote('')
+      setNoteOpen(false)
+      await loadRelated(company.id)
+    } catch (err) {
+      setNoteError(err instanceof Error ? err.message : 'Failed to log activity')
+    } finally {
+      setSavingNote(false)
+    }
   }
 
   async function handleDelete(): Promise<void> {
@@ -912,7 +1067,26 @@ export default function CompanyDetailPage() {
           />
         )}
         {!relatedLoading && tab === 'analytics' && <AnalyticsPanel analytics={related.analytics} summary={related.summary} />}
-        {!relatedLoading && tab === 'activity' && <ActivityPanel activities={related.activities} />}
+        {!relatedLoading && tab === 'activity' && (
+          <ActivityPanel
+            activities={related.activities}
+            company={company}
+            contacts={related.contacts}
+            noteOpen={noteOpen}
+            note={companyNote}
+            savingNote={savingNote}
+            noteError={noteError}
+            onOpenNote={() => setNoteOpen(true)}
+            onNoteChange={setCompanyNote}
+            onSaveNote={saveCompanyNote}
+            onCancelNote={() => {
+              setNoteOpen(false)
+              setCompanyNote('')
+              setNoteError(null)
+            }}
+            onCreateContact={() => setNewContactOpen(true)}
+          />
+        )}
       </div>
 
       {/* Edit drawer */}

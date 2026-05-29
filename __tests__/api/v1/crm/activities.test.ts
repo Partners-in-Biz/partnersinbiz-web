@@ -45,7 +45,16 @@ function stageAuth(
   ;(adminAuth.verifySessionCookie as jest.Mock).mockResolvedValue({ uid: member.uid })
   ;(adminDb.collection as jest.Mock).mockImplementation((name: string) => {
     if (name === 'users') return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => ({ activeOrgId: member.orgId }) }) }) }
-    if (name === 'orgMembers') return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => member }) }) }
+    if (name === 'orgMembers') {
+      return {
+        doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => member }) }),
+        where: jest.fn().mockReturnValue({
+          get: () => Promise.resolve({
+            docs: [{ id: `${member.orgId}_${member.uid}`, data: () => member }],
+          }),
+        }),
+      }
+    }
     if (name === 'organizations') return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => ({ settings: { permissions: perms } }) }) }) }
     if (name === 'contacts') {
       const cd = opts?.contactData !== undefined ? opts.contactData : null
