@@ -67,6 +67,21 @@ function kindColor(kind: string): string {
   return '#60a5fa'
 }
 
+function unwrapDealsList(body: unknown): Deal[] {
+  const response = body as { data?: Deal[] | { deals?: Deal[] }; deals?: Deal[] }
+  if (Array.isArray(response.data)) return response.data
+  if (response.data && !Array.isArray(response.data) && Array.isArray(response.data.deals)) return response.data.deals
+  if (Array.isArray(response.deals)) return response.deals
+  return []
+}
+
+function unwrapDeal(body: unknown): Deal | undefined {
+  const response = body as { data?: Deal | { deal?: Deal }; deal?: Deal }
+  if (response.data && 'deal' in response.data) return response.data.deal
+  if (response.data && 'id' in response.data) return response.data as Deal
+  return response.deal
+}
+
 interface Props {
   contactId: string
   contactName?: string
@@ -109,7 +124,7 @@ export function ContactDealsPanel({ contactId, orgId = '' }: Props) {
       .then(([dealsBody, pipelinesBody]) => {
         if (cancelled) return
 
-        const raw: Deal[] = dealsBody.data ?? []
+        const raw = unwrapDealsList(dealsBody)
         const sorted = [...raw].sort((a, b) => {
           const aTs = (a.updatedAt as Record<string, number> | null)?._seconds ?? 0
           const bTs = (b.updatedAt as Record<string, number> | null)?._seconds ?? 0
@@ -233,7 +248,7 @@ export function ContactDealsPanel({ contactId, orgId = '' }: Props) {
             fetch(`/api/v1/crm/deals/${dealId}`)
               .then(r => r.json())
               .then(b => {
-                const newDeal = b.data as Deal | undefined
+                const newDeal = unwrapDeal(b)
                 if (newDeal) {
                   setDeals(prev => [newDeal, ...prev])
                 }
@@ -242,7 +257,7 @@ export function ContactDealsPanel({ contactId, orgId = '' }: Props) {
                 // Fallback: reload all deals for this contact
                 fetch(`/api/v1/crm/deals?contactId=${encodeURIComponent(contactId)}&limit=100`)
                   .then(r => r.json())
-                  .then(b => setDeals(b.data ?? []))
+                  .then(b => setDeals(unwrapDealsList(b)))
                   .catch(() => undefined)
               })
           }}

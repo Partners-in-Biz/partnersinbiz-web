@@ -1,5 +1,5 @@
 import React from 'react'
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { ContactDealsPanel } from '@/components/crm/ContactDealsPanel'
 import type { Deal } from '@/lib/crm/types'
 
@@ -9,6 +9,14 @@ jest.mock('next/link', () => ({
   __esModule: true,
   default: ({ children, href }: { children: React.ReactNode; href: string }) => (
     <a href={href}>{children}</a>
+  ),
+}))
+
+jest.mock('@/components/crm/DealDrawer', () => ({
+  DealDrawer: ({ onSaved }: { onSaved: (dealId: string) => void }) => (
+    <button type="button" onClick={() => onSaved('deal-new')}>
+      Save mocked deal
+    </button>
   ),
 }))
 
@@ -38,6 +46,23 @@ function apiResponse(deals: Deal[]) {
   return Promise.resolve({
     ok: true,
     json: () => Promise.resolve({ success: true, data: deals }),
+  })
+}
+
+function pipelinesResponse() {
+  return Promise.resolve({
+    ok: true,
+    json: () => Promise.resolve({
+      success: true,
+      data: [
+        {
+          id: 'pl-default',
+          name: 'Default pipeline',
+          isDefault: true,
+          stages: [{ id: 'discovery', label: 'Discovery', kind: 'open', order: 1, probability: 25 }],
+        },
+      ],
+    }),
   })
 }
 
@@ -122,5 +147,38 @@ describe('ContactDealsPanel', () => {
     expect(screen.getByText('Relationship pipeline')).toBeInTheDocument()
     expect(screen.getByText('Open deals')).toBeInTheDocument()
     expect(screen.getByText('Weighted value')).toBeInTheDocument()
+  })
+
+  it('renders a newly created contact deal from the standard deal response envelope', async () => {
+    const savedDeal = makeDeal({ id: 'deal-new', title: 'Fresh relationship deal', value: 12000 })
+    mockFetch.mockImplementation((url: RequestInfo | URL, init?: RequestInit) => {
+      const path = String(url)
+      if (path.startsWith('/api/v1/crm/deals?contactId=')) return apiResponse([])
+      if (path === '/api/v1/crm/pipelines') return pipelinesResponse()
+      if (path === '/api/v1/crm/deals' && init?.method === 'POST') {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ success: true, data: { id: 'deal-new' } }),
+        })
+      }
+      if (path === '/api/v1/crm/deals/deal-new') {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ success: true, data: { deal: savedDeal } }),
+        })
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${path}`))
+    })
+
+    render(<ContactDealsPanel contactId="contact-1" orgId="org-1" />)
+    await waitFor(() => expect(screen.getByText('No deals linked to this contact yet.')).toBeInTheDocument())
+
+    fireEvent.click(screen.getByRole('button', { name: /New deal/i }))
+    fireEvent.click(await screen.findByRole('button', { name: /Save mocked deal/i }))
+
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: 'Fresh relationship deal' })).toHaveAttribute('href', '/portal/deals/deal-new')
+    })
+    expect(screen.getByText('1 record')).toBeInTheDocument()
   })
 })
