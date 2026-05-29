@@ -178,4 +178,16 @@ describe('Portal contact detail page', () => {
     expect(screen.getByPlaceholderText('Subject…')).toBeInTheDocument()
     expect(screen.getByPlaceholderText('Message…')).toBeInTheDocument()
   })
+
+  it('turns an empty activity insight into a note action', async () => {
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Log activity for Jane Client from activity insight' }))
+
+    expect(screen.getByPlaceholderText('Add note notes…')).toBeInTheDocument()
+  })
 })
