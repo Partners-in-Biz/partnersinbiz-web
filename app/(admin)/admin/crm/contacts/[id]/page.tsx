@@ -370,6 +370,7 @@ export default function ContactDetailPage() {
   const tags = Array.isArray(contact?.tags) ? contact.tags : []
   const customFieldCount = contact?.customFields ? Object.keys(contact.customFields).length : 0
   const hasAnyScore = contact?.leadScore != null || contact?.icpScore != null || contact?.aiLeadScore != null
+  const hasCompanyContext = Boolean(contact?.companyId || contact?.companyName || contact?.company)
   const composeEmailHref = contact?.email
     ? `/admin/email/compose?to=${encodeURIComponent(contact.email)}&contactId=${encodeURIComponent(id)}`
     : ''
@@ -456,6 +457,17 @@ export default function ContactDetailPage() {
                 >
                   <span className="material-symbols-outlined text-base">add_call</span>
                   Add phone
+                </button>
+              )}
+              {!hasCompanyContext && (
+                <button
+                  type="button"
+                  aria-label={`Add company for ${name} from contact command center`}
+                  onClick={() => setEditing(true)}
+                  className="pib-btn-secondary text-sm"
+                >
+                  <span className="material-symbols-outlined text-base">domain_add</span>
+                  Add company
                 </button>
               )}
               <button onClick={() => setEditing((value) => !value)} className="pib-btn-primary text-sm">
