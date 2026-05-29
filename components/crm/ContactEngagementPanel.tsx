@@ -30,6 +30,7 @@ export interface ContactEngagementActions {
   onLogNote?: () => void
   onSendEmail?: () => void
   onScheduleMeeting?: () => void
+  onStartSuggestion?: (suggestion: ContactEngagementSuggestion) => void
 }
 
 function timestampMillis(value: unknown): number {
@@ -154,6 +155,17 @@ export function ContactEngagementPanel({
                 </span>
               </div>
               <p className="mt-1 text-xs leading-relaxed text-[var(--color-pib-text-muted)]">{suggestion.reason}</p>
+              {actions?.onStartSuggestion ? (
+                <button
+                  type="button"
+                  onClick={() => actions.onStartSuggestion?.(suggestion)}
+                  aria-label={`Start suggested action: ${suggestion.action} for ${contactName}`}
+                  className="btn-pib-secondary mt-3 inline-flex items-center gap-1.5 text-xs"
+                >
+                  <span aria-hidden="true" className="material-symbols-outlined text-[14px]">play_arrow</span>
+                  Start action
+                </button>
+              ) : null}
             </div>
           </div>
         </div>

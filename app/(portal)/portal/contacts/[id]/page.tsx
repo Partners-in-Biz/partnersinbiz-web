@@ -156,6 +156,7 @@ export default function PortalContactDetailPage() {
   const timezoneFieldRef = useRef<HTMLInputElement | null>(null)
   const websiteFieldRef = useRef<HTMLInputElement | null>(null)
   const notesFieldRef = useRef<HTMLTextAreaElement | null>(null)
+  const stageFieldRef = useRef<HTMLSelectElement | null>(null)
   const ownerFieldRef = useRef<HTMLSelectElement | null>(null)
   const customFieldsEditRef = useRef<HTMLDivElement | null>(null)
   const [contact, setContact] = useState<ContactRecord | null>(null)
@@ -453,6 +454,27 @@ export default function PortalContactDetailPage() {
     setLogType('email_sent')
     setShowAiComposer(false)
     setLogError(null)
+  }
+
+  function startSuggestion(suggestion: SuggestionItem) {
+    const action = suggestion.action.toLowerCase()
+    if (action.includes('follow') || action.includes('proposal') || action.includes('send') || action.includes('chase')) {
+      setLogEmailSubject(suggestion.action)
+      setLogSummary('')
+      openFirstEmailComposer()
+      return
+    }
+    if (action.includes('demo')) {
+      setStage('demo')
+      focusProfileField(stageFieldRef)
+      return
+    }
+    if (action.includes('qualify') || action.includes('archive')) {
+      focusProfileField(stageFieldRef)
+      return
+    }
+    setLogSummary(suggestion.reason)
+    openFirstNoteComposer()
   }
 
   function openFirstNoteComposer() {
@@ -1262,7 +1284,7 @@ export default function PortalContactDetailPage() {
               </div>
               <div className="space-y-1">
                 <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">Stage</p>
-                <select value={stage} onChange={(e) => setStage(e.target.value)} className="pib-input w-full">
+                <select ref={stageFieldRef} value={stage} onChange={(e) => setStage(e.target.value)} className="pib-input w-full">
                   {STAGE_OPTIONS.map((option) => <option key={option} value={option} className="bg-black">{option}</option>)}
                 </select>
               </div>
@@ -1372,6 +1394,7 @@ export default function PortalContactDetailPage() {
               onLogNote: openFirstNoteComposer,
               onSendEmail: email.trim() ? openFirstEmailComposer : undefined,
               onScheduleMeeting: openFirstMeetingComposer,
+              onStartSuggestion: startSuggestion,
             }}
           />
 
@@ -1453,6 +1476,15 @@ export default function PortalContactDetailPage() {
                     <div>
                       <p className="text-sm font-medium">{s.action}</p>
                       <p className="text-xs text-[var(--color-pib-text-muted)]">{s.reason}</p>
+                      <button
+                        type="button"
+                        onClick={() => startSuggestion(s)}
+                        aria-label={`Start suggested action: ${s.action} for ${contactName}`}
+                        className="btn-pib-secondary mt-2 inline-flex items-center gap-1.5 text-xs"
+                      >
+                        <span className="material-symbols-outlined text-[14px]" aria-hidden="true">play_arrow</span>
+                        Start action
+                      </button>
                     </div>
                   </div>
                 ))}

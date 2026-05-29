@@ -4,6 +4,7 @@ import PortalContactDetailPage from '@/app/(portal)/portal/contacts/[id]/page'
 import type { CustomFieldDefinition } from '@/lib/customFields/types'
 
 let mockContactCustomFieldDefinitions: CustomFieldDefinition[] = []
+let mockSuggestions: Array<{ action: string; reason: string; urgency: 'high' | 'medium' | 'low' }> = []
 
 jest.mock('next/navigation', () => ({
   useParams: () => ({ id: 'contact-1' }),
@@ -17,6 +18,7 @@ jest.mock('@/components/crm/ContactDealsPanel', () => ({
 describe('Portal contact detail page', () => {
   beforeEach(() => {
     mockContactCustomFieldDefinitions = []
+    mockSuggestions = []
     global.fetch = jest.fn((input: RequestInfo | URL) => {
       const url = String(input)
       if (url === '/api/v1/crm/contacts/contact-1') {
@@ -64,7 +66,7 @@ describe('Portal contact detail page', () => {
       if (url === '/api/v1/crm/contacts/contact-1/suggestions') {
         return Promise.resolve({
           ok: true,
-          json: async () => ({ data: { suggestions: [] } }),
+          json: async () => ({ data: { suggestions: mockSuggestions } }),
         } as Response)
       }
       if (url === '/api/v1/crm/contacts/contact-1/enrollments') {
@@ -217,6 +219,25 @@ describe('Portal contact detail page', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Log touch for Jane Client from last touch insight' }))
 
     expect(screen.getByPlaceholderText('Add note notes…')).toBeInTheDocument()
+  })
+
+  it('turns a follow-up suggestion into a prefilled email action', async () => {
+    mockSuggestions = [{
+      action: 'Send a follow-up',
+      reason: 'No activity in 7+ days',
+      urgency: 'high',
+    }]
+
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Start suggested action: Send a follow-up for Jane Client' })[0])
+
+    expect(screen.getByDisplayValue('Send a follow-up')).toBeInTheDocument()
+    expect(screen.getByPlaceholderText('Message…')).toBeInTheDocument()
   })
 
   it('turns an empty email thread insight into a send action', async () => {
