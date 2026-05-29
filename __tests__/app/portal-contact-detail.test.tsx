@@ -152,4 +152,17 @@ describe('Portal contact detail page', () => {
 
     expect(screen.getByPlaceholderText('Add a note about this contact…')).toHaveFocus()
   })
+
+  it('turns a missing last touch insight into an activity action', async () => {
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    expect(screen.getAllByText('No touch logged').length).toBeGreaterThan(0)
+    fireEvent.click(screen.getByRole('button', { name: 'Log touch for Jane Client from last touch insight' }))
+
+    expect(screen.getByPlaceholderText('Add note notes…')).toBeInTheDocument()
+  })
 })

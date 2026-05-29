@@ -705,6 +705,7 @@ export default function PortalContactDetailPage() {
         : lastTouchDays <= 30
           ? 'Follow-up due'
           : 'Cold'
+  const shouldPromptTouchLog = lastTouchDays === null || lastTouchDays > 30
   const ownerRef =
     assignedTo && contact.assignedToRef?.uid === assignedTo
       ? contact.assignedToRef
@@ -887,6 +888,17 @@ export default function PortalContactDetailPage() {
               {lastTouchDays === null ? '—' : lastTouchDays === 0 ? 'Today' : `${lastTouchDays}d`}
             </p>
             <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">{relationshipSignal}</p>
+            {shouldPromptTouchLog && (
+              <button
+                type="button"
+                aria-label={`Log touch for ${contactName} from last touch insight`}
+                onClick={openFirstNoteComposer}
+                className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-[var(--color-pib-line)] px-2 py-1.5 text-xs font-medium text-[var(--color-pib-accent)] transition-colors hover:border-[var(--color-pib-accent)] hover:text-[var(--color-pib-text)]"
+              >
+                <span className="material-symbols-outlined text-[14px]" aria-hidden="true">edit_note</span>
+                Log touch
+              </button>
+            )}
           </div>
           <div className="pib-stat-card">
             <p className="eyebrow !text-[10px]">Email thread</p>
