@@ -411,6 +411,12 @@ export default function PortalContactDetailPage() {
     }
   }
 
+  function openFirstEmailComposer() {
+    setLogType('email_sent')
+    setShowAiComposer(false)
+    setLogError(null)
+  }
+
   async function handleLogActivity() {
     setLogSaving(true)
     setLogError(null)
@@ -1132,6 +1138,21 @@ export default function PortalContactDetailPage() {
                 <p className="text-sm text-[var(--color-pib-text-muted)] mt-2">
                   No emails sent or received yet.
                 </p>
+                {contact.email ? (
+                  <button
+                    type="button"
+                    onClick={openFirstEmailComposer}
+                    aria-label={`Send first email to ${contact.name ?? 'this contact'}`}
+                    className="btn-pib-primary mt-4 inline-flex items-center gap-1.5 text-xs"
+                  >
+                    <span className="material-symbols-outlined text-[14px]" aria-hidden="true">outgoing_mail</span>
+                    Send first email
+                  </button>
+                ) : (
+                  <p className="mx-auto mt-3 max-w-sm text-xs text-[var(--color-pib-text-muted)]">
+                    Add an email address in the profile panel before starting outreach.
+                  </p>
+                )}
               </div>
             ) : (
               <div className="divide-y divide-[var(--color-pib-line)]">
