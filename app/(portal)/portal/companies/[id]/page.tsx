@@ -1020,7 +1020,15 @@ function SimpleRowsPanel({
   )
 }
 
-function AnalyticsPanel({ analytics, summary }: { analytics: CommandCenterAnalytics; summary: CommandCenterSummary }) {
+function AnalyticsPanel({
+  analytics,
+  summary,
+  onOpenTab,
+}: {
+  analytics: CommandCenterAnalytics
+  summary: CommandCenterSummary
+  onOpenTab: (tab: CompanyTab) => void
+}) {
   const tiles = [
     { label: 'Account value', value: formatCurrency(analytics.accountValue ?? 0), icon: 'payments' },
     { label: 'Weighted pipeline', value: formatCurrency(analytics.weightedPipelineValue ?? 0), icon: 'query_stats' },
@@ -1030,6 +1038,59 @@ function AnalyticsPanel({ analytics, summary }: { analytics: CommandCenterAnalyt
     { label: 'Collaborations', value: String(analytics.collaborationCount ?? summary.relationships ?? 0), icon: 'hub' },
   ]
   const riskSignals = analytics.riskSignals ?? []
+  const lowStockItems = summary.lowStockItems ?? 0
+  const openOrders = summary.openOrders ?? 0
+  const overdueInvoices = summary.overdueInvoices ?? 0
+  const weightedPipelineValue = analytics.weightedPipelineValue ?? 0
+  const operatingActions: Array<{
+    label: string
+    value: string
+    icon: string
+    tab: CompanyTab
+    tone: 'risk' | 'watch' | 'good'
+  }> = [
+    ...(lowStockItems > 0
+      ? [{
+          label: 'Inventory risk',
+          value: `${lowStockItems} low-stock ${lowStockItems === 1 ? 'item' : 'items'}`,
+          icon: 'inventory_2',
+          tab: 'inventory' as CompanyTab,
+          tone: 'risk' as const,
+        }]
+      : [{
+          label: 'Inventory coverage',
+          value: 'No low-stock items',
+          icon: 'inventory_2',
+          tab: 'inventory' as CompanyTab,
+          tone: 'good' as const,
+        }]),
+    {
+      label: 'Fulfillment',
+      value: openOrders > 0 ? `${openOrders} open ${openOrders === 1 ? 'order' : 'orders'}` : 'No open order blockers',
+      icon: 'orders',
+      tab: 'orders',
+      tone: openOrders > 0 ? 'watch' : 'good',
+    },
+    {
+      label: 'Cash collection',
+      value: overdueInvoices > 0 ? `${overdueInvoices} overdue ${overdueInvoices === 1 ? 'invoice' : 'invoices'}` : 'No overdue invoices',
+      icon: 'receipt_long',
+      tab: 'invoices',
+      tone: overdueInvoices > 0 ? 'risk' : 'good',
+    },
+    {
+      label: 'Pipeline',
+      value: weightedPipelineValue > 0 ? `${formatCurrency(weightedPipelineValue)} weighted` : 'No weighted pipeline',
+      icon: 'query_stats',
+      tab: 'deals',
+      tone: weightedPipelineValue > 0 ? 'watch' : 'risk',
+    },
+  ]
+  const toneClass = {
+    risk: 'border-red-400/30 bg-red-500/10 text-red-200',
+    watch: 'border-amber-400/30 bg-amber-400/10 text-amber-100',
+    good: 'border-emerald-400/30 bg-emerald-400/10 text-emerald-100',
+  }
   return (
     <div className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -1042,6 +1103,34 @@ function AnalyticsPanel({ analytics, summary }: { analytics: CommandCenterAnalyt
             <p className="mt-3 text-2xl font-semibold text-[var(--color-pib-text)]">{tile.value}</p>
           </div>
         ))}
+      </div>
+      <div className="bento-card p-5">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className="eyebrow !text-[10px]">Account operating brief</p>
+            <h3 className="mt-1 font-display text-xl text-[var(--color-pib-text)]">Where the team should act next</h3>
+          </div>
+          <span className="rounded-full border border-[var(--color-pib-line)] px-2.5 py-1 text-xs text-[var(--color-pib-text-muted)]">
+            {riskSignals.length > 0 ? `${riskSignals.length} active signal${riskSignals.length === 1 ? '' : 's'}` : 'No active risks'}
+          </span>
+        </div>
+        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          {operatingActions.map((action) => (
+            <button
+              key={action.label}
+              type="button"
+              onClick={() => onOpenTab(action.tab)}
+              aria-label={`Open ${action.tab.charAt(0).toUpperCase()}${action.tab.slice(1)} tab`}
+              className={`rounded-xl border p-4 text-left transition-transform hover:-translate-y-0.5 ${toneClass[action.tone]}`}
+            >
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-[10px] font-label uppercase tracking-widest opacity-80">{action.label}</span>
+                <span className="material-symbols-outlined text-[18px]" aria-hidden="true">{action.icon}</span>
+              </div>
+              <p className="mt-3 text-sm font-semibold">{action.value}</p>
+            </button>
+          ))}
+        </div>
       </div>
       <div className="bento-card p-5">
         <p className="eyebrow !text-[10px]">Risk signals</p>
@@ -1921,7 +2010,7 @@ export default function CompanyDetailPage() {
             onCreateInventoryItem={createTrackedInventoryItem}
           />
         )}
-        {!relatedLoading && tab === 'analytics' && <AnalyticsPanel analytics={related.analytics} summary={related.summary} />}
+        {!relatedLoading && tab === 'analytics' && <AnalyticsPanel analytics={related.analytics} summary={related.summary} onOpenTab={setTab} />}
         {!relatedLoading && tab === 'activity' && (
           <ActivityPanel
             activities={related.activities}

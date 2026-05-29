@@ -142,6 +142,24 @@ describe('Portal company detail page', () => {
     expect(await screen.findByText(/Account value/i)).toBeInTheDocument()
   })
 
+  it('turns company analytics into an operating brief with direct next actions', async () => {
+    render(<CompanyDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Acme Holdings' })).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('tab', { name: /Analytics/i }))
+
+    expect(await screen.findByText('Account operating brief')).toBeInTheDocument()
+    expect(screen.getAllByText('1 low-stock item').length).toBeGreaterThan(0)
+    expect(screen.getByRole('button', { name: 'Open Inventory tab' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open Inventory tab' }))
+
+    expect(await screen.findByText('SEO Hours')).toBeInTheDocument()
+  })
+
   it('turns an empty company contacts tab into a prefilled create-contact action', async () => {
     const postContact = jest.fn().mockResolvedValue({
       ok: true,
