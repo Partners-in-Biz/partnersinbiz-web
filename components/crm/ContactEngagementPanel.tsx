@@ -25,6 +25,13 @@ export interface ContactEngagementProfile {
   nextSuggestion?: ContactEngagementSuggestion
 }
 
+export interface ContactEngagementActions {
+  contactName?: string
+  onLogNote?: () => void
+  onSendEmail?: () => void
+  onScheduleMeeting?: () => void
+}
+
 function timestampMillis(value: unknown): number {
   if (!value) return 0
   if (value instanceof Date) return value.getTime()
@@ -89,7 +96,13 @@ export function contactEngagementHealth(profile: ContactEngagementProfile): numb
   return Math.round((checks.filter(Boolean).length / checks.length) * 100)
 }
 
-export function ContactEngagementPanel({ profile }: { profile: ContactEngagementProfile }) {
+export function ContactEngagementPanel({
+  profile,
+  actions,
+}: {
+  profile: ContactEngagementProfile
+  actions?: ContactEngagementActions
+}) {
   const days = daysSince(profile.lastContactedAt)
   const emails = profile.emails ?? []
   const activities = profile.activities ?? []
@@ -97,6 +110,8 @@ export function ContactEngagementPanel({ profile }: { profile: ContactEngagement
   const health = contactEngagementHealth(profile)
   const cadence = cadenceLabel(days)
   const suggestion = profile.nextSuggestion
+  const contactName = actions?.contactName?.trim() || 'this contact'
+  const hasActions = Boolean(actions?.onLogNote || actions?.onSendEmail || actions?.onScheduleMeeting)
 
   return (
     <section className="bento-card !p-5 space-y-4">
@@ -143,9 +158,48 @@ export function ContactEngagementPanel({ profile }: { profile: ContactEngagement
           </div>
         </div>
       ) : (
-        <p className="rounded-md border border-[var(--color-pib-line)] bg-white/[0.025] p-3 text-xs text-[var(--color-pib-text-muted)]">
-          No suggested action yet. Log a note, send an email, or schedule the next touch to build a stronger relationship trail.
-        </p>
+        <div className="rounded-md border border-[var(--color-pib-line)] bg-white/[0.025] p-3">
+          <p className="text-xs text-[var(--color-pib-text-muted)]">
+            No suggested action yet. Log a note, send an email, or schedule the next touch to build a stronger relationship trail.
+          </p>
+          {hasActions ? (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {actions?.onLogNote ? (
+                <button
+                  type="button"
+                  onClick={actions.onLogNote}
+                  aria-label={`Log note from engagement cockpit for ${contactName}`}
+                  className="btn-pib-secondary inline-flex items-center gap-1.5 text-xs"
+                >
+                  <span aria-hidden="true" className="material-symbols-outlined text-[14px]">edit_note</span>
+                  Log note
+                </button>
+              ) : null}
+              {actions?.onSendEmail ? (
+                <button
+                  type="button"
+                  onClick={actions.onSendEmail}
+                  aria-label={`Send email from engagement cockpit to ${contactName}`}
+                  className="btn-pib-secondary inline-flex items-center gap-1.5 text-xs"
+                >
+                  <span aria-hidden="true" className="material-symbols-outlined text-[14px]">outgoing_mail</span>
+                  Send email
+                </button>
+              ) : null}
+              {actions?.onScheduleMeeting ? (
+                <button
+                  type="button"
+                  onClick={actions.onScheduleMeeting}
+                  aria-label={`Schedule meeting from engagement cockpit with ${contactName}`}
+                  className="btn-pib-secondary inline-flex items-center gap-1.5 text-xs"
+                >
+                  <span aria-hidden="true" className="material-symbols-outlined text-[14px]">event</span>
+                  Schedule meeting
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
       )}
     </section>
   )

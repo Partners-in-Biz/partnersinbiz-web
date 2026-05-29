@@ -205,6 +205,19 @@ describe('Portal contact detail page', () => {
     expect(screen.getByPlaceholderText('Add note notes…')).toBeInTheDocument()
   })
 
+  it('wires engagement cockpit actions to contact composers', async () => {
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Schedule meeting from engagement cockpit with Jane Client' }))
+
+    expect(screen.getByPlaceholderText('Meeting title…')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('Meeting with Jane Client')).toBeInTheDocument()
+  })
+
   it('turns a missing best score insight into a recompute action', async () => {
     render(<PortalContactDetailPage />)
 

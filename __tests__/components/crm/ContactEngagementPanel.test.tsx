@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import {
   contactEngagementHealth,
   ContactEngagementPanel,
@@ -42,5 +42,31 @@ describe('ContactEngagementPanel', () => {
     expect(screen.getByText('3 activities')).toBeInTheDocument()
     expect(screen.getByText('Send the proposal recap')).toBeInTheDocument()
     expect(screen.getByText(/They replied after the demo/)).toBeInTheDocument()
+  })
+
+  it('turns a missing suggested action into direct engagement commands', () => {
+    const onLogNote = jest.fn()
+    const onSendEmail = jest.fn()
+    const onScheduleMeeting = jest.fn()
+
+    render(
+      <ContactEngagementPanel
+        profile={{ emails: [], activities: [] }}
+        actions={{
+          contactName: 'Jane Client',
+          onLogNote,
+          onSendEmail,
+          onScheduleMeeting,
+        }}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Log note from engagement cockpit for Jane Client' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Send email from engagement cockpit to Jane Client' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Schedule meeting from engagement cockpit with Jane Client' }))
+
+    expect(onLogNote).toHaveBeenCalledTimes(1)
+    expect(onSendEmail).toHaveBeenCalledTimes(1)
+    expect(onScheduleMeeting).toHaveBeenCalledTimes(1)
   })
 })

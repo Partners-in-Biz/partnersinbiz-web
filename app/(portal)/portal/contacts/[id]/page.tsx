@@ -456,6 +456,19 @@ export default function PortalContactDetailPage() {
     setLogError(null)
   }
 
+  function openFirstMeetingComposer() {
+    if (!meetingStartAt) {
+      const start = new Date(Date.now() + 60 * 60 * 1000)
+      const end = new Date(start.getTime() + 30 * 60 * 1000)
+      setMeetingStartAt(toDateTimeLocalValue(start))
+      setMeetingEndAt(toDateTimeLocalValue(end))
+      setMeetingTitle(contact?.name ? `Meeting with ${contact.name}` : '')
+    }
+    setLogType('meeting')
+    setShowAiComposer(false)
+    setLogError(null)
+  }
+
   function focusCompanyPicker() {
     const companyPicker = companyPickerRef.current
     companyPicker?.scrollIntoView?.({ behavior: 'smooth', block: 'center' })
@@ -1305,6 +1318,12 @@ export default function PortalContactDetailPage() {
               activities,
               nextSuggestion,
             }}
+            actions={{
+              contactName,
+              onLogNote: openFirstNoteComposer,
+              onSendEmail: email.trim() ? openFirstEmailComposer : undefined,
+              onScheduleMeeting: openFirstMeetingComposer,
+            }}
           />
 
           <div className="pib-card-section">
@@ -1418,11 +1437,8 @@ export default function PortalContactDetailPage() {
                         return
                       }
                       if (type === 'meeting' && !meetingStartAt) {
-                        const start = new Date(Date.now() + 60 * 60 * 1000)
-                        const end = new Date(start.getTime() + 30 * 60 * 1000)
-                        setMeetingStartAt(toDateTimeLocalValue(start))
-                        setMeetingEndAt(toDateTimeLocalValue(end))
-                        setMeetingTitle(contact?.name ? `Meeting with ${contact.name}` : '')
+                        openFirstMeetingComposer()
+                        return
                       }
                       setLogType(type)
                     }}
