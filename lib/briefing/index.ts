@@ -1,0 +1,65 @@
+/**
+ * Briefing system adapters registry.
+ *
+ * Exports all source adapters and provides utilities for working with them.
+ */
+
+export * from './types'
+export * from './utils'
+
+// Adapters
+export { taskAdapter, projectAdapter } from './adapters/taskAdapter'
+export { commentAdapter } from './adapters/commentAdapter'
+export { agentOutputAdapter } from './adapters/agentOutputAdapter'
+export { approvalAdapter, clientDocumentAdapter } from './adapters/approvalAdapter'
+export { notificationAdapter, activityAdapter } from './adapters/notificationAdapter'
+export { reportAdapter } from './adapters/reportAdapter'
+
+import type { BriefingSourceAdapter, BriefingSourceType } from './types'
+import { taskAdapter, projectAdapter } from './adapters/taskAdapter'
+import { commentAdapter } from './adapters/commentAdapter'
+import { agentOutputAdapter } from './adapters/agentOutputAdapter'
+import { approvalAdapter, clientDocumentAdapter } from './adapters/approvalAdapter'
+import { notificationAdapter, activityAdapter } from './adapters/notificationAdapter'
+import { reportAdapter } from './adapters/reportAdapter'
+
+/**
+ * Registry of all source adapters.
+ */
+export const SOURCE_ADAPTERS: Record<BriefingSourceType, BriefingSourceAdapter> = {
+  task: taskAdapter,
+  project: projectAdapter,
+  comment: commentAdapter,
+  'agent-output': agentOutputAdapter,
+  approval: approvalAdapter,
+  'client-document': clientDocumentAdapter,
+  notification: notificationAdapter,
+  activity: activityAdapter,
+  report: reportAdapter,
+}
+
+/**
+ * Get an adapter by source type.
+ */
+export function getAdapter(sourceType: BriefingSourceType): BriefingSourceAdapter | null {
+  return SOURCE_ADAPTERS[sourceType] ?? null
+}
+
+/**
+ * Get all available source types.
+ */
+export function getSourceTypes(): BriefingSourceType[] {
+  return Object.keys(SOURCE_ADAPTERS) as BriefingSourceType[]
+}
+
+/**
+ * Check if a source type is supported.
+ */
+export function isSourceTypeSupported(sourceType: string): sourceType is BriefingSourceType {
+  return sourceType in SOURCE_ADAPTERS
+}
+
+/**
+ * Default adapter to use when source type is unknown.
+ */
+export const DEFAULT_ADAPTER = taskAdapter
