@@ -150,6 +150,15 @@ function labelize(value: string): string {
     .replace(/\b\w/g, (char) => char.toUpperCase())
 }
 
+function dealStageLensHref(stage: PipelineVelocityStage): string {
+  const params = new URLSearchParams({
+    view: 'list',
+    pipelineId: stage.pipelineId,
+    stage: stage.stageId,
+  })
+  return `/portal/deals?${params.toString()}`
+}
+
 // ── Skeleton ───────────────────────────────────────────────────────────────────
 
 function Skeleton({ className = '' }: { className?: string }) {
@@ -602,12 +611,17 @@ export default function CrmReportsPage() {
           label="Velocity"
           title={slowestStage ? `${labelize(slowestStage.stageId)} is slowest` : 'No slowest stage yet'}
           body={slowestStage ? `Average age is ${slowestStage.avgDays.toFixed(1)} days with a max of ${slowestStage.maxDays.toFixed(1)} days.` : 'Stage age will appear once deals have enough movement history.'}
-          action={!slowestStage ? {
+          action={slowestStage ? {
+            href: dealStageLensHref(slowestStage),
+            label: 'Review stage',
+            ariaLabel: `Open deals in slowest ${labelize(slowestStage.stageId)} stage`,
+            icon: 'view_list',
+          } : {
             href: '/portal/deals',
             label: 'Review pipeline',
             ariaLabel: 'Open pipeline to build stage velocity insight',
             icon: 'view_kanban',
-          } : undefined}
+          }}
           tone={velocity && velocity.summary.bottleneckCount === 0 ? 'good' : 'warning'}
         />
         <InsightCard
@@ -779,7 +793,16 @@ export default function CrmReportsPage() {
                   ? `${labelize(velocity.summary.slowestStage.stageId)} averages ${velocity.summary.slowestStage.avgDays.toFixed(1)} days`
                   : 'No slow stages yet'}
               </p>
-              {!velocity.summary.slowestStage && (
+              {velocity.summary.slowestStage ? (
+                <Link
+                  href={dealStageLensHref(velocity.summary.slowestStage)}
+                  aria-label={`Review deals in slowest ${labelize(velocity.summary.slowestStage.stageId)} stage from bottleneck summary`}
+                  className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-[var(--color-pib-accent)] hover:underline"
+                >
+                  <span className="material-symbols-outlined text-[14px]" aria-hidden="true">view_list</span>
+                  Review slow stage
+                </Link>
+              ) : (
                 <Link
                   href="/portal/deals"
                   aria-label="Review pipeline movement from bottleneck summary"

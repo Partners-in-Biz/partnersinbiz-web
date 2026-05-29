@@ -196,6 +196,8 @@ function ProbabilityInput({ deal, onUpdate }: { deal: Deal; onUpdate: (id: strin
 
 export default function DealsPage() {
   const searchParams = useSearchParams()
+  const requestedPipelineId = searchParams.get('pipelineId') ?? undefined
+  const requestedStageId = searchParams.get('stage') ?? undefined
   const [deals, setDeals] = useState<Deal[]>([])
   const [contacts, setContacts] = useState<Contact[]>([])
   const [pipelines, setPipelines] = useState<Pipeline[]>([])
@@ -204,7 +206,7 @@ export default function DealsPage() {
   const [pipelinesLoading, setPipelinesLoading] = useState(true)
   const [contactsLoading, setContactsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [stageFilter, setStageFilter] = useState<string>('all')
+  const [stageFilter, setStageFilter] = useState<string>(() => requestedStageId ?? 'all')
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     const view = searchParams.get('view')
     return view === 'list' || view === 'forecast' ? view : 'board'
@@ -241,7 +243,8 @@ export default function DealsPage() {
         const list = extractPipelinesList(body)
         setPipelines(list)
         // Auto-select default pipeline
-        const defaultPl = list.find(p => p.isDefault) ?? list[0]
+        const requestedPipeline = requestedPipelineId ? list.find(p => p.id === requestedPipelineId) : undefined
+        const defaultPl = requestedPipeline ?? list.find(p => p.isDefault) ?? list[0]
         if (defaultPl) setSelectedPipelineId(defaultPl.id)
         setPipelinesLoading(false)
       })
@@ -251,7 +254,7 @@ export default function DealsPage() {
         setPipelinesLoading(false)
       })
     return () => { cancelled = true }
-  }, [])
+  }, [requestedPipelineId])
 
   useEffect(() => {
     let cancelled = false
@@ -299,7 +302,7 @@ export default function DealsPage() {
         if (cancelled) return
         if (!body.success) throw new Error(body.error ?? 'Failed to load deals')
         setDeals(body.data ?? [])
-        setStageFilter('all') // reset filter on pipeline switch
+        setStageFilter(requestedStageId ?? 'all')
         setLoading(false)
       })
       .catch(err => {
@@ -308,7 +311,7 @@ export default function DealsPage() {
         setLoading(false)
       })
     return () => { cancelled = true }
-  }, [selectedPipelineId])
+  }, [requestedStageId, selectedPipelineId])
 
   const selectedPipeline = pipelines.find(p => p.id === selectedPipelineId)
   const stages = useMemo<PipelineStage[]>(
@@ -633,6 +636,7 @@ export default function DealsPage() {
               <button
                 key={s}
                 onClick={() => setStageFilter(s)}
+                aria-pressed={stageFilter === s}
                 className={[
                   'text-xs font-label px-3 py-1.5 rounded-[var(--radius-btn)] transition-colors capitalize',
                   stageFilter === s

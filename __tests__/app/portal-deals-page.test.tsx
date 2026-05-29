@@ -79,7 +79,10 @@ describe('Portal deals page', () => {
             id: 'pipeline-1',
             name: 'Sales pipeline',
             isDefault: true,
-            stages: [{ id: 'qualified', label: 'Qualified', kind: 'open', order: 1, probability: 40 }],
+            stages: [
+              { id: 'qualified', label: 'Qualified', kind: 'open', order: 1, probability: 40 },
+              { id: 'proposal', label: 'Proposal', kind: 'open', order: 2, probability: 70 },
+            ],
           },
         ])
       }
@@ -248,5 +251,50 @@ describe('Portal deals page', () => {
     expect(await screen.findByText('No close date opportunity')).toBeInTheDocument()
     expect(screen.queryByText('Dated expansion')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Focus deals missing close dates' })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('opens directly to a deal stage lens from CRM reports', async () => {
+    mockSearchParams = new URLSearchParams('view=list&pipelineId=pipeline-1&stage=qualified')
+    mockDealRows = [
+      {
+        id: 'deal-qualified',
+        orgId: 'org-1',
+        contactId: 'contact-1',
+        title: 'Qualified opportunity',
+        value: 50000,
+        currency: 'ZAR',
+        pipelineId: 'pipeline-1',
+        stageId: 'qualified',
+        ownerUid: 'owner-1',
+        ownerRef: { uid: 'owner-1', displayName: 'Maya Sales' },
+        expectedCloseDate: '2026-06-15',
+        notes: '',
+        createdAt: null,
+        updatedAt: null,
+      },
+      {
+        id: 'deal-proposal',
+        orgId: 'org-1',
+        contactId: 'contact-1',
+        title: 'Proposal opportunity',
+        value: 25000,
+        currency: 'ZAR',
+        pipelineId: 'pipeline-1',
+        stageId: 'proposal',
+        ownerUid: 'owner-1',
+        ownerRef: { uid: 'owner-1', displayName: 'Maya Sales' },
+        expectedCloseDate: '2026-07-15',
+        notes: '',
+        createdAt: null,
+        updatedAt: null,
+      },
+    ]
+
+    render(<DealsPage />)
+
+    expect(await screen.findByRole('tab', { name: /List/i })).toHaveAttribute('aria-selected', 'true')
+    expect(await screen.findByText('Qualified opportunity')).toBeInTheDocument()
+    expect(screen.queryByText('Proposal opportunity')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Qualified' })).toHaveAttribute('aria-pressed', 'true')
   })
 })

@@ -320,6 +320,69 @@ describe('Portal CRM reports page', () => {
     expect(bottleneckLink).toHaveAttribute('href', '/portal/deals')
   })
 
+  it('turns an identified slowest stage into a deal-stage working list', async () => {
+    ;(global.fetch as jest.Mock).mockImplementation((url: RequestInfo | URL) => {
+      const path = String(url)
+      if (path === '/api/v1/crm/reports/funnel') {
+        return apiResponse({
+          byType: { lead: 3, prospect: 2, client: 1, churned: 0, other: 0 },
+          byStage: { new: 3, contacted: 2, qualified: 1 },
+          total: 6,
+        })
+      }
+      if (path === '/api/v1/crm/reports/forecast') {
+        return apiResponse({
+          periods: {
+            thisMonth: { dealCount: 1, totalValue: 10000, weightedValue: 5000 },
+            nextMonth: { dealCount: 0, totalValue: 0, weightedValue: 0 },
+            thisQuarter: { dealCount: 1, totalValue: 10000, weightedValue: 5000 },
+            nextQuarter: { dealCount: 0, totalValue: 0, weightedValue: 0 },
+            beyond: { dealCount: 0, totalValue: 0, weightedValue: 0 },
+            noDate: { dealCount: 0, totalValue: 0, weightedValue: 0 },
+          },
+          summary: { totalOpenDeals: 1, totalValue: 10000, weightedValue: 5000 },
+        })
+      }
+      if (path === '/api/v1/crm/reports/pipeline-velocity') {
+        return apiResponse({
+          stages: [{ pipelineId: 'pipeline-1', stageId: 'discovery', dealCount: 2, avgDays: 12, maxDays: 19, bottleneck: true }],
+          summary: {
+            stageCount: 1,
+            bottleneckCount: 1,
+            slowestStage: { pipelineId: 'pipeline-1', stageId: 'discovery', dealCount: 2, avgDays: 12, maxDays: 19, bottleneck: true },
+          },
+        })
+      }
+      if (path === '/api/v1/crm/reports/rep-performance') {
+        return apiResponse({
+          reps: [],
+          summary: {
+            repCount: 0,
+            totalWonValue: 0,
+            totalOpenValue: 0,
+            totalActivities: 0,
+            totalContacts: 6,
+            unassignedContacts: 0,
+            contactOwnerCoverage: 1,
+          },
+        })
+      }
+      if (path === '/api/v1/crm/reports/activity-summary?days=30') {
+        return apiResponse({ byType: { email: 1 }, total: 1, perDay: [{ date: '2026-05-29', count: 1 }], since: '2026-04-29', days: 30 })
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${path}`))
+    })
+
+    render(<CrmReportsPage />)
+
+    expect(await screen.findByText('Discovery is slowest')).toBeInTheDocument()
+
+    const insightLink = screen.getByRole('link', { name: 'Open deals in slowest Discovery stage' })
+    expect(insightLink).toHaveAttribute('href', '/portal/deals?view=list&pipelineId=pipeline-1&stage=discovery')
+    const summaryLink = screen.getByRole('link', { name: 'Review deals in slowest Discovery stage from bottleneck summary' })
+    expect(summaryLink).toHaveAttribute('href', '/portal/deals?view=list&pipelineId=pipeline-1&stage=discovery')
+  })
+
   it('turns missing rep performance data into a team setup action', async () => {
     ;(global.fetch as jest.Mock).mockImplementation((url: RequestInfo | URL) => {
       const path = String(url)
