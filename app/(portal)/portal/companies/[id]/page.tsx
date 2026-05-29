@@ -28,6 +28,7 @@ type RelatedContact = {
 type RelatedDeal = {
   id: string
   title?: string
+  contactId?: string
   value?: number
   currency?: string
   stageId?: string
@@ -378,8 +379,64 @@ function DealsPanel({
   )
 }
 
-function QuotesPanel({ quotes }: { quotes: RelatedQuote[] }) {
-  if (quotes.length === 0) return <EmptyPanel icon="request_quote" label="No linked quotes yet." />
+function dealLabel(deal: RelatedDeal) {
+  return deal.title || deal.id
+}
+
+function numericDealValue(deal: RelatedDeal) {
+  return typeof deal.value === 'number' && Number.isFinite(deal.value) ? deal.value : 0
+}
+
+function QuotesPanel({
+  quotes,
+  company,
+  deals,
+  creatingQuote,
+  quoteError,
+  onCreateQuote,
+  onCreateDeal,
+}: {
+  quotes: RelatedQuote[]
+  company: Company
+  deals: RelatedDeal[]
+  creatingQuote: boolean
+  quoteError: string | null
+  onCreateQuote: () => void
+  onCreateDeal: () => void
+}) {
+  if (quotes.length === 0) {
+    const firstDeal = deals[0]
+    return (
+      <EmptyPanel
+        icon="request_quote"
+        label={
+          firstDeal
+            ? `No linked quotes yet. Turn ${dealLabel(firstDeal)} into the first commercial proposal for ${company.name}.`
+            : 'No linked quotes yet. Create a deal first so pricing, forecast, and quote history stay connected.'
+        }
+      >
+        <div className="flex flex-col items-center gap-3">
+          {firstDeal ? (
+            <button
+              type="button"
+              onClick={onCreateQuote}
+              disabled={creatingQuote}
+              className="btn-pib-primary inline-flex items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">request_quote</span>
+              {creatingQuote ? 'Creating quote...' : `Create quote from ${dealLabel(firstDeal)}`}
+            </button>
+          ) : (
+            <button type="button" onClick={onCreateDeal} className="btn-pib-secondary inline-flex items-center gap-1.5">
+              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add_business</span>
+              Create deal before quote
+            </button>
+          )}
+          {quoteError ? <p className="max-w-md text-xs text-red-300">{quoteError}</p> : null}
+        </div>
+      </EmptyPanel>
+    )
+  }
   return (
     <TableShell>
       <table className="w-full text-sm">
@@ -672,6 +729,8 @@ export default function CompanyDetailPage() {
   const [companyNote, setCompanyNote] = useState('')
   const [savingNote, setSavingNote] = useState(false)
   const [noteError, setNoteError] = useState<string | null>(null)
+  const [creatingQuote, setCreatingQuote] = useState(false)
+  const [quoteError, setQuoteError] = useState<string | null>(null)
   const [customFieldDefs, setCustomFieldDefs] = useState<CustomFieldDefinition[]>([])
   const [related, setRelated] = useState<RelatedState>({
     contacts: [],
@@ -846,6 +905,43 @@ export default function CompanyDetailPage() {
       setNoteError(err instanceof Error ? err.message : 'Failed to log activity')
     } finally {
       setSavingNote(false)
+    }
+  }
+
+  async function createQuoteFromFirstDeal(): Promise<void> {
+    if (!company) return
+    const firstDeal = related.deals[0]
+    if (!firstDeal) {
+      setQuoteError('Create a deal before creating a quote.')
+      return
+    }
+    setCreatingQuote(true)
+    setQuoteError(null)
+    try {
+      const res = await fetch('/api/v1/quotes', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          dealId: firstDeal.id,
+          contactId: firstDeal.contactId || related.contacts[0]?.id,
+          companyId: company.id,
+          currency: firstDeal.currency || 'ZAR',
+          lineItems: numericDealValue(firstDeal) > 0 ? [
+            {
+              description: dealLabel(firstDeal),
+              quantity: 1,
+              unitPrice: numericDealValue(firstDeal),
+            },
+          ] : undefined,
+        }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(body.error ?? 'Failed to create quote')
+      await loadRelated(company.id)
+    } catch (err) {
+      setQuoteError(err instanceof Error ? err.message : 'Failed to create quote')
+    } finally {
+      setCreatingQuote(false)
     }
   }
 
@@ -1037,7 +1133,17 @@ export default function CompanyDetailPage() {
             metaFor={(row) => [String(row.relationshipType ?? ''), Array.isArray(row.sharedCapabilities) ? row.sharedCapabilities.join(', ') : undefined]}
           />
         )}
-        {!relatedLoading && tab === 'quotes' && <QuotesPanel quotes={related.quotes} />}
+        {!relatedLoading && tab === 'quotes' && (
+          <QuotesPanel
+            quotes={related.quotes}
+            company={company}
+            deals={related.deals}
+            creatingQuote={creatingQuote}
+            quoteError={quoteError}
+            onCreateQuote={createQuoteFromFirstDeal}
+            onCreateDeal={() => setNewDealOpen(true)}
+          />
+        )}
         {!relatedLoading && tab === 'invoices' && <InvoicesPanel invoices={related.invoices} />}
         {!relatedLoading && tab === 'orders' && (
           <SimpleRowsPanel
