@@ -19,6 +19,43 @@ Projects, campaigns, CRM deals, reports, SEO sprints, and social posts remain th
 
 ---
 
+## CRM Relationship Model
+
+Document ownership, CRM-company linkage, and client organisation visibility are separate.
+
+- `orgId` is the document source/owner workspace.
+- `linked.companyId` attaches the document to a CRM company and is required for company Documents tabs.
+- `linked.clientOrgId` makes a PiB-owned document visible in a system client's organisation document views once the status is client-visible.
+- Existing documents should not be re-owned just to make them appear in another view. Link them with `linked.companyId` and, where applicable, `linked.clientOrgId`.
+- PiB-prepared documents for system clients should normally be source-owned by `pib-platform-owner` and linked to the client through `linked.companyId` + `linked.clientOrgId`.
+- Non-system CRM businesses have no client organisation. For them, use `linked.companyId` only; they show under the CRM company Documents tab but not in any client portal Documents tab.
+
+When creating from a CRM company page, prefer the current page company context:
+
+```json
+{
+  "title": "AHS Law — Google Ads Proposal",
+  "type": "sales_proposal",
+  "templateId": "sales_proposal",
+  "linked": { "companyId": "<crmCompanyId>" }
+}
+```
+
+The API resolves the owner org from the company. If that company has `linkedOrgId`, the API also stamps `linked.clientOrgId`, so the client organisation sees the document after publish.
+
+When creating from a selected client/org context instead of a company page, send the client `orgId`. The API finds the PiB-side platform CRM company and stores the document under `pib-platform-owner` when that relationship exists.
+
+Publishing / "send to client" changes the document to `client_review`, enables share, and makes it appear in client-visible document lists. Client-visible statuses are only `client_review`, `changes_requested`, `approved`, and `accepted`; `internal_draft` and `internal_review` stay hidden from clients.
+
+After publishing a CRM-linked client document, verify it through both views:
+
+1. CRM company Documents tab includes the document via `linked.companyId`.
+2. Client/org Documents list includes it via `linked.clientOrgId` and client-visible status.
+
+Do not rely on email notification alone as proof of client visibility; verify the document list/API.
+
+---
+
 ## Share modes
 
 A document supports two independent shares — view-only and edit. They are independently revocable.
