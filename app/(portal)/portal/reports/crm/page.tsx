@@ -587,7 +587,17 @@ export default function CrmReportsPage() {
       {/* ── Section 1: Contact pipeline ─────────────────────────────────────── */}
       <Section eyebrow="Contact pipeline">
         {!funnel ? (
-          <EmptyState icon="contacts" title="No contact data yet" body="Contacts will populate the funnel as leads, prospects, clients, and churned accounts are created." />
+          <EmptyState
+            icon="contacts"
+            title="No contact data yet"
+            body="Contacts will populate the funnel as leads, prospects, clients, and churned accounts are created."
+            action={{
+              href: '/portal/contacts',
+              label: 'Open contacts',
+              ariaLabel: 'Open contacts to create reportable CRM records',
+              icon: 'contacts',
+            }}
+          />
         ) : (
           <>
             {/* By type — 4 stat cards */}
