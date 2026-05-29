@@ -118,6 +118,28 @@ describe('CompanyOverviewPanel', () => {
     expect(screen.getByText('No billing or contact fields captured yet.')).toBeInTheDocument()
   })
 
+  it('turns setup focus gaps into a company profile editing action', () => {
+    const onEditCompany = jest.fn()
+
+    render(
+      <CompanyOverviewPanel
+        company={company({
+          website: undefined,
+          lifecycleStage: undefined,
+          tier: undefined,
+          industry: undefined,
+          billingEmail: undefined,
+          healthScore: undefined,
+        })}
+        onEditCompany={onEditCompany}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit company profile to capture Website' }))
+
+    expect(onEditCompany).toHaveBeenCalledTimes(1)
+  })
+
   it('labels parent-account navigation with the resolved parent company name', () => {
     const companyWithParent = company({
       parentCompanyId: 'co-parent',

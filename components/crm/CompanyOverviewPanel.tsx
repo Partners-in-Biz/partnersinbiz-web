@@ -66,6 +66,7 @@ export interface CompanyOverviewPanelProps {
   center?: CompanyOverviewCenter
   loading?: boolean
   onSelectTab?: (tab: string) => void
+  onEditCompany?: () => void
 }
 
 const WIDGETS: Array<{
@@ -460,7 +461,7 @@ function SocialLink({ label, href }: { label: string; href: string }) {
   )
 }
 
-export function CompanyOverviewPanel({ company, center, loading, onSelectTab }: CompanyOverviewPanelProps) {
+export function CompanyOverviewPanel({ company, center, loading, onSelectTab, onEditCompany }: CompanyOverviewPanelProps) {
   if (loading) {
     return (
       <div className="space-y-4">
@@ -698,7 +699,19 @@ export function CompanyOverviewPanel({ company, center, loading, onSelectTab }: 
                   <p className="text-sm font-medium text-[var(--color-pib-text)]">{item.label}</p>
                   <span aria-hidden="true" className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">add_circle</span>
                 </div>
-                <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">Worth capturing next.</p>
+                {onEditCompany ? (
+                  <button
+                    type="button"
+                    onClick={onEditCompany}
+                    aria-label={`Edit company profile to capture ${item.label}`}
+                    className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-[var(--color-accent-v2)] hover:underline"
+                  >
+                    <span aria-hidden="true" className="material-symbols-outlined text-[14px]">edit</span>
+                    Capture now
+                  </button>
+                ) : (
+                  <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">Worth capturing next.</p>
+                )}
               </div>
             ))}
           </div>

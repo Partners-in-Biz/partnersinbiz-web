@@ -1890,6 +1890,7 @@ export default function CompanyDetailPage() {
                 analytics: related.analytics,
               }}
               onSelectTab={(nextTab) => setTab(nextTab as CompanyTab)}
+              onEditCompany={() => setEditOpen(true)}
             />
             {customFieldDefs.length > 0 && (
               <div className="bento-card p-5 space-y-3">
