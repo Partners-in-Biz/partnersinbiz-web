@@ -12,6 +12,7 @@ import type { CompanyTab } from '@/components/crm/CompanyTabsBar'
 import { CompanyOverviewPanel } from '@/components/crm/CompanyOverviewPanel'
 import { CompanyEditDrawer } from '@/components/crm/CompanyEditDrawer'
 import { CustomFieldsSection } from '@/components/crm/CustomFieldsSection'
+import { ContactForm } from '@/components/admin/crm/ContactForm'
 
 type RelatedContact = {
   id: string
@@ -186,13 +187,14 @@ function PageSkeleton() {
   )
 }
 
-function EmptyPanel({ icon, label }: { icon: string; label: string }) {
+function EmptyPanel({ icon, label, children }: { icon: string; label: string; children?: React.ReactNode }) {
   return (
     <div className="bento-card p-10 text-center">
       <span className="material-symbols-outlined text-4xl text-[var(--color-pib-text-muted)]">{icon}</span>
       <p className="text-sm text-[var(--color-pib-text-muted)] mt-3">
         {label}
       </p>
+      {children ? <div className="mt-5 flex justify-center">{children}</div> : null}
     </div>
   )
 }
@@ -251,8 +253,28 @@ function extractList<T>(body: unknown, key: keyof RelatedState): T[] {
   return Array.isArray(value) ? value as T[] : []
 }
 
-function ContactsPanel({ contacts }: { contacts: RelatedContact[] }) {
-  if (contacts.length === 0) return <EmptyPanel icon="person_off" label="No linked contacts yet." />
+function ContactsPanel({
+  contacts,
+  company,
+  onCreateContact,
+}: {
+  contacts: RelatedContact[]
+  company: Company
+  onCreateContact: () => void
+}) {
+  if (contacts.length === 0) {
+    return (
+      <EmptyPanel
+        icon="person_add"
+        label="No linked contacts yet. Add the first stakeholder so emails, deals, quotes, and activity have a real relationship anchor."
+      >
+        <button type="button" onClick={onCreateContact} className="btn-pib-primary inline-flex items-center gap-1.5">
+          <span className="material-symbols-outlined text-[16px]" aria-hidden="true">person_add</span>
+          Add first contact for {company.name}
+        </button>
+      </EmptyPanel>
+    )
+  }
   return (
     <TableShell>
       <table className="w-full text-sm">
@@ -494,6 +516,7 @@ export default function CompanyDetailPage() {
 
   const [tab, setTab] = useState<CompanyTab>('overview')
   const [editOpen, setEditOpen] = useState(false)
+  const [newContactOpen, setNewContactOpen] = useState(false)
   const [customFieldDefs, setCustomFieldDefs] = useState<CustomFieldDefinition[]>([])
   const [related, setRelated] = useState<RelatedState>({
     contacts: [],
@@ -544,21 +567,17 @@ export default function CompanyDetailPage() {
     void fetchCompany()
   }, [fetchCompany])
 
-  const companyId = company?.id
-  useEffect(() => {
-    if (!companyId) return
-    let cancelled = false
-    async function fetchRelated() {
+  const loadRelated = useCallback(async (nextCompanyId: string, isCancelled: () => boolean = () => false) => {
       setRelatedLoading(true)
       setRelatedError(null)
       try {
-        const commandCenterRes = await fetch(`/api/v1/crm/companies/${companyId}/command-center?limit=100`)
+        const commandCenterRes = await fetch(`/api/v1/crm/companies/${nextCompanyId}/command-center?limit=100`)
         if (!commandCenterRes.ok) {
           const body = await commandCenterRes.json().catch(() => ({}))
           throw new Error(body.error ?? `HTTP ${commandCenterRes.status}`)
         }
         const commandCenterBody = await commandCenterRes.json()
-        if (!cancelled) {
+        if (!isCancelled()) {
           const commandData = commandCenterBody?.data ?? commandCenterBody ?? {}
           setRelated({
             contacts: extractList<RelatedContact>(commandCenterBody, 'contacts'),
@@ -578,16 +597,21 @@ export default function CompanyDetailPage() {
           })
         }
       } catch (err) {
-        if (!cancelled) setRelatedError(err instanceof Error ? err.message : 'Failed to load linked records')
+        if (!isCancelled()) setRelatedError(err instanceof Error ? err.message : 'Failed to load linked records')
       } finally {
-        if (!cancelled) setRelatedLoading(false)
+        if (!isCancelled()) setRelatedLoading(false)
       }
-    }
-    void fetchRelated()
+  }, [])
+
+  const companyId = company?.id
+  useEffect(() => {
+    if (!companyId) return
+    let cancelled = false
+    void loadRelated(companyId, () => cancelled)
     return () => {
       cancelled = true
     }
-  }, [companyId])
+  }, [companyId, loadRelated])
 
   async function handleSave(patch: Partial<Company>): Promise<void> {
     const res = await fetch(`/api/v1/crm/companies/${id}`, {
@@ -600,6 +624,26 @@ export default function CompanyDetailPage() {
       throw new Error(body.error ?? 'Save failed')
     }
     await fetchCompany()
+  }
+
+  async function createCompanyContact(data: Record<string, unknown>): Promise<void> {
+    if (!company) return
+    const res = await fetch('/api/v1/crm/contacts', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        ...data,
+        company: company.name,
+        companyId: company.id,
+        companyName: company.name,
+      }),
+    })
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}))
+      throw new Error(body.error ?? 'Failed to create contact')
+    }
+    setNewContactOpen(false)
+    await loadRelated(company.id)
   }
 
   async function handleDelete(): Promise<void> {
@@ -736,7 +780,13 @@ export default function CompanyDetailPage() {
             )}
           </div>
         )}
-        {!relatedLoading && tab === 'contacts' && <ContactsPanel contacts={related.contacts} />}
+        {!relatedLoading && tab === 'contacts' && (
+          <ContactsPanel
+            contacts={related.contacts}
+            company={company}
+            onCreateContact={() => setNewContactOpen(true)}
+          />
+        )}
         {!relatedLoading && tab === 'deals' && <DealsPanel deals={related.deals} />}
         {!relatedLoading && tab === 'projects' && (
           <SimpleRowsPanel
@@ -818,6 +868,37 @@ export default function CompanyDetailPage() {
           onClose={() => setEditOpen(false)}
           customFieldDefinitions={customFieldDefs}
         />
+      )}
+
+      {newContactOpen && (
+        <div className="fixed inset-0 z-50 flex">
+          <div className="flex-1 bg-black/60 backdrop-blur-sm" onClick={() => setNewContactOpen(false)} />
+          <div className="w-full max-w-md overflow-y-auto border-l border-[var(--color-pib-line)] bg-[var(--color-pib-surface)]">
+            <div className="flex items-center justify-between border-b border-[var(--color-pib-line)] px-6 py-4">
+              <div>
+                <p className="eyebrow !text-[10px]">Company contact</p>
+                <h2 className="font-display text-lg">New contact</h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setNewContactOpen(false)}
+                className="text-[var(--color-pib-text-muted)] transition-colors hover:text-[var(--color-pib-text)]"
+                aria-label="Close"
+              >
+                <span className="material-symbols-outlined text-[20px]">close</span>
+              </button>
+            </div>
+            <ContactForm
+              onSave={createCompanyContact}
+              onCancel={() => setNewContactOpen(false)}
+              initial={{
+                company: company.name,
+                companyId: company.id,
+                companyName: company.name,
+              }}
+            />
+          </div>
+        </div>
       )}
     </div>
   )

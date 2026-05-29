@@ -67,7 +67,12 @@ export function ContactForm({ onSave, onCancel, initial = {} }: ContactFormProps
     setError('')
     try {
       const { tagsInput, ...payload } = form
-      await onSave({ ...payload, tags: splitTags(tagsInput) })
+      await onSave({
+        ...payload,
+        companyId: initial.companyId,
+        companyName: initial.companyName,
+        tags: splitTags(tagsInput),
+      })
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Save failed')
     } finally {
@@ -75,17 +80,21 @@ export function ContactForm({ onSave, onCancel, initial = {} }: ContactFormProps
     }
   }
 
-  const field = (label: string, key: ContactTextField, type = 'text') => (
-    <div className="flex flex-col gap-1">
-      <label className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">{label}</label>
-      <input
-        type={type}
-        value={form[key]}
-        onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
-        className="pib-input"
-      />
-    </div>
-  )
+  const field = (label: string, key: ContactTextField, type = 'text') => {
+    const id = `crm-contact-${key}`
+    return (
+      <div className="flex flex-col gap-1">
+        <label htmlFor={id} className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">{label}</label>
+        <input
+          id={id}
+          type={type}
+          value={form[key]}
+          onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
+          className="pib-input"
+        />
+      </div>
+    )
+  }
 
   function splitTags(value: string): string[] {
     return value

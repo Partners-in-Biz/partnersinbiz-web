@@ -4,6 +4,7 @@ import CompanyDetailPage from '@/app/(portal)/portal/companies/[id]/page'
 
 jest.mock('next/navigation', () => ({
   useParams: () => ({ id: 'company-1' }),
+  useRouter: () => ({ push: jest.fn() }),
 }))
 
 describe('Portal company detail page', () => {
@@ -139,5 +140,101 @@ describe('Portal company detail page', () => {
 
     fireEvent.click(screen.getByRole('tab', { name: /Analytics/i }))
     expect(await screen.findByText(/Account value/i)).toBeInTheDocument()
+  })
+
+  it('turns an empty company contacts tab into a prefilled create-contact action', async () => {
+    const postContact = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ success: true, data: { id: 'contact-new' } }),
+    } as Response)
+
+    global.fetch = jest.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/custom-fields?resource=company') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { definitions: [] } }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/companies/company-1') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              company: {
+                id: 'company-1',
+                orgId: 'org-1',
+                name: 'Acme Holdings',
+                lifecycleStage: 'customer',
+              },
+            },
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/companies/company-1/command-center?limit=100') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              summary: {},
+              analytics: {},
+              contacts: [],
+              deals: [],
+              quotes: [],
+              invoices: [],
+              projects: [],
+              serviceWorkspaces: [],
+              relationships: [],
+              documents: [],
+              orders: [],
+              shipments: [],
+              inventoryItems: [],
+              activities: [],
+            },
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/contacts' && init?.method === 'POST') {
+        return postContact(input, init)
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ data: {} }),
+      } as Response)
+    }) as jest.Mock
+
+    render(<CompanyDetailPage />)
+
+    await screen.findByRole('heading', { name: 'Acme Holdings' })
+    fireEvent.click(screen.getByRole('tab', { name: /Contacts/i }))
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Add first contact for Acme Holdings' }))
+    expect(screen.getByText('New contact')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('Acme Holdings')).toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText('Name *'), { target: { value: 'Morgan Buyer' } })
+    fireEvent.change(screen.getByLabelText('Email *'), { target: { value: 'morgan@example.com' } })
+    fireEvent.click(screen.getByRole('button', { name: /save contact/i }))
+
+    await waitFor(() => {
+      expect(postContact).toHaveBeenCalledWith(
+        '/api/v1/crm/contacts',
+        expect.objectContaining({
+          method: 'POST',
+          body: expect.stringContaining('"companyId":"company-1"'),
+        }),
+      )
+    })
+    expect(JSON.parse((postContact.mock.calls[0][1] as RequestInit).body as string)).toEqual(
+      expect.objectContaining({
+        name: 'Morgan Buyer',
+        email: 'morgan@example.com',
+        company: 'Acme Holdings',
+        companyId: 'company-1',
+        companyName: 'Acme Holdings',
+      }),
+    )
   })
 })
