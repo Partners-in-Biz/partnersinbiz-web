@@ -89,4 +89,17 @@ describe('Portal contact detail page', () => {
     expect(screen.getByPlaceholderText('Subject…')).toBeInTheDocument()
     expect(screen.getByPlaceholderText('Message…')).toBeInTheDocument()
   })
+
+  it('turns an empty activity timeline into a first-note action', async () => {
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    expect(await screen.findByText('No activity logged yet.')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Log first note for Jane Client' }))
+
+    expect(screen.getByPlaceholderText('Add note notes…')).toBeInTheDocument()
+  })
 })

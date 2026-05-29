@@ -417,6 +417,12 @@ export default function PortalContactDetailPage() {
     setLogError(null)
   }
 
+  function openFirstNoteComposer() {
+    setLogType('note')
+    setShowAiComposer(false)
+    setLogError(null)
+  }
+
   async function handleLogActivity() {
     setLogSaving(true)
     setLogError(null)
@@ -1422,6 +1428,15 @@ export default function PortalContactDetailPage() {
                 <p className="text-sm text-[var(--color-pib-text-muted)] mt-2">
                   No activity logged yet.
                 </p>
+                <button
+                  type="button"
+                  onClick={openFirstNoteComposer}
+                  aria-label={`Log first note for ${contact.name ?? 'this contact'}`}
+                  className="btn-pib-primary mt-4 inline-flex items-center gap-1.5 text-xs"
+                >
+                  <span className="material-symbols-outlined text-[14px]" aria-hidden="true">edit_note</span>
+                  Log first note
+                </button>
               </div>
             ) : (
               <div className="px-5 pb-4">
