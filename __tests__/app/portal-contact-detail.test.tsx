@@ -165,4 +165,17 @@ describe('Portal contact detail page', () => {
 
     expect(screen.getByPlaceholderText('Add note notes…')).toBeInTheDocument()
   })
+
+  it('turns an empty email thread insight into a send action', async () => {
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Send email to Jane Client from email thread insight' }))
+
+    expect(screen.getByPlaceholderText('Subject…')).toBeInTheDocument()
+    expect(screen.getByPlaceholderText('Message…')).toBeInTheDocument()
+  })
 })

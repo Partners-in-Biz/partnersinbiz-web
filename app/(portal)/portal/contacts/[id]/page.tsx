@@ -680,6 +680,7 @@ export default function PortalContactDetailPage() {
   const recentActivityCount = activities.length
   const sentEmailCount = emails.filter((item) => item.direction !== 'inbound').length
   const receivedEmailCount = emails.filter((item) => item.direction === 'inbound').length
+  const shouldPromptFirstEmail = emails.length === 0 && !!email.trim()
   const nextSuggestion = suggestions[0]
   const missingFields = [
     !email.trim() ? 'email' : '',
@@ -904,6 +905,17 @@ export default function PortalContactDetailPage() {
             <p className="eyebrow !text-[10px]">Email thread</p>
             <p className="mt-3 font-display text-3xl text-[var(--color-pib-text)]">{emails.length}</p>
             <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">{sentEmailCount} sent / {receivedEmailCount} received</p>
+            {shouldPromptFirstEmail && (
+              <button
+                type="button"
+                aria-label={`Send email to ${contactName} from email thread insight`}
+                onClick={openFirstEmailComposer}
+                className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-[var(--color-pib-line)] px-2 py-1.5 text-xs font-medium text-[var(--color-pib-accent)] transition-colors hover:border-[var(--color-pib-accent)] hover:text-[var(--color-pib-text)]"
+              >
+                <span className="material-symbols-outlined text-[14px]" aria-hidden="true">mail</span>
+                Send email
+              </button>
+            )}
           </div>
           <div className="pib-stat-card">
             <p className="eyebrow !text-[10px]">Activity</p>
