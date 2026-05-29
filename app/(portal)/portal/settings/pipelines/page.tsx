@@ -327,24 +327,7 @@ export default function PipelinesPage() {
         <div className="px-4 py-3 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] text-sm text-[var(--color-pib-text-muted)]">
           {fetchError}
         </div>
-      ) : pipelines.length === 0 ? (
-        <div className="bento-card !p-8 text-center">
-          <span className="material-symbols-outlined text-[34px] text-[var(--color-pib-text-muted)] mb-3 block">account_tree</span>
-          <p className="text-sm text-[var(--color-pib-text-muted)]">
-            No pipelines yet. Define the first sales path for this workspace.
-          </p>
-          {isAdmin && (
-            <button
-              type="button"
-              onClick={openCreate}
-              className="cursor-pointer btn-pib-accent flex items-center gap-1.5 text-sm mx-auto mt-4"
-            >
-              <span className="material-symbols-outlined text-[16px]">add</span>
-              New pipeline
-            </button>
-          )}
-        </div>
-      ) : filteredPipelines.length === 0 ? (
+      ) : pipelines.length > 0 && filteredPipelines.length === 0 ? (
         <div className="bento-card !p-8 text-center">
           <span className="material-symbols-outlined text-[34px] text-[var(--color-pib-text-muted)] mb-3 block">search_off</span>
           <p className="text-sm font-medium text-[var(--color-pib-text)]">No pipelines match this view.</p>
@@ -354,6 +337,7 @@ export default function PipelinesPage() {
         <PipelineDefinitionsList
           pipelines={filteredPipelines}
           isAdmin={isAdmin}
+          onCreate={openCreate}
           onEdit={openEdit}
           onDelete={handleDelete}
           onSetDefault={handleSetDefault}

@@ -6,6 +6,7 @@ import type { Pipeline } from '@/lib/pipelines/types'
 
 export interface PipelineDefinitionsListProps {
   pipelines: Pipeline[]
+  onCreate?: () => void
   onEdit: (p: Pipeline) => void
   onDelete: (p: Pipeline) => void
   onSetDefault: (p: Pipeline) => void
@@ -187,6 +188,7 @@ function PipelineRow({
 
 export function PipelineDefinitionsList({
   pipelines,
+  onCreate,
   onEdit,
   onDelete,
   onSetDefault,
@@ -194,8 +196,79 @@ export function PipelineDefinitionsList({
   isAdmin,
 }: PipelineDefinitionsListProps) {
   if (pipelines.length === 0) {
+    const blueprint = [
+      {
+        label: 'Deal intake',
+        value: 'Open',
+        icon: 'radio_button_unchecked',
+        copy: 'Where new opportunities enter the board.',
+      },
+      {
+        label: 'Won exit',
+        value: '100%',
+        icon: 'check_circle',
+        copy: 'A clean close point for revenue reports.',
+      },
+      {
+        label: 'Lost exit',
+        value: '0%',
+        icon: 'cancel',
+        copy: 'A clean loss point for coaching and analysis.',
+      },
+      {
+        label: 'Default route',
+        value: 'Set',
+        icon: 'star',
+        copy: 'The path every new deal can trust by default.',
+      },
+    ]
+
     return (
-      <p className="text-sm text-[var(--color-pib-text-muted)] italic">No pipelines yet.</p>
+      <div className="bento-card !p-0 overflow-hidden">
+        <div className="grid gap-0 lg:grid-cols-[1.1fr_1.4fr]">
+          <div className="border-b border-[var(--color-pib-line)] p-6 lg:border-b-0 lg:border-r">
+            <span className="material-symbols-outlined mb-4 block text-[34px] text-[var(--color-accent-v2)]">account_tree</span>
+            <p className="eyebrow !text-[10px]">Pipeline setup</p>
+            <h2 className="mt-2 font-display text-2xl leading-tight text-[var(--color-pib-text)]">
+              Launch your first revenue path
+            </h2>
+            <p className="mt-3 text-sm leading-6 text-[var(--color-pib-text-muted)]">
+              Start with one board that every employee understands: a clear intake stage, open work,
+              and trusted won/lost exits for forecasts, automations, and CEO-level reporting.
+            </p>
+
+            {isAdmin && onCreate ? (
+              <button
+                type="button"
+                onClick={onCreate}
+                className="btn-pib-accent mt-5 inline-flex cursor-pointer items-center gap-1.5 text-sm"
+              >
+                <span className="material-symbols-outlined text-[16px]">add</span>
+                Create the first pipeline
+              </button>
+            ) : (
+              <p className="mt-5 rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] px-3 py-2 text-xs text-[var(--color-pib-text-muted)]">
+                Ask an admin to create the first pipeline before teams start logging deals.
+              </p>
+            )}
+          </div>
+
+          <div className="grid gap-px bg-[var(--color-pib-line)] sm:grid-cols-2">
+            {blueprint.map((item) => (
+              <div key={item.label} className="bg-[var(--color-pib-surface)] p-5">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-widest text-[var(--color-pib-text-muted)]">{item.label}</p>
+                    <p className="mt-2 font-display text-2xl leading-none text-[var(--color-pib-text)]">{item.value}</p>
+                  </div>
+                  <span className="material-symbols-outlined text-[21px] text-[var(--color-pib-text-muted)]">{item.icon}</span>
+                </div>
+                <p className="mt-4 text-xs leading-5 text-[var(--color-pib-text-muted)]">{item.copy}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
     )
   }
 
