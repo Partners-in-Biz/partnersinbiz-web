@@ -55,6 +55,10 @@ function initials(name: string): string {
     .toUpperCase()
 }
 
+function accountManagerName(company: Company): string {
+  return company.accountManagerRef?.displayName || company.accountManagerUid || 'Unassigned'
+}
+
 // ── Tier / lifecycle colour chips ─────────────────────────────────────────────
 
 const TIER_COLOURS: Record<string, string> = {
@@ -217,7 +221,7 @@ export function CompanyRow({ company, onClick, selected = false, onToggleSelecte
             </span>
           </div>
         ) : (
-          <span className="text-sm text-[var(--color-pib-text-muted)]">—</span>
+          <span className="text-sm text-[var(--color-pib-text-muted)]">{accountManagerName(company)}</span>
         )}
       </td>
 

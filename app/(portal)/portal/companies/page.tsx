@@ -30,6 +30,10 @@ function profileStrength(company: Company): number {
   return Math.round((checks.filter(Boolean).length / checks.length) * 100)
 }
 
+function hasAccountManager(company: Company): boolean {
+  return Boolean(String(company.accountManagerUid ?? company.accountManagerRef?.uid ?? '').trim())
+}
+
 function formatCurrency(value: number, currency = 'ZAR'): string {
   try {
     return new Intl.NumberFormat('en-ZA', {
@@ -82,6 +86,7 @@ export default function CompaniesPage() {
   const [bulkIndustry, setBulkIndustry] = useState('')
   const [bulkTagsInput, setBulkTagsInput] = useState('')
   const [bulkAccountManagerUid, setBulkAccountManagerUid] = useState('')
+  const [managerLens, setManagerLens] = useState<'all' | 'unmanaged'>('all')
 
   // Read filters from URL search params
   const [filters, setFilters] = useState<CompanyListParams>(() => ({
@@ -107,21 +112,28 @@ export default function CompaniesPage() {
     const prospects = companies.filter((company) => company.lifecycleStage === 'prospect' || company.lifecycleStage === 'lead').length
     const linkedOrgs = companies.filter((company) => company.linkedOrgId).length
     const incomplete = companies.filter((company) => profileStrength(company) < 60).length
-    const managed = companies.filter((company) => company.accountManagerRef || company.accountManagerUid).length
+    const managed = companies.filter(hasAccountManager).length
+    const unmanaged = companies.length - managed
     const revenueRows = companies.filter((company) => typeof company.annualRevenue === 'number' && Number.isFinite(company.annualRevenue))
     const revenue = revenueRows.reduce((sum, company) => sum + (company.annualRevenue ?? 0), 0)
     const currency = revenueRows.find((company) => company.currency)?.currency ?? 'ZAR'
-    return { customers, prospects, linkedOrgs, incomplete, managed, revenue, currency }
+    const managerCoverage = companies.length > 0 ? managed / companies.length : 1
+    return { customers, prospects, linkedOrgs, incomplete, managed, unmanaged, managerCoverage, revenue, currency }
   }, [companies])
+
+  const displayedCompanies = useMemo(
+    () => managerLens === 'unmanaged' ? companies.filter((company) => !hasAccountManager(company)) : companies,
+    [companies, managerLens],
+  )
 
   useEffect(() => {
     setSelectedIds(prev => {
       if (prev.size === 0) return prev
-      const visible = new Set(companies.map(company => company.id))
+      const visible = new Set(displayedCompanies.map(company => company.id))
       const next = new Set(Array.from(prev).filter(id => visible.has(id)))
       return next.size === prev.size ? prev : next
     })
-  }, [companies])
+  }, [displayedCompanies])
 
   // ── Fetch companies ────────────────────────────────────────────────────────
 
@@ -190,10 +202,16 @@ export default function CompaniesPage() {
   }
 
   function toggleAllCompanies() {
-    if (selectedIds.size === companies.length) {
-      setSelectedIds(new Set())
+    const visibleIds = displayedCompanies.map(company => company.id)
+    const allVisibleSelected = visibleIds.length > 0 && visibleIds.every(id => selectedIds.has(id))
+    if (allVisibleSelected) {
+      setSelectedIds(prev => {
+        const next = new Set(prev)
+        for (const id of visibleIds) next.delete(id)
+        return next
+      })
     } else {
-      setSelectedIds(new Set(companies.map(company => company.id)))
+      setSelectedIds(prev => new Set([...prev, ...visibleIds]))
     }
   }
 
@@ -290,8 +308,42 @@ export default function CompaniesPage() {
           <AccountMetric icon="domain" label="Accounts" value={String(companies.length)} sub={hasActiveFilters ? 'Matching current view' : 'Visible in workspace'} />
           <AccountMetric icon="handshake" label="Customers" value={String(metrics.customers)} sub={`${metrics.prospects} leads/prospects`} />
           <AccountMetric icon="hub" label="Client links" value={String(metrics.linkedOrgs)} sub="Linked portal organisations" />
+          <AccountMetric icon="supervisor_account" label="Manager coverage" value={`${Math.round(metrics.managerCoverage * 100)}%`} sub={`${metrics.unmanaged} unmanaged`} />
           <AccountMetric icon="fact_check" label="Setup gaps" value={String(metrics.incomplete)} sub={`${metrics.managed} assigned owners`} />
           <AccountMetric icon="payments" label="Tracked value" value={formatCurrency(metrics.revenue, metrics.currency)} sub="Annual revenue fields" />
+        </section>
+      )}
+
+      {!loading && !error && (
+        <section className="grid gap-3 md:grid-cols-[1fr_1fr]">
+          <button
+            type="button"
+            onClick={() => setManagerLens(managerLens === 'unmanaged' ? 'all' : 'unmanaged')}
+            className={[
+              'rounded-[var(--radius-card)] border p-4 text-left transition-colors',
+              managerLens === 'unmanaged'
+                ? 'border-amber-400/40 bg-amber-400/10'
+                : 'border-[var(--color-pib-line)] bg-white/[0.03] hover:bg-white/[0.05]',
+            ].join(' ')}
+            aria-label={managerLens === 'unmanaged' ? 'Show all companies' : 'Show unmanaged companies needing an account manager'}
+          >
+            <span className="material-symbols-outlined text-[20px] text-[var(--color-pib-accent)]">manage_accounts</span>
+            <p className="mt-3 text-sm font-semibold text-[var(--color-pib-text)]">
+              {managerLens === 'unmanaged' ? 'Showing unmanaged accounts' : 'Review unmanaged accounts'}
+            </p>
+            <p className="mt-1 text-xs leading-relaxed text-[var(--color-pib-text-muted)]">
+              {metrics.unmanaged > 0
+                ? `${metrics.unmanaged} companies need an account manager before revenue, service, or billing ownership slips.`
+                : 'Every visible company has an account manager.'}
+            </p>
+          </button>
+          <div className="rounded-[var(--radius-card)] border border-[var(--color-pib-line)] bg-white/[0.03] p-4">
+            <span className="material-symbols-outlined text-[20px] text-[var(--color-pib-accent)]">assignment_ind</span>
+            <p className="mt-3 text-sm font-semibold text-[var(--color-pib-text)]">Account responsibility</p>
+            <p className="mt-1 text-xs leading-relaxed text-[var(--color-pib-text-muted)]">
+              Use the visible lens with bulk updates to assign account managers and keep each company owned by a person.
+            </p>
+          </div>
         </section>
       )}
 
@@ -316,7 +368,7 @@ export default function CompaniesPage() {
       {selectedIds.size > 0 && (
         <CompaniesBulkCommandBar
           selectedCount={selectedIds.size}
-          totalCount={companies.length}
+          totalCount={displayedCompanies.length}
           bulkAction={bulkAction}
           bulkPending={bulkPending}
           lifecycleStage={bulkLifecycleStage}
@@ -339,7 +391,7 @@ export default function CompaniesPage() {
 
       {/* ── Table ── */}
       <CompaniesTable
-        companies={companies}
+        companies={displayedCompanies}
         loading={loading}
         onRowClick={handleRowClick}
         selectedIds={selectedIds}
