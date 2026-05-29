@@ -85,6 +85,58 @@ describe('DealDrawer', () => {
       />,
     )
 
+    await screen.findByDisplayValue('Sales pipeline')
+
     expect(screen.getByPlaceholderText('Search contacts...')).toHaveValue('Ava Owner')
+  })
+
+  it('shows the readable contact label when editing an existing deal', async () => {
+    render(
+      <DealDrawer
+        deal={{
+          id: 'deal-1',
+          orgId: 'org-1',
+          title: 'Growth retainer',
+          contactId: 'contact-1',
+          pipelineId: 'pipeline-1',
+          stageId: 'stage-1',
+          value: 50000,
+          currency: 'ZAR',
+        }}
+        defaultContactLabel="Ava Owner"
+        orgId="org-1"
+        onSaved={jest.fn()}
+        onClose={jest.fn()}
+      />,
+    )
+
+    await screen.findByDisplayValue('Sales pipeline')
+
+    expect(screen.getByPlaceholderText('Search contacts...')).toHaveValue('Ava Owner')
+  })
+
+  it('falls back to the existing contact id when an edit label is blank', async () => {
+    render(
+      <DealDrawer
+        deal={{
+          id: 'deal-1',
+          orgId: 'org-1',
+          title: 'Growth retainer',
+          contactId: 'contact-1',
+          pipelineId: 'pipeline-1',
+          stageId: 'stage-1',
+          value: 50000,
+          currency: 'ZAR',
+        }}
+        defaultContactLabel=""
+        orgId="org-1"
+        onSaved={jest.fn()}
+        onClose={jest.fn()}
+      />,
+    )
+
+    await screen.findByDisplayValue('Sales pipeline')
+
+    expect(screen.getByPlaceholderText('Search contacts...')).toHaveValue('contact-1')
   })
 })

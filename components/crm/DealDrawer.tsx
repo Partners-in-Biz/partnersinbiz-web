@@ -49,6 +49,11 @@ function isLostStage(stage?: PipelineStage): boolean {
   return stage.kind === 'lost' || stage.label.toLowerCase().includes('lost')
 }
 
+function readableContactLabel(label?: string): string | undefined {
+  const trimmed = label?.trim()
+  return trimmed || undefined
+}
+
 function ContactPicker({
   contactId,
   contactLabel,
@@ -171,7 +176,7 @@ export function DealDrawer({
   // Core fields
   const [title, setTitle] = useState(deal?.title ?? '')
   const [contactId, setContactId] = useState(deal?.contactId ?? defaultContactId ?? '')
-  const [contactLabel, setContactLabel] = useState(deal?.contactId ?? defaultContactLabel ?? defaultContactId ?? '')
+  const [contactLabel, setContactLabel] = useState(readableContactLabel(defaultContactLabel) ?? deal?.contactId ?? defaultContactId ?? '')
   const [companyId, setCompanyId] = useState(deal?.companyId ?? '')
   const [companyName, setCompanyName] = useState(deal?.companyName ?? '')
   const [value, setValue] = useState(deal?.value ?? 0)

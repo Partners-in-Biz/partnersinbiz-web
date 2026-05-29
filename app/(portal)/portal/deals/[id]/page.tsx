@@ -606,6 +606,7 @@ export default function DealDetailPage() {
       {editOpen && (
         <DealDrawer
           deal={deal as Deal}
+          defaultContactLabel={contactName}
           onSaved={handleSaved}
           onClose={() => setEditOpen(false)}
           orgId={deal.orgId ?? ''}
