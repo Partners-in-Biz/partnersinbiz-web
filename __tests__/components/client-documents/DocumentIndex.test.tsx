@@ -81,6 +81,51 @@ describe('DocumentIndex', () => {
     expect(screen.getByText('Client One Portal')).toBeInTheDocument()
   })
 
+  it('links project and research references from the global admin document card', () => {
+    render(
+      <DocumentIndex
+        documents={[{
+          ...document,
+          linked: { projectId: 'project-1', researchItemIds: ['research-1'] },
+        }]}
+        basePath="/admin/documents"
+      />,
+    )
+
+    expect(screen.getByRole('link', { name: /project/i })).toHaveAttribute('href', '/admin/projects/project-1')
+    expect(screen.getByRole('link', { name: /research item/i })).toHaveAttribute('href', '/admin/research/research-1')
+    expect(screen.queryByText('projectId, researchItemIds')).not.toBeInTheDocument()
+  })
+
+  it('uses scoped admin and portal routes for linked work objects', () => {
+    const { rerender } = render(
+      <DocumentIndex
+        documents={[{
+          ...document,
+          linked: { projectId: 'project-1', researchItemIds: ['research-1', 'research-2'] },
+        }]}
+        basePath="/admin/org/client-one/documents"
+      />,
+    )
+
+    expect(screen.getByRole('link', { name: /project/i })).toHaveAttribute('href', '/admin/org/client-one/projects/project-1')
+    expect(screen.getByRole('link', { name: /research item 1/i })).toHaveAttribute('href', '/admin/org/client-one/research/research-1')
+    expect(screen.getByRole('link', { name: /research item 2/i })).toHaveAttribute('href', '/admin/org/client-one/research/research-2')
+
+    rerender(
+      <DocumentIndex
+        documents={[{
+          ...document,
+          linked: { projectId: 'project-1', researchItemIds: ['research-1'] },
+        }]}
+        basePath="/portal/documents"
+      />,
+    )
+
+    expect(screen.getByRole('link', { name: /project/i })).toHaveAttribute('href', '/portal/projects/project-1')
+    expect(screen.getByRole('link', { name: /research item/i })).toHaveAttribute('href', '/portal/research/research-1')
+  })
+
   it('renders prepared-by and recipient party labels', () => {
     render(
       <DocumentIndex

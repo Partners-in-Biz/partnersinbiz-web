@@ -65,6 +65,63 @@ function relationshipLabelList(labels?: { companyName?: string; clientOrgName?: 
   return [labels?.companyName, labels?.clientOrgName].filter(Boolean) as string[]
 }
 
+interface LinkedResourceLink {
+  key: string
+  label: string
+  href: string
+}
+
+function cleanString(value: unknown) {
+  return typeof value === 'string' && value.trim() ? value.trim() : ''
+}
+
+function linkedResourceHref(basePath: string, resource: 'project' | 'research', id: string) {
+  const encodedId = encodeURIComponent(id)
+  if (basePath.startsWith('/portal/')) {
+    return resource === 'project' ? `/portal/projects/${encodedId}` : `/portal/research/${encodedId}`
+  }
+
+  const scopedAdminMatch = basePath.match(/^\/admin\/org\/([^/]+)\/documents$/)
+  if (scopedAdminMatch) {
+    const encodedSlug = encodeURIComponent(scopedAdminMatch[1])
+    return resource === 'project'
+      ? `/admin/org/${encodedSlug}/projects/${encodedId}`
+      : `/admin/org/${encodedSlug}/research/${encodedId}`
+  }
+
+  if (basePath.startsWith('/admin/')) {
+    return resource === 'project' ? `/admin/projects/${encodedId}` : `/admin/research/${encodedId}`
+  }
+
+  return ''
+}
+
+function linkedResourceLinks(document: ClientDocument, basePath: string): LinkedResourceLink[] {
+  const links: LinkedResourceLink[] = []
+  const projectId = cleanString(document.linked?.projectId)
+  if (projectId) {
+    const href = linkedResourceHref(basePath, 'project', projectId)
+    if (href) links.push({ key: `project-${projectId}`, label: 'Project', href })
+  }
+
+  const researchItemIds = Array.isArray(document.linked?.researchItemIds) ? document.linked.researchItemIds : []
+  researchItemIds
+    .map(cleanString)
+    .filter(Boolean)
+    .forEach((researchItemId, index) => {
+      const href = linkedResourceHref(basePath, 'research', researchItemId)
+      if (href) {
+        links.push({
+          key: `research-${researchItemId}`,
+          label: researchItemIds.length > 1 ? `Research item ${index + 1}` : 'Research item',
+          href,
+        })
+      }
+    })
+
+  return links
+}
+
 function hasPartyLabels(labels?: ClientDocumentPartyLabels) {
   return Boolean(
     labels?.creatorCompanyName ||
@@ -157,6 +214,7 @@ export function DocumentIndex({
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {visibleDocuments.map((document) => {
           const relationshipText = relationshipLabelList(relationshipLabels[document.id])
+          const resourceLinks = linkedResourceLinks(document, basePath)
           const parties = partyLabels[document.id]
           return (
             <article key={document.id} className="bento-card flex min-h-[260px] flex-col gap-5">
@@ -192,10 +250,20 @@ export function DocumentIndex({
                 <div className="col-span-2">
                   <dt className="eyebrow !text-[9px]">Linked</dt>
                   <dd className="mt-1 text-[var(--color-pib-text-muted)]">
-                    {relationshipText.length > 0 ? (
+                    {relationshipText.length > 0 || resourceLinks.length > 0 ? (
                       <span className="flex flex-wrap gap-1.5">
                         {relationshipText.map((label) => (
                           <span key={label}>{label}</span>
+                        ))}
+                        {resourceLinks.map((link) => (
+                          <Link
+                            key={link.key}
+                            href={link.href}
+                            className="inline-flex items-center gap-1 rounded-md border border-[var(--color-outline)] px-2 py-1 text-xs font-medium text-[var(--color-pib-text)] transition hover:border-[var(--color-pib-accent)] hover:text-[var(--color-pib-accent)]"
+                          >
+                            {link.label}
+                            <span className="material-symbols-outlined text-sm">arrow_forward</span>
+                          </Link>
                         ))}
                       </span>
                     ) : linkedLabel(document)}
