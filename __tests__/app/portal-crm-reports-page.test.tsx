@@ -105,6 +105,9 @@ describe('Portal CRM reports page', () => {
 
     const dominantStageLink = screen.getByRole('link', { name: 'Open contacts in dominant New stage' })
     expect(dominantStageLink).toHaveAttribute('href', '/portal/contacts?stage=new')
+
+    const repDealsLink = screen.getByRole('link', { name: 'Open Mandy Manager deals from rep performance report' })
+    expect(repDealsLink).toHaveAttribute('href', '/portal/deals?view=list&owner=u1')
   })
 
   it('turns unassigned deal ownership into a direct deal owner lens', async () => {

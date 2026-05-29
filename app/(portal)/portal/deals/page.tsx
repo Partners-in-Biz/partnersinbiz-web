@@ -114,8 +114,18 @@ function formatDealsTotal(deals: Deal[], mode: 'value' | 'weighted') {
   return fmtDealValue(total, deals.find(d => d.currency)?.currency)
 }
 
+function dealOwnerUid(deal: Deal): string {
+  return String(deal.ownerUid ?? deal.ownerRef?.uid ?? '').trim()
+}
+
 function hasDealOwner(deal: Deal): boolean {
-  return Boolean(String(deal.ownerUid ?? deal.ownerRef?.uid ?? '').trim())
+  return Boolean(dealOwnerUid(deal))
+}
+
+function matchesDealOwnerLens(deal: Deal, ownerLens: string): boolean {
+  if (ownerLens === 'all') return true
+  if (ownerLens === 'unassigned') return !hasDealOwner(deal)
+  return dealOwnerUid(deal) === ownerLens
 }
 
 function dealOwnerLabel(deal: Deal): string {
@@ -218,9 +228,7 @@ export default function DealsPage() {
       ? focus === 'no-close-date' ? 'noCloseDate' : focus
       : 'all'
   })
-  const [ownerLens, setOwnerLens] = useState<'all' | 'unassigned'>(() => (
-    searchParams.get('owner') === 'unassigned' ? 'unassigned' : 'all'
-  ))
+  const [ownerLens, setOwnerLens] = useState<string>(() => searchParams.get('owner')?.trim() || 'all')
   const [selectedDealIds, setSelectedDealIds] = useState<Set<string>>(new Set())
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([])
   const [bulkOwnerUid, setBulkOwnerUid] = useState('')
@@ -387,7 +395,7 @@ export default function DealsPage() {
         contactLabel?.toLowerCase().includes(query) ||
         deal.id.toLowerCase().includes(query)
       const matchesStage = stageFilter === 'all' || deal.stageId === stageFilter
-      const matchesOwnerLens = ownerLens === 'all' || !hasDealOwner(deal)
+      const matchesOwnerLens = matchesDealOwnerLens(deal, ownerLens)
       return matchesSearch && matchesStage && matchesOwnerLens && matchesDealFocus(deal, stages, focusMode)
     })
   }, [contactLabelsById, deals, focusMode, ownerLens, search, stageFilter, stages])
@@ -547,21 +555,23 @@ export default function DealsPage() {
           </div>
           <button
             type="button"
-            onClick={() => setOwnerLens(ownerLens === 'unassigned' ? 'all' : 'unassigned')}
+            onClick={() => setOwnerLens(ownerLens === 'all' ? 'unassigned' : 'all')}
             className={[
               'rounded-[var(--radius-card)] border p-4 text-left transition-colors',
-              ownerLens === 'unassigned'
+              ownerLens !== 'all'
                 ? 'border-amber-400/40 bg-amber-400/10'
                 : 'border-[var(--color-pib-line)] bg-white/[0.03] hover:bg-white/[0.05]',
             ].join(' ')}
-            aria-label={ownerLens === 'unassigned' ? 'Show all deals' : 'Show unassigned deals needing an owner'}
+            aria-label={ownerLens !== 'all' ? 'Show all deals' : 'Show unassigned deals needing an owner'}
           >
             <span className="material-symbols-outlined text-[20px] text-[var(--color-pib-accent)]">manage_accounts</span>
             <p className="mt-3 text-sm font-semibold text-[var(--color-pib-text)]">
-              {ownerLens === 'unassigned' ? 'Showing unassigned deals' : 'Review unassigned deals'}
+              {ownerLens === 'unassigned' ? 'Showing unassigned deals' : ownerLens !== 'all' ? 'Showing selected owner deals' : 'Review unassigned deals'}
             </p>
             <p className="mt-1 text-xs leading-relaxed text-[var(--color-pib-text-muted)]">
-              {unassignedDeals.length > 0
+              {ownerLens !== 'all' && ownerLens !== 'unassigned'
+                ? 'This report lens is showing deals owned by the selected rep. Show all deals to return to the full pipeline.'
+                : unassignedDeals.length > 0
                 ? `${unassignedDeals.length} deals need an owner before forecast and follow-up accountability can be trusted.`
                 : 'Every visible deal has an owner.'}
             </p>

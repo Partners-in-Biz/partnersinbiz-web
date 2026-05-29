@@ -159,6 +159,14 @@ function dealStageLensHref(stage: PipelineVelocityStage): string {
   return `/portal/deals?${params.toString()}`
 }
 
+function repDealsHref(rep: RepPerformanceRow): string {
+  const params = new URLSearchParams({
+    view: 'list',
+    owner: rep.uid,
+  })
+  return `/portal/deals?${params.toString()}`
+}
+
 // ── Skeleton ───────────────────────────────────────────────────────────────────
 
 function Skeleton({ className = '' }: { className?: string }) {
@@ -904,7 +912,16 @@ export default function CrmReportsPage() {
                 <tbody>
                   {repPerformance.reps.slice(0, 8).map((rep) => (
                     <tr key={rep.uid} className="border-b border-[var(--color-pib-line)] last:border-0">
-                      <td className="px-4 py-3 text-sm font-medium text-[var(--color-pib-text)]">{rep.displayName}</td>
+                      <td className="px-4 py-3 text-sm font-medium text-[var(--color-pib-text)]">
+                        <Link
+                          href={repDealsHref(rep)}
+                          aria-label={`Open ${rep.displayName} deals from rep performance report`}
+                          className="inline-flex max-w-full items-center gap-1.5 rounded-md text-[var(--color-pib-text)] transition-colors hover:text-[var(--color-pib-accent)] focus:outline-none focus:ring-2 focus:ring-[var(--color-pib-accent)] focus:ring-offset-2 focus:ring-offset-[var(--color-pib-bg)]"
+                        >
+                          <span className="truncate">{rep.displayName}</span>
+                          <span className="material-symbols-outlined text-[15px]" aria-hidden="true">open_in_new</span>
+                        </Link>
+                      </td>
                       <td className="px-4 py-3 text-sm text-right font-mono text-[var(--color-pib-text)]">{fmtNum(rep.wonDeals)}</td>
                       <td className="px-4 py-3 text-sm text-right font-mono text-[var(--color-pib-text)]">{fmtNum(rep.openDeals)}</td>
                       <td className="px-4 py-3 text-sm text-right font-mono text-[var(--color-pib-text)]">{fmtNum(rep.lostDeals)}</td>

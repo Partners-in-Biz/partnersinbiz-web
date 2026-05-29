@@ -179,6 +179,17 @@ describe('Portal deals page', () => {
     expect(screen.getByRole('button', { name: 'Show all deals' })).toBeInTheDocument()
   })
 
+  it('opens directly to a rep-owned deal lens from CRM reports', async () => {
+    mockSearchParams = new URLSearchParams('view=list&owner=owner-1')
+
+    render(<DealsPage />)
+
+    expect(await screen.findByRole('tab', { name: /List/i })).toHaveAttribute('aria-selected', 'true')
+    expect(await screen.findByText('Growth retainer')).toBeInTheDocument()
+    expect(screen.queryByText('Unowned expansion')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Show all deals' })).toBeInTheDocument()
+  })
+
   it('assigns selected unassigned deals to a team member', async () => {
     render(<DealsPage />)
 
