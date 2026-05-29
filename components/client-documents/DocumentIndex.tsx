@@ -259,10 +259,9 @@ export function DocumentIndex({
                           <Link
                             key={link.key}
                             href={link.href}
-                            className="inline-flex items-center gap-1 rounded-md border border-[var(--color-outline)] px-2 py-1 text-xs font-medium text-[var(--color-pib-text)] transition hover:border-[var(--color-pib-accent)] hover:text-[var(--color-pib-accent)]"
+                            className="cursor-pointer font-medium text-[var(--color-pib-text-muted)] transition hover:text-[var(--color-pib-accent)] hover:underline"
                           >
                             {link.label}
-                            <span className="material-symbols-outlined text-sm">arrow_forward</span>
                           </Link>
                         ))}
                       </span>

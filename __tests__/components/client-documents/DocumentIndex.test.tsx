@@ -92,7 +92,12 @@ describe('DocumentIndex', () => {
       />,
     )
 
-    expect(screen.getByRole('link', { name: /project/i })).toHaveAttribute('href', '/admin/projects/project-1')
+    const projectLink = screen.getByRole('link', { name: /project/i })
+    expect(projectLink).toHaveAttribute('href', '/admin/projects/project-1')
+    expect(projectLink).toHaveTextContent('Project')
+    expect(projectLink.className).toContain('cursor-pointer')
+    expect(projectLink.className).not.toContain('border')
+    expect(projectLink.className).not.toContain('rounded')
     expect(screen.getByRole('link', { name: /research item/i })).toHaveAttribute('href', '/admin/research/research-1')
     expect(screen.queryByText('projectId, researchItemIds')).not.toBeInTheDocument()
   })
