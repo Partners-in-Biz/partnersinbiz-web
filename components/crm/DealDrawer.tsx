@@ -275,6 +275,7 @@ export function DealDrawer({
         title: title.trim(),
         contactId,
         companyId: companyId || undefined,
+        companyName: companyName || undefined,
         value,
         currency,
         pipelineId: selectedPipelineId,
