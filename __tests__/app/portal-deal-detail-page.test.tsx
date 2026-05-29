@@ -1,0 +1,103 @@
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import DealDetailPage from '@/app/(portal)/portal/deals/[id]/page'
+
+jest.mock('next/navigation', () => ({
+  useParams: () => ({ id: 'deal-1' }),
+  useRouter: () => ({ push: jest.fn(), refresh: jest.fn() }),
+}))
+
+jest.mock('next/link', () => ({
+  __esModule: true,
+  default: ({ children, href, ...props }: { children: React.ReactNode; href: string }) => (
+    <a href={href} {...props}>{children}</a>
+  ),
+}))
+
+jest.mock('@/components/crm/DealDrawer', () => ({
+  DealDrawer: () => <div data-testid="deal-drawer" />,
+}))
+
+describe('Portal deal detail page', () => {
+  beforeEach(() => {
+    jest.clearAllMocks()
+    global.fetch = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/deals/deal-1') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              deal: {
+                id: 'deal-1',
+                orgId: 'org-1',
+                title: 'Unowned expansion',
+                value: 25000,
+                currency: 'ZAR',
+                pipelineId: 'pipeline-1',
+                stageId: 'qualified',
+                probability: 40,
+                expectedCloseDate: null,
+                notes: '',
+                lineItems: [],
+                stageHistory: [],
+              },
+            },
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/pipelines/pipeline-1') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: {
+              id: 'pipeline-1',
+              name: 'Sales pipeline',
+              stages: [{ id: 'qualified', label: 'Qualified' }],
+            },
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/portal/settings/team') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            members: [
+              {
+                uid: 'sales-lead-2',
+                firstName: 'Mandy',
+                lastName: 'Manager',
+                jobTitle: 'Sales lead',
+                role: 'admin',
+              },
+            ],
+          }),
+        } as Response)
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    }) as jest.Mock
+  })
+
+  it('lets users assign an owner when deal detail is unowned', async () => {
+    render(<DealDetailPage />)
+
+    await screen.findByText('Unowned expansion')
+    expect(screen.getByText('No owner assigned')).toBeInTheDocument()
+    await screen.findByRole('option', { name: 'Mandy Manager - Sales lead' })
+
+    fireEvent.change(screen.getByLabelText('Assign deal owner'), {
+      target: { value: 'sales-lead-2' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Assign owner to Unowned expansion' }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/deals/deal-1', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ownerUid: 'sales-lead-2' }),
+      })
+    })
+
+    await waitFor(() => expect(screen.getByText('Mandy Manager')).toBeInTheDocument())
+  })
+})

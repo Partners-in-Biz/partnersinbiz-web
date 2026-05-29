@@ -55,6 +55,16 @@ interface ActivityRecord {
   createdByRef?: MemberRef
 }
 
+type TeamMember = {
+  uid: string
+  firstName?: string
+  lastName?: string
+  displayName?: string
+  email?: string
+  jobTitle?: string
+  role?: string
+}
+
 const ACTIVITY_ICONS: Record<string, string> = {
   note: 'notes',
   email_sent: 'mail',
@@ -118,6 +128,24 @@ function normalizeStageName(name: string): string {
   return name.replace(/_/g, ' ')
 }
 
+function teamMemberLabel(member: TeamMember): string {
+  const name = member.displayName || [member.firstName, member.lastName].filter(Boolean).join(' ').trim() || member.email || member.uid
+  return member.jobTitle ? `${name} - ${member.jobTitle}` : name
+}
+
+function teamMemberDisplayName(member: TeamMember): string {
+  return member.displayName || [member.firstName, member.lastName].filter(Boolean).join(' ').trim() || member.email || member.uid
+}
+
+function teamMemberOwnerRef(member: TeamMember): MemberRef {
+  return {
+    uid: member.uid,
+    displayName: teamMemberDisplayName(member),
+    ...(member.jobTitle ? { jobTitle: member.jobTitle } : {}),
+    kind: 'human',
+  }
+}
+
 export default function DealDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
@@ -134,6 +162,10 @@ export default function DealDetailPage() {
 
   const [activities, setActivities] = useState<ActivityRecord[]>([])
   const [activitiesLoading, setActivitiesLoading] = useState(true)
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([])
+  const [ownerUid, setOwnerUid] = useState('')
+  const [ownerPending, setOwnerPending] = useState(false)
+  const [ownerError, setOwnerError] = useState('')
 
   const fetchDeal = useCallback(async () => {
     if (!id) return
@@ -207,6 +239,52 @@ export default function DealDetailPage() {
   useEffect(() => {
     void fetchDeal()
   }, [fetchDeal])
+
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/v1/portal/settings/team')
+      .then((res) => res.ok ? res.json() : null)
+      .then((body) => {
+        if (cancelled) return
+        const members = Array.isArray(body?.members) ? body.members : []
+        setTeamMembers(members.filter((member: TeamMember) => member.uid))
+      })
+      .catch(() => {
+        if (!cancelled) setTeamMembers([])
+      })
+    return () => { cancelled = true }
+  }, [])
+
+  async function assignOwner() {
+    if (!deal || !id) return
+    const nextOwnerUid = ownerUid.trim()
+    if (!nextOwnerUid) return
+    const owner = teamMembers.find((member) => member.uid === nextOwnerUid)
+
+    setOwnerPending(true)
+    setOwnerError('')
+    try {
+      const res = await fetch(`/api/v1/crm/deals/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ownerUid: nextOwnerUid }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok || body.success === false) {
+        throw new Error(typeof body?.error === 'string' ? body.error : 'Failed to assign owner')
+      }
+      setDeal({
+        ...deal,
+        ownerUid: nextOwnerUid,
+        ownerRef: owner ? teamMemberOwnerRef(owner) : deal.ownerRef,
+      })
+      setOwnerUid('')
+    } catch (err) {
+      setOwnerError(err instanceof Error ? err.message : 'Failed to assign owner')
+    } finally {
+      setOwnerPending(false)
+    }
+  }
 
   async function handleArchive() {
     if (!deal) return
@@ -425,8 +503,40 @@ export default function DealDetailPage() {
             <div>
               <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">Owner</p>
               <p className="text-[var(--color-pib-text)] mt-0.5">
-                {deal.ownerRef?.displayName ?? deal.ownerUid ?? '—'}
+                {deal.ownerRef?.displayName ?? deal.ownerUid ?? 'No owner assigned'}
               </p>
+              <div className="mt-3 space-y-2 rounded-xl border border-[var(--color-pib-line)] bg-white/[0.02] p-3">
+                <label htmlFor="dealDetailOwner" className="pib-label">Assign deal owner</label>
+                <div className="flex flex-wrap gap-2">
+                  <select
+                    id="dealDetailOwner"
+                    value={ownerUid}
+                    onChange={(event) => setOwnerUid(event.target.value)}
+                    className="pib-select min-w-[220px] flex-1"
+                  >
+                    <option value="">Select a team member</option>
+                    {teamMembers.map((member) => (
+                      <option key={member.uid} value={member.uid}>
+                        {teamMemberLabel(member)}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={assignOwner}
+                    disabled={!ownerUid.trim() || ownerPending}
+                    className="pib-btn-primary text-sm disabled:cursor-not-allowed disabled:opacity-50"
+                    aria-label={`Assign owner to ${deal.title ?? 'this deal'}`}
+                  >
+                    <span className="material-symbols-outlined text-base">supervisor_account</span>
+                    {ownerPending ? 'Assigning...' : 'Assign'}
+                  </button>
+                </div>
+                <p className="text-xs leading-5 text-[var(--color-pib-text-muted)]">
+                  Keep forecast and follow-up ownership tied to a real person before this opportunity moves.
+                </p>
+                {ownerError && <p className="text-xs text-red-300">{ownerError}</p>}
+              </div>
             </div>
             <div>
               <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">Close date</p>
