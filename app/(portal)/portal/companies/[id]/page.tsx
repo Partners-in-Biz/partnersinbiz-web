@@ -513,6 +513,52 @@ function ServicesPanel({
   )
 }
 
+function DocumentsPanel({
+  documents,
+  company,
+  creatingDocument,
+  documentError,
+  onCreateDocument,
+}: {
+  documents: RelatedDocument[]
+  company: Company
+  creatingDocument: boolean
+  documentError: string | null
+  onCreateDocument: () => void
+}) {
+  if (documents.length === 0) {
+    return (
+      <EmptyPanel
+        icon="description"
+        label={`No linked documents yet. Start a sales proposal draft for ${company.name} so commercial context, approvals, and client-facing history stay attached to this account.`}
+      >
+        <div className="flex flex-col items-center gap-3">
+          <button
+            type="button"
+            onClick={onCreateDocument}
+            disabled={creatingDocument}
+            className="btn-pib-primary inline-flex items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">note_add</span>
+            {creatingDocument ? 'Creating proposal...' : `Create sales proposal for ${company.name}`}
+          </button>
+          {documentError ? <p className="max-w-md text-xs text-red-300">{documentError}</p> : null}
+        </div>
+      </EmptyPanel>
+    )
+  }
+  return (
+    <SimpleRowsPanel
+      rows={documents}
+      emptyIcon="description"
+      emptyLabel="No linked documents yet."
+      title={(row) => String(row.title ?? row.id)}
+      hrefFor={(row) => `/portal/documents/${row.id}`}
+      metaFor={(row) => [String(row.type ?? ''), formatDate(row.updatedAt)]}
+    />
+  )
+}
+
 function QuotesPanel({
   quotes,
   company,
@@ -859,6 +905,8 @@ export default function CompanyDetailPage() {
   const [projectError, setProjectError] = useState<string | null>(null)
   const [creatingService, setCreatingService] = useState(false)
   const [serviceError, setServiceError] = useState<string | null>(null)
+  const [creatingDocument, setCreatingDocument] = useState(false)
+  const [documentError, setDocumentError] = useState<string | null>(null)
   const [creatingQuote, setCreatingQuote] = useState(false)
   const [quoteError, setQuoteError] = useState<string | null>(null)
   const [customFieldDefs, setCustomFieldDefs] = useState<CustomFieldDefinition[]>([])
@@ -1106,6 +1154,33 @@ export default function CompanyDetailPage() {
     }
   }
 
+  async function createSalesProposalDocument(): Promise<void> {
+    if (!company) return
+    setCreatingDocument(true)
+    setDocumentError(null)
+    try {
+      const res = await fetch('/api/v1/client-documents', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          title: `${company.name} sales proposal`,
+          type: 'sales_proposal',
+          linked: {
+            companyId: company.id,
+            clientOrgId: company.linkedOrgId,
+          },
+        }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(body.error ?? 'Failed to create document')
+      await loadRelated(company.id)
+    } catch (err) {
+      setDocumentError(err instanceof Error ? err.message : 'Failed to create document')
+    } finally {
+      setCreatingDocument(false)
+    }
+  }
+
   async function createQuoteFromFirstDeal(): Promise<void> {
     if (!company) return
     const firstDeal = related.deals[0]
@@ -1305,13 +1380,12 @@ export default function CompanyDetailPage() {
           />
         )}
         {!relatedLoading && tab === 'documents' && (
-          <SimpleRowsPanel
-            rows={related.documents}
-            emptyIcon="description"
-            emptyLabel="No linked documents yet."
-            title={(row) => String(row.title ?? row.id)}
-            hrefFor={(row) => `/portal/documents/${row.id}`}
-            metaFor={(row) => [String(row.type ?? ''), formatDate(row.updatedAt)]}
+          <DocumentsPanel
+            documents={related.documents}
+            company={company}
+            creatingDocument={creatingDocument}
+            documentError={documentError}
+            onCreateDocument={createSalesProposalDocument}
           />
         )}
         {!relatedLoading && tab === 'services' && (
