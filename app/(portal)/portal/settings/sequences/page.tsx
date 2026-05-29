@@ -165,6 +165,33 @@ export default function SequencesPage() {
     })
   }, [channelFilter, filter, search, sequences])
 
+  const journeyBlueprint = [
+    {
+      label: 'First touch',
+      value: 'Confirm enquiry',
+      icon: 'mark_email_read',
+      copy: 'Acknowledge every new lead quickly so no employee has to remember the first follow-up manually.',
+    },
+    {
+      label: 'Sales action',
+      value: 'Prompt next step',
+      icon: 'flag',
+      copy: 'Move the contact toward a call, quote, or deal update instead of letting conversations stall.',
+    },
+    {
+      label: 'Employee consistency',
+      value: 'Shared playbook',
+      icon: 'groups',
+      copy: 'Give the whole team the same journey language while still letting admins refine the workflow.',
+    },
+    {
+      label: 'Automation ready',
+      value: 'Enroll contacts',
+      icon: 'auto_mode',
+      copy: 'Prepare journeys that can connect to CRM automation rules and contact enrollment panels.',
+    },
+  ]
+
   async function handleToggle(seq: Sequence) {
     if (togglingId) return
     const newStatus: SequenceStatus = seq.status === 'active' ? 'paused' : 'active'
@@ -322,19 +349,42 @@ export default function SequencesPage() {
               {fetchError}
             </div>
           ) : sequences.length === 0 ? (
-            <div className="bento-card !p-8 text-center">
-              <span className="material-symbols-outlined mb-3 block text-4xl text-[var(--color-pib-text-muted)]">route</span>
-              <h2 className="text-base font-semibold">No sequences yet</h2>
-              <p className="mx-auto mt-2 max-w-md text-sm text-[var(--color-pib-text-muted)]">
-                Start with a short welcome journey that confirms the enquiry, sets expectations, and prompts the next sales action.
-              </p>
-              <Link
-                href="/portal/settings/sequences/new"
-                className="btn-pib-accent mx-auto mt-5 flex w-fit items-center gap-1.5 text-sm"
-              >
-                <span className="material-symbols-outlined text-[16px]">add</span>
-                New sequence
-              </Link>
+            <div className="bento-card !p-0 overflow-hidden">
+              <div className="grid gap-0 lg:grid-cols-[1.1fr_1.4fr]">
+                <div className="border-b border-[var(--color-pib-line)] p-6 lg:border-b-0 lg:border-r">
+                  <span className="material-symbols-outlined mb-4 block text-[34px] text-[var(--color-accent-v2)]">route</span>
+                  <p className="eyebrow !text-[10px]">Journey setup</p>
+                  <h2 className="mt-2 font-display text-2xl leading-tight text-[var(--color-pib-text)]">
+                    Launch your first follow-up journey
+                  </h2>
+                  <p className="mt-3 text-sm leading-6 text-[var(--color-pib-text-muted)]">
+                    Start with the customer journey your team repeats most often. A clear sequence turns first response,
+                    sales prompts, and handover expectations into a company playbook rather than individual memory.
+                  </p>
+                  <Link
+                    href="/portal/settings/sequences/new"
+                    className="btn-pib-accent mt-5 inline-flex w-fit items-center gap-1.5 text-sm"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">add</span>
+                    Create the first sequence
+                  </Link>
+                </div>
+
+                <div className="grid gap-px bg-[var(--color-pib-line)] sm:grid-cols-2">
+                  {journeyBlueprint.map((item) => (
+                    <div key={item.label} className="bg-[var(--color-pib-surface)] p-5">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-widest text-[var(--color-pib-text-muted)]">{item.label}</p>
+                          <p className="mt-2 font-display text-xl leading-none text-[var(--color-pib-text)]">{item.value}</p>
+                        </div>
+                        <span className="material-symbols-outlined text-[21px] text-[var(--color-pib-text-muted)]">{item.icon}</span>
+                      </div>
+                      <p className="mt-4 text-xs leading-5 text-[var(--color-pib-text-muted)]">{item.copy}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           ) : visibleSequences.length === 0 ? (
             <div className="bento-card !p-8 text-center">
