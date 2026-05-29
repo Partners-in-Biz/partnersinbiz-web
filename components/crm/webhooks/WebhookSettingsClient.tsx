@@ -162,6 +162,33 @@ const CRM_EVENT_CATALOG: CatalogEvent[] = [
 
 const SUPPORTED_EVENTS = new Set<string>(VALID_WEBHOOK_EVENTS)
 
+const WEBHOOK_LAUNCH_CHECKLIST = [
+  {
+    label: 'Endpoint',
+    value: 'HTTPS receiver',
+    icon: 'link',
+    copy: 'Point CRM events at the system that needs the signal: Zapier, Make, a warehouse, or an internal service.',
+  },
+  {
+    label: 'Event coverage',
+    value: 'CRM moments',
+    icon: 'hub',
+    copy: 'Start with one operational moment, then expand to lifecycle, deal, and quote events as teams rely on it.',
+  },
+  {
+    label: 'Signing secret',
+    value: 'Verified payloads',
+    icon: 'key',
+    copy: 'Save the generated secret once and use it to verify that every inbound delivery came from Partners in Biz.',
+  },
+  {
+    label: 'Delivery test',
+    value: 'Prove the path',
+    icon: 'send',
+    copy: 'Queue a test delivery after creation so managers know the external handoff works before real revenue events fire.',
+  },
+]
+
 function eventLabel(event: string) {
   return CRM_EVENT_CATALOG.find((item) => item.event === event)?.label ?? event
 }
@@ -666,11 +693,39 @@ export function WebhookSettingsClient() {
             {loading ? (
               <p className="p-4 text-sm text-[var(--color-pib-text-muted)]">Loading...</p>
             ) : webhooks.length === 0 ? (
-              <div className="p-6 text-center">
-                <span className="material-symbols-outlined block text-[32px] text-[var(--color-pib-text-muted)] mb-2">
-                  webhook
-                </span>
-                <p className="text-sm text-[var(--color-pib-text-muted)]">No webhook subscriptions yet.</p>
+              <div className="p-4">
+                <div className="rounded-xl border border-[var(--color-pib-line)] bg-black/10 p-4">
+                  <span className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg border border-[var(--color-pib-accent)]/25 bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent)]">
+                    <span className="material-symbols-outlined text-[20px]">webhook</span>
+                  </span>
+                  <p className="eyebrow !text-[10px]">Integration launch</p>
+                  <h3 className="mt-3 text-lg font-semibold text-[var(--color-pib-text)]">
+                    Launch your first outbound CRM bridge
+                  </h3>
+                  <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">
+                    Connect the CRM to the next operating system only after the receiver, event scope, signature, and delivery test are clear. This keeps employee handoffs observable instead of hidden in one-off integrations.
+                  </p>
+                  <p className="mt-4 rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] px-3 py-2 text-xs text-[var(--color-pib-text-muted)]">
+                    Fill in the subscription form above to create the first signed delivery endpoint.
+                  </p>
+                </div>
+
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  {WEBHOOK_LAUNCH_CHECKLIST.map((item) => (
+                    <div key={item.label} className="rounded-xl border border-[var(--color-pib-line)] bg-white/[0.02] p-3">
+                      <div className="mb-3 flex items-start justify-between gap-2">
+                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/[0.04] text-[var(--color-pib-text)]">
+                          <span className="material-symbols-outlined text-[17px]">{item.icon}</span>
+                        </span>
+                        <span className="rounded-full border border-[var(--color-pib-line)] px-2 py-1 text-[10px] text-[var(--color-pib-text-muted)]">
+                          {item.value}
+                        </span>
+                      </div>
+                      <h4 className="text-sm font-semibold text-[var(--color-pib-text)]">{item.label}</h4>
+                      <p className="mt-2 text-xs leading-5 text-[var(--color-pib-text-muted)]">{item.copy}</p>
+                    </div>
+                  ))}
+                </div>
               </div>
             ) : (
               <div className="divide-y divide-[var(--color-pib-line)]">
