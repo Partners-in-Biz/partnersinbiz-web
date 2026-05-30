@@ -997,7 +997,7 @@ export default function CrmReportsPage() {
             title="No activity data yet"
             body="Calls, emails, meetings, notes, and tasks will build the activity pulse."
             action={{
-              href: '/portal/contacts',
+              href: '/portal/contacts?followUp=stale',
               label: 'Open contacts',
               ariaLabel: 'Open contacts to log CRM activity',
               icon: 'contacts',

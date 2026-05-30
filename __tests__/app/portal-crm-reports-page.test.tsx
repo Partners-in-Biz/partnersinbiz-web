@@ -546,7 +546,7 @@ describe('Portal CRM reports page', () => {
     expect(await screen.findByText('No activity data yet')).toBeInTheDocument()
 
     const contactsLink = screen.getByRole('link', { name: 'Open contacts to log CRM activity' })
-    expect(contactsLink).toHaveAttribute('href', '/portal/contacts')
+    expect(contactsLink).toHaveAttribute('href', '/portal/contacts?followUp=stale')
   })
 
   it('turns quiet activity rhythm into a stale-contact follow-up action', async () => {
