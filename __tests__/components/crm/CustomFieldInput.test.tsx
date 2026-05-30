@@ -127,6 +127,26 @@ describe('CustomFieldInput', () => {
     expect(screen.getByText('Option B')).toBeInTheDocument()
   })
 
+  it('names the empty dropdown state instead of showing a bare dash', () => {
+    const onChange = jest.fn()
+    render(
+      <CustomFieldInput
+        definition={makeDef({
+          type: 'dropdown',
+          label: 'Buying committee role',
+          options: [
+            { value: 'decision_maker', label: 'Decision maker' },
+          ],
+        })}
+        value={undefined}
+        onChange={onChange}
+      />,
+    )
+
+    expect(screen.getByRole('option', { name: 'Select Buying committee role' })).toBeInTheDocument()
+    expect(screen.queryByText('—')).not.toBeInTheDocument()
+  })
+
   it('renders a date input for type "date"', () => {
     const onChange = jest.fn()
     render(

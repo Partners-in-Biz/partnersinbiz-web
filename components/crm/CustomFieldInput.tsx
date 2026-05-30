@@ -175,7 +175,7 @@ export function CustomFieldInput({ definition, value, onChange, disabled }: Cust
           disabled={disabled}
           className="pib-input w-full"
         >
-          <option value="">—</option>
+          <option value="">{`Select ${definition.label}`}</option>
           {(options ?? []).map((opt) => (
             <option key={opt.value} value={opt.value}>
               {opt.label}
