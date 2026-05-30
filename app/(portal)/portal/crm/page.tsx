@@ -367,7 +367,7 @@ export default function PortalCrmPage() {
               <span className="material-symbols-outlined text-4xl text-[var(--color-pib-text-muted)]">history</span>
               <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">No CRM activity logged yet.</p>
               <Link
-                href="/portal/contacts"
+                href="/portal/contacts?followUp=stale"
                 aria-label="Open contacts to log CRM activity from the command center"
                 className="pib-btn-primary mt-4 inline-flex items-center gap-1.5 text-sm"
               >

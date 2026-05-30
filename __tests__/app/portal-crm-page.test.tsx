@@ -48,6 +48,6 @@ describe('Portal CRM hub', () => {
     expect(await screen.findByText('No CRM activity logged yet.')).toBeInTheDocument()
 
     const contactsLink = screen.getByRole('link', { name: 'Open contacts to log CRM activity from the command center' })
-    expect(contactsLink).toHaveAttribute('href', '/portal/contacts')
+    expect(contactsLink).toHaveAttribute('href', '/portal/contacts?followUp=stale')
   })
 })
