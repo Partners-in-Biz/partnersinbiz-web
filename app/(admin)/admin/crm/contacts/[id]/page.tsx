@@ -594,7 +594,13 @@ export default function ContactDetailPage() {
               {scoreError && <p className="text-xs text-red-300">{scoreError}</p>}
               <DetailRow label="Score updated" value={fmtTimestamp(contact.scoreUpdatedAt)} />
               <DetailRow label="Agreement roles" value={contact.agreementRoles?.join(', ')} />
-              <DetailRow label="Notes" value={contact.notes} />
+              <DetailRow
+                label="Notes"
+                value={contact.notes}
+                actionLabel={`Add profile notes for ${name} from admin qualification panel`}
+                onAction={() => setEditing(true)}
+                actionIcon="edit_note"
+              />
             </div>
           </div>
 
