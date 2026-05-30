@@ -1027,7 +1027,21 @@ export default function CrmReportsPage() {
             <div className="bento-card !p-5">
               <p className="text-xs text-[var(--color-pib-text-muted)] mb-4 font-medium">By type</p>
               {byTypeEntries.length === 0 ? (
-                <p className="text-sm text-[var(--color-pib-text-muted)]">No activities recorded.</p>
+                <div className="rounded-lg border border-amber-400/20 bg-amber-400/10 p-4">
+                  <p className="eyebrow !text-[10px] text-amber-200">Activity mix missing</p>
+                  <h3 className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">Log the next CRM touch with type context</h3>
+                  <p className="mt-1 text-sm leading-6 text-[var(--color-pib-text-muted)]">
+                    Activity exists, but calls, emails, meetings, notes, and tasks are not classified yet. Classify the next touch so leadership can see which channel is moving relationships.
+                  </p>
+                  <Link
+                    href="/portal/contacts?followUp=stale"
+                    aria-label="Open contacts to log typed CRM activity"
+                    className="pib-btn-secondary mt-3 inline-flex items-center gap-1.5 text-xs"
+                  >
+                    <span aria-hidden="true" className="material-symbols-outlined text-[14px]">edit_note</span>
+                    Log typed activity
+                  </Link>
+                </div>
               ) : (
                 <HBarChart entries={byTypeEntries} />
               )}

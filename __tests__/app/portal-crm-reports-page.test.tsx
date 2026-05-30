@@ -612,6 +612,76 @@ describe('Portal CRM reports page', () => {
     expect(followUpLink).toHaveAttribute('href', '/portal/contacts?followUp=stale')
   })
 
+  it('turns empty activity type mix into a follow-up logging action', async () => {
+    ;(global.fetch as jest.Mock).mockImplementation((url: RequestInfo | URL) => {
+      const path = String(url)
+      if (path === '/api/v1/crm/reports/funnel') {
+        return apiResponse({
+          byType: { lead: 3, prospect: 2, client: 1, churned: 0, other: 0 },
+          byStage: { new: 3, contacted: 2, qualified: 1 },
+          total: 6,
+        })
+      }
+      if (path === '/api/v1/crm/reports/forecast') {
+        return apiResponse({
+          periods: {
+            thisMonth: { dealCount: 1, totalValue: 10000, weightedValue: 5000 },
+            nextMonth: { dealCount: 0, totalValue: 0, weightedValue: 0 },
+            thisQuarter: { dealCount: 1, totalValue: 10000, weightedValue: 5000 },
+            nextQuarter: { dealCount: 0, totalValue: 0, weightedValue: 0 },
+            beyond: { dealCount: 0, totalValue: 0, weightedValue: 0 },
+            noDate: { dealCount: 0, totalValue: 0, weightedValue: 0 },
+          },
+          summary: { totalOpenDeals: 1, totalValue: 10000, weightedValue: 5000 },
+        })
+      }
+      if (path === '/api/v1/crm/reports/pipeline-velocity') {
+        return apiResponse({ stages: [], summary: { stageCount: 0, bottleneckCount: 0, slowestStage: null } })
+      }
+      if (path === '/api/v1/crm/reports/rep-performance') {
+        return apiResponse({
+          reps: [],
+          summary: {
+            repCount: 0,
+            totalWonValue: 0,
+            totalOpenValue: 0,
+            totalActivities: 0,
+            totalContacts: 6,
+            unassignedContacts: 0,
+            contactOwnerCoverage: 1,
+          },
+        })
+      }
+      if (path === '/api/v1/crm/reports/activity-summary?days=30') {
+        return apiResponse({
+          byType: {},
+          total: 3,
+          perDay: [
+            { date: '2026-05-27', count: 1 },
+            { date: '2026-05-28', count: 1 },
+            { date: '2026-05-29', count: 1 },
+          ],
+          since: '2026-04-29',
+          days: 30,
+        })
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${path}`))
+    })
+
+    render(<CrmReportsPage />)
+
+    expect(await screen.findByText('Activity mix missing')).toBeInTheDocument()
+    expect(screen.getByText('Log the next CRM touch with type context')).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'Activity exists, but calls, emails, meetings, notes, and tasks are not classified yet. Classify the next touch so leadership can see which channel is moving relationships.',
+      ),
+    ).toBeInTheDocument()
+
+    const activityTypeLink = screen.getByRole('link', { name: 'Open contacts to log typed CRM activity' })
+    expect(activityTypeLink).toHaveAttribute('href', '/portal/contacts?followUp=stale')
+  })
+
   it('turns missing contact funnel data into a direct contact creation path', async () => {
     ;(global.fetch as jest.Mock).mockImplementation((url: RequestInfo | URL) => {
       const path = String(url)
