@@ -198,6 +198,82 @@ describe('Portal company detail page', () => {
     expect(await screen.findByText('SEO Hours')).toBeInTheDocument()
   })
 
+  it('turns clear company analytics risk into a leadership review action', async () => {
+    global.fetch = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/custom-fields?resource=company') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { definitions: [] } }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/companies/company-1') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              company: {
+                id: 'company-1',
+                orgId: 'org-1',
+                name: 'Acme Holdings',
+                lifecycleStage: 'customer',
+              },
+            },
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/companies/company-1/command-center?limit=100') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              summary: {},
+              analytics: {
+                riskSignals: [],
+              },
+              contacts: [],
+              deals: [],
+              quotes: [],
+              invoices: [],
+              projects: [],
+              serviceWorkspaces: [],
+              relationships: [],
+              documents: [],
+              orders: [],
+              shipments: [],
+              inventoryItems: [],
+              activities: [],
+            },
+          }),
+        } as Response)
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ data: {} }),
+      } as Response)
+    }) as jest.Mock
+
+    render(<CompanyDetailPage />)
+
+    expect(await screen.findByRole('heading', { name: 'Acme Holdings' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('tab', { name: /Analytics/i }))
+
+    expect(await screen.findByText('Risk watch clear')).toBeInTheDocument()
+    expect(screen.getByText('Keep leadership risk reviewable')).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'No active risk signals are flagged for Acme Holdings. Review invoices, orders, and inventory so finance, delivery, and relationship risk stay visible before the account surprises leadership.',
+      ),
+    ).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Review invoices, orders, and inventory for Acme Holdings' }))
+
+    expect(await screen.findByRole('tab', { name: /Invoices/i })).toHaveAttribute('aria-selected', 'true')
+  })
+
   it('turns an empty company contacts tab into a prefilled create-contact action', async () => {
     const postContact = jest.fn().mockResolvedValue({
       ok: true,

@@ -1023,10 +1023,12 @@ function SimpleRowsPanel({
 function AnalyticsPanel({
   analytics,
   summary,
+  companyName,
   onOpenTab,
 }: {
   analytics: CommandCenterAnalytics
   summary: CommandCenterSummary
+  companyName: string
   onOpenTab: (tab: CompanyTab) => void
 }) {
   const tiles = [
@@ -1135,7 +1137,22 @@ function AnalyticsPanel({
       <div className="bento-card p-5">
         <p className="eyebrow !text-[10px]">Risk signals</p>
         {riskSignals.length === 0 ? (
-          <p className="mt-3 text-sm text-[var(--color-pib-text-muted)]">No active risk signals for this company.</p>
+          <div className="mt-3 rounded-lg border border-emerald-400/20 bg-emerald-400/10 p-4">
+            <p className="eyebrow !text-[10px] text-emerald-200">Risk watch clear</p>
+            <h3 className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">Keep leadership risk reviewable</h3>
+            <p className="mt-1 text-sm leading-6 text-[var(--color-pib-text-muted)]">
+              No active risk signals are flagged for {companyName}. Review invoices, orders, and inventory so finance, delivery, and relationship risk stay visible before the account surprises leadership.
+            </p>
+            <button
+              type="button"
+              onClick={() => onOpenTab('invoices')}
+              aria-label={`Review invoices, orders, and inventory for ${companyName}`}
+              className="btn-pib-secondary mt-3 inline-flex items-center gap-1.5 text-xs"
+            >
+              <span aria-hidden="true" className="material-symbols-outlined text-[14px]">fact_check</span>
+              Review risk records
+            </button>
+          </div>
         ) : (
           <div className="mt-3 flex flex-wrap gap-2">
             {riskSignals.map((signal) => (
@@ -2023,7 +2040,9 @@ export default function CompanyDetailPage() {
             onCreateInventoryItem={createTrackedInventoryItem}
           />
         )}
-        {!relatedLoading && tab === 'analytics' && <AnalyticsPanel analytics={related.analytics} summary={related.summary} onOpenTab={setTab} />}
+        {!relatedLoading && tab === 'analytics' && (
+          <AnalyticsPanel analytics={related.analytics} summary={related.summary} companyName={company.name} onOpenTab={setTab} />
+        )}
         {!relatedLoading && tab === 'activity' && (
           <ActivityPanel
             activities={related.activities}
