@@ -1,5 +1,5 @@
 import React from 'react'
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import PortalCaptureSourcesPage from '@/app/(portal)/portal/capture-sources/page'
 import PortalCaptureSourceImportPage from '@/app/(portal)/portal/capture-sources/import/page'
 
@@ -90,6 +90,34 @@ describe('PortalCaptureSourcesPage', () => {
     expect(screen.getAllByText('Paused').length).toBeGreaterThan(0)
     expect(screen.getByText('Auto-enrolls')).toBeInTheDocument()
     expect(screen.getByText('No captures yet')).toBeInTheDocument()
+  })
+
+  it('turns an empty capture-source list into a first-channel setup action', async () => {
+    fetchMock.mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.startsWith('/api/v1/crm/capture-sources')) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ data: [] }),
+        })
+      }
+      if (url.startsWith('/api/v1/campaigns')) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ data: [] }),
+        })
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ data: [] }) })
+    })
+
+    render(<PortalCaptureSourcesPage />)
+
+    expect(await screen.findByRole('heading', { name: 'No tracked intake channels yet.' })).toBeInTheDocument()
+    expect(screen.getByText('Create the first capture source so contacts arrive with source attribution, consent context, tags, and a visible follow-up path for the team.')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Set up first form source' }))
+
+    expect(screen.getByPlaceholderText('Source name (e.g. Homepage form)')).toHaveFocus()
   })
 })
 
