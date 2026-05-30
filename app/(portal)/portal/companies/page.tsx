@@ -137,7 +137,19 @@ export default function CompaniesPage() {
           onClick: () => setManagerLens('all'),
         },
       }
-    : undefined
+    : hasActiveFilters
+      ? {
+          icon: 'manage_search',
+          eyebrow: 'Filtered account view',
+          title: 'No companies match this view.',
+          description: 'Clear the filters to return to the full account list.',
+          primaryAction: {
+            label: 'Clear filters',
+            icon: 'filter_alt_off',
+            onClick: () => updateFilters({}),
+          },
+        }
+      : undefined
 
   useEffect(() => {
     setSelectedIds(prev => {
@@ -342,7 +354,7 @@ export default function CompaniesPage() {
                 ? 'border-amber-400/40 bg-amber-400/10'
                 : 'border-[var(--color-pib-line)] bg-white/[0.03] hover:bg-white/[0.05]',
             ].join(' ')}
-            aria-label={managerLens === 'unmanaged' ? 'Show all companies' : 'Show unmanaged companies needing an account manager'}
+            aria-label={managerLens === 'unmanaged' ? 'Exit unmanaged company lens' : 'Show unmanaged companies needing an account manager'}
           >
             <span className="material-symbols-outlined text-[20px] text-[var(--color-pib-accent)]">manage_accounts</span>
             <p className="mt-3 text-sm font-semibold text-[var(--color-pib-text)]">

@@ -130,8 +130,9 @@ export function CompaniesTable({
                         type="button"
                         onClick={state.primaryAction.onClick}
                         className={`${state.primaryAction.variant === 'accent' ? 'btn-pib-accent' : 'btn-pib-secondary'} inline-flex items-center gap-1.5 text-xs`}
+                        aria-label={state.primaryAction.label}
                       >
-                        <span className="material-symbols-outlined text-[15px]">{state.primaryAction.icon}</span>
+                        <span className="material-symbols-outlined text-[15px]" aria-hidden="true">{state.primaryAction.icon}</span>
                         {state.primaryAction.label}
                       </button>
                     ) : (
