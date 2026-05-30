@@ -577,18 +577,20 @@ export default function ContactDetailPage() {
                 <ScoreChip score={numberValue(contact.icpScore)} kind="icp" label="ICP match score" size="sm" />
                 <ScoreChip score={numberValue(contact.aiLeadScore)} kind="ai" label="AI lead score" size="sm" />
               </div>
-              {!hasAnyScore && (
-                <button
-                  type="button"
-                  aria-label={`Recompute score for ${name} from admin qualification panel`}
-                  onClick={recomputeScore}
-                  disabled={scoreSaving}
-                  className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-[var(--color-card-border)] px-3 py-2 text-xs font-semibold text-[var(--color-accent-v2)] transition-colors hover:border-[var(--color-accent-v2)] hover:text-on-surface disabled:opacity-50"
-                >
-                  <span className="material-symbols-outlined text-[15px]" aria-hidden="true">speed</span>
-                  {scoreSaving ? 'Scoring...' : 'Recompute score'}
-                </button>
-              )}
+              <button
+                type="button"
+                aria-label={
+                  hasAnyScore
+                    ? `Refresh qualification scores for ${name} from admin qualification panel`
+                    : `Recompute score for ${name} from admin qualification panel`
+                }
+                onClick={recomputeScore}
+                disabled={scoreSaving}
+                className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-[var(--color-card-border)] px-3 py-2 text-xs font-semibold text-[var(--color-accent-v2)] transition-colors hover:border-[var(--color-accent-v2)] hover:text-on-surface disabled:opacity-50"
+              >
+                <span className="material-symbols-outlined text-[15px]" aria-hidden="true">speed</span>
+                {scoreSaving ? 'Scoring...' : hasAnyScore ? 'Refresh scores' : 'Recompute score'}
+              </button>
               {scoreError && <p className="text-xs text-red-300">{scoreError}</p>}
               <DetailRow label="Score updated" value={fmtTimestamp(contact.scoreUpdatedAt)} />
               <DetailRow label="Agreement roles" value={contact.agreementRoles?.join(', ')} />

@@ -131,6 +131,34 @@ describe('Admin contact detail page', () => {
     })
   })
 
+  it('keeps captured admin contact qualification scores refreshable', async () => {
+    contactOverride = {
+      leadScore: 42,
+      icpScore: 61,
+      aiLeadScore: 73,
+      scoreUpdatedAt: '2026-01-01T08:00:00.000Z',
+    }
+
+    render(<AdminContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Jane Client' })).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh qualification scores for Jane Client from admin qualification panel' }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/contacts/contact-1/recompute-score', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ includeAi: true }),
+      })
+    })
+    await waitFor(() => {
+      expect(screen.getAllByText('90').length).toBeGreaterThan(0)
+    })
+  })
+
   it('turns empty admin email history into a prefilled compose action', async () => {
     render(<AdminContactDetailPage />)
 
