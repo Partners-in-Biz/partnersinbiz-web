@@ -30,6 +30,9 @@ type FirestoreRef = {
 type FirestoreDoc = { id: string; data: () => Record<string, unknown>; ref?: FirestoreRef }
 
 type OrgSummary = { id: string; name?: string | null; slug?: string | null }
+type ProjectSummary = { id: string; name?: string | null; title?: string | null; slug?: string | null }
+type TaskSummary = { id: string; title?: string | null; projectId?: string | null; orgId?: string | null }
+type UserSummary = { id: string; name?: string | null; email?: string | null }
 
 function chunk<T>(items: T[], size: number): T[][] {
   const out: T[][] = []
@@ -84,6 +87,86 @@ async function loadOrgSummaries(orgIds: string[] | null): Promise<Map<string, Or
     }
   } catch {
     // Org labels are display sugar; do not fail the feed for this.
+  }
+  return map
+}
+
+async function loadProjectSummaries(projectIds: string[]): Promise<Map<string, ProjectSummary>> {
+  const map = new Map<string, ProjectSummary>()
+  const ids = [...new Set(projectIds.filter(Boolean))]
+  if (ids.length === 0) return map
+  try {
+    const collection = adminDb.collection('projects')
+    const snaps = await Promise.all(chunk(ids, 30).map((batch) => collection.where('__name__', 'in', batch).get()))
+    for (const snap of snaps) {
+      for (const doc of snap.docs as FirestoreDoc[]) {
+        const data = doc.data()
+        map.set(doc.id, {
+          id: doc.id,
+          name: typeof data.name === 'string' ? data.name : null,
+          title: typeof data.title === 'string' ? data.title : null,
+          slug: typeof data.slug === 'string' ? data.slug : null,
+        })
+      }
+    }
+  } catch {
+    // Related labels are best-effort.
+  }
+  return map
+}
+
+async function loadTaskSummaries(taskIds: string[]): Promise<Map<string, TaskSummary>> {
+  const map = new Map<string, TaskSummary>()
+  const ids = [...new Set(taskIds.filter(Boolean))]
+  if (ids.length === 0) return map
+
+  const absorb = (docs: FirestoreDoc[]) => {
+    for (const doc of docs) {
+      const data = doc.data()
+      const projectId = typeof data.projectId === 'string' ? data.projectId : doc.ref?.parent?.parent?.id ?? null
+      const title = typeof data.title === 'string' ? data.title : null
+      const orgId = typeof data.orgId === 'string' ? data.orgId : null
+      map.set(doc.id, { id: doc.id, title, projectId, orgId })
+    }
+  }
+
+  try {
+    const ref = adminDb.collectionGroup('tasks')
+    const snaps = await Promise.all(chunk(ids, 30).map((batch) => ref.where('__name__', 'in', batch).get()))
+    for (const snap of snaps) absorb(snap.docs as FirestoreDoc[])
+  } catch {
+    // Some contexts do not support collection-group task lookup.
+  }
+
+  try {
+    const ref = adminDb.collection('tasks')
+    const snaps = await Promise.all(chunk(ids, 30).map((batch) => ref.where('__name__', 'in', batch).get()))
+    for (const snap of snaps) absorb(snap.docs as FirestoreDoc[])
+  } catch {
+    // Standalone task labels are best-effort.
+  }
+
+  return map
+}
+
+async function loadUserSummaries(actorIds: string[]): Promise<Map<string, UserSummary>> {
+  const map = new Map<string, UserSummary>()
+  const ids = [...new Set(actorIds.map((id) => id.replace(/^user:/, '')).filter((id) => id && !id.startsWith('agent:') && id !== 'unknown'))]
+  if (ids.length === 0) return map
+  try {
+    const ref = adminDb.collection('users')
+    const snaps = await Promise.all(chunk(ids, 30).map((batch) => ref.where('__name__', 'in', batch).get()))
+    for (const snap of snaps) {
+      for (const doc of snap.docs as FirestoreDoc[]) {
+        const data = doc.data()
+        const displayName = typeof data.displayName === 'string' ? data.displayName : null
+        const name = typeof data.name === 'string' ? data.name : displayName
+        const email = typeof data.email === 'string' ? data.email : null
+        map.set(doc.id, { id: doc.id, name, email })
+      }
+    }
+  } catch {
+    // Actor labels are display sugar.
   }
   return map
 }
@@ -206,6 +289,42 @@ function decorate(item: BriefingSourceItem, orgs: Map<string, OrgSummary>): Brie
   }
 }
 
+function displayProjectName(project: ProjectSummary | undefined): string | null {
+  return project?.name ?? project?.title ?? null
+}
+
+function displayActorName(actor: BriefingCard['actor'], users: Map<string, UserSummary>): string | null {
+  const id = actor.id.replace(/^user:/, '')
+  const user = users.get(id)
+  return actor.name ?? user?.name ?? user?.email ?? null
+}
+
+function enrichBriefingLabels(items: BriefingCard[], projects: Map<string, ProjectSummary>, tasks: Map<string, TaskSummary>, users: Map<string, UserSummary>): BriefingCard[] {
+  return items.map((item) => {
+    const taskId = item.context.taskId ?? null
+    const task = taskId ? tasks.get(taskId) : undefined
+    const projectId = item.context.projectId ?? task?.projectId ?? null
+    const project = projectId ? projects.get(projectId) : undefined
+    const actorName = displayActorName(item.actor, users)
+    const context = {
+      ...item.context,
+      projectId,
+      projectName: item.context.projectName ?? displayProjectName(project),
+      taskTitle: item.context.taskTitle ?? task?.title ?? null,
+    }
+    const actor = actorName ? { ...item.actor, name: actorName } : item.actor
+
+    let title = item.title
+    if (item.source.type === 'comment') {
+      if (context.taskTitle) title = `Comment on ${context.taskTitle}`
+      else if (context.projectName) title = `Comment on ${context.projectName}`
+      else if (actorName && item.title.includes(item.actor.id)) title = item.title.replace(item.actor.id, actorName)
+    }
+
+    return { ...item, title, actor, context }
+  })
+}
+
 function toItemSafe(adapter: Pick<BriefingSourceAdapter<Record<string, unknown>>, 'shouldGenerate' | 'toItem'>, doc: Record<string, unknown>, id: string): BriefingSourceItem | null {
   try {
     if (!adapter.shouldGenerate(doc, id)) return null
@@ -316,7 +435,15 @@ export async function buildBriefingFeed(user: ApiUser, options: BriefingFeedOpti
     } catch {}
   }
 
-  const filtered = items
+  const projectIds = items.map((item) => item.context.projectId).filter((id): id is string => typeof id === 'string' && id.length > 0)
+  const taskIds = items.map((item) => item.context.taskId).filter((id): id is string => typeof id === 'string' && id.length > 0)
+  const actorIds = items.map((item) => item.actor.id).filter((id): id is string => typeof id === 'string' && id.length > 0)
+  const tasks = await loadTaskSummaries(taskIds)
+  const projects = await loadProjectSummaries([...projectIds, ...[...tasks.values()].map((task) => task.projectId).filter((id): id is string => typeof id === 'string' && id.length > 0)])
+  const users = await loadUserSummaries(actorIds)
+  const labelledItems = enrichBriefingLabels(items, projects, tasks, users)
+
+  const filtered = labelledItems
     .filter((item) => !options.priority || options.priority === 'all' || item.priority === options.priority)
     .sort((a, b) => {
       const priority = comparePriority(a.priority, b.priority)

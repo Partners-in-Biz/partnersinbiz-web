@@ -90,6 +90,18 @@ function priorityClass(priority: BriefingCard['priority']) {
   }
 }
 
+function titledId(title: string | null | undefined, id: string | null | undefined) {
+  if (title && id) return `${title} (${id})`
+  return title ?? id ?? 'Unknown'
+}
+
+function sourceLabel(item: BriefingCard) {
+  if (item.context.taskTitle) return `${item.source.type} · ${titledId(item.context.taskTitle, item.context.taskId ?? item.source.id)}`
+  if (item.context.projectName) return `${item.source.type} · ${titledId(item.context.projectName, item.context.projectId ?? item.source.id)}`
+  if (item.context.documentTitle) return `${item.source.type} · ${titledId(item.context.documentTitle, item.context.documentId ?? item.source.id)}`
+  return `${item.source.type} · ${item.source.id}`
+}
+
 export default function AdminBriefingsPage() {
   const [orgs, setOrgs] = useState<OrgSummary[]>([])
   const [orgId, setOrgId] = useState('')
@@ -254,9 +266,9 @@ export default function AdminBriefingsPage() {
                   <h2 className="mt-3 text-lg font-semibold text-on-surface">{item.title}</h2>
                   <p className="mt-2 text-sm leading-6 text-on-surface-variant">{item.summary}</p>
                   <div className="mt-3 flex flex-wrap gap-2 text-xs text-on-surface-variant">
-                    <span>{item.context.orgName ?? item.orgId}</span>
-                    {item.context.projectName || item.context.projectId ? <span>Project: {item.context.projectName ?? item.context.projectId}</span> : null}
-                    {item.context.taskTitle || item.context.taskId ? <span>Task: {item.context.taskTitle ?? item.context.taskId}</span> : null}
+                    <span>Workspace: {titledId(item.context.orgName, item.orgId)}</span>
+                    {item.context.projectName || item.context.projectId ? <span>Project: {titledId(item.context.projectName, item.context.projectId)}</span> : null}
+                    {item.context.taskTitle || item.context.taskId ? <span>Task: {titledId(item.context.taskTitle, item.context.taskId)}</span> : null}
                   </div>
                 </button>
               ))
@@ -272,10 +284,13 @@ export default function AdminBriefingsPage() {
                   <p className="mt-2 text-sm leading-6 text-on-surface-variant">{selected.excerpt || selected.summary}</p>
                 </div>
                 <dl className="space-y-3 text-sm">
-                  <div><dt className="text-on-surface-variant">Actor</dt><dd className="text-on-surface">{selected.actor.name ?? selected.actor.id}</dd></div>
-                  <div><dt className="text-on-surface-variant">Workspace</dt><dd className="text-on-surface">{selected.context.orgName ?? selected.orgId}</dd></div>
+                  <div><dt className="text-on-surface-variant">Actor</dt><dd className="text-on-surface">{titledId(selected.actor.name, selected.actor.id)}</dd></div>
+                  <div><dt className="text-on-surface-variant">Workspace</dt><dd className="text-on-surface">{titledId(selected.context.orgName, selected.orgId)}</dd></div>
+                  {selected.context.projectName || selected.context.projectId ? <div><dt className="text-on-surface-variant">Project</dt><dd className="text-on-surface">{titledId(selected.context.projectName, selected.context.projectId)}</dd></div> : null}
+                  {selected.context.taskTitle || selected.context.taskId ? <div><dt className="text-on-surface-variant">Task</dt><dd className="text-on-surface">{titledId(selected.context.taskTitle, selected.context.taskId)}</dd></div> : null}
+                  {selected.context.documentTitle || selected.context.documentId ? <div><dt className="text-on-surface-variant">Document</dt><dd className="text-on-surface">{titledId(selected.context.documentTitle, selected.context.documentId)}</dd></div> : null}
                   <div><dt className="text-on-surface-variant">Occurred</dt><dd className="text-on-surface">{new Date(selected.occurredAt).toLocaleString('en-ZA')}</dd></div>
-                  <div><dt className="text-on-surface-variant">Source</dt><dd className="text-on-surface">{selected.source.type} · {selected.source.id}</dd></div>
+                  <div><dt className="text-on-surface-variant">Source</dt><dd className="text-on-surface">{sourceLabel(selected)}</dd></div>
                 </dl>
                 {selected.source.url ? (
                   <a className="pib-btn-secondary inline-flex w-full justify-center" href={selected.source.url}>Open source</a>

@@ -55,6 +55,8 @@ beforeEach(() => {
 describe('briefing feed', () => {
   it('aggregates tasks and comments, sorts by priority, scopes by visible orgs, and redacts sensitive excerpts', async () => {
     collections.organizations = [makeDoc('org-1', { name: 'Client One', slug: 'client-one' })]
+    collections.projects = [makeDoc('project-1', { name: 'Readable Project', slug: 'readable-project' })]
+    collections.users = [makeDoc('client-1', { displayName: 'Client User', email: 'client@example.test' })]
     collectionGroups.tasks = [
       makeDoc('task-1', {
         orgId: 'org-1',
@@ -87,6 +89,12 @@ describe('briefing feed', () => {
     expect(feed.total).toBeGreaterThanOrEqual(2)
     expect(feed.items[0]).toMatchObject({ priority: 'critical', source: { type: 'comment' } })
     expect(feed.items.some((item) => item.title === 'Awaiting Input: Ship briefing page')).toBe(true)
+    const commentItem = feed.items.find((item) => item.source.type === 'comment')
+    expect(commentItem).toMatchObject({
+      title: 'Comment on Ship briefing page',
+      actor: { name: 'Client User' },
+      context: { projectName: 'Readable Project', taskTitle: 'Ship briefing page' },
+    })
     expect(JSON.stringify(feed.items)).not.toContain('hunter2')
     expect(JSON.stringify(feed.items)).not.toContain('abc123')
     expect(JSON.stringify(feed.items)).toContain('[REDACTED]')
