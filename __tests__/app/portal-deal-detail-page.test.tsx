@@ -151,6 +151,15 @@ describe('Portal deal detail page', () => {
     await waitFor(() => expect(screen.queryByText('Close date missing')).not.toBeInTheDocument())
   })
 
+  it('names missing close date in the deal details panel instead of showing a bare dash', async () => {
+    render(<DealDetailPage />)
+
+    await screen.findByText('Unowned expansion')
+
+    expect(screen.getByText('No close date captured')).toBeInTheDocument()
+    expect(screen.queryAllByText('—')).toHaveLength(0)
+  })
+
   it('lets users add line items from the empty commercial detail panel', async () => {
     render(<DealDetailPage />)
 

@@ -668,9 +668,18 @@ export default function DealDetailPage() {
             </div>
             <div>
               <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">Close date</p>
-              <p className="text-[var(--color-pib-text-muted)] mt-0.5 font-mono text-xs">
-                {deal.expectedCloseDate ? fmtTimestamp(deal.expectedCloseDate) : '—'}
-              </p>
+              {deal.expectedCloseDate ? (
+                <p className="text-[var(--color-pib-text-muted)] mt-0.5 font-mono text-xs">
+                  {fmtTimestamp(deal.expectedCloseDate)}
+                </p>
+              ) : (
+                <div className="mt-1 rounded-lg border border-[var(--color-pib-line)] bg-white/[0.02] p-3">
+                  <p className="text-sm font-semibold text-[var(--color-pib-text)]">No close date captured</p>
+                  <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">
+                    Set forecast timing so leadership can trust pipeline commitments.
+                  </p>
+                </div>
+              )}
             </div>
             {deal.notes && (
               <div>
