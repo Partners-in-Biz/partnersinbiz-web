@@ -674,7 +674,7 @@ export default function CrmReportsPage() {
             title="No contact data yet"
             body="Contacts will populate the funnel as leads, prospects, clients, and churned accounts are created."
             action={{
-              href: '/portal/contacts',
+              href: '/portal/contacts?create=contact',
               label: 'Open contacts',
               ariaLabel: 'Open contacts to create reportable CRM records',
               icon: 'contacts',

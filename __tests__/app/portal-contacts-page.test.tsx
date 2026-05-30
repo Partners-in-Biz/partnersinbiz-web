@@ -157,4 +157,12 @@ describe('Portal contacts page', () => {
     expect(screen.getByText('2 contacts need follow-up.')).toBeInTheDocument()
     expect(screen.getByText('followUp: stale')).toBeInTheDocument()
   })
+
+  it('opens the new contact drawer directly from CRM create links', async () => {
+    mockSearchParams = new URLSearchParams('create=contact')
+
+    render(<PortalContactsPage />)
+
+    expect(await screen.findByRole('heading', { name: 'New contact' })).toBeInTheDocument()
+  })
 })

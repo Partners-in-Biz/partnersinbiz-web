@@ -159,6 +159,7 @@ function needsFollowUp(contact: Contact): boolean {
 
 export default function PortalContactsPage() {
   const searchParams = useSearchParams()
+  const shouldOpenCreateContact = searchParams.get('create') === 'contact'
   const [contacts, setContacts] = useState<Contact[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState(() => searchParams.get('search') ?? '')
@@ -166,7 +167,7 @@ export default function PortalContactsPage() {
   const [typeFilter, setTypeFilter] = useState(() => searchParamInList(searchParams.get('type'), TYPES))
   const [ownerLens, setOwnerLens] = useState<'all' | 'unowned'>(() => searchParams.get('owner') === 'unowned' ? 'unowned' : 'all')
   const [followUpLens, setFollowUpLens] = useState<'all' | 'stale'>(() => searchParams.get('followUp') === 'stale' ? 'stale' : 'all')
-  const [showNew, setShowNew] = useState(false)
+  const [showNew, setShowNew] = useState(() => shouldOpenCreateContact)
 
   // Bulk selection state
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
