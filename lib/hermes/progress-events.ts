@@ -30,12 +30,26 @@ export function normalizeHermesEvent(input: unknown, fallbackRunId?: string): Ch
   const timestamp = numericTimestamp(raw.timestamp)
   const tool = cleanString(raw.tool) ?? cleanString(raw.tool_name) ?? cleanString(raw.name)
   const preview = cleanString(raw.preview) ?? cleanString(raw.input) ?? cleanString(raw.description)
+  const inputText = cleanString(raw.input) ?? cleanString(raw.command) ?? cleanString(raw.args) ?? cleanString(raw.parameters)
+  const outputText = cleanString(raw.output) ?? cleanString(raw.result) ?? cleanString(raw.content)
+  const stdout = cleanString(raw.stdout)
+  const stderr = cleanString(raw.stderr)
+  const exitCode = typeof raw.exit_code === 'number'
+    ? raw.exit_code
+    : typeof raw.exitCode === 'number'
+      ? raw.exitCode
+      : undefined
   const base: ChatEvent = {
     event: rawEvent,
     ...(runId ? { runId, run_id: runId } : {}),
     timestamp,
     ...(tool ? { tool } : {}),
     ...(preview ? { preview } : {}),
+    ...(inputText ? { input: inputText } : {}),
+    ...(outputText ? { output: outputText } : {}),
+    ...(stdout ? { stdout } : {}),
+    ...(stderr ? { stderr } : {}),
+    ...(typeof exitCode === 'number' ? { exitCode } : {}),
   }
 
   if (rawEvent === 'message.delta') {
@@ -106,6 +120,11 @@ export function normalizeHermesEvent(input: unknown, fallbackRunId?: string): Ch
       ...base,
       event: 'tool.completed',
       duration: typeof raw.duration === 'number' ? raw.duration : undefined,
+      durationMs: typeof raw.duration_ms === 'number'
+        ? raw.duration_ms
+        : typeof raw.durationMs === 'number'
+          ? raw.durationMs
+          : undefined,
       error: typeof raw.error === 'boolean' ? raw.error : raw.error ? String(raw.error) : undefined,
       activity: activityForTool(tool, preview),
     }]

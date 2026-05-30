@@ -139,6 +139,62 @@ function eventLabel(event: ChatEvent): string {
   }
 }
 
+function truncateConsoleText(value: string, limit = 1200): string {
+  const cleaned = value.replace(/\r\n/g, '\n').trimEnd()
+  if (cleaned.length <= limit) return cleaned
+  return `${cleaned.slice(0, limit).trimEnd()}\n… truncated`
+}
+
+function consoleTextForEvent(event: ChatEvent): string {
+  const parts: string[] = []
+  const input = event.input ?? event.preview
+  const output = event.output ?? event.stdout
+  if (input && event.event !== 'assistant.text_delta') parts.push(`$ ${truncateConsoleText(input, 700)}`)
+  if (output) parts.push(truncateConsoleText(output))
+  if (event.stderr) parts.push(truncateConsoleText(event.stderr))
+  if (!parts.length && event.delta) parts.push(truncateConsoleText(event.delta, 260))
+  if (!parts.length && event.activity) parts.push(event.activity)
+  return parts.join('\n')
+}
+
+function commandConsoleRows(events: ChatEvent[]): Array<{
+  key: string
+  status: 'running' | 'done' | 'failed' | 'info'
+  label: string
+  meta: string
+  body: string
+}> {
+  return events
+    .filter((event) => event.event !== 'assistant.text_delta' && event.event !== 'heartbeat')
+    .map((event, index) => {
+      const failed = Boolean(event.error) || (typeof event.exitCode === 'number' && event.exitCode !== 0)
+      const status: 'running' | 'done' | 'failed' | 'info' = failed
+        ? 'failed'
+        : event.event === 'tool.started' || event.event === 'tool.input_delta'
+          ? 'running'
+          : event.event === 'tool.completed' || event.event === 'run.completed'
+            ? 'done'
+            : 'info'
+      const seconds = event.timestamp
+        ? new Date(event.timestamp > 10_000_000_000 ? event.timestamp : event.timestamp * 1000).toISOString().slice(11, 19)
+        : '--:--:--'
+      const duration = typeof event.durationMs === 'number'
+        ? `${event.durationMs}ms`
+        : typeof event.duration === 'number'
+          ? `${event.duration}ms`
+          : ''
+      const exit = typeof event.exitCode === 'number' ? `exit ${event.exitCode}` : ''
+      return {
+        key: `${index}:${event.event ?? 'event'}:${event.tool ?? ''}`,
+        status,
+        label: event.tool ?? eventLabel(event),
+        meta: [seconds, event.event, duration, exit].filter(Boolean).join(' · '),
+        body: consoleTextForEvent(event),
+      }
+    })
+    .slice(-24)
+}
+
 function currentActivity(events: ChatEvent[], elapsed: number): { label: string; detail?: string } {
   const meaningful = events.filter((event) => event.event !== 'assistant.text_delta')
   const latest = meaningful.at(-1) ?? events.at(-1)
@@ -443,6 +499,38 @@ export default function MessageBubble({
   // Other (agent or another user)
   const isAgent = m.authorKind === 'agent'
   const eventSummary = displayEvents.length > 0 ? summarizeEvents(displayEvents) : ''
+  const consoleRows = commandConsoleRows(displayEvents)
+  const commandConsole = consoleRows.length > 0 ? (
+    <details open className="my-2 overflow-hidden rounded-xl border border-primary/20 bg-black/35 text-on-surface-variant shadow-inner group/console">
+      <summary className="flex cursor-pointer select-none list-none items-center gap-2 border-b border-white/10 px-3 py-2 text-[11px] font-label uppercase tracking-wide text-on-surface [&::-webkit-details-marker]:hidden">
+        <span className="material-symbols-outlined text-[15px] text-primary">terminal</span>
+        <span className="min-w-0 flex-1 truncate">Inline command console</span>
+        <span className="rounded-full bg-white/8 px-1.5 py-0.5 font-mono text-[10px] text-on-surface-variant">
+          {consoleRows.length}
+        </span>
+        <span className="material-symbols-outlined text-[14px] text-on-surface-variant transition-transform group-open/console:rotate-180">expand_more</span>
+      </summary>
+      <div className="max-h-80 overflow-y-auto p-2 font-mono text-[11px] leading-relaxed">
+        {consoleRows.map((row) => (
+          <div key={row.key} className="mb-1.5 overflow-hidden rounded-lg border border-white/10 bg-[#050505]/80 last:mb-0">
+            <div className="flex items-center gap-2 border-b border-white/5 px-2 py-1 text-[10px]">
+              <span className={[
+                'h-2 w-2 rounded-full shrink-0',
+                row.status === 'failed' ? 'bg-red-400' : row.status === 'running' ? 'bg-primary animate-pulse' : row.status === 'done' ? 'bg-emerald-400' : 'bg-white/40',
+              ].join(' ')} />
+              <span className="min-w-0 flex-1 truncate text-primary">{row.label}</span>
+              <span className="shrink-0 text-on-surface-variant/70">{row.meta}</span>
+            </div>
+            {row.body && (
+              <pre className="max-h-44 overflow-auto whitespace-pre-wrap break-words px-2 py-1.5 text-[11px] text-on-surface-variant [overflow-wrap:anywhere]">
+                {row.body}
+              </pre>
+            )}
+          </div>
+        ))}
+      </div>
+    </details>
+  ) : null
 
   return (
     <div className="flex min-w-0 justify-start gap-2.5 w-full overflow-hidden lg:gap-2.5">
@@ -525,6 +613,7 @@ export default function MessageBubble({
                 </details>
               )}
             </div>
+            {commandConsole}
             {displayEvents.length > 0 && (
               <details className="text-on-surface-variant group/details">
                 <summary className="cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden inline-flex items-center gap-1.5 rounded-md px-1 py-0.5 text-[11px] hover:bg-white/[0.04]">
@@ -565,6 +654,7 @@ export default function MessageBubble({
         )}
 
         {/* Completed tool-call timeline (collapsible) */}
+        {!isPending && !isWaiting && commandConsole}
         {displayEvents.length > 0 && !isPending && !isWaiting && (
           <details className="my-2 text-on-surface-variant group/details">
             <summary className="cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden flex items-center gap-1.5 py-1 -mx-1 px-1 rounded hover:bg-[var(--color-card,rgba(255,255,255,0.03))] text-[13px] lg:text-xs">

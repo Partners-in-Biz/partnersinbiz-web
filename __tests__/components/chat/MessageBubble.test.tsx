@@ -94,4 +94,45 @@ describe('MessageBubble', () => {
     expect(screen.getByRole('dialog', { name: /Screenshot 2026-05-19\.png/i })).toBeInTheDocument()
     expect(screen.getAllByRole('img', { name: 'Screenshot 2026-05-19.png' }).at(-1)).toHaveAttribute('src', 'https://cdn.example.com/screenshot.png')
   })
+
+  it('shows a full inline command console for agent tool events', () => {
+    render(
+      <MessageBubble
+        currentUserUid="user-1"
+        message={{
+          id: 'msg-1',
+          conversationId: 'conv-1',
+          role: 'assistant',
+          content: 'Done.',
+          authorKind: 'agent',
+          authorId: 'pip',
+          authorDisplayName: 'Pip',
+          status: 'completed',
+          events: [
+            {
+              event: 'tool.started',
+              tool: 'terminal',
+              input: 'npm test -- --runInBand',
+              timestamp: 1_770_000_000,
+            },
+            {
+              event: 'tool.completed',
+              tool: 'terminal',
+              input: 'npm test -- --runInBand',
+              stdout: 'PASS __tests__/components/chat/MessageBubble.test.tsx',
+              exitCode: 0,
+              durationMs: 842,
+              timestamp: 1_770_000_002,
+            },
+          ],
+        }}
+      />,
+    )
+
+    expect(screen.getByText('Inline command console')).toBeInTheDocument()
+    expect(screen.getAllByText('terminal').length).toBeGreaterThanOrEqual(2)
+    expect(screen.getAllByText((content) => content.includes('$ npm test -- --runInBand')).length).toBeGreaterThanOrEqual(1)
+    expect(screen.getByText((content) => content.includes('PASS __tests__/components/chat/MessageBubble.test.tsx'))).toBeInTheDocument()
+    expect(screen.getByText(/exit 0/)).toBeInTheDocument()
+  })
 })

@@ -35,4 +35,28 @@ describe('normalizeHermesEvent', () => {
       preview: ' ',
     })
   })
+
+  it('keeps command input and output fields for inline consoles', () => {
+    const events = normalizeHermesEvent({
+      event: 'tool.completed',
+      tool: 'terminal',
+      input: 'npm test',
+      stdout: 'PASS',
+      stderr: 'warn only',
+      exit_code: 0,
+      duration_ms: 127,
+      timestamp: 123,
+    })
+
+    expect(events).toHaveLength(1)
+    expect(events[0]).toMatchObject({
+      event: 'tool.completed',
+      tool: 'terminal',
+      input: 'npm test',
+      stdout: 'PASS',
+      stderr: 'warn only',
+      exitCode: 0,
+      durationMs: 127,
+    })
+  })
 })
