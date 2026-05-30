@@ -755,7 +755,7 @@ export default function CrmReportsPage() {
 
       {/* ── Section 2: Revenue forecast ─────────────────────────────────────── */}
       <Section eyebrow="Revenue forecast">
-        {!forecast ? (
+        {!forecast || forecast.summary.totalOpenDeals === 0 ? (
           <EmptyState
             icon="trending_up"
             title="No forecast data yet"
