@@ -291,6 +291,7 @@ export default function PortalContactDetailPage() {
   const [enrolling, setEnrolling] = useState(false)
   const [enrollError, setEnrollError] = useState('')
   const [pendingUnenrollId, setPendingUnenrollId] = useState<string | null>(null)
+  const [unenrollError, setUnenrollError] = useState('')
 
   useEffect(() => {
     if (!id) return
@@ -752,14 +753,19 @@ export default function PortalContactDetailPage() {
   async function handleUnenroll(enrollmentId: string) {
     const enrollment = enrollments.find((e) => e.id === enrollmentId)
     if (!enrollment?.sequenceId) return
+    setUnenrollError('')
     try {
-      await fetch(`/api/v1/crm/sequences/${enrollment.sequenceId}/enrollments/${enrollmentId}`, {
+      const res = await fetch(`/api/v1/crm/sequences/${enrollment.sequenceId}/enrollments/${enrollmentId}`, {
         method: 'DELETE',
       })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error((body as { error?: string }).error ?? 'Unenrollment failed')
+      }
       setEnrollments((prev) => prev.filter((e) => e.id !== enrollmentId))
       setPendingUnenrollId(null)
-    } catch {
-      // silent
+    } catch (err) {
+      setUnenrollError(err instanceof Error ? err.message : 'Unenrollment failed')
     }
   }
 
@@ -1966,7 +1972,10 @@ export default function PortalContactDetailPage() {
                       </div>
                       <button
                         type="button"
-                        onClick={() => setPendingUnenrollId(e.id)}
+                        onClick={() => {
+                          setPendingUnenrollId(e.id)
+                          setUnenrollError('')
+                        }}
                         aria-label={`Review unenrollment for ${contactName} from ${sequenceName}`}
                         className="text-xs text-[var(--color-pib-text-muted)] hover:text-red-400"
                       >
@@ -1980,6 +1989,11 @@ export default function PortalContactDetailPage() {
                         <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">
                           Removing {sequenceName} stops the current sequence steps for {contactName}. The team can re-enroll them later if the follow-up cadence still applies.
                         </p>
+                        {unenrollError && (
+                          <p className="mt-3 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300" role="alert">
+                            {unenrollError}
+                          </p>
+                        )}
                         <div className="mt-3 flex flex-wrap items-center gap-2">
                           <button
                             type="button"
@@ -1991,7 +2005,10 @@ export default function PortalContactDetailPage() {
                           </button>
                           <button
                             type="button"
-                            onClick={() => setPendingUnenrollId(null)}
+                            onClick={() => {
+                              setPendingUnenrollId(null)
+                              setUnenrollError('')
+                            }}
                             className="btn-pib-secondary text-xs"
                           >
                             Keep enrolled

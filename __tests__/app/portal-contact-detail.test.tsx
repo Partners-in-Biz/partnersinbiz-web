@@ -9,6 +9,7 @@ let mockContactOverrides: Record<string, unknown> = {}
 let mockEnrollments: Array<{ id: string; sequenceId: string; sequenceName?: string; currentStep?: number; status?: string }> = []
 let mockSequences: Array<{ id: string; name: string }> = []
 let mockSequenceEnrollError = ''
+let mockSequenceUnenrollError = ''
 let mockRouterPush = jest.fn()
 
 jest.mock('next/navigation', () => ({
@@ -28,6 +29,7 @@ describe('Portal contact detail page', () => {
     mockEnrollments = []
     mockSequences = []
     mockSequenceEnrollError = ''
+    mockSequenceUnenrollError = ''
     mockRouterPush = jest.fn()
     global.fetch = jest.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
@@ -141,8 +143,8 @@ describe('Portal contact detail page', () => {
       }
       if (url === '/api/v1/crm/sequences/seq-1/enrollments/enrollment-1' && init?.method === 'DELETE') {
         return Promise.resolve({
-          ok: true,
-          json: async () => ({ success: true }),
+          ok: !mockSequenceUnenrollError,
+          json: async () => mockSequenceUnenrollError ? ({ error: mockSequenceUnenrollError }) : ({ success: true }),
         } as Response)
       }
       return Promise.resolve({
@@ -344,6 +346,31 @@ describe('Portal contact detail page', () => {
     await waitFor(() => {
       expect(screen.queryByText('Leadership follow-up')).not.toBeInTheDocument()
     })
+  })
+
+  it('shows sequence unenrollment failures without removing the workflow', async () => {
+    mockSequenceUnenrollError = 'Enrollment already completed'
+    mockEnrollments = [{
+      id: 'enrollment-1',
+      sequenceId: 'seq-1',
+      sequenceName: 'Leadership follow-up',
+      currentStep: 1,
+      status: 'active',
+    }]
+
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    expect(await screen.findByText('Leadership follow-up')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Review unenrollment for Jane Client from Leadership follow-up' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm unenroll Jane Client from Leadership follow-up' }))
+
+    expect(await screen.findByText('Enrollment already completed')).toBeInTheDocument()
+    expect(screen.getByText('Leadership follow-up')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Confirm unenroll Jane Client from Leadership follow-up' })).toBeEnabled()
   })
 
   it('turns an empty activity timeline into a first-note action', async () => {
