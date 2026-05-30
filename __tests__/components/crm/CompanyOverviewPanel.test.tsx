@@ -192,6 +192,41 @@ describe('CompanyOverviewPanel', () => {
     expect(onSelectTab).toHaveBeenCalledWith('activity')
   })
 
+  it('turns an empty revenue mix chart into a commercial review action', () => {
+    const onSelectTab = jest.fn()
+
+    render(
+      <CompanyOverviewPanel
+        company={company()}
+        center={{
+          summary: {
+            deals: 0,
+            quotes: 0,
+            invoices: 0,
+            orders: 0,
+          },
+          deals: [],
+          quotes: [],
+          invoices: [],
+          orders: [],
+        }}
+        onSelectTab={onSelectTab}
+      />,
+    )
+
+    expect(screen.getByText('Revenue model missing')).toBeInTheDocument()
+    expect(screen.getByText('Build the first commercial signal')).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'No deals, quotes, invoices, or orders are linked to this account yet. Review deals so pipeline value, quote readiness, and revenue history become visible to leadership.',
+      ),
+    ).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Review commercial records for Acme Studio' }))
+
+    expect(onSelectTab).toHaveBeenCalledWith('deals')
+  })
+
   it('labels parent-account navigation with the resolved parent company name', () => {
     const companyWithParent = company({
       parentCompanyId: 'co-parent',

@@ -678,8 +678,27 @@ export function CompanyOverviewPanel({ company, center, loading, onSelectTab, on
           {hasRevenueData ? (
             <RevenueBarChart data={revenueData} valueFormatter={(value) => formatCurrency(value, currency)} height={260} />
           ) : (
-            <div className="flex min-h-[220px] items-center justify-center rounded-lg border border-dashed border-[var(--color-pib-line)] text-center text-sm text-[var(--color-pib-text-muted)]">
-              Deals, quotes, invoices, and orders will build this chart.
+            <div className="flex min-h-[220px] items-center justify-center rounded-lg border border-dashed border-[var(--color-pib-line)] bg-white/[0.02] p-6 text-center">
+              <div className="max-w-md">
+                <p className="eyebrow !text-[10px] text-amber-200">Revenue model missing</p>
+                <h3 className="mt-2 font-display text-lg text-[var(--color-pib-text)]">Build the first commercial signal</h3>
+                <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">
+                  No deals, quotes, invoices, or orders are linked to this account yet. Review deals so pipeline value, quote readiness, and revenue history become visible to leadership.
+                </p>
+                {onSelectTab ? (
+                  <button
+                    type="button"
+                    onClick={() => onSelectTab('deals')}
+                    aria-label={`Review commercial records for ${company.name}`}
+                    className="btn-pib-secondary mt-4 inline-flex items-center gap-1.5 text-xs"
+                  >
+                    <span aria-hidden="true" className="material-symbols-outlined text-[14px]">monetization_on</span>
+                    Review deals
+                  </button>
+                ) : (
+                  <p className="mt-3 text-xs text-[var(--color-pib-text-muted)]">Open Deals to capture the first commercial record.</p>
+                )}
+              </div>
             </div>
           )}
         </SectionCard>
