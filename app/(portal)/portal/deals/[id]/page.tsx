@@ -800,18 +800,33 @@ export default function DealDetailPage() {
                 </tbody>
               </table>
             ) : (
-              <div className="p-10 text-center">
-                <span className="material-symbols-outlined block text-3xl text-[var(--color-pib-text-muted)]">playlist_add</span>
-                <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">No line items yet. Add services or products so the deal can become a quote.</p>
-                <button
-                  type="button"
-                  onClick={() => setEditOpen(true)}
-                  className="pib-btn-primary mt-4 inline-flex items-center gap-1.5 text-sm"
-                  aria-label={`Add products or services to ${deal.title ?? 'this deal'}`}
-                >
-                  <span className="material-symbols-outlined text-base">playlist_add</span>
-                  Add products or services
-                </button>
+              <div className="p-10">
+                <div className="mx-auto flex max-w-lg flex-col items-center gap-3 text-center">
+                  <span
+                    aria-hidden="true"
+                    className="material-symbols-outlined flex h-10 w-10 items-center justify-center rounded-md border border-[var(--color-pib-line)] bg-white/[0.04] text-[20px] text-[var(--color-accent-v2)]"
+                  >
+                    request_quote
+                  </span>
+                  <div>
+                    <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
+                      Commercial detail missing
+                    </p>
+                    <h3 className="mt-1 text-base font-semibold text-[var(--color-pib-text)]">Make this deal quote-ready</h3>
+                    <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">
+                      Add products, services, or ad-hoc pricing so leadership can review value, delivery can see scope, and the opportunity can become a client-ready quote.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setEditOpen(true)}
+                    className="pib-btn-primary mt-4 inline-flex items-center gap-1.5 text-sm"
+                    aria-label={`Add first commercial item to ${deal.title ?? 'this deal'}`}
+                  >
+                    <span className="material-symbols-outlined text-base">playlist_add</span>
+                    Add first commercial item
+                  </button>
+                </div>
               </div>
             )}
           </div>

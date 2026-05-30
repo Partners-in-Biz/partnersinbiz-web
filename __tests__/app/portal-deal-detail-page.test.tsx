@@ -155,9 +155,15 @@ describe('Portal deal detail page', () => {
     render(<DealDetailPage />)
 
     await screen.findByText('Unowned expansion')
-    expect(screen.getByText('No line items yet. Add services or products so the deal can become a quote.')).toBeInTheDocument()
+    expect(screen.getByText('Commercial detail missing')).toBeInTheDocument()
+    expect(screen.getByText('Make this deal quote-ready')).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'Add products, services, or ad-hoc pricing so leadership can review value, delivery can see scope, and the opportunity can become a client-ready quote.'
+      )
+    ).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Add products or services to Unowned expansion' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Add first commercial item to Unowned expansion' }))
 
     expect(screen.getByTestId('deal-drawer')).toBeInTheDocument()
   })
