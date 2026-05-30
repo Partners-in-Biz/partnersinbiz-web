@@ -85,4 +85,31 @@ describe('Portal settings products page', () => {
     fireEvent.click(screen.getByRole('button', { name: /Fix pricing setup for Strategy workshop/i }))
     expect(screen.getByRole('dialog', { name: 'Edit product' })).toBeInTheDocument()
   })
+
+  it('treats an empty filtered product view as a reversible catalog lens', async () => {
+    products = [{
+      id: 'product-1',
+      orgId: 'org-1',
+      name: 'Launch package',
+      description: 'Campaign setup package',
+      unit: 'package',
+      unitPrice: 25000,
+      currency: 'ZAR',
+      createdAt: null,
+      updatedAt: null,
+    }]
+
+    render(<ProductsPage />)
+
+    expect(await screen.findByText('Launch package')).toBeInTheDocument()
+
+    fireEvent.change(screen.getAllByRole('combobox')[1], { target: { value: 'needs-work' } })
+
+    expect(await screen.findByRole('heading', { name: 'No products match this view.' })).toBeInTheDocument()
+    expect(screen.getByText('Clear the product filters to return to the full quote-ready catalog.')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show all products' }))
+
+    expect(await screen.findByText('Launch package')).toBeInTheDocument()
+  })
 })

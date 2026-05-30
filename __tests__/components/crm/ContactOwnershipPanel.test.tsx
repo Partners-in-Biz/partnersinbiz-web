@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import {
   contactOwnershipHealth,
   ContactOwnershipPanel,
@@ -30,5 +30,72 @@ describe('ContactOwnershipPanel', () => {
     expect(screen.getByText('source-1')).toBeInTheDocument()
     expect(screen.getByText('Pip Agent')).toBeInTheDocument()
     expect(screen.getByText('Peet Stander')).toBeInTheDocument()
+  })
+
+  it('turns a missing relationship owner into an accountability assignment action', () => {
+    const assignOwner = jest.fn()
+
+    render(
+      <ContactOwnershipPanel
+        profile={{
+          source: 'manual',
+          capturedFromId: 'crm-import',
+          createdByRef: { uid: 'uid-creator', displayName: 'Pip Agent', kind: 'agent' },
+        }}
+        actions={{
+          assignOwner: {
+            label: 'Assign owner',
+            ariaLabel: 'Assign owner for Jane Client from relationship ownership',
+            onClick: assignOwner,
+          },
+        }}
+      />,
+    )
+
+    expect(screen.getByText('Owner accountability missing')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Assign a relationship owner' })).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'No team member owns this contact yet. Assign an owner so follow-ups, handoffs, and pipeline accountability are visible before the relationship goes cold.',
+      ),
+    ).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Assign owner for Jane Client from relationship ownership' }))
+
+    expect(assignOwner).toHaveBeenCalledTimes(1)
+  })
+
+  it('turns weak source provenance into a source review action', () => {
+    const reviewSource = jest.fn()
+
+    render(
+      <ContactOwnershipPanel
+        profile={{
+          assignedTo: 'uid-owner',
+          assignedToRef: { uid: 'uid-owner', displayName: 'Ava Owner', kind: 'human' },
+          source: 'manual',
+          createdByRef: { uid: 'uid-creator', displayName: 'Pip Agent', kind: 'agent' },
+        }}
+        actions={{
+          reviewSource: {
+            label: 'Review source',
+            ariaLabel: 'Review source provenance for Jane Client from relationship ownership',
+            onClick: reviewSource,
+          },
+        }}
+      />,
+    )
+
+    expect(screen.getByText('Source provenance weak')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Confirm how this contact entered CRM' })).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'This relationship is marked as manual or legacy without a capture source. Review the source so attribution, segment reporting, and follow-up ownership stay trustworthy.',
+      ),
+    ).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Review source provenance for Jane Client from relationship ownership' }))
+
+    expect(reviewSource).toHaveBeenCalledTimes(1)
   })
 })

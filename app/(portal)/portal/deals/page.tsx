@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import {
   DealPipelineCommandBar,
   matchesDealFocus,
@@ -113,8 +114,18 @@ function formatDealsTotal(deals: Deal[], mode: 'value' | 'weighted') {
   return fmtDealValue(total, deals.find(d => d.currency)?.currency)
 }
 
+function dealOwnerUid(deal: Deal): string {
+  return String(deal.ownerUid ?? deal.ownerRef?.uid ?? '').trim()
+}
+
 function hasDealOwner(deal: Deal): boolean {
-  return Boolean(String(deal.ownerUid ?? deal.ownerRef?.uid ?? '').trim())
+  return Boolean(dealOwnerUid(deal))
+}
+
+function matchesDealOwnerLens(deal: Deal, ownerLens: string): boolean {
+  if (ownerLens === 'all') return true
+  if (ownerLens === 'unassigned') return !hasDealOwner(deal)
+  return dealOwnerUid(deal) === ownerLens
 }
 
 function dealOwnerLabel(deal: Deal): string {
@@ -194,6 +205,10 @@ function ProbabilityInput({ deal, onUpdate }: { deal: Deal; onUpdate: (id: strin
 // ── Page ───────────────────────────────────────────────────────────────────────
 
 export default function DealsPage() {
+  const searchParams = useSearchParams()
+  const requestedPipelineId = searchParams.get('pipelineId') ?? undefined
+  const requestedStageId = searchParams.get('stage') ?? undefined
+  const shouldOpenCreateDrawer = searchParams.get('create') === 'deal'
   const [deals, setDeals] = useState<Deal[]>([])
   const [contacts, setContacts] = useState<Contact[]>([])
   const [pipelines, setPipelines] = useState<Pipeline[]>([])
@@ -202,11 +217,19 @@ export default function DealsPage() {
   const [pipelinesLoading, setPipelinesLoading] = useState(true)
   const [contactsLoading, setContactsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [stageFilter, setStageFilter] = useState<string>('all')
-  const [viewMode, setViewMode] = useState<ViewMode>('board')
+  const [stageFilter, setStageFilter] = useState<string>(() => requestedStageId ?? 'all')
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    const view = searchParams.get('view')
+    return view === 'list' || view === 'forecast' ? view : 'board'
+  })
   const [search, setSearch] = useState('')
-  const [focusMode, setFocusMode] = useState<DealFocusMode>('all')
-  const [ownerLens, setOwnerLens] = useState<'all' | 'unassigned'>('all')
+  const [focusMode, setFocusMode] = useState<DealFocusMode>(() => {
+    const focus = searchParams.get('focus')
+    return focus === 'atRisk' || focus === 'needsContact' || focus === 'quoteReady' || focus === 'no-close-date'
+      ? focus === 'no-close-date' ? 'noCloseDate' : focus
+      : 'all'
+  })
+  const [ownerLens, setOwnerLens] = useState<string>(() => searchParams.get('owner')?.trim() || 'all')
   const [selectedDealIds, setSelectedDealIds] = useState<Set<string>>(new Set())
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([])
   const [bulkOwnerUid, setBulkOwnerUid] = useState('')
@@ -214,7 +237,7 @@ export default function DealsPage() {
   const [bulkOwnerError, setBulkOwnerError] = useState('')
 
   // A5: drawer state
-  const [showCreateDrawer, setShowCreateDrawer] = useState(false)
+  const [showCreateDrawer, setShowCreateDrawer] = useState(() => shouldOpenCreateDrawer)
   const [editingDeal, setEditingDeal] = useState<Deal | null>(null)
   const [viewingDeal, setViewingDeal] = useState<Deal | null>(null)
 
@@ -231,7 +254,8 @@ export default function DealsPage() {
         const list = extractPipelinesList(body)
         setPipelines(list)
         // Auto-select default pipeline
-        const defaultPl = list.find(p => p.isDefault) ?? list[0]
+        const requestedPipeline = requestedPipelineId ? list.find(p => p.id === requestedPipelineId) : undefined
+        const defaultPl = requestedPipeline ?? list.find(p => p.isDefault) ?? list[0]
         if (defaultPl) setSelectedPipelineId(defaultPl.id)
         setPipelinesLoading(false)
       })
@@ -241,7 +265,7 @@ export default function DealsPage() {
         setPipelinesLoading(false)
       })
     return () => { cancelled = true }
-  }, [])
+  }, [requestedPipelineId])
 
   useEffect(() => {
     let cancelled = false
@@ -289,7 +313,7 @@ export default function DealsPage() {
         if (cancelled) return
         if (!body.success) throw new Error(body.error ?? 'Failed to load deals')
         setDeals(body.data ?? [])
-        setStageFilter('all') // reset filter on pipeline switch
+        setStageFilter(requestedStageId ?? 'all')
         setLoading(false)
       })
       .catch(err => {
@@ -298,7 +322,7 @@ export default function DealsPage() {
         setLoading(false)
       })
     return () => { cancelled = true }
-  }, [selectedPipelineId])
+  }, [requestedStageId, selectedPipelineId])
 
   const selectedPipeline = pipelines.find(p => p.id === selectedPipelineId)
   const stages = useMemo<PipelineStage[]>(
@@ -372,7 +396,7 @@ export default function DealsPage() {
         contactLabel?.toLowerCase().includes(query) ||
         deal.id.toLowerCase().includes(query)
       const matchesStage = stageFilter === 'all' || deal.stageId === stageFilter
-      const matchesOwnerLens = ownerLens === 'all' || !hasDealOwner(deal)
+      const matchesOwnerLens = matchesDealOwnerLens(deal, ownerLens)
       return matchesSearch && matchesStage && matchesOwnerLens && matchesDealFocus(deal, stages, focusMode)
     })
   }, [contactLabelsById, deals, focusMode, ownerLens, search, stageFilter, stages])
@@ -382,6 +406,20 @@ export default function DealsPage() {
     [deals],
   )
   const ownerCoverage = deals.length > 0 ? (deals.length - unassignedDeals.length) / deals.length : 1
+  const selectedStage = stageFilter === 'all' ? undefined : stages.find((stage) => stage.id === stageFilter)
+  const isStageLens = stageFilter !== 'all'
+  const emptyListTitle = ownerLens === 'unassigned'
+    ? 'No unassigned deals.'
+    : isStageLens
+      ? `No deals in ${selectedStage?.label ?? 'this stage'}.`
+    : 'No deals found.'
+  const emptyListDescription = ownerLens === 'unassigned'
+    ? 'Every open deal in this lens has an owner.'
+    : isStageLens
+      ? 'This pipeline stage is clear for the current deal lens.'
+    : ownerLens !== 'all'
+      ? 'No deals match this owner lens. Show all deals to return to the full pipeline.'
+      : 'Try another stage filter or create a new client-safe deal.'
 
   useEffect(() => {
     setSelectedDealIds((current) => {
@@ -474,6 +512,12 @@ export default function DealsPage() {
         : new Date(bDate as unknown as string).getTime()
       return aMs - bMs
     })
+  const forecastEmptyTitle = focusMode === 'noCloseDate'
+    ? 'No deals missing close dates.'
+    : 'No forecastable deals yet'
+  const forecastEmptyDescription = focusMode === 'noCloseDate'
+    ? 'Every open opportunity in this forecast lens has an expected close date.'
+    : 'Create an open opportunity with value, probability, owner, and close date so leadership can trust the forecast.'
 
   const isReady = !pipelinesLoading && !loading && !contactsLoading
 
@@ -532,21 +576,23 @@ export default function DealsPage() {
           </div>
           <button
             type="button"
-            onClick={() => setOwnerLens(ownerLens === 'unassigned' ? 'all' : 'unassigned')}
+            onClick={() => setOwnerLens(ownerLens === 'all' ? 'unassigned' : 'all')}
             className={[
               'rounded-[var(--radius-card)] border p-4 text-left transition-colors',
-              ownerLens === 'unassigned'
+              ownerLens !== 'all'
                 ? 'border-amber-400/40 bg-amber-400/10'
                 : 'border-[var(--color-pib-line)] bg-white/[0.03] hover:bg-white/[0.05]',
             ].join(' ')}
-            aria-label={ownerLens === 'unassigned' ? 'Show all deals' : 'Show unassigned deals needing an owner'}
+            aria-label={ownerLens !== 'all' ? 'Show all deals' : 'Show unassigned deals needing an owner'}
           >
             <span className="material-symbols-outlined text-[20px] text-[var(--color-pib-accent)]">manage_accounts</span>
             <p className="mt-3 text-sm font-semibold text-[var(--color-pib-text)]">
-              {ownerLens === 'unassigned' ? 'Showing unassigned deals' : 'Review unassigned deals'}
+              {ownerLens === 'unassigned' ? 'Showing unassigned deals' : ownerLens !== 'all' ? 'Showing selected owner deals' : 'Review unassigned deals'}
             </p>
             <p className="mt-1 text-xs leading-relaxed text-[var(--color-pib-text-muted)]">
-              {unassignedDeals.length > 0
+              {ownerLens !== 'all' && ownerLens !== 'unassigned'
+                ? 'This report lens is showing deals owned by the selected rep. Show all deals to return to the full pipeline.'
+                : unassignedDeals.length > 0
                 ? `${unassignedDeals.length} deals need an owner before forecast and follow-up accountability can be trusted.`
                 : 'Every visible deal has an owner.'}
             </p>
@@ -623,6 +669,7 @@ export default function DealsPage() {
               <button
                 key={s}
                 onClick={() => setStageFilter(s)}
+                aria-pressed={stageFilter === s}
                 className={[
                   'text-xs font-label px-3 py-1.5 rounded-[var(--radius-btn)] transition-colors capitalize',
                   stageFilter === s
@@ -705,8 +752,29 @@ export default function DealsPage() {
         ) : filteredDeals.length === 0 ? (
           <EmptyState
             icon="search_off"
-            title="No deals found."
-            description="Try another stage filter or create a new client-safe deal."
+            title={emptyListTitle}
+            description={emptyListDescription}
+            action={ownerLens !== 'all' ? (
+              <button
+                type="button"
+                onClick={() => setOwnerLens('all')}
+                className="btn-pib-secondary inline-flex items-center gap-1.5"
+                aria-label="Show all deals"
+              >
+                <span className="material-symbols-outlined text-[16px]" aria-hidden="true">filter_alt_off</span>
+                Show all deals
+              </button>
+            ) : isStageLens ? (
+              <button
+                type="button"
+                onClick={() => setStageFilter('all')}
+                className="btn-pib-secondary inline-flex items-center gap-1.5"
+                aria-label="Show all stages"
+              >
+                <span className="material-symbols-outlined text-[16px]" aria-hidden="true">filter_alt_off</span>
+                Show all stages
+              </button>
+            ) : undefined}
           />
         ) : (
           <div className="pib-card overflow-hidden">
@@ -858,18 +926,30 @@ export default function DealsPage() {
                           trending_up
                         </span>
                         <p className="eyebrow mt-4 !text-[10px]">Forecast setup</p>
-                        <h3 className="mt-2 text-lg font-semibold text-[var(--color-pib-text)]">No forecastable deals yet</h3>
+                        <h3 className="mt-2 text-lg font-semibold text-[var(--color-pib-text)]">{forecastEmptyTitle}</h3>
                         <p className="mt-2 max-w-md text-sm leading-6 text-[var(--color-pib-text-muted)]">
-                          Create an open opportunity with value, probability, owner, and close date so leadership can trust the forecast.
+                          {forecastEmptyDescription}
                         </p>
-                        <button
-                          type="button"
-                          onClick={() => setShowCreateDrawer(true)}
-                          className="btn-pib-accent mt-5 inline-flex items-center gap-1.5 text-xs"
-                        >
-                          <span className="material-symbols-outlined text-[15px]">add</span>
-                          Create forecastable deal
-                        </button>
+                        {focusMode === 'noCloseDate' ? (
+                          <button
+                            type="button"
+                            onClick={() => setFocusMode('all')}
+                            className="btn-pib-secondary mt-5 inline-flex items-center gap-1.5 text-xs"
+                            aria-label="Show full forecast"
+                          >
+                            <span className="material-symbols-outlined text-[15px]">filter_alt_off</span>
+                            Show full forecast
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setShowCreateDrawer(true)}
+                            className="btn-pib-accent mt-5 inline-flex items-center gap-1.5 text-xs"
+                          >
+                            <span className="material-symbols-outlined text-[15px]">add</span>
+                            Create forecastable deal
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

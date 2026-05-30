@@ -1,4 +1,5 @@
 import React from 'react'
+import { fireEvent } from '@testing-library/react'
 import { render, screen, waitFor } from '@testing-library/react'
 import PortalIntegrationsPage from '@/app/(portal)/portal/integrations/page'
 
@@ -80,5 +81,33 @@ describe('PortalIntegrationsPage', () => {
     expect(screen.getByText('Needs review')).toBeInTheDocument()
     expect(screen.getByText('Auto-enrolls')).toBeInTheDocument()
     expect(screen.getByText('No nurture routing')).toBeInTheDocument()
+  })
+
+  it('turns an empty integrations list into a direct source connection action', async () => {
+    fetchMock.mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.startsWith('/api/v1/crm/integrations')) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ data: [] }),
+        })
+      }
+      if (url.startsWith('/api/v1/campaigns')) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ data: [] }),
+        })
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ data: [] }) })
+    })
+
+    render(<PortalIntegrationsPage />)
+
+    expect(await screen.findByRole('heading', { name: 'No connected CRM sources yet.' })).toBeInTheDocument()
+    expect(screen.getByText('Connect the first source so a CEO can see where contacts come from, whether imports are healthy, and which employees own the next follow-up.')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Connect Mailchimp' }))
+
+    expect(screen.getByRole('heading', { name: 'Connect Mailchimp' })).toBeInTheDocument()
   })
 })

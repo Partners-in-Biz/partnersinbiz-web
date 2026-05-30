@@ -11,6 +11,11 @@ export interface CustomFieldsSectionProps {
   values: Record<string, unknown> | undefined
   onChange?: (next: Record<string, unknown>) => void
   mode: 'read' | 'edit'
+  emptyAction?: {
+    label: string
+    ariaLabel: string
+    onClick: () => void
+  }
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -38,12 +43,25 @@ function allValuesEmpty(defs: CustomFieldDefinition[], values: Record<string, un
 
 // ── Public component ──────────────────────────────────────────────────────────
 
-export function CustomFieldsSection({ definitions, values, onChange, mode }: CustomFieldsSectionProps) {
+export function CustomFieldsSection({ definitions, values, onChange, mode, emptyAction }: CustomFieldsSectionProps) {
   if (definitions.length === 0) return null
 
   if (mode === 'read' && allValuesEmpty(definitions, values)) {
     return (
-      <p className="text-sm text-[var(--color-pib-text-muted)] italic">No custom fields set.</p>
+      <div className="flex flex-wrap items-center gap-2">
+        <p className="text-sm text-[var(--color-pib-text-muted)] italic">No custom fields set.</p>
+        {emptyAction && (
+          <button
+            type="button"
+            onClick={emptyAction.onClick}
+            aria-label={emptyAction.ariaLabel}
+            className="inline-flex items-center gap-1 rounded-md border border-[var(--color-pib-line)] px-2 py-1 text-xs font-medium text-[var(--color-pib-text)] transition-colors hover:bg-white/10"
+          >
+            <span className="material-symbols-outlined text-[14px]">edit_note</span>
+            {emptyAction.label}
+          </button>
+        )}
+      </div>
     )
   }
 

@@ -26,6 +26,6 @@ describe('CrmHubCommandRail', () => {
     render(<CrmHubCommandRail metrics={{ ...metrics, openDealsCount: 0, openDealsValue: 0, weightedPipelineValue: 0 }} />)
 
     expect(screen.getByText('Create the first live opportunity')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /open new deal/i })).toHaveAttribute('href', '/portal/deals')
+    expect(screen.getByRole('link', { name: /open new deal/i })).toHaveAttribute('href', '/portal/deals?create=deal')
   })
 })

@@ -174,9 +174,46 @@ export function ContactDuplicateCommandCenter({ groups, mergingGroup, onClose, o
       </div>
 
       {groups.length === 0 ? (
-        <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.02] p-10 text-center">
-          <span className="material-symbols-outlined text-3xl text-[var(--color-pib-accent)]">check_circle</span>
-          <p className="mt-3 text-sm text-[var(--color-pib-text-muted)]">No duplicates found.</p>
+        <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.02] p-5">
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-4">
+              <span
+                className="material-symbols-outlined rounded-lg border border-emerald-400/30 bg-emerald-400/10 p-3 text-3xl text-emerald-300"
+                aria-hidden="true"
+              >
+                verified
+              </span>
+              <div>
+                <p className="eyebrow !text-[10px]">Scan complete</p>
+                <h3 className="mt-2 font-display text-xl text-[var(--color-pib-text)]">Contact data is clean</h3>
+                <p className="mt-2 max-w-2xl text-sm text-[var(--color-pib-text-muted)]">
+                  No duplicate contacts need review right now. Keep the team moving with clean owner, stage, and
+                  follow-up lists.
+                </p>
+              </div>
+            </div>
+            <button type="button" onClick={onClose} className="btn-pib-secondary shrink-0 text-xs">
+              <span className="material-symbols-outlined text-[14px]" aria-hidden="true">
+                arrow_back
+              </span>
+              Return to contacts
+            </button>
+          </div>
+
+          <div className="mt-5 grid gap-3 sm:grid-cols-3">
+            <div className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-bg)]/40 p-3">
+              <p className="eyebrow !text-[10px]">Backlog</p>
+              <p className="mt-2 text-sm font-semibold text-[var(--color-pib-text)]">0 merge backlog</p>
+            </div>
+            <div className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-bg)]/40 p-3">
+              <p className="eyebrow !text-[10px]">Team impact</p>
+              <p className="mt-2 text-sm font-semibold text-[var(--color-pib-text)]">Lists stay trustworthy</p>
+            </div>
+            <div className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-bg)]/40 p-3">
+              <p className="eyebrow !text-[10px]">Next check</p>
+              <p className="mt-2 text-sm font-semibold text-[var(--color-pib-text)]">Run after imports</p>
+            </div>
+          </div>
         </div>
       ) : (
         <div className="space-y-3">

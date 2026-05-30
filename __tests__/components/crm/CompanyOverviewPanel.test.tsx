@@ -98,7 +98,9 @@ describe('CompanyOverviewPanel', () => {
     expect(onSelectTab).toHaveBeenCalledWith('contacts')
   })
 
-  it('does not render a blank overview for a sparse company', () => {
+  it('turns sparse identity and billing blocks into profile-capture actions', () => {
+    const onEditCompany = jest.fn()
+
     render(
       <CompanyOverviewPanel
         company={company({
@@ -109,13 +111,22 @@ describe('CompanyOverviewPanel', () => {
           billingEmail: undefined,
           healthScore: undefined,
         })}
+        onEditCompany={onEditCompany}
       />,
     )
 
     expect(screen.getByText('Business pulse')).toBeInTheDocument()
     expect(screen.getByText('Setup focus')).toBeInTheDocument()
-    expect(screen.getByText('No business identity fields captured yet.')).toBeInTheDocument()
-    expect(screen.getByText('No billing or contact fields captured yet.')).toBeInTheDocument()
+
+    expect(screen.getByRole('heading', { name: 'Capture account identity.' })).toBeInTheDocument()
+    expect(screen.getByText('Add legal name, trading name, lifecycle stage, industry, size, and website so the account is useful in reviews.')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Edit account identity for Acme Studio' }))
+
+    expect(screen.getByRole('heading', { name: 'Capture billing and contact detail.' })).toBeInTheDocument()
+    expect(screen.getByText('Add phone, billing email, registration, VAT, accounts contact, signatory, and invoice notes before proposals become admin work.')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Edit billing and contact details for Acme Studio' }))
+
+    expect(onEditCompany).toHaveBeenCalledTimes(2)
   })
 
   it('turns setup focus gaps into a company profile editing action', () => {
@@ -138,6 +149,190 @@ describe('CompanyOverviewPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Edit company profile to capture Website' }))
 
     expect(onEditCompany).toHaveBeenCalledTimes(1)
+  })
+
+  it('turns an empty latest movement panel into an activity review action', () => {
+    const onSelectTab = jest.fn()
+
+    render(
+      <CompanyOverviewPanel
+        company={company()}
+        center={{
+          summary: {
+            contacts: 0,
+            deals: 0,
+            projects: 0,
+            documents: 0,
+            serviceWorkspaces: 0,
+            relationships: 0,
+            quotes: 0,
+            invoices: 0,
+            orders: 0,
+          },
+          activities: [],
+          deals: [],
+          projects: [],
+          documents: [],
+          orders: [],
+        }}
+        onSelectTab={onSelectTab}
+      />,
+    )
+
+    expect(screen.getByText('Account history quiet')).toBeInTheDocument()
+    expect(screen.getByText('Start the next account signal')).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'No recent activity, deal movement, document, project, or order is visible yet. Review activity so leadership can see the next account touchpoint.',
+      ),
+    ).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Review activity for Acme Studio' }))
+
+    expect(onSelectTab).toHaveBeenCalledWith('activity')
+  })
+
+  it('turns a clear operational pulse into a risk review action', () => {
+    const onSelectTab = jest.fn()
+
+    render(
+      <CompanyOverviewPanel
+        company={company()}
+        center={{
+          summary: {
+            openOrders: 0,
+            lowStockItems: 0,
+            overdueInvoices: 0,
+          },
+          analytics: {
+            riskSignals: [],
+          },
+        }}
+        onSelectTab={onSelectTab}
+      />,
+    )
+
+    expect(screen.getByText('Risk watch clear')).toBeInTheDocument()
+    expect(screen.getByText('Keep pulse risk reviewable')).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'No active risk signals are flagged in the account pulse. Review invoices so finance, delivery, and operations stay checked before leadership sees surprises.',
+      ),
+    ).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Review operational risk for Acme Studio' }))
+
+    expect(onSelectTab).toHaveBeenCalledWith('invoices')
+  })
+
+  it('turns an empty revenue mix chart into a commercial review action', () => {
+    const onSelectTab = jest.fn()
+
+    render(
+      <CompanyOverviewPanel
+        company={company()}
+        center={{
+          summary: {
+            deals: 0,
+            quotes: 0,
+            invoices: 0,
+            orders: 0,
+          },
+          deals: [],
+          quotes: [],
+          invoices: [],
+          orders: [],
+        }}
+        onSelectTab={onSelectTab}
+      />,
+    )
+
+    expect(screen.getByText('Revenue model missing')).toBeInTheDocument()
+    expect(screen.getByText('Build the first commercial signal')).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'No deals, quotes, invoices, or orders are linked to this account yet. Review deals so pipeline value, quote readiness, and revenue history become visible to leadership.',
+      ),
+    ).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Review commercial records for Acme Studio' }))
+
+    expect(onSelectTab).toHaveBeenCalledWith('deals')
+  })
+
+  it('turns an empty business mix chart into an account linking action', () => {
+    const onSelectTab = jest.fn()
+
+    render(
+      <CompanyOverviewPanel
+        company={company()}
+        center={{
+          summary: {
+            contacts: 0,
+            deals: 0,
+            projects: 0,
+            documents: 0,
+            serviceWorkspaces: 0,
+            relationships: 0,
+            quotes: 0,
+            invoices: 0,
+            orders: 0,
+            shipments: 0,
+            inventoryItems: 0,
+          },
+        }}
+        onSelectTab={onSelectTab}
+      />,
+    )
+
+    expect(screen.getByText('Operating footprint missing')).toBeInTheDocument()
+    expect(screen.getByText('Link the first account record')).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'No contacts, deals, delivery work, documents, finance, or commerce records are linked yet. Start with contacts so every team can see who owns the relationship.',
+      ),
+    ).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Review linked contacts for Acme Studio' }))
+
+    expect(onSelectTab).toHaveBeenCalledWith('contacts')
+  })
+
+  it('turns an empty risk map into a finance risk review action', () => {
+    const onSelectTab = jest.fn()
+
+    render(
+      <CompanyOverviewPanel
+        company={company()}
+        center={{
+          summary: {
+            openOrders: 0,
+            lowStockItems: 0,
+            overdueInvoices: 0,
+            projects: 0,
+            serviceWorkspaces: 0,
+          },
+          analytics: {
+            openProjectCount: 0,
+            activeServiceCount: 0,
+            riskSignals: [],
+          },
+        }}
+        onSelectTab={onSelectTab}
+      />,
+    )
+
+    expect(screen.getByText('Risk coverage clear')).toBeInTheDocument()
+    expect(screen.getByText('Keep account risk monitored')).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'No overdue invoices, low stock, open orders, projects, or service risks are active right now. Review invoices so finance risk stays visible before it surprises leadership.',
+      ),
+    ).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Review risk records for Acme Studio' }))
+
+    expect(onSelectTab).toHaveBeenCalledWith('invoices')
   })
 
   it('labels parent-account navigation with the resolved parent company name', () => {

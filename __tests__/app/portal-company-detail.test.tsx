@@ -1,8 +1,10 @@
 import React from 'react'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import CompanyDetailPage from '@/app/(portal)/portal/companies/[id]/page'
+import type { CustomFieldDefinition } from '@/lib/customFields/types'
 
 let mockSearchParams = new URLSearchParams()
+let mockCompanyCustomFieldDefinitions: CustomFieldDefinition[] = []
 
 jest.mock('next/navigation', () => ({
   useParams: () => ({ id: 'company-1' }),
@@ -13,12 +15,13 @@ jest.mock('next/navigation', () => ({
 describe('Portal company detail page', () => {
   beforeEach(() => {
     mockSearchParams = new URLSearchParams()
+    mockCompanyCustomFieldDefinitions = []
     global.fetch = jest.fn((input: RequestInfo | URL) => {
       const url = String(input)
       if (url === '/api/v1/crm/custom-fields?resource=company') {
         return Promise.resolve({
           ok: true,
-          json: async () => ({ data: { definitions: [] } }),
+          json: async () => ({ data: { definitions: mockCompanyCustomFieldDefinitions } }),
         } as Response)
       }
       if (url === '/api/v1/crm/companies/company-1') {
@@ -112,6 +115,29 @@ describe('Portal company detail page', () => {
     expect(await screen.findByRole('dialog', { name: 'Edit Company' })).toBeInTheDocument()
   })
 
+  it('turns empty company custom fields into a profile capture action', async () => {
+    mockCompanyCustomFieldDefinitions = [{
+      id: 'field-1',
+      orgId: 'org-1',
+      resource: 'company',
+      key: 'decision_role',
+      label: 'Decision role',
+      type: 'text',
+      required: false,
+      order: 0,
+      createdAt: null,
+      updatedAt: null,
+    }]
+
+    render(<CompanyDetailPage />)
+
+    expect(await screen.findByText('No custom fields set.')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Capture custom fields for Acme Holdings' }))
+
+    expect(screen.getByRole('dialog', { name: 'Edit Company' })).toBeInTheDocument()
+  })
+
   it('renders linked contacts and invoices instead of placeholder copy', async () => {
     render(<CompanyDetailPage />)
 
@@ -170,6 +196,82 @@ describe('Portal company detail page', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Open Inventory tab' }))
 
     expect(await screen.findByText('SEO Hours')).toBeInTheDocument()
+  })
+
+  it('turns clear company analytics risk into a leadership review action', async () => {
+    global.fetch = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/custom-fields?resource=company') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { definitions: [] } }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/companies/company-1') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              company: {
+                id: 'company-1',
+                orgId: 'org-1',
+                name: 'Acme Holdings',
+                lifecycleStage: 'customer',
+              },
+            },
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/companies/company-1/command-center?limit=100') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              summary: {},
+              analytics: {
+                riskSignals: [],
+              },
+              contacts: [],
+              deals: [],
+              quotes: [],
+              invoices: [],
+              projects: [],
+              serviceWorkspaces: [],
+              relationships: [],
+              documents: [],
+              orders: [],
+              shipments: [],
+              inventoryItems: [],
+              activities: [],
+            },
+          }),
+        } as Response)
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ data: {} }),
+      } as Response)
+    }) as jest.Mock
+
+    render(<CompanyDetailPage />)
+
+    expect(await screen.findByRole('heading', { name: 'Acme Holdings' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('tab', { name: /Analytics/i }))
+
+    expect(await screen.findByText('Risk watch clear')).toBeInTheDocument()
+    expect(screen.getByText('Keep leadership risk reviewable')).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'No active risk signals are flagged for Acme Holdings. Review invoices, orders, and inventory so finance, delivery, and relationship risk stay visible before the account surprises leadership.',
+      ),
+    ).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Review invoices, orders, and inventory for Acme Holdings' }))
+
+    expect(await screen.findByRole('tab', { name: /Invoices/i })).toHaveAttribute('aria-selected', 'true')
   })
 
   it('turns an empty company contacts tab into a prefilled create-contact action', async () => {

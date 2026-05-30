@@ -118,6 +118,12 @@ export default function ProductsPage() {
     }
   }
 
+  function clearProductFilters() {
+    setSearch('')
+    setCurrencyFilter('')
+    setHealthFilter('all')
+  }
+
   // ── Render ────────────────────────────────────────────────────────────────────
 
   const activeProducts = products.filter((product) => product.active !== false)
@@ -320,9 +326,19 @@ export default function ProductsPage() {
         </div>
       ) : filteredProducts.length === 0 ? (
         <div className="bento-card !p-8 text-center">
-          <span className="material-symbols-outlined text-[32px] text-[var(--color-pib-text-muted)] mb-3 block">search_off</span>
-          <p className="text-sm font-medium text-[var(--color-pib-text)]">No products match this view.</p>
-          <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">Clear the filters to return to the full catalog.</p>
+          <span className="material-symbols-outlined text-[32px] text-[var(--color-pib-text-muted)] mb-3 block" aria-hidden="true">search_off</span>
+          <p className="eyebrow !text-[10px]">Filtered catalog view</p>
+          <h2 className="mt-2 text-lg font-semibold text-[var(--color-pib-text)]">No products match this view.</h2>
+          <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">Clear the product filters to return to the full quote-ready catalog.</p>
+          <button
+            type="button"
+            onClick={clearProductFilters}
+            className="btn-pib-secondary mt-5 inline-flex items-center gap-1.5 text-xs"
+            aria-label="Show all products"
+          >
+            <span className="material-symbols-outlined text-[15px]" aria-hidden="true">filter_alt_off</span>
+            Show all products
+          </button>
         </div>
       ) : (
         <div className="bento-card !p-0 overflow-hidden">

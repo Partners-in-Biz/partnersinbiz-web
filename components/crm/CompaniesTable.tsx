@@ -45,6 +45,18 @@ export interface CompaniesTableProps {
   selectedIds?: Set<string>
   onToggleCompany?: (id: string) => void
   onToggleAll?: () => void
+  emptyState?: {
+    icon: string
+    eyebrow: string
+    title: string
+    description: string
+    primaryAction?: {
+      label: string
+      icon: string
+      onClick: () => void
+      variant?: 'accent' | 'secondary'
+    }
+  }
 }
 
 export function CompaniesTable({
@@ -55,9 +67,16 @@ export function CompaniesTable({
   selectedIds,
   onToggleCompany,
   onToggleAll,
+  emptyState,
 }: CompaniesTableProps) {
   const selectable = Boolean(selectedIds && onToggleCompany && onToggleAll)
   const allSelected = selectable && companies.length > 0 && selectedIds?.size === companies.length
+  const state = emptyState ?? {
+    icon: 'domain',
+    eyebrow: 'Start account setup',
+    title: 'No companies yet',
+    description: 'Create the first account from company details, owner, lifecycle, and revenue context.',
+  }
 
   return (
     <div className="pib-card-section w-full overflow-x-auto">
@@ -98,28 +117,42 @@ export function CompaniesTable({
               <td colSpan={COLUMNS.length + (selectable ? 1 : 0)} className="px-4 py-16 text-center">
                 <div className="mx-auto flex max-w-2xl flex-col items-center rounded-xl border border-dashed border-[var(--color-pib-line)] bg-white/[0.03] px-5 py-6">
                   <span className="material-symbols-outlined flex h-12 w-12 items-center justify-center rounded-xl bg-white/[0.04] text-3xl text-[var(--color-pib-text-muted)]">
-                    domain
+                    {state.icon}
                   </span>
-                  <p className="eyebrow mt-4 !text-[10px]">Start account setup</p>
-                  <h3 className="mt-2 text-lg font-semibold text-[var(--color-pib-text)]">No companies yet</h3>
+                  <p className="eyebrow mt-4 !text-[10px]">{state.eyebrow}</p>
+                  <h3 className="mt-2 text-lg font-semibold text-[var(--color-pib-text)]">{state.title}</h3>
                   <p className="mt-2 max-w-md text-sm leading-6 text-[var(--color-pib-text-muted)]">
-                    Create the first account from company details, owner, lifecycle, and revenue context.
+                    {state.description}
                   </p>
                   <div className="mt-5 flex flex-wrap justify-center gap-2">
-                    <Link
-                      href="/portal/companies/new"
-                      className="btn-pib-accent inline-flex items-center gap-1.5 text-xs"
-                    >
-                      <span className="material-symbols-outlined text-[15px]">add_business</span>
-                      Create first company
-                    </Link>
-                    <Link
-                      href="/portal/companies/migrate"
-                      className="btn-pib-secondary inline-flex items-center gap-1.5 text-xs"
-                    >
-                      <span className="material-symbols-outlined text-[15px]">sync_alt</span>
-                      Migrate from contacts
-                    </Link>
+                    {state.primaryAction ? (
+                      <button
+                        type="button"
+                        onClick={state.primaryAction.onClick}
+                        className={`${state.primaryAction.variant === 'accent' ? 'btn-pib-accent' : 'btn-pib-secondary'} inline-flex items-center gap-1.5 text-xs`}
+                        aria-label={state.primaryAction.label}
+                      >
+                        <span className="material-symbols-outlined text-[15px]" aria-hidden="true">{state.primaryAction.icon}</span>
+                        {state.primaryAction.label}
+                      </button>
+                    ) : (
+                      <>
+                        <Link
+                          href="/portal/companies/new"
+                          className="btn-pib-accent inline-flex items-center gap-1.5 text-xs"
+                        >
+                          <span className="material-symbols-outlined text-[15px]">add_business</span>
+                          Create first company
+                        </Link>
+                        <Link
+                          href="/portal/companies/migrate"
+                          className="btn-pib-secondary inline-flex items-center gap-1.5 text-xs"
+                        >
+                          <span className="material-symbols-outlined text-[15px]">sync_alt</span>
+                          Migrate from contacts
+                        </Link>
+                      </>
+                    )}
                   </div>
                 </div>
               </td>

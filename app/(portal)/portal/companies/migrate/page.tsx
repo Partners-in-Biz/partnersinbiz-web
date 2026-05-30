@@ -227,7 +227,7 @@ export default function MigrateCompaniesPage() {
             Review grouped company names from your contacts and create first-class company records.
           </p>
         </div>
-        {!applyResult && !loading && !previewError && (
+        {!applyResult && !loading && !previewError && matches.length > 0 && (
           <div className="flex items-center gap-3">
             <span className="text-xs text-[var(--color-pib-text-muted)] font-mono">
               {selectedCount} / {matches.length} selected
@@ -328,11 +328,25 @@ export default function MigrateCompaniesPage() {
 
       {/* Empty state (preview loaded, zero matches) */}
       {!loading && !previewError && !applyResult && matches.length === 0 && (
-        <div className="bento-card p-10 text-center space-y-3">
-          <span className="material-symbols-outlined text-4xl text-[var(--color-pib-text-muted)]">check_circle</span>
-          <p className="text-sm text-[var(--color-pib-text-muted)]">
-            No ungrouped company strings found in your contacts. Nothing to migrate.
+        <div className="bento-card p-10 text-center space-y-4">
+          <span className="material-symbols-outlined text-4xl text-[var(--color-accent-v2)]" aria-hidden="true">check_circle</span>
+          <p className="eyebrow !text-[10px]">Clean account data</p>
+          <h2 className="font-display text-2xl text-[var(--color-pib-text)]">
+            No contact company strings need migration.
+          </h2>
+          <p className="mx-auto max-w-2xl text-sm leading-6 text-[var(--color-pib-text-muted)]">
+            Every visible contact company value is already grouped or ready for first-class account work.
           </p>
+          <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+            <Link href="/portal/companies" className="btn-pib-accent inline-flex items-center gap-1.5 text-sm">
+              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">business</span>
+              Review companies
+            </Link>
+            <Link href="/portal/contacts" className="btn-pib-secondary inline-flex items-center gap-1.5 text-sm">
+              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">group</span>
+              Review contacts
+            </Link>
+          </div>
         </div>
       )}
 

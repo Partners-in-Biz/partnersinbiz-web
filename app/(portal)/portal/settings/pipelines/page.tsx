@@ -188,6 +188,11 @@ export default function PipelinesPage() {
     await fetchPipelines(showArchived)
   }
 
+  function clearPipelineFilters() {
+    setSearch('')
+    setHealthFilter('all')
+  }
+
   // ── Render ─────────────────────────────────────────────────────────────────────
 
   const activePipelines = pipelines.filter((pipeline) => !pipeline.archived)
@@ -329,9 +334,19 @@ export default function PipelinesPage() {
         </div>
       ) : pipelines.length > 0 && filteredPipelines.length === 0 ? (
         <div className="bento-card !p-8 text-center">
-          <span className="material-symbols-outlined text-[34px] text-[var(--color-pib-text-muted)] mb-3 block">search_off</span>
-          <p className="text-sm font-medium text-[var(--color-pib-text)]">No pipelines match this view.</p>
-          <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">Clear the filters to return to the full pipeline library.</p>
+          <span className="material-symbols-outlined text-[34px] text-[var(--color-pib-text-muted)] mb-3 block" aria-hidden="true">search_off</span>
+          <p className="eyebrow !text-[10px]">Filtered revenue path</p>
+          <h2 className="mt-2 text-lg font-semibold text-[var(--color-pib-text)]">No pipelines match this view.</h2>
+          <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">Clear the pipeline filters to return to every revenue path.</p>
+          <button
+            type="button"
+            onClick={clearPipelineFilters}
+            className="btn-pib-secondary mt-5 inline-flex items-center gap-1.5 text-xs"
+            aria-label="Show all pipelines"
+          >
+            <span className="material-symbols-outlined text-[15px]" aria-hidden="true">filter_alt_off</span>
+            Show all pipelines
+          </button>
         </div>
       ) : (
         <PipelineDefinitionsList

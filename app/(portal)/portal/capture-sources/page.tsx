@@ -1,7 +1,7 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useEffect, useMemo, useState, useCallback } from 'react'
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import Link from 'next/link'
 import type { CaptureSource, CaptureSourceType } from '@/lib/crm/captureSources'
 import { fmtTimestamp } from '@/components/admin/email/fmtTimestamp'
@@ -484,6 +484,7 @@ export default function PortalCaptureSourcesPage() {
   const [newType, setNewType] = useState<CaptureSourceType>('form')
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
+  const newSourceNameRef = useRef<HTMLInputElement>(null)
 
   const loadSources = useCallback(() => {
     setLoading(true)
@@ -582,6 +583,11 @@ export default function PortalCaptureSourcesPage() {
     })
   }
 
+  function focusFirstFormSource() {
+    setNewType('form')
+    newSourceNameRef.current?.focus()
+  }
+
   return (
     <div className="space-y-8">
       <header className="flex items-start justify-between gap-4 flex-wrap">
@@ -640,6 +646,7 @@ export default function PortalCaptureSourcesPage() {
           </div>
           <form onSubmit={handleCreate} className="grid gap-2 md:grid-cols-[minmax(0,1fr)_160px_auto]">
             <input
+              ref={newSourceNameRef}
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               placeholder="Source name (e.g. Homepage form)"
@@ -690,8 +697,61 @@ export default function PortalCaptureSourcesPage() {
           ))}
         </div>
       ) : sources.length === 0 ? (
-        <div className="text-center py-16 text-[var(--color-pib-text-muted)] border border-dashed border-[var(--color-pib-line-strong)] rounded-xl">
-          No capture sources yet. Create one above to start collecting contacts.
+        <div className="overflow-hidden rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)]">
+          <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_300px]">
+            <div className="p-5">
+              <span className="mb-4 flex h-11 w-11 items-center justify-center rounded-lg border border-[var(--color-pib-accent)]/25 bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent)]">
+                <span className="material-symbols-outlined text-[21px]" aria-hidden>
+                  add_business
+                </span>
+              </span>
+              <p className="eyebrow !text-[10px]">Intake launch</p>
+              <h2 className="mt-3 text-xl font-semibold text-[var(--color-pib-text)]">
+                No tracked intake channels yet.
+              </h2>
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--color-pib-text-muted)]">
+                Create the first capture source so contacts arrive with source attribution, consent context, tags, and a visible follow-up path for the team.
+              </p>
+              <div className="mt-5 flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={focusFirstFormSource}
+                  className="btn-pib-accent inline-flex items-center gap-1.5 text-sm"
+                >
+                  <span className="material-symbols-outlined text-[16px]" aria-hidden>
+                    dynamic_form
+                  </span>
+                  Set up first form source
+                </button>
+                <Link
+                  href="/portal/capture-sources/import"
+                  className="btn-pib-secondary inline-flex items-center gap-1.5 text-sm"
+                >
+                  <span className="material-symbols-outlined text-[16px]" aria-hidden>
+                    upload_file
+                  </span>
+                  Import CSV
+                </Link>
+              </div>
+            </div>
+            <div className="border-t border-[var(--color-pib-line)] bg-black/10 p-4 lg:border-l lg:border-t-0">
+              <p className="text-xs font-medium uppercase tracking-widest text-[var(--color-pib-text-muted)]">
+                First-channel checklist
+              </p>
+              <div className="mt-4 space-y-3">
+                {[
+                  ['Attribution', 'Name the source so every new contact keeps origin context.'],
+                  ['Consent', 'Decide whether the first form needs explicit opt-in.'],
+                  ['Routing', 'Add tags or campaigns before the channel receives traffic.'],
+                ].map(([label, copy]) => (
+                  <div key={label} className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-3">
+                    <p className="text-sm font-medium text-[var(--color-pib-text)]">{label}</p>
+                    <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">{copy}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
       ) : (
         <div className="space-y-3">

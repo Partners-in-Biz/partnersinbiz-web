@@ -3,7 +3,7 @@
 import type { Deal } from '@/lib/crm/types'
 import type { PipelineStage } from '@/lib/pipelines/types'
 
-export type DealFocusMode = 'all' | 'atRisk' | 'needsContact' | 'quoteReady'
+export type DealFocusMode = 'all' | 'atRisk' | 'needsContact' | 'quoteReady' | 'noCloseDate'
 
 interface DealPipelineCommandBarProps {
   deals: Deal[]
@@ -51,10 +51,15 @@ export function isDealQuoteReady(deal: Deal) {
   return (deal.lineItems?.length ?? 0) > 0
 }
 
+export function isDealMissingCloseDate(deal: Deal) {
+  return !deal.expectedCloseDate
+}
+
 export function matchesDealFocus(deal: Deal, stages: PipelineStage[], focusMode: DealFocusMode) {
   if (focusMode === 'atRisk') return isDealAtRisk(deal, stages)
   if (focusMode === 'needsContact') return !deal.contactId
   if (focusMode === 'quoteReady') return isDealQuoteReady(deal)
+  if (focusMode === 'noCloseDate') return isDealMissingCloseDate(deal)
   return true
 }
 
@@ -77,12 +82,14 @@ export function DealPipelineCommandBar({
   const atRisk = deals.filter((deal) => isDealAtRisk(deal, stages)).length
   const missingContact = deals.filter((deal) => !deal.contactId).length
   const quoteReady = deals.filter(isDealQuoteReady).length
+  const missingCloseDate = deals.filter(isDealMissingCloseDate).length
 
   const focusButtons: Array<{ mode: DealFocusMode; label: string; value: string; icon: string; ariaLabel: string }> = [
     { mode: 'all', label: 'All deals', value: String(deals.length), icon: 'select_all', ariaLabel: 'Focus all deals' },
     { mode: 'atRisk', label: 'Risky deals', value: `${atRisk} risky`, icon: 'warning', ariaLabel: 'Focus risky deals' },
     { mode: 'needsContact', label: 'Needs contact', value: `${missingContact} missing contact`, icon: 'person_alert', ariaLabel: 'Focus deals that need contacts' },
     { mode: 'quoteReady', label: 'Quote-ready', value: `${quoteReady} quote-ready`, icon: 'request_quote', ariaLabel: 'Focus quote-ready deals' },
+    { mode: 'noCloseDate', label: 'Needs close date', value: `${missingCloseDate} missing date`, icon: 'edit_calendar', ariaLabel: 'Focus deals missing close dates' },
   ]
 
   return (
@@ -109,6 +116,7 @@ export function DealPipelineCommandBar({
                   type="button"
                   onClick={() => onFocusModeChange(button.mode)}
                   aria-label={button.ariaLabel}
+                  aria-pressed={active}
                   className={[
                     'min-h-[72px] rounded-lg border px-3 py-2 text-left transition-colors',
                     active

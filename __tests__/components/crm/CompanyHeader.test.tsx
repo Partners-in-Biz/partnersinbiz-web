@@ -42,6 +42,33 @@ describe('CompanyHeader', () => {
     expect(onEdit).toHaveBeenCalledTimes(1)
   })
 
+  it('turns a missing account manager into an ownership assignment action', () => {
+    const onEdit = jest.fn()
+
+    render(
+      <CompanyHeader
+        company={company({
+          domain: 'acme.example',
+          industry: 'Creative services',
+          employeeCount: 24,
+        })}
+        onEdit={onEdit}
+      />,
+    )
+
+    expect(screen.getByText('Account owner missing')).toBeInTheDocument()
+    expect(screen.getByText('Assign account ownership')).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'No team member owns this account yet. Assign a manager so renewals, escalations, and delivery handoffs stay visible to leadership.',
+      ),
+    ).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Assign account manager for Acme Studio' }))
+
+    expect(onEdit).toHaveBeenCalledTimes(1)
+  })
+
   it('keeps captured identity fields as read-only signals without setup prompts', () => {
     render(
       <CompanyHeader

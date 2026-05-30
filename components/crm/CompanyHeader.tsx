@@ -97,6 +97,7 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
   const missingIdentity = !company.domain && !company.website && !company.legalName
   const missingIndustry = !company.industry
   const missingSize = company.employeeCount == null && !company.size
+  const missingAccountManager = !company.accountManagerRef?.displayName && !company.accountManagerUid
   const signals = [
     company.linkedOrgId ? 'Client org linked' : undefined,
     company.billingEmail || company.accountsContact?.email ? 'Billing contact ready' : undefined,
@@ -244,6 +245,29 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
           )}
         </div>
       </div>
+
+      {missingAccountManager && (
+        <div className="rounded-xl border border-amber-400/30 bg-amber-400/10 p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="eyebrow !text-[10px] text-amber-200">Account owner missing</p>
+              <h2 className="mt-1 text-base font-semibold text-[var(--color-pib-text)]">Assign account ownership</h2>
+              <p className="mt-1 max-w-3xl text-sm text-[var(--color-pib-text-muted)]">
+                No team member owns this account yet. Assign a manager so renewals, escalations, and delivery handoffs stay visible to leadership.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={onEdit}
+              aria-label={`Assign account manager for ${company.name}`}
+              className="btn-pib-secondary inline-flex shrink-0 items-center justify-center gap-1.5"
+            >
+              <span className="material-symbols-outlined text-[16px]">person_add</span>
+              Assign manager
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="grid gap-3 lg:grid-cols-[minmax(220px,1.2fr)_2fr]">
         <div className="rounded-xl border border-[var(--color-pib-line)] bg-white/[0.02] p-3">

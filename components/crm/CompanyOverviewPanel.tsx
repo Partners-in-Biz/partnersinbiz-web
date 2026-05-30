@@ -294,6 +294,45 @@ function Field({ label, value }: { label: string; value?: string | number | null
   )
 }
 
+function ProfileCaptureAction({
+  title,
+  body,
+  icon,
+  actionLabel,
+  onEditCompany,
+}: {
+  title: string
+  body: string
+  icon: string
+  actionLabel: string
+  onEditCompany?: () => void
+}) {
+  return (
+    <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-4">
+      <div className="flex items-start gap-3">
+        <span aria-hidden="true" className="material-symbols-outlined mt-0.5 text-[18px] text-[var(--color-accent-v2)]">{icon}</span>
+        <div className="min-w-0">
+          <h3 className="font-display text-lg text-[var(--color-pib-text)]">{title}</h3>
+          <p className="mt-1 text-sm leading-6 text-[var(--color-pib-text-muted)]">{body}</p>
+          {onEditCompany ? (
+            <button
+              type="button"
+              onClick={onEditCompany}
+              aria-label={actionLabel}
+              className="btn-pib-secondary mt-4 inline-flex items-center gap-1.5 text-xs"
+            >
+              <span aria-hidden="true" className="material-symbols-outlined text-[14px]">edit</span>
+              Open profile editor
+            </button>
+          ) : (
+            <p className="mt-3 text-xs text-[var(--color-pib-text-muted)]">Open profile editing to capture this next.</p>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function WidgetCard({
   label,
   value,
@@ -361,7 +400,7 @@ function MiniStatus({
   )
 }
 
-function BusinessProfile({ company }: { company: Company }) {
+function BusinessProfile({ company, onEditCompany }: { company: Company; onEditCompany?: () => void }) {
   const addr = company.address
   const social = company.socialProfiles
   const customFields = company.customFields ? Object.entries(company.customFields) : []
@@ -391,7 +430,13 @@ function BusinessProfile({ company }: { company: Company }) {
           </div>
         )}
         {!company.legalName && !company.tradingName && !company.lifecycleStage && !company.tier && !company.industry && !company.size && !company.employeeCount && !company.annualRevenue && !company.website && (
-          <p className="text-sm text-[var(--color-pib-text-muted)]">No business identity fields captured yet.</p>
+          <ProfileCaptureAction
+            title="Capture account identity."
+            body="Add legal name, trading name, lifecycle stage, industry, size, and website so the account is useful in reviews."
+            icon="badge"
+            actionLabel={`Edit account identity for ${company.name}`}
+            onEditCompany={onEditCompany}
+          />
         )}
       </SectionCard>
 
@@ -408,7 +453,13 @@ function BusinessProfile({ company }: { company: Company }) {
         <Field label="PO number" value={company.purchaseOrderNumber} />
         <Field label="Invoice notes" value={company.invoiceInstructions} />
         {!company.phone && !company.billingEmail && !company.registrationNumber && !company.vatNumber && !company.taxNumber && !company.accountsContact?.name && !company.authorizedSignatory?.name && !company.purchaseOrderRequired && !company.purchaseOrderNumber && !company.invoiceInstructions && (
-          <p className="text-sm text-[var(--color-pib-text-muted)]">No billing or contact fields captured yet.</p>
+          <ProfileCaptureAction
+            title="Capture billing and contact detail."
+            body="Add phone, billing email, registration, VAT, accounts contact, signatory, and invoice notes before proposals become admin work."
+            icon="receipt_long"
+            actionLabel={`Edit billing and contact details for ${company.name}`}
+            onEditCompany={onEditCompany}
+          />
         )}
       </SectionCard>
 
@@ -596,7 +647,26 @@ export function CompanyOverviewPanel({ company, center, loading, onSelectTab, on
                 ))}
               </div>
             ) : (
-              <p className="mt-4 text-sm text-[var(--color-pib-text-muted)]">No active risk signals for this company.</p>
+              <div className="mt-4 rounded-lg border border-emerald-400/20 bg-emerald-400/10 p-3">
+                <p className="eyebrow !text-[10px] text-emerald-200">Risk watch clear</p>
+                <h3 className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">Keep pulse risk reviewable</h3>
+                <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">
+                  No active risk signals are flagged in the account pulse. Review invoices so finance, delivery, and operations stay checked before leadership sees surprises.
+                </p>
+                {onSelectTab ? (
+                  <button
+                    type="button"
+                    onClick={() => onSelectTab('invoices')}
+                    aria-label={`Review operational risk for ${company.name}`}
+                    className="btn-pib-secondary mt-3 inline-flex items-center gap-1.5 text-xs"
+                  >
+                    <span aria-hidden="true" className="material-symbols-outlined text-[14px]">receipt_long</span>
+                    Review invoices
+                  </button>
+                ) : (
+                  <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">Open Invoices to keep the account pulse reviewed.</p>
+                )}
+              </div>
             )}
           </div>
         </div>
@@ -627,8 +697,27 @@ export function CompanyOverviewPanel({ company, center, loading, onSelectTab, on
           {hasRevenueData ? (
             <RevenueBarChart data={revenueData} valueFormatter={(value) => formatCurrency(value, currency)} height={260} />
           ) : (
-            <div className="flex min-h-[220px] items-center justify-center rounded-lg border border-dashed border-[var(--color-pib-line)] text-center text-sm text-[var(--color-pib-text-muted)]">
-              Deals, quotes, invoices, and orders will build this chart.
+            <div className="flex min-h-[220px] items-center justify-center rounded-lg border border-dashed border-[var(--color-pib-line)] bg-white/[0.02] p-6 text-center">
+              <div className="max-w-md">
+                <p className="eyebrow !text-[10px] text-amber-200">Revenue model missing</p>
+                <h3 className="mt-2 font-display text-lg text-[var(--color-pib-text)]">Build the first commercial signal</h3>
+                <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">
+                  No deals, quotes, invoices, or orders are linked to this account yet. Review deals so pipeline value, quote readiness, and revenue history become visible to leadership.
+                </p>
+                {onSelectTab ? (
+                  <button
+                    type="button"
+                    onClick={() => onSelectTab('deals')}
+                    aria-label={`Review commercial records for ${company.name}`}
+                    className="btn-pib-secondary mt-4 inline-flex items-center gap-1.5 text-xs"
+                  >
+                    <span aria-hidden="true" className="material-symbols-outlined text-[14px]">monetization_on</span>
+                    Review deals
+                  </button>
+                ) : (
+                  <p className="mt-3 text-xs text-[var(--color-pib-text-muted)]">Open Deals to capture the first commercial record.</p>
+                )}
+              </div>
             </div>
           )}
         </SectionCard>
@@ -637,8 +726,27 @@ export function CompanyOverviewPanel({ company, center, loading, onSelectTab, on
           {mixData.length > 0 ? (
             <HorizontalBarChart data={mixData} height={260} />
           ) : (
-            <div className="flex min-h-[220px] items-center justify-center rounded-lg border border-dashed border-[var(--color-pib-line)] text-center text-sm text-[var(--color-pib-text-muted)]">
-              Linked CRM, delivery, finance, and commerce records will appear here.
+            <div className="flex min-h-[220px] items-center justify-center rounded-lg border border-dashed border-[var(--color-pib-line)] bg-white/[0.02] p-6 text-center">
+              <div className="max-w-md">
+                <p className="eyebrow !text-[10px] text-amber-200">Operating footprint missing</p>
+                <h3 className="mt-2 font-display text-lg text-[var(--color-pib-text)]">Link the first account record</h3>
+                <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">
+                  No contacts, deals, delivery work, documents, finance, or commerce records are linked yet. Start with contacts so every team can see who owns the relationship.
+                </p>
+                {onSelectTab ? (
+                  <button
+                    type="button"
+                    onClick={() => onSelectTab('contacts')}
+                    aria-label={`Review linked contacts for ${company.name}`}
+                    className="btn-pib-secondary mt-4 inline-flex items-center gap-1.5 text-xs"
+                  >
+                    <span aria-hidden="true" className="material-symbols-outlined text-[14px]">groups</span>
+                    Review contacts
+                  </button>
+                ) : (
+                  <p className="mt-3 text-xs text-[var(--color-pib-text-muted)]">Open Contacts to link the first relationship record.</p>
+                )}
+              </div>
             </div>
           )}
         </SectionCard>
@@ -649,8 +757,27 @@ export function CompanyOverviewPanel({ company, center, loading, onSelectTab, on
           {riskDonut.length > 0 ? (
             <DonutChart data={riskDonut} centerValue={riskDonut.reduce((sum, item) => sum + item.value, 0)} centerLabel="Signals" />
           ) : (
-            <div className="flex min-h-[220px] items-center justify-center rounded-lg border border-dashed border-[var(--color-pib-line)] text-center text-sm text-[var(--color-pib-text-muted)]">
-              No operational risk signals right now.
+            <div className="flex min-h-[220px] items-center justify-center rounded-lg border border-dashed border-[var(--color-pib-line)] bg-white/[0.02] p-6 text-center">
+              <div className="max-w-md">
+                <p className="eyebrow !text-[10px] text-emerald-200">Risk coverage clear</p>
+                <h3 className="mt-2 font-display text-lg text-[var(--color-pib-text)]">Keep account risk monitored</h3>
+                <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">
+                  No overdue invoices, low stock, open orders, projects, or service risks are active right now. Review invoices so finance risk stays visible before it surprises leadership.
+                </p>
+                {onSelectTab ? (
+                  <button
+                    type="button"
+                    onClick={() => onSelectTab('invoices')}
+                    aria-label={`Review risk records for ${company.name}`}
+                    className="btn-pib-secondary mt-4 inline-flex items-center gap-1.5 text-xs"
+                  >
+                    <span aria-hidden="true" className="material-symbols-outlined text-[14px]">receipt_long</span>
+                    Review invoices
+                  </button>
+                ) : (
+                  <p className="mt-3 text-xs text-[var(--color-pib-text-muted)]">Open Invoices to keep finance risk visible.</p>
+                )}
+              </div>
             </div>
           )}
         </SectionCard>
@@ -679,8 +806,27 @@ export function CompanyOverviewPanel({ company, center, loading, onSelectTab, on
               })}
             </div>
           ) : (
-            <div className="flex min-h-[220px] items-center justify-center rounded-lg border border-dashed border-[var(--color-pib-line)] text-center text-sm text-[var(--color-pib-text-muted)]">
-              Activity, deals, documents, projects, and orders will stream here.
+            <div className="flex min-h-[220px] items-center justify-center rounded-lg border border-dashed border-[var(--color-pib-line)] bg-white/[0.02] p-6 text-center">
+              <div className="max-w-md">
+                <p className="eyebrow !text-[10px] text-amber-200">Account history quiet</p>
+                <h3 className="mt-2 font-display text-lg text-[var(--color-pib-text)]">Start the next account signal</h3>
+                <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">
+                  No recent activity, deal movement, document, project, or order is visible yet. Review activity so leadership can see the next account touchpoint.
+                </p>
+                {onSelectTab ? (
+                  <button
+                    type="button"
+                    onClick={() => onSelectTab('activity')}
+                    aria-label={`Review activity for ${company.name}`}
+                    className="btn-pib-secondary mt-4 inline-flex items-center gap-1.5 text-xs"
+                  >
+                    <span aria-hidden="true" className="material-symbols-outlined text-[14px]">history</span>
+                    Review activity
+                  </button>
+                ) : (
+                  <p className="mt-3 text-xs text-[var(--color-pib-text-muted)]">Open Activity to capture the next touchpoint.</p>
+                )}
+              </div>
             </div>
           )}
         </SectionCard>
@@ -718,7 +864,7 @@ export function CompanyOverviewPanel({ company, center, loading, onSelectTab, on
         </section>
       )}
 
-      <BusinessProfile company={company} />
+      <BusinessProfile company={company} onEditCompany={onEditCompany} />
     </div>
   )
 }

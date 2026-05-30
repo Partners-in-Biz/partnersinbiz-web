@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import SequencesPage from '@/app/(portal)/portal/settings/sequences/page'
 
 jest.mock('next/link', () => ({
@@ -36,5 +36,53 @@ describe('Portal settings sequences page', () => {
       'href',
       '/portal/settings/sequences/new',
     )
+  })
+
+  it('treats an empty filtered sequence view as a reversible journey lens', async () => {
+    global.fetch = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/sequences') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: {
+              sequences: [
+                {
+                  id: 'seq-active',
+                  orgId: 'org-1',
+                  name: 'Lead welcome',
+                  description: 'Follow up new leads fast',
+                  status: 'active',
+                  steps: [
+                    {
+                      delayDays: 0,
+                      channel: 'email',
+                      subject: 'Welcome',
+                      bodyText: 'Thanks for getting in touch.',
+                    },
+                  ],
+                  createdAt: null,
+                  updatedAt: null,
+                },
+              ],
+            },
+          }),
+        } as Response)
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    }) as jest.Mock
+
+    render(<SequencesPage />)
+
+    expect(await screen.findByText('Lead welcome')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Paused' }))
+
+    expect(await screen.findByRole('heading', { name: 'No sequences match this view.' })).toBeInTheDocument()
+    expect(screen.getByText('Clear the sequence filters to return to every journey.')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show all sequences' }))
+
+    expect(await screen.findByText('Lead welcome')).toBeInTheDocument()
   })
 })

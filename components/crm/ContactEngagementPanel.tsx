@@ -30,6 +30,7 @@ export interface ContactEngagementActions {
   onLogNote?: () => void
   onSendEmail?: () => void
   onScheduleMeeting?: () => void
+  onStartSuggestion?: (suggestion: ContactEngagementSuggestion) => void
 }
 
 function timestampMillis(value: unknown): number {
@@ -154,14 +155,39 @@ export function ContactEngagementPanel({
                 </span>
               </div>
               <p className="mt-1 text-xs leading-relaxed text-[var(--color-pib-text-muted)]">{suggestion.reason}</p>
+              {actions?.onStartSuggestion ? (
+                <button
+                  type="button"
+                  onClick={() => actions.onStartSuggestion?.(suggestion)}
+                  aria-label={`Start suggested action: ${suggestion.action} for ${contactName}`}
+                  className="btn-pib-secondary mt-3 inline-flex items-center gap-1.5 text-xs"
+                >
+                  <span aria-hidden="true" className="material-symbols-outlined text-[14px]">play_arrow</span>
+                  Start action
+                </button>
+              ) : null}
             </div>
           </div>
         </div>
       ) : (
-        <div className="rounded-md border border-[var(--color-pib-line)] bg-white/[0.025] p-3">
-          <p className="text-xs text-[var(--color-pib-text-muted)]">
-            No suggested action yet. Log a note, send an email, or schedule the next touch to build a stronger relationship trail.
-          </p>
+        <div className="rounded-md border border-[var(--color-pib-line)] bg-white/[0.025] p-4">
+          <div className="flex items-start gap-3">
+            <span
+              aria-hidden="true"
+              className="material-symbols-outlined flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[var(--color-pib-line)] bg-white/[0.04] text-[18px] text-[var(--color-pib-accent)]"
+            >
+              psychology
+            </span>
+            <div>
+              <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
+                Next best action missing
+              </p>
+              <h3 className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">Create the next relationship signal</h3>
+              <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">
+                No AI recommendation is ready yet. Log a note, send an email, or schedule the next touch so the team has enough context to keep the relationship moving.
+              </p>
+            </div>
+          </div>
           {hasActions ? (
             <div className="mt-3 flex flex-wrap gap-2">
               {actions?.onLogNote ? (

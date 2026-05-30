@@ -150,6 +150,23 @@ function labelize(value: string): string {
     .replace(/\b\w/g, (char) => char.toUpperCase())
 }
 
+function dealStageLensHref(stage: PipelineVelocityStage): string {
+  const params = new URLSearchParams({
+    view: 'list',
+    pipelineId: stage.pipelineId,
+    stage: stage.stageId,
+  })
+  return `/portal/deals?${params.toString()}`
+}
+
+function repDealsHref(rep: RepPerformanceRow): string {
+  const params = new URLSearchParams({
+    view: 'list',
+    owner: rep.uid,
+  })
+  return `/portal/deals?${params.toString()}`
+}
+
 // ── Skeleton ───────────────────────────────────────────────────────────────────
 
 function Skeleton({ className = '' }: { className?: string }) {
@@ -466,6 +483,22 @@ export default function CrmReportsPage() {
         ? 'Needs focus'
         : 'At risk'
   const pipelineSignalTone = pipelineSignal === 'Healthy' ? 'good' : pipelineSignal === 'Needs focus' ? 'warning' : 'neutral'
+  const teamExecutionAction =
+    unassignedContacts > 0
+      ? {
+          href: '/portal/contacts?owner=unowned',
+          label: 'Review owner gaps',
+          ariaLabel: 'Open unowned contacts from team execution report',
+          icon: 'manage_accounts',
+        }
+      : unassignedDealCount > 0
+        ? {
+            href: '/portal/deals?view=list&owner=unassigned',
+            label: 'Review deal owners',
+            ariaLabel: 'Open unassigned deals from team execution report',
+            icon: 'manage_accounts',
+          }
+        : undefined
 
   // ── Loading state ────────────────────────────────────────────────────────────
 
@@ -571,12 +604,17 @@ export default function CrmReportsPage() {
           label="Funnel shape"
           title={topStage ? `${labelize(topStage[0])} holds ${fmtNum(topStage[1])} contacts` : 'No dominant stage yet'}
           body={`${fmtPercent(prospectMix)} of active contacts are prospects and ${fmtNum(churnedCount)} contacts are churned.`}
-          action={!topStage ? {
-            href: '/portal/contacts',
+          action={topStage ? {
+            href: `/portal/contacts?stage=${encodeURIComponent(topStage[0])}`,
+            label: 'Review stage',
+            ariaLabel: `Open contacts in dominant ${labelize(topStage[0])} stage`,
+            icon: 'contacts',
+          } : {
+            href: '/portal/contacts?create=contact',
             label: 'Classify contact stages',
             ariaLabel: 'Open contacts to classify funnel stages',
             icon: 'contacts',
-          } : undefined}
+          }}
           tone={clientMix >= 0.25 ? 'good' : prospectMix >= 0.35 ? 'warning' : 'neutral'}
         />
         <InsightCard
@@ -584,6 +622,12 @@ export default function CrmReportsPage() {
           label="Forecast focus"
           title={`${fmtZar(nearTermForecastValue)} weighted near term`}
           body={`${fmtNum(noDateDeals)} open deals have no close date, which limits forecast reliability.`}
+          action={noDateDeals > 0 ? {
+            href: '/portal/deals?view=forecast&focus=no-close-date',
+            label: 'Review dates',
+            ariaLabel: 'Open forecast deals missing close dates',
+            icon: 'edit_calendar',
+          } : undefined}
           tone={noDateDeals === 0 ? 'good' : 'warning'}
         />
         <InsightCard
@@ -591,19 +635,33 @@ export default function CrmReportsPage() {
           label="Velocity"
           title={slowestStage ? `${labelize(slowestStage.stageId)} is slowest` : 'No slowest stage yet'}
           body={slowestStage ? `Average age is ${slowestStage.avgDays.toFixed(1)} days with a max of ${slowestStage.maxDays.toFixed(1)} days.` : 'Stage age will appear once deals have enough movement history.'}
-          action={!slowestStage ? {
-            href: '/portal/deals',
+          action={slowestStage ? {
+            href: dealStageLensHref(slowestStage),
+            label: 'Review stage',
+            ariaLabel: `Open deals in slowest ${labelize(slowestStage.stageId)} stage`,
+            icon: 'view_list',
+          } : {
+            href: '/portal/deals?create=deal',
             label: 'Review pipeline',
             ariaLabel: 'Open pipeline to build stage velocity insight',
             icon: 'view_kanban',
-          } : undefined}
+          }}
           tone={velocity && velocity.summary.bottleneckCount === 0 ? 'good' : 'warning'}
         />
         <InsightCard
           icon="groups"
           label="Team execution"
-          title={unassignedContacts > 0 ? `${fmtNum(unassignedContacts)} contacts need an owner` : topRep ? `${topRep.displayName} leads won value` : 'Contact ownership is clean'}
+          title={
+            unassignedContacts > 0
+              ? `${fmtNum(unassignedContacts)} contacts need an owner`
+              : unassignedDealCount > 0
+                ? `${fmtNum(unassignedDealCount)} deals need an owner`
+                : topRep
+                  ? `${topRep.displayName} leads won value`
+                  : 'Ownership is clean'
+          }
           body={`${fmtPercent(unassignedDealShare)} of tracked deals are unassigned. Contact owner coverage is ${fmtPercent(contactOwnerCoverage)}.`}
+          action={teamExecutionAction}
           tone={unassignedDealShare <= 0.1 && contactOwnerCoverage >= 0.9 ? 'good' : 'warning'}
         />
       </section>
@@ -616,7 +674,7 @@ export default function CrmReportsPage() {
             title="No contact data yet"
             body="Contacts will populate the funnel as leads, prospects, clients, and churned accounts are created."
             action={{
-              href: '/portal/contacts',
+              href: '/portal/contacts?create=contact',
               label: 'Open contacts',
               ariaLabel: 'Open contacts to create reportable CRM records',
               icon: 'contacts',
@@ -646,7 +704,25 @@ export default function CrmReportsPage() {
                     </span>
                   )}
                 </div>
-                {byStageEntries.length > 0 ? <HBarChart entries={byStageEntries} /> : <p className="text-sm text-[var(--color-pib-text-muted)]">No stages recorded.</p>}
+                {byStageEntries.length > 0 ? (
+                  <HBarChart entries={byStageEntries} />
+                ) : (
+                  <div className="rounded-lg border border-amber-400/20 bg-amber-400/10 p-4">
+                    <p className="eyebrow !text-[10px] text-amber-200">Stage mix missing</p>
+                    <h3 className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">Classify contacts into funnel stages</h3>
+                    <p className="mt-1 text-sm leading-6 text-[var(--color-pib-text-muted)]">
+                      There are contacts in CRM, but none are grouped by stage yet. Classify the next contact so leadership can see where the pipeline is stuck.
+                    </p>
+                    <Link
+                      href="/portal/contacts?create=contact"
+                      aria-label="Open contacts to classify missing stage mix"
+                      className="pib-btn-secondary mt-3 inline-flex items-center gap-1.5 text-xs"
+                    >
+                      <span aria-hidden="true" className="material-symbols-outlined text-[14px]">filter_alt</span>
+                      Classify contacts
+                    </Link>
+                  </div>
+                )}
               </div>
               <div className="bento-card !p-5 space-y-4">
                 <p className="eyebrow !text-[10px]">Conversion mix</p>
@@ -669,7 +745,7 @@ export default function CrmReportsPage() {
             title="No forecast data yet"
             body="Open deals with values and close dates will build the forecast automatically."
             action={{
-              href: '/portal/deals',
+              href: '/portal/deals?create=deal',
               label: 'Open pipeline',
               ariaLabel: 'Open pipeline to create forecast deals',
               icon: 'view_kanban',
@@ -722,6 +798,12 @@ export default function CrmReportsPage() {
                   label="Close-date hygiene"
                   title={`${fmtNum(noDateDeals)} deals need a date`}
                   body="No-date deals are still visible, but they should not be allowed to hide from forecast review."
+                  action={noDateDeals > 0 ? {
+                    href: '/portal/deals?view=forecast&focus=no-close-date',
+                    label: 'Review dates',
+                    ariaLabel: 'Open forecast close-date hygiene list',
+                    icon: 'edit_calendar',
+                  } : undefined}
                   tone={noDateDeals === 0 ? 'good' : 'warning'}
                 />
               </div>
@@ -738,7 +820,7 @@ export default function CrmReportsPage() {
             title="No time-in-stage data yet"
             body="Velocity appears once deals are moving through tracked pipeline stages."
             action={{
-              href: '/portal/deals',
+              href: '/portal/deals?create=deal',
               label: 'Open pipeline',
               ariaLabel: 'Open pipeline to move deals through tracked stages',
               icon: 'view_kanban',
@@ -756,9 +838,18 @@ export default function CrmReportsPage() {
                   ? `${labelize(velocity.summary.slowestStage.stageId)} averages ${velocity.summary.slowestStage.avgDays.toFixed(1)} days`
                   : 'No slow stages yet'}
               </p>
-              {!velocity.summary.slowestStage && (
+              {velocity.summary.slowestStage ? (
                 <Link
-                  href="/portal/deals"
+                  href={dealStageLensHref(velocity.summary.slowestStage)}
+                  aria-label={`Review deals in slowest ${labelize(velocity.summary.slowestStage.stageId)} stage from bottleneck summary`}
+                  className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-[var(--color-pib-accent)] hover:underline"
+                >
+                  <span className="material-symbols-outlined text-[14px]" aria-hidden="true">view_list</span>
+                  Review slow stage
+                </Link>
+              ) : (
+                <Link
+                  href="/portal/deals?create=deal"
                   aria-label="Review pipeline movement from bottleneck summary"
                   className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-[var(--color-pib-accent)] hover:underline"
                 >
@@ -839,7 +930,16 @@ export default function CrmReportsPage() {
                 <tbody>
                   {repPerformance.reps.slice(0, 8).map((rep) => (
                     <tr key={rep.uid} className="border-b border-[var(--color-pib-line)] last:border-0">
-                      <td className="px-4 py-3 text-sm font-medium text-[var(--color-pib-text)]">{rep.displayName}</td>
+                      <td className="px-4 py-3 text-sm font-medium text-[var(--color-pib-text)]">
+                        <Link
+                          href={repDealsHref(rep)}
+                          aria-label={`Open ${rep.displayName} deals from rep performance report`}
+                          className="inline-flex max-w-full items-center gap-1.5 rounded-md text-[var(--color-pib-text)] transition-colors hover:text-[var(--color-pib-accent)] focus:outline-none focus:ring-2 focus:ring-[var(--color-pib-accent)] focus:ring-offset-2 focus:ring-offset-[var(--color-pib-bg)]"
+                        >
+                          <span className="truncate">{rep.displayName}</span>
+                          <span className="material-symbols-outlined text-[15px]" aria-hidden="true">open_in_new</span>
+                        </Link>
+                      </td>
                       <td className="px-4 py-3 text-sm text-right font-mono text-[var(--color-pib-text)]">{fmtNum(rep.wonDeals)}</td>
                       <td className="px-4 py-3 text-sm text-right font-mono text-[var(--color-pib-text)]">{fmtNum(rep.openDeals)}</td>
                       <td className="px-4 py-3 text-sm text-right font-mono text-[var(--color-pib-text)]">{fmtNum(rep.lostDeals)}</td>
@@ -915,7 +1015,7 @@ export default function CrmReportsPage() {
             title="No activity data yet"
             body="Calls, emails, meetings, notes, and tasks will build the activity pulse."
             action={{
-              href: '/portal/contacts',
+              href: '/portal/contacts?followUp=stale',
               label: 'Open contacts',
               ariaLabel: 'Open contacts to log CRM activity',
               icon: 'contacts',
@@ -945,7 +1045,21 @@ export default function CrmReportsPage() {
             <div className="bento-card !p-5">
               <p className="text-xs text-[var(--color-pib-text-muted)] mb-4 font-medium">By type</p>
               {byTypeEntries.length === 0 ? (
-                <p className="text-sm text-[var(--color-pib-text-muted)]">No activities recorded.</p>
+                <div className="rounded-lg border border-amber-400/20 bg-amber-400/10 p-4">
+                  <p className="eyebrow !text-[10px] text-amber-200">Activity mix missing</p>
+                  <h3 className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">Log the next CRM touch with type context</h3>
+                  <p className="mt-1 text-sm leading-6 text-[var(--color-pib-text-muted)]">
+                    Activity exists, but calls, emails, meetings, notes, and tasks are not classified yet. Classify the next touch so leadership can see which channel is moving relationships.
+                  </p>
+                  <Link
+                    href="/portal/contacts?followUp=stale"
+                    aria-label="Open contacts to log typed CRM activity"
+                    className="pib-btn-secondary mt-3 inline-flex items-center gap-1.5 text-xs"
+                  >
+                    <span aria-hidden="true" className="material-symbols-outlined text-[14px]">edit_note</span>
+                    Log typed activity
+                  </Link>
+                </div>
               ) : (
                 <HBarChart entries={byTypeEntries} />
               )}
@@ -968,6 +1082,16 @@ export default function CrmReportsPage() {
                   <p className="eyebrow !text-[10px]">Quiet days</p>
                   <p className="mt-2 font-display text-2xl font-bold text-[var(--color-pib-text)]">{fmtNum(daysWithoutActivity)}</p>
                   <p className="mt-1 font-mono text-xs text-[var(--color-pib-text-muted)]">of {fmtNum(activity.perDay.length)}</p>
+                  {daysWithoutActivity > 0 && (
+                    <Link
+                      href="/portal/contacts?followUp=stale"
+                      aria-label="Open contacts needing follow-up from activity rhythm"
+                      className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-[var(--color-pib-accent)] hover:underline"
+                    >
+                      <span className="material-symbols-outlined text-[14px]" aria-hidden="true">event_note</span>
+                      Review follow-up
+                    </Link>
+                  )}
                 </div>
               </div>
               <HealthBar value={activity.days > 0 ? 1 - daysWithoutActivity / activity.days : 0} label="Activity consistency" />

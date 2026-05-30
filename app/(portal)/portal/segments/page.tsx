@@ -480,9 +480,10 @@ export default function PortalSegmentsPage() {
       ) : filteredSegments.length === 0 ? (
         <div className="bento-card p-10 text-center">
           <span className="material-symbols-outlined text-4xl text-[var(--color-pib-accent)]">search_off</span>
-          <h2 className="font-display text-2xl mt-4">No segments match this lens.</h2>
+          <p className="eyebrow !text-[10px] mt-2">Filtered audience view</p>
+          <h2 className="font-display text-2xl mt-3">No saved audiences match this view.</h2>
           <p className="text-sm text-[var(--color-pib-text-muted)] mt-2">
-            Clear the search or switch back to all segments before changing targeting.
+            Clear the segment search and focus filters to return to every saved audience.
           </p>
           <button
             type="button"
@@ -492,7 +493,7 @@ export default function PortalSegmentsPage() {
             }}
             className="btn-pib-secondary mt-6"
           >
-            Clear segment lens
+            Show all segments
           </button>
         </div>
       ) : (

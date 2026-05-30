@@ -43,6 +43,7 @@ export function CustomFieldInput({ definition, value, onChange, disabled }: Cust
       <div>
         <input
           type={inputType}
+          aria-label={definition.label}
           value={typeof value === 'string' ? value : ''}
           onChange={(e) => onChange(e.target.value)}
           disabled={disabled}
@@ -58,6 +59,7 @@ export function CustomFieldInput({ definition, value, onChange, disabled }: Cust
     return (
       <div>
         <textarea
+          aria-label={definition.label}
           value={typeof value === 'string' ? value : ''}
           onChange={(e) => onChange(e.target.value)}
           disabled={disabled}
@@ -75,6 +77,7 @@ export function CustomFieldInput({ definition, value, onChange, disabled }: Cust
       <div>
         <input
           type="number"
+          aria-label={definition.label}
           value={value !== undefined && value !== null ? String(value) : ''}
           onChange={(e) => {
             const raw = e.target.value
@@ -133,6 +136,7 @@ export function CustomFieldInput({ definition, value, onChange, disabled }: Cust
       <div>
         <input
           type="date"
+          aria-label={definition.label}
           value={typeof value === 'string' ? value : ''}
           onChange={(e) => onChange(e.target.value)}
           disabled={disabled}
@@ -149,6 +153,7 @@ export function CustomFieldInput({ definition, value, onChange, disabled }: Cust
       <div>
         <input
           type="datetime-local"
+          aria-label={definition.label}
           value={typeof value === 'string' ? value : ''}
           onChange={(e) => onChange(e.target.value)}
           disabled={disabled}
@@ -164,6 +169,7 @@ export function CustomFieldInput({ definition, value, onChange, disabled }: Cust
     return (
       <div>
         <select
+          aria-label={definition.label}
           value={typeof value === 'string' ? value : ''}
           onChange={(e) => onChange(e.target.value || undefined)}
           disabled={disabled}

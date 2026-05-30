@@ -63,6 +63,92 @@ function Field({
   )
 }
 
+function MissingOwnerPanel({
+  action,
+}: {
+  action?: {
+    label: string
+    ariaLabel: string
+    onClick: () => void
+  }
+}) {
+  return (
+    <div className="rounded-md border border-[var(--color-pib-line)] bg-white/[0.025] p-4">
+      <div className="flex items-start gap-3">
+        <span
+          aria-hidden="true"
+          className="material-symbols-outlined flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[var(--color-pib-line)] bg-white/[0.04] text-[18px] text-[var(--color-pib-accent)]"
+        >
+          person_alert
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
+            Owner accountability missing
+          </p>
+          <h3 className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">Assign a relationship owner</h3>
+          <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">
+            No team member owns this contact yet. Assign an owner so follow-ups, handoffs, and pipeline accountability are visible before the relationship goes cold.
+          </p>
+          {action ? (
+            <button
+              type="button"
+              aria-label={action.ariaLabel}
+              onClick={action.onClick}
+              className="btn-pib-secondary mt-3 inline-flex items-center gap-1.5 text-xs"
+            >
+              <span aria-hidden="true" className="material-symbols-outlined text-[14px]">person_add</span>
+              {action.label}
+            </button>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function WeakSourcePanel({
+  action,
+}: {
+  action?: {
+    label: string
+    ariaLabel: string
+    onClick: () => void
+  }
+}) {
+  return (
+    <div className="rounded-md border border-[var(--color-pib-line)] bg-white/[0.025] p-4">
+      <div className="flex items-start gap-3">
+        <span
+          aria-hidden="true"
+          className="material-symbols-outlined flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[var(--color-pib-line)] bg-white/[0.04] text-[18px] text-[var(--color-pib-accent)]"
+        >
+          conversion_path
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
+            Source provenance weak
+          </p>
+          <h3 className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">Confirm how this contact entered CRM</h3>
+          <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">
+            This relationship is marked as manual or legacy without a capture source. Review the source so attribution, segment reporting, and follow-up ownership stay trustworthy.
+          </p>
+          {action ? (
+            <button
+              type="button"
+              aria-label={action.ariaLabel}
+              onClick={action.onClick}
+              className="btn-pib-secondary mt-3 inline-flex items-center gap-1.5 text-xs"
+            >
+              <span aria-hidden="true" className="material-symbols-outlined text-[14px]">edit</span>
+              {action.label}
+            </button>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function contactOwnershipHealth(profile: ContactOwnershipProfile): number {
   const checks = [
     Boolean(profile.assignedToRef?.displayName || profile.assignedTo),
@@ -85,11 +171,17 @@ export function ContactOwnershipPanel({
       ariaLabel: string
       onClick: () => void
     }
+    reviewSource?: {
+      label: string
+      ariaLabel: string
+      onClick: () => void
+    }
   }
 }) {
   const health = contactOwnershipHealth(profile)
   const owner = memberLabel(profile.assignedToRef, profile.assignedTo)
   const needsOwner = !profile.assignedToRef?.displayName && !profile.assignedTo
+  const weakSource = !profile.capturedFromId?.trim() && (!profile.source?.trim() || profile.source === 'manual')
   const source = profile.source || 'Not captured'
   const captureSource = profile.capturedFromId || 'Manual or legacy record'
   const creator = memberLabel(profile.createdByRef, undefined)
@@ -118,17 +210,24 @@ export function ContactOwnershipPanel({
       </div>
 
       <div className="space-y-2">
-        <Field
-          icon="supervisor_account"
-          label="Owner"
-          value={owner}
-          meta={memberMeta(profile.assignedToRef)}
-          action={needsOwner && actions?.assignOwner ? { ...actions.assignOwner, icon: 'person_add' } : undefined}
-        />
-        <div className="grid gap-2 sm:grid-cols-2">
-          <Field icon="conversion_path" label="Source" value={source} />
-          <Field icon="fingerprint" label="Capture source" value={captureSource} />
-        </div>
+        {needsOwner ? (
+          <MissingOwnerPanel action={actions?.assignOwner} />
+        ) : (
+          <Field
+            icon="supervisor_account"
+            label="Owner"
+            value={owner}
+            meta={memberMeta(profile.assignedToRef)}
+          />
+        )}
+        {weakSource ? (
+          <WeakSourcePanel action={actions?.reviewSource} />
+        ) : (
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Field icon="conversion_path" label="Source" value={source} />
+            <Field icon="fingerprint" label="Capture source" value={captureSource} />
+          </div>
+        )}
         <div className="grid gap-2 sm:grid-cols-2">
           <Field icon="person_add" label="Created by" value={creator} meta={memberMeta(profile.createdByRef)} />
           <Field icon="manage_accounts" label="Updated by" value={updater} meta={memberMeta(profile.updatedByRef)} />

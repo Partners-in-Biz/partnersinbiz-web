@@ -125,12 +125,64 @@ function rowMeta(row: Row, tab: CompanyTab) {
   return []
 }
 
-function SimpleRowsPanel({ tab, rows }: { tab: CompanyTab; rows: Row[] }) {
+const EMPTY_TAB_LABELS: Partial<Record<CompanyTab, string>> = {
+  contacts: 'Contacts',
+  deals: 'Deals',
+  projects: 'Projects',
+  documents: 'Documents',
+  services: 'Service workspaces',
+  relationships: 'Business relationships',
+  quotes: 'Quotes',
+  invoices: 'Invoices',
+  orders: 'Orders',
+  shipments: 'Shipments',
+  inventory: 'Inventory items',
+  activity: 'Activity',
+}
+
+function SimpleRowsPanel({
+  tab,
+  rows,
+  companyName,
+  portalHref,
+  onReviewOverview,
+}: {
+  tab: CompanyTab
+  rows: Row[]
+  companyName: string
+  portalHref: string
+  onReviewOverview: () => void
+}) {
   if (rows.length === 0) {
+    const label = EMPTY_TAB_LABELS[tab] ?? 'Records'
+    const lowerLabel = label.toLowerCase()
     return (
-      <div className="bento-card p-10 text-center">
-        <span className="material-symbols-outlined text-4xl text-[var(--color-pib-text-muted)]">inbox</span>
-        <p className="mt-3 text-sm text-[var(--color-pib-text-muted)]">No records linked to this company yet.</p>
+      <div className="bento-card p-8 text-center">
+        <span className="material-symbols-outlined text-4xl text-amber-200">hub</span>
+        <p className="eyebrow mt-4 !text-[10px] text-amber-200">{label} not linked yet</p>
+        <h2 className="mt-2 font-display text-xl text-[var(--color-pib-text)]">Start account context from the client workspace</h2>
+        <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-[var(--color-pib-text-muted)]">
+          No {lowerLabel} are linked to {companyName} yet. Review the company overview or open the portal workspace so relationship ownership, email history, and pipeline handoffs stop living outside CRM.
+        </p>
+        <div className="mt-5 flex flex-wrap justify-center gap-2">
+          <button
+            type="button"
+            onClick={onReviewOverview}
+            aria-label={`Review overview for ${companyName}`}
+            className="btn-pib-secondary inline-flex items-center gap-1.5"
+          >
+            <span aria-hidden="true" className="material-symbols-outlined text-[16px]">monitoring</span>
+            Review overview
+          </button>
+          <Link
+            href={portalHref}
+            aria-label={`Open portal workspace for ${companyName}`}
+            className="btn-pib-primary inline-flex items-center gap-1.5"
+          >
+            <span aria-hidden="true" className="material-symbols-outlined text-[16px]">open_in_new</span>
+            Open portal workspace
+          </Link>
+        </div>
       </div>
     )
   }
@@ -155,7 +207,7 @@ function SimpleRowsPanel({ tab, rows }: { tab: CompanyTab; rows: Row[] }) {
   )
 }
 
-function AnalyticsPanel({ center }: { center: CommandCenter }) {
+function AnalyticsPanel({ center, companyName, portalHref }: { center: CommandCenter; companyName: string; portalHref: string }) {
   const analytics = center.analytics ?? {}
   const summary = center.summary ?? {}
   const tiles = [
@@ -183,7 +235,21 @@ function AnalyticsPanel({ center }: { center: CommandCenter }) {
       <div className="bento-card p-5">
         <p className="eyebrow !text-[10px]">Risk signals</p>
         {(analytics.riskSignals ?? []).length === 0 ? (
-          <p className="mt-3 text-sm text-[var(--color-pib-text-muted)]">No active risk signals for this company.</p>
+          <div className="mt-3 rounded-lg border border-emerald-400/20 bg-emerald-400/10 p-4">
+            <p className="eyebrow !text-[10px] text-emerald-200">Risk watch clear</p>
+            <h3 className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">Keep leadership risk reviewable</h3>
+            <p className="mt-1 text-sm leading-6 text-[var(--color-pib-text-muted)]">
+              No active risk signals are flagged for {companyName}. Review the portal workspace so finance, delivery, and relationship risk stay visible before the account surprises leadership.
+            </p>
+            <Link
+              href={portalHref}
+              aria-label={`Open portal risk review for ${companyName}`}
+              className="btn-pib-secondary mt-3 inline-flex items-center gap-1.5 text-xs"
+            >
+              <span aria-hidden="true" className="material-symbols-outlined text-[14px]">open_in_new</span>
+              Open portal risk review
+            </Link>
+          </div>
         ) : (
           <div className="mt-3 flex flex-wrap gap-2">
             {(analytics.riskSignals ?? []).map((signal) => (
@@ -309,8 +375,18 @@ export default function AdminCompanyCommandCenterPage() {
             onSelectTab={(nextTab) => setTab(nextTab as CompanyTab)}
           />
         )}
-        {tab === 'analytics' && <AnalyticsPanel center={center} />}
-        {tab !== 'overview' && tab !== 'analytics' && <SimpleRowsPanel tab={tab} rows={rowsFor(center, tab)} />}
+        {tab === 'analytics' && (
+          <AnalyticsPanel center={center} companyName={center.company.name} portalHref={`/portal/companies/${id}`} />
+        )}
+        {tab !== 'overview' && tab !== 'analytics' && (
+          <SimpleRowsPanel
+            tab={tab}
+            rows={rowsFor(center, tab)}
+            companyName={center.company.name}
+            portalHref={`/portal/companies/${id}`}
+            onReviewOverview={() => setTab('overview')}
+          />
+        )}
       </div>
     </div>
   )

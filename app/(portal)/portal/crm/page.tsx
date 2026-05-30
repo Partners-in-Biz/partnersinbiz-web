@@ -321,10 +321,13 @@ export default function PortalCrmPage() {
             </div>
           ) : !dashboard?.topOpenDeals?.length ? (
             <div className="p-10 text-center">
-              <span className="material-symbols-outlined text-4xl text-[var(--color-pib-text-muted)]">monetization_on</span>
-              <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">No open deals yet.</p>
+              <span className="material-symbols-outlined text-4xl text-[var(--color-accent-v2)]" aria-hidden="true">monetization_on</span>
+              <h2 className="mt-3 font-display text-2xl text-[var(--color-pib-text)]">Build the first active pipeline.</h2>
+              <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[var(--color-pib-text-muted)]">
+                Create a deal so leadership can see value, owner, and next-step accountability from this command center.
+              </p>
               <Link
-                href="/portal/deals"
+                href="/portal/deals?create=deal"
                 aria-label="Create first deal from CRM command center"
                 className="pib-btn-primary mt-4 inline-flex items-center gap-1.5 text-sm"
               >
@@ -364,10 +367,13 @@ export default function PortalCrmPage() {
             </div>
           ) : !dashboard?.recentActivities?.length ? (
             <div className="p-10 text-center">
-              <span className="material-symbols-outlined text-4xl text-[var(--color-pib-text-muted)]">history</span>
-              <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">No CRM activity logged yet.</p>
+              <span className="material-symbols-outlined text-4xl text-[var(--color-accent-v2)]" aria-hidden="true">history</span>
+              <h2 className="mt-3 font-display text-2xl text-[var(--color-pib-text)]">No relationship activity logged yet.</h2>
+              <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[var(--color-pib-text-muted)]">
+                Open the stale follow-up lens to give the team a working list for calls, emails, meetings, and notes.
+              </p>
               <Link
-                href="/portal/contacts"
+                href="/portal/contacts?followUp=stale"
                 aria-label="Open contacts to log CRM activity from the command center"
                 className="pib-btn-primary mt-4 inline-flex items-center gap-1.5 text-sm"
               >

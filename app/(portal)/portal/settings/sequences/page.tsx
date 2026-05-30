@@ -239,6 +239,12 @@ export default function SequencesPage() {
     }
   }
 
+  function clearViewFilters() {
+    setFilter('all')
+    setChannelFilter('all')
+    setSearch('')
+  }
+
   return (
     <div className="max-w-6xl space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -388,8 +394,19 @@ export default function SequencesPage() {
             </div>
           ) : visibleSequences.length === 0 ? (
             <div className="bento-card !p-8 text-center">
-              <span className="material-symbols-outlined mb-2 block text-3xl text-[var(--color-pib-text-muted)]">manage_search</span>
-              <p className="text-sm text-[var(--color-pib-text-muted)]">No sequences match this view.</p>
+              <span className="material-symbols-outlined mb-2 block text-3xl text-[var(--color-pib-text-muted)]" aria-hidden="true">manage_search</span>
+              <p className="eyebrow !text-[10px]">Filtered journey view</p>
+              <h2 className="mt-2 text-lg font-semibold text-[var(--color-pib-text)]">No sequences match this view.</h2>
+              <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">Clear the sequence filters to return to every journey.</p>
+              <button
+                type="button"
+                onClick={clearViewFilters}
+                className="btn-pib-secondary mt-5 inline-flex items-center gap-1.5 text-xs"
+                aria-label="Show all sequences"
+              >
+                <span className="material-symbols-outlined text-[15px]" aria-hidden="true">filter_alt_off</span>
+                Show all sequences
+              </button>
             </div>
           ) : (
             <div className="space-y-3">

@@ -143,9 +143,35 @@ export function DealLineItemsEditor({ value, onChange, currency, orgId, readOnly
               <tr>
                 <td
                   colSpan={readOnly ? 5 : 6}
-                  className="px-4 py-6 text-center text-xs text-[var(--color-pib-text-muted)]"
+                  className="px-4 py-6"
                 >
-                  No line items yet.
+                  <div className="mx-auto flex max-w-md flex-col items-center gap-3 text-center">
+                    <span
+                      aria-hidden="true"
+                      className="material-symbols-outlined flex h-9 w-9 items-center justify-center rounded-md border border-[var(--color-pib-line)] bg-white/[0.04] text-[18px] text-[var(--color-accent-v2)]"
+                    >
+                      request_quote
+                    </span>
+                    <div>
+                      <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
+                        Quote value missing
+                      </p>
+                      <h3 className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">Build the first quote line</h3>
+                      <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">
+                        Add a product, service, or ad-hoc item so sales, delivery, and leadership can see what this opportunity is worth.
+                      </p>
+                    </div>
+                    {!readOnly && (
+                      <button
+                        type="button"
+                        onClick={openAddRow}
+                        className="inline-flex items-center gap-1.5 rounded-md border border-[var(--color-pib-line)] bg-white/[0.04] px-3 py-2 text-xs font-medium text-[var(--color-pib-text)] transition-colors hover:border-[var(--color-accent-v2)] hover:text-[var(--color-accent-v2)]"
+                      >
+                        <span aria-hidden="true" className="material-symbols-outlined text-[14px]">add</span>
+                        Add first quote item
+                      </button>
+                    )}
+                  </div>
                 </td>
               </tr>
             )}
@@ -325,7 +351,7 @@ export function DealLineItemsEditor({ value, onChange, currency, orgId, readOnly
         </table>
       </div>
 
-      {!readOnly && !addingRow && (
+      {!readOnly && !addingRow && items.length > 0 && (
         <button
           type="button"
           onClick={openAddRow}

@@ -156,7 +156,10 @@ export default function PortalContactDetailPage() {
   const timezoneFieldRef = useRef<HTMLInputElement | null>(null)
   const websiteFieldRef = useRef<HTMLInputElement | null>(null)
   const notesFieldRef = useRef<HTMLTextAreaElement | null>(null)
+  const stageFieldRef = useRef<HTMLSelectElement | null>(null)
   const ownerFieldRef = useRef<HTMLSelectElement | null>(null)
+  const sourceFieldRef = useRef<HTMLSelectElement | null>(null)
+  const customFieldsEditRef = useRef<HTMLDivElement | null>(null)
   const [contact, setContact] = useState<ContactRecord | null>(null)
   const [emails, setEmails] = useState<EmailRecord[]>([])
   const [activities, setActivities] = useState<ActivityRecord[]>([])
@@ -454,6 +457,27 @@ export default function PortalContactDetailPage() {
     setLogError(null)
   }
 
+  function startSuggestion(suggestion: SuggestionItem) {
+    const action = suggestion.action.toLowerCase()
+    if (action.includes('follow') || action.includes('proposal') || action.includes('send') || action.includes('chase')) {
+      setLogEmailSubject(suggestion.action)
+      setLogSummary('')
+      openFirstEmailComposer()
+      return
+    }
+    if (action.includes('demo')) {
+      setStage('demo')
+      focusProfileField(stageFieldRef)
+      return
+    }
+    if (action.includes('qualify') || action.includes('archive')) {
+      focusProfileField(stageFieldRef)
+      return
+    }
+    setLogSummary(suggestion.reason)
+    openFirstNoteComposer()
+  }
+
   function openFirstNoteComposer() {
     setLogType('note')
     setShowAiComposer(false)
@@ -483,6 +507,12 @@ export default function PortalContactDetailPage() {
     const field = fieldRef.current
     field?.scrollIntoView?.({ behavior: 'smooth', block: 'center' })
     field?.focus()
+  }
+
+  function focusCustomFields() {
+    const section = customFieldsEditRef.current
+    section?.scrollIntoView?.({ behavior: 'smooth', block: 'center' })
+    section?.querySelector<HTMLElement>('input, select, textarea')?.focus()
   }
 
   async function handleLogActivity() {
@@ -1128,6 +1158,11 @@ export default function PortalContactDetailPage() {
                 ariaLabel: `Assign owner for ${contactName} from relationship ownership`,
                 onClick: () => focusProfileField(ownerFieldRef),
               },
+              reviewSource: {
+                label: 'Review source',
+                ariaLabel: `Review source provenance for ${contactName} from relationship ownership`,
+                onClick: () => focusProfileField(sourceFieldRef),
+              },
             }}
           />
 
@@ -1138,6 +1173,11 @@ export default function PortalContactDetailPage() {
                 definitions={customFieldDefs}
                 values={storedCustomFields}
                 mode="read"
+                emptyAction={{
+                  label: 'Capture fields',
+                  ariaLabel: `Capture custom fields for ${contactName}`,
+                  onClick: focusCustomFields,
+                }}
               />
             </div>
           )}
@@ -1238,7 +1278,7 @@ export default function PortalContactDetailPage() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
               <div className="space-y-1">
                 <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">Source</p>
-                <select value={source} onChange={(e) => setSource(e.target.value)} className="pib-input w-full">
+                <select ref={sourceFieldRef} value={source} onChange={(e) => setSource(e.target.value)} className="pib-input w-full">
                   {SOURCE_OPTIONS.map((option) => <option key={option} value={option} className="bg-black">{option}</option>)}
                 </select>
               </div>
@@ -1250,7 +1290,7 @@ export default function PortalContactDetailPage() {
               </div>
               <div className="space-y-1">
                 <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">Stage</p>
-                <select value={stage} onChange={(e) => setStage(e.target.value)} className="pib-input w-full">
+                <select ref={stageFieldRef} value={stage} onChange={(e) => setStage(e.target.value)} className="pib-input w-full">
                   {STAGE_OPTIONS.map((option) => <option key={option} value={option} className="bg-black">{option}</option>)}
                 </select>
               </div>
@@ -1316,7 +1356,7 @@ export default function PortalContactDetailPage() {
             </div>
 
             {customFieldDefs.length > 0 && (
-              <div className="space-y-1 pt-1">
+              <div ref={customFieldsEditRef} className="space-y-1 pt-1">
                 <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">
                   Custom fields
                 </p>
@@ -1360,6 +1400,7 @@ export default function PortalContactDetailPage() {
               onLogNote: openFirstNoteComposer,
               onSendEmail: email.trim() ? openFirstEmailComposer : undefined,
               onScheduleMeeting: openFirstMeetingComposer,
+              onStartSuggestion: startSuggestion,
             }}
           />
 
@@ -1378,11 +1419,15 @@ export default function PortalContactDetailPage() {
               </div>
             ) : emails.length === 0 ? (
               <div className="p-10 text-center">
-                <span className="material-symbols-outlined text-3xl text-[var(--color-pib-text-muted)]">
+                <span className="material-symbols-outlined inline-flex h-10 w-10 items-center justify-center rounded-md border border-[var(--color-pib-line)] bg-white/[0.04] text-[20px] text-[var(--color-pib-accent)]">
                   mail
                 </span>
-                <p className="text-sm text-[var(--color-pib-text-muted)] mt-2">
-                  No emails sent or received yet.
+                <p className="mt-3 text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
+                  Email trail missing
+                </p>
+                <h3 className="mt-1 text-base font-semibold text-[var(--color-pib-text)]">Start the first outreach thread</h3>
+                <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[var(--color-pib-text-muted)]">
+                  Send the first message so future replies, campaign touches, and account history are visible to every team member working this relationship.
                 </p>
                 {contact.email ? (
                   <button
@@ -1441,6 +1486,15 @@ export default function PortalContactDetailPage() {
                     <div>
                       <p className="text-sm font-medium">{s.action}</p>
                       <p className="text-xs text-[var(--color-pib-text-muted)]">{s.reason}</p>
+                      <button
+                        type="button"
+                        onClick={() => startSuggestion(s)}
+                        aria-label={`Start suggested action: ${s.action} for ${contactName}`}
+                        className="btn-pib-secondary mt-2 inline-flex items-center gap-1.5 text-xs"
+                      >
+                        <span className="material-symbols-outlined text-[14px]" aria-hidden="true">play_arrow</span>
+                        Start action
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -1658,22 +1712,33 @@ export default function PortalContactDetailPage() {
                 ))}
               </div>
             ) : activities.length === 0 ? (
-              <div className="p-10 text-center">
-                <span className="material-symbols-outlined text-3xl text-[var(--color-pib-text-muted)]">
-                  history
-                </span>
-                <p className="text-sm text-[var(--color-pib-text-muted)] mt-2">
-                  No activity logged yet.
-                </p>
-                <button
-                  type="button"
-                  onClick={openFirstNoteComposer}
-                  aria-label={`Log first note for ${contact.name ?? 'this contact'}`}
-                  className="btn-pib-primary mt-4 inline-flex items-center gap-1.5 text-xs"
-                >
-                  <span className="material-symbols-outlined text-[14px]" aria-hidden="true">edit_note</span>
-                  Log first note
-                </button>
+              <div className="p-10">
+                <div className="mx-auto flex max-w-lg flex-col items-center gap-3 text-center">
+                  <span
+                    aria-hidden="true"
+                    className="material-symbols-outlined flex h-10 w-10 items-center justify-center rounded-md border border-[var(--color-pib-line)] bg-white/[0.04] text-[20px] text-[var(--color-pib-accent)]"
+                  >
+                    history
+                  </span>
+                  <div>
+                    <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
+                      Relationship timeline missing
+                    </p>
+                    <h3 className="mt-1 text-base font-semibold text-[var(--color-pib-text)]">Start the first contact note</h3>
+                    <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">
+                      Log the first note, call, email, or meeting so the whole team can see what happened, who followed up, and what should happen next.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={openFirstNoteComposer}
+                    aria-label={`Start activity trail for ${contact.name ?? 'this contact'}`}
+                    className="btn-pib-primary mt-4 inline-flex items-center gap-1.5 text-xs"
+                  >
+                    <span className="material-symbols-outlined text-[14px]" aria-hidden="true">edit_note</span>
+                    Start activity trail
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="px-5 pb-4">

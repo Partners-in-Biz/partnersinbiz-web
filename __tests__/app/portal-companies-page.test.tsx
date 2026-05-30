@@ -3,10 +3,11 @@ import CompaniesPage from '@/app/(portal)/portal/companies/page'
 
 const mockPush = jest.fn()
 const mockReplace = jest.fn()
+let mockSearchParams = new URLSearchParams()
 
 jest.mock('next/navigation', () => ({
   useRouter: () => ({ push: mockPush, replace: mockReplace }),
-  useSearchParams: () => new URLSearchParams(),
+  useSearchParams: () => mockSearchParams,
 }))
 
 jest.mock('next/link', () => ({
@@ -19,6 +20,7 @@ jest.mock('next/link', () => ({
 describe('Portal companies page', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    mockSearchParams = new URLSearchParams()
     global.fetch = jest.fn((input: RequestInfo | URL) => {
       const url = String(input)
       if (url.startsWith('/api/v1/crm/companies?')) {
@@ -76,6 +78,98 @@ describe('Portal companies page', () => {
     expect(screen.queryByText('Managed Account')).not.toBeInTheDocument()
     expect(screen.getByText('Unmanaged Account')).toBeInTheDocument()
     expect(screen.getByText('Unassigned')).toBeInTheDocument()
+  })
+
+  it('treats an empty unmanaged-company lens as clean account accountability', async () => {
+    global.fetch = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.startsWith('/api/v1/crm/companies?')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: {
+              companies: [
+                {
+                  id: 'company-managed',
+                  orgId: 'org-1',
+                  name: 'Managed Account',
+                  industry: 'SaaS',
+                  lifecycleStage: 'customer',
+                  accountManagerUid: 'uid-1',
+                  accountManagerRef: { uid: 'uid-1', displayName: 'Ava Owner' },
+                  tags: [],
+                  notes: 'Managed relationship',
+                  createdAt: null,
+                  updatedAt: null,
+                },
+              ],
+            },
+          }),
+        } as Response)
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    }) as jest.Mock
+
+    render(<CompaniesPage />)
+
+    expect(await screen.findByText('Managed Account')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show unmanaged companies needing an account manager' }))
+
+    expect(await screen.findByRole('heading', { name: 'No unmanaged companies.' })).toBeInTheDocument()
+    expect(screen.getByText('Every visible company already has an account manager.')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show all companies' }))
+
+    expect(await screen.findByText('Managed Account')).toBeInTheDocument()
+  })
+
+  it('treats an empty filtered company search as a reversible no-results view', async () => {
+    mockSearchParams = new URLSearchParams('industry=Healthcare')
+    global.fetch = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('industry=Healthcare')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { companies: [] } }),
+        } as Response)
+      }
+      if (url.startsWith('/api/v1/crm/companies?')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: {
+              companies: [
+                {
+                  id: 'company-managed',
+                  orgId: 'org-1',
+                  name: 'Managed Account',
+                  industry: 'SaaS',
+                  lifecycleStage: 'customer',
+                  accountManagerUid: 'uid-1',
+                  accountManagerRef: { uid: 'uid-1', displayName: 'Ava Owner' },
+                  tags: [],
+                  notes: 'Managed relationship',
+                  createdAt: null,
+                  updatedAt: null,
+                },
+              ],
+            },
+          }),
+        } as Response)
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    }) as jest.Mock
+
+    render(<CompaniesPage />)
+
+    expect(await screen.findByRole('heading', { name: 'No companies match this view.' })).toBeInTheDocument()
+    expect(screen.getByText('Clear the filters to return to the full account list.')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }))
+
+    expect(mockReplace).toHaveBeenCalledWith('/portal/companies', { scroll: false })
+    expect(await screen.findByText('Managed Account')).toBeInTheDocument()
   })
 
   it('routes sparse company rows directly to profile setup', async () => {

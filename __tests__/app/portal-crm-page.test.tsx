@@ -36,18 +36,20 @@ describe('Portal CRM hub', () => {
   it('turns the empty top-open-deals panel into a create-deal action', async () => {
     render(<PortalCrmPage />)
 
-    expect(await screen.findByText('No open deals yet.')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Build the first active pipeline.' })).toBeInTheDocument()
+    expect(screen.getByText('Create a deal so leadership can see value, owner, and next-step accountability from this command center.')).toBeInTheDocument()
 
     const createDealLink = screen.getByRole('link', { name: 'Create first deal from CRM command center' })
-    expect(createDealLink).toHaveAttribute('href', '/portal/deals')
+    expect(createDealLink).toHaveAttribute('href', '/portal/deals?create=deal')
   })
 
   it('turns the empty activity panel into a contact activity action', async () => {
     render(<PortalCrmPage />)
 
-    expect(await screen.findByText('No CRM activity logged yet.')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'No relationship activity logged yet.' })).toBeInTheDocument()
+    expect(screen.getByText('Open the stale follow-up lens to give the team a working list for calls, emails, meetings, and notes.')).toBeInTheDocument()
 
     const contactsLink = screen.getByRole('link', { name: 'Open contacts to log CRM activity from the command center' })
-    expect(contactsLink).toHaveAttribute('href', '/portal/contacts')
+    expect(contactsLink).toHaveAttribute('href', '/portal/contacts?followUp=stale')
   })
 })

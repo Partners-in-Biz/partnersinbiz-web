@@ -155,9 +155,15 @@ describe('Portal deal detail page', () => {
     render(<DealDetailPage />)
 
     await screen.findByText('Unowned expansion')
-    expect(screen.getByText('No line items yet. Add services or products so the deal can become a quote.')).toBeInTheDocument()
+    expect(screen.getByText('Commercial detail missing')).toBeInTheDocument()
+    expect(screen.getByText('Make this deal quote-ready')).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'Add products, services, or ad-hoc pricing so leadership can review value, delivery can see scope, and the opportunity can become a client-ready quote.'
+      )
+    ).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Add products or services to Unowned expansion' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Add first commercial item to Unowned expansion' }))
 
     expect(screen.getByTestId('deal-drawer')).toBeInTheDocument()
   })
@@ -166,9 +172,15 @@ describe('Portal deal detail page', () => {
     render(<DealDetailPage />)
 
     await screen.findByText('Unowned expansion')
-    expect(screen.getByText('No activity yet.')).toBeInTheDocument()
+    expect(screen.getByText('Relationship trail missing')).toBeInTheDocument()
+    expect(screen.getByText('Anchor the first deal activity')).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'Link a contact before the first note, email, call, or meeting so every employee can see who owns the conversation and what happened next.'
+      )
+    ).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Link contact to start activity for Unowned expansion' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Link contact and start activity for Unowned expansion' }))
 
     expect(screen.getByTestId('deal-drawer')).toBeInTheDocument()
   })
@@ -177,9 +189,15 @@ describe('Portal deal detail page', () => {
     render(<DealDetailPage />)
 
     await screen.findByText('Unowned expansion')
-    expect(screen.getByText('No stage movement recorded yet.')).toBeInTheDocument()
+    expect(screen.getByText('Pipeline progress unproven')).toBeInTheDocument()
+    expect(screen.getByText('Record the first stage signal')).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'Confirm the current stage now so leadership can trust the forecast, reps can see where the opportunity is stuck, and future stage changes have a baseline.'
+      )
+    ).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Update stage for Unowned expansion' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm stage baseline for Unowned expansion' }))
 
     expect(screen.getByTestId('deal-drawer')).toBeInTheDocument()
   })

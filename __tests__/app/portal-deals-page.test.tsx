@@ -1,6 +1,12 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import DealsPage from '@/app/(portal)/portal/deals/page'
 
+let mockSearchParams = new URLSearchParams()
+
+jest.mock('next/navigation', () => ({
+  useSearchParams: () => mockSearchParams,
+}))
+
 jest.mock('next/link', () => ({
   __esModule: true,
   default: ({ children, href, ...props }: { children: React.ReactNode; href: string }) => (
@@ -32,6 +38,7 @@ let mockDealRows: unknown[] = []
 describe('Portal deals page', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    mockSearchParams = new URLSearchParams()
     mockDealRows = [
       {
         id: 'deal-1',
@@ -72,7 +79,10 @@ describe('Portal deals page', () => {
             id: 'pipeline-1',
             name: 'Sales pipeline',
             isDefault: true,
-            stages: [{ id: 'qualified', label: 'Qualified', kind: 'open', order: 1, probability: 40 }],
+            stages: [
+              { id: 'qualified', label: 'Qualified', kind: 'open', order: 1, probability: 40 },
+              { id: 'proposal', label: 'Proposal', kind: 'open', order: 2, probability: 70 },
+            ],
           },
         ])
       }
@@ -158,6 +168,64 @@ describe('Portal deals page', () => {
     expect(screen.getByText('Unassigned')).toBeInTheDocument()
   })
 
+  it('opens directly to unassigned deals from CRM reports', async () => {
+    mockSearchParams = new URLSearchParams('view=list&owner=unassigned')
+
+    render(<DealsPage />)
+
+    expect(await screen.findByRole('tab', { name: /List/i })).toHaveAttribute('aria-selected', 'true')
+    expect(await screen.findByText('Unowned expansion')).toBeInTheDocument()
+    expect(screen.queryByText('Growth retainer')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Show all deals' })).toBeInTheDocument()
+  })
+
+  it('treats an empty unassigned deal lens as clean pipeline accountability', async () => {
+    mockSearchParams = new URLSearchParams('view=list&owner=unassigned')
+    mockDealRows = [
+      {
+        id: 'deal-owned',
+        orgId: 'org-1',
+        contactId: 'contact-1',
+        title: 'Owned expansion',
+        value: 45000,
+        currency: 'ZAR',
+        pipelineId: 'pipeline-1',
+        stageId: 'qualified',
+        ownerUid: 'owner-1',
+        ownerRef: { uid: 'owner-1', displayName: 'Maya Sales' },
+        expectedCloseDate: null,
+        notes: '',
+        createdAt: null,
+        updatedAt: null,
+      },
+    ]
+
+    render(<DealsPage />)
+
+    expect(await screen.findByRole('heading', { name: 'No unassigned deals.' })).toBeInTheDocument()
+    expect(screen.getByText('Every open deal in this lens has an owner.')).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: 'Show all deals' }).length).toBeGreaterThan(0)
+  })
+
+  it('opens directly to a rep-owned deal lens from CRM reports', async () => {
+    mockSearchParams = new URLSearchParams('view=list&owner=owner-1')
+
+    render(<DealsPage />)
+
+    expect(await screen.findByRole('tab', { name: /List/i })).toHaveAttribute('aria-selected', 'true')
+    expect(await screen.findByText('Growth retainer')).toBeInTheDocument()
+    expect(screen.queryByText('Unowned expansion')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Show all deals' })).toBeInTheDocument()
+  })
+
+  it('opens the create drawer directly from CRM command-center create links', async () => {
+    mockSearchParams = new URLSearchParams('create=deal')
+
+    render(<DealsPage />)
+
+    expect(await screen.findByTestId('deal-drawer')).toBeInTheDocument()
+  })
+
   it('assigns selected unassigned deals to a team member', async () => {
     render(<DealsPage />)
 
@@ -196,5 +264,157 @@ describe('Portal deals page', () => {
     fireEvent.click(screen.getByRole('button', { name: /create forecastable deal/i }))
 
     expect(screen.getByTestId('deal-drawer')).toBeInTheDocument()
+  })
+
+  it('opens directly to forecast deals missing close dates from CRM reports', async () => {
+    mockSearchParams = new URLSearchParams('view=forecast&focus=no-close-date')
+    mockDealRows = [
+      {
+        id: 'deal-with-date',
+        orgId: 'org-1',
+        contactId: 'contact-1',
+        title: 'Dated expansion',
+        value: 50000,
+        currency: 'ZAR',
+        pipelineId: 'pipeline-1',
+        stageId: 'qualified',
+        ownerUid: 'owner-1',
+        ownerRef: { uid: 'owner-1', displayName: 'Maya Sales' },
+        expectedCloseDate: '2026-06-15',
+        notes: '',
+        createdAt: null,
+        updatedAt: null,
+      },
+      {
+        id: 'deal-no-date',
+        orgId: 'org-1',
+        contactId: 'contact-1',
+        title: 'No close date opportunity',
+        value: 25000,
+        currency: 'ZAR',
+        pipelineId: 'pipeline-1',
+        stageId: 'qualified',
+        ownerUid: 'owner-1',
+        ownerRef: { uid: 'owner-1', displayName: 'Maya Sales' },
+        expectedCloseDate: null,
+        notes: '',
+        createdAt: null,
+        updatedAt: null,
+      },
+    ]
+
+    render(<DealsPage />)
+
+    expect(await screen.findByRole('tab', { name: /Forecast/i })).toHaveAttribute('aria-selected', 'true')
+    expect(await screen.findByText('No close date opportunity')).toBeInTheDocument()
+    expect(screen.queryByText('Dated expansion')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Focus deals missing close dates' })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('treats an empty missing-close-date forecast lens as clean forecast hygiene', async () => {
+    mockSearchParams = new URLSearchParams('view=forecast&focus=no-close-date')
+    mockDealRows = [
+      {
+        id: 'deal-with-date',
+        orgId: 'org-1',
+        contactId: 'contact-1',
+        title: 'Dated expansion',
+        value: 50000,
+        currency: 'ZAR',
+        pipelineId: 'pipeline-1',
+        stageId: 'qualified',
+        ownerUid: 'owner-1',
+        ownerRef: { uid: 'owner-1', displayName: 'Maya Sales' },
+        expectedCloseDate: '2026-06-15',
+        notes: '',
+        createdAt: null,
+        updatedAt: null,
+      },
+    ]
+
+    render(<DealsPage />)
+
+    expect(await screen.findByRole('heading', { name: 'No deals missing close dates.' })).toBeInTheDocument()
+    expect(screen.getByText('Every open opportunity in this forecast lens has an expected close date.')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Show full forecast' }))
+
+    expect(await screen.findByText('Dated expansion')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Focus all deals' })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('opens directly to a deal stage lens from CRM reports', async () => {
+    mockSearchParams = new URLSearchParams('view=list&pipelineId=pipeline-1&stage=qualified')
+    mockDealRows = [
+      {
+        id: 'deal-qualified',
+        orgId: 'org-1',
+        contactId: 'contact-1',
+        title: 'Qualified opportunity',
+        value: 50000,
+        currency: 'ZAR',
+        pipelineId: 'pipeline-1',
+        stageId: 'qualified',
+        ownerUid: 'owner-1',
+        ownerRef: { uid: 'owner-1', displayName: 'Maya Sales' },
+        expectedCloseDate: '2026-06-15',
+        notes: '',
+        createdAt: null,
+        updatedAt: null,
+      },
+      {
+        id: 'deal-proposal',
+        orgId: 'org-1',
+        contactId: 'contact-1',
+        title: 'Proposal opportunity',
+        value: 25000,
+        currency: 'ZAR',
+        pipelineId: 'pipeline-1',
+        stageId: 'proposal',
+        ownerUid: 'owner-1',
+        ownerRef: { uid: 'owner-1', displayName: 'Maya Sales' },
+        expectedCloseDate: '2026-07-15',
+        notes: '',
+        createdAt: null,
+        updatedAt: null,
+      },
+    ]
+
+    render(<DealsPage />)
+
+    expect(await screen.findByRole('tab', { name: /List/i })).toHaveAttribute('aria-selected', 'true')
+    expect(await screen.findByText('Qualified opportunity')).toBeInTheDocument()
+    expect(screen.queryByText('Proposal opportunity')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Qualified' })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('treats an empty stage deal lens as a clean pipeline stage', async () => {
+    mockSearchParams = new URLSearchParams('view=list&pipelineId=pipeline-1&stage=proposal')
+    mockDealRows = [
+      {
+        id: 'deal-qualified',
+        orgId: 'org-1',
+        contactId: 'contact-1',
+        title: 'Qualified opportunity',
+        value: 50000,
+        currency: 'ZAR',
+        pipelineId: 'pipeline-1',
+        stageId: 'qualified',
+        ownerUid: 'owner-1',
+        ownerRef: { uid: 'owner-1', displayName: 'Maya Sales' },
+        expectedCloseDate: '2026-06-15',
+        notes: '',
+        createdAt: null,
+        updatedAt: null,
+      },
+    ]
+
+    render(<DealsPage />)
+
+    expect(await screen.findByRole('heading', { name: 'No deals in Proposal.' })).toBeInTheDocument()
+    expect(screen.getByText('This pipeline stage is clear for the current deal lens.')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Show all stages' }))
+
+    expect(await screen.findByText('Qualified opportunity')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'All stages' })).toHaveAttribute('aria-pressed', 'true')
   })
 })

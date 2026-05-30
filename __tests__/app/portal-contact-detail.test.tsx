@@ -1,6 +1,10 @@
 import React from 'react'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import PortalContactDetailPage from '@/app/(portal)/portal/contacts/[id]/page'
+import type { CustomFieldDefinition } from '@/lib/customFields/types'
+
+let mockContactCustomFieldDefinitions: CustomFieldDefinition[] = []
+let mockSuggestions: Array<{ action: string; reason: string; urgency: 'high' | 'medium' | 'low' }> = []
 
 jest.mock('next/navigation', () => ({
   useParams: () => ({ id: 'contact-1' }),
@@ -13,6 +17,8 @@ jest.mock('@/components/crm/ContactDealsPanel', () => ({
 
 describe('Portal contact detail page', () => {
   beforeEach(() => {
+    mockContactCustomFieldDefinitions = []
+    mockSuggestions = []
     global.fetch = jest.fn((input: RequestInfo | URL) => {
       const url = String(input)
       if (url === '/api/v1/crm/contacts/contact-1') {
@@ -36,7 +42,7 @@ describe('Portal contact detail page', () => {
       if (url === '/api/v1/crm/custom-fields?resource=contact') {
         return Promise.resolve({
           ok: true,
-          json: async () => ({ data: { definitions: [] } }),
+          json: async () => ({ data: { definitions: mockContactCustomFieldDefinitions } }),
         } as Response)
       }
       if (url === '/api/v1/portal/settings/team') {
@@ -60,7 +66,7 @@ describe('Portal contact detail page', () => {
       if (url === '/api/v1/crm/contacts/contact-1/suggestions') {
         return Promise.resolve({
           ok: true,
-          json: async () => ({ data: { suggestions: [] } }),
+          json: async () => ({ data: { suggestions: mockSuggestions } }),
         } as Response)
       }
       if (url === '/api/v1/crm/contacts/contact-1/enrollments') {
@@ -90,14 +96,16 @@ describe('Portal contact detail page', () => {
     }) as jest.Mock
   })
 
-  it('turns an empty email history into a first-email action', async () => {
+  it('turns an empty email history into an outreach readiness action', async () => {
     render(<PortalContactDetailPage />)
 
     await waitFor(() => {
       expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
     })
 
-    expect(await screen.findByText('No emails sent or received yet.')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Start the first outreach thread' })).toBeInTheDocument()
+    expect(screen.getByText('Email trail missing')).toBeInTheDocument()
+    expect(screen.getByText('Send the first message so future replies, campaign touches, and account history are visible to every team member working this relationship.')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Send first email to Jane Client' }))
 
     expect(screen.getByPlaceholderText('Subject…')).toBeInTheDocument()
@@ -111,8 +119,14 @@ describe('Portal contact detail page', () => {
       expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
     })
 
-    expect(await screen.findByText('No activity logged yet.')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Log first note for Jane Client' }))
+    expect(await screen.findByText('Relationship timeline missing')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Start the first contact note' })).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'Log the first note, call, email, or meeting so the whole team can see what happened, who followed up, and what should happen next.'
+      )
+    ).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Start activity trail for Jane Client' }))
 
     expect(screen.getByPlaceholderText('Add note notes…')).toBeInTheDocument()
   })
@@ -127,6 +141,29 @@ describe('Portal contact detail page', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Link company for Jane Client' }))
 
     expect(screen.getByPlaceholderText('Search companies…')).toHaveFocus()
+  })
+
+  it('turns empty contact custom fields into a focused capture action', async () => {
+    mockContactCustomFieldDefinitions = [{
+      id: 'field-1',
+      orgId: 'org-1',
+      resource: 'contact',
+      key: 'decision_role',
+      label: 'Decision role',
+      type: 'text',
+      required: false,
+      order: 0,
+      createdAt: null,
+      updatedAt: null,
+    }]
+
+    render(<PortalContactDetailPage />)
+
+    expect(await screen.findByText('No custom fields set.')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Capture custom fields for Jane Client' }))
+
+    expect(screen.getByLabelText('Decision role')).toHaveFocus()
   })
 
   it('turns the company card empty state into a company picker action', async () => {
@@ -190,6 +227,25 @@ describe('Portal contact detail page', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Log touch for Jane Client from last touch insight' }))
 
     expect(screen.getByPlaceholderText('Add note notes…')).toBeInTheDocument()
+  })
+
+  it('turns a follow-up suggestion into a prefilled email action', async () => {
+    mockSuggestions = [{
+      action: 'Send a follow-up',
+      reason: 'No activity in 7+ days',
+      urgency: 'high',
+    }]
+
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Start suggested action: Send a follow-up for Jane Client' })[0])
+
+    expect(screen.getByDisplayValue('Send a follow-up')).toBeInTheDocument()
+    expect(screen.getByPlaceholderText('Message…')).toBeInTheDocument()
   })
 
   it('turns an empty email thread insight into a send action', async () => {
@@ -261,6 +317,20 @@ describe('Portal contact detail page', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Assign owner for Jane Client from relationship ownership' }))
 
     expect(screen.getByDisplayValue('Unassigned')).toHaveFocus()
+  })
+
+  it('turns weak source provenance into a source review action', async () => {
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    expect(await screen.findByText('Source provenance weak')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Review source provenance for Jane Client from relationship ownership' }))
+
+    expect(screen.getByDisplayValue('manual')).toHaveFocus()
   })
 
   it('turns missing identity intelligence into profile field actions', async () => {
