@@ -227,7 +227,7 @@ describe('Portal CRM reports page', () => {
     expect(await screen.findByText('No dominant stage yet')).toBeInTheDocument()
 
     const contactsLink = screen.getByRole('link', { name: 'Open contacts to classify funnel stages' })
-    expect(contactsLink).toHaveAttribute('href', '/portal/contacts')
+    expect(contactsLink).toHaveAttribute('href', '/portal/contacts?create=contact')
   })
 
   it('turns missing forecast data into a pipeline action', async () => {

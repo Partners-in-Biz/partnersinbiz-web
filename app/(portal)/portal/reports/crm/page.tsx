@@ -610,7 +610,7 @@ export default function CrmReportsPage() {
             ariaLabel: `Open contacts in dominant ${labelize(topStage[0])} stage`,
             icon: 'contacts',
           } : {
-            href: '/portal/contacts',
+            href: '/portal/contacts?create=contact',
             label: 'Classify contact stages',
             ariaLabel: 'Open contacts to classify funnel stages',
             icon: 'contacts',
