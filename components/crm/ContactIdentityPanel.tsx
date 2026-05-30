@@ -128,6 +128,11 @@ function smsReadinessLabel(profile: ContactIdentityProfile): string {
   return 'SMS ready'
 }
 
+function replySignalLabel(count: number): string {
+  if (count === 0) return 'No replies yet'
+  return `${count} repl${count === 1 ? 'y' : 'ies'}`
+}
+
 export function ContactIdentityPanel({
   profile,
   fieldActions,
@@ -178,7 +183,7 @@ export function ContactIdentityPanel({
       <div className="flex flex-wrap gap-2">
         <Signal icon="sms" label={smsLabel} healthy={smsReady} />
         <Signal icon="mark_email_read" label={emailLabel} healthy={emailReachable} />
-        <Signal icon="forum" label={`${replies} repl${replies === 1 ? 'y' : 'ies'}`} healthy={replies > 0} />
+        <Signal icon="forum" label={replySignalLabel(replies)} healthy={replies > 0} />
       </div>
     </section>
   )

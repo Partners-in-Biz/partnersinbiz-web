@@ -58,6 +58,13 @@ describe('ContactIdentityPanel', () => {
     expect(screen.queryByText('SMS incomplete')).not.toBeInTheDocument()
   })
 
+  it('explains when no relationship replies have been captured', () => {
+    render(<ContactIdentityPanel profile={{ ...profile, repliesCount: 0 }} />)
+
+    expect(screen.getByText('No replies yet')).toBeInTheDocument()
+    expect(screen.queryByText('0 replies')).not.toBeInTheDocument()
+  })
+
   it('turns missing identity fields into supplied profile actions', () => {
     const onAddRole = jest.fn()
     const onAddDepartment = jest.fn()
