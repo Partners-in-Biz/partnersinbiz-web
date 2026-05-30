@@ -513,6 +513,13 @@ export default function PortalContactDetailPage() {
     setLogError(null)
   }
 
+  function useAiDraftInComposer() {
+    if (!aiDraft) return
+    setLogEmailSubject(aiDraft.subject)
+    setLogSummary(aiDraft.bodyText)
+    openFirstEmailComposer()
+  }
+
   function openFirstCallComposer() {
     setLogType('call')
     setShowAiComposer(false)
@@ -1816,6 +1823,15 @@ export default function PortalContactDetailPage() {
                       >
                         <span className="material-symbols-outlined text-[14px]">content_copy</span>
                         Copy to clipboard
+                      </button>
+                      <button
+                        type="button"
+                        onClick={useAiDraftInComposer}
+                        aria-label={`Use AI draft in email composer for ${contactName}`}
+                        className="btn-pib-accent text-xs inline-flex items-center gap-1.5"
+                      >
+                        <span className="material-symbols-outlined text-[14px]" aria-hidden="true">outgoing_mail</span>
+                        Use draft
                       </button>
                     </div>
                   )}

@@ -94,6 +94,17 @@ describe('Portal contact detail page', () => {
           }),
         } as Response)
       }
+      if (url === '/api/v1/crm/ai/compose-email') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: {
+              subject: 'Executive follow-up',
+              bodyText: 'Hi Jane, here is the next step we discussed.',
+            },
+          }),
+        } as Response)
+      }
       if (url === '/api/v1/crm/contacts/contact-1' && init?.method === 'DELETE') {
         return Promise.resolve({
           ok: true,
@@ -423,6 +434,27 @@ describe('Portal contact detail page', () => {
 
     expect(screen.getByPlaceholderText('Meeting title…')).toBeInTheDocument()
     expect(screen.getByDisplayValue('Meeting with Jane Client')).toBeInTheDocument()
+  })
+
+  it('moves a generated AI email draft into the CRM email composer', async () => {
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /AI draft/ }))
+    fireEvent.change(screen.getByPlaceholderText('Purpose (e.g. Follow up after demo)'), {
+      target: { value: 'Follow up after leadership review' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Generate' }))
+
+    expect(await screen.findByText('Executive follow-up')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Use AI draft in email composer for Jane Client' }))
+
+    expect(screen.getByDisplayValue('Executive follow-up')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('Hi Jane, here is the next step we discussed.')).toBeInTheDocument()
+    expect(screen.queryByText('AI email composer')).not.toBeInTheDocument()
   })
 
   it('turns a missing best score insight into a recompute action', async () => {

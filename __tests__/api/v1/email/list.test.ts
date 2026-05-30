@@ -17,15 +17,15 @@ function makeReq(search = '') {
   })
 }
 
-function mockCollection(docs: object[]) {
-  const mockDocs = docs.map((d: any) => ({ id: d.id ?? 'e1', data: () => d }))
-  ;(adminDb.collection as jest.Mock).mockReturnValue({
+function mockCollection(docs: Array<Record<string, unknown>>) {
+  const mockDocs = docs.map((d) => ({ id: typeof d.id === 'string' ? d.id : 'e1', data: () => d }))
+  const query = {
     where: jest.fn().mockReturnThis(),
     orderBy: jest.fn().mockReturnThis(),
-    limit: jest.fn().mockReturnThis(),
-    offset: jest.fn().mockReturnThis(),
     get: jest.fn().mockResolvedValue({ docs: mockDocs }),
-  })
+  }
+  ;(adminDb.collection as jest.Mock).mockReturnValue(query)
+  return query
 }
 
 describe('GET /api/v1/email', () => {
@@ -62,6 +62,44 @@ describe('GET /api/v1/email', () => {
     mockCollection([])
     const res = await GET(makeReq('?orgId=org-test&contactId=c1'))
     expect(res.status).toBe(200)
+  })
+
+  it('keeps contact email history index-safe by filtering contactId in memory', async () => {
+    const query = mockCollection([
+      {
+        id: 'other',
+        orgId: 'org-test',
+        contactId: 'other-contact',
+        subject: 'Other contact',
+        createdAt: '2026-05-28T09:00:00.000Z',
+      },
+      {
+        id: 'newer',
+        orgId: 'org-test',
+        contactId: 'c1',
+        subject: 'Newest matching email',
+        createdAt: '2026-05-30T09:00:00.000Z',
+      },
+      {
+        id: 'older',
+        orgId: 'org-test',
+        contactId: 'c1',
+        subject: 'Older matching email',
+        createdAt: '2026-05-29T09:00:00.000Z',
+      },
+    ])
+
+    const res = await GET(makeReq('?orgId=org-test&contactId=c1&limit=20'))
+
+    expect(res.status).toBe(200)
+    expect(query.where).toHaveBeenCalledTimes(1)
+    expect(query.where).toHaveBeenCalledWith('orgId', '==', 'org-test')
+    expect(query.where).not.toHaveBeenCalledWith('contactId', '==', 'c1')
+    expect(query.orderBy).not.toHaveBeenCalled()
+
+    const body = await res.json()
+    expect(body.data.map((email: { id: string }) => email.id)).toEqual(['newer', 'older'])
+    expect(body.meta).toMatchObject({ total: 2, page: 1, limit: 20 })
   })
 
   it('returns empty array when no emails exist', async () => {
