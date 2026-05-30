@@ -406,6 +406,14 @@ export default function DealsPage() {
     [deals],
   )
   const ownerCoverage = deals.length > 0 ? (deals.length - unassignedDeals.length) / deals.length : 1
+  const emptyListTitle = ownerLens === 'unassigned'
+    ? 'No unassigned deals.'
+    : 'No deals found.'
+  const emptyListDescription = ownerLens === 'unassigned'
+    ? 'Every open deal in this lens has an owner.'
+    : ownerLens !== 'all'
+      ? 'No deals match this owner lens. Show all deals to return to the full pipeline.'
+      : 'Try another stage filter or create a new client-safe deal.'
 
   useEffect(() => {
     setSelectedDealIds((current) => {
@@ -732,8 +740,19 @@ export default function DealsPage() {
         ) : filteredDeals.length === 0 ? (
           <EmptyState
             icon="search_off"
-            title="No deals found."
-            description="Try another stage filter or create a new client-safe deal."
+            title={emptyListTitle}
+            description={emptyListDescription}
+            action={ownerLens !== 'all' ? (
+              <button
+                type="button"
+                onClick={() => setOwnerLens('all')}
+                className="btn-pib-secondary inline-flex items-center gap-1.5"
+                aria-label="Show all deals"
+              >
+                <span className="material-symbols-outlined text-[16px]" aria-hidden="true">filter_alt_off</span>
+                Show all deals
+              </button>
+            ) : undefined}
           />
         ) : (
           <div className="pib-card overflow-hidden">

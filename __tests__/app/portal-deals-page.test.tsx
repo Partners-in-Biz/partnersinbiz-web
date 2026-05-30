@@ -179,6 +179,34 @@ describe('Portal deals page', () => {
     expect(screen.getByRole('button', { name: 'Show all deals' })).toBeInTheDocument()
   })
 
+  it('treats an empty unassigned deal lens as clean pipeline accountability', async () => {
+    mockSearchParams = new URLSearchParams('view=list&owner=unassigned')
+    mockDealRows = [
+      {
+        id: 'deal-owned',
+        orgId: 'org-1',
+        contactId: 'contact-1',
+        title: 'Owned expansion',
+        value: 45000,
+        currency: 'ZAR',
+        pipelineId: 'pipeline-1',
+        stageId: 'qualified',
+        ownerUid: 'owner-1',
+        ownerRef: { uid: 'owner-1', displayName: 'Maya Sales' },
+        expectedCloseDate: null,
+        notes: '',
+        createdAt: null,
+        updatedAt: null,
+      },
+    ]
+
+    render(<DealsPage />)
+
+    expect(await screen.findByRole('heading', { name: 'No unassigned deals.' })).toBeInTheDocument()
+    expect(screen.getByText('Every open deal in this lens has an owner.')).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: 'Show all deals' }).length).toBeGreaterThan(0)
+  })
+
   it('opens directly to a rep-owned deal lens from CRM reports', async () => {
     mockSearchParams = new URLSearchParams('view=list&owner=owner-1')
 
