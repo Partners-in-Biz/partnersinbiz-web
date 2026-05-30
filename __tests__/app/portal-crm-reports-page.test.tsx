@@ -188,6 +188,10 @@ describe('Portal CRM reports page', () => {
 
     const unassignedDealsLink = screen.getByRole('link', { name: 'Open unassigned deals from team execution report' })
     expect(unassignedDealsLink).toHaveAttribute('href', '/portal/deals?view=list&owner=unassigned')
+
+    const winRateBaselineLink = screen.getByRole('link', { name: 'Open Mandy Manager deals to create win-rate baseline' })
+    expect(winRateBaselineLink).toHaveAttribute('href', '/portal/deals?view=list&owner=u1')
+    expect(screen.getAllByText('No closes yet').length).toBeGreaterThan(0)
   })
 
   it('turns a missing dominant funnel stage insight into a contact stage action', async () => {

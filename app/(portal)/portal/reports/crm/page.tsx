@@ -976,7 +976,15 @@ export default function CrmReportsPage() {
                       <td className="px-4 py-3 text-sm text-right font-mono text-[var(--color-pib-accent)]">{fmtZar(rep.wonValue)}</td>
                       <td className="px-4 py-3 text-sm text-right font-mono text-[var(--color-pib-text)]">{fmtNum(rep.activities)}</td>
                       <td className="px-4 py-3 text-sm text-right font-mono text-[var(--color-pib-text)]">
-                        {rep.winRate === null ? '—' : fmtPercent(rep.winRate)}
+                        {rep.winRate === null ? (
+                          <Link
+                            href={repDealsHref(rep)}
+                            aria-label={`Open ${rep.displayName} deals to create win-rate baseline`}
+                            className="inline-flex items-center gap-1 rounded-full border border-amber-400/20 bg-amber-400/10 px-2 py-1 text-[11px] font-medium text-amber-200 transition-colors hover:border-amber-300/40 hover:bg-amber-400/15 focus:outline-none focus:ring-2 focus:ring-[var(--color-pib-accent)] focus:ring-offset-2 focus:ring-offset-[var(--color-pib-bg)]"
+                          >
+                            No closes yet
+                          </Link>
+                        ) : fmtPercent(rep.winRate)}
                       </td>
                     </tr>
                   ))}
