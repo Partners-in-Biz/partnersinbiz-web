@@ -96,14 +96,16 @@ describe('Portal contact detail page', () => {
     }) as jest.Mock
   })
 
-  it('turns an empty email history into a first-email action', async () => {
+  it('turns an empty email history into an outreach readiness action', async () => {
     render(<PortalContactDetailPage />)
 
     await waitFor(() => {
       expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
     })
 
-    expect(await screen.findByText('No emails sent or received yet.')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Start the first outreach thread' })).toBeInTheDocument()
+    expect(screen.getByText('Email trail missing')).toBeInTheDocument()
+    expect(screen.getByText('Send the first message so future replies, campaign touches, and account history are visible to every team member working this relationship.')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Send first email to Jane Client' }))
 
     expect(screen.getByPlaceholderText('Subject…')).toBeInTheDocument()

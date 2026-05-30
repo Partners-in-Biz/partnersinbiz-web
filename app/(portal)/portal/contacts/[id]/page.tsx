@@ -1413,11 +1413,15 @@ export default function PortalContactDetailPage() {
               </div>
             ) : emails.length === 0 ? (
               <div className="p-10 text-center">
-                <span className="material-symbols-outlined text-3xl text-[var(--color-pib-text-muted)]">
+                <span className="material-symbols-outlined inline-flex h-10 w-10 items-center justify-center rounded-md border border-[var(--color-pib-line)] bg-white/[0.04] text-[20px] text-[var(--color-pib-accent)]">
                   mail
                 </span>
-                <p className="text-sm text-[var(--color-pib-text-muted)] mt-2">
-                  No emails sent or received yet.
+                <p className="mt-3 text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
+                  Email trail missing
+                </p>
+                <h3 className="mt-1 text-base font-semibold text-[var(--color-pib-text)]">Start the first outreach thread</h3>
+                <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[var(--color-pib-text-muted)]">
+                  Send the first message so future replies, campaign touches, and account history are visible to every team member working this relationship.
                 </p>
                 {contact.email ? (
                   <button
