@@ -195,6 +195,20 @@ describe('Admin contact detail page', () => {
     expect(screen.getByTestId('contact-form')).toBeInTheDocument()
   })
 
+  it('turns missing admin relationship-profile email into a local capture action', async () => {
+    contactOverride = { email: '' }
+
+    render(<AdminContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Jane Client' })).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add email for Jane Client from relationship profile' }))
+
+    expect(screen.getByTestId('contact-form')).toBeInTheDocument()
+  })
+
   it('turns a missing admin contact phone into a profile completion action', async () => {
     contactOverride = { phone: '' }
 
@@ -205,6 +219,20 @@ describe('Admin contact detail page', () => {
     })
 
     fireEvent.click(screen.getByRole('button', { name: 'Add phone for Jane Client from contact command center' }))
+
+    expect(screen.getByTestId('contact-form')).toBeInTheDocument()
+  })
+
+  it('turns missing admin relationship-profile phone into a local capture action', async () => {
+    contactOverride = { phone: '' }
+
+    render(<AdminContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Jane Client' })).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add phone for Jane Client from relationship profile' }))
 
     expect(screen.getByTestId('contact-form')).toBeInTheDocument()
   })

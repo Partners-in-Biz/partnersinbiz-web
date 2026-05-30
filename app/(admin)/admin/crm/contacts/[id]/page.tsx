@@ -536,8 +536,20 @@ export default function ContactDetailPage() {
             <div className="space-y-3 p-5">
               <CompanyPanel companyId={contact.companyId} companyName={contact.companyName ?? contact.company} />
               <div className="grid gap-3">
-                <DetailRow label="Email" value={contact.email} />
-                <DetailRow label="Phone" value={contact.phone} />
+                <DetailRow
+                  label="Email"
+                  value={contact.email}
+                  actionLabel={`Add email for ${name} from relationship profile`}
+                  onAction={() => setEditing(true)}
+                  actionIcon="alternate_email"
+                />
+                <DetailRow
+                  label="Phone"
+                  value={contact.phone}
+                  actionLabel={`Add phone for ${name} from relationship profile`}
+                  onAction={() => setEditing(true)}
+                  actionIcon="add_call"
+                />
                 <DetailRow
                   label="Role"
                   value={[contact.jobTitle, contact.department].filter(Boolean).join(' · ')}
