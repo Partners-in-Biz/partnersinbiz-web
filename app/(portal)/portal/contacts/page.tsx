@@ -389,12 +389,26 @@ export default function PortalContactsPage() {
   const contactCountLabel = loading
     ? 'Loading…'
     : followUpLens === 'stale'
-      ? `${displayedContacts.length} contact${displayedContacts.length === 1 ? '' : 's'} need follow-up.`
+      ? displayedContacts.length === 0
+        ? 'No contacts need follow-up.'
+        : `${displayedContacts.length} contact${displayedContacts.length === 1 ? '' : 's'} need follow-up.`
     : ownerLens === 'unowned'
       ? `${displayedContacts.length} unowned contact${displayedContacts.length === 1 ? '' : 's'} need assignment.`
     : hasActiveFilters
       ? `${displayedContacts.length} contact${displayedContacts.length === 1 ? '' : 's'} match this view.`
       : `${displayedContacts.length} contact${displayedContacts.length === 1 ? '' : 's'} in your audience.`
+  const emptyTitle = followUpLens === 'stale'
+    ? 'No contacts need follow-up.'
+    : hasActiveFilters
+      ? 'No contacts match this view.'
+      : 'No contacts yet.'
+  const emptyDescription = followUpLens === 'stale'
+    ? 'Every contact in this view has recent activity.'
+    : hasActiveFilters
+      ? 'Clear the search or filters to return to your full audience.'
+      : ownerLens === 'unowned'
+        ? 'Every contact in this view has an owner.'
+        : 'Add your first contact to start building your audience.'
 
   return (
     <div className="space-y-8">
@@ -559,23 +573,18 @@ export default function PortalContactsPage() {
       ) : displayedContacts.length === 0 ? (
         <div className="bento-card p-10 text-center">
           <span className="material-symbols-outlined text-4xl text-[var(--color-pib-accent)]">contacts</span>
-          <h2 className="font-display text-2xl mt-4">
-            {hasActiveFilters ? 'No contacts match this view.' : 'No contacts yet.'}
-          </h2>
+          <h2 className="font-display text-2xl mt-4">{emptyTitle}</h2>
           <p className="text-sm text-[var(--color-pib-text-muted)] mt-2">
-            {hasActiveFilters
-              ? 'Clear the search or filters to return to your full audience.'
-              : ownerLens === 'unowned'
-                ? 'Every contact in this view has an owner.'
-              : 'Add your first contact to start building your audience.'}
+            {emptyDescription}
           </p>
           {hasActiveFilters || ownerLens === 'unowned' ? (
             <button
               onClick={() => { setSearch(''); setStageFilter(''); setTypeFilter(''); setOwnerLens('all'); setFollowUpLens('all') }}
               className="btn-pib-secondary mt-6"
+              aria-label={ownerLens === 'unowned' || followUpLens === 'stale' ? 'Show all contacts' : 'Clear filters'}
             >
               <span className="material-symbols-outlined text-base">filter_alt_off</span>
-              {ownerLens === 'unowned' ? 'Show all contacts' : 'Clear filters'}
+              {ownerLens === 'unowned' || followUpLens === 'stale' ? 'Show all contacts' : 'Clear filters'}
             </button>
           ) : (
             <button onClick={() => setShowNew(true)} className="btn-pib-accent mt-6">

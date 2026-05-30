@@ -158,6 +158,47 @@ describe('Portal contacts page', () => {
     expect(screen.getByText('followUp: stale')).toBeInTheDocument()
   })
 
+  it('treats an empty stale follow-up lens as a clean relationship health state', async () => {
+    mockSearchParams = new URLSearchParams('followUp=stale')
+    ;(global.fetch as jest.Mock).mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.startsWith('/api/v1/crm/contacts')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: [
+              {
+                id: 'contact-fresh',
+                name: 'Fresh Followup',
+                email: 'fresh@example.com',
+                company: 'Fresh Co',
+                type: 'lead',
+                stage: 'contacted',
+                assignedTo: 'sales-lead-1',
+                assignedToRef: { uid: 'sales-lead-1', displayName: 'Ava Owner' },
+                tags: [],
+                lastContactedAt: '2026-05-28T08:00:00.000Z',
+              },
+            ],
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/portal/settings/team') {
+        return Promise.resolve({ ok: true, json: async () => ({ members: [] }) } as Response)
+      }
+      if (url.startsWith('/api/v1/crm/saved-views')) {
+        return Promise.resolve({ ok: true, json: async () => ({ data: [] }) } as Response)
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    })
+
+    render(<PortalContactsPage />)
+
+    expect(await screen.findByRole('heading', { name: 'No contacts need follow-up.' })).toBeInTheDocument()
+    expect(screen.getByText('Every contact in this view has recent activity.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Show all contacts' })).toBeInTheDocument()
+  })
+
   it('opens the new contact drawer directly from CRM create links', async () => {
     mockSearchParams = new URLSearchParams('create=contact')
 
