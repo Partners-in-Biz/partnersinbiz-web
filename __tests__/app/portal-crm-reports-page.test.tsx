@@ -338,7 +338,7 @@ describe('Portal CRM reports page', () => {
     expect(await screen.findByText('No time-in-stage data yet')).toBeInTheDocument()
 
     const dealsLink = screen.getByRole('link', { name: 'Open pipeline to move deals through tracked stages' })
-    expect(dealsLink).toHaveAttribute('href', '/portal/deals')
+    expect(dealsLink).toHaveAttribute('href', '/portal/deals?create=deal')
   })
 
   it('turns a missing slowest-stage insight into a pipeline review action', async () => {

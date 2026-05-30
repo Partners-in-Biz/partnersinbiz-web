@@ -802,7 +802,7 @@ export default function CrmReportsPage() {
             title="No time-in-stage data yet"
             body="Velocity appears once deals are moving through tracked pipeline stages."
             action={{
-              href: '/portal/deals',
+              href: '/portal/deals?create=deal',
               label: 'Open pipeline',
               ariaLabel: 'Open pipeline to move deals through tracked stages',
               icon: 'view_kanban',
