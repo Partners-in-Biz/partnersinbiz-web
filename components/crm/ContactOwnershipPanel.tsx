@@ -11,8 +11,21 @@ export interface ContactOwnershipProfile {
   updatedByRef?: MemberRef
 }
 
+const SOURCE_LABELS: Record<string, string> = {
+  manual: 'Manual entry',
+  form: 'Form capture',
+  import: 'Imported list',
+  outreach: 'Outreach',
+}
+
 function memberLabel(ref?: MemberRef, fallback?: string): string {
   return ref?.displayName || fallback || 'Unassigned'
+}
+
+function sourceLabel(source?: string): string {
+  const key = source?.trim() ?? ''
+  if (!key) return 'Not captured'
+  return SOURCE_LABELS[key] ?? key
 }
 
 function memberMeta(ref?: MemberRef): string {
@@ -182,7 +195,7 @@ export function ContactOwnershipPanel({
   const owner = memberLabel(profile.assignedToRef, profile.assignedTo)
   const needsOwner = !profile.assignedToRef?.displayName && !profile.assignedTo
   const weakSource = !profile.capturedFromId?.trim() && (!profile.source?.trim() || profile.source === 'manual')
-  const source = profile.source || 'Not captured'
+  const source = sourceLabel(profile.source)
   const captureSource = profile.capturedFromId || 'Manual or legacy record'
   const creator = memberLabel(profile.createdByRef, undefined)
   const updater = memberLabel(profile.updatedByRef, undefined)
