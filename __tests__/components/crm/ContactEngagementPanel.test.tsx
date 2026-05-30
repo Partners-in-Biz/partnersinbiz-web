@@ -61,6 +61,14 @@ describe('ContactEngagementPanel', () => {
       />,
     )
 
+    expect(screen.getByText('Next best action missing')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Create the next relationship signal' })).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'No AI recommendation is ready yet. Log a note, send an email, or schedule the next touch so the team has enough context to keep the relationship moving.'
+      )
+    ).toBeInTheDocument()
+
     fireEvent.click(screen.getByRole('button', { name: 'Log note from engagement cockpit for Jane Client' }))
     fireEvent.click(screen.getByRole('button', { name: 'Send email from engagement cockpit to Jane Client' }))
     fireEvent.click(screen.getByRole('button', { name: 'Schedule meeting from engagement cockpit with Jane Client' }))
