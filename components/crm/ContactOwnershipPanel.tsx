@@ -37,6 +37,12 @@ function readableSourceFallback(source: string): string {
   return readableTokenLabel(source)
 }
 
+function captureSourceLabel(capturedFromId?: string): string {
+  const key = capturedFromId?.trim()
+  if (!key) return 'Manual or legacy record'
+  return readableTokenLabel(key)
+}
+
 function readableTokenLabel(value: string): string {
   return value
     .split(/[_\-\s]+/)
@@ -214,7 +220,7 @@ export function ContactOwnershipPanel({
   const needsOwner = !profile.assignedToRef?.displayName && !profile.assignedTo
   const weakSource = !profile.capturedFromId?.trim() && (!profile.source?.trim() || profile.source === 'manual')
   const source = sourceLabel(profile.source)
-  const captureSource = profile.capturedFromId || 'Manual or legacy record'
+  const captureSource = captureSourceLabel(profile.capturedFromId)
   const creator = memberLabel(profile.createdByRef, undefined)
   const updater = memberLabel(profile.updatedByRef, undefined)
 

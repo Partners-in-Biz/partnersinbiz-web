@@ -28,7 +28,8 @@ describe('ContactOwnershipPanel', () => {
     expect(screen.getByText('Ava Owner')).toBeInTheDocument()
     expect(screen.getByText('Outreach')).toBeInTheDocument()
     expect(screen.queryByText('outreach')).not.toBeInTheDocument()
-    expect(screen.getByText('source-1')).toBeInTheDocument()
+    expect(screen.getByText('Source 1')).toBeInTheDocument()
+    expect(screen.queryByText('source-1')).not.toBeInTheDocument()
     expect(screen.getByText('Pip Agent')).toBeInTheDocument()
     expect(screen.getByText('Peet Stander')).toBeInTheDocument()
     expect(screen.getAllByText('Team member')).toHaveLength(2)
@@ -68,6 +69,20 @@ describe('ContactOwnershipPanel', () => {
 
     expect(screen.getAllByText('External Partner').length).toBeGreaterThanOrEqual(1)
     expect(screen.queryByText('external_partner')).not.toBeInTheDocument()
+  })
+
+  it('formats capture source ids as readable provenance labels', () => {
+    render(
+      <ContactOwnershipPanel
+        profile={{
+          ...profile,
+          capturedFromId: 'facebook_lead_form',
+        }}
+      />,
+    )
+
+    expect(screen.getByText('Facebook Lead Form')).toBeInTheDocument()
+    expect(screen.queryByText('facebook_lead_form')).not.toBeInTheDocument()
   })
 
   it('turns a missing relationship owner into an accountability assignment action', () => {
