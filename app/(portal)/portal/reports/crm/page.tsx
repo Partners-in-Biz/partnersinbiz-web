@@ -899,8 +899,17 @@ export default function CrmReportsPage() {
                 </thead>
                 <tbody>
                   {velocity.stages.slice(0, 8).map((stage) => (
-                    <tr key={`${stage.pipelineId}:${stage.stageId}`} className="border-b border-[var(--color-pib-line)] last:border-0">
-                      <td className="px-4 py-3 text-sm font-medium text-[var(--color-pib-text)]">{labelize(stage.stageId)}</td>
+                    <tr key={`${stage.pipelineId}:${stage.stageId}`} className="border-b border-[var(--color-pib-line)] last:border-0 hover:bg-white/[0.03]">
+                      <td className="px-4 py-3 text-sm font-medium text-[var(--color-pib-text)]">
+                        <Link
+                          href={dealStageLensHref(stage)}
+                          aria-label={`Open ${labelize(stage.stageId)} stage deals from velocity table`}
+                          className="inline-flex max-w-full items-center gap-1.5 rounded-md text-[var(--color-pib-text)] transition-colors hover:text-[var(--color-pib-accent)] focus:outline-none focus:ring-2 focus:ring-[var(--color-pib-accent)] focus:ring-offset-2 focus:ring-offset-[var(--color-pib-bg)]"
+                        >
+                          <span className="truncate">{labelize(stage.stageId)}</span>
+                          <span className="material-symbols-outlined text-[15px]" aria-hidden="true">open_in_new</span>
+                        </Link>
+                      </td>
                       <td className="px-4 py-3 text-sm text-right font-mono text-[var(--color-pib-text)]">{fmtNum(stage.dealCount)}</td>
                       <td className="px-4 py-3 text-sm text-right font-mono text-[var(--color-pib-text)]">{stage.avgDays.toFixed(1)}</td>
                       <td className="px-4 py-3 text-sm text-right font-mono text-[var(--color-pib-text)]">{stage.maxDays.toFixed(1)}</td>

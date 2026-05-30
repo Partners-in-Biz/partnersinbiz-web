@@ -513,6 +513,8 @@ describe('Portal CRM reports page', () => {
     expect(insightLink).toHaveAttribute('href', '/portal/deals?view=list&pipelineId=pipeline-1&stage=discovery')
     const summaryLink = screen.getByRole('link', { name: 'Review deals in slowest Discovery stage from bottleneck summary' })
     expect(summaryLink).toHaveAttribute('href', '/portal/deals?view=list&pipelineId=pipeline-1&stage=discovery')
+    const rowLink = screen.getByRole('link', { name: 'Open Discovery stage deals from velocity table' })
+    expect(rowLink).toHaveAttribute('href', '/portal/deals?view=list&pipelineId=pipeline-1&stage=discovery')
   })
 
   it('turns missing rep performance data into a team setup action', async () => {
