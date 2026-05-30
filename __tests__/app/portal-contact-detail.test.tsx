@@ -192,6 +192,19 @@ describe('Portal contact detail page', () => {
     expect(mockRouterPush).toHaveBeenCalledWith('/portal/contacts')
   })
 
+  it('uses leadership-ready copy for the portal note composer', async () => {
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Start activity trail for Jane Client' }))
+
+    expect(screen.getByPlaceholderText('Add a relationship note, handoff, or context…')).toBeInTheDocument()
+    expect(screen.queryByPlaceholderText('Add note notes…')).not.toBeInTheDocument()
+  })
+
   it('turns an empty activity timeline into a first-note action', async () => {
     render(<PortalContactDetailPage />)
 
@@ -208,7 +221,7 @@ describe('Portal contact detail page', () => {
     ).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Start activity trail for Jane Client' }))
 
-    expect(screen.getByPlaceholderText('Add note notes…')).toBeInTheDocument()
+    expect(screen.getByPlaceholderText('Add a relationship note, handoff, or context…')).toBeInTheDocument()
   })
 
   it('turns a missing company into a profile linking action', async () => {
@@ -306,7 +319,7 @@ describe('Portal contact detail page', () => {
     expect(screen.getAllByText('No touch logged').length).toBeGreaterThan(0)
     fireEvent.click(screen.getByRole('button', { name: 'Log touch for Jane Client from last touch insight' }))
 
-    expect(screen.getByPlaceholderText('Add note notes…')).toBeInTheDocument()
+    expect(screen.getByPlaceholderText('Add a relationship note, handoff, or context…')).toBeInTheDocument()
   })
 
   it('turns a follow-up suggestion into a prefilled email action', async () => {
@@ -350,7 +363,7 @@ describe('Portal contact detail page', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Log activity for Jane Client from activity insight' }))
 
-    expect(screen.getByPlaceholderText('Add note notes…')).toBeInTheDocument()
+    expect(screen.getByPlaceholderText('Add a relationship note, handoff, or context…')).toBeInTheDocument()
   })
 
   it('wires engagement cockpit actions to contact composers', async () => {

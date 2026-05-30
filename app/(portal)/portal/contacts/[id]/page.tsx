@@ -150,6 +150,12 @@ function displayLabel(value: string, labels: Record<string, string>): string {
   return labels[key] ?? key
 }
 
+function activityNotesPlaceholder(logType: string): string {
+  if (logType === 'note') return 'Add a relationship note, handoff, or context…'
+  if (logType === 'call') return 'Add call notes…'
+  return `Add ${logType} notes…`
+}
+
 function splitTags(value: string): string[] {
   return value
     .split(',')
@@ -1705,7 +1711,7 @@ export default function PortalContactDetailPage() {
                   ) : (
                     <textarea
                       rows={3}
-                      placeholder={`Add ${logType} notes…`}
+                      placeholder={activityNotesPlaceholder(logType)}
                       value={logSummary}
                       onChange={(e) => setLogSummary(e.target.value)}
                       className="w-full text-sm bg-transparent border border-[var(--color-pib-line)] rounded-lg p-2 resize-none"
