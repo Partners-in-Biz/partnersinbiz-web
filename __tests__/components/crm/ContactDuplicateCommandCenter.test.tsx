@@ -24,6 +24,31 @@ const groups: DuplicateGroup[] = [
 ]
 
 describe('ContactDuplicateCommandCenter', () => {
+  it('turns a clean duplicate scan into an operational data hygiene state', () => {
+    const onClose = jest.fn()
+
+    render(
+      <ContactDuplicateCommandCenter
+        groups={[]}
+        mergingGroup={null}
+        onClose={onClose}
+        onMerge={jest.fn()}
+      />,
+    )
+
+    expect(screen.getByRole('heading', { name: 'Contact data is clean' })).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'No duplicate contacts need review right now. Keep the team moving with clean owner, stage, and follow-up lists.',
+      ),
+    ).toBeInTheDocument()
+    expect(screen.getByText('0 merge backlog')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Return to contacts' }))
+
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
   it('summarises duplicate hygiene and calls merge for the selected winner and next loser', () => {
     const onMerge = jest.fn()
 
