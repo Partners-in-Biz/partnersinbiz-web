@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import AutomationsPage from '@/app/(portal)/portal/settings/automations/page'
 
 jest.mock('next/link', () => ({
@@ -36,5 +36,52 @@ describe('Portal settings automations page', () => {
       'href',
       '/portal/settings/automations/new',
     )
+  })
+
+  it('treats an empty filtered automation view as a reversible operations lens', async () => {
+    global.fetch = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/automations') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: {
+              rules: [
+                {
+                  id: 'rule-active',
+                  orgId: 'org-1',
+                  name: 'New lead owner alert',
+                  description: 'Notify the team when a new lead is captured.',
+                  enabled: true,
+                  trigger: { event: 'contact.created' },
+                  actions: [
+                    {
+                      type: 'send_notification',
+                      notificationMessage: 'Assign the new lead today.',
+                    },
+                  ],
+                  createdAt: null,
+                  updatedAt: null,
+                },
+              ],
+            },
+          }),
+        } as Response)
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    }) as jest.Mock
+
+    render(<AutomationsPage />)
+
+    expect(await screen.findByText('New lead owner alert')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Paused' }))
+
+    expect(await screen.findByRole('heading', { name: 'No automations match this view.' })).toBeInTheDocument()
+    expect(screen.getByText('Clear the automation filters to return to every CRM rule.')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show all automations' }))
+
+    expect(await screen.findByText('New lead owner alert')).toBeInTheDocument()
   })
 })
