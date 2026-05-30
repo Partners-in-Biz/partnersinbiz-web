@@ -119,8 +119,14 @@ describe('Portal contact detail page', () => {
       expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
     })
 
-    expect(await screen.findByText('No activity logged yet.')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Log first note for Jane Client' }))
+    expect(await screen.findByText('Relationship timeline missing')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Start the first contact note' })).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'Log the first note, call, email, or meeting so the whole team can see what happened, who followed up, and what should happen next.'
+      )
+    ).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Start activity trail for Jane Client' }))
 
     expect(screen.getByPlaceholderText('Add note notes…')).toBeInTheDocument()
   })

@@ -1706,22 +1706,33 @@ export default function PortalContactDetailPage() {
                 ))}
               </div>
             ) : activities.length === 0 ? (
-              <div className="p-10 text-center">
-                <span className="material-symbols-outlined text-3xl text-[var(--color-pib-text-muted)]">
-                  history
-                </span>
-                <p className="text-sm text-[var(--color-pib-text-muted)] mt-2">
-                  No activity logged yet.
-                </p>
-                <button
-                  type="button"
-                  onClick={openFirstNoteComposer}
-                  aria-label={`Log first note for ${contact.name ?? 'this contact'}`}
-                  className="btn-pib-primary mt-4 inline-flex items-center gap-1.5 text-xs"
-                >
-                  <span className="material-symbols-outlined text-[14px]" aria-hidden="true">edit_note</span>
-                  Log first note
-                </button>
+              <div className="p-10">
+                <div className="mx-auto flex max-w-lg flex-col items-center gap-3 text-center">
+                  <span
+                    aria-hidden="true"
+                    className="material-symbols-outlined flex h-10 w-10 items-center justify-center rounded-md border border-[var(--color-pib-line)] bg-white/[0.04] text-[20px] text-[var(--color-pib-accent)]"
+                  >
+                    history
+                  </span>
+                  <div>
+                    <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
+                      Relationship timeline missing
+                    </p>
+                    <h3 className="mt-1 text-base font-semibold text-[var(--color-pib-text)]">Start the first contact note</h3>
+                    <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">
+                      Log the first note, call, email, or meeting so the whole team can see what happened, who followed up, and what should happen next.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={openFirstNoteComposer}
+                    aria-label={`Start activity trail for ${contact.name ?? 'this contact'}`}
+                    className="btn-pib-primary mt-4 inline-flex items-center gap-1.5 text-xs"
+                  >
+                    <span className="material-symbols-outlined text-[14px]" aria-hidden="true">edit_note</span>
+                    Start activity trail
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="px-5 pb-4">
