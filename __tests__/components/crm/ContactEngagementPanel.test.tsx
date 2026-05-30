@@ -51,6 +51,13 @@ describe('ContactEngagementPanel', () => {
     expect(screen.queryByText('0 inbound')).not.toBeInTheDocument()
   })
 
+  it('explains when no email thread has been captured', () => {
+    render(<ContactEngagementPanel profile={{ ...profile, emails: [] }} />)
+
+    expect(screen.getByText('No email thread')).toBeInTheDocument()
+    expect(screen.queryByText('0 emails')).not.toBeInTheDocument()
+  })
+
   it('turns a missing suggested action into direct engagement commands', () => {
     const onLogNote = jest.fn()
     const onSendEmail = jest.fn()
