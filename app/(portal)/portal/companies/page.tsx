@@ -125,6 +125,19 @@ export default function CompaniesPage() {
     () => managerLens === 'unmanaged' ? companies.filter((company) => !hasAccountManager(company)) : companies,
     [companies, managerLens],
   )
+  const emptyState = managerLens === 'unmanaged'
+    ? {
+        icon: 'verified_user',
+        eyebrow: 'Account ownership clean',
+        title: 'No unmanaged companies.',
+        description: 'Every visible company already has an account manager.',
+        primaryAction: {
+          label: 'Show all companies',
+          icon: 'filter_alt_off',
+          onClick: () => setManagerLens('all'),
+        },
+      }
+    : undefined
 
   useEffect(() => {
     setSelectedIds(prev => {
@@ -402,6 +415,7 @@ export default function CompaniesPage() {
         selectedIds={selectedIds}
         onToggleCompany={toggleCompany}
         onToggleAll={toggleAllCompanies}
+        emptyState={emptyState}
       />
     </div>
   )
