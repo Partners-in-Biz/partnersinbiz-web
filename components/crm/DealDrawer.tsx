@@ -145,15 +145,30 @@ function ContactPicker({
       {open && (
         <div className="absolute z-50 mt-1 max-h-64 w-full overflow-y-auto rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] shadow-xl">
           {results.length === 0 ? (
-            <div className="px-3 py-2">
-              <p className="text-xs text-[var(--color-pib-text-muted)]">No contacts found.</p>
+            <div className="space-y-3 px-3 py-3">
+              <div className="flex items-center gap-2">
+                <span
+                  aria-hidden="true"
+                  className="material-symbols-outlined flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-[var(--color-pib-line)] bg-white/[0.04] text-[16px] text-[var(--color-accent-v2)]"
+                >
+                  person_add
+                </span>
+                <div className="min-w-0">
+                  <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
+                    Deal contact required
+                  </p>
+                  <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">No matching deal contacts</h3>
+                </div>
+              </div>
+              <p className="text-xs leading-5 text-[var(--color-pib-text-muted)]">
+                Create or link a contact before this opportunity can carry owner, email, quote, and activity history.
+              </p>
               <Link
                 href="/portal/contacts?create=contact"
-                aria-label="Open contacts to create a deal contact"
-                className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-[var(--color-accent-v2)] hover:underline"
+                className="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-[var(--color-pib-line)] bg-white/[0.04] px-3 py-2 text-xs font-medium text-[var(--color-pib-text)] transition-colors hover:border-[var(--color-accent-v2)] hover:text-[var(--color-accent-v2)]"
               >
-                <span className="material-symbols-outlined text-[14px]">contacts</span>
-                Open contacts
+                <span aria-hidden="true" className="material-symbols-outlined text-[14px]">contacts</span>
+                Create contact for this deal
               </Link>
             </div>
           ) : (

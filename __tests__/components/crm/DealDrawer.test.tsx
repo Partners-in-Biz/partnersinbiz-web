@@ -188,7 +188,7 @@ describe('DealDrawer', () => {
     expect(screen.getByPlaceholderText('Search contacts...')).toHaveValue('contact-1')
   })
 
-  it('turns an empty contact search into a contacts workspace action', async () => {
+  it('turns an empty contact search into an operational contact creation state', async () => {
     render(
       <DealDrawer
         orgId="org-1"
@@ -202,9 +202,11 @@ describe('DealDrawer', () => {
       target: { value: 'No match' },
     })
 
-    expect(await screen.findByText('No contacts found.')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'No matching deal contacts' })).toBeInTheDocument()
+    expect(screen.getByText('Deal contact required')).toBeInTheDocument()
+    expect(screen.getByText('Create or link a contact before this opportunity can carry owner, email, quote, and activity history.')).toBeInTheDocument()
 
-    const contactsLink = screen.getByRole('link', { name: 'Open contacts to create a deal contact' })
+    const contactsLink = screen.getByRole('link', { name: 'Create contact for this deal' })
     expect(contactsLink).toHaveAttribute('href', '/portal/contacts?create=contact')
   })
 })
