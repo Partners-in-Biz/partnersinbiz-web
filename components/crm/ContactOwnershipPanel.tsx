@@ -63,6 +63,49 @@ function Field({
   )
 }
 
+function MissingOwnerPanel({
+  action,
+}: {
+  action?: {
+    label: string
+    ariaLabel: string
+    onClick: () => void
+  }
+}) {
+  return (
+    <div className="rounded-md border border-[var(--color-pib-line)] bg-white/[0.025] p-4">
+      <div className="flex items-start gap-3">
+        <span
+          aria-hidden="true"
+          className="material-symbols-outlined flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[var(--color-pib-line)] bg-white/[0.04] text-[18px] text-[var(--color-pib-accent)]"
+        >
+          person_alert
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
+            Owner accountability missing
+          </p>
+          <h3 className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">Assign a relationship owner</h3>
+          <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">
+            No team member owns this contact yet. Assign an owner so follow-ups, handoffs, and pipeline accountability are visible before the relationship goes cold.
+          </p>
+          {action ? (
+            <button
+              type="button"
+              aria-label={action.ariaLabel}
+              onClick={action.onClick}
+              className="btn-pib-secondary mt-3 inline-flex items-center gap-1.5 text-xs"
+            >
+              <span aria-hidden="true" className="material-symbols-outlined text-[14px]">person_add</span>
+              {action.label}
+            </button>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function contactOwnershipHealth(profile: ContactOwnershipProfile): number {
   const checks = [
     Boolean(profile.assignedToRef?.displayName || profile.assignedTo),
@@ -118,13 +161,16 @@ export function ContactOwnershipPanel({
       </div>
 
       <div className="space-y-2">
-        <Field
-          icon="supervisor_account"
-          label="Owner"
-          value={owner}
-          meta={memberMeta(profile.assignedToRef)}
-          action={needsOwner && actions?.assignOwner ? { ...actions.assignOwner, icon: 'person_add' } : undefined}
-        />
+        {needsOwner ? (
+          <MissingOwnerPanel action={actions?.assignOwner} />
+        ) : (
+          <Field
+            icon="supervisor_account"
+            label="Owner"
+            value={owner}
+            meta={memberMeta(profile.assignedToRef)}
+          />
+        )}
         <div className="grid gap-2 sm:grid-cols-2">
           <Field icon="conversion_path" label="Source" value={source} />
           <Field icon="fingerprint" label="Capture source" value={captureSource} />
