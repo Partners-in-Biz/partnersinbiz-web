@@ -58,6 +58,13 @@ describe('ContactEngagementPanel', () => {
     expect(screen.queryByText('0 emails')).not.toBeInTheDocument()
   })
 
+  it('explains when no activity timeline has been captured', () => {
+    render(<ContactEngagementPanel profile={{ ...profile, activities: [] }} />)
+
+    expect(screen.getByText('No activity trail')).toBeInTheDocument()
+    expect(screen.queryByText('0 activities')).not.toBeInTheDocument()
+  })
+
   it('turns a missing suggested action into direct engagement commands', () => {
     const onLogNote = jest.fn()
     const onSendEmail = jest.fn()

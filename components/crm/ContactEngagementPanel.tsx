@@ -72,6 +72,11 @@ function emailThreadLabel(count: number): string {
   return `${count} email${count === 1 ? '' : 's'}`
 }
 
+function activityTrailLabel(count: number): string {
+  if (count === 0) return 'No activity trail'
+  return `${count} activit${count === 1 ? 'y' : 'ies'}`
+}
+
 function Signal({
   icon,
   label,
@@ -150,7 +155,7 @@ export function ContactEngagementPanel({
         <Signal icon="local_fire_department" label="Cadence" value={cadence} />
         <Signal icon="mail" label="Email thread" value={emailThreadLabel(emails.length)} />
         <Signal icon="inbox" label="Replies" value={inboundReplyLabel(inboundEmails)} />
-        <Signal icon="history" label="Timeline" value={`${activities.length} activit${activities.length === 1 ? 'y' : 'ies'}`} />
+        <Signal icon="history" label="Timeline" value={activityTrailLabel(activities.length)} />
       </div>
 
       {suggestion ? (
