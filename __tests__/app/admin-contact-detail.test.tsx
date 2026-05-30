@@ -207,6 +207,20 @@ describe('Admin contact detail page', () => {
     expect(screen.getByPlaceholderText('Add an internal note, handoff, decision, or context...')).toHaveFocus()
   })
 
+  it('turns empty admin custom fields into a command-center profile action', async () => {
+    contactOverride = { customFields: {} }
+
+    render(<AdminContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Jane Client' })).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add workspace data for Jane Client from contact command center' }))
+
+    expect(screen.getByTestId('contact-form')).toBeInTheDocument()
+  })
+
   it('renders admin lifecycle labels as readable command-center text', async () => {
     contactOverride = { stage: 'proposal', type: 'prospect', source: 'outreach' }
 

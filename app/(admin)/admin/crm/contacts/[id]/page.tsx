@@ -587,7 +587,15 @@ export default function ContactDetailPage() {
             onAction={lastTouchAge === null ? focusNoteComposer : undefined}
           />
           <CommandMetric icon="mail" label="Email records" value={emailsLoading ? '...' : String(emails.length)} sub="Recent communication" />
-          <CommandMetric icon="hub" label="Custom fields" value={String(customFieldCount)} sub="Workspace data points" />
+          <CommandMetric
+            icon="hub"
+            label="Custom fields"
+            value={String(customFieldCount)}
+            sub="Workspace data points"
+            actionLabel={customFieldCount === 0 ? `Add workspace data for ${name} from contact command center` : undefined}
+            actionText={customFieldCount === 0 ? 'Add workspace data' : undefined}
+            onAction={customFieldCount === 0 ? () => setEditing(true) : undefined}
+          />
         </div>
       </header>
 
