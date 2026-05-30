@@ -93,6 +93,8 @@ export function ContactDealsPanel({ contactId, contactName, orgId = '' }: Props)
   const [pipelinesById, setPipelinesById] = useState<Map<string, Pipeline>>(new Map())
   const [loading, setLoading] = useState(true)
   const [showDealDrawer, setShowDealDrawer] = useState(false)
+  const contactLabel = contactName?.trim() || 'this contact'
+  const opportunityHeadline = `Start ${contactLabel}'s first opportunity.`
   const dealStats = deals.reduce(
     (stats, deal) => {
       const { kind } = resolveStage(deal, pipelinesById)
@@ -192,19 +194,30 @@ export function ContactDealsPanel({ contactId, contactName, orgId = '' }: Props)
         </div>
       ) : deals.length === 0 ? (
         <div className="p-10 text-center">
-          <span className="material-symbols-outlined text-3xl text-[var(--color-pib-text-muted)]">
+          <span className="material-symbols-outlined text-4xl text-[var(--color-accent-v2)]" aria-hidden="true">
             monetization_on
           </span>
-          <p className="text-sm text-[var(--color-pib-text-muted)] mt-2">
-            No deals linked to this contact yet.
+          <p className="eyebrow !text-[10px] mt-3">Relationship pipeline</p>
+          <h3 className="mt-2 font-display text-2xl text-[var(--color-pib-text)]">
+            {opportunityHeadline}
+          </h3>
+          <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[var(--color-pib-text-muted)]">
+            Create a deal from this contact so pipeline value, quotes, close dates, and next steps stay connected to the relationship.
           </p>
-          <p className="mx-auto mt-2 max-w-sm text-xs leading-relaxed text-[var(--color-pib-text-muted)]">
-            Start a pipeline record here so follow-up, quotes, and revenue forecasts stay connected to this relationship.
-          </p>
+          <div className="mx-auto mt-4 grid max-w-lg gap-2 sm:grid-cols-2">
+            <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.02] px-3 py-2 text-left">
+              <p className="text-[10px] font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">Contact anchored</p>
+              <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">The new deal opens with this relationship already attached.</p>
+            </div>
+            <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.02] px-3 py-2 text-left">
+              <p className="text-[10px] font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">Forecast ready</p>
+              <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">Capture value, probability, close date, and stage in one pass.</p>
+            </div>
+          </div>
           <button
             type="button"
             onClick={() => setShowDealDrawer(true)}
-            className="btn-pib-secondary mx-auto mt-4 inline-flex items-center gap-1.5 text-xs"
+            className="btn-pib-secondary mx-auto mt-5 inline-flex items-center gap-1.5 text-xs"
           >
             <span className="material-symbols-outlined text-[14px]" aria-hidden="true">add</span>
             Create first deal

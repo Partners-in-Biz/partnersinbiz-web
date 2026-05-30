@@ -108,12 +108,15 @@ describe('ContactDealsPanel', () => {
     expect(screen.getAllByText(/25[\s ,.]?000/).length).toBeGreaterThan(0)
   })
 
-  it('shows empty state when no deals are returned', async () => {
+  it('turns an empty contact deal panel into a relationship pipeline launch state', async () => {
     mockFetch.mockReturnValue(apiResponse([]))
-    render(<ContactDealsPanel contactId="contact-1" />)
+    render(<ContactDealsPanel contactId="contact-1" contactName="Ava Owner" />)
     await waitFor(() => {
-      expect(screen.getByText('No deals linked to this contact yet.')).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: "Start Ava Owner's first opportunity." })).toBeInTheDocument()
     })
+    expect(screen.getByText('Create a deal from this contact so pipeline value, quotes, close dates, and next steps stay connected to the relationship.')).toBeInTheDocument()
+    expect(screen.getByText('Contact anchored')).toBeInTheDocument()
+    expect(screen.getByText('Forecast ready')).toBeInTheDocument()
   })
 
   it('calls the correct API endpoint with the contactId', async () => {
@@ -180,7 +183,7 @@ describe('ContactDealsPanel', () => {
     })
 
     render(<ContactDealsPanel contactId="contact-1" orgId="org-1" />)
-    await waitFor(() => expect(screen.getByText('No deals linked to this contact yet.')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByRole('heading', { name: "Start this contact's first opportunity." })).toBeInTheDocument())
 
     fireEvent.click(screen.getByRole('button', { name: /New deal/i }))
     fireEvent.click(await screen.findByRole('button', { name: /Save mocked deal/i }))
@@ -195,7 +198,7 @@ describe('ContactDealsPanel', () => {
     mockFetch.mockReturnValue(apiResponse([]))
 
     render(<ContactDealsPanel contactId="contact-1" contactName="Ava Owner" />)
-    await waitFor(() => expect(screen.getByText('No deals linked to this contact yet.')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByRole('heading', { name: "Start Ava Owner's first opportunity." })).toBeInTheDocument())
 
     fireEvent.click(screen.getByRole('button', { name: /New deal/i }))
 
@@ -206,7 +209,7 @@ describe('ContactDealsPanel', () => {
     mockFetch.mockReturnValue(apiResponse([]))
 
     render(<ContactDealsPanel contactId="contact-1" contactName="Ava Owner" />)
-    await waitFor(() => expect(screen.getByText('No deals linked to this contact yet.')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByRole('heading', { name: "Start Ava Owner's first opportunity." })).toBeInTheDocument())
 
     fireEvent.click(screen.getByRole('button', { name: /Create first deal/i }))
 
