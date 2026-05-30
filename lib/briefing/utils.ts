@@ -100,6 +100,17 @@ function normalizeForHash(value: unknown): unknown {
 
 const DEFAULT_EXTRACT_MAX_LENGTH = 300
 
+function redactSensitiveText(text: string): string {
+  return text
+    .replace(/\b(?:api[_-]?key|token|secret|password|passwd|pwd|authorization|bearer)\b\s*[:=]\s*[^\s,;]+/gi, (match) => {
+      const separator = match.includes('=') ? '=' : ':'
+      const label = match.split(separator)[0]?.trim() || 'secret'
+      return `${label}${separator} [REDACTED]`
+    })
+    .replace(/\bBearer\s+[A-Za-z0-9._~+\/-]+=*/gi, 'Bearer [REDACTED]')
+    .replace(/\b(?:mongodb(?:\+srv)?|postgres(?:ql)?|mysql|redis):\/\/[^\s)]+/gi, '[REDACTED]')
+}
+
 /**
  * Generate a safe excerpt from source text.
  * Strips HTML, collapses whitespace, truncates to maxLength.
@@ -138,6 +149,8 @@ export function extractSafeExcerpt(text: unknown, options: SafeExcerptOptions = 
     result = result.replace(/\s+/g, ' ').trim()
   }
 
+  result = redactSensitiveText(result)
+
   // Truncate to max length
   if (result.length > maxLength) {
     result = result.substring(0, maxLength).trim()
@@ -155,13 +168,23 @@ export function extractSafeExcerpt(text: unknown, options: SafeExcerptOptions = 
 /**
  * Extract excerpt from multiple fields, preferring the first non-empty one.
  */
+function readPath(source: Record<string, unknown>, path: string): unknown {
+  if (!path.includes('.')) return source[path]
+  return path.split('.').reduce<unknown>((current, part) => {
+    if (current && typeof current === 'object' && part in current) {
+      return (current as Record<string, unknown>)[part]
+    }
+    return undefined
+  }, source)
+}
+
 export function extractMultiFieldExcerpt(
   doc: Record<string, unknown>,
   fields: string[],
   options?: SafeExcerptOptions,
 ): string | null {
   for (const field of fields) {
-    const value = doc[field]
+    const value = readPath(doc, field)
     if (value !== undefined && value !== null) {
       const excerpt = extractSafeExcerpt(value, options)
       if (excerpt) return excerpt
