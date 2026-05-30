@@ -386,6 +386,7 @@ export default function PortalContactsPage() {
   const allSelected = displayedContacts.length > 0 && displayedContacts.every((contact) => selectedIds.has(contact.id))
   const someSelected = selectedIds.size > 0 && !allSelected
   const hasActiveFilters = !!(search.trim() || stageFilter || typeFilter || followUpLens === 'stale')
+  const isStageLens = !!stageFilter && !search.trim() && !typeFilter && ownerLens === 'all' && followUpLens === 'all'
   const contactCountLabel = loading
     ? 'Loading…'
     : followUpLens === 'stale'
@@ -396,6 +397,8 @@ export default function PortalContactsPage() {
       ? displayedContacts.length === 0
         ? 'No unowned contacts.'
         : `${displayedContacts.length} unowned contact${displayedContacts.length === 1 ? '' : 's'} need assignment.`
+    : isStageLens && displayedContacts.length === 0
+      ? `No contacts in ${stageFilter}.`
     : hasActiveFilters
       ? `${displayedContacts.length} contact${displayedContacts.length === 1 ? '' : 's'} match this view.`
       : `${displayedContacts.length} contact${displayedContacts.length === 1 ? '' : 's'} in your audience.`
@@ -403,11 +406,15 @@ export default function PortalContactsPage() {
     ? 'No contacts need follow-up.'
     : ownerLens === 'unowned'
       ? 'No unowned contacts.'
+    : isStageLens
+      ? `No contacts in ${stageFilter}.`
     : hasActiveFilters
       ? 'No contacts match this view.'
       : 'No contacts yet.'
   const emptyDescription = followUpLens === 'stale'
     ? 'Every contact in this view has recent activity.'
+    : isStageLens
+      ? 'This funnel stage is clear for the current contact lens.'
     : hasActiveFilters
       ? 'Clear the search or filters to return to your full audience.'
       : ownerLens === 'unowned'

@@ -185,6 +185,17 @@ describe('Portal contacts page', () => {
     expect(screen.getByText('stage: new')).toBeInTheDocument()
   })
 
+  it('treats an empty contact stage lens as a clean funnel stage', async () => {
+    mockSearchParams = new URLSearchParams('stage=proposal')
+
+    render(<PortalContactsPage />)
+
+    expect(await screen.findByRole('heading', { name: 'No contacts in proposal.' })).toBeInTheDocument()
+    expect(screen.getByText('This funnel stage is clear for the current contact lens.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Clear filters' })).toBeInTheDocument()
+    expect(screen.getByText('stage: proposal')).toBeInTheDocument()
+  })
+
   it('opens directly to stale follow-up contacts from CRM reports', async () => {
     mockSearchParams = new URLSearchParams('followUp=stale')
 
