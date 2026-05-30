@@ -62,6 +62,11 @@ function cadenceLabel(days: number | null): string {
   return 'Cold'
 }
 
+function inboundReplyLabel(count: number): string {
+  if (count === 0) return 'No inbound replies'
+  return `${count} inbound repl${count === 1 ? 'y' : 'ies'}`
+}
+
 function Signal({
   icon,
   label,
@@ -139,7 +144,7 @@ export function ContactEngagementPanel({
       <div className="grid gap-2 sm:grid-cols-4">
         <Signal icon="local_fire_department" label="Cadence" value={cadence} />
         <Signal icon="mail" label="Email thread" value={`${emails.length} email${emails.length === 1 ? '' : 's'}`} />
-        <Signal icon="inbox" label="Replies" value={`${inboundEmails} inbound`} />
+        <Signal icon="inbox" label="Replies" value={inboundReplyLabel(inboundEmails)} />
         <Signal icon="history" label="Timeline" value={`${activities.length} activit${activities.length === 1 ? 'y' : 'ies'}`} />
       </div>
 

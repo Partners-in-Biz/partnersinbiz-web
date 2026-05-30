@@ -38,10 +38,17 @@ describe('ContactEngagementPanel', () => {
     expect(screen.getByText('100%')).toBeInTheDocument()
     expect(screen.getByText('Warm')).toBeInTheDocument()
     expect(screen.getByText('2 emails')).toBeInTheDocument()
-    expect(screen.getByText('1 inbound')).toBeInTheDocument()
+    expect(screen.getByText('1 inbound reply')).toBeInTheDocument()
     expect(screen.getByText('3 activities')).toBeInTheDocument()
     expect(screen.getByText('Send the proposal recap')).toBeInTheDocument()
     expect(screen.getByText(/They replied after the demo/)).toBeInTheDocument()
+  })
+
+  it('explains when no inbound replies have been captured', () => {
+    render(<ContactEngagementPanel profile={{ ...profile, emails: [{ id: 'e1', direction: 'outbound', subject: 'Intro sent' }] }} />)
+
+    expect(screen.getByText('No inbound replies')).toBeInTheDocument()
+    expect(screen.queryByText('0 inbound')).not.toBeInTheDocument()
   })
 
   it('turns a missing suggested action into direct engagement commands', () => {
