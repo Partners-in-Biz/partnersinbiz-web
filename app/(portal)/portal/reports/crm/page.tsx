@@ -1047,7 +1047,7 @@ export default function CrmReportsPage() {
       >
         {activityLoading ? (
           <Skeleton className="h-52" />
-        ) : !activity ? (
+        ) : !activity || activity.total === 0 ? (
           <EmptyState
             icon="event_note"
             title="No activity data yet"
