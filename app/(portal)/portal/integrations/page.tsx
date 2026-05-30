@@ -633,6 +633,7 @@ export default function PortalIntegrationsPage() {
   }
 
   const addingEntry = addingProvider ? findProvider(addingProvider) : null
+  const firstConnectableProvider = CRM_INTEGRATION_PROVIDERS.find((entry) => !entry.comingSoon && entry.configFields.length > 0)
   const metrics = useMemo(() => {
     const connected = integrations.length
     const healthy = integrations.filter(
@@ -748,8 +749,52 @@ export default function PortalIntegrationsPage() {
             ))}
           </div>
         ) : integrations.length === 0 ? (
-          <div className="text-center py-12 text-[var(--color-pib-text-muted)] border border-dashed border-[var(--color-pib-line-strong)] rounded-xl">
-            No integrations connected yet. Pick a provider above to get started.
+          <div className="overflow-hidden rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)]">
+            <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_280px]">
+              <div className="p-5">
+                <span className="mb-4 flex h-11 w-11 items-center justify-center rounded-lg border border-[var(--color-pib-accent)]/25 bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent)]">
+                  <span className="material-symbols-outlined text-[21px]" aria-hidden>
+                    hub
+                  </span>
+                </span>
+                <p className="eyebrow !text-[10px]">Source launch</p>
+                <h3 className="mt-3 text-xl font-semibold text-[var(--color-pib-text)]">
+                  No connected CRM sources yet.
+                </h3>
+                <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--color-pib-text-muted)]">
+                  Connect the first source so a CEO can see where contacts come from, whether imports are healthy, and which employees own the next follow-up.
+                </p>
+                {firstConnectableProvider && (
+                  <button
+                    type="button"
+                    onClick={() => setAddingProvider(firstConnectableProvider.provider)}
+                    className="btn-pib-accent mt-5 inline-flex items-center gap-1.5 text-sm"
+                  >
+                    <span className="material-symbols-outlined text-[16px]" aria-hidden>
+                      add_link
+                    </span>
+                    Connect {firstConnectableProvider.displayName}
+                  </button>
+                )}
+              </div>
+              <div className="border-t border-[var(--color-pib-line)] bg-black/10 p-4 lg:border-l lg:border-t-0">
+                <p className="text-xs font-medium uppercase tracking-widest text-[var(--color-pib-text-muted)]">
+                  Launch checklist
+                </p>
+                <div className="mt-4 space-y-3">
+                  {[
+                    ['Source owner', 'Know who owns the provider account and credentials.'],
+                    ['Import routing', 'Apply tags and campaigns before contacts hit sales.'],
+                    ['Sync health', 'Run the first sync and watch error counts.'],
+                  ].map(([label, copy]) => (
+                    <div key={label} className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-3">
+                      <p className="text-sm font-medium text-[var(--color-pib-text)]">{label}</p>
+                      <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">{copy}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
         ) : (
           <div className="space-y-3">
