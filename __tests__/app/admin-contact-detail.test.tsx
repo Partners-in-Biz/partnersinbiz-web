@@ -25,7 +25,9 @@ jest.mock('@/components/admin/crm/ActivityTimeline', () => ({
 
 jest.mock('@/components/admin/crm/ContactBrief', () => ({
   __esModule: true,
-  default: () => <div data-testid="contact-brief" />,
+  default: ({ contactName }: { contactName?: string }) => (
+    <div data-testid="contact-brief">{contactName ? `Brief for ${contactName}` : 'Brief contact missing'}</div>
+  ),
 }))
 
 jest.mock('@/components/admin/crm/ContactForm', () => ({
@@ -117,6 +119,7 @@ describe('Admin contact detail page', () => {
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: 'Jane Client' })).toBeInTheDocument()
     })
+    expect(screen.getByText('Brief for Jane Client')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Recompute score for Jane Client from admin qualification panel' }))
 

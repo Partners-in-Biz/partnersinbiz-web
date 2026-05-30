@@ -847,7 +847,7 @@ export default function ContactDetailPage() {
               )}
             </div>
 
-            <ContactBrief contactId={id} />
+            <ContactBrief contactId={id} contactName={contact.name} />
           </div>
 
           <ContactDealsPanel
