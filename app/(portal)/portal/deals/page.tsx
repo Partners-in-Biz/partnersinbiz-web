@@ -406,11 +406,17 @@ export default function DealsPage() {
     [deals],
   )
   const ownerCoverage = deals.length > 0 ? (deals.length - unassignedDeals.length) / deals.length : 1
+  const selectedStage = stageFilter === 'all' ? undefined : stages.find((stage) => stage.id === stageFilter)
+  const isStageLens = stageFilter !== 'all'
   const emptyListTitle = ownerLens === 'unassigned'
     ? 'No unassigned deals.'
+    : isStageLens
+      ? `No deals in ${selectedStage?.label ?? 'this stage'}.`
     : 'No deals found.'
   const emptyListDescription = ownerLens === 'unassigned'
     ? 'Every open deal in this lens has an owner.'
+    : isStageLens
+      ? 'This pipeline stage is clear for the current deal lens.'
     : ownerLens !== 'all'
       ? 'No deals match this owner lens. Show all deals to return to the full pipeline.'
       : 'Try another stage filter or create a new client-safe deal.'
@@ -751,6 +757,16 @@ export default function DealsPage() {
               >
                 <span className="material-symbols-outlined text-[16px]" aria-hidden="true">filter_alt_off</span>
                 Show all deals
+              </button>
+            ) : isStageLens ? (
+              <button
+                type="button"
+                onClick={() => setStageFilter('all')}
+                className="btn-pib-secondary inline-flex items-center gap-1.5"
+                aria-label="Show all stages"
+              >
+                <span className="material-symbols-outlined text-[16px]" aria-hidden="true">filter_alt_off</span>
+                Show all stages
               </button>
             ) : undefined}
           />

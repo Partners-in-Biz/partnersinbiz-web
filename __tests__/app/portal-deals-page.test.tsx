@@ -355,4 +355,35 @@ describe('Portal deals page', () => {
     expect(screen.queryByText('Proposal opportunity')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Qualified' })).toHaveAttribute('aria-pressed', 'true')
   })
+
+  it('treats an empty stage deal lens as a clean pipeline stage', async () => {
+    mockSearchParams = new URLSearchParams('view=list&pipelineId=pipeline-1&stage=proposal')
+    mockDealRows = [
+      {
+        id: 'deal-qualified',
+        orgId: 'org-1',
+        contactId: 'contact-1',
+        title: 'Qualified opportunity',
+        value: 50000,
+        currency: 'ZAR',
+        pipelineId: 'pipeline-1',
+        stageId: 'qualified',
+        ownerUid: 'owner-1',
+        ownerRef: { uid: 'owner-1', displayName: 'Maya Sales' },
+        expectedCloseDate: '2026-06-15',
+        notes: '',
+        createdAt: null,
+        updatedAt: null,
+      },
+    ]
+
+    render(<DealsPage />)
+
+    expect(await screen.findByRole('heading', { name: 'No deals in Proposal.' })).toBeInTheDocument()
+    expect(screen.getByText('This pipeline stage is clear for the current deal lens.')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Show all stages' }))
+
+    expect(await screen.findByText('Qualified opportunity')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'All stages' })).toHaveAttribute('aria-pressed', 'true')
+  })
 })
