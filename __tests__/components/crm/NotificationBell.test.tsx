@@ -9,6 +9,30 @@ describe('NotificationBell', () => {
     jest.restoreAllMocks()
   })
 
+  it('turns an empty CRM notification inbox into a monitored operating state', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        data: {
+          notifications: [],
+          unreadCount: 0,
+        },
+      }),
+    }) as jest.Mock
+
+    render(<NotificationBell />)
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/notifications?limit=20'))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open notifications' }))
+
+    expect(await screen.findByRole('heading', { name: 'No CRM alerts need action' })).toBeInTheDocument()
+    expect(
+      screen.getByText('You are clear on owner gaps, deal movement, form submissions, and follow-up automation alerts.'),
+    ).toBeInTheDocument()
+    expect(screen.getByText('Watching owner, deal, and intake signals')).toBeInTheDocument()
+  })
+
   it('renders notification links so clicking an item opens the relevant page', async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,

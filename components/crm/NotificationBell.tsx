@@ -158,11 +158,30 @@ export function NotificationBell({ mode = 'crm', orgId, userId }: NotificationBe
                 ))}
               </div>
             ) : notifications.length === 0 ? (
-              <div className="px-4 py-10 text-center">
-                <span className="material-symbols-outlined text-3xl text-[var(--color-pib-text-muted)] block mb-2">
-                  notifications_none
-                </span>
-                <p className="text-sm text-[var(--color-pib-text-muted)]">No notifications yet</p>
+              <div className="px-4 py-5">
+                <div className="flex items-start gap-3">
+                  <span
+                    className="material-symbols-outlined rounded-lg border border-emerald-400/30 bg-emerald-400/10 p-2 text-[20px] text-emerald-300"
+                    aria-hidden="true"
+                  >
+                    task_alt
+                  </span>
+                  <div>
+                    <p className="eyebrow !text-[10px]">Quiet inbox</p>
+                    <h3 className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">
+                      No CRM alerts need action
+                    </h3>
+                    <p className="mt-1 text-xs leading-relaxed text-[var(--color-pib-text-muted)]">
+                      You are clear on owner gaps, deal movement, form submissions, and follow-up automation alerts.
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-4 rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] px-3 py-2">
+                  <p className="eyebrow !text-[10px]">Monitoring</p>
+                  <p className="mt-1 text-xs font-medium text-[var(--color-pib-text)]">
+                    Watching owner, deal, and intake signals
+                  </p>
+                </div>
               </div>
             ) : (
               notifications.map(n => {
