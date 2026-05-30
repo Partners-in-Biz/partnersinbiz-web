@@ -605,7 +605,13 @@ export default function ContactDetailPage() {
               </button>
               {scoreError && <p className="text-xs text-red-300">{scoreError}</p>}
               <DetailRow label="Score updated" value={fmtTimestamp(contact.scoreUpdatedAt)} />
-              <DetailRow label="Agreement roles" value={contact.agreementRoles?.join(', ')} />
+              <DetailRow
+                label="Agreement roles"
+                value={contact.agreementRoles?.join(', ')}
+                actionLabel={`Add agreement roles for ${name} from admin qualification panel`}
+                onAction={() => setEditing(true)}
+                actionIcon="contract_edit"
+              />
               <DetailRow
                 label="Notes"
                 value={contact.notes}
