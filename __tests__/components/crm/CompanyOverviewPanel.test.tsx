@@ -265,6 +265,43 @@ describe('CompanyOverviewPanel', () => {
     expect(onSelectTab).toHaveBeenCalledWith('contacts')
   })
 
+  it('turns an empty risk map into a finance risk review action', () => {
+    const onSelectTab = jest.fn()
+
+    render(
+      <CompanyOverviewPanel
+        company={company()}
+        center={{
+          summary: {
+            openOrders: 0,
+            lowStockItems: 0,
+            overdueInvoices: 0,
+            projects: 0,
+            serviceWorkspaces: 0,
+          },
+          analytics: {
+            openProjectCount: 0,
+            activeServiceCount: 0,
+            riskSignals: [],
+          },
+        }}
+        onSelectTab={onSelectTab}
+      />,
+    )
+
+    expect(screen.getByText('Risk coverage clear')).toBeInTheDocument()
+    expect(screen.getByText('Keep account risk monitored')).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'No overdue invoices, low stock, open orders, projects, or service risks are active right now. Review invoices so finance risk stays visible before it surprises leadership.',
+      ),
+    ).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Review risk records for Acme Studio' }))
+
+    expect(onSelectTab).toHaveBeenCalledWith('invoices')
+  })
+
   it('labels parent-account navigation with the resolved parent company name', () => {
     const companyWithParent = company({
       parentCompanyId: 'co-parent',

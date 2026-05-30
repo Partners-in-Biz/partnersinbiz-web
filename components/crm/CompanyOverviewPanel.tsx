@@ -738,8 +738,27 @@ export function CompanyOverviewPanel({ company, center, loading, onSelectTab, on
           {riskDonut.length > 0 ? (
             <DonutChart data={riskDonut} centerValue={riskDonut.reduce((sum, item) => sum + item.value, 0)} centerLabel="Signals" />
           ) : (
-            <div className="flex min-h-[220px] items-center justify-center rounded-lg border border-dashed border-[var(--color-pib-line)] text-center text-sm text-[var(--color-pib-text-muted)]">
-              No operational risk signals right now.
+            <div className="flex min-h-[220px] items-center justify-center rounded-lg border border-dashed border-[var(--color-pib-line)] bg-white/[0.02] p-6 text-center">
+              <div className="max-w-md">
+                <p className="eyebrow !text-[10px] text-emerald-200">Risk coverage clear</p>
+                <h3 className="mt-2 font-display text-lg text-[var(--color-pib-text)]">Keep account risk monitored</h3>
+                <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">
+                  No overdue invoices, low stock, open orders, projects, or service risks are active right now. Review invoices so finance risk stays visible before it surprises leadership.
+                </p>
+                {onSelectTab ? (
+                  <button
+                    type="button"
+                    onClick={() => onSelectTab('invoices')}
+                    aria-label={`Review risk records for ${company.name}`}
+                    className="btn-pib-secondary mt-4 inline-flex items-center gap-1.5 text-xs"
+                  >
+                    <span aria-hidden="true" className="material-symbols-outlined text-[14px]">receipt_long</span>
+                    Review invoices
+                  </button>
+                ) : (
+                  <p className="mt-3 text-xs text-[var(--color-pib-text-muted)]">Open Invoices to keep finance risk visible.</p>
+                )}
+              </div>
             </div>
           )}
         </SectionCard>
