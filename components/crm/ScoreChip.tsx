@@ -27,14 +27,16 @@ export function ScoreChip({ score, label, size = 'md', kind }: ScoreChipProps) {
 
   const tooltip = isScored
     ? [kind, label].filter(Boolean).join(' — ')
-    : 'Not yet scored'
+    : label
+      ? `${label} — not scored yet`
+      : 'Not scored yet'
 
   return (
     <span
       className={`inline-flex items-center rounded-full font-label font-medium uppercase tracking-wide ${sizeClasses} ${colorCls}`}
       title={tooltip}
     >
-      {isScored ? score : '—'}
+      {isScored ? score : 'Not scored'}
     </span>
   )
 }
