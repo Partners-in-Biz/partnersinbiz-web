@@ -65,6 +65,23 @@ describe('ContactIdentityPanel', () => {
     expect(screen.queryByText('0 replies')).not.toBeInTheDocument()
   })
 
+  it('names individual identity fields that still need capture', () => {
+    const { rerender } = render(<ContactIdentityPanel profile={{ ...profile, jobTitle: '' }} />)
+
+    expect(screen.getByText('Role not captured')).toBeInTheDocument()
+    expect(screen.queryByText('Not captured')).not.toBeInTheDocument()
+
+    rerender(<ContactIdentityPanel profile={{ ...profile, department: '' }} />)
+
+    expect(screen.getByText('Department not captured')).toBeInTheDocument()
+    expect(screen.queryByText('Not captured')).not.toBeInTheDocument()
+
+    rerender(<ContactIdentityPanel profile={{ ...profile, timezone: '' }} />)
+
+    expect(screen.getByText('Timezone not captured')).toBeInTheDocument()
+    expect(screen.queryByText('Not captured')).not.toBeInTheDocument()
+  })
+
   it('turns missing identity fields into supplied profile actions', () => {
     const onAddRole = jest.fn()
     const onAddDepartment = jest.fn()

@@ -35,10 +35,12 @@ export function contactIdentityHealth(profile: ContactIdentityProfile): number {
 }
 
 function Field({ label, value, action }: { label: string; value?: string; action?: IdentityFieldAction }) {
+  const displayValue = value || `${label} not captured`
+
   return (
     <div>
       <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">{label}</p>
-      <p className="mt-1 text-sm text-[var(--color-pib-text)]">{value || 'Not captured'}</p>
+      <p className="mt-1 text-sm text-[var(--color-pib-text)]">{displayValue}</p>
       {!value && action && (
         <button
           type="button"
