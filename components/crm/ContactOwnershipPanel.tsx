@@ -34,7 +34,11 @@ function sourceLabel(source?: string): string {
 }
 
 function readableSourceFallback(source: string): string {
-  return source
+  return readableTokenLabel(source)
+}
+
+function readableTokenLabel(value: string): string {
+  return value
     .split(/[_\-\s]+/)
     .filter(Boolean)
     .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
@@ -43,7 +47,7 @@ function readableSourceFallback(source: string): string {
 
 function memberMeta(ref?: MemberRef): string {
   if (!ref) return 'No team snapshot yet'
-  const kind = ref.kind ? MEMBER_KIND_LABELS[ref.kind] ?? ref.kind : undefined
+  const kind = ref.kind ? MEMBER_KIND_LABELS[ref.kind] ?? readableTokenLabel(ref.kind) : undefined
   return [ref.jobTitle, kind].filter(Boolean).join(' · ') || ref.uid
 }
 

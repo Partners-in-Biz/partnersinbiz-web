@@ -52,6 +52,24 @@ describe('ContactOwnershipPanel', () => {
     expect(screen.queryByText('linkedin_ads')).not.toBeInTheDocument()
   })
 
+  it('formats unknown member kinds as readable governance labels', () => {
+    render(
+      <ContactOwnershipPanel
+        profile={{
+          ...profile,
+          assignedToRef: {
+            uid: 'partner-1',
+            displayName: 'External Partner',
+            kind: 'external_partner',
+          },
+        }}
+      />,
+    )
+
+    expect(screen.getAllByText('External Partner').length).toBeGreaterThanOrEqual(1)
+    expect(screen.queryByText('external_partner')).not.toBeInTheDocument()
+  })
+
   it('turns a missing relationship owner into an accountability assignment action', () => {
     const assignOwner = jest.fn()
 
