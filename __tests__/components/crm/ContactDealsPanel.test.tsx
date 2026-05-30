@@ -150,6 +150,37 @@ describe('ContactDealsPanel', () => {
     expect(container.querySelectorAll('.pib-skeleton').length).toBeGreaterThan(0)
   })
 
+  it('shows a retryable pipeline load error instead of an empty deal state', async () => {
+    mockFetch
+      .mockRejectedValueOnce(new Error('Deals request failed'))
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ success: true, data: [] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ success: true, data: [] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ success: true, data: [] }),
+      })
+
+    render(<ContactDealsPanel contactId="contact-1" contactName="Ava Owner" />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Deal pipeline unavailable' })).toBeInTheDocument()
+    })
+    expect(screen.getByText('We could not load linked deals for Ava Owner. Retry before treating this relationship as having no open opportunity.')).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: "Start Ava Owner's first opportunity." })).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Retry linked deals for Ava Owner' }))
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: "Start Ava Owner's first opportunity." })).toBeInTheDocument()
+    })
+  })
+
   it('renders deal count in the panel header', async () => {
     const deals = [
       makeDeal({ id: 'd1', title: 'Deal One', stageId: 'proposal' }),

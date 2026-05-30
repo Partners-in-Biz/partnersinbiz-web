@@ -102,6 +102,8 @@ export function ContactDealsPanel({ contactId, contactName, orgId = '' }: Props)
   const [deals, setDeals] = useState<Deal[]>([])
   const [pipelinesById, setPipelinesById] = useState<Map<string, Pipeline>>(new Map())
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
+  const [reloadToken, setReloadToken] = useState(0)
   const [showDealDrawer, setShowDealDrawer] = useState(false)
   const contactLabel = contactName?.trim() || 'this contact'
   const opportunityHeadline = `Start ${contactLabel}'s first opportunity.`
@@ -149,11 +151,16 @@ export function ContactDealsPanel({ contactId, contactName, orgId = '' }: Props)
         setPipelinesById(byId)
 
         setLoading(false)
+        setLoadError(false)
       })
-      .catch(() => setLoading(false))
+      .catch(() => {
+        if (cancelled) return
+        setLoadError(true)
+        setLoading(false)
+      })
 
     return () => { cancelled = true }
-  }, [contactId])
+  }, [contactId, reloadToken])
 
   return (
     <div className="pib-card-section">
@@ -201,6 +208,32 @@ export function ContactDealsPanel({ contactId, contactName, orgId = '' }: Props)
           {[...Array(2)].map((_, i) => (
             <div key={i} className="pib-skeleton h-12" />
           ))}
+        </div>
+      ) : loadError ? (
+        <div className="p-10 text-center">
+          <span className="material-symbols-outlined text-4xl text-amber-300" aria-hidden="true">
+            sync_problem
+          </span>
+          <p className="eyebrow !text-[10px] mt-3">Relationship pipeline</p>
+          <h3 className="mt-2 font-display text-2xl text-[var(--color-pib-text)]">
+            Deal pipeline unavailable
+          </h3>
+          <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[var(--color-pib-text-muted)]">
+            We could not load linked deals for {contactLabel}. Retry before treating this relationship as having no open opportunity.
+          </p>
+          <button
+            type="button"
+            aria-label={`Retry linked deals for ${contactLabel}`}
+            onClick={() => {
+              setLoading(true)
+              setLoadError(false)
+              setReloadToken((value) => value + 1)
+            }}
+            className="btn-pib-secondary mx-auto mt-5 inline-flex items-center gap-1.5 text-xs"
+          >
+            <span className="material-symbols-outlined text-[14px]" aria-hidden="true">refresh</span>
+            Retry linked deals
+          </button>
         </div>
       ) : deals.length === 0 ? (
         <div className="p-10 text-center">
