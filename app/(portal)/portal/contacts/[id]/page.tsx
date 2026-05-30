@@ -457,6 +457,12 @@ export default function PortalContactDetailPage() {
     setLogError(null)
   }
 
+  function openFirstCallComposer() {
+    setLogType('call')
+    setShowAiComposer(false)
+    setLogError(null)
+  }
+
   function startSuggestion(suggestion: SuggestionItem) {
     const action = suggestion.action.toLowerCase()
     if (action.includes('follow') || action.includes('proposal') || action.includes('send') || action.includes('chase')) {
@@ -858,10 +864,15 @@ export default function PortalContactDetailPage() {
             </button>
           )}
           {phone.trim() && (
-            <a href={`tel:${phone.trim()}`} className="btn-pib-secondary text-xs inline-flex items-center gap-1.5">
-              <span className="material-symbols-outlined text-[14px]">call</span>
+            <button
+              type="button"
+              aria-label={`Log call with ${contactName} from contact command center`}
+              onClick={openFirstCallComposer}
+              className="btn-pib-secondary text-xs inline-flex items-center gap-1.5"
+            >
+              <span className="material-symbols-outlined text-[14px]" aria-hidden="true">call</span>
               Call
-            </a>
+            </button>
           )}
           <button
             onClick={archiveContact}

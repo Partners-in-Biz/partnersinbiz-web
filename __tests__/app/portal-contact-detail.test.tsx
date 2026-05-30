@@ -5,6 +5,7 @@ import type { CustomFieldDefinition } from '@/lib/customFields/types'
 
 let mockContactCustomFieldDefinitions: CustomFieldDefinition[] = []
 let mockSuggestions: Array<{ action: string; reason: string; urgency: 'high' | 'medium' | 'low' }> = []
+let mockContactOverrides: Record<string, unknown> = {}
 
 jest.mock('next/navigation', () => ({
   useParams: () => ({ id: 'contact-1' }),
@@ -19,6 +20,7 @@ describe('Portal contact detail page', () => {
   beforeEach(() => {
     mockContactCustomFieldDefinitions = []
     mockSuggestions = []
+    mockContactOverrides = {}
     global.fetch = jest.fn((input: RequestInfo | URL) => {
       const url = String(input)
       if (url === '/api/v1/crm/contacts/contact-1') {
@@ -34,6 +36,7 @@ describe('Portal contact detail page', () => {
                 email: 'jane@example.com',
                 type: 'lead',
                 stage: 'new',
+                ...mockContactOverrides,
               },
             },
           }),
@@ -123,6 +126,20 @@ describe('Portal contact detail page', () => {
 
     expect(screen.getByPlaceholderText('Subject…')).toBeInTheDocument()
     expect(screen.getByPlaceholderText('Message…')).toBeInTheDocument()
+  })
+
+  it('keeps the portal header call action inside the CRM call log', async () => {
+    mockContactOverrides = { phone: '+27821234567' }
+
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Log call with Jane Client from contact command center' }))
+
+    expect(screen.getByPlaceholderText('Add call notes…')).toBeInTheDocument()
   })
 
   it('turns an empty activity timeline into a first-note action', async () => {
