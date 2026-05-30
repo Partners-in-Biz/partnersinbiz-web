@@ -632,6 +632,8 @@ export default function PortalContactsPage() {
           <div className="divide-y divide-[var(--color-pib-line)]">
               {displayedContacts.map((c) => {
               const isSelected = selectedIds.has(c.id)
+              const contactName = c.name || 'Unnamed contact'
+              const lastContactedLabel = fmtTimestamp(c.lastContactedAt) || 'No touch logged'
               return (
                 <div
                   key={c.id}
@@ -646,7 +648,7 @@ export default function PortalContactsPage() {
                       checked={isSelected}
                       onChange={() => toggleSelect(c.id)}
                       className="w-4 h-4 rounded cursor-pointer accent-[var(--color-pib-accent)]"
-                      aria-label={`Select ${c.name}`}
+                      aria-label={`Select ${contactName}`}
                     />
                   </div>
                   {/* Rest of the row — wrapped in Link */}
@@ -656,7 +658,7 @@ export default function PortalContactsPage() {
                     onClick={e => { if (selectedIds.size > 0) e.preventDefault(); toggleSelect(c.id) }}
                   >
                     <div className="md:col-span-2">
-                      <p className="font-medium text-[var(--color-pib-accent-hover)]">{c.name || '—'}</p>
+                      <p className="font-medium text-[var(--color-pib-accent-hover)]">{contactName}</p>
                       {c.tags && c.tags.length > 0 && (
                         <p className="text-[11px] text-[var(--color-pib-text-muted)] mt-0.5 truncate">
                           {c.tags.join(', ')}
@@ -664,10 +666,10 @@ export default function PortalContactsPage() {
                       )}
                     </div>
                     <div className="md:col-span-3 text-sm text-[var(--color-pib-text-muted)] truncate">
-                      {c.email || '—'}
+                      {c.email || 'Email missing'}
                     </div>
                     <div className="md:col-span-2 text-sm text-[var(--color-pib-text-muted)] truncate">
-                      {c.company || '—'}
+                      {c.company || 'Company missing'}
                       <p className="mt-1 text-[11px] text-[var(--color-pib-text-muted)]">
                         Owner: <span>{contactOwnerLabel(c)}</span>
                       </p>
@@ -679,7 +681,7 @@ export default function PortalContactsPage() {
                       <StageBadge stage={c.stage} />
                     </div>
                     <div className="md:col-span-2 text-xs text-[var(--color-pib-text-muted)] font-mono">
-                      {fmtTimestamp(c.lastContactedAt) || '—'}
+                      {lastContactedLabel}
                     </div>
                     <div className="md:col-span-1">
                       <ScoreChip score={c.leadScore} kind="lead" label="Lead score (formula)" size="sm" />
