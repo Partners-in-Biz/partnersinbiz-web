@@ -18,8 +18,8 @@ function isEmpty(v: unknown): boolean {
   return false
 }
 
-function Dash() {
-  return <span className="text-[var(--color-pib-text-muted)]">—</span>
+function MissingValue({ label = 'Not captured' }: { label?: string }) {
+  return <span className="text-sm text-[var(--color-pib-text-muted)]">{label}</span>
 }
 
 function Chip({ label, color }: { label: string; color?: string }) {
@@ -40,7 +40,7 @@ export function CustomFieldValue({ definition, value }: CustomFieldValueProps) {
 
   if (isEmpty(value)) {
     // checkbox: false is a valid value
-    if (type !== 'checkbox') return <Dash />
+    if (type !== 'checkbox') return <MissingValue />
   }
 
   // ── text / longtext / phone ─────────────────────────────────────────────────
@@ -76,7 +76,7 @@ export function CustomFieldValue({ definition, value }: CustomFieldValueProps) {
 
   // ── number ──────────────────────────────────────────────────────────────────
   if (type === 'number') {
-    if (value === undefined || value === null) return <Dash />
+    if (value === undefined || value === null) return <MissingValue />
     return (
       <span className="text-sm text-[var(--color-pib-text)]">
         {(value as number).toLocaleString()}
@@ -86,9 +86,9 @@ export function CustomFieldValue({ definition, value }: CustomFieldValueProps) {
 
   // ── currency ────────────────────────────────────────────────────────────────
   if (type === 'currency') {
-    if (typeof value !== 'object' || value === null) return <Dash />
+    if (typeof value !== 'object' || value === null) return <MissingValue />
     const cv = value as { amount?: number; currency?: string }
-    if (cv.amount === undefined) return <Dash />
+    if (cv.amount === undefined) return <MissingValue />
     let formatted: string
     try {
       formatted = new Intl.NumberFormat(
@@ -103,45 +103,41 @@ export function CustomFieldValue({ definition, value }: CustomFieldValueProps) {
 
   // ── date ────────────────────────────────────────────────────────────────────
   if (type === 'date') {
-    if (isEmpty(value)) return <Dash />
+    if (isEmpty(value)) return <MissingValue />
+    let formatted: string
     try {
-      return (
-        <span className="text-sm text-[var(--color-pib-text)]">
-          {new Date(value as string).toLocaleDateString()}
-        </span>
-      )
+      formatted = new Date(value as string).toLocaleDateString()
     } catch {
-      return <Dash />
+      return <MissingValue />
     }
+    return <span className="text-sm text-[var(--color-pib-text)]">{formatted}</span>
   }
 
   // ── datetime ────────────────────────────────────────────────────────────────
   if (type === 'datetime') {
-    if (isEmpty(value)) return <Dash />
+    if (isEmpty(value)) return <MissingValue />
+    let formatted: string
     try {
-      return (
-        <span className="text-sm text-[var(--color-pib-text)]">
-          {new Date(value as string).toLocaleString()}
-        </span>
-      )
+      formatted = new Date(value as string).toLocaleString()
     } catch {
-      return <Dash />
+      return <MissingValue />
     }
+    return <span className="text-sm text-[var(--color-pib-text)]">{formatted}</span>
   }
 
   // ── dropdown ────────────────────────────────────────────────────────────────
   if (type === 'dropdown') {
     const opt = (options ?? []).find((o) => o.value === value)
-    if (!opt) return <Dash />
+    if (!opt) return <MissingValue label={`Unknown ${definition.label} option`} />
     return <Chip label={opt.label} color={opt.color} />
   }
 
   // ── multi_select ────────────────────────────────────────────────────────────
   if (type === 'multi_select') {
     const selected = Array.isArray(value) ? (value as string[]) : []
-    if (selected.length === 0) return <Dash />
+    if (selected.length === 0) return <MissingValue />
     const matched = (options ?? []).filter((o) => selected.includes(o.value))
-    if (matched.length === 0) return <Dash />
+    if (matched.length === 0) return <MissingValue label={`Unknown ${definition.label} options`} />
     return (
       <div className="flex flex-wrap gap-1">
         {matched.map((opt) => (
@@ -160,5 +156,5 @@ export function CustomFieldValue({ definition, value }: CustomFieldValueProps) {
     )
   }
 
-  return <Dash />
+  return <MissingValue />
 }

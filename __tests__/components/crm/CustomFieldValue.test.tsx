@@ -24,34 +24,37 @@ function makeDef(overrides: Partial<CustomFieldDefinition>): CustomFieldDefiniti
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe('CustomFieldValue', () => {
-  it('renders "—" for undefined value', () => {
+  it('names an undefined text value as not captured', () => {
     render(
       <CustomFieldValue
         definition={makeDef({ type: 'text' })}
         value={undefined}
       />,
     )
-    expect(screen.getByText('—')).toBeInTheDocument()
+    expect(screen.getByText('Not captured')).toBeInTheDocument()
+    expect(screen.queryByText('—')).not.toBeInTheDocument()
   })
 
-  it('renders "—" for null value', () => {
+  it('names a null number value as not captured', () => {
     render(
       <CustomFieldValue
         definition={makeDef({ type: 'number' })}
         value={null}
       />,
     )
-    expect(screen.getByText('—')).toBeInTheDocument()
+    expect(screen.getByText('Not captured')).toBeInTheDocument()
+    expect(screen.queryByText('—')).not.toBeInTheDocument()
   })
 
-  it('renders "—" for empty string', () => {
+  it('names an empty string value as not captured', () => {
     render(
       <CustomFieldValue
         definition={makeDef({ type: 'text' })}
         value=""
       />,
     )
-    expect(screen.getByText('—')).toBeInTheDocument()
+    expect(screen.getByText('Not captured')).toBeInTheDocument()
+    expect(screen.queryByText('—')).not.toBeInTheDocument()
   })
 
   it('renders plain text for type "text"', () => {
@@ -134,17 +137,19 @@ describe('CustomFieldValue', () => {
     expect(screen.getByText('Beta')).toBeInTheDocument()
   })
 
-  it('renders "—" for unknown dropdown value', () => {
+  it('names unknown dropdown values as stale CRM options', () => {
     render(
       <CustomFieldValue
         definition={makeDef({
+          label: 'Buying committee role',
           type: 'dropdown',
           options: [{ value: 'a', label: 'Alpha' }],
         })}
         value="unknown"
       />,
     )
-    expect(screen.getByText('—')).toBeInTheDocument()
+    expect(screen.getByText('Unknown Buying committee role option')).toBeInTheDocument()
+    expect(screen.queryByText('—')).not.toBeInTheDocument()
   })
 
   it('renders one chip per matched option for multi_select', () => {
