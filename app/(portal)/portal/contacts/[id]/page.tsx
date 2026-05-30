@@ -96,6 +96,27 @@ const ACTIVITY_ICONS: Record<string, string> = {
 const STAGE_OPTIONS = ['new', 'contacted', 'replied', 'demo', 'proposal', 'won', 'lost']
 const TYPE_OPTIONS = ['lead', 'prospect', 'client', 'churned']
 const SOURCE_OPTIONS = ['manual', 'form', 'import', 'outreach']
+const STAGE_LABELS: Record<string, string> = {
+  new: 'New lead',
+  contacted: 'Contacted',
+  replied: 'Replied',
+  demo: 'Demo booked',
+  proposal: 'Proposal sent',
+  won: 'Won customer',
+  lost: 'Lost opportunity',
+}
+const TYPE_LABELS: Record<string, string> = {
+  lead: 'Lead',
+  prospect: 'Prospect',
+  client: 'Client',
+  churned: 'Churned',
+}
+const SOURCE_LABELS: Record<string, string> = {
+  manual: 'Manual entry',
+  form: 'Form capture',
+  import: 'Imported list',
+  outreach: 'Outreach',
+}
 
 function timestampMillis(value: unknown): number {
   if (!value) return 0
@@ -121,6 +142,12 @@ function daysSince(value: unknown): number | null {
 
 function fmtPercent(value: number): string {
   return `${Math.round(Math.max(0, Math.min(value, 1)) * 100)}%`
+}
+
+function displayLabel(value: string, labels: Record<string, string>): string {
+  const key = value.trim()
+  if (!key) return ''
+  return labels[key] ?? key
 }
 
 function splitTags(value: string): string[] {
@@ -795,6 +822,9 @@ export default function PortalContactDetailPage() {
     assignedTo && contact.assignedToRef?.uid === assignedTo
       ? contact.assignedToRef
       : teamMemberRef(teamMembers.find((member) => member.uid === assignedTo))
+  const sourceLabel = displayLabel(source, SOURCE_LABELS)
+  const typeLabel = displayLabel(type, TYPE_LABELS)
+  const stageLabel = displayLabel(stage, STAGE_LABELS)
   const detailRows = [
     {
       label: 'Email',
@@ -836,9 +866,9 @@ export default function PortalContactDetailPage() {
       actionAriaLabel: `Add relationship notes from details for ${contactName}`,
       onAction: () => focusProfileField(notesFieldRef),
     },
-    { label: 'Source', value: source },
-    { label: 'Type', value: type },
-    { label: 'Stage', value: stage },
+    { label: 'Source', value: sourceLabel },
+    { label: 'Type', value: typeLabel },
+    { label: 'Stage', value: stageLabel },
   ]
 
   return (
@@ -927,8 +957,8 @@ export default function PortalContactDetailPage() {
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <span className="pill capitalize">{stage}</span>
-              <span className="pill capitalize">{type}</span>
+              <span className="pill">{stageLabel}</span>
+              <span className="pill">{typeLabel}</span>
               <span className="pill">{relationshipSignal}</span>
               {tags.map((t) => (
                 <span key={t} className="pill">
@@ -1295,19 +1325,19 @@ export default function PortalContactDetailPage() {
               <div className="space-y-1">
                 <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">Source</p>
                 <select ref={sourceFieldRef} value={source} onChange={(e) => setSource(e.target.value)} className="pib-input w-full">
-                  {SOURCE_OPTIONS.map((option) => <option key={option} value={option} className="bg-black">{option}</option>)}
+                  {SOURCE_OPTIONS.map((option) => <option key={option} value={option} className="bg-black">{displayLabel(option, SOURCE_LABELS)}</option>)}
                 </select>
               </div>
               <div className="space-y-1">
                 <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">Type</p>
                 <select value={type} onChange={(e) => setType(e.target.value)} className="pib-input w-full">
-                  {TYPE_OPTIONS.map((option) => <option key={option} value={option} className="bg-black">{option}</option>)}
+                  {TYPE_OPTIONS.map((option) => <option key={option} value={option} className="bg-black">{displayLabel(option, TYPE_LABELS)}</option>)}
                 </select>
               </div>
               <div className="space-y-1">
                 <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">Stage</p>
                 <select ref={stageFieldRef} value={stage} onChange={(e) => setStage(e.target.value)} className="pib-input w-full">
-                  {STAGE_OPTIONS.map((option) => <option key={option} value={option} className="bg-black">{option}</option>)}
+                  {STAGE_OPTIONS.map((option) => <option key={option} value={option} className="bg-black">{displayLabel(option, STAGE_LABELS)}</option>)}
                 </select>
               </div>
             </div>

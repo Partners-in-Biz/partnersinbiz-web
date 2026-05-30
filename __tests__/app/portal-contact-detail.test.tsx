@@ -142,6 +142,27 @@ describe('Portal contact detail page', () => {
     expect(screen.getByPlaceholderText('Add call notes…')).toBeInTheDocument()
   })
 
+  it('renders portal lifecycle values as readable CRM labels', async () => {
+    mockContactOverrides = {
+      source: 'outreach',
+      type: 'prospect',
+      stage: 'proposal',
+    }
+
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    expect(screen.getAllByText('Proposal sent').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Prospect').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Outreach').length).toBeGreaterThan(0)
+    expect(screen.getByRole('option', { name: 'Proposal sent' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Prospect' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Outreach' })).toBeInTheDocument()
+  })
+
   it('turns an empty activity timeline into a first-note action', async () => {
     render(<PortalContactDetailPage />)
 
@@ -360,7 +381,7 @@ describe('Portal contact detail page', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Review source provenance for Jane Client from relationship ownership' }))
 
-    expect(screen.getByDisplayValue('manual')).toHaveFocus()
+    expect(screen.getByDisplayValue('Manual entry')).toHaveFocus()
   })
 
   it('turns missing identity intelligence into profile field actions', async () => {
