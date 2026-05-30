@@ -170,6 +170,20 @@ describe('Admin contact detail page', () => {
     expect(composeLink).toHaveAttribute('href', '/admin/email/compose?to=jane%40example.com&contactId=contact-1')
   })
 
+  it('turns blocked admin email history into an email capture action', async () => {
+    contactOverride = { email: '' }
+
+    render(<AdminContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Jane Client' })).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add email for Jane Client from admin email history' }))
+
+    expect(screen.getByTestId('contact-form')).toBeInTheDocument()
+  })
+
   it('keeps the admin header email action inside the in-app composer', async () => {
     render(<AdminContactDetailPage />)
 

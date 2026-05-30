@@ -751,6 +751,17 @@ export default function ContactDetailPage() {
                       Compose first email
                     </Link>
                   )}
+                  {!composeEmailHref && (
+                    <button
+                      type="button"
+                      aria-label={`Add email for ${name} from admin email history`}
+                      onClick={() => setEditing(true)}
+                      className="mt-4 inline-flex items-center justify-center gap-1.5 rounded-lg border border-[var(--color-card-border)] px-3 py-2 text-xs font-semibold text-[var(--color-accent-v2)] transition-colors hover:border-[var(--color-accent-v2)] hover:text-on-surface"
+                    >
+                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">alternate_email</span>
+                      Add email to start outreach
+                    </button>
+                  )}
                 </div>
               ) : (
                 <div className="divide-y divide-[var(--color-card-border)]">
