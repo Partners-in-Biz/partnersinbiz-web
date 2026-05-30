@@ -707,8 +707,27 @@ export function CompanyOverviewPanel({ company, center, loading, onSelectTab, on
           {mixData.length > 0 ? (
             <HorizontalBarChart data={mixData} height={260} />
           ) : (
-            <div className="flex min-h-[220px] items-center justify-center rounded-lg border border-dashed border-[var(--color-pib-line)] text-center text-sm text-[var(--color-pib-text-muted)]">
-              Linked CRM, delivery, finance, and commerce records will appear here.
+            <div className="flex min-h-[220px] items-center justify-center rounded-lg border border-dashed border-[var(--color-pib-line)] bg-white/[0.02] p-6 text-center">
+              <div className="max-w-md">
+                <p className="eyebrow !text-[10px] text-amber-200">Operating footprint missing</p>
+                <h3 className="mt-2 font-display text-lg text-[var(--color-pib-text)]">Link the first account record</h3>
+                <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">
+                  No contacts, deals, delivery work, documents, finance, or commerce records are linked yet. Start with contacts so every team can see who owns the relationship.
+                </p>
+                {onSelectTab ? (
+                  <button
+                    type="button"
+                    onClick={() => onSelectTab('contacts')}
+                    aria-label={`Review linked contacts for ${company.name}`}
+                    className="btn-pib-secondary mt-4 inline-flex items-center gap-1.5 text-xs"
+                  >
+                    <span aria-hidden="true" className="material-symbols-outlined text-[14px]">groups</span>
+                    Review contacts
+                  </button>
+                ) : (
+                  <p className="mt-3 text-xs text-[var(--color-pib-text-muted)]">Open Contacts to link the first relationship record.</p>
+                )}
+              </div>
             </div>
           )}
         </SectionCard>

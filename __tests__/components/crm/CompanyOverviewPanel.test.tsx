@@ -227,6 +227,44 @@ describe('CompanyOverviewPanel', () => {
     expect(onSelectTab).toHaveBeenCalledWith('deals')
   })
 
+  it('turns an empty business mix chart into an account linking action', () => {
+    const onSelectTab = jest.fn()
+
+    render(
+      <CompanyOverviewPanel
+        company={company()}
+        center={{
+          summary: {
+            contacts: 0,
+            deals: 0,
+            projects: 0,
+            documents: 0,
+            serviceWorkspaces: 0,
+            relationships: 0,
+            quotes: 0,
+            invoices: 0,
+            orders: 0,
+            shipments: 0,
+            inventoryItems: 0,
+          },
+        }}
+        onSelectTab={onSelectTab}
+      />,
+    )
+
+    expect(screen.getByText('Operating footprint missing')).toBeInTheDocument()
+    expect(screen.getByText('Link the first account record')).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'No contacts, deals, delivery work, documents, finance, or commerce records are linked yet. Start with contacts so every team can see who owns the relationship.',
+      ),
+    ).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Review linked contacts for Acme Studio' }))
+
+    expect(onSelectTab).toHaveBeenCalledWith('contacts')
+  })
+
   it('labels parent-account navigation with the resolved parent company name', () => {
     const companyWithParent = company({
       parentCompanyId: 'co-parent',
