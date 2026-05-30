@@ -647,7 +647,26 @@ export function CompanyOverviewPanel({ company, center, loading, onSelectTab, on
                 ))}
               </div>
             ) : (
-              <p className="mt-4 text-sm text-[var(--color-pib-text-muted)]">No active risk signals for this company.</p>
+              <div className="mt-4 rounded-lg border border-emerald-400/20 bg-emerald-400/10 p-3">
+                <p className="eyebrow !text-[10px] text-emerald-200">Risk watch clear</p>
+                <h3 className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">Keep pulse risk reviewable</h3>
+                <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">
+                  No active risk signals are flagged in the account pulse. Review invoices so finance, delivery, and operations stay checked before leadership sees surprises.
+                </p>
+                {onSelectTab ? (
+                  <button
+                    type="button"
+                    onClick={() => onSelectTab('invoices')}
+                    aria-label={`Review operational risk for ${company.name}`}
+                    className="btn-pib-secondary mt-3 inline-flex items-center gap-1.5 text-xs"
+                  >
+                    <span aria-hidden="true" className="material-symbols-outlined text-[14px]">receipt_long</span>
+                    Review invoices
+                  </button>
+                ) : (
+                  <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">Open Invoices to keep the account pulse reviewed.</p>
+                )}
+              </div>
             )}
           </div>
         </div>

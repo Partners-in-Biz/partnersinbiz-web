@@ -192,6 +192,39 @@ describe('CompanyOverviewPanel', () => {
     expect(onSelectTab).toHaveBeenCalledWith('activity')
   })
 
+  it('turns a clear operational pulse into a risk review action', () => {
+    const onSelectTab = jest.fn()
+
+    render(
+      <CompanyOverviewPanel
+        company={company()}
+        center={{
+          summary: {
+            openOrders: 0,
+            lowStockItems: 0,
+            overdueInvoices: 0,
+          },
+          analytics: {
+            riskSignals: [],
+          },
+        }}
+        onSelectTab={onSelectTab}
+      />,
+    )
+
+    expect(screen.getByText('Risk watch clear')).toBeInTheDocument()
+    expect(screen.getByText('Keep pulse risk reviewable')).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'No active risk signals are flagged in the account pulse. Review invoices so finance, delivery, and operations stay checked before leadership sees surprises.',
+      ),
+    ).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Review operational risk for Acme Studio' }))
+
+    expect(onSelectTab).toHaveBeenCalledWith('invoices')
+  })
+
   it('turns an empty revenue mix chart into a commercial review action', () => {
     const onSelectTab = jest.fn()
 
