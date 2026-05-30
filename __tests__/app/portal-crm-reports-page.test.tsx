@@ -103,6 +103,9 @@ describe('Portal CRM reports page', () => {
     const closeDateLink = screen.getByRole('link', { name: 'Open forecast deals missing close dates' })
     expect(closeDateLink).toHaveAttribute('href', '/portal/deals?view=forecast&focus=no-close-date')
 
+    const noCloseDateRowLink = screen.getByRole('link', { name: 'Open no close date forecast deals' })
+    expect(noCloseDateRowLink).toHaveAttribute('href', '/portal/deals?view=forecast&focus=no-close-date')
+
     const dominantStageLink = screen.getByRole('link', { name: 'Open contacts in dominant New stage' })
     expect(dominantStageLink).toHaveAttribute('href', '/portal/contacts?stage=new')
 

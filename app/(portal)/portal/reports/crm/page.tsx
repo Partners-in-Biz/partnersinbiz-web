@@ -337,14 +337,30 @@ function Section({ eyebrow, children }: { eyebrow: React.ReactNode; children: Re
 interface ForecastRowProps {
   label: string
   period: ForecastPeriod
+  href?: string
+  ariaLabel?: string
 }
 
-function ForecastRow({ label, period }: ForecastRowProps) {
+function ForecastRow({ label, period, href, ariaLabel }: ForecastRowProps) {
   const muted = period.dealCount === 0
   const cls = muted ? 'text-[var(--color-pib-text-muted)]' : 'text-[var(--color-pib-text)]'
+  const canOpen = Boolean(href && ariaLabel && period.dealCount > 0)
   return (
-    <tr className={`border-b border-[var(--color-pib-line)] last:border-0 ${muted ? 'opacity-50' : ''}`}>
-      <td className={`px-4 py-3 text-sm font-medium ${cls}`}>{label}</td>
+    <tr className={`border-b border-[var(--color-pib-line)] last:border-0 ${muted ? 'opacity-50' : ''} ${canOpen ? 'hover:bg-white/[0.03]' : ''}`}>
+      <td className={`px-4 py-3 text-sm font-medium ${cls}`}>
+        {canOpen ? (
+          <Link
+            href={href as string}
+            aria-label={ariaLabel as string}
+            className="inline-flex max-w-full items-center gap-1.5 rounded-md text-[var(--color-pib-text)] transition-colors hover:text-[var(--color-pib-accent)] focus:outline-none focus:ring-2 focus:ring-[var(--color-pib-accent)] focus:ring-offset-2 focus:ring-offset-[var(--color-pib-bg)]"
+          >
+            <span className="truncate">{label}</span>
+            <span aria-hidden="true" className="material-symbols-outlined text-[15px]">open_in_new</span>
+          </Link>
+        ) : (
+          label
+        )}
+      </td>
       <td className={`px-4 py-3 text-sm text-right font-mono ${cls}`}>{fmtNum(period.dealCount)}</td>
       <td className={`px-4 py-3 text-sm text-right font-mono ${cls}`}>{period.dealCount > 0 ? fmtZar(period.totalValue) : '—'}</td>
       <td className={`px-4 py-3 text-sm text-right font-mono ${muted ? 'text-[var(--color-pib-text-muted)]' : 'text-[var(--color-pib-accent)]'}`}>
@@ -783,7 +799,12 @@ export default function CrmReportsPage() {
                     <ForecastRow label="This quarter" period={forecast.periods.thisQuarter} />
                     <ForecastRow label="Next quarter" period={forecast.periods.nextQuarter} />
                     <ForecastRow label="Beyond" period={forecast.periods.beyond} />
-                    <ForecastRow label="No close date" period={forecast.periods.noDate} />
+                    <ForecastRow
+                      label="No close date"
+                      period={forecast.periods.noDate}
+                      href="/portal/deals?view=forecast&focus=no-close-date"
+                      ariaLabel="Open no close date forecast deals"
+                    />
                   </tbody>
                 </table>
               </div>
