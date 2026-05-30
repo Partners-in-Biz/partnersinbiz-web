@@ -217,6 +217,7 @@ export default function PortalContactDetailPage() {
   const [editCustomFields, setEditCustomFields] = useState<Record<string, unknown>>({})
   const [saving, setSaving] = useState(false)
   const [archiving, setArchiving] = useState(false)
+  const [archiveConfirmOpen, setArchiveConfirmOpen] = useState(false)
   const [error, setError] = useState('')
   const [scoreSaving, setScoreSaving] = useState(false)
   const [scoreError, setScoreError] = useState<string | null>(null)
@@ -421,8 +422,13 @@ export default function PortalContactDetailPage() {
     }
   }
 
+  function openArchiveConfirmation() {
+    setArchiveConfirmOpen(true)
+    setError('')
+  }
+
   async function archiveContact() {
-    if (!contact || !confirm(`Archive ${contact.name ?? 'this contact'}?`)) return
+    if (!contact) return
     setArchiving(true)
     setError('')
     try {
@@ -431,6 +437,7 @@ export default function PortalContactDetailPage() {
         const err = await res.json().catch(() => ({}))
         throw new Error(err.error ?? 'Archive failed')
       }
+      setArchiveConfirmOpen(false)
       router.push('/portal/contacts')
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Archive failed')
@@ -905,15 +912,51 @@ export default function PortalContactDetailPage() {
             </button>
           )}
           <button
-            onClick={archiveContact}
+            type="button"
+            onClick={openArchiveConfirmation}
             disabled={archiving}
+            aria-label={`Archive ${contactName}`}
             className="btn-pib-secondary text-xs inline-flex items-center gap-1.5 disabled:opacity-50"
           >
-            <span className="material-symbols-outlined text-[14px]">archive</span>
+            <span className="material-symbols-outlined text-[14px]" aria-hidden="true">archive</span>
             {archiving ? 'Archiving…' : 'Archive'}
           </button>
         </div>
       </div>
+
+      {archiveConfirmOpen && (
+        <section className="bento-card border border-red-500/30 bg-red-500/[0.04] !p-5">
+          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+            <div className="max-w-2xl">
+              <p className="eyebrow !text-[10px] text-red-300">Archive contact</p>
+              <h2 className="mt-2 font-display text-xl text-[var(--color-pib-text)]">Archive {contactName}?</h2>
+              <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">
+                This contact will leave the active CRM list, but relationship history stays available for reporting and audit context.
+              </p>
+            </div>
+            <div className="flex shrink-0 flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setArchiveConfirmOpen(false)}
+                disabled={archiving}
+                className="btn-pib-secondary text-xs disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                aria-label={`Confirm archive for ${contactName}`}
+                onClick={archiveContact}
+                disabled={archiving}
+                className="btn-pib-accent text-xs disabled:opacity-50"
+              >
+                <span className="material-symbols-outlined text-[14px]" aria-hidden="true">archive</span>
+                {archiving ? 'Archiving…' : 'Confirm archive'}
+              </button>
+            </div>
+          </div>
+        </section>
+      )}
 
       <header className="space-y-6">
         <div className="grid gap-5 lg:grid-cols-[1fr_340px]">

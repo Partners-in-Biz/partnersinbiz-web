@@ -6,10 +6,11 @@ import type { CustomFieldDefinition } from '@/lib/customFields/types'
 let mockContactCustomFieldDefinitions: CustomFieldDefinition[] = []
 let mockSuggestions: Array<{ action: string; reason: string; urgency: 'high' | 'medium' | 'low' }> = []
 let mockContactOverrides: Record<string, unknown> = {}
+let mockRouterPush = jest.fn()
 
 jest.mock('next/navigation', () => ({
   useParams: () => ({ id: 'contact-1' }),
-  useRouter: () => ({ push: jest.fn() }),
+  useRouter: () => ({ push: mockRouterPush }),
 }))
 
 jest.mock('@/components/crm/ContactDealsPanel', () => ({
@@ -21,7 +22,8 @@ describe('Portal contact detail page', () => {
     mockContactCustomFieldDefinitions = []
     mockSuggestions = []
     mockContactOverrides = {}
-    global.fetch = jest.fn((input: RequestInfo | URL) => {
+    mockRouterPush = jest.fn()
+    global.fetch = jest.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
       if (url === '/api/v1/crm/contacts/contact-1') {
         return Promise.resolve({
@@ -90,6 +92,12 @@ describe('Portal contact detail page', () => {
               },
             },
           }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/contacts/contact-1' && init?.method === 'DELETE') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ success: true }),
         } as Response)
       }
       return Promise.resolve({
@@ -161,6 +169,27 @@ describe('Portal contact detail page', () => {
     expect(screen.getByRole('option', { name: 'Proposal sent' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'Prospect' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'Outreach' })).toBeInTheDocument()
+  })
+
+  it('uses an in-page archive confirmation before removing a portal contact', async () => {
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /Archive/ }))
+
+    expect(screen.getByRole('heading', { name: 'Archive Jane Client?' })).toBeInTheDocument()
+    expect(screen.getByText('This contact will leave the active CRM list, but relationship history stays available for reporting and audit context.')).toBeInTheDocument()
+    expect(global.fetch).not.toHaveBeenCalledWith('/api/v1/crm/contacts/contact-1', { method: 'DELETE' })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm archive for Jane Client' }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/contacts/contact-1', { method: 'DELETE' })
+    })
+    expect(mockRouterPush).toHaveBeenCalledWith('/portal/contacts')
   })
 
   it('turns an empty activity timeline into a first-note action', async () => {
