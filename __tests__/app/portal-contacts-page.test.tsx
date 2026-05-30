@@ -129,6 +129,48 @@ describe('Portal contacts page', () => {
     expect(screen.getByText('owner: unowned')).toBeInTheDocument()
   })
 
+  it('treats an empty unowned-owner lens as clean contact accountability', async () => {
+    mockSearchParams = new URLSearchParams('owner=unowned')
+    ;(global.fetch as jest.Mock).mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.startsWith('/api/v1/crm/contacts')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: [
+              {
+                id: 'contact-owned',
+                name: 'Owned Client',
+                email: 'owned@example.com',
+                company: 'Owned Co',
+                type: 'client',
+                stage: 'won',
+                assignedTo: 'sales-lead-1',
+                assignedToRef: { uid: 'sales-lead-1', displayName: 'Ava Owner' },
+                tags: [],
+                lastContactedAt: null,
+              },
+            ],
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/portal/settings/team') {
+        return Promise.resolve({ ok: true, json: async () => ({ members: [] }) } as Response)
+      }
+      if (url.startsWith('/api/v1/crm/saved-views')) {
+        return Promise.resolve({ ok: true, json: async () => ({ data: [] }) } as Response)
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    })
+
+    render(<PortalContactsPage />)
+
+    expect(await screen.findByRole('heading', { name: 'No unowned contacts.' })).toBeInTheDocument()
+    expect(screen.getAllByText('No unowned contacts.').length).toBeGreaterThanOrEqual(2)
+    expect(screen.getAllByText('Every contact in this view has an owner.').length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByRole('button', { name: 'Show all contacts' }).length).toBeGreaterThan(0)
+  })
+
   it('opens directly to a stage lens from CRM reports', async () => {
     mockSearchParams = new URLSearchParams('stage=new')
 

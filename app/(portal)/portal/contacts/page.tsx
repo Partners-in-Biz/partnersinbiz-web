@@ -393,12 +393,16 @@ export default function PortalContactsPage() {
         ? 'No contacts need follow-up.'
         : `${displayedContacts.length} contact${displayedContacts.length === 1 ? '' : 's'} need follow-up.`
     : ownerLens === 'unowned'
-      ? `${displayedContacts.length} unowned contact${displayedContacts.length === 1 ? '' : 's'} need assignment.`
+      ? displayedContacts.length === 0
+        ? 'No unowned contacts.'
+        : `${displayedContacts.length} unowned contact${displayedContacts.length === 1 ? '' : 's'} need assignment.`
     : hasActiveFilters
       ? `${displayedContacts.length} contact${displayedContacts.length === 1 ? '' : 's'} match this view.`
       : `${displayedContacts.length} contact${displayedContacts.length === 1 ? '' : 's'} in your audience.`
   const emptyTitle = followUpLens === 'stale'
     ? 'No contacts need follow-up.'
+    : ownerLens === 'unowned'
+      ? 'No unowned contacts.'
     : hasActiveFilters
       ? 'No contacts match this view.'
       : 'No contacts yet.'
