@@ -98,14 +98,28 @@ describe('ContactDealsPanel', () => {
       expect(screen.getByText('Gamma Deal')).toBeInTheDocument()
     })
 
-    // Stage chips show stageId text (W3-H will resolve to pretty labels)
-    expect(screen.getByText('discovery')).toBeInTheDocument()
-    expect(screen.getByText('proposal')).toBeInTheDocument()
-    expect(screen.getByText('won')).toBeInTheDocument()
+    expect(screen.getByText('Discovery')).toBeInTheDocument()
+    expect(screen.getByText('Proposal')).toBeInTheDocument()
+    expect(screen.getByText('Won')).toBeInTheDocument()
 
     // Values
     expect(screen.getAllByText(/10[\s ,.]?000/).length).toBeGreaterThan(0)
     expect(screen.getAllByText(/25[\s ,.]?000/).length).toBeGreaterThan(0)
+  })
+
+  it('formats fallback stage ids as readable labels when pipeline metadata is unavailable', async () => {
+    mockFetch.mockReturnValue(apiResponse([
+      makeDeal({ id: 'd1', title: 'Fallback Stage Deal', stageId: 'proposal_sent' }),
+    ]))
+
+    render(<ContactDealsPanel contactId="contact-1" />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: 'Fallback Stage Deal' })).toBeInTheDocument()
+    })
+
+    expect(screen.getByText('Proposal Sent')).toBeInTheDocument()
+    expect(screen.queryByText('proposal_sent')).not.toBeInTheDocument()
   })
 
   it('turns an empty contact deal panel into a relationship pipeline launch state', async () => {

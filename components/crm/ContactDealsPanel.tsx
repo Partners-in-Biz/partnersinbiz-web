@@ -48,11 +48,21 @@ function resolveStage(
   const pipeline = pipelinesById.get(deal.pipelineId)
   const stage: PipelineStage | undefined = pipeline?.stages.find(s => s.id === deal.stageId)
   if (!stage) {
-    // Fallback: raw stageId string, neutral color
-    return { label: deal.stageId ?? '—', color: '#6b7280', kind: fallbackStageKind(deal) }
+    return { label: fallbackStageLabel(deal.stageId), color: '#6b7280', kind: fallbackStageKind(deal) }
   }
   const color = stage.color ?? kindColor(stage.kind)
   return { label: stage.label, color, kind: stage.kind }
+}
+
+function fallbackStageLabel(stageId?: string): string {
+  const normalized = stageId?.trim()
+  if (!normalized) return 'Stage not set'
+
+  return normalized
+    .split(/[_\-\s]+/)
+    .filter(Boolean)
+    .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(' ')
 }
 
 function fallbackStageKind(deal: Deal): string {
