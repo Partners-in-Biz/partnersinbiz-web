@@ -98,7 +98,9 @@ describe('CompanyOverviewPanel', () => {
     expect(onSelectTab).toHaveBeenCalledWith('contacts')
   })
 
-  it('does not render a blank overview for a sparse company', () => {
+  it('turns sparse identity and billing blocks into profile-capture actions', () => {
+    const onEditCompany = jest.fn()
+
     render(
       <CompanyOverviewPanel
         company={company({
@@ -109,13 +111,22 @@ describe('CompanyOverviewPanel', () => {
           billingEmail: undefined,
           healthScore: undefined,
         })}
+        onEditCompany={onEditCompany}
       />,
     )
 
     expect(screen.getByText('Business pulse')).toBeInTheDocument()
     expect(screen.getByText('Setup focus')).toBeInTheDocument()
-    expect(screen.getByText('No business identity fields captured yet.')).toBeInTheDocument()
-    expect(screen.getByText('No billing or contact fields captured yet.')).toBeInTheDocument()
+
+    expect(screen.getByRole('heading', { name: 'Capture account identity.' })).toBeInTheDocument()
+    expect(screen.getByText('Add legal name, trading name, lifecycle stage, industry, size, and website so the account is useful in reviews.')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Edit account identity for Acme Studio' }))
+
+    expect(screen.getByRole('heading', { name: 'Capture billing and contact detail.' })).toBeInTheDocument()
+    expect(screen.getByText('Add phone, billing email, registration, VAT, accounts contact, signatory, and invoice notes before proposals become admin work.')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Edit billing and contact details for Acme Studio' }))
+
+    expect(onEditCompany).toHaveBeenCalledTimes(2)
   })
 
   it('turns setup focus gaps into a company profile editing action', () => {

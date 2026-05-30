@@ -294,6 +294,45 @@ function Field({ label, value }: { label: string; value?: string | number | null
   )
 }
 
+function ProfileCaptureAction({
+  title,
+  body,
+  icon,
+  actionLabel,
+  onEditCompany,
+}: {
+  title: string
+  body: string
+  icon: string
+  actionLabel: string
+  onEditCompany?: () => void
+}) {
+  return (
+    <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-4">
+      <div className="flex items-start gap-3">
+        <span aria-hidden="true" className="material-symbols-outlined mt-0.5 text-[18px] text-[var(--color-accent-v2)]">{icon}</span>
+        <div className="min-w-0">
+          <h3 className="font-display text-lg text-[var(--color-pib-text)]">{title}</h3>
+          <p className="mt-1 text-sm leading-6 text-[var(--color-pib-text-muted)]">{body}</p>
+          {onEditCompany ? (
+            <button
+              type="button"
+              onClick={onEditCompany}
+              aria-label={actionLabel}
+              className="btn-pib-secondary mt-4 inline-flex items-center gap-1.5 text-xs"
+            >
+              <span aria-hidden="true" className="material-symbols-outlined text-[14px]">edit</span>
+              Open profile editor
+            </button>
+          ) : (
+            <p className="mt-3 text-xs text-[var(--color-pib-text-muted)]">Open profile editing to capture this next.</p>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function WidgetCard({
   label,
   value,
@@ -361,7 +400,7 @@ function MiniStatus({
   )
 }
 
-function BusinessProfile({ company }: { company: Company }) {
+function BusinessProfile({ company, onEditCompany }: { company: Company; onEditCompany?: () => void }) {
   const addr = company.address
   const social = company.socialProfiles
   const customFields = company.customFields ? Object.entries(company.customFields) : []
@@ -391,7 +430,13 @@ function BusinessProfile({ company }: { company: Company }) {
           </div>
         )}
         {!company.legalName && !company.tradingName && !company.lifecycleStage && !company.tier && !company.industry && !company.size && !company.employeeCount && !company.annualRevenue && !company.website && (
-          <p className="text-sm text-[var(--color-pib-text-muted)]">No business identity fields captured yet.</p>
+          <ProfileCaptureAction
+            title="Capture account identity."
+            body="Add legal name, trading name, lifecycle stage, industry, size, and website so the account is useful in reviews."
+            icon="badge"
+            actionLabel={`Edit account identity for ${company.name}`}
+            onEditCompany={onEditCompany}
+          />
         )}
       </SectionCard>
 
@@ -408,7 +453,13 @@ function BusinessProfile({ company }: { company: Company }) {
         <Field label="PO number" value={company.purchaseOrderNumber} />
         <Field label="Invoice notes" value={company.invoiceInstructions} />
         {!company.phone && !company.billingEmail && !company.registrationNumber && !company.vatNumber && !company.taxNumber && !company.accountsContact?.name && !company.authorizedSignatory?.name && !company.purchaseOrderRequired && !company.purchaseOrderNumber && !company.invoiceInstructions && (
-          <p className="text-sm text-[var(--color-pib-text-muted)]">No billing or contact fields captured yet.</p>
+          <ProfileCaptureAction
+            title="Capture billing and contact detail."
+            body="Add phone, billing email, registration, VAT, accounts contact, signatory, and invoice notes before proposals become admin work."
+            icon="receipt_long"
+            actionLabel={`Edit billing and contact details for ${company.name}`}
+            onEditCompany={onEditCompany}
+          />
         )}
       </SectionCard>
 
@@ -718,7 +769,7 @@ export function CompanyOverviewPanel({ company, center, loading, onSelectTab, on
         </section>
       )}
 
-      <BusinessProfile company={company} />
+      <BusinessProfile company={company} onEditCompany={onEditCompany} />
     </div>
   )
 }
