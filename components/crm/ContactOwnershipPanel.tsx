@@ -18,6 +18,11 @@ const SOURCE_LABELS: Record<string, string> = {
   outreach: 'Outreach',
 }
 
+const MEMBER_KIND_LABELS: Record<string, string> = {
+  human: 'Team member',
+  agent: 'AI agent',
+}
+
 function memberLabel(ref?: MemberRef, fallback?: string): string {
   return ref?.displayName || fallback || 'Unassigned'
 }
@@ -30,7 +35,8 @@ function sourceLabel(source?: string): string {
 
 function memberMeta(ref?: MemberRef): string {
   if (!ref) return 'No team snapshot yet'
-  return [ref.jobTitle, ref.kind].filter(Boolean).join(' · ') || ref.uid
+  const kind = ref.kind ? MEMBER_KIND_LABELS[ref.kind] ?? ref.kind : undefined
+  return [ref.jobTitle, kind].filter(Boolean).join(' · ') || ref.uid
 }
 
 function Field({

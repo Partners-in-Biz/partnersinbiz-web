@@ -31,6 +31,10 @@ describe('ContactOwnershipPanel', () => {
     expect(screen.getByText('source-1')).toBeInTheDocument()
     expect(screen.getByText('Pip Agent')).toBeInTheDocument()
     expect(screen.getByText('Peet Stander')).toBeInTheDocument()
+    expect(screen.getAllByText('Team member')).toHaveLength(2)
+    expect(screen.getByText('AI agent')).toBeInTheDocument()
+    expect(screen.queryByText('human')).not.toBeInTheDocument()
+    expect(screen.queryByText('agent')).not.toBeInTheDocument()
   })
 
   it('turns a missing relationship owner into an accountability assignment action', () => {
