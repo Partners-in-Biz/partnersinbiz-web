@@ -236,6 +236,12 @@ export default function CustomFieldsPage() {
     await fetchDefs(activeTab)
   }
 
+  function clearFieldFilters() {
+    setSearch('')
+    setTypeFilter('')
+    setReadinessFilter('all')
+  }
+
   // ── Render ────────────────────────────────────────────────────────────────────
 
   const currentTab = TABS.find(t => t.resource === activeTab)!
@@ -451,9 +457,19 @@ export default function CustomFieldsPage() {
           </div>
         ) : filteredDefinitions.length === 0 ? (
           <div className="bento-card !p-8 text-center">
-            <span className="material-symbols-outlined text-[34px] text-[var(--color-pib-text-muted)] mb-3 block">search_off</span>
-            <p className="text-sm font-medium text-[var(--color-pib-text)]">No fields match this view.</p>
-            <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">Clear filters to return to the full schema.</p>
+            <span className="material-symbols-outlined text-[34px] text-[var(--color-pib-text-muted)] mb-3 block" aria-hidden="true">search_off</span>
+            <p className="eyebrow !text-[10px]">Filtered schema view</p>
+            <h3 className="mt-2 text-lg font-semibold text-[var(--color-pib-text)]">No fields match this view.</h3>
+            <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">Clear the field filters to return to the full CRM schema.</p>
+            <button
+              type="button"
+              onClick={clearFieldFilters}
+              className="btn-pib-secondary mt-5 inline-flex items-center gap-1.5 text-xs"
+              aria-label="Show all fields"
+            >
+              <span className="material-symbols-outlined text-[15px]" aria-hidden="true">filter_alt_off</span>
+              Show all fields
+            </button>
           </div>
         ) : (
           <CustomFieldDefinitionsList
