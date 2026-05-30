@@ -116,6 +116,12 @@ function Signal({ icon, label, healthy }: { icon: string; label: string; healthy
   )
 }
 
+function emailReachabilityLabel(profile: ContactIdentityProfile): string {
+  if (profile.bouncedAt) return 'Email bounced'
+  if (profile.unsubscribedAt) return 'Email unsubscribed'
+  return 'Email reachable'
+}
+
 export function ContactIdentityPanel({
   profile,
   fieldActions,
@@ -126,6 +132,7 @@ export function ContactIdentityPanel({
   const health = contactIdentityHealth(profile)
   const smsReady = profile.phoneVerified === true && profile.smsOptedIn === true
   const emailReachable = !profile.unsubscribedAt && !profile.bouncedAt
+  const emailLabel = emailReachabilityLabel(profile)
   const replies = profile.repliesCount ?? 0
   const missingCoreIdentity = !profile.jobTitle?.trim() && !profile.department?.trim() && !profile.timezone?.trim()
 
@@ -163,7 +170,7 @@ export function ContactIdentityPanel({
 
       <div className="flex flex-wrap gap-2">
         <Signal icon="sms" label={smsReady ? 'SMS ready' : 'SMS incomplete'} healthy={smsReady} />
-        <Signal icon="mark_email_read" label={emailReachable ? 'Email reachable' : 'Email blocked'} healthy={emailReachable} />
+        <Signal icon="mark_email_read" label={emailLabel} healthy={emailReachable} />
         <Signal icon="forum" label={`${replies} repl${replies === 1 ? 'y' : 'ies'}`} healthy={replies > 0} />
       </div>
     </section>

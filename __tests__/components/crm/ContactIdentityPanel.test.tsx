@@ -34,6 +34,18 @@ describe('ContactIdentityPanel', () => {
     expect(screen.getByText('3 replies')).toBeInTheDocument()
   })
 
+  it('explains why email reachability is blocked', () => {
+    const { rerender } = render(<ContactIdentityPanel profile={{ ...profile, unsubscribedAt: '2026-05-30' }} />)
+
+    expect(screen.getByText('Email unsubscribed')).toBeInTheDocument()
+    expect(screen.queryByText('Email blocked')).not.toBeInTheDocument()
+
+    rerender(<ContactIdentityPanel profile={{ ...profile, unsubscribedAt: null, bouncedAt: '2026-05-30' }} />)
+
+    expect(screen.getByText('Email bounced')).toBeInTheDocument()
+    expect(screen.queryByText('Email blocked')).not.toBeInTheDocument()
+  })
+
   it('turns missing identity fields into supplied profile actions', () => {
     const onAddRole = jest.fn()
     const onAddDepartment = jest.fn()
