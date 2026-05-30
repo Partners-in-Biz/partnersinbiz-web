@@ -293,6 +293,27 @@ describe('Admin contact detail page', () => {
     expect(screen.getByTestId('contact-form')).toBeInTheDocument()
   })
 
+  it('renders the admin relationship owner as a readable team member label', async () => {
+    contactOverride = {
+      assignedTo: 'member-uid-123',
+      assignedToRef: {
+        uid: 'member-uid-123',
+        displayName: 'Mandy Manager',
+        jobTitle: 'Growth lead',
+        kind: 'human',
+      },
+    }
+
+    render(<AdminContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Jane Client' })).toBeInTheDocument()
+    })
+
+    expect(screen.getByText('Mandy Manager')).toBeInTheDocument()
+    expect(screen.queryByText('member-uid-123')).not.toBeInTheDocument()
+  })
+
   it('turns missing admin contact profile notes into a profile completion action', async () => {
     contactOverride = { notes: '' }
 

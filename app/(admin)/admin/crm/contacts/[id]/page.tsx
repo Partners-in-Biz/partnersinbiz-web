@@ -123,6 +123,10 @@ function formatAgreementRoles(roles: string[] | undefined): string {
     .join(', ')
 }
 
+function memberDisplayName(ref: MemberRef | undefined, fallback: string | undefined): string {
+  return textValue(ref?.displayName) || textValue(fallback)
+}
+
 function contactDisplayName(contact: ContactRecord | null): string {
   if (!contact) return 'Contact'
   return textValue(contact.name) || textValue(contact.email) || 'Unnamed contact'
@@ -579,7 +583,7 @@ export default function ContactDetailPage() {
                 />
                 <DetailRow
                   label="Owner"
-                  value={contact.assignedTo}
+                  value={memberDisplayName(contact.assignedToRef, contact.assignedTo)}
                   actionLabel={`Add owner for ${name} from relationship profile`}
                   onAction={() => setEditing(true)}
                   actionIcon="supervisor_account"
