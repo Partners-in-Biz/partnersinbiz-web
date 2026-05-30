@@ -623,6 +623,18 @@ describe('Portal contact detail page', () => {
     })
   })
 
+  it('names missing command-center KPI values instead of showing bare dashes', async () => {
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    expect(screen.getByText('Not scored')).toBeInTheDocument()
+    expect(screen.getByText('No touch yet')).toBeInTheDocument()
+    expect(screen.queryAllByText('—')).toHaveLength(0)
+  })
+
   it('turns an unassigned relationship owner into an accountability action', async () => {
     render(<PortalContactDetailPage />)
 

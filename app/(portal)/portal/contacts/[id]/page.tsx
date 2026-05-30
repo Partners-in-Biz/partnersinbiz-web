@@ -832,6 +832,7 @@ export default function PortalContactDetailPage() {
   const profileStrength = profileFields.filter((value) => String(value ?? '').trim()).length / profileFields.length
   const hasAnyScore = contact.leadScore != null || contact.icpScore != null || contact.aiLeadScore != null
   const bestScore = Math.max(contact.leadScore ?? 0, contact.icpScore ?? 0, contact.aiLeadScore ?? 0)
+  const bestScoreLabel = hasAnyScore ? String(bestScore) : 'Not scored'
   const shouldPromptScoreRecompute = !hasAnyScore
   const recentActivityCount = activities.length
   const shouldPromptActivityLog = recentActivityCount === 0
@@ -863,6 +864,7 @@ export default function PortalContactDetailPage() {
         : lastTouchDays <= 30
           ? 'Follow-up due'
           : 'Cold'
+  const lastTouchLabel = lastTouchDays === null ? 'No touch yet' : lastTouchDays === 0 ? 'Today' : `${lastTouchDays}d`
   const shouldPromptTouchLog = lastTouchDays === null || lastTouchDays > 30
   const ownerRef =
     assignedTo && contact.assignedToRef?.uid === assignedTo
@@ -1086,7 +1088,9 @@ export default function PortalContactDetailPage() {
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <div className="pib-stat-card">
             <p className="eyebrow !text-[10px]">Best score</p>
-            <p className="mt-3 font-display text-3xl text-[var(--color-pib-text)]">{hasAnyScore ? bestScore : '—'}</p>
+            <p className={`mt-3 font-display text-[var(--color-pib-text)] ${hasAnyScore ? 'text-3xl' : 'text-2xl'}`}>
+              {bestScoreLabel}
+            </p>
             <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">Lead, ICP, or AI signal</p>
             {shouldPromptScoreRecompute && (
               <button
@@ -1104,8 +1108,8 @@ export default function PortalContactDetailPage() {
           </div>
           <div className="pib-stat-card">
             <p className="eyebrow !text-[10px]">Last touch</p>
-            <p className="mt-3 font-display text-3xl text-[var(--color-pib-text)]">
-              {lastTouchDays === null ? '—' : lastTouchDays === 0 ? 'Today' : `${lastTouchDays}d`}
+            <p className={`mt-3 font-display text-[var(--color-pib-text)] ${lastTouchDays === null ? 'text-2xl' : 'text-3xl'}`}>
+              {lastTouchLabel}
             </p>
             <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">{relationshipSignal}</p>
             {shouldPromptTouchLog && (
