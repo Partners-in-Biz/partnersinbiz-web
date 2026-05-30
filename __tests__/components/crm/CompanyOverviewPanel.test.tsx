@@ -151,6 +151,47 @@ describe('CompanyOverviewPanel', () => {
     expect(onEditCompany).toHaveBeenCalledTimes(1)
   })
 
+  it('turns an empty latest movement panel into an activity review action', () => {
+    const onSelectTab = jest.fn()
+
+    render(
+      <CompanyOverviewPanel
+        company={company()}
+        center={{
+          summary: {
+            contacts: 0,
+            deals: 0,
+            projects: 0,
+            documents: 0,
+            serviceWorkspaces: 0,
+            relationships: 0,
+            quotes: 0,
+            invoices: 0,
+            orders: 0,
+          },
+          activities: [],
+          deals: [],
+          projects: [],
+          documents: [],
+          orders: [],
+        }}
+        onSelectTab={onSelectTab}
+      />,
+    )
+
+    expect(screen.getByText('Account history quiet')).toBeInTheDocument()
+    expect(screen.getByText('Start the next account signal')).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'No recent activity, deal movement, document, project, or order is visible yet. Review activity so leadership can see the next account touchpoint.',
+      ),
+    ).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Review activity for Acme Studio' }))
+
+    expect(onSelectTab).toHaveBeenCalledWith('activity')
+  })
+
   it('labels parent-account navigation with the resolved parent company name', () => {
     const companyWithParent = company({
       parentCompanyId: 'co-parent',

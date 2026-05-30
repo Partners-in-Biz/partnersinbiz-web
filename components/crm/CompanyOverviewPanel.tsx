@@ -730,8 +730,27 @@ export function CompanyOverviewPanel({ company, center, loading, onSelectTab, on
               })}
             </div>
           ) : (
-            <div className="flex min-h-[220px] items-center justify-center rounded-lg border border-dashed border-[var(--color-pib-line)] text-center text-sm text-[var(--color-pib-text-muted)]">
-              Activity, deals, documents, projects, and orders will stream here.
+            <div className="flex min-h-[220px] items-center justify-center rounded-lg border border-dashed border-[var(--color-pib-line)] bg-white/[0.02] p-6 text-center">
+              <div className="max-w-md">
+                <p className="eyebrow !text-[10px] text-amber-200">Account history quiet</p>
+                <h3 className="mt-2 font-display text-lg text-[var(--color-pib-text)]">Start the next account signal</h3>
+                <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">
+                  No recent activity, deal movement, document, project, or order is visible yet. Review activity so leadership can see the next account touchpoint.
+                </p>
+                {onSelectTab ? (
+                  <button
+                    type="button"
+                    onClick={() => onSelectTab('activity')}
+                    aria-label={`Review activity for ${company.name}`}
+                    className="btn-pib-secondary mt-4 inline-flex items-center gap-1.5 text-xs"
+                  >
+                    <span aria-hidden="true" className="material-symbols-outlined text-[14px]">history</span>
+                    Review activity
+                  </button>
+                ) : (
+                  <p className="mt-3 text-xs text-[var(--color-pib-text-muted)]">Open Activity to capture the next touchpoint.</p>
+                )}
+              </div>
             </div>
           )}
         </SectionCard>
