@@ -112,6 +112,19 @@ describe('Portal contact detail page', () => {
     expect(screen.getByPlaceholderText('Message…')).toBeInTheDocument()
   })
 
+  it('keeps the portal header email action inside the CRM composer', async () => {
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Email Jane Client from contact command center' }))
+
+    expect(screen.getByPlaceholderText('Subject…')).toBeInTheDocument()
+    expect(screen.getByPlaceholderText('Message…')).toBeInTheDocument()
+  })
+
   it('turns an empty activity timeline into a first-note action', async () => {
     render(<PortalContactDetailPage />)
 

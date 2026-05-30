@@ -847,10 +847,15 @@ export default function PortalContactDetailPage() {
         </Link>
         <div className="flex items-center gap-2">
           {email.trim() && (
-            <a href={`mailto:${email.trim()}`} className="btn-pib-secondary text-xs inline-flex items-center gap-1.5">
-              <span className="material-symbols-outlined text-[14px]">mail</span>
+            <button
+              type="button"
+              aria-label={`Email ${contactName} from contact command center`}
+              onClick={openFirstEmailComposer}
+              className="btn-pib-secondary text-xs inline-flex items-center gap-1.5"
+            >
+              <span className="material-symbols-outlined text-[14px]" aria-hidden="true">mail</span>
               Email
-            </a>
+            </button>
           )}
           {phone.trim() && (
             <a href={`tel:${phone.trim()}`} className="btn-pib-secondary text-xs inline-flex items-center gap-1.5">
