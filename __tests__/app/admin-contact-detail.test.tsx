@@ -198,6 +198,35 @@ describe('Admin contact detail page', () => {
     expect(within(commandCenter).queryByText('Source: outreach')).not.toBeInTheDocument()
   })
 
+  it('logs admin stage changes with readable lifecycle labels while saving raw stage values', async () => {
+    render(<AdminContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Jane Client' })).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Proposal sent' }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/contacts/contact-1', {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ stage: 'proposal' }),
+      })
+    })
+    expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/activities', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        contactId: 'contact-1',
+        type: 'stage_change',
+        summary: 'Stage changed to Proposal sent',
+        dealId: '',
+        metadata: { newStage: 'proposal' },
+      }),
+    })
+  })
+
   it('turns a missing admin contact email into a profile completion action', async () => {
     contactOverride = { email: '' }
 

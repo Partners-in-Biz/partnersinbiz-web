@@ -381,6 +381,7 @@ export default function ContactDetailPage() {
   }
 
   async function changeStage(stage: string) {
+    const nextStageLabel = displayLabel(stage, STAGE_LABELS)
     const res = await fetch(`/api/v1/crm/contacts/${id}`, {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
@@ -393,7 +394,7 @@ export default function ContactDetailPage() {
       body: JSON.stringify({
         contactId: id,
         type: 'stage_change',
-        summary: `Stage changed to ${stage}`,
+        summary: `Stage changed to ${nextStageLabel}`,
         dealId: '',
         metadata: { newStage: stage },
       }),
