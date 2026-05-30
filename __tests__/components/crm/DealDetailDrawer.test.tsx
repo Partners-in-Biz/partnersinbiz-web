@@ -84,4 +84,29 @@ describe('DealDetailDrawer', () => {
 
     expect(onEdit).toHaveBeenCalledTimes(1)
   })
+
+  it('turns an unassigned deal owner into an accountability edit action', () => {
+    const onEdit = jest.fn()
+    render(
+      <DealDetailDrawer
+        deal={{ ...deal, ownerUid: '', ownerRef: undefined }}
+        stages={stages}
+        orgId="org-1"
+        onClose={jest.fn()}
+        onEdit={onEdit}
+      />,
+    )
+
+    expect(screen.getByText('Deal owner missing')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Assign forecast ownership' })).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'No team member owns this opportunity. Assign an owner so follow-up, forecast review, and handoff accountability are visible before the deal stalls.',
+      ),
+    ).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Assign owner for Growth retainer' }))
+
+    expect(onEdit).toHaveBeenCalledTimes(1)
+  })
 })
