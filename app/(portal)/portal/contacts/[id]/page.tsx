@@ -289,6 +289,7 @@ export default function PortalContactDetailPage() {
   const [sequences, setSequences] = useState<{ id: string; name: string }[]>([])
   const [enrollingSequenceId, setEnrollingSequenceId] = useState('')
   const [enrolling, setEnrolling] = useState(false)
+  const [enrollError, setEnrollError] = useState('')
   const [pendingUnenrollId, setPendingUnenrollId] = useState<string | null>(null)
 
   useEffect(() => {
@@ -722,12 +723,14 @@ export default function PortalContactDetailPage() {
     const b = await r.json()
     setSequences(normalizeSequenceOptions(b))
     setEnrollingSequenceId('')
+    setEnrollError('')
     setShowEnrollModal(true)
   }
 
   async function handleEnroll() {
     if (!enrollingSequenceId) return
     setEnrolling(true)
+    setEnrollError('')
     try {
       const res = await fetch(`/api/v1/crm/sequences/${enrollingSequenceId}/enrollments`, {
         method: 'POST',
@@ -739,8 +742,8 @@ export default function PortalContactDetailPage() {
       const newEnrollment = (body as { data?: EnrollmentRecord }).data ?? (body as EnrollmentRecord)
       setEnrollments((prev) => [newEnrollment, ...prev])
       setShowEnrollModal(false)
-    } catch {
-      // silent — modal stays open; user can retry
+    } catch (err) {
+      setEnrollError(err instanceof Error ? err.message : 'Enrollment failed')
     } finally {
       setEnrolling(false)
     }
@@ -2036,7 +2039,10 @@ export default function PortalContactDetailPage() {
             )}
             <select
               value={enrollingSequenceId}
-              onChange={(e) => setEnrollingSequenceId(e.target.value)}
+              onChange={(e) => {
+                setEnrollingSequenceId(e.target.value)
+                setEnrollError('')
+              }}
               className="w-full text-sm border border-[var(--color-pib-line)] rounded p-2 bg-transparent"
             >
               <option value="">Choose a sequence…</option>
@@ -2044,6 +2050,11 @@ export default function PortalContactDetailPage() {
                 <option key={s.id} value={s.id}>{s.name}</option>
               ))}
             </select>
+            {enrollError && (
+              <p className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300" role="alert">
+                {enrollError}
+              </p>
+            )}
             <div className="flex gap-2">
               <button
                 onClick={handleEnroll}
