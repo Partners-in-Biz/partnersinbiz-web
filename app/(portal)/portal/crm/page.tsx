@@ -324,7 +324,7 @@ export default function PortalCrmPage() {
               <span className="material-symbols-outlined text-4xl text-[var(--color-pib-text-muted)]">monetization_on</span>
               <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">No open deals yet.</p>
               <Link
-                href="/portal/deals"
+                href="/portal/deals?create=deal"
                 aria-label="Create first deal from CRM command center"
                 className="pib-btn-primary mt-4 inline-flex items-center gap-1.5 text-sm"
               >

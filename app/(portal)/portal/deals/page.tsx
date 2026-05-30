@@ -208,6 +208,7 @@ export default function DealsPage() {
   const searchParams = useSearchParams()
   const requestedPipelineId = searchParams.get('pipelineId') ?? undefined
   const requestedStageId = searchParams.get('stage') ?? undefined
+  const shouldOpenCreateDrawer = searchParams.get('create') === 'deal'
   const [deals, setDeals] = useState<Deal[]>([])
   const [contacts, setContacts] = useState<Contact[]>([])
   const [pipelines, setPipelines] = useState<Pipeline[]>([])
@@ -236,7 +237,7 @@ export default function DealsPage() {
   const [bulkOwnerError, setBulkOwnerError] = useState('')
 
   // A5: drawer state
-  const [showCreateDrawer, setShowCreateDrawer] = useState(false)
+  const [showCreateDrawer, setShowCreateDrawer] = useState(() => shouldOpenCreateDrawer)
   const [editingDeal, setEditingDeal] = useState<Deal | null>(null)
   const [viewingDeal, setViewingDeal] = useState<Deal | null>(null)
 

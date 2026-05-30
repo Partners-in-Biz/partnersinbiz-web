@@ -39,7 +39,7 @@ describe('Portal CRM hub', () => {
     expect(await screen.findByText('No open deals yet.')).toBeInTheDocument()
 
     const createDealLink = screen.getByRole('link', { name: 'Create first deal from CRM command center' })
-    expect(createDealLink).toHaveAttribute('href', '/portal/deals')
+    expect(createDealLink).toHaveAttribute('href', '/portal/deals?create=deal')
   })
 
   it('turns the empty activity panel into a contact activity action', async () => {

@@ -190,6 +190,14 @@ describe('Portal deals page', () => {
     expect(screen.getByRole('button', { name: 'Show all deals' })).toBeInTheDocument()
   })
 
+  it('opens the create drawer directly from CRM command-center create links', async () => {
+    mockSearchParams = new URLSearchParams('create=deal')
+
+    render(<DealsPage />)
+
+    expect(await screen.findByTestId('deal-drawer')).toBeInTheDocument()
+  })
+
   it('assigns selected unassigned deals to a team member', async () => {
     render(<DealsPage />)
 

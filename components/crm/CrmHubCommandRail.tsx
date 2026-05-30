@@ -31,7 +31,7 @@ export function CrmHubCommandRail({ metrics }: { metrics: CrmHubCommandMetric })
       detail: hasPipeline
         ? `${metrics.openDealsCount} open deals worth ${formatMoney(metrics.openDealsValue)}`
         : 'Start with a deal so forecasts, stage movement, and next actions become real.',
-      href: '/portal/deals',
+      href: hasPipeline ? '/portal/deals' : '/portal/deals?create=deal',
       cta: hasPipeline ? 'Open pipeline board' : 'Open new deal',
       icon: 'view_kanban',
     },
