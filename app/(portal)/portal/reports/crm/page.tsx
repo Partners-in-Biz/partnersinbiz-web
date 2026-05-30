@@ -831,7 +831,7 @@ export default function CrmReportsPage() {
                 </Link>
               ) : (
                 <Link
-                  href="/portal/deals"
+                  href="/portal/deals?create=deal"
                   aria-label="Review pipeline movement from bottleneck summary"
                   className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-[var(--color-pib-accent)] hover:underline"
                 >

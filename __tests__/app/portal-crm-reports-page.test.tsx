@@ -397,7 +397,7 @@ describe('Portal CRM reports page', () => {
     const insightLink = screen.getByRole('link', { name: 'Open pipeline to build stage velocity insight' })
     expect(insightLink).toHaveAttribute('href', '/portal/deals?create=deal')
     const bottleneckLink = screen.getByRole('link', { name: 'Review pipeline movement from bottleneck summary' })
-    expect(bottleneckLink).toHaveAttribute('href', '/portal/deals')
+    expect(bottleneckLink).toHaveAttribute('href', '/portal/deals?create=deal')
   })
 
   it('turns an identified slowest stage into a deal-stage working list', async () => {
