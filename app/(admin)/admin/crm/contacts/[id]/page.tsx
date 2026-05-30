@@ -17,6 +17,12 @@ import { ScoreChip } from '@/components/crm/ScoreChip'
 import type { MemberRef } from '@/lib/orgMembers/memberRef'
 
 const STAGES = ['new', 'contacted', 'replied', 'demo', 'proposal', 'won', 'lost'] as const
+const AGREEMENT_ROLE_LABELS: Record<string, string> = {
+  primary_contact: 'Primary contact',
+  accounts_contact: 'Accounts contact',
+  authorized_signatory: 'Authorised signatory',
+  approval_contact: 'Approval contact',
+}
 
 type ContactRecord = {
   id?: string
@@ -108,6 +114,13 @@ function numberValue(value: unknown): number | undefined {
 
 function displayValue(value: unknown): string {
   return textValue(value) || 'Not captured'
+}
+
+function formatAgreementRoles(roles: string[] | undefined): string {
+  if (!Array.isArray(roles) || roles.length === 0) return ''
+  return roles
+    .map((role) => AGREEMENT_ROLE_LABELS[role] ?? role)
+    .join(', ')
 }
 
 function contactDisplayName(contact: ContactRecord | null): string {
@@ -607,7 +620,7 @@ export default function ContactDetailPage() {
               <DetailRow label="Score updated" value={fmtTimestamp(contact.scoreUpdatedAt)} />
               <DetailRow
                 label="Agreement roles"
-                value={contact.agreementRoles?.join(', ')}
+                value={formatAgreementRoles(contact.agreementRoles)}
                 actionLabel={`Add agreement roles for ${name} from admin qualification panel`}
                 onAction={() => setEditing(true)}
                 actionIcon="contract_edit"

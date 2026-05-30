@@ -321,6 +321,19 @@ describe('Admin contact detail page', () => {
     expect(screen.getByTestId('contact-form')).toBeInTheDocument()
   })
 
+  it('renders captured admin agreement roles as readable qualification labels', async () => {
+    contactOverride = { agreementRoles: ['primary_contact', 'authorized_signatory'] }
+
+    render(<AdminContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Jane Client' })).toBeInTheDocument()
+    })
+
+    expect(screen.getByText('Primary contact, Authorised signatory')).toBeInTheDocument()
+    expect(screen.queryByText('primary_contact, authorized_signatory')).not.toBeInTheDocument()
+  })
+
   it('turns empty admin activity history into a note composer action', async () => {
     render(<AdminContactDetailPage />)
 
