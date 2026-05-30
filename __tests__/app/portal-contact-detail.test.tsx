@@ -368,6 +368,25 @@ describe('Portal contact detail page', () => {
     expect(screen.getByPlaceholderText('Message…')).toBeInTheDocument()
   })
 
+  it('turns the command-center next best action into a workflow action', async () => {
+    mockSuggestions = [{
+      action: 'Send a follow-up',
+      reason: 'No activity in 7+ days',
+      urgency: 'high',
+    }]
+
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Act on top recommendation: Send a follow-up for Jane Client' }))
+
+    expect(screen.getByDisplayValue('Send a follow-up')).toBeInTheDocument()
+    expect(screen.getByPlaceholderText('Message…')).toBeInTheDocument()
+  })
+
   it('turns an empty email thread insight into a send action', async () => {
     render(<PortalContactDetailPage />)
 

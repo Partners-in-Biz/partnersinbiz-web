@@ -1155,9 +1155,18 @@ export default function PortalContactDetailPage() {
                 <p className="eyebrow !text-[10px] mb-3">Next best action</p>
                 <div className="flex items-start gap-3">
                   <span className="material-symbols-outlined text-[20px] text-[var(--color-pib-accent)]">tips_and_updates</span>
-                  <div>
+                  <div className="min-w-0 flex-1">
                     <p className="text-sm font-semibold text-[var(--color-pib-text)]">{nextSuggestion.action}</p>
                     <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">{nextSuggestion.reason}</p>
+                    <button
+                      type="button"
+                      onClick={() => startSuggestion(nextSuggestion)}
+                      aria-label={`Act on top recommendation: ${nextSuggestion.action} for ${contactName}`}
+                      className="btn-pib-secondary mt-3 inline-flex items-center gap-1.5 text-xs"
+                    >
+                      <span className="material-symbols-outlined text-[14px]" aria-hidden="true">play_arrow</span>
+                      Start action
+                    </button>
                   </div>
                 </div>
               </div>
