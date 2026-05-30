@@ -158,6 +158,7 @@ export default function PortalContactDetailPage() {
   const notesFieldRef = useRef<HTMLTextAreaElement | null>(null)
   const stageFieldRef = useRef<HTMLSelectElement | null>(null)
   const ownerFieldRef = useRef<HTMLSelectElement | null>(null)
+  const sourceFieldRef = useRef<HTMLSelectElement | null>(null)
   const customFieldsEditRef = useRef<HTMLDivElement | null>(null)
   const [contact, setContact] = useState<ContactRecord | null>(null)
   const [emails, setEmails] = useState<EmailRecord[]>([])
@@ -1157,6 +1158,11 @@ export default function PortalContactDetailPage() {
                 ariaLabel: `Assign owner for ${contactName} from relationship ownership`,
                 onClick: () => focusProfileField(ownerFieldRef),
               },
+              reviewSource: {
+                label: 'Review source',
+                ariaLabel: `Review source provenance for ${contactName} from relationship ownership`,
+                onClick: () => focusProfileField(sourceFieldRef),
+              },
             }}
           />
 
@@ -1272,7 +1278,7 @@ export default function PortalContactDetailPage() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
               <div className="space-y-1">
                 <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">Source</p>
-                <select value={source} onChange={(e) => setSource(e.target.value)} className="pib-input w-full">
+                <select ref={sourceFieldRef} value={source} onChange={(e) => setSource(e.target.value)} className="pib-input w-full">
                   {SOURCE_OPTIONS.map((option) => <option key={option} value={option} className="bg-black">{option}</option>)}
                 </select>
               </div>

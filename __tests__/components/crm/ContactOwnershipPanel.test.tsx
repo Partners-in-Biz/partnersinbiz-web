@@ -64,4 +64,38 @@ describe('ContactOwnershipPanel', () => {
 
     expect(assignOwner).toHaveBeenCalledTimes(1)
   })
+
+  it('turns weak source provenance into a source review action', () => {
+    const reviewSource = jest.fn()
+
+    render(
+      <ContactOwnershipPanel
+        profile={{
+          assignedTo: 'uid-owner',
+          assignedToRef: { uid: 'uid-owner', displayName: 'Ava Owner', kind: 'human' },
+          source: 'manual',
+          createdByRef: { uid: 'uid-creator', displayName: 'Pip Agent', kind: 'agent' },
+        }}
+        actions={{
+          reviewSource: {
+            label: 'Review source',
+            ariaLabel: 'Review source provenance for Jane Client from relationship ownership',
+            onClick: reviewSource,
+          },
+        }}
+      />,
+    )
+
+    expect(screen.getByText('Source provenance weak')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Confirm how this contact entered CRM' })).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'This relationship is marked as manual or legacy without a capture source. Review the source so attribution, segment reporting, and follow-up ownership stay trustworthy.',
+      ),
+    ).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Review source provenance for Jane Client from relationship ownership' }))
+
+    expect(reviewSource).toHaveBeenCalledTimes(1)
+  })
 })

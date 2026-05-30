@@ -319,6 +319,20 @@ describe('Portal contact detail page', () => {
     expect(screen.getByDisplayValue('Unassigned')).toHaveFocus()
   })
 
+  it('turns weak source provenance into a source review action', async () => {
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    expect(await screen.findByText('Source provenance weak')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Review source provenance for Jane Client from relationship ownership' }))
+
+    expect(screen.getByDisplayValue('manual')).toHaveFocus()
+  })
+
   it('turns missing identity intelligence into profile field actions', async () => {
     render(<PortalContactDetailPage />)
 
