@@ -205,6 +205,17 @@ describe('Portal contact detail page', () => {
     expect(screen.queryByPlaceholderText('Add note notes…')).not.toBeInTheDocument()
   })
 
+  it('uses relationship-history copy for the empty activity metric', async () => {
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    expect(screen.getByText('No relationship history yet')).toBeInTheDocument()
+    expect(screen.queryByText('timeline records loaded')).not.toBeInTheDocument()
+  })
+
   it('turns an empty activity timeline into a first-note action', async () => {
     render(<PortalContactDetailPage />)
 

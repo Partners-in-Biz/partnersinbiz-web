@@ -156,6 +156,11 @@ function activityNotesPlaceholder(logType: string): string {
   return `Add ${logType} notes…`
 }
 
+function activityMetricCaption(count: number): string {
+  if (count === 0) return 'No relationship history yet'
+  return count === 1 ? '1 relationship touch logged' : `${count} relationship touches logged`
+}
+
 function splitTags(value: string): string[] {
   return value
     .split(',')
@@ -1106,7 +1111,7 @@ export default function PortalContactDetailPage() {
           <div className="pib-stat-card">
             <p className="eyebrow !text-[10px]">Activity</p>
             <p className="mt-3 font-display text-3xl text-[var(--color-pib-text)]">{recentActivityCount}</p>
-            <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">timeline records loaded</p>
+            <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">{activityMetricCaption(recentActivityCount)}</p>
             {shouldPromptActivityLog && (
               <button
                 type="button"
