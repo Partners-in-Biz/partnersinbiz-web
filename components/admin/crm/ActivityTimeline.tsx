@@ -20,10 +20,13 @@ interface Activity {
 interface ActivityTimelineProps {
   activities: Activity[]
   loading: boolean
+  contactName?: string
   onAddNote?: () => void
 }
 
-export function ActivityTimeline({ activities, loading, onAddNote }: ActivityTimelineProps) {
+export function ActivityTimeline({ activities, loading, contactName, onAddNote }: ActivityTimelineProps) {
+  const contactLabel = contactName?.trim() || 'this contact'
+
   if (loading) {
     return (
       <div className="space-y-3">
@@ -36,18 +39,31 @@ export function ActivityTimeline({ activities, loading, onAddNote }: ActivityTim
 
   if (activities.length === 0) {
     return (
-      <div className="py-6 text-center">
-        <p className="text-on-surface-variant text-sm">
-          No activity yet. Send an email or add a note to get started.
+      <div className="rounded-xl border border-dashed border-outline-variant bg-surface-container/30 px-5 py-6 text-center">
+        <span
+          aria-hidden="true"
+          className="material-symbols-outlined mx-auto flex h-11 w-11 items-center justify-center rounded-xl border border-outline-variant bg-surface-container text-[22px] text-[var(--color-accent-v2)]"
+        >
+          history_edu
+        </span>
+        <p className="mt-4 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+          Relationship history missing
+        </p>
+        <h3 className="mt-2 text-base font-semibold text-on-surface">
+          {`Start ${contactLabel}'s activity trail`}
+        </h3>
+        <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-on-surface-variant">
+          No emails, calls, notes, stage changes, or sequence events are captured yet. Log the first note so managers can see ownership, context, and the next handoff.
         </p>
         {onAddNote && (
           <button
             type="button"
             onClick={onAddNote}
-            className="mt-4 inline-flex items-center justify-center gap-1.5 rounded-lg border border-outline-variant px-3 py-2 text-xs font-semibold text-[var(--color-accent-v2)] transition-colors hover:border-[var(--color-accent-v2)] hover:text-on-surface"
+            aria-label={`Log first activity note for ${contactLabel}`}
+            className="btn-pib-secondary mx-auto mt-5 inline-flex items-center justify-center gap-1.5 text-xs"
           >
             <span className="material-symbols-outlined text-[15px]" aria-hidden="true">add_comment</span>
-            Log first note from activity timeline
+            Log first note
           </button>
         )}
       </div>

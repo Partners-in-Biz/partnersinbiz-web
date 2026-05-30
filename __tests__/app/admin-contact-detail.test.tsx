@@ -11,11 +11,12 @@ jest.mock('next/navigation', () => ({
 }))
 
 jest.mock('@/components/admin/crm/ActivityTimeline', () => ({
-  ActivityTimeline: ({ onAddNote }: { onAddNote?: () => void }) => (
+  ActivityTimeline: ({ contactName, onAddNote }: { contactName?: string; onAddNote?: () => void }) => (
     <div data-testid="activity-timeline">
+      <span>{contactName ? `Timeline for ${contactName}` : 'Timeline contact missing'}</span>
       {onAddNote && (
-        <button type="button" onClick={onAddNote}>
-          Log first note from activity timeline
+        <button type="button" aria-label={`Log first activity note for ${contactName ?? 'this contact'}`} onClick={onAddNote}>
+          Log first note
         </button>
       )}
     </div>
@@ -484,7 +485,9 @@ describe('Admin contact detail page', () => {
       expect(screen.getByRole('heading', { name: 'Jane Client' })).toBeInTheDocument()
     })
 
-    fireEvent.click(screen.getByRole('button', { name: 'Log first note from activity timeline' }))
+    expect(screen.getByText('Timeline for Jane Client')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Log first activity note for Jane Client' }))
 
     expect(screen.getByPlaceholderText('Add an internal note, handoff, decision, or context...')).toHaveFocus()
   })

@@ -884,7 +884,12 @@ export default function ContactDetailPage() {
               </div>
             </div>
             <div className="p-5">
-              <ActivityTimeline activities={activities as never} loading={activitiesLoading} onAddNote={focusNoteComposer} />
+              <ActivityTimeline
+                activities={activities as never}
+                loading={activitiesLoading}
+                contactName={contact.name}
+                onAddNote={focusNoteComposer}
+              />
             </div>
           </div>
         </section>
