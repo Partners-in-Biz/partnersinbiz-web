@@ -161,6 +161,17 @@ function activityMetricCaption(count: number): string {
   return count === 1 ? '1 relationship touch logged' : `${count} relationship touches logged`
 }
 
+function normalizeSequenceOptions(body: unknown): { id: string; name: string }[] {
+  if (!body || typeof body !== 'object') return []
+  const payload = body as { data?: unknown }
+  const data = payload.data
+  const candidate =
+    data && typeof data === 'object' && 'sequences' in data
+      ? (data as { sequences?: unknown }).sequences
+      : data
+  return Array.isArray(candidate) ? candidate as { id: string; name: string }[] : []
+}
+
 function splitTags(value: string): string[] {
   return value
     .split(',')
@@ -701,8 +712,7 @@ export default function PortalContactDetailPage() {
   async function handleOpenEnrollModal() {
     const r = await fetch('/api/v1/crm/sequences')
     const b = await r.json()
-    const list = (b.data?.sequences ?? b.data ?? []) as { id: string; name: string }[]
-    setSequences(list)
+    setSequences(normalizeSequenceOptions(b))
     setEnrollingSequenceId('')
     setShowEnrollModal(true)
   }
@@ -1889,7 +1899,31 @@ export default function PortalContactDetailPage() {
             {enrollmentsLoading ? (
               <p className="text-sm text-[var(--color-pib-text-muted)]">Loading…</p>
             ) : enrollments.length === 0 ? (
-              <p className="text-sm text-[var(--color-pib-text-muted)]">Not enrolled in any sequences.</p>
+              <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.02] p-4">
+                <div className="flex items-start gap-3">
+                  <span className="material-symbols-outlined mt-0.5 text-[20px] text-[var(--color-pib-accent)]" aria-hidden="true">
+                    automation
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
+                      Nurture gap
+                    </p>
+                    <h3 className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">No nurture workflow enrolled</h3>
+                    <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">
+                      Enroll {contactName} into a sequence when outreach should happen on a repeatable cadence instead of relying on one-off reminders.
+                    </p>
+                    <button
+                      type="button"
+                      aria-label={`Choose nurture sequence for ${contactName}`}
+                      onClick={handleOpenEnrollModal}
+                      className="btn-pib-secondary mt-3 inline-flex items-center gap-1.5 text-xs"
+                    >
+                      <span className="material-symbols-outlined text-[14px]" aria-hidden="true">add</span>
+                      Choose sequence
+                    </button>
+                  </div>
+                </div>
+              </div>
             ) : (
               enrollments.map((e) => (
                 <div key={e.id} className="flex items-center justify-between py-2 border-b border-[var(--color-pib-line)] last:border-0">
@@ -1929,6 +1963,7 @@ export default function PortalContactDetailPage() {
               <button
                 onClick={handleEnroll}
                 disabled={!enrollingSequenceId || enrolling}
+                aria-label="Enroll contact"
                 className="btn-pib-accent text-sm disabled:opacity-50"
               >
                 {enrolling ? 'Enrolling…' : 'Enroll'}

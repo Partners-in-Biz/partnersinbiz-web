@@ -216,6 +216,22 @@ describe('Portal contact detail page', () => {
     expect(screen.queryByText('timeline records loaded')).not.toBeInTheDocument()
   })
 
+  it('turns empty sequence enrollment into a nurture workflow action', async () => {
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    expect(screen.getByRole('heading', { name: 'No nurture workflow enrolled' })).toBeInTheDocument()
+    expect(screen.getByText('Enroll Jane Client into a sequence when outreach should happen on a repeatable cadence instead of relying on one-off reminders.')).toBeInTheDocument()
+    expect(screen.queryByText('Not enrolled in any sequences.')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Choose nurture sequence for Jane Client' }))
+
+    expect(await screen.findByRole('button', { name: 'Enroll contact' })).toBeInTheDocument()
+  })
+
   it('turns an empty activity timeline into a first-note action', async () => {
     render(<PortalContactDetailPage />)
 
