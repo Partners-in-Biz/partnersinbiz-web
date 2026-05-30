@@ -172,9 +172,15 @@ describe('Portal deal detail page', () => {
     render(<DealDetailPage />)
 
     await screen.findByText('Unowned expansion')
-    expect(screen.getByText('No activity yet.')).toBeInTheDocument()
+    expect(screen.getByText('Relationship trail missing')).toBeInTheDocument()
+    expect(screen.getByText('Anchor the first deal activity')).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'Link a contact before the first note, email, call, or meeting so every employee can see who owns the conversation and what happened next.'
+      )
+    ).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Link contact to start activity for Unowned expansion' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Link contact and start activity for Unowned expansion' }))
 
     expect(screen.getByTestId('deal-drawer')).toBeInTheDocument()
   })

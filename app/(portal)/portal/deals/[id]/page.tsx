@@ -865,20 +865,33 @@ export default function DealDetailPage() {
                 ))}
               </div>
             ) : activities.length === 0 ? (
-              <div className="p-10 text-center">
-                <span className="material-symbols-outlined text-3xl text-[var(--color-pib-text-muted)] block">
-                  history
-                </span>
-                <p className="text-sm text-[var(--color-pib-text-muted)] mt-2">No activity yet.</p>
-                <button
-                  type="button"
-                  onClick={() => setEditOpen(true)}
-                  className="pib-btn-primary mt-4 inline-flex items-center gap-1.5 text-sm"
-                  aria-label={`Link contact to start activity for ${deal.title ?? 'this deal'}`}
-                >
-                  <span className="material-symbols-outlined text-base">person_add</span>
-                  Link contact to start activity
-                </button>
+              <div className="p-10">
+                <div className="mx-auto flex max-w-lg flex-col items-center gap-3 text-center">
+                  <span
+                    aria-hidden="true"
+                    className="material-symbols-outlined flex h-10 w-10 items-center justify-center rounded-md border border-[var(--color-pib-line)] bg-white/[0.04] text-[20px] text-[var(--color-accent-v2)]"
+                  >
+                    history
+                  </span>
+                  <div>
+                    <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
+                      Relationship trail missing
+                    </p>
+                    <h3 className="mt-1 text-base font-semibold text-[var(--color-pib-text)]">Anchor the first deal activity</h3>
+                    <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">
+                      Link a contact before the first note, email, call, or meeting so every employee can see who owns the conversation and what happened next.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setEditOpen(true)}
+                    className="pib-btn-primary mt-4 inline-flex items-center gap-1.5 text-sm"
+                    aria-label={`Link contact and start activity for ${deal.title ?? 'this deal'}`}
+                  >
+                    <span className="material-symbols-outlined text-base">person_add</span>
+                    Link contact and start activity
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="px-5 pb-4">
