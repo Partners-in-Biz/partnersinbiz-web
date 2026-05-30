@@ -148,7 +148,7 @@ function ContactPicker({
             <div className="px-3 py-2">
               <p className="text-xs text-[var(--color-pib-text-muted)]">No contacts found.</p>
               <Link
-                href="/portal/contacts"
+                href="/portal/contacts?create=contact"
                 aria-label="Open contacts to create a deal contact"
                 className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-[var(--color-accent-v2)] hover:underline"
               >

@@ -205,6 +205,6 @@ describe('DealDrawer', () => {
     expect(await screen.findByText('No contacts found.')).toBeInTheDocument()
 
     const contactsLink = screen.getByRole('link', { name: 'Open contacts to create a deal contact' })
-    expect(contactsLink).toHaveAttribute('href', '/portal/contacts')
+    expect(contactsLink).toHaveAttribute('href', '/portal/contacts?create=contact')
   })
 })
