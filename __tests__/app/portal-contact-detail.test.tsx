@@ -7,6 +7,7 @@ let mockContactCustomFieldDefinitions: CustomFieldDefinition[] = []
 let mockSuggestions: Array<{ action: string; reason: string; urgency: 'high' | 'medium' | 'low' }> = []
 let mockContactOverrides: Record<string, unknown> = {}
 let mockEnrollments: Array<{ id: string; sequenceId: string; sequenceName?: string; currentStep?: number; status?: string }> = []
+let mockSequences: Array<{ id: string; name: string }> = []
 let mockRouterPush = jest.fn()
 
 jest.mock('next/navigation', () => ({
@@ -24,6 +25,7 @@ describe('Portal contact detail page', () => {
     mockSuggestions = []
     mockContactOverrides = {}
     mockEnrollments = []
+    mockSequences = []
     mockRouterPush = jest.fn()
     global.fetch = jest.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
@@ -80,6 +82,12 @@ describe('Portal contact detail page', () => {
         return Promise.resolve({
           ok: true,
           json: async () => ({ data: { enrollments: mockEnrollments } }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/sequences') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { sequences: mockSequences } }),
         } as Response)
       }
       if (url === '/api/v1/crm/contacts/contact-1/recompute-score') {
@@ -249,6 +257,21 @@ describe('Portal contact detail page', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Choose nurture sequence for Jane Client' }))
 
     expect(await screen.findByRole('button', { name: 'Enroll contact' })).toBeInTheDocument()
+  })
+
+  it('turns an empty sequence picker into a setup action', async () => {
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Choose nurture sequence for Jane Client' }))
+
+    expect(await screen.findByRole('heading', { name: 'Create a sequence before enrolling' })).toBeInTheDocument()
+    expect(screen.getByText('This workspace needs at least one nurture sequence before Jane Client can be enrolled from the contact record.')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Build first sequence' })).toHaveAttribute('href', '/portal/settings/sequences/new')
+    expect(screen.getByRole('button', { name: 'Enroll contact' })).toBeDisabled()
   })
 
   it('confirms sequence unenrollment before removing a nurture workflow', async () => {

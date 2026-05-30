@@ -2009,6 +2009,31 @@ export default function PortalContactDetailPage() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bento-card !p-6 w-full max-w-sm space-y-4">
             <p className="text-sm font-semibold">Enroll in sequence</p>
+            {sequences.length === 0 && (
+              <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.02] p-4">
+                <div className="flex items-start gap-3">
+                  <span className="material-symbols-outlined mt-0.5 text-[20px] text-[var(--color-pib-accent)]" aria-hidden="true">
+                    route
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
+                      Sequence setup
+                    </p>
+                    <h3 className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">Create a sequence before enrolling</h3>
+                    <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">
+                      This workspace needs at least one nurture sequence before {contactName} can be enrolled from the contact record.
+                    </p>
+                    <Link
+                      href="/portal/settings/sequences/new"
+                      className="btn-pib-secondary mt-3 inline-flex items-center gap-1.5 text-xs"
+                    >
+                      <span className="material-symbols-outlined text-[14px]" aria-hidden="true">add</span>
+                      Build first sequence
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            )}
             <select
               value={enrollingSequenceId}
               onChange={(e) => setEnrollingSequenceId(e.target.value)}
