@@ -201,11 +201,17 @@ function CommandMetric({
   label,
   value,
   sub,
+  actionLabel,
+  actionText,
+  onAction,
 }: {
   icon: string
   label: string
   value: string
   sub: string
+  actionLabel?: string
+  actionText?: string
+  onAction?: () => void
 }) {
   return (
     <div className="pib-card min-w-[150px] flex-1 px-4 py-3">
@@ -215,6 +221,17 @@ function CommandMetric({
       </div>
       <p className="mt-2 text-xl font-headline font-bold text-on-surface leading-none">{value}</p>
       <p className="mt-1 text-[11px] text-on-surface-variant">{sub}</p>
+      {actionLabel && actionText && onAction && (
+        <button
+          type="button"
+          aria-label={actionLabel}
+          onClick={onAction}
+          className="mt-3 inline-flex items-center gap-1 rounded-full border border-[var(--color-card-border)] px-2.5 py-1 text-[10px] font-semibold text-[var(--color-accent-v2)] transition-colors hover:border-[var(--color-accent-v2)] hover:text-on-surface"
+        >
+          <span className="material-symbols-outlined text-[13px]" aria-hidden="true">add_comment</span>
+          {actionText}
+        </button>
+      )}
     </div>
   )
 }
@@ -560,7 +577,15 @@ export default function ContactDetailPage() {
         <div className="flex flex-wrap gap-3 p-5">
           <CommandMetric icon="fact_check" label="Profile strength" value={`${strength}%`} sub={strength >= 75 ? 'Ready for handoff' : 'Needs enrichment'} />
           <CommandMetric icon="moving" label="Stage" value={displayValue(stageLabel)} sub="Lifecycle position" />
-          <CommandMetric icon="schedule" label="Last touch" value={lastTouchAge === null ? 'Never' : `${lastTouchAge}d`} sub={fmtTimestamp(contact.lastContactedAt) || 'No outreach logged'} />
+          <CommandMetric
+            icon="schedule"
+            label="Last touch"
+            value={lastTouchAge === null ? 'Never' : `${lastTouchAge}d`}
+            sub={fmtTimestamp(contact.lastContactedAt) || 'No outreach logged'}
+            actionLabel={lastTouchAge === null ? `Log first touch for ${name} from contact command center` : undefined}
+            actionText={lastTouchAge === null ? 'Log first touch' : undefined}
+            onAction={lastTouchAge === null ? focusNoteComposer : undefined}
+          />
           <CommandMetric icon="mail" label="Email records" value={emailsLoading ? '...' : String(emails.length)} sub="Recent communication" />
           <CommandMetric icon="hub" label="Custom fields" value={String(customFieldCount)} sub="Workspace data points" />
         </div>

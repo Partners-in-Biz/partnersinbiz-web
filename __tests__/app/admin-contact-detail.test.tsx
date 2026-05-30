@@ -195,6 +195,18 @@ describe('Admin contact detail page', () => {
     expect(headerEmailLink).toHaveAttribute('href', '/admin/email/compose?to=jane%40example.com&contactId=contact-1')
   })
 
+  it('turns missing admin last touch into a command-center note action', async () => {
+    render(<AdminContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Jane Client' })).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Log first touch for Jane Client from contact command center' }))
+
+    expect(screen.getByPlaceholderText('Add an internal note, handoff, decision, or context...')).toHaveFocus()
+  })
+
   it('renders admin lifecycle labels as readable command-center text', async () => {
     contactOverride = { stage: 'proposal', type: 'prospect', source: 'outreach' }
 
