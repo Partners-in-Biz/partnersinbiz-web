@@ -258,7 +258,7 @@ describe('Portal CRM reports page', () => {
     expect(await screen.findByText('No forecast data yet')).toBeInTheDocument()
 
     const pipelineLink = screen.getByRole('link', { name: 'Open pipeline to create forecast deals' })
-    expect(pipelineLink).toHaveAttribute('href', '/portal/deals')
+    expect(pipelineLink).toHaveAttribute('href', '/portal/deals?create=deal')
   })
 
   it('turns missing contact data into a contact creation action', async () => {

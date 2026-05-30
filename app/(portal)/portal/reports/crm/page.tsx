@@ -727,7 +727,7 @@ export default function CrmReportsPage() {
             title="No forecast data yet"
             body="Open deals with values and close dates will build the forecast automatically."
             action={{
-              href: '/portal/deals',
+              href: '/portal/deals?create=deal',
               label: 'Open pipeline',
               ariaLabel: 'Open pipeline to create forecast deals',
               icon: 'view_kanban',
