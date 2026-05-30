@@ -6,6 +6,7 @@ import type { CustomFieldDefinition } from '@/lib/customFields/types'
 let mockContactCustomFieldDefinitions: CustomFieldDefinition[] = []
 let mockSuggestions: Array<{ action: string; reason: string; urgency: 'high' | 'medium' | 'low' }> = []
 let mockContactOverrides: Record<string, unknown> = {}
+let mockEnrollments: Array<{ id: string; sequenceId: string; sequenceName?: string; currentStep?: number; status?: string }> = []
 let mockRouterPush = jest.fn()
 
 jest.mock('next/navigation', () => ({
@@ -22,6 +23,7 @@ describe('Portal contact detail page', () => {
     mockContactCustomFieldDefinitions = []
     mockSuggestions = []
     mockContactOverrides = {}
+    mockEnrollments = []
     mockRouterPush = jest.fn()
     global.fetch = jest.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
@@ -77,7 +79,7 @@ describe('Portal contact detail page', () => {
       if (url === '/api/v1/crm/contacts/contact-1/enrollments') {
         return Promise.resolve({
           ok: true,
-          json: async () => ({ data: { enrollments: [] } }),
+          json: async () => ({ data: { enrollments: mockEnrollments } }),
         } as Response)
       }
       if (url === '/api/v1/crm/contacts/contact-1/recompute-score') {
@@ -106,6 +108,12 @@ describe('Portal contact detail page', () => {
         } as Response)
       }
       if (url === '/api/v1/crm/contacts/contact-1' && init?.method === 'DELETE') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ success: true }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/sequences/seq-1/enrollments/enrollment-1' && init?.method === 'DELETE') {
         return Promise.resolve({
           ok: true,
           json: async () => ({ success: true }),
@@ -241,6 +249,39 @@ describe('Portal contact detail page', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Choose nurture sequence for Jane Client' }))
 
     expect(await screen.findByRole('button', { name: 'Enroll contact' })).toBeInTheDocument()
+  })
+
+  it('confirms sequence unenrollment before removing a nurture workflow', async () => {
+    mockEnrollments = [{
+      id: 'enrollment-1',
+      sequenceId: 'seq-1',
+      sequenceName: 'Leadership follow-up',
+      currentStep: 1,
+      status: 'active',
+    }]
+
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    expect(await screen.findByText('Leadership follow-up')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Review unenrollment for Jane Client from Leadership follow-up' }))
+
+    expect(global.fetch).not.toHaveBeenCalledWith('/api/v1/crm/sequences/seq-1/enrollments/enrollment-1', { method: 'DELETE' })
+    expect(screen.getByRole('heading', { name: 'Pause this nurture workflow?' })).toBeInTheDocument()
+    expect(screen.getByText('Removing Leadership follow-up stops the current sequence steps for Jane Client. The team can re-enroll them later if the follow-up cadence still applies.')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm unenroll Jane Client from Leadership follow-up' }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/sequences/seq-1/enrollments/enrollment-1', { method: 'DELETE' })
+    })
+    await waitFor(() => {
+      expect(screen.queryByText('Leadership follow-up')).not.toBeInTheDocument()
+    })
   })
 
   it('turns an empty activity timeline into a first-note action', async () => {

@@ -289,6 +289,7 @@ export default function PortalContactDetailPage() {
   const [sequences, setSequences] = useState<{ id: string; name: string }[]>([])
   const [enrollingSequenceId, setEnrollingSequenceId] = useState('')
   const [enrolling, setEnrolling] = useState(false)
+  const [pendingUnenrollId, setPendingUnenrollId] = useState<string | null>(null)
 
   useEffect(() => {
     if (!id) return
@@ -753,6 +754,7 @@ export default function PortalContactDetailPage() {
         method: 'DELETE',
       })
       setEnrollments((prev) => prev.filter((e) => e.id !== enrollmentId))
+      setPendingUnenrollId(null)
     } catch {
       // silent
     }
@@ -1950,20 +1952,53 @@ export default function PortalContactDetailPage() {
                 </div>
               </div>
             ) : (
-              enrollments.map((e) => (
-                <div key={e.id} className="flex items-center justify-between py-2 border-b border-[var(--color-pib-line)] last:border-0">
-                  <div>
-                    <p className="text-sm font-medium">{e.sequenceName ?? e.sequenceId ?? 'Sequence'}</p>
-                    <p className="text-xs text-[var(--color-pib-text-muted)]">Step {(e.currentStep ?? 0) + 1} · {e.status}</p>
+              enrollments.map((e) => {
+                const sequenceName = e.sequenceName ?? e.sequenceId ?? 'Sequence'
+                return (
+                  <div key={e.id} className="py-2 border-b border-[var(--color-pib-line)] last:border-0">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-medium">{sequenceName}</p>
+                        <p className="text-xs text-[var(--color-pib-text-muted)]">Step {(e.currentStep ?? 0) + 1} · {e.status}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setPendingUnenrollId(e.id)}
+                        aria-label={`Review unenrollment for ${contactName} from ${sequenceName}`}
+                        className="text-xs text-[var(--color-pib-text-muted)] hover:text-red-400"
+                      >
+                        Unenroll
+                      </button>
+                    </div>
+                    {pendingUnenrollId === e.id && (
+                      <div className="mt-3 rounded-lg border border-red-500/30 bg-red-500/10 p-3">
+                        <p className="text-[10px] font-label uppercase tracking-widest text-red-300">Sequence control</p>
+                        <h3 className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">Pause this nurture workflow?</h3>
+                        <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">
+                          Removing {sequenceName} stops the current sequence steps for {contactName}. The team can re-enroll them later if the follow-up cadence still applies.
+                        </p>
+                        <div className="mt-3 flex flex-wrap items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleUnenroll(e.id)}
+                            aria-label={`Confirm unenroll ${contactName} from ${sequenceName}`}
+                            className="btn-pib-accent text-xs"
+                          >
+                            Confirm unenroll
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setPendingUnenrollId(null)}
+                            className="btn-pib-secondary text-xs"
+                          >
+                            Keep enrolled
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <button
-                    onClick={() => handleUnenroll(e.id)}
-                    className="text-xs text-[var(--color-pib-text-muted)] hover:text-red-400"
-                  >
-                    Unenroll
-                  </button>
-                </div>
-              ))
+                )
+              })
             )}
           </div>
         </section>
