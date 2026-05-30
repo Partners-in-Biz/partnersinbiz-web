@@ -198,8 +198,54 @@ export function SavedViewsBar({
           })}
         </div>
       ) : (
-        <div className="rounded-[var(--radius-card)] border border-dashed border-[var(--color-pib-line)] p-4 text-sm text-[var(--color-pib-text-muted)]">
-          No saved views yet. Save this lens once you have a repeatable working list.
+        <div className="rounded-[var(--radius-card)] border border-dashed border-[var(--color-pib-line)] bg-white/[0.02] p-4">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-3">
+              <span
+                className="material-symbols-outlined rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-bg)]/40 p-2 text-[20px] text-[var(--color-pib-accent)]"
+                aria-hidden="true"
+              >
+                saved_search
+              </span>
+              <div>
+                <p className="eyebrow !text-[10px]">Repeatable workflow</p>
+                <h3 className="mt-1 font-display text-lg text-[var(--color-pib-text)]">
+                  Create the first reusable contact lens
+                </h3>
+                <p className="mt-1 max-w-2xl text-sm text-[var(--color-pib-text-muted)]">
+                  Save this filtered contact list so every employee can reopen the same owner, stage, or follow-up view
+                  without rebuilding it.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowSaveForm(true)}
+              className="btn-pib-secondary shrink-0 text-xs"
+            >
+              <span className="material-symbols-outlined text-[14px]" aria-hidden="true">
+                bookmark_add
+              </span>
+              Save this working list
+            </button>
+          </div>
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            <div className="rounded-[var(--radius-card)] border border-[var(--color-pib-line)] bg-[var(--color-pib-bg)]/40 p-3">
+              <p className="eyebrow !text-[10px]">Ready now</p>
+              <p className="mt-2 text-sm font-semibold text-[var(--color-pib-text)]">
+                {activeFilterCount} active filter{activeFilterCount === 1 ? '' : 's'} ready to save
+              </p>
+            </div>
+            <div className="rounded-[var(--radius-card)] border border-[var(--color-pib-line)] bg-[var(--color-pib-bg)]/40 p-3">
+              <p className="eyebrow !text-[10px]">Team value</p>
+              <p className="mt-2 text-sm font-semibold text-[var(--color-pib-text)]">One shared working list</p>
+            </div>
+            <div className="rounded-[var(--radius-card)] border border-[var(--color-pib-line)] bg-[var(--color-pib-bg)]/40 p-3">
+              <p className="eyebrow !text-[10px]">Best use</p>
+              <p className="mt-2 text-sm font-semibold text-[var(--color-pib-text)]">Owner gaps and follow-ups</p>
+            </div>
+          </div>
         </div>
       )}
     </div>

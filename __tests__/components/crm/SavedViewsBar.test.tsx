@@ -31,6 +31,31 @@ describe('SavedViewsBar', () => {
     jest.resetAllMocks()
   })
 
+  it('turns an empty saved-view list into a guided lens setup state', async () => {
+    ;(global.fetch as jest.Mock).mockResolvedValue({
+      ok: true,
+      json: async () => ({ data: { views: [] } }),
+    } as Response)
+
+    render(
+      <SavedViewsBar
+        currentFilters={{ search: 'retainer', stage: 'proposal', followUp: 'stale' }}
+        onSelectView={jest.fn()}
+        resourceKind="contacts"
+      />,
+    )
+
+    expect(await screen.findByRole('heading', { name: 'Create the first reusable contact lens' })).toBeInTheDocument()
+    expect(
+      screen.getByText('Save this filtered contact list so every employee can reopen the same owner, stage, or follow-up view without rebuilding it.'),
+    ).toBeInTheDocument()
+    expect(screen.getByText('3 active filters ready to save')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save this working list' }))
+
+    expect(screen.getByPlaceholderText('View name')).toHaveFocus()
+  })
+
   it('renders a saved-view command center with filter counts and selectable views', async () => {
     const onSelectView = jest.fn()
 
