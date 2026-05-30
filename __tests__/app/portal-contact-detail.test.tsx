@@ -436,6 +436,21 @@ describe('Portal contact detail page', () => {
     expect(screen.getByDisplayValue('Meeting with Jane Client')).toBeInTheDocument()
   })
 
+  it('keeps activity toolbar actions named by command instead of icon text', async () => {
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    expect(screen.getByRole('button', { name: 'Call' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Email' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Note' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'SMS' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Meeting' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'AI draft' })).toBeInTheDocument()
+  })
+
   it('moves a generated AI email draft into the CRM email composer', async () => {
     render(<PortalContactDetailPage />)
 
@@ -443,7 +458,7 @@ describe('Portal contact detail page', () => {
       expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
     })
 
-    fireEvent.click(screen.getByRole('button', { name: /AI draft/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'AI draft' }))
     fireEvent.change(screen.getByPlaceholderText('Purpose (e.g. Follow up after demo)'), {
       target: { value: 'Follow up after leadership review' },
     })

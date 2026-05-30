@@ -1661,12 +1661,12 @@ export default function PortalContactDetailPage() {
                     }}
                     className={`btn-pib-secondary text-xs flex items-center gap-1 ${logType === type ? 'ring-1 ring-[var(--color-pib-accent)]' : ''}`}
                   >
-                    <span className="material-symbols-outlined text-[14px]">{icon}</span>
+                    <span className="material-symbols-outlined text-[14px]" aria-hidden="true">{icon}</span>
                     {label}
                   </button>
                 ))}
                 <button onClick={() => setShowAiComposer((v) => !v)} className="btn-pib-secondary text-xs flex items-center gap-1">
-                  <span className="material-symbols-outlined text-[14px]">auto_awesome</span>
+                  <span className="material-symbols-outlined text-[14px]" aria-hidden="true">auto_awesome</span>
                   AI draft
                 </button>
               </div>
@@ -1821,7 +1821,7 @@ export default function PortalContactDetailPage() {
                         }}
                         className="btn-pib-secondary text-xs flex items-center gap-1"
                       >
-                        <span className="material-symbols-outlined text-[14px]">content_copy</span>
+                        <span className="material-symbols-outlined text-[14px]" aria-hidden="true">content_copy</span>
                         Copy to clipboard
                       </button>
                       <button
@@ -1917,7 +1917,7 @@ export default function PortalContactDetailPage() {
             <div className="flex items-center justify-between mb-4">
               <p className="eyebrow !text-[10px]">Sequences</p>
               <button onClick={handleOpenEnrollModal} className="btn-pib-secondary text-xs flex items-center gap-1">
-                <span className="material-symbols-outlined text-[14px]">add</span>
+                <span className="material-symbols-outlined text-[14px]" aria-hidden="true">add</span>
                 Enroll
               </button>
             </div>
