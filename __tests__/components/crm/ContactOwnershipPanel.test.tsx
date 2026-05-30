@@ -85,6 +85,22 @@ describe('ContactOwnershipPanel', () => {
     expect(screen.queryByText('facebook_lead_form')).not.toBeInTheDocument()
   })
 
+  it('names missing creator and updater audit fields', () => {
+    render(
+      <ContactOwnershipPanel
+        profile={{
+          ...profile,
+          createdByRef: undefined,
+          updatedByRef: undefined,
+        }}
+      />,
+    )
+
+    expect(screen.getByText('Creator not captured')).toBeInTheDocument()
+    expect(screen.getByText('Updater not captured')).toBeInTheDocument()
+    expect(screen.queryByText('Unassigned')).not.toBeInTheDocument()
+  })
+
   it('turns a missing relationship owner into an accountability assignment action', () => {
     const assignOwner = jest.fn()
 

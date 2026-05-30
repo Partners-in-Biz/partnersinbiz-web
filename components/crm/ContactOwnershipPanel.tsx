@@ -27,6 +27,10 @@ function memberLabel(ref?: MemberRef, fallback?: string): string {
   return ref?.displayName || fallback || 'Unassigned'
 }
 
+function auditActorLabel(ref: MemberRef | undefined, missingLabel: string): string {
+  return ref?.displayName || ref?.uid || missingLabel
+}
+
 function sourceLabel(source?: string): string {
   const key = source?.trim() ?? ''
   if (!key) return 'Not captured'
@@ -221,8 +225,8 @@ export function ContactOwnershipPanel({
   const weakSource = !profile.capturedFromId?.trim() && (!profile.source?.trim() || profile.source === 'manual')
   const source = sourceLabel(profile.source)
   const captureSource = captureSourceLabel(profile.capturedFromId)
-  const creator = memberLabel(profile.createdByRef, undefined)
-  const updater = memberLabel(profile.updatedByRef, undefined)
+  const creator = auditActorLabel(profile.createdByRef, 'Creator not captured')
+  const updater = auditActorLabel(profile.updatedByRef, 'Updater not captured')
 
   return (
     <section className="bento-card !p-5 space-y-4">
