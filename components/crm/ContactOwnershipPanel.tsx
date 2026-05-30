@@ -30,7 +30,15 @@ function memberLabel(ref?: MemberRef, fallback?: string): string {
 function sourceLabel(source?: string): string {
   const key = source?.trim() ?? ''
   if (!key) return 'Not captured'
-  return SOURCE_LABELS[key] ?? key
+  return SOURCE_LABELS[key] ?? readableSourceFallback(key)
+}
+
+function readableSourceFallback(source: string): string {
+  return source
+    .split(/[_\-\s]+/)
+    .filter(Boolean)
+    .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(' ')
 }
 
 function memberMeta(ref?: MemberRef): string {

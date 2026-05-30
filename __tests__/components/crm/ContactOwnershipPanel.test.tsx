@@ -37,6 +37,21 @@ describe('ContactOwnershipPanel', () => {
     expect(screen.queryByText('agent')).not.toBeInTheDocument()
   })
 
+  it('formats unknown CRM source ids as readable provenance labels', () => {
+    render(
+      <ContactOwnershipPanel
+        profile={{
+          ...profile,
+          source: 'linkedin_ads',
+          capturedFromId: 'campaign-42',
+        }}
+      />,
+    )
+
+    expect(screen.getByText('Linkedin Ads')).toBeInTheDocument()
+    expect(screen.queryByText('linkedin_ads')).not.toBeInTheDocument()
+  })
+
   it('turns a missing relationship owner into an accountability assignment action', () => {
     const assignOwner = jest.fn()
 
