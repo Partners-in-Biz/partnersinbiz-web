@@ -14,6 +14,9 @@ jest.mock('@/lib/firebase/admin', () => ({
     collection: mockCollection,
     collectionGroup: mockCollectionGroup,
   },
+  adminAuth: {
+    getUsers: jest.fn(async () => ({ users: [] })),
+  },
 }))
 
 type MockDocData = Record<string, unknown>
@@ -36,15 +39,32 @@ function makeQuery(docs: ReturnType<typeof makeDoc>[]) {
 
 const collections: Record<string, ReturnType<typeof makeDoc>[]> = {}
 const collectionGroups: Record<string, ReturnType<typeof makeDoc>[]> = {}
+const nestedProjectTasks: Record<string, ReturnType<typeof makeDoc>> = {}
 
 beforeEach(() => {
   jest.clearAllMocks()
   for (const key of Object.keys(collections)) delete collections[key]
   for (const key of Object.keys(collectionGroups)) delete collectionGroups[key]
+  for (const key of Object.keys(nestedProjectTasks)) delete nestedProjectTasks[key]
 
   mockCollection.mockImplementation((name: string) => {
     if (name === 'briefing_snapshots') {
       return { add: mockAdd }
+    }
+    if (name === 'projects') {
+      return {
+        ...makeQuery(collections[name] ?? []),
+        doc: jest.fn((projectId: string) => ({
+          collection: jest.fn(() => ({
+            doc: jest.fn((taskId: string) => ({
+              get: jest.fn(async () => {
+                const doc = nestedProjectTasks[`${projectId}/${taskId}`]
+                return doc ? { ...doc, exists: true } : { exists: false }
+              }),
+            })),
+          })),
+        })),
+      }
     }
     return makeQuery(collections[name] ?? [])
   })
@@ -131,5 +151,42 @@ describe('briefing feed', () => {
       status: 'draft',
       generatedAt: 'server-timestamp',
     }))
+  })
+
+  it('falls back to direct nested task and Firebase Auth lookups for readable labels', async () => {
+    const { adminAuth } = await import('@/lib/firebase/admin')
+    ;(adminAuth.getUsers as jest.Mock).mockResolvedValueOnce({
+      users: [{ uid: 'user-1', displayName: 'Peet Stander', email: 'peet@example.test' }],
+    })
+    collections.organizations = [makeDoc('org-1', { name: 'Client One', slug: 'client-one' })]
+    collections.projects = [makeDoc('project-1', { name: 'Readable Project', slug: 'readable-project' })]
+    nestedProjectTasks['project-1/task-1'] = makeDoc('task-1', {
+      orgId: 'org-1',
+      projectId: 'project-1',
+      title: 'Human readable task',
+    }, 'projects/project-1/tasks/task-1')
+    collectionGroups.comments = [
+      makeDoc('comment-1', {
+        orgId: 'org-1',
+        projectId: 'project-1',
+        taskId: 'task-1',
+        text: 'Urgent blocker needs a readable evidence trail.',
+        userId: 'user-1',
+        userRole: 'admin',
+        createdAt: '2026-05-30T10:00:00.000Z',
+      }, 'comments/comment-1'),
+    ]
+
+    const { buildBriefingFeed } = await import('@/lib/briefing/feed')
+    const feed = await buildBriefingFeed(
+      { uid: 'admin-1', role: 'admin', allowedOrgIds: ['org-1'] },
+      { limit: 10, sourceType: 'comment' },
+    )
+
+    expect(feed.items[0]).toMatchObject({
+      title: 'Comment on Human readable task',
+      actor: { name: 'Peet Stander' },
+      context: { projectName: 'Readable Project', taskTitle: 'Human readable task' },
+    })
   })
 })

@@ -91,6 +91,7 @@ function priorityClass(priority: BriefingCard['priority']) {
 }
 
 function titledId(title: string | null | undefined, id: string | null | undefined) {
+  if (title && id && title === id) return title
   if (title && id) return `${title} (${id})`
   return title ?? id ?? 'Unknown'
 }

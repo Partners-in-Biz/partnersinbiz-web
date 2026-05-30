@@ -1,5 +1,5 @@
 import { FieldValue } from 'firebase-admin/firestore'
-import { adminDb } from '@/lib/firebase/admin'
+import { adminAuth, adminDb } from '@/lib/firebase/admin'
 import type { ApiUser } from '@/lib/api/types'
 import { canAccessOrg } from '@/lib/api/platformAdmin'
 import type { BriefingCard, BriefingPriority, BriefingResponse, BriefingSourceAdapter, BriefingSourceItem, BriefingSourceType } from './types'
@@ -33,6 +33,7 @@ type OrgSummary = { id: string; name?: string | null; slug?: string | null }
 type ProjectSummary = { id: string; name?: string | null; title?: string | null; slug?: string | null }
 type TaskSummary = { id: string; title?: string | null; projectId?: string | null; orgId?: string | null }
 type UserSummary = { id: string; name?: string | null; email?: string | null }
+type TaskLookupRef = { id: string; projectId?: string | null }
 
 function chunk<T>(items: T[], size: number): T[][] {
   const out: T[][] = []
@@ -115,9 +116,10 @@ async function loadProjectSummaries(projectIds: string[]): Promise<Map<string, P
   return map
 }
 
-async function loadTaskSummaries(taskIds: string[]): Promise<Map<string, TaskSummary>> {
+async function loadTaskSummaries(taskRefs: TaskLookupRef[]): Promise<Map<string, TaskSummary>> {
   const map = new Map<string, TaskSummary>()
-  const ids = [...new Set(taskIds.filter(Boolean))]
+  const refs = taskRefs.filter((ref) => ref.id)
+  const ids = [...new Set(refs.map((ref) => ref.id))]
   if (ids.length === 0) return map
 
   const absorb = (docs: FirestoreDoc[]) => {
@@ -146,6 +148,20 @@ async function loadTaskSummaries(taskIds: string[]): Promise<Map<string, TaskSum
     // Standalone task labels are best-effort.
   }
 
+  const directRefs = refs.filter((ref) => ref.projectId && !map.has(ref.id))
+  if (directRefs.length > 0) {
+    try {
+      const docs: FirestoreDoc[] = []
+      await Promise.all(directRefs.map(async (ref) => {
+        const snap = await adminDb.collection('projects').doc(ref.projectId as string).collection('tasks').doc(ref.id).get()
+        if (snap.exists) docs.push(snap as FirestoreDoc)
+      }))
+      absorb(docs)
+    } catch {
+      // Nested project task labels are best-effort.
+    }
+  }
+
   return map
 }
 
@@ -167,6 +183,18 @@ async function loadUserSummaries(actorIds: string[]): Promise<Map<string, UserSu
     }
   } catch {
     // Actor labels are display sugar.
+  }
+
+  const missingAuthIds = ids.filter((id) => !map.has(id))
+  if (missingAuthIds.length > 0) {
+    try {
+      const result = await adminAuth.getUsers(missingAuthIds.slice(0, 100).map((uid) => ({ uid })))
+      for (const user of result.users) {
+        map.set(user.uid, { id: user.uid, name: user.displayName ?? null, email: user.email ?? null })
+      }
+    } catch {
+      // Firebase Auth fallback is display sugar too.
+    }
   }
   return map
 }
@@ -436,9 +464,14 @@ export async function buildBriefingFeed(user: ApiUser, options: BriefingFeedOpti
   }
 
   const projectIds = items.map((item) => item.context.projectId).filter((id): id is string => typeof id === 'string' && id.length > 0)
-  const taskIds = items.map((item) => item.context.taskId).filter((id): id is string => typeof id === 'string' && id.length > 0)
+  const taskRefs: TaskLookupRef[] = items.reduce<TaskLookupRef[]>((acc, item) => {
+    if (typeof item.context.taskId === 'string' && item.context.taskId.length > 0) {
+      acc.push({ id: item.context.taskId, projectId: item.context.projectId })
+    }
+    return acc
+  }, [])
   const actorIds = items.map((item) => item.actor.id).filter((id): id is string => typeof id === 'string' && id.length > 0)
-  const tasks = await loadTaskSummaries(taskIds)
+  const tasks = await loadTaskSummaries(taskRefs)
   const projects = await loadProjectSummaries([...projectIds, ...[...tasks.values()].map((task) => task.projectId).filter((id): id is string => typeof id === 'string' && id.length > 0)])
   const users = await loadUserSummaries(actorIds)
   const labelledItems = enrichBriefingLabels(items, projects, tasks, users)
