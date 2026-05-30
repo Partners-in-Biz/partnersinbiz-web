@@ -65,6 +65,41 @@ describe('Admin CRM contacts page', () => {
     }) as jest.Mock
   })
 
+  it('turns an empty workspace into a first-contact operating setup', async () => {
+    global.fetch = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.startsWith('/api/v1/crm/contacts?')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: [] }),
+        } as Response)
+      }
+      if (url === '/api/v1/portal/settings/team') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ members: [] }),
+        } as Response)
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ data: [] }),
+      } as Response)
+    }) as jest.Mock
+
+    render(<AdminContactsPage />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Build the first admin contact record' })).toBeInTheDocument()
+    })
+    expect(screen.getByText(
+      'Create the first contact so admin can assign ownership, track follow-up, and give every employee a shared relationship profile before pipeline work starts.'
+    )).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Create first admin contact' }))
+
+    expect(screen.getByRole('heading', { name: 'New Contact' })).toBeInTheDocument()
+  })
+
   it('surfaces unowned contacts as a management accountability lens', async () => {
     render(<AdminContactsPage />)
 
