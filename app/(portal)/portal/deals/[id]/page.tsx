@@ -714,17 +714,35 @@ export default function DealDetailPage() {
           <div className="mt-4 bento-card !p-5 space-y-3">
             <p className="eyebrow !text-[10px]">Stage movement</p>
             {stageHistory.length === 0 ? (
-              <div className="rounded-xl border border-[var(--color-pib-line)] bg-white/[0.02] p-3">
-                <p className="text-sm text-[var(--color-pib-text-muted)]">No stage movement recorded yet.</p>
+              <div className="rounded-xl border border-[var(--color-pib-line)] bg-white/[0.02] p-4">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="flex gap-3">
+                    <span
+                      aria-hidden="true"
+                      className="material-symbols-outlined flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-[var(--color-pib-line)] bg-white/[0.04] text-[20px] text-[var(--color-accent-v2)]"
+                    >
+                      timeline
+                    </span>
+                    <div>
+                      <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
+                        Pipeline progress unproven
+                      </p>
+                      <h3 className="mt-1 text-base font-semibold text-[var(--color-pib-text)]">Record the first stage signal</h3>
+                      <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--color-pib-text-muted)]">
+                        Confirm the current stage now so leadership can trust the forecast, reps can see where the opportunity is stuck, and future stage changes have a baseline.
+                      </p>
+                    </div>
+                  </div>
                 <button
                   type="button"
                   onClick={() => setEditOpen(true)}
-                  className="pib-btn-primary mt-3 inline-flex items-center gap-1.5 text-sm"
-                  aria-label={`Update stage for ${deal.title ?? 'this deal'}`}
+                  className="pib-btn-primary inline-flex shrink-0 items-center gap-1.5 text-sm"
+                  aria-label={`Confirm stage baseline for ${deal.title ?? 'this deal'}`}
                 >
                   <span className="material-symbols-outlined text-base">sync_alt</span>
-                  Update stage
+                  Confirm stage baseline
                 </button>
+                </div>
               </div>
             ) : (
               <div className="space-y-3">

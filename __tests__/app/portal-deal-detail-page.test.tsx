@@ -183,9 +183,15 @@ describe('Portal deal detail page', () => {
     render(<DealDetailPage />)
 
     await screen.findByText('Unowned expansion')
-    expect(screen.getByText('No stage movement recorded yet.')).toBeInTheDocument()
+    expect(screen.getByText('Pipeline progress unproven')).toBeInTheDocument()
+    expect(screen.getByText('Record the first stage signal')).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'Confirm the current stage now so leadership can trust the forecast, reps can see where the opportunity is stuck, and future stage changes have a baseline.'
+      )
+    ).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Update stage for Unowned expansion' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm stage baseline for Unowned expansion' }))
 
     expect(screen.getByTestId('deal-drawer')).toBeInTheDocument()
   })
