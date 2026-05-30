@@ -219,6 +219,18 @@ describe('Admin contact detail page', () => {
     expect(screen.getByTestId('contact-form')).toBeInTheDocument()
   })
 
+  it('turns admin lifecycle stage into a command-center stage control action', async () => {
+    render(<AdminContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Jane Client' })).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Update lifecycle stage for Jane Client from contact command center' }))
+
+    expect(screen.getByRole('button', { name: 'New lead' })).toHaveFocus()
+  })
+
   it('turns missing admin last touch into a command-center note action', async () => {
     render(<AdminContactDetailPage />)
 

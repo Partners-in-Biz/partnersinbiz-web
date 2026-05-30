@@ -277,6 +277,7 @@ export default function ContactDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
   const noteInputRef = useRef<HTMLInputElement | null>(null)
+  const activeStageRef = useRef<HTMLButtonElement | null>(null)
   const [contact, setContact] = useState<ContactRecord | null>(null)
   const [activities, setActivities] = useState<ActivityRecord[]>([])
   const [emails, setEmails] = useState<EmailRecord[]>([])
@@ -389,6 +390,11 @@ export default function ContactDetailPage() {
   function focusNoteComposer() {
     noteInputRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'center' })
     noteInputRef.current?.focus()
+  }
+
+  function focusStageControl() {
+    activeStageRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'center' })
+    activeStageRef.current?.focus()
   }
 
   function startSuggestion(suggestion: SuggestionItem) {
@@ -584,7 +590,15 @@ export default function ContactDetailPage() {
             actionText={strength < 75 ? 'Improve profile' : undefined}
             onAction={strength < 75 ? () => setEditing(true) : undefined}
           />
-          <CommandMetric icon="moving" label="Stage" value={displayValue(stageLabel)} sub="Lifecycle position" />
+          <CommandMetric
+            icon="moving"
+            label="Stage"
+            value={displayValue(stageLabel)}
+            sub="Lifecycle position"
+            actionLabel={`Update lifecycle stage for ${name} from contact command center`}
+            actionText="Update stage"
+            onAction={focusStageControl}
+          />
           <CommandMetric
             icon="schedule"
             label="Last touch"
@@ -727,6 +741,7 @@ export default function ContactDetailPage() {
               {STAGES.map((stage) => (
                 <button
                   key={stage}
+                  ref={contact.stage === stage ? activeStageRef : undefined}
                   onClick={() => changeStage(stage)}
                   className={`rounded-full border px-3 py-1.5 text-[10px] font-label uppercase tracking-widest transition-colors ${
                     contact.stage === stage
