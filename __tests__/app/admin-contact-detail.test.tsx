@@ -170,6 +170,18 @@ describe('Admin contact detail page', () => {
     expect(composeLink).toHaveAttribute('href', '/admin/email/compose?to=jane%40example.com&contactId=contact-1')
   })
 
+  it('turns empty admin email records into a command-center compose action', async () => {
+    render(<AdminContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Jane Client' })).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Compose first email to Jane Client from contact command center metric' }))
+
+    expect(push).toHaveBeenCalledWith('/admin/email/compose?to=jane%40example.com&contactId=contact-1')
+  })
+
   it('turns blocked admin email history into an email capture action', async () => {
     contactOverride = { email: '' }
 

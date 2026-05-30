@@ -586,7 +586,15 @@ export default function ContactDetailPage() {
             actionText={lastTouchAge === null ? 'Log first touch' : undefined}
             onAction={lastTouchAge === null ? focusNoteComposer : undefined}
           />
-          <CommandMetric icon="mail" label="Email records" value={emailsLoading ? '...' : String(emails.length)} sub="Recent communication" />
+          <CommandMetric
+            icon="mail"
+            label="Email records"
+            value={emailsLoading ? '...' : String(emails.length)}
+            sub="Recent communication"
+            actionLabel={!emailsLoading && emails.length === 0 && composeEmailHref ? `Compose first email to ${name} from contact command center metric` : undefined}
+            actionText={!emailsLoading && emails.length === 0 && composeEmailHref ? 'Compose first email' : undefined}
+            onAction={!emailsLoading && emails.length === 0 && composeEmailHref ? () => router.push(composeEmailHref) : undefined}
+          />
           <CommandMetric
             icon="hub"
             label="Custom fields"
