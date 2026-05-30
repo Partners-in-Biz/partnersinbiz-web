@@ -68,6 +68,7 @@ export function DealDetailDrawer({
   const ownerLabel = deal.ownerRef?.displayName || deal.ownerUid || 'Unassigned'
   const needsOwner = !deal.ownerRef?.displayName && !deal.ownerUid
   const closeDateLabel = fmtDate(deal.expectedCloseDate)
+  const needsCloseDate = closeDateLabel === 'No close date'
 
   const probability = deal.probability ?? (stage?.probability ?? 100)
   const weightedValue = (deal.value ?? 0) * (probability / 100)
@@ -358,7 +359,30 @@ export function DealDetailDrawer({
               </div>
               <div className="rounded-md bg-black/10 px-3 py-2">
                 <p className={labelCls}>Close date</p>
-                <p className="text-sm font-semibold text-[var(--color-pib-text)]">{closeDateLabel}</p>
+                {needsCloseDate ? (
+                  <div className="space-y-2">
+                    <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
+                      Close date missing
+                    </p>
+                    <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">Set forecast timing</h3>
+                    <p className="text-xs leading-5 text-[var(--color-pib-text-muted)]">
+                      No expected close date is captured. Add one so leadership can trust forecast timing, stale-deal reviews, and pipeline commitments.
+                    </p>
+                    {onEdit ? (
+                      <button
+                        type="button"
+                        aria-label={`Set close date for ${deal.title}`}
+                        onClick={onEdit}
+                        className="btn-pib-secondary inline-flex items-center gap-1.5 text-xs"
+                      >
+                        <span className="material-symbols-outlined text-[14px]" aria-hidden="true">event_upcoming</span>
+                        Set close date
+                      </button>
+                    ) : null}
+                  </div>
+                ) : (
+                  <p className="text-sm font-semibold text-[var(--color-pib-text)]">{closeDateLabel}</p>
+                )}
               </div>
             </div>
           </div>

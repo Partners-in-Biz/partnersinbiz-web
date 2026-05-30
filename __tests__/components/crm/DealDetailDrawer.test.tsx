@@ -109,4 +109,29 @@ describe('DealDetailDrawer', () => {
 
     expect(onEdit).toHaveBeenCalledTimes(1)
   })
+
+  it('turns a missing close date into a forecast hygiene edit action', () => {
+    const onEdit = jest.fn()
+    render(
+      <DealDetailDrawer
+        deal={{ ...deal, expectedCloseDate: null }}
+        stages={stages}
+        orgId="org-1"
+        onClose={jest.fn()}
+        onEdit={onEdit}
+      />,
+    )
+
+    expect(screen.getByText('Close date missing')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Set forecast timing' })).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'No expected close date is captured. Add one so leadership can trust forecast timing, stale-deal reviews, and pipeline commitments.',
+      ),
+    ).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Set close date for Growth retainer' }))
+
+    expect(onEdit).toHaveBeenCalledTimes(1)
+  })
 })
