@@ -62,7 +62,14 @@ describe('ContactIdentityPanel', () => {
       />,
     )
 
-    expect(screen.getAllByText('Not captured')).toHaveLength(3)
+    expect(screen.getByText('Personalization context missing')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Capture role, department, and timezone' })).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'Add these fields so every employee can tailor outreach, meeting times, and handoffs around who this contact is and how they work.',
+      ),
+    ).toBeInTheDocument()
+
     fireEvent.click(screen.getByRole('button', { name: 'Add role for Jane Client from identity intelligence' }))
     fireEvent.click(screen.getByRole('button', { name: 'Add department for Jane Client from identity intelligence' }))
     fireEvent.click(screen.getByRole('button', { name: 'Add timezone for Jane Client from identity intelligence' }))
