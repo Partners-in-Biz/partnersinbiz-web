@@ -46,6 +46,18 @@ describe('ContactIdentityPanel', () => {
     expect(screen.queryByText('Email blocked')).not.toBeInTheDocument()
   })
 
+  it('explains why SMS readiness is incomplete', () => {
+    const { rerender } = render(<ContactIdentityPanel profile={{ ...profile, phoneVerified: false }} />)
+
+    expect(screen.getByText('Phone unverified')).toBeInTheDocument()
+    expect(screen.queryByText('SMS incomplete')).not.toBeInTheDocument()
+
+    rerender(<ContactIdentityPanel profile={{ ...profile, phoneVerified: true, smsOptedIn: false }} />)
+
+    expect(screen.getByText('SMS opted out')).toBeInTheDocument()
+    expect(screen.queryByText('SMS incomplete')).not.toBeInTheDocument()
+  })
+
   it('turns missing identity fields into supplied profile actions', () => {
     const onAddRole = jest.fn()
     const onAddDepartment = jest.fn()
