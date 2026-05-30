@@ -17,6 +17,27 @@ import { ScoreChip } from '@/components/crm/ScoreChip'
 import type { MemberRef } from '@/lib/orgMembers/memberRef'
 
 const STAGES = ['new', 'contacted', 'replied', 'demo', 'proposal', 'won', 'lost'] as const
+const STAGE_LABELS: Record<string, string> = {
+  new: 'New lead',
+  contacted: 'Contacted',
+  replied: 'Replied',
+  demo: 'Demo booked',
+  proposal: 'Proposal sent',
+  won: 'Won customer',
+  lost: 'Lost opportunity',
+}
+const TYPE_LABELS: Record<string, string> = {
+  lead: 'Lead',
+  prospect: 'Prospect',
+  client: 'Client',
+  churned: 'Churned',
+}
+const SOURCE_LABELS: Record<string, string> = {
+  manual: 'Manual entry',
+  form: 'Form capture',
+  import: 'Imported list',
+  outreach: 'Outreach',
+}
 const AGREEMENT_ROLE_LABELS: Record<string, string> = {
   primary_contact: 'Primary contact',
   accounts_contact: 'Accounts contact',
@@ -114,6 +135,12 @@ function numberValue(value: unknown): number | undefined {
 
 function displayValue(value: unknown): string {
   return textValue(value) || 'Not captured'
+}
+
+function displayLabel(value: string | undefined, labels: Record<string, string>): string {
+  const key = textValue(value)
+  if (!key) return ''
+  return labels[key] ?? key
 }
 
 function formatAgreementRoles(roles: string[] | undefined): string {
@@ -419,6 +446,9 @@ export default function ContactDetailPage() {
   const customFieldCount = contact?.customFields ? Object.keys(contact.customFields).length : 0
   const hasAnyScore = contact?.leadScore != null || contact?.icpScore != null || contact?.aiLeadScore != null
   const hasCompanyContext = Boolean(contact?.companyId || contact?.companyName || contact?.company)
+  const stageLabel = displayLabel(contact?.stage, STAGE_LABELS)
+  const typeLabel = displayLabel(contact?.type, TYPE_LABELS)
+  const sourceLabel = displayLabel(contact?.source, SOURCE_LABELS)
   const composeEmailHref = contact?.email
     ? `/admin/email/compose?to=${encodeURIComponent(contact.email)}&contactId=${encodeURIComponent(id)}`
     : ''
@@ -466,9 +496,9 @@ export default function ContactDetailPage() {
               <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Contact command center</p>
               <h1 className="mt-2 font-headline text-3xl font-bold tracking-tight text-on-surface">{name}</h1>
               <div className="mt-3 flex flex-wrap items-center gap-2">
-                {contact.stage && <span className="pill capitalize">{contact.stage}</span>}
-                {contact.type && <span className="pill capitalize">{contact.type}</span>}
-                {contact.source && <span className="pill capitalize">Source: {contact.source}</span>}
+                {stageLabel && <span className="pill">{stageLabel}</span>}
+                {typeLabel && <span className="pill">{typeLabel}</span>}
+                {sourceLabel && <span className="pill">Source: {sourceLabel}</span>}
                 {tags.slice(0, 6).map((tag) => <span key={tag} className="pill">{tag}</span>)}
               </div>
             </div>
@@ -528,7 +558,7 @@ export default function ContactDetailPage() {
 
         <div className="flex flex-wrap gap-3 p-5">
           <CommandMetric icon="fact_check" label="Profile strength" value={`${strength}%`} sub={strength >= 75 ? 'Ready for handoff' : 'Needs enrichment'} />
-          <CommandMetric icon="moving" label="Stage" value={displayValue(contact.stage)} sub="Lifecycle position" />
+          <CommandMetric icon="moving" label="Stage" value={displayValue(stageLabel)} sub="Lifecycle position" />
           <CommandMetric icon="schedule" label="Last touch" value={lastTouchAge === null ? 'Never' : `${lastTouchAge}d`} sub={fmtTimestamp(contact.lastContactedAt) || 'No outreach logged'} />
           <CommandMetric icon="mail" label="Email records" value={emailsLoading ? '...' : String(emails.length)} sub="Recent communication" />
           <CommandMetric icon="hub" label="Custom fields" value={String(customFieldCount)} sub="Workspace data points" />
@@ -654,7 +684,7 @@ export default function ContactDetailPage() {
                       : 'border-[var(--color-card-border)] text-on-surface-variant hover:text-on-surface'
                   }`}
                 >
-                  {stage}
+                  {displayLabel(stage, STAGE_LABELS)}
                 </button>
               ))}
             </div>

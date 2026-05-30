@@ -1,5 +1,5 @@
 import React from 'react'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import AdminContactDetailPage from '@/app/(admin)/admin/crm/contacts/[id]/page'
 
 const push = jest.fn()
@@ -179,6 +179,23 @@ describe('Admin contact detail page', () => {
 
     const headerEmailLink = screen.getByRole('link', { name: 'Email Jane Client from contact command center' })
     expect(headerEmailLink).toHaveAttribute('href', '/admin/email/compose?to=jane%40example.com&contactId=contact-1')
+  })
+
+  it('renders admin lifecycle labels as readable command-center text', async () => {
+    contactOverride = { stage: 'proposal', type: 'prospect', source: 'outreach' }
+
+    render(<AdminContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Jane Client' })).toBeInTheDocument()
+    })
+
+    const commandCenter = screen.getByRole('banner')
+    expect(within(commandCenter).getAllByText('Proposal sent').length).toBeGreaterThan(0)
+    expect(within(commandCenter).getByText('Prospect')).toBeInTheDocument()
+    expect(within(commandCenter).getByText('Source: Outreach')).toBeInTheDocument()
+    expect(within(commandCenter).queryByText('proposal')).not.toBeInTheDocument()
+    expect(within(commandCenter).queryByText('Source: outreach')).not.toBeInTheDocument()
   })
 
   it('turns a missing admin contact email into a profile completion action', async () => {
