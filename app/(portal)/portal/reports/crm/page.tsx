@@ -704,7 +704,25 @@ export default function CrmReportsPage() {
                     </span>
                   )}
                 </div>
-                {byStageEntries.length > 0 ? <HBarChart entries={byStageEntries} /> : <p className="text-sm text-[var(--color-pib-text-muted)]">No stages recorded.</p>}
+                {byStageEntries.length > 0 ? (
+                  <HBarChart entries={byStageEntries} />
+                ) : (
+                  <div className="rounded-lg border border-amber-400/20 bg-amber-400/10 p-4">
+                    <p className="eyebrow !text-[10px] text-amber-200">Stage mix missing</p>
+                    <h3 className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">Classify contacts into funnel stages</h3>
+                    <p className="mt-1 text-sm leading-6 text-[var(--color-pib-text-muted)]">
+                      There are contacts in CRM, but none are grouped by stage yet. Classify the next contact so leadership can see where the pipeline is stuck.
+                    </p>
+                    <Link
+                      href="/portal/contacts?create=contact"
+                      aria-label="Open contacts to classify missing stage mix"
+                      className="pib-btn-secondary mt-3 inline-flex items-center gap-1.5 text-xs"
+                    >
+                      <span aria-hidden="true" className="material-symbols-outlined text-[14px]">filter_alt</span>
+                      Classify contacts
+                    </Link>
+                  </div>
+                )}
               </div>
               <div className="bento-card !p-5 space-y-4">
                 <p className="eyebrow !text-[10px]">Conversion mix</p>

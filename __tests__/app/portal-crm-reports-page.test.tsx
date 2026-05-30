@@ -230,6 +230,55 @@ describe('Portal CRM reports page', () => {
     expect(contactsLink).toHaveAttribute('href', '/portal/contacts?create=contact')
   })
 
+  it('turns an empty contact stage mix into a stage classification action', async () => {
+    ;(global.fetch as jest.Mock).mockImplementation((url: RequestInfo | URL) => {
+      const path = String(url)
+      if (path === '/api/v1/crm/reports/funnel') {
+        return apiResponse({
+          byType: { lead: 2, prospect: 1, client: 1, churned: 0, other: 0 },
+          byStage: {},
+          total: 4,
+        })
+      }
+      if (path === '/api/v1/crm/reports/forecast') {
+        return apiResponse({
+          periods: {
+            thisMonth: { dealCount: 0, totalValue: 0, weightedValue: 0 },
+            nextMonth: { dealCount: 0, totalValue: 0, weightedValue: 0 },
+            thisQuarter: { dealCount: 0, totalValue: 0, weightedValue: 0 },
+            nextQuarter: { dealCount: 0, totalValue: 0, weightedValue: 0 },
+            beyond: { dealCount: 0, totalValue: 0, weightedValue: 0 },
+            noDate: { dealCount: 0, totalValue: 0, weightedValue: 0 },
+          },
+          summary: { totalOpenDeals: 0, totalValue: 0, weightedValue: 0 },
+        })
+      }
+      if (path === '/api/v1/crm/reports/pipeline-velocity') {
+        return apiResponse({ stages: [], summary: { stageCount: 0, bottleneckCount: 0, slowestStage: null } })
+      }
+      if (path === '/api/v1/crm/reports/rep-performance') {
+        return apiResponse({ reps: [], summary: { repCount: 0, totalWonValue: 0, totalOpenValue: 0, totalActivities: 0 } })
+      }
+      if (path === '/api/v1/crm/reports/activity-summary?days=30') {
+        return apiResponse({ byType: {}, total: 0, perDay: [], since: '2026-04-29', days: 30 })
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${path}`))
+    })
+
+    render(<CrmReportsPage />)
+
+    expect(await screen.findByText('Stage mix missing')).toBeInTheDocument()
+    expect(screen.getByText('Classify contacts into funnel stages')).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'There are contacts in CRM, but none are grouped by stage yet. Classify the next contact so leadership can see where the pipeline is stuck.',
+      ),
+    ).toBeInTheDocument()
+
+    const stageLink = screen.getByRole('link', { name: 'Open contacts to classify missing stage mix' })
+    expect(stageLink).toHaveAttribute('href', '/portal/contacts?create=contact')
+  })
+
   it('turns missing forecast data into a pipeline action', async () => {
     ;(global.fetch as jest.Mock).mockImplementation((url: RequestInfo | URL) => {
       const path = String(url)
