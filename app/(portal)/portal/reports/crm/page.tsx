@@ -641,7 +641,7 @@ export default function CrmReportsPage() {
             ariaLabel: `Open deals in slowest ${labelize(slowestStage.stageId)} stage`,
             icon: 'view_list',
           } : {
-            href: '/portal/deals',
+            href: '/portal/deals?create=deal',
             label: 'Review pipeline',
             ariaLabel: 'Open pipeline to build stage velocity insight',
             icon: 'view_kanban',
