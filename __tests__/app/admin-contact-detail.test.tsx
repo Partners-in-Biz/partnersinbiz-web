@@ -248,4 +248,72 @@ describe('Admin contact detail page', () => {
 
     expect(screen.getByPlaceholderText('Add an internal note, handoff, decision, or context...')).toHaveFocus()
   })
+
+  it('turns admin next-best-action advice into a prefilled note handoff', async () => {
+    ;(global.fetch as jest.Mock).mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/contacts/contact-1') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: {
+              contact: {
+                id: 'contact-1',
+                orgId: 'org-1',
+                name: 'Jane Client',
+                email: 'jane@example.com',
+                type: 'lead',
+                stage: 'new',
+              },
+            },
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/contacts/contact-1/activities') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { activities: [] } }),
+        } as Response)
+      }
+      if (url === '/api/v1/email?contactId=contact-1&limit=8') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: [] }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/contacts/contact-1/suggestions') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: {
+              suggestions: [
+                {
+                  action: 'Call Jane before proposal expires',
+                  reason: 'The relationship has no recent touch and needs a human handoff.',
+                  urgency: 'high',
+                },
+              ],
+            },
+          }),
+        } as Response)
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ data: {} }),
+      } as Response)
+    })
+
+    render(<AdminContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Call Jane before proposal expires')).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Start next action: Call Jane before proposal expires' }))
+
+    expect(screen.getByPlaceholderText('Add an internal note, handoff, decision, or context...')).toHaveValue(
+      'Next action: Call Jane before proposal expires - The relationship has no recent touch and needs a human handoff.'
+    )
+    expect(screen.getByPlaceholderText('Add an internal note, handoff, decision, or context...')).toHaveFocus()
+  })
 })

@@ -330,6 +330,12 @@ export default function ContactDetailPage() {
     noteInputRef.current?.focus()
   }
 
+  function startSuggestion(suggestion: SuggestionItem) {
+    setNoteText(`Next action: ${suggestion.action} - ${suggestion.reason}`)
+    focusNoteComposer()
+    window.setTimeout(focusNoteComposer, 0)
+  }
+
   async function changeStage(stage: string) {
     const res = await fetch(`/api/v1/crm/contacts/${id}`, {
       method: 'PUT',
@@ -630,6 +636,15 @@ export default function ContactDetailPage() {
                   <div key={`${suggestion.action}-${index}`} className={`rounded-lg border px-4 py-3 ${toneForUrgency(suggestion.urgency)}`}>
                     <p className="text-sm font-semibold">{suggestion.action}</p>
                     <p className="mt-1 text-xs opacity-80">{suggestion.reason}</p>
+                    <button
+                      type="button"
+                      aria-label={`Start next action: ${suggestion.action}`}
+                      onClick={() => startSuggestion(suggestion)}
+                      className="mt-3 inline-flex items-center gap-1 rounded-md border border-current/25 px-2.5 py-1.5 text-[11px] font-semibold transition-colors hover:border-current"
+                    >
+                      <span className="material-symbols-outlined text-[14px]" aria-hidden="true">add_comment</span>
+                      Start action
+                    </button>
                   </div>
                 ))}
               </div>
