@@ -207,6 +207,18 @@ describe('Admin contact detail page', () => {
     expect(headerEmailLink).toHaveAttribute('href', '/admin/email/compose?to=jane%40example.com&contactId=contact-1')
   })
 
+  it('turns weak admin profile strength into a command-center enrichment action', async () => {
+    render(<AdminContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Jane Client' })).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Improve profile strength for Jane Client from contact command center' }))
+
+    expect(screen.getByTestId('contact-form')).toBeInTheDocument()
+  })
+
   it('turns missing admin last touch into a command-center note action', async () => {
     render(<AdminContactDetailPage />)
 

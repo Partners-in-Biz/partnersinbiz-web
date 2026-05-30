@@ -575,7 +575,15 @@ export default function ContactDetailPage() {
         </div>
 
         <div className="flex flex-wrap gap-3 p-5">
-          <CommandMetric icon="fact_check" label="Profile strength" value={`${strength}%`} sub={strength >= 75 ? 'Ready for handoff' : 'Needs enrichment'} />
+          <CommandMetric
+            icon="fact_check"
+            label="Profile strength"
+            value={`${strength}%`}
+            sub={strength >= 75 ? 'Ready for handoff' : 'Needs enrichment'}
+            actionLabel={strength < 75 ? `Improve profile strength for ${name} from contact command center` : undefined}
+            actionText={strength < 75 ? 'Improve profile' : undefined}
+            onAction={strength < 75 ? () => setEditing(true) : undefined}
+          />
           <CommandMetric icon="moving" label="Stage" value={displayValue(stageLabel)} sub="Lifecycle position" />
           <CommandMetric
             icon="schedule"
