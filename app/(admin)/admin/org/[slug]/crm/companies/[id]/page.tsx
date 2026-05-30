@@ -207,7 +207,7 @@ function SimpleRowsPanel({
   )
 }
 
-function AnalyticsPanel({ center }: { center: CommandCenter }) {
+function AnalyticsPanel({ center, companyName, portalHref }: { center: CommandCenter; companyName: string; portalHref: string }) {
   const analytics = center.analytics ?? {}
   const summary = center.summary ?? {}
   const tiles = [
@@ -235,7 +235,21 @@ function AnalyticsPanel({ center }: { center: CommandCenter }) {
       <div className="bento-card p-5">
         <p className="eyebrow !text-[10px]">Risk signals</p>
         {(analytics.riskSignals ?? []).length === 0 ? (
-          <p className="mt-3 text-sm text-[var(--color-pib-text-muted)]">No active risk signals for this company.</p>
+          <div className="mt-3 rounded-lg border border-emerald-400/20 bg-emerald-400/10 p-4">
+            <p className="eyebrow !text-[10px] text-emerald-200">Risk watch clear</p>
+            <h3 className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">Keep leadership risk reviewable</h3>
+            <p className="mt-1 text-sm leading-6 text-[var(--color-pib-text-muted)]">
+              No active risk signals are flagged for {companyName}. Review the portal workspace so finance, delivery, and relationship risk stay visible before the account surprises leadership.
+            </p>
+            <Link
+              href={portalHref}
+              aria-label={`Open portal risk review for ${companyName}`}
+              className="btn-pib-secondary mt-3 inline-flex items-center gap-1.5 text-xs"
+            >
+              <span aria-hidden="true" className="material-symbols-outlined text-[14px]">open_in_new</span>
+              Open portal risk review
+            </Link>
+          </div>
         ) : (
           <div className="mt-3 flex flex-wrap gap-2">
             {(analytics.riskSignals ?? []).map((signal) => (
@@ -361,7 +375,9 @@ export default function AdminCompanyCommandCenterPage() {
             onSelectTab={(nextTab) => setTab(nextTab as CompanyTab)}
           />
         )}
-        {tab === 'analytics' && <AnalyticsPanel center={center} />}
+        {tab === 'analytics' && (
+          <AnalyticsPanel center={center} companyName={center.company.name} portalHref={`/portal/companies/${id}`} />
+        )}
         {tab !== 'overview' && tab !== 'analytics' && (
           <SimpleRowsPanel
             tab={tab}

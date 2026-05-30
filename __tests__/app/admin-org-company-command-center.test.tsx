@@ -83,4 +83,21 @@ describe('Admin company command center page', () => {
 
     await waitFor(() => expect(screen.getByText('Business pulse')).toBeInTheDocument())
   })
+
+  it('turns clear admin company analytics risk into a portal review action', async () => {
+    render(<AdminCompanyCommandCenterPage />)
+
+    expect(await screen.findByText('Admin company command center')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('tab', { name: /Analytics/i }))
+
+    expect(screen.getByText('Risk watch clear')).toBeInTheDocument()
+    expect(screen.getByText('Keep leadership risk reviewable')).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'No active risk signals are flagged for Acme Holdings. Review the portal workspace so finance, delivery, and relationship risk stay visible before the account surprises leadership.',
+      ),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Open portal risk review for Acme Holdings' })).toHaveAttribute('href', '/portal/companies/company-1')
+  })
 })
