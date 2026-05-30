@@ -91,6 +91,16 @@ describe('CompaniesTable', () => {
     expect(handleSetup).toHaveBeenCalledWith('co-setup')
   })
 
+  it('names missing company row revenue and update metadata instead of showing bare dashes', () => {
+    const company = makeCompany({ id: 'co-missing', name: 'Missing Signals Ltd' })
+
+    render(<CompaniesTable companies={[company]} loading={false} onRowClick={noop} />)
+
+    expect(screen.getByText('No revenue tracked')).toBeInTheDocument()
+    expect(screen.getByText('No update logged')).toBeInTheDocument()
+    expect(screen.queryAllByText('—')).toHaveLength(0)
+  })
+
   it('calls onRowClick with the company id when a row is clicked', () => {
     const handleClick = jest.fn()
     const company = makeCompany({ id: 'co-42', name: 'Click Me Inc' })

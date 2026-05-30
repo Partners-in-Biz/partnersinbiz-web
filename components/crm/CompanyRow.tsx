@@ -6,9 +6,9 @@ import type { Company } from '@/lib/companies/types'
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function fmtDate(ts: unknown): string {
-  if (!ts || typeof ts !== 'object') return '—'
+  if (!ts || typeof ts !== 'object') return 'No update logged'
   const s = (ts as Record<string, unknown>)._seconds
-  if (typeof s !== 'number') return '—'
+  if (typeof s !== 'number') return 'No update logged'
   return new Date(s * 1000).toLocaleDateString('en-ZA', {
     day: 'numeric',
     month: 'short',
@@ -17,7 +17,7 @@ function fmtDate(ts: unknown): string {
 }
 
 function fmtCurrency(value: unknown, currency = 'ZAR'): string {
-  if (typeof value !== 'number' || !Number.isFinite(value)) return '—'
+  if (typeof value !== 'number' || !Number.isFinite(value)) return 'No revenue tracked'
   try {
     return new Intl.NumberFormat('en-ZA', {
       style: 'currency',
