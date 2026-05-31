@@ -15,6 +15,7 @@ export { approvalAdapter, clientDocumentAdapter } from './adapters/approvalAdapt
 export { notificationAdapter, activityAdapter } from './adapters/notificationAdapter'
 export { reportAdapter } from './adapters/reportAdapter'
 export { socialPostAdapter } from './adapters/socialPostAdapter'
+export { socialInboxAdapter } from './adapters/socialInboxAdapter'
 export { supportTicketAdapter } from './adapters/supportTicketAdapter'
 export { invoiceAdapter } from './adapters/invoiceAdapter'
 export { expenseAdapter } from './adapters/expenseAdapter'
@@ -31,6 +32,7 @@ import { approvalAdapter, clientDocumentAdapter } from './adapters/approvalAdapt
 import { notificationAdapter, activityAdapter } from './adapters/notificationAdapter'
 import { reportAdapter } from './adapters/reportAdapter'
 import { socialPostAdapter } from './adapters/socialPostAdapter'
+import { socialInboxAdapter } from './adapters/socialInboxAdapter'
 import { supportTicketAdapter } from './adapters/supportTicketAdapter'
 import { invoiceAdapter } from './adapters/invoiceAdapter'
 import { expenseAdapter } from './adapters/expenseAdapter'
@@ -50,6 +52,7 @@ export const SOURCE_ADAPTERS: Record<BriefingSourceType, BriefingSourceAdapter> 
   approval: approvalAdapter,
   'client-document': clientDocumentAdapter,
   'social-post': socialPostAdapter,
+  'social-inbox': socialInboxAdapter,
   notification: notificationAdapter,
   activity: activityAdapter,
   report: reportAdapter,

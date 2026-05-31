@@ -35,6 +35,7 @@ export type BriefingSourceType =
   | 'approval'             // Approval gates and client document approvals
   | 'client-document'      // Client documents, specs, reports
   | 'social-post'          // Social content awaiting QA/client approval or attention
+  | 'social-inbox'         // Social engagement inbox items needing read/reply/archive
   | 'notification'         // User notifications and inboxes
   | 'activity'             // Activity log entries
   | 'report'               // Stored snapshot reports
@@ -105,6 +106,9 @@ export interface BriefingContext {
   formId?: string | null
   formSubmissionId?: string | null
   formName?: string | null
+  socialInboxId?: string | null
+  socialInboxFrom?: string | null
+  socialPostId?: string | null
   sourceIds?: string[]  // Related source IDs for cross-reference
 }
 

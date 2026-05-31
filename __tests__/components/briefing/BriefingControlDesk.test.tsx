@@ -476,6 +476,36 @@ const formSubmissionBriefingItem = {
   occurredAt: '2026-05-31T09:51:00.000Z',
 }
 
+const socialInboxBriefingItem = {
+  id: 'social-inbox:social-inbox-1',
+  orgId: 'org-1',
+  priority: 'needs-peet',
+  title: 'Social DM needs reply from Mia Prospect',
+  summary: 'Mia Prospect sent an instagram DM that needs a response.',
+  excerpt: 'Can someone reply about the launch package?',
+  timeAgo: '15 minutes ago',
+  requiresAction: true,
+  source: { type: 'social-inbox', id: 'social-inbox-1', url: '/admin/social/inbox?item=social-inbox-1' },
+  actor: { id: 'social:mia_prospect', name: 'Mia Prospect', role: 'client', type: 'user' },
+  context: {
+    orgId: 'org-1',
+    orgName: 'Client One',
+    orgSlug: 'client-one',
+    socialInboxId: 'social-inbox-1',
+    socialInboxFrom: 'Mia Prospect',
+    socialPostId: 'post-1',
+  },
+  metadata: {
+    socialInboxStatus: 'unread',
+    platform: 'instagram',
+    engagementType: 'dm',
+    priority: 'high',
+    sentiment: 'negative',
+    platformUrl: 'https://instagram.example/messages/ig-dm-1',
+  },
+  occurredAt: '2026-05-31T09:50:00.000Z',
+}
+
 describe('BriefingControlDesk', () => {
   beforeEach(() => {
     jest.useFakeTimers()
@@ -494,7 +524,7 @@ describe('BriefingControlDesk', () => {
       if (url.startsWith('/api/v1/briefings/feed')) {
         const items = url.includes('orgId=org-2')
           ? [secondOrgBriefingItem]
-          : [briefingItem, documentBriefingItem, documentCommentBriefingItem, approvalBriefingItem, conversationBriefingItem, socialBriefingItem, notificationBriefingItem, activityBriefingItem, reportBriefingItem, supportBriefingItem, invoiceBriefingItem, invoiceProofBriefingItem, expenseBriefingItem, seoContentBriefingItem, seoTaskBriefingItem, adCampaignBriefingItem, formSubmissionBriefingItem, secondOrgBriefingItem]
+          : [briefingItem, documentBriefingItem, documentCommentBriefingItem, approvalBriefingItem, conversationBriefingItem, socialBriefingItem, notificationBriefingItem, activityBriefingItem, reportBriefingItem, supportBriefingItem, invoiceBriefingItem, invoiceProofBriefingItem, expenseBriefingItem, seoContentBriefingItem, seoTaskBriefingItem, adCampaignBriefingItem, formSubmissionBriefingItem, socialInboxBriefingItem, secondOrgBriefingItem]
         return {
           ok: true,
           json: async () => ({ data: { items, total: items.length, hasMore: false, generatedAt: '2026-05-31T10:05:00.000Z' } }),
@@ -648,6 +678,12 @@ describe('BriefingControlDesk', () => {
         return {
           ok: true,
           json: async () => ({ data: { id: 'submission-1', status: 'read' } }),
+        } as Response
+      }
+      if (url === '/api/v1/social/inbox/social-inbox-1') {
+        return {
+          ok: true,
+          json: async () => ({ data: { id: 'social-inbox-1', status: 'read' } }),
         } as Response
       }
       return {
@@ -1230,6 +1266,51 @@ describe('BriefingControlDesk', () => {
 
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith('/api/v1/forms/form-1/submissions/submission-1', expect.objectContaining({
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'archived' }),
+      }))
+    })
+  })
+
+  it('marks social inbox engagement read, replied, or archived from the control desk', async () => {
+    render(<BriefingControlDesk mode="portal" />)
+
+    fireEvent.click(await screen.findByRole('button', { name: /Social DM needs reply from Mia Prospect/i }))
+
+    expect(screen.getByText('Mia Prospect (social-inbox-1)')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /open source/i })).toHaveAttribute('href', '/admin/social/inbox?item=social-inbox-1')
+    expect(screen.getByRole('button', { name: /mark engagement read/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /mark engagement replied/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /archive engagement/i })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /mark engagement read/i }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/social/inbox/social-inbox-1', expect.objectContaining({
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'read' }),
+      }))
+    })
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /mark engagement replied/i })).not.toBeDisabled()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /mark engagement replied/i }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/social/inbox/social-inbox-1', expect.objectContaining({
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'replied' }),
+      }))
+    })
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /archive engagement/i })).not.toBeDisabled()
+    })
+    fireEvent.click(screen.getByRole('button', { name: /archive engagement/i }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/social/inbox/social-inbox-1', expect.objectContaining({
         method: 'PATCH',
         body: JSON.stringify({ status: 'archived' }),
       }))

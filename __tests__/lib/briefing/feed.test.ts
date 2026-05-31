@@ -906,4 +906,77 @@ describe('briefing feed', () => {
     expect(JSON.stringify(feed.items)).not.toContain('never-show-this')
     expect(JSON.stringify(feed.items)).toContain('[REDACTED]')
   })
+
+  it('surfaces unread social inbox engagement as control cards', async () => {
+    collections.organizations = [makeDoc('org-1', { name: 'Client One', slug: 'client-one' })]
+    collections.social_inbox = [
+      makeDoc('social-inbox-1', {
+        orgId: 'org-1',
+        platform: 'instagram',
+        type: 'dm',
+        fromUser: {
+          name: 'Mia Prospect',
+          username: 'mia_prospect',
+          profileUrl: 'https://instagram.example/mia_prospect',
+        },
+        content: 'Can someone reply about the launch package? token: social-secret-123',
+        postId: 'post-1',
+        platformItemId: 'ig-dm-1',
+        platformUrl: 'https://instagram.example/messages/ig-dm-1',
+        status: 'unread',
+        priority: 'high',
+        sentiment: 'negative',
+        createdAt: '2026-05-31T10:55:00.000Z',
+        updatedAt: '2026-05-31T10:55:00.000Z',
+      }),
+      makeDoc('social-inbox-2', {
+        orgId: 'org-1',
+        platform: 'linkedin',
+        type: 'comment',
+        fromUser: { name: 'Already Done', username: 'done' },
+        content: 'Already archived.',
+        platformItemId: 'li-comment-1',
+        platformUrl: 'https://linkedin.example/comment/li-comment-1',
+        status: 'archived',
+        priority: 'normal',
+        createdAt: '2026-05-31T09:55:00.000Z',
+      }),
+    ]
+
+    const { buildBriefingFeed } = await import('@/lib/briefing/feed')
+    const feed = await buildBriefingFeed(
+      { uid: 'admin-1', role: 'admin', allowedOrgIds: ['org-1'] },
+      { limit: 10, sourceType: 'social-inbox' },
+    )
+
+    expect(feed.items).toHaveLength(1)
+    expect(feed.items[0]).toMatchObject({
+      priority: 'needs-peet',
+      requiresAction: true,
+      source: {
+        type: 'social-inbox',
+        id: 'social-inbox-1',
+        url: '/admin/social/inbox?item=social-inbox-1',
+      },
+      title: 'Social DM needs reply from Mia Prospect',
+      actor: { id: 'social:mia_prospect', name: 'Mia Prospect', role: 'client', type: 'user' },
+      context: {
+        orgName: 'Client One',
+        socialInboxId: 'social-inbox-1',
+        socialInboxFrom: 'Mia Prospect',
+        socialPostId: 'post-1',
+      },
+      metadata: expect.objectContaining({
+        socialInboxStatus: 'unread',
+        platform: 'instagram',
+        engagementType: 'dm',
+        priority: 'high',
+        sentiment: 'negative',
+        platformUrl: 'https://instagram.example/messages/ig-dm-1',
+      }),
+    })
+    expect(feed.items[0].summary).toContain('instagram DM')
+    expect(JSON.stringify(feed.items)).not.toContain('social-secret-123')
+    expect(JSON.stringify(feed.items)).toContain('[REDACTED]')
+  })
 })

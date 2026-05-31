@@ -53,6 +53,9 @@ interface BriefingCard {
     formId?: string | null
     formSubmissionId?: string | null
     formName?: string | null
+    socialInboxId?: string | null
+    socialInboxFrom?: string | null
+    socialPostId?: string | null
   }
   metadata?: Record<string, unknown> | null
   occurredAt: string
@@ -86,6 +89,7 @@ const SOURCES = [
   { value: 'project', label: 'Projects' },
   { value: 'client-document', label: 'Documents' },
   { value: 'social-post', label: 'Social posts' },
+  { value: 'social-inbox', label: 'Social inbox' },
   { value: 'approval', label: 'Approvals' },
   { value: 'notification', label: 'Notifications' },
   { value: 'activity', label: 'Activity' },
@@ -146,11 +150,13 @@ function sourceLabel(item: BriefingCard) {
   if (item.context.seoTaskTitle || item.context.seoTaskId) return `${item.source.type} / ${titledId(item.context.seoTaskTitle, item.context.seoTaskId ?? item.source.id)}`
   if (item.context.adCampaignName || item.context.adCampaignId) return `${item.source.type} / ${titledId(item.context.adCampaignName, item.context.adCampaignId ?? item.source.id)}`
   if (item.context.formName || item.context.formId || item.context.formSubmissionId) return `${item.source.type} / ${titledId(item.context.formName, item.context.formSubmissionId ?? item.source.id)}`
+  if (item.context.socialInboxFrom || item.context.socialInboxId) return `${item.source.type} / ${titledId(item.context.socialInboxFrom, item.context.socialInboxId ?? item.source.id)}`
   return `${item.source.type} / ${item.source.id}`
 }
 
 function sourceHref(item: BriefingCard, mode: Mode) {
   if (item.source.type === 'form-submission') return mode === 'admin' ? adminSourceHref(item) : null
+  if (item.source.type === 'social-inbox') return adminSourceHref(item)
   if (item.source.type === 'social-post') return `/portal/social/review/${encodeURIComponent(item.source.id)}`
   if (item.source.type === 'support-ticket') return mode === 'admin' ? `/admin/support?ticket=${encodeURIComponent(item.source.id)}` : '/portal'
   if (item.source.type === 'invoice') return mode === 'admin' ? `/admin/invoicing/${encodeURIComponent(item.source.id)}` : `/portal/payments?invoice=${encodeURIComponent(item.source.id)}`
@@ -192,6 +198,9 @@ function adminSourceHref(item: BriefingCard) {
     const formId = item.context.formId
     if (formId) return `/admin/forms/${encodeURIComponent(formId)}/submissions/${encodeURIComponent(item.source.id)}`
     return item.source.url || null
+  }
+  if (item.source.type === 'social-inbox') {
+    return item.source.url || `/admin/social/inbox?item=${encodeURIComponent(item.source.id)}`
   }
   if (item.source.type === 'seo-content') {
     const sprintId = item.context.seoSprintId
@@ -243,6 +252,10 @@ function canConversationAct(item: BriefingCard) {
 
 function canSocialPostAct(item: BriefingCard) {
   return item.source.type === 'social-post' && Boolean(item.source.id)
+}
+
+function canSocialInboxAct(item: BriefingCard) {
+  return item.source.type === 'social-inbox' && Boolean(item.source.id)
 }
 
 function canNotificationAct(item: BriefingCard) {
@@ -706,6 +719,31 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
       await loadFeed({ quiet: true })
     } catch (err) {
       setFlash({ kind: 'error', message: err instanceof Error ? err.message : 'Social post action failed' })
+    } finally {
+      setBusyAction(null)
+    }
+  }
+
+  async function socialInboxAction(item: BriefingCard, status: 'read' | 'replied' | 'archived') {
+    if (!canSocialInboxAct(item)) return
+    setBusyAction(`social-inbox-${status}`)
+    try {
+      const res = await fetch(`/api/v1/social/inbox/${encodeURIComponent(item.source.id)}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ status }),
+      })
+      const body = await res.json()
+      if (!res.ok) throw new Error(body.error || 'Social inbox update failed')
+      const message = status === 'read'
+        ? 'Social engagement marked read.'
+        : status === 'replied'
+          ? 'Social engagement marked replied.'
+          : 'Social engagement archived.'
+      setFlash({ kind: 'ok', message })
+      await loadFeed({ quiet: true })
+    } catch (err) {
+      setFlash({ kind: 'error', message: err instanceof Error ? err.message : 'Social inbox update failed' })
     } finally {
       setBusyAction(null)
     }
@@ -1252,6 +1290,24 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                       Request social changes
                     </button>
                   ) : null}
+                  {canSocialInboxAct(selected) ? (
+                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => socialInboxAction(selected, 'read')} disabled={!!busyAction}>
+                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">mark_chat_read</span>
+                      Mark engagement read
+                    </button>
+                  ) : null}
+                  {canSocialInboxAct(selected) ? (
+                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => socialInboxAction(selected, 'replied')} disabled={!!busyAction}>
+                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">forum</span>
+                      Mark engagement replied
+                    </button>
+                  ) : null}
+                  {canSocialInboxAct(selected) ? (
+                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => socialInboxAction(selected, 'archived')} disabled={!!busyAction}>
+                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">archive</span>
+                      Archive engagement
+                    </button>
+                  ) : null}
                   {canNotificationAct(selected) ? (
                     <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => notificationAction(selected, 'read')} disabled={!!busyAction}>
                       <span className="material-symbols-outlined text-[15px]" aria-hidden="true">mark_email_read</span>
@@ -1558,6 +1614,7 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                   {selected.context.seoTaskTitle || selected.context.seoTaskId ? <div><dt className="text-on-surface-variant">SEO task</dt><dd className="text-on-surface">{titledId(selected.context.seoTaskTitle, selected.context.seoTaskId ?? selected.source.id)}</dd></div> : null}
                   {selected.context.adCampaignName || selected.context.adCampaignId ? <div><dt className="text-on-surface-variant">Ad campaign</dt><dd className="text-on-surface">{titledId(selected.context.adCampaignName, selected.context.adCampaignId ?? selected.source.id)}</dd></div> : null}
                   {selected.context.formName || selected.context.formId || selected.context.formSubmissionId ? <div><dt className="text-on-surface-variant">Form submission</dt><dd className="text-on-surface">{titledId(selected.context.formName ?? selected.context.formId, selected.context.formSubmissionId ?? selected.source.id)}</dd></div> : null}
+                  {selected.context.socialInboxFrom || selected.context.socialInboxId ? <div><dt className="text-on-surface-variant">Social inbox</dt><dd className="text-on-surface">{titledId(selected.context.socialInboxFrom, selected.context.socialInboxId ?? selected.source.id)}</dd></div> : null}
                   <div><dt className="text-on-surface-variant">Occurred</dt><dd className="text-on-surface">{new Date(selected.occurredAt).toLocaleString('en-ZA')}</dd></div>
                   <div><dt className="text-on-surface-variant">Source</dt><dd className="text-on-surface">{sourceLabel(selected)}</dd></div>
                 </dl>
