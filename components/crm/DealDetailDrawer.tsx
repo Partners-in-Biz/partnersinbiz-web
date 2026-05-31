@@ -46,7 +46,7 @@ function fmtDate(value: unknown): string {
     ? Number((value as { seconds: number }).seconds) * 1000
     : null
   const date = seconds ? new Date(seconds) : new Date(value as string | number | Date)
-  if (Number.isNaN(date.getTime())) return 'No close date'
+  if (Number.isNaN(date.getTime())) return 'Close date needs review'
   return date.toLocaleDateString('en-ZA', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
@@ -75,7 +75,17 @@ export function DealDetailDrawer({
   const ownerLabel = dealOwnerLabel(deal)
   const needsOwner = !deal.ownerRef?.displayName && !deal.ownerRef?.uid && !deal.ownerUid
   const closeDateLabel = fmtDate(deal.expectedCloseDate)
-  const needsCloseDate = closeDateLabel === 'No close date'
+  const closeDateState = closeDateLabel === 'No close date'
+    ? 'missing'
+    : closeDateLabel === 'Close date needs review'
+      ? 'invalid'
+      : 'ready'
+  const needsCloseDate = closeDateState !== 'ready'
+  const closeDateActionLabel = closeDateState === 'invalid' ? 'Review close date' : 'Set close date'
+  const closeDateActionHeading = closeDateState === 'invalid' ? 'Review forecast timing' : 'Set forecast timing'
+  const closeDateActionDescription = closeDateState === 'invalid'
+    ? 'This deal has a saved close date that cannot be read. Re-enter the expected close date so leadership can trust forecast timing.'
+    : 'No expected close date is captured. Add one so leadership can trust forecast timing, stale-deal reviews, and pipeline commitments.'
 
   const probability = deal.probability ?? (stage?.probability ?? 100)
   const hasDealValue = deal.value !== null && deal.value !== undefined
@@ -370,21 +380,21 @@ export function DealDetailDrawer({
                 {needsCloseDate ? (
                   <div className="space-y-2">
                     <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
-                      Close date missing
+                      {closeDateLabel === 'No close date' ? 'Close date missing' : closeDateLabel}
                     </p>
-                    <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">Set forecast timing</h3>
+                    <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">{closeDateActionHeading}</h3>
                     <p className="text-xs leading-5 text-[var(--color-pib-text-muted)]">
-                      No expected close date is captured. Add one so leadership can trust forecast timing, stale-deal reviews, and pipeline commitments.
+                      {closeDateActionDescription}
                     </p>
                     {onEdit ? (
                       <button
                         type="button"
-                        aria-label={`Set close date for ${dealLabel}`}
+                        aria-label={`${closeDateActionLabel} for ${dealLabel}`}
                         onClick={onEdit}
                         className="btn-pib-secondary inline-flex items-center gap-1.5 text-xs"
                       >
                         <span className="material-symbols-outlined text-[14px]" aria-hidden="true">event_upcoming</span>
-                        Set close date
+                        {closeDateActionLabel}
                       </button>
                     ) : null}
                   </div>

@@ -149,6 +149,33 @@ describe('DealDetailDrawer', () => {
     expect(onEdit).toHaveBeenCalledTimes(1)
   })
 
+  it('turns an unreadable close date into forecast cleanup instead of missing-date copy', () => {
+    const onEdit = jest.fn()
+    render(
+      <DealDetailDrawer
+        deal={{ ...deal, expectedCloseDate: 'not-a-date' as never }}
+        stages={stages}
+        orgId="org-1"
+        onClose={jest.fn()}
+        onEdit={onEdit}
+      />,
+    )
+
+    expect(screen.getByText('Close date needs review')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Review forecast timing' })).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'This deal has a saved close date that cannot be read. Re-enter the expected close date so leadership can trust forecast timing.',
+      ),
+    ).toBeInTheDocument()
+    expect(screen.queryByText('Close date missing')).not.toBeInTheDocument()
+    expect(screen.queryByText('Invalid Date')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Review close date for Growth retainer' }))
+
+    expect(onEdit).toHaveBeenCalledTimes(1)
+  })
+
   it('names missing commercial value instead of treating it as a zero-value deal', () => {
     render(
       <DealDetailDrawer
