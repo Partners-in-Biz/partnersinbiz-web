@@ -291,6 +291,24 @@ function documentUpdatedLabel(document: RelatedDocument) {
   return date === '-' ? 'Document update time not captured' : date
 }
 
+function relationshipTargetLabel(relationship: RelatedRelationship) {
+  return relationship.targetName || 'Relationship target missing'
+}
+
+function relationshipTypeLabel(relationship: RelatedRelationship) {
+  return relationship.relationshipType || 'Relationship type not set'
+}
+
+function relationshipStatusLabel(relationship: RelatedRelationship) {
+  return relationship.status ? undefined : 'Relationship status not set'
+}
+
+function relationshipCapabilitiesLabel(relationship: RelatedRelationship) {
+  return Array.isArray(relationship.sharedCapabilities) && relationship.sharedCapabilities.length > 0
+    ? relationship.sharedCapabilities.join(', ')
+    : 'Shared capabilities not captured'
+}
+
 function quoteTotalLabel(quote: RelatedQuote) {
   return typeof quote.total === 'number' && Number.isFinite(quote.total)
     ? formatCurrency(quote.total, quote.currency || 'ZAR')
@@ -775,10 +793,11 @@ function RelationshipsPanel({
       rows={relationships}
       emptyIcon="hub"
       emptyLabel="No business relationships yet."
-      title={(row) => String(row.targetName ?? row.relationshipType ?? row.id)}
+      title={(row) => relationshipTargetLabel(row as RelatedRelationship)}
       metaFor={(row) => [
-        String(row.relationshipType ?? ''),
-        Array.isArray(row.sharedCapabilities) ? row.sharedCapabilities.join(', ') : undefined,
+        relationshipTypeLabel(row as RelatedRelationship),
+        relationshipStatusLabel(row as RelatedRelationship),
+        relationshipCapabilitiesLabel(row as RelatedRelationship),
       ]}
     />
   )
