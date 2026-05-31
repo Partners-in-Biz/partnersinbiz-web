@@ -158,6 +158,29 @@ describe('Portal deal detail page', () => {
     expect(screen.queryByText('company-raw-id')).not.toBeInTheDocument()
   })
 
+  it('names incomplete stage history snapshots instead of showing generic audit gaps', async () => {
+    mockDealOverrides = {
+      stageHistory: [
+        {
+          pipelineId: 'pipeline-raw-id',
+          enteredByRef: {
+            uid: 'actor-raw-id',
+            displayName: '',
+            kind: 'human',
+          },
+        },
+      ],
+    }
+
+    render(<DealDetailPage />)
+
+    await screen.findByText('Unowned expansion')
+
+    expect(screen.getByText('Stage not captured')).toBeInTheDocument()
+    expect(screen.getByText('Stage time not captured · Stage actor identity missing')).toBeInTheDocument()
+    expect(screen.queryByText('actor-raw-id')).not.toBeInTheDocument()
+  })
+
   it('lets users update forecast probability from the deal command center', async () => {
     render(<DealDetailPage />)
 

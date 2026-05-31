@@ -175,6 +175,22 @@ function dealCompanyLabel(deal: DealRecord): string {
   return 'No company linked'
 }
 
+function stageHistoryStageLabel(entry: NonNullable<DealRecord['stageHistory']>[number]): string {
+  if (entry.stageId?.trim()) return normalizeStageName(entry.stageId)
+  return 'Stage not captured'
+}
+
+function stageHistoryTimeLabel(entry: NonNullable<DealRecord['stageHistory']>[number]): string {
+  if (toDate(entry.enteredAt)) return fmtTimestamp(entry.enteredAt)
+  return 'Stage time not captured'
+}
+
+function stageHistoryActorLabel(entry: NonNullable<DealRecord['stageHistory']>[number]): string {
+  if (entry.enteredByRef?.displayName?.trim()) return entry.enteredByRef.displayName
+  if (entry.enteredByRef?.uid?.trim()) return 'Stage actor identity missing'
+  return 'Stage actor not captured'
+}
+
 export default function DealDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
@@ -777,9 +793,9 @@ export default function DealDetailPage() {
                   <div key={`${entry.pipelineId}-${entry.stageId}-${index}`} className="flex items-start gap-3">
                     <div className="mt-1 h-2 w-2 rounded-full" style={{ background: index === 0 ? probColor : 'var(--color-pib-text-muted)' }} />
                     <div>
-                      <p className="text-sm text-[var(--color-pib-text)]">{normalizeStageName(entry.stageId ?? 'Stage')}</p>
+                      <p className="text-sm text-[var(--color-pib-text)]">{stageHistoryStageLabel(entry)}</p>
                       <p className="text-xs text-[var(--color-pib-text-muted)]">
-                        {fmtTimestamp(entry.enteredAt)}{entry.enteredByRef?.displayName ? ` · ${entry.enteredByRef.displayName}` : ''}
+                        {stageHistoryTimeLabel(entry)} · {stageHistoryActorLabel(entry)}
                       </p>
                     </div>
                   </div>
