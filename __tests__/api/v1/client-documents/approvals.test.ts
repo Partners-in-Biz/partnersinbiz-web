@@ -224,7 +224,83 @@ describe('client document approvals API', () => {
     )
     expect(mockBatchUpdate).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'doc-1' }),
-      expect.objectContaining({ status: 'accepted', updatedBy: 'client-1', updatedByType: 'user' }),
+      expect.objectContaining({
+        status: 'accepted',
+        updatedBy: 'client-1',
+        updatedByType: 'user',
+        clientAcceptance: expect.objectContaining({
+          versionId: 'version-1',
+          actorId: 'client-1',
+          actorName: 'Client Owner',
+          typedName: 'Client Owner',
+          checkboxText: 'I accept this proposal.',
+        }),
+      }),
+    )
+  })
+
+  it('lets an admin countersign a formal agreement for Partners in Biz', async () => {
+    const adminUser = { uid: 'admin-1', role: 'admin' as const, orgId: 'org-1' }
+    mockDocumentGet.mockResolvedValueOnce({
+      exists: true,
+      id: 'doc-1',
+      data: () => ({
+        orgId: 'org-1',
+        approvalMode: 'formal_acceptance',
+        latestPublishedVersionId: 'version-1',
+        deleted: false,
+      }),
+    })
+
+    const { POST } = await import('@/app/api/v1/client-documents/[id]/sign/route')
+    const req = jsonRequest(
+      'http://localhost/api/v1/client-documents/doc-1/sign',
+      {
+        name: 'Peet Stander',
+        capacity: 'Founder',
+        companyName: 'The Partners in Business',
+        signatureText: 'Peet Stander',
+      },
+      { 'user-agent': 'jest', 'x-forwarded-for': '203.0.113.8' },
+    )
+
+    const res = await POST(req, adminUser, { params: Promise.resolve({ id: 'doc-1' }) })
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.data).toEqual({ id: 'approval-1', versionId: 'version-1' })
+    expect(mockBatchSet).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'approval-1' }),
+      expect.objectContaining({
+        documentId: 'doc-1',
+        versionId: 'version-1',
+        mode: 'formal_acceptance',
+        signatureSide: 'provider',
+        actorId: 'admin-1',
+        actorName: 'Peet Stander',
+        actorRole: 'admin',
+        typedName: 'Peet Stander',
+        companyName: 'The Partners in Business',
+        capacity: 'Founder',
+        ip: '203.0.113.8',
+        userAgent: 'jest',
+      }),
+    )
+    expect(mockBatchUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'doc-1' }),
+      expect.objectContaining({
+        providerSignature: expect.objectContaining({
+          versionId: 'version-1',
+          name: 'Peet Stander',
+          capacity: 'Founder',
+          companyName: 'The Partners in Business',
+          signatureText: 'Peet Stander',
+          signedBy: 'admin-1',
+          signedByType: 'user',
+        }),
+        updatedBy: 'admin-1',
+        updatedByType: 'user',
+      }),
     )
   })
 
