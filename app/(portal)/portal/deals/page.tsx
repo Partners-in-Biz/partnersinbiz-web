@@ -878,7 +878,7 @@ export default function DealsPage() {
                             {contactLabel || 'View'}
                           </a>
                         ) : (
-                          <span className="text-xs text-on-surface-variant">—</span>
+                          <span className="text-xs text-on-surface-variant">No contact linked</span>
                         )}
                       </td>
                     </tr>

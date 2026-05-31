@@ -146,6 +146,11 @@ describe('Portal deals page', () => {
     const contactLink = screen.getByRole('link', { name: 'Ava Owner' })
     expect(contactLink).toHaveAttribute('href', '/portal/contacts/contact-1')
 
+    const unlinkedRow = screen.getByText('Unowned expansion').closest('[data-deal-row]')
+    expect(unlinkedRow).not.toBeNull()
+    expect(within(unlinkedRow as HTMLElement).getByText('No contact linked')).toBeInTheDocument()
+    expect(within(unlinkedRow as HTMLElement).queryByText('—')).not.toBeInTheDocument()
+
     fireEvent.change(screen.getByLabelText('Search deals'), {
       target: { value: 'Ava' },
     })
