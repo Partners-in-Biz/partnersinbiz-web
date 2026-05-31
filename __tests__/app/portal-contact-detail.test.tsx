@@ -673,6 +673,24 @@ describe('Portal contact detail page', () => {
     expect(screen.getByRole('button', { name: 'AI draft' })).toBeInTheDocument()
   })
 
+  it('turns SMS on a contact without a phone into a phone capture action', async () => {
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'SMS' }))
+
+    expect(screen.getByRole('heading', { name: 'Add a phone number before SMS' })).toBeInTheDocument()
+    expect(screen.getByText("Capture Jane Client's phone number before the team tries to send a text message from CRM.")).toBeInTheDocument()
+    expect(screen.queryByPlaceholderText('SMS message…')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add phone before sending SMS to Jane Client' }))
+
+    expect(screen.getByPlaceholderText('+27...')).toHaveFocus()
+  })
+
   it('moves a generated AI email draft into the CRM email composer', async () => {
     render(<PortalContactDetailPage />)
 
