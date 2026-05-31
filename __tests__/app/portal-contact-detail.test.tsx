@@ -792,6 +792,34 @@ describe('Portal contact detail page', () => {
     expect(screen.queryByText(/queued_for_retry/)).not.toBeInTheDocument()
   })
 
+  it('classifies saved email direction keys as readable sent and received history', async () => {
+    mockEmails = [{
+      id: 'email-1',
+      subject: 'CEO proposal sent',
+      status: 'sent',
+      direction: 'outbound_email',
+    }, {
+      id: 'email-2',
+      subject: 'CEO replied',
+      status: 'replied',
+      direction: 'incoming_reply',
+    }]
+
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    expect(await screen.findByText('CEO proposal sent')).toBeInTheDocument()
+    expect(screen.getByText('CEO replied')).toBeInTheDocument()
+    expect(screen.getByText('1 sent / 1 received')).toBeInTheDocument()
+    expect(screen.getByTitle('Sent email')).toBeInTheDocument()
+    expect(screen.getByTitle('Received email')).toBeInTheDocument()
+    expect(screen.queryByTitle('outbound_email')).not.toBeInTheDocument()
+    expect(screen.queryByTitle('incoming_reply')).not.toBeInTheDocument()
+  })
+
   it('names incomplete activity timeline rows instead of exposing raw activity snapshots', async () => {
     mockActivities = [{
       id: 'activity-raw',

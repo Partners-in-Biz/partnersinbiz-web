@@ -134,6 +134,16 @@ const EMAIL_STATUS_LABELS: Record<string, string> = {
   suppressed: 'Suppressed',
   unsubscribed: 'Unsubscribed',
 }
+const INBOUND_EMAIL_DIRECTIONS = new Set(['inbound', 'incoming', 'incoming_reply', 'received', 'email_received', 'reply'])
+
+function emailDirectionKind(email: EmailRecord): 'sent' | 'received' {
+  const key = email.direction?.trim().toLowerCase()
+  return key && INBOUND_EMAIL_DIRECTIONS.has(key) ? 'received' : 'sent'
+}
+
+function emailDirectionLabel(email: EmailRecord): string {
+  return emailDirectionKind(email) === 'received' ? 'Received email' : 'Sent email'
+}
 
 function timestampMillis(value: unknown): number {
   if (!value) return 0
@@ -918,8 +928,8 @@ export default function PortalContactDetailPage() {
   const shouldPromptScoreRecompute = !hasAnyScore
   const recentActivityCount = activities.length
   const shouldPromptActivityLog = recentActivityCount === 0
-  const sentEmailCount = emails.filter((item) => item.direction !== 'inbound').length
-  const receivedEmailCount = emails.filter((item) => item.direction === 'inbound').length
+  const sentEmailCount = emails.filter((item) => emailDirectionKind(item) === 'sent').length
+  const receivedEmailCount = emails.filter((item) => emailDirectionKind(item) === 'received').length
   const shouldPromptFirstEmail = emails.length === 0 && !!email.trim()
   const nextSuggestion = suggestions[0]
   const missingFields = [
@@ -1676,9 +1686,9 @@ export default function PortalContactDetailPage() {
                   <div key={e.id} className="px-5 py-3 flex items-center gap-4">
                     <span
                       className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)] shrink-0"
-                      title={e.direction || 'email'}
+                      title={emailDirectionLabel(e)}
                     >
-                      {e.direction === 'inbound' ? 'inbox' : 'send'}
+                      {emailDirectionKind(e) === 'received' ? 'inbox' : 'send'}
                     </span>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm truncate">{emailSubjectLabel(e)}</p>
