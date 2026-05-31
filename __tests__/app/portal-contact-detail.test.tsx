@@ -692,6 +692,31 @@ describe('Portal contact detail page', () => {
     expect(screen.getByDisplayValue('Manual entry')).toHaveFocus()
   })
 
+  it('names incomplete ownership actor snapshots instead of exposing raw team member ids', async () => {
+    mockContactOverrides = {
+      assignedTo: 'uid-owner-1',
+      assignedToRef: { uid: 'uid-owner-1' },
+      source: 'outreach',
+      capturedFromId: 'lead_form',
+      createdByRef: { uid: 'uid-creator-1' },
+      updatedByRef: { uid: 'uid-updater-1' },
+    }
+
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    expect(await screen.findByText('Owner identity missing')).toBeInTheDocument()
+    expect(screen.getByText('Creator identity missing')).toBeInTheDocument()
+    expect(screen.getByText('Updater identity missing')).toBeInTheDocument()
+    expect(screen.getAllByText('Team snapshot details not captured').length).toBeGreaterThanOrEqual(3)
+    expect(screen.queryByText('uid-owner-1')).not.toBeInTheDocument()
+    expect(screen.queryByText('uid-creator-1')).not.toBeInTheDocument()
+    expect(screen.queryByText('uid-updater-1')).not.toBeInTheDocument()
+  })
+
   it('turns missing identity intelligence into profile field actions', async () => {
     render(<PortalContactDetailPage />)
 

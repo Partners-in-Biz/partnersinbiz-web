@@ -24,11 +24,15 @@ const MEMBER_KIND_LABELS: Record<string, string> = {
 }
 
 function memberLabel(ref?: MemberRef, fallback?: string): string {
-  return ref?.displayName || fallback || 'Unassigned'
+  if (ref?.displayName) return ref.displayName
+  if (ref || fallback) return 'Owner identity missing'
+  return 'Unassigned'
 }
 
 function auditActorLabel(ref: MemberRef | undefined, missingLabel: string): string {
-  return ref?.displayName || ref?.uid || missingLabel
+  if (!ref) return missingLabel
+  if (ref.displayName) return ref.displayName
+  return missingLabel.replace('not captured', 'identity missing')
 }
 
 function sourceLabel(source?: string): string {
@@ -58,7 +62,7 @@ function readableTokenLabel(value: string): string {
 function memberMeta(ref?: MemberRef): string {
   if (!ref) return 'No team snapshot yet'
   const kind = ref.kind ? MEMBER_KIND_LABELS[ref.kind] ?? readableTokenLabel(ref.kind) : undefined
-  return [ref.jobTitle, kind].filter(Boolean).join(' · ') || ref.uid
+  return [ref.jobTitle, kind].filter(Boolean).join(' · ') || 'Team snapshot details not captured'
 }
 
 function Field({
