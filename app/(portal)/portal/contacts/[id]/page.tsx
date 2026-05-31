@@ -578,7 +578,7 @@ export default function PortalContactDetailPage() {
       const end = new Date(start.getTime() + 30 * 60 * 1000)
       setMeetingStartAt(toDateTimeLocalValue(start))
       setMeetingEndAt(toDateTimeLocalValue(end))
-      setMeetingTitle(contact?.name ? `Meeting with ${contact.name}` : '')
+      setMeetingTitle(`Meeting with ${contactName}`)
     }
     setLogType('meeting')
     setShowAiComposer(false)
@@ -654,7 +654,7 @@ export default function PortalContactDetailPage() {
         if (!meetingStartAt || !meetingEndAt) return
         const start = new Date(meetingStartAt)
         const end = new Date(meetingEndAt)
-        const title = meetingTitle.trim() || `Meeting with ${contact?.name ?? 'contact'}`
+        const title = meetingTitle.trim() || `Meeting with ${contactName}`
         const res = await fetch(`/api/v1/crm/contacts/${id}/schedule-meeting`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -824,7 +824,8 @@ export default function PortalContactDetailPage() {
     editCompanyId !== (contact.companyId ?? undefined) ||
     JSON.stringify(editCustomFields) !== JSON.stringify(storedCustomFields)
   const tags = splitTags(tagsInput)
-  const contactName = name.trim() || contact.name || 'Unnamed contact'
+  const hasContactName = Boolean(name.trim() || contact.name?.trim())
+  const contactName = name.trim() || contact.name?.trim() || 'Unnamed contact'
   const companyLabel = editCompanyName || contact.companyName || contact.company || 'No company linked'
   const hasLinkedCompany = !!(editCompanyId || contact.companyId || editCompanyName || contact.companyName || contact.company)
   const lastTouchDays = daysSince(contact.lastContactedAt)
@@ -1030,6 +1031,9 @@ export default function PortalContactDetailPage() {
                   className="mt-2 w-full border-0 bg-transparent p-0 font-display text-3xl tracking-tight text-[var(--color-pib-text)] outline-none md:text-4xl"
                   placeholder="Contact name"
                 />
+                {!hasContactName && (
+                  <p className="mt-1 text-sm font-medium text-[var(--color-pib-accent)]">Unnamed contact</p>
+                )}
                 <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-[var(--color-pib-text-muted)]">
                   <span className="inline-flex items-center gap-1">
                     <span className="material-symbols-outlined text-[16px]">business</span>
@@ -1590,7 +1594,7 @@ export default function PortalContactDetailPage() {
                   <button
                     type="button"
                     onClick={openFirstEmailComposer}
-                    aria-label={`Send first email to ${contact.name ?? 'this contact'}`}
+                    aria-label={`Send first email to ${contactName}`}
                     className="btn-pib-primary mt-4 inline-flex items-center gap-1.5 text-xs"
                   >
                     <span className="material-symbols-outlined text-[14px]" aria-hidden="true">outgoing_mail</span>
@@ -1898,7 +1902,7 @@ export default function PortalContactDetailPage() {
                   <button
                     type="button"
                     onClick={openFirstNoteComposer}
-                    aria-label={`Start activity trail for ${contact.name ?? 'this contact'}`}
+                    aria-label={`Start activity trail for ${contactName}`}
                     className="btn-pib-primary mt-4 inline-flex items-center gap-1.5 text-xs"
                   >
                     <span className="material-symbols-outlined text-[14px]" aria-hidden="true">edit_note</span>
@@ -1939,7 +1943,7 @@ export default function PortalContactDetailPage() {
 
           <ContactDealsPanel
             contactId={id}
-            contactName={contact.name}
+            contactName={contactName}
             orgId={typeof contact.orgId === 'string' ? contact.orgId : ''}
           />
 

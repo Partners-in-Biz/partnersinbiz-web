@@ -20,7 +20,9 @@ jest.mock('next/navigation', () => ({
 }))
 
 jest.mock('@/components/crm/ContactDealsPanel', () => ({
-  ContactDealsPanel: () => <div data-testid="contact-deals-panel" />,
+  ContactDealsPanel: ({ contactName }: { contactName?: string }) => (
+    <div data-testid="contact-deals-panel">Deals for {contactName || 'contact name missing'}</div>
+  ),
 }))
 
 describe('Portal contact detail page', () => {
@@ -490,6 +492,25 @@ describe('Portal contact detail page', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Add phone from details for Jane Client' }))
 
     expect(screen.getByPlaceholderText('+27...')).toHaveFocus()
+  })
+
+  it('uses the contact identity fallback across sparse contact workflows', async () => {
+    mockContactOverrides = { name: '' }
+
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByPlaceholderText('Contact name').length).toBeGreaterThan(0)
+    })
+
+    expect(screen.getByText('Unnamed contact')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Send first email to Unnamed contact' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Start activity trail for Unnamed contact' })).toBeInTheDocument()
+    expect(screen.getByTestId('contact-deals-panel')).toHaveTextContent('Deals for Unnamed contact')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Schedule meeting from engagement cockpit with Unnamed contact' }))
+
+    expect(screen.getByDisplayValue('Meeting with Unnamed contact')).toBeInTheDocument()
   })
 
   it('keeps relationship notes visible as contact detail context', async () => {
