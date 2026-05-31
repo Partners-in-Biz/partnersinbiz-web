@@ -165,6 +165,14 @@ function emailTimeLabel(email: EmailRecord): string {
   return fmtTimestamp(email.sentAt) || fmtTimestamp(email.createdAt) || 'Email time not captured'
 }
 
+function emailSubjectLabel(email: EmailRecord): string {
+  return email.subject?.trim() || 'Email subject missing'
+}
+
+function emailStatusLabel(email: EmailRecord): string {
+  return email.status?.trim() || 'Email status not captured'
+}
+
 function activityTimeLabel(activity: ActivityRecord): string {
   return fmtTimestamp(activity.createdAt) || 'Activity time not captured'
 }
@@ -1629,9 +1637,9 @@ export default function PortalContactDetailPage() {
                       {e.direction === 'inbound' ? 'inbox' : 'send'}
                     </span>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm truncate">{e.subject || '(no subject)'}</p>
+                      <p className="text-sm truncate">{emailSubjectLabel(e)}</p>
                       <p className="text-[11px] text-[var(--color-pib-text-muted)] font-mono mt-0.5">
-                        {e.status ? `${e.status} · ` : ''}
+                        {emailStatusLabel(e)} · {' '}
                         {emailTimeLabel(e)}
                       </p>
                     </div>

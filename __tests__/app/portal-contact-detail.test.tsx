@@ -732,6 +732,24 @@ describe('Portal contact detail page', () => {
     expect(screen.queryAllByText('—')).toHaveLength(0)
   })
 
+  it('names incomplete email history rows instead of showing generic placeholders', async () => {
+    mockEmails = [{
+      id: 'email-sparse',
+      subject: '',
+      direction: 'outbound',
+    }]
+
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    expect(await screen.findByText('Email subject missing')).toBeInTheDocument()
+    expect(screen.getByText('Email status not captured · Email time not captured')).toBeInTheDocument()
+    expect(screen.queryByText('(no subject)')).not.toBeInTheDocument()
+  })
+
   it('names incomplete activity timeline rows instead of exposing raw activity snapshots', async () => {
     mockActivities = [{
       id: 'activity-raw',
