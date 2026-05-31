@@ -254,6 +254,49 @@ describe('Portal contacts page', () => {
     expect(within(row as HTMLElement).getByText('No touch logged')).toBeInTheDocument()
   })
 
+  it('names incomplete owner snapshots instead of exposing raw team member ids', async () => {
+    ;(global.fetch as jest.Mock).mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.startsWith('/api/v1/crm/contacts')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: [
+              {
+                id: 'contact-raw-owner',
+                name: 'Raw Owner Contact',
+                email: 'raw-owner@example.com',
+                company: 'Owner Gap Co',
+                type: 'lead',
+                stage: 'new',
+                assignedTo: 'sales-lead-raw',
+                assignedToRef: { uid: 'sales-lead-raw' },
+                tags: [],
+                lastContactedAt: null,
+              },
+            ],
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/portal/settings/team') {
+        return Promise.resolve({ ok: true, json: async () => ({ members: [] }) } as Response)
+      }
+      if (url.startsWith('/api/v1/crm/saved-views')) {
+        return Promise.resolve({ ok: true, json: async () => ({ data: [] }) } as Response)
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    })
+
+    render(<PortalContactsPage />)
+
+    const rowLink = await screen.findByRole('link', { name: /Raw Owner Contact/i })
+    const row = rowLink.closest('[data-contact-row]')
+
+    expect(row).not.toBeNull()
+    expect(within(row as HTMLElement).getByText('Owner identity missing')).toBeInTheDocument()
+    expect(within(row as HTMLElement).queryByText('sales-lead-raw')).not.toBeInTheDocument()
+  })
+
   it('treats an empty stale follow-up lens as a clean relationship health state', async () => {
     mockSearchParams = new URLSearchParams('followUp=stale')
     ;(global.fetch as jest.Mock).mockImplementation((input: RequestInfo | URL) => {

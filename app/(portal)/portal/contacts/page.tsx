@@ -125,7 +125,9 @@ function TypeBadge({ type }: { type: string }) {
 }
 
 function contactOwnerLabel(contact: Contact): string {
-  return contact.assignedToRef?.displayName || contact.assignedTo || 'Unassigned'
+  if (contact.assignedToRef?.displayName) return contact.assignedToRef.displayName
+  if (hasContactOwner(contact)) return 'Owner identity missing'
+  return 'Unassigned'
 }
 
 function hasContactOwner(contact: Contact): boolean {
