@@ -110,6 +110,7 @@ export default function CustomFieldsPage() {
 
   // Delete confirmation
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [pendingDeleteDef, setPendingDeleteDef] = useState<CustomFieldDefinition | null>(null)
 
   // ── Role fetch ───────────────────────────────────────────────────────────────
 
@@ -171,11 +172,17 @@ export default function CustomFieldsPage() {
   }
 
   function openDelete(def: CustomFieldDefinition) {
-    if (!confirm(`Delete "${def.label}"? This cannot be undone.`)) return
-    handleDelete(def.id)
+    setPendingDeleteDef(def)
   }
 
-  async function handleDelete(id: string) {
+  function closeDeleteConfirmation() {
+    if (deletingId) return
+    setPendingDeleteDef(null)
+  }
+
+  async function confirmDelete() {
+    if (!pendingDeleteDef) return
+    const id = pendingDeleteDef.id
     // Optimistic remove
     setDefinitions(prev => prev.filter(d => d.id !== id))
     setDeletingId(id)
@@ -189,6 +196,7 @@ export default function CustomFieldsPage() {
       await fetchDefs(activeTab)
     } finally {
       setDeletingId(null)
+      setPendingDeleteDef(null)
     }
   }
 
@@ -493,8 +501,53 @@ export default function CustomFieldsPage() {
         onClose={() => setDrawerOpen(false)}
       />
 
-      {/* Suppress unused var warning */}
-      {deletingId && null}
+      {pendingDeleteDef && (
+        <section
+          role="alertdialog"
+          aria-labelledby="delete-field-title"
+          aria-describedby="delete-field-description"
+          className="fixed inset-x-4 bottom-4 z-50 mx-auto max-w-4xl rounded-lg border border-red-400/30 bg-[var(--color-pib-surface)] p-4 shadow-2xl md:bottom-6"
+        >
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="flex gap-3">
+              <span className="material-symbols-outlined mt-0.5 text-red-300" aria-hidden="true">
+                warning
+              </span>
+              <div>
+                <p className="eyebrow !text-[10px] text-red-200">Schema delete confirmation</p>
+                <h2 id="delete-field-title" className="mt-1 font-display text-lg text-[var(--color-pib-text)]">
+                  Delete custom field &quot;{pendingDeleteDef.label}&quot;?
+                </h2>
+                <p id="delete-field-description" className="mt-2 max-w-3xl text-sm text-[var(--color-pib-text-muted)]">
+                  This removes the field from future {currentTab.label.toLowerCase()} records and schema views. Existing saved values may remain in historical records for audit and cleanup.
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={closeDeleteConfirmation}
+                className="btn-pib-secondary text-xs"
+                disabled={deletingId === pendingDeleteDef.id}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmDelete}
+                className="inline-flex items-center gap-1.5 rounded-md border border-red-300/30 bg-red-400/15 px-3 py-2 text-xs font-semibold text-red-100 transition-colors hover:bg-red-400/25 disabled:opacity-50"
+                disabled={deletingId === pendingDeleteDef.id}
+                aria-label={`Confirm delete custom field ${pendingDeleteDef.label}`}
+              >
+                <span className="material-symbols-outlined text-[14px]" aria-hidden="true">
+                  delete
+                </span>
+                {deletingId === pendingDeleteDef.id ? 'Deleting...' : 'Delete field'}
+              </button>
+            </div>
+          </div>
+        </section>
+      )}
     </div>
   )
 }
