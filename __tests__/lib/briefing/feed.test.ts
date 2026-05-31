@@ -1070,4 +1070,76 @@ describe('briefing feed', () => {
     expect(JSON.stringify(feed.items)).not.toContain('mailbox-secret-123')
     expect(JSON.stringify(feed.items)).toContain('[REDACTED]')
   })
+
+  it('surfaces live Hermes agent runs with approval and status context', async () => {
+    collections.organizations = [makeDoc('org-1', { name: 'Client One', slug: 'client-one' })]
+    collections.hermes_runs = [
+      makeDoc('run-doc-1', {
+        orgId: 'org-1',
+        profile: 'theo-main',
+        hermesRunId: 'run-live-1',
+        requestedBy: 'user:peet',
+        prompt: 'Inspect the client SEO handoff. api_key: run-secret-123',
+        status: 'waiting_for_approval',
+        approval: {
+          toolName: 'shell.exec',
+          reason: 'Needs to inspect deployment logs',
+        },
+        createdAt: '2026-05-31T10:20:00.000Z',
+        updatedAt: '2026-05-31T10:21:00.000Z',
+      }),
+      makeDoc('run-doc-2', {
+        orgId: 'org-1',
+        profile: 'maya-main',
+        hermesRunId: 'run-live-2',
+        requestedBy: 'user:peet',
+        prompt: 'Finished content polish',
+        status: 'completed',
+        output: 'Updated draft and evidence.',
+        createdAt: '2026-05-31T09:20:00.000Z',
+      }),
+      makeDoc('run-doc-3', {
+        orgId: 'org-2',
+        profile: 'delta-main',
+        hermesRunId: 'run-other-org',
+        requestedBy: 'user:peet',
+        prompt: 'Wrong org run',
+        status: 'waiting_for_approval',
+        createdAt: '2026-05-31T09:20:00.000Z',
+      }),
+    ]
+
+    const { buildBriefingFeed } = await import('@/lib/briefing/feed')
+    const feed = await buildBriefingFeed(
+      { uid: 'admin-1', role: 'admin', allowedOrgIds: ['org-1'] },
+      { limit: 10, sourceType: 'agent-run' },
+    )
+
+    expect(feed.items).toHaveLength(2)
+    expect(feed.items[0]).toMatchObject({
+      priority: 'needs-peet',
+      requiresAction: true,
+      source: {
+        type: 'agent-run',
+        id: 'run-doc-1',
+        url: '/admin/agents/theo?run=run-live-1',
+      },
+      title: 'Theo paused for approval',
+      actor: { id: 'agent:theo', name: 'Theo', role: 'ai', type: 'agent' },
+      context: {
+        orgName: 'Client One',
+        agentRunId: 'run-live-1',
+        agentProfile: 'theo-main',
+      },
+      metadata: expect.objectContaining({
+        agentId: 'theo',
+        runStatus: 'waiting_for_approval',
+        hermesRunId: 'run-live-1',
+        approvalToolName: 'shell.exec',
+      }),
+    })
+    expect(feed.items[1]).toMatchObject({ priority: 'fyi', title: 'Maya finished a run' })
+    expect(JSON.stringify(feed.items)).not.toContain('run-secret-123')
+    expect(JSON.stringify(feed.items)).toContain('[REDACTED]')
+  })
 })

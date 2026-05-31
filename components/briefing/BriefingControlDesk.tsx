@@ -59,6 +59,8 @@ interface BriefingCard {
     mailboxMessageId?: string | null
     mailboxFrom?: string | null
     mailboxSubject?: string | null
+    agentRunId?: string | null
+    agentProfile?: string | null
   }
   metadata?: Record<string, unknown> | null
   occurredAt: string
@@ -89,6 +91,7 @@ const SOURCES = [
   { value: 'task', label: 'Tasks' },
   { value: 'comment', label: 'Comments' },
   { value: 'agent-output', label: 'Agent output' },
+  { value: 'agent-run', label: 'Agent runs' },
   { value: 'project', label: 'Projects' },
   { value: 'client-document', label: 'Documents' },
   { value: 'social-post', label: 'Social posts' },
@@ -156,10 +159,12 @@ function sourceLabel(item: BriefingCard) {
   if (item.context.formName || item.context.formId || item.context.formSubmissionId) return `${item.source.type} / ${titledId(item.context.formName, item.context.formSubmissionId ?? item.source.id)}`
   if (item.context.socialInboxFrom || item.context.socialInboxId) return `${item.source.type} / ${titledId(item.context.socialInboxFrom, item.context.socialInboxId ?? item.source.id)}`
   if (item.context.mailboxFrom || item.context.mailboxMessageId) return `${item.source.type} / ${titledId(item.context.mailboxFrom, item.context.mailboxMessageId ?? item.source.id)}`
+  if (item.context.agentProfile || item.context.agentRunId) return `${item.source.type} / ${titledId(item.context.agentProfile, item.context.agentRunId ?? item.source.id)}`
   return `${item.source.type} / ${item.source.id}`
 }
 
 function sourceHref(item: BriefingCard, mode: Mode) {
+  if (item.source.type === 'agent-run') return mode === 'admin' ? adminSourceHref(item) : null
   if (item.source.type === 'form-submission') return mode === 'admin' ? adminSourceHref(item) : null
   if (item.source.type === 'social-inbox') return adminSourceHref(item)
   if (item.source.type === 'mailbox-message') return mode === 'admin' ? adminSourceHref(item) : item.source.url || `/portal/email?message=${encodeURIComponent(item.source.id)}`
@@ -193,6 +198,11 @@ function sourceHref(item: BriefingCard, mode: Mode) {
 }
 
 function adminSourceHref(item: BriefingCard) {
+  if (item.source.type === 'agent-run') {
+    const agentId = typeof item.metadata?.agentId === 'string' && item.metadata.agentId ? item.metadata.agentId : item.actor.id.replace(/^agent:/, '')
+    const runId = typeof item.metadata?.hermesRunId === 'string' && item.metadata.hermesRunId ? item.metadata.hermesRunId : item.context.agentRunId ?? item.source.id
+    return `/admin/agents/${encodeURIComponent(agentId)}?run=${encodeURIComponent(runId)}`
+  }
   if (item.source.type === 'support-ticket') return `/admin/support?ticket=${encodeURIComponent(item.source.id)}`
   if (item.source.type === 'invoice') return `/admin/invoicing/${encodeURIComponent(item.source.id)}`
   if (item.source.type === 'expense') return `/admin/finance?expense=${encodeURIComponent(item.source.id)}`
@@ -269,6 +279,10 @@ function canSocialInboxAct(item: BriefingCard) {
 
 function canMailboxAct(item: BriefingCard) {
   return item.source.type === 'mailbox-message' && Boolean(item.source.id)
+}
+
+function canAgentRunApprove(item: BriefingCard, mode: Mode) {
+  return mode === 'admin' && item.source.type === 'agent-run' && item.metadata?.runStatus === 'waiting_for_approval' && Boolean(item.metadata?.agentId && item.metadata?.hermesRunId)
 }
 
 function mailboxApiBase(mode: Mode) {
@@ -827,6 +841,28 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
       await loadFeed({ quiet: true })
     } catch (err) {
       setFlash({ kind: 'error', message: err instanceof Error ? err.message : 'Mailbox reply draft failed' })
+    } finally {
+      setBusyAction(null)
+    }
+  }
+
+  async function agentRunApprovalAction(item: BriefingCard, choice: 'once' | 'deny') {
+    if (!canAgentRunApprove(item, mode)) return
+    const agentId = String(item.metadata?.agentId)
+    const runId = String(item.metadata?.hermesRunId)
+    setBusyAction(`agent-run-${choice}`)
+    try {
+      const res = await fetch(`/api/v1/admin/agents/${encodeURIComponent(agentId)}/runs/${encodeURIComponent(runId)}/approval`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ choice }),
+      })
+      const body = await res.json()
+      if (!res.ok) throw new Error(body.error || 'Agent run approval failed')
+      setFlash({ kind: 'ok', message: choice === 'once' ? 'Agent run approved once.' : 'Agent run denied.' })
+      await loadFeed({ quiet: true })
+    } catch (err) {
+      setFlash({ kind: 'error', message: err instanceof Error ? err.message : 'Agent run approval failed' })
     } finally {
       setBusyAction(null)
     }
@@ -1403,6 +1439,18 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                       Archive email
                     </button>
                   ) : null}
+                  {canAgentRunApprove(selected, mode) ? (
+                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => agentRunApprovalAction(selected, 'once')} disabled={!!busyAction}>
+                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">play_circle</span>
+                      Approve run once
+                    </button>
+                  ) : null}
+                  {canAgentRunApprove(selected, mode) ? (
+                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => agentRunApprovalAction(selected, 'deny')} disabled={!!busyAction}>
+                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">block</span>
+                      Deny run
+                    </button>
+                  ) : null}
                   {canNotificationAct(selected) ? (
                     <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => notificationAction(selected, 'read')} disabled={!!busyAction}>
                       <span className="material-symbols-outlined text-[15px]" aria-hidden="true">mark_email_read</span>
@@ -1730,6 +1778,8 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                   {selected.context.formName || selected.context.formId || selected.context.formSubmissionId ? <div><dt className="text-on-surface-variant">Form submission</dt><dd className="text-on-surface">{titledId(selected.context.formName ?? selected.context.formId, selected.context.formSubmissionId ?? selected.source.id)}</dd></div> : null}
                   {selected.context.socialInboxFrom || selected.context.socialInboxId ? <div><dt className="text-on-surface-variant">Social inbox</dt><dd className="text-on-surface">{titledId(selected.context.socialInboxFrom, selected.context.socialInboxId ?? selected.source.id)}</dd></div> : null}
                   {selected.context.mailboxFrom || selected.context.mailboxMessageId ? <div><dt className="text-on-surface-variant">Mailbox</dt><dd className="text-on-surface">{titledId(selected.context.mailboxFrom, selected.context.mailboxMessageId ?? selected.source.id)}</dd></div> : null}
+                  {selected.context.agentProfile || selected.context.agentRunId ? <div><dt className="text-on-surface-variant">Agent run</dt><dd className="text-on-surface">{titledId(selected.context.agentProfile, selected.context.agentRunId ?? selected.source.id)}</dd></div> : null}
+                  {typeof selected.metadata?.approvalToolName === 'string' && selected.metadata.approvalToolName ? <div><dt className="text-on-surface-variant">Approval tool</dt><dd className="text-on-surface">{selected.metadata.approvalToolName}</dd></div> : null}
                   <div><dt className="text-on-surface-variant">Occurred</dt><dd className="text-on-surface">{new Date(selected.occurredAt).toLocaleString('en-ZA')}</dd></div>
                   <div><dt className="text-on-surface-variant">Source</dt><dd className="text-on-surface">{sourceLabel(selected)}</dd></div>
                 </dl>

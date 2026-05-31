@@ -32,6 +32,7 @@ export type BriefingSourceType =
   | 'task'                 // Task events (created, updated, moved, completed)
   | 'comment'              // Comments on tasks, documents, conversations
   | 'agent-output'         // Agent completion summaries and artifacts
+  | 'agent-run'            // Live Hermes agent run status and approval prompts
   | 'approval'             // Approval gates and client document approvals
   | 'client-document'      // Client documents, specs, reports
   | 'social-post'          // Social content awaiting QA/client approval or attention
@@ -113,6 +114,8 @@ export interface BriefingContext {
   mailboxMessageId?: string | null
   mailboxFrom?: string | null
   mailboxSubject?: string | null
+  agentRunId?: string | null
+  agentProfile?: string | null
   sourceIds?: string[]  // Related source IDs for cross-reference
 }
 

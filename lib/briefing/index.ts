@@ -11,6 +11,7 @@ export * from './utils'
 export { taskAdapter, projectAdapter } from './adapters/taskAdapter'
 export { commentAdapter } from './adapters/commentAdapter'
 export { agentOutputAdapter } from './adapters/agentOutputAdapter'
+export { agentRunAdapter } from './adapters/agentRunAdapter'
 export { approvalAdapter, clientDocumentAdapter } from './adapters/approvalAdapter'
 export { notificationAdapter, activityAdapter } from './adapters/notificationAdapter'
 export { reportAdapter } from './adapters/reportAdapter'
@@ -29,6 +30,7 @@ import type { BriefingSourceAdapter, BriefingSourceType } from './types'
 import { taskAdapter, projectAdapter } from './adapters/taskAdapter'
 import { commentAdapter } from './adapters/commentAdapter'
 import { agentOutputAdapter } from './adapters/agentOutputAdapter'
+import { agentRunAdapter } from './adapters/agentRunAdapter'
 import { approvalAdapter, clientDocumentAdapter } from './adapters/approvalAdapter'
 import { notificationAdapter, activityAdapter } from './adapters/notificationAdapter'
 import { reportAdapter } from './adapters/reportAdapter'
@@ -51,6 +53,7 @@ export const SOURCE_ADAPTERS: Record<BriefingSourceType, BriefingSourceAdapter> 
   project: projectAdapter,
   comment: commentAdapter,
   'agent-output': agentOutputAdapter,
+  'agent-run': agentRunAdapter,
   approval: approvalAdapter,
   'client-document': clientDocumentAdapter,
   'social-post': socialPostAdapter,

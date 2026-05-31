@@ -538,6 +538,34 @@ const mailboxBriefingItem = {
   occurredAt: '2026-05-31T09:49:00.000Z',
 }
 
+const agentRunBriefingItem = {
+  id: 'agent-run:run-doc-1',
+  orgId: 'org-1',
+  priority: 'needs-peet',
+  title: 'Theo paused for approval',
+  summary: 'Theo is waiting for approval to run shell.exec.',
+  excerpt: 'Needs to inspect deployment logs.',
+  timeAgo: '12 minutes ago',
+  requiresAction: true,
+  source: { type: 'agent-run', id: 'run-doc-1', url: '/admin/agents/theo?run=run-live-1' },
+  actor: { id: 'agent:theo', name: 'Theo', role: 'ai', type: 'agent' },
+  context: {
+    orgId: 'org-1',
+    orgName: 'Client One',
+    orgSlug: 'client-one',
+    agentRunId: 'run-live-1',
+    agentProfile: 'theo-main',
+  },
+  metadata: {
+    agentId: 'theo',
+    runStatus: 'waiting_for_approval',
+    hermesRunId: 'run-live-1',
+    approvalToolName: 'shell.exec',
+    approvalReason: 'Needs to inspect deployment logs',
+  },
+  occurredAt: '2026-05-31T09:48:00.000Z',
+}
+
 describe('BriefingControlDesk', () => {
   beforeEach(() => {
     jest.useFakeTimers()
@@ -556,7 +584,7 @@ describe('BriefingControlDesk', () => {
       if (url.startsWith('/api/v1/briefings/feed')) {
         const items = url.includes('orgId=org-2')
           ? [secondOrgBriefingItem]
-          : [briefingItem, documentBriefingItem, documentCommentBriefingItem, approvalBriefingItem, conversationBriefingItem, socialBriefingItem, notificationBriefingItem, activityBriefingItem, reportBriefingItem, supportBriefingItem, invoiceBriefingItem, invoiceProofBriefingItem, expenseBriefingItem, seoContentBriefingItem, seoTaskBriefingItem, adCampaignBriefingItem, formSubmissionBriefingItem, socialInboxBriefingItem, mailboxBriefingItem, secondOrgBriefingItem]
+          : [briefingItem, documentBriefingItem, documentCommentBriefingItem, approvalBriefingItem, conversationBriefingItem, socialBriefingItem, notificationBriefingItem, activityBriefingItem, reportBriefingItem, supportBriefingItem, invoiceBriefingItem, invoiceProofBriefingItem, expenseBriefingItem, seoContentBriefingItem, seoTaskBriefingItem, adCampaignBriefingItem, formSubmissionBriefingItem, socialInboxBriefingItem, mailboxBriefingItem, agentRunBriefingItem, secondOrgBriefingItem]
         return {
           ok: true,
           json: async () => ({ data: { items, total: items.length, hasMore: false, generatedAt: '2026-05-31T10:05:00.000Z' } }),
@@ -728,6 +756,12 @@ describe('BriefingControlDesk', () => {
         return {
           ok: true,
           json: async () => ({ data: { message: { id: 'draft-1', status: 'draft' } } }),
+        } as Response
+      }
+      if (url === '/api/v1/admin/agents/theo/runs/run-live-1/approval') {
+        return {
+          ok: true,
+          json: async () => ({ ok: true }),
         } as Response
       }
       return {
@@ -1413,6 +1447,39 @@ describe('BriefingControlDesk', () => {
     })
     await waitFor(() => {
       expect(screen.getByLabelText('Mailbox reply draft')).toHaveValue('')
+    })
+  })
+
+  it('approves and denies paused agent runs from the admin control desk', async () => {
+    render(<BriefingControlDesk mode="admin" />)
+
+    fireEvent.click(await screen.findByRole('button', { name: /Theo paused for approval/i }))
+
+    expect(screen.getByText('theo-main (run-live-1)')).toBeInTheDocument()
+    expect(screen.getByText('shell.exec')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /open source/i })).toHaveAttribute('href', '/admin/agents/theo?run=run-live-1')
+    expect(screen.getByRole('button', { name: /approve run once/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /deny run/i })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /approve run once/i }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/admin/agents/theo/runs/run-live-1/approval', expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ choice: 'once' }),
+      }))
+    })
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /deny run/i })).not.toBeDisabled()
+    })
+    fireEvent.click(screen.getByRole('button', { name: /deny run/i }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/admin/agents/theo/runs/run-live-1/approval', expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ choice: 'deny' }),
+      }))
     })
   })
 })
