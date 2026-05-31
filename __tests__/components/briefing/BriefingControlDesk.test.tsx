@@ -247,6 +247,32 @@ const reportBriefingItem = {
   occurredAt: '2026-05-31T09:57:00.000Z',
 }
 
+const supportBriefingItem = {
+  id: 'support-ticket:support-1',
+  orgId: 'org-1',
+  priority: 'critical',
+  title: 'Urgent support: Website form is not sending leads',
+  summary: 'The form failed twice and needs a reply.',
+  excerpt: 'The form failed twice.',
+  timeAgo: '9 minutes ago',
+  requiresAction: true,
+  source: { type: 'support-ticket', id: 'support-1', url: '/admin/support?ticket=support-1' },
+  actor: { id: 'user:client-1', name: 'Riley Client', role: 'client', type: 'user' },
+  context: {
+    orgId: 'org-1',
+    orgName: 'Client One',
+    orgSlug: 'client-one',
+    supportTicketId: 'support-1',
+    supportTicketSubject: 'Website form is not sending leads',
+  },
+  metadata: {
+    supportStatus: 'waiting_on_us',
+    supportPriority: 'urgent',
+    sourcePath: '/portal/campaigns',
+  },
+  occurredAt: '2026-05-31T09:56:00.000Z',
+}
+
 describe('BriefingControlDesk', () => {
   beforeEach(() => {
     jest.useFakeTimers()
@@ -265,7 +291,7 @@ describe('BriefingControlDesk', () => {
       if (url.startsWith('/api/v1/briefings/feed')) {
         const items = url.includes('orgId=org-2')
           ? [secondOrgBriefingItem]
-          : [briefingItem, documentBriefingItem, documentCommentBriefingItem, approvalBriefingItem, conversationBriefingItem, socialBriefingItem, notificationBriefingItem, activityBriefingItem, reportBriefingItem, secondOrgBriefingItem]
+          : [briefingItem, documentBriefingItem, documentCommentBriefingItem, approvalBriefingItem, conversationBriefingItem, socialBriefingItem, notificationBriefingItem, activityBriefingItem, reportBriefingItem, supportBriefingItem, secondOrgBriefingItem]
         return {
           ok: true,
           json: async () => ({ data: { items, total: items.length, hasMore: false, generatedAt: '2026-05-31T10:05:00.000Z' } }),
@@ -347,6 +373,12 @@ describe('BriefingControlDesk', () => {
         return {
           ok: true,
           json: async () => ({ ok: true, link: '/reports/public-report-token', recipients: ['client@example.test'] }),
+        } as Response
+      }
+      if (url === '/api/v1/portal/support/support-1/messages') {
+        return {
+          ok: true,
+          json: async () => ({ data: { id: 'support-message-1' } }),
         } as Response
       }
       return {
@@ -672,6 +704,28 @@ describe('BriefingControlDesk', () => {
     })
     await waitFor(() => {
       expect(screen.getByLabelText('Report recipients')).toHaveValue('')
+    })
+  })
+
+  it('replies to support ticket cards from the control desk', async () => {
+    render(<BriefingControlDesk mode="portal" />)
+
+    fireEvent.click(await screen.findByRole('button', { name: /Urgent support: Website form is not sending leads/i }))
+
+    expect(screen.getByText('Website form is not sending leads (support-1)')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /open source/i })).toHaveAttribute('href', '/portal')
+
+    fireEvent.change(screen.getByLabelText('Support reply'), { target: { value: 'We are checking the form submissions and will update you shortly.' } })
+    fireEvent.click(screen.getByRole('button', { name: /reply to support ticket/i }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/portal/support/support-1/messages', expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ body: 'We are checking the form submissions and will update you shortly.' }),
+      }))
+    })
+    await waitFor(() => {
+      expect(screen.getByLabelText('Support reply')).toHaveValue('')
     })
   })
 })

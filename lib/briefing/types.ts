@@ -38,6 +38,7 @@ export type BriefingSourceType =
   | 'notification'         // User notifications and inboxes
   | 'activity'             // Activity log entries
   | 'report'               // Stored snapshot reports
+  | 'support-ticket'       // Client support tickets and ticket replies
 
 /**
  * Briefing item lifecycle states.
@@ -82,6 +83,8 @@ export interface BriefingContext {
   dealTitle?: string | null
   reportId?: string | null
   reportTitle?: string | null
+  supportTicketId?: string | null
+  supportTicketSubject?: string | null
   sourceIds?: string[]  // Related source IDs for cross-reference
 }
 

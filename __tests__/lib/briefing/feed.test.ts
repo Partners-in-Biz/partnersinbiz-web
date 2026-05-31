@@ -381,4 +381,65 @@ describe('briefing feed', () => {
     expect(JSON.stringify(feed.items)).not.toContain('should-not-leak')
     expect(JSON.stringify(feed.items)).toContain('[REDACTED]')
   })
+
+  it('surfaces open support tickets as source-linked action cards', async () => {
+    collections.organizations = [makeDoc('org-1', { name: 'Client One', slug: 'client-one' })]
+    collections.support_tickets = [
+      makeDoc('support-1', {
+        orgId: 'org-1',
+        createdBy: 'client-1',
+        requesterName: 'Riley Client',
+        requesterEmail: 'riley@example.test',
+        category: 'urgent',
+        subject: 'Website form is not sending leads',
+        description: 'The lead form failed twice and a secret token sk-live-123 should not leak.',
+        status: 'waiting_on_us',
+        priority: 'urgent',
+        sourcePath: '/portal/campaigns',
+        messageCount: 2,
+        lastMessagePreview: 'The form failed twice with secret token sk-live-123.',
+        lastMessageAt: '2026-05-31T09:40:00.000Z',
+        updatedAt: '2026-05-31T09:45:00.000Z',
+      }),
+      makeDoc('support-2', {
+        orgId: 'org-1',
+        createdBy: 'client-1',
+        requesterName: 'Riley Client',
+        category: 'question',
+        subject: 'Resolved question',
+        description: 'Already handled.',
+        status: 'resolved',
+        priority: 'normal',
+        updatedAt: '2026-05-31T08:00:00.000Z',
+      }),
+    ]
+
+    const { buildBriefingFeed } = await import('@/lib/briefing/feed')
+    const feed = await buildBriefingFeed(
+      { uid: 'admin-1', role: 'admin', allowedOrgIds: ['org-1'] },
+      { limit: 10, sourceType: 'support-ticket' },
+    )
+
+    expect(feed.items).toHaveLength(1)
+    expect(feed.items[0]).toMatchObject({
+      priority: 'critical',
+      requiresAction: true,
+      source: { type: 'support-ticket', id: 'support-1', url: '/admin/support?ticket=support-1' },
+      title: 'Urgent support: Website form is not sending leads',
+      actor: { name: 'Riley Client', role: 'client', type: 'user' },
+      context: {
+        orgName: 'Client One',
+        supportTicketId: 'support-1',
+        supportTicketSubject: 'Website form is not sending leads',
+      },
+      metadata: expect.objectContaining({
+        supportStatus: 'waiting_on_us',
+        supportPriority: 'urgent',
+        sourcePath: '/portal/campaigns',
+      }),
+    })
+    expect(feed.items[0].summary).toContain('The form failed twice')
+    expect(JSON.stringify(feed.items)).not.toContain('sk-live-123')
+    expect(JSON.stringify(feed.items)).toContain('[REDACTED]')
+  })
 })

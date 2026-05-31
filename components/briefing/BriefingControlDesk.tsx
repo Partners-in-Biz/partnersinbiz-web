@@ -37,6 +37,8 @@ interface BriefingCard {
     dealTitle?: string | null
     reportId?: string | null
     reportTitle?: string | null
+    supportTicketId?: string | null
+    supportTicketSubject?: string | null
   }
   metadata?: Record<string, unknown> | null
   occurredAt: string
@@ -74,6 +76,7 @@ const SOURCES = [
   { value: 'notification', label: 'Notifications' },
   { value: 'activity', label: 'Activity' },
   { value: 'report', label: 'Reports' },
+  { value: 'support-ticket', label: 'Support' },
 ]
 
 const PRIORITY_LABELS: Record<BriefingCard['priority'], string> = {
@@ -116,11 +119,13 @@ function sourceLabel(item: BriefingCard) {
   if (item.context.contactName || item.context.contactId) return `${item.source.type} / ${titledId(item.context.contactName, item.context.contactId ?? item.source.id)}`
   if (item.context.dealTitle || item.context.dealId) return `${item.source.type} / ${titledId(item.context.dealTitle, item.context.dealId ?? item.source.id)}`
   if (item.context.reportTitle || item.context.reportId) return `${item.source.type} / ${titledId(item.context.reportTitle, item.context.reportId ?? item.source.id)}`
+  if (item.context.supportTicketSubject || item.context.supportTicketId) return `${item.source.type} / ${titledId(item.context.supportTicketSubject, item.context.supportTicketId ?? item.source.id)}`
   return `${item.source.type} / ${item.source.id}`
 }
 
 function sourceHref(item: BriefingCard, mode: Mode) {
   if (item.source.type === 'social-post') return `/portal/social/review/${encodeURIComponent(item.source.id)}`
+  if (item.source.type === 'support-ticket') return mode === 'admin' ? `/admin/support?ticket=${encodeURIComponent(item.source.id)}` : '/portal'
   if (mode === 'admin') return item.source.url || null
   if (item.source.url?.startsWith('/portal')) return item.source.url
   if (item.context.conversationId) return `/portal/conversations?convId=${encodeURIComponent(item.context.conversationId)}`
@@ -133,6 +138,7 @@ function sourceHref(item: BriefingCard, mode: Mode) {
 }
 
 function adminSourceHref(item: BriefingCard) {
+  if (item.source.type === 'support-ticket') return `/admin/support?ticket=${encodeURIComponent(item.source.id)}`
   if (item.context.conversationId) {
     const query = `convId=${encodeURIComponent(item.context.conversationId)}`
     if (item.context.orgSlug) return `/admin/org/${item.context.orgSlug}/messages?${query}`
@@ -183,6 +189,10 @@ function canActivityFollowUpAct(item: BriefingCard) {
 
 function canReportAct(item: BriefingCard) {
   return item.source.type === 'report' && Boolean(item.context.reportId || item.source.id)
+}
+
+function canSupportTicketAct(item: BriefingCard) {
+  return item.source.type === 'support-ticket' && Boolean(item.source.id)
 }
 
 function socialActionStage(item: BriefingCard): 'client' | 'qa' | null {
@@ -671,6 +681,28 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
     }
   }
 
+  async function replyToSupportTicket(item: BriefingCard, text: string) {
+    if (!canSupportTicketAct(item) || !text.trim()) return
+    setBusyAction('support-reply')
+    try {
+      const scope = mode === 'admin' ? 'admin' : 'portal'
+      const res = await fetch(`/api/v1/${scope}/support/${encodeURIComponent(item.source.id)}/messages`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ body: text.trim() }),
+      })
+      const body = await res.json()
+      if (!res.ok) throw new Error(body.error || 'Support reply failed')
+      setReplyText('')
+      setFlash({ kind: 'ok', message: 'Reply posted to the support ticket.' })
+      await loadFeed({ quiet: true })
+    } catch (err) {
+      setFlash({ kind: 'error', message: err instanceof Error ? err.message : 'Support reply failed' })
+    } finally {
+      setBusyAction(null)
+    }
+  }
+
   async function unblockTask(item: BriefingCard) {
     if (!canTaskAct(item)) return
     setBusyAction('unblock')
@@ -1020,6 +1052,25 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                   </div>
                 ) : null}
 
+                {canSupportTicketAct(selected) ? (
+                  <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                    <label className="text-xs font-medium text-on-surface-variant" htmlFor="briefing-support-reply">
+                      Support reply
+                    </label>
+                    <textarea
+                      id="briefing-support-reply"
+                      className="pib-input mt-2 min-h-24 w-full resize-y"
+                      value={replyText}
+                      onChange={(event) => setReplyText(event.target.value)}
+                      placeholder="Reply to the client and keep the support thread moving..."
+                    />
+                    <button className="pib-btn-primary mt-2 w-full justify-center text-xs" type="button" onClick={() => replyToSupportTicket(selected, replyText)} disabled={!replyText.trim() || !!busyAction}>
+                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">support_agent</span>
+                      Reply to support ticket
+                    </button>
+                  </div>
+                ) : null}
+
                 <dl className="space-y-3 text-sm">
                   <div><dt className="text-on-surface-variant">Actor</dt><dd className="text-on-surface">{titledId(selected.actor.name, selected.actor.id)}</dd></div>
                   <div><dt className="text-on-surface-variant">Workspace</dt><dd className="text-on-surface">{titledId(selected.context.orgName, selected.orgId)}</dd></div>
@@ -1030,6 +1081,7 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                   {selected.context.contactName || selected.context.contactId ? <div><dt className="text-on-surface-variant">Contact</dt><dd className="text-on-surface">{titledId(selected.context.contactName, selected.context.contactId)}</dd></div> : null}
                   {selected.context.dealTitle || selected.context.dealId ? <div><dt className="text-on-surface-variant">Deal</dt><dd className="text-on-surface">{titledId(selected.context.dealTitle, selected.context.dealId)}</dd></div> : null}
                   {selected.context.reportTitle || selected.context.reportId ? <div><dt className="text-on-surface-variant">Report</dt><dd className="text-on-surface">{titledId(selected.context.reportTitle, selected.context.reportId)}</dd></div> : null}
+                  {selected.context.supportTicketSubject || selected.context.supportTicketId ? <div><dt className="text-on-surface-variant">Support ticket</dt><dd className="text-on-surface">{titledId(selected.context.supportTicketSubject, selected.context.supportTicketId)}</dd></div> : null}
                   <div><dt className="text-on-surface-variant">Occurred</dt><dd className="text-on-surface">{new Date(selected.occurredAt).toLocaleString('en-ZA')}</dd></div>
                   <div><dt className="text-on-surface-variant">Source</dt><dd className="text-on-surface">{sourceLabel(selected)}</dd></div>
                 </dl>

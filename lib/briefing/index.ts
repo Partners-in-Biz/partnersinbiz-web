@@ -15,6 +15,7 @@ export { approvalAdapter, clientDocumentAdapter } from './adapters/approvalAdapt
 export { notificationAdapter, activityAdapter } from './adapters/notificationAdapter'
 export { reportAdapter } from './adapters/reportAdapter'
 export { socialPostAdapter } from './adapters/socialPostAdapter'
+export { supportTicketAdapter } from './adapters/supportTicketAdapter'
 
 import type { BriefingSourceAdapter, BriefingSourceType } from './types'
 import { taskAdapter, projectAdapter } from './adapters/taskAdapter'
@@ -24,6 +25,7 @@ import { approvalAdapter, clientDocumentAdapter } from './adapters/approvalAdapt
 import { notificationAdapter, activityAdapter } from './adapters/notificationAdapter'
 import { reportAdapter } from './adapters/reportAdapter'
 import { socialPostAdapter } from './adapters/socialPostAdapter'
+import { supportTicketAdapter } from './adapters/supportTicketAdapter'
 
 /**
  * Registry of all source adapters.
@@ -39,6 +41,7 @@ export const SOURCE_ADAPTERS: Record<BriefingSourceType, BriefingSourceAdapter> 
   notification: notificationAdapter,
   activity: activityAdapter,
   report: reportAdapter,
+  'support-ticket': supportTicketAdapter,
 }
 
 /**
