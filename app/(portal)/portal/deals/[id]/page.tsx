@@ -157,6 +157,12 @@ function teamMemberOwnerRef(member: TeamMember): MemberRef {
   }
 }
 
+function dealOwnerLabel(deal: DealRecord): string {
+  if (deal.ownerRef?.displayName?.trim()) return deal.ownerRef.displayName
+  if (deal.ownerUid?.trim()) return 'Deal owner identity missing'
+  return 'No owner assigned'
+}
+
 export default function DealDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
@@ -631,7 +637,7 @@ export default function DealDetailPage() {
             <div>
               <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">Owner</p>
               <p className="text-[var(--color-pib-text)] mt-0.5">
-                {deal.ownerRef?.displayName ?? deal.ownerUid ?? 'No owner assigned'}
+                {dealOwnerLabel(deal)}
               </p>
               <div className="mt-3 space-y-2 rounded-xl border border-[var(--color-pib-line)] bg-white/[0.02] p-3">
                 <label htmlFor="dealDetailOwner" className="pib-label">Assign deal owner</label>

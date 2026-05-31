@@ -1,6 +1,8 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import DealDetailPage from '@/app/(portal)/portal/deals/[id]/page'
 
+let mockDealOverrides: Record<string, unknown> = {}
+
 jest.mock('next/navigation', () => ({
   useParams: () => ({ id: 'deal-1' }),
   useRouter: () => ({ push: jest.fn(), refresh: jest.fn() }),
@@ -20,6 +22,7 @@ jest.mock('@/components/crm/DealDrawer', () => ({
 describe('Portal deal detail page', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    mockDealOverrides = {}
     global.fetch = jest.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
       if (url === '/api/v1/crm/deals/deal-1' && init?.method === 'PATCH') {
@@ -47,6 +50,7 @@ describe('Portal deal detail page', () => {
                 notes: '',
                 lineItems: [],
                 stageHistory: [],
+                ...mockDealOverrides,
               },
             },
           }),
@@ -105,6 +109,19 @@ describe('Portal deal detail page', () => {
     })
 
     await waitFor(() => expect(screen.getByText('Mandy Manager')).toBeInTheDocument())
+  })
+
+  it('names incomplete deal owner snapshots instead of exposing raw owner ids', async () => {
+    mockDealOverrides = {
+      ownerUid: 'owner-raw-id',
+    }
+
+    render(<DealDetailPage />)
+
+    await screen.findByText('Unowned expansion')
+
+    expect(screen.getByText('Deal owner identity missing')).toBeInTheDocument()
+    expect(screen.queryByText('owner-raw-id')).not.toBeInTheDocument()
   })
 
   it('lets users update forecast probability from the deal command center', async () => {
