@@ -45,4 +45,11 @@ describe('Portal settings scoring page', () => {
     fireEvent.click(screen.getByRole('button', { name: /tune lead weights/i }))
     expect(screen.getByText('Lead weights editor ready')).toBeInTheDocument()
   })
+
+  it('names the strongest lead signal in readable sales language', async () => {
+    render(<ScoringPage />)
+
+    expect(await screen.findByText('Email replies')).toBeInTheDocument()
+    expect(screen.queryByText('emailReplies')).not.toBeInTheDocument()
+  })
 })
