@@ -178,7 +178,10 @@ describe('Portal contact detail page', () => {
     expect(screen.getByPlaceholderText('Message…')).toBeInTheDocument()
   })
 
-  it('keeps the portal header email action inside the CRM composer', async () => {
+  it('moves the portal header email action into the active CRM composer', async () => {
+    const scrollIntoView = jest.fn()
+    HTMLElement.prototype.scrollIntoView = scrollIntoView
+
     render(<PortalContactDetailPage />)
 
     await waitFor(() => {
@@ -187,8 +190,9 @@ describe('Portal contact detail page', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Email Jane Client from contact command center' }))
 
-    expect(screen.getByPlaceholderText('Subject…')).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByPlaceholderText('Subject…')).toHaveFocus())
     expect(screen.getByPlaceholderText('Message…')).toBeInTheDocument()
+    expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'center' })
   })
 
   it('keeps the portal header call action inside the CRM call log', async () => {

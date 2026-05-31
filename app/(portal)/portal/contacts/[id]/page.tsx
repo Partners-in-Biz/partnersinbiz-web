@@ -292,6 +292,7 @@ export default function PortalContactDetailPage() {
   const ownerFieldRef = useRef<HTMLSelectElement | null>(null)
   const sourceFieldRef = useRef<HTMLSelectElement | null>(null)
   const customFieldsEditRef = useRef<HTMLDivElement | null>(null)
+  const activityComposerRef = useRef<HTMLDivElement | null>(null)
   const [contact, setContact] = useState<ContactRecord | null>(null)
   const [emails, setEmails] = useState<EmailRecord[]>([])
   const [activities, setActivities] = useState<ActivityRecord[]>([])
@@ -709,6 +710,18 @@ export default function PortalContactDetailPage() {
     section?.scrollIntoView?.({ behavior: 'smooth', block: 'center' })
     section?.querySelector<HTMLElement>('input, select, textarea')?.focus()
   }
+
+  useEffect(() => {
+    if (!logType) return
+
+    const frame = window.requestAnimationFrame(() => {
+      const composer = activityComposerRef.current
+      composer?.scrollIntoView?.({ behavior: 'smooth', block: 'center' })
+      composer?.querySelector<HTMLElement>('input, textarea, select')?.focus()
+    })
+
+    return () => window.cancelAnimationFrame(frame)
+  }, [logType])
 
   async function handleLogActivity() {
     setLogSaving(true)
@@ -1831,7 +1844,7 @@ export default function PortalContactDetailPage() {
               </div>
 
               {logType && (
-                <div className="bento-card !p-4 mb-4 space-y-3">
+                <div ref={activityComposerRef} className="bento-card !p-4 mb-4 space-y-3">
                   {logType === 'email_sent' ? (
                     email.trim() ? (
                       <>
