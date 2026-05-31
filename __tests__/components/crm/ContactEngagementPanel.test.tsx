@@ -98,4 +98,37 @@ describe('ContactEngagementPanel', () => {
     expect(onSendEmail).toHaveBeenCalledTimes(1)
     expect(onScheduleMeeting).toHaveBeenCalledTimes(1)
   })
+
+  it('names incomplete AI suggestions instead of rendering blank recommendation copy', () => {
+    const onStartSuggestion = jest.fn()
+
+    render(
+      <ContactEngagementPanel
+        profile={{
+          emails: [],
+          activities: [],
+          nextSuggestion: {
+            action: '',
+            reason: '',
+            urgency: 'medium',
+          },
+        }}
+        actions={{
+          contactName: 'Jane Client',
+          onStartSuggestion,
+        }}
+      />,
+    )
+
+    expect(screen.getByText('Suggested action missing')).toBeInTheDocument()
+    expect(screen.getByText('Suggestion reason missing')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Start suggested action: Suggested action missing for Jane Client' }))
+
+    expect(onStartSuggestion).toHaveBeenCalledWith({
+      action: '',
+      reason: '',
+      urgency: 'medium',
+    })
+  })
 })

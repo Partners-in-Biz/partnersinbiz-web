@@ -126,6 +126,8 @@ export function ContactEngagementPanel({
   const health = contactEngagementHealth(profile)
   const cadence = cadenceLabel(days)
   const suggestion = profile.nextSuggestion
+  const suggestionActionLabel = suggestion?.action?.trim() || 'Suggested action missing'
+  const suggestionReasonLabel = suggestion?.reason?.trim() || 'Suggestion reason missing'
   const contactName = actions?.contactName?.trim() || 'this contact'
   const hasActions = Boolean(actions?.onLogNote || actions?.onSendEmail || actions?.onScheduleMeeting)
 
@@ -164,17 +166,17 @@ export function ContactEngagementPanel({
             <span className="material-symbols-outlined text-[20px] text-[var(--color-pib-accent)]">tips_and_updates</span>
             <div>
               <div className="flex flex-wrap items-center gap-2">
-                <p className="text-sm font-semibold text-[var(--color-pib-text)]">{suggestion.action}</p>
+                <p className="text-sm font-semibold text-[var(--color-pib-text)]">{suggestionActionLabel}</p>
                 <span className="rounded-full border border-[var(--color-pib-line)] px-2 py-0.5 text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)]">
                   {suggestion.urgency}
                 </span>
               </div>
-              <p className="mt-1 text-xs leading-relaxed text-[var(--color-pib-text-muted)]">{suggestion.reason}</p>
+              <p className="mt-1 text-xs leading-relaxed text-[var(--color-pib-text-muted)]">{suggestionReasonLabel}</p>
               {actions?.onStartSuggestion ? (
                 <button
                   type="button"
                   onClick={() => actions.onStartSuggestion?.(suggestion)}
-                  aria-label={`Start suggested action: ${suggestion.action} for ${contactName}`}
+                  aria-label={`Start suggested action: ${suggestionActionLabel} for ${contactName}`}
                   className="btn-pib-secondary mt-3 inline-flex items-center gap-1.5 text-xs"
                 >
                   <span aria-hidden="true" className="material-symbols-outlined text-[14px]">play_arrow</span>
