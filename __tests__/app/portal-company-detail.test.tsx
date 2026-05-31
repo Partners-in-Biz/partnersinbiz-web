@@ -14,6 +14,18 @@ jest.mock('next/navigation', () => ({
   useSearchParams: () => mockSearchParams,
 }))
 
+async function selectCompanyTab(name: RegExp | string) {
+  const visibleTab = screen.queryByRole('tab', { name })
+  if (visibleTab) {
+    fireEvent.click(visibleTab)
+    return visibleTab
+  }
+
+  fireEvent.click(screen.getByRole('button', { name: 'More company sections' }))
+  fireEvent.click(await screen.findByRole('menuitemradio', { name }))
+  return screen.findByRole('tab', { name })
+}
+
 describe('Portal company detail page', () => {
   beforeEach(() => {
     jest.clearAllMocks()
@@ -181,7 +193,7 @@ describe('Portal company detail page', () => {
       expect(screen.getByRole('heading', { name: 'Acme Holdings' })).toBeInTheDocument()
     })
 
-    fireEvent.click(screen.getByRole('tab', { name: /Contacts/i }))
+    await selectCompanyTab(/Contacts/i)
     await waitFor(() => {
       expect(screen.getByText('Jane Client')).toBeInTheDocument()
     })
@@ -191,7 +203,7 @@ describe('Portal company detail page', () => {
     expect(screen.queryByText('won')).not.toBeInTheDocument()
     expect(screen.queryByText(/Wave 3 wiring lands/i)).not.toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('tab', { name: /Invoices/i }))
+    await selectCompanyTab(/Invoices/i)
     await waitFor(() => {
       expect(screen.getByText('INV-001')).toBeInTheDocument()
     })
@@ -258,7 +270,7 @@ describe('Portal company detail page', () => {
     render(<CompanyDetailPage />)
 
     await screen.findByRole('heading', { name: 'Acme Holdings' })
-    fireEvent.click(screen.getByRole('tab', { name: /Contacts/i }))
+    await selectCompanyTab(/Contacts/i)
 
     const row = (await screen.findByRole('link', { name: 'Contact name missing' })).closest('tr')
     expect(row).not.toBeNull()
@@ -331,7 +343,7 @@ describe('Portal company detail page', () => {
     render(<CompanyDetailPage />)
 
     await screen.findByRole('heading', { name: 'Acme Holdings' })
-    fireEvent.click(screen.getByRole('tab', { name: /Deals/i }))
+    await selectCompanyTab(/Deals/i)
 
     const row = (await screen.findByRole('link', { name: 'Growth retainer' })).closest('tr')
     expect(row).not.toBeNull()
@@ -403,7 +415,7 @@ describe('Portal company detail page', () => {
     render(<CompanyDetailPage />)
 
     await screen.findByRole('heading', { name: 'Acme Holdings' })
-    fireEvent.click(screen.getByRole('tab', { name: /Quotes/i }))
+    await selectCompanyTab(/Quotes/i)
 
     const row = screen.getByText('Q-001').closest('tr')
     expect(row).not.toBeNull()
@@ -475,7 +487,7 @@ describe('Portal company detail page', () => {
     render(<CompanyDetailPage />)
 
     await screen.findByRole('heading', { name: 'Acme Holdings' })
-    fireEvent.click(screen.getByRole('tab', { name: /Invoices/i }))
+    await selectCompanyTab(/Invoices/i)
 
     const row = screen.getByText('INV-001').closest('tr')
     expect(row).not.toBeNull()
@@ -559,22 +571,22 @@ describe('Portal company detail page', () => {
 
     await screen.findByRole('heading', { name: 'Acme Holdings' })
 
-    fireEvent.click(screen.getByRole('tab', { name: /Projects/i }))
+    await selectCompanyTab(/Projects/i)
     expect(await screen.findByText(/Project update date needs review/)).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('tab', { name: /Documents/i }))
+    await selectCompanyTab(/Documents/i)
     expect(await screen.findByText(/Document update date needs review/)).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('tab', { name: /Quotes/i }))
+    await selectCompanyTab(/Quotes/i)
     expect(await screen.findByText('Valid date needs review')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('tab', { name: /Invoices/i }))
+    await selectCompanyTab(/Invoices/i)
     expect(await screen.findByText('Due date needs review')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('tab', { name: /Shipments/i }))
+    await selectCompanyTab(/Shipments/i)
     expect(await screen.findByText(/Expected delivery date needs review/)).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('tab', { name: /Activity/i }))
+    await selectCompanyTab(/Activity/i)
     expect(await screen.findByText('Activity time needs review')).toBeInTheDocument()
     expect(screen.queryByText(/Invalid Date/)).not.toBeInTheDocument()
   })
@@ -641,7 +653,7 @@ describe('Portal company detail page', () => {
     render(<CompanyDetailPage />)
 
     await screen.findByRole('heading', { name: 'Acme Holdings' })
-    fireEvent.click(screen.getByRole('tab', { name: /Orders/i }))
+    await selectCompanyTab(/Orders/i)
 
     expect(screen.getByText('Fulfillment order name missing')).toBeInTheDocument()
     expect(screen.getByText(/Fulfillment status not set/)).toBeInTheDocument()
@@ -713,7 +725,7 @@ describe('Portal company detail page', () => {
     render(<CompanyDetailPage />)
 
     await screen.findByRole('heading', { name: 'Acme Holdings' })
-    fireEvent.click(screen.getByRole('tab', { name: /Shipments/i }))
+    await selectCompanyTab(/Shipments/i)
 
     expect(screen.getByText('Carrier not set')).toBeInTheDocument()
     expect(screen.getByText(/Tracking number not set/)).toBeInTheDocument()
@@ -785,7 +797,7 @@ describe('Portal company detail page', () => {
     render(<CompanyDetailPage />)
 
     await screen.findByRole('heading', { name: 'Acme Holdings' })
-    fireEvent.click(screen.getByRole('tab', { name: /Inventory/i }))
+    await selectCompanyTab(/Inventory/i)
 
     expect(screen.getByText('Inventory item name missing')).toBeInTheDocument()
     expect(screen.getByText(/SKU not set/)).toBeInTheDocument()
@@ -857,7 +869,7 @@ describe('Portal company detail page', () => {
     render(<CompanyDetailPage />)
 
     await screen.findByRole('heading', { name: 'Acme Holdings' })
-    fireEvent.click(screen.getByRole('tab', { name: /Projects/i }))
+    await selectCompanyTab(/Projects/i)
 
     expect(screen.getByText('Project name missing')).toBeInTheDocument()
     expect(screen.getByText(/Description not captured/)).toBeInTheDocument()
@@ -931,7 +943,7 @@ describe('Portal company detail page', () => {
     render(<CompanyDetailPage />)
 
     await screen.findByRole('heading', { name: 'Acme Holdings' })
-    fireEvent.click(screen.getByRole('tab', { name: /Services/i }))
+    await selectCompanyTab(/Services/i)
 
     expect(screen.getByText('Service workspace name missing')).toBeInTheDocument()
     expect(screen.getByText(/Service type not set/)).toBeInTheDocument()
@@ -1003,7 +1015,7 @@ describe('Portal company detail page', () => {
     render(<CompanyDetailPage />)
 
     await screen.findByRole('heading', { name: 'Acme Holdings' })
-    fireEvent.click(screen.getByRole('tab', { name: /Documents/i }))
+    await selectCompanyTab(/Documents/i)
 
     expect(screen.getByText('Document title missing')).toBeInTheDocument()
     expect(screen.getByText(/Document type not set/)).toBeInTheDocument()
@@ -1075,7 +1087,7 @@ describe('Portal company detail page', () => {
     render(<CompanyDetailPage />)
 
     await screen.findByRole('heading', { name: 'Acme Holdings' })
-    fireEvent.click(screen.getByRole('tab', { name: /Relationships/i }))
+    await selectCompanyTab(/Relationships/i)
 
     expect(screen.getByText('Relationship target missing')).toBeInTheDocument()
     expect(screen.getByText(/Relationship type not set/)).toBeInTheDocument()
@@ -1147,7 +1159,7 @@ describe('Portal company detail page', () => {
     render(<CompanyDetailPage />)
 
     await screen.findByRole('heading', { name: 'Acme Holdings' })
-    fireEvent.click(screen.getByRole('tab', { name: /Activity/i }))
+    await selectCompanyTab(/Activity/i)
 
     expect(screen.getByText('Activity summary missing')).toBeInTheDocument()
     expect(screen.getByText('Activity type not set')).toBeInTheDocument()
@@ -1163,28 +1175,28 @@ describe('Portal company detail page', () => {
       expect(screen.getByRole('heading', { name: 'Acme Holdings' })).toBeInTheDocument()
     })
 
-    fireEvent.click(screen.getByRole('tab', { name: /Projects/i }))
+    await selectCompanyTab(/Projects/i)
     expect(await screen.findByText('SEO Sprint')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('tab', { name: /Services/i }))
+    await selectCompanyTab(/Services/i)
     expect(await screen.findByText('SEO Workspace')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('tab', { name: /Orders/i }))
+    await selectCompanyTab(/Orders/i)
     expect(await screen.findByText('Quote-to-delivery')).toBeInTheDocument()
     expect(screen.getByText('In progress')).toBeInTheDocument()
     expect(screen.queryByText('in_progress')).not.toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('tab', { name: /Shipments/i }))
+    await selectCompanyTab(/Shipments/i)
     expect(await screen.findByText('Internal delivery')).toBeInTheDocument()
     expect(screen.getByText('In transit')).toBeInTheDocument()
     expect(screen.queryByText('in_transit')).not.toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('tab', { name: /Inventory/i }))
+    await selectCompanyTab(/Inventory/i)
     expect(await screen.findByText('SEO Hours')).toBeInTheDocument()
     expect(screen.getByText('Low stock')).toBeInTheDocument()
     expect(screen.queryByText('low_stock')).not.toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('tab', { name: /Analytics/i }))
+    await selectCompanyTab(/Analytics/i)
     expect(await screen.findByText(/Account value/i)).toBeInTheDocument()
   })
 
@@ -1195,7 +1207,7 @@ describe('Portal company detail page', () => {
       expect(screen.getByRole('heading', { name: 'Acme Holdings' })).toBeInTheDocument()
     })
 
-    fireEvent.click(screen.getByRole('tab', { name: /Analytics/i }))
+    await selectCompanyTab(/Analytics/i)
 
     expect(await screen.findByText('Account operating brief')).toBeInTheDocument()
     expect(screen.getAllByText('1 low-stock item').length).toBeGreaterThan(0)
@@ -1267,7 +1279,7 @@ describe('Portal company detail page', () => {
 
     expect(await screen.findByRole('heading', { name: 'Acme Holdings' })).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('tab', { name: /Analytics/i }))
+    await selectCompanyTab(/Analytics/i)
 
     expect(await screen.findByText('Risk watch clear')).toBeInTheDocument()
     expect(screen.getByText('Keep leadership risk reviewable')).toBeInTheDocument()
@@ -1279,7 +1291,7 @@ describe('Portal company detail page', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Review invoices, orders, and inventory for Acme Holdings' }))
 
-    expect(await screen.findByRole('tab', { name: /Invoices/i })).toHaveAttribute('aria-selected', 'true')
+    expect(await selectCompanyTab(/Invoices/i)).toHaveAttribute('aria-selected', 'true')
   })
 
   it('turns an empty company contacts tab into a prefilled create-contact action', async () => {
@@ -1348,7 +1360,7 @@ describe('Portal company detail page', () => {
     render(<CompanyDetailPage />)
 
     await screen.findByRole('heading', { name: 'Acme Holdings' })
-    fireEvent.click(screen.getByRole('tab', { name: /Contacts/i }))
+    await selectCompanyTab(/Contacts/i)
 
     fireEvent.click(await screen.findByRole('button', { name: 'Add first contact for Acme Holdings' }))
     expect(screen.getByText('New contact')).toBeInTheDocument()
@@ -1454,7 +1466,7 @@ describe('Portal company detail page', () => {
     render(<CompanyDetailPage />)
 
     await screen.findByRole('heading', { name: 'Acme Holdings' })
-    fireEvent.click(screen.getByRole('tab', { name: /Deals/i }))
+    await selectCompanyTab(/Deals/i)
 
     fireEvent.click(await screen.findByRole('button', { name: 'Create first deal for Acme Holdings' }))
 
@@ -1531,7 +1543,7 @@ describe('Portal company detail page', () => {
     render(<CompanyDetailPage />)
 
     await screen.findByRole('heading', { name: 'Acme Holdings' })
-    fireEvent.click(screen.getByRole('tab', { name: /Activity/i }))
+    await selectCompanyTab(/Activity/i)
     fireEvent.click(await screen.findByRole('button', { name: 'Log first note for Acme Holdings' }))
 
     expect(screen.getByLabelText('Company note')).toBeInTheDocument()
@@ -1641,7 +1653,7 @@ describe('Portal company detail page', () => {
     render(<CompanyDetailPage />)
 
     await screen.findByRole('heading', { name: 'Acme Holdings' })
-    fireEvent.click(screen.getByRole('tab', { name: /Quotes/i }))
+    await selectCompanyTab(/Quotes/i)
     fireEvent.click(await screen.findByRole('button', { name: 'Create quote from Growth retainer' }))
 
     await waitFor(() => {
@@ -1738,7 +1750,7 @@ describe('Portal company detail page', () => {
     render(<CompanyDetailPage />)
 
     await screen.findByRole('heading', { name: 'Acme Holdings' })
-    fireEvent.click(screen.getByRole('tab', { name: /Projects/i }))
+    await selectCompanyTab(/Projects/i)
     fireEvent.click(await screen.findByRole('button', { name: 'Create discovery project for Acme Holdings' }))
 
     await waitFor(() => {
@@ -1833,7 +1845,7 @@ describe('Portal company detail page', () => {
     render(<CompanyDetailPage />)
 
     await screen.findByRole('heading', { name: 'Acme Holdings' })
-    fireEvent.click(screen.getByRole('tab', { name: /Services/i }))
+    await selectCompanyTab(/Services/i)
     fireEvent.click(await screen.findByRole('button', { name: 'Create service workspace for Acme Holdings' }))
 
     await waitFor(() => {
@@ -1928,7 +1940,7 @@ describe('Portal company detail page', () => {
     render(<CompanyDetailPage />)
 
     await screen.findByRole('heading', { name: 'Acme Holdings' })
-    fireEvent.click(screen.getByRole('tab', { name: /Documents/i }))
+    await selectCompanyTab(/Documents/i)
     fireEvent.click(await screen.findByRole('button', { name: 'Create sales proposal for Acme Holdings' }))
 
     await waitFor(() => {
@@ -2021,7 +2033,7 @@ describe('Portal company detail page', () => {
     render(<CompanyDetailPage />)
 
     await screen.findByRole('heading', { name: 'Acme Holdings' })
-    fireEvent.click(screen.getByRole('tab', { name: /Relationships/i }))
+    await selectCompanyTab(/Relationships/i)
     fireEvent.click(await screen.findByRole('button', { name: 'Create relationship for Acme Holdings' }))
 
     await waitFor(() => {
@@ -2119,7 +2131,7 @@ describe('Portal company detail page', () => {
     render(<CompanyDetailPage />)
 
     await screen.findByRole('heading', { name: 'Acme Holdings' })
-    fireEvent.click(screen.getByRole('tab', { name: /Invoices/i }))
+    await selectCompanyTab(/Invoices/i)
     fireEvent.click(await screen.findByRole('button', { name: 'Create invoice from QUO-001' }))
 
     await waitFor(() => {
@@ -2204,7 +2216,7 @@ describe('Portal company detail page', () => {
     render(<CompanyDetailPage />)
 
     await screen.findByRole('heading', { name: 'Acme Holdings' })
-    fireEvent.click(screen.getByRole('tab', { name: /Orders/i }))
+    await selectCompanyTab(/Orders/i)
     fireEvent.click(await screen.findByRole('button', { name: 'Create fulfillment order from INV-001' }))
 
     await waitFor(() => {
@@ -2303,7 +2315,7 @@ describe('Portal company detail page', () => {
     render(<CompanyDetailPage />)
 
     await screen.findByRole('heading', { name: 'Acme Holdings' })
-    fireEvent.click(screen.getByRole('tab', { name: /Shipments/i }))
+    await selectCompanyTab(/Shipments/i)
     fireEvent.click(await screen.findByRole('button', { name: 'Create shipment for Acme Holdings fulfillment order' }))
 
     await waitFor(() => {
@@ -2394,7 +2406,7 @@ describe('Portal company detail page', () => {
     render(<CompanyDetailPage />)
 
     await screen.findByRole('heading', { name: 'Acme Holdings' })
-    fireEvent.click(screen.getByRole('tab', { name: /Inventory/i }))
+    await selectCompanyTab(/Inventory/i)
     fireEvent.click(await screen.findByRole('button', { name: 'Create inventory item for Acme Holdings' }))
 
     await waitFor(() => {
