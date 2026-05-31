@@ -48,7 +48,7 @@ interface DealCardProps {
 
 function DealCard({ deal, stageColor = '#6b7280', contactBasePath = '/portal/contacts', contactLabel }: DealCardProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: deal.id })
-  const readableContactLabel = contactLabel?.trim() || 'Contact'
+  const readableContactLabel = contactLabel?.trim() || 'Contact identity missing'
 
   return (
     <div
