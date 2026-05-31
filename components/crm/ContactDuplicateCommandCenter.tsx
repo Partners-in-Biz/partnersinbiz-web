@@ -34,6 +34,19 @@ export function applyContactMergeToDuplicateGroups(
   })
 }
 
+function readableDuplicateContactLabel(value?: string): string {
+  const key = value?.trim()
+  if (!key) return ''
+  return key
+    .split(/[-_\s]+/)
+    .filter(Boolean)
+    .map((part, index) => {
+      const lower = part.toLowerCase()
+      return index === 0 ? lower.charAt(0).toUpperCase() + lower.slice(1) : lower
+    })
+    .join(' ')
+}
+
 function DuplicateGroupResolver({
   group,
   groupIndex,
@@ -93,7 +106,7 @@ function DuplicateGroupResolver({
                 </span>
                 {(contact.company || contact.stage) && (
                   <span className="mt-1 block truncate text-xs text-[var(--color-pib-text-muted)]">
-                    {[contact.company, contact.stage].filter(Boolean).join(' · ')}
+                    {[contact.company, readableDuplicateContactLabel(contact.stage)].filter(Boolean).join(' · ')}
                   </span>
                 )}
                 {isWinner && (

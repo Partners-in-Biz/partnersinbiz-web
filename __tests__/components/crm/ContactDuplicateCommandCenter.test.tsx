@@ -71,6 +71,22 @@ describe('ContactDuplicateCommandCenter', () => {
     expect(onMerge).toHaveBeenCalledWith(0, 'winner-1', 'loser-1')
   })
 
+  it('renders duplicate contact stages as readable CRM labels', () => {
+    render(
+      <ContactDuplicateCommandCenter
+        groups={groups}
+        mergingGroup={null}
+        onClose={jest.fn()}
+        onMerge={jest.fn()}
+      />,
+    )
+
+    expect(screen.getByText('Acme · Proposal')).toBeInTheDocument()
+    expect(screen.getByText('Acme South · Contacted')).toBeInTheDocument()
+    expect(screen.queryByText('Acme · proposal')).not.toBeInTheDocument()
+    expect(screen.queryByText('Acme South · contacted')).not.toBeInTheDocument()
+  })
+
   it('keeps unresolved contacts in a multi-contact duplicate group after one merge', () => {
     expect(applyContactMergeToDuplicateGroups(groups, 0, 'loser-1')).toEqual([
       {
