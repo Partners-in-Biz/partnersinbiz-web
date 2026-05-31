@@ -8,8 +8,10 @@ import type { Company } from '@/lib/companies/types'
 function fmtDate(ts: unknown): string {
   if (!ts || typeof ts !== 'object') return 'No update logged'
   const s = (ts as Record<string, unknown>)._seconds
-  if (typeof s !== 'number') return 'No update logged'
-  return new Date(s * 1000).toLocaleDateString('en-ZA', {
+  if (typeof s !== 'number') return '_seconds' in ts ? 'Update date needs review' : 'No update logged'
+  const date = new Date(s * 1000)
+  if (Number.isNaN(date.getTime())) return 'Update date needs review'
+  return date.toLocaleDateString('en-ZA', {
     day: 'numeric',
     month: 'short',
     year: 'numeric',

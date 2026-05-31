@@ -101,6 +101,20 @@ describe('CompaniesTable', () => {
     expect(screen.queryAllByText('—')).toHaveLength(0)
   })
 
+  it('names unreadable company update timestamps as metadata cleanup work', () => {
+    const company = makeCompany({
+      id: 'co-invalid-update',
+      name: 'Invalid Update Ltd',
+      updatedAt: { _seconds: Number.NaN } as never,
+    })
+
+    render(<CompaniesTable companies={[company]} loading={false} onRowClick={noop} />)
+
+    expect(screen.getByText('Update date needs review')).toBeInTheDocument()
+    expect(screen.queryByText('Invalid Date')).not.toBeInTheDocument()
+    expect(screen.queryByText('No update logged')).not.toBeInTheDocument()
+  })
+
   it('calls onRowClick with the company id when a row is clicked', () => {
     const handleClick = jest.fn()
     const company = makeCompany({ id: 'co-42', name: 'Click Me Inc' })
