@@ -69,6 +69,7 @@ export function DealDetailDrawer({
   const stage = stages.find(s => s.id === deal.stageId)
   const stageColor = stage?.color ?? (stage?.kind === 'won' ? '#4ade80' : stage?.kind === 'lost' ? '#ef4444' : '#60a5fa')
   const showLostReason = isLostStage(stage)
+  const dealLabel = deal.title?.trim() || 'Deal name missing'
   const readableContact = contactLabel?.trim() || 'Decision-maker name missing'
   const readableCompany = deal.companyName?.trim() || (deal.companyId ? 'Company name missing' : '')
   const ownerLabel = dealOwnerLabel(deal)
@@ -131,7 +132,7 @@ export function DealDetailDrawer({
           style={{ borderColor: 'var(--color-pib-line)' }}
         >
           <div className="flex items-center gap-3 min-w-0">
-            <p className="text-sm font-semibold text-[var(--color-pib-text)] truncate">{deal.title}</p>
+            <p className="text-sm font-semibold text-[var(--color-pib-text)] truncate">{dealLabel}</p>
             {stage && (
               <span
                 className="text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full shrink-0"
@@ -300,7 +301,7 @@ export function DealDetailDrawer({
                     {onEdit ? (
                       <button
                         type="button"
-                        aria-label={`Link decision-maker for ${deal.title}`}
+                        aria-label={`Link decision-maker for ${dealLabel}`}
                         onClick={onEdit}
                         className="inline-flex items-center gap-1 rounded-md border border-[var(--color-pib-line)] px-2 py-1 text-[11px] font-medium text-[var(--color-pib-accent)] transition-colors hover:border-[var(--color-pib-accent)] hover:text-[var(--color-pib-text)]"
                       >
@@ -326,7 +327,7 @@ export function DealDetailDrawer({
                     {onEdit ? (
                       <button
                         type="button"
-                        aria-label={`Link company for ${deal.title}`}
+                        aria-label={`Link company for ${dealLabel}`}
                         onClick={onEdit}
                         className="inline-flex items-center gap-1 rounded-md border border-[var(--color-pib-line)] px-2 py-1 text-[11px] font-medium text-[var(--color-pib-accent)] transition-colors hover:border-[var(--color-pib-accent)] hover:text-[var(--color-pib-text)]"
                       >
@@ -351,7 +352,7 @@ export function DealDetailDrawer({
                     {onEdit ? (
                       <button
                         type="button"
-                        aria-label={`Assign owner for ${deal.title}`}
+                        aria-label={`Assign owner for ${dealLabel}`}
                         onClick={onEdit}
                         className="btn-pib-secondary inline-flex items-center gap-1.5 text-xs"
                       >
@@ -378,7 +379,7 @@ export function DealDetailDrawer({
                     {onEdit ? (
                       <button
                         type="button"
-                        aria-label={`Set close date for ${deal.title}`}
+                        aria-label={`Set close date for ${dealLabel}`}
                         onClick={onEdit}
                         className="btn-pib-secondary inline-flex items-center gap-1.5 text-xs"
                       >

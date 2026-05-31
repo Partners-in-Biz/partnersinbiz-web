@@ -185,4 +185,35 @@ describe('DealDetailDrawer', () => {
     expect(screen.queryByText('contact-1')).not.toBeInTheDocument()
     expect(screen.queryByText('company-1')).not.toBeInTheDocument()
   })
+
+  it('names sparse deal titles across the drawer and setup actions', () => {
+    const onEdit = jest.fn()
+
+    render(
+      <DealDetailDrawer
+        deal={{
+          ...deal,
+          title: '',
+          contactId: '',
+          companyId: '',
+          companyName: '',
+          ownerUid: '',
+          ownerRef: undefined,
+          expectedCloseDate: null,
+        }}
+        stages={stages}
+        orgId="org-1"
+        onClose={jest.fn()}
+        onEdit={onEdit}
+      />,
+    )
+
+    expect(screen.getByText('Deal name missing')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Link decision-maker for Deal name missing' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Link company for Deal name missing' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Assign owner for Deal name missing' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Set close date for Deal name missing' })).toBeInTheDocument()
+
+    expect(screen.queryByRole('button', { name: /for\s*$/ })).not.toBeInTheDocument()
+  })
 })
