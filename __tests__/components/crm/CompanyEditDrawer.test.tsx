@@ -175,6 +175,21 @@ describe('CompanyEditDrawer', () => {
     expect(screen.getByText('churned')).toBeInTheDocument()
   })
 
+  it('names empty select placeholders so company setup gaps are actionable', () => {
+    render(
+      <CompanyEditDrawer
+        mode="create"
+        onSave={async () => {}}
+        onClose={noopClose}
+      />,
+    )
+
+    expect(screen.getByRole('option', { name: 'Select company size' })).toHaveValue('')
+    expect(screen.getByRole('option', { name: 'Select account tier' })).toHaveValue('')
+    expect(screen.getByRole('option', { name: 'Select lifecycle stage' })).toHaveValue('')
+    expect(screen.queryAllByRole('option', { name: '—' })).toHaveLength(0)
+  })
+
   it('pre-fills edit mode fields (domain, industry)', () => {
     render(
       <CompanyEditDrawer
