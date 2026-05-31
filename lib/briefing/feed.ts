@@ -3,7 +3,7 @@ import { adminAuth, adminDb } from '@/lib/firebase/admin'
 import type { ApiUser } from '@/lib/api/types'
 import { canAccessOrg } from '@/lib/api/platformAdmin'
 import type { BriefingCard, BriefingPriority, BriefingResponse, BriefingSourceAdapter, BriefingSourceItem, BriefingSourceType } from './types'
-import { activityAdapter, agentOutputAdapter, approvalAdapter, clientDocumentAdapter, commentAdapter, expenseAdapter, invoiceAdapter, notificationAdapter, projectAdapter, reportAdapter, seoContentAdapter, socialPostAdapter, supportTicketAdapter, taskAdapter } from './index'
+import { activityAdapter, adCampaignAdapter, agentOutputAdapter, approvalAdapter, clientDocumentAdapter, commentAdapter, expenseAdapter, invoiceAdapter, notificationAdapter, projectAdapter, reportAdapter, seoContentAdapter, socialPostAdapter, supportTicketAdapter, taskAdapter } from './index'
 import { comparePriority, formatTimeAgo, normalizeTimestamp, priorityRequiresAction } from './utils'
 
 const PLATFORM_ORG_ID = 'pib-platform-owner'
@@ -387,9 +387,13 @@ function decorate(item: BriefingSourceItem, orgs: Map<string, OrgSummary>): Brie
     orgName: item.context.orgName ?? org?.name ?? (item.orgId === PLATFORM_ORG_ID ? 'Partners in Biz' : null),
     orgSlug: item.context.orgSlug ?? org?.slug ?? null,
   }
+  const source = item.source.type === 'ad-campaign' && context.orgSlug
+    ? { ...item.source, url: `/admin/org/${encodeURIComponent(context.orgSlug)}/ads/campaigns/${encodeURIComponent(item.source.id)}` }
+    : item.source
   const score = (priorityRequiresAction(item.priority) ? 100 : 0) + Math.max(0, 30 - Math.floor((Date.now() - occurred.getTime()) / 86_400_000))
   return {
     ...item,
+    source,
     id: item.id ?? `${item.source.type}:${item.source.id}:${item.sourceHash}`,
     context,
     occurredAt: occurred,
@@ -593,6 +597,16 @@ export async function buildBriefingFeed(user: ApiUser, options: BriefingFeedOpti
       const docs = await fetchCollectionDocs('seo_content', scopedOrgIds)
       for (const doc of docs) {
         const item = toItemSafe(seoContentAdapter, normalizeDoc(doc), doc.id)
+        if (item) items.push(decorate(item, orgs))
+      }
+    } catch {}
+  }
+
+  if (include('ad-campaign')) {
+    try {
+      const docs = await fetchCollectionDocs('ad_campaigns', scopedOrgIds)
+      for (const doc of docs) {
+        const item = toItemSafe(adCampaignAdapter, normalizeDoc(doc), doc.id)
         if (item) items.push(decorate(item, orgs))
       }
     } catch {}

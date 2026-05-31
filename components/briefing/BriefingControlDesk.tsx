@@ -46,6 +46,8 @@ interface BriefingCard {
     seoContentId?: string | null
     seoContentTitle?: string | null
     seoSprintId?: string | null
+    adCampaignId?: string | null
+    adCampaignName?: string | null
   }
   metadata?: Record<string, unknown> | null
   occurredAt: string
@@ -87,6 +89,7 @@ const SOURCES = [
   { value: 'invoice', label: 'Invoices' },
   { value: 'expense', label: 'Expenses' },
   { value: 'seo-content', label: 'SEO content' },
+  { value: 'ad-campaign', label: 'Ad campaigns' },
 ]
 
 const PRIORITY_LABELS: Record<BriefingCard['priority'], string> = {
@@ -133,6 +136,7 @@ function sourceLabel(item: BriefingCard) {
   if (item.context.invoiceNumber || item.context.invoiceId) return `${item.source.type} / ${titledId(item.context.invoiceNumber, item.context.invoiceId ?? item.source.id)}`
   if (item.context.expenseCategory || item.context.expenseId) return `${item.source.type} / ${titledId(item.context.expenseCategory, item.context.expenseId ?? item.source.id)}`
   if (item.context.seoContentTitle || item.context.seoContentId) return `${item.source.type} / ${titledId(item.context.seoContentTitle, item.context.seoContentId ?? item.source.id)}`
+  if (item.context.adCampaignName || item.context.adCampaignId) return `${item.source.type} / ${titledId(item.context.adCampaignName, item.context.adCampaignId ?? item.source.id)}`
   return `${item.source.type} / ${item.source.id}`
 }
 
@@ -141,6 +145,7 @@ function sourceHref(item: BriefingCard, mode: Mode) {
   if (item.source.type === 'support-ticket') return mode === 'admin' ? `/admin/support?ticket=${encodeURIComponent(item.source.id)}` : '/portal'
   if (item.source.type === 'invoice') return mode === 'admin' ? `/admin/invoicing/${encodeURIComponent(item.source.id)}` : `/portal/payments?invoice=${encodeURIComponent(item.source.id)}`
   if (item.source.type === 'expense') return mode === 'admin' ? `/admin/finance?expense=${encodeURIComponent(item.source.id)}` : null
+  if (item.source.type === 'ad-campaign') return mode === 'admin' ? adminSourceHref(item) : `/portal/ads/campaigns/${encodeURIComponent(item.source.id)}`
   if (item.source.type === 'seo-content') {
     const sprintId = item.context.seoSprintId
     const contentId = encodeURIComponent(item.source.id)
@@ -162,6 +167,10 @@ function adminSourceHref(item: BriefingCard) {
   if (item.source.type === 'support-ticket') return `/admin/support?ticket=${encodeURIComponent(item.source.id)}`
   if (item.source.type === 'invoice') return `/admin/invoicing/${encodeURIComponent(item.source.id)}`
   if (item.source.type === 'expense') return `/admin/finance?expense=${encodeURIComponent(item.source.id)}`
+  if (item.source.type === 'ad-campaign') {
+    if (item.context.orgSlug) return `/admin/org/${encodeURIComponent(item.context.orgSlug)}/ads/campaigns/${encodeURIComponent(item.source.id)}`
+    return `/admin/marketing?adCampaign=${encodeURIComponent(item.source.id)}`
+  }
   if (item.source.type === 'seo-content') {
     const sprintId = item.context.seoSprintId
     const contentId = encodeURIComponent(item.source.id)
@@ -244,6 +253,14 @@ function seoContentReviewable(item: BriefingCard) {
   return canSeoContentAct(item) && item.metadata?.seoStatus === 'review'
 }
 
+function canAdCampaignAct(item: BriefingCard) {
+  return item.source.type === 'ad-campaign' && Boolean(item.source.id)
+}
+
+function adCampaignReviewable(item: BriefingCard) {
+  return canAdCampaignAct(item) && item.metadata?.reviewState === 'awaiting'
+}
+
 function socialActionStage(item: BriefingCard): 'client' | 'qa' | null {
   const stage = item.metadata?.actionStage
   if (stage === 'client' || stage === 'qa') return stage
@@ -286,6 +303,7 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
   const [reportRecipients, setReportRecipients] = useState('')
   const [expenseReviewText, setExpenseReviewText] = useState('')
   const [seoChangeText, setSeoChangeText] = useState('')
+  const [adCampaignChangeText, setAdCampaignChangeText] = useState('')
   const [busyAction, setBusyAction] = useState<string | null>(null)
   const [flash, setFlash] = useState<Flash>(null)
 
@@ -824,6 +842,29 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
     }
   }
 
+  async function adCampaignAction(item: BriefingCard, action: 'approve' | 'reject') {
+    if (!adCampaignReviewable(item)) return
+    const reason = adCampaignChangeText.trim()
+    if (action === 'reject' && !reason) return
+    setBusyAction(`ad-campaign-${action}`)
+    try {
+      const res = await fetch(`/api/v1/portal/ads/campaigns/${encodeURIComponent(item.source.id)}/${action}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: action === 'reject' ? JSON.stringify({ reason }) : undefined,
+      })
+      const body = await res.json()
+      if (!res.ok) throw new Error(body.error || 'Ad campaign action failed')
+      if (action === 'reject') setAdCampaignChangeText('')
+      setFlash({ kind: 'ok', message: action === 'approve' ? 'Ad campaign approved from the control desk.' : 'Ad campaign changes requested.' })
+      await loadFeed({ quiet: true })
+    } catch (err) {
+      setFlash({ kind: 'error', message: err instanceof Error ? err.message : 'Ad campaign action failed' })
+    } finally {
+      setBusyAction(null)
+    }
+  }
+
   async function unblockTask(item: BriefingCard) {
     if (!canTaskAct(item)) return
     setBusyAction('unblock')
@@ -1129,6 +1170,18 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                       Request SEO changes
                     </button>
                   ) : null}
+                  {adCampaignReviewable(selected) ? (
+                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => adCampaignAction(selected, 'approve')} disabled={!!busyAction}>
+                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">verified</span>
+                      Approve ad campaign
+                    </button>
+                  ) : null}
+                  {adCampaignReviewable(selected) ? (
+                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => adCampaignAction(selected, 'reject')} disabled={!adCampaignChangeText.trim() || !!busyAction}>
+                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">assignment_return</span>
+                      Request ad campaign changes
+                    </button>
+                  ) : null}
                 </div>
 
                 {canSocialPostAct(selected) && socialActionStage(selected) ? (
@@ -1252,6 +1305,21 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                   </div>
                 ) : null}
 
+                {adCampaignReviewable(selected) ? (
+                  <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                    <label className="text-xs font-medium text-on-surface-variant" htmlFor="briefing-ad-campaign-change-request">
+                      Ad campaign change request
+                    </label>
+                    <textarea
+                      id="briefing-ad-campaign-change-request"
+                      className="pib-input mt-2 min-h-20 w-full resize-y"
+                      value={adCampaignChangeText}
+                      onChange={(event) => setAdCampaignChangeText(event.target.value)}
+                      placeholder="Tell the ads team what must change before launch..."
+                    />
+                  </div>
+                ) : null}
+
                 <dl className="space-y-3 text-sm">
                   <div><dt className="text-on-surface-variant">Actor</dt><dd className="text-on-surface">{titledId(selected.actor.name, selected.actor.id)}</dd></div>
                   <div><dt className="text-on-surface-variant">Workspace</dt><dd className="text-on-surface">{titledId(selected.context.orgName, selected.orgId)}</dd></div>
@@ -1266,6 +1334,7 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                   {selected.context.invoiceNumber || selected.context.invoiceId ? <div><dt className="text-on-surface-variant">Invoice</dt><dd className="text-on-surface">{titledId(selected.context.invoiceNumber, selected.context.invoiceId ?? selected.source.id)}</dd></div> : null}
                   {selected.context.expenseCategory || selected.context.expenseId ? <div><dt className="text-on-surface-variant">Expense</dt><dd className="text-on-surface">{titledId(selected.context.expenseCategory, selected.context.expenseId ?? selected.source.id)}</dd></div> : null}
                   {selected.context.seoContentTitle || selected.context.seoContentId ? <div><dt className="text-on-surface-variant">SEO content</dt><dd className="text-on-surface">{titledId(selected.context.seoContentTitle, selected.context.seoContentId ?? selected.source.id)}</dd></div> : null}
+                  {selected.context.adCampaignName || selected.context.adCampaignId ? <div><dt className="text-on-surface-variant">Ad campaign</dt><dd className="text-on-surface">{titledId(selected.context.adCampaignName, selected.context.adCampaignId ?? selected.source.id)}</dd></div> : null}
                   <div><dt className="text-on-surface-variant">Occurred</dt><dd className="text-on-surface">{new Date(selected.occurredAt).toLocaleString('en-ZA')}</dd></div>
                   <div><dt className="text-on-surface-variant">Source</dt><dd className="text-on-surface">{sourceLabel(selected)}</dd></div>
                 </dl>

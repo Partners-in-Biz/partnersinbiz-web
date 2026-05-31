@@ -359,6 +359,34 @@ const seoContentBriefingItem = {
   occurredAt: '2026-05-31T09:53:00.000Z',
 }
 
+const adCampaignBriefingItem = {
+  id: 'ad-campaign:ad-campaign-1',
+  orgId: 'org-1',
+  priority: 'needs-peet',
+  title: 'Ad campaign awaiting approval: June lead generation push',
+  summary: 'Meta LEADS campaign is waiting for client approval.',
+  excerpt: 'Client must approve before launch.',
+  timeAgo: '13 minutes ago',
+  requiresAction: true,
+  source: { type: 'ad-campaign', id: 'ad-campaign-1', url: '/admin/org/client-one/ads/campaigns/ad-campaign-1' },
+  actor: { id: 'admin-1', name: 'Peet', role: 'admin', type: 'user' },
+  context: {
+    orgId: 'org-1',
+    orgName: 'Client One',
+    orgSlug: 'client-one',
+    adCampaignId: 'ad-campaign-1',
+    adCampaignName: 'June lead generation push',
+  },
+  metadata: {
+    adCampaignStatus: 'PENDING_REVIEW',
+    reviewState: 'awaiting',
+    platform: 'meta',
+    objective: 'LEADS',
+    dailyBudget: 25000,
+  },
+  occurredAt: '2026-05-31T09:52:00.000Z',
+}
+
 describe('BriefingControlDesk', () => {
   beforeEach(() => {
     jest.useFakeTimers()
@@ -377,7 +405,7 @@ describe('BriefingControlDesk', () => {
       if (url.startsWith('/api/v1/briefings/feed')) {
         const items = url.includes('orgId=org-2')
           ? [secondOrgBriefingItem]
-          : [briefingItem, documentBriefingItem, documentCommentBriefingItem, approvalBriefingItem, conversationBriefingItem, socialBriefingItem, notificationBriefingItem, activityBriefingItem, reportBriefingItem, supportBriefingItem, invoiceBriefingItem, expenseBriefingItem, seoContentBriefingItem, secondOrgBriefingItem]
+          : [briefingItem, documentBriefingItem, documentCommentBriefingItem, approvalBriefingItem, conversationBriefingItem, socialBriefingItem, notificationBriefingItem, activityBriefingItem, reportBriefingItem, supportBriefingItem, invoiceBriefingItem, expenseBriefingItem, seoContentBriefingItem, adCampaignBriefingItem, secondOrgBriefingItem]
         return {
           ok: true,
           json: async () => ({ data: { items, total: items.length, hasMore: false, generatedAt: '2026-05-31T10:05:00.000Z' } }),
@@ -489,6 +517,18 @@ describe('BriefingControlDesk', () => {
         return {
           ok: true,
           json: async () => ({ data: { id: 'seo-comment-1', statusFlipped: true } }),
+        } as Response
+      }
+      if (url === '/api/v1/portal/ads/campaigns/ad-campaign-1/approve') {
+        return {
+          ok: true,
+          json: async () => ({ data: { id: 'ad-campaign-1', reviewState: 'approved' } }),
+        } as Response
+      }
+      if (url === '/api/v1/portal/ads/campaigns/ad-campaign-1/reject') {
+        return {
+          ok: true,
+          json: async () => ({ data: { id: 'ad-campaign-1', reviewState: 'rejected' } }),
         } as Response
       }
       return {
@@ -924,6 +964,41 @@ describe('BriefingControlDesk', () => {
       expect(global.fetch).toHaveBeenCalledWith('/api/v1/seo/content/seo-content-1/comments', expect.objectContaining({
         method: 'POST',
         body: JSON.stringify({ text: 'Please add a local pricing example before publishing.' }),
+      }))
+    })
+  })
+
+  it('approves and rejects ad campaign review cards from the control desk', async () => {
+    render(<BriefingControlDesk mode="portal" />)
+
+    fireEvent.click(await screen.findByRole('button', { name: /Ad campaign awaiting approval: June lead generation push/i }))
+
+    expect(screen.getByText('June lead generation push (ad-campaign-1)')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /open source/i })).toHaveAttribute('href', '/portal/ads/campaigns/ad-campaign-1')
+    expect(screen.getByRole('button', { name: /approve ad campaign/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /request ad campaign changes/i })).toBeDisabled()
+
+    fireEvent.click(screen.getByRole('button', { name: /approve ad campaign/i }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/portal/ads/campaigns/ad-campaign-1/approve', expect.objectContaining({
+        method: 'POST',
+      }))
+    })
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /approve ad campaign/i })).not.toBeDisabled()
+    })
+
+    fireEvent.change(screen.getByLabelText('Ad campaign change request'), { target: { value: 'Please reduce the daily budget before launch.' } })
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /request ad campaign changes/i })).not.toBeDisabled()
+    })
+    fireEvent.click(screen.getByRole('button', { name: /request ad campaign changes/i }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/portal/ads/campaigns/ad-campaign-1/reject', expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ reason: 'Please reduce the daily budget before launch.' }),
       }))
     })
   })

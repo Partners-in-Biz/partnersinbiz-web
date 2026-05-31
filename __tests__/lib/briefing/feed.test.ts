@@ -648,4 +648,74 @@ describe('briefing feed', () => {
     expect(JSON.stringify(adminFeed.items)).not.toContain('seo-secret-123')
     expect(JSON.stringify(adminFeed.items)).toContain('[REDACTED]')
   })
+
+  it('surfaces ad campaigns awaiting client approval as control cards', async () => {
+    collections.organizations = [makeDoc('org-1', { name: 'Client One', slug: 'client-one' })]
+    collections.ad_campaigns = [
+      makeDoc('ad-campaign-1', {
+        orgId: 'org-1',
+        platform: 'meta',
+        adAccountId: 'act_123',
+        name: 'June lead generation push',
+        objective: 'LEADS',
+        status: 'PENDING_REVIEW',
+        reviewState: 'awaiting',
+        dailyBudget: 25000,
+        startTime: '2026-06-03T08:00:00.000Z',
+        submittedForReviewAt: '2026-05-31T10:45:00.000Z',
+        submittedForReviewBy: 'admin-1',
+        createdBy: 'admin-1',
+        updatedAt: '2026-05-31T10:45:00.000Z',
+        approvalNotes: 'Client must approve before launch. token: ad-secret-123',
+      }),
+      makeDoc('ad-campaign-2', {
+        orgId: 'org-1',
+        platform: 'meta',
+        adAccountId: 'act_123',
+        name: 'Already approved push',
+        objective: 'TRAFFIC',
+        status: 'PENDING_REVIEW',
+        reviewState: 'approved',
+        updatedAt: '2026-05-31T09:45:00.000Z',
+      }),
+    ]
+
+    const { buildBriefingFeed } = await import('@/lib/briefing/feed')
+    const adminFeed = await buildBriefingFeed(
+      { uid: 'admin-1', role: 'admin', allowedOrgIds: ['org-1'] },
+      { limit: 10, sourceType: 'ad-campaign' },
+    )
+    const clientFeed = await buildBriefingFeed(
+      { uid: 'client-1', role: 'client', orgIds: ['org-1'], orgId: 'org-1' },
+      { limit: 10, sourceType: 'ad-campaign' },
+    )
+
+    expect(adminFeed.items).toHaveLength(1)
+    expect(clientFeed.items).toHaveLength(1)
+    expect(adminFeed.items[0]).toMatchObject({
+      priority: 'needs-peet',
+      requiresAction: true,
+      source: { type: 'ad-campaign', id: 'ad-campaign-1', url: '/admin/org/client-one/ads/campaigns/ad-campaign-1' },
+      title: 'Ad campaign awaiting approval: June lead generation push',
+      actor: { id: 'admin-1', type: 'user' },
+      context: {
+        orgName: 'Client One',
+        orgSlug: 'client-one',
+        adCampaignId: 'ad-campaign-1',
+        adCampaignName: 'June lead generation push',
+      },
+      metadata: expect.objectContaining({
+        adCampaignStatus: 'PENDING_REVIEW',
+        reviewState: 'awaiting',
+        platform: 'meta',
+        objective: 'LEADS',
+        dailyBudget: 25000,
+        adAccountId: 'act_123',
+      }),
+    })
+    expect(adminFeed.items[0].summary).toContain('LEADS campaign')
+    expect(adminFeed.items[0].summary).toContain('R250.00 daily budget')
+    expect(JSON.stringify(adminFeed.items)).not.toContain('ad-secret-123')
+    expect(JSON.stringify(adminFeed.items)).toContain('[REDACTED]')
+  })
 })
