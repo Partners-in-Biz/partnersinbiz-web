@@ -247,6 +247,12 @@ function quoteTotalLabel(quote: RelatedQuote) {
     : 'No total captured'
 }
 
+function invoiceTotalLabel(invoice: RelatedInvoice) {
+  return typeof invoice.total === 'number' && Number.isFinite(invoice.total)
+    ? formatCurrency(invoice.total, invoice.currency || 'ZAR')
+    : 'No total captured'
+}
+
 function formatDate(value: unknown) {
   if (!value) return '-'
   let date: Date | null = null
@@ -268,6 +274,11 @@ function formatDate(value: unknown) {
 function quoteValidUntilLabel(quote: RelatedQuote) {
   const date = formatDate(quote.validUntil)
   return date === '-' ? 'Valid date not set' : date
+}
+
+function invoiceDueDateLabel(invoice: RelatedInvoice) {
+  const date = formatDate(invoice.dueDate)
+  return date === '-' ? 'Due date not set' : date
 }
 
 function extractList<T>(body: unknown, key: keyof RelatedState): T[] {
@@ -804,9 +815,9 @@ function InvoicesPanel({
           {invoices.map((invoice) => (
             <tr key={invoice.id} className="hover:bg-white/[0.02]">
               <td className="px-5 py-4 font-mono">{invoice.invoiceNumber || invoice.id}</td>
-              <td className="px-5 py-4"><StatusChip value={invoice.status} /></td>
-              <td className="px-5 py-4">{formatCurrency(invoice.total, invoice.currency || 'ZAR')}</td>
-              <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{formatDate(invoice.dueDate)}</td>
+              <td className="px-5 py-4"><StatusChip value={invoice.status} emptyLabel="Invoice status not set" /></td>
+              <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{invoiceTotalLabel(invoice)}</td>
+              <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{invoiceDueDateLabel(invoice)}</td>
               <td className="px-5 py-4 text-right">
                 <a href={`/api/v1/invoices/${invoice.id}/pdf`} target="_blank" rel="noopener noreferrer" className="text-[var(--color-accent-v2)] hover:underline">
                   Open
