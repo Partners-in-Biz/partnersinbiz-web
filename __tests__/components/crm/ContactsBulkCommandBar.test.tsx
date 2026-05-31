@@ -67,4 +67,51 @@ describe('ContactsBulkCommandBar', () => {
     fireEvent.click(screen.getByRole('button', { name: /delete selected contacts/i }))
     expect(onDelete).toHaveBeenCalled()
   })
+
+  it('renders bulk stage and type options as readable CRM labels', () => {
+    const defaultProps = {
+      selectedCount: 2,
+      totalCount: 8,
+      bulkPending: false,
+      teamMembers,
+      bulkAssignUid: '',
+      bulkStage: 'proposal',
+      bulkType: 'client',
+      bulkTagsInput: '',
+      stages: ['new', 'proposal', 'won'],
+      types: ['lead', 'client'],
+      onActionChange: jest.fn(),
+      onAssignUidChange: jest.fn(),
+      onStageChange: jest.fn(),
+      onTypeChange: jest.fn(),
+      onTagsInputChange: jest.fn(),
+      onClear: jest.fn(),
+      onApply: jest.fn(),
+      onDelete: jest.fn(),
+    }
+
+    const { rerender } = render(
+      <ContactsBulkCommandBar
+        {...defaultProps}
+        bulkAction="stage"
+      />,
+    )
+
+    const stageSelect = screen.getByLabelText('Stage') as HTMLSelectElement
+    expect(Array.from(stageSelect.options).map((option) => option.text)).toEqual(['New', 'Proposal', 'Won'])
+    expect(Array.from(stageSelect.options).map((option) => option.value)).toEqual(['new', 'proposal', 'won'])
+    expect(screen.queryByRole('option', { name: 'proposal' })).not.toBeInTheDocument()
+
+    rerender(
+      <ContactsBulkCommandBar
+        {...defaultProps}
+        bulkAction="type"
+      />,
+    )
+
+    const typeSelect = screen.getByLabelText('Type') as HTMLSelectElement
+    expect(Array.from(typeSelect.options).map((option) => option.text)).toEqual(['Lead', 'Client'])
+    expect(Array.from(typeSelect.options).map((option) => option.value)).toEqual(['lead', 'client'])
+    expect(screen.queryByRole('option', { name: 'client' })).not.toBeInTheDocument()
+  })
 })
