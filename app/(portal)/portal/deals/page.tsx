@@ -154,6 +154,21 @@ function dealTitleLabel(deal: Deal): string {
   return deal.title?.trim() || 'Deal name missing'
 }
 
+function fallbackStageLabel(stageId?: string): string {
+  const normalized = stageId?.trim()
+  if (!normalized) return 'Stage not set'
+
+  return normalized
+    .split(/[_\-\s]+/)
+    .filter(Boolean)
+    .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(' ')
+}
+
+function dealStageLabel(deal: Deal, stage?: PipelineStage): string {
+  return stage?.label?.trim() || fallbackStageLabel(deal.stageId)
+}
+
 function teamMemberLabel(member: TeamMember): string {
   const label = teamMemberDisplayName(member)
   return member.jobTitle?.trim() ? `${label} - ${member.jobTitle.trim()}` : label
@@ -834,7 +849,7 @@ export default function DealsPage() {
                 {filteredDeals.map(deal => {
                   const stage = stages.find(s => s.id === deal.stageId)
                   const stageColor = stage?.color ?? stageColorByKind(stage?.kind)
-                  const stageLabel = stage?.label ?? deal.stageId
+                  const stageLabel = dealStageLabel(deal, stage)
                   const prob = deal.probability ?? stage?.probability ?? 100
                   const weighted = (deal.value ?? 0) * (prob / 100)
                   const contactLabel = contactLabelsById[deal.contactId]
@@ -987,7 +1002,7 @@ export default function DealsPage() {
                 ) : (
                   openDeals.map(deal => {
                     const stage = stages.find(s => s.id === deal.stageId)
-                    const stageLabel = stage?.label ?? deal.stageId
+                    const stageLabel = dealStageLabel(deal, stage)
                     const prob = deal.probability ?? stage?.probability ?? 50
                     const weighted = (deal.value ?? 0) * (prob / 100)
                     const dealTitle = dealTitleLabel(deal)

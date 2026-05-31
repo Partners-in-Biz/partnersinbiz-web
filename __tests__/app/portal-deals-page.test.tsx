@@ -493,6 +493,40 @@ describe('Portal deals page', () => {
     expect(await screen.findByRole('link', { name: 'Deal name missing' })).toHaveAttribute('href', '/portal/deals/deal-sparse-title')
   })
 
+  it('names unresolved deal stages in list and forecast workflows', async () => {
+    mockSearchParams = new URLSearchParams('view=list')
+    mockDealRows = [
+      {
+        id: 'deal-stale-stage',
+        orgId: 'org-1',
+        contactId: 'contact-1',
+        title: 'Stale stage expansion',
+        value: 50000,
+        currency: 'ZAR',
+        pipelineId: 'pipeline-1',
+        stageId: 'proposal_sent',
+        ownerUid: 'owner-1',
+        ownerRef: { uid: 'owner-1', displayName: 'Maya Sales' },
+        expectedCloseDate: '2026-06-15',
+        notes: '',
+        createdAt: null,
+        updatedAt: null,
+      },
+    ]
+
+    render(<DealsPage />)
+
+    const row = (await screen.findByText('Stale stage expansion')).closest('[data-deal-row]')
+    expect(row).not.toBeNull()
+    expect(within(row as HTMLElement).getByText('Proposal Sent')).toBeInTheDocument()
+    expect(within(row as HTMLElement).queryByText('proposal_sent')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('tab', { name: /Forecast/i }))
+
+    expect(await screen.findByText('Proposal Sent')).toBeInTheDocument()
+    expect(screen.queryByText('proposal_sent')).not.toBeInTheDocument()
+  })
+
   it('turns an empty forecast into a create-deal action', async () => {
     mockDealRows = []
 
