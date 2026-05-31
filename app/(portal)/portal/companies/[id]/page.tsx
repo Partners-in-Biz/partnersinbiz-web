@@ -241,6 +241,12 @@ function dealProbabilityLabel(deal: RelatedDeal) {
     : 'Probability not set'
 }
 
+function quoteTotalLabel(quote: RelatedQuote) {
+  return typeof quote.total === 'number' && Number.isFinite(quote.total)
+    ? formatCurrency(quote.total, quote.currency || 'ZAR')
+    : 'No total captured'
+}
+
 function formatDate(value: unknown) {
   if (!value) return '-'
   let date: Date | null = null
@@ -257,6 +263,11 @@ function formatDate(value: unknown) {
     }
   }
   return date ? date.toLocaleDateString('en-ZA', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'
+}
+
+function quoteValidUntilLabel(quote: RelatedQuote) {
+  const date = formatDate(quote.validUntil)
+  return date === '-' ? 'Valid date not set' : date
 }
 
 function extractList<T>(body: unknown, key: keyof RelatedState): T[] {
@@ -712,9 +723,9 @@ function QuotesPanel({
           {quotes.map((quote) => (
             <tr key={quote.id} className="hover:bg-white/[0.02]">
               <td className="px-5 py-4 font-mono">{quote.quoteNumber || quote.id}</td>
-              <td className="px-5 py-4"><StatusChip value={quote.status} /></td>
-              <td className="px-5 py-4">{formatCurrency(quote.total, quote.currency || 'ZAR')}</td>
-              <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{formatDate(quote.validUntil)}</td>
+              <td className="px-5 py-4"><StatusChip value={quote.status} emptyLabel="Quote status not set" /></td>
+              <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{quoteTotalLabel(quote)}</td>
+              <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{quoteValidUntilLabel(quote)}</td>
             </tr>
           ))}
         </tbody>
