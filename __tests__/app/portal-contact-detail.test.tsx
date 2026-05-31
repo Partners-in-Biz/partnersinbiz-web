@@ -6,6 +6,8 @@ import type { CustomFieldDefinition } from '@/lib/customFields/types'
 let mockContactCustomFieldDefinitions: CustomFieldDefinition[] = []
 let mockSuggestions: Array<{ action: string; reason: string; urgency: 'high' | 'medium' | 'low' }> = []
 let mockContactOverrides: Record<string, unknown> = {}
+let mockEmails: Array<{ id: string; subject?: string; status?: string; direction?: string; sentAt?: unknown; createdAt?: unknown }> = []
+let mockActivities: Array<{ id: string; type?: string; summary?: string; notes?: string; createdAt?: unknown; createdByRef?: { displayName?: string } }> = []
 let mockEnrollments: Array<{ id: string; sequenceId: string; sequenceName?: string; currentStep?: number; status?: string }> = []
 let mockSequences: Array<{ id: string; name: string }> = []
 let mockSequenceEnrollError = ''
@@ -26,6 +28,8 @@ describe('Portal contact detail page', () => {
     mockContactCustomFieldDefinitions = []
     mockSuggestions = []
     mockContactOverrides = {}
+    mockEmails = []
+    mockActivities = []
     mockEnrollments = []
     mockSequences = []
     mockSequenceEnrollError = ''
@@ -67,13 +71,13 @@ describe('Portal contact detail page', () => {
       if (url === '/api/v1/email?contactId=contact-1&limit=20') {
         return Promise.resolve({
           ok: true,
-          json: async () => ({ data: [] }),
+          json: async () => ({ data: mockEmails }),
         } as Response)
       }
       if (url === '/api/v1/crm/activities?contactId=contact-1&limit=50') {
         return Promise.resolve({
           ok: true,
-          json: async () => ({ data: { activities: [] } }),
+          json: async () => ({ data: { activities: mockActivities } }),
         } as Response)
       }
       if (url === '/api/v1/crm/contacts/contact-1/suggestions') {
@@ -632,6 +636,33 @@ describe('Portal contact detail page', () => {
 
     expect(screen.getByText('Not scored')).toBeInTheDocument()
     expect(screen.getByText('No touch yet')).toBeInTheDocument()
+    expect(screen.queryAllByText('—')).toHaveLength(0)
+  })
+
+  it('names missing email and activity timestamps on contact history rows', async () => {
+    mockEmails = [{
+      id: 'email-1',
+      subject: 'Proposal follow-up',
+      status: 'sent',
+      direction: 'outbound',
+    }]
+    mockActivities = [{
+      id: 'activity-1',
+      type: 'note',
+      summary: 'Discussed implementation handoff',
+      createdByRef: { displayName: 'Mandy Manager' },
+    }]
+
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    expect(await screen.findByText('Proposal follow-up')).toBeInTheDocument()
+    expect(screen.getByText('sent · Email time not captured')).toBeInTheDocument()
+    expect(screen.getByText('Discussed implementation handoff')).toBeInTheDocument()
+    expect(screen.getByText('Mandy Manager · Activity time not captured')).toBeInTheDocument()
     expect(screen.queryAllByText('—')).toHaveLength(0)
   })
 

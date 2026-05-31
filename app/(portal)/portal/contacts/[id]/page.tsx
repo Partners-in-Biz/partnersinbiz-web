@@ -161,6 +161,14 @@ function activityMetricCaption(count: number): string {
   return count === 1 ? '1 relationship touch logged' : `${count} relationship touches logged`
 }
 
+function emailTimeLabel(email: EmailRecord): string {
+  return fmtTimestamp(email.sentAt) || fmtTimestamp(email.createdAt) || 'Email time not captured'
+}
+
+function activityTimeLabel(activity: ActivityRecord): string {
+  return fmtTimestamp(activity.createdAt) || 'Activity time not captured'
+}
+
 function normalizeSequenceOptions(body: unknown): { id: string; name: string }[] {
   if (!body || typeof body !== 'object') return []
   const payload = body as { data?: unknown }
@@ -1600,7 +1608,7 @@ export default function PortalContactDetailPage() {
                       <p className="text-sm truncate">{e.subject || '(no subject)'}</p>
                       <p className="text-[11px] text-[var(--color-pib-text-muted)] font-mono mt-0.5">
                         {e.status ? `${e.status} · ` : ''}
-                        {fmtTimestamp(e.sentAt) || fmtTimestamp(e.createdAt) || ''}
+                        {emailTimeLabel(e)}
                       </p>
                     </div>
                   </div>
@@ -1904,7 +1912,7 @@ export default function PortalContactDetailPage() {
                     <div className="flex-1 min-w-0">
                       <p className="text-sm text-[var(--color-pib-text)]">{a.summary ?? a.notes ?? a.type}</p>
                       <p className="text-xs text-[var(--color-pib-text-muted)] mt-0.5">
-                        {a.createdByRef?.displayName ?? 'System'} · {fmtTimestamp(a.createdAt)}
+                        {a.createdByRef?.displayName ?? 'System'} · {activityTimeLabel(a)}
                       </p>
                     </div>
                   </div>
