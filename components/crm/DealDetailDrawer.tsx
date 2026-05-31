@@ -63,8 +63,8 @@ export function DealDetailDrawer({
   const stage = stages.find(s => s.id === deal.stageId)
   const stageColor = stage?.color ?? (stage?.kind === 'won' ? '#4ade80' : stage?.kind === 'lost' ? '#ef4444' : '#60a5fa')
   const showLostReason = isLostStage(stage)
-  const readableContact = contactLabel?.trim() || deal.contactId
-  const readableCompany = deal.companyName?.trim() || deal.companyId
+  const readableContact = contactLabel?.trim() || 'Decision-maker name missing'
+  const readableCompany = deal.companyName?.trim() || (deal.companyId ? 'Company name missing' : '')
   const ownerLabel = deal.ownerRef?.displayName || deal.ownerUid || 'Unassigned'
   const needsOwner = !deal.ownerRef?.displayName && !deal.ownerUid
   const closeDateLabel = fmtDate(deal.expectedCloseDate)

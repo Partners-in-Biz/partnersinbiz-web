@@ -149,4 +149,26 @@ describe('DealDetailDrawer', () => {
     expect(screen.getByText('Value needed')).toBeInTheDocument()
     expect(screen.queryByText(/R\s*0[,.]00/)).not.toBeInTheDocument()
   })
+
+  it('names linked relationship records when display labels are missing', () => {
+    render(
+      <DealDetailDrawer
+        deal={{ ...deal, companyName: '' }}
+        stages={stages}
+        orgId="org-1"
+        onClose={jest.fn()}
+      />,
+    )
+
+    expect(screen.getByRole('link', { name: 'Decision-maker name missing' })).toHaveAttribute(
+      'href',
+      '/portal/contacts/contact-1',
+    )
+    expect(screen.getByRole('link', { name: 'Company name missing' })).toHaveAttribute(
+      'href',
+      '/portal/companies/company-1',
+    )
+    expect(screen.queryByText('contact-1')).not.toBeInTheDocument()
+    expect(screen.queryByText('company-1')).not.toBeInTheDocument()
+  })
 })
