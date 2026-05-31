@@ -3,7 +3,7 @@ import { adminAuth, adminDb } from '@/lib/firebase/admin'
 import type { ApiUser } from '@/lib/api/types'
 import { canAccessOrg } from '@/lib/api/platformAdmin'
 import type { BriefingCard, BriefingPriority, BriefingResponse, BriefingSourceAdapter, BriefingSourceItem, BriefingSourceType } from './types'
-import { activityAdapter, agentOutputAdapter, approvalAdapter, clientDocumentAdapter, commentAdapter, expenseAdapter, invoiceAdapter, notificationAdapter, projectAdapter, reportAdapter, socialPostAdapter, supportTicketAdapter, taskAdapter } from './index'
+import { activityAdapter, agentOutputAdapter, approvalAdapter, clientDocumentAdapter, commentAdapter, expenseAdapter, invoiceAdapter, notificationAdapter, projectAdapter, reportAdapter, seoContentAdapter, socialPostAdapter, supportTicketAdapter, taskAdapter } from './index'
 import { comparePriority, formatTimeAgo, normalizeTimestamp, priorityRequiresAction } from './utils'
 
 const PLATFORM_ORG_ID = 'pib-platform-owner'
@@ -583,6 +583,16 @@ export async function buildBriefingFeed(user: ApiUser, options: BriefingFeedOpti
       const docs = await fetchCollectionDocs('expenses', scopedOrgIds)
       for (const doc of docs) {
         const item = toItemSafe(expenseAdapter, normalizeDoc(doc), doc.id)
+        if (item) items.push(decorate(item, orgs))
+      }
+    } catch {}
+  }
+
+  if (include('seo-content')) {
+    try {
+      const docs = await fetchCollectionDocs('seo_content', scopedOrgIds)
+      for (const doc of docs) {
+        const item = toItemSafe(seoContentAdapter, normalizeDoc(doc), doc.id)
         if (item) items.push(decorate(item, orgs))
       }
     } catch {}

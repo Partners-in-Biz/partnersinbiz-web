@@ -43,6 +43,9 @@ interface BriefingCard {
     invoiceNumber?: string | null
     expenseId?: string | null
     expenseCategory?: string | null
+    seoContentId?: string | null
+    seoContentTitle?: string | null
+    seoSprintId?: string | null
   }
   metadata?: Record<string, unknown> | null
   occurredAt: string
@@ -83,6 +86,7 @@ const SOURCES = [
   { value: 'support-ticket', label: 'Support' },
   { value: 'invoice', label: 'Invoices' },
   { value: 'expense', label: 'Expenses' },
+  { value: 'seo-content', label: 'SEO content' },
 ]
 
 const PRIORITY_LABELS: Record<BriefingCard['priority'], string> = {
@@ -128,6 +132,7 @@ function sourceLabel(item: BriefingCard) {
   if (item.context.supportTicketSubject || item.context.supportTicketId) return `${item.source.type} / ${titledId(item.context.supportTicketSubject, item.context.supportTicketId ?? item.source.id)}`
   if (item.context.invoiceNumber || item.context.invoiceId) return `${item.source.type} / ${titledId(item.context.invoiceNumber, item.context.invoiceId ?? item.source.id)}`
   if (item.context.expenseCategory || item.context.expenseId) return `${item.source.type} / ${titledId(item.context.expenseCategory, item.context.expenseId ?? item.source.id)}`
+  if (item.context.seoContentTitle || item.context.seoContentId) return `${item.source.type} / ${titledId(item.context.seoContentTitle, item.context.seoContentId ?? item.source.id)}`
   return `${item.source.type} / ${item.source.id}`
 }
 
@@ -136,6 +141,12 @@ function sourceHref(item: BriefingCard, mode: Mode) {
   if (item.source.type === 'support-ticket') return mode === 'admin' ? `/admin/support?ticket=${encodeURIComponent(item.source.id)}` : '/portal'
   if (item.source.type === 'invoice') return mode === 'admin' ? `/admin/invoicing/${encodeURIComponent(item.source.id)}` : `/portal/payments?invoice=${encodeURIComponent(item.source.id)}`
   if (item.source.type === 'expense') return mode === 'admin' ? `/admin/finance?expense=${encodeURIComponent(item.source.id)}` : null
+  if (item.source.type === 'seo-content') {
+    const sprintId = item.context.seoSprintId
+    const contentId = encodeURIComponent(item.source.id)
+    if (sprintId) return `${mode === 'admin' ? '/admin' : '/portal'}/seo/sprints/${encodeURIComponent(sprintId)}/content?content=${contentId}`
+    return mode === 'admin' ? `/admin/seo?content=${contentId}` : `/portal/seo?content=${contentId}`
+  }
   if (mode === 'admin') return item.source.url || null
   if (item.source.url?.startsWith('/portal')) return item.source.url
   if (item.context.conversationId) return `/portal/conversations?convId=${encodeURIComponent(item.context.conversationId)}`
@@ -151,6 +162,12 @@ function adminSourceHref(item: BriefingCard) {
   if (item.source.type === 'support-ticket') return `/admin/support?ticket=${encodeURIComponent(item.source.id)}`
   if (item.source.type === 'invoice') return `/admin/invoicing/${encodeURIComponent(item.source.id)}`
   if (item.source.type === 'expense') return `/admin/finance?expense=${encodeURIComponent(item.source.id)}`
+  if (item.source.type === 'seo-content') {
+    const sprintId = item.context.seoSprintId
+    const contentId = encodeURIComponent(item.source.id)
+    if (sprintId) return `/admin/seo/sprints/${encodeURIComponent(sprintId)}/content?content=${contentId}`
+    return `/admin/seo?content=${contentId}`
+  }
   if (item.context.conversationId) {
     const query = `convId=${encodeURIComponent(item.context.conversationId)}`
     if (item.context.orgSlug) return `/admin/org/${item.context.orgSlug}/messages?${query}`
@@ -219,6 +236,14 @@ function expenseReviewable(item: BriefingCard, mode: Mode) {
   return mode === 'admin' && item.source.type === 'expense' && item.metadata?.expenseStatus === 'submitted' && Boolean(item.source.id)
 }
 
+function canSeoContentAct(item: BriefingCard) {
+  return item.source.type === 'seo-content' && Boolean(item.source.id)
+}
+
+function seoContentReviewable(item: BriefingCard) {
+  return canSeoContentAct(item) && item.metadata?.seoStatus === 'review'
+}
+
 function socialActionStage(item: BriefingCard): 'client' | 'qa' | null {
   const stage = item.metadata?.actionStage
   if (stage === 'client' || stage === 'qa') return stage
@@ -260,6 +285,7 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
   const [followUpText, setFollowUpText] = useState('')
   const [reportRecipients, setReportRecipients] = useState('')
   const [expenseReviewText, setExpenseReviewText] = useState('')
+  const [seoChangeText, setSeoChangeText] = useState('')
   const [busyAction, setBusyAction] = useState<string | null>(null)
   const [flash, setFlash] = useState<Flash>(null)
 
@@ -770,6 +796,34 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
     }
   }
 
+  async function seoContentAction(item: BriefingCard, action: 'approve' | 'changes') {
+    if (!seoContentReviewable(item)) return
+    const text = seoChangeText.trim()
+    if (action === 'changes' && !text) return
+    setBusyAction(`seo-${action}`)
+    try {
+      const res = action === 'approve'
+        ? await fetch(`/api/v1/seo/content/${encodeURIComponent(item.source.id)}/client-approve`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+        })
+        : await fetch(`/api/v1/seo/content/${encodeURIComponent(item.source.id)}/comments`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ text }),
+        })
+      const body = await res.json()
+      if (!res.ok) throw new Error(body.error || 'SEO content action failed')
+      if (action === 'changes') setSeoChangeText('')
+      setFlash({ kind: 'ok', message: action === 'approve' ? 'SEO content approved from the control desk.' : 'SEO content changes requested.' })
+      await loadFeed({ quiet: true })
+    } catch (err) {
+      setFlash({ kind: 'error', message: err instanceof Error ? err.message : 'SEO content action failed' })
+    } finally {
+      setBusyAction(null)
+    }
+  }
+
   async function unblockTask(item: BriefingCard) {
     if (!canTaskAct(item)) return
     setBusyAction('unblock')
@@ -1063,6 +1117,18 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                       Reject expense
                     </button>
                   ) : null}
+                  {seoContentReviewable(selected) ? (
+                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => seoContentAction(selected, 'approve')} disabled={!!busyAction}>
+                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">published_with_changes</span>
+                      Approve SEO content
+                    </button>
+                  ) : null}
+                  {seoContentReviewable(selected) ? (
+                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => seoContentAction(selected, 'changes')} disabled={!seoChangeText.trim() || !!busyAction}>
+                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">edit_note</span>
+                      Request SEO changes
+                    </button>
+                  ) : null}
                 </div>
 
                 {canSocialPostAct(selected) && socialActionStage(selected) ? (
@@ -1171,6 +1237,21 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                   </div>
                 ) : null}
 
+                {seoContentReviewable(selected) ? (
+                  <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                    <label className="text-xs font-medium text-on-surface-variant" htmlFor="briefing-seo-change-request">
+                      SEO change request
+                    </label>
+                    <textarea
+                      id="briefing-seo-change-request"
+                      className="pib-input mt-2 min-h-20 w-full resize-y"
+                      value={seoChangeText}
+                      onChange={(event) => setSeoChangeText(event.target.value)}
+                      placeholder="Tell the writer what must change before this goes live..."
+                    />
+                  </div>
+                ) : null}
+
                 <dl className="space-y-3 text-sm">
                   <div><dt className="text-on-surface-variant">Actor</dt><dd className="text-on-surface">{titledId(selected.actor.name, selected.actor.id)}</dd></div>
                   <div><dt className="text-on-surface-variant">Workspace</dt><dd className="text-on-surface">{titledId(selected.context.orgName, selected.orgId)}</dd></div>
@@ -1184,6 +1265,7 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                   {selected.context.supportTicketSubject || selected.context.supportTicketId ? <div><dt className="text-on-surface-variant">Support ticket</dt><dd className="text-on-surface">{titledId(selected.context.supportTicketSubject, selected.context.supportTicketId)}</dd></div> : null}
                   {selected.context.invoiceNumber || selected.context.invoiceId ? <div><dt className="text-on-surface-variant">Invoice</dt><dd className="text-on-surface">{titledId(selected.context.invoiceNumber, selected.context.invoiceId ?? selected.source.id)}</dd></div> : null}
                   {selected.context.expenseCategory || selected.context.expenseId ? <div><dt className="text-on-surface-variant">Expense</dt><dd className="text-on-surface">{titledId(selected.context.expenseCategory, selected.context.expenseId ?? selected.source.id)}</dd></div> : null}
+                  {selected.context.seoContentTitle || selected.context.seoContentId ? <div><dt className="text-on-surface-variant">SEO content</dt><dd className="text-on-surface">{titledId(selected.context.seoContentTitle, selected.context.seoContentId ?? selected.source.id)}</dd></div> : null}
                   <div><dt className="text-on-surface-variant">Occurred</dt><dd className="text-on-surface">{new Date(selected.occurredAt).toLocaleString('en-ZA')}</dd></div>
                   <div><dt className="text-on-surface-variant">Source</dt><dd className="text-on-surface">{sourceLabel(selected)}</dd></div>
                 </dl>

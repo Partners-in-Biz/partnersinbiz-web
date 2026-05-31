@@ -18,6 +18,7 @@ export { socialPostAdapter } from './adapters/socialPostAdapter'
 export { supportTicketAdapter } from './adapters/supportTicketAdapter'
 export { invoiceAdapter } from './adapters/invoiceAdapter'
 export { expenseAdapter } from './adapters/expenseAdapter'
+export { seoContentAdapter } from './adapters/seoContentAdapter'
 
 import type { BriefingSourceAdapter, BriefingSourceType } from './types'
 import { taskAdapter, projectAdapter } from './adapters/taskAdapter'
@@ -30,6 +31,7 @@ import { socialPostAdapter } from './adapters/socialPostAdapter'
 import { supportTicketAdapter } from './adapters/supportTicketAdapter'
 import { invoiceAdapter } from './adapters/invoiceAdapter'
 import { expenseAdapter } from './adapters/expenseAdapter'
+import { seoContentAdapter } from './adapters/seoContentAdapter'
 
 /**
  * Registry of all source adapters.
@@ -48,6 +50,7 @@ export const SOURCE_ADAPTERS: Record<BriefingSourceType, BriefingSourceAdapter> 
   'support-ticket': supportTicketAdapter,
   invoice: invoiceAdapter,
   expense: expenseAdapter,
+  'seo-content': seoContentAdapter,
 }
 
 /**

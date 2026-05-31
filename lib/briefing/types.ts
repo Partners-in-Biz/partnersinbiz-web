@@ -41,6 +41,7 @@ export type BriefingSourceType =
   | 'support-ticket'       // Client support tickets and ticket replies
   | 'invoice'              // Billing invoices that need review, payment, or sending
   | 'expense'              // Submitted expenses that need approval or rejection
+  | 'seo-content'          // SEO content awaiting client review or publishing action
 
 /**
  * Briefing item lifecycle states.
@@ -91,6 +92,9 @@ export interface BriefingContext {
   invoiceNumber?: string | null
   expenseId?: string | null
   expenseCategory?: string | null
+  seoContentId?: string | null
+  seoContentTitle?: string | null
+  seoSprintId?: string | null
   sourceIds?: string[]  // Related source IDs for cross-reference
 }
 

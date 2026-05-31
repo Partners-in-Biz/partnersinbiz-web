@@ -331,6 +331,34 @@ const expenseBriefingItem = {
   occurredAt: '2026-05-31T09:54:00.000Z',
 }
 
+const seoContentBriefingItem = {
+  id: 'seo-content:seo-content-1',
+  orgId: 'org-1',
+  priority: 'needs-peet',
+  title: 'SEO content awaiting review: Website SEO launch checklist',
+  summary: 'How-to content for website seo checklist is ready for client review.',
+  excerpt: 'Ready for review.',
+  timeAgo: '12 minutes ago',
+  requiresAction: true,
+  source: { type: 'seo-content', id: 'seo-content-1', url: '/admin/seo/sprints/sprint-1/content?content=seo-content-1' },
+  actor: { id: 'agent:writer', name: 'Writer', role: 'ai', type: 'agent' },
+  context: {
+    orgId: 'org-1',
+    orgName: 'Client One',
+    orgSlug: 'client-one',
+    seoContentId: 'seo-content-1',
+    seoContentTitle: 'Website SEO launch checklist',
+    seoSprintId: 'sprint-1',
+  },
+  metadata: {
+    seoStatus: 'review',
+    contentType: 'how-to',
+    targetKeyword: 'website seo checklist',
+    publishDate: '2026-06-05',
+  },
+  occurredAt: '2026-05-31T09:53:00.000Z',
+}
+
 describe('BriefingControlDesk', () => {
   beforeEach(() => {
     jest.useFakeTimers()
@@ -349,7 +377,7 @@ describe('BriefingControlDesk', () => {
       if (url.startsWith('/api/v1/briefings/feed')) {
         const items = url.includes('orgId=org-2')
           ? [secondOrgBriefingItem]
-          : [briefingItem, documentBriefingItem, documentCommentBriefingItem, approvalBriefingItem, conversationBriefingItem, socialBriefingItem, notificationBriefingItem, activityBriefingItem, reportBriefingItem, supportBriefingItem, invoiceBriefingItem, expenseBriefingItem, secondOrgBriefingItem]
+          : [briefingItem, documentBriefingItem, documentCommentBriefingItem, approvalBriefingItem, conversationBriefingItem, socialBriefingItem, notificationBriefingItem, activityBriefingItem, reportBriefingItem, supportBriefingItem, invoiceBriefingItem, expenseBriefingItem, seoContentBriefingItem, secondOrgBriefingItem]
         return {
           ok: true,
           json: async () => ({ data: { items, total: items.length, hasMore: false, generatedAt: '2026-05-31T10:05:00.000Z' } }),
@@ -449,6 +477,18 @@ describe('BriefingControlDesk', () => {
         return {
           ok: true,
           json: async () => ({ data: { id: 'expense-1', status: 'approved' } }),
+        } as Response
+      }
+      if (url === '/api/v1/seo/content/seo-content-1/client-approve') {
+        return {
+          ok: true,
+          json: async () => ({ data: { id: 'seo-content-1', status: 'client_approved' } }),
+        } as Response
+      }
+      if (url === '/api/v1/seo/content/seo-content-1/comments') {
+        return {
+          ok: true,
+          json: async () => ({ data: { id: 'seo-comment-1', statusFlipped: true } }),
         } as Response
       }
       return {
@@ -849,6 +889,41 @@ describe('BriefingControlDesk', () => {
       expect(global.fetch).toHaveBeenCalledWith('/api/v1/expenses/expense-1/approve', expect.objectContaining({
         method: 'POST',
         body: JSON.stringify({ action: 'reject', note: 'Receipt does not match the workshop date.' }),
+      }))
+    })
+  })
+
+  it('approves SEO content and requests content changes from the control desk', async () => {
+    render(<BriefingControlDesk mode="portal" />)
+
+    fireEvent.click(await screen.findByRole('button', { name: /SEO content awaiting review: Website SEO launch checklist/i }))
+
+    expect(screen.getByText('Website SEO launch checklist (seo-content-1)')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /open source/i })).toHaveAttribute('href', '/portal/seo/sprints/sprint-1/content?content=seo-content-1')
+    expect(screen.getByRole('button', { name: /approve SEO content/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /request SEO changes/i })).toBeDisabled()
+
+    fireEvent.click(screen.getByRole('button', { name: /approve SEO content/i }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/seo/content/seo-content-1/client-approve', expect.objectContaining({
+        method: 'POST',
+      }))
+    })
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /approve SEO content/i })).not.toBeDisabled()
+    })
+
+    fireEvent.change(screen.getByLabelText('SEO change request'), { target: { value: 'Please add a local pricing example before publishing.' } })
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /request SEO changes/i })).not.toBeDisabled()
+    })
+    fireEvent.click(screen.getByRole('button', { name: /request SEO changes/i }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/seo/content/seo-content-1/comments', expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ text: 'Please add a local pricing example before publishing.' }),
       }))
     })
   })

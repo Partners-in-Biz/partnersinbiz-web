@@ -580,4 +580,72 @@ describe('briefing feed', () => {
     expect(JSON.stringify(adminFeed.items)).not.toContain('never-leak-this')
     expect(JSON.stringify(adminFeed.items)).toContain('[REDACTED]')
   })
+
+  it('surfaces SEO content awaiting review as approval control cards', async () => {
+    collections.organizations = [makeDoc('org-1', { name: 'Client One', slug: 'client-one' })]
+    collections.seo_content = [
+      makeDoc('seo-content-1', {
+        orgId: 'org-1',
+        orgSlug: 'client-one',
+        sprintId: 'sprint-1',
+        campaignId: 'campaign-1',
+        title: 'Website SEO launch checklist',
+        type: 'how-to',
+        status: 'review',
+        targetKeyword: 'website seo checklist',
+        publishDate: '2026-06-05T00:00:00.000Z',
+        draftPostId: 'draft-1',
+        createdBy: 'agent:writer',
+        createdByType: 'agent',
+        summary: 'Ready for client review. token: seo-secret-123',
+        updatedAt: '2026-05-31T10:30:00.000Z',
+        deleted: false,
+      }),
+      makeDoc('seo-content-2', {
+        orgId: 'org-1',
+        sprintId: 'sprint-1',
+        title: 'Already live post',
+        type: 'pillar',
+        status: 'live',
+        updatedAt: '2026-05-31T09:30:00.000Z',
+        deleted: false,
+      }),
+    ]
+
+    const { buildBriefingFeed } = await import('@/lib/briefing/feed')
+    const adminFeed = await buildBriefingFeed(
+      { uid: 'admin-1', role: 'admin', allowedOrgIds: ['org-1'] },
+      { limit: 10, sourceType: 'seo-content' },
+    )
+    const clientFeed = await buildBriefingFeed(
+      { uid: 'client-1', role: 'client', orgIds: ['org-1'], orgId: 'org-1' },
+      { limit: 10, sourceType: 'seo-content' },
+    )
+
+    expect(adminFeed.items).toHaveLength(1)
+    expect(clientFeed.items).toHaveLength(1)
+    expect(adminFeed.items[0]).toMatchObject({
+      priority: 'needs-peet',
+      requiresAction: true,
+      source: { type: 'seo-content', id: 'seo-content-1', url: '/admin/seo/sprints/sprint-1/content?content=seo-content-1' },
+      title: 'SEO content awaiting review: Website SEO launch checklist',
+      actor: { id: 'agent:writer', type: 'agent' },
+      context: {
+        orgName: 'Client One',
+        seoContentId: 'seo-content-1',
+        seoContentTitle: 'Website SEO launch checklist',
+        seoSprintId: 'sprint-1',
+      },
+      metadata: expect.objectContaining({
+        seoStatus: 'review',
+        contentType: 'how-to',
+        targetKeyword: 'website seo checklist',
+        publishDate: '2026-06-05',
+        draftPostId: 'draft-1',
+      }),
+    })
+    expect(adminFeed.items[0].summary).toContain('website seo checklist')
+    expect(JSON.stringify(adminFeed.items)).not.toContain('seo-secret-123')
+    expect(JSON.stringify(adminFeed.items)).toContain('[REDACTED]')
+  })
 })
