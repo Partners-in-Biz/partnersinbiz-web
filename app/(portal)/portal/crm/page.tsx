@@ -18,6 +18,19 @@ type CrmDashboard = {
   topOpenDeals?: Array<Deal & { contactName?: string }>
 }
 
+const ACTIVITY_TYPE_LABELS: Record<string, string> = {
+  email_sent: 'Email sent',
+  email_received: 'Email received',
+  call: 'Call',
+  note: 'Note',
+  sms_sent: 'SMS sent',
+  meeting_scheduled: 'Meeting scheduled',
+  stage_change: 'Stage changed',
+  sequence_enrolled: 'Enrolled in sequence',
+  sequence_completed: 'Sequence completed',
+  contact_captured: 'Contact captured',
+}
+
 const SECTIONS: HubSection[] = [
   {
     title: 'Sales workspace',
@@ -175,14 +188,47 @@ function timestampMs(value: unknown): number {
   return 0
 }
 
+function hasUnreadableTimestamp(value: unknown): boolean {
+  if (!value) return false
+  if (value instanceof Date) return Number.isNaN(value.getTime())
+  if (typeof value === 'string') return Number.isNaN(Date.parse(value))
+  if (typeof value === 'object') {
+    const timestamp = value as { seconds?: unknown; _seconds?: unknown; toDate?: () => Date; toMillis?: () => number }
+    if (typeof timestamp.toMillis === 'function') return !Number.isFinite(timestamp.toMillis())
+    if (typeof timestamp.toDate === 'function') return Number.isNaN(timestamp.toDate().getTime())
+    const seconds = timestamp.seconds ?? timestamp._seconds
+    return seconds !== undefined && (typeof seconds !== 'number' || !Number.isFinite(seconds))
+  }
+  return true
+}
+
 function formatRelative(value: unknown): string {
   const ms = timestampMs(value)
-  if (!ms) return 'Timestamp not captured'
+  if (!ms) return hasUnreadableTimestamp(value) ? 'Activity date needs review' : 'Timestamp not captured'
   const diffDays = Math.round((Date.now() - ms) / 86_400_000)
   if (diffDays <= 0) return 'Today'
   if (diffDays === 1) return 'Yesterday'
   if (diffDays < 30) return `${diffDays}d ago`
   return new Date(ms).toLocaleDateString('en-ZA', { day: '2-digit', month: 'short' })
+}
+
+function textValue(value: unknown): string {
+  return typeof value === 'string' && value.trim() ? value.trim() : ''
+}
+
+function readableActivityType(value: unknown): string {
+  const key = textValue(value)
+  if (!key) return 'CRM activity'
+  const fallback = key.replace(/[_-]+/g, ' ').trim()
+  return ACTIVITY_TYPE_LABELS[key] ?? (fallback ? fallback.charAt(0).toUpperCase() + fallback.slice(1) : 'CRM activity')
+}
+
+function activitySummary(activity: NonNullable<CrmDashboard['recentActivities']>[number]): string {
+  return textValue(activity.summary) || readableActivityType(activity.type)
+}
+
+function activityContactLabel(value: unknown): string {
+  return textValue(value) || 'Contact not linked'
 }
 
 function DashboardMetric({
@@ -387,9 +433,9 @@ export default function PortalCrmPage() {
                 <div key={activity.id} className="flex gap-3 px-5 py-3.5">
                   <span className="material-symbols-outlined mt-0.5 text-[17px] text-[var(--color-pib-text-muted)]">radio_button_checked</span>
                   <div className="min-w-0">
-                    <p className="truncate text-sm text-[var(--color-pib-text)]">{activity.summary ?? activity.type ?? 'CRM activity'}</p>
+                    <p className="truncate text-sm text-[var(--color-pib-text)]">{activitySummary(activity)}</p>
                     <p className="mt-0.5 text-xs text-[var(--color-pib-text-muted)]">
-                      {activity.contactName ? `${activity.contactName} · ` : ''}
+                      {activityContactLabel(activity.contactName)} · {' '}
                       {formatRelative(activity.createdAt)}
                     </p>
                   </div>

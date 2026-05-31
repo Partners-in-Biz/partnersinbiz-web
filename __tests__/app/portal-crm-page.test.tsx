@@ -98,4 +98,51 @@ describe('Portal CRM hub', () => {
     expect(screen.getByText('Mandy CEO · Timestamp not captured')).toBeInTheDocument()
     expect(screen.queryByText('Mandy CEO · No date')).not.toBeInTheDocument()
   })
+
+  it('renders sparse recent activity rows as readable CRM follow-up context', async () => {
+    ;(global.fetch as jest.Mock).mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/dashboard') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: {
+              openDealsCount: 1,
+              openDealsValue: 20000,
+              weightedPipelineValue: 12000,
+              wonThisMonth: { count: 0, value: 0 },
+              lostThisMonth: { count: 0 },
+              recentActivities: [
+                {
+                  id: 'activity-1',
+                  type: 'meeting_follow_up',
+                  summary: '',
+                  contactName: '',
+                  createdAt: { seconds: Number.NaN },
+                },
+              ],
+              topOpenDeals: [
+                {
+                  id: 'deal-1',
+                  title: 'Board reporting rollout',
+                  value: 20000,
+                  currency: 'ZAR',
+                  probability: 60,
+                  contactName: 'Mandy CEO',
+                },
+              ],
+            },
+          }),
+        } as Response)
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    })
+
+    render(<PortalCrmPage />)
+
+    expect(await screen.findByText('Meeting follow up')).toBeInTheDocument()
+    expect(screen.getByText('Contact not linked · Activity date needs review')).toBeInTheDocument()
+    expect(screen.queryByText(/meeting_follow_up/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Invalid Date/)).not.toBeInTheDocument()
+  })
 })
