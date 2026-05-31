@@ -171,6 +171,12 @@ function repDealsHref(rep: RepPerformanceRow): string {
   return `/portal/deals?${params.toString()}`
 }
 
+function repOpenValueLabel(rep: RepPerformanceRow): string {
+  if (rep.openDeals === 0) return 'No open deals'
+  if (rep.openValue === 0) return 'Open value needed'
+  return fmtZar(rep.openValue)
+}
+
 // ── Skeleton ───────────────────────────────────────────────────────────────────
 
 function Skeleton({ className = '' }: { className?: string }) {
@@ -482,6 +488,9 @@ export default function CrmReportsPage() {
   const totalRepDeals = repPerformance
     ? repPerformance.reps.reduce((sum, rep) => sum + rep.openDeals + rep.wonDeals + rep.lostDeals, 0)
     : 0
+  const totalRepOpenDeals = repPerformance
+    ? repPerformance.reps.reduce((sum, rep) => sum + rep.openDeals, 0)
+    : 0
   const unassignedRep = repPerformance?.reps.find((rep) => rep.uid === 'unassigned' || /unassigned/i.test(rep.displayName))
   const unassignedDealCount = unassignedRep ? unassignedRep.openDeals + unassignedRep.wonDeals + unassignedRep.lostDeals : 0
   const unassignedDealShare = totalRepDeals > 0 ? unassignedDealCount / totalRepDeals : 0
@@ -522,6 +531,14 @@ export default function CrmReportsPage() {
   const totalPipelineSummary = forecastHasUnpricedOpenDeals ? 'No priced pipeline' : forecast ? fmtZar(forecast.summary.totalValue) : 'No forecast data'
   const weightedPipelineSummary = forecastHasUnpricedOpenDeals ? 'Forecast value needed' : forecast ? fmtZar(forecast.summary.weightedValue) : 'No forecast data'
   const nearTermForecastSummary = forecastHasUnpricedOpenDeals ? 'Forecast value needed' : fmtZar(nearTermForecastValue)
+  const repOpenValueSummary = !repPerformance
+    ? 'No rep data'
+    : totalRepOpenDeals === 0
+      ? 'No open deals'
+      : repPerformance.summary.totalOpenValue === 0
+        ? 'No priced open pipeline'
+        : fmtZar(repPerformance.summary.totalOpenValue)
+  const repOpenValueSub = totalRepOpenDeals > 0 && repPerformance?.summary.totalOpenValue === 0 ? 'Open deals need value' : 'Active rep pipeline'
   const teamExecutionAction =
     unassignedContacts > 0
       ? {
@@ -975,7 +992,7 @@ export default function CrmReportsPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-[var(--color-pib-line)] bg-[var(--color-pib-surface)]">
-                    {['Rep', 'Won', 'Open', 'Lost', 'Won value', 'Activities', 'Win rate'].map((h) => (
+                    {['Rep', 'Won', 'Open', 'Lost', 'Open value', 'Won value', 'Activities', 'Win rate'].map((h) => (
                       <th
                         key={h}
                         className={`px-4 py-3 text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] ${h === 'Rep' ? 'text-left' : 'text-right'}`}
@@ -1001,6 +1018,7 @@ export default function CrmReportsPage() {
                       <td className="px-4 py-3 text-sm text-right font-mono text-[var(--color-pib-text)]">{fmtNum(rep.wonDeals)}</td>
                       <td className="px-4 py-3 text-sm text-right font-mono text-[var(--color-pib-text)]">{fmtNum(rep.openDeals)}</td>
                       <td className="px-4 py-3 text-sm text-right font-mono text-[var(--color-pib-text)]">{fmtNum(rep.lostDeals)}</td>
+                      <td className="px-4 py-3 text-sm text-right font-mono text-[var(--color-pib-accent)]">{repOpenValueLabel(rep)}</td>
                       <td className="px-4 py-3 text-sm text-right font-mono text-[var(--color-pib-accent)]">{fmtZar(rep.wonValue)}</td>
                       <td className="px-4 py-3 text-sm text-right font-mono text-[var(--color-pib-text)]">{fmtNum(rep.activities)}</td>
                       <td className="px-4 py-3 text-sm text-right font-mono text-[var(--color-pib-text)]">
@@ -1027,6 +1045,11 @@ export default function CrmReportsPage() {
               <HealthBar value={1 - unassignedDealShare} label="Assigned deal coverage" />
               <HealthBar value={contactOwnerCoverage} label="Assigned contact coverage" />
               <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-3">
+                  <p className="eyebrow !text-[10px]">Open value</p>
+                  <p className="mt-2 font-display text-xl font-bold text-[var(--color-pib-text)]">{repOpenValueSummary}</p>
+                  <p className="mt-1 text-[11px] text-[var(--color-pib-text-muted)]">{repOpenValueSub}</p>
+                </div>
                 <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-3">
                   <p className="eyebrow !text-[10px]">Won value</p>
                   <p className="mt-2 font-display text-xl font-bold text-[var(--color-pib-text)]">{fmtZar(repPerformance.summary.totalWonValue)}</p>

@@ -665,6 +665,74 @@ describe('Portal CRM reports page', () => {
     expect(teamLink).toHaveAttribute('href', '/portal/settings/team')
   })
 
+  it('names rep open pipeline value gaps instead of only counting unpriced deals', async () => {
+    ;(global.fetch as jest.Mock).mockImplementation((url: RequestInfo | URL) => {
+      const path = String(url)
+      if (path === '/api/v1/crm/reports/funnel') {
+        return apiResponse({
+          byType: { lead: 2, prospect: 1, client: 1, churned: 0, other: 0 },
+          byStage: { qualified: 4 },
+          total: 4,
+        })
+      }
+      if (path === '/api/v1/crm/reports/forecast') {
+        return apiResponse({
+          periods: {
+            thisMonth: { dealCount: 1, totalValue: 0, weightedValue: 0 },
+            nextMonth: { dealCount: 0, totalValue: 0, weightedValue: 0 },
+            thisQuarter: { dealCount: 1, totalValue: 0, weightedValue: 0 },
+            nextQuarter: { dealCount: 0, totalValue: 0, weightedValue: 0 },
+            beyond: { dealCount: 0, totalValue: 0, weightedValue: 0 },
+            noDate: { dealCount: 0, totalValue: 0, weightedValue: 0 },
+          },
+          summary: { totalOpenDeals: 1, totalValue: 0, weightedValue: 0 },
+        })
+      }
+      if (path === '/api/v1/crm/reports/pipeline-velocity') {
+        return apiResponse({ stages: [], summary: { stageCount: 0, bottleneckCount: 0, slowestStage: null } })
+      }
+      if (path === '/api/v1/crm/reports/rep-performance') {
+        return apiResponse({
+          reps: [
+            {
+              uid: 'u1',
+              displayName: 'Mandy Manager',
+              openDeals: 2,
+              wonDeals: 0,
+              lostDeals: 0,
+              openValue: 0,
+              wonValue: 0,
+              activities: 3,
+              winRate: null,
+            },
+          ],
+          summary: {
+            repCount: 1,
+            totalWonValue: 0,
+            totalOpenValue: 0,
+            totalActivities: 3,
+            totalContacts: 4,
+            unassignedContacts: 0,
+            contactOwnerCoverage: 1,
+          },
+        })
+      }
+      if (path === '/api/v1/crm/reports/activity-summary?days=30') {
+        return apiResponse({ byType: { email: 1 }, total: 1, perDay: [{ date: '2026-05-29', count: 1 }], since: '2026-04-29', days: 30 })
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${path}`))
+    })
+
+    render(<CrmReportsPage />)
+
+    const repRow = (await screen.findByRole('link', { name: 'Open Mandy Manager deals from rep performance report' })).closest('tr')
+    expect(repRow).not.toBeNull()
+    expect(repRow as HTMLElement).toHaveTextContent('Open value needed')
+
+    expect(screen.getByText('No priced open pipeline')).toBeInTheDocument()
+    expect(screen.getByText('Open deals need value')).toBeInTheDocument()
+  })
+
   it('turns missing activity data into a contact activity action', async () => {
     ;(global.fetch as jest.Mock).mockImplementation((url: RequestInfo | URL) => {
       const path = String(url)
