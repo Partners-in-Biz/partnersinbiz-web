@@ -14,7 +14,7 @@ interface Activity {
   id: string
   type: string
   summary: string
-  createdAt: { seconds: number } | null
+  createdAt: { seconds?: number; _seconds?: number } | null
 }
 
 interface ActivityTimelineProps {
@@ -22,6 +22,28 @@ interface ActivityTimelineProps {
   loading: boolean
   contactName?: string
   onAddNote?: () => void
+}
+
+function readableActivityType(type: string): string {
+  const key = type.trim()
+  if (!key) return 'Activity type missing'
+  const fallback = key.replace(/[_-]+/g, ' ').trim()
+  return TYPE_LABELS[key] ?? (fallback ? fallback.charAt(0).toUpperCase() + fallback.slice(1) : 'Activity type missing')
+}
+
+function activitySummary(summary: string): string {
+  return summary.trim() || 'Activity summary missing'
+}
+
+function formatActivityDate(value: Activity['createdAt']): string {
+  if (!value) return ''
+  const seconds = value.seconds ?? value._seconds
+  if (typeof seconds !== 'number' || !Number.isFinite(seconds)) return 'Activity date needs review'
+
+  const date = new Date(seconds * 1000)
+  if (Number.isNaN(date.getTime())) return 'Activity date needs review'
+
+  return date.toLocaleDateString('en-ZA', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
 export function ActivityTimeline({ activities, loading, contactName, onAddNote }: ActivityTimelineProps) {
@@ -72,24 +94,27 @@ export function ActivityTimeline({ activities, loading, contactName, onAddNote }
 
   return (
     <div className="space-y-0">
-      {activities.map((a, i) => (
-        <div key={a.id} className={`flex gap-4 pb-4 ${i < activities.length - 1 ? 'border-b border-outline-variant' : ''}`}>
-          <div className="pt-1 shrink-0">
-            <div className="w-1.5 h-1.5 bg-on-surface-variant rounded-full mt-1.5" />
+      {activities.map((a, i) => {
+        const dateLabel = formatActivityDate(a.createdAt)
+        return (
+          <div key={a.id} className={`flex gap-4 pb-4 ${i < activities.length - 1 ? 'border-b border-outline-variant' : ''}`}>
+            <div className="pt-1 shrink-0">
+              <div className="w-1.5 h-1.5 bg-on-surface-variant rounded-full mt-1.5" />
+            </div>
+            <div className="flex-1 pt-0.5">
+              <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-0.5">
+                {readableActivityType(a.type)}
+                {dateLabel && (
+                  <span className="ml-2 normal-case">
+                    · {dateLabel}
+                  </span>
+                )}
+              </p>
+              <p className="text-sm text-on-surface">{activitySummary(a.summary)}</p>
+            </div>
           </div>
-          <div className="flex-1 pt-0.5">
-            <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-0.5">
-              {TYPE_LABELS[a.type] ?? a.type}
-              {a.createdAt && (
-                <span className="ml-2 normal-case">
-                  · {new Date(a.createdAt.seconds * 1000).toLocaleDateString()}
-                </span>
-              )}
-            </p>
-            <p className="text-sm text-on-surface">{a.summary}</p>
-          </div>
-        </div>
-      ))}
+        )
+      })}
     </div>
   )
 }

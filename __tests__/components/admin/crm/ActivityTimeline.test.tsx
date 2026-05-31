@@ -20,4 +20,27 @@ describe('ActivityTimeline', () => {
 
     expect(onAddNote).toHaveBeenCalledTimes(1)
   })
+
+  it('renders activity rows with readable labels when snapshots are incomplete', () => {
+    render(
+      <ActivityTimeline
+        activities={[
+          {
+            id: 'activity-1',
+            type: 'meeting_follow_up',
+            summary: '',
+            createdAt: { seconds: Number.NaN },
+          },
+        ]}
+        loading={false}
+        contactName="Ava Owner"
+      />,
+    )
+
+    expect(screen.getByText(/Meeting follow up/)).toBeInTheDocument()
+    expect(screen.getByText(/Activity date needs review/)).toBeInTheDocument()
+    expect(screen.getByText('Activity summary missing')).toBeInTheDocument()
+    expect(screen.queryByText(/meeting_follow_up/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Invalid Date/)).not.toBeInTheDocument()
+  })
 })
