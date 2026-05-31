@@ -17,14 +17,15 @@ function fmtCloseDate(ts: unknown): string {
 }
 
 function fmtValue(deal: Deal): string {
+  if (deal.value == null || Number.isNaN(deal.value)) return 'No value captured'
   try {
     return new Intl.NumberFormat('en-ZA', {
       style: 'currency',
       currency: deal.currency ?? 'ZAR',
       maximumFractionDigits: 2,
-    }).format(deal.value ?? 0)
+    }).format(deal.value)
   } catch {
-    return `${deal.currency ?? ''} ${(deal.value ?? 0).toFixed(2)}`
+    return `${deal.currency ?? ''} ${deal.value.toFixed(2)}`
   }
 }
 

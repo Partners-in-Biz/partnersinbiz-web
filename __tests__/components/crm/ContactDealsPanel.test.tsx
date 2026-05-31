@@ -122,6 +122,24 @@ describe('ContactDealsPanel', () => {
     expect(screen.queryByText('proposal_sent')).not.toBeInTheDocument()
   })
 
+  it('names missing deal values while keeping zero-value deals explicit on contact detail', async () => {
+    mockFetch.mockReturnValue(apiResponse([
+      makeDeal({ id: 'd1', title: 'Unpriced relationship deal', value: undefined }),
+      makeDeal({ id: 'd2', title: 'Zero value scoping deal', value: 0 }),
+    ]))
+
+    render(<ContactDealsPanel contactId="contact-1" contactName="Ava Owner" />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: 'Unpriced relationship deal' })).toBeInTheDocument()
+      expect(screen.getByRole('link', { name: 'Zero value scoping deal' })).toBeInTheDocument()
+    })
+
+    expect(screen.getByText('No value captured')).toBeInTheDocument()
+    expect(screen.getAllByText(/R\s*0/).length).toBeGreaterThan(0)
+    expect(screen.queryByText('—')).not.toBeInTheDocument()
+  })
+
   it('turns an empty contact deal panel into a relationship pipeline launch state', async () => {
     mockFetch.mockReturnValue(apiResponse([]))
     render(<ContactDealsPanel contactId="contact-1" contactName="Ava Owner" />)
