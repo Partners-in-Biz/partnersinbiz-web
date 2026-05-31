@@ -25,11 +25,32 @@ const briefingItem = {
   occurredAt: '2026-05-31T10:00:00.000Z',
 }
 
+const documentBriefingItem = {
+  id: 'client-document:doc-1',
+  orgId: 'org-1',
+  priority: 'needs-peet',
+  title: 'Document pending approval: Growth plan',
+  summary: 'Type: proposal. Status: published. Approval: pending',
+  excerpt: 'Review the proposed growth plan.',
+  timeAgo: '5 minutes ago',
+  requiresAction: true,
+  source: { type: 'client-document', id: 'doc-1', url: '/portal/documents/doc-1' },
+  actor: { id: 'user:admin-1', name: 'Peet', role: 'admin', type: 'user' },
+  context: {
+    orgId: 'org-1',
+    orgName: 'Client One',
+    orgSlug: 'client-one',
+    documentId: 'doc-1',
+    documentTitle: 'Growth plan',
+  },
+  occurredAt: '2026-05-31T10:00:00.000Z',
+}
+
 describe('BriefingControlDesk', () => {
   beforeEach(() => {
     jest.useFakeTimers()
     jest.setSystemTime(new Date('2026-05-31T10:05:00.000Z'))
-    global.fetch = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    global.fetch = jest.fn(async (input: RequestInfo | URL) => {
       const url = String(input)
       if (url === '/api/v1/organizations') {
         return {
@@ -40,7 +61,7 @@ describe('BriefingControlDesk', () => {
       if (url.startsWith('/api/v1/briefings/feed')) {
         return {
           ok: true,
-          json: async () => ({ data: { items: [briefingItem], total: 1, hasMore: false, generatedAt: '2026-05-31T10:05:00.000Z' } }),
+          json: async () => ({ data: { items: [briefingItem, documentBriefingItem], total: 2, hasMore: false, generatedAt: '2026-05-31T10:05:00.000Z' } }),
         } as Response
       }
       if (url === '/api/v1/briefings/items/task%3Aitem-1/state') {
@@ -53,6 +74,18 @@ describe('BriefingControlDesk', () => {
         return {
           ok: true,
           json: async () => ({ data: { id: 'comment-1' } }),
+        } as Response
+      }
+      if (url === '/api/v1/client-documents/doc-1/comments') {
+        return {
+          ok: true,
+          json: async () => ({ data: { id: 'document-comment-1' } }),
+        } as Response
+      }
+      if (url === '/api/v1/client-documents/doc-1/approve') {
+        return {
+          ok: true,
+          json: async () => ({ data: { id: 'approval-1' } }),
         } as Response
       }
       return {
@@ -83,7 +116,7 @@ describe('BriefingControlDesk', () => {
     render(<BriefingControlDesk mode="portal" />)
 
     expect((await screen.findAllByText('Theo completed work - review required')).length).toBeGreaterThan(0)
-    fireEvent.change(screen.getByLabelText('Inline reply'), { target: { value: 'Approved. Please ship it.' } })
+    fireEvent.change(screen.getByLabelText('Inline task reply'), { target: { value: 'Approved. Please ship it.' } })
     fireEvent.click(screen.getByRole('button', { name: /post reply to task/i }))
 
     await waitFor(() => {
@@ -104,6 +137,36 @@ describe('BriefingControlDesk', () => {
     })
     await waitFor(() => {
       expect(screen.queryAllByText('Theo completed work - review required')).toHaveLength(0)
+    })
+  })
+
+  it('lets users comment on and approve document approval cards from the desk', async () => {
+    render(<BriefingControlDesk mode="portal" />)
+
+    fireEvent.click(await screen.findByRole('button', { name: /Document pending approval: Growth plan/i }))
+
+    expect(screen.getByRole('link', { name: /open source/i })).toHaveAttribute('href', '/portal/documents/doc-1')
+    expect(screen.getByRole('button', { name: /approve document/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /request changes/i })).toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText('Inline document reply'), { target: { value: 'Please update the scope before approval.' } })
+    fireEvent.click(screen.getByRole('button', { name: /post reply to document/i }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/client-documents/doc-1/comments', expect.objectContaining({
+        method: 'POST',
+      }))
+    })
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /approve document/i })).not.toBeDisabled()
+    })
+    fireEvent.click(screen.getByRole('button', { name: /approve document/i }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/client-documents/doc-1/approve', expect.objectContaining({
+        method: 'POST',
+      }))
     })
   })
 })

@@ -108,9 +108,9 @@ function sourceLabel(item: BriefingCard) {
 
 function sourceHref(item: BriefingCard, mode: Mode) {
   if (mode === 'admin') return item.source.url || null
+  if (item.source.url?.startsWith('/portal')) return item.source.url
   if (item.context.projectId) return `/portal/projects/${item.context.projectId}${item.context.taskId ? `?taskId=${encodeURIComponent(item.context.taskId)}` : ''}`
   if (item.context.documentId) return `/portal/documents/${item.context.documentId}`
-  if (item.context.orgId) return '/portal/projects'
   return item.source.url || null
 }
 
@@ -118,8 +118,16 @@ function canTaskAct(item: BriefingCard) {
   return Boolean(item.context.projectId && item.context.taskId)
 }
 
+function canDocumentAct(item: BriefingCard) {
+  return Boolean(item.context.documentId)
+}
+
 function reviewable(item: BriefingCard) {
   return canTaskAct(item) && (item.priority === 'review' || item.source.type === 'agent-output')
+}
+
+function documentReviewable(item: BriefingCard) {
+  return canDocumentAct(item) && (item.source.type === 'client-document' || item.source.type === 'approval') && ['needs-peet', 'review'].includes(item.priority)
 }
 
 function defaultSnoozeDate() {
@@ -261,6 +269,62 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
       setFlash({ kind: 'error', message: err instanceof Error ? err.message : 'Reply failed' })
     } finally {
       setBusyAction(null)
+    }
+  }
+
+  async function replyToDocument(item: BriefingCard, text: string) {
+    if (!canDocumentAct(item) || !text.trim()) return
+    setBusyAction('document-reply')
+    try {
+      const res = await fetch(`/api/v1/client-documents/${item.context.documentId}/comments`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ text: text.trim() }),
+      })
+      const body = await res.json()
+      if (!res.ok) throw new Error(body.error || 'Document reply failed')
+      setReplyText('')
+      setFlash({ kind: 'ok', message: 'Reply posted to the source document.' })
+      await loadFeed({ quiet: true })
+    } catch (err) {
+      setFlash({ kind: 'error', message: err instanceof Error ? err.message : 'Document reply failed' })
+    } finally {
+      setBusyAction(null)
+    }
+  }
+
+  async function approveDocument(item: BriefingCard) {
+    if (!canDocumentAct(item)) return
+    setBusyAction('document-approve')
+    try {
+      const res = await fetch(`/api/v1/client-documents/${item.context.documentId}/approve`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ actorName: 'Briefings control desk' }),
+      })
+      const body = await res.json()
+      if (!res.ok) throw new Error(body.error || 'Document approval failed')
+      setFlash({ kind: 'ok', message: 'Document approved from the control desk.' })
+      await loadFeed({ quiet: true })
+    } catch (err) {
+      setFlash({ kind: 'error', message: err instanceof Error ? err.message : 'Document approval failed' })
+    } finally {
+      setBusyAction(null)
+    }
+  }
+
+  async function requestDocumentChanges(item: BriefingCard) {
+    const text = replyText.trim() || `Changes requested from the Briefings control desk for ${item.context.documentTitle ?? 'this document'}.`
+    await replyToDocument(item, text)
+  }
+
+  async function replyToSelected(item: BriefingCard) {
+    if (canTaskAct(item)) {
+      await replyToTask(item)
+      return
+    }
+    if (canDocumentAct(item)) {
+      await replyToDocument(item, replyText)
     }
   }
 
@@ -458,11 +522,25 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                       Send back to agent
                     </button>
                   ) : null}
+                  {documentReviewable(selected) ? (
+                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => approveDocument(selected)} disabled={!!busyAction}>
+                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">approval</span>
+                      Approve document
+                    </button>
+                  ) : null}
+                  {documentReviewable(selected) ? (
+                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => requestDocumentChanges(selected)} disabled={!!busyAction}>
+                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">edit_note</span>
+                      Request changes
+                    </button>
+                  ) : null}
                 </div>
 
-                {canTaskAct(selected) ? (
+                {canTaskAct(selected) || canDocumentAct(selected) ? (
                   <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
-                    <label className="text-xs font-medium text-on-surface-variant" htmlFor="briefing-reply">Inline reply</label>
+                    <label className="text-xs font-medium text-on-surface-variant" htmlFor="briefing-reply">
+                      {canTaskAct(selected) ? 'Inline task reply' : 'Inline document reply'}
+                    </label>
                     <textarea
                       id="briefing-reply"
                       className="pib-input mt-2 min-h-24 w-full resize-y"
@@ -470,9 +548,9 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                       onChange={(event) => setReplyText(event.target.value)}
                       placeholder="Reply with a decision, note, or instruction..."
                     />
-                    <button className="pib-btn-primary mt-2 w-full justify-center text-xs" type="button" onClick={() => replyToTask(selected)} disabled={!replyText.trim() || !!busyAction}>
+                    <button className="pib-btn-primary mt-2 w-full justify-center text-xs" type="button" onClick={() => replyToSelected(selected)} disabled={!replyText.trim() || !!busyAction}>
                       <span className="material-symbols-outlined text-[15px]" aria-hidden="true">reply</span>
-                      Post reply to task
+                      {canTaskAct(selected) ? 'Post reply to task' : 'Post reply to document'}
                     </button>
                   </div>
                 ) : null}
