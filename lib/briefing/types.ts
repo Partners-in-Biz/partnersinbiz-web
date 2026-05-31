@@ -36,6 +36,7 @@ export type BriefingSourceType =
   | 'client-document'      // Client documents, specs, reports
   | 'social-post'          // Social content awaiting QA/client approval or attention
   | 'social-inbox'         // Social engagement inbox items needing read/reply/archive
+  | 'mailbox-message'      // Unread mailbox messages needing read/archive/reply handling
   | 'notification'         // User notifications and inboxes
   | 'activity'             // Activity log entries
   | 'report'               // Stored snapshot reports
@@ -109,6 +110,9 @@ export interface BriefingContext {
   socialInboxId?: string | null
   socialInboxFrom?: string | null
   socialPostId?: string | null
+  mailboxMessageId?: string | null
+  mailboxFrom?: string | null
+  mailboxSubject?: string | null
   sourceIds?: string[]  // Related source IDs for cross-reference
 }
 

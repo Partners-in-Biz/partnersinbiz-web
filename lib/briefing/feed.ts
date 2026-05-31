@@ -3,7 +3,7 @@ import { adminAuth, adminDb } from '@/lib/firebase/admin'
 import type { ApiUser } from '@/lib/api/types'
 import { canAccessOrg } from '@/lib/api/platformAdmin'
 import type { BriefingCard, BriefingPriority, BriefingResponse, BriefingSourceAdapter, BriefingSourceItem, BriefingSourceType } from './types'
-import { activityAdapter, adCampaignAdapter, agentOutputAdapter, approvalAdapter, clientDocumentAdapter, commentAdapter, expenseAdapter, formSubmissionAdapter, invoiceAdapter, notificationAdapter, projectAdapter, reportAdapter, seoContentAdapter, seoTaskAdapter, socialInboxAdapter, socialPostAdapter, supportTicketAdapter, taskAdapter } from './index'
+import { activityAdapter, adCampaignAdapter, agentOutputAdapter, approvalAdapter, clientDocumentAdapter, commentAdapter, expenseAdapter, formSubmissionAdapter, invoiceAdapter, mailboxMessageAdapter, notificationAdapter, projectAdapter, reportAdapter, seoContentAdapter, seoTaskAdapter, socialInboxAdapter, socialPostAdapter, supportTicketAdapter, taskAdapter } from './index'
 import { comparePriority, formatTimeAgo, normalizeTimestamp, priorityRequiresAction } from './utils'
 
 const PLATFORM_ORG_ID = 'pib-platform-owner'
@@ -318,6 +318,30 @@ async function fetchInvoiceDocs(scopedOrgIds: string[] | null): Promise<Firestor
   })
 }
 
+async function fetchMailboxDocs(scopedOrgIds: string[] | null, uid: string): Promise<FirestoreDoc[]> {
+  const ref = adminDb.collection('mailbox_messages')
+  const out: FirestoreDoc[] = []
+
+  if (scopedOrgIds && scopedOrgIds.length > 0) {
+    const snaps = await Promise.all(chunk(scopedOrgIds, 30).map((ids) => ref.where('orgId', 'in', ids).where('uid', '==', uid).limit(SOURCE_FETCH_LIMIT).get()))
+    out.push(...snaps.flatMap((snap) => snap.docs as FirestoreDoc[]))
+  } else {
+    const snap = await ref.where('uid', '==', uid).limit(SOURCE_FETCH_LIMIT).get()
+    out.push(...(snap.docs as FirestoreDoc[]))
+  }
+
+  const seen = new Set<string>()
+  return out.filter((doc) => {
+    const data = doc.data()
+    if (data.uid !== uid) return false
+    if (scopedOrgIds && scopedOrgIds.length > 0 && !scopedOrgIds.includes(String(data.orgId ?? ''))) return false
+    const key = doc.ref?.path ?? doc.id
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+}
+
 async function fetchTaskDocs(scopedOrgIds: string[] | null): Promise<FirestoreDoc[]> {
   const out: FirestoreDoc[] = []
   try {
@@ -537,6 +561,16 @@ export async function buildBriefingFeed(user: ApiUser, options: BriefingFeedOpti
       const docs = await fetchCollectionDocs('social_inbox', scopedOrgIds)
       for (const doc of docs) {
         const item = toItemSafe(socialInboxAdapter, normalizeDoc(doc), doc.id)
+        if (item) items.push(decorate(item, orgs))
+      }
+    } catch {}
+  }
+
+  if (include('mailbox-message')) {
+    try {
+      const docs = await fetchMailboxDocs(scopedOrgIds, user.uid)
+      for (const doc of docs) {
+        const item = toItemSafe(mailboxMessageAdapter, normalizeDoc(doc), doc.id)
         if (item) items.push(decorate(item, orgs))
       }
     } catch {}

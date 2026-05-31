@@ -979,4 +979,95 @@ describe('briefing feed', () => {
     expect(JSON.stringify(feed.items)).not.toContain('social-secret-123')
     expect(JSON.stringify(feed.items)).toContain('[REDACTED]')
   })
+
+  it('surfaces unread mailbox messages for the current user as control cards', async () => {
+    collections.organizations = [makeDoc('org-1', { name: 'Client One', slug: 'client-one' })]
+    collections.mailbox_messages = [
+      makeDoc('mailbox-1', {
+        orgId: 'org-1',
+        uid: 'user-1',
+        accountId: 'account-1',
+        accountEmail: 'owner@client.test',
+        folder: 'inbox',
+        direction: 'inbound',
+        status: 'received',
+        read: false,
+        starred: true,
+        from: 'Client Lead <lead@example.test>',
+        to: ['owner@client.test'],
+        subject: 'Can we book a call?',
+        bodyText: 'Please reply with available times. api_key: mailbox-secret-123',
+        snippet: 'Please reply with available times.',
+        providerMessageId: 'gmail-message-1',
+        threadId: 'gmail-thread-1',
+        receivedAt: '2026-05-31T10:45:00.000Z',
+        updatedAt: '2026-05-31T10:46:00.000Z',
+      }),
+      makeDoc('mailbox-2', {
+        orgId: 'org-1',
+        uid: 'user-1',
+        accountId: 'account-1',
+        accountEmail: 'owner@client.test',
+        folder: 'archive',
+        direction: 'inbound',
+        status: 'received',
+        read: false,
+        from: 'Archived Lead <archived@example.test>',
+        subject: 'Already archived',
+        bodyText: 'Do not show me.',
+        receivedAt: '2026-05-31T09:45:00.000Z',
+      }),
+      makeDoc('mailbox-3', {
+        orgId: 'org-1',
+        uid: 'other-user',
+        accountId: 'account-2',
+        accountEmail: 'other@client.test',
+        folder: 'inbox',
+        direction: 'inbound',
+        status: 'received',
+        read: false,
+        from: 'Other User Lead <other@example.test>',
+        subject: 'Wrong mailbox',
+        bodyText: 'Do not show another user mailbox.',
+        receivedAt: '2026-05-31T09:45:00.000Z',
+      }),
+    ]
+
+    const { buildBriefingFeed } = await import('@/lib/briefing/feed')
+    const feed = await buildBriefingFeed(
+      { uid: 'user-1', role: 'client', orgId: 'org-1', orgIds: ['org-1'] },
+      { limit: 10, sourceType: 'mailbox-message' },
+    )
+
+    expect(feed.items).toHaveLength(1)
+    expect(feed.items[0]).toMatchObject({
+      priority: 'needs-peet',
+      requiresAction: true,
+      source: {
+        type: 'mailbox-message',
+        id: 'mailbox-1',
+        url: '/portal/email?message=mailbox-1',
+      },
+      title: 'Unread email from Client Lead',
+      actor: { id: 'email:lead@example.test', name: 'Client Lead', role: 'client', type: 'user' },
+      context: {
+        orgName: 'Client One',
+        mailboxMessageId: 'mailbox-1',
+        mailboxFrom: 'Client Lead',
+        mailboxSubject: 'Can we book a call?',
+      },
+      metadata: expect.objectContaining({
+        mailboxFolder: 'inbox',
+        mailboxStatus: 'received',
+        mailboxRead: false,
+        accountId: 'account-1',
+        accountEmail: 'owner@client.test',
+        providerMessageId: 'gmail-message-1',
+        threadId: 'gmail-thread-1',
+      }),
+    })
+    expect(feed.items[0].summary).toContain('Can we book a call?')
+    expect(JSON.stringify(feed.items)).not.toContain('mailbox-secret-123')
+    expect(JSON.stringify(feed.items)).toContain('[REDACTED]')
+  })
 })

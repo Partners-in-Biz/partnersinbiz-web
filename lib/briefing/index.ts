@@ -16,6 +16,7 @@ export { notificationAdapter, activityAdapter } from './adapters/notificationAda
 export { reportAdapter } from './adapters/reportAdapter'
 export { socialPostAdapter } from './adapters/socialPostAdapter'
 export { socialInboxAdapter } from './adapters/socialInboxAdapter'
+export { mailboxMessageAdapter } from './adapters/mailboxMessageAdapter'
 export { supportTicketAdapter } from './adapters/supportTicketAdapter'
 export { invoiceAdapter } from './adapters/invoiceAdapter'
 export { expenseAdapter } from './adapters/expenseAdapter'
@@ -33,6 +34,7 @@ import { notificationAdapter, activityAdapter } from './adapters/notificationAda
 import { reportAdapter } from './adapters/reportAdapter'
 import { socialPostAdapter } from './adapters/socialPostAdapter'
 import { socialInboxAdapter } from './adapters/socialInboxAdapter'
+import { mailboxMessageAdapter } from './adapters/mailboxMessageAdapter'
 import { supportTicketAdapter } from './adapters/supportTicketAdapter'
 import { invoiceAdapter } from './adapters/invoiceAdapter'
 import { expenseAdapter } from './adapters/expenseAdapter'
@@ -53,6 +55,7 @@ export const SOURCE_ADAPTERS: Record<BriefingSourceType, BriefingSourceAdapter> 
   'client-document': clientDocumentAdapter,
   'social-post': socialPostAdapter,
   'social-inbox': socialInboxAdapter,
+  'mailbox-message': mailboxMessageAdapter,
   notification: notificationAdapter,
   activity: activityAdapter,
   report: reportAdapter,

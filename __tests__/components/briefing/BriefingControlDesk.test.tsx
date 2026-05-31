@@ -506,6 +506,38 @@ const socialInboxBriefingItem = {
   occurredAt: '2026-05-31T09:50:00.000Z',
 }
 
+const mailboxBriefingItem = {
+  id: 'mailbox-message:mailbox-1',
+  orgId: 'org-1',
+  priority: 'needs-peet',
+  title: 'Unread email from Client Lead',
+  summary: 'Client Lead emailed about Can we book a call?.',
+  excerpt: 'Please reply with available times.',
+  timeAgo: '16 minutes ago',
+  requiresAction: true,
+  source: { type: 'mailbox-message', id: 'mailbox-1', url: '/portal/email?message=mailbox-1' },
+  actor: { id: 'email:lead@example.test', name: 'Client Lead', role: 'client', type: 'user' },
+  context: {
+    orgId: 'org-1',
+    orgName: 'Client One',
+    orgSlug: 'client-one',
+    mailboxMessageId: 'mailbox-1',
+    mailboxFrom: 'Client Lead',
+    mailboxSubject: 'Can we book a call?',
+  },
+  metadata: {
+    mailboxFolder: 'inbox',
+    mailboxStatus: 'received',
+    mailboxRead: false,
+    accountId: 'account-1',
+    accountEmail: 'owner@client.test',
+    fromEmail: 'lead@example.test',
+    subject: 'Can we book a call?',
+    threadId: 'gmail-thread-1',
+  },
+  occurredAt: '2026-05-31T09:49:00.000Z',
+}
+
 describe('BriefingControlDesk', () => {
   beforeEach(() => {
     jest.useFakeTimers()
@@ -524,7 +556,7 @@ describe('BriefingControlDesk', () => {
       if (url.startsWith('/api/v1/briefings/feed')) {
         const items = url.includes('orgId=org-2')
           ? [secondOrgBriefingItem]
-          : [briefingItem, documentBriefingItem, documentCommentBriefingItem, approvalBriefingItem, conversationBriefingItem, socialBriefingItem, notificationBriefingItem, activityBriefingItem, reportBriefingItem, supportBriefingItem, invoiceBriefingItem, invoiceProofBriefingItem, expenseBriefingItem, seoContentBriefingItem, seoTaskBriefingItem, adCampaignBriefingItem, formSubmissionBriefingItem, socialInboxBriefingItem, secondOrgBriefingItem]
+          : [briefingItem, documentBriefingItem, documentCommentBriefingItem, approvalBriefingItem, conversationBriefingItem, socialBriefingItem, notificationBriefingItem, activityBriefingItem, reportBriefingItem, supportBriefingItem, invoiceBriefingItem, invoiceProofBriefingItem, expenseBriefingItem, seoContentBriefingItem, seoTaskBriefingItem, adCampaignBriefingItem, formSubmissionBriefingItem, socialInboxBriefingItem, mailboxBriefingItem, secondOrgBriefingItem]
         return {
           ok: true,
           json: async () => ({ data: { items, total: items.length, hasMore: false, generatedAt: '2026-05-31T10:05:00.000Z' } }),
@@ -684,6 +716,18 @@ describe('BriefingControlDesk', () => {
         return {
           ok: true,
           json: async () => ({ data: { id: 'social-inbox-1', status: 'read' } }),
+        } as Response
+      }
+      if (url === '/api/v1/portal/email/messages/mailbox-1') {
+        return {
+          ok: true,
+          json: async () => ({ data: { id: 'mailbox-1', folder: 'archive', read: true } }),
+        } as Response
+      }
+      if (url === '/api/v1/portal/email/messages') {
+        return {
+          ok: true,
+          json: async () => ({ data: { message: { id: 'draft-1', status: 'draft' } } }),
         } as Response
       }
       return {
@@ -1314,6 +1358,61 @@ describe('BriefingControlDesk', () => {
         method: 'PATCH',
         body: JSON.stringify({ status: 'archived' }),
       }))
+    })
+  })
+
+  it('marks mailbox messages read, archives them, and drafts replies from the control desk', async () => {
+    render(<BriefingControlDesk mode="portal" />)
+
+    fireEvent.click(await screen.findByRole('button', { name: /Unread email from Client Lead/i }))
+
+    expect(screen.getByText('Client Lead (mailbox-1)')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /open source/i })).toHaveAttribute('href', '/portal/email?message=mailbox-1')
+    expect(screen.getByRole('button', { name: /mark email read/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /archive email/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /draft email reply/i })).toBeDisabled()
+
+    fireEvent.click(screen.getByRole('button', { name: /mark email read/i }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/portal/email/messages/mailbox-1', expect.objectContaining({
+        method: 'PATCH',
+        body: JSON.stringify({ read: true }),
+      }))
+    })
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /archive email/i })).not.toBeDisabled()
+    })
+    fireEvent.click(screen.getByRole('button', { name: /archive email/i }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/portal/email/messages/mailbox-1', expect.objectContaining({
+        method: 'PATCH',
+        body: JSON.stringify({ folder: 'archive' }),
+      }))
+    })
+
+    fireEvent.change(screen.getByLabelText('Mailbox reply draft'), { target: { value: 'Yes, I can do Tuesday afternoon.' } })
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /draft email reply/i })).not.toBeDisabled()
+    })
+    fireEvent.click(screen.getByRole('button', { name: /draft email reply/i }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/portal/email/messages', expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'draft',
+          accountId: 'account-1',
+          to: ['lead@example.test'],
+          subject: 'Re: Can we book a call?',
+          bodyText: 'Yes, I can do Tuesday afternoon.',
+        }),
+      }))
+    })
+    await waitFor(() => {
+      expect(screen.getByLabelText('Mailbox reply draft')).toHaveValue('')
     })
   })
 })

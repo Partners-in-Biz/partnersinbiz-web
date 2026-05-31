@@ -56,6 +56,9 @@ interface BriefingCard {
     socialInboxId?: string | null
     socialInboxFrom?: string | null
     socialPostId?: string | null
+    mailboxMessageId?: string | null
+    mailboxFrom?: string | null
+    mailboxSubject?: string | null
   }
   metadata?: Record<string, unknown> | null
   occurredAt: string
@@ -90,6 +93,7 @@ const SOURCES = [
   { value: 'client-document', label: 'Documents' },
   { value: 'social-post', label: 'Social posts' },
   { value: 'social-inbox', label: 'Social inbox' },
+  { value: 'mailbox-message', label: 'Mailbox' },
   { value: 'approval', label: 'Approvals' },
   { value: 'notification', label: 'Notifications' },
   { value: 'activity', label: 'Activity' },
@@ -151,12 +155,14 @@ function sourceLabel(item: BriefingCard) {
   if (item.context.adCampaignName || item.context.adCampaignId) return `${item.source.type} / ${titledId(item.context.adCampaignName, item.context.adCampaignId ?? item.source.id)}`
   if (item.context.formName || item.context.formId || item.context.formSubmissionId) return `${item.source.type} / ${titledId(item.context.formName, item.context.formSubmissionId ?? item.source.id)}`
   if (item.context.socialInboxFrom || item.context.socialInboxId) return `${item.source.type} / ${titledId(item.context.socialInboxFrom, item.context.socialInboxId ?? item.source.id)}`
+  if (item.context.mailboxFrom || item.context.mailboxMessageId) return `${item.source.type} / ${titledId(item.context.mailboxFrom, item.context.mailboxMessageId ?? item.source.id)}`
   return `${item.source.type} / ${item.source.id}`
 }
 
 function sourceHref(item: BriefingCard, mode: Mode) {
   if (item.source.type === 'form-submission') return mode === 'admin' ? adminSourceHref(item) : null
   if (item.source.type === 'social-inbox') return adminSourceHref(item)
+  if (item.source.type === 'mailbox-message') return mode === 'admin' ? adminSourceHref(item) : item.source.url || `/portal/email?message=${encodeURIComponent(item.source.id)}`
   if (item.source.type === 'social-post') return `/portal/social/review/${encodeURIComponent(item.source.id)}`
   if (item.source.type === 'support-ticket') return mode === 'admin' ? `/admin/support?ticket=${encodeURIComponent(item.source.id)}` : '/portal'
   if (item.source.type === 'invoice') return mode === 'admin' ? `/admin/invoicing/${encodeURIComponent(item.source.id)}` : `/portal/payments?invoice=${encodeURIComponent(item.source.id)}`
@@ -201,6 +207,9 @@ function adminSourceHref(item: BriefingCard) {
   }
   if (item.source.type === 'social-inbox') {
     return item.source.url || `/admin/social/inbox?item=${encodeURIComponent(item.source.id)}`
+  }
+  if (item.source.type === 'mailbox-message') {
+    return `/admin/email/mailbox?message=${encodeURIComponent(item.source.id)}`
   }
   if (item.source.type === 'seo-content') {
     const sprintId = item.context.seoSprintId
@@ -256,6 +265,28 @@ function canSocialPostAct(item: BriefingCard) {
 
 function canSocialInboxAct(item: BriefingCard) {
   return item.source.type === 'social-inbox' && Boolean(item.source.id)
+}
+
+function canMailboxAct(item: BriefingCard) {
+  return item.source.type === 'mailbox-message' && Boolean(item.source.id)
+}
+
+function mailboxApiBase(mode: Mode) {
+  return mode === 'admin' ? '/api/v1/admin/mailbox/messages' : '/api/v1/portal/email/messages'
+}
+
+function mailboxReplyTo(item: BriefingCard): string[] {
+  const fromEmail = item.metadata?.fromEmail
+  if (typeof fromEmail === 'string' && fromEmail.includes('@')) return [fromEmail]
+  const actorEmail = item.actor.id.startsWith('email:') ? item.actor.id.slice('email:'.length) : ''
+  return actorEmail.includes('@') ? [actorEmail] : []
+}
+
+function mailboxReplySubject(item: BriefingCard): string {
+  const subject = typeof item.metadata?.subject === 'string' && item.metadata.subject.trim()
+    ? item.metadata.subject.trim()
+    : item.context.mailboxSubject || 'Email reply'
+  return /^re:/i.test(subject) ? subject : `Re: ${subject}`
 }
 
 function canNotificationAct(item: BriefingCard) {
@@ -357,6 +388,7 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
   const [replyText, setReplyText] = useState('')
   const [socialChangeText, setSocialChangeText] = useState('')
   const [followUpText, setFollowUpText] = useState('')
+  const [mailboxReplyText, setMailboxReplyText] = useState('')
   const [reportRecipients, setReportRecipients] = useState('')
   const [expenseReviewText, setExpenseReviewText] = useState('')
   const [paymentMethod, setPaymentMethod] = useState('eft')
@@ -744,6 +776,57 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
       await loadFeed({ quiet: true })
     } catch (err) {
       setFlash({ kind: 'error', message: err instanceof Error ? err.message : 'Social inbox update failed' })
+    } finally {
+      setBusyAction(null)
+    }
+  }
+
+  async function mailboxPatch(item: BriefingCard, body: Record<string, unknown>, success: string) {
+    if (!canMailboxAct(item)) return
+    setBusyAction(success)
+    try {
+      const res = await fetch(`${mailboxApiBase(mode)}/${encodeURIComponent(item.source.id)}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const responseBody = await res.json()
+      if (!res.ok) throw new Error(responseBody.error || 'Mailbox update failed')
+      setFlash({ kind: 'ok', message: success })
+      await loadFeed({ quiet: true })
+    } catch (err) {
+      setFlash({ kind: 'error', message: err instanceof Error ? err.message : 'Mailbox update failed' })
+    } finally {
+      setBusyAction(null)
+    }
+  }
+
+  async function draftMailboxReply(item: BriefingCard) {
+    if (!canMailboxAct(item)) return
+    const text = mailboxReplyText.trim()
+    const accountId = typeof item.metadata?.accountId === 'string' ? item.metadata.accountId : ''
+    const to = mailboxReplyTo(item)
+    if (!text || !accountId || to.length === 0) return
+    setBusyAction('mailbox-reply-draft')
+    try {
+      const res = await fetch(mailboxApiBase(mode), {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          action: 'draft',
+          accountId,
+          to,
+          subject: mailboxReplySubject(item),
+          bodyText: text,
+        }),
+      })
+      const body = await res.json()
+      if (!res.ok) throw new Error(body.error || 'Mailbox reply draft failed')
+      setMailboxReplyText('')
+      setFlash({ kind: 'ok', message: 'Email reply draft created from the control desk.' })
+      await loadFeed({ quiet: true })
+    } catch (err) {
+      setFlash({ kind: 'error', message: err instanceof Error ? err.message : 'Mailbox reply draft failed' })
     } finally {
       setBusyAction(null)
     }
@@ -1308,6 +1391,18 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                       Archive engagement
                     </button>
                   ) : null}
+                  {canMailboxAct(selected) ? (
+                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => mailboxPatch(selected, { read: true }, 'Email marked read.')} disabled={!!busyAction}>
+                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">mark_email_read</span>
+                      Mark email read
+                    </button>
+                  ) : null}
+                  {canMailboxAct(selected) ? (
+                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => mailboxPatch(selected, { folder: 'archive' }, 'Email archived.')} disabled={!!busyAction}>
+                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">archive</span>
+                      Archive email
+                    </button>
+                  ) : null}
                   {canNotificationAct(selected) ? (
                     <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => notificationAction(selected, 'read')} disabled={!!busyAction}>
                       <span className="material-symbols-outlined text-[15px]" aria-hidden="true">mark_email_read</span>
@@ -1418,6 +1513,25 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                       onChange={(event) => setSocialChangeText(event.target.value)}
                       placeholder="Describe what the agent should change before approval..."
                     />
+                  </div>
+                ) : null}
+
+                {canMailboxAct(selected) ? (
+                  <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                    <label className="text-xs font-medium text-on-surface-variant" htmlFor="briefing-mailbox-reply">
+                      Mailbox reply draft
+                    </label>
+                    <textarea
+                      id="briefing-mailbox-reply"
+                      className="pib-input mt-2 min-h-24 w-full resize-y"
+                      value={mailboxReplyText}
+                      onChange={(event) => setMailboxReplyText(event.target.value)}
+                      placeholder="Draft a reply without sending it yet..."
+                    />
+                    <button className="pib-btn-primary mt-2 w-full justify-center text-xs" type="button" onClick={() => draftMailboxReply(selected)} disabled={!mailboxReplyText.trim() || mailboxReplyTo(selected).length === 0 || !selected.metadata?.accountId || !!busyAction}>
+                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">draft</span>
+                      Draft email reply
+                    </button>
                   </div>
                 ) : null}
 
@@ -1615,6 +1729,7 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                   {selected.context.adCampaignName || selected.context.adCampaignId ? <div><dt className="text-on-surface-variant">Ad campaign</dt><dd className="text-on-surface">{titledId(selected.context.adCampaignName, selected.context.adCampaignId ?? selected.source.id)}</dd></div> : null}
                   {selected.context.formName || selected.context.formId || selected.context.formSubmissionId ? <div><dt className="text-on-surface-variant">Form submission</dt><dd className="text-on-surface">{titledId(selected.context.formName ?? selected.context.formId, selected.context.formSubmissionId ?? selected.source.id)}</dd></div> : null}
                   {selected.context.socialInboxFrom || selected.context.socialInboxId ? <div><dt className="text-on-surface-variant">Social inbox</dt><dd className="text-on-surface">{titledId(selected.context.socialInboxFrom, selected.context.socialInboxId ?? selected.source.id)}</dd></div> : null}
+                  {selected.context.mailboxFrom || selected.context.mailboxMessageId ? <div><dt className="text-on-surface-variant">Mailbox</dt><dd className="text-on-surface">{titledId(selected.context.mailboxFrom, selected.context.mailboxMessageId ?? selected.source.id)}</dd></div> : null}
                   <div><dt className="text-on-surface-variant">Occurred</dt><dd className="text-on-surface">{new Date(selected.occurredAt).toLocaleString('en-ZA')}</dd></div>
                   <div><dt className="text-on-surface-variant">Source</dt><dd className="text-on-surface">{sourceLabel(selected)}</dd></div>
                 </dl>
