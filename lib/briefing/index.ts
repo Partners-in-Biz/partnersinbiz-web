@@ -19,6 +19,7 @@ export { supportTicketAdapter } from './adapters/supportTicketAdapter'
 export { invoiceAdapter } from './adapters/invoiceAdapter'
 export { expenseAdapter } from './adapters/expenseAdapter'
 export { seoContentAdapter } from './adapters/seoContentAdapter'
+export { seoTaskAdapter } from './adapters/seoTaskAdapter'
 export { adCampaignAdapter } from './adapters/adCampaignAdapter'
 
 import type { BriefingSourceAdapter, BriefingSourceType } from './types'
@@ -33,6 +34,7 @@ import { supportTicketAdapter } from './adapters/supportTicketAdapter'
 import { invoiceAdapter } from './adapters/invoiceAdapter'
 import { expenseAdapter } from './adapters/expenseAdapter'
 import { seoContentAdapter } from './adapters/seoContentAdapter'
+import { seoTaskAdapter } from './adapters/seoTaskAdapter'
 import { adCampaignAdapter } from './adapters/adCampaignAdapter'
 
 /**
@@ -53,6 +55,7 @@ export const SOURCE_ADAPTERS: Record<BriefingSourceType, BriefingSourceAdapter> 
   invoice: invoiceAdapter,
   expense: expenseAdapter,
   'seo-content': seoContentAdapter,
+  'seo-task': seoTaskAdapter,
   'ad-campaign': adCampaignAdapter,
 }
 

@@ -649,6 +649,75 @@ describe('briefing feed', () => {
     expect(JSON.stringify(adminFeed.items)).toContain('[REDACTED]')
   })
 
+  it('surfaces active SEO tasks as admin control cards', async () => {
+    collections.organizations = [makeDoc('org-1', { name: 'Client One', slug: 'client-one' })]
+    collections.seo_tasks = [
+      makeDoc('seo-task-1', {
+        orgId: 'org-1',
+        sprintId: 'sprint-1',
+        week: 2,
+        phase: 1,
+        focus: 'Technical SEO',
+        title: 'Fix sitemap canonical drift',
+        description: 'Update sitemap entries and canonical tags. token: seo-task-secret-123',
+        taskType: 'technical',
+        status: 'blocked',
+        blockerReason: 'Waiting for CMS admin access',
+        autopilotEligible: true,
+        source: 'manual',
+        updatedAt: '2026-05-31T10:40:00.000Z',
+        deleted: false,
+      }),
+      makeDoc('seo-task-2', {
+        orgId: 'org-1',
+        sprintId: 'sprint-1',
+        title: 'Already done',
+        taskType: 'technical',
+        status: 'done',
+        updatedAt: '2026-05-31T09:40:00.000Z',
+        deleted: false,
+      }),
+    ]
+
+    const { buildBriefingFeed } = await import('@/lib/briefing/feed')
+    const adminFeed = await buildBriefingFeed(
+      { uid: 'admin-1', role: 'admin', allowedOrgIds: ['org-1'] },
+      { limit: 10, sourceType: 'seo-task' },
+    )
+    const clientFeed = await buildBriefingFeed(
+      { uid: 'client-1', role: 'client', orgIds: ['org-1'], orgId: 'org-1' },
+      { limit: 10, sourceType: 'seo-task' },
+    )
+
+    expect(adminFeed.items).toHaveLength(1)
+    expect(clientFeed.items).toHaveLength(0)
+    expect(adminFeed.items[0]).toMatchObject({
+      priority: 'critical',
+      requiresAction: true,
+      source: { type: 'seo-task', id: 'seo-task-1', url: '/admin/seo/sprints/sprint-1/tasks?task=seo-task-1' },
+      title: 'Blocked SEO task: Fix sitemap canonical drift',
+      actor: { id: 'system', type: 'system' },
+      context: {
+        orgName: 'Client One',
+        seoTaskId: 'seo-task-1',
+        seoTaskTitle: 'Fix sitemap canonical drift',
+        seoSprintId: 'sprint-1',
+      },
+      metadata: expect.objectContaining({
+        seoTaskStatus: 'blocked',
+        taskType: 'technical',
+        focus: 'Technical SEO',
+        week: 2,
+        phase: 1,
+        autopilotEligible: true,
+        blockerReason: 'Waiting for CMS admin access',
+      }),
+    })
+    expect(adminFeed.items[0].summary).toContain('Waiting for CMS admin access')
+    expect(JSON.stringify(adminFeed.items)).not.toContain('seo-task-secret-123')
+    expect(JSON.stringify(adminFeed.items)).toContain('[REDACTED]')
+  })
+
   it('surfaces ad campaigns awaiting client approval as control cards', async () => {
     collections.organizations = [makeDoc('org-1', { name: 'Client One', slug: 'client-one' })]
     collections.ad_campaigns = [

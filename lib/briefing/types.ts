@@ -42,6 +42,7 @@ export type BriefingSourceType =
   | 'invoice'              // Billing invoices that need review, payment, or sending
   | 'expense'              // Submitted expenses that need approval or rejection
   | 'seo-content'          // SEO content awaiting client review or publishing action
+  | 'seo-task'             // SEO sprint tasks needing admin execution, completion, or skip
   | 'ad-campaign'          // Ad campaigns awaiting client approval or changes
 
 /**
@@ -95,6 +96,8 @@ export interface BriefingContext {
   expenseCategory?: string | null
   seoContentId?: string | null
   seoContentTitle?: string | null
+  seoTaskId?: string | null
+  seoTaskTitle?: string | null
   seoSprintId?: string | null
   adCampaignId?: string | null
   adCampaignName?: string | null

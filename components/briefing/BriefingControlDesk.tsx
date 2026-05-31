@@ -45,6 +45,8 @@ interface BriefingCard {
     expenseCategory?: string | null
     seoContentId?: string | null
     seoContentTitle?: string | null
+    seoTaskId?: string | null
+    seoTaskTitle?: string | null
     seoSprintId?: string | null
     adCampaignId?: string | null
     adCampaignName?: string | null
@@ -89,6 +91,7 @@ const SOURCES = [
   { value: 'invoice', label: 'Invoices' },
   { value: 'expense', label: 'Expenses' },
   { value: 'seo-content', label: 'SEO content' },
+  { value: 'seo-task', label: 'SEO tasks' },
   { value: 'ad-campaign', label: 'Ad campaigns' },
 ]
 
@@ -136,6 +139,7 @@ function sourceLabel(item: BriefingCard) {
   if (item.context.invoiceNumber || item.context.invoiceId) return `${item.source.type} / ${titledId(item.context.invoiceNumber, item.context.invoiceId ?? item.source.id)}`
   if (item.context.expenseCategory || item.context.expenseId) return `${item.source.type} / ${titledId(item.context.expenseCategory, item.context.expenseId ?? item.source.id)}`
   if (item.context.seoContentTitle || item.context.seoContentId) return `${item.source.type} / ${titledId(item.context.seoContentTitle, item.context.seoContentId ?? item.source.id)}`
+  if (item.context.seoTaskTitle || item.context.seoTaskId) return `${item.source.type} / ${titledId(item.context.seoTaskTitle, item.context.seoTaskId ?? item.source.id)}`
   if (item.context.adCampaignName || item.context.adCampaignId) return `${item.source.type} / ${titledId(item.context.adCampaignName, item.context.adCampaignId ?? item.source.id)}`
   return `${item.source.type} / ${item.source.id}`
 }
@@ -151,6 +155,13 @@ function sourceHref(item: BriefingCard, mode: Mode) {
     const contentId = encodeURIComponent(item.source.id)
     if (sprintId) return `${mode === 'admin' ? '/admin' : '/portal'}/seo/sprints/${encodeURIComponent(sprintId)}/content?content=${contentId}`
     return mode === 'admin' ? `/admin/seo?content=${contentId}` : `/portal/seo?content=${contentId}`
+  }
+  if (item.source.type === 'seo-task') {
+    if (mode !== 'admin') return null
+    const sprintId = item.context.seoSprintId
+    const taskId = encodeURIComponent(item.source.id)
+    if (sprintId) return `/admin/seo/sprints/${encodeURIComponent(sprintId)}/tasks?task=${taskId}`
+    return `/admin/seo?task=${taskId}`
   }
   if (mode === 'admin') return item.source.url || null
   if (item.source.url?.startsWith('/portal')) return item.source.url
@@ -176,6 +187,12 @@ function adminSourceHref(item: BriefingCard) {
     const contentId = encodeURIComponent(item.source.id)
     if (sprintId) return `/admin/seo/sprints/${encodeURIComponent(sprintId)}/content?content=${contentId}`
     return `/admin/seo?content=${contentId}`
+  }
+  if (item.source.type === 'seo-task') {
+    const sprintId = item.context.seoSprintId
+    const taskId = encodeURIComponent(item.source.id)
+    if (sprintId) return `/admin/seo/sprints/${encodeURIComponent(sprintId)}/tasks?task=${taskId}`
+    return `/admin/seo?task=${taskId}`
   }
   if (item.context.conversationId) {
     const query = `convId=${encodeURIComponent(item.context.conversationId)}`
@@ -253,6 +270,14 @@ function seoContentReviewable(item: BriefingCard) {
   return canSeoContentAct(item) && item.metadata?.seoStatus === 'review'
 }
 
+function canSeoTaskAct(item: BriefingCard, mode: Mode) {
+  return mode === 'admin' && item.source.type === 'seo-task' && Boolean(item.source.id)
+}
+
+function seoTaskSkippable(item: BriefingCard, mode: Mode) {
+  return canSeoTaskAct(item, mode) && item.metadata?.seoTaskStatus !== 'skipped' && item.metadata?.seoTaskStatus !== 'done'
+}
+
 function canAdCampaignAct(item: BriefingCard) {
   return item.source.type === 'ad-campaign' && Boolean(item.source.id)
 }
@@ -303,6 +328,7 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
   const [reportRecipients, setReportRecipients] = useState('')
   const [expenseReviewText, setExpenseReviewText] = useState('')
   const [seoChangeText, setSeoChangeText] = useState('')
+  const [seoTaskSkipReason, setSeoTaskSkipReason] = useState('')
   const [adCampaignChangeText, setAdCampaignChangeText] = useState('')
   const [busyAction, setBusyAction] = useState<string | null>(null)
   const [flash, setFlash] = useState<Flash>(null)
@@ -842,6 +868,34 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
     }
   }
 
+  async function seoTaskAction(item: BriefingCard, action: 'execute' | 'complete' | 'skip') {
+    if (!seoTaskSkippable(item, mode)) return
+    const reason = seoTaskSkipReason.trim()
+    if (action === 'skip' && !reason) return
+    setBusyAction(`seo-task-${action}`)
+    try {
+      const res = await fetch(`/api/v1/seo/tasks/${encodeURIComponent(item.source.id)}/${action}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: action === 'skip' ? JSON.stringify({ reason }) : undefined,
+      })
+      const body = await res.json()
+      if (!res.ok) throw new Error(body.error || 'SEO task action failed')
+      if (action === 'skip') setSeoTaskSkipReason('')
+      const message = action === 'execute'
+        ? 'SEO task execution started from the control desk.'
+        : action === 'complete'
+          ? 'SEO task completed from the control desk.'
+          : 'SEO task skipped from the control desk.'
+      setFlash({ kind: 'ok', message })
+      await loadFeed({ quiet: true })
+    } catch (err) {
+      setFlash({ kind: 'error', message: err instanceof Error ? err.message : 'SEO task action failed' })
+    } finally {
+      setBusyAction(null)
+    }
+  }
+
   async function adCampaignAction(item: BriefingCard, action: 'approve' | 'reject') {
     if (!adCampaignReviewable(item)) return
     const reason = adCampaignChangeText.trim()
@@ -1170,6 +1224,24 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                       Request SEO changes
                     </button>
                   ) : null}
+                  {seoTaskSkippable(selected, mode) ? (
+                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => seoTaskAction(selected, 'execute')} disabled={!!busyAction}>
+                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">play_arrow</span>
+                      Execute SEO task
+                    </button>
+                  ) : null}
+                  {seoTaskSkippable(selected, mode) ? (
+                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => seoTaskAction(selected, 'complete')} disabled={!!busyAction}>
+                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">task_alt</span>
+                      Complete SEO task
+                    </button>
+                  ) : null}
+                  {seoTaskSkippable(selected, mode) ? (
+                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => seoTaskAction(selected, 'skip')} disabled={!seoTaskSkipReason.trim() || !!busyAction}>
+                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">skip_next</span>
+                      Skip SEO task
+                    </button>
+                  ) : null}
                   {adCampaignReviewable(selected) ? (
                     <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => adCampaignAction(selected, 'approve')} disabled={!!busyAction}>
                       <span className="material-symbols-outlined text-[15px]" aria-hidden="true">verified</span>
@@ -1305,6 +1377,21 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                   </div>
                 ) : null}
 
+                {seoTaskSkippable(selected, mode) ? (
+                  <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                    <label className="text-xs font-medium text-on-surface-variant" htmlFor="briefing-seo-task-skip-reason">
+                      SEO task skip reason
+                    </label>
+                    <textarea
+                      id="briefing-seo-task-skip-reason"
+                      className="pib-input mt-2 min-h-20 w-full resize-y"
+                      value={seoTaskSkipReason}
+                      onChange={(event) => setSeoTaskSkipReason(event.target.value)}
+                      placeholder="Explain why this sprint task should be skipped..."
+                    />
+                  </div>
+                ) : null}
+
                 {adCampaignReviewable(selected) ? (
                   <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
                     <label className="text-xs font-medium text-on-surface-variant" htmlFor="briefing-ad-campaign-change-request">
@@ -1334,6 +1421,7 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                   {selected.context.invoiceNumber || selected.context.invoiceId ? <div><dt className="text-on-surface-variant">Invoice</dt><dd className="text-on-surface">{titledId(selected.context.invoiceNumber, selected.context.invoiceId ?? selected.source.id)}</dd></div> : null}
                   {selected.context.expenseCategory || selected.context.expenseId ? <div><dt className="text-on-surface-variant">Expense</dt><dd className="text-on-surface">{titledId(selected.context.expenseCategory, selected.context.expenseId ?? selected.source.id)}</dd></div> : null}
                   {selected.context.seoContentTitle || selected.context.seoContentId ? <div><dt className="text-on-surface-variant">SEO content</dt><dd className="text-on-surface">{titledId(selected.context.seoContentTitle, selected.context.seoContentId ?? selected.source.id)}</dd></div> : null}
+                  {selected.context.seoTaskTitle || selected.context.seoTaskId ? <div><dt className="text-on-surface-variant">SEO task</dt><dd className="text-on-surface">{titledId(selected.context.seoTaskTitle, selected.context.seoTaskId ?? selected.source.id)}</dd></div> : null}
                   {selected.context.adCampaignName || selected.context.adCampaignId ? <div><dt className="text-on-surface-variant">Ad campaign</dt><dd className="text-on-surface">{titledId(selected.context.adCampaignName, selected.context.adCampaignId ?? selected.source.id)}</dd></div> : null}
                   <div><dt className="text-on-surface-variant">Occurred</dt><dd className="text-on-surface">{new Date(selected.occurredAt).toLocaleString('en-ZA')}</dd></div>
                   <div><dt className="text-on-surface-variant">Source</dt><dd className="text-on-surface">{sourceLabel(selected)}</dd></div>

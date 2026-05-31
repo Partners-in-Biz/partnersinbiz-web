@@ -359,6 +359,37 @@ const seoContentBriefingItem = {
   occurredAt: '2026-05-31T09:53:00.000Z',
 }
 
+const seoTaskBriefingItem = {
+  id: 'seo-task:seo-task-1',
+  orgId: 'org-1',
+  priority: 'critical',
+  title: 'Blocked SEO task: Fix sitemap canonical drift',
+  summary: 'Technical SEO task is blocked. Waiting for CMS admin access.',
+  excerpt: 'Waiting for CMS admin access.',
+  timeAgo: '12 minutes ago',
+  requiresAction: true,
+  source: { type: 'seo-task', id: 'seo-task-1', url: '/admin/seo/sprints/sprint-1/tasks?task=seo-task-1' },
+  actor: { id: 'system', name: 'System', role: 'system', type: 'system' },
+  context: {
+    orgId: 'org-1',
+    orgName: 'Client One',
+    orgSlug: 'client-one',
+    seoTaskId: 'seo-task-1',
+    seoTaskTitle: 'Fix sitemap canonical drift',
+    seoSprintId: 'sprint-1',
+  },
+  metadata: {
+    seoTaskStatus: 'blocked',
+    taskType: 'technical',
+    focus: 'Technical SEO',
+    week: 2,
+    phase: 1,
+    autopilotEligible: true,
+    blockerReason: 'Waiting for CMS admin access',
+  },
+  occurredAt: '2026-05-31T09:52:30.000Z',
+}
+
 const adCampaignBriefingItem = {
   id: 'ad-campaign:ad-campaign-1',
   orgId: 'org-1',
@@ -405,7 +436,7 @@ describe('BriefingControlDesk', () => {
       if (url.startsWith('/api/v1/briefings/feed')) {
         const items = url.includes('orgId=org-2')
           ? [secondOrgBriefingItem]
-          : [briefingItem, documentBriefingItem, documentCommentBriefingItem, approvalBriefingItem, conversationBriefingItem, socialBriefingItem, notificationBriefingItem, activityBriefingItem, reportBriefingItem, supportBriefingItem, invoiceBriefingItem, expenseBriefingItem, seoContentBriefingItem, adCampaignBriefingItem, secondOrgBriefingItem]
+          : [briefingItem, documentBriefingItem, documentCommentBriefingItem, approvalBriefingItem, conversationBriefingItem, socialBriefingItem, notificationBriefingItem, activityBriefingItem, reportBriefingItem, supportBriefingItem, invoiceBriefingItem, expenseBriefingItem, seoContentBriefingItem, seoTaskBriefingItem, adCampaignBriefingItem, secondOrgBriefingItem]
         return {
           ok: true,
           json: async () => ({ data: { items, total: items.length, hasMore: false, generatedAt: '2026-05-31T10:05:00.000Z' } }),
@@ -517,6 +548,24 @@ describe('BriefingControlDesk', () => {
         return {
           ok: true,
           json: async () => ({ data: { id: 'seo-comment-1', statusFlipped: true } }),
+        } as Response
+      }
+      if (url === '/api/v1/seo/tasks/seo-task-1/execute') {
+        return {
+          ok: true,
+          json: async () => ({ data: { taskId: 'seo-task-1', status: 'started' } }),
+        } as Response
+      }
+      if (url === '/api/v1/seo/tasks/seo-task-1/complete') {
+        return {
+          ok: true,
+          json: async () => ({ data: { id: 'seo-task-1', completed: true } }),
+        } as Response
+      }
+      if (url === '/api/v1/seo/tasks/seo-task-1/skip') {
+        return {
+          ok: true,
+          json: async () => ({ data: { id: 'seo-task-1', skipped: true } }),
         } as Response
       }
       if (url === '/api/v1/portal/ads/campaigns/ad-campaign-1/approve') {
@@ -964,6 +1013,50 @@ describe('BriefingControlDesk', () => {
       expect(global.fetch).toHaveBeenCalledWith('/api/v1/seo/content/seo-content-1/comments', expect.objectContaining({
         method: 'POST',
         body: JSON.stringify({ text: 'Please add a local pricing example before publishing.' }),
+      }))
+    })
+  })
+
+  it('executes, completes, and skips SEO task cards from the admin control desk', async () => {
+    render(<BriefingControlDesk mode="admin" />)
+
+    fireEvent.click(await screen.findByRole('button', { name: /Blocked SEO task: Fix sitemap canonical drift/i }))
+
+    expect(screen.getByText('Fix sitemap canonical drift (seo-task-1)')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /open source/i })).toHaveAttribute('href', '/admin/seo/sprints/sprint-1/tasks?task=seo-task-1')
+    expect(screen.getByRole('button', { name: /execute SEO task/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /complete SEO task/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /skip SEO task/i })).toBeDisabled()
+
+    fireEvent.click(screen.getByRole('button', { name: /execute SEO task/i }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/seo/tasks/seo-task-1/execute', expect.objectContaining({
+        method: 'POST',
+      }))
+    })
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /execute SEO task/i })).not.toBeDisabled()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /complete SEO task/i }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/seo/tasks/seo-task-1/complete', expect.objectContaining({
+        method: 'POST',
+      }))
+    })
+
+    fireEvent.change(screen.getByLabelText('SEO task skip reason'), { target: { value: 'CMS access is no longer available this sprint.' } })
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /skip SEO task/i })).not.toBeDisabled()
+    })
+    fireEvent.click(screen.getByRole('button', { name: /skip SEO task/i }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/seo/tasks/seo-task-1/skip', expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ reason: 'CMS access is no longer available this sprint.' }),
       }))
     })
   })
