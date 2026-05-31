@@ -116,12 +116,18 @@ export function DealPipelineCommandBar({
             <div className="rounded-xl border border-[var(--color-pib-line)] bg-white/[0.03] px-4 py-3 text-right">
               <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Weighted open value</p>
               <p className="mt-1 text-lg font-semibold text-on-surface">
-                {openPipeline.priced > 0 ? formatMoney(openPipeline.weightedValue, primaryCurrency) : 'Forecast value needed'}
+                {openPipeline.priced > 0
+                  ? formatMoney(openPipeline.weightedValue, primaryCurrency)
+                  : openDeals.length > 0
+                    ? 'Forecast value needed'
+                    : 'No open deals'}
               </p>
               <p className="mt-1 text-[11px] text-on-surface-variant">
                 {openPipeline.unpriced > 0
                   ? `${openPipeline.unpriced} unpriced open ${openPipeline.unpriced === 1 ? 'deal' : 'deals'}`
-                  : 'prob-adjusted forecast'}
+                  : openDeals.length > 0
+                    ? 'prob-adjusted forecast'
+                    : 'pipeline is clear'}
               </p>
             </div>
           </div>

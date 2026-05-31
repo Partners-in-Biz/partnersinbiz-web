@@ -204,6 +204,44 @@ describe('Portal deals page', () => {
     expect(screen.queryByText('—')).not.toBeInTheDocument()
   })
 
+  it('names unpriced pipeline summaries instead of presenting missing values as zero', async () => {
+    mockSearchParams = new URLSearchParams('view=list')
+    mockDealRows = [
+      {
+        id: 'deal-missing-value',
+        orgId: 'org-1',
+        contactId: 'contact-1',
+        title: 'Unpriced implementation',
+        currency: 'ZAR',
+        pipelineId: 'pipeline-1',
+        stageId: 'qualified',
+        expectedCloseDate: '2026-07-15',
+        notes: '',
+        createdAt: null,
+        updatedAt: null,
+      },
+    ]
+
+    render(<DealsPage />)
+
+    expect(await screen.findByText('Unpriced implementation')).toBeInTheDocument()
+    expect(screen.getByText('No priced pipeline')).toBeInTheDocument()
+    expect(screen.getAllByText('Forecast value needed').length).toBeGreaterThanOrEqual(2)
+    expect(screen.getAllByText('1 open deal needs value').length).toBeGreaterThanOrEqual(2)
+  })
+
+  it('names empty pipeline summaries separately from unpriced forecast work', async () => {
+    mockSearchParams = new URLSearchParams('view=list')
+    mockDealRows = []
+
+    render(<DealsPage />)
+
+    expect(await screen.findByRole('heading', { name: 'No deals found.' })).toBeInTheDocument()
+    expect(screen.getByText('No open pipeline')).toBeInTheDocument()
+    expect(screen.getByText('No forecastable deals')).toBeInTheDocument()
+    expect(screen.queryByText('Forecast value needed')).not.toBeInTheDocument()
+  })
+
   it('surfaces unassigned deals as a pipeline accountability lens', async () => {
     render(<DealsPage />)
 

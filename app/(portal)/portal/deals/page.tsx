@@ -54,29 +54,45 @@ function PipelineSummary({ deals, stages }: PipelineSummaryProps) {
     }
   }
 
-  const total = deals
+  const valueStats = deals
     .filter(d => !lostStageIds.has(d.stageId))
-    .reduce((sum, d) => sum + (d.value ?? 0), 0)
-  const won = deals
-    .filter(d => wonStageIds.has(d.stageId))
-    .reduce((sum, d) => sum + (d.value ?? 0), 0)
-  const open = deals.filter(d => !wonStageIds.has(d.stageId) && !lostStageIds.has(d.stageId)).length
+    .reduce(
+      (stats, d) => {
+        const hasValue = typeof d.value === 'number' && Number.isFinite(d.value)
+        const stage = stages.find(s => s.id === d.stageId)
+        const prob = d.probability ?? stage?.probability ?? 100
 
-  // A5: weighted pipeline — sum of (value × probability / 100) for non-lost deals
-  const weightedTotal = deals
-    .filter(d => !lostStageIds.has(d.stageId))
-    .reduce((sum, d) => {
-      const stage = stages.find(s => s.id === d.stageId)
-      const prob = d.probability ?? stage?.probability ?? 100
-      return sum + (d.value ?? 0) * (prob / 100)
-    }, 0)
+        if (hasValue) {
+          stats.priced += 1
+          stats.total += d.value
+          stats.weightedTotal += d.value * (prob / 100)
+          if (wonStageIds.has(d.stageId)) stats.won += d.value
+        } else {
+          stats.unpriced += 1
+        }
+
+        return stats
+      },
+      { priced: 0, unpriced: 0, total: 0, weightedTotal: 0, won: 0 },
+    )
+  const open = deals.filter(d => !wonStageIds.has(d.stageId) && !lostStageIds.has(d.stageId)).length
+  const unpricedCopy = `${valueStats.unpriced} open ${valueStats.unpriced === 1 ? 'deal needs' : 'deals need'} value`
+  const hasPipelineRecords = valueStats.priced > 0 || valueStats.unpriced > 0
 
   return (
     <div className="flex gap-4 flex-wrap">
       {[
-        { label: 'Pipeline value', value: fmt(total), sub: 'excl. lost' },
-        { label: 'Weighted pipeline', value: fmt(weightedTotal), sub: 'prob-adjusted' },
-        { label: 'Won',            value: fmt(won),   sub: 'all time' },
+        {
+          label: 'Pipeline value',
+          value: valueStats.priced > 0 ? fmt(valueStats.total) : hasPipelineRecords ? 'No priced pipeline' : 'No open pipeline',
+          sub: valueStats.unpriced > 0 ? unpricedCopy : 'excl. lost',
+        },
+        {
+          label: 'Weighted pipeline',
+          value: valueStats.priced > 0 ? fmt(valueStats.weightedTotal) : hasPipelineRecords ? 'Forecast value needed' : 'No forecastable deals',
+          sub: valueStats.unpriced > 0 ? unpricedCopy : 'prob-adjusted',
+        },
+        { label: 'Won',            value: fmt(valueStats.won),   sub: 'all time' },
         { label: 'Open deals',     value: String(open), sub: 'active' },
         { label: 'Total deals',    value: String(deals.length), sub: 'all stages' },
       ].map(stat => (
