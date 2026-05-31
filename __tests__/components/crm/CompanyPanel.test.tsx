@@ -62,4 +62,31 @@ describe('CompanyPanel', () => {
     expect(screen.getByText('Maya Sales')).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'View' })).not.toBeInTheDocument()
   })
+
+  it('names missing linked company identity instead of showing unknown company', async () => {
+    global.fetch = jest.fn(() => Promise.resolve({
+      ok: true,
+      json: async () => ({
+        data: {
+          id: 'company-raw-id',
+          orgId: 'org-1',
+          tags: [],
+          notes: '',
+          createdAt: null,
+          updatedAt: null,
+        },
+      }),
+    } as Response))
+
+    render(<CompanyPanel companyId="company-raw-id" />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: 'Open Company identity missing' })).toBeInTheDocument()
+    })
+
+    expect(screen.getByText('Company identity missing')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Open Company identity missing' })).toHaveAttribute('href', '/portal/companies/company-raw-id')
+    expect(screen.queryByText('Unknown company')).not.toBeInTheDocument()
+    expect(screen.queryByText('company-raw-id')).not.toBeInTheDocument()
+  })
 })

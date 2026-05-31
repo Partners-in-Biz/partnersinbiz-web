@@ -105,7 +105,7 @@ export function CompanyPanel({ companyId, companyName, emptyAction }: CompanyPan
   }
 
   // Full company card
-  const displayName = company?.name ?? companyName ?? 'Unknown company'
+  const displayName = company?.name?.trim() || companyName?.trim() || 'Company identity missing'
   const am = company?.accountManagerRef
   const lifecycle = labelize(company?.lifecycleStage)
   const tier = labelize(company?.tier)
