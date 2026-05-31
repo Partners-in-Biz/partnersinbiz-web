@@ -402,6 +402,19 @@ function inventoryStatusLabel(item: RelatedInventoryItem) {
   return item.status ? undefined : 'Inventory status not set'
 }
 
+function activitySummaryLabel(activity: RelatedActivity) {
+  return activity.summary || 'Activity summary missing'
+}
+
+function activityTypeLabel(activity: RelatedActivity) {
+  return activity.type ? activity.type.replace(/_/g, ' ') : 'Activity type not set'
+}
+
+function activityCreatedAtLabel(activity: RelatedActivity) {
+  const date = formatDate(activity.createdAt)
+  return date === '-' ? 'Activity time not captured' : date
+}
+
 function extractList<T>(body: unknown, key: keyof RelatedState): T[] {
   if (!body || typeof body !== 'object') return []
   const record = body as Record<string, unknown>
@@ -1456,10 +1469,10 @@ function ActivityPanel({
         {activities.map((activity) => (
           <div key={activity.id} className="px-5 py-4 flex items-start justify-between gap-4">
             <div>
-              <p className="font-medium text-sm text-[var(--color-pib-text)]">{activity.summary || activity.type || 'Activity'}</p>
-              {activity.type && <p className="text-xs text-[var(--color-pib-text-muted)] mt-1">{activity.type.replace(/_/g, ' ')}</p>}
+              <p className="font-medium text-sm text-[var(--color-pib-text)]">{activitySummaryLabel(activity)}</p>
+              <p className="text-xs text-[var(--color-pib-text-muted)] mt-1">{activityTypeLabel(activity)}</p>
             </div>
-            <span className="text-xs text-[var(--color-pib-text-muted)] shrink-0">{formatDate(activity.createdAt)}</span>
+            <span className="text-xs text-[var(--color-pib-text-muted)] shrink-0">{activityCreatedAtLabel(activity)}</span>
           </div>
         ))}
       </div>
