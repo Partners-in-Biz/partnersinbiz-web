@@ -8,7 +8,9 @@ jest.mock('@/components/crm/PipelineDefinitionsList', () => ({
   PipelineDefinitionsList: ({ pipelines: visiblePipelines }: { pipelines: Pipeline[] }) => (
     <div>
       {visiblePipelines.map((pipeline) => (
-        <article key={pipeline.id} aria-label={`Pipeline ${pipeline.name}`}>{pipeline.name}</article>
+        <article key={pipeline.id} aria-label={`Pipeline ${pipeline.name?.trim() || 'Pipeline name missing'}`}>
+          {pipeline.name?.trim() || 'Pipeline name missing'}
+        </article>
       ))}
     </div>
   ),
@@ -72,5 +74,29 @@ describe('Portal settings pipelines page', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Show all pipelines' }))
 
     expect(await screen.findByRole('article', { name: 'Pipeline Sales pipeline' })).toBeInTheDocument()
+  })
+
+  it('keeps sparse pipeline rows searchable without crashing the revenue-path lens', async () => {
+    pipelines = [{
+      id: 'pipeline-sparse',
+      orgId: 'org-1',
+      description: '',
+      isDefault: false,
+      archived: false,
+      createdAt: null,
+      updatedAt: null,
+    } as unknown as Pipeline]
+
+    render(<PipelinesPage />)
+
+    expect(await screen.findByRole('article', { name: 'Pipeline Pipeline name missing' })).toBeInTheDocument()
+
+    fireEvent.change(screen.getByPlaceholderText('Search pipeline, stage, or outcome...'), {
+      target: { value: 'missing' },
+    })
+
+    expect(screen.getByRole('article', { name: 'Pipeline Pipeline name missing' })).toBeInTheDocument()
+    expect(screen.getByText('Pipeline health')).toBeInTheDocument()
+    expect(screen.getByText('0/1')).toBeInTheDocument()
   })
 })
