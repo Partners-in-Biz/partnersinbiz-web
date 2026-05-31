@@ -46,6 +46,31 @@ const documentBriefingItem = {
   occurredAt: '2026-05-31T10:00:00.000Z',
 }
 
+const documentCommentBriefingItem = {
+  id: 'comment:doc-comment-1',
+  orgId: 'org-1',
+  priority: 'needs-peet',
+  title: 'Client comment from Riley',
+  summary: 'Can you clarify the implementation timeline in this proposal?',
+  excerpt: 'Can you clarify the implementation timeline in this proposal?',
+  timeAgo: '4 minutes ago',
+  requiresAction: true,
+  source: { type: 'comment', id: 'doc-comment-1', url: '/portal/documents/doc-1' },
+  actor: { id: 'user:riley', name: 'Riley', role: 'client', type: 'user' },
+  context: {
+    orgId: 'org-1',
+    orgName: 'Client One',
+    orgSlug: 'client-one',
+    documentId: 'doc-1',
+    documentTitle: 'Growth plan',
+  },
+  metadata: {
+    parentType: 'document',
+    userRole: 'client',
+  },
+  occurredAt: '2026-05-31T10:01:00.000Z',
+}
+
 const approvalBriefingItem = {
   id: 'approval:approval-1',
   orgId: 'org-1',
@@ -240,7 +265,7 @@ describe('BriefingControlDesk', () => {
       if (url.startsWith('/api/v1/briefings/feed')) {
         const items = url.includes('orgId=org-2')
           ? [secondOrgBriefingItem]
-          : [briefingItem, documentBriefingItem, approvalBriefingItem, conversationBriefingItem, socialBriefingItem, notificationBriefingItem, activityBriefingItem, reportBriefingItem, secondOrgBriefingItem]
+          : [briefingItem, documentBriefingItem, documentCommentBriefingItem, approvalBriefingItem, conversationBriefingItem, socialBriefingItem, notificationBriefingItem, activityBriefingItem, reportBriefingItem, secondOrgBriefingItem]
         return {
           ok: true,
           json: async () => ({ data: { items, total: items.length, hasMore: false, generatedAt: '2026-05-31T10:05:00.000Z' } }),
@@ -268,6 +293,12 @@ describe('BriefingControlDesk', () => {
         return {
           ok: true,
           json: async () => ({ data: { id: 'document-comment-1' } }),
+        } as Response
+      }
+      if (url === '/api/v1/client-documents/doc-1/comments/doc-comment-1/replies') {
+        return {
+          ok: true,
+          json: async () => ({ data: { id: 'document-reply-1' } }),
         } as Response
       }
       if (url === '/api/v1/client-documents/doc-1/approve') {
@@ -409,6 +440,32 @@ describe('BriefingControlDesk', () => {
     })
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /approve document/i })).not.toBeDisabled()
+    })
+  })
+
+  it('replies directly to document comment cards instead of creating a new document comment', async () => {
+    render(<BriefingControlDesk mode="portal" />)
+
+    fireEvent.click(await screen.findByRole('button', { name: /Client comment from Riley/i }))
+
+    expect(screen.getByRole('link', { name: /open source/i })).toHaveAttribute('href', '/portal/documents/doc-1')
+    expect(screen.getByText('Growth plan (doc-1)')).toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText('Inline document comment reply'), { target: { value: 'We can start implementation next Monday after sign-off.' } })
+    fireEvent.click(screen.getByRole('button', { name: /reply to document comment/i }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/client-documents/doc-1/comments/doc-comment-1/replies', expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ text: 'We can start implementation next Monday after sign-off.' }),
+      }))
+    })
+    expect(global.fetch).not.toHaveBeenCalledWith('/api/v1/client-documents/doc-1/comments', expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({ text: 'We can start implementation next Monday after sign-off.' }),
+    }))
+    await waitFor(() => {
+      expect(screen.getByLabelText('Inline document comment reply')).toHaveValue('')
     })
   })
 

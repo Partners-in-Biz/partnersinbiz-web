@@ -157,6 +157,10 @@ function canDocumentAct(item: BriefingCard) {
   return Boolean(item.context.documentId)
 }
 
+function canDocumentCommentReplyAct(item: BriefingCard) {
+  return item.source.type === 'comment' && Boolean(item.context.documentId && item.source.id)
+}
+
 function canConversationAct(item: BriefingCard) {
   return Boolean(item.context.conversationId)
 }
@@ -422,6 +426,27 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
     }
   }
 
+  async function replyToDocumentComment(item: BriefingCard, text: string) {
+    if (!canDocumentCommentReplyAct(item) || !text.trim()) return
+    setBusyAction('document-comment-reply')
+    try {
+      const res = await fetch(`/api/v1/client-documents/${item.context.documentId}/comments/${encodeURIComponent(item.source.id)}/replies`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ text: text.trim() }),
+      })
+      const body = await res.json()
+      if (!res.ok) throw new Error(body.error || 'Document comment reply failed')
+      setReplyText('')
+      setFlash({ kind: 'ok', message: 'Reply posted to the source document comment.' })
+      await loadFeed({ quiet: true })
+    } catch (err) {
+      setFlash({ kind: 'error', message: err instanceof Error ? err.message : 'Document comment reply failed' })
+    } finally {
+      setBusyAction(null)
+    }
+  }
+
   async function replyToConversation(item: BriefingCard, text: string) {
     if (!canConversationAct(item) || !text.trim()) return
     setBusyAction('conversation-reply')
@@ -469,6 +494,10 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
   }
 
   async function replyToSelected(item: BriefingCard) {
+    if (canDocumentCommentReplyAct(item)) {
+      await replyToDocumentComment(item, replyText)
+      return
+    }
     if (canTaskAct(item)) {
       await replyToTask(item)
       return
@@ -907,7 +936,7 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                 {canTaskAct(selected) || canDocumentAct(selected) || canConversationAct(selected) ? (
                   <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
                     <label className="text-xs font-medium text-on-surface-variant" htmlFor="briefing-reply">
-                      {canTaskAct(selected) ? 'Inline task reply' : canDocumentAct(selected) ? 'Inline document reply' : 'Inline conversation reply'}
+                      {canDocumentCommentReplyAct(selected) ? 'Inline document comment reply' : canTaskAct(selected) ? 'Inline task reply' : canDocumentAct(selected) ? 'Inline document reply' : 'Inline conversation reply'}
                     </label>
                     <textarea
                       id="briefing-reply"
@@ -918,7 +947,7 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                     />
                     <button className="pib-btn-primary mt-2 w-full justify-center text-xs" type="button" onClick={() => replyToSelected(selected)} disabled={!replyText.trim() || !!busyAction}>
                       <span className="material-symbols-outlined text-[15px]" aria-hidden="true">reply</span>
-                      {canTaskAct(selected) ? 'Post reply to task' : canDocumentAct(selected) ? 'Post reply to document' : 'Post reply to conversation'}
+                      {canDocumentCommentReplyAct(selected) ? 'Reply to document comment' : canTaskAct(selected) ? 'Post reply to task' : canDocumentAct(selected) ? 'Post reply to document' : 'Post reply to conversation'}
                     </button>
                   </div>
                 ) : null}
