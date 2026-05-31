@@ -460,6 +460,39 @@ describe('Portal deals page', () => {
     expect(within(row as HTMLElement).queryByText('sales-lead-raw')).not.toBeInTheDocument()
   })
 
+  it('names sparse deal titles in list and forecast workflows', async () => {
+    mockSearchParams = new URLSearchParams('view=list')
+    mockDealRows = [
+      {
+        id: 'deal-sparse-title',
+        orgId: 'org-1',
+        contactId: 'contact-1',
+        title: '   ',
+        value: 50000,
+        currency: 'ZAR',
+        pipelineId: 'pipeline-1',
+        stageId: 'qualified',
+        ownerUid: 'owner-1',
+        ownerRef: { uid: 'owner-1', displayName: 'Maya Sales' },
+        expectedCloseDate: '2026-06-15',
+        notes: '',
+        createdAt: null,
+        updatedAt: null,
+      },
+    ]
+
+    render(<DealsPage />)
+
+    const row = (await screen.findByText('Deal name missing')).closest('[data-deal-row]')
+    expect(row).not.toBeNull()
+    expect(within(row as HTMLElement).getByRole('checkbox', { name: 'Select Deal name missing for deal owner assignment' })).toBeInTheDocument()
+    expect(within(row as HTMLElement).getByRole('link', { name: 'Deal name missing' })).toHaveAttribute('href', '/portal/deals/deal-sparse-title')
+
+    fireEvent.click(screen.getByRole('tab', { name: /Forecast/i }))
+
+    expect(await screen.findByRole('link', { name: 'Deal name missing' })).toHaveAttribute('href', '/portal/deals/deal-sparse-title')
+  })
+
   it('turns an empty forecast into a create-deal action', async () => {
     mockDealRows = []
 

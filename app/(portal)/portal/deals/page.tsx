@@ -150,6 +150,10 @@ function dealOwnerLabel(deal: Deal): string {
   return 'Unassigned'
 }
 
+function dealTitleLabel(deal: Deal): string {
+  return deal.title?.trim() || 'Deal name missing'
+}
+
 function teamMemberLabel(member: TeamMember): string {
   const label = teamMemberDisplayName(member)
   return member.jobTitle?.trim() ? `${label} - ${member.jobTitle.trim()}` : label
@@ -414,8 +418,9 @@ export default function DealsPage() {
     const query = search.trim().toLowerCase()
     return deals.filter((deal) => {
       const contactLabel = contactLabelsById[deal.contactId]
+      const dealTitle = dealTitleLabel(deal)
       const matchesSearch = !query ||
-        deal.title.toLowerCase().includes(query) ||
+        dealTitle.toLowerCase().includes(query) ||
         deal.companyName?.toLowerCase().includes(query) ||
         deal.contactId?.toLowerCase().includes(query) ||
         contactLabel?.toLowerCase().includes(query) ||
@@ -833,6 +838,7 @@ export default function DealsPage() {
                   const prob = deal.probability ?? stage?.probability ?? 100
                   const weighted = (deal.value ?? 0) * (prob / 100)
                   const contactLabel = contactLabelsById[deal.contactId]
+                  const dealTitle = dealTitleLabel(deal)
                   return (
                     <tr
                       key={deal.id}
@@ -844,7 +850,7 @@ export default function DealsPage() {
                       <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
                         <input
                           type="checkbox"
-                          aria-label={`Select ${deal.title} for deal owner assignment`}
+                          aria-label={`Select ${dealTitle} for deal owner assignment`}
                           checked={selectedDealIds.has(deal.id)}
                           onChange={() => toggleDealSelection(deal.id)}
                           className="h-4 w-4 rounded border-[var(--color-pib-line)] bg-transparent"
@@ -856,7 +862,7 @@ export default function DealsPage() {
                           className="hover:text-[var(--color-pib-accent)] transition-colors font-medium"
                           onClick={e => e.stopPropagation()}
                         >
-                          {deal.title}
+                          {dealTitle}
                         </Link>
                       </td>
                       <td className="px-4 py-3">
@@ -984,6 +990,7 @@ export default function DealsPage() {
                     const stageLabel = stage?.label ?? deal.stageId
                     const prob = deal.probability ?? stage?.probability ?? 50
                     const weighted = (deal.value ?? 0) * (prob / 100)
+                    const dealTitle = dealTitleLabel(deal)
                     return (
                       <tr
                         key={deal.id}
@@ -994,7 +1001,7 @@ export default function DealsPage() {
                             href={`/portal/deals/${deal.id}`}
                             className="hover:text-[var(--color-pib-accent)] transition-colors"
                           >
-                            {deal.title}
+                            {dealTitle}
                           </Link>
                         </td>
                         <td className="px-4 py-3 text-[var(--color-pib-text-muted)] hidden md:table-cell">{stageLabel}</td>
