@@ -708,6 +708,59 @@ const pausedBroadcastBriefingItem = {
   occurredAt: '2026-05-31T09:51:15.000Z',
 }
 
+const draftCampaignBriefingItem = {
+  id: 'campaign:campaign-1',
+  orgId: 'org-1',
+  priority: 'needs-peet',
+  title: 'Campaign ready to launch: Lead nurture launch',
+  summary: 'Campaign is draft and ready for 24 contacts.',
+  excerpt: 'Sequence launch needs review.',
+  timeAgo: '13 minutes ago',
+  requiresAction: true,
+  source: { type: 'campaign', id: 'campaign-1', url: '/portal/campaigns/campaign-1' },
+  actor: { id: 'system:campaign', name: 'Campaign system', role: 'system', type: 'system' },
+  context: {
+    orgId: 'org-1',
+    orgName: 'Client One',
+    orgSlug: 'client-one',
+    campaignId: 'campaign-1',
+    campaignName: 'Lead nurture launch',
+  },
+  metadata: {
+    campaignStatus: 'draft',
+    segmentId: 'segment-1',
+    sequenceId: 'sequence-1',
+    contactCount: 24,
+  },
+  occurredAt: '2026-05-31T09:51:00.000Z',
+}
+
+const activeCampaignBriefingItem = {
+  id: 'campaign:campaign-2',
+  orgId: 'org-1',
+  priority: 'progress',
+  title: 'Campaign active: Retention nurture',
+  summary: 'Campaign is active with 120 enrolled.',
+  excerpt: 'Retention campaign is running.',
+  timeAgo: '13 minutes ago',
+  requiresAction: true,
+  source: { type: 'campaign', id: 'campaign-2', url: '/portal/campaigns/campaign-2' },
+  actor: { id: 'system:campaign', name: 'Campaign system', role: 'system', type: 'system' },
+  context: {
+    orgId: 'org-1',
+    orgName: 'Client One',
+    orgSlug: 'client-one',
+    campaignId: 'campaign-2',
+    campaignName: 'Retention nurture',
+  },
+  metadata: {
+    campaignStatus: 'active',
+    sequenceId: 'sequence-2',
+    enrolled: 120,
+  },
+  occurredAt: '2026-05-31T09:50:45.000Z',
+}
+
 const formSubmissionBriefingItem = {
   id: 'form-submission:submission-1',
   orgId: 'org-1',
@@ -937,7 +990,7 @@ describe('BriefingControlDesk', () => {
       if (url.startsWith('/api/v1/briefings/feed')) {
         const items = url.includes('orgId=org-2')
           ? [secondOrgBriefingItem]
-          : [briefingItem, documentBriefingItem, documentCommentBriefingItem, approvalBriefingItem, conversationBriefingItem, socialBriefingItem, notificationBriefingItem, activityBriefingItem, contactBriefingItem, reportBriefingItem, supportBriefingItem, invoiceBriefingItem, invoiceProofBriefingItem, quoteBriefingItem, shipmentBriefingItem, orderBriefingItem, inventoryBriefingItem, enquiryBriefingItem, bookingBriefingItem, expenseBriefingItem, seoContentBriefingItem, seoTaskBriefingItem, adCampaignBriefingItem, draftBroadcastBriefingItem, scheduledBroadcastBriefingItem, pausedBroadcastBriefingItem, formSubmissionBriefingItem, socialInboxBriefingItem, mailboxBriefingItem, agentRunBriefingItem, workspaceBrokerBriefingItem, calendarBriefingItem, secondOrgBriefingItem]
+          : [briefingItem, documentBriefingItem, documentCommentBriefingItem, approvalBriefingItem, conversationBriefingItem, socialBriefingItem, notificationBriefingItem, activityBriefingItem, contactBriefingItem, reportBriefingItem, supportBriefingItem, invoiceBriefingItem, invoiceProofBriefingItem, quoteBriefingItem, shipmentBriefingItem, orderBriefingItem, inventoryBriefingItem, enquiryBriefingItem, bookingBriefingItem, expenseBriefingItem, seoContentBriefingItem, seoTaskBriefingItem, adCampaignBriefingItem, draftBroadcastBriefingItem, scheduledBroadcastBriefingItem, pausedBroadcastBriefingItem, draftCampaignBriefingItem, activeCampaignBriefingItem, formSubmissionBriefingItem, socialInboxBriefingItem, mailboxBriefingItem, agentRunBriefingItem, workspaceBrokerBriefingItem, calendarBriefingItem, secondOrgBriefingItem]
         return {
           ok: true,
           json: async () => ({ data: { items, total: items.length, hasMore: false, generatedAt: '2026-05-31T10:05:00.000Z' } }),
@@ -1109,6 +1162,24 @@ describe('BriefingControlDesk', () => {
         return {
           ok: true,
           json: async () => ({ data: { id: 'broadcast-3', status: 'scheduled' } }),
+        } as Response
+      }
+      if (url === '/api/v1/campaigns/campaign-1/launch') {
+        return {
+          ok: true,
+          json: async () => ({ data: { enrolled: 24, audienceSize: 24 } }),
+        } as Response
+      }
+      if (url === '/api/v1/campaigns/campaign-1/approve-all') {
+        return {
+          ok: true,
+          json: async () => ({ data: { campaignId: 'campaign-1', approved: { total: 3 } } }),
+        } as Response
+      }
+      if (url === '/api/v1/campaigns/campaign-2/archive') {
+        return {
+          ok: true,
+          json: async () => ({ data: { id: 'campaign-2', status: 'archived' } }),
         } as Response
       }
       if (url === '/api/v1/forms/form-1/submissions/submission-1') {
@@ -1981,6 +2052,49 @@ describe('BriefingControlDesk', () => {
     })
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /resume broadcast/i })).not.toBeDisabled()
+    })
+  })
+
+  it('launches, bulk-approves, and archives campaign cards from the control desk', async () => {
+    render(<BriefingControlDesk mode="portal" />)
+
+    fireEvent.click(await screen.findByRole('button', { name: /Campaign ready to launch: Lead nurture launch/i }))
+    expect(screen.getByText('Lead nurture launch (campaign-1)')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /open source/i })).toHaveAttribute('href', '/portal/campaigns/campaign-1')
+    expect(screen.getByText('sequence-1')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /approve campaign assets/i }))
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/campaigns/campaign-1/approve-all', expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ type: 'all' }),
+      }))
+    })
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /^launch campaign$/i })).not.toBeDisabled()
+    })
+    fireEvent.click(screen.getByRole('button', { name: /^launch campaign$/i }))
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/campaigns/campaign-1/launch', expect.objectContaining({ method: 'POST' }))
+    })
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /^launch campaign$/i })).not.toBeDisabled()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /Campaign active: Retention nurture/i }))
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: /open source/i })).toHaveAttribute('href', '/portal/campaigns/campaign-2')
+    })
+    expect(screen.getByText('Retention nurture (campaign-2)')).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /^archive campaign$/i })).not.toBeDisabled()
+    })
+    fireEvent.click(screen.getByRole('button', { name: /^archive campaign$/i }))
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/campaigns/campaign-2/archive', expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ force: false }),
+      }))
     })
   })
 

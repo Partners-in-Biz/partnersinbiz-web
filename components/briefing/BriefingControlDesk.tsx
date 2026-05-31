@@ -64,6 +64,8 @@ interface BriefingCard {
     adCampaignName?: string | null
     broadcastId?: string | null
     broadcastName?: string | null
+    campaignId?: string | null
+    campaignName?: string | null
     enquiryId?: string | null
     enquiryName?: string | null
     formId?: string | null
@@ -138,6 +140,7 @@ const SOURCES = [
   { value: 'seo-task', label: 'SEO tasks' },
   { value: 'ad-campaign', label: 'Ad campaigns' },
   { value: 'broadcast', label: 'Broadcasts' },
+  { value: 'campaign', label: 'Campaigns' },
   { value: 'enquiry', label: 'Enquiries' },
   { value: 'form-submission', label: 'Form submissions' },
 ]
@@ -194,6 +197,7 @@ function sourceLabel(item: BriefingCard) {
   if (item.context.seoTaskTitle || item.context.seoTaskId) return `${item.source.type} / ${titledId(item.context.seoTaskTitle, item.context.seoTaskId ?? item.source.id)}`
   if (item.context.adCampaignName || item.context.adCampaignId) return `${item.source.type} / ${titledId(item.context.adCampaignName, item.context.adCampaignId ?? item.source.id)}`
   if (item.context.broadcastName || item.context.broadcastId) return `${item.source.type} / ${titledId(item.context.broadcastName, item.context.broadcastId ?? item.source.id)}`
+  if (item.context.campaignName || item.context.campaignId) return `${item.source.type} / ${titledId(item.context.campaignName, item.context.campaignId ?? item.source.id)}`
   if (item.context.enquiryName || item.context.enquiryId) return `${item.source.type} / ${titledId(item.context.enquiryName, item.context.enquiryId ?? item.source.id)}`
   if (item.context.formName || item.context.formId || item.context.formSubmissionId) return `${item.source.type} / ${titledId(item.context.formName, item.context.formSubmissionId ?? item.source.id)}`
   if (item.context.socialInboxFrom || item.context.socialInboxId) return `${item.source.type} / ${titledId(item.context.socialInboxFrom, item.context.socialInboxId ?? item.source.id)}`
@@ -222,6 +226,7 @@ function sourceHref(item: BriefingCard, mode: Mode) {
   if (item.source.type === 'expense') return mode === 'admin' ? `/admin/finance?expense=${encodeURIComponent(item.source.id)}` : null
   if (item.source.type === 'ad-campaign') return mode === 'admin' ? adminSourceHref(item) : `/portal/ads/campaigns/${encodeURIComponent(item.source.id)}`
   if (item.source.type === 'broadcast') return mode === 'admin' ? adminSourceHref(item) : item.source.url || `/portal/campaigns/broadcast/${encodeURIComponent(item.source.id)}`
+  if (item.source.type === 'campaign') return mode === 'admin' ? adminSourceHref(item) : item.source.url || `/portal/campaigns/${encodeURIComponent(item.source.id)}`
   if (item.source.type === 'enquiry') return mode === 'admin' ? adminSourceHref(item) : null
   if (item.source.type === 'seo-content') {
     const sprintId = item.context.seoSprintId
@@ -274,6 +279,7 @@ function adminSourceHref(item: BriefingCard) {
     return `/admin/marketing?adCampaign=${encodeURIComponent(item.source.id)}`
   }
   if (item.source.type === 'broadcast') return `/admin/broadcasts/${encodeURIComponent(item.source.id)}`
+  if (item.source.type === 'campaign') return `/admin/campaigns/${encodeURIComponent(item.source.id)}`
   if (item.source.type === 'form-submission') {
     const formId = item.context.formId
     if (formId) return `/admin/forms/${encodeURIComponent(formId)}/submissions/${encodeURIComponent(item.source.id)}`
@@ -495,6 +501,22 @@ function broadcastPausable(item: BriefingCard) {
 
 function broadcastResumable(item: BriefingCard) {
   return canBroadcastAct(item) && broadcastStatus(item) === 'paused'
+}
+
+function canCampaignAct(item: BriefingCard) {
+  return item.source.type === 'campaign' && Boolean(item.source.id)
+}
+
+function campaignStatus(item: BriefingCard) {
+  return typeof item.metadata?.campaignStatus === 'string' ? item.metadata.campaignStatus : null
+}
+
+function campaignLaunchable(item: BriefingCard) {
+  return canCampaignAct(item) && ['draft', 'scheduled', 'paused'].includes(campaignStatus(item) ?? '')
+}
+
+function campaignArchivable(item: BriefingCard) {
+  return canCampaignAct(item) && campaignStatus(item) !== 'completed'
 }
 
 function enquiryActionable(item: BriefingCard, mode: Mode) {
@@ -1511,6 +1533,37 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
     }
   }
 
+  async function campaignAction(item: BriefingCard, action: 'approve-all' | 'launch' | 'archive') {
+    if (!canCampaignAct(item)) return
+    if (action === 'launch' && !campaignLaunchable(item)) return
+    if (action === 'archive' && !campaignArchivable(item)) return
+    setBusyAction(`campaign-${action}`)
+    try {
+      const res = await fetch(`/api/v1/campaigns/${encodeURIComponent(item.source.id)}/${action}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: action === 'approve-all'
+          ? JSON.stringify({ type: 'all' })
+          : action === 'archive'
+            ? JSON.stringify({ force: false })
+            : undefined,
+      })
+      const body = await res.json()
+      if (!res.ok) throw new Error(body.error || 'Campaign action failed')
+      const message = action === 'approve-all'
+        ? 'Campaign assets approved from the control desk.'
+        : action === 'launch'
+          ? 'Campaign launched from the control desk.'
+          : 'Campaign archived from the control desk.'
+      setFlash({ kind: 'ok', message })
+      await loadFeed({ quiet: true })
+    } catch (err) {
+      setFlash({ kind: 'error', message: err instanceof Error ? err.message : 'Campaign action failed' })
+    } finally {
+      setBusyAction(null)
+    }
+  }
+
   async function enquiryAction(item: BriefingCard, status: 'reviewing' | 'active' | 'closed') {
     if (!enquiryActionable(item, mode)) return
     setBusyAction(`enquiry-${status}`)
@@ -2047,6 +2100,24 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                       Resume broadcast
                     </button>
                   ) : null}
+                  {canCampaignAct(selected) ? (
+                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => campaignAction(selected, 'approve-all')} disabled={!!busyAction}>
+                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">done_all</span>
+                      Approve campaign assets
+                    </button>
+                  ) : null}
+                  {campaignLaunchable(selected) ? (
+                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => campaignAction(selected, 'launch')} disabled={!!busyAction}>
+                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">rocket_launch</span>
+                      Launch campaign
+                    </button>
+                  ) : null}
+                  {campaignArchivable(selected) ? (
+                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => campaignAction(selected, 'archive')} disabled={!!busyAction}>
+                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">archive</span>
+                      Archive campaign
+                    </button>
+                  ) : null}
                   {enquiryActionable(selected, mode) ? (
                     <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => enquiryAction(selected, 'reviewing')} disabled={!!busyAction}>
                       <span className="material-symbols-outlined text-[15px]" aria-hidden="true">pageview</span>
@@ -2331,6 +2402,9 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                   {selected.context.seoTaskTitle || selected.context.seoTaskId ? <div><dt className="text-on-surface-variant">SEO task</dt><dd className="text-on-surface">{titledId(selected.context.seoTaskTitle, selected.context.seoTaskId ?? selected.source.id)}</dd></div> : null}
                   {selected.context.adCampaignName || selected.context.adCampaignId ? <div><dt className="text-on-surface-variant">Ad campaign</dt><dd className="text-on-surface">{titledId(selected.context.adCampaignName, selected.context.adCampaignId ?? selected.source.id)}</dd></div> : null}
                   {selected.context.broadcastName || selected.context.broadcastId ? <div><dt className="text-on-surface-variant">Broadcast</dt><dd className="text-on-surface">{titledId(selected.context.broadcastName, selected.context.broadcastId ?? selected.source.id)}</dd></div> : null}
+                  {selected.context.campaignName || selected.context.campaignId ? <div><dt className="text-on-surface-variant">Campaign</dt><dd className="text-on-surface">{titledId(selected.context.campaignName, selected.context.campaignId ?? selected.source.id)}</dd></div> : null}
+                  {typeof selected.metadata?.sequenceId === 'string' && selected.metadata.sequenceId ? <div><dt className="text-on-surface-variant">Sequence</dt><dd className="text-on-surface">{selected.metadata.sequenceId}</dd></div> : null}
+                  {typeof selected.metadata?.segmentId === 'string' && selected.metadata.segmentId ? <div><dt className="text-on-surface-variant">Segment</dt><dd className="text-on-surface">{selected.metadata.segmentId}</dd></div> : null}
                   {typeof selected.metadata?.subject === 'string' && selected.metadata.subject ? <div><dt className="text-on-surface-variant">Subject</dt><dd className="text-on-surface">{selected.metadata.subject}</dd></div> : null}
                   {typeof selected.metadata?.audienceSize === 'number' ? <div><dt className="text-on-surface-variant">Audience</dt><dd className="text-on-surface">{selected.metadata.audienceSize.toLocaleString('en-ZA')} recipients</dd></div> : null}
                   {selected.context.enquiryName || selected.context.enquiryId ? <div><dt className="text-on-surface-variant">Enquiry</dt><dd className="text-on-surface">{titledId(selected.context.enquiryName, selected.context.enquiryId ?? selected.source.id)}</dd></div> : null}

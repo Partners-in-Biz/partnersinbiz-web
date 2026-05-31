@@ -33,6 +33,7 @@ export { seoContentAdapter } from './adapters/seoContentAdapter'
 export { seoTaskAdapter } from './adapters/seoTaskAdapter'
 export { adCampaignAdapter } from './adapters/adCampaignAdapter'
 export { broadcastAdapter } from './adapters/broadcastAdapter'
+export { campaignAdapter } from './adapters/campaignAdapter'
 export { enquiryAdapter } from './adapters/enquiryAdapter'
 export { formSubmissionAdapter } from './adapters/formSubmissionAdapter'
 
@@ -62,6 +63,7 @@ import { seoContentAdapter } from './adapters/seoContentAdapter'
 import { seoTaskAdapter } from './adapters/seoTaskAdapter'
 import { adCampaignAdapter } from './adapters/adCampaignAdapter'
 import { broadcastAdapter } from './adapters/broadcastAdapter'
+import { campaignAdapter } from './adapters/campaignAdapter'
 import { enquiryAdapter } from './adapters/enquiryAdapter'
 import { formSubmissionAdapter } from './adapters/formSubmissionAdapter'
 
@@ -97,6 +99,7 @@ export const SOURCE_ADAPTERS: Record<BriefingSourceType, BriefingSourceAdapter> 
   'seo-task': seoTaskAdapter,
   'ad-campaign': adCampaignAdapter,
   broadcast: broadcastAdapter,
+  campaign: campaignAdapter,
   enquiry: enquiryAdapter,
   'form-submission': formSubmissionAdapter,
 }

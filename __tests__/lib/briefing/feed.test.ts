@@ -1225,6 +1225,61 @@ describe('briefing feed', () => {
     expect(JSON.stringify(feed.items)).toContain('[REDACTED]')
   })
 
+  it('surfaces top-level campaigns as launch control cards', async () => {
+    collections.organizations = [makeDoc('org-1', { name: 'Client One', slug: 'client-one' })]
+    collections.campaigns = [
+      makeDoc('campaign-1', {
+        orgId: 'org-1',
+        name: 'Lead nurture launch',
+        description: 'Sequence launch needs review. token: campaign-secret-123',
+        status: 'draft',
+        segmentId: 'segment-1',
+        contactIds: ['contact-1', 'contact-2'],
+        sequenceId: 'sequence-1',
+        fromName: 'Client One',
+        startAt: null,
+        stats: { enrolled: 0, sent: 0, opened: 0, clicked: 0 },
+        updatedAt: '2026-05-31T08:15:00.000Z',
+      }),
+      makeDoc('campaign-2', {
+        orgId: 'org-1',
+        name: 'Completed campaign',
+        status: 'completed',
+        sequenceId: 'sequence-2',
+        updatedAt: '2026-05-31T08:15:00.000Z',
+      }),
+    ]
+
+    const { buildBriefingFeed } = await import('@/lib/briefing/feed')
+    const feed = await buildBriefingFeed(
+      { uid: 'client-1', role: 'client', orgId: 'org-1' },
+      { limit: 10, sourceType: 'campaign' },
+    )
+
+    expect(feed.items).toHaveLength(1)
+    expect(feed.items[0]).toMatchObject({
+      source: { type: 'campaign', id: 'campaign-1', collectionPath: 'campaigns', url: '/portal/campaigns/campaign-1' },
+      priority: 'needs-peet',
+      title: 'Campaign ready to launch: Lead nurture launch',
+      context: {
+        orgId: 'org-1',
+        orgName: 'Client One',
+        orgSlug: 'client-one',
+        campaignId: 'campaign-1',
+        campaignName: 'Lead nurture launch',
+      },
+      metadata: expect.objectContaining({
+        campaignStatus: 'draft',
+        segmentId: 'segment-1',
+        sequenceId: 'sequence-1',
+        contactCount: 2,
+      }),
+    })
+    expect(feed.items[0].summary).toContain('Campaign is draft')
+    expect(JSON.stringify(feed.items)).not.toContain('campaign-secret-123')
+    expect(JSON.stringify(feed.items)).toContain('[REDACTED]')
+  })
+
   it('surfaces new form submissions as source-backed follow-up cards', async () => {
     collections.organizations = [makeDoc('org-1', { name: 'Client One', slug: 'client-one' })]
     collections.form_submissions = [
