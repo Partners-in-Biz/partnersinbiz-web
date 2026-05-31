@@ -274,6 +274,23 @@ function serviceWorkspaceStatusLabel(workspace: RelatedServiceWorkspace) {
   return workspace.status ? undefined : 'Service status not set'
 }
 
+function documentTitleLabel(document: RelatedDocument) {
+  return document.title || 'Document title missing'
+}
+
+function documentTypeLabel(document: RelatedDocument) {
+  return document.type || 'Document type not set'
+}
+
+function documentStatusLabel(document: RelatedDocument) {
+  return document.status ? undefined : 'Document status not set'
+}
+
+function documentUpdatedLabel(document: RelatedDocument) {
+  const date = formatDate(document.updatedAt)
+  return date === '-' ? 'Document update time not captured' : date
+}
+
 function quoteTotalLabel(quote: RelatedQuote) {
   return typeof quote.total === 'number' && Number.isFinite(quote.total)
     ? formatCurrency(quote.total, quote.currency || 'ZAR')
@@ -701,9 +718,13 @@ function DocumentsPanel({
       rows={documents}
       emptyIcon="description"
       emptyLabel="No linked documents yet."
-      title={(row) => String(row.title ?? row.id)}
+      title={(row) => documentTitleLabel(row as RelatedDocument)}
       hrefFor={(row) => `/portal/documents/${row.id}`}
-      metaFor={(row) => [String(row.type ?? ''), formatDate(row.updatedAt)]}
+      metaFor={(row) => [
+        documentTypeLabel(row as RelatedDocument),
+        documentStatusLabel(row as RelatedDocument),
+        documentUpdatedLabel(row as RelatedDocument),
+      ]}
     />
   )
 }
