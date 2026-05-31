@@ -46,6 +46,29 @@ const documentBriefingItem = {
   occurredAt: '2026-05-31T10:00:00.000Z',
 }
 
+const secondOrgBriefingItem = {
+  id: 'task:item-2',
+  orgId: 'org-2',
+  priority: 'critical',
+  title: 'Blocked launch checklist',
+  summary: 'The launch checklist is waiting on client access.',
+  excerpt: 'DNS access is still missing.',
+  timeAgo: '1 minute ago',
+  requiresAction: true,
+  source: { type: 'task', id: 'task-2', url: '/portal/projects/project-2?taskId=task-2' },
+  actor: { id: 'user:client-2', name: 'Client Two', role: 'client', type: 'user' },
+  context: {
+    orgId: 'org-2',
+    orgName: 'Client Two',
+    orgSlug: 'client-two',
+    projectId: 'project-2',
+    projectName: 'Launch checklist',
+    taskId: 'task-2',
+    taskTitle: 'Provide DNS access',
+  },
+  occurredAt: '2026-05-31T10:04:00.000Z',
+}
+
 describe('BriefingControlDesk', () => {
   beforeEach(() => {
     jest.useFakeTimers()
@@ -55,13 +78,19 @@ describe('BriefingControlDesk', () => {
       if (url === '/api/v1/organizations') {
         return {
           ok: true,
-          json: async () => ({ data: [{ id: 'org-1', name: 'Client One', slug: 'client-one' }] }),
+          json: async () => ({ data: [
+            { id: 'org-1', name: 'Client One', slug: 'client-one' },
+            { id: 'org-2', name: 'Client Two', slug: 'client-two' },
+          ] }),
         } as Response
       }
       if (url.startsWith('/api/v1/briefings/feed')) {
+        const items = url.includes('orgId=org-2')
+          ? [secondOrgBriefingItem]
+          : [briefingItem, documentBriefingItem, secondOrgBriefingItem]
         return {
           ok: true,
-          json: async () => ({ data: { items: [briefingItem, documentBriefingItem], total: 2, hasMore: false, generatedAt: '2026-05-31T10:05:00.000Z' } }),
+          json: async () => ({ data: { items, total: items.length, hasMore: false, generatedAt: '2026-05-31T10:05:00.000Z' } }),
         } as Response
       }
       if (url === '/api/v1/briefings/items/task%3Aitem-1/state') {
@@ -107,9 +136,24 @@ describe('BriefingControlDesk', () => {
     expect(screen.getByRole('button', { name: /live on/i })).toBeInTheDocument()
     expect((await screen.findAllByText('Theo completed work - review required')).length).toBeGreaterThan(0)
     expect(screen.getAllByText('Client One').length).toBeGreaterThan(0)
+    expect(screen.getByRole('button', { name: /filter to client two workspace/i })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /open source/i })).toHaveAttribute('href', '/portal/projects/project-1?taskId=task-1')
     expect(screen.getByRole('button', { name: /approve/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /send back to agent/i })).toBeInTheDocument()
+  })
+
+  it('lets users switch the live desk to a noisy organisation from workspace pulse', async () => {
+    render(<BriefingControlDesk mode="portal" />)
+
+    fireEvent.click(await screen.findByRole('button', { name: /filter to client two workspace/i }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/api/v1/briefings/feed?orgId=org-2'))
+    })
+    expect((await screen.findAllByText('Blocked launch checklist')).length).toBeGreaterThan(0)
+    expect(screen.queryByText('Theo completed work - review required')).not.toBeInTheDocument()
+    expect(screen.getAllByText('1 live cards').length).toBeGreaterThan(0)
+    expect(screen.getByRole('button', { name: /all workspaces/i })).toBeInTheDocument()
   })
 
   it('posts inline replies and removes handled cards from the visible desk', async () => {
@@ -167,6 +211,9 @@ describe('BriefingControlDesk', () => {
       expect(global.fetch).toHaveBeenCalledWith('/api/v1/client-documents/doc-1/approve', expect.objectContaining({
         method: 'POST',
       }))
+    })
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /approve document/i })).not.toBeDisabled()
     })
   })
 })

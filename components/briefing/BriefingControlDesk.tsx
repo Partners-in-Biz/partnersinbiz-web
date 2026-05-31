@@ -214,6 +214,63 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
     agents: items.filter((item) => item.actor.type === 'agent' || item.source.type === 'agent-output').length,
   }), [counts, items])
 
+  const workspacePulse = useMemo(() => {
+    const byOrg = new Map<string, {
+      id: string
+      name: string
+      total: number
+      action: number
+      blocked: number
+      review: number
+      agents: number
+      documents: number
+      latestAt: number
+    }>()
+
+    for (const org of orgs) {
+      byOrg.set(org.id, {
+        id: org.id,
+        name: org.name,
+        total: 0,
+        action: 0,
+        blocked: 0,
+        review: 0,
+        agents: 0,
+        documents: 0,
+        latestAt: 0,
+      })
+    }
+
+    for (const item of items) {
+      const id = item.orgId || item.context.orgId || 'unknown'
+      const current = byOrg.get(id) ?? {
+        id,
+        name: item.context.orgName || id,
+        total: 0,
+        action: 0,
+        blocked: 0,
+        review: 0,
+        agents: 0,
+        documents: 0,
+        latestAt: 0,
+      }
+      current.name = item.context.orgName || current.name
+      current.total += 1
+      if (item.requiresAction) current.action += 1
+      if (item.priority === 'critical') current.blocked += 1
+      if (item.priority === 'review' || item.priority === 'needs-peet') current.review += 1
+      if (item.actor.type === 'agent' || item.source.type === 'agent-output') current.agents += 1
+      if (item.source.type === 'client-document' || item.source.type === 'approval') current.documents += 1
+      current.latestAt = Math.max(current.latestAt, new Date(item.occurredAt).getTime())
+      byOrg.set(id, current)
+    }
+
+    return [...byOrg.values()]
+      .filter((row) => row.total > 0 || !orgId)
+      .sort((a, b) => b.action - a.action || b.blocked - a.blocked || b.latestAt - a.latestAt || a.name.localeCompare(b.name))
+      .slice(0, 8)
+  }, [items, orgId, orgs])
+
   async function createSnapshot() {
     setSnapshotting(true)
     try {
@@ -436,6 +493,53 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                 {snapshotting ? 'Saving' : 'Snapshot'}
               </button>
             </div>
+          </div>
+        </section>
+
+        <section className="rounded-lg border border-white/10 bg-[var(--color-pib-surface)] p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="eyebrow !text-[10px] text-brand">Workspace pulse</p>
+              <p className="mt-1 text-sm text-on-surface-variant">Jump between organisations by action pressure, blockers, document approvals, and agent signals.</p>
+            </div>
+            {orgId ? (
+              <button type="button" className="pib-btn-secondary text-xs" onClick={() => setOrgId('')}>
+                <span className="material-symbols-outlined text-[15px]" aria-hidden="true">select_all</span>
+                All workspaces
+              </button>
+            ) : null}
+          </div>
+
+          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            {workspacePulse.length === 0 ? (
+              <div className="rounded-lg border border-white/10 bg-white/[0.03] p-4 text-sm text-on-surface-variant">
+                Workspace counts will appear when the live feed returns active cards.
+              </div>
+            ) : workspacePulse.map((workspace) => (
+              <button
+                key={workspace.id}
+                type="button"
+                onClick={() => setOrgId(workspace.id)}
+                aria-label={`Filter to ${workspace.name} workspace`}
+                className={`min-h-36 rounded-lg border p-4 text-left transition ${orgId === workspace.id ? 'border-brand bg-brand/15 shadow-lg shadow-brand/10' : 'border-white/10 bg-white/[0.03] hover:border-brand/50'}`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-on-surface">{workspace.name}</p>
+                    <p className="mt-1 text-xs text-on-surface-variant">{workspace.total} live cards</p>
+                  </div>
+                  <span className={`rounded-full px-2 py-1 text-xs font-semibold ${workspace.action > 0 ? 'bg-amber-300/15 text-amber-100' : 'bg-emerald-300/15 text-emerald-100'}`}>
+                    {workspace.action} action
+                  </span>
+                </div>
+                <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
+                  <span className="rounded-md bg-red-400/10 px-2 py-1 text-red-100">{workspace.blocked} blocked</span>
+                  <span className="rounded-md bg-sky-400/10 px-2 py-1 text-sky-100">{workspace.review} review</span>
+                  <span className="rounded-md bg-emerald-400/10 px-2 py-1 text-emerald-100">{workspace.agents} agents</span>
+                  <span className="rounded-md bg-violet-400/10 px-2 py-1 text-violet-100">{workspace.documents} docs</span>
+                </div>
+              </button>
+            ))}
           </div>
         </section>
 
