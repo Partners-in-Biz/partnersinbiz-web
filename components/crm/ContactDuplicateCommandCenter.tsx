@@ -47,6 +47,10 @@ function readableDuplicateContactLabel(value?: string): string {
     .join(' ')
 }
 
+function duplicateContactIdentityLabel(contact?: DuplicateContact): string {
+  return contact?.name?.trim() || contact?.email?.trim() || 'Unnamed contact'
+}
+
 function DuplicateGroupResolver({
   group,
   groupIndex,
@@ -99,7 +103,7 @@ function DuplicateGroupResolver({
               />
               <span className="min-w-0">
                 <span className="block truncate text-sm font-medium text-[var(--color-pib-text)]">
-                  {contact.name || 'Unnamed contact'}
+                  {duplicateContactIdentityLabel(contact)}
                 </span>
                 <span className="mt-1 block truncate text-xs text-[var(--color-pib-text-muted)]">
                   {contact.email || 'No email'}
@@ -123,7 +127,7 @@ function DuplicateGroupResolver({
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
         <p className="text-xs text-[var(--color-pib-text-muted)]">
           {loser
-            ? `Next merge will archive ${loser.name || loser.email || loser.id} into the selected canonical contact.`
+            ? `Next merge will archive ${duplicateContactIdentityLabel(loser)} into the selected canonical contact.`
             : 'Select a canonical contact to continue.'}
         </p>
         <button

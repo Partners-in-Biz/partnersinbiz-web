@@ -87,6 +87,31 @@ describe('ContactDuplicateCommandCenter', () => {
     expect(screen.queryByText('Acme South · contacted')).not.toBeInTheDocument()
   })
 
+  it('names sparse duplicate contacts in merge guidance instead of exposing raw ids', () => {
+    render(
+      <ContactDuplicateCommandCenter
+        groups={[
+          {
+            reason: 'email',
+            contacts: [
+              { id: 'winner-raw', name: 'Ava Smith', email: 'ava@example.com' },
+              { id: 'contact-raw-id' },
+            ],
+          },
+        ]}
+        mergingGroup={null}
+        onClose={jest.fn()}
+        onMerge={jest.fn()}
+      />,
+    )
+
+    expect(screen.getByText('Unnamed contact')).toBeInTheDocument()
+    expect(
+      screen.getByText('Next merge will archive Unnamed contact into the selected canonical contact.'),
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/contact-raw-id/)).not.toBeInTheDocument()
+  })
+
   it('keeps unresolved contacts in a multi-contact duplicate group after one merge', () => {
     expect(applyContactMergeToDuplicateGroups(groups, 0, 'loser-1')).toEqual([
       {
