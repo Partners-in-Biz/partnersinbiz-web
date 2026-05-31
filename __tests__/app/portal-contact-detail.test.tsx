@@ -691,6 +691,27 @@ describe('Portal contact detail page', () => {
     expect(screen.getByPlaceholderText('+27...')).toHaveFocus()
   })
 
+  it('turns activity email on a contact without an email into an email capture action', async () => {
+    mockContactOverrides = { email: '' }
+
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Email' }))
+
+    expect(screen.getByRole('heading', { name: 'Add an email address before outreach' })).toBeInTheDocument()
+    expect(screen.getByText("Capture Jane Client's email address before the team sends outreach from CRM.")).toBeInTheDocument()
+    expect(screen.queryByPlaceholderText('Subject…')).not.toBeInTheDocument()
+    expect(screen.queryByPlaceholderText('Message…')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add email before sending outreach to Jane Client' }))
+
+    expect(screen.getByPlaceholderText('name@example.com')).toHaveFocus()
+  })
+
   it('moves a generated AI email draft into the CRM email composer', async () => {
     render(<PortalContactDetailPage />)
 

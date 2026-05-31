@@ -683,7 +683,7 @@ export default function PortalContactDetailPage() {
     setLogError(null)
     try {
       if (logType === 'email_sent') {
-        if (!logEmailSubject.trim() || !logSummary.trim()) return
+        if (!email.trim() || !logEmailSubject.trim() || !logSummary.trim()) return
         const res = await fetch(`/api/v1/crm/contacts/${id}/send-email`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1783,21 +1783,54 @@ export default function PortalContactDetailPage() {
               {logType && (
                 <div className="bento-card !p-4 mb-4 space-y-3">
                   {logType === 'email_sent' ? (
-                    <>
-                      <input
-                        placeholder="Subject…"
-                        value={logEmailSubject}
-                        onChange={(e) => setLogEmailSubject(e.target.value)}
-                        className="w-full text-sm border border-[var(--color-pib-line)] rounded-lg p-2 bg-transparent"
-                      />
-                      <textarea
-                        rows={3}
-                        placeholder="Message…"
-                        value={logSummary}
-                        onChange={(e) => setLogSummary(e.target.value)}
-                        className="w-full text-sm bg-transparent border border-[var(--color-pib-line)] rounded-lg p-2 resize-none"
-                      />
-                    </>
+                    email.trim() ? (
+                      <>
+                        <input
+                          placeholder="Subject…"
+                          value={logEmailSubject}
+                          onChange={(e) => setLogEmailSubject(e.target.value)}
+                          className="w-full text-sm border border-[var(--color-pib-line)] rounded-lg p-2 bg-transparent"
+                        />
+                        <textarea
+                          rows={3}
+                          placeholder="Message…"
+                          value={logSummary}
+                          onChange={(e) => setLogSummary(e.target.value)}
+                          className="w-full text-sm bg-transparent border border-[var(--color-pib-line)] rounded-lg p-2 resize-none"
+                        />
+                      </>
+                    ) : (
+                      <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.02] p-4">
+                        <div className="flex gap-3">
+                          <span
+                            className="material-symbols-outlined mt-0.5 text-[20px] text-[var(--color-pib-accent)]"
+                            aria-hidden="true"
+                          >
+                            alternate_email
+                          </span>
+                          <div>
+                            <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
+                              Email readiness
+                            </p>
+                            <h3 className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">
+                              Add an email address before outreach
+                            </h3>
+                            <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">
+                              Capture {contactName}&apos;s email address before the team sends outreach from CRM.
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() => focusProfileField(emailFieldRef)}
+                              className="btn-pib-secondary mt-3 inline-flex items-center gap-1.5 text-xs"
+                              aria-label={`Add email before sending outreach to ${contactName}`}
+                            >
+                              <span className="material-symbols-outlined text-[14px]" aria-hidden="true">mail</span>
+                              Add email
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )
                   ) : logType === 'sms' ? (
                     phone.trim() ? (
                       <textarea
@@ -1896,7 +1929,7 @@ export default function PortalContactDetailPage() {
                       disabled={
                         logSaving ||
                         (logType === 'email_sent'
-                          ? !logEmailSubject.trim() || !logSummary.trim()
+                          ? !email.trim() || !logEmailSubject.trim() || !logSummary.trim()
                           : logType === 'meeting'
                           ? !meetingStartAt || !meetingEndAt
                           : logType === 'sms'
