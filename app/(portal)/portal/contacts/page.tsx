@@ -102,7 +102,7 @@ function StageBadge({ stage }: { stage: string }) {
       className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full capitalize font-mono"
       style={{ background: `${color}20`, color }}
     >
-      {stage}
+      {readableContactLabel(stage)}
     </span>
   )
 }
@@ -119,9 +119,21 @@ function TypeBadge({ type }: { type: string }) {
       className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full capitalize font-mono"
       style={{ background: `${color}20`, color }}
     >
-      {type}
+      {readableContactLabel(type)}
     </span>
   )
+}
+
+function readableContactLabel(value?: string): string {
+  if (!value) return ''
+  return value
+    .split(/[-_\s]+/)
+    .filter(Boolean)
+    .map((part, index) => {
+      const lower = part.toLowerCase()
+      return index === 0 ? lower.charAt(0).toUpperCase() + lower.slice(1) : lower
+    })
+    .join(' ')
 }
 
 function contactOwnerLabel(contact: Contact): string {
@@ -400,7 +412,7 @@ export default function PortalContactsPage() {
         ? 'No unowned contacts.'
         : `${displayedContacts.length} unowned contact${displayedContacts.length === 1 ? '' : 's'} need assignment.`
     : isStageLens && displayedContacts.length === 0
-      ? `No contacts in ${stageFilter}.`
+      ? `No contacts in ${readableContactLabel(stageFilter)}.`
     : hasActiveFilters
       ? `${displayedContacts.length} contact${displayedContacts.length === 1 ? '' : 's'} match this view.`
       : `${displayedContacts.length} contact${displayedContacts.length === 1 ? '' : 's'} in your audience.`
@@ -409,7 +421,7 @@ export default function PortalContactsPage() {
     : ownerLens === 'unowned'
       ? 'No unowned contacts.'
     : isStageLens
-      ? `No contacts in ${stageFilter}.`
+      ? `No contacts in ${readableContactLabel(stageFilter)}.`
     : hasActiveFilters
       ? 'No contacts match this view.'
       : 'No contacts yet.'
@@ -530,7 +542,7 @@ export default function PortalContactsPage() {
           <option value="">All stages</option>
           {STAGES.map((s) => (
             <option key={s} value={s} className="bg-black">
-              {s}
+              {readableContactLabel(s)}
             </option>
           ))}
         </select>
@@ -542,7 +554,7 @@ export default function PortalContactsPage() {
           <option value="">All types</option>
           {TYPES.map((t) => (
             <option key={t} value={t} className="bg-black">
-              {t}
+              {readableContactLabel(t)}
             </option>
           ))}
         </select>

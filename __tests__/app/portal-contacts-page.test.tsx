@@ -185,12 +185,30 @@ describe('Portal contacts page', () => {
     expect(screen.getByText('stage: new')).toBeInTheDocument()
   })
 
+  it('renders contact stage and type labels as readable CRM language', async () => {
+    render(<PortalContactsPage />)
+
+    const ownedRowLink = await screen.findByRole('link', { name: /Owned Client/i })
+    const ownedRow = ownedRowLink.closest('[data-contact-row]')
+    expect(ownedRow).not.toBeNull()
+
+    expect(within(ownedRow as HTMLElement).getByText('Client')).toBeInTheDocument()
+    expect(within(ownedRow as HTMLElement).getByText('Won')).toBeInTheDocument()
+    expect(within(ownedRow as HTMLElement).queryByText('client')).not.toBeInTheDocument()
+    expect(within(ownedRow as HTMLElement).queryByText('won')).not.toBeInTheDocument()
+
+    expect(screen.getByRole('option', { name: 'Contacted' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Client' })).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: 'contacted' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: 'client' })).not.toBeInTheDocument()
+  })
+
   it('treats an empty contact stage lens as a clean funnel stage', async () => {
     mockSearchParams = new URLSearchParams('stage=proposal')
 
     render(<PortalContactsPage />)
 
-    expect(await screen.findByRole('heading', { name: 'No contacts in proposal.' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'No contacts in Proposal.' })).toBeInTheDocument()
     expect(screen.getByText('This funnel stage is clear for the current contact lens.')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Clear filters' })).toBeInTheDocument()
     expect(screen.getByText('stage: proposal')).toBeInTheDocument()
