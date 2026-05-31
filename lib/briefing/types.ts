@@ -34,6 +34,7 @@ export type BriefingSourceType =
   | 'agent-output'         // Agent completion summaries and artifacts
   | 'agent-run'            // Live Hermes agent run status and approval prompts
   | 'workspace-broker-job' // Google Workspace broker jobs awaiting approval or recovery
+  | 'calendar-event'      // Upcoming calendar events needing RSVP or schedule attention
   | 'approval'             // Approval gates and client document approvals
   | 'client-document'      // Client documents, specs, reports
   | 'social-post'          // Social content awaiting QA/client approval or attention
@@ -121,6 +122,8 @@ export interface BriefingContext {
   workspaceBrokerOperation?: string | null
   workspaceArtifactId?: string | null
   workspaceArtifactTitle?: string | null
+  calendarEventId?: string | null
+  calendarEventTitle?: string | null
   sourceIds?: string[]  // Related source IDs for cross-reference
 }
 

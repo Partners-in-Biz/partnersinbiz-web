@@ -13,6 +13,7 @@ export { commentAdapter } from './adapters/commentAdapter'
 export { agentOutputAdapter } from './adapters/agentOutputAdapter'
 export { agentRunAdapter } from './adapters/agentRunAdapter'
 export { workspaceBrokerJobAdapter } from './adapters/workspaceBrokerJobAdapter'
+export { calendarEventAdapter } from './adapters/calendarEventAdapter'
 export { approvalAdapter, clientDocumentAdapter } from './adapters/approvalAdapter'
 export { notificationAdapter, activityAdapter } from './adapters/notificationAdapter'
 export { reportAdapter } from './adapters/reportAdapter'
@@ -33,6 +34,7 @@ import { commentAdapter } from './adapters/commentAdapter'
 import { agentOutputAdapter } from './adapters/agentOutputAdapter'
 import { agentRunAdapter } from './adapters/agentRunAdapter'
 import { workspaceBrokerJobAdapter } from './adapters/workspaceBrokerJobAdapter'
+import { calendarEventAdapter } from './adapters/calendarEventAdapter'
 import { approvalAdapter, clientDocumentAdapter } from './adapters/approvalAdapter'
 import { notificationAdapter, activityAdapter } from './adapters/notificationAdapter'
 import { reportAdapter } from './adapters/reportAdapter'
@@ -57,6 +59,7 @@ export const SOURCE_ADAPTERS: Record<BriefingSourceType, BriefingSourceAdapter> 
   'agent-output': agentOutputAdapter,
   'agent-run': agentRunAdapter,
   'workspace-broker-job': workspaceBrokerJobAdapter,
+  'calendar-event': calendarEventAdapter,
   approval: approvalAdapter,
   'client-document': clientDocumentAdapter,
   'social-post': socialPostAdapter,

@@ -595,6 +595,37 @@ const workspaceBrokerBriefingItem = {
   occurredAt: '2026-05-31T09:47:00.000Z',
 }
 
+const calendarBriefingItem = {
+  id: 'calendar-event:event-1',
+  orgId: 'org-1',
+  priority: 'needs-peet',
+  title: 'RSVP needed: Website retainer check-in',
+  summary: 'Starts 2026-06-01 10:00. RSVP is still pending.',
+  excerpt: 'Confirm launch blockers.',
+  timeAgo: '8 minutes ago',
+  requiresAction: true,
+  source: { type: 'calendar-event', id: 'event-1', url: '/portal/contacts/contact-1?event=event-1' },
+  actor: { id: 'user:admin-1', name: 'Peet', role: 'admin', type: 'user' },
+  context: {
+    orgId: 'org-1',
+    orgName: 'Client One',
+    orgSlug: 'client-one',
+    calendarEventId: 'event-1',
+    calendarEventTitle: 'Website retainer check-in',
+    contactId: 'contact-1',
+    contactName: 'Ava Owner',
+  },
+  metadata: {
+    rsvpStatus: 'pending',
+    attendeeEmail: 'ava@example.test',
+    startAt: '2026-06-01T08:00:00.000Z',
+    endAt: '2026-06-01T08:30:00.000Z',
+    timezone: 'Africa/Johannesburg',
+    meetingUrl: 'https://meet.google.com/abc-defg-hij',
+  },
+  occurredAt: '2026-05-31T09:46:00.000Z',
+}
+
 describe('BriefingControlDesk', () => {
   beforeEach(() => {
     jest.useFakeTimers()
@@ -613,7 +644,7 @@ describe('BriefingControlDesk', () => {
       if (url.startsWith('/api/v1/briefings/feed')) {
         const items = url.includes('orgId=org-2')
           ? [secondOrgBriefingItem]
-          : [briefingItem, documentBriefingItem, documentCommentBriefingItem, approvalBriefingItem, conversationBriefingItem, socialBriefingItem, notificationBriefingItem, activityBriefingItem, reportBriefingItem, supportBriefingItem, invoiceBriefingItem, invoiceProofBriefingItem, expenseBriefingItem, seoContentBriefingItem, seoTaskBriefingItem, adCampaignBriefingItem, formSubmissionBriefingItem, socialInboxBriefingItem, mailboxBriefingItem, agentRunBriefingItem, workspaceBrokerBriefingItem, secondOrgBriefingItem]
+          : [briefingItem, documentBriefingItem, documentCommentBriefingItem, approvalBriefingItem, conversationBriefingItem, socialBriefingItem, notificationBriefingItem, activityBriefingItem, reportBriefingItem, supportBriefingItem, invoiceBriefingItem, invoiceProofBriefingItem, expenseBriefingItem, seoContentBriefingItem, seoTaskBriefingItem, adCampaignBriefingItem, formSubmissionBriefingItem, socialInboxBriefingItem, mailboxBriefingItem, agentRunBriefingItem, workspaceBrokerBriefingItem, calendarBriefingItem, secondOrgBriefingItem]
         return {
           ok: true,
           json: async () => ({ data: { items, total: items.length, hasMore: false, generatedAt: '2026-05-31T10:05:00.000Z' } }),
@@ -797,6 +828,12 @@ describe('BriefingControlDesk', () => {
         return {
           ok: true,
           json: async () => ({ data: { id: 'broker-job-1', status: 'queued' } }),
+        } as Response
+      }
+      if (url === '/api/v1/calendar/events/event-1/rsvp') {
+        return {
+          ok: true,
+          json: async () => ({ data: { id: 'event-1', attendees: [{ email: 'ava@example.test', status: 'accepted' }] } }),
         } as Response
       }
       return {
@@ -1547,6 +1584,39 @@ describe('BriefingControlDesk', () => {
       expect(global.fetch).toHaveBeenCalledWith('/api/v1/workspace-broker/jobs/broker-job-1', expect.objectContaining({
         method: 'PATCH',
         body: JSON.stringify({ action: 'reject' }),
+      }))
+    })
+  })
+
+  it('accepts and declines calendar event RSVPs from the portal control desk', async () => {
+    render(<BriefingControlDesk mode="portal" />)
+
+    fireEvent.click(await screen.findByRole('button', { name: /RSVP needed: Website retainer check-in/i }))
+
+    expect(screen.getByText('Website retainer check-in (event-1)')).toBeInTheDocument()
+    expect(screen.getByText('Ava Owner (contact-1)')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /open source/i })).toHaveAttribute('href', '/portal/contacts/contact-1?event=event-1')
+    expect(screen.getByRole('button', { name: /accept meeting/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /decline meeting/i })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /accept meeting/i }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/calendar/events/event-1/rsvp', expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ email: 'ava@example.test', status: 'accepted' }),
+      }))
+    })
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /decline meeting/i })).not.toBeDisabled()
+    })
+    fireEvent.click(screen.getByRole('button', { name: /decline meeting/i }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/calendar/events/event-1/rsvp', expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ email: 'ava@example.test', status: 'declined' }),
       }))
     })
   })

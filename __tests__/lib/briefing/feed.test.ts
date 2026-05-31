@@ -1221,4 +1221,84 @@ describe('briefing feed', () => {
     expect(JSON.stringify(feed.items)).not.toContain('broker-secret-123')
     expect(JSON.stringify(feed.items)).toContain('[REDACTED]')
   })
+
+  it('surfaces upcoming calendar events with pending RSVP context for the current user', async () => {
+    collections.organizations = [makeDoc('org-1', { name: 'Client One', slug: 'client-one' })]
+    collections.calendar_events = [
+      makeDoc('event-1', {
+        orgId: 'org-1',
+        title: 'Website retainer check-in',
+        description: 'Confirm launch blockers. token: calendar-secret-123',
+        startAt: '2026-06-01T08:00:00.000Z',
+        endAt: '2026-06-01T08:30:00.000Z',
+        timezone: 'Africa/Johannesburg',
+        location: 'Google Meet',
+        meetingUrl: 'https://meet.google.com/abc-defg-hij',
+        attendees: [
+          { name: 'Ava Owner', email: 'ava@example.test', userId: 'user-1', status: 'pending' },
+        ],
+        assignedTo: { type: 'user', id: 'user-1' },
+        relatedTo: { type: 'contact', id: 'contact-1' },
+        createdBy: 'admin-1',
+        createdByType: 'user',
+        deleted: false,
+        createdAt: '2026-05-31T10:50:00.000Z',
+        updatedAt: '2026-05-31T10:51:00.000Z',
+      }),
+      makeDoc('event-2', {
+        orgId: 'org-1',
+        title: 'Already accepted',
+        startAt: '2026-06-01T09:00:00.000Z',
+        endAt: '2026-06-01T09:30:00.000Z',
+        attendees: [{ name: 'Ava Owner', email: 'ava@example.test', userId: 'user-1', status: 'accepted' }],
+        assignedTo: { type: 'user', id: 'user-1' },
+        deleted: false,
+        createdAt: '2026-05-31T10:40:00.000Z',
+      }),
+      makeDoc('event-3', {
+        orgId: 'org-2',
+        title: 'Wrong org meeting',
+        startAt: '2026-06-01T10:00:00.000Z',
+        endAt: '2026-06-01T10:30:00.000Z',
+        attendees: [{ name: 'Ava Owner', email: 'ava@example.test', userId: 'user-1', status: 'pending' }],
+        assignedTo: { type: 'user', id: 'user-1' },
+        deleted: false,
+        createdAt: '2026-05-31T10:35:00.000Z',
+      }),
+    ]
+
+    const { buildBriefingFeed } = await import('@/lib/briefing/feed')
+    const feed = await buildBriefingFeed(
+      { uid: 'user-1', role: 'client', orgId: 'org-1', orgIds: ['org-1'] },
+      { limit: 10, sourceType: 'calendar-event' },
+    )
+
+    expect(feed.items).toHaveLength(1)
+    expect(feed.items[0]).toMatchObject({
+      priority: 'needs-peet',
+      requiresAction: true,
+      source: {
+        type: 'calendar-event',
+        id: 'event-1',
+        url: '/portal/contacts/contact-1?event=event-1',
+      },
+      title: 'RSVP needed: Website retainer check-in',
+      actor: { id: 'user:admin-1', role: 'admin', type: 'user' },
+      context: {
+        orgName: 'Client One',
+        calendarEventId: 'event-1',
+        calendarEventTitle: 'Website retainer check-in',
+        contactId: 'contact-1',
+      },
+      metadata: expect.objectContaining({
+        rsvpStatus: 'pending',
+        attendeeEmail: 'ava@example.test',
+        meetingUrl: 'https://meet.google.com/abc-defg-hij',
+        startAt: '2026-06-01T08:00:00.000Z',
+      }),
+    })
+    expect(feed.items[0].summary).toContain('Africa/Johannesburg')
+    expect(JSON.stringify(feed.items)).not.toContain('calendar-secret-123')
+    expect(JSON.stringify(feed.items)).toContain('[REDACTED]')
+  })
 })

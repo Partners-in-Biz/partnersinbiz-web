@@ -65,6 +65,8 @@ interface BriefingCard {
     workspaceBrokerOperation?: string | null
     workspaceArtifactId?: string | null
     workspaceArtifactTitle?: string | null
+    calendarEventId?: string | null
+    calendarEventTitle?: string | null
   }
   metadata?: Record<string, unknown> | null
   occurredAt: string
@@ -97,6 +99,7 @@ const SOURCES = [
   { value: 'agent-output', label: 'Agent output' },
   { value: 'agent-run', label: 'Agent runs' },
   { value: 'workspace-broker-job', label: 'Workspace jobs' },
+  { value: 'calendar-event', label: 'Calendar' },
   { value: 'project', label: 'Projects' },
   { value: 'client-document', label: 'Documents' },
   { value: 'social-post', label: 'Social posts' },
@@ -166,12 +169,14 @@ function sourceLabel(item: BriefingCard) {
   if (item.context.mailboxFrom || item.context.mailboxMessageId) return `${item.source.type} / ${titledId(item.context.mailboxFrom, item.context.mailboxMessageId ?? item.source.id)}`
   if (item.context.agentProfile || item.context.agentRunId) return `${item.source.type} / ${titledId(item.context.agentProfile, item.context.agentRunId ?? item.source.id)}`
   if (item.context.workspaceBrokerOperation || item.context.workspaceBrokerJobId) return `${item.source.type} / ${titledId(item.context.workspaceBrokerOperation, item.context.workspaceBrokerJobId ?? item.source.id)}`
+  if (item.context.calendarEventTitle || item.context.calendarEventId) return `${item.source.type} / ${titledId(item.context.calendarEventTitle, item.context.calendarEventId ?? item.source.id)}`
   return `${item.source.type} / ${item.source.id}`
 }
 
 function sourceHref(item: BriefingCard, mode: Mode) {
   if (item.source.type === 'agent-run') return mode === 'admin' ? adminSourceHref(item) : null
   if (item.source.type === 'workspace-broker-job') return mode === 'admin' ? adminSourceHref(item) : null
+  if (item.source.type === 'calendar-event') return item.source.url || (mode === 'admin' ? adminSourceHref(item) : `/portal/calendar/events/${encodeURIComponent(item.source.id)}`)
   if (item.source.type === 'form-submission') return mode === 'admin' ? adminSourceHref(item) : null
   if (item.source.type === 'social-inbox') return adminSourceHref(item)
   if (item.source.type === 'mailbox-message') return mode === 'admin' ? adminSourceHref(item) : item.source.url || `/portal/email?message=${encodeURIComponent(item.source.id)}`
@@ -206,6 +211,7 @@ function sourceHref(item: BriefingCard, mode: Mode) {
 
 function adminSourceHref(item: BriefingCard) {
   if (item.source.type === 'workspace-broker-job') return item.source.url || `/admin/knowledge/workspace-broker/jobs/${encodeURIComponent(item.source.id)}`
+  if (item.source.type === 'calendar-event') return item.source.url || `/admin/calendar/events/${encodeURIComponent(item.source.id)}`
   if (item.source.type === 'agent-run') {
     const agentId = typeof item.metadata?.agentId === 'string' && item.metadata.agentId ? item.metadata.agentId : item.actor.id.replace(/^agent:/, '')
     const runId = typeof item.metadata?.hermesRunId === 'string' && item.metadata.hermesRunId ? item.metadata.hermesRunId : item.context.agentRunId ?? item.source.id
@@ -295,6 +301,15 @@ function canAgentRunApprove(item: BriefingCard, mode: Mode) {
 
 function canWorkspaceBrokerAct(item: BriefingCard, mode: Mode) {
   return mode === 'admin' && item.source.type === 'workspace-broker-job' && item.metadata?.brokerStatus === 'awaiting_approval' && Boolean(item.source.id)
+}
+
+function canCalendarRsvpAct(item: BriefingCard) {
+  return item.source.type === 'calendar-event' && item.metadata?.rsvpStatus === 'pending' && Boolean(item.source.id && calendarRsvpEmail(item))
+}
+
+function calendarRsvpEmail(item: BriefingCard): string | null {
+  const email = item.metadata?.attendeeEmail
+  return typeof email === 'string' && email.includes('@') ? email : null
 }
 
 function mailboxApiBase(mode: Mode) {
@@ -900,6 +915,27 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
     }
   }
 
+  async function calendarRsvpAction(item: BriefingCard, status: 'accepted' | 'declined') {
+    const email = calendarRsvpEmail(item)
+    if (!canCalendarRsvpAct(item) || !email) return
+    setBusyAction(`calendar-rsvp-${status}`)
+    try {
+      const res = await fetch(`/api/v1/calendar/events/${encodeURIComponent(item.source.id)}/rsvp`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email, status }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(body.error || 'Calendar RSVP failed')
+      setFlash({ kind: 'ok', message: status === 'accepted' ? 'Meeting accepted.' : 'Meeting declined.' })
+      await loadFeed({ quiet: true })
+    } catch (err) {
+      setFlash({ kind: 'error', message: err instanceof Error ? err.message : 'Calendar RSVP failed' })
+    } finally {
+      setBusyAction(null)
+    }
+  }
+
   async function notificationAction(item: BriefingCard, status: 'read' | 'archived') {
     if (!canNotificationAct(item)) return
     setBusyAction(`notification-${status}`)
@@ -1495,6 +1531,18 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                       Reject workspace job
                     </button>
                   ) : null}
+                  {canCalendarRsvpAct(selected) ? (
+                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => calendarRsvpAction(selected, 'accepted')} disabled={!!busyAction}>
+                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">event_available</span>
+                      Accept meeting
+                    </button>
+                  ) : null}
+                  {canCalendarRsvpAct(selected) ? (
+                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => calendarRsvpAction(selected, 'declined')} disabled={!!busyAction}>
+                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">event_busy</span>
+                      Decline meeting
+                    </button>
+                  ) : null}
                   {canNotificationAct(selected) ? (
                     <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => notificationAction(selected, 'read')} disabled={!!busyAction}>
                       <span className="material-symbols-outlined text-[15px]" aria-hidden="true">mark_email_read</span>
@@ -1826,6 +1874,7 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                   {typeof selected.metadata?.approvalToolName === 'string' && selected.metadata.approvalToolName ? <div><dt className="text-on-surface-variant">Approval tool</dt><dd className="text-on-surface">{selected.metadata.approvalToolName}</dd></div> : null}
                   {selected.context.workspaceBrokerOperation || selected.context.workspaceBrokerJobId ? <div><dt className="text-on-surface-variant">Workspace job</dt><dd className="text-on-surface">{titledId(selected.context.workspaceBrokerOperation, selected.context.workspaceBrokerJobId ?? selected.source.id)}</dd></div> : null}
                   {selected.context.workspaceArtifactTitle || selected.context.workspaceArtifactId ? <div><dt className="text-on-surface-variant">Workspace artifact</dt><dd className="text-on-surface">{titledId(selected.context.workspaceArtifactTitle, selected.context.workspaceArtifactId)}</dd></div> : null}
+                  {selected.context.calendarEventTitle || selected.context.calendarEventId ? <div><dt className="text-on-surface-variant">Calendar event</dt><dd className="text-on-surface">{titledId(selected.context.calendarEventTitle, selected.context.calendarEventId ?? selected.source.id)}</dd></div> : null}
                   <div><dt className="text-on-surface-variant">Occurred</dt><dd className="text-on-surface">{new Date(selected.occurredAt).toLocaleString('en-ZA')}</dd></div>
                   <div><dt className="text-on-surface-variant">Source</dt><dd className="text-on-surface">{sourceLabel(selected)}</dd></div>
                 </dl>

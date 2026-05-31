@@ -3,7 +3,7 @@ import { adminAuth, adminDb } from '@/lib/firebase/admin'
 import type { ApiUser } from '@/lib/api/types'
 import { canAccessOrg } from '@/lib/api/platformAdmin'
 import type { BriefingCard, BriefingPriority, BriefingResponse, BriefingSourceAdapter, BriefingSourceItem, BriefingSourceType } from './types'
-import { activityAdapter, adCampaignAdapter, agentOutputAdapter, agentRunAdapter, approvalAdapter, clientDocumentAdapter, commentAdapter, expenseAdapter, formSubmissionAdapter, invoiceAdapter, mailboxMessageAdapter, notificationAdapter, projectAdapter, reportAdapter, seoContentAdapter, seoTaskAdapter, socialInboxAdapter, socialPostAdapter, supportTicketAdapter, taskAdapter, workspaceBrokerJobAdapter } from './index'
+import { activityAdapter, adCampaignAdapter, agentOutputAdapter, agentRunAdapter, approvalAdapter, calendarEventAdapter, clientDocumentAdapter, commentAdapter, expenseAdapter, formSubmissionAdapter, invoiceAdapter, mailboxMessageAdapter, notificationAdapter, projectAdapter, reportAdapter, seoContentAdapter, seoTaskAdapter, socialInboxAdapter, socialPostAdapter, supportTicketAdapter, taskAdapter, workspaceBrokerJobAdapter } from './index'
 import { comparePriority, formatTimeAgo, normalizeTimestamp, priorityRequiresAction } from './utils'
 
 const PLATFORM_ORG_ID = 'pib-platform-owner'
@@ -368,6 +368,37 @@ async function fetchWorkspaceBrokerJobDocs(scopedOrgIds: string[] | null): Promi
   })
 }
 
+function calendarVisibleToUser(data: Record<string, unknown>, user: ApiUser): boolean {
+  if (user.role === 'admin') return true
+
+  const assignedTo = data.assignedTo
+  if (assignedTo && typeof assignedTo === 'object') {
+    const assignee = assignedTo as Record<string, unknown>
+    if (assignee.type === 'user' && assignee.id === user.uid) return true
+    if (user.role === 'ai' && assignee.type === 'agent' && (assignee.id === user.agentId || assignee.id === user.uid.replace(/^agent:/, ''))) return true
+  }
+
+  const attendees = Array.isArray(data.attendees) ? data.attendees : []
+  return attendees.some((attendee) => {
+    if (!attendee || typeof attendee !== 'object') return false
+    return (attendee as Record<string, unknown>).userId === user.uid
+  })
+}
+
+async function fetchCalendarEventDocs(scopedOrgIds: string[] | null, user: ApiUser): Promise<FirestoreDoc[]> {
+  const docs = await fetchCollectionDocs('calendar_events', scopedOrgIds)
+  const seen = new Set<string>()
+  return docs.filter((doc) => {
+    const data = doc.data()
+    if (scopedOrgIds && scopedOrgIds.length > 0 && !scopedOrgIds.includes(String(data.orgId ?? ''))) return false
+    if (!calendarVisibleToUser(data, user)) return false
+    const key = doc.ref?.path ?? doc.id
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+}
+
 async function fetchTaskDocs(scopedOrgIds: string[] | null): Promise<FirestoreDoc[]> {
   const out: FirestoreDoc[] = []
   try {
@@ -617,6 +648,16 @@ export async function buildBriefingFeed(user: ApiUser, options: BriefingFeedOpti
       const docs = await fetchWorkspaceBrokerJobDocs(scopedOrgIds)
       for (const doc of docs) {
         const item = toItemSafe(workspaceBrokerJobAdapter, normalizeDoc(doc), doc.id)
+        if (item) items.push(decorate(item, orgs))
+      }
+    } catch {}
+  }
+
+  if (include('calendar-event')) {
+    try {
+      const docs = await fetchCalendarEventDocs(scopedOrgIds, user)
+      for (const doc of docs) {
+        const item = toItemSafe(calendarEventAdapter, normalizeDoc(doc), doc.id)
         if (item) items.push(decorate(item, orgs))
       }
     } catch {}
