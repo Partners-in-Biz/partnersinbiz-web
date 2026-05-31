@@ -691,6 +691,24 @@ describe('Portal contact detail page', () => {
     expect(screen.getByPlaceholderText('+27...')).toHaveFocus()
   })
 
+  it('turns activity call on a contact without a phone into a phone capture action', async () => {
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Call' }))
+
+    expect(screen.getByRole('heading', { name: 'Add a phone number before calling' })).toBeInTheDocument()
+    expect(screen.getByText("Capture Jane Client's phone number before the team logs a call from CRM.")).toBeInTheDocument()
+    expect(screen.queryByPlaceholderText('Add call notes…')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add phone before logging a call with Jane Client' }))
+
+    expect(screen.getByPlaceholderText('+27...')).toHaveFocus()
+  })
+
   it('turns activity email on a contact without an email into an email capture action', async () => {
     mockContactOverrides = { email: '' }
 

@@ -760,6 +760,7 @@ export default function PortalContactDetailPage() {
         setMeetingUrl('')
         setLogError(null)
       } else {
+        if (logType === 'call' && !phone.trim()) return
         if (!logSummary.trim()) return
         const res = await fetch('/api/v1/crm/activities', {
           method: 'POST',
@@ -1872,6 +1873,47 @@ export default function PortalContactDetailPage() {
                         </div>
                       </div>
                     )
+                  ) : logType === 'call' ? (
+                    phone.trim() ? (
+                      <textarea
+                        rows={3}
+                        placeholder={activityNotesPlaceholder(logType)}
+                        value={logSummary}
+                        onChange={(e) => setLogSummary(e.target.value)}
+                        className="w-full text-sm bg-transparent border border-[var(--color-pib-line)] rounded-lg p-2 resize-none"
+                      />
+                    ) : (
+                      <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.02] p-4">
+                        <div className="flex gap-3">
+                          <span
+                            className="material-symbols-outlined mt-0.5 text-[20px] text-[var(--color-pib-accent)]"
+                            aria-hidden="true"
+                          >
+                            add_call
+                          </span>
+                          <div>
+                            <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
+                              Call readiness
+                            </p>
+                            <h3 className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">
+                              Add a phone number before calling
+                            </h3>
+                            <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">
+                              Capture {contactName}&apos;s phone number before the team logs a call from CRM.
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() => focusProfileField(phoneFieldRef)}
+                              className="btn-pib-secondary mt-3 inline-flex items-center gap-1.5 text-xs"
+                              aria-label={`Add phone before logging a call with ${contactName}`}
+                            >
+                              <span className="material-symbols-outlined text-[14px]" aria-hidden="true">call</span>
+                              Add phone
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )
                   ) : logType === 'meeting' ? (
                     <>
                       <input
@@ -1933,6 +1975,8 @@ export default function PortalContactDetailPage() {
                           : logType === 'meeting'
                           ? !meetingStartAt || !meetingEndAt
                           : logType === 'sms'
+                          ? !phone.trim() || !logSummary.trim()
+                          : logType === 'call'
                           ? !phone.trim() || !logSummary.trim()
                           : !logSummary.trim())
                       }
