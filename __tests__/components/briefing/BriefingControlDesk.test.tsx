@@ -388,6 +388,38 @@ const shipmentBriefingItem = {
   occurredAt: '2026-05-31T09:53:00.000Z',
 }
 
+const orderBriefingItem = {
+  id: 'order:order-1',
+  orgId: 'org-1',
+  priority: 'critical',
+  title: 'Order blocked: Website onboarding order',
+  summary: 'R18,500.00 order is blocked before delivery.',
+  excerpt: 'Waiting on final asset handoff before fulfillment can continue.',
+  timeAgo: '12 minutes ago',
+  requiresAction: true,
+  source: { type: 'order', id: 'order-1', url: '/portal/companies/company-1?order=order-1' },
+  actor: { id: 'system', name: 'Fulfillment', role: 'system', type: 'system' },
+  context: {
+    orgId: 'org-1',
+    orgName: 'Client One',
+    orgSlug: 'client-one',
+    companyId: 'company-1',
+    projectId: 'project-1',
+    quoteId: 'quote-1',
+    invoiceId: 'invoice-1',
+    orderId: 'order-1',
+    orderTitle: 'Website onboarding order',
+  },
+  metadata: {
+    orderStatus: 'confirmed',
+    fulfillmentStatus: 'blocked',
+    total: 18500,
+    currency: 'ZAR',
+    expectedDeliveryDate: '2026-06-05',
+  },
+  occurredAt: '2026-05-31T09:52:45.000Z',
+}
+
 const expenseBriefingItem = {
   id: 'expense:expense-1',
   orgId: 'org-1',
@@ -703,7 +735,7 @@ describe('BriefingControlDesk', () => {
       if (url.startsWith('/api/v1/briefings/feed')) {
         const items = url.includes('orgId=org-2')
           ? [secondOrgBriefingItem]
-          : [briefingItem, documentBriefingItem, documentCommentBriefingItem, approvalBriefingItem, conversationBriefingItem, socialBriefingItem, notificationBriefingItem, activityBriefingItem, reportBriefingItem, supportBriefingItem, invoiceBriefingItem, invoiceProofBriefingItem, quoteBriefingItem, shipmentBriefingItem, expenseBriefingItem, seoContentBriefingItem, seoTaskBriefingItem, adCampaignBriefingItem, formSubmissionBriefingItem, socialInboxBriefingItem, mailboxBriefingItem, agentRunBriefingItem, workspaceBrokerBriefingItem, calendarBriefingItem, secondOrgBriefingItem]
+          : [briefingItem, documentBriefingItem, documentCommentBriefingItem, approvalBriefingItem, conversationBriefingItem, socialBriefingItem, notificationBriefingItem, activityBriefingItem, reportBriefingItem, supportBriefingItem, invoiceBriefingItem, invoiceProofBriefingItem, quoteBriefingItem, shipmentBriefingItem, orderBriefingItem, expenseBriefingItem, seoContentBriefingItem, seoTaskBriefingItem, adCampaignBriefingItem, formSubmissionBriefingItem, socialInboxBriefingItem, mailboxBriefingItem, agentRunBriefingItem, workspaceBrokerBriefingItem, calendarBriefingItem, secondOrgBriefingItem]
         return {
           ok: true,
           json: async () => ({ data: { items, total: items.length, hasMore: false, generatedAt: '2026-05-31T10:05:00.000Z' } }),
@@ -1359,6 +1391,51 @@ describe('BriefingControlDesk', () => {
       expect(global.fetch).toHaveBeenCalledWith('/api/v1/shipments?id=shipment-1', expect.objectContaining({
         method: 'PATCH',
         body: JSON.stringify({ status: 'failed' }),
+      }))
+    })
+  })
+
+  it('advances and cancels order cards from the control desk', async () => {
+    render(<BriefingControlDesk mode="portal" />)
+
+    fireEvent.click(await screen.findByRole('button', { name: /Order blocked: Website onboarding order/i }))
+
+    expect(screen.getByText('Website onboarding order (order-1)')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /open source/i })).toHaveAttribute('href', '/portal/companies/company-1?order=order-1')
+    expect(screen.getByRole('button', { name: /mark order in progress/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /mark order fulfilled/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /cancel order/i })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /mark order in progress/i }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/orders?id=order-1', expect.objectContaining({
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'in_progress', fulfillmentStatus: 'picking' }),
+      }))
+    })
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /mark order in progress/i })).not.toBeDisabled()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /mark order fulfilled/i }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/orders?id=order-1', expect.objectContaining({
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'fulfilled', fulfillmentStatus: 'delivered' }),
+      }))
+    })
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /mark order fulfilled/i })).not.toBeDisabled()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /cancel order/i }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/orders?id=order-1', expect.objectContaining({
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'cancelled' }),
       }))
     })
   })

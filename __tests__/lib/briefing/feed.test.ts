@@ -375,6 +375,59 @@ describe('briefing feed', () => {
     })
   })
 
+  it('surfaces active orders as fulfillment control cards', async () => {
+    collections.organizations = [makeDoc('org-1', { name: 'Client One', slug: 'client-one' })]
+    collections.orders = [
+      makeDoc('order-1', {
+        orgId: 'org-1',
+        companyId: 'company-1',
+        projectId: 'project-1',
+        quoteId: 'quote-1',
+        invoiceId: 'invoice-1',
+        title: 'Website onboarding order',
+        status: 'confirmed',
+        fulfillmentStatus: 'blocked',
+        total: 18500,
+        currency: 'ZAR',
+        expectedDeliveryDate: '2026-06-05T00:00:00.000Z',
+        notes: 'Waiting on final asset handoff before fulfillment can continue.',
+        updatedAt: '2026-05-31T09:43:00.000Z',
+      }),
+    ]
+
+    const { buildBriefingFeed } = await import('@/lib/briefing/feed')
+    const feed = await buildBriefingFeed(
+      { uid: 'client-1', role: 'client', orgId: 'org-1', orgIds: ['org-1'] },
+      { limit: 10, sourceType: 'order' },
+    )
+
+    expect(feed.items).toHaveLength(1)
+    expect(feed.items[0]).toMatchObject({
+      source: { type: 'order', id: 'order-1', collectionPath: 'orders', url: '/portal/companies/company-1?order=order-1' },
+      priority: 'critical',
+      title: 'Order blocked: Website onboarding order',
+      summary: expect.stringContaining('R18,500.00 order'),
+      context: {
+        orgId: 'org-1',
+        orgName: 'Client One',
+        orgSlug: 'client-one',
+        companyId: 'company-1',
+        projectId: 'project-1',
+        quoteId: 'quote-1',
+        invoiceId: 'invoice-1',
+        orderId: 'order-1',
+        orderTitle: 'Website onboarding order',
+      },
+      metadata: expect.objectContaining({
+        orderStatus: 'confirmed',
+        fulfillmentStatus: 'blocked',
+        total: 18500,
+        currency: 'ZAR',
+        expectedDeliveryDate: '2026-06-05',
+      }),
+    })
+  })
+
   it('turns CRM follow-up activities into source-linked action cards', async () => {
     collections.organizations = [makeDoc('org-1', { name: 'Client One', slug: 'client-one' })]
     collections.activities = [
