@@ -163,6 +163,18 @@ function dealOwnerLabel(deal: DealRecord): string {
   return 'No owner assigned'
 }
 
+function dealContactLabel(deal: DealRecord, contactName: string): string {
+  if (contactName.trim()) return contactName
+  if (deal.contactId?.trim()) return 'Contact identity missing'
+  return 'No contact linked'
+}
+
+function dealCompanyLabel(deal: DealRecord): string {
+  if (deal.companyName?.trim()) return deal.companyName
+  if (deal.companyId?.trim()) return 'Company identity missing'
+  return 'No company linked'
+}
+
 export default function DealDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
@@ -619,7 +631,7 @@ export default function DealDetailPage() {
                   href={`/portal/contacts/${deal.contactId}`}
                   className="text-[var(--color-pib-accent)] hover:underline mt-0.5 inline-block"
                 >
-                  {contactName || deal.contactId}
+                  {dealContactLabel(deal, contactName)}
                 </Link>
               </div>
             )}
@@ -630,7 +642,7 @@ export default function DealDetailPage() {
                   href={`/portal/companies/${deal.companyId}`}
                   className="text-[var(--color-pib-accent)] hover:underline mt-0.5 inline-block"
                 >
-                  {deal.companyName || deal.companyId}
+                  {dealCompanyLabel(deal)}
                 </Link>
               </div>
             )}

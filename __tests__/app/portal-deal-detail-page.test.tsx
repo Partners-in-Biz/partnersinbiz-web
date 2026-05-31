@@ -84,6 +84,24 @@ describe('Portal deal detail page', () => {
           }),
         } as Response)
       }
+      if (url === '/api/v1/crm/contacts/contact-raw-id') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: {
+              contact: {
+                id: 'contact-raw-id',
+              },
+            },
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/activities?contactId=contact-raw-id&limit=20') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { activities: [] } }),
+        } as Response)
+      }
       return Promise.reject(new Error(`Unexpected fetch: ${url}`))
     }) as jest.Mock
   })
@@ -122,6 +140,22 @@ describe('Portal deal detail page', () => {
 
     expect(screen.getByText('Deal owner identity missing')).toBeInTheDocument()
     expect(screen.queryByText('owner-raw-id')).not.toBeInTheDocument()
+  })
+
+  it('names incomplete deal relationship links instead of exposing raw ids', async () => {
+    mockDealOverrides = {
+      contactId: 'contact-raw-id',
+      companyId: 'company-raw-id',
+    }
+
+    render(<DealDetailPage />)
+
+    await screen.findByText('Unowned expansion')
+
+    expect(await screen.findByText('Contact identity missing')).toBeInTheDocument()
+    expect(screen.getByText('Company identity missing')).toBeInTheDocument()
+    expect(screen.queryByText('contact-raw-id')).not.toBeInTheDocument()
+    expect(screen.queryByText('company-raw-id')).not.toBeInTheDocument()
   })
 
   it('lets users update forecast probability from the deal command center', async () => {
