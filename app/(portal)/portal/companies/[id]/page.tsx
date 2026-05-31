@@ -211,8 +211,8 @@ function TableShell({ children }: { children: React.ReactNode }) {
   )
 }
 
-function StatusChip({ value }: { value?: string }) {
-  if (!value) return <span className="text-[var(--color-pib-text-muted)]">-</span>
+function StatusChip({ value, emptyLabel = 'Status not set' }: { value?: string; emptyLabel?: string }) {
+  if (!value) return <span className="text-xs text-[var(--color-pib-text-muted)]">{emptyLabel}</span>
   return (
     <span className="inline-flex rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-label uppercase tracking-wide text-emerald-300">
       {value.replace(/_/g, ' ')}
@@ -296,9 +296,9 @@ function ContactsPanel({
                   {contact.name || contact.email || contact.id}
                 </Link>
               </td>
-              <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{contact.email || '-'}</td>
-              <td className="px-5 py-4"><StatusChip value={contact.type} /></td>
-              <td className="px-5 py-4"><StatusChip value={contact.stage} /></td>
+              <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{contact.email || 'No email captured'}</td>
+              <td className="px-5 py-4"><StatusChip value={contact.type} emptyLabel="Type not set" /></td>
+              <td className="px-5 py-4"><StatusChip value={contact.stage} emptyLabel="Stage not set" /></td>
             </tr>
           ))}
         </tbody>
