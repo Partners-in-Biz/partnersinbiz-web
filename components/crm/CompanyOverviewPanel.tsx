@@ -116,6 +116,13 @@ function stringValue(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
 }
 
+function externalHref(value?: string | null): string {
+  const trimmed = value?.trim() ?? ''
+  if (!trimmed) return ''
+  if (/^https?:\/\//i.test(trimmed)) return trimmed
+  return `https://${trimmed}`
+}
+
 function timestampMs(value: unknown): number {
   if (!value) return 0
   if (value instanceof Date) {
@@ -332,12 +339,33 @@ function SectionCard({ title, children, action }: { title: string; children: Rea
   )
 }
 
-function Field({ label, value }: { label: string; value?: string | number | null }) {
+function Field({
+  label,
+  value,
+  href,
+  external = false,
+}: {
+  label: string
+  value?: string | number | null
+  href?: string
+  external?: boolean
+}) {
   if (!value && value !== 0) return null
   return (
     <div className="flex items-baseline gap-3 py-1">
       <span className="w-28 shrink-0 text-[11px] text-[var(--color-pib-text-muted)]">{label}</span>
-      <span className="min-w-0 break-words text-sm text-[var(--color-pib-text)]">{value}</span>
+      {href ? (
+        <a
+          href={href}
+          target={external ? '_blank' : undefined}
+          rel={external ? 'noopener noreferrer' : undefined}
+          className="min-w-0 break-all text-sm text-[var(--color-accent-v2)] hover:underline"
+        >
+          {value}
+        </a>
+      ) : (
+        <span className="min-w-0 break-words text-sm text-[var(--color-pib-text)]">{value}</span>
+      )}
     </div>
   )
 }
@@ -469,14 +497,7 @@ function BusinessProfile({ company, onEditCompany }: { company: Company; onEditC
         <Field label="Size" value={company.size} />
         <Field label="Employees" value={company.employeeCount} />
         <Field label="Annual revenue" value={company.annualRevenue ? formatCurrency(company.annualRevenue, company.currency || 'ZAR') : null} />
-        {company.website && (
-          <div className="flex items-baseline gap-3 py-1">
-            <span className="w-28 shrink-0 text-[11px] text-[var(--color-pib-text-muted)]">Website</span>
-            <a href={company.website} target="_blank" rel="noopener noreferrer" className="min-w-0 break-all text-sm text-[var(--color-accent-v2)] hover:underline">
-              {company.website}
-            </a>
-          </div>
-        )}
+        <Field label="Website" value={company.website} href={externalHref(company.website)} external />
         {!company.legalName && !company.tradingName && !company.lifecycleStage && !company.tier && !company.industry && !company.size && !company.employeeCount && !company.annualRevenue && !company.website && (
           <ProfileCaptureAction
             title="Capture account identity."
@@ -489,13 +510,14 @@ function BusinessProfile({ company, onEditCompany }: { company: Company; onEditC
       </SectionCard>
 
       <SectionCard title="Billing & Contacts">
-        <Field label="Phone" value={company.phone} />
-        <Field label="Billing email" value={company.billingEmail} />
+        <Field label="Phone" value={company.phone} href={company.phone ? `tel:${company.phone}` : undefined} />
+        <Field label="Billing email" value={company.billingEmail} href={company.billingEmail ? `mailto:${company.billingEmail}` : undefined} />
         <Field label="Registration" value={company.registrationNumber} />
         <Field label="VAT" value={company.vatNumber} />
         <Field label="Tax number" value={company.taxNumber} />
         <Field label="Accounts" value={company.accountsContact?.name} />
-        <Field label="Accounts email" value={company.accountsContact?.email} />
+        <Field label="Accounts email" value={company.accountsContact?.email} href={company.accountsContact?.email ? `mailto:${company.accountsContact.email}` : undefined} />
+        <Field label="Accounts phone" value={company.accountsContact?.phone} href={company.accountsContact?.phone ? `tel:${company.accountsContact.phone}` : undefined} />
         <Field label="Signatory" value={company.authorizedSignatory?.name} />
         <Field label="PO required" value={company.purchaseOrderRequired ? 'Yes' : null} />
         <Field label="PO number" value={company.purchaseOrderNumber} />

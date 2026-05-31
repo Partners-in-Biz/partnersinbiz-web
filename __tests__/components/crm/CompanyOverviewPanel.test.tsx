@@ -156,6 +156,33 @@ describe('CompanyOverviewPanel', () => {
     expect(screen.queryByText('customer · mid-market · Creative services')).not.toBeInTheDocument()
   })
 
+  it('turns captured account contact fields into direct action links', () => {
+    render(
+      <CompanyOverviewPanel
+        company={company({
+          website: 'acme.example',
+          phone: '+27821234567',
+          billingEmail: 'accounts@acme.example',
+          accountsContact: {
+            name: 'Morgan Accounts',
+            email: 'morgan.accounts@acme.example',
+            phone: '+27827654321',
+          },
+        })}
+      />,
+    )
+
+    const website = screen.getByRole('link', { name: 'acme.example' })
+    expect(website).toHaveAttribute('href', 'https://acme.example')
+    expect(website).toHaveAttribute('target', '_blank')
+    expect(website).toHaveAttribute('rel', 'noopener noreferrer')
+
+    expect(screen.getByRole('link', { name: '+27821234567' })).toHaveAttribute('href', 'tel:+27821234567')
+    expect(screen.getByRole('link', { name: 'accounts@acme.example' })).toHaveAttribute('href', 'mailto:accounts@acme.example')
+    expect(screen.getByRole('link', { name: 'morgan.accounts@acme.example' })).toHaveAttribute('href', 'mailto:morgan.accounts@acme.example')
+    expect(screen.getByRole('link', { name: '+27827654321' })).toHaveAttribute('href', 'tel:+27827654321')
+  })
+
   it('turns sparse identity and billing blocks into profile-capture actions', () => {
     const onEditCompany = jest.fn()
 
