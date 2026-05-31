@@ -273,6 +273,12 @@ export default function PortalContactDetailPage() {
     urgency: 'high' | 'medium' | 'low'
   }
   const [suggestions, setSuggestions] = useState<SuggestionItem[]>([])
+  const suggestionActionLabel = (suggestion: SuggestionItem): string => (
+    suggestion.action?.trim() || 'Suggested action missing'
+  )
+  const suggestionReasonLabel = (suggestion: SuggestionItem): string => (
+    suggestion.reason?.trim() || 'Suggestion reason missing'
+  )
 
   // C2: AI email composer
   const [showAiComposer, setShowAiComposer] = useState(false)
@@ -538,9 +544,11 @@ export default function PortalContactDetailPage() {
   }
 
   function startSuggestion(suggestion: SuggestionItem) {
-    const action = suggestion.action.toLowerCase()
+    const actionLabel = suggestionActionLabel(suggestion)
+    const reasonLabel = suggestionReasonLabel(suggestion)
+    const action = actionLabel.toLowerCase()
     if (action.includes('follow') || action.includes('proposal') || action.includes('send') || action.includes('chase')) {
-      setLogEmailSubject(suggestion.action)
+      setLogEmailSubject(actionLabel)
       setLogSummary('')
       openFirstEmailComposer()
       return
@@ -554,7 +562,7 @@ export default function PortalContactDetailPage() {
       focusProfileField(stageFieldRef)
       return
     }
-    setLogSummary(suggestion.reason)
+    setLogSummary(reasonLabel)
     openFirstNoteComposer()
   }
 
@@ -1186,12 +1194,12 @@ export default function PortalContactDetailPage() {
                 <div className="flex items-start gap-3">
                   <span className="material-symbols-outlined text-[20px] text-[var(--color-pib-accent)]">tips_and_updates</span>
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold text-[var(--color-pib-text)]">{nextSuggestion.action}</p>
-                    <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">{nextSuggestion.reason}</p>
+                    <p className="text-sm font-semibold text-[var(--color-pib-text)]">{suggestionActionLabel(nextSuggestion)}</p>
+                    <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">{suggestionReasonLabel(nextSuggestion)}</p>
                     <button
                       type="button"
                       onClick={() => startSuggestion(nextSuggestion)}
-                      aria-label={`Act on top recommendation: ${nextSuggestion.action} for ${contactName}`}
+                      aria-label={`Act on top recommendation: ${suggestionActionLabel(nextSuggestion)} for ${contactName}`}
                       className="btn-pib-secondary mt-3 inline-flex items-center gap-1.5 text-xs"
                     >
                       <span className="material-symbols-outlined text-[14px]" aria-hidden="true">play_arrow</span>
@@ -1633,12 +1641,12 @@ export default function PortalContactDetailPage() {
                       'bg-[var(--color-pib-surface)] text-[var(--color-pib-text-muted)]'
                     }`}>{s.urgency}</span>
                     <div>
-                      <p className="text-sm font-medium">{s.action}</p>
-                      <p className="text-xs text-[var(--color-pib-text-muted)]">{s.reason}</p>
+                      <p className="text-sm font-medium">{suggestionActionLabel(s)}</p>
+                      <p className="text-xs text-[var(--color-pib-text-muted)]">{suggestionReasonLabel(s)}</p>
                       <button
                         type="button"
                         onClick={() => startSuggestion(s)}
-                        aria-label={`Start suggested action: ${s.action} for ${contactName}`}
+                        aria-label={`Start suggested action: ${suggestionActionLabel(s)} for ${contactName}`}
                         className="btn-pib-secondary mt-2 inline-flex items-center gap-1.5 text-xs"
                       >
                         <span className="material-symbols-outlined text-[14px]" aria-hidden="true">play_arrow</span>

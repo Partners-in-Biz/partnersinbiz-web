@@ -556,6 +556,27 @@ describe('Portal contact detail page', () => {
     expect(screen.getByPlaceholderText('Message…')).toBeInTheDocument()
   })
 
+  it('names sparse portal next-best-action suggestions instead of rendering blank recommendation cards', async () => {
+    mockSuggestions = [{
+      action: '',
+      reason: '',
+      urgency: 'medium',
+    }]
+
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    expect(screen.getAllByText('Suggested action missing').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Suggestion reason missing').length).toBeGreaterThan(0)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Act on top recommendation: Suggested action missing for Jane Client' }))
+
+    expect(screen.getByPlaceholderText('Add a relationship note, handoff, or context…')).toHaveValue('Suggestion reason missing')
+  })
+
   it('turns an empty email thread insight into a send action', async () => {
     render(<PortalContactDetailPage />)
 
