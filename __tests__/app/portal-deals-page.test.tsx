@@ -304,6 +304,35 @@ describe('Portal deals page', () => {
     expect(within(unassignedRow as HTMLElement).getByText('Unassigned')).toBeInTheDocument()
   })
 
+  it('names unresolved linked contacts in the deal list instead of showing generic view links', async () => {
+    mockSearchParams = new URLSearchParams('view=list')
+    mockDealRows = [
+      {
+        id: 'deal-unresolved-contact',
+        orgId: 'org-1',
+        contactId: 'contact-raw-id',
+        title: 'Sparse contact expansion',
+        value: 50000,
+        currency: 'ZAR',
+        pipelineId: 'pipeline-1',
+        stageId: 'qualified',
+        expectedCloseDate: null,
+        notes: '',
+        createdAt: null,
+        updatedAt: null,
+      },
+    ]
+
+    render(<DealsPage />)
+
+    const row = (await screen.findByText('Sparse contact expansion')).closest('[data-deal-row]')
+    expect(row).not.toBeNull()
+    const link = within(row as HTMLElement).getByRole('link', { name: 'Contact identity missing' })
+    expect(link).toHaveAttribute('href', '/portal/contacts/contact-raw-id')
+    expect(within(row as HTMLElement).queryByRole('link', { name: 'View' })).not.toBeInTheDocument()
+    expect(within(row as HTMLElement).queryByText('contact-raw-id')).not.toBeInTheDocument()
+  })
+
   it('opens directly to unassigned deals from CRM reports', async () => {
     mockSearchParams = new URLSearchParams('view=list&owner=unassigned')
 

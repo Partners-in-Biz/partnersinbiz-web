@@ -893,7 +893,7 @@ export default function DealsPage() {
                             href={`/portal/contacts/${deal.contactId}`}
                             className="text-xs text-[var(--color-accent-v2)] hover:underline"
                           >
-                            {contactLabel || 'View'}
+                            {contactLabel || 'Contact identity missing'}
                           </a>
                         ) : (
                           <span className="text-xs text-on-surface-variant">No contact linked</span>
