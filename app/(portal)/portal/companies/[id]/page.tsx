@@ -2178,7 +2178,10 @@ export default function CompanyDetailPage() {
       {/* Tabs */}
       <CompanyTabsBar
         activeTab={tab}
-        onChange={(t) => setTab(t as CompanyTab)}
+        onChange={(t) => {
+          const nextTab = toCompanyTab(t)
+          if (nextTab) selectTab(nextTab)
+        }}
         counts={{
           contacts: related.contacts.length,
           deals: related.deals.length,
@@ -2224,7 +2227,10 @@ export default function CompanyDetailPage() {
                 summary: related.summary,
                 analytics: related.analytics,
               }}
-              onSelectTab={(nextTab) => setTab(nextTab as CompanyTab)}
+              onSelectTab={(nextTab) => {
+                const selectedTab = toCompanyTab(nextTab)
+                if (selectedTab) selectTab(selectedTab)
+              }}
               onEditCompany={() => setEditOpen(true)}
             />
             {customFieldDefs.length > 0 && (
@@ -2352,7 +2358,7 @@ export default function CompanyDetailPage() {
           />
         )}
         {!relatedLoading && tab === 'analytics' && (
-          <AnalyticsPanel analytics={related.analytics} summary={related.summary} companyName={company.name} onOpenTab={setTab} />
+          <AnalyticsPanel analytics={related.analytics} summary={related.summary} companyName={company.name} onOpenTab={selectTab} />
         )}
         {!relatedLoading && tab === 'activity' && (
           <ActivityPanel
