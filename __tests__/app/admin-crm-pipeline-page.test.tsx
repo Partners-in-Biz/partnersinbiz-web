@@ -247,4 +247,59 @@ describe('Admin CRM pipeline page', () => {
     expect(within(contactRow as HTMLElement).getByText('Scores not captured')).toBeInTheDocument()
     expect(within(contactRow as HTMLElement).queryByText('—')).not.toBeInTheDocument()
   })
+
+  it('names missing admin pipeline values instead of showing zero-value forecasts', async () => {
+    global.fetch = jest.fn((url: RequestInfo | URL) => {
+      const path = String(url)
+      if (path === '/api/v1/crm/pipelines') {
+        return apiResponse([
+          {
+            id: 'pipeline-1',
+            name: 'Sales pipeline',
+            isDefault: true,
+            stages: [{ id: 'qualified', label: 'Qualified', kind: 'open', order: 1, probability: 40 }],
+          },
+        ])
+      }
+      if (path === '/api/v1/crm/contacts?limit=200') return apiResponse([])
+      if (path === '/api/v1/portal/settings/team') return apiResponse([])
+      if (path === '/api/v1/crm/deals?pipelineId=pipeline-1&limit=300') {
+        return apiResponse([
+          {
+            id: 'deal-unpriced',
+            orgId: 'org-1',
+            contactId: '',
+            title: 'Unpriced admin opportunity',
+            currency: 'ZAR',
+            pipelineId: 'pipeline-1',
+            stageId: 'qualified',
+            expectedCloseDate: null,
+            notes: '',
+            createdAt: null,
+            updatedAt: null,
+          },
+        ])
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${path}`))
+    })
+
+    render(<PipelinePage />)
+
+    expect(await screen.findByText('No priced pipeline')).toBeInTheDocument()
+    expect(screen.getByText('Forecast value needed')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('tab', { name: /List/i }))
+    const listRow = (await screen.findByText('Unpriced admin opportunity')).closest('[data-admin-deal-row]')
+    expect(listRow).not.toBeNull()
+    expect(within(listRow as HTMLElement).getByText('No value captured')).toBeInTheDocument()
+    expect(within(listRow as HTMLElement).getByText('Value needed')).toBeInTheDocument()
+    expect(within(listRow as HTMLElement).queryByText(/R\s*0/)).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('tab', { name: /Forecast/i }))
+    const forecastRow = (await screen.findByText('Unpriced admin opportunity')).closest('tr')
+    expect(forecastRow).not.toBeNull()
+    expect(within(forecastRow as HTMLElement).getByText('No value captured')).toBeInTheDocument()
+    expect(within(forecastRow as HTMLElement).getByText('Value needed')).toBeInTheDocument()
+    expect(within(forecastRow as HTMLElement).queryByText(/R\s*0/)).not.toBeInTheDocument()
+  })
 })
