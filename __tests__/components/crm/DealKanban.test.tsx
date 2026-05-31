@@ -161,6 +161,21 @@ describe('DealKanban', () => {
     expect(link).toHaveAttribute('href', '/portal/contacts/c-99')
   })
 
+  it('names missing company snapshots on deal cards instead of hiding linked accounts', () => {
+    const deal = makeDeal({
+      id: 'd1',
+      companyId: 'company-raw-id',
+      companyName: '',
+      stageId: 'negotiation',
+    })
+
+    render(<DealKanban deals={[deal]} stages={TEST_STAGES} onStageChange={noop} />)
+
+    const link = screen.getByRole('link', { name: 'Company identity missing' })
+    expect(link).toHaveAttribute('href', '/portal/companies/company-raw-id')
+    expect(screen.queryByText('company-raw-id')).not.toBeInTheDocument()
+  })
+
   it('does not render a contact link when contactId is empty', () => {
     const deal = makeDeal({ id: 'd1', contactId: '', stageId: 'negotiation' })
     render(<DealKanban deals={[deal]} stages={TEST_STAGES} onStageChange={noop} />)

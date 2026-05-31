@@ -43,12 +43,20 @@ interface DealCardProps {
   deal: Deal
   stageColor?: string
   contactBasePath?: string
+  companyBasePath?: string
   contactLabel?: string
 }
 
-function DealCard({ deal, stageColor = '#6b7280', contactBasePath = '/portal/contacts', contactLabel }: DealCardProps) {
+function DealCard({
+  deal,
+  stageColor = '#6b7280',
+  contactBasePath = '/portal/contacts',
+  companyBasePath = '/portal/companies',
+  contactLabel,
+}: DealCardProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: deal.id })
   const readableContactLabel = contactLabel?.trim() || 'Contact identity missing'
+  const readableCompanyLabel = deal.companyName?.trim() || (deal.companyId ? 'Company identity missing' : '')
 
   return (
     <div
@@ -78,9 +86,18 @@ function DealCard({ deal, stageColor = '#6b7280', contactBasePath = '/portal/con
             </Link>
           )}
         </div>
-        {deal.companyName && (
-          <span className="text-xs text-gray-500 truncate mt-1 block">{deal.companyName}</span>
-        )}
+        {deal.companyId ? (
+          <Link
+            href={`${companyBasePath}/${deal.companyId}`}
+            onClick={e => e.stopPropagation()}
+            className="text-xs text-gray-500 truncate mt-1 block hover:underline"
+            title="View company"
+          >
+            {readableCompanyLabel}
+          </Link>
+        ) : readableCompanyLabel ? (
+          <span className="text-xs text-gray-500 truncate mt-1 block">{readableCompanyLabel}</span>
+        ) : null}
       </div>
     </div>
   )
@@ -92,10 +109,11 @@ interface DealColumnProps {
   stage: PipelineStage
   deals: Deal[]
   contactBasePath?: string
+  companyBasePath?: string
   contactLabelsById?: Record<string, string>
 }
 
-function DealColumn({ stage, deals, contactBasePath, contactLabelsById }: DealColumnProps) {
+function DealColumn({ stage, deals, contactBasePath, companyBasePath, contactLabelsById }: DealColumnProps) {
   const dealIds = deals.map(d => d.id)
   const { setNodeRef, isOver } = useDroppable({ id: stage.id })
   const color = stage.color ?? '#6b7280'
@@ -129,6 +147,7 @@ function DealColumn({ stage, deals, contactBasePath, contactLabelsById }: DealCo
               deal={deal}
               stageColor={color}
               contactBasePath={contactBasePath}
+              companyBasePath={companyBasePath}
               contactLabel={contactLabelsById?.[deal.contactId]}
             />
           ))}
@@ -170,6 +189,7 @@ export interface DealKanbanProps {
   loading?: boolean
   onStageChange: (dealId: string, newStageId: string) => Promise<void>
   contactBasePath?: string
+  companyBasePath?: string
   contactLabelsById?: Record<string, string>
 }
 
@@ -183,6 +203,7 @@ export function DealKanban({
   loading = false,
   onStageChange,
   contactBasePath = '/portal/contacts',
+  companyBasePath = '/portal/companies',
   contactLabelsById,
 }: DealKanbanProps) {
   const [deals, setDeals] = useState<Deal[]>(initialDeals)
@@ -279,6 +300,7 @@ export function DealKanban({
               stage={stage}
               deals={getDealsForStage(stage.id)}
               contactBasePath={contactBasePath}
+              companyBasePath={companyBasePath}
               contactLabelsById={contactLabelsById}
             />
           ),
