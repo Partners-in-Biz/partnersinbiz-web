@@ -17,6 +17,7 @@ export { reportAdapter } from './adapters/reportAdapter'
 export { socialPostAdapter } from './adapters/socialPostAdapter'
 export { supportTicketAdapter } from './adapters/supportTicketAdapter'
 export { invoiceAdapter } from './adapters/invoiceAdapter'
+export { expenseAdapter } from './adapters/expenseAdapter'
 
 import type { BriefingSourceAdapter, BriefingSourceType } from './types'
 import { taskAdapter, projectAdapter } from './adapters/taskAdapter'
@@ -28,6 +29,7 @@ import { reportAdapter } from './adapters/reportAdapter'
 import { socialPostAdapter } from './adapters/socialPostAdapter'
 import { supportTicketAdapter } from './adapters/supportTicketAdapter'
 import { invoiceAdapter } from './adapters/invoiceAdapter'
+import { expenseAdapter } from './adapters/expenseAdapter'
 
 /**
  * Registry of all source adapters.
@@ -45,6 +47,7 @@ export const SOURCE_ADAPTERS: Record<BriefingSourceType, BriefingSourceAdapter> 
   report: reportAdapter,
   'support-ticket': supportTicketAdapter,
   invoice: invoiceAdapter,
+  expense: expenseAdapter,
 }
 
 /**

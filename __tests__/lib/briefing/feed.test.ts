@@ -503,4 +503,81 @@ describe('briefing feed', () => {
     expect(feed.items[0].summary).toContain('R12,500.00')
     expect(feed.items[0].summary).toContain('Due: 2026-05-20')
   })
+
+  it('surfaces submitted expenses as admin-only approval control cards', async () => {
+    collections.organizations = [makeDoc('org-1', { name: 'Client One', slug: 'client-one' })]
+    collections.expenses = [
+      makeDoc('expense-1', {
+        orgId: 'org-1',
+        userId: 'client-1',
+        date: '2026-05-30T00:00:00.000Z',
+        amount: 425.5,
+        currency: 'ZAR',
+        category: 'Travel',
+        description: 'Taxi to workshop. password: never-leak-this',
+        vendor: 'Bolt',
+        receiptFileId: 'receipt-1',
+        projectId: 'project-1',
+        clientOrgId: 'client-org-1',
+        billable: true,
+        reimbursable: true,
+        status: 'submitted',
+        invoiceId: null,
+        createdAt: '2026-05-31T08:00:00.000Z',
+        updatedAt: '2026-05-31T09:00:00.000Z',
+        deleted: false,
+      }),
+      makeDoc('expense-2', {
+        orgId: 'org-1',
+        userId: 'client-1',
+        date: '2026-05-29T00:00:00.000Z',
+        amount: 100,
+        currency: 'ZAR',
+        category: 'Meals',
+        vendor: 'Cafe',
+        status: 'approved',
+        deleted: false,
+        updatedAt: '2026-05-31T08:30:00.000Z',
+      }),
+    ]
+
+    const { buildBriefingFeed } = await import('@/lib/briefing/feed')
+    const adminFeed = await buildBriefingFeed(
+      { uid: 'admin-1', role: 'admin', allowedOrgIds: ['org-1'] },
+      { limit: 10, sourceType: 'expense' },
+    )
+    const clientFeed = await buildBriefingFeed(
+      { uid: 'client-1', role: 'client', orgIds: ['org-1'], orgId: 'org-1' },
+      { limit: 10, sourceType: 'expense' },
+    )
+
+    expect(adminFeed.items).toHaveLength(1)
+    expect(clientFeed.items).toHaveLength(0)
+    expect(adminFeed.items[0]).toMatchObject({
+      priority: 'needs-peet',
+      requiresAction: true,
+      source: { type: 'expense', id: 'expense-1', url: '/admin/finance?expense=expense-1' },
+      title: 'Expense needs approval: Travel',
+      actor: { id: 'user:client-1', type: 'user' },
+      context: {
+        orgName: 'Client One',
+        projectId: 'project-1',
+        expenseId: 'expense-1',
+        expenseCategory: 'Travel',
+      },
+      metadata: expect.objectContaining({
+        expenseStatus: 'submitted',
+        amount: 425.5,
+        currency: 'ZAR',
+        vendor: 'Bolt',
+        billable: true,
+        reimbursable: true,
+        receiptFileId: 'receipt-1',
+      }),
+    })
+    expect(adminFeed.items[0].summary).toContain('R425.50')
+    expect(adminFeed.items[0].summary).toContain('Billable')
+    expect(JSON.stringify(adminFeed.items)).not.toContain('never-leak-this')
+    expect(JSON.stringify(adminFeed.items)).toContain('[REDACTED]')
+  })
 })

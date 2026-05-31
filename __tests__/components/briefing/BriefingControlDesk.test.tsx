@@ -300,6 +300,37 @@ const invoiceBriefingItem = {
   occurredAt: '2026-05-31T09:55:00.000Z',
 }
 
+const expenseBriefingItem = {
+  id: 'expense:expense-1',
+  orgId: 'org-1',
+  priority: 'needs-peet',
+  title: 'Expense needs approval: Travel',
+  summary: 'R425.50 expense from Bolt. Billable. Reimbursable.',
+  excerpt: 'Taxi to workshop.',
+  timeAgo: '11 minutes ago',
+  requiresAction: true,
+  source: { type: 'expense', id: 'expense-1', url: '/admin/finance?expense=expense-1' },
+  actor: { id: 'user:client-1', name: 'Riley Client', role: 'client', type: 'user' },
+  context: {
+    orgId: 'org-1',
+    orgName: 'Client One',
+    orgSlug: 'client-one',
+    projectId: 'project-1',
+    projectName: 'Launch site',
+    expenseId: 'expense-1',
+    expenseCategory: 'Travel',
+  },
+  metadata: {
+    expenseStatus: 'submitted',
+    amount: 425.5,
+    currency: 'ZAR',
+    vendor: 'Bolt',
+    billable: true,
+    reimbursable: true,
+  },
+  occurredAt: '2026-05-31T09:54:00.000Z',
+}
+
 describe('BriefingControlDesk', () => {
   beforeEach(() => {
     jest.useFakeTimers()
@@ -318,7 +349,7 @@ describe('BriefingControlDesk', () => {
       if (url.startsWith('/api/v1/briefings/feed')) {
         const items = url.includes('orgId=org-2')
           ? [secondOrgBriefingItem]
-          : [briefingItem, documentBriefingItem, documentCommentBriefingItem, approvalBriefingItem, conversationBriefingItem, socialBriefingItem, notificationBriefingItem, activityBriefingItem, reportBriefingItem, supportBriefingItem, invoiceBriefingItem, secondOrgBriefingItem]
+          : [briefingItem, documentBriefingItem, documentCommentBriefingItem, approvalBriefingItem, conversationBriefingItem, socialBriefingItem, notificationBriefingItem, activityBriefingItem, reportBriefingItem, supportBriefingItem, invoiceBriefingItem, expenseBriefingItem, secondOrgBriefingItem]
         return {
           ok: true,
           json: async () => ({ data: { items, total: items.length, hasMore: false, generatedAt: '2026-05-31T10:05:00.000Z' } }),
@@ -412,6 +443,12 @@ describe('BriefingControlDesk', () => {
         return {
           ok: true,
           json: async () => ({ data: { id: 'invoice-1', status: 'sent' } }),
+        } as Response
+      }
+      if (url === '/api/v1/expenses/expense-1/approve') {
+        return {
+          ok: true,
+          json: async () => ({ data: { id: 'expense-1', status: 'approved' } }),
         } as Response
       }
       return {
@@ -776,6 +813,42 @@ describe('BriefingControlDesk', () => {
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith('/api/v1/invoices/invoice-1/send', expect.objectContaining({
         method: 'POST',
+      }))
+    })
+  })
+
+  it('approves and rejects submitted expense cards from the admin control desk', async () => {
+    render(<BriefingControlDesk mode="admin" />)
+
+    fireEvent.click(await screen.findByRole('button', { name: /Expense needs approval: Travel/i }))
+
+    expect(screen.getByText('Travel (expense-1)')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /open source/i })).toHaveAttribute('href', '/admin/finance?expense=expense-1')
+    expect(screen.getByRole('button', { name: /approve expense/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /reject expense/i })).toBeDisabled()
+
+    fireEvent.click(screen.getByRole('button', { name: /approve expense/i }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/expenses/expense-1/approve', expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ action: 'approve' }),
+      }))
+    })
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /approve expense/i })).not.toBeDisabled()
+    })
+
+    fireEvent.change(screen.getByLabelText('Expense rejection note'), { target: { value: 'Receipt does not match the workshop date.' } })
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /reject expense/i })).not.toBeDisabled()
+    })
+    fireEvent.click(screen.getByRole('button', { name: /reject expense/i }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/expenses/expense-1/approve', expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ action: 'reject', note: 'Receipt does not match the workshop date.' }),
       }))
     })
   })
