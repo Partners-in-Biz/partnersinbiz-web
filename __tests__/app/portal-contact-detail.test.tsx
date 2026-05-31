@@ -10,6 +10,7 @@ let mockEmails: Array<{ id: string; subject?: string; status?: string; direction
 let mockActivities: Array<{ id: string; type?: string; summary?: string; notes?: string; createdAt?: unknown; createdByRef?: { uid?: string; displayName?: string } }> = []
 let mockEnrollments: Array<{ id: string; sequenceId: string; sequenceName?: string; currentStep?: number; status?: string }> = []
 let mockSequences: Array<{ id: string; name: string }> = []
+let mockTeamMembers: Array<{ uid: string; firstName?: string; lastName?: string; jobTitle?: string }> = []
 let mockSequenceEnrollError = ''
 let mockSequenceUnenrollError = ''
 let mockRouterPush = jest.fn()
@@ -34,6 +35,7 @@ describe('Portal contact detail page', () => {
     mockActivities = []
     mockEnrollments = []
     mockSequences = []
+    mockTeamMembers = []
     mockSequenceEnrollError = ''
     mockSequenceUnenrollError = ''
     mockRouterPush = jest.fn()
@@ -67,7 +69,7 @@ describe('Portal contact detail page', () => {
       if (url === '/api/v1/portal/settings/team') {
         return Promise.resolve({
           ok: true,
-          json: async () => ({ members: [] }),
+          json: async () => ({ members: mockTeamMembers }),
         } as Response)
       }
       if (url === '/api/v1/email?contactId=contact-1&limit=20') {
@@ -801,6 +803,24 @@ describe('Portal contact detail page', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Assign owner for Jane Client from relationship ownership' }))
 
     expect(screen.getByDisplayValue('Unassigned')).toHaveFocus()
+  })
+
+  it('names sparse team member options instead of exposing raw owner ids', async () => {
+    mockTeamMembers = [{ uid: 'uid-owner-raw' }]
+    mockContactOverrides = {
+      assignedTo: 'uid-owner-raw',
+      assignedToRef: { uid: 'uid-owner-raw' },
+    }
+
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    expect(await screen.findByRole('option', { name: 'Team member identity missing' })).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: 'uid-owner-raw' })).not.toBeInTheDocument()
+    expect(screen.queryByText('uid-owner-raw')).not.toBeInTheDocument()
   })
 
   it('turns weak source provenance into a source review action', async () => {

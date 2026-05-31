@@ -227,12 +227,24 @@ function toDateTimeLocalValue(date: Date): string {
 
 function teamMemberRef(member?: TeamMemberOption): MemberRef | undefined {
   if (!member) return undefined
+  const displayName = teamMemberDisplayLabel(member)
   return {
     uid: member.uid,
-    displayName: [member.firstName, member.lastName].filter(Boolean).join(' ') || member.uid,
+    displayName,
     jobTitle: member.jobTitle,
     kind: 'human',
   }
+}
+
+function teamMemberDisplayLabel(member: TeamMemberOption): string {
+  const name = [member.firstName, member.lastName]
+    .map((part) => part?.trim())
+    .filter(Boolean)
+    .join(' ')
+  if (name) return member.jobTitle?.trim() ? `${name} · ${member.jobTitle.trim()}` : name
+  return member.jobTitle?.trim()
+    ? `Team member identity missing · ${member.jobTitle.trim()}`
+    : 'Team member identity missing'
 }
 
 export default function PortalContactDetailPage() {
@@ -1497,8 +1509,7 @@ export default function PortalContactDetailPage() {
               <select ref={ownerFieldRef} value={assignedTo} onChange={(e) => setAssignedTo(e.target.value)} className="pib-input w-full">
                 <option value="" className="bg-black">Unassigned</option>
                 {teamMembers.map((member) => {
-                  const name = [member.firstName, member.lastName].filter(Boolean).join(' ') || member.uid
-                  const label = member.jobTitle ? `${name} · ${member.jobTitle}` : name
+                  const label = teamMemberDisplayLabel(member)
                   return (
                     <option key={member.uid} value={member.uid} className="bg-black">
                       {label}
