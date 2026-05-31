@@ -281,6 +281,24 @@ function invoiceDueDateLabel(invoice: RelatedInvoice) {
   return date === '-' ? 'Due date not set' : date
 }
 
+function orderTitleLabel(order: RelatedOrder) {
+  return order.title || 'Fulfillment order name missing'
+}
+
+function orderStatusLabel(order: RelatedOrder) {
+  return order.status ? undefined : 'Order status not set'
+}
+
+function orderFulfillmentStatusLabel(order: RelatedOrder) {
+  return order.fulfillmentStatus || 'Fulfillment status not set'
+}
+
+function orderTotalLabel(order: RelatedOrder) {
+  return typeof order.total === 'number' && Number.isFinite(order.total)
+    ? formatCurrency(order.total, order.currency || 'ZAR')
+    : 'No total captured'
+}
+
 function extractList<T>(body: unknown, key: keyof RelatedState): T[] {
   if (!body || typeof body !== 'object') return []
   const record = body as Record<string, unknown>
@@ -888,10 +906,11 @@ function OrdersPanel({
       rows={orders}
       emptyIcon="orders"
       emptyLabel="No linked orders yet."
-      title={(row) => String(row.title ?? row.id)}
+      title={(row) => orderTitleLabel(row as RelatedOrder)}
       metaFor={(row) => [
-        String(row.fulfillmentStatus ?? ''),
-        formatCurrency(typeof row.total === 'number' ? row.total : undefined, String(row.currency ?? 'ZAR')),
+        orderFulfillmentStatusLabel(row as RelatedOrder),
+        orderTotalLabel(row as RelatedOrder),
+        orderStatusLabel(row as RelatedOrder),
       ]}
     />
   )
