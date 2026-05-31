@@ -191,6 +191,23 @@ function stageHistoryActorLabel(entry: NonNullable<DealRecord['stageHistory']>[n
   return 'Stage actor not captured'
 }
 
+function activitySummaryLabel(activity: ActivityRecord): string {
+  const summary = activity.summary?.trim() || activity.notes?.trim()
+  if (summary) return summary
+  return 'Activity summary missing'
+}
+
+function activityActorLabel(activity: ActivityRecord): string {
+  if (activity.createdByRef?.displayName?.trim()) return activity.createdByRef.displayName
+  if (activity.createdByRef?.uid?.trim()) return 'Activity actor identity missing'
+  return 'Activity actor not captured'
+}
+
+function activityTimeLabel(activity: ActivityRecord): string {
+  if (toDate(activity.createdAt)) return fmtTimestamp(activity.createdAt)
+  return 'Activity time not captured'
+}
+
 export default function DealDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
@@ -946,9 +963,9 @@ export default function DealDetailPage() {
                       </span>
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm text-[var(--color-pib-text)]">{a.summary ?? a.notes ?? a.type}</p>
+                      <p className="text-sm text-[var(--color-pib-text)]">{activitySummaryLabel(a)}</p>
                       <p className="text-xs text-[var(--color-pib-text-muted)] mt-0.5">
-                        {a.createdByRef?.displayName ?? 'System'} · {fmtTimestamp(a.createdAt)}
+                        {activityActorLabel(a)} · {activityTimeLabel(a)}
                       </p>
                     </div>
                   </div>

@@ -102,6 +102,39 @@ describe('Portal deal detail page', () => {
           json: async () => ({ data: { activities: [] } }),
         } as Response)
       }
+      if (url === '/api/v1/crm/contacts/contact-with-sparse-activity') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: {
+              contact: {
+                id: 'contact-with-sparse-activity',
+                name: 'Sparse Activity Buyer',
+              },
+            },
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/activities?contactId=contact-with-sparse-activity&limit=20') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: {
+              activities: [
+                {
+                  id: 'activity-1',
+                  type: 'email_sent',
+                  createdByRef: {
+                    uid: 'actor-raw-id',
+                    displayName: '',
+                    kind: 'human',
+                  },
+                },
+              ],
+            },
+          }),
+        } as Response)
+      }
       return Promise.reject(new Error(`Unexpected fetch: ${url}`))
     }) as jest.Mock
   })
@@ -178,6 +211,21 @@ describe('Portal deal detail page', () => {
 
     expect(screen.getByText('Stage not captured')).toBeInTheDocument()
     expect(screen.getByText('Stage time not captured · Stage actor identity missing')).toBeInTheDocument()
+    expect(screen.queryByText('actor-raw-id')).not.toBeInTheDocument()
+  })
+
+  it('names incomplete activity snapshots instead of exposing internal activity details', async () => {
+    mockDealOverrides = {
+      contactId: 'contact-with-sparse-activity',
+    }
+
+    render(<DealDetailPage />)
+
+    await screen.findByText('Unowned expansion')
+
+    expect(await screen.findByText('Activity summary missing')).toBeInTheDocument()
+    expect(screen.getByText('Activity actor identity missing · Activity time not captured')).toBeInTheDocument()
+    expect(screen.queryByText('email_sent')).not.toBeInTheDocument()
     expect(screen.queryByText('actor-raw-id')).not.toBeInTheDocument()
   })
 
