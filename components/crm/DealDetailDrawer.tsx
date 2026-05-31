@@ -71,7 +71,8 @@ export function DealDetailDrawer({
   const needsCloseDate = closeDateLabel === 'No close date'
 
   const probability = deal.probability ?? (stage?.probability ?? 100)
-  const weightedValue = (deal.value ?? 0) * (probability / 100)
+  const hasDealValue = deal.value !== null && deal.value !== undefined
+  const weightedValue = hasDealValue ? deal.value * (probability / 100) : null
 
   const labelCls = 'block text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1'
 
@@ -200,7 +201,7 @@ export function DealDetailDrawer({
             <div>
               <p className={labelCls}>Deal value</p>
               <p className="text-xl font-headline font-bold text-[var(--color-pib-text)]">
-                {fmtValue(deal.value ?? 0, deal.currency)}
+                {hasDealValue ? fmtValue(deal.value, deal.currency) : 'No value captured'}
               </p>
             </div>
             <div
@@ -209,7 +210,7 @@ export function DealDetailDrawer({
             >
               <p className={labelCls}>Weighted</p>
               <p className="text-sm font-mono font-semibold text-[var(--color-pib-text)]">
-                {fmtValue(weightedValue, deal.currency)}
+                {weightedValue === null ? 'Value needed' : fmtValue(weightedValue, deal.currency)}
               </p>
             </div>
           </div>

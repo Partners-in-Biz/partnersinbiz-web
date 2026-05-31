@@ -134,4 +134,19 @@ describe('DealDetailDrawer', () => {
 
     expect(onEdit).toHaveBeenCalledTimes(1)
   })
+
+  it('names missing commercial value instead of treating it as a zero-value deal', () => {
+    render(
+      <DealDetailDrawer
+        deal={{ ...deal, value: undefined }}
+        stages={stages}
+        orgId="org-1"
+        onClose={jest.fn()}
+      />,
+    )
+
+    expect(screen.getByText('No value captured')).toBeInTheDocument()
+    expect(screen.getByText('Value needed')).toBeInTheDocument()
+    expect(screen.queryByText(/R\s*0[,.]00/)).not.toBeInTheDocument()
+  })
 })
