@@ -63,6 +63,7 @@ const SOURCES = [
   { value: 'agent-output', label: 'Agent output' },
   { value: 'project', label: 'Projects' },
   { value: 'client-document', label: 'Documents' },
+  { value: 'social-post', label: 'Social posts' },
   { value: 'approval', label: 'Approvals' },
   { value: 'notification', label: 'Notifications' },
   { value: 'activity', label: 'Activity' },
@@ -110,6 +111,7 @@ function sourceLabel(item: BriefingCard) {
 }
 
 function sourceHref(item: BriefingCard, mode: Mode) {
+  if (item.source.type === 'social-post') return `/portal/social/review/${encodeURIComponent(item.source.id)}`
   if (mode === 'admin') return item.source.url || null
   if (item.source.url?.startsWith('/portal')) return item.source.url
   if (item.context.conversationId) return `/portal/conversations?convId=${encodeURIComponent(item.context.conversationId)}`
@@ -124,6 +126,11 @@ function adminSourceHref(item: BriefingCard) {
     if (item.context.orgSlug) return `/admin/org/${item.context.orgSlug}/messages?${query}`
     return `/admin/communications?${query}`
   }
+  if (item.source.type === 'social-post') {
+    if (socialActionStage(item) === 'qa') return `/admin/social/qa/${encodeURIComponent(item.source.id)}`
+    if (item.context.orgSlug) return `/admin/org/${item.context.orgSlug}/social/${encodeURIComponent(item.source.id)}`
+    return `/admin/social?postId=${encodeURIComponent(item.source.id)}`
+  }
   return item.source.url || null
 }
 
@@ -137,6 +144,19 @@ function canDocumentAct(item: BriefingCard) {
 
 function canConversationAct(item: BriefingCard) {
   return Boolean(item.context.conversationId)
+}
+
+function canSocialPostAct(item: BriefingCard) {
+  return item.source.type === 'social-post' && Boolean(item.source.id)
+}
+
+function socialActionStage(item: BriefingCard): 'client' | 'qa' | null {
+  const stage = item.metadata?.actionStage
+  if (stage === 'client' || stage === 'qa') return stage
+  const status = item.metadata?.status
+  if (status === 'client_review' || status === 'pending_approval') return 'client'
+  if (status === 'qa_review') return 'qa'
+  return null
 }
 
 function reviewable(item: BriefingCard) {
@@ -162,6 +182,7 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
   const [snapshotting, setSnapshotting] = useState(false)
   const [autoRefresh, setAutoRefresh] = useState(true)
   const [replyText, setReplyText] = useState('')
+  const [socialChangeText, setSocialChangeText] = useState('')
   const [busyAction, setBusyAction] = useState<string | null>(null)
   const [flash, setFlash] = useState<Flash>(null)
 
@@ -447,6 +468,35 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
     }
   }
 
+  async function socialPostAction(item: BriefingCard, action: 'approve' | 'reject') {
+    if (!canSocialPostAct(item)) return
+    const stage = socialActionStage(item)
+    if (!stage) return
+    const reason = socialChangeText.trim()
+    if (action === 'reject' && !reason) return
+
+    setBusyAction(`social-${action}`)
+    try {
+      const routeAction = stage === 'qa'
+        ? action === 'approve' ? 'qa-approve' : 'qa-reject'
+        : action === 'approve' ? 'client-approve' : 'client-reject'
+      const res = await fetch(`/api/v1/social/posts/${encodeURIComponent(item.source.id)}/${routeAction}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: action === 'reject' ? JSON.stringify({ reason }) : undefined,
+      })
+      const body = await res.json()
+      if (!res.ok) throw new Error(body.error || 'Social post action failed')
+      setSocialChangeText('')
+      setFlash({ kind: 'ok', message: action === 'approve' ? 'Social post approved from the control desk.' : 'Social changes sent back to the agent.' })
+      await loadFeed({ quiet: true })
+    } catch (err) {
+      setFlash({ kind: 'error', message: err instanceof Error ? err.message : 'Social post action failed' })
+    } finally {
+      setBusyAction(null)
+    }
+  }
+
   async function unblockTask(item: BriefingCard) {
     if (!canTaskAct(item)) return
     setBusyAction('unblock')
@@ -680,7 +730,34 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                       Request changes
                     </button>
                   ) : null}
+                  {canSocialPostAct(selected) && socialActionStage(selected) ? (
+                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => socialPostAction(selected, 'approve')} disabled={!!busyAction}>
+                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">thumb_up</span>
+                      Approve social post
+                    </button>
+                  ) : null}
+                  {canSocialPostAct(selected) && socialActionStage(selected) ? (
+                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => socialPostAction(selected, 'reject')} disabled={!socialChangeText.trim() || !!busyAction}>
+                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">thumb_down</span>
+                      Request social changes
+                    </button>
+                  ) : null}
                 </div>
+
+                {canSocialPostAct(selected) && socialActionStage(selected) ? (
+                  <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                    <label className="text-xs font-medium text-on-surface-variant" htmlFor="briefing-social-change">
+                      Social change request
+                    </label>
+                    <textarea
+                      id="briefing-social-change"
+                      className="pib-input mt-2 min-h-20 w-full resize-y"
+                      value={socialChangeText}
+                      onChange={(event) => setSocialChangeText(event.target.value)}
+                      placeholder="Describe what the agent should change before approval..."
+                    />
+                  </div>
+                ) : null}
 
                 {canTaskAct(selected) || canDocumentAct(selected) || canConversationAct(selected) ? (
                   <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">

@@ -14,6 +14,7 @@ export { agentOutputAdapter } from './adapters/agentOutputAdapter'
 export { approvalAdapter, clientDocumentAdapter } from './adapters/approvalAdapter'
 export { notificationAdapter, activityAdapter } from './adapters/notificationAdapter'
 export { reportAdapter } from './adapters/reportAdapter'
+export { socialPostAdapter } from './adapters/socialPostAdapter'
 
 import type { BriefingSourceAdapter, BriefingSourceType } from './types'
 import { taskAdapter, projectAdapter } from './adapters/taskAdapter'
@@ -22,6 +23,7 @@ import { agentOutputAdapter } from './adapters/agentOutputAdapter'
 import { approvalAdapter, clientDocumentAdapter } from './adapters/approvalAdapter'
 import { notificationAdapter, activityAdapter } from './adapters/notificationAdapter'
 import { reportAdapter } from './adapters/reportAdapter'
+import { socialPostAdapter } from './adapters/socialPostAdapter'
 
 /**
  * Registry of all source adapters.
@@ -33,6 +35,7 @@ export const SOURCE_ADAPTERS: Record<BriefingSourceType, BriefingSourceAdapter> 
   'agent-output': agentOutputAdapter,
   approval: approvalAdapter,
   'client-document': clientDocumentAdapter,
+  'social-post': socialPostAdapter,
   notification: notificationAdapter,
   activity: activityAdapter,
   report: reportAdapter,

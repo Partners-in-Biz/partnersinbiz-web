@@ -224,4 +224,56 @@ describe('briefing feed', () => {
 
     expect(handledFeed.items).toHaveLength(0)
   })
+
+  it('surfaces social posts awaiting QA or client approval as action cards', async () => {
+    collections.organizations = [makeDoc('org-1', { name: 'Client One', slug: 'client-one' })]
+    collections.social_posts = [
+      makeDoc('post-1', {
+        orgId: 'org-1',
+        status: 'client_review',
+        platform: 'linkedin',
+        platforms: ['linkedin', 'facebook'],
+        content: { text: 'Launch offer post with token: sk-test-123' },
+        campaign: 'May launch',
+        scheduledAt: '2026-06-01T09:00:00.000Z',
+        createdBy: 'user-1',
+        updatedAt: '2026-05-31T09:00:00.000Z',
+      }),
+      makeDoc('post-2', {
+        orgId: 'org-1',
+        status: 'qa_review',
+        platform: 'instagram',
+        content: 'QA check the story copy before it goes to the client.',
+        source: 'ai_agent',
+        assignedTo: 'agent:maya',
+        updatedAt: '2026-05-31T09:30:00.000Z',
+      }),
+    ]
+
+    const { buildBriefingFeed } = await import('@/lib/briefing/feed')
+    const feed = await buildBriefingFeed(
+      { uid: 'admin-1', role: 'admin', allowedOrgIds: ['org-1'] },
+      { limit: 10, sourceType: 'social-post' },
+    )
+
+    expect(feed.items).toHaveLength(2)
+    const qaItem = feed.items.find((item) => item.source.id === 'post-2')
+    const clientItem = feed.items.find((item) => item.source.id === 'post-1')
+    expect(qaItem).toMatchObject({
+      priority: 'review',
+      source: { type: 'social-post', id: 'post-2' },
+      title: 'Social post awaiting QA review',
+      context: { orgName: 'Client One' },
+      actor: { type: 'agent' },
+      metadata: expect.objectContaining({ actionStage: 'qa' }),
+    })
+    expect(clientItem).toMatchObject({
+      priority: 'needs-peet',
+      source: { type: 'social-post', id: 'post-1' },
+      title: 'Social post awaiting client approval',
+      metadata: expect.objectContaining({ actionStage: 'client', platforms: ['linkedin', 'facebook'] }),
+    })
+    expect(JSON.stringify(feed.items)).not.toContain('sk-test-123')
+    expect(JSON.stringify(feed.items)).toContain('[REDACTED]')
+  })
 })

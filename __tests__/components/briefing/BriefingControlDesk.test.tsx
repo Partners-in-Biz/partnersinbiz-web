@@ -90,6 +90,30 @@ const conversationBriefingItem = {
   occurredAt: '2026-05-31T10:02:00.000Z',
 }
 
+const socialBriefingItem = {
+  id: 'social-post:post-1',
+  orgId: 'org-1',
+  priority: 'needs-peet',
+  title: 'Social post awaiting client approval',
+  summary: 'LinkedIn and Facebook post is ready for review.',
+  excerpt: 'Launch offer post for approval.',
+  timeAgo: '4 minutes ago',
+  requiresAction: true,
+  source: { type: 'social-post', id: 'post-1', url: '/portal/social/review/post-1' },
+  actor: { id: 'agent:maya', name: 'Maya', role: 'ai', type: 'agent' },
+  context: {
+    orgId: 'org-1',
+    orgName: 'Client One',
+    orgSlug: 'client-one',
+  },
+  metadata: {
+    actionStage: 'client',
+    status: 'client_review',
+    platforms: ['linkedin', 'facebook'],
+  },
+  occurredAt: '2026-05-31T10:01:00.000Z',
+}
+
 describe('BriefingControlDesk', () => {
   beforeEach(() => {
     jest.useFakeTimers()
@@ -108,7 +132,7 @@ describe('BriefingControlDesk', () => {
       if (url.startsWith('/api/v1/briefings/feed')) {
         const items = url.includes('orgId=org-2')
           ? [secondOrgBriefingItem]
-          : [briefingItem, documentBriefingItem, conversationBriefingItem, secondOrgBriefingItem]
+          : [briefingItem, documentBriefingItem, conversationBriefingItem, socialBriefingItem, secondOrgBriefingItem]
         return {
           ok: true,
           json: async () => ({ data: { items, total: items.length, hasMore: false, generatedAt: '2026-05-31T10:05:00.000Z' } }),
@@ -142,6 +166,18 @@ describe('BriefingControlDesk', () => {
         return {
           ok: true,
           json: async () => ({ data: { message: { id: 'message-1' } } }),
+        } as Response
+      }
+      if (url === '/api/v1/social/posts/post-1/client-approve') {
+        return {
+          ok: true,
+          json: async () => ({ data: { id: 'post-1', status: 'approved' } }),
+        } as Response
+      }
+      if (url === '/api/v1/social/posts/post-1/client-reject') {
+        return {
+          ok: true,
+          json: async () => ({ data: { id: 'post-1', status: 'regenerating' } }),
         } as Response
       }
       return {
@@ -263,6 +299,40 @@ describe('BriefingControlDesk', () => {
     })
     await waitFor(() => {
       expect(screen.getByLabelText('Inline conversation reply')).toHaveValue('')
+    })
+  })
+
+  it('approves and rejects social approval cards from the control desk', async () => {
+    render(<BriefingControlDesk mode="portal" />)
+
+    fireEvent.click(await screen.findByRole('button', { name: /Social post awaiting client approval/i }))
+
+    expect(screen.getByRole('link', { name: /open source/i })).toHaveAttribute('href', '/portal/social/review/post-1')
+    expect(screen.getByRole('button', { name: /approve social post/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /request social changes/i })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /approve social post/i }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/social/posts/post-1/client-approve', expect.objectContaining({
+        method: 'POST',
+      }))
+    })
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /approve social post/i })).not.toBeDisabled()
+    })
+    fireEvent.change(screen.getByLabelText('Social change request'), { target: { value: 'Please make the CTA more direct.' } })
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /request social changes/i })).not.toBeDisabled()
+    })
+    fireEvent.click(screen.getByRole('button', { name: /request social changes/i }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/social/posts/post-1/client-reject', expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ reason: 'Please make the CTA more direct.' }),
+      }))
     })
   })
 })

@@ -34,6 +34,7 @@ export type BriefingSourceType =
   | 'agent-output'         // Agent completion summaries and artifacts
   | 'approval'             // Approval gates and client document approvals
   | 'client-document'      // Client documents, specs, reports
+  | 'social-post'          // Social content awaiting QA/client approval or attention
   | 'notification'         // User notifications and inboxes
   | 'activity'             // Activity log entries
   | 'report'               // Stored snapshot reports
