@@ -22,7 +22,6 @@ jest.mock('firebase-admin/firestore', () => ({
   },
 }))
 
-// eslint-disable-next-line import/first
 import {
   listRules,
   getRule,
@@ -32,8 +31,6 @@ import {
   getMatchingRules,
   queuePendingAutomation,
   getPendingDue,
-  markExecuted,
-  markFailed,
 } from '@/lib/automations/store'
 import type { MemberRef } from '@/lib/orgMembers/memberRef'
 import type { AutomationRule, AutomationRuleInput, TriggerContext } from '@/lib/automations/types'
@@ -220,6 +217,30 @@ describe('deleteRule', () => {
 // ── getMatchingRules ──────────────────────────────────────────────────────
 
 describe('getMatchingRules', () => {
+  it('avoids composite-index-sensitive clauses and filters matching rules in memory', async () => {
+    mockGet.mockResolvedValue({
+      docs: [
+        { id: 'match', data: () => ({ ...BASE_RULE, trigger: { event: 'deal.created' } }) },
+        { id: 'disabled', data: () => ({ ...BASE_RULE, enabled: false, trigger: { event: 'deal.created' } }) },
+        { id: 'deleted', data: () => ({ ...BASE_RULE, deleted: true, trigger: { event: 'deal.created' } }) },
+        { id: 'wrong-event', data: () => ({ ...BASE_RULE, trigger: { event: 'deal.won' } }) },
+        {
+          id: 'wrong-pipeline',
+          data: () => ({ ...BASE_RULE, trigger: { event: 'deal.created', pipelineId: 'pipe-other' } }),
+        },
+      ],
+    })
+
+    const ctx: TriggerContext = { orgId: 'org-a', pipelineId: 'pipe-main' }
+    const results = await getMatchingRules('org-a', 'deal.created', ctx)
+
+    expect(mockWhere).toHaveBeenCalledWith('orgId', '==', 'org-a')
+    expect(mockWhere).not.toHaveBeenCalledWith('deleted', '!=', true)
+    expect(mockWhere).not.toHaveBeenCalledWith('enabled', '==', true)
+    expect(mockWhere).not.toHaveBeenCalledWith('trigger.event', '==', 'deal.created')
+    expect(results.map((rule) => rule.id)).toEqual(['match'])
+  })
+
   it('returns enabled rules matching the event', async () => {
     mockGet.mockResolvedValue({
       docs: [{ id: 'rule-1', data: () => ({ ...BASE_RULE, trigger: { event: 'deal.created' } }) }],
@@ -227,8 +248,7 @@ describe('getMatchingRules', () => {
     const ctx: TriggerContext = { orgId: 'org-a' }
     const results = await getMatchingRules('org-a', 'deal.created', ctx)
     expect(results).toHaveLength(1)
-    expect(mockWhere).toHaveBeenCalledWith('enabled', '==', true)
-    expect(mockWhere).toHaveBeenCalledWith('trigger.event', '==', 'deal.created')
+    expect(mockWhere).toHaveBeenCalledWith('orgId', '==', 'org-a')
   })
 
   it('filters out rules with toStageId not matching context', async () => {

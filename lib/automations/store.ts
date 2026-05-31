@@ -94,9 +94,6 @@ export async function getMatchingRules(
   const snap = await adminDb
     .collection(RULES)
     .where('orgId', '==', orgId)
-    .where('deleted', '!=', true)
-    .where('enabled', '==', true)
-    .where('trigger.event', '==', event)
     .get()
 
   const rules: AutomationRule[] = snap.docs.map((d) => ({
@@ -106,6 +103,9 @@ export async function getMatchingRules(
 
   // In-memory filters for optional trigger fields
   return rules.filter((rule) => {
+    if (rule.deleted === true) return false
+    if (rule.enabled !== true) return false
+    if (rule.trigger.event !== event) return false
     if (rule.trigger.toStageId && rule.trigger.toStageId !== context.toStageId) return false
     if (rule.trigger.pipelineId && rule.trigger.pipelineId !== context.pipelineId) return false
     return true

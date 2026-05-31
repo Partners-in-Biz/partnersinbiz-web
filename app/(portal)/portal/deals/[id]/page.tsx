@@ -217,6 +217,8 @@ export default function DealDetailPage() {
   const [error, setError] = useState<string>('')
   const [editOpen, setEditOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [archiveConfirmOpen, setArchiveConfirmOpen] = useState(false)
+  const [archiveError, setArchiveError] = useState('')
 
   const [pipelineName, setPipelineName] = useState<string>('')
   const [stageName, setStageName] = useState<string>('')
@@ -412,10 +414,8 @@ export default function DealDetailPage() {
 
   async function handleArchive() {
     if (!deal) return
-    const confirmed = window.confirm(`Archive ${deal.title ?? 'this deal'}? The record will be hidden from active CRM views but activity history stays intact.`)
-    if (!confirmed) return
     setDeleting(true)
-    setError('')
+    setArchiveError('')
     try {
       const res = await fetch(`/api/v1/crm/deals/${id}`, { method: 'DELETE' })
       const body = await res.json().catch(() => ({}))
@@ -423,7 +423,7 @@ export default function DealDetailPage() {
       router.push('/portal/deals')
       router.refresh()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to archive deal')
+      setArchiveError(err instanceof Error ? err.message : 'Failed to archive deal')
       setDeleting(false)
     }
   }
@@ -536,14 +536,73 @@ export default function DealDetailPage() {
             </button>
             <button
               type="button"
-              onClick={handleArchive}
+              onClick={() => {
+                setArchiveConfirmOpen(true)
+                setArchiveError('')
+              }}
               disabled={deleting}
+              aria-label={`Archive ${deal.title ?? 'this deal'}`}
               className="cursor-pointer rounded-lg border border-red-400/30 px-3 py-2 text-sm font-medium text-red-300 transition-colors hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {deleting ? 'Archiving...' : 'Archive'}
             </button>
           </div>
         </div>
+
+        {archiveError && (
+          <div className="rounded-lg border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm text-red-100">
+            <span className="material-symbols-outlined mr-1.5 align-middle text-[16px]" aria-hidden="true">error</span>
+            {archiveError}
+          </div>
+        )}
+
+        {archiveConfirmOpen && (
+          <section
+            role="alertdialog"
+            aria-modal="false"
+            aria-labelledby="deal-archive-confirm-title"
+            aria-describedby="deal-archive-confirm-description"
+            className="rounded-lg border border-red-400/25 bg-red-500/10 p-5 shadow-[0_18px_40px_rgba(127,29,29,0.18)]"
+          >
+            <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+              <div className="flex gap-3">
+                <span className="material-symbols-outlined mt-0.5 text-red-200" aria-hidden="true">warning</span>
+                <div>
+                  <p className="eyebrow !text-[10px] !text-red-100/80">Revenue record archive</p>
+                  <h2 id="deal-archive-confirm-title" className="mt-1 font-display text-lg text-red-50">
+                    Archive deal &quot;{deal.title ?? 'this deal'}&quot;?
+                  </h2>
+                  <p id="deal-archive-confirm-description" className="mt-2 max-w-2xl text-sm text-red-100/90">
+                    This hides the revenue record from active pipeline views while preserving buyer history, activity, and forecast audit context.
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 md:justify-end">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setArchiveConfirmOpen(false)
+                    setArchiveError('')
+                  }}
+                  className="btn-pib-secondary text-xs"
+                  disabled={deleting}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleArchive}
+                  aria-label={`Confirm archive ${deal.title ?? 'this deal'}`}
+                  className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-lg border border-red-300/30 bg-red-500/20 px-3 py-2 text-xs font-semibold text-red-50 transition-colors hover:border-red-200/60 hover:bg-red-500/30 disabled:cursor-not-allowed disabled:opacity-60"
+                  disabled={deleting}
+                >
+                  <span className="material-symbols-outlined text-[15px]" aria-hidden="true">archive</span>
+                  {deleting ? 'Archiving...' : 'Archive deal'}
+                </button>
+              </div>
+            </div>
+          </section>
+        )}
 
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {[
