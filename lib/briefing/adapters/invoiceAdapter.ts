@@ -31,6 +31,9 @@ interface InvoiceDocument extends Record<string, unknown> {
   createdAt?: unknown
   paidAt?: unknown
   cancelledAt?: unknown
+  paymentProofFileId?: string | null
+  paymentProofUploadedAt?: unknown
+  paymentProofNote?: string | null
   notes?: string | null
 }
 
@@ -131,14 +134,14 @@ export const invoiceAdapter: BriefingSourceAdapter<InvoiceDocument> = {
     else if (recipient) parts.push(`Invoice for ${recipient}`)
     if (doc.status) parts.push(`Status: ${doc.status}`)
     if (due) parts.push(`Due: ${due}`)
-    const notes = extractMultiFieldExcerpt(doc, ['notes'], { maxLength: 120 })
+    const notes = extractMultiFieldExcerpt(doc, ['paymentProofNote', 'notes'], { maxLength: 120 })
     if (notes) parts.push(notes)
     return parts.join('. ') || 'Invoice needs attention.'
   },
 
   extractExcerpt(doc: InvoiceDocument, docId: string, maxLength = 300): string | null {
     const summary = this.extractSummary(doc, docId)
-    return extractMultiFieldExcerpt({ summary, notes: doc.notes }, ['summary', 'notes'], { maxLength })
+    return extractMultiFieldExcerpt({ summary, paymentProofNote: doc.paymentProofNote, notes: doc.notes }, ['summary', 'paymentProofNote', 'notes'], { maxLength })
   },
 
   extractOccurredAt(doc: InvoiceDocument): Date | null {
@@ -156,6 +159,8 @@ export const invoiceAdapter: BriefingSourceAdapter<InvoiceDocument> = {
       recipientEmail: clean(doc.recipientEmail) ?? clean(doc.clientDetails?.email),
       recipientOrgId: clean(doc.recipientOrgId),
       targetOrgId: clean(doc.targetOrgId),
+      paymentProofFileId: clean(doc.paymentProofFileId),
+      paymentProofUploadedAt: isoDate(doc.paymentProofUploadedAt),
     }
   },
 

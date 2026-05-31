@@ -258,6 +258,10 @@ function invoiceSendable(item: BriefingCard) {
   return canInvoiceAct(item) && item.metadata?.invoiceStatus === 'draft'
 }
 
+function invoicePaymentProofReviewable(item: BriefingCard, mode: Mode) {
+  return mode === 'admin' && canInvoiceAct(item) && item.metadata?.invoiceStatus === 'payment_pending_verification'
+}
+
 function expenseReviewable(item: BriefingCard, mode: Mode) {
   return mode === 'admin' && item.source.type === 'expense' && item.metadata?.expenseStatus === 'submitted' && Boolean(item.source.id)
 }
@@ -327,6 +331,9 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
   const [followUpText, setFollowUpText] = useState('')
   const [reportRecipients, setReportRecipients] = useState('')
   const [expenseReviewText, setExpenseReviewText] = useState('')
+  const [paymentMethod, setPaymentMethod] = useState('eft')
+  const [paymentReference, setPaymentReference] = useState('')
+  const [paymentProofRejectReason, setPaymentProofRejectReason] = useState('')
   const [seoChangeText, setSeoChangeText] = useState('')
   const [seoTaskSkipReason, setSeoTaskSkipReason] = useState('')
   const [adCampaignChangeText, setAdCampaignChangeText] = useState('')
@@ -817,6 +824,34 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
     }
   }
 
+  async function paymentProofAction(item: BriefingCard, action: 'confirm' | 'reject') {
+    if (!invoicePaymentProofReviewable(item, mode)) return
+    const reference = paymentReference.trim()
+    const reason = paymentProofRejectReason.trim()
+    if (action === 'reject' && !reason) return
+    setBusyAction(`invoice-proof-${action}`)
+    try {
+      const payload = action === 'confirm'
+        ? { confirmed: true, paymentMethod, ...(reference ? { reference } : {}) }
+        : { confirmed: false, reason }
+      const res = await fetch(`/api/v1/invoices/${encodeURIComponent(item.source.id)}/confirm-payment`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      const body = await res.json()
+      if (!res.ok) throw new Error(body.error || 'Payment proof review failed')
+      if (action === 'confirm') setPaymentReference('')
+      if (action === 'reject') setPaymentProofRejectReason('')
+      setFlash({ kind: 'ok', message: action === 'confirm' ? 'Payment proof confirmed from the control desk.' : 'Payment proof rejected from the control desk.' })
+      await loadFeed({ quiet: true })
+    } catch (err) {
+      setFlash({ kind: 'error', message: err instanceof Error ? err.message : 'Payment proof review failed' })
+    } finally {
+      setBusyAction(null)
+    }
+  }
+
   async function expenseAction(item: BriefingCard, action: 'approve' | 'reject') {
     if (!expenseReviewable(item, mode)) return
     const note = expenseReviewText.trim()
@@ -1200,6 +1235,18 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                       Send invoice
                     </button>
                   ) : null}
+                  {invoicePaymentProofReviewable(selected, mode) ? (
+                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => paymentProofAction(selected, 'confirm')} disabled={!!busyAction}>
+                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">price_check</span>
+                      Confirm payment proof
+                    </button>
+                  ) : null}
+                  {invoicePaymentProofReviewable(selected, mode) ? (
+                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => paymentProofAction(selected, 'reject')} disabled={!paymentProofRejectReason.trim() || !!busyAction}>
+                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">block</span>
+                      Reject payment proof
+                    </button>
+                  ) : null}
                   {expenseReviewable(selected, mode) ? (
                     <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => expenseAction(selected, 'approve')} disabled={!!busyAction}>
                       <span className="material-symbols-outlined text-[15px]" aria-hidden="true">verified</span>
@@ -1344,6 +1391,46 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                       <span className="material-symbols-outlined text-[15px]" aria-hidden="true">support_agent</span>
                       Reply to support ticket
                     </button>
+                  </div>
+                ) : null}
+
+                {invoicePaymentProofReviewable(selected, mode) ? (
+                  <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                    <label className="text-xs font-medium text-on-surface-variant" htmlFor="briefing-payment-method">
+                      Payment method
+                    </label>
+                    <select
+                      id="briefing-payment-method"
+                      className="pib-input mt-2 w-full"
+                      value={paymentMethod}
+                      onChange={(event) => setPaymentMethod(event.target.value)}
+                    >
+                      <option value="eft">EFT</option>
+                      <option value="paypal">PayPal</option>
+                      <option value="cash">Cash</option>
+                      <option value="card">Card</option>
+                      <option value="other">Other</option>
+                    </select>
+                    <label className="mt-3 block text-xs font-medium text-on-surface-variant" htmlFor="briefing-payment-reference">
+                      Payment reference
+                    </label>
+                    <input
+                      id="briefing-payment-reference"
+                      className="pib-input mt-2 w-full"
+                      value={paymentReference}
+                      onChange={(event) => setPaymentReference(event.target.value)}
+                      placeholder="Bank reference or transaction id..."
+                    />
+                    <label className="mt-3 block text-xs font-medium text-on-surface-variant" htmlFor="briefing-payment-proof-rejection">
+                      Payment proof rejection reason
+                    </label>
+                    <textarea
+                      id="briefing-payment-proof-rejection"
+                      className="pib-input mt-2 min-h-20 w-full resize-y"
+                      value={paymentProofRejectReason}
+                      onChange={(event) => setPaymentProofRejectReason(event.target.value)}
+                      placeholder="Required only when rejecting this proof..."
+                    />
                   </div>
                 ) : null}
 

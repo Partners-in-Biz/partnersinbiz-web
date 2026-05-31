@@ -300,6 +300,35 @@ const invoiceBriefingItem = {
   occurredAt: '2026-05-31T09:55:00.000Z',
 }
 
+const invoiceProofBriefingItem = {
+  id: 'invoice:invoice-proof-1',
+  orgId: 'org-1',
+  priority: 'needs-peet',
+  title: 'Payment proof needs review: INV-2001',
+  summary: 'R8,800.00 invoice for Riley Client. Status: payment_pending_verification.',
+  excerpt: 'Paid from FNB.',
+  timeAgo: '10 minutes ago',
+  requiresAction: true,
+  source: { type: 'invoice', id: 'invoice-proof-1', url: '/admin/invoicing/invoice-proof-1' },
+  actor: { id: 'system', name: 'Billing', role: 'system', type: 'system' },
+  context: {
+    orgId: 'org-1',
+    orgName: 'Client One',
+    orgSlug: 'client-one',
+    invoiceId: 'invoice-proof-1',
+    invoiceNumber: 'INV-2001',
+  },
+  metadata: {
+    invoiceStatus: 'payment_pending_verification',
+    total: 8800,
+    currency: 'ZAR',
+    recipientName: 'Riley Client',
+    paymentProofFileId: 'file-proof-1',
+    paymentProofUploadedAt: '2026-05-31',
+  },
+  occurredAt: '2026-05-31T09:54:30.000Z',
+}
+
 const expenseBriefingItem = {
   id: 'expense:expense-1',
   orgId: 'org-1',
@@ -436,7 +465,7 @@ describe('BriefingControlDesk', () => {
       if (url.startsWith('/api/v1/briefings/feed')) {
         const items = url.includes('orgId=org-2')
           ? [secondOrgBriefingItem]
-          : [briefingItem, documentBriefingItem, documentCommentBriefingItem, approvalBriefingItem, conversationBriefingItem, socialBriefingItem, notificationBriefingItem, activityBriefingItem, reportBriefingItem, supportBriefingItem, invoiceBriefingItem, expenseBriefingItem, seoContentBriefingItem, seoTaskBriefingItem, adCampaignBriefingItem, secondOrgBriefingItem]
+          : [briefingItem, documentBriefingItem, documentCommentBriefingItem, approvalBriefingItem, conversationBriefingItem, socialBriefingItem, notificationBriefingItem, activityBriefingItem, reportBriefingItem, supportBriefingItem, invoiceBriefingItem, invoiceProofBriefingItem, expenseBriefingItem, seoContentBriefingItem, seoTaskBriefingItem, adCampaignBriefingItem, secondOrgBriefingItem]
         return {
           ok: true,
           json: async () => ({ data: { items, total: items.length, hasMore: false, generatedAt: '2026-05-31T10:05:00.000Z' } }),
@@ -530,6 +559,12 @@ describe('BriefingControlDesk', () => {
         return {
           ok: true,
           json: async () => ({ data: { id: 'invoice-1', status: 'sent' } }),
+        } as Response
+      }
+      if (url === '/api/v1/invoices/invoice-proof-1/confirm-payment') {
+        return {
+          ok: true,
+          json: async () => ({ data: { id: 'invoice-proof-1', status: 'paid' } }),
         } as Response
       }
       if (url === '/api/v1/expenses/expense-1/approve') {
@@ -942,6 +977,44 @@ describe('BriefingControlDesk', () => {
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith('/api/v1/invoices/invoice-1/send', expect.objectContaining({
         method: 'POST',
+      }))
+    })
+  })
+
+  it('confirms and rejects payment-proof invoice cards from the admin control desk', async () => {
+    render(<BriefingControlDesk mode="admin" />)
+
+    fireEvent.click(await screen.findByRole('button', { name: /Payment proof needs review: INV-2001/i }))
+
+    expect(screen.getByText('INV-2001 (invoice-proof-1)')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /open source/i })).toHaveAttribute('href', '/admin/invoicing/invoice-proof-1')
+    expect(screen.getByRole('button', { name: /confirm payment proof/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /reject payment proof/i })).toBeDisabled()
+
+    fireEvent.change(screen.getByLabelText('Payment method'), { target: { value: 'eft' } })
+    fireEvent.change(screen.getByLabelText('Payment reference'), { target: { value: 'FNB-12345' } })
+    fireEvent.click(screen.getByRole('button', { name: /confirm payment proof/i }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/invoices/invoice-proof-1/confirm-payment', expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ confirmed: true, paymentMethod: 'eft', reference: 'FNB-12345' }),
+      }))
+    })
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /confirm payment proof/i })).not.toBeDisabled()
+    })
+
+    fireEvent.change(screen.getByLabelText('Payment proof rejection reason'), { target: { value: 'Proof does not match the invoice total.' } })
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /reject payment proof/i })).not.toBeDisabled()
+    })
+    fireEvent.click(screen.getByRole('button', { name: /reject payment proof/i }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/invoices/invoice-proof-1/confirm-payment', expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ confirmed: false, reason: 'Proof does not match the invoice total.' }),
       }))
     })
   })

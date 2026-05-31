@@ -504,6 +504,54 @@ describe('briefing feed', () => {
     expect(feed.items[0].summary).toContain('Due: 2026-05-20')
   })
 
+  it('surfaces payment proof invoices with verification metadata', async () => {
+    collections.organizations = [makeDoc('org-1', { name: 'Client One', slug: 'client-one' })]
+    collections.invoices = [
+      makeDoc('invoice-proof-1', {
+        orgId: 'org-1',
+        sourceOrgId: 'org-1',
+        invoiceNumber: 'INV-2001',
+        status: 'payment_pending_verification',
+        total: 8800,
+        currency: 'ZAR',
+        recipientName: 'Riley Client',
+        paymentProofFileId: 'file-proof-1',
+        paymentProofUploadedAt: '2026-05-31T10:20:00.000Z',
+        paymentProofNote: 'Paid from FNB. token: payment-secret-123',
+        updatedAt: '2026-05-31T10:21:00.000Z',
+      }),
+    ]
+
+    const { buildBriefingFeed } = await import('@/lib/briefing/feed')
+    const feed = await buildBriefingFeed(
+      { uid: 'admin-1', role: 'admin', allowedOrgIds: ['org-1'] },
+      { limit: 10, sourceType: 'invoice' },
+    )
+
+    expect(feed.items).toHaveLength(1)
+    expect(feed.items[0]).toMatchObject({
+      priority: 'needs-peet',
+      requiresAction: true,
+      source: { type: 'invoice', id: 'invoice-proof-1', url: '/admin/invoicing/invoice-proof-1' },
+      title: 'Payment proof needs review: INV-2001',
+      context: {
+        orgName: 'Client One',
+        invoiceId: 'invoice-proof-1',
+        invoiceNumber: 'INV-2001',
+      },
+      metadata: expect.objectContaining({
+        invoiceStatus: 'payment_pending_verification',
+        total: 8800,
+        currency: 'ZAR',
+        paymentProofFileId: 'file-proof-1',
+        paymentProofUploadedAt: '2026-05-31',
+      }),
+    })
+    expect(feed.items[0].summary).toContain('Status: payment_pending_verification')
+    expect(JSON.stringify(feed.items)).not.toContain('payment-secret-123')
+    expect(JSON.stringify(feed.items)).toContain('[REDACTED]')
+  })
+
   it('surfaces submitted expenses as admin-only approval control cards', async () => {
     collections.organizations = [makeDoc('org-1', { name: 'Client One', slug: 'client-one' })]
     collections.expenses = [
