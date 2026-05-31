@@ -547,6 +547,27 @@ export default function PortalContactDetailPage() {
     }
   }
 
+  function resetProfileEdits() {
+    if (!contact) return
+    setName(contact.name ?? '')
+    setEmail(contact.email ?? '')
+    setPhone(contact.phone ?? '')
+    setJobTitle(contact.jobTitle ?? '')
+    setDepartment(contact.department ?? '')
+    setWebsite(contact.website ?? '')
+    setTimezone(contact.timezone ?? '')
+    setSource(contact.source ?? 'manual')
+    setType(contact.type ?? 'lead')
+    setStage(contact.stage ?? 'new')
+    setAssignedTo(contact.assignedTo ?? contact.assignedToRef?.uid ?? '')
+    setTagsInput(Array.isArray(contact.tags) ? contact.tags.join(', ') : '')
+    setNotes(contact.notes ?? '')
+    setEditCompanyId(contact.companyId ?? undefined)
+    setEditCompanyName(contact.companyName ?? undefined)
+    setEditCustomFields((contact.customFields as Record<string, unknown>) ?? {})
+    setError('')
+  }
+
   function openArchiveConfirmation() {
     setArchiveConfirmOpen(true)
     setError('')
@@ -1627,7 +1648,18 @@ export default function PortalContactDetailPage() {
                 {error}
               </p>
             )}
-            <div className="flex justify-end">
+            <div className="flex flex-wrap justify-end gap-2">
+              {dirty && (
+                <button
+                  type="button"
+                  onClick={resetProfileEdits}
+                  disabled={saving}
+                  aria-label={`Discard unsaved profile edits for ${contactName}`}
+                  className="btn-pib-secondary !py-2 !px-4 !text-sm disabled:opacity-40"
+                >
+                  Discard changes
+                </button>
+              )}
               <button
                 onClick={saveChanges}
                 disabled={!dirty || saving}
