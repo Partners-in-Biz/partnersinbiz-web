@@ -39,6 +39,10 @@ function formatValue(value: number | null | undefined, currency: string): string
   }
 }
 
+function dealTitleLabel(deal: Deal): string {
+  return deal.title?.trim() || 'Deal name missing'
+}
+
 interface DealCardProps {
   deal: Deal
   stageColor?: string
@@ -55,6 +59,7 @@ function DealCard({
   contactLabel,
 }: DealCardProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: deal.id })
+  const titleLabel = dealTitleLabel(deal)
   const readableContactLabel = contactLabel?.trim() || 'Contact identity missing'
   const readableCompanyLabel = deal.companyName?.trim() || (deal.companyId ? 'Company identity missing' : '')
 
@@ -69,7 +74,7 @@ function DealCard({
         className="pib-card cursor-pointer select-none transition-all duration-150 hover:border-[var(--color-accent-v2)]"
         style={{ padding: '10px', borderLeft: `3px solid ${stageColor}` }}
       >
-        <p className="text-sm font-medium text-on-surface mb-2 leading-snug">{deal.title}</p>
+        <p className="text-sm font-medium text-on-surface mb-2 leading-snug">{titleLabel}</p>
         <div className="flex items-center justify-between gap-2">
           <span className="text-xs font-mono text-on-surface-variant font-semibold">
             {formatValue(deal.value, deal.currency)}
@@ -168,12 +173,14 @@ function DealColumn({ stage, deals, contactBasePath, companyBasePath, contactLab
 // ── Overlay card (dragging ghost) ──────────────────────────────────────────────
 
 function DragGhost({ deal, stageColor = '#6b7280' }: { deal: Deal; stageColor?: string }) {
+  const titleLabel = dealTitleLabel(deal)
+
   return (
     <div
       className="pib-card select-none w-64"
       style={{ padding: '10px', borderLeft: `3px solid ${stageColor}`, opacity: 0.9 }}
     >
-      <p className="text-sm font-medium text-on-surface mb-2 leading-snug">{deal.title}</p>
+      <p className="text-sm font-medium text-on-surface mb-2 leading-snug">{titleLabel}</p>
       <span className="text-xs font-mono text-on-surface-variant font-semibold">
         {formatValue(deal.value, deal.currency)}
       </span>

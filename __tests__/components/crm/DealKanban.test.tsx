@@ -103,6 +103,15 @@ describe('DealKanban', () => {
     expect(screen.queryByText(/NaN/)).not.toBeInTheDocument()
   })
 
+  it('names sparse deal titles on board cards instead of rendering blank pipeline cards', () => {
+    const deal = makeDeal({ id: 'd1', title: '', stageId: 'proposal' })
+
+    render(<DealKanban deals={[deal]} stages={TEST_STAGES} onStageChange={noop} />)
+
+    expect(screen.getByText('Deal name missing')).toBeInTheDocument()
+    expect(screen.queryByText('Test Deal')).not.toBeInTheDocument()
+  })
+
   it('shows "Drop here" placeholder in empty columns', () => {
     // Only discovery has a deal — others should show the drop placeholder
     const deal = makeDeal({ id: 'd1', stageId: 'discovery' })
