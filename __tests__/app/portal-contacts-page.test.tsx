@@ -363,4 +363,31 @@ describe('Portal contacts page', () => {
 
     expect(await screen.findByRole('heading', { name: 'New contact' })).toBeInTheDocument()
   })
+
+  it('uses an in-page confirmation before bulk deleting selected contacts', async () => {
+    const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(false)
+
+    render(<PortalContactsPage />)
+
+    await screen.findByRole('link', { name: /Owned Client/i })
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Select Owned Client' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Delete selected contacts' }))
+
+    expect(confirmSpy).not.toHaveBeenCalled()
+    expect(screen.getByRole('alertdialog', { name: 'Delete 1 selected contact?' })).toBeInTheDocument()
+    expect(screen.getByText('This cannot be undone. The selected contacts will be removed from this audience.')).toBeInTheDocument()
+    expect(global.fetch).not.toHaveBeenCalledWith('/api/v1/crm/contacts/bulk', expect.any(Object))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm delete 1 selected contact' }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/contacts/bulk', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ ids: ['contact-owned'], patch: { delete: true } }),
+      })
+    })
+
+    confirmSpy.mockRestore()
+  })
 })

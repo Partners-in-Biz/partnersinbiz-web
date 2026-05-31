@@ -187,6 +187,7 @@ export default function PortalContactsPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [bulkAction, setBulkAction] = useState<BulkActionKey>('assign')
   const [bulkPending, setBulkPending] = useState(false)
+  const [bulkDeleteConfirmOpen, setBulkDeleteConfirmOpen] = useState(false)
 
   // Bulk action inputs
   const [bulkAssignUid, setBulkAssignUid] = useState('')
@@ -273,8 +274,12 @@ export default function PortalContactsPage() {
 
   async function handleBulkDelete() {
     if (selectedIds.size === 0) return
+    setBulkDeleteConfirmOpen(true)
+  }
+
+  async function confirmBulkDelete() {
+    if (selectedIds.size === 0) return
     const count = selectedIds.size
-    if (!confirm(`Delete ${count} contact${count === 1 ? '' : 's'}? This cannot be undone.`)) return
 
     setBulkPending(true)
     try {
@@ -290,6 +295,7 @@ export default function PortalContactsPage() {
       }
       setContacts(prev => prev.filter(c => !selectedIds.has(c.id)))
       setSelectedIds(new Set())
+      setBulkDeleteConfirmOpen(false)
       pushToast(`${count} contact${count === 1 ? '' : 's'} deleted`, 'success')
     } catch {
       pushToast('Network error — delete failed', 'error')
@@ -586,6 +592,50 @@ export default function PortalContactsPage() {
           onApply={applyBulk}
           onDelete={handleBulkDelete}
         />
+      )}
+
+      {bulkDeleteConfirmOpen && selectedIds.size > 0 && (
+        <section
+          role="alertdialog"
+          aria-labelledby="bulk-delete-confirm-title"
+          aria-describedby="bulk-delete-confirm-description"
+          className="rounded-[var(--radius-card)] border border-red-500/30 bg-red-500/10 p-4 shadow-xl"
+        >
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="flex gap-3">
+              <span className="material-symbols-outlined mt-0.5 text-red-300" aria-hidden="true">warning</span>
+              <div>
+                <p className="eyebrow !text-[10px] text-red-200">Bulk delete confirmation</p>
+                <h2 id="bulk-delete-confirm-title" className="mt-1 font-display text-xl text-[var(--color-pib-text)]">
+                  Delete {selectedIds.size} selected contact{selectedIds.size === 1 ? '?' : 's?'}
+                </h2>
+                <p id="bulk-delete-confirm-description" className="mt-2 text-sm text-red-100/90">
+                  This cannot be undone. The selected contacts will be removed from this audience.
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setBulkDeleteConfirmOpen(false)}
+                className="btn-pib-secondary text-xs"
+                disabled={bulkPending}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmBulkDelete}
+                className="inline-flex items-center gap-1.5 rounded-[var(--radius-card)] border border-red-400/40 bg-red-500/15 px-3 py-2 text-xs font-medium text-red-100 transition-colors hover:bg-red-500/25 disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={bulkPending}
+                aria-label={`Confirm delete ${selectedIds.size} selected contact${selectedIds.size === 1 ? '' : 's'}`}
+              >
+                <span className="material-symbols-outlined text-[14px]" aria-hidden="true">delete</span>
+                {bulkPending ? 'Deleting...' : 'Delete selected'}
+              </button>
+            </div>
+          </div>
+        </section>
       )}
 
       {/* List */}
