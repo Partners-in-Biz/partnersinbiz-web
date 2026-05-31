@@ -50,6 +50,12 @@ function fmtDate(value: unknown): string {
   return date.toLocaleDateString('en-ZA', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
+function dealOwnerLabel(deal: Deal): string {
+  if (deal.ownerRef?.displayName) return deal.ownerRef.displayName
+  if (deal.ownerRef?.uid || deal.ownerUid) return 'Deal owner identity missing'
+  return 'Unassigned'
+}
+
 export function DealDetailDrawer({
   deal,
   stages,
@@ -65,8 +71,8 @@ export function DealDetailDrawer({
   const showLostReason = isLostStage(stage)
   const readableContact = contactLabel?.trim() || 'Decision-maker name missing'
   const readableCompany = deal.companyName?.trim() || (deal.companyId ? 'Company name missing' : '')
-  const ownerLabel = deal.ownerRef?.displayName || deal.ownerUid || 'Unassigned'
-  const needsOwner = !deal.ownerRef?.displayName && !deal.ownerUid
+  const ownerLabel = dealOwnerLabel(deal)
+  const needsOwner = !deal.ownerRef?.displayName && !deal.ownerRef?.uid && !deal.ownerUid
   const closeDateLabel = fmtDate(deal.expectedCloseDate)
   const needsCloseDate = closeDateLabel === 'No close date'
 

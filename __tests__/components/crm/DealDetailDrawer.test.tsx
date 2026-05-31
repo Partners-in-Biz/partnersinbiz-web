@@ -110,6 +110,20 @@ describe('DealDetailDrawer', () => {
     expect(onEdit).toHaveBeenCalledTimes(1)
   })
 
+  it('names incomplete deal owner snapshots instead of exposing raw team member ids', () => {
+    render(
+      <DealDetailDrawer
+        deal={{ ...deal, ownerUid: 'uid-owner-raw', ownerRef: { uid: 'uid-owner-raw' } }}
+        stages={stages}
+        orgId="org-1"
+        onClose={jest.fn()}
+      />,
+    )
+
+    expect(screen.getByText('Deal owner identity missing')).toBeInTheDocument()
+    expect(screen.queryByText('uid-owner-raw')).not.toBeInTheDocument()
+  })
+
   it('turns a missing close date into a forecast hygiene edit action', () => {
     const onEdit = jest.fn()
     render(
