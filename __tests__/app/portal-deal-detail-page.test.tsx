@@ -3,6 +3,7 @@ import DealDetailPage from '@/app/(portal)/portal/deals/[id]/page'
 
 const pushMock = jest.fn()
 const refreshMock = jest.fn()
+let mockDealOverrides: Record<string, unknown> = {}
 
 jest.mock('next/navigation', () => ({
   useParams: () => ({ id: 'deal-archive-1' }),
@@ -20,7 +21,7 @@ jest.mock('next/link', () => ({
 }))
 
 jest.mock('@/components/crm/DealDrawer', () => ({
-  DealDrawer: () => <div data-testid="deal-drawer" />,
+  DealDrawer: () => <div role="dialog" aria-label="Edit Deal" />,
 }))
 
 function apiResponse(data: unknown) {
@@ -33,6 +34,7 @@ function apiResponse(data: unknown) {
 describe('Portal deal detail page', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    mockDealOverrides = {}
     global.fetch = jest.fn((url: RequestInfo | URL, init?: RequestInit) => {
       const path = String(url)
       if (path === '/api/v1/crm/deals/deal-archive-1' && init?.method === 'DELETE') {
@@ -56,6 +58,7 @@ describe('Portal deal detail page', () => {
             ownerRef: { uid: 'owner-1', displayName: 'Mandy Manager', kind: 'human' },
             stageHistory: [],
             lineItems: [],
+            ...mockDealOverrides,
           },
         })
       }
@@ -111,5 +114,28 @@ describe('Portal deal detail page', () => {
     expect(refreshMock).toHaveBeenCalled()
 
     confirmSpy.mockRestore()
+  })
+
+  it('turns next best action cards into deal editing and forecast commands', async () => {
+    mockDealOverrides = {
+      contactId: '',
+      companyId: '',
+      companyName: '',
+      expectedCloseDate: '',
+      lineItems: [],
+    }
+
+    render(<DealDetailPage />)
+
+    expect(await screen.findByRole('heading', { name: 'Enterprise rollout' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Link a decision-maker for Enterprise rollout' }))
+    expect(screen.getByRole('dialog', { name: 'Edit Deal' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Set close date for Enterprise rollout' }))
+    expect(screen.getByLabelText('Set expected close date')).toHaveFocus()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add line items for Enterprise rollout' }))
+    expect(screen.getByRole('dialog', { name: 'Edit Deal' })).toBeInTheDocument()
   })
 })

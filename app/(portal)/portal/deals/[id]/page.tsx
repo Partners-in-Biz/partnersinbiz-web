@@ -1,7 +1,7 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { fmtTimestamp } from '@/components/admin/email/fmtTimestamp'
@@ -211,6 +211,7 @@ function activityTimeLabel(activity: ActivityRecord): string {
 export default function DealDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
+  const closeDateInputRef = useRef<HTMLInputElement | null>(null)
 
   const [deal, setDeal] = useState<DealRecord | null>(null)
   const [loading, setLoading] = useState(true)
@@ -479,6 +480,42 @@ export default function DealDetailPage() {
     (deal.lineItems?.length ?? 0) > 0 ? `${deal.lineItems?.length} line items` : 'No line items',
     deal.expectedCloseDate ? closeDateLabel(deal.expectedCloseDate) : 'Close date missing',
   ]
+  const focusCloseDateInput = () => {
+    closeDateInputRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'center' })
+    closeDateInputRef.current?.focus()
+  }
+  const nextBestActions = [
+    {
+      icon: deal.contactId ? 'mail' : 'person_add',
+      title: deal.contactId ? 'Follow up with the contact' : 'Link a decision-maker',
+      copy: deal.contactId ? 'Use the contact profile to send email, SMS, or schedule the next touch.' : 'A deal without a contact cannot drive reliable activity or automation.',
+      buttonLabel: deal.contactId ? 'Open contact' : 'Link contact',
+      ariaLabel: deal.contactId ? `Open contact for ${deal.title ?? 'this deal'}` : `Link a decision-maker for ${deal.title ?? 'this deal'}`,
+      onClick: () => {
+        if (deal.contactId) {
+          router.push(`/portal/contacts/${deal.contactId}`)
+          return
+        }
+        setEditOpen(true)
+      },
+    },
+    {
+      icon: deal.expectedCloseDate ? 'event_available' : 'event_busy',
+      title: deal.expectedCloseDate ? closeDateLabel(deal.expectedCloseDate) : 'Set a close date',
+      copy: deal.expectedCloseDate ? 'Keep the forecast honest by updating probability after each interaction.' : 'Forecast and pipeline velocity need an expected close date.',
+      buttonLabel: deal.expectedCloseDate ? 'Review close date' : 'Set close date',
+      ariaLabel: deal.expectedCloseDate ? `Review close date for ${deal.title ?? 'this deal'}` : `Set close date for ${deal.title ?? 'this deal'}`,
+      onClick: focusCloseDateInput,
+    },
+    {
+      icon: (deal.lineItems?.length ?? 0) > 0 ? 'request_quote' : 'playlist_add',
+      title: (deal.lineItems?.length ?? 0) > 0 ? 'Ready to quote' : 'Add line items',
+      copy: (deal.lineItems?.length ?? 0) > 0 ? 'Line items are captured, so this deal can move into quote creation.' : 'Products and services make the opportunity concrete and easier to approve.',
+      buttonLabel: (deal.lineItems?.length ?? 0) > 0 ? 'Edit line items' : 'Add line items',
+      ariaLabel: (deal.lineItems?.length ?? 0) > 0 ? `Edit line items for ${deal.title ?? 'this deal'}` : `Add line items for ${deal.title ?? 'this deal'}`,
+      onClick: () => setEditOpen(true),
+    },
+  ]
 
   return (
     <div className="space-y-6">
@@ -663,6 +700,7 @@ export default function DealDetailPage() {
           <div className="min-w-[180px] flex-1">
             <label htmlFor="dealExpectedCloseDate" className="pib-label">Set expected close date</label>
             <input
+              ref={closeDateInputRef}
               id="dealExpectedCloseDate"
               type="date"
               value={closeDateInput}
@@ -802,29 +840,24 @@ export default function DealDetailPage() {
           <div className="mt-4 bento-card !p-5 space-y-4">
             <p className="eyebrow !text-[10px]">Next best actions</p>
             <div className="space-y-3">
-              {[
-                {
-                  icon: deal.contactId ? 'mail' : 'person_add',
-                  title: deal.contactId ? 'Follow up with the contact' : 'Link a decision-maker',
-                  copy: deal.contactId ? 'Use the contact profile to send email, SMS, or schedule the next touch.' : 'A deal without a contact cannot drive reliable activity or automation.',
-                },
-                {
-                  icon: deal.expectedCloseDate ? 'event_available' : 'event_busy',
-                  title: deal.expectedCloseDate ? closeDateLabel(deal.expectedCloseDate) : 'Set a close date',
-                  copy: deal.expectedCloseDate ? 'Keep the forecast honest by updating probability after each interaction.' : 'Forecast and pipeline velocity need an expected close date.',
-                },
-                {
-                  icon: (deal.lineItems?.length ?? 0) > 0 ? 'request_quote' : 'playlist_add',
-                  title: (deal.lineItems?.length ?? 0) > 0 ? 'Ready to quote' : 'Add line items',
-                  copy: (deal.lineItems?.length ?? 0) > 0 ? 'Line items are captured, so this deal can move into quote creation.' : 'Products and services make the opportunity concrete and easier to approve.',
-                },
-              ].map((action) => (
-                <div key={action.title} className="flex gap-3 rounded-xl border border-[var(--color-pib-line)] bg-white/[0.02] p-3">
+              {nextBestActions.map((action) => (
+                <div key={action.title} className="flex flex-col gap-3 rounded-xl border border-[var(--color-pib-line)] bg-white/[0.02] p-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="flex gap-3">
                   <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">{action.icon}</span>
                   <div>
                     <p className="text-sm font-medium text-[var(--color-pib-text)]">{action.title}</p>
                     <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">{action.copy}</p>
                   </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={action.onClick}
+                    aria-label={action.ariaLabel}
+                    className="btn-pib-secondary inline-flex shrink-0 items-center justify-center gap-1.5 text-xs"
+                  >
+                    <span className="material-symbols-outlined text-[14px]" aria-hidden="true">arrow_forward</span>
+                    {action.buttonLabel}
+                  </button>
                 </div>
               ))}
             </div>
