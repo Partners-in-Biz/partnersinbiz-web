@@ -6,11 +6,12 @@ import type { CustomFieldDefinition } from '@/lib/customFields/types'
 let mockSearchParams = new URLSearchParams()
 let mockCompanyCustomFieldDefinitions: CustomFieldDefinition[] = []
 const pushMock = jest.fn()
+const replaceMock = jest.fn()
 const refreshMock = jest.fn()
 
 jest.mock('next/navigation', () => ({
   useParams: () => ({ id: 'company-1' }),
-  useRouter: () => ({ push: pushMock, refresh: refreshMock }),
+  useRouter: () => ({ push: pushMock, replace: replaceMock, refresh: refreshMock }),
   useSearchParams: () => mockSearchParams,
 }))
 
@@ -161,6 +162,29 @@ describe('Portal company detail page', () => {
     render(<CompanyDetailPage />)
 
     expect(await screen.findByRole('dialog', { name: 'Edit Company' })).toBeInTheDocument()
+  })
+
+  it('opens the requested company module from a tab query parameter', async () => {
+    mockSearchParams = new URLSearchParams('tab=invoices')
+
+    render(<CompanyDetailPage />)
+
+    await screen.findByRole('heading', { name: 'Acme Holdings' })
+
+    expect(await screen.findByRole('tab', { name: /Invoices/i })).toHaveAttribute('aria-selected', 'true')
+    expect(await screen.findByText('INV-001')).toBeInTheDocument()
+  })
+
+  it('updates the URL when a company module changes without losing existing query state', async () => {
+    mockSearchParams = new URLSearchParams('edit=profile')
+
+    render(<CompanyDetailPage />)
+
+    await screen.findByRole('heading', { name: 'Acme Holdings' })
+
+    await selectCompanyTab(/Invoices/i)
+
+    expect(replaceMock).toHaveBeenCalledWith('/portal/companies/company-1?edit=profile&tab=invoices', { scroll: false })
   })
 
   it('turns empty company custom fields into a profile capture action', async () => {

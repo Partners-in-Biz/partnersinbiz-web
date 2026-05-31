@@ -41,6 +41,8 @@ interface BriefingCard {
     supportTicketSubject?: string | null
     invoiceId?: string | null
     invoiceNumber?: string | null
+    expenseId?: string | null
+    expenseCategory?: string | null
   }
   metadata?: Record<string, unknown> | null
   occurredAt: string
@@ -80,6 +82,7 @@ const SOURCES = [
   { value: 'report', label: 'Reports' },
   { value: 'support-ticket', label: 'Support' },
   { value: 'invoice', label: 'Invoices' },
+  { value: 'expense', label: 'Expenses' },
 ]
 
 const PRIORITY_LABELS: Record<BriefingCard['priority'], string> = {
@@ -124,6 +127,7 @@ function sourceLabel(item: BriefingCard) {
   if (item.context.reportTitle || item.context.reportId) return `${item.source.type} / ${titledId(item.context.reportTitle, item.context.reportId ?? item.source.id)}`
   if (item.context.supportTicketSubject || item.context.supportTicketId) return `${item.source.type} / ${titledId(item.context.supportTicketSubject, item.context.supportTicketId ?? item.source.id)}`
   if (item.context.invoiceNumber || item.context.invoiceId) return `${item.source.type} / ${titledId(item.context.invoiceNumber, item.context.invoiceId ?? item.source.id)}`
+  if (item.context.expenseCategory || item.context.expenseId) return `${item.source.type} / ${titledId(item.context.expenseCategory, item.context.expenseId ?? item.source.id)}`
   return `${item.source.type} / ${item.source.id}`
 }
 
@@ -131,6 +135,7 @@ function sourceHref(item: BriefingCard, mode: Mode) {
   if (item.source.type === 'social-post') return `/portal/social/review/${encodeURIComponent(item.source.id)}`
   if (item.source.type === 'support-ticket') return mode === 'admin' ? `/admin/support?ticket=${encodeURIComponent(item.source.id)}` : '/portal'
   if (item.source.type === 'invoice') return mode === 'admin' ? `/admin/invoicing/${encodeURIComponent(item.source.id)}` : `/portal/payments?invoice=${encodeURIComponent(item.source.id)}`
+  if (item.source.type === 'expense') return mode === 'admin' ? `/admin/finance?expense=${encodeURIComponent(item.source.id)}` : null
   if (mode === 'admin') return item.source.url || null
   if (item.source.url?.startsWith('/portal')) return item.source.url
   if (item.context.conversationId) return `/portal/conversations?convId=${encodeURIComponent(item.context.conversationId)}`
@@ -145,6 +150,7 @@ function sourceHref(item: BriefingCard, mode: Mode) {
 function adminSourceHref(item: BriefingCard) {
   if (item.source.type === 'support-ticket') return `/admin/support?ticket=${encodeURIComponent(item.source.id)}`
   if (item.source.type === 'invoice') return `/admin/invoicing/${encodeURIComponent(item.source.id)}`
+  if (item.source.type === 'expense') return `/admin/finance?expense=${encodeURIComponent(item.source.id)}`
   if (item.context.conversationId) {
     const query = `convId=${encodeURIComponent(item.context.conversationId)}`
     if (item.context.orgSlug) return `/admin/org/${item.context.orgSlug}/messages?${query}`
@@ -209,6 +215,10 @@ function invoiceSendable(item: BriefingCard) {
   return canInvoiceAct(item) && item.metadata?.invoiceStatus === 'draft'
 }
 
+function expenseReviewable(item: BriefingCard, mode: Mode) {
+  return mode === 'admin' && item.source.type === 'expense' && item.metadata?.expenseStatus === 'submitted' && Boolean(item.source.id)
+}
+
 function socialActionStage(item: BriefingCard): 'client' | 'qa' | null {
   const stage = item.metadata?.actionStage
   if (stage === 'client' || stage === 'qa') return stage
@@ -249,6 +259,7 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
   const [socialChangeText, setSocialChangeText] = useState('')
   const [followUpText, setFollowUpText] = useState('')
   const [reportRecipients, setReportRecipients] = useState('')
+  const [expenseReviewText, setExpenseReviewText] = useState('')
   const [busyAction, setBusyAction] = useState<string | null>(null)
   const [flash, setFlash] = useState<Flash>(null)
 
@@ -736,6 +747,29 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
     }
   }
 
+  async function expenseAction(item: BriefingCard, action: 'approve' | 'reject') {
+    if (!expenseReviewable(item, mode)) return
+    const note = expenseReviewText.trim()
+    if (action === 'reject' && !note) return
+    setBusyAction(`expense-${action}`)
+    try {
+      const res = await fetch(`/api/v1/expenses/${encodeURIComponent(item.source.id)}/approve`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(action === 'approve' ? { action } : { action, note }),
+      })
+      const body = await res.json()
+      if (!res.ok) throw new Error(body.error || 'Expense review failed')
+      if (action === 'reject') setExpenseReviewText('')
+      setFlash({ kind: 'ok', message: action === 'approve' ? 'Expense approved from the control desk.' : 'Expense rejected from the control desk.' })
+      await loadFeed({ quiet: true })
+    } catch (err) {
+      setFlash({ kind: 'error', message: err instanceof Error ? err.message : 'Expense review failed' })
+    } finally {
+      setBusyAction(null)
+    }
+  }
+
   async function unblockTask(item: BriefingCard) {
     if (!canTaskAct(item)) return
     setBusyAction('unblock')
@@ -1017,6 +1051,18 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                       Send invoice
                     </button>
                   ) : null}
+                  {expenseReviewable(selected, mode) ? (
+                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => expenseAction(selected, 'approve')} disabled={!!busyAction}>
+                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">verified</span>
+                      Approve expense
+                    </button>
+                  ) : null}
+                  {expenseReviewable(selected, mode) ? (
+                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => expenseAction(selected, 'reject')} disabled={!expenseReviewText.trim() || !!busyAction}>
+                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">block</span>
+                      Reject expense
+                    </button>
+                  ) : null}
                 </div>
 
                 {canSocialPostAct(selected) && socialActionStage(selected) ? (
@@ -1110,6 +1156,21 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                   </div>
                 ) : null}
 
+                {expenseReviewable(selected, mode) ? (
+                  <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                    <label className="text-xs font-medium text-on-surface-variant" htmlFor="briefing-expense-review-note">
+                      Expense rejection note
+                    </label>
+                    <textarea
+                      id="briefing-expense-review-note"
+                      className="pib-input mt-2 min-h-20 w-full resize-y"
+                      value={expenseReviewText}
+                      onChange={(event) => setExpenseReviewText(event.target.value)}
+                      placeholder="Required only when rejecting this expense..."
+                    />
+                  </div>
+                ) : null}
+
                 <dl className="space-y-3 text-sm">
                   <div><dt className="text-on-surface-variant">Actor</dt><dd className="text-on-surface">{titledId(selected.actor.name, selected.actor.id)}</dd></div>
                   <div><dt className="text-on-surface-variant">Workspace</dt><dd className="text-on-surface">{titledId(selected.context.orgName, selected.orgId)}</dd></div>
@@ -1122,6 +1183,7 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                   {selected.context.reportTitle || selected.context.reportId ? <div><dt className="text-on-surface-variant">Report</dt><dd className="text-on-surface">{titledId(selected.context.reportTitle, selected.context.reportId)}</dd></div> : null}
                   {selected.context.supportTicketSubject || selected.context.supportTicketId ? <div><dt className="text-on-surface-variant">Support ticket</dt><dd className="text-on-surface">{titledId(selected.context.supportTicketSubject, selected.context.supportTicketId)}</dd></div> : null}
                   {selected.context.invoiceNumber || selected.context.invoiceId ? <div><dt className="text-on-surface-variant">Invoice</dt><dd className="text-on-surface">{titledId(selected.context.invoiceNumber, selected.context.invoiceId ?? selected.source.id)}</dd></div> : null}
+                  {selected.context.expenseCategory || selected.context.expenseId ? <div><dt className="text-on-surface-variant">Expense</dt><dd className="text-on-surface">{titledId(selected.context.expenseCategory, selected.context.expenseId ?? selected.source.id)}</dd></div> : null}
                   <div><dt className="text-on-surface-variant">Occurred</dt><dd className="text-on-surface">{new Date(selected.occurredAt).toLocaleString('en-ZA')}</dd></div>
                   <div><dt className="text-on-surface-variant">Source</dt><dd className="text-on-surface">{sourceLabel(selected)}</dd></div>
                 </dl>
