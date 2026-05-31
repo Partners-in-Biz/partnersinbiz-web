@@ -8,16 +8,20 @@ import type { Pipeline, PipelineStage } from '@/lib/pipelines/types'
 import { DealDrawer } from './DealDrawer'
 
 function fmtCloseDate(ts: unknown): string {
-  if (!ts || typeof ts !== 'object') return ''
+  if (!ts) return ''
+  if (typeof ts !== 'object') return 'Close date needs review'
   const s = (ts as Record<string, unknown>)._seconds
-  if (typeof s !== 'number') return ''
-  return new Date(s * 1000).toLocaleDateString('en-ZA', {
+  if (typeof s !== 'number') return '_seconds' in ts ? 'Close date needs review' : ''
+  const date = new Date(s * 1000)
+  if (Number.isNaN(date.getTime())) return 'Close date needs review'
+  return date.toLocaleDateString('en-ZA', {
     day: 'numeric', month: 'short', year: 'numeric',
   })
 }
 
 function closeDateReadinessLabel(ts: unknown): string {
   const closeDate = fmtCloseDate(ts)
+  if (closeDate === 'Close date needs review') return closeDate
   return closeDate ? `Close ${closeDate}` : 'Close date missing'
 }
 

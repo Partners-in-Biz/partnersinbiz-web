@@ -154,6 +154,26 @@ describe('ContactDealsPanel', () => {
     expect(screen.getByText(/Close date missing/)).toBeInTheDocument()
   })
 
+  it('names unreadable linked-deal close dates as forecast cleanup work', async () => {
+    mockFetch.mockReturnValue(apiResponse([
+      makeDeal({
+        id: 'd1',
+        title: 'Corrupt timing deal',
+        expectedCloseDate: { _seconds: Number.NaN } as never,
+      }),
+    ]))
+
+    render(<ContactDealsPanel contactId="contact-1" contactName="Ava Owner" />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: 'Corrupt timing deal' })).toBeInTheDocument()
+    })
+
+    expect(screen.getByText(/Close date needs review/)).toBeInTheDocument()
+    expect(screen.queryByText(/Invalid Date/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Close date missing/)).not.toBeInTheDocument()
+  })
+
   it('names sparse linked deal titles instead of rendering blank rows on contact detail', async () => {
     mockFetch.mockReturnValue(apiResponse([
       makeDeal({ id: 'd1', title: '' }),
