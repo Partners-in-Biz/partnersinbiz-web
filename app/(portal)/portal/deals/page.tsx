@@ -256,7 +256,11 @@ export default function DealsPage() {
         // Auto-select default pipeline
         const requestedPipeline = requestedPipelineId ? list.find(p => p.id === requestedPipelineId) : undefined
         const defaultPl = requestedPipeline ?? list.find(p => p.isDefault) ?? list[0]
-        if (defaultPl) setSelectedPipelineId(defaultPl.id)
+        if (defaultPl) {
+          setSelectedPipelineId(defaultPl.id)
+        } else {
+          setLoading(false)
+        }
         setPipelinesLoading(false)
       })
       .catch(err => {
@@ -981,7 +985,7 @@ export default function DealsPage() {
                           {fmtDealValue(weighted, deal.currency)}
                         </td>
                         <td className="px-4 py-3 text-right text-[var(--color-pib-text-muted)] hidden lg:table-cell">
-                          {deal.expectedCloseDate ? fmtRelativeDate(deal.expectedCloseDate) : '—'}
+                          {deal.expectedCloseDate ? fmtRelativeDate(deal.expectedCloseDate) : 'No close date captured'}
                         </td>
                       </tr>
                     )

@@ -34,6 +34,7 @@ function apiResponse(data: unknown) {
 }
 
 let mockDealRows: unknown[] = []
+let mockPipelineRows: unknown[] = []
 
 describe('Portal deals page', () => {
   beforeEach(() => {
@@ -71,20 +72,21 @@ describe('Portal deals page', () => {
         updatedAt: null,
       },
     ]
+    mockPipelineRows = [
+      {
+        id: 'pipeline-1',
+        name: 'Sales pipeline',
+        isDefault: true,
+        stages: [
+          { id: 'qualified', label: 'Qualified', kind: 'open', order: 1, probability: 40 },
+          { id: 'proposal', label: 'Proposal', kind: 'open', order: 2, probability: 70 },
+        ],
+      },
+    ]
     global.fetch = jest.fn((url: RequestInfo | URL) => {
       const path = String(url)
       if (path === '/api/v1/crm/pipelines') {
-        return apiResponse([
-          {
-            id: 'pipeline-1',
-            name: 'Sales pipeline',
-            isDefault: true,
-            stages: [
-              { id: 'qualified', label: 'Qualified', kind: 'open', order: 1, probability: 40 },
-              { id: 'proposal', label: 'Proposal', kind: 'open', order: 2, probability: 70 },
-            ],
-          },
-        ])
+        return apiResponse(mockPipelineRows)
       }
       if (path === '/api/v1/crm/contacts?limit=200') {
         return apiResponse([
@@ -266,6 +268,18 @@ describe('Portal deals page', () => {
     expect(screen.getByTestId('deal-drawer')).toBeInTheDocument()
   })
 
+  it('does not leave the forecast stuck on skeletons when no pipeline exists yet', async () => {
+    mockSearchParams = new URLSearchParams('view=forecast')
+    mockPipelineRows = []
+    mockDealRows = []
+
+    render(<DealsPage />)
+
+    expect(await screen.findByText('No forecastable deals yet')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /create forecastable deal/i })).toBeInTheDocument()
+    expect(global.fetch).not.toHaveBeenCalledWith('/api/v1/crm/deals?pipelineId=pipeline-1&limit=200')
+  })
+
   it('opens directly to forecast deals missing close dates from CRM reports', async () => {
     mockSearchParams = new URLSearchParams('view=forecast&focus=no-close-date')
     mockDealRows = [
@@ -309,6 +323,8 @@ describe('Portal deals page', () => {
     expect(await screen.findByText('No close date opportunity')).toBeInTheDocument()
     expect(screen.queryByText('Dated expansion')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Focus deals missing close dates' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByText('No close date captured')).toBeInTheDocument()
+    expect(screen.queryByText('—')).not.toBeInTheDocument()
   })
 
   it('treats an empty missing-close-date forecast lens as clean forecast hygiene', async () => {
