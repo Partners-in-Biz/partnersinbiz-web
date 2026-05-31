@@ -47,6 +47,8 @@ interface BriefingCard {
     quoteNumber?: string | null
     orderId?: string | null
     orderTitle?: string | null
+    inventoryItemId?: string | null
+    inventoryItemName?: string | null
     shipmentId?: string | null
     shipmentTrackingNumber?: string | null
     expenseId?: string | null
@@ -121,6 +123,7 @@ const SOURCES = [
   { value: 'invoice', label: 'Invoices' },
   { value: 'quote', label: 'Quotes' },
   { value: 'order', label: 'Orders' },
+  { value: 'inventory-item', label: 'Inventory' },
   { value: 'shipment', label: 'Shipments' },
   { value: 'expense', label: 'Expenses' },
   { value: 'seo-content', label: 'SEO content' },
@@ -173,6 +176,7 @@ function sourceLabel(item: BriefingCard) {
   if (item.context.invoiceNumber || item.context.invoiceId) return `${item.source.type} / ${titledId(item.context.invoiceNumber, item.context.invoiceId ?? item.source.id)}`
   if (item.context.quoteNumber || item.context.quoteId) return `${item.source.type} / ${titledId(item.context.quoteNumber, item.context.quoteId ?? item.source.id)}`
   if (item.context.orderTitle || item.context.orderId) return `${item.source.type} / ${titledId(item.context.orderTitle, item.context.orderId ?? item.source.id)}`
+  if (item.context.inventoryItemName || item.context.inventoryItemId) return `${item.source.type} / ${titledId(item.context.inventoryItemName, item.context.inventoryItemId ?? item.source.id)}`
   if (item.context.shipmentTrackingNumber || item.context.shipmentId) return `${item.source.type} / ${titledId(item.context.shipmentTrackingNumber, item.context.shipmentId ?? item.source.id)}`
   if (item.context.expenseCategory || item.context.expenseId) return `${item.source.type} / ${titledId(item.context.expenseCategory, item.context.expenseId ?? item.source.id)}`
   if (item.context.seoContentTitle || item.context.seoContentId) return `${item.source.type} / ${titledId(item.context.seoContentTitle, item.context.seoContentId ?? item.source.id)}`
@@ -199,6 +203,7 @@ function sourceHref(item: BriefingCard, mode: Mode) {
   if (item.source.type === 'invoice') return mode === 'admin' ? `/admin/invoicing/${encodeURIComponent(item.source.id)}` : `/portal/payments?invoice=${encodeURIComponent(item.source.id)}`
   if (item.source.type === 'quote') return mode === 'admin' ? `/admin/quotes/${encodeURIComponent(item.source.id)}` : `/portal/payments?quote=${encodeURIComponent(item.source.id)}`
   if (item.source.type === 'order') return item.source.url || (item.context.companyId ? `/portal/companies/${encodeURIComponent(item.context.companyId)}?order=${encodeURIComponent(item.source.id)}` : `/portal/crm?order=${encodeURIComponent(item.source.id)}`)
+  if (item.source.type === 'inventory-item') return item.source.url || (item.context.companyId ? `/portal/companies/${encodeURIComponent(item.context.companyId)}?inventory=${encodeURIComponent(item.source.id)}` : `/portal/crm?inventory=${encodeURIComponent(item.source.id)}`)
   if (item.source.type === 'shipment') return item.source.url || (item.context.companyId ? `/portal/companies/${encodeURIComponent(item.context.companyId)}?shipment=${encodeURIComponent(item.source.id)}` : `/portal/crm?shipment=${encodeURIComponent(item.source.id)}`)
   if (item.source.type === 'expense') return mode === 'admin' ? `/admin/finance?expense=${encodeURIComponent(item.source.id)}` : null
   if (item.source.type === 'ad-campaign') return mode === 'admin' ? adminSourceHref(item) : `/portal/ads/campaigns/${encodeURIComponent(item.source.id)}`
@@ -239,6 +244,10 @@ function adminSourceHref(item: BriefingCard) {
   if (item.source.type === 'quote') return `/admin/quotes/${encodeURIComponent(item.source.id)}`
   if (item.source.type === 'order') {
     if (item.context.orgSlug && item.context.companyId) return `/admin/org/${encodeURIComponent(item.context.orgSlug)}/crm/companies/${encodeURIComponent(item.context.companyId)}?order=${encodeURIComponent(item.source.id)}`
+    return item.source.url || null
+  }
+  if (item.source.type === 'inventory-item') {
+    if (item.context.orgSlug && item.context.companyId) return `/admin/org/${encodeURIComponent(item.context.orgSlug)}/crm/companies/${encodeURIComponent(item.context.companyId)}?inventory=${encodeURIComponent(item.source.id)}`
     return item.source.url || null
   }
   if (item.source.type === 'shipment') return item.source.url || (item.context.companyId ? `/admin/crm/companies/${encodeURIComponent(item.context.companyId)}?shipment=${encodeURIComponent(item.source.id)}` : null)
@@ -403,6 +412,14 @@ function canOrderAct(item: BriefingCard) {
 
 function orderActive(item: BriefingCard) {
   return canOrderAct(item) && item.metadata?.orderStatus !== 'fulfilled' && item.metadata?.orderStatus !== 'cancelled' && item.metadata?.orderStatus !== 'archived'
+}
+
+function canInventoryAct(item: BriefingCard) {
+  return item.source.type === 'inventory-item' && Boolean(item.source.id)
+}
+
+function inventoryActive(item: BriefingCard) {
+  return canInventoryAct(item) && item.metadata?.inventoryStatus !== 'archived'
 }
 
 function shipmentActive(item: BriefingCard) {
@@ -1225,6 +1242,26 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
     }
   }
 
+  async function inventoryAction(item: BriefingCard, status: 'active' | 'archived') {
+    if (!canInventoryAct(item)) return
+    setBusyAction(`inventory-${status}`)
+    try {
+      const res = await fetch(`/api/v1/inventory-items?id=${encodeURIComponent(item.source.id)}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ status }),
+      })
+      const body = await res.json()
+      if (!res.ok) throw new Error(body.error || 'Inventory update failed')
+      setFlash({ kind: 'ok', message: status === 'active' ? 'Inventory marked restocked.' : 'Inventory item archived.' })
+      await loadFeed({ quiet: true })
+    } catch (err) {
+      setFlash({ kind: 'error', message: err instanceof Error ? err.message : 'Inventory update failed' })
+    } finally {
+      setBusyAction(null)
+    }
+  }
+
   async function expenseAction(item: BriefingCard, action: 'approve' | 'reject') {
     if (!expenseReviewable(item, mode)) return
     const note = expenseReviewText.trim()
@@ -1742,6 +1779,18 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                       Cancel order
                     </button>
                   ) : null}
+                  {inventoryActive(selected) ? (
+                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => inventoryAction(selected, 'active')} disabled={!!busyAction}>
+                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">inventory_2</span>
+                      Mark inventory restocked
+                    </button>
+                  ) : null}
+                  {inventoryActive(selected) ? (
+                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => inventoryAction(selected, 'archived')} disabled={!!busyAction}>
+                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">archive</span>
+                      Archive inventory item
+                    </button>
+                  ) : null}
                   {shipmentActive(selected) ? (
                     <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => shipmentAction(selected, 'delivered')} disabled={!!busyAction}>
                       <span className="material-symbols-outlined text-[15px]" aria-hidden="true">inventory_2</span>
@@ -2046,6 +2095,7 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                   {selected.context.invoiceNumber || selected.context.invoiceId ? <div><dt className="text-on-surface-variant">Invoice</dt><dd className="text-on-surface">{titledId(selected.context.invoiceNumber, selected.context.invoiceId ?? selected.source.id)}</dd></div> : null}
                   {selected.context.quoteNumber || selected.context.quoteId ? <div><dt className="text-on-surface-variant">Quote</dt><dd className="text-on-surface">{titledId(selected.context.quoteNumber, selected.context.quoteId ?? selected.source.id)}</dd></div> : null}
                   {selected.context.orderTitle || selected.context.orderId ? <div><dt className="text-on-surface-variant">Order</dt><dd className="text-on-surface">{titledId(selected.context.orderTitle, selected.context.orderId ?? selected.source.id)}</dd></div> : null}
+                  {selected.context.inventoryItemName || selected.context.inventoryItemId ? <div><dt className="text-on-surface-variant">Inventory</dt><dd className="text-on-surface">{titledId(selected.context.inventoryItemName, selected.context.inventoryItemId ?? selected.source.id)}</dd></div> : null}
                   {selected.context.shipmentTrackingNumber || selected.context.shipmentId ? <div><dt className="text-on-surface-variant">Shipment</dt><dd className="text-on-surface">{titledId(selected.context.shipmentTrackingNumber, selected.context.shipmentId ?? selected.source.id)}</dd></div> : null}
                   {selected.context.expenseCategory || selected.context.expenseId ? <div><dt className="text-on-surface-variant">Expense</dt><dd className="text-on-surface">{titledId(selected.context.expenseCategory, selected.context.expenseId ?? selected.source.id)}</dd></div> : null}
                   {selected.context.seoContentTitle || selected.context.seoContentId ? <div><dt className="text-on-surface-variant">SEO content</dt><dd className="text-on-surface">{titledId(selected.context.seoContentTitle, selected.context.seoContentId ?? selected.source.id)}</dd></div> : null}

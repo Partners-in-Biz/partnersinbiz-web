@@ -420,6 +420,38 @@ const orderBriefingItem = {
   occurredAt: '2026-05-31T09:52:45.000Z',
 }
 
+const inventoryBriefingItem = {
+  id: 'inventory-item:stock-1',
+  orgId: 'org-1',
+  priority: 'client-risk',
+  title: 'Low stock: SEO implementation hours',
+  summary: 'SEO-HOURS has 2 hours available. Threshold: 5.',
+  excerpt: 'Restock delivery capacity before next onboarding sprint.',
+  timeAgo: '12 minutes ago',
+  requiresAction: true,
+  source: { type: 'inventory-item', id: 'stock-1', url: '/portal/companies/company-1?inventory=stock-1' },
+  actor: { id: 'system', name: 'Inventory', role: 'system', type: 'system' },
+  context: {
+    orgId: 'org-1',
+    orgName: 'Client One',
+    orgSlug: 'client-one',
+    companyId: 'company-1',
+    projectId: 'project-1',
+    inventoryItemId: 'stock-1',
+    inventoryItemName: 'SEO implementation hours',
+  },
+  metadata: {
+    inventoryStatus: 'low_stock',
+    quantityAvailable: 2,
+    quantityReserved: 1,
+    lowStockThreshold: 5,
+    unit: 'hours',
+    sku: 'SEO-HOURS',
+    location: 'Delivery pool',
+  },
+  occurredAt: '2026-05-31T09:52:30.000Z',
+}
+
 const expenseBriefingItem = {
   id: 'expense:expense-1',
   orgId: 'org-1',
@@ -735,7 +767,7 @@ describe('BriefingControlDesk', () => {
       if (url.startsWith('/api/v1/briefings/feed')) {
         const items = url.includes('orgId=org-2')
           ? [secondOrgBriefingItem]
-          : [briefingItem, documentBriefingItem, documentCommentBriefingItem, approvalBriefingItem, conversationBriefingItem, socialBriefingItem, notificationBriefingItem, activityBriefingItem, reportBriefingItem, supportBriefingItem, invoiceBriefingItem, invoiceProofBriefingItem, quoteBriefingItem, shipmentBriefingItem, orderBriefingItem, expenseBriefingItem, seoContentBriefingItem, seoTaskBriefingItem, adCampaignBriefingItem, formSubmissionBriefingItem, socialInboxBriefingItem, mailboxBriefingItem, agentRunBriefingItem, workspaceBrokerBriefingItem, calendarBriefingItem, secondOrgBriefingItem]
+          : [briefingItem, documentBriefingItem, documentCommentBriefingItem, approvalBriefingItem, conversationBriefingItem, socialBriefingItem, notificationBriefingItem, activityBriefingItem, reportBriefingItem, supportBriefingItem, invoiceBriefingItem, invoiceProofBriefingItem, quoteBriefingItem, shipmentBriefingItem, orderBriefingItem, inventoryBriefingItem, expenseBriefingItem, seoContentBriefingItem, seoTaskBriefingItem, adCampaignBriefingItem, formSubmissionBriefingItem, socialInboxBriefingItem, mailboxBriefingItem, agentRunBriefingItem, workspaceBrokerBriefingItem, calendarBriefingItem, secondOrgBriefingItem]
         return {
           ok: true,
           json: async () => ({ data: { items, total: items.length, hasMore: false, generatedAt: '2026-05-31T10:05:00.000Z' } }),
@@ -1436,6 +1468,38 @@ describe('BriefingControlDesk', () => {
       expect(global.fetch).toHaveBeenCalledWith('/api/v1/orders?id=order-1', expect.objectContaining({
         method: 'PATCH',
         body: JSON.stringify({ status: 'cancelled' }),
+      }))
+    })
+  })
+
+  it('resolves inventory risk cards from the control desk', async () => {
+    render(<BriefingControlDesk mode="portal" />)
+
+    fireEvent.click(await screen.findByRole('button', { name: /Low stock: SEO implementation hours/i }))
+
+    expect(screen.getByText('SEO implementation hours (stock-1)')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /open source/i })).toHaveAttribute('href', '/portal/companies/company-1?inventory=stock-1')
+    expect(screen.getByRole('button', { name: /mark inventory restocked/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /archive inventory item/i })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /mark inventory restocked/i }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/inventory-items?id=stock-1', expect.objectContaining({
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'active' }),
+      }))
+    })
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /mark inventory restocked/i })).not.toBeDisabled()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /archive inventory item/i }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/inventory-items?id=stock-1', expect.objectContaining({
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'archived' }),
       }))
     })
   })

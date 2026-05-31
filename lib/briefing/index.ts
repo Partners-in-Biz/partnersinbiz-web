@@ -24,6 +24,7 @@ export { supportTicketAdapter } from './adapters/supportTicketAdapter'
 export { invoiceAdapter } from './adapters/invoiceAdapter'
 export { quoteAdapter } from './adapters/quoteAdapter'
 export { orderAdapter } from './adapters/orderAdapter'
+export { inventoryItemAdapter } from './adapters/inventoryItemAdapter'
 export { shipmentAdapter } from './adapters/shipmentAdapter'
 export { expenseAdapter } from './adapters/expenseAdapter'
 export { seoContentAdapter } from './adapters/seoContentAdapter'
@@ -48,6 +49,7 @@ import { supportTicketAdapter } from './adapters/supportTicketAdapter'
 import { invoiceAdapter } from './adapters/invoiceAdapter'
 import { quoteAdapter } from './adapters/quoteAdapter'
 import { orderAdapter } from './adapters/orderAdapter'
+import { inventoryItemAdapter } from './adapters/inventoryItemAdapter'
 import { shipmentAdapter } from './adapters/shipmentAdapter'
 import { expenseAdapter } from './adapters/expenseAdapter'
 import { seoContentAdapter } from './adapters/seoContentAdapter'
@@ -78,6 +80,7 @@ export const SOURCE_ADAPTERS: Record<BriefingSourceType, BriefingSourceAdapter> 
   invoice: invoiceAdapter,
   quote: quoteAdapter,
   order: orderAdapter,
+  'inventory-item': inventoryItemAdapter,
   shipment: shipmentAdapter,
   expense: expenseAdapter,
   'seo-content': seoContentAdapter,

@@ -428,6 +428,68 @@ describe('briefing feed', () => {
     })
   })
 
+  it('surfaces low-stock inventory as operational risk cards', async () => {
+    collections.organizations = [makeDoc('org-1', { name: 'Client One', slug: 'client-one' })]
+    collections.inventoryItems = [
+      makeDoc('stock-1', {
+        orgId: 'org-1',
+        companyId: 'company-1',
+        serviceWorkspaceId: 'project-1',
+        productId: 'product-1',
+        name: 'SEO implementation hours',
+        sku: 'SEO-HOURS',
+        status: 'low_stock',
+        quantityAvailable: 2,
+        quantityReserved: 1,
+        lowStockThreshold: 5,
+        unit: 'hours',
+        location: 'Delivery pool',
+        notes: 'Restock delivery capacity before next onboarding sprint.',
+        updatedAt: '2026-05-31T09:42:00.000Z',
+      }),
+      makeDoc('stock-2', {
+        orgId: 'org-1',
+        companyId: 'company-1',
+        name: 'Healthy stock',
+        status: 'active',
+        quantityAvailable: 10,
+        lowStockThreshold: 5,
+        updatedAt: '2026-05-31T09:41:00.000Z',
+      }),
+    ]
+
+    const { buildBriefingFeed } = await import('@/lib/briefing/feed')
+    const feed = await buildBriefingFeed(
+      { uid: 'client-1', role: 'client', orgId: 'org-1', orgIds: ['org-1'] },
+      { limit: 10, sourceType: 'inventory-item' },
+    )
+
+    expect(feed.items).toHaveLength(1)
+    expect(feed.items[0]).toMatchObject({
+      source: { type: 'inventory-item', id: 'stock-1', collectionPath: 'inventoryItems', url: '/portal/companies/company-1?inventory=stock-1' },
+      priority: 'client-risk',
+      title: 'Low stock: SEO implementation hours',
+      summary: expect.stringContaining('2 hours available'),
+      context: {
+        orgId: 'org-1',
+        orgName: 'Client One',
+        orgSlug: 'client-one',
+        companyId: 'company-1',
+        projectId: 'project-1',
+        inventoryItemId: 'stock-1',
+        inventoryItemName: 'SEO implementation hours',
+      },
+      metadata: expect.objectContaining({
+        inventoryStatus: 'low_stock',
+        quantityAvailable: 2,
+        quantityReserved: 1,
+        lowStockThreshold: 5,
+        unit: 'hours',
+        sku: 'SEO-HOURS',
+      }),
+    })
+  })
+
   it('turns CRM follow-up activities into source-linked action cards', async () => {
     collections.organizations = [makeDoc('org-1', { name: 'Client One', slug: 'client-one' })]
     collections.activities = [

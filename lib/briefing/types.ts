@@ -47,6 +47,7 @@ export type BriefingSourceType =
   | 'invoice'              // Billing invoices that need review, payment, or sending
   | 'quote'                // Sales quotes that need client decision or invoice conversion
   | 'order'                // Fulfillment orders needing progress, completion, or cancellation
+  | 'inventory-item'       // Inventory items needing stock review or restock handling
   | 'shipment'             // Fulfillment shipments needing delivery updates or recovery
   | 'expense'              // Submitted expenses that need approval or rejection
   | 'seo-content'          // SEO content awaiting client review or publishing action
@@ -107,6 +108,8 @@ export interface BriefingContext {
   quoteNumber?: string | null
   orderId?: string | null
   orderTitle?: string | null
+  inventoryItemId?: string | null
+  inventoryItemName?: string | null
   shipmentId?: string | null
   shipmentTrackingNumber?: string | null
   expenseId?: string | null
