@@ -150,6 +150,19 @@ function displayLabel(value: string, labels: Record<string, string>): string {
   return labels[key] ?? key
 }
 
+function readableStatusLabel(value?: string): string {
+  const key = value?.trim()
+  if (!key) return 'Enrollment status not set'
+  return key
+    .split(/[_-]+/)
+    .filter(Boolean)
+    .map((part, index) => {
+      const lower = part.toLowerCase()
+      return index === 0 ? lower.charAt(0).toUpperCase() + lower.slice(1) : lower
+    })
+    .join(' ')
+}
+
 function activityNotesPlaceholder(logType: string): string {
   if (logType === 'note') return 'Add a relationship note, handoff, or context…'
   if (logType === 'call') return 'Add call notes…'
@@ -2008,7 +2021,7 @@ export default function PortalContactDetailPage() {
               enrollments.map((e) => {
                 const sequenceName = e.sequenceName?.trim()
                   || (e.sequenceId?.trim() ? 'Sequence identity missing' : 'Sequence enrollment missing')
-                const enrollmentStatus = e.status?.trim() || 'Enrollment status not set'
+                const enrollmentStatus = readableStatusLabel(e.status)
                 return (
                   <div key={e.id} className="py-2 border-b border-[var(--color-pib-line)] last:border-0">
                     <div className="flex items-center justify-between gap-3">

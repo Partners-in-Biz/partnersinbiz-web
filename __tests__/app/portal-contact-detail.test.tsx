@@ -378,6 +378,26 @@ describe('Portal contact detail page', () => {
     ).toBeInTheDocument()
   })
 
+  it('renders sequence enrollment statuses as readable CRM labels', async () => {
+    mockEnrollments = [{
+      id: 'enrollment-paused',
+      sequenceId: 'seq-1',
+      sequenceName: 'Leadership follow-up',
+      currentStep: 2,
+      status: 'paused_by_rule',
+    }]
+
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    expect(await screen.findByText('Leadership follow-up')).toBeInTheDocument()
+    expect(screen.getByText('Step 3 · Paused by rule')).toBeInTheDocument()
+    expect(screen.queryByText(/paused_by_rule/i)).not.toBeInTheDocument()
+  })
+
   it('shows sequence unenrollment failures without removing the workflow', async () => {
     mockSequenceUnenrollError = 'Enrollment already completed'
     mockEnrollments = [{
