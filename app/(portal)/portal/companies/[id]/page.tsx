@@ -241,6 +241,10 @@ function dealProbabilityLabel(deal: RelatedDeal) {
     : 'Probability not set'
 }
 
+function contactIdentityLabel(contact: RelatedContact) {
+  return contact.name || contact.email || 'Contact name missing'
+}
+
 function projectNameLabel(project: RelatedProject) {
   return project.name || 'Project name missing'
 }
@@ -461,7 +465,7 @@ function ContactsPanel({
             <tr key={contact.id} className="hover:bg-white/[0.02]">
               <td className="px-5 py-4">
                 <Link href={`/portal/contacts/${contact.id}`} className="font-medium text-[var(--color-accent-v2)] hover:underline">
-                  {contact.name || contact.email || contact.id}
+                  {contactIdentityLabel(contact)}
                 </Link>
               </td>
               <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{contact.email || 'No email captured'}</td>
@@ -476,7 +480,7 @@ function ContactsPanel({
 }
 
 function contactLabel(contact: RelatedContact) {
-  return contact.name || contact.email || contact.id
+  return contactIdentityLabel(contact)
 }
 
 function DealsPanel({

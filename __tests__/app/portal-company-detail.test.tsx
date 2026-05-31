@@ -191,7 +191,7 @@ describe('Portal company detail page', () => {
               summary: {},
               analytics: {},
               contacts: [
-                { id: 'contact-1', name: 'Jane Client' },
+                { id: 'contact-1' },
               ],
               deals: [],
               quotes: [],
@@ -219,11 +219,12 @@ describe('Portal company detail page', () => {
     await screen.findByRole('heading', { name: 'Acme Holdings' })
     fireEvent.click(screen.getByRole('tab', { name: /Contacts/i }))
 
-    const row = (await screen.findByRole('link', { name: 'Jane Client' })).closest('tr')
+    const row = (await screen.findByRole('link', { name: 'Contact name missing' })).closest('tr')
     expect(row).not.toBeNull()
     expect(row as HTMLElement).toHaveTextContent('No email captured')
     expect(row as HTMLElement).toHaveTextContent('Type not set')
     expect(row as HTMLElement).toHaveTextContent('Stage not set')
+    expect(screen.queryByText('contact-1')).not.toBeInTheDocument()
     expect(screen.queryAllByText('-')).toHaveLength(0)
   })
 
