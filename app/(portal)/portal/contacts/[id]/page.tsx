@@ -337,6 +337,17 @@ export default function PortalContactDetailPage() {
   const [meetingUrl, setMeetingUrl] = useState('')
   const [logSaving, setLogSaving] = useState(false)
   const [logError, setLogError] = useState<string | null>(null)
+  const meetingStartTime = meetingStartAt ? new Date(meetingStartAt).getTime() : null
+  const meetingEndTime = meetingEndAt ? new Date(meetingEndAt).getTime() : null
+  const meetingTimingError = (
+    meetingStartTime !== null &&
+    meetingEndTime !== null &&
+    Number.isFinite(meetingStartTime) &&
+    Number.isFinite(meetingEndTime) &&
+    meetingEndTime <= meetingStartTime
+  )
+    ? 'Meeting end time must be after the start time.'
+    : null
 
   // B1: Activity page for load-more
   const [activityPage, setActivityPage] = useState(1)
@@ -729,6 +740,7 @@ export default function PortalContactDetailPage() {
         if (!meetingStartAt || !meetingEndAt) return
         const start = new Date(meetingStartAt)
         const end = new Date(meetingEndAt)
+        if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime()) || end <= start) return
         const title = meetingTitle.trim() || `Meeting with ${contactName}`
         const res = await fetch(`/api/v1/crm/contacts/${id}/schedule-meeting`, {
           method: 'POST',
@@ -1948,6 +1960,11 @@ export default function PortalContactDetailPage() {
                         onChange={(e) => setMeetingUrl(e.target.value)}
                         className="w-full text-sm border border-[var(--color-pib-line)] rounded-lg p-2 bg-transparent"
                       />
+                      {meetingTimingError && (
+                        <p role="alert" className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+                          {meetingTimingError}
+                        </p>
+                      )}
                       <textarea
                         rows={3}
                         placeholder="Agenda or notes…"
@@ -1973,7 +1990,7 @@ export default function PortalContactDetailPage() {
                         (logType === 'email_sent'
                           ? !email.trim() || !logEmailSubject.trim() || !logSummary.trim()
                           : logType === 'meeting'
-                          ? !meetingStartAt || !meetingEndAt
+                          ? !meetingStartAt || !meetingEndAt || Boolean(meetingTimingError)
                           : logType === 'sms'
                           ? !phone.trim() || !logSummary.trim()
                           : logType === 'call'

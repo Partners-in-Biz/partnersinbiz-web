@@ -658,6 +658,25 @@ describe('Portal contact detail page', () => {
     expect(screen.getByDisplayValue('Meeting with Jane Client')).toBeInTheDocument()
   })
 
+  it('blocks meeting scheduling when the end time is before the start time', async () => {
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Meeting' }))
+    fireEvent.change(screen.getByLabelText('Starts'), { target: { value: '2026-06-02T15:00' } })
+    fireEvent.change(screen.getByLabelText('Ends'), { target: { value: '2026-06-02T14:30' } })
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Meeting end time must be after the start time.')
+    expect(screen.getByRole('button', { name: 'Schedule' })).toBeDisabled()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Schedule' }))
+
+    expect(global.fetch).not.toHaveBeenCalledWith('/api/v1/crm/contacts/contact-1/schedule-meeting', expect.any(Object))
+  })
+
   it('keeps activity toolbar actions named by command instead of icon text', async () => {
     render(<PortalContactDetailPage />)
 
