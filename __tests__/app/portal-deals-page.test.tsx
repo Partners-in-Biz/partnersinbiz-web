@@ -599,6 +599,35 @@ describe('Portal deals page', () => {
     expect(screen.queryByText('—')).not.toBeInTheDocument()
   })
 
+  it('names invalid forecast close dates as cleanup work instead of showing a dash', async () => {
+    mockSearchParams = new URLSearchParams('view=forecast')
+    mockDealRows = [
+      {
+        id: 'deal-invalid-close-date',
+        orgId: 'org-1',
+        contactId: 'contact-1',
+        title: 'Invalid timing expansion',
+        value: 50000,
+        currency: 'ZAR',
+        pipelineId: 'pipeline-1',
+        stageId: 'qualified',
+        ownerUid: 'owner-1',
+        ownerRef: { uid: 'owner-1', displayName: 'Maya Sales' },
+        expectedCloseDate: 'not-a-date',
+        notes: '',
+        createdAt: null,
+        updatedAt: null,
+      },
+    ]
+
+    render(<DealsPage />)
+
+    expect(await screen.findByText('Invalid timing expansion')).toBeInTheDocument()
+    expect(screen.getByText('Close date needs review')).toBeInTheDocument()
+    expect(screen.queryByText('—')).not.toBeInTheDocument()
+    expect(screen.queryByText('Invalid Date')).not.toBeInTheDocument()
+  })
+
   it('treats an empty missing-close-date forecast lens as clean forecast hygiene', async () => {
     mockSearchParams = new URLSearchParams('view=forecast&focus=no-close-date')
     mockDealRows = [

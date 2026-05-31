@@ -194,7 +194,7 @@ function fmtRelativeDate(ts: unknown): string {
   const date = ts && typeof ts === 'object' && 'toDate' in ts
     ? (ts as { toDate: () => Date }).toDate()
     : new Date(ts as string)
-  if (isNaN(date.getTime())) return '—'
+  if (isNaN(date.getTime())) return 'Close date needs review'
   const diffDays = Math.round((date.getTime() - Date.now()) / 86400000)
   if (diffDays === 0) return 'Today'
   if (diffDays < 0) return `${Math.abs(diffDays)}d overdue`
