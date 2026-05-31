@@ -33,6 +33,7 @@ export type BriefingSourceType =
   | 'comment'              // Comments on tasks, documents, conversations
   | 'agent-output'         // Agent completion summaries and artifacts
   | 'agent-run'            // Live Hermes agent run status and approval prompts
+  | 'workspace-broker-job' // Google Workspace broker jobs awaiting approval or recovery
   | 'approval'             // Approval gates and client document approvals
   | 'client-document'      // Client documents, specs, reports
   | 'social-post'          // Social content awaiting QA/client approval or attention
@@ -116,6 +117,10 @@ export interface BriefingContext {
   mailboxSubject?: string | null
   agentRunId?: string | null
   agentProfile?: string | null
+  workspaceBrokerJobId?: string | null
+  workspaceBrokerOperation?: string | null
+  workspaceArtifactId?: string | null
+  workspaceArtifactTitle?: string | null
   sourceIds?: string[]  // Related source IDs for cross-reference
 }
 

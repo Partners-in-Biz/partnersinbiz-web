@@ -61,6 +61,10 @@ interface BriefingCard {
     mailboxSubject?: string | null
     agentRunId?: string | null
     agentProfile?: string | null
+    workspaceBrokerJobId?: string | null
+    workspaceBrokerOperation?: string | null
+    workspaceArtifactId?: string | null
+    workspaceArtifactTitle?: string | null
   }
   metadata?: Record<string, unknown> | null
   occurredAt: string
@@ -92,6 +96,7 @@ const SOURCES = [
   { value: 'comment', label: 'Comments' },
   { value: 'agent-output', label: 'Agent output' },
   { value: 'agent-run', label: 'Agent runs' },
+  { value: 'workspace-broker-job', label: 'Workspace jobs' },
   { value: 'project', label: 'Projects' },
   { value: 'client-document', label: 'Documents' },
   { value: 'social-post', label: 'Social posts' },
@@ -160,11 +165,13 @@ function sourceLabel(item: BriefingCard) {
   if (item.context.socialInboxFrom || item.context.socialInboxId) return `${item.source.type} / ${titledId(item.context.socialInboxFrom, item.context.socialInboxId ?? item.source.id)}`
   if (item.context.mailboxFrom || item.context.mailboxMessageId) return `${item.source.type} / ${titledId(item.context.mailboxFrom, item.context.mailboxMessageId ?? item.source.id)}`
   if (item.context.agentProfile || item.context.agentRunId) return `${item.source.type} / ${titledId(item.context.agentProfile, item.context.agentRunId ?? item.source.id)}`
+  if (item.context.workspaceBrokerOperation || item.context.workspaceBrokerJobId) return `${item.source.type} / ${titledId(item.context.workspaceBrokerOperation, item.context.workspaceBrokerJobId ?? item.source.id)}`
   return `${item.source.type} / ${item.source.id}`
 }
 
 function sourceHref(item: BriefingCard, mode: Mode) {
   if (item.source.type === 'agent-run') return mode === 'admin' ? adminSourceHref(item) : null
+  if (item.source.type === 'workspace-broker-job') return mode === 'admin' ? adminSourceHref(item) : null
   if (item.source.type === 'form-submission') return mode === 'admin' ? adminSourceHref(item) : null
   if (item.source.type === 'social-inbox') return adminSourceHref(item)
   if (item.source.type === 'mailbox-message') return mode === 'admin' ? adminSourceHref(item) : item.source.url || `/portal/email?message=${encodeURIComponent(item.source.id)}`
@@ -198,6 +205,7 @@ function sourceHref(item: BriefingCard, mode: Mode) {
 }
 
 function adminSourceHref(item: BriefingCard) {
+  if (item.source.type === 'workspace-broker-job') return item.source.url || `/admin/knowledge/workspace-broker/jobs/${encodeURIComponent(item.source.id)}`
   if (item.source.type === 'agent-run') {
     const agentId = typeof item.metadata?.agentId === 'string' && item.metadata.agentId ? item.metadata.agentId : item.actor.id.replace(/^agent:/, '')
     const runId = typeof item.metadata?.hermesRunId === 'string' && item.metadata.hermesRunId ? item.metadata.hermesRunId : item.context.agentRunId ?? item.source.id
@@ -283,6 +291,10 @@ function canMailboxAct(item: BriefingCard) {
 
 function canAgentRunApprove(item: BriefingCard, mode: Mode) {
   return mode === 'admin' && item.source.type === 'agent-run' && item.metadata?.runStatus === 'waiting_for_approval' && Boolean(item.metadata?.agentId && item.metadata?.hermesRunId)
+}
+
+function canWorkspaceBrokerAct(item: BriefingCard, mode: Mode) {
+  return mode === 'admin' && item.source.type === 'workspace-broker-job' && item.metadata?.brokerStatus === 'awaiting_approval' && Boolean(item.source.id)
 }
 
 function mailboxApiBase(mode: Mode) {
@@ -863,6 +875,26 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
       await loadFeed({ quiet: true })
     } catch (err) {
       setFlash({ kind: 'error', message: err instanceof Error ? err.message : 'Agent run approval failed' })
+    } finally {
+      setBusyAction(null)
+    }
+  }
+
+  async function workspaceBrokerAction(item: BriefingCard, action: 'approve' | 'reject') {
+    if (!canWorkspaceBrokerAct(item, mode)) return
+    setBusyAction(`workspace-broker-${action}`)
+    try {
+      const res = await fetch(`/api/v1/workspace-broker/jobs/${encodeURIComponent(item.source.id)}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ action }),
+      })
+      const body = await res.json()
+      if (!res.ok) throw new Error(body.error || 'Workspace broker job update failed')
+      setFlash({ kind: 'ok', message: action === 'approve' ? 'Workspace job approved.' : 'Workspace job rejected.' })
+      await loadFeed({ quiet: true })
+    } catch (err) {
+      setFlash({ kind: 'error', message: err instanceof Error ? err.message : 'Workspace broker job update failed' })
     } finally {
       setBusyAction(null)
     }
@@ -1451,6 +1483,18 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                       Deny run
                     </button>
                   ) : null}
+                  {canWorkspaceBrokerAct(selected, mode) ? (
+                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => workspaceBrokerAction(selected, 'approve')} disabled={!!busyAction}>
+                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">verified</span>
+                      Approve workspace job
+                    </button>
+                  ) : null}
+                  {canWorkspaceBrokerAct(selected, mode) ? (
+                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => workspaceBrokerAction(selected, 'reject')} disabled={!!busyAction}>
+                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">block</span>
+                      Reject workspace job
+                    </button>
+                  ) : null}
                   {canNotificationAct(selected) ? (
                     <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => notificationAction(selected, 'read')} disabled={!!busyAction}>
                       <span className="material-symbols-outlined text-[15px]" aria-hidden="true">mark_email_read</span>
@@ -1780,6 +1824,8 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                   {selected.context.mailboxFrom || selected.context.mailboxMessageId ? <div><dt className="text-on-surface-variant">Mailbox</dt><dd className="text-on-surface">{titledId(selected.context.mailboxFrom, selected.context.mailboxMessageId ?? selected.source.id)}</dd></div> : null}
                   {selected.context.agentProfile || selected.context.agentRunId ? <div><dt className="text-on-surface-variant">Agent run</dt><dd className="text-on-surface">{titledId(selected.context.agentProfile, selected.context.agentRunId ?? selected.source.id)}</dd></div> : null}
                   {typeof selected.metadata?.approvalToolName === 'string' && selected.metadata.approvalToolName ? <div><dt className="text-on-surface-variant">Approval tool</dt><dd className="text-on-surface">{selected.metadata.approvalToolName}</dd></div> : null}
+                  {selected.context.workspaceBrokerOperation || selected.context.workspaceBrokerJobId ? <div><dt className="text-on-surface-variant">Workspace job</dt><dd className="text-on-surface">{titledId(selected.context.workspaceBrokerOperation, selected.context.workspaceBrokerJobId ?? selected.source.id)}</dd></div> : null}
+                  {selected.context.workspaceArtifactTitle || selected.context.workspaceArtifactId ? <div><dt className="text-on-surface-variant">Workspace artifact</dt><dd className="text-on-surface">{titledId(selected.context.workspaceArtifactTitle, selected.context.workspaceArtifactId)}</dd></div> : null}
                   <div><dt className="text-on-surface-variant">Occurred</dt><dd className="text-on-surface">{new Date(selected.occurredAt).toLocaleString('en-ZA')}</dd></div>
                   <div><dt className="text-on-surface-variant">Source</dt><dd className="text-on-surface">{sourceLabel(selected)}</dd></div>
                 </dl>

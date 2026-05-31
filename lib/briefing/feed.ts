@@ -3,7 +3,7 @@ import { adminAuth, adminDb } from '@/lib/firebase/admin'
 import type { ApiUser } from '@/lib/api/types'
 import { canAccessOrg } from '@/lib/api/platformAdmin'
 import type { BriefingCard, BriefingPriority, BriefingResponse, BriefingSourceAdapter, BriefingSourceItem, BriefingSourceType } from './types'
-import { activityAdapter, adCampaignAdapter, agentOutputAdapter, agentRunAdapter, approvalAdapter, clientDocumentAdapter, commentAdapter, expenseAdapter, formSubmissionAdapter, invoiceAdapter, mailboxMessageAdapter, notificationAdapter, projectAdapter, reportAdapter, seoContentAdapter, seoTaskAdapter, socialInboxAdapter, socialPostAdapter, supportTicketAdapter, taskAdapter } from './index'
+import { activityAdapter, adCampaignAdapter, agentOutputAdapter, agentRunAdapter, approvalAdapter, clientDocumentAdapter, commentAdapter, expenseAdapter, formSubmissionAdapter, invoiceAdapter, mailboxMessageAdapter, notificationAdapter, projectAdapter, reportAdapter, seoContentAdapter, seoTaskAdapter, socialInboxAdapter, socialPostAdapter, supportTicketAdapter, taskAdapter, workspaceBrokerJobAdapter } from './index'
 import { comparePriority, formatTimeAgo, normalizeTimestamp, priorityRequiresAction } from './utils'
 
 const PLATFORM_ORG_ID = 'pib-platform-owner'
@@ -355,6 +355,19 @@ async function fetchAgentRunDocs(scopedOrgIds: string[] | null): Promise<Firesto
   })
 }
 
+async function fetchWorkspaceBrokerJobDocs(scopedOrgIds: string[] | null): Promise<FirestoreDoc[]> {
+  const docs = await fetchCollectionDocs('workspace_broker_jobs', scopedOrgIds)
+  const seen = new Set<string>()
+  return docs.filter((doc) => {
+    const data = doc.data()
+    if (scopedOrgIds && scopedOrgIds.length > 0 && !scopedOrgIds.includes(String(data.orgId ?? ''))) return false
+    const key = doc.ref?.path ?? doc.id
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+}
+
 async function fetchTaskDocs(scopedOrgIds: string[] | null): Promise<FirestoreDoc[]> {
   const out: FirestoreDoc[] = []
   try {
@@ -594,6 +607,16 @@ export async function buildBriefingFeed(user: ApiUser, options: BriefingFeedOpti
       const docs = await fetchAgentRunDocs(scopedOrgIds)
       for (const doc of docs) {
         const item = toItemSafe(agentRunAdapter, normalizeDoc(doc), doc.id)
+        if (item) items.push(decorate(item, orgs))
+      }
+    } catch {}
+  }
+
+  if (include('workspace-broker-job') && (user.role === 'admin' || user.role === 'ai')) {
+    try {
+      const docs = await fetchWorkspaceBrokerJobDocs(scopedOrgIds)
+      for (const doc of docs) {
+        const item = toItemSafe(workspaceBrokerJobAdapter, normalizeDoc(doc), doc.id)
         if (item) items.push(decorate(item, orgs))
       }
     } catch {}

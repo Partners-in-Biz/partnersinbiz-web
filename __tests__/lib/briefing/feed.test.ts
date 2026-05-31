@@ -1142,4 +1142,83 @@ describe('briefing feed', () => {
     expect(JSON.stringify(feed.items)).not.toContain('run-secret-123')
     expect(JSON.stringify(feed.items)).toContain('[REDACTED]')
   })
+
+  it('surfaces workspace broker jobs awaiting approval as control cards', async () => {
+    collections.organizations = [makeDoc('org-1', { name: 'Client One', slug: 'client-one' })]
+    collections.workspace_broker_jobs = [
+      makeDoc('broker-job-1', {
+        orgId: 'org-1',
+        operation: 'request_share',
+        status: 'awaiting_approval',
+        riskLevel: 'high',
+        requiredCapability: 'publish',
+        requestedBy: 'agent:theo',
+        createdByType: 'agent',
+        agentId: 'theo',
+        input: {
+          artifactId: 'artifact-1',
+          title: 'Client-facing plan',
+          visibility: 'admin_agents_clients',
+          reason: 'Share with client. token: broker-secret-123',
+        },
+        output: { googleMutationPerformed: false },
+        createdAt: '2026-05-31T10:40:00.000Z',
+        updatedAt: '2026-05-31T10:41:00.000Z',
+      }),
+      makeDoc('broker-job-2', {
+        orgId: 'org-1',
+        operation: 'create_doc',
+        status: 'done',
+        riskLevel: 'medium',
+        requiredCapability: 'write',
+        requestedBy: 'user:peet',
+        input: { title: 'Already done' },
+        createdAt: '2026-05-31T09:40:00.000Z',
+      }),
+      makeDoc('broker-job-3', {
+        orgId: 'org-2',
+        operation: 'request_delete',
+        status: 'awaiting_approval',
+        riskLevel: 'high',
+        requiredCapability: 'delete',
+        requestedBy: 'agent:maya',
+        input: { title: 'Wrong org' },
+        createdAt: '2026-05-31T09:40:00.000Z',
+      }),
+    ]
+
+    const { buildBriefingFeed } = await import('@/lib/briefing/feed')
+    const feed = await buildBriefingFeed(
+      { uid: 'admin-1', role: 'admin', allowedOrgIds: ['org-1'] },
+      { limit: 10, sourceType: 'workspace-broker-job' },
+    )
+
+    expect(feed.items).toHaveLength(1)
+    expect(feed.items[0]).toMatchObject({
+      priority: 'needs-peet',
+      requiresAction: true,
+      source: {
+        type: 'workspace-broker-job',
+        id: 'broker-job-1',
+        url: '/admin/knowledge/workspace-broker/jobs/broker-job-1',
+      },
+      title: 'Workspace share request needs approval: Client-facing plan',
+      actor: { id: 'agent:theo', name: 'Theo', role: 'ai', type: 'agent' },
+      context: {
+        orgName: 'Client One',
+        workspaceBrokerJobId: 'broker-job-1',
+        workspaceBrokerOperation: 'request_share',
+        workspaceArtifactId: 'artifact-1',
+      },
+      metadata: expect.objectContaining({
+        brokerStatus: 'awaiting_approval',
+        riskLevel: 'high',
+        requiredCapability: 'publish',
+        googleMutationPerformed: false,
+      }),
+    })
+    expect(feed.items[0].summary).toContain('share request')
+    expect(JSON.stringify(feed.items)).not.toContain('broker-secret-123')
+    expect(JSON.stringify(feed.items)).toContain('[REDACTED]')
+  })
 })

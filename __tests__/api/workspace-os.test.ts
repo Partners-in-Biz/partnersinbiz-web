@@ -9,6 +9,7 @@ const mockGet = jest.fn()
 const mockWhere = jest.fn()
 const mockDoc = jest.fn()
 const mockUpdate = jest.fn()
+const mockGetDoc = jest.fn()
 const mockCollection = jest.fn()
 const mockServerTimestamp = jest.fn(() => 'SERVER_TIMESTAMP')
 
@@ -25,7 +26,8 @@ beforeEach(() => {
   mockUser = { uid: 'admin-1', role: 'admin' }
   const query = { where: mockWhere, get: mockGet }
   mockWhere.mockReturnValue(query)
-  mockDoc.mockReturnValue({ get: mockGet, update: mockUpdate })
+  mockGetDoc.mockReset()
+  mockDoc.mockReturnValue({ get: mockGetDoc, update: mockUpdate })
   mockCollection.mockImplementation((name: string) => {
     if (!['workspace_connections', 'workspace_artifacts', 'workspace_broker_jobs', 'workspace_artifact_events'].includes(name)) {
       throw new Error(`Unexpected collection: ${name}`)
@@ -128,12 +130,45 @@ describe('workspace broker API routes', () => {
 
   it('archives broker delete requests as approval-gated metadata jobs only', async () => {
     mockAdd.mockResolvedValue({ id: 'job-delete' })
-    mockGet.mockResolvedValue({ exists: true, id: 'artifact-1', data: () => ({ orgId: 'org-1', title: 'Plan', artifactType: 'google_doc', visibility: 'admin_agents', deleted: false }) })
+    mockGetDoc.mockResolvedValue({ exists: true, id: 'artifact-1', data: () => ({ orgId: 'org-1', title: 'Plan', artifactType: 'google_doc', visibility: 'admin_agents', deleted: false }) })
     const { POST } = await import('@/app/api/v1/workspace-broker/artifacts/[id]/request-delete/route')
     const res = await POST(new NextRequest('http://localhost/api/v1/workspace-broker/artifacts/artifact-1/request-delete?orgId=org-1', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ reason: 'cleanup' }) }), { params: Promise.resolve({ id: 'artifact-1' }) })
 
     expect(res.status).toBe(202)
     expect(mockUpdate).not.toHaveBeenCalled()
     expect(mockAdd).toHaveBeenCalledWith(expect.objectContaining({ operation: 'request_delete', status: 'awaiting_approval', output: { googleMutationPerformed: false } }))
+  })
+
+  it('approves and rejects workspace broker jobs without performing Google mutations', async () => {
+    mockGetDoc.mockResolvedValue({ exists: true, id: 'job-1', data: () => ({ orgId: 'org-1', status: 'awaiting_approval', operation: 'request_share', output: { googleMutationPerformed: false } }) })
+    const { PATCH } = await import('@/app/api/v1/workspace-broker/jobs/[id]/route')
+
+    const approved = await PATCH(new NextRequest('http://localhost/api/v1/workspace-broker/jobs/job-1?orgId=org-1', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ action: 'approve' }),
+    }), { params: Promise.resolve({ id: 'job-1' }) })
+    expect(approved.status).toBe(200)
+    expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      status: 'queued',
+      approvalStatus: 'approved',
+      output: { googleMutationPerformed: false },
+      updatedAt: 'SERVER_TIMESTAMP',
+    }))
+
+    mockUpdate.mockClear()
+    const rejected = await PATCH(new NextRequest('http://localhost/api/v1/workspace-broker/jobs/job-1?orgId=org-1', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ action: 'reject' }),
+    }), { params: Promise.resolve({ id: 'job-1' }) })
+
+    expect(rejected.status).toBe(200)
+    expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      status: 'cancelled',
+      approvalStatus: 'rejected',
+      output: { googleMutationPerformed: false },
+      updatedAt: 'SERVER_TIMESTAMP',
+    }))
   })
 })

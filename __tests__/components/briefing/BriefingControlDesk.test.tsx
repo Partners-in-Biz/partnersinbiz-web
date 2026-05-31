@@ -566,6 +566,35 @@ const agentRunBriefingItem = {
   occurredAt: '2026-05-31T09:48:00.000Z',
 }
 
+const workspaceBrokerBriefingItem = {
+  id: 'workspace-broker-job:broker-job-1',
+  orgId: 'org-1',
+  priority: 'needs-peet',
+  title: 'Workspace share request needs approval: Client-facing plan',
+  summary: 'Theo requested a client-visible Google Workspace share.',
+  excerpt: 'Share with client.',
+  timeAgo: '10 minutes ago',
+  requiresAction: true,
+  source: { type: 'workspace-broker-job', id: 'broker-job-1', url: '/admin/knowledge/workspace-broker/jobs/broker-job-1' },
+  actor: { id: 'agent:theo', name: 'Theo', role: 'ai', type: 'agent' },
+  context: {
+    orgId: 'org-1',
+    orgName: 'Client One',
+    orgSlug: 'client-one',
+    workspaceBrokerJobId: 'broker-job-1',
+    workspaceBrokerOperation: 'request_share',
+    workspaceArtifactId: 'artifact-1',
+    workspaceArtifactTitle: 'Client-facing plan',
+  },
+  metadata: {
+    brokerStatus: 'awaiting_approval',
+    riskLevel: 'high',
+    requiredCapability: 'publish',
+    googleMutationPerformed: false,
+  },
+  occurredAt: '2026-05-31T09:47:00.000Z',
+}
+
 describe('BriefingControlDesk', () => {
   beforeEach(() => {
     jest.useFakeTimers()
@@ -584,7 +613,7 @@ describe('BriefingControlDesk', () => {
       if (url.startsWith('/api/v1/briefings/feed')) {
         const items = url.includes('orgId=org-2')
           ? [secondOrgBriefingItem]
-          : [briefingItem, documentBriefingItem, documentCommentBriefingItem, approvalBriefingItem, conversationBriefingItem, socialBriefingItem, notificationBriefingItem, activityBriefingItem, reportBriefingItem, supportBriefingItem, invoiceBriefingItem, invoiceProofBriefingItem, expenseBriefingItem, seoContentBriefingItem, seoTaskBriefingItem, adCampaignBriefingItem, formSubmissionBriefingItem, socialInboxBriefingItem, mailboxBriefingItem, agentRunBriefingItem, secondOrgBriefingItem]
+          : [briefingItem, documentBriefingItem, documentCommentBriefingItem, approvalBriefingItem, conversationBriefingItem, socialBriefingItem, notificationBriefingItem, activityBriefingItem, reportBriefingItem, supportBriefingItem, invoiceBriefingItem, invoiceProofBriefingItem, expenseBriefingItem, seoContentBriefingItem, seoTaskBriefingItem, adCampaignBriefingItem, formSubmissionBriefingItem, socialInboxBriefingItem, mailboxBriefingItem, agentRunBriefingItem, workspaceBrokerBriefingItem, secondOrgBriefingItem]
         return {
           ok: true,
           json: async () => ({ data: { items, total: items.length, hasMore: false, generatedAt: '2026-05-31T10:05:00.000Z' } }),
@@ -762,6 +791,12 @@ describe('BriefingControlDesk', () => {
         return {
           ok: true,
           json: async () => ({ ok: true }),
+        } as Response
+      }
+      if (url === '/api/v1/workspace-broker/jobs/broker-job-1') {
+        return {
+          ok: true,
+          json: async () => ({ data: { id: 'broker-job-1', status: 'queued' } }),
         } as Response
       }
       return {
@@ -1479,6 +1514,39 @@ describe('BriefingControlDesk', () => {
       expect(global.fetch).toHaveBeenCalledWith('/api/v1/admin/agents/theo/runs/run-live-1/approval', expect.objectContaining({
         method: 'POST',
         body: JSON.stringify({ choice: 'deny' }),
+      }))
+    })
+  })
+
+  it('approves and rejects workspace broker jobs from the admin control desk', async () => {
+    render(<BriefingControlDesk mode="admin" />)
+
+    fireEvent.click(await screen.findByRole('button', { name: /Workspace share request needs approval/i }))
+
+    expect(screen.getByText('request_share (broker-job-1)')).toBeInTheDocument()
+    expect(screen.getByText('Client-facing plan (artifact-1)')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /open source/i })).toHaveAttribute('href', '/admin/knowledge/workspace-broker/jobs/broker-job-1')
+    expect(screen.getByRole('button', { name: /approve workspace job/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /reject workspace job/i })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /approve workspace job/i }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/workspace-broker/jobs/broker-job-1', expect.objectContaining({
+        method: 'PATCH',
+        body: JSON.stringify({ action: 'approve' }),
+      }))
+    })
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /reject workspace job/i })).not.toBeDisabled()
+    })
+    fireEvent.click(screen.getByRole('button', { name: /reject workspace job/i }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/workspace-broker/jobs/broker-job-1', expect.objectContaining({
+        method: 'PATCH',
+        body: JSON.stringify({ action: 'reject' }),
       }))
     })
   })
