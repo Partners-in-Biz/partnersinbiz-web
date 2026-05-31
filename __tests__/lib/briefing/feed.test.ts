@@ -835,4 +835,75 @@ describe('briefing feed', () => {
     expect(JSON.stringify(adminFeed.items)).not.toContain('ad-secret-123')
     expect(JSON.stringify(adminFeed.items)).toContain('[REDACTED]')
   })
+
+  it('surfaces new form submissions as source-backed follow-up cards', async () => {
+    collections.organizations = [makeDoc('org-1', { name: 'Client One', slug: 'client-one' })]
+    collections.form_submissions = [
+      makeDoc('submission-1', {
+        orgId: 'org-1',
+        formId: 'form-1',
+        data: {
+          name: 'Ava Owner',
+          email: 'ava@example.test',
+          message: 'Please send the pricing deck. password: never-show-this',
+        },
+        submittedAt: '2026-05-31T10:50:00.000Z',
+        status: 'new',
+        contactId: 'contact-1',
+        source: 'website-contact',
+        createdByRef: {
+          uid: 'public-form',
+          displayName: 'Website visitor',
+          role: 'client',
+        },
+      }),
+      makeDoc('submission-2', {
+        orgId: 'org-1',
+        formId: 'form-1',
+        data: {
+          name: 'Already Read',
+          email: 'read@example.test',
+        },
+        submittedAt: '2026-05-31T09:50:00.000Z',
+        status: 'read',
+        contactId: null,
+        source: 'website-contact',
+      }),
+    ]
+
+    const { buildBriefingFeed } = await import('@/lib/briefing/feed')
+    const feed = await buildBriefingFeed(
+      { uid: 'admin-1', role: 'admin', allowedOrgIds: ['org-1'] },
+      { limit: 10, sourceType: 'form-submission' },
+    )
+
+    expect(feed.items).toHaveLength(1)
+    expect(feed.items[0]).toMatchObject({
+      priority: 'needs-peet',
+      requiresAction: true,
+      source: {
+        type: 'form-submission',
+        id: 'submission-1',
+        url: '/admin/forms/form-1/submissions/submission-1',
+      },
+      title: 'New form submission from Ava Owner',
+      actor: { id: 'public-form', name: 'Website visitor', role: 'client', type: 'user' },
+      context: {
+        orgName: 'Client One',
+        formId: 'form-1',
+        formSubmissionId: 'submission-1',
+        contactId: 'contact-1',
+        contactName: 'Ava Owner',
+      },
+      metadata: expect.objectContaining({
+        formSubmissionStatus: 'new',
+        formId: 'form-1',
+        source: 'website-contact',
+        email: 'ava@example.test',
+      }),
+    })
+    expect(feed.items[0].summary).toContain('ava@example.test')
+    expect(JSON.stringify(feed.items)).not.toContain('never-show-this')
+    expect(JSON.stringify(feed.items)).toContain('[REDACTED]')
+  })
 })

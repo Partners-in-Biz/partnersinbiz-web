@@ -44,6 +44,7 @@ export type BriefingSourceType =
   | 'seo-content'          // SEO content awaiting client review or publishing action
   | 'seo-task'             // SEO sprint tasks needing admin execution, completion, or skip
   | 'ad-campaign'          // Ad campaigns awaiting client approval or changes
+  | 'form-submission'      // Public form submissions needing admin follow-up
 
 /**
  * Briefing item lifecycle states.
@@ -101,6 +102,9 @@ export interface BriefingContext {
   seoSprintId?: string | null
   adCampaignId?: string | null
   adCampaignName?: string | null
+  formId?: string | null
+  formSubmissionId?: string | null
+  formName?: string | null
   sourceIds?: string[]  // Related source IDs for cross-reference
 }
 

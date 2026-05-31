@@ -50,6 +50,9 @@ interface BriefingCard {
     seoSprintId?: string | null
     adCampaignId?: string | null
     adCampaignName?: string | null
+    formId?: string | null
+    formSubmissionId?: string | null
+    formName?: string | null
   }
   metadata?: Record<string, unknown> | null
   occurredAt: string
@@ -93,6 +96,7 @@ const SOURCES = [
   { value: 'seo-content', label: 'SEO content' },
   { value: 'seo-task', label: 'SEO tasks' },
   { value: 'ad-campaign', label: 'Ad campaigns' },
+  { value: 'form-submission', label: 'Form submissions' },
 ]
 
 const PRIORITY_LABELS: Record<BriefingCard['priority'], string> = {
@@ -141,10 +145,12 @@ function sourceLabel(item: BriefingCard) {
   if (item.context.seoContentTitle || item.context.seoContentId) return `${item.source.type} / ${titledId(item.context.seoContentTitle, item.context.seoContentId ?? item.source.id)}`
   if (item.context.seoTaskTitle || item.context.seoTaskId) return `${item.source.type} / ${titledId(item.context.seoTaskTitle, item.context.seoTaskId ?? item.source.id)}`
   if (item.context.adCampaignName || item.context.adCampaignId) return `${item.source.type} / ${titledId(item.context.adCampaignName, item.context.adCampaignId ?? item.source.id)}`
+  if (item.context.formName || item.context.formId || item.context.formSubmissionId) return `${item.source.type} / ${titledId(item.context.formName, item.context.formSubmissionId ?? item.source.id)}`
   return `${item.source.type} / ${item.source.id}`
 }
 
 function sourceHref(item: BriefingCard, mode: Mode) {
+  if (item.source.type === 'form-submission') return mode === 'admin' ? adminSourceHref(item) : null
   if (item.source.type === 'social-post') return `/portal/social/review/${encodeURIComponent(item.source.id)}`
   if (item.source.type === 'support-ticket') return mode === 'admin' ? `/admin/support?ticket=${encodeURIComponent(item.source.id)}` : '/portal'
   if (item.source.type === 'invoice') return mode === 'admin' ? `/admin/invoicing/${encodeURIComponent(item.source.id)}` : `/portal/payments?invoice=${encodeURIComponent(item.source.id)}`
@@ -181,6 +187,11 @@ function adminSourceHref(item: BriefingCard) {
   if (item.source.type === 'ad-campaign') {
     if (item.context.orgSlug) return `/admin/org/${encodeURIComponent(item.context.orgSlug)}/ads/campaigns/${encodeURIComponent(item.source.id)}`
     return `/admin/marketing?adCampaign=${encodeURIComponent(item.source.id)}`
+  }
+  if (item.source.type === 'form-submission') {
+    const formId = item.context.formId
+    if (formId) return `/admin/forms/${encodeURIComponent(formId)}/submissions/${encodeURIComponent(item.source.id)}`
+    return item.source.url || null
   }
   if (item.source.type === 'seo-content') {
     const sprintId = item.context.seoSprintId
@@ -288,6 +299,10 @@ function canAdCampaignAct(item: BriefingCard) {
 
 function adCampaignReviewable(item: BriefingCard) {
   return canAdCampaignAct(item) && item.metadata?.reviewState === 'awaiting'
+}
+
+function formSubmissionActionable(item: BriefingCard, mode: Mode) {
+  return mode === 'admin' && item.source.type === 'form-submission' && Boolean(item.context.formId && item.source.id)
 }
 
 function socialActionStage(item: BriefingCard): 'client' | 'qa' | null {
@@ -954,6 +969,26 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
     }
   }
 
+  async function formSubmissionAction(item: BriefingCard, status: 'read' | 'archived') {
+    if (!formSubmissionActionable(item, mode)) return
+    setBusyAction(`form-submission-${status}`)
+    try {
+      const res = await fetch(`/api/v1/forms/${encodeURIComponent(item.context.formId as string)}/submissions/${encodeURIComponent(item.source.id)}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ status }),
+      })
+      const body = await res.json()
+      if (!res.ok) throw new Error(body.error || 'Form submission update failed')
+      setFlash({ kind: 'ok', message: status === 'read' ? 'Form submission marked read.' : 'Form submission archived.' })
+      await loadFeed({ quiet: true })
+    } catch (err) {
+      setFlash({ kind: 'error', message: err instanceof Error ? err.message : 'Form submission update failed' })
+    } finally {
+      setBusyAction(null)
+    }
+  }
+
   async function unblockTask(item: BriefingCard) {
     if (!canTaskAct(item)) return
     setBusyAction('unblock')
@@ -1301,6 +1336,18 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                       Request ad campaign changes
                     </button>
                   ) : null}
+                  {formSubmissionActionable(selected, mode) ? (
+                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => formSubmissionAction(selected, 'read')} disabled={!!busyAction}>
+                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">mark_email_read</span>
+                      Mark submission read
+                    </button>
+                  ) : null}
+                  {formSubmissionActionable(selected, mode) ? (
+                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => formSubmissionAction(selected, 'archived')} disabled={!!busyAction}>
+                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">archive</span>
+                      Archive submission
+                    </button>
+                  ) : null}
                 </div>
 
                 {canSocialPostAct(selected) && socialActionStage(selected) ? (
@@ -1510,6 +1557,7 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                   {selected.context.seoContentTitle || selected.context.seoContentId ? <div><dt className="text-on-surface-variant">SEO content</dt><dd className="text-on-surface">{titledId(selected.context.seoContentTitle, selected.context.seoContentId ?? selected.source.id)}</dd></div> : null}
                   {selected.context.seoTaskTitle || selected.context.seoTaskId ? <div><dt className="text-on-surface-variant">SEO task</dt><dd className="text-on-surface">{titledId(selected.context.seoTaskTitle, selected.context.seoTaskId ?? selected.source.id)}</dd></div> : null}
                   {selected.context.adCampaignName || selected.context.adCampaignId ? <div><dt className="text-on-surface-variant">Ad campaign</dt><dd className="text-on-surface">{titledId(selected.context.adCampaignName, selected.context.adCampaignId ?? selected.source.id)}</dd></div> : null}
+                  {selected.context.formName || selected.context.formId || selected.context.formSubmissionId ? <div><dt className="text-on-surface-variant">Form submission</dt><dd className="text-on-surface">{titledId(selected.context.formName ?? selected.context.formId, selected.context.formSubmissionId ?? selected.source.id)}</dd></div> : null}
                   <div><dt className="text-on-surface-variant">Occurred</dt><dd className="text-on-surface">{new Date(selected.occurredAt).toLocaleString('en-ZA')}</dd></div>
                   <div><dt className="text-on-surface-variant">Source</dt><dd className="text-on-surface">{sourceLabel(selected)}</dd></div>
                 </dl>

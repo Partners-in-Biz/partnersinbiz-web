@@ -447,6 +447,35 @@ const adCampaignBriefingItem = {
   occurredAt: '2026-05-31T09:52:00.000Z',
 }
 
+const formSubmissionBriefingItem = {
+  id: 'form-submission:submission-1',
+  orgId: 'org-1',
+  priority: 'needs-peet',
+  title: 'New form submission from Ava Owner',
+  summary: 'Ava Owner submitted website-contact. Email: ava@example.test.',
+  excerpt: 'Please send the pricing deck.',
+  timeAgo: '14 minutes ago',
+  requiresAction: true,
+  source: { type: 'form-submission', id: 'submission-1', url: '/admin/forms/form-1/submissions/submission-1' },
+  actor: { id: 'public-form', name: 'Website visitor', role: 'client', type: 'user' },
+  context: {
+    orgId: 'org-1',
+    orgName: 'Client One',
+    orgSlug: 'client-one',
+    formId: 'form-1',
+    formSubmissionId: 'submission-1',
+    contactId: 'contact-1',
+    contactName: 'Ava Owner',
+  },
+  metadata: {
+    formSubmissionStatus: 'new',
+    formId: 'form-1',
+    source: 'website-contact',
+    email: 'ava@example.test',
+  },
+  occurredAt: '2026-05-31T09:51:00.000Z',
+}
+
 describe('BriefingControlDesk', () => {
   beforeEach(() => {
     jest.useFakeTimers()
@@ -465,7 +494,7 @@ describe('BriefingControlDesk', () => {
       if (url.startsWith('/api/v1/briefings/feed')) {
         const items = url.includes('orgId=org-2')
           ? [secondOrgBriefingItem]
-          : [briefingItem, documentBriefingItem, documentCommentBriefingItem, approvalBriefingItem, conversationBriefingItem, socialBriefingItem, notificationBriefingItem, activityBriefingItem, reportBriefingItem, supportBriefingItem, invoiceBriefingItem, invoiceProofBriefingItem, expenseBriefingItem, seoContentBriefingItem, seoTaskBriefingItem, adCampaignBriefingItem, secondOrgBriefingItem]
+          : [briefingItem, documentBriefingItem, documentCommentBriefingItem, approvalBriefingItem, conversationBriefingItem, socialBriefingItem, notificationBriefingItem, activityBriefingItem, reportBriefingItem, supportBriefingItem, invoiceBriefingItem, invoiceProofBriefingItem, expenseBriefingItem, seoContentBriefingItem, seoTaskBriefingItem, adCampaignBriefingItem, formSubmissionBriefingItem, secondOrgBriefingItem]
         return {
           ok: true,
           json: async () => ({ data: { items, total: items.length, hasMore: false, generatedAt: '2026-05-31T10:05:00.000Z' } }),
@@ -613,6 +642,12 @@ describe('BriefingControlDesk', () => {
         return {
           ok: true,
           json: async () => ({ data: { id: 'ad-campaign-1', reviewState: 'rejected' } }),
+        } as Response
+      }
+      if (url === '/api/v1/forms/form-1/submissions/submission-1') {
+        return {
+          ok: true,
+          json: async () => ({ data: { id: 'submission-1', status: 'read' } }),
         } as Response
       }
       return {
@@ -1165,6 +1200,38 @@ describe('BriefingControlDesk', () => {
       expect(global.fetch).toHaveBeenCalledWith('/api/v1/portal/ads/campaigns/ad-campaign-1/reject', expect.objectContaining({
         method: 'POST',
         body: JSON.stringify({ reason: 'Please reduce the daily budget before launch.' }),
+      }))
+    })
+  })
+
+  it('marks new form submissions read or archived from the admin control desk', async () => {
+    render(<BriefingControlDesk mode="admin" />)
+
+    fireEvent.click(await screen.findByRole('button', { name: /New form submission from Ava Owner/i }))
+
+    expect(screen.getByText('Ava Owner (contact-1)')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /open source/i })).toHaveAttribute('href', '/admin/forms/form-1/submissions/submission-1')
+    expect(screen.getByRole('button', { name: /mark submission read/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /archive submission/i })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /mark submission read/i }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/forms/form-1/submissions/submission-1', expect.objectContaining({
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'read' }),
+      }))
+    })
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /archive submission/i })).not.toBeDisabled()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /archive submission/i }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/forms/form-1/submissions/submission-1', expect.objectContaining({
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'archived' }),
       }))
     })
   })
