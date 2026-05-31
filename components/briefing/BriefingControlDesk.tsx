@@ -23,6 +23,8 @@ interface BriefingCard {
     orgId: string
     orgName?: string | null
     orgSlug?: string | null
+    companyId?: string | null
+    companyName?: string | null
     projectId?: string | null
     projectName?: string | null
     taskId?: string | null
@@ -43,6 +45,9 @@ interface BriefingCard {
     invoiceNumber?: string | null
     quoteId?: string | null
     quoteNumber?: string | null
+    orderId?: string | null
+    shipmentId?: string | null
+    shipmentTrackingNumber?: string | null
     expenseId?: string | null
     expenseCategory?: string | null
     seoContentId?: string | null
@@ -114,6 +119,7 @@ const SOURCES = [
   { value: 'support-ticket', label: 'Support' },
   { value: 'invoice', label: 'Invoices' },
   { value: 'quote', label: 'Quotes' },
+  { value: 'shipment', label: 'Shipments' },
   { value: 'expense', label: 'Expenses' },
   { value: 'seo-content', label: 'SEO content' },
   { value: 'seo-task', label: 'SEO tasks' },
@@ -164,6 +170,7 @@ function sourceLabel(item: BriefingCard) {
   if (item.context.supportTicketSubject || item.context.supportTicketId) return `${item.source.type} / ${titledId(item.context.supportTicketSubject, item.context.supportTicketId ?? item.source.id)}`
   if (item.context.invoiceNumber || item.context.invoiceId) return `${item.source.type} / ${titledId(item.context.invoiceNumber, item.context.invoiceId ?? item.source.id)}`
   if (item.context.quoteNumber || item.context.quoteId) return `${item.source.type} / ${titledId(item.context.quoteNumber, item.context.quoteId ?? item.source.id)}`
+  if (item.context.shipmentTrackingNumber || item.context.shipmentId) return `${item.source.type} / ${titledId(item.context.shipmentTrackingNumber, item.context.shipmentId ?? item.source.id)}`
   if (item.context.expenseCategory || item.context.expenseId) return `${item.source.type} / ${titledId(item.context.expenseCategory, item.context.expenseId ?? item.source.id)}`
   if (item.context.seoContentTitle || item.context.seoContentId) return `${item.source.type} / ${titledId(item.context.seoContentTitle, item.context.seoContentId ?? item.source.id)}`
   if (item.context.seoTaskTitle || item.context.seoTaskId) return `${item.source.type} / ${titledId(item.context.seoTaskTitle, item.context.seoTaskId ?? item.source.id)}`
@@ -188,6 +195,7 @@ function sourceHref(item: BriefingCard, mode: Mode) {
   if (item.source.type === 'support-ticket') return mode === 'admin' ? `/admin/support?ticket=${encodeURIComponent(item.source.id)}` : '/portal'
   if (item.source.type === 'invoice') return mode === 'admin' ? `/admin/invoicing/${encodeURIComponent(item.source.id)}` : `/portal/payments?invoice=${encodeURIComponent(item.source.id)}`
   if (item.source.type === 'quote') return mode === 'admin' ? `/admin/quotes/${encodeURIComponent(item.source.id)}` : `/portal/payments?quote=${encodeURIComponent(item.source.id)}`
+  if (item.source.type === 'shipment') return item.source.url || (item.context.companyId ? `/portal/companies/${encodeURIComponent(item.context.companyId)}?shipment=${encodeURIComponent(item.source.id)}` : `/portal/crm?shipment=${encodeURIComponent(item.source.id)}`)
   if (item.source.type === 'expense') return mode === 'admin' ? `/admin/finance?expense=${encodeURIComponent(item.source.id)}` : null
   if (item.source.type === 'ad-campaign') return mode === 'admin' ? adminSourceHref(item) : `/portal/ads/campaigns/${encodeURIComponent(item.source.id)}`
   if (item.source.type === 'seo-content') {
@@ -225,6 +233,7 @@ function adminSourceHref(item: BriefingCard) {
   if (item.source.type === 'support-ticket') return `/admin/support?ticket=${encodeURIComponent(item.source.id)}`
   if (item.source.type === 'invoice') return `/admin/invoicing/${encodeURIComponent(item.source.id)}`
   if (item.source.type === 'quote') return `/admin/quotes/${encodeURIComponent(item.source.id)}`
+  if (item.source.type === 'shipment') return item.source.url || (item.context.companyId ? `/admin/crm/companies/${encodeURIComponent(item.context.companyId)}?shipment=${encodeURIComponent(item.source.id)}` : null)
   if (item.source.type === 'expense') return `/admin/finance?expense=${encodeURIComponent(item.source.id)}`
   if (item.source.type === 'ad-campaign') {
     if (item.context.orgSlug) return `/admin/org/${encodeURIComponent(item.context.orgSlug)}/ads/campaigns/${encodeURIComponent(item.source.id)}`
@@ -374,6 +383,14 @@ function quoteDecisionable(item: BriefingCard) {
 
 function quoteConvertible(item: BriefingCard, mode: Mode) {
   return mode === 'admin' && canQuoteAct(item) && item.metadata?.quoteStatus === 'accepted' && !item.metadata?.convertedInvoiceId
+}
+
+function canShipmentAct(item: BriefingCard) {
+  return item.source.type === 'shipment' && Boolean(item.source.id)
+}
+
+function shipmentActive(item: BriefingCard) {
+  return canShipmentAct(item) && item.metadata?.shipmentStatus !== 'delivered' && item.metadata?.shipmentStatus !== 'cancelled'
 }
 
 function expenseReviewable(item: BriefingCard, mode: Mode) {
@@ -1140,6 +1157,26 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
     }
   }
 
+  async function shipmentAction(item: BriefingCard, status: 'ready' | 'in_transit' | 'delivered' | 'failed') {
+    if (!canShipmentAct(item)) return
+    setBusyAction(`shipment-${status}`)
+    try {
+      const res = await fetch(`/api/v1/shipments?id=${encodeURIComponent(item.source.id)}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ status }),
+      })
+      const body = await res.json()
+      if (!res.ok) throw new Error(body.error || 'Shipment update failed')
+      setFlash({ kind: 'ok', message: status === 'delivered' ? 'Shipment marked delivered.' : status === 'failed' ? 'Shipment marked failed.' : 'Shipment status updated.' })
+      await loadFeed({ quiet: true })
+    } catch (err) {
+      setFlash({ kind: 'error', message: err instanceof Error ? err.message : 'Shipment update failed' })
+    } finally {
+      setBusyAction(null)
+    }
+  }
+
   async function expenseAction(item: BriefingCard, action: 'approve' | 'reject') {
     if (!expenseReviewable(item, mode)) return
     const note = expenseReviewText.trim()
@@ -1639,6 +1676,18 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                       Convert to invoice
                     </button>
                   ) : null}
+                  {shipmentActive(selected) ? (
+                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => shipmentAction(selected, 'delivered')} disabled={!!busyAction}>
+                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">inventory_2</span>
+                      Mark delivered
+                    </button>
+                  ) : null}
+                  {shipmentActive(selected) ? (
+                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => shipmentAction(selected, 'failed')} disabled={!!busyAction}>
+                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">report</span>
+                      Mark shipment failed
+                    </button>
+                  ) : null}
                   {expenseReviewable(selected, mode) ? (
                     <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => expenseAction(selected, 'approve')} disabled={!!busyAction}>
                       <span className="material-symbols-outlined text-[15px]" aria-hidden="true">verified</span>
@@ -1930,6 +1979,8 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                   {selected.context.supportTicketSubject || selected.context.supportTicketId ? <div><dt className="text-on-surface-variant">Support ticket</dt><dd className="text-on-surface">{titledId(selected.context.supportTicketSubject, selected.context.supportTicketId)}</dd></div> : null}
                   {selected.context.invoiceNumber || selected.context.invoiceId ? <div><dt className="text-on-surface-variant">Invoice</dt><dd className="text-on-surface">{titledId(selected.context.invoiceNumber, selected.context.invoiceId ?? selected.source.id)}</dd></div> : null}
                   {selected.context.quoteNumber || selected.context.quoteId ? <div><dt className="text-on-surface-variant">Quote</dt><dd className="text-on-surface">{titledId(selected.context.quoteNumber, selected.context.quoteId ?? selected.source.id)}</dd></div> : null}
+                  {selected.context.shipmentTrackingNumber || selected.context.shipmentId ? <div><dt className="text-on-surface-variant">Shipment</dt><dd className="text-on-surface">{titledId(selected.context.shipmentTrackingNumber, selected.context.shipmentId ?? selected.source.id)}</dd></div> : null}
+                  {selected.context.orderId ? <div><dt className="text-on-surface-variant">Order</dt><dd className="text-on-surface">{selected.context.orderId}</dd></div> : null}
                   {selected.context.expenseCategory || selected.context.expenseId ? <div><dt className="text-on-surface-variant">Expense</dt><dd className="text-on-surface">{titledId(selected.context.expenseCategory, selected.context.expenseId ?? selected.source.id)}</dd></div> : null}
                   {selected.context.seoContentTitle || selected.context.seoContentId ? <div><dt className="text-on-surface-variant">SEO content</dt><dd className="text-on-surface">{titledId(selected.context.seoContentTitle, selected.context.seoContentId ?? selected.source.id)}</dd></div> : null}
                   {selected.context.seoTaskTitle || selected.context.seoTaskId ? <div><dt className="text-on-surface-variant">SEO task</dt><dd className="text-on-surface">{titledId(selected.context.seoTaskTitle, selected.context.seoTaskId ?? selected.source.id)}</dd></div> : null}

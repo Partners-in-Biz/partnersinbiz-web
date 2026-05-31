@@ -46,6 +46,7 @@ export type BriefingSourceType =
   | 'support-ticket'       // Client support tickets and ticket replies
   | 'invoice'              // Billing invoices that need review, payment, or sending
   | 'quote'                // Sales quotes that need client decision or invoice conversion
+  | 'shipment'             // Fulfillment shipments needing delivery updates or recovery
   | 'expense'              // Submitted expenses that need approval or rejection
   | 'seo-content'          // SEO content awaiting client review or publishing action
   | 'seo-task'             // SEO sprint tasks needing admin execution, completion, or skip
@@ -81,6 +82,8 @@ export interface BriefingContext {
   orgName?: string | null
   clientId?: string | null
   clientName?: string | null
+  companyId?: string | null
+  companyName?: string | null
   projectId?: string | null
   projectName?: string | null
   taskId?: string | null
@@ -101,6 +104,9 @@ export interface BriefingContext {
   invoiceNumber?: string | null
   quoteId?: string | null
   quoteNumber?: string | null
+  orderId?: string | null
+  shipmentId?: string | null
+  shipmentTrackingNumber?: string | null
   expenseId?: string | null
   expenseCategory?: string | null
   seoContentId?: string | null

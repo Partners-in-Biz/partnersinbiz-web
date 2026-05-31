@@ -325,6 +325,56 @@ describe('briefing feed', () => {
     })
   })
 
+  it('surfaces active shipments as delivery control cards', async () => {
+    collections.organizations = [makeDoc('org-1', { name: 'Client One', slug: 'client-one' })]
+    collections.shipments = [
+      makeDoc('shipment-1', {
+        orgId: 'org-1',
+        companyId: 'company-1',
+        orderId: 'order-1',
+        projectId: 'project-1',
+        status: 'in_transit',
+        carrier: 'DHL',
+        trackingNumber: 'DHL-123',
+        trackingUrl: 'https://tracking.example.test/DHL-123',
+        destination: 'Client warehouse',
+        expectedDeliveryDate: '2026-06-02T00:00:00.000Z',
+        notes: 'Confirm delivery before closing the onboarding order.',
+        updatedAt: '2026-05-31T09:44:00.000Z',
+      }),
+    ]
+
+    const { buildBriefingFeed } = await import('@/lib/briefing/feed')
+    const feed = await buildBriefingFeed(
+      { uid: 'client-1', role: 'client', orgId: 'org-1', orgIds: ['org-1'] },
+      { limit: 10, sourceType: 'shipment' },
+    )
+
+    expect(feed.items).toHaveLength(1)
+    expect(feed.items[0]).toMatchObject({
+      source: { type: 'shipment', id: 'shipment-1', collectionPath: 'shipments', url: '/portal/companies/company-1?shipment=shipment-1' },
+      priority: 'review',
+      title: 'Shipment in transit: DHL-123',
+      summary: expect.stringContaining('DHL shipment DHL-123'),
+      context: {
+        orgId: 'org-1',
+        orgName: 'Client One',
+        orgSlug: 'client-one',
+        shipmentId: 'shipment-1',
+        shipmentTrackingNumber: 'DHL-123',
+        orderId: 'order-1',
+        projectId: 'project-1',
+      },
+      metadata: expect.objectContaining({
+        shipmentStatus: 'in_transit',
+        carrier: 'DHL',
+        trackingNumber: 'DHL-123',
+        trackingUrl: 'https://tracking.example.test/DHL-123',
+        expectedDeliveryDate: '2026-06-02',
+      }),
+    })
+  })
+
   it('turns CRM follow-up activities into source-linked action cards', async () => {
     collections.organizations = [makeDoc('org-1', { name: 'Client One', slug: 'client-one' })]
     collections.activities = [

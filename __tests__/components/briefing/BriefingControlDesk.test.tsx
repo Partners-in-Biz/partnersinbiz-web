@@ -358,6 +358,36 @@ const quoteBriefingItem = {
   occurredAt: '2026-05-31T09:54:00.000Z',
 }
 
+const shipmentBriefingItem = {
+  id: 'shipment:shipment-1',
+  orgId: 'org-1',
+  priority: 'review',
+  title: 'Shipment in transit: DHL-123',
+  summary: 'DHL shipment DHL-123 is in transit to Client warehouse.',
+  excerpt: 'Confirm delivery before closing the onboarding order.',
+  timeAgo: '12 minutes ago',
+  requiresAction: true,
+  source: { type: 'shipment', id: 'shipment-1', url: '/portal/companies/company-1?shipment=shipment-1' },
+  actor: { id: 'system', name: 'Fulfillment', role: 'system', type: 'system' },
+  context: {
+    orgId: 'org-1',
+    orgName: 'Client One',
+    orgSlug: 'client-one',
+    companyId: 'company-1',
+    orderId: 'order-1',
+    shipmentId: 'shipment-1',
+    shipmentTrackingNumber: 'DHL-123',
+  },
+  metadata: {
+    shipmentStatus: 'in_transit',
+    carrier: 'DHL',
+    trackingNumber: 'DHL-123',
+    trackingUrl: 'https://tracking.example.test/DHL-123',
+    expectedDeliveryDate: '2026-06-02',
+  },
+  occurredAt: '2026-05-31T09:53:00.000Z',
+}
+
 const expenseBriefingItem = {
   id: 'expense:expense-1',
   orgId: 'org-1',
@@ -673,7 +703,7 @@ describe('BriefingControlDesk', () => {
       if (url.startsWith('/api/v1/briefings/feed')) {
         const items = url.includes('orgId=org-2')
           ? [secondOrgBriefingItem]
-          : [briefingItem, documentBriefingItem, documentCommentBriefingItem, approvalBriefingItem, conversationBriefingItem, socialBriefingItem, notificationBriefingItem, activityBriefingItem, reportBriefingItem, supportBriefingItem, invoiceBriefingItem, invoiceProofBriefingItem, quoteBriefingItem, expenseBriefingItem, seoContentBriefingItem, seoTaskBriefingItem, adCampaignBriefingItem, formSubmissionBriefingItem, socialInboxBriefingItem, mailboxBriefingItem, agentRunBriefingItem, workspaceBrokerBriefingItem, calendarBriefingItem, secondOrgBriefingItem]
+          : [briefingItem, documentBriefingItem, documentCommentBriefingItem, approvalBriefingItem, conversationBriefingItem, socialBriefingItem, notificationBriefingItem, activityBriefingItem, reportBriefingItem, supportBriefingItem, invoiceBriefingItem, invoiceProofBriefingItem, quoteBriefingItem, shipmentBriefingItem, expenseBriefingItem, seoContentBriefingItem, seoTaskBriefingItem, adCampaignBriefingItem, formSubmissionBriefingItem, socialInboxBriefingItem, mailboxBriefingItem, agentRunBriefingItem, workspaceBrokerBriefingItem, calendarBriefingItem, secondOrgBriefingItem]
         return {
           ok: true,
           json: async () => ({ data: { items, total: items.length, hasMore: false, generatedAt: '2026-05-31T10:05:00.000Z' } }),
@@ -1297,6 +1327,38 @@ describe('BriefingControlDesk', () => {
       expect(global.fetch).toHaveBeenCalledWith('/api/v1/quotes/quote-1', expect.objectContaining({
         method: 'PATCH',
         body: JSON.stringify({ status: 'declined' }),
+      }))
+    })
+  })
+
+  it('marks active shipment cards delivered or failed from the control desk', async () => {
+    render(<BriefingControlDesk mode="portal" />)
+
+    fireEvent.click(await screen.findByRole('button', { name: /Shipment in transit: DHL-123/i }))
+
+    expect(screen.getByText('DHL-123 (shipment-1)')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /open source/i })).toHaveAttribute('href', '/portal/companies/company-1?shipment=shipment-1')
+    expect(screen.getByRole('button', { name: /mark delivered/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /mark shipment failed/i })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /mark delivered/i }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/shipments?id=shipment-1', expect.objectContaining({
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'delivered' }),
+      }))
+    })
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /mark delivered/i })).not.toBeDisabled()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /mark shipment failed/i }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/shipments?id=shipment-1', expect.objectContaining({
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'failed' }),
       }))
     })
   })
