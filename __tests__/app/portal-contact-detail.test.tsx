@@ -352,6 +352,30 @@ describe('Portal contact detail page', () => {
     })
   })
 
+  it('names incomplete sequence enrollment details instead of exposing raw ids', async () => {
+    mockEnrollments = [{
+      id: 'enrollment-raw-sequence',
+      sequenceId: 'seq-raw-id',
+      currentStep: 0,
+    }]
+
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    expect(await screen.findByText('Sequence identity missing')).toBeInTheDocument()
+    expect(screen.getByText('Step 1 · Enrollment status not set')).toBeInTheDocument()
+    expect(screen.queryByText('seq-raw-id')).not.toBeInTheDocument()
+    expect(screen.queryByText(/undefined/i)).not.toBeInTheDocument()
+    expect(
+      screen.getByRole('button', {
+        name: 'Review unenrollment for Jane Client from Sequence identity missing',
+      })
+    ).toBeInTheDocument()
+  })
+
   it('shows sequence unenrollment failures without removing the workflow', async () => {
     mockSequenceUnenrollError = 'Enrollment already completed'
     mockEnrollments = [{

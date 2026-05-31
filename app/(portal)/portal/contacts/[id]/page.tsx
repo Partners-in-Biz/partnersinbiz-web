@@ -1974,13 +1974,15 @@ export default function PortalContactDetailPage() {
               </div>
             ) : (
               enrollments.map((e) => {
-                const sequenceName = e.sequenceName ?? e.sequenceId ?? 'Sequence'
+                const sequenceName = e.sequenceName?.trim()
+                  || (e.sequenceId?.trim() ? 'Sequence identity missing' : 'Sequence enrollment missing')
+                const enrollmentStatus = e.status?.trim() || 'Enrollment status not set'
                 return (
                   <div key={e.id} className="py-2 border-b border-[var(--color-pib-line)] last:border-0">
                     <div className="flex items-center justify-between gap-3">
                       <div>
                         <p className="text-sm font-medium">{sequenceName}</p>
-                        <p className="text-xs text-[var(--color-pib-text-muted)]">Step {(e.currentStep ?? 0) + 1} · {e.status}</p>
+                        <p className="text-xs text-[var(--color-pib-text-muted)]">Step {(e.currentStep ?? 0) + 1} · {enrollmentStatus}</p>
                       </div>
                       <button
                         type="button"
