@@ -64,6 +64,15 @@ describe('CustomFieldDefinitionsList', () => {
     expect(onEdit).toHaveBeenCalledWith(expect.objectContaining({ id: 'field-1' }))
   })
 
+  it('renders field type chips in readable CRM language', () => {
+    renderList({
+      definitions: [definition({ type: 'multi_select' })],
+    })
+
+    expect(screen.getByText('Multi-select')).toBeInTheDocument()
+    expect(screen.queryByText('multi_select')).not.toBeInTheDocument()
+  })
+
   it('keeps field setup gap actions hidden from non-admin users', () => {
     renderList({
       isAdmin: false,
