@@ -81,6 +81,8 @@ describe('Portal settings products page', () => {
 
     expect(await screen.findByText('Strategy workshop')).toBeInTheDocument()
     expect(screen.getByText('Missing unit, price')).toBeInTheDocument()
+    expect(screen.getByText('Unit not set')).toBeInTheDocument()
+    expect(screen.queryByText('—')).not.toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: /Fix pricing setup for Strategy workshop/i }))
     expect(screen.getByRole('dialog', { name: 'Edit product' })).toBeInTheDocument()

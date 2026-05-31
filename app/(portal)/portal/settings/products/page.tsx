@@ -417,7 +417,9 @@ export default function ProductsPage() {
                         )}
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-[var(--color-pib-text-muted)]">{p.unit ?? '—'}</td>
+                    <td className="px-4 py-3 text-[var(--color-pib-text-muted)]">
+                      {p.unit?.trim() ? p.unit : 'Unit not set'}
+                    </td>
                     <td className="px-4 py-3 text-right tabular-nums">{fmtMoney(p.unitPrice, p.currency)}</td>
                     <td className="px-4 py-3 text-[var(--color-pib-text-muted)]">{p.currency}</td>
                     <td className="px-4 py-3">
