@@ -110,6 +110,30 @@ describe('Portal settings products page', () => {
     expect(screen.getByRole('dialog', { name: 'Edit product' })).toBeInTheDocument()
   })
 
+  it('names missing product currency instead of crashing or leaving blank pricing context', async () => {
+    products = [{
+      id: 'product-1',
+      orgId: 'org-1',
+      name: 'Audit Sprint',
+      description: 'Technical audit',
+      unit: 'sprint',
+      unitPrice: 9000,
+      currency: '',
+      createdAt: null,
+      updatedAt: null,
+    }]
+
+    render(<ProductsPage />)
+
+    expect(await screen.findByText('Audit Sprint')).toBeInTheDocument()
+    expect(screen.getByText('Currency not set')).toBeInTheDocument()
+    expect(screen.getByText('Missing currency')).toBeInTheDocument()
+    expect(screen.queryByText('RangeError')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /Fix pricing setup for Audit Sprint/i }))
+    expect(screen.getByRole('dialog', { name: 'Edit product' })).toBeInTheDocument()
+  })
+
   it('treats an empty filtered product view as a reversible catalog lens', async () => {
     products = [{
       id: 'product-1',

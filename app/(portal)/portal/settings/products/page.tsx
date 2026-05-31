@@ -6,11 +6,16 @@ import { ProductModal } from '@/components/crm/ProductModal'
 import type { Product } from '@/lib/products/types'
 
 function fmtMoney(value: number, currency = 'ZAR'): string {
-  return new Intl.NumberFormat('en-ZA', {
-    style: 'currency',
-    currency,
-    maximumFractionDigits: value % 1 === 0 ? 0 : 2,
-  }).format(value)
+  const safeCurrency = currency?.trim() || 'ZAR'
+  try {
+    return new Intl.NumberFormat('en-ZA', {
+      style: 'currency',
+      currency: safeCurrency,
+      maximumFractionDigits: value % 1 === 0 ? 0 : 2,
+    }).format(value)
+  } catch {
+    return `${safeCurrency} ${value.toLocaleString('en-ZA')}`
+  }
 }
 
 function productHealth(product: Product): { score: number; gaps: string[] } {
@@ -30,6 +35,10 @@ function productHealth(product: Product): { score: number; gaps: string[] } {
 
 function productDisplayName(product: Product): string {
   return product.name?.trim() || 'Product name missing'
+}
+
+function productCurrencyLabel(product: Product): string {
+  return product.currency?.trim() || 'Currency not set'
 }
 
 function StatCard({ label, value, sub, icon }: { label: string; value: string; sub: string; icon: string }) {
@@ -426,7 +435,7 @@ export default function ProductsPage() {
                       {p.unit?.trim() ? p.unit : 'Unit not set'}
                     </td>
                     <td className="px-4 py-3 text-right tabular-nums">{fmtMoney(p.unitPrice, p.currency)}</td>
-                    <td className="px-4 py-3 text-[var(--color-pib-text-muted)]">{p.currency}</td>
+                    <td className="px-4 py-3 text-[var(--color-pib-text-muted)]">{productCurrencyLabel(p)}</td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1">
                         <button
