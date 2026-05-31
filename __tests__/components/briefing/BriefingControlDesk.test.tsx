@@ -167,6 +167,32 @@ const activityBriefingItem = {
   occurredAt: '2026-05-31T09:58:00.000Z',
 }
 
+const reportBriefingItem = {
+  id: 'report:report-1',
+  orgId: 'org-1',
+  priority: 'review',
+  title: 'Report ready to review: May performance report',
+  summary: 'Monthly report is rendered and ready to send.',
+  excerpt: 'Revenue grew after the launch sprint.',
+  timeAgo: '8 minutes ago',
+  requiresAction: true,
+  source: { type: 'report', id: 'report-1', url: '/reports/public-report-token' },
+  actor: { id: 'agent:analyst', name: 'Analyst', role: 'ai', type: 'agent' },
+  context: {
+    orgId: 'org-1',
+    orgName: 'Client One',
+    orgSlug: 'client-one',
+    reportId: 'report-1',
+    reportTitle: 'May performance report',
+  },
+  metadata: {
+    reportType: 'monthly',
+    status: 'rendered',
+    publicToken: 'public-report-token',
+  },
+  occurredAt: '2026-05-31T09:57:00.000Z',
+}
+
 describe('BriefingControlDesk', () => {
   beforeEach(() => {
     jest.useFakeTimers()
@@ -185,7 +211,7 @@ describe('BriefingControlDesk', () => {
       if (url.startsWith('/api/v1/briefings/feed')) {
         const items = url.includes('orgId=org-2')
           ? [secondOrgBriefingItem]
-          : [briefingItem, documentBriefingItem, conversationBriefingItem, socialBriefingItem, notificationBriefingItem, activityBriefingItem, secondOrgBriefingItem]
+          : [briefingItem, documentBriefingItem, conversationBriefingItem, socialBriefingItem, notificationBriefingItem, activityBriefingItem, reportBriefingItem, secondOrgBriefingItem]
         return {
           ok: true,
           json: async () => ({ data: { items, total: items.length, hasMore: false, generatedAt: '2026-05-31T10:05:00.000Z' } }),
@@ -243,6 +269,12 @@ describe('BriefingControlDesk', () => {
         return {
           ok: true,
           json: async () => ({ data: { id: 'activity-note-1' } }),
+        } as Response
+      }
+      if (url === '/api/v1/reports/report-1/send') {
+        return {
+          ok: true,
+          json: async () => ({ ok: true, link: '/reports/public-report-token', recipients: ['client@example.test'] }),
         } as Response
       }
       return {
@@ -462,6 +494,28 @@ describe('BriefingControlDesk', () => {
     })
     await waitFor(() => {
       expect(screen.getByLabelText('Follow-up note')).toHaveValue('')
+    })
+  })
+
+  it('opens and sends rendered report cards from the control desk', async () => {
+    render(<BriefingControlDesk mode="portal" />)
+
+    fireEvent.click(await screen.findByRole('button', { name: /Report ready to review: May performance report/i }))
+
+    expect(screen.getByRole('link', { name: /open source/i })).toHaveAttribute('href', '/reports/public-report-token')
+    expect(screen.getByText('May performance report (report-1)')).toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText('Report recipients'), { target: { value: 'client@example.test, ops@example.test' } })
+    fireEvent.click(screen.getByRole('button', { name: /send report/i }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/reports/report-1/send', expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ to: ['client@example.test', 'ops@example.test'] }),
+      }))
+    })
+    await waitFor(() => {
+      expect(screen.getByLabelText('Report recipients')).toHaveValue('')
     })
   })
 })

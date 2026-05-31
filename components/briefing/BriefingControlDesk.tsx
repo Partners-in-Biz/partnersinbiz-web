@@ -35,6 +35,8 @@ interface BriefingCard {
     contactName?: string | null
     dealId?: string | null
     dealTitle?: string | null
+    reportId?: string | null
+    reportTitle?: string | null
   }
   metadata?: Record<string, unknown> | null
   occurredAt: string
@@ -113,6 +115,7 @@ function sourceLabel(item: BriefingCard) {
   if (item.context.conversationTitle || item.context.conversationId) return `${item.source.type} / ${titledId(item.context.conversationTitle, item.context.conversationId ?? item.source.id)}`
   if (item.context.contactName || item.context.contactId) return `${item.source.type} / ${titledId(item.context.contactName, item.context.contactId ?? item.source.id)}`
   if (item.context.dealTitle || item.context.dealId) return `${item.source.type} / ${titledId(item.context.dealTitle, item.context.dealId ?? item.source.id)}`
+  if (item.context.reportTitle || item.context.reportId) return `${item.source.type} / ${titledId(item.context.reportTitle, item.context.reportId ?? item.source.id)}`
   return `${item.source.type} / ${item.source.id}`
 }
 
@@ -125,6 +128,7 @@ function sourceHref(item: BriefingCard, mode: Mode) {
   if (item.context.documentId) return `/portal/documents/${item.context.documentId}`
   if (item.context.contactId) return `/portal/contacts/${encodeURIComponent(item.context.contactId)}`
   if (item.context.dealId) return `/portal/deals/${encodeURIComponent(item.context.dealId)}`
+  if (item.source.type === 'report' && item.source.url) return item.source.url
   return item.source.url || null
 }
 
@@ -141,6 +145,7 @@ function adminSourceHref(item: BriefingCard) {
   }
   if (item.context.contactId) return `/admin/crm/contacts/${encodeURIComponent(item.context.contactId)}`
   if (item.context.dealId) return `/admin/crm/pipeline?dealId=${encodeURIComponent(item.context.dealId)}`
+  if (item.source.type === 'report' && item.source.url) return item.source.url
   return item.source.url || null
 }
 
@@ -166,6 +171,10 @@ function canNotificationAct(item: BriefingCard) {
 
 function canActivityFollowUpAct(item: BriefingCard) {
   return item.source.type === 'activity' && Boolean(item.context.contactId || item.metadata?.contactId)
+}
+
+function canReportAct(item: BriefingCard) {
+  return item.source.type === 'report' && Boolean(item.context.reportId || item.source.id)
 }
 
 function socialActionStage(item: BriefingCard): 'client' | 'qa' | null {
@@ -202,6 +211,7 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
   const [replyText, setReplyText] = useState('')
   const [socialChangeText, setSocialChangeText] = useState('')
   const [followUpText, setFollowUpText] = useState('')
+  const [reportRecipients, setReportRecipients] = useState('')
   const [busyAction, setBusyAction] = useState<string | null>(null)
   const [flash, setFlash] = useState<Flash>(null)
 
@@ -575,6 +585,34 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
     }
   }
 
+  async function sendReport(item: BriefingCard) {
+    if (!canReportAct(item)) return
+    const reportId = item.context.reportId || item.source.id
+    const recipients = reportRecipients
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean)
+    if (!reportId || recipients.length === 0) return
+
+    setBusyAction('report-send')
+    try {
+      const res = await fetch(`/api/v1/reports/${encodeURIComponent(reportId)}/send`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ to: recipients }),
+      })
+      const body = await res.json()
+      if (!res.ok) throw new Error(body.error || 'Report send failed')
+      setReportRecipients('')
+      setFlash({ kind: 'ok', message: `Report sent to ${recipients.length} recipient${recipients.length === 1 ? '' : 's'}.` })
+      await loadFeed({ quiet: true })
+    } catch (err) {
+      setFlash({ kind: 'error', message: err instanceof Error ? err.message : 'Report send failed' })
+    } finally {
+      setBusyAction(null)
+    }
+  }
+
   async function unblockTask(item: BriefingCard) {
     if (!canTaskAct(item)) return
     setBusyAction('unblock')
@@ -887,6 +925,25 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                   </div>
                 ) : null}
 
+                {canReportAct(selected) ? (
+                  <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                    <label className="text-xs font-medium text-on-surface-variant" htmlFor="briefing-report-recipients">
+                      Report recipients
+                    </label>
+                    <input
+                      id="briefing-report-recipients"
+                      className="pib-input mt-2 w-full"
+                      value={reportRecipients}
+                      onChange={(event) => setReportRecipients(event.target.value)}
+                      placeholder="client@example.com, team@example.com"
+                    />
+                    <button className="pib-btn-primary mt-2 w-full justify-center text-xs" type="button" onClick={() => sendReport(selected)} disabled={!reportRecipients.trim() || !!busyAction}>
+                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">send</span>
+                      Send report
+                    </button>
+                  </div>
+                ) : null}
+
                 <dl className="space-y-3 text-sm">
                   <div><dt className="text-on-surface-variant">Actor</dt><dd className="text-on-surface">{titledId(selected.actor.name, selected.actor.id)}</dd></div>
                   <div><dt className="text-on-surface-variant">Workspace</dt><dd className="text-on-surface">{titledId(selected.context.orgName, selected.orgId)}</dd></div>
@@ -896,6 +953,7 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                   {selected.context.conversationTitle || selected.context.conversationId ? <div><dt className="text-on-surface-variant">Conversation</dt><dd className="text-on-surface">{titledId(selected.context.conversationTitle, selected.context.conversationId)}</dd></div> : null}
                   {selected.context.contactName || selected.context.contactId ? <div><dt className="text-on-surface-variant">Contact</dt><dd className="text-on-surface">{titledId(selected.context.contactName, selected.context.contactId)}</dd></div> : null}
                   {selected.context.dealTitle || selected.context.dealId ? <div><dt className="text-on-surface-variant">Deal</dt><dd className="text-on-surface">{titledId(selected.context.dealTitle, selected.context.dealId)}</dd></div> : null}
+                  {selected.context.reportTitle || selected.context.reportId ? <div><dt className="text-on-surface-variant">Report</dt><dd className="text-on-surface">{titledId(selected.context.reportTitle, selected.context.reportId)}</dd></div> : null}
                   <div><dt className="text-on-surface-variant">Occurred</dt><dd className="text-on-surface">{new Date(selected.occurredAt).toLocaleString('en-ZA')}</dd></div>
                   <div><dt className="text-on-surface-variant">Source</dt><dd className="text-on-surface">{sourceLabel(selected)}</dd></div>
                 </dl>

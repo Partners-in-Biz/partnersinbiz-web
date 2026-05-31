@@ -1071,12 +1071,17 @@ export default function PortalContactDetailPage() {
       </div>
 
       {archiveConfirmOpen && (
-        <section className="bento-card border border-red-500/30 bg-red-500/[0.04] !p-5">
+        <section
+          role="alertdialog"
+          aria-labelledby="portal-contact-archive-title"
+          aria-describedby="portal-contact-archive-description"
+          className="bento-card border border-red-500/30 bg-red-500/[0.04] !p-5"
+        >
           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div className="max-w-2xl">
               <p className="eyebrow !text-[10px] text-red-300">Archive contact</p>
-              <h2 className="mt-2 font-display text-xl text-[var(--color-pib-text)]">Archive {contactName}?</h2>
-              <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">
+              <h2 id="portal-contact-archive-title" className="mt-2 font-display text-xl text-[var(--color-pib-text)]">Archive {contactName}?</h2>
+              <p id="portal-contact-archive-description" className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">
                 This contact will leave the active CRM list, but relationship history stays available for reporting and audit context.
               </p>
             </div>
@@ -2256,8 +2261,22 @@ export default function PortalContactDetailPage() {
       {/* C3: Enroll modal */}
       {showEnrollModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bento-card !p-6 w-full max-w-sm space-y-4">
-            <p className="text-sm font-semibold">Enroll in sequence</p>
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="portal-contact-enroll-title"
+            aria-describedby="portal-contact-enroll-description"
+            className="bento-card !p-6 w-full max-w-sm space-y-4"
+          >
+            <div>
+              <p className="eyebrow !text-[10px]">Nurture workflow</p>
+              <h2 id="portal-contact-enroll-title" className="mt-1 text-lg font-semibold text-[var(--color-pib-text)]">
+                Enroll {contactName} in a nurture sequence
+              </h2>
+              <p id="portal-contact-enroll-description" className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">
+                Choose an approved sequence so outreach steps, accountability, and follow-up timing are visible to the team from this contact record.
+              </p>
+            </div>
             {sequences.length === 0 && (
               <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.02] p-4">
                 <div className="flex items-start gap-3">

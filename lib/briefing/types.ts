@@ -80,6 +80,8 @@ export interface BriefingContext {
   contactName?: string | null
   dealId?: string | null
   dealTitle?: string | null
+  reportId?: string | null
+  reportTitle?: string | null
   sourceIds?: string[]  // Related source IDs for cross-reference
 }
 

@@ -235,6 +235,7 @@ describe('Portal contact detail page', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /Archive/ }))
 
+    expect(screen.getByRole('alertdialog', { name: 'Archive Jane Client?' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Archive Jane Client?' })).toBeInTheDocument()
     expect(screen.getByText('This contact will leave the active CRM list, but relationship history stays available for reporting and audit context.')).toBeInTheDocument()
     expect(global.fetch).not.toHaveBeenCalledWith('/api/v1/crm/contacts/contact-1', { method: 'DELETE' })
@@ -284,6 +285,9 @@ describe('Portal contact detail page', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Choose nurture sequence for Jane Client' }))
 
+    expect(await screen.findByRole('dialog', { name: 'Enroll Jane Client in a nurture sequence' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Enroll Jane Client in a nurture sequence' })).toBeInTheDocument()
+    expect(screen.getByText('Choose an approved sequence so outreach steps, accountability, and follow-up timing are visible to the team from this contact record.')).toBeInTheDocument()
     expect(await screen.findByRole('button', { name: 'Enroll contact' })).toBeInTheDocument()
   })
 

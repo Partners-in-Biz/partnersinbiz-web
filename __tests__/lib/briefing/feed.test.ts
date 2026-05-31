@@ -331,4 +331,54 @@ describe('briefing feed', () => {
     })
     expect(feed.items[0].summary).toContain('Confirm approval blockers')
   })
+
+  it('surfaces rendered reports with public source links and review context', async () => {
+    collections.organizations = [makeDoc('org-1', { name: 'Client One', slug: 'client-one' })]
+    collections.reports = [
+      makeDoc('report-1', {
+        orgId: 'org-1',
+        type: 'monthly',
+        title: 'May performance report',
+        status: 'rendered',
+        publicToken: 'public-report-token',
+        generatedBy: 'agent:analyst',
+        exec_summary: 'Revenue grew after the launch sprint. api_key: should-not-leak',
+        highlights: ['Revenue up', 'Follow-up needed'],
+        period: { start: '2026-05-01', end: '2026-05-31', tz: 'Africa/Johannesburg' },
+        brand: { orgName: 'Client One' },
+        kpis: { total_revenue: 25000, mrr: 5000, deltas: { total_revenue: 12.4 } },
+        createdAt: '2026-05-31T08:00:00.000Z',
+        updatedAt: '2026-05-31T08:10:00.000Z',
+      }),
+    ]
+
+    const { buildBriefingFeed } = await import('@/lib/briefing/feed')
+    const feed = await buildBriefingFeed(
+      { uid: 'admin-1', role: 'admin', allowedOrgIds: ['org-1'] },
+      { limit: 10, sourceType: 'report' },
+    )
+
+    expect(feed.items).toHaveLength(1)
+    expect(feed.items[0]).toMatchObject({
+      priority: 'review',
+      requiresAction: true,
+      source: { type: 'report', id: 'report-1', url: '/reports/public-report-token' },
+      title: 'Report ready to review: May performance report',
+      actor: { id: 'agent:analyst', type: 'agent' },
+      context: {
+        orgName: 'Client One',
+        reportId: 'report-1',
+        reportTitle: 'May performance report',
+      },
+      metadata: expect.objectContaining({
+        reportType: 'monthly',
+        status: 'rendered',
+        publicToken: 'public-report-token',
+        totalRevenue: 25000,
+      }),
+    })
+    expect(feed.items[0].summary).toContain('Revenue grew')
+    expect(JSON.stringify(feed.items)).not.toContain('should-not-leak')
+    expect(JSON.stringify(feed.items)).toContain('[REDACTED]')
+  })
 })

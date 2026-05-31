@@ -7,7 +7,7 @@
  */
 
 import type { BriefingSourceAdapter, BriefingPriority } from '../types'
-import { normalizeActor, hashSourceDocument, extractMultiFieldExcerpt, normalizeTimestamp, extractOrgId } from '../utils'
+import { hashSourceDocument, extractMultiFieldExcerpt, normalizeTimestamp, extractOrgId } from '../utils'
 
 /**
  * Report document shape.
@@ -18,15 +18,38 @@ interface ReportDocument extends Record<string, unknown> {
   type: string
   title: string
   description?: string | null
+  exec_summary?: string | null
+  highlights?: string[] | null
   status: string
   generatedBy: string
   generatedAt?: unknown
+  createdAt?: unknown
+  updatedAt?: unknown
+  sentAt?: unknown
   expiresAt?: unknown
   data?: Record<string, unknown> | null
+  kpis?: Record<string, unknown> | null
   filters?: Record<string, unknown> | null
+  publicToken?: string | null
+  period?: { start?: string; end?: string; tz?: string } | null
+  brand?: { orgName?: string | null } | null
   projectId?: string | null
   clientId?: string | null
   priority?: string
+}
+
+function cleanString(value: unknown): string | null {
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null
+}
+
+function reportTitle(doc: ReportDocument): string {
+  return cleanString(doc.title) ?? cleanString(doc.brand?.orgName) ?? 'Performance report'
+}
+
+function reportSourceUrl(doc: ReportDocument, docId: string): string {
+  const token = cleanString(doc.publicToken)
+  if (token) return `/reports/${encodeURIComponent(token)}`
+  return `/portal/reports?reportId=${encodeURIComponent(docId)}`
 }
 
 /**
@@ -37,12 +60,13 @@ export const reportAdapter: BriefingSourceAdapter<ReportDocument> = {
   collectionPath: 'reports',
 
   hashSource(doc: ReportDocument, docId: string): string {
-    return hashSourceDocument(doc, docId, ['type', 'title', 'status', 'generatedAt', 'priority'])
+    return hashSourceDocument(doc, docId, ['type', 'title', 'status', 'generatedAt', 'createdAt', 'updatedAt', 'sentAt', 'priority'])
   },
 
-  shouldGenerate(doc: ReportDocument, _docId: string): boolean {
-    // Only show generated or failed reports
-    if (doc.status !== 'generated' && doc.status !== 'failed' && doc.status !== 'completed') {
+  shouldGenerate(doc: ReportDocument, docId: string): boolean {
+    void docId
+    // Only show report states that represent something a user can review or audit.
+    if (!['generated', 'failed', 'completed', 'rendered', 'sent'].includes(doc.status)) {
       return false
     }
 
@@ -57,7 +81,8 @@ export const reportAdapter: BriefingSourceAdapter<ReportDocument> = {
     return true
   },
 
-  extractPriority(doc: ReportDocument, _docId: string): BriefingPriority {
+  extractPriority(doc: ReportDocument, docId: string): BriefingPriority {
+    void docId
     const type = doc.type.toLowerCase()
 
     // Failed reports are critical
@@ -84,11 +109,16 @@ export const reportAdapter: BriefingSourceAdapter<ReportDocument> = {
       return 'needs-peet'
     }
 
+    if (doc.status === 'rendered' || doc.status === 'generated' || doc.status === 'completed') {
+      return 'review'
+    }
+
     // Default to FYI
     return 'fyi'
   },
 
-  extractActor(doc: ReportDocument, _docId: string) {
+  extractActor(doc: ReportDocument, docId: string) {
+    void docId
     const generatedBy = typeof doc.generatedBy === 'string' ? doc.generatedBy : 'system'
 
     // Check if it's an agent
@@ -133,42 +163,56 @@ export const reportAdapter: BriefingSourceAdapter<ReportDocument> = {
       projectId,
       clientId,
       reportId: _docId,
-      reportTitle: doc.title,
+      reportTitle: reportTitle(doc),
     }
   },
 
-  extractTitle(doc: ReportDocument, _docId: string): string {
+  extractTitle(doc: ReportDocument, docId: string): string {
+    void docId
     const status = doc.status.toLowerCase()
+    const title = reportTitle(doc)
 
     if (status === 'failed') {
-      return `Report failed: ${doc.title}`
+      return `Report failed: ${title}`
     }
 
-    if (status === 'generated' || status === 'completed') {
-      return `Report available: ${doc.title}`
+    if (status === 'rendered' || status === 'generated' || status === 'completed') {
+      return `Report ready to review: ${title}`
     }
 
-    return `Report: ${doc.title}`
+    if (status === 'sent') {
+      return `Report sent: ${title}`
+    }
+
+    return `Report: ${title}`
   },
 
-  extractSummary(doc: ReportDocument, _docId: string): string {
+  extractSummary(doc: ReportDocument, docId: string): string {
+    void docId
     const parts: string[] = []
 
     parts.push(`Type: ${doc.type}`)
     parts.push(`Status: ${doc.status}`)
 
-    if (doc.description) {
-      const excerpt = extractMultiFieldExcerpt(doc, ['description'], { maxLength: 100 })
+    if (doc.description || doc.exec_summary) {
+      const excerpt = extractMultiFieldExcerpt(doc, ['description', 'exec_summary'], { maxLength: 160 })
       if (excerpt) parts.push(excerpt)
     }
 
+    if (doc.period?.start && doc.period?.end) {
+      parts.push(`Period: ${doc.period.start} to ${doc.period.end}`)
+    }
+
     // Add key metrics if available in data
-    if (doc.data && typeof doc.data === 'object') {
-      const data = doc.data as Record<string, unknown>
+    const metricSource = doc.kpis ?? doc.data
+    if (metricSource && typeof metricSource === 'object') {
+      const data = metricSource as Record<string, unknown>
       const metrics: string[] = []
 
       if (typeof data.totalCount === 'number') metrics.push(`${data.totalCount} items`)
-      if (typeof data.revenue === 'number') metrics.push(`$${data.revenue.toFixed(2)}`)
+      if (typeof data.total_revenue === 'number') metrics.push(`Revenue R${data.total_revenue.toFixed(0)}`)
+      if (typeof data.revenue === 'number') metrics.push(`Revenue R${data.revenue.toFixed(0)}`)
+      if (typeof data.mrr === 'number') metrics.push(`MRR R${data.mrr.toFixed(0)}`)
       if (typeof data.errorCount === 'number') metrics.push(`${data.errorCount} errors`)
 
       if (metrics.length > 0) {
@@ -179,23 +223,32 @@ export const reportAdapter: BriefingSourceAdapter<ReportDocument> = {
     return parts.join('. ') || 'No details.'
   },
 
-  extractExcerpt(doc: ReportDocument, _docId: string, maxLength = 300): string | null {
-    return extractMultiFieldExcerpt(doc, ['description'], { maxLength })
+  extractExcerpt(doc: ReportDocument, docId: string, maxLength = 300): string | null {
+    void docId
+    return extractMultiFieldExcerpt(doc, ['description', 'exec_summary'], { maxLength })
   },
 
-  extractOccurredAt(doc: ReportDocument, _docId: string): Date | null {
-    return normalizeTimestamp(doc.generatedAt)
+  extractOccurredAt(doc: ReportDocument, docId: string): Date | null {
+    void docId
+    return normalizeTimestamp(doc.sentAt) ?? normalizeTimestamp(doc.updatedAt) ?? normalizeTimestamp(doc.generatedAt) ?? normalizeTimestamp(doc.createdAt)
   },
 
-  extractMetadata(doc: ReportDocument, _docId: string): Record<string, unknown> | null {
+  extractMetadata(doc: ReportDocument, docId: string): Record<string, unknown> | null {
+    void docId
+    const kpis = doc.kpis ?? {}
     return {
       reportType: doc.type,
       status: doc.status,
       priority: doc.priority,
       generatedBy: doc.generatedBy,
+      publicToken: cleanString(doc.publicToken),
       expiresAt: doc.expiresAt,
       hasFilters: doc.filters !== null,
-      hasData: doc.data !== null,
+      hasData: doc.data !== null || doc.kpis !== null,
+      periodStart: doc.period?.start,
+      periodEnd: doc.period?.end,
+      totalRevenue: typeof kpis.total_revenue === 'number' ? kpis.total_revenue : undefined,
+      mrr: typeof kpis.mrr === 'number' ? kpis.mrr : undefined,
     }
   },
 
@@ -217,7 +270,7 @@ export const reportAdapter: BriefingSourceAdapter<ReportDocument> = {
         type: this.sourceType,
         id: docId,
         collectionPath: this.collectionPath,
-        url: `/admin/reports/${docId}`,
+        url: reportSourceUrl(doc, docId),
       },
       priority,
       status: 'active',
