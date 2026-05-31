@@ -99,6 +99,18 @@ function teamMemberOwnerRef(member: TeamMember) {
   }
 }
 
+function contactEmailLabel(contact: Contact): string {
+  return contact.email?.trim() || 'Email missing'
+}
+
+function contactCompanyLabel(contact: Contact): string {
+  return contact.companyName?.trim() || contact.company?.trim() || 'Company missing'
+}
+
+function dealCompanyLabel(deal: Deal): string {
+  return deal.companyName?.trim() || 'Company missing'
+}
+
 async function readApiJson(res: Response, fallback: string) {
   const body = await res.json().catch(() => null)
   if (!res.ok) {
@@ -737,14 +749,14 @@ export default function PipelinePage() {
                       <td className="px-4 py-3 font-mono text-xs text-on-surface-variant">{fmtDealValue(deal.value, deal.currency)}</td>
                       <td className="px-4 py-3 font-mono text-xs text-on-surface-variant">{probability}%</td>
                       <td className="px-4 py-3 font-mono text-xs text-on-surface-variant">{fmtDealValue(weighted, deal.currency)}</td>
-                      <td className="px-4 py-3 text-on-surface-variant">{deal.companyName || '—'}</td>
+                      <td className="px-4 py-3 text-on-surface-variant">{dealCompanyLabel(deal)}</td>
                       <td className="px-4 py-3" onClick={(event) => event.stopPropagation()}>
                         {deal.contactId ? (
                           <Link href={`/admin/crm/contacts/${deal.contactId}`} className="text-xs text-[var(--color-accent-v2)] hover:underline">
                             {contactLabel || 'View contact'}
                           </Link>
                         ) : (
-                          <span className="text-xs text-on-surface-variant">—</span>
+                          <span className="text-xs text-on-surface-variant">No contact linked</span>
                         )}
                       </td>
                     </tr>
@@ -841,9 +853,9 @@ export default function PipelinePage() {
                       <Link href={`/admin/crm/contacts/${contact.id}`} className="font-medium text-[var(--color-accent-v2)] hover:underline">
                         {contact.name || contact.email || 'Unnamed contact'}
                       </Link>
-                      <p className="mt-0.5 text-xs text-on-surface-variant">{contact.email}</p>
+                      <p className="mt-0.5 text-xs text-on-surface-variant">{contactEmailLabel(contact)}</p>
                     </td>
-                    <td className="px-4 py-3 text-on-surface-variant">{contact.companyName || contact.company || '—'}</td>
+                    <td className="px-4 py-3 text-on-surface-variant">{contactCompanyLabel(contact)}</td>
                     <td className="px-4 py-3 text-on-surface-variant">{contact.stage}</td>
                     <td className="px-4 py-3 text-on-surface-variant">{contact.type}</td>
                     <td className="px-4 py-3 text-on-surface-variant">{formatRelative(contact.lastContactedAt)}</td>
@@ -852,6 +864,9 @@ export default function PipelinePage() {
                         {typeof contact.leadScore === 'number' && <span className="pill !px-2 !py-0.5 !text-[10px]">Lead {contact.leadScore}</span>}
                         {typeof contact.icpScore === 'number' && <span className="pill !px-2 !py-0.5 !text-[10px]">ICP {contact.icpScore}</span>}
                         {typeof contact.aiLeadScore === 'number' && <span className="pill !px-2 !py-0.5 !text-[10px]">AI {contact.aiLeadScore}</span>}
+                        {typeof contact.leadScore !== 'number' && typeof contact.icpScore !== 'number' && typeof contact.aiLeadScore !== 'number' && (
+                          <span className="text-xs text-on-surface-variant">Scores not captured</span>
+                        )}
                       </div>
                     </td>
                   </tr>
