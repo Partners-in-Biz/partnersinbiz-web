@@ -3,7 +3,7 @@ import { adminAuth, adminDb } from '@/lib/firebase/admin'
 import type { ApiUser } from '@/lib/api/types'
 import { canAccessOrg } from '@/lib/api/platformAdmin'
 import type { BriefingCard, BriefingPriority, BriefingResponse, BriefingSourceAdapter, BriefingSourceItem, BriefingSourceType } from './types'
-import { activityAdapter, adCampaignAdapter, agentOutputAdapter, agentRunAdapter, approvalAdapter, calendarEventAdapter, clientDocumentAdapter, commentAdapter, enquiryAdapter, expenseAdapter, formSubmissionAdapter, inventoryItemAdapter, invoiceAdapter, mailboxMessageAdapter, notificationAdapter, orderAdapter, projectAdapter, quoteAdapter, reportAdapter, seoContentAdapter, seoTaskAdapter, shipmentAdapter, socialInboxAdapter, socialPostAdapter, supportTicketAdapter, taskAdapter, workspaceBrokerJobAdapter } from './index'
+import { activityAdapter, adCampaignAdapter, agentOutputAdapter, agentRunAdapter, approvalAdapter, bookingAdapter, calendarEventAdapter, clientDocumentAdapter, commentAdapter, enquiryAdapter, expenseAdapter, formSubmissionAdapter, inventoryItemAdapter, invoiceAdapter, mailboxMessageAdapter, notificationAdapter, orderAdapter, projectAdapter, quoteAdapter, reportAdapter, seoContentAdapter, seoTaskAdapter, shipmentAdapter, socialInboxAdapter, socialPostAdapter, supportTicketAdapter, taskAdapter, workspaceBrokerJobAdapter } from './index'
 import { comparePriority, formatTimeAgo, normalizeTimestamp, priorityRequiresAction } from './utils'
 
 const PLATFORM_ORG_ID = 'pib-platform-owner'
@@ -389,6 +389,12 @@ async function fetchEnquiryDocs(scopedOrgIds: string[] | null): Promise<Firestor
   return snap.docs as FirestoreDoc[]
 }
 
+async function fetchBookingDocs(scopedOrgIds: string[] | null): Promise<FirestoreDoc[]> {
+  if (scopedOrgIds && scopedOrgIds.length > 0 && !scopedOrgIds.includes(PLATFORM_ORG_ID)) return []
+  const snap = await adminDb.collection('bookings').limit(SOURCE_FETCH_LIMIT).get()
+  return snap.docs as FirestoreDoc[]
+}
+
 async function fetchWorkspaceBrokerJobDocs(scopedOrgIds: string[] | null): Promise<FirestoreDoc[]> {
   const docs = await fetchCollectionDocs('workspace_broker_jobs', scopedOrgIds)
   const seen = new Set<string>()
@@ -692,6 +698,16 @@ export async function buildBriefingFeed(user: ApiUser, options: BriefingFeedOpti
       const docs = await fetchCalendarEventDocs(scopedOrgIds, user)
       for (const doc of docs) {
         const item = toItemSafe(calendarEventAdapter, normalizeDoc(doc), doc.id)
+        if (item) items.push(decorate(item, orgs))
+      }
+    } catch {}
+  }
+
+  if (include('booking') && (user.role === 'admin' || user.role === 'ai')) {
+    try {
+      const docs = await fetchBookingDocs(scopedOrgIds)
+      for (const doc of docs) {
+        const item = toItemSafe(bookingAdapter, normalizeDoc(doc), doc.id)
         if (item) items.push(decorate(item, orgs))
       }
     } catch {}

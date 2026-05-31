@@ -36,6 +36,7 @@ export type BriefingSourceType =
   | 'workspace-broker-job' // Google Workspace broker jobs awaiting approval or recovery
   | 'calendar-event'      // Upcoming calendar events needing RSVP or schedule attention
   | 'approval'             // Approval gates and client document approvals
+  | 'booking'              // Public call bookings needing admin follow-up
   | 'client-document'      // Client documents, specs, reports
   | 'social-post'          // Social content awaiting QA/client approval or attention
   | 'social-inbox'         // Social engagement inbox items needing read/reply/archive
@@ -101,6 +102,8 @@ export interface BriefingContext {
   dealTitle?: string | null
   reportId?: string | null
   reportTitle?: string | null
+  bookingId?: string | null
+  bookingName?: string | null
   supportTicketId?: string | null
   supportTicketSubject?: string | null
   invoiceId?: string | null

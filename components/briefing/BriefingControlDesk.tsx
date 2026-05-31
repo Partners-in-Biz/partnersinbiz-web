@@ -39,6 +39,8 @@ interface BriefingCard {
     dealTitle?: string | null
     reportId?: string | null
     reportTitle?: string | null
+    bookingId?: string | null
+    bookingName?: string | null
     supportTicketId?: string | null
     supportTicketSubject?: string | null
     invoiceId?: string | null
@@ -112,6 +114,7 @@ const SOURCES = [
   { value: 'agent-run', label: 'Agent runs' },
   { value: 'workspace-broker-job', label: 'Workspace jobs' },
   { value: 'calendar-event', label: 'Calendar' },
+  { value: 'booking', label: 'Bookings' },
   { value: 'project', label: 'Projects' },
   { value: 'client-document', label: 'Documents' },
   { value: 'social-post', label: 'Social posts' },
@@ -175,6 +178,7 @@ function sourceLabel(item: BriefingCard) {
   if (item.context.contactName || item.context.contactId) return `${item.source.type} / ${titledId(item.context.contactName, item.context.contactId ?? item.source.id)}`
   if (item.context.dealTitle || item.context.dealId) return `${item.source.type} / ${titledId(item.context.dealTitle, item.context.dealId ?? item.source.id)}`
   if (item.context.reportTitle || item.context.reportId) return `${item.source.type} / ${titledId(item.context.reportTitle, item.context.reportId ?? item.source.id)}`
+  if (item.context.bookingName || item.context.bookingId) return `${item.source.type} / ${titledId(item.context.bookingName, item.context.bookingId ?? item.source.id)}`
   if (item.context.supportTicketSubject || item.context.supportTicketId) return `${item.source.type} / ${titledId(item.context.supportTicketSubject, item.context.supportTicketId ?? item.source.id)}`
   if (item.context.invoiceNumber || item.context.invoiceId) return `${item.source.type} / ${titledId(item.context.invoiceNumber, item.context.invoiceId ?? item.source.id)}`
   if (item.context.quoteNumber || item.context.quoteId) return `${item.source.type} / ${titledId(item.context.quoteNumber, item.context.quoteId ?? item.source.id)}`
@@ -199,6 +203,7 @@ function sourceHref(item: BriefingCard, mode: Mode) {
   if (item.source.type === 'agent-run') return mode === 'admin' ? adminSourceHref(item) : null
   if (item.source.type === 'workspace-broker-job') return mode === 'admin' ? adminSourceHref(item) : null
   if (item.source.type === 'calendar-event') return item.source.url || (mode === 'admin' ? adminSourceHref(item) : `/portal/calendar/events/${encodeURIComponent(item.source.id)}`)
+  if (item.source.type === 'booking') return mode === 'admin' ? adminSourceHref(item) : null
   if (item.source.type === 'form-submission') return mode === 'admin' ? adminSourceHref(item) : null
   if (item.source.type === 'social-inbox') return adminSourceHref(item)
   if (item.source.type === 'mailbox-message') return mode === 'admin' ? adminSourceHref(item) : item.source.url || `/portal/email?message=${encodeURIComponent(item.source.id)}`
@@ -239,6 +244,7 @@ function sourceHref(item: BriefingCard, mode: Mode) {
 function adminSourceHref(item: BriefingCard) {
   if (item.source.type === 'workspace-broker-job') return item.source.url || `/admin/knowledge/workspace-broker/jobs/${encodeURIComponent(item.source.id)}`
   if (item.source.type === 'calendar-event') return item.source.url || `/admin/calendar/events/${encodeURIComponent(item.source.id)}`
+  if (item.source.type === 'booking') return item.source.url || `/admin/briefings?source=booking&id=${encodeURIComponent(item.source.id)}`
   if (item.source.type === 'agent-run') {
     const agentId = typeof item.metadata?.agentId === 'string' && item.metadata.agentId ? item.metadata.agentId : item.actor.id.replace(/^agent:/, '')
     const runId = typeof item.metadata?.hermesRunId === 'string' && item.metadata.hermesRunId ? item.metadata.hermesRunId : item.context.agentRunId ?? item.source.id
@@ -466,6 +472,10 @@ function enquiryActionable(item: BriefingCard, mode: Mode) {
 
 function formSubmissionActionable(item: BriefingCard, mode: Mode) {
   return mode === 'admin' && item.source.type === 'form-submission' && Boolean(item.context.formId && item.source.id)
+}
+
+function bookingActionable(item: BriefingCard, mode: Mode) {
+  return mode === 'admin' && item.source.type === 'booking' && Boolean(item.source.id) && item.metadata?.bookingStatus !== 'completed' && item.metadata?.bookingStatus !== 'cancelled'
 }
 
 function socialActionStage(item: BriefingCard): 'client' | 'qa' | null {
@@ -1009,6 +1019,26 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
       await loadFeed({ quiet: true })
     } catch (err) {
       setFlash({ kind: 'error', message: err instanceof Error ? err.message : 'Calendar RSVP failed' })
+    } finally {
+      setBusyAction(null)
+    }
+  }
+
+  async function bookingAction(item: BriefingCard, status: 'completed' | 'cancelled') {
+    if (!bookingActionable(item, mode)) return
+    setBusyAction(`booking-${status}`)
+    try {
+      const res = await fetch(`/api/bookings/${encodeURIComponent(item.source.id)}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ status }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(body.error || 'Booking update failed')
+      setFlash({ kind: 'ok', message: status === 'completed' ? 'Booking marked completed.' : 'Booking cancelled.' })
+      await loadFeed({ quiet: true })
+    } catch (err) {
+      setFlash({ kind: 'error', message: err instanceof Error ? err.message : 'Booking update failed' })
     } finally {
       setBusyAction(null)
     }
@@ -1910,6 +1940,18 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                       Close enquiry
                     </button>
                   ) : null}
+                  {bookingActionable(selected, mode) ? (
+                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => bookingAction(selected, 'completed')} disabled={!!busyAction}>
+                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">event_available</span>
+                      Mark booking completed
+                    </button>
+                  ) : null}
+                  {bookingActionable(selected, mode) ? (
+                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => bookingAction(selected, 'cancelled')} disabled={!!busyAction}>
+                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">event_busy</span>
+                      Cancel booking
+                    </button>
+                  ) : null}
                   {formSubmissionActionable(selected, mode) ? (
                     <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => formSubmissionAction(selected, 'read')} disabled={!!busyAction}>
                       <span className="material-symbols-outlined text-[15px]" aria-hidden="true">mark_email_read</span>
@@ -2144,6 +2186,7 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                   {selected.context.contactName || selected.context.contactId ? <div><dt className="text-on-surface-variant">Contact</dt><dd className="text-on-surface">{titledId(selected.context.contactName, selected.context.contactId)}</dd></div> : null}
                   {selected.context.dealTitle || selected.context.dealId ? <div><dt className="text-on-surface-variant">Deal</dt><dd className="text-on-surface">{titledId(selected.context.dealTitle, selected.context.dealId)}</dd></div> : null}
                   {selected.context.reportTitle || selected.context.reportId ? <div><dt className="text-on-surface-variant">Report</dt><dd className="text-on-surface">{titledId(selected.context.reportTitle, selected.context.reportId)}</dd></div> : null}
+                  {selected.context.bookingName || selected.context.bookingId ? <div><dt className="text-on-surface-variant">Booking</dt><dd className="text-on-surface">{titledId(selected.context.bookingName, selected.context.bookingId ?? selected.source.id)}</dd></div> : null}
                   {selected.context.supportTicketSubject || selected.context.supportTicketId ? <div><dt className="text-on-surface-variant">Support ticket</dt><dd className="text-on-surface">{titledId(selected.context.supportTicketSubject, selected.context.supportTicketId)}</dd></div> : null}
                   {selected.context.invoiceNumber || selected.context.invoiceId ? <div><dt className="text-on-surface-variant">Invoice</dt><dd className="text-on-surface">{titledId(selected.context.invoiceNumber, selected.context.invoiceId ?? selected.source.id)}</dd></div> : null}
                   {selected.context.quoteNumber || selected.context.quoteId ? <div><dt className="text-on-surface-variant">Quote</dt><dd className="text-on-surface">{titledId(selected.context.quoteNumber, selected.context.quoteId ?? selected.source.id)}</dd></div> : null}

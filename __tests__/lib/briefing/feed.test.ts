@@ -1568,4 +1568,63 @@ describe('briefing feed', () => {
     expect(JSON.stringify(feed.items)).not.toContain('calendar-secret-123')
     expect(JSON.stringify(feed.items)).toContain('[REDACTED]')
   })
+
+  it('surfaces confirmed bookings as platform-owner call control cards', async () => {
+    collections.organizations = [makeDoc('pib-platform-owner', { name: 'Partners in Biz', slug: 'partners-in-biz' })]
+    collections.bookings = [
+      makeDoc('booking-1', {
+        name: 'Mia Founder',
+        email: 'mia@example.test',
+        company: 'Mia Studio',
+        brief: 'Need a growth app plan. token: booking-secret-123',
+        date: '2026-06-01',
+        time: '10:30',
+        durationMins: 20,
+        timezone: 'Africa/Johannesburg',
+        googleEventId: '',
+        meetLink: '',
+        status: 'confirmed',
+        createdAt: '2026-05-31T09:45:00.000Z',
+      }),
+      makeDoc('booking-2', {
+        name: 'Done Founder',
+        email: 'done@example.test',
+        date: '2026-06-01',
+        time: '11:30',
+        status: 'completed',
+        createdAt: '2026-05-31T09:40:00.000Z',
+      }),
+    ]
+
+    const { buildBriefingFeed } = await import('@/lib/briefing/feed')
+    const feed = await buildBriefingFeed(
+      { uid: 'admin-1', role: 'admin', orgId: 'pib-platform-owner', allowedOrgIds: ['pib-platform-owner'] },
+      { limit: 10, sourceType: 'booking' },
+    )
+
+    expect(feed.items).toHaveLength(1)
+    expect(feed.items[0]).toMatchObject({
+      source: { type: 'booking', id: 'booking-1', collectionPath: 'bookings', url: '/admin/briefings?source=booking&id=booking-1' },
+      priority: 'critical',
+      title: 'Booking needs Meet link: Mia Founder',
+      summary: expect.stringContaining('20-minute call with Mia Founder'),
+      context: {
+        orgId: 'pib-platform-owner',
+        orgName: 'Partners in Biz',
+        orgSlug: 'partners-in-biz',
+        bookingId: 'booking-1',
+        bookingName: 'Mia Founder',
+      },
+      metadata: expect.objectContaining({
+        bookingStatus: 'confirmed',
+        email: 'mia@example.test',
+        company: 'Mia Studio',
+        date: '2026-06-01',
+        time: '10:30',
+        meetLink: null,
+      }),
+    })
+    expect(JSON.stringify(feed.items)).not.toContain('booking-secret-123')
+    expect(JSON.stringify(feed.items)).toContain('[REDACTED]')
+  })
 })

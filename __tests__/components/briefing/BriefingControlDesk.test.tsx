@@ -776,6 +776,38 @@ const calendarBriefingItem = {
   occurredAt: '2026-05-31T09:46:00.000Z',
 }
 
+const bookingBriefingItem = {
+  id: 'booking:booking-1',
+  orgId: 'pib-platform-owner',
+  priority: 'critical',
+  title: 'Booking needs Meet link: Mia Founder',
+  summary: '20-minute call with Mia Founder on 2026-06-01 at 10:30 SAST.',
+  excerpt: 'Need a growth app plan.',
+  timeAgo: '7 minutes ago',
+  requiresAction: true,
+  source: { type: 'booking', id: 'booking-1', url: '/admin/briefings?source=booking&id=booking-1' },
+  actor: { id: 'booking:mia@example.test', name: 'Mia Founder', role: 'client', type: 'user' },
+  context: {
+    orgId: 'pib-platform-owner',
+    orgName: 'Partners in Biz',
+    orgSlug: 'partners-in-biz',
+    bookingId: 'booking-1',
+    bookingName: 'Mia Founder',
+  },
+  metadata: {
+    bookingStatus: 'confirmed',
+    email: 'mia@example.test',
+    company: 'Mia Studio',
+    date: '2026-06-01',
+    time: '10:30',
+    timezone: 'Africa/Johannesburg',
+    durationMins: 20,
+    meetLink: null,
+    googleEventId: null,
+  },
+  occurredAt: '2026-05-31T09:45:00.000Z',
+}
+
 describe('BriefingControlDesk', () => {
   beforeEach(() => {
     jest.useFakeTimers()
@@ -794,7 +826,7 @@ describe('BriefingControlDesk', () => {
       if (url.startsWith('/api/v1/briefings/feed')) {
         const items = url.includes('orgId=org-2')
           ? [secondOrgBriefingItem]
-          : [briefingItem, documentBriefingItem, documentCommentBriefingItem, approvalBriefingItem, conversationBriefingItem, socialBriefingItem, notificationBriefingItem, activityBriefingItem, reportBriefingItem, supportBriefingItem, invoiceBriefingItem, invoiceProofBriefingItem, quoteBriefingItem, shipmentBriefingItem, orderBriefingItem, inventoryBriefingItem, enquiryBriefingItem, expenseBriefingItem, seoContentBriefingItem, seoTaskBriefingItem, adCampaignBriefingItem, formSubmissionBriefingItem, socialInboxBriefingItem, mailboxBriefingItem, agentRunBriefingItem, workspaceBrokerBriefingItem, calendarBriefingItem, secondOrgBriefingItem]
+          : [briefingItem, documentBriefingItem, documentCommentBriefingItem, approvalBriefingItem, conversationBriefingItem, socialBriefingItem, notificationBriefingItem, activityBriefingItem, reportBriefingItem, supportBriefingItem, invoiceBriefingItem, invoiceProofBriefingItem, quoteBriefingItem, shipmentBriefingItem, orderBriefingItem, inventoryBriefingItem, enquiryBriefingItem, bookingBriefingItem, expenseBriefingItem, seoContentBriefingItem, seoTaskBriefingItem, adCampaignBriefingItem, formSubmissionBriefingItem, socialInboxBriefingItem, mailboxBriefingItem, agentRunBriefingItem, workspaceBrokerBriefingItem, calendarBriefingItem, secondOrgBriefingItem]
         return {
           ok: true,
           json: async () => ({ data: { items, total: items.length, hasMore: false, generatedAt: '2026-05-31T10:05:00.000Z' } }),
@@ -990,6 +1022,12 @@ describe('BriefingControlDesk', () => {
         return {
           ok: true,
           json: async () => ({ data: { id: 'event-1', attendees: [{ email: 'ava@example.test', status: 'accepted' }] } }),
+        } as Response
+      }
+      if (url === '/api/bookings/booking-1') {
+        return {
+          ok: true,
+          json: async () => ({ id: 'booking-1', status: 'completed' }),
         } as Response
       }
       return {
@@ -1959,6 +1997,38 @@ describe('BriefingControlDesk', () => {
       expect(global.fetch).toHaveBeenCalledWith('/api/v1/calendar/events/event-1/rsvp', expect.objectContaining({
         method: 'POST',
         body: JSON.stringify({ email: 'ava@example.test', status: 'declined' }),
+      }))
+    })
+  })
+
+  it('completes and cancels booking cards from the admin control desk', async () => {
+    render(<BriefingControlDesk mode="admin" />)
+
+    fireEvent.click(await screen.findByRole('button', { name: /Booking needs Meet link: Mia Founder/i }))
+
+    expect(screen.getByText('Mia Founder (booking-1)')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /open source/i })).toHaveAttribute('href', '/admin/briefings?source=booking&id=booking-1')
+    expect(screen.getByRole('button', { name: /mark booking completed/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /cancel booking/i })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /mark booking completed/i }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/bookings/booking-1', expect.objectContaining({
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'completed' }),
+      }))
+    })
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /cancel booking/i })).not.toBeDisabled()
+    })
+    fireEvent.click(screen.getByRole('button', { name: /cancel booking/i }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/bookings/booking-1', expect.objectContaining({
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'cancelled' }),
       }))
     })
   })
