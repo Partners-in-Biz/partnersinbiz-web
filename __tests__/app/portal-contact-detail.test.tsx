@@ -261,6 +261,28 @@ describe('Portal contact detail page', () => {
     expect(screen.queryByPlaceholderText('Add note notes…')).not.toBeInTheDocument()
   })
 
+  it('lets a busy team member discard unsaved contact profile edits', async () => {
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    fireEvent.change(screen.getByPlaceholderText('+27...'), {
+      target: { value: '+27 82 111 2222' },
+    })
+
+    expect(screen.getByText('Unsaved changes')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Discard unsaved profile edits for Jane Client' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Discard unsaved profile edits for Jane Client' }))
+
+    expect(screen.getByPlaceholderText('+27...')).toHaveValue('')
+    expect(screen.queryByText('Unsaved changes')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Discard unsaved profile edits for Jane Client' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Save changes' })).toBeDisabled()
+  })
+
   it('uses relationship-history copy for the empty activity metric', async () => {
     render(<PortalContactDetailPage />)
 
