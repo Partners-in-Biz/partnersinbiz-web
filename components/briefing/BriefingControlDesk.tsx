@@ -161,6 +161,10 @@ function canDocumentCommentReplyAct(item: BriefingCard) {
   return item.source.type === 'comment' && Boolean(item.context.documentId && item.source.id)
 }
 
+function canDocumentCommentResolveAct(item: BriefingCard) {
+  return canDocumentCommentReplyAct(item)
+}
+
 function canConversationAct(item: BriefingCard) {
   return Boolean(item.context.conversationId)
 }
@@ -442,6 +446,26 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
       await loadFeed({ quiet: true })
     } catch (err) {
       setFlash({ kind: 'error', message: err instanceof Error ? err.message : 'Document comment reply failed' })
+    } finally {
+      setBusyAction(null)
+    }
+  }
+
+  async function resolveDocumentComment(item: BriefingCard) {
+    if (!canDocumentCommentResolveAct(item)) return
+    setBusyAction('document-comment-resolve')
+    try {
+      const res = await fetch(`/api/v1/client-documents/${item.context.documentId}/comments/${encodeURIComponent(item.source.id)}/resolve`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ resolved: true }),
+      })
+      const body = await res.json()
+      if (!res.ok) throw new Error(body.error || 'Document comment resolve failed')
+      setFlash({ kind: 'ok', message: 'Document comment resolved from the control desk.' })
+      await loadFeed({ quiet: true })
+    } catch (err) {
+      setFlash({ kind: 'error', message: err instanceof Error ? err.message : 'Document comment resolve failed' })
     } finally {
       setBusyAction(null)
     }
@@ -890,6 +914,12 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                     <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => requestDocumentChanges(selected)} disabled={!!busyAction}>
                       <span className="material-symbols-outlined text-[15px]" aria-hidden="true">edit_note</span>
                       Request changes
+                    </button>
+                  ) : null}
+                  {canDocumentCommentResolveAct(selected) ? (
+                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => resolveDocumentComment(selected)} disabled={!!busyAction}>
+                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">task_alt</span>
+                      Resolve document comment
                     </button>
                   ) : null}
                   {canSocialPostAct(selected) && socialActionStage(selected) ? (

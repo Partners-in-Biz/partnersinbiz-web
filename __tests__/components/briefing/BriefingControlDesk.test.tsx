@@ -301,6 +301,12 @@ describe('BriefingControlDesk', () => {
           json: async () => ({ data: { id: 'document-reply-1' } }),
         } as Response
       }
+      if (url === '/api/v1/client-documents/doc-1/comments/doc-comment-1/resolve') {
+        return {
+          ok: true,
+          json: async () => ({ data: { id: 'doc-comment-1', status: 'resolved' } }),
+        } as Response
+      }
       if (url === '/api/v1/client-documents/doc-1/approve') {
         return {
           ok: true,
@@ -466,6 +472,23 @@ describe('BriefingControlDesk', () => {
     }))
     await waitFor(() => {
       expect(screen.getByLabelText('Inline document comment reply')).toHaveValue('')
+    })
+  })
+
+  it('resolves document comment cards against the source document comment', async () => {
+    render(<BriefingControlDesk mode="portal" />)
+
+    fireEvent.click(await screen.findByRole('button', { name: /Client comment from Riley/i }))
+
+    expect(screen.getByRole('button', { name: /resolve document comment/i })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /resolve document comment/i }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/client-documents/doc-1/comments/doc-comment-1/resolve', expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ resolved: true }),
+      }))
     })
   })
 
