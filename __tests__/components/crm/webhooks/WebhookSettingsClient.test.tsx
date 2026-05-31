@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { WebhookSettingsClient } from '@/components/crm/webhooks/WebhookSettingsClient'
 
 describe('WebhookSettingsClient', () => {
@@ -24,6 +24,10 @@ describe('WebhookSettingsClient', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     mockFetch()
+  })
+
+  afterEach(() => {
+    jest.restoreAllMocks()
   })
 
   it('turns empty webhook subscriptions into an integration launch checklist', async () => {
@@ -59,5 +63,59 @@ describe('WebhookSettingsClient', () => {
     expect(screen.getByText('Last delivery: Date unavailable')).toBeInTheDocument()
     expect(screen.getByText('Last failure: Date unavailable')).toBeInTheDocument()
     expect(screen.getByText(/Secret: /)).toHaveTextContent('Secret: 20 Mar 2026')
+  })
+
+  it('uses an in-page confirmation before deleting a webhook subscription', async () => {
+    const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(false)
+    const webhook = {
+      id: 'webhook-1',
+      name: 'Warehouse sync',
+      url: 'https://warehouse.example.com/pib',
+      events: ['contact.created'],
+      active: true,
+      failureCount: 0,
+    }
+
+    global.fetch = jest.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/v1/portal/active-org') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ orgId: 'org-webhooks' }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/webhooks?limit=100&orgId=org-webhooks') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { items: [webhook] } }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/webhooks/webhook-1' && init?.method === 'DELETE') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { ok: true } }),
+        } as Response)
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    }) as jest.Mock
+
+    render(<WebhookSettingsClient />)
+
+    expect(await screen.findByText('Warehouse sync')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete webhook subscription Warehouse sync' }))
+
+    expect(confirmSpy).not.toHaveBeenCalled()
+    expect(screen.getByRole('alertdialog', { name: 'Delete webhook subscription "Warehouse sync"?' })).toBeInTheDocument()
+    expect(screen.getByText('This stops outbound CRM deliveries to https://warehouse.example.com/pib. Delivery history stays available for audit.')).toBeInTheDocument()
+    expect(global.fetch).not.toHaveBeenCalledWith('/api/v1/crm/webhooks/webhook-1', expect.any(Object))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm delete webhook subscription Warehouse sync' }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/webhooks/webhook-1', { method: 'DELETE' })
+    })
+
+    confirmSpy.mockRestore()
   })
 })
