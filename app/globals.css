@@ -281,60 +281,127 @@
     transform: scaleX(1);
   }
 
-  /* Marketing button — primary */
-  .btn-pib-primary {
+  /* Buttons — shared Projects-style app controls */
+  .btn-pib-primary,
+  .btn-pib-accent,
+  .pib-btn-primary {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 0.5rem;
-    background: var(--color-pib-text);
+    min-height: var(--pib-control-height);
+    background: var(--color-pib-accent);
     color: #000;
-    padding: 0.85rem 1.4rem;
+    padding: 0.55rem 1.1rem;
     border-radius: 9999px;
     font-weight: 500;
-    font-size: 0.95rem;
+    font-size: 0.875rem;
+    line-height: 1;
     transition: all 200ms cubic-bezier(0.22, 1, 0.36, 1);
     border: 1px solid transparent;
+    white-space: nowrap;
   }
-  .btn-pib-primary:hover {
-    background: var(--color-pib-accent);
+  .btn-pib-primary:hover,
+  .btn-pib-accent:hover,
+  .pib-btn-primary:hover {
+    background: var(--color-pib-accent-hover);
     transform: translateY(-1px);
   }
-  .btn-pib-primary:active { transform: translateY(0) scale(0.98); }
+  .btn-pib-primary:active,
+  .btn-pib-accent:active,
+  .pib-btn-primary:active { transform: translateY(0) scale(0.98); }
 
-  .btn-pib-secondary {
+  .btn-pib-secondary,
+  .pib-btn-secondary {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 0.5rem;
     background: transparent;
     color: var(--color-pib-text);
-    padding: 0.85rem 1.4rem;
+    min-height: var(--pib-control-height);
+    padding: 0.55rem 1.1rem;
     border-radius: 9999px;
     font-weight: 500;
-    font-size: 0.95rem;
+    font-size: 0.875rem;
+    line-height: 1;
     border: 1px solid var(--color-pib-line-strong);
     transition: all 200ms cubic-bezier(0.22, 1, 0.36, 1);
+    white-space: nowrap;
   }
-  .btn-pib-secondary:hover {
+  .btn-pib-secondary:hover,
+  .pib-btn-secondary:hover {
     background: rgba(255, 255, 255, 0.04);
     border-color: rgba(255, 255, 255, 0.30);
   }
-  .btn-pib-secondary:active { transform: scale(0.98); }
+  .btn-pib-secondary:active,
+  .pib-btn-secondary:active { transform: scale(0.98); }
 
-  .btn-pib-accent {
+  .btn-pib-ghost,
+  .pib-btn-ghost {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 0.5rem;
-    background: var(--color-pib-accent);
-    color: #000;
-    padding: 0.95rem 1.5rem;
+    min-height: var(--pib-control-height);
+    background: transparent;
+    color: var(--color-pib-text-muted);
+    padding: 0.55rem 1.1rem;
     border-radius: 9999px;
-    font-weight: 600;
-    font-size: 0.95rem;
+    border: 1px solid transparent;
+    font-weight: 500;
+    font-size: 0.875rem;
+    line-height: 1;
     transition: all 200ms cubic-bezier(0.22, 1, 0.36, 1);
+    white-space: nowrap;
   }
-  .btn-pib-accent:hover {
-    background: var(--color-pib-accent-hover);
-    transform: translateY(-1px);
+  .btn-pib-ghost:hover,
+  .pib-btn-ghost:hover {
+    color: var(--color-pib-text);
+    background: rgba(255, 255, 255, 0.04);
+    border-color: var(--color-pib-line);
+  }
+  .btn-pib-ghost:active,
+  .pib-btn-ghost:active { transform: scale(0.98); }
+
+  .btn-pib-danger,
+  .pib-btn-danger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: var(--pib-control-height);
+    background: rgba(252, 165, 165, 0.08);
+    color: var(--color-error);
+    padding: 0.55rem 1.1rem;
+    border-radius: 9999px;
+    border: 1px solid rgba(252, 165, 165, 0.35);
+    font-weight: 500;
+    font-size: 0.875rem;
+    line-height: 1;
+    transition: all 200ms cubic-bezier(0.22, 1, 0.36, 1);
+    white-space: nowrap;
+  }
+  .btn-pib-danger:hover,
+  .pib-btn-danger:hover {
+    background: rgba(252, 165, 165, 0.13);
+    border-color: rgba(252, 165, 165, 0.55);
+  }
+  .btn-pib-danger:active,
+  .pib-btn-danger:active { transform: scale(0.98); }
+
+  .btn-pib-primary:disabled,
+  .btn-pib-secondary:disabled,
+  .btn-pib-accent:disabled,
+  .btn-pib-ghost:disabled,
+  .btn-pib-danger:disabled,
+  .pib-btn-primary:disabled,
+  .pib-btn-secondary:disabled,
+  .pib-btn-ghost:disabled,
+  .pib-btn-danger:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+    transform: none;
   }
 
   /* Bento card */
@@ -477,45 +544,6 @@
     border-color: var(--color-pib-line-strong);
   }
   .pib-stat-card:hover::before { opacity: 1; }
-
-  /* Buttons — match marketing system */
-  .pib-btn-primary {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    background: var(--color-pib-accent);
-    color: #000;
-    font-weight: 600;
-    font-size: 0.875rem;
-    border-radius: 9999px;
-    padding: 0.55rem 1.1rem;
-    border: 1px solid transparent;
-    transition: all 200ms cubic-bezier(0.22, 1, 0.36, 1);
-  }
-  .pib-btn-primary:hover {
-    background: var(--color-pib-accent-hover);
-    transform: translateY(-1px);
-  }
-  .pib-btn-primary:active { transform: translateY(0) scale(0.98); }
-
-  .pib-btn-secondary {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    color: var(--color-pib-text);
-    background: transparent;
-    border: 1px solid var(--color-pib-line-strong);
-    border-radius: 9999px;
-    padding: 0.55rem 1.1rem;
-    font-weight: 500;
-    font-size: 0.875rem;
-    transition: all 200ms cubic-bezier(0.22, 1, 0.36, 1);
-  }
-  .pib-btn-secondary:hover {
-    background: rgba(255, 255, 255, 0.04);
-    border-color: rgba(255, 255, 255, 0.30);
-  }
-  .pib-btn-secondary:active { transform: scale(0.98); }
 
   /* Skeleton */
   .pib-skeleton {

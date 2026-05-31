@@ -28,10 +28,8 @@ export function Button({
   const variants: Record<Variant, string> = {
     primary: 'pib-btn-primary',
     secondary: 'pib-btn-secondary',
-    ghost:
-      'inline-flex items-center gap-2 text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.04] rounded-full transition-all duration-150 active:scale-[0.98] font-medium',
-    danger:
-      'inline-flex items-center gap-2 bg-[#FCA5A5]/10 border border-[#FCA5A5]/40 text-[#FCA5A5] rounded-full transition-all duration-150 hover:bg-[#FCA5A5]/15 hover:border-[#FCA5A5]/60 active:scale-[0.98] font-medium',
+    ghost: 'pib-btn-ghost',
+    danger: 'pib-btn-danger',
   }
   return (
     <button

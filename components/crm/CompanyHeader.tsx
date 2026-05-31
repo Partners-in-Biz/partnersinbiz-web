@@ -252,7 +252,7 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
               type="button"
               onClick={onDelete}
               disabled={deleting}
-              className="cursor-pointer rounded-lg border border-red-400/30 px-3 py-2 text-sm font-medium text-red-300 transition-colors hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-50"
+              className="pib-btn-danger shrink-0"
             >
               {deleting ? 'Archiving...' : 'Archive'}
             </button>
