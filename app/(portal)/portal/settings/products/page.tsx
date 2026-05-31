@@ -69,6 +69,7 @@ export default function ProductsPage() {
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [showModal, setShowModal] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
+  const [pendingDeleteProduct, setPendingDeleteProduct] = useState<Product | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [currencyFilter, setCurrencyFilter] = useState('')
@@ -124,15 +125,21 @@ export default function ProductsPage() {
   }
 
   async function handleDelete(p: Product) {
-    if (!window.confirm(`Delete "${productDisplayName(p)}"? This cannot be undone.`)) return
-    setDeletingId(p.id)
+    setPendingDeleteProduct(p)
+  }
+
+  async function confirmDeleteProduct() {
+    if (!pendingDeleteProduct) return
+    const product = pendingDeleteProduct
+    setDeletingId(product.id)
     try {
-      const res = await fetch(`/api/v1/crm/products/${p.id}`, { method: 'DELETE' })
+      const res = await fetch(`/api/v1/crm/products/${product.id}`, { method: 'DELETE' })
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
         throw new Error(body.error ?? `HTTP ${res.status}`)
       }
-      setProducts((prev) => prev.filter((x) => x.id !== p.id))
+      setProducts((prev) => prev.filter((x) => x.id !== product.id))
+      setPendingDeleteProduct(null)
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : 'Delete failed.')
     } finally {
@@ -478,6 +485,54 @@ export default function ProductsPage() {
           onSave={handleSave}
           onClose={handleClose}
         />
+      )}
+
+      {pendingDeleteProduct && (
+        <section
+          role="alertdialog"
+          aria-labelledby="delete-product-title"
+          aria-describedby="delete-product-description"
+          className="fixed inset-x-4 bottom-4 z-50 mx-auto max-w-4xl rounded-lg border border-red-400/30 bg-[var(--color-pib-surface)] p-4 shadow-2xl md:bottom-6"
+        >
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="flex gap-3">
+              <span className="material-symbols-outlined mt-0.5 text-red-300" aria-hidden="true">
+                warning
+              </span>
+              <div>
+                <p className="eyebrow !text-[10px] text-red-200">Catalog delete confirmation</p>
+                <h2 id="delete-product-title" className="mt-1 font-display text-lg text-[var(--color-pib-text)]">
+                  Delete catalog product &quot;{productDisplayName(pendingDeleteProduct)}&quot;?
+                </h2>
+                <p id="delete-product-description" className="mt-2 max-w-3xl text-sm text-[var(--color-pib-text-muted)]">
+                  This removes the product from the active catalog used by deal line items, quotes, and revenue reporting. Historical records keep their saved line-item data.
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setPendingDeleteProduct(null)}
+                className="btn-pib-secondary text-xs"
+                disabled={deletingId === pendingDeleteProduct.id}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmDeleteProduct}
+                className="inline-flex items-center gap-1.5 rounded-md border border-red-300/30 bg-red-400/15 px-3 py-2 text-xs font-semibold text-red-100 transition-colors hover:bg-red-400/25 disabled:opacity-50"
+                disabled={deletingId === pendingDeleteProduct.id}
+                aria-label={`Confirm delete catalog product ${productDisplayName(pendingDeleteProduct)}`}
+              >
+                <span className="material-symbols-outlined text-[14px]" aria-hidden="true">
+                  delete
+                </span>
+                {deletingId === pendingDeleteProduct.id ? 'Deleting...' : 'Delete product'}
+              </button>
+            </div>
+          </div>
+        </section>
       )}
     </div>
   )

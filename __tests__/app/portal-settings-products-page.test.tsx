@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import ProductsPage from '@/app/(portal)/portal/settings/products/page'
 import type { Product } from '@/lib/products/types'
 
@@ -17,7 +17,7 @@ describe('Portal settings products page', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     products = []
-    global.fetch = jest.fn((input: RequestInfo | URL) => {
+    global.fetch = jest.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
       if (url === '/api/v1/crm/products') {
         return Promise.resolve({
@@ -25,8 +25,18 @@ describe('Portal settings products page', () => {
           json: async () => ({ data: { products } }),
         } as Response)
       }
+      if (url === '/api/v1/crm/products/product-1' && init?.method === 'DELETE') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ success: true }),
+        } as Response)
+      }
       return Promise.reject(new Error(`Unexpected fetch: ${url}`))
     }) as jest.Mock
+  })
+
+  afterEach(() => {
+    jest.restoreAllMocks()
   })
 
   it('turns the empty product catalog into a quote-readiness command center', async () => {
@@ -183,5 +193,40 @@ describe('Portal settings products page', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Show all products' }))
 
     expect(await screen.findByText('Launch package')).toBeInTheDocument()
+  })
+
+  it('uses an in-page confirmation before deleting catalog products', async () => {
+    const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(false)
+    products = [{
+      id: 'product-1',
+      orgId: 'org-1',
+      name: 'Launch package',
+      description: 'Campaign setup package',
+      unit: 'package',
+      unitPrice: 25000,
+      currency: 'ZAR',
+      createdAt: null,
+      updatedAt: null,
+    }]
+
+    render(<ProductsPage />)
+
+    expect(await screen.findByText('Launch package')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete Launch package' }))
+
+    expect(confirmSpy).not.toHaveBeenCalled()
+    expect(screen.getByRole('alertdialog', { name: 'Delete catalog product "Launch package"?' })).toBeInTheDocument()
+    expect(screen.getByText('This removes the product from the active catalog used by deal line items, quotes, and revenue reporting. Historical records keep their saved line-item data.')).toBeInTheDocument()
+    expect(global.fetch).not.toHaveBeenCalledWith('/api/v1/crm/products/product-1', expect.any(Object))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm delete catalog product Launch package' }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/products/product-1', { method: 'DELETE' })
+    })
+    expect(screen.queryByText('Launch package')).not.toBeInTheDocument()
+
+    confirmSpy.mockRestore()
   })
 })
