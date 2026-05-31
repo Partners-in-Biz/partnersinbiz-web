@@ -599,6 +599,65 @@ describe('briefing feed', () => {
     expect(feed.items[0].summary).toContain('Confirm approval blockers')
   })
 
+  it('surfaces stale CRM contacts as follow-up control cards', async () => {
+    collections.contacts = [
+      makeDoc('contact-1', {
+        orgId: 'org-1',
+        name: 'Ava Owner',
+        email: 'ava@example.test',
+        company: 'Acme Holdings',
+        type: 'prospect',
+        stage: 'proposal',
+        lastContactedAt: '2026-04-01T08:00:00.000Z',
+        updatedAt: '2026-05-30T08:00:00.000Z',
+        notes: 'Needs follow-up. token: contact-secret-123',
+      }),
+      makeDoc('contact-2', {
+        orgId: 'org-1',
+        name: 'Recent Contact',
+        email: 'recent@example.test',
+        type: 'lead',
+        stage: 'contacted',
+        lastContactedAt: '2026-05-30T08:00:00.000Z',
+        updatedAt: '2026-05-30T08:00:00.000Z',
+      }),
+      makeDoc('contact-3', {
+        orgId: 'org-1',
+        name: 'Archived Contact',
+        email: 'archived@example.test',
+        deleted: true,
+        lastContactedAt: '2026-03-01T08:00:00.000Z',
+      }),
+    ]
+
+    const { buildBriefingFeed } = await import('@/lib/briefing/feed')
+    const feed = await buildBriefingFeed(
+      { uid: 'client-1', role: 'client', orgId: 'org-1' },
+      { limit: 10, sourceType: 'contact' },
+    )
+
+    expect(feed.items).toHaveLength(1)
+    expect(feed.items[0]).toMatchObject({
+      source: { type: 'contact', id: 'contact-1', collectionPath: 'contacts', url: '/portal/contacts/contact-1' },
+      priority: 'needs-peet',
+      title: 'Follow up Ava Owner',
+      context: {
+        orgId: 'org-1',
+        contactId: 'contact-1',
+        contactName: 'Ava Owner',
+      },
+      metadata: {
+        contactStage: 'proposal',
+        contactType: 'prospect',
+        lastContactedAt: '2026-04-01T08:00:00.000Z',
+        company: 'Acme Holdings',
+        email: 'ava@example.test',
+      },
+    })
+    expect(feed.items[0].summary).toContain('Ava Owner has not been contacted since 2026-04-01')
+    expect(JSON.stringify(feed.items)).not.toContain('contact-secret-123')
+  })
+
   it('surfaces rendered reports with public source links and review context', async () => {
     collections.organizations = [makeDoc('org-1', { name: 'Client One', slug: 'client-one' })]
     collections.reports = [

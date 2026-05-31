@@ -37,6 +37,7 @@ export type BriefingSourceType =
   | 'calendar-event'      // Upcoming calendar events needing RSVP or schedule attention
   | 'approval'             // Approval gates and client document approvals
   | 'booking'              // Public call bookings needing admin follow-up
+  | 'contact'              // CRM contacts needing relationship follow-up
   | 'client-document'      // Client documents, specs, reports
   | 'social-post'          // Social content awaiting QA/client approval or attention
   | 'social-inbox'         // Social engagement inbox items needing read/reply/archive

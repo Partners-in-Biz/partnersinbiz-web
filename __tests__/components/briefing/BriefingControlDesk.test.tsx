@@ -221,6 +221,34 @@ const activityBriefingItem = {
   occurredAt: '2026-05-31T09:58:00.000Z',
 }
 
+const contactBriefingItem = {
+  id: 'contact:contact-1',
+  orgId: 'org-1',
+  priority: 'needs-peet',
+  title: 'Follow up Ava Owner',
+  summary: 'Ava Owner has not been contacted since 2026-04-01. Stage: proposal.',
+  excerpt: 'Last contacted 2026-04-01.',
+  timeAgo: '1 day ago',
+  requiresAction: true,
+  source: { type: 'contact', id: 'contact-1', url: '/portal/contacts/contact-1' },
+  actor: { id: 'crm:contact-1', name: 'Ava Owner', role: 'client', type: 'user' },
+  context: {
+    orgId: 'org-1',
+    orgName: 'Client One',
+    orgSlug: 'client-one',
+    contactId: 'contact-1',
+    contactName: 'Ava Owner',
+  },
+  metadata: {
+    contactStage: 'proposal',
+    contactType: 'prospect',
+    lastContactedAt: '2026-04-01T08:00:00.000Z',
+    company: 'Acme Holdings',
+    email: 'ava@example.test',
+  },
+  occurredAt: '2026-05-30T08:00:00.000Z',
+}
+
 const reportBriefingItem = {
   id: 'report:report-1',
   orgId: 'org-1',
@@ -826,7 +854,7 @@ describe('BriefingControlDesk', () => {
       if (url.startsWith('/api/v1/briefings/feed')) {
         const items = url.includes('orgId=org-2')
           ? [secondOrgBriefingItem]
-          : [briefingItem, documentBriefingItem, documentCommentBriefingItem, approvalBriefingItem, conversationBriefingItem, socialBriefingItem, notificationBriefingItem, activityBriefingItem, reportBriefingItem, supportBriefingItem, invoiceBriefingItem, invoiceProofBriefingItem, quoteBriefingItem, shipmentBriefingItem, orderBriefingItem, inventoryBriefingItem, enquiryBriefingItem, bookingBriefingItem, expenseBriefingItem, seoContentBriefingItem, seoTaskBriefingItem, adCampaignBriefingItem, formSubmissionBriefingItem, socialInboxBriefingItem, mailboxBriefingItem, agentRunBriefingItem, workspaceBrokerBriefingItem, calendarBriefingItem, secondOrgBriefingItem]
+          : [briefingItem, documentBriefingItem, documentCommentBriefingItem, approvalBriefingItem, conversationBriefingItem, socialBriefingItem, notificationBriefingItem, activityBriefingItem, contactBriefingItem, reportBriefingItem, supportBriefingItem, invoiceBriefingItem, invoiceProofBriefingItem, quoteBriefingItem, shipmentBriefingItem, orderBriefingItem, inventoryBriefingItem, enquiryBriefingItem, bookingBriefingItem, expenseBriefingItem, seoContentBriefingItem, seoTaskBriefingItem, adCampaignBriefingItem, formSubmissionBriefingItem, socialInboxBriefingItem, mailboxBriefingItem, agentRunBriefingItem, workspaceBrokerBriefingItem, calendarBriefingItem, secondOrgBriefingItem]
         return {
           ok: true,
           json: async () => ({ data: { items, total: items.length, hasMore: false, generatedAt: '2026-05-31T10:05:00.000Z' } }),
@@ -902,6 +930,12 @@ describe('BriefingControlDesk', () => {
         return {
           ok: true,
           json: async () => ({ data: { id: 'activity-note-1' } }),
+        } as Response
+      }
+      if (url === '/api/v1/crm/contacts/contact-1') {
+        return {
+          ok: true,
+          json: async () => ({ data: { contact: { id: 'contact-1', lastContactedAt: '2026-05-31T10:05:00.000Z' } } }),
         } as Response
       }
       if (url === '/api/v1/reports/report-1/send') {
@@ -1331,6 +1365,46 @@ describe('BriefingControlDesk', () => {
     })
     await waitFor(() => {
       expect(screen.getByLabelText('Follow-up note')).toHaveValue('')
+    })
+  })
+
+  it('logs and clears stale CRM contact follow-up cards from the control desk', async () => {
+    render(<BriefingControlDesk mode="portal" />)
+
+    fireEvent.click(await screen.findByRole('button', { name: /Follow up Ava Owner/i }))
+
+    expect(screen.getByRole('link', { name: /open source/i })).toHaveAttribute('href', '/portal/contacts/contact-1')
+    expect(screen.getByText('Ava Owner (contact-1)')).toBeInTheDocument()
+    expect(screen.getByText('proposal')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /mark contact followed up/i })).toBeDisabled()
+
+    fireEvent.change(screen.getByLabelText('Follow-up note'), { target: { value: 'Called Ava; proposal decision due tomorrow.' } })
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /mark contact followed up/i })).not.toBeDisabled()
+    })
+    fireEvent.click(screen.getByRole('button', { name: /mark contact followed up/i }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/activities', expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          contactId: 'contact-1',
+          dealId: '',
+          type: 'note',
+          summary: 'Called Ava; proposal decision due tomorrow.',
+          metadata: {
+            sourceBriefingId: 'contact:contact-1',
+            sourceContactId: 'contact-1',
+            source: 'briefings-control-desk',
+          },
+        }),
+      }))
+    })
+    await waitFor(() => {
+      const contactCall = (global.fetch as jest.Mock).mock.calls.find(([url]) => url === '/api/v1/crm/contacts/contact-1')
+      expect(contactCall).toBeDefined()
+      expect(contactCall?.[1]).toMatchObject({ method: 'PATCH' })
+      expect(JSON.parse(String(contactCall?.[1]?.body)).lastContactedAt).toMatch(/^2026-05-31T10:05:00\.\d{3}Z$/)
     })
   })
 

@@ -123,6 +123,7 @@ const SOURCES = [
   { value: 'approval', label: 'Approvals' },
   { value: 'notification', label: 'Notifications' },
   { value: 'activity', label: 'Activity' },
+  { value: 'contact', label: 'Contacts' },
   { value: 'report', label: 'Reports' },
   { value: 'support-ticket', label: 'Support' },
   { value: 'invoice', label: 'Invoices' },
@@ -379,7 +380,11 @@ function canNotificationAct(item: BriefingCard) {
 }
 
 function canActivityFollowUpAct(item: BriefingCard) {
-  return item.source.type === 'activity' && Boolean(item.context.contactId || item.metadata?.contactId)
+  return (item.source.type === 'activity' || item.source.type === 'contact') && Boolean(item.context.contactId || item.metadata?.contactId)
+}
+
+function canContactFollowUpComplete(item: BriefingCard) {
+  return item.source.type === 'contact' && Boolean(item.context.contactId || item.source.id)
 }
 
 function canReportAct(item: BriefingCard) {
@@ -1086,7 +1091,9 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
           summary,
           metadata: {
             sourceBriefingId: item.id,
-            sourceActivityId: item.source.id,
+            ...(item.source.type === 'contact'
+              ? { sourceContactId: contactId }
+              : { sourceActivityId: item.source.id }),
             source: 'briefings-control-desk',
           },
         }),
@@ -1098,6 +1105,52 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
       await loadFeed({ quiet: true })
     } catch (err) {
       setFlash({ kind: 'error', message: err instanceof Error ? err.message : 'Follow-up note failed' })
+    } finally {
+      setBusyAction(null)
+    }
+  }
+
+  async function completeContactFollowUp(item: BriefingCard) {
+    const contactId = typeof item.context.contactId === 'string' && item.context.contactId
+      ? item.context.contactId
+      : item.source.id
+    const summary = followUpText.trim()
+    if (!contactId || !summary) return
+
+    setBusyAction('contact-follow-up')
+    try {
+      const activityRes = await fetch('/api/v1/crm/activities', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          contactId,
+          dealId: typeof item.context.dealId === 'string' ? item.context.dealId : '',
+          type: 'note',
+          summary,
+          metadata: {
+            sourceBriefingId: item.id,
+            sourceContactId: contactId,
+            source: 'briefings-control-desk',
+          },
+        }),
+      })
+      const activityBody = await activityRes.json().catch(() => ({}))
+      if (!activityRes.ok) throw new Error(activityBody.error || 'Follow-up note failed')
+
+      const lastContactedAt = new Date().toISOString()
+      const contactRes = await fetch(`/api/v1/crm/contacts/${encodeURIComponent(contactId)}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ lastContactedAt }),
+      })
+      const contactBody = await contactRes.json().catch(() => ({}))
+      if (!contactRes.ok) throw new Error(contactBody.error || 'Contact update failed')
+
+      setFollowUpText('')
+      setFlash({ kind: 'ok', message: 'Contact follow-up logged and cleared.' })
+      await loadFeed({ quiet: true })
+    } catch (err) {
+      setFlash({ kind: 'error', message: err instanceof Error ? err.message : 'Contact follow-up failed' })
     } finally {
       setBusyAction(null)
     }
@@ -2035,6 +2088,12 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                       <span className="material-symbols-outlined text-[15px]" aria-hidden="true">add_notes</span>
                       Log follow-up note
                     </button>
+                    {canContactFollowUpComplete(selected) ? (
+                      <button className="pib-btn-secondary mt-2 w-full justify-center text-xs" type="button" onClick={() => completeContactFollowUp(selected)} disabled={!followUpText.trim() || !!busyAction}>
+                        <span className="material-symbols-outlined text-[15px]" aria-hidden="true">done_all</span>
+                        Mark contact followed up
+                      </button>
+                    ) : null}
                   </div>
                 ) : null}
 
@@ -2184,6 +2243,8 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                   {selected.context.documentTitle || selected.context.documentId ? <div><dt className="text-on-surface-variant">Document</dt><dd className="text-on-surface">{titledId(selected.context.documentTitle, selected.context.documentId)}</dd></div> : null}
                   {selected.context.conversationTitle || selected.context.conversationId ? <div><dt className="text-on-surface-variant">Conversation</dt><dd className="text-on-surface">{titledId(selected.context.conversationTitle, selected.context.conversationId)}</dd></div> : null}
                   {selected.context.contactName || selected.context.contactId ? <div><dt className="text-on-surface-variant">Contact</dt><dd className="text-on-surface">{titledId(selected.context.contactName, selected.context.contactId)}</dd></div> : null}
+                  {typeof selected.metadata?.contactStage === 'string' && selected.metadata.contactStage ? <div><dt className="text-on-surface-variant">Contact stage</dt><dd className="text-on-surface">{selected.metadata.contactStage}</dd></div> : null}
+                  {typeof selected.metadata?.lastContactedAt === 'string' && selected.metadata.lastContactedAt ? <div><dt className="text-on-surface-variant">Last contacted</dt><dd className="text-on-surface">{selected.metadata.lastContactedAt.slice(0, 10)}</dd></div> : null}
                   {selected.context.dealTitle || selected.context.dealId ? <div><dt className="text-on-surface-variant">Deal</dt><dd className="text-on-surface">{titledId(selected.context.dealTitle, selected.context.dealId)}</dd></div> : null}
                   {selected.context.reportTitle || selected.context.reportId ? <div><dt className="text-on-surface-variant">Report</dt><dd className="text-on-surface">{titledId(selected.context.reportTitle, selected.context.reportId)}</dd></div> : null}
                   {selected.context.bookingName || selected.context.bookingId ? <div><dt className="text-on-surface-variant">Booking</dt><dd className="text-on-surface">{titledId(selected.context.bookingName, selected.context.bookingId ?? selected.source.id)}</dd></div> : null}
