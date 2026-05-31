@@ -177,7 +177,7 @@ function timestampMs(value: unknown): number {
 
 function formatRelative(value: unknown): string {
   const ms = timestampMs(value)
-  if (!ms) return 'No date'
+  if (!ms) return 'Timestamp not captured'
   const diffDays = Math.round((Date.now() - ms) / 86_400_000)
   if (diffDays <= 0) return 'Today'
   if (diffDays === 1) return 'Yesterday'
@@ -368,13 +368,13 @@ export default function PortalCrmPage() {
           ) : !dashboard?.recentActivities?.length ? (
             <div className="p-10 text-center">
               <span className="material-symbols-outlined text-4xl text-[var(--color-accent-v2)]" aria-hidden="true">history</span>
-              <h2 className="mt-3 font-display text-2xl text-[var(--color-pib-text)]">No relationship activity logged yet.</h2>
+              <h2 className="mt-3 font-display text-2xl text-[var(--color-pib-text)]">Relationship activity missing</h2>
               <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[var(--color-pib-text-muted)]">
-                Open the stale follow-up lens to give the team a working list for calls, emails, meetings, and notes.
+                Open the stale follow-up lens so managers can assign calls, emails, meetings, and notes before accounts go quiet.
               </p>
               <Link
                 href="/portal/contacts?followUp=stale"
-                aria-label="Open contacts to log CRM activity from the command center"
+                aria-label="Open stale contacts from CRM command center"
                 className="pib-btn-primary mt-4 inline-flex items-center gap-1.5 text-sm"
               >
                 <span className="material-symbols-outlined text-base">contacts</span>

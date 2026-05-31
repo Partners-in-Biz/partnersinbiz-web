@@ -43,13 +43,59 @@ describe('Portal CRM hub', () => {
     expect(createDealLink).toHaveAttribute('href', '/portal/deals?create=deal')
   })
 
-  it('turns the empty activity panel into a contact activity action', async () => {
+  it('turns the empty activity panel into a stale-follow-up command', async () => {
     render(<PortalCrmPage />)
 
-    expect(await screen.findByRole('heading', { name: 'No relationship activity logged yet.' })).toBeInTheDocument()
-    expect(screen.getByText('Open the stale follow-up lens to give the team a working list for calls, emails, meetings, and notes.')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Relationship activity missing' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'No relationship activity logged yet.' })).not.toBeInTheDocument()
+    expect(screen.getByText('Open the stale follow-up lens so managers can assign calls, emails, meetings, and notes before accounts go quiet.')).toBeInTheDocument()
 
-    const contactsLink = screen.getByRole('link', { name: 'Open contacts to log CRM activity from the command center' })
+    const contactsLink = screen.getByRole('link', { name: 'Open stale contacts from CRM command center' })
     expect(contactsLink).toHaveAttribute('href', '/portal/contacts?followUp=stale')
+  })
+
+  it('names missing activity timestamps instead of showing a generic no-date label', async () => {
+    ;(global.fetch as jest.Mock).mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/dashboard') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: {
+              openDealsCount: 1,
+              openDealsValue: 20000,
+              weightedPipelineValue: 12000,
+              wonThisMonth: { count: 0, value: 0 },
+              lostThisMonth: { count: 0 },
+              recentActivities: [
+                {
+                  id: 'activity-1',
+                  summary: 'Discovery call logged',
+                  contactName: 'Mandy CEO',
+                  createdAt: null,
+                },
+              ],
+              topOpenDeals: [
+                {
+                  id: 'deal-1',
+                  title: 'Board reporting rollout',
+                  value: 20000,
+                  currency: 'ZAR',
+                  probability: 60,
+                  contactName: 'Mandy CEO',
+                },
+              ],
+            },
+          }),
+        } as Response)
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    })
+
+    render(<PortalCrmPage />)
+
+    expect(await screen.findByText('Discovery call logged')).toBeInTheDocument()
+    expect(screen.getByText('Mandy CEO · Timestamp not captured')).toBeInTheDocument()
+    expect(screen.queryByText('Mandy CEO · No date')).not.toBeInTheDocument()
   })
 })
