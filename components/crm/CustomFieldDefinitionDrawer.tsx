@@ -40,6 +40,7 @@ const TYPE_LABELS: Record<CustomFieldType, string> = {
 }
 
 const KEY_REGEX = /^[a-z][a-z0-9_]{0,39}$/
+const KEY_FORMAT_MESSAGE = 'Start with a letter, then use lowercase letters, numbers, or underscores. Keep it under 40 characters.'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -259,7 +260,7 @@ export function CustomFieldDefinitionDrawer({
     if (!form.key.trim()) {
       newErrors.key = 'Key is required'
     } else if (!KEY_REGEX.test(form.key.trim())) {
-      newErrors.key = 'Key must match ^[a-z][a-z0-9_]{0,39}$'
+      newErrors.key = KEY_FORMAT_MESSAGE
     }
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
