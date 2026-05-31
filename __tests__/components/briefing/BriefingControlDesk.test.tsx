@@ -114,6 +114,30 @@ const socialBriefingItem = {
   occurredAt: '2026-05-31T10:01:00.000Z',
 }
 
+const notificationBriefingItem = {
+  id: 'notification:notification-1',
+  orgId: 'org-1',
+  priority: 'client-risk',
+  title: 'New enquiry needs follow-up',
+  summary: 'A new lead requested a proposal call.',
+  excerpt: 'A new lead requested a proposal call.',
+  timeAgo: '6 minutes ago',
+  requiresAction: true,
+  source: { type: 'notification', id: 'notification-1', url: '/portal/contacts?followUp=stale' },
+  actor: { id: 'system', name: 'System', role: 'system', type: 'system' },
+  context: {
+    orgId: 'org-1',
+    orgName: 'Client One',
+    orgSlug: 'client-one',
+  },
+  metadata: {
+    notificationType: 'crm.follow_up_due',
+    status: 'unread',
+    link: '/portal/contacts?followUp=stale',
+  },
+  occurredAt: '2026-05-31T09:59:00.000Z',
+}
+
 describe('BriefingControlDesk', () => {
   beforeEach(() => {
     jest.useFakeTimers()
@@ -132,7 +156,7 @@ describe('BriefingControlDesk', () => {
       if (url.startsWith('/api/v1/briefings/feed')) {
         const items = url.includes('orgId=org-2')
           ? [secondOrgBriefingItem]
-          : [briefingItem, documentBriefingItem, conversationBriefingItem, socialBriefingItem, secondOrgBriefingItem]
+          : [briefingItem, documentBriefingItem, conversationBriefingItem, socialBriefingItem, notificationBriefingItem, secondOrgBriefingItem]
         return {
           ok: true,
           json: async () => ({ data: { items, total: items.length, hasMore: false, generatedAt: '2026-05-31T10:05:00.000Z' } }),
@@ -178,6 +202,12 @@ describe('BriefingControlDesk', () => {
         return {
           ok: true,
           json: async () => ({ data: { id: 'post-1', status: 'regenerating' } }),
+        } as Response
+      }
+      if (url === '/api/v1/notifications/notification-1') {
+        return {
+          ok: true,
+          json: async () => ({ data: { id: 'notification-1' } }),
         } as Response
       }
       return {
@@ -332,6 +362,37 @@ describe('BriefingControlDesk', () => {
       expect(global.fetch).toHaveBeenCalledWith('/api/v1/social/posts/post-1/client-reject', expect.objectContaining({
         method: 'POST',
         body: JSON.stringify({ reason: 'Please make the CTA more direct.' }),
+      }))
+    })
+  })
+
+  it('marks notification cards read or archived from the control desk', async () => {
+    render(<BriefingControlDesk mode="portal" />)
+
+    fireEvent.click(await screen.findByRole('button', { name: /New enquiry needs follow-up/i }))
+
+    expect(screen.getByRole('link', { name: /open source/i })).toHaveAttribute('href', '/portal/contacts?followUp=stale')
+    expect(screen.getByRole('button', { name: /mark notification read/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /archive notification/i })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /mark notification read/i }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/notifications/notification-1', expect.objectContaining({
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'read' }),
+      }))
+    })
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /archive notification/i })).not.toBeDisabled()
+    })
+    fireEvent.click(screen.getByRole('button', { name: /archive notification/i }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/notifications/notification-1', expect.objectContaining({
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'archived' }),
       }))
     })
   })

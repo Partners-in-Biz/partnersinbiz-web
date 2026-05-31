@@ -150,6 +150,10 @@ function canSocialPostAct(item: BriefingCard) {
   return item.source.type === 'social-post' && Boolean(item.source.id)
 }
 
+function canNotificationAct(item: BriefingCard) {
+  return item.source.type === 'notification' && Boolean(item.source.id)
+}
+
 function socialActionStage(item: BriefingCard): 'client' | 'qa' | null {
   const stage = item.metadata?.actionStage
   if (stage === 'client' || stage === 'qa') return stage
@@ -497,6 +501,26 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
     }
   }
 
+  async function notificationAction(item: BriefingCard, status: 'read' | 'archived') {
+    if (!canNotificationAct(item)) return
+    setBusyAction(`notification-${status}`)
+    try {
+      const res = await fetch(`/api/v1/notifications/${encodeURIComponent(item.source.id)}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ status }),
+      })
+      const body = await res.json()
+      if (!res.ok) throw new Error(body.error || 'Notification update failed')
+      setFlash({ kind: 'ok', message: status === 'read' ? 'Notification marked read.' : 'Notification archived.' })
+      await loadFeed({ quiet: true })
+    } catch (err) {
+      setFlash({ kind: 'error', message: err instanceof Error ? err.message : 'Notification update failed' })
+    } finally {
+      setBusyAction(null)
+    }
+  }
+
   async function unblockTask(item: BriefingCard) {
     if (!canTaskAct(item)) return
     setBusyAction('unblock')
@@ -740,6 +764,18 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                     <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => socialPostAction(selected, 'reject')} disabled={!socialChangeText.trim() || !!busyAction}>
                       <span className="material-symbols-outlined text-[15px]" aria-hidden="true">thumb_down</span>
                       Request social changes
+                    </button>
+                  ) : null}
+                  {canNotificationAct(selected) ? (
+                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => notificationAction(selected, 'read')} disabled={!!busyAction}>
+                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">mark_email_read</span>
+                      Mark notification read
+                    </button>
+                  ) : null}
+                  {canNotificationAct(selected) ? (
+                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => notificationAction(selected, 'archived')} disabled={!!busyAction}>
+                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">archive</span>
+                      Archive notification
                     </button>
                   ) : null}
                 </div>

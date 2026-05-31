@@ -8,7 +8,7 @@
  */
 
 import type { BriefingSourceAdapter, BriefingPriority } from '../types'
-import { normalizeActor, hashSourceDocument, extractMultiFieldExcerpt, normalizeTimestamp, extractOrgId, generateSourceUrl } from '../utils'
+import { hashSourceDocument, extractMultiFieldExcerpt, normalizeTimestamp, extractOrgId } from '../utils'
 
 /**
  * Notification document shape.
@@ -23,7 +23,7 @@ interface NotificationDocument extends Record<string, unknown> {
   body?: string | null
   link?: string | null
   data?: Record<string, unknown> | null
-  status: 'unread' | 'read'
+  status: 'unread' | 'read' | 'archived' | 'snoozed'
   priority?: string
   snoozedUntil?: unknown
   readAt?: unknown
@@ -59,8 +59,12 @@ export const notificationAdapter: BriefingSourceAdapter<NotificationDocument> = 
     return hashSourceDocument(doc, docId, ['type', 'title', 'body', 'status', 'createdAt'])
   },
 
-  shouldGenerate(doc: NotificationDocument, _docId: string): boolean {
+  shouldGenerate(doc: NotificationDocument): boolean {
     // Skip snoozed notifications
+    if (doc.status === 'archived') {
+      return false
+    }
+
     if (doc.snoozedUntil) {
       const snoozedUntil = normalizeTimestamp(doc.snoozedUntil)
       if (snoozedUntil && snoozedUntil > new Date()) {
@@ -76,7 +80,7 @@ export const notificationAdapter: BriefingSourceAdapter<NotificationDocument> = 
     return true
   },
 
-  extractPriority(doc: NotificationDocument, _docId: string): BriefingPriority {
+  extractPriority(doc: NotificationDocument): BriefingPriority {
     const type = doc.type.toLowerCase()
 
     // Critical notification types
@@ -108,7 +112,7 @@ export const notificationAdapter: BriefingSourceAdapter<NotificationDocument> = 
     return 'fyi'
   },
 
-  extractActor(doc: NotificationDocument, _docId: string) {
+  extractActor(doc: NotificationDocument) {
     // Use agent if specified
     if (doc.agentId) {
       const agentId = doc.agentId
@@ -130,7 +134,7 @@ export const notificationAdapter: BriefingSourceAdapter<NotificationDocument> = 
     }
   },
 
-  extractContext(doc: NotificationDocument, _docId: string) {
+  extractContext(doc: NotificationDocument) {
     const orgId = extractOrgId(doc) ?? ''
 
     // Extract context from data if available
@@ -146,11 +150,11 @@ export const notificationAdapter: BriefingSourceAdapter<NotificationDocument> = 
     }
   },
 
-  extractTitle(doc: NotificationDocument, _docId: string): string {
+  extractTitle(doc: NotificationDocument): string {
     return doc.title
   },
 
-  extractSummary(doc: NotificationDocument, _docId: string): string {
+  extractSummary(doc: NotificationDocument): string {
     const parts: string[] = []
 
     parts.push(`Type: ${doc.type}`)
@@ -167,15 +171,16 @@ export const notificationAdapter: BriefingSourceAdapter<NotificationDocument> = 
     return parts.join('. ') || 'No details.'
   },
 
-  extractExcerpt(doc: NotificationDocument, _docId: string, maxLength = 300): string | null {
-    return extractMultiFieldExcerpt(doc, ['body'], { maxLength })
+  extractExcerpt(doc: NotificationDocument, docIdOrMaxLength: string | number = 300, maxLength = 300): string | null {
+    const limit = typeof docIdOrMaxLength === 'number' ? docIdOrMaxLength : maxLength
+    return extractMultiFieldExcerpt(doc, ['body'], { maxLength: limit })
   },
 
-  extractOccurredAt(doc: NotificationDocument, _docId: string): Date | null {
+  extractOccurredAt(doc: NotificationDocument): Date | null {
     return normalizeTimestamp(doc.createdAt)
   },
 
-  extractMetadata(doc: NotificationDocument, _docId: string): Record<string, unknown> | null {
+  extractMetadata(doc: NotificationDocument): Record<string, unknown> | null {
     return {
       notificationType: doc.type,
       userId: doc.userId,
@@ -234,7 +239,7 @@ export const activityAdapter: BriefingSourceAdapter<ActivityDocument> = {
     return hashSourceDocument(doc, docId, ['type', 'description', 'actorId', 'createdAt'])
   },
 
-  shouldGenerate(doc: ActivityDocument, _docId: string): boolean {
+  shouldGenerate(doc: ActivityDocument): boolean {
     // Skip system/agent activity unless it's critical
     if (doc.actorRole === 'system' || doc.actorRole === 'ai') {
       const type = doc.type.toLowerCase()
@@ -252,7 +257,7 @@ export const activityAdapter: BriefingSourceAdapter<ActivityDocument> = {
     return true
   },
 
-  extractPriority(doc: ActivityDocument, _docId: string): BriefingPriority {
+  extractPriority(doc: ActivityDocument): BriefingPriority {
     const type = doc.type.toLowerCase()
 
     // Critical activity types
@@ -279,7 +284,7 @@ export const activityAdapter: BriefingSourceAdapter<ActivityDocument> = {
     return 'fyi'
   },
 
-  extractActor(doc: ActivityDocument, _docId: string) {
+  extractActor(doc: ActivityDocument) {
     const actorId = typeof doc.actorId === 'string' ? doc.actorId : 'system'
     const actorName = typeof doc.actorName === 'string' ? doc.actorName : null
     const actorRole = (doc.actorRole === 'admin' || doc.actorRole === 'client' || doc.actorRole === 'ai' || doc.actorRole === 'system') ? doc.actorRole : 'system'
@@ -300,7 +305,7 @@ export const activityAdapter: BriefingSourceAdapter<ActivityDocument> = {
     }
   },
 
-  extractContext(doc: ActivityDocument, _docId: string) {
+  extractContext(doc: ActivityDocument) {
     const orgId = extractOrgId(doc) ?? ''
     const projectId = typeof doc.projectId === 'string' ? doc.projectId : null
     const entityId = typeof doc.entityId === 'string' ? doc.entityId : null
@@ -317,14 +322,14 @@ export const activityAdapter: BriefingSourceAdapter<ActivityDocument> = {
     }
   },
 
-  extractTitle(doc: ActivityDocument, _docId: string): string {
-    const actor = this.extractActor(doc, _docId)
+  extractTitle(doc: ActivityDocument, docId: string): string {
+    const actor = this.extractActor(doc, docId)
     const actorName = actor.name || actor.id
 
     return `${actorName}: ${doc.description}`
   },
 
-  extractSummary(doc: ActivityDocument, _docId: string): string {
+  extractSummary(doc: ActivityDocument): string {
     const parts: string[] = []
 
     parts.push(`Activity: ${doc.type}`)
@@ -340,16 +345,16 @@ export const activityAdapter: BriefingSourceAdapter<ActivityDocument> = {
     return parts.join(' — ') || 'No details.'
   },
 
-  extractExcerpt(_doc: ActivityDocument, _docId: string, _maxLength = 300): string | null {
+  extractExcerpt(): string | null {
     // Activity logs don't typically have long content
     return null
   },
 
-  extractOccurredAt(doc: ActivityDocument, _docId: string): Date | null {
+  extractOccurredAt(doc: ActivityDocument): Date | null {
     return normalizeTimestamp(doc.createdAt)
   },
 
-  extractMetadata(doc: ActivityDocument, _docId: string): Record<string, unknown> | null {
+  extractMetadata(doc: ActivityDocument): Record<string, unknown> | null {
     return {
       activityType: doc.type,
       actorRole: doc.actorRole,
