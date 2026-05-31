@@ -369,6 +369,55 @@ describe('Portal CRM reports page', () => {
     expect(pipelineLink).toHaveAttribute('href', '/portal/deals?create=deal')
   })
 
+  it('names unpriced open forecast deals instead of reporting them as zero pipeline', async () => {
+    ;(global.fetch as jest.Mock).mockImplementation((url: RequestInfo | URL) => {
+      const path = String(url)
+      if (path === '/api/v1/crm/reports/funnel') {
+        return apiResponse({
+          byType: { lead: 2, prospect: 1, client: 0, churned: 0, other: 0 },
+          byStage: { qualified: 3 },
+          total: 3,
+        })
+      }
+      if (path === '/api/v1/crm/reports/forecast') {
+        return apiResponse({
+          periods: {
+            thisMonth: { dealCount: 1, totalValue: 0, weightedValue: 0 },
+            nextMonth: { dealCount: 0, totalValue: 0, weightedValue: 0 },
+            thisQuarter: { dealCount: 1, totalValue: 0, weightedValue: 0 },
+            nextQuarter: { dealCount: 0, totalValue: 0, weightedValue: 0 },
+            beyond: { dealCount: 0, totalValue: 0, weightedValue: 0 },
+            noDate: { dealCount: 0, totalValue: 0, weightedValue: 0 },
+          },
+          summary: { totalOpenDeals: 1, totalValue: 0, weightedValue: 0 },
+        })
+      }
+      if (path === '/api/v1/crm/reports/pipeline-velocity') {
+        return apiResponse({ stages: [], summary: { stageCount: 0, bottleneckCount: 0, slowestStage: null } })
+      }
+      if (path === '/api/v1/crm/reports/rep-performance') {
+        return apiResponse({ reps: [], summary: { repCount: 0, totalWonValue: 0, totalOpenValue: 0, totalActivities: 0 } })
+      }
+      if (path === '/api/v1/crm/reports/activity-summary?days=30') {
+        return apiResponse({ byType: { email: 1 }, total: 1, perDay: [{ date: '2026-05-29', count: 1 }], since: '2026-04-29', days: 30 })
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${path}`))
+    })
+
+    render(<CrmReportsPage />)
+
+    expect((await screen.findAllByText('No priced pipeline')).length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Forecast value needed').length).toBeGreaterThan(0)
+    expect(screen.getByText('1 open deal needs value')).toBeInTheDocument()
+    expect(screen.getByText('Capture deal values before the next revenue review')).toBeInTheDocument()
+
+    const thisMonthRow = screen.getByText('This month').closest('tr')
+    expect(thisMonthRow).not.toBeNull()
+    expect(thisMonthRow as HTMLElement).toHaveTextContent('No value captured')
+    expect(thisMonthRow as HTMLElement).toHaveTextContent('Value needed')
+    expect(thisMonthRow as HTMLElement).not.toHaveTextContent(/R\s*0/)
+  })
+
   it('turns missing contact data into a contact creation action', async () => {
     ;(global.fetch as jest.Mock).mockImplementation((url: RequestInfo | URL) => {
       const path = String(url)

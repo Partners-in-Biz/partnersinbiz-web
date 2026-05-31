@@ -136,6 +136,10 @@ function fmtZar(value: number): string {
   return `R ${value.toLocaleString('en-ZA', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
 }
 
+function openDealValueReadinessLabel(count: number): string {
+  return `${fmtNum(count)} open ${count === 1 ? 'deal needs' : 'deals need'} value`
+}
+
 function fmtNum(value: number): string {
   return value.toLocaleString('en-ZA', { maximumFractionDigits: 0 })
 }
@@ -343,6 +347,7 @@ interface ForecastRowProps {
 
 function ForecastRow({ label, period, href, ariaLabel }: ForecastRowProps) {
   const muted = period.dealCount === 0
+  const valueMissing = period.dealCount > 0 && period.totalValue === 0
   const cls = muted ? 'text-[var(--color-pib-text-muted)]' : 'text-[var(--color-pib-text)]'
   const canOpen = Boolean(href && ariaLabel && period.dealCount > 0)
   return (
@@ -362,9 +367,9 @@ function ForecastRow({ label, period, href, ariaLabel }: ForecastRowProps) {
         )}
       </td>
       <td className={`px-4 py-3 text-sm text-right font-mono ${cls}`}>{fmtNum(period.dealCount)}</td>
-      <td className={`px-4 py-3 text-sm text-right font-mono ${cls}`}>{fmtZar(period.totalValue)}</td>
+      <td className={`px-4 py-3 text-sm text-right font-mono ${cls}`}>{valueMissing ? 'No value captured' : fmtZar(period.totalValue)}</td>
       <td className={`px-4 py-3 text-sm text-right font-mono ${muted ? 'text-[var(--color-pib-text-muted)]' : 'text-[var(--color-pib-accent)]'}`}>
-        {fmtZar(period.weightedValue)}
+        {valueMissing ? 'Value needed' : fmtZar(period.weightedValue)}
       </td>
     </tr>
   )
@@ -464,6 +469,7 @@ export default function CrmReportsPage() {
   const clientMix = activeContactCount > 0 ? clientCount / activeContactCount : 0
   const prospectMix = activeContactCount > 0 ? prospectCount / activeContactCount : 0
   const topStage = byStageEntries[0] ?? null
+  const forecastHasUnpricedOpenDeals = Boolean(forecast && forecast.summary.totalOpenDeals > 0 && forecast.summary.totalValue === 0)
   const forecastCoverage =
     forecast && forecast.summary.totalValue > 0 ? forecast.summary.weightedValue / forecast.summary.totalValue : 0
   const nearTermForecastValue = forecast
@@ -499,6 +505,23 @@ export default function CrmReportsPage() {
         ? 'Needs focus'
         : 'At risk'
   const pipelineSignalTone = pipelineSignal === 'Healthy' ? 'good' : pipelineSignal === 'Needs focus' ? 'warning' : 'neutral'
+  const openPipelineValue = !forecast
+    ? 'No forecast data'
+    : forecast.summary.totalOpenDeals === 0
+      ? 'No open pipeline'
+      : forecastHasUnpricedOpenDeals
+        ? 'No priced pipeline'
+        : fmtZar(forecast.summary.totalValue)
+  const openPipelineSub = !forecast
+    ? 'Forecast not loaded'
+    : forecast.summary.totalOpenDeals === 0
+      ? 'No open deals'
+      : forecastHasUnpricedOpenDeals
+        ? openDealValueReadinessLabel(forecast.summary.totalOpenDeals)
+        : `${fmtZar(forecast.summary.weightedValue)} weighted`
+  const totalPipelineSummary = forecastHasUnpricedOpenDeals ? 'No priced pipeline' : forecast ? fmtZar(forecast.summary.totalValue) : 'No forecast data'
+  const weightedPipelineSummary = forecastHasUnpricedOpenDeals ? 'Forecast value needed' : forecast ? fmtZar(forecast.summary.weightedValue) : 'No forecast data'
+  const nearTermForecastSummary = forecastHasUnpricedOpenDeals ? 'Forecast value needed' : fmtZar(nearTermForecastValue)
   const teamExecutionAction =
     unassignedContacts > 0
       ? {
@@ -595,7 +618,7 @@ export default function CrmReportsPage() {
           </div>
           <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
             <StatCard label="Contacts" value={fmtNum(funnel?.total ?? 0)} sub={`${fmtPercent(clientMix)} clients in active base`} icon="contacts" />
-            <StatCard label="Open pipeline" value={fmtZar(forecast?.summary.totalValue ?? 0)} sub={`${fmtZar(forecast?.summary.weightedValue ?? 0)} weighted`} icon="payments" />
+            <StatCard label="Open pipeline" value={openPipelineValue} sub={openPipelineSub} icon="payments" />
             <StatCard label="Bottlenecks" value={fmtNum(velocity?.summary.bottleneckCount ?? 0)} sub={`${fmtPercent(bottleneckShare)} of tracked stages`} icon="speed" />
             <StatCard label="Contact owners" value={fmtPercent(contactOwnerCoverage)} sub={`${fmtNum(unassignedContacts)} unowned contacts`} icon="supervisor_account" />
             <StatCard label="Activity" value={fmtNum(activity?.total ?? 0)} sub={`${activityAverage.toFixed(1)} per day over ${days} days`} icon="task_alt" />
@@ -636,15 +659,20 @@ export default function CrmReportsPage() {
         <InsightCard
           icon="event_upcoming"
           label="Forecast focus"
-          title={`${fmtZar(nearTermForecastValue)} weighted near term`}
-          body={`${fmtNum(noDateDeals)} open deals have no close date, which limits forecast reliability.`}
-          action={noDateDeals > 0 ? {
+          title={forecastHasUnpricedOpenDeals ? 'Forecast value needed' : `${fmtZar(nearTermForecastValue)} weighted near term`}
+          body={forecastHasUnpricedOpenDeals ? 'Capture deal values before the next revenue review' : `${fmtNum(noDateDeals)} open deals have no close date, which limits forecast reliability.`}
+          action={forecastHasUnpricedOpenDeals ? {
+            href: '/portal/deals?view=list',
+            label: 'Review deal values',
+            ariaLabel: 'Open pipeline deals needing value capture',
+            icon: 'payments',
+          } : noDateDeals > 0 ? {
             href: '/portal/deals?view=forecast&focus=no-close-date',
             label: 'Review dates',
             ariaLabel: 'Open forecast deals missing close dates',
             icon: 'edit_calendar',
           } : undefined}
-          tone={noDateDeals === 0 ? 'good' : 'warning'}
+          tone={forecastHasUnpricedOpenDeals || noDateDeals > 0 ? 'warning' : 'good'}
         />
         <InsightCard
           icon="timer"
@@ -772,9 +800,9 @@ export default function CrmReportsPage() {
             {/* Summary chips */}
             <div className="flex gap-3 flex-wrap">
               <SummaryChip label="Open deals" value={fmtNum(forecast.summary.totalOpenDeals)} />
-              <SummaryChip label="Total pipeline" value={fmtZar(forecast.summary.totalValue)} />
-              <SummaryChip label="Weighted pipeline" value={fmtZar(forecast.summary.weightedValue)} />
-              <SummaryChip label="Near term" value={fmtZar(nearTermForecastValue)} />
+              <SummaryChip label="Total pipeline" value={totalPipelineSummary} />
+              <SummaryChip label="Weighted pipeline" value={weightedPipelineSummary} />
+              <SummaryChip label="Near term" value={nearTermForecastSummary} />
             </div>
 
             {/* Forecast table */}
