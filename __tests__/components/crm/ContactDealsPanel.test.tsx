@@ -135,9 +135,23 @@ describe('ContactDealsPanel', () => {
       expect(screen.getByRole('link', { name: 'Zero value scoping deal' })).toBeInTheDocument()
     })
 
-    expect(screen.getByText('No value captured')).toBeInTheDocument()
+    expect(screen.getByText(/No value captured/)).toBeInTheDocument()
     expect(screen.getAllByText(/R\s*0/).length).toBeGreaterThan(0)
     expect(screen.queryByText('—')).not.toBeInTheDocument()
+  })
+
+  it('names missing close dates on contact deal rows as forecast cleanup work', async () => {
+    mockFetch.mockReturnValue(apiResponse([
+      makeDeal({ id: 'd1', title: 'Forecast hygiene deal', expectedCloseDate: null }),
+    ]))
+
+    render(<ContactDealsPanel contactId="contact-1" contactName="Ava Owner" />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: 'Forecast hygiene deal' })).toBeInTheDocument()
+    })
+
+    expect(screen.getByText(/Close date missing/)).toBeInTheDocument()
   })
 
   it('names unpriced pipeline summaries instead of rolling missing deal values into zero', async () => {
