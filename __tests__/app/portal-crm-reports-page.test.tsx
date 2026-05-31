@@ -113,6 +113,14 @@ describe('Portal CRM reports page', () => {
     expect(repDealsLink).toHaveAttribute('href', '/portal/deals?view=list&owner=u1')
   })
 
+  it('renders zero-value forecast periods as explicit forecast values instead of bare placeholders', async () => {
+    render(<CrmReportsPage />)
+
+    expect(await screen.findByText('Revenue forecast')).toBeInTheDocument()
+    expect(screen.queryAllByText('—')).toHaveLength(0)
+    expect(screen.getAllByText('R 0').length).toBeGreaterThanOrEqual(6)
+  })
+
   it('turns unassigned deal ownership into a direct deal owner lens', async () => {
     ;(global.fetch as jest.Mock).mockImplementation((url: RequestInfo | URL) => {
       const path = String(url)

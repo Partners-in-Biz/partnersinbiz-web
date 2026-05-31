@@ -362,9 +362,9 @@ function ForecastRow({ label, period, href, ariaLabel }: ForecastRowProps) {
         )}
       </td>
       <td className={`px-4 py-3 text-sm text-right font-mono ${cls}`}>{fmtNum(period.dealCount)}</td>
-      <td className={`px-4 py-3 text-sm text-right font-mono ${cls}`}>{period.dealCount > 0 ? fmtZar(period.totalValue) : '—'}</td>
+      <td className={`px-4 py-3 text-sm text-right font-mono ${cls}`}>{fmtZar(period.totalValue)}</td>
       <td className={`px-4 py-3 text-sm text-right font-mono ${muted ? 'text-[var(--color-pib-text-muted)]' : 'text-[var(--color-pib-accent)]'}`}>
-        {period.dealCount > 0 ? fmtZar(period.weightedValue) : '—'}
+        {fmtZar(period.weightedValue)}
       </td>
     </tr>
   )
