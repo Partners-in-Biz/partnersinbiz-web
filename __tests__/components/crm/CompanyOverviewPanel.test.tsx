@@ -98,6 +98,26 @@ describe('CompanyOverviewPanel', () => {
     expect(onSelectTab).toHaveBeenCalledWith('contacts')
   })
 
+  it('renders latest movement statuses as readable CRM labels', () => {
+    render(
+      <CompanyOverviewPanel
+        company={company()}
+        center={{
+          documents: [{ id: 'doc-1', title: 'Proposal', status: 'client_review', updatedAt: '2026-05-24T00:00:00.000Z' }],
+          orders: [{ id: 'order-1', orderNumber: 'ORD-001', status: 'pending_approval', updatedAt: '2026-05-25T00:00:00.000Z' }],
+          projects: [{ id: 'project-1', name: 'Website sprint', status: 'in_progress', updatedAt: '2026-05-26T00:00:00.000Z' }],
+        }}
+      />,
+    )
+
+    expect(screen.getByText('Client review')).toBeInTheDocument()
+    expect(screen.getByText('Pending approval')).toBeInTheDocument()
+    expect(screen.getByText('In progress')).toBeInTheDocument()
+    expect(screen.queryByText('client_review')).not.toBeInTheDocument()
+    expect(screen.queryByText('pending_approval')).not.toBeInTheDocument()
+    expect(screen.queryByText('in_progress')).not.toBeInTheDocument()
+  })
+
   it('turns sparse identity and billing blocks into profile-capture actions', () => {
     const onEditCompany = jest.fn()
 

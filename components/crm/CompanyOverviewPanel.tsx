@@ -190,16 +190,28 @@ function sumRows(rows: OverviewRow[], fieldNames: string[]): number {
 function statusTone(value: unknown): { label: string; className: string } {
   const status = stringValue(value).toLowerCase()
   if (!status) return { label: 'Linked', className: 'border-white/10 bg-white/5 text-[var(--color-pib-text-muted)]' }
+  const label = readableStatusLabel(status)
   if (['active', 'approved', 'paid', 'fulfilled', 'live', 'completed', 'won'].includes(status)) {
-    return { label: status.replace(/_/g, ' '), className: 'border-emerald-400/30 bg-emerald-400/10 text-emerald-200' }
+    return { label, className: 'border-emerald-400/30 bg-emerald-400/10 text-emerald-200' }
   }
   if (['pending', 'pending_approval', 'client_review', 'qa_review', 'in_progress', 'open', 'draft', 'review'].includes(status)) {
-    return { label: status.replace(/_/g, ' '), className: 'border-amber-400/30 bg-amber-400/10 text-amber-200' }
+    return { label, className: 'border-amber-400/30 bg-amber-400/10 text-amber-200' }
   }
   if (['blocked', 'overdue', 'failed', 'cancelled', 'lost', 'out_of_stock', 'low_stock'].includes(status)) {
-    return { label: status.replace(/_/g, ' '), className: 'border-red-400/30 bg-red-400/10 text-red-200' }
+    return { label, className: 'border-red-400/30 bg-red-400/10 text-red-200' }
   }
-  return { label: status.replace(/_/g, ' '), className: 'border-white/10 bg-white/5 text-[var(--color-pib-text-muted)]' }
+  return { label, className: 'border-white/10 bg-white/5 text-[var(--color-pib-text-muted)]' }
+}
+
+function readableStatusLabel(value: string): string {
+  return value
+    .split(/[_-]+/)
+    .filter(Boolean)
+    .map((part, index) => {
+      const lower = part.toLowerCase()
+      return index === 0 ? lower.charAt(0).toUpperCase() + lower.slice(1) : lower
+    })
+    .join(' ')
 }
 
 function rowTitle(row: OverviewRow, fallback: string): string {
