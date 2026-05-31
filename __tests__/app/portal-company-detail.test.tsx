@@ -5,15 +5,18 @@ import type { CustomFieldDefinition } from '@/lib/customFields/types'
 
 let mockSearchParams = new URLSearchParams()
 let mockCompanyCustomFieldDefinitions: CustomFieldDefinition[] = []
+const pushMock = jest.fn()
+const refreshMock = jest.fn()
 
 jest.mock('next/navigation', () => ({
   useParams: () => ({ id: 'company-1' }),
-  useRouter: () => ({ push: jest.fn() }),
+  useRouter: () => ({ push: pushMock, refresh: refreshMock }),
   useSearchParams: () => mockSearchParams,
 }))
 
 describe('Portal company detail page', () => {
   beforeEach(() => {
+    jest.clearAllMocks()
     mockSearchParams = new URLSearchParams()
     mockCompanyCustomFieldDefinitions = []
     global.fetch = jest.fn((input: RequestInfo | URL) => {
@@ -105,6 +108,39 @@ describe('Portal company detail page', () => {
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: 'Acme Holdings' })).toBeInTheDocument()
     })
+  })
+
+  it('uses an in-page confirmation before archiving an account', async () => {
+    const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(false)
+
+    render(<CompanyDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Acme Holdings' })).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Archive' }))
+
+    expect(confirmSpy).not.toHaveBeenCalled()
+    expect(
+      await screen.findByRole('alertdialog', { name: 'Archive account "Acme Holdings"?' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'This removes the account from active company views while preserving linked contacts, deals, quotes, activities, and audit history.',
+      ),
+    ).toBeInTheDocument()
+    expect(global.fetch).not.toHaveBeenCalledWith('/api/v1/crm/companies/company-1', { method: 'DELETE' })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm archive Acme Holdings' }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/companies/company-1', { method: 'DELETE' })
+    })
+    await waitFor(() => expect(pushMock).toHaveBeenCalledWith('/portal/companies'))
+    expect(refreshMock).toHaveBeenCalled()
+
+    confirmSpy.mockRestore()
   })
 
   it('opens profile editing when routed from a list setup action', async () => {

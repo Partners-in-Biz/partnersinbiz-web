@@ -1531,6 +1531,8 @@ export default function CompanyDetailPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [archiveConfirmOpen, setArchiveConfirmOpen] = useState(false)
+  const [archiveError, setArchiveError] = useState<string | null>(null)
 
   const [tab, setTab] = useState<CompanyTab>('overview')
   const [editOpen, setEditOpen] = useState(false)
@@ -2022,10 +2024,8 @@ export default function CompanyDetailPage() {
 
   async function handleDelete(): Promise<void> {
     if (!company) return
-    const confirmed = window.confirm(`Archive ${company.name}? Linked contacts, deals, quotes, and activities will keep their history but no longer point at this company.`)
-    if (!confirmed) return
     setDeleting(true)
-    setError(null)
+    setArchiveError(null)
     try {
       const res = await fetch(`/api/v1/crm/companies/${id}`, { method: 'DELETE' })
       if (!res.ok) {
@@ -2035,7 +2035,7 @@ export default function CompanyDetailPage() {
       router.push('/portal/companies')
       router.refresh()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to archive company')
+      setArchiveError(err instanceof Error ? err.message : 'Failed to archive company')
       setDeleting(false)
     }
   }
@@ -2079,7 +2079,10 @@ export default function CompanyDetailPage() {
         <CompanyHeader
           company={company}
           onEdit={() => setEditOpen(true)}
-          onDelete={handleDelete}
+          onDelete={() => {
+            setArchiveConfirmOpen(true)
+            setArchiveError(null)
+          }}
           deleting={deleting}
           stats={{
             contacts: related.contacts.length,
@@ -2090,6 +2093,61 @@ export default function CompanyDetailPage() {
           }}
         />
       </div>
+
+      {archiveError && (
+        <div className="rounded-lg border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm text-red-100">
+          <span className="material-symbols-outlined mr-1.5 align-middle text-[16px]" aria-hidden="true">error</span>
+          {archiveError}
+        </div>
+      )}
+
+      {archiveConfirmOpen && (
+        <section
+          role="alertdialog"
+          aria-modal="false"
+          aria-labelledby="company-archive-confirm-title"
+          aria-describedby="company-archive-confirm-description"
+          className="rounded-lg border border-red-400/25 bg-red-500/10 p-5 shadow-[0_18px_40px_rgba(127,29,29,0.18)]"
+        >
+          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+            <div className="flex gap-3">
+              <span className="material-symbols-outlined mt-0.5 text-red-200" aria-hidden="true">warning</span>
+              <div>
+                <p className="eyebrow !text-[10px] !text-red-100/80">Account archive</p>
+                <h2 id="company-archive-confirm-title" className="mt-1 font-display text-lg text-red-50">
+                  Archive account &quot;{company.name}&quot;?
+                </h2>
+                <p id="company-archive-confirm-description" className="mt-2 max-w-2xl text-sm text-red-100/90">
+                  This removes the account from active company views while preserving linked contacts, deals, quotes, activities, and audit history.
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 md:justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setArchiveConfirmOpen(false)
+                  setArchiveError(null)
+                }}
+                className="btn-pib-secondary text-xs"
+                disabled={deleting}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDelete}
+                aria-label={`Confirm archive ${company.name}`}
+                className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-lg border border-red-300/30 bg-red-500/20 px-3 py-2 text-xs font-semibold text-red-50 transition-colors hover:border-red-200/60 hover:bg-red-500/30 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={deleting}
+              >
+                <span className="material-symbols-outlined text-[15px]" aria-hidden="true">archive</span>
+                {deleting ? 'Archiving...' : 'Archive account'}
+              </button>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Tabs */}
       <CompanyTabsBar
