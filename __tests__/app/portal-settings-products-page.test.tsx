@@ -64,6 +64,28 @@ describe('Portal settings products page', () => {
     expect(screen.getByRole('dialog', { name: 'Edit product' })).toBeInTheDocument()
   })
 
+  it('names sparse product rows instead of leaving blank catalog identity', async () => {
+    products = [{
+      id: 'product-raw-id',
+      orgId: 'org-1',
+      name: '',
+      description: 'Needs naming before the team quotes it',
+      unit: 'month',
+      unitPrice: 12000,
+      currency: 'ZAR',
+      createdAt: null,
+      updatedAt: null,
+    }]
+
+    render(<ProductsPage />)
+
+    expect(await screen.findByText('Product name missing')).toBeInTheDocument()
+    expect(screen.queryByText('product-raw-id')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /Edit Product name missing/i }))
+    expect(screen.getByRole('dialog', { name: 'Edit product' })).toBeInTheDocument()
+  })
+
   it('turns missing product pricing rules into a direct edit action', async () => {
     products = [{
       id: 'product-1',
