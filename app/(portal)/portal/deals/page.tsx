@@ -145,7 +145,9 @@ function matchesDealOwnerLens(deal: Deal, ownerLens: string): boolean {
 }
 
 function dealOwnerLabel(deal: Deal): string {
-  return deal.ownerRef?.displayName || deal.ownerUid || 'Unassigned'
+  if (deal.ownerRef?.displayName?.trim()) return deal.ownerRef.displayName
+  if (deal.ownerUid?.trim()) return 'Deal owner identity missing'
+  return 'Unassigned'
 }
 
 function teamMemberLabel(member: TeamMember): string {

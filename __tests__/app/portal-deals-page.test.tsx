@@ -259,6 +259,51 @@ describe('Portal deals page', () => {
     expect(screen.getByText('Unassigned')).toBeInTheDocument()
   })
 
+  it('names incomplete deal owner snapshots instead of exposing raw owner ids', async () => {
+    mockSearchParams = new URLSearchParams('view=list')
+    mockDealRows = [
+      {
+        id: 'deal-sparse-owner',
+        orgId: 'org-1',
+        contactId: 'contact-1',
+        title: 'Sparse owner expansion',
+        value: 50000,
+        currency: 'ZAR',
+        pipelineId: 'pipeline-1',
+        stageId: 'qualified',
+        ownerUid: 'owner-raw-id',
+        expectedCloseDate: null,
+        notes: '',
+        createdAt: null,
+        updatedAt: null,
+      },
+      {
+        id: 'deal-unassigned',
+        orgId: 'org-1',
+        contactId: 'contact-1',
+        title: 'Unassigned expansion',
+        value: 25000,
+        currency: 'ZAR',
+        pipelineId: 'pipeline-1',
+        stageId: 'qualified',
+        expectedCloseDate: null,
+        notes: '',
+        createdAt: null,
+        updatedAt: null,
+      },
+    ]
+
+    render(<DealsPage />)
+
+    const sparseOwnerRow = (await screen.findByText('Sparse owner expansion')).closest('[data-deal-row]')
+    const unassignedRow = screen.getByText('Unassigned expansion').closest('[data-deal-row]')
+    expect(sparseOwnerRow).not.toBeNull()
+    expect(unassignedRow).not.toBeNull()
+    expect(within(sparseOwnerRow as HTMLElement).getByText('Deal owner identity missing')).toBeInTheDocument()
+    expect(within(sparseOwnerRow as HTMLElement).queryByText('owner-raw-id')).not.toBeInTheDocument()
+    expect(within(unassignedRow as HTMLElement).getByText('Unassigned')).toBeInTheDocument()
+  })
+
   it('opens directly to unassigned deals from CRM reports', async () => {
     mockSearchParams = new URLSearchParams('view=list&owner=unassigned')
 
