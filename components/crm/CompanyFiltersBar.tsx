@@ -17,12 +17,25 @@ interface ChipProps {
   active: boolean
   options: string[]
   selectedValue?: string
+  formatOption?: (value: string) => string
   onSelect: (value: string | undefined) => void
 }
 
-function FilterChip({ label, active, options, selectedValue, onSelect }: ChipProps) {
+function readableAccountLabel(value: string): string {
+  return value
+    .split(/[-_\s]+/)
+    .filter(Boolean)
+    .map((part, index) => {
+      const lower = part.toLowerCase()
+      return index === 0 ? lower.charAt(0).toUpperCase() + lower.slice(1) : lower
+    })
+    .join(' ')
+}
+
+function FilterChip({ label, active, options, selectedValue, formatOption = (value) => value, onSelect }: ChipProps) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
+  const selectedLabel = selectedValue ? formatOption(selectedValue) : undefined
 
   useEffect(() => {
     if (!open) return
@@ -38,6 +51,7 @@ function FilterChip({ label, active, options, selectedValue, onSelect }: ChipPro
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
+        aria-label={selectedLabel ? `${label}: ${selectedLabel}` : label}
         className={`cursor-pointer text-xs font-label px-3 py-1.5 rounded-full border transition-colors flex items-center gap-1.5 ${
           active
             ? 'border-[var(--color-accent-v2)] text-[var(--color-accent-v2)] bg-[color-mix(in_oklab,var(--color-accent-v2)_10%,transparent)]'
@@ -45,10 +59,10 @@ function FilterChip({ label, active, options, selectedValue, onSelect }: ChipPro
         }`}
       >
         {label}
-        {selectedValue && (
-          <span className="font-mono text-[10px] opacity-75">: {selectedValue}</span>
+        {selectedLabel && (
+          <span className="font-mono text-[10px] opacity-75">: {selectedLabel}</span>
         )}
-        <span className="material-symbols-outlined text-[14px]">
+        <span className="material-symbols-outlined text-[14px]" aria-hidden="true">
           {open ? 'expand_less' : 'expand_more'}
         </span>
       </button>
@@ -62,20 +76,23 @@ function FilterChip({ label, active, options, selectedValue, onSelect }: ChipPro
           >
             All
           </button>
-          {options.map((opt) => (
-            <button
-              key={opt}
-              type="button"
-              onClick={() => { onSelect(opt); setOpen(false) }}
-              className={`cursor-pointer w-full text-left text-xs px-3 py-2 hover:bg-white/[0.05] transition-colors ${
-                selectedValue === opt
-                  ? 'text-[var(--color-accent-v2)]'
-                  : 'text-[var(--color-pib-text)]'
-              }`}
-            >
-              {opt}
-            </button>
-          ))}
+          {options.map((opt) => {
+            const optionLabel = formatOption(opt)
+            return (
+              <button
+                key={opt}
+                type="button"
+                onClick={() => { onSelect(opt); setOpen(false) }}
+                className={`cursor-pointer w-full text-left text-xs px-3 py-2 hover:bg-white/[0.05] transition-colors ${
+                  selectedValue === opt
+                    ? 'text-[var(--color-accent-v2)]'
+                    : 'text-[var(--color-pib-text)]'
+                }`}
+              >
+                {optionLabel}
+              </button>
+            )
+          })}
         </div>
       )}
     </div>
@@ -144,6 +161,7 @@ export function CompanyFiltersBar({ value, onChange }: CompanyFiltersBarProps) {
         active={!!value.tier}
         options={TIERS}
         selectedValue={value.tier}
+        formatOption={readableAccountLabel}
         onSelect={(v) => onChange({ ...value, tier: v as CompanyTier | undefined })}
       />
 
@@ -152,6 +170,7 @@ export function CompanyFiltersBar({ value, onChange }: CompanyFiltersBarProps) {
         active={!!value.lifecycleStage}
         options={LIFECYCLES}
         selectedValue={value.lifecycleStage}
+        formatOption={readableAccountLabel}
         onSelect={(v) => onChange({ ...value, lifecycleStage: v as CompanyLifecycleStage | undefined })}
       />
 
