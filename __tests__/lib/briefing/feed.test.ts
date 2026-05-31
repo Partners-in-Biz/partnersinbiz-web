@@ -1162,6 +1162,69 @@ describe('briefing feed', () => {
     expect(JSON.stringify(adminFeed.items)).toContain('[REDACTED]')
   })
 
+  it('surfaces email broadcasts as campaign control cards', async () => {
+    collections.organizations = [makeDoc('org-1', { name: 'Client One', slug: 'client-one' })]
+    collections.broadcasts = [
+      makeDoc('broadcast-1', {
+        orgId: 'org-1',
+        name: 'June newsletter',
+        description: 'June newsletter launch. api_key: broadcast-secret-123',
+        status: 'draft',
+        channel: 'email',
+        scheduledFor: null,
+        content: {
+          subject: 'June growth update',
+          preheader: 'What changed this month',
+          bodyText: 'A short note for the client list.',
+        },
+        audience: {
+          segmentId: 'segment-1',
+          contactIds: ['contact-1', 'contact-2'],
+          tags: ['newsletter'],
+        },
+        stats: { audienceSize: 24, sent: 0, failed: 0 },
+        updatedAt: '2026-05-31T08:00:00.000Z',
+      }),
+      makeDoc('broadcast-2', {
+        orgId: 'org-1',
+        name: 'Already sent',
+        status: 'sent',
+        content: { subject: 'Sent already' },
+        updatedAt: '2026-05-31T08:00:00.000Z',
+      }),
+    ]
+
+    const { buildBriefingFeed } = await import('@/lib/briefing/feed')
+    const feed = await buildBriefingFeed(
+      { uid: 'client-1', role: 'client', orgId: 'org-1' },
+      { limit: 10, sourceType: 'broadcast' },
+    )
+
+    expect(feed.items).toHaveLength(1)
+    expect(feed.items[0]).toMatchObject({
+      source: { type: 'broadcast', id: 'broadcast-1', collectionPath: 'broadcasts', url: '/portal/campaigns/broadcast/broadcast-1' },
+      priority: 'needs-peet',
+      title: 'Broadcast ready to send: June newsletter',
+      context: {
+        orgId: 'org-1',
+        orgName: 'Client One',
+        orgSlug: 'client-one',
+        broadcastId: 'broadcast-1',
+        broadcastName: 'June newsletter',
+      },
+      metadata: expect.objectContaining({
+        broadcastStatus: 'draft',
+        channel: 'email',
+        subject: 'June growth update',
+        audienceSize: 24,
+        segmentId: 'segment-1',
+      }),
+    })
+    expect(feed.items[0].summary).toContain('email broadcast')
+    expect(JSON.stringify(feed.items)).not.toContain('broadcast-secret-123')
+    expect(JSON.stringify(feed.items)).toContain('[REDACTED]')
+  })
+
   it('surfaces new form submissions as source-backed follow-up cards', async () => {
     collections.organizations = [makeDoc('org-1', { name: 'Client One', slug: 'client-one' })]
     collections.form_submissions = [

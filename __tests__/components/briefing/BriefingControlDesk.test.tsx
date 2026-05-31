@@ -625,6 +625,89 @@ const adCampaignBriefingItem = {
   occurredAt: '2026-05-31T09:52:00.000Z',
 }
 
+const draftBroadcastBriefingItem = {
+  id: 'broadcast:broadcast-1',
+  orgId: 'org-1',
+  priority: 'needs-peet',
+  title: 'Broadcast ready to send: June newsletter',
+  summary: 'email broadcast is draft for 24 recipients.',
+  excerpt: 'June newsletter launch.',
+  timeAgo: '13 minutes ago',
+  requiresAction: true,
+  source: { type: 'broadcast', id: 'broadcast-1', url: '/portal/campaigns/broadcast/broadcast-1' },
+  actor: { id: 'system:broadcast', name: 'Campaign system', role: 'system', type: 'system' },
+  context: {
+    orgId: 'org-1',
+    orgName: 'Client One',
+    orgSlug: 'client-one',
+    broadcastId: 'broadcast-1',
+    broadcastName: 'June newsletter',
+  },
+  metadata: {
+    broadcastStatus: 'draft',
+    channel: 'email',
+    subject: 'June growth update',
+    audienceSize: 24,
+    segmentId: 'segment-1',
+  },
+  occurredAt: '2026-05-31T09:51:45.000Z',
+}
+
+const scheduledBroadcastBriefingItem = {
+  id: 'broadcast:broadcast-2',
+  orgId: 'org-1',
+  priority: 'review',
+  title: 'Broadcast scheduled: Product webinar invite',
+  summary: 'email broadcast is scheduled for 42 recipients.',
+  excerpt: 'Webinar invitation is ready.',
+  timeAgo: '13 minutes ago',
+  requiresAction: true,
+  source: { type: 'broadcast', id: 'broadcast-2', url: '/portal/campaigns/broadcast/broadcast-2' },
+  actor: { id: 'system:broadcast', name: 'Campaign system', role: 'system', type: 'system' },
+  context: {
+    orgId: 'org-1',
+    orgName: 'Client One',
+    orgSlug: 'client-one',
+    broadcastId: 'broadcast-2',
+    broadcastName: 'Product webinar invite',
+  },
+  metadata: {
+    broadcastStatus: 'scheduled',
+    channel: 'email',
+    subject: 'Join the product webinar',
+    audienceSize: 42,
+    scheduledFor: '2026-06-01T08:00:00.000Z',
+  },
+  occurredAt: '2026-05-31T09:51:30.000Z',
+}
+
+const pausedBroadcastBriefingItem = {
+  id: 'broadcast:broadcast-3',
+  orgId: 'org-1',
+  priority: 'needs-peet',
+  title: 'Broadcast paused: Renewal reminder',
+  summary: 'email broadcast is paused for 18 recipients.',
+  excerpt: 'Renewal sequence paused before send.',
+  timeAgo: '13 minutes ago',
+  requiresAction: true,
+  source: { type: 'broadcast', id: 'broadcast-3', url: '/portal/campaigns/broadcast/broadcast-3' },
+  actor: { id: 'system:broadcast', name: 'Campaign system', role: 'system', type: 'system' },
+  context: {
+    orgId: 'org-1',
+    orgName: 'Client One',
+    orgSlug: 'client-one',
+    broadcastId: 'broadcast-3',
+    broadcastName: 'Renewal reminder',
+  },
+  metadata: {
+    broadcastStatus: 'paused',
+    channel: 'email',
+    subject: 'Your renewal is coming up',
+    audienceSize: 18,
+  },
+  occurredAt: '2026-05-31T09:51:15.000Z',
+}
+
 const formSubmissionBriefingItem = {
   id: 'form-submission:submission-1',
   orgId: 'org-1',
@@ -854,7 +937,7 @@ describe('BriefingControlDesk', () => {
       if (url.startsWith('/api/v1/briefings/feed')) {
         const items = url.includes('orgId=org-2')
           ? [secondOrgBriefingItem]
-          : [briefingItem, documentBriefingItem, documentCommentBriefingItem, approvalBriefingItem, conversationBriefingItem, socialBriefingItem, notificationBriefingItem, activityBriefingItem, contactBriefingItem, reportBriefingItem, supportBriefingItem, invoiceBriefingItem, invoiceProofBriefingItem, quoteBriefingItem, shipmentBriefingItem, orderBriefingItem, inventoryBriefingItem, enquiryBriefingItem, bookingBriefingItem, expenseBriefingItem, seoContentBriefingItem, seoTaskBriefingItem, adCampaignBriefingItem, formSubmissionBriefingItem, socialInboxBriefingItem, mailboxBriefingItem, agentRunBriefingItem, workspaceBrokerBriefingItem, calendarBriefingItem, secondOrgBriefingItem]
+          : [briefingItem, documentBriefingItem, documentCommentBriefingItem, approvalBriefingItem, conversationBriefingItem, socialBriefingItem, notificationBriefingItem, activityBriefingItem, contactBriefingItem, reportBriefingItem, supportBriefingItem, invoiceBriefingItem, invoiceProofBriefingItem, quoteBriefingItem, shipmentBriefingItem, orderBriefingItem, inventoryBriefingItem, enquiryBriefingItem, bookingBriefingItem, expenseBriefingItem, seoContentBriefingItem, seoTaskBriefingItem, adCampaignBriefingItem, draftBroadcastBriefingItem, scheduledBroadcastBriefingItem, pausedBroadcastBriefingItem, formSubmissionBriefingItem, socialInboxBriefingItem, mailboxBriefingItem, agentRunBriefingItem, workspaceBrokerBriefingItem, calendarBriefingItem, secondOrgBriefingItem]
         return {
           ok: true,
           json: async () => ({ data: { items, total: items.length, hasMore: false, generatedAt: '2026-05-31T10:05:00.000Z' } }),
@@ -1008,6 +1091,24 @@ describe('BriefingControlDesk', () => {
         return {
           ok: true,
           json: async () => ({ data: { id: 'ad-campaign-1', reviewState: 'rejected' } }),
+        } as Response
+      }
+      if (url === '/api/v1/broadcasts/broadcast-1/send-now') {
+        return {
+          ok: true,
+          json: async () => ({ data: { id: 'broadcast-1', status: 'scheduled', mode: 'queued' } }),
+        } as Response
+      }
+      if (url === '/api/v1/broadcasts/broadcast-2/pause') {
+        return {
+          ok: true,
+          json: async () => ({ data: { id: 'broadcast-2', status: 'paused' } }),
+        } as Response
+      }
+      if (url === '/api/v1/broadcasts/broadcast-3/resume') {
+        return {
+          ok: true,
+          json: async () => ({ data: { id: 'broadcast-3', status: 'scheduled' } }),
         } as Response
       }
       if (url === '/api/v1/forms/form-1/submissions/submission-1') {
@@ -1841,6 +1942,45 @@ describe('BriefingControlDesk', () => {
         method: 'POST',
         body: JSON.stringify({ reason: 'Please reduce the daily budget before launch.' }),
       }))
+    })
+  })
+
+  it('sends, pauses, and resumes broadcast cards from the control desk', async () => {
+    render(<BriefingControlDesk mode="portal" />)
+
+    fireEvent.click(await screen.findByRole('button', { name: /Broadcast ready to send: June newsletter/i }))
+    expect(screen.getByText('June newsletter (broadcast-1)')).toBeInTheDocument()
+    expect(screen.getByText('June growth update')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /open source/i })).toHaveAttribute('href', '/portal/campaigns/broadcast/broadcast-1')
+    fireEvent.click(screen.getByRole('button', { name: /send broadcast now/i }))
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/broadcasts/broadcast-1/send-now', expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ immediate: false }),
+      }))
+    })
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /send broadcast now/i })).not.toBeDisabled()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /Broadcast scheduled: Product webinar invite/i }))
+    expect(screen.getByText('Product webinar invite (broadcast-2)')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /pause broadcast/i }))
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/broadcasts/broadcast-2/pause', expect.objectContaining({ method: 'POST' }))
+    })
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /pause broadcast/i })).not.toBeDisabled()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /Broadcast paused: Renewal reminder/i }))
+    expect(screen.getByText('Renewal reminder (broadcast-3)')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /resume broadcast/i }))
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/broadcasts/broadcast-3/resume', expect.objectContaining({ method: 'POST' }))
+    })
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /resume broadcast/i })).not.toBeDisabled()
     })
   })
 
