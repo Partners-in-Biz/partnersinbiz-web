@@ -95,8 +95,8 @@ function PipelineSummary({ deals, stages }: PipelineSummaryProps) {
 
 // ── Forecast helpers ───────────────────────────────────────────────────────────
 
-function fmtDealValue(value: number | undefined, currency?: string) {
-  if (!value) return '—'
+function fmtDealValue(value: number | null | undefined, currency?: string, missingLabel = 'No value captured') {
+  if (value == null || Number.isNaN(value)) return missingLabel
   try {
     return new Intl.NumberFormat('en-ZA', {
       style: 'currency', currency: currency ?? 'ZAR', maximumFractionDigits: 0,
@@ -853,7 +853,7 @@ export default function DealsPage() {
                         {dealOwnerLabel(deal)}
                       </td>
                       <td className="px-4 py-3 font-mono text-on-surface-variant text-xs">
-                        {deal.currency} {deal.value?.toFixed(0)}
+                        {fmtDealValue(deal.value, deal.currency)}
                       </td>
                       <td className="px-4 py-3 font-mono text-xs">
                         <span
@@ -867,7 +867,7 @@ export default function DealsPage() {
                         </span>
                       </td>
                       <td className="px-4 py-3 font-mono text-on-surface-variant text-xs">
-                        {deal.currency} {weighted.toFixed(0)}
+                        {fmtDealValue(weighted, deal.currency)}
                       </td>
                       <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
                         {deal.contactId ? (

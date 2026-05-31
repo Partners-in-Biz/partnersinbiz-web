@@ -158,6 +158,52 @@ describe('Portal deals page', () => {
     await waitFor(() => expect(screen.getByText('Growth retainer')).toBeInTheDocument())
   })
 
+  it('names missing deal values and renders zero values as explicit commercial data', async () => {
+    mockSearchParams = new URLSearchParams('view=list')
+    mockDealRows = [
+      {
+        id: 'deal-zero',
+        orgId: 'org-1',
+        contactId: 'contact-1',
+        title: 'Zero value discovery',
+        value: 0,
+        currency: 'ZAR',
+        pipelineId: 'pipeline-1',
+        stageId: 'qualified',
+        expectedCloseDate: '2026-06-15',
+        notes: '',
+        createdAt: null,
+        updatedAt: null,
+      },
+      {
+        id: 'deal-missing-value',
+        orgId: 'org-1',
+        contactId: 'contact-1',
+        title: 'Unpriced implementation',
+        currency: 'ZAR',
+        pipelineId: 'pipeline-1',
+        stageId: 'qualified',
+        expectedCloseDate: '2026-07-15',
+        notes: '',
+        createdAt: null,
+        updatedAt: null,
+      },
+    ]
+
+    render(<DealsPage />)
+
+    const zeroRow = (await screen.findByText('Zero value discovery')).closest('[data-deal-row]')
+    const missingValueRow = screen.getByText('Unpriced implementation').closest('[data-deal-row]')
+    expect(zeroRow).not.toBeNull()
+    expect(missingValueRow).not.toBeNull()
+
+    expect(within(zeroRow as HTMLElement).getAllByText('R 0').length).toBeGreaterThanOrEqual(2)
+    expect(within(missingValueRow as HTMLElement).getByText('No value captured')).toBeInTheDocument()
+    expect(within(missingValueRow as HTMLElement).getByText('R 0')).toBeInTheDocument()
+    expect(screen.queryByText('ZAR undefined')).not.toBeInTheDocument()
+    expect(screen.queryByText('—')).not.toBeInTheDocument()
+  })
+
   it('surfaces unassigned deals as a pipeline accountability lens', async () => {
     render(<DealsPage />)
 
