@@ -21,6 +21,10 @@ function closeDateReadinessLabel(ts: unknown): string {
   return closeDate ? `Close ${closeDate}` : 'Close date missing'
 }
 
+function dealTitleLabel(deal: Deal): string {
+  return deal.title?.trim() || 'Deal name missing'
+}
+
 function fmtValue(deal: Deal): string {
   if (deal.value == null || Number.isNaN(deal.value)) return 'No value captured'
   try {
@@ -292,6 +296,7 @@ export function ContactDealsPanel({ contactId, contactName, orgId = '' }: Props)
         <div className="divide-y divide-[var(--color-pib-line)]">
           {deals.map((deal) => {
             const closeDateLabel = closeDateReadinessLabel(deal.expectedCloseDate)
+            const titleLabel = dealTitleLabel(deal)
             const { label: stageLabel, color: stageColor } = resolveStage(deal, pipelinesById)
             return (
               <div key={deal.id} className="px-5 py-3 flex items-center gap-4">
@@ -305,7 +310,7 @@ export function ContactDealsPanel({ contactId, contactName, orgId = '' }: Props)
                     href={`/portal/deals/${deal.id}`}
                     className="text-sm font-medium text-[var(--color-pib-text)] hover:underline truncate block"
                   >
-                    {deal.title}
+                    {titleLabel}
                   </Link>
                   <p className="text-[11px] text-[var(--color-pib-text-muted)] font-mono mt-0.5">
                     {fmtValue(deal)}

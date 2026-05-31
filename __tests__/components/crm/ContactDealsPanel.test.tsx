@@ -154,6 +154,21 @@ describe('ContactDealsPanel', () => {
     expect(screen.getByText(/Close date missing/)).toBeInTheDocument()
   })
 
+  it('names sparse linked deal titles instead of rendering blank rows on contact detail', async () => {
+    mockFetch.mockReturnValue(apiResponse([
+      makeDeal({ id: 'd1', title: '' }),
+    ]))
+
+    render(<ContactDealsPanel contactId="contact-1" contactName="Ava Owner" />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: 'Deal name missing' })).toBeInTheDocument()
+    })
+
+    expect(screen.getByRole('link', { name: 'Deal name missing' })).toHaveAttribute('href', '/portal/deals/d1')
+    expect(screen.queryByText('Test Deal')).not.toBeInTheDocument()
+  })
+
   it('names unpriced pipeline summaries instead of rolling missing deal values into zero', async () => {
     mockFetch.mockReturnValue(apiResponse([
       makeDeal({ id: 'd1', title: 'Unpriced relationship deal', value: undefined }),
