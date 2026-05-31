@@ -227,6 +227,78 @@ describe('Portal company detail page', () => {
     expect(screen.queryAllByText('-')).toHaveLength(0)
   })
 
+  it('names linked deal commercial setup gaps on company detail instead of showing dash placeholders', async () => {
+    global.fetch = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/custom-fields?resource=company') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { definitions: [] } }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/companies/company-1') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              company: {
+                id: 'company-1',
+                orgId: 'org-1',
+                name: 'Acme Holdings',
+                lifecycleStage: 'customer',
+              },
+            },
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/companies/company-1/command-center?limit=100') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              summary: {},
+              analytics: {},
+              contacts: [
+                { id: 'contact-1', name: 'Jane Client', email: 'jane@example.com' },
+              ],
+              deals: [
+                { id: 'deal-1', title: 'Growth retainer' },
+              ],
+              quotes: [],
+              invoices: [],
+              projects: [],
+              serviceWorkspaces: [],
+              relationships: [],
+              documents: [],
+              orders: [],
+              shipments: [],
+              inventoryItems: [],
+              activities: [],
+            },
+          }),
+        } as Response)
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ data: {} }),
+      } as Response)
+    }) as jest.Mock
+
+    render(<CompanyDetailPage />)
+
+    await screen.findByRole('heading', { name: 'Acme Holdings' })
+    fireEvent.click(screen.getByRole('tab', { name: /Deals/i }))
+
+    const row = (await screen.findByRole('link', { name: 'Growth retainer' })).closest('tr')
+    expect(row).not.toBeNull()
+    expect(row as HTMLElement).toHaveTextContent('No value captured')
+    expect(row as HTMLElement).toHaveTextContent('Stage not set')
+    expect(row as HTMLElement).toHaveTextContent('Probability not set')
+    expect(screen.queryAllByText('-')).toHaveLength(0)
+  })
+
   it('surfaces CRM OS command-center tabs for delivery, commerce, and collaboration', async () => {
     render(<CompanyDetailPage />)
 

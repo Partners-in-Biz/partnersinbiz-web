@@ -229,6 +229,18 @@ function formatCurrency(value?: number, currency = 'ZAR') {
   }).format(value)
 }
 
+function dealValueLabel(deal: RelatedDeal) {
+  return typeof deal.value === 'number' && Number.isFinite(deal.value)
+    ? formatCurrency(deal.value, deal.currency || 'ZAR')
+    : 'No value captured'
+}
+
+function dealProbabilityLabel(deal: RelatedDeal) {
+  return typeof deal.probability === 'number' && Number.isFinite(deal.probability)
+    ? `${deal.probability}%`
+    : 'Probability not set'
+}
+
 function formatDate(value: unknown) {
   if (!value) return '-'
   let date: Date | null = null
@@ -368,9 +380,9 @@ function DealsPanel({
                   {deal.title || deal.id}
                 </Link>
               </td>
-              <td className="px-5 py-4">{formatCurrency(deal.value, deal.currency || 'ZAR')}</td>
-              <td className="px-5 py-4"><StatusChip value={deal.stageId} /></td>
-              <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{typeof deal.probability === 'number' ? `${deal.probability}%` : '-'}</td>
+              <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{dealValueLabel(deal)}</td>
+              <td className="px-5 py-4"><StatusChip value={deal.stageId} emptyLabel="Stage not set" /></td>
+              <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{dealProbabilityLabel(deal)}</td>
             </tr>
           ))}
         </tbody>
