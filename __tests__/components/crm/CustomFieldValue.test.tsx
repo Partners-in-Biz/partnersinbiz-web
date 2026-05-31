@@ -202,4 +202,16 @@ describe('CustomFieldValue', () => {
     const expected = new Date(dateStr).toLocaleDateString()
     expect(screen.getByText(expected)).toBeInTheDocument()
   })
+
+  it('names invalid date values as CRM data cleanup work', () => {
+    render(
+      <CustomFieldValue
+        definition={makeDef({ type: 'date', label: 'Contract start date' })}
+        value="not-a-date"
+      />,
+    )
+
+    expect(screen.getByText('Invalid Contract start date date')).toBeInTheDocument()
+    expect(screen.queryByText('Invalid Date')).not.toBeInTheDocument()
+  })
 })

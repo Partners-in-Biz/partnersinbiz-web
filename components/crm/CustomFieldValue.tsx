@@ -33,6 +33,11 @@ function Chip({ label, color }: { label: string; color?: string }) {
   )
 }
 
+function parseValidDate(value: unknown): Date | null {
+  const parsed = new Date(value as string)
+  return Number.isNaN(parsed.getTime()) ? null : parsed
+}
+
 // ── Public component ──────────────────────────────────────────────────────────
 
 export function CustomFieldValue({ definition, value }: CustomFieldValueProps) {
@@ -104,25 +109,17 @@ export function CustomFieldValue({ definition, value }: CustomFieldValueProps) {
   // ── date ────────────────────────────────────────────────────────────────────
   if (type === 'date') {
     if (isEmpty(value)) return <MissingValue />
-    let formatted: string
-    try {
-      formatted = new Date(value as string).toLocaleDateString()
-    } catch {
-      return <MissingValue />
-    }
-    return <span className="text-sm text-[var(--color-pib-text)]">{formatted}</span>
+    const parsed = parseValidDate(value)
+    if (!parsed) return <MissingValue label={`Invalid ${definition.label} date`} />
+    return <span className="text-sm text-[var(--color-pib-text)]">{parsed.toLocaleDateString()}</span>
   }
 
   // ── datetime ────────────────────────────────────────────────────────────────
   if (type === 'datetime') {
     if (isEmpty(value)) return <MissingValue />
-    let formatted: string
-    try {
-      formatted = new Date(value as string).toLocaleString()
-    } catch {
-      return <MissingValue />
-    }
-    return <span className="text-sm text-[var(--color-pib-text)]">{formatted}</span>
+    const parsed = parseValidDate(value)
+    if (!parsed) return <MissingValue label={`Invalid ${definition.label} time`} />
+    return <span className="text-sm text-[var(--color-pib-text)]">{parsed.toLocaleString()}</span>
   }
 
   // ── dropdown ────────────────────────────────────────────────────────────────
