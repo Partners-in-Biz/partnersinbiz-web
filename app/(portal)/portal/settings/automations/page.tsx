@@ -169,6 +169,8 @@ export default function AutomationsPage() {
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [togglingId, setTogglingId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [pendingDeleteRule, setPendingDeleteRule] = useState<AutomationRule | null>(null)
   const [filter, setFilter] = useState<ViewFilter>('all')
   const [search, setSearch] = useState('')
 
@@ -247,7 +249,7 @@ export default function AutomationsPage() {
   }
 
   async function handleDelete(rule: AutomationRule) {
-    if (!window.confirm('Delete this automation?')) return
+    setDeleteError(null)
     setDeletingId(rule.id)
     try {
       const res = await fetch(`/api/v1/crm/automations/${rule.id}`, {
@@ -258,11 +260,17 @@ export default function AutomationsPage() {
         throw new Error((body as { error?: string }).error ?? `HTTP ${res.status}`)
       }
       setRules((prev) => prev.filter((r) => r.id !== rule.id))
+      setPendingDeleteRule(null)
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Delete failed.')
+      setDeleteError(err instanceof Error ? err.message : 'Delete failed.')
     } finally {
       setDeletingId(null)
     }
+  }
+
+  async function confirmDeleteRule() {
+    if (!pendingDeleteRule) return
+    await handleDelete(pendingDeleteRule)
   }
 
   function clearViewFilters() {
@@ -368,6 +376,12 @@ export default function AutomationsPage() {
         </aside>
 
         <section>
+          {deleteError && (
+            <div className="mb-3 rounded-lg border border-red-400/25 bg-red-400/10 px-4 py-3 text-sm text-red-200">
+              {deleteError}
+            </div>
+          )}
+
           {loading ? (
             <div className="bento-card !p-6">
               <p className="text-sm text-[var(--color-pib-text-muted)]">Loading automations...</p>
@@ -442,6 +456,57 @@ export default function AutomationsPage() {
             </div>
           ) : (
             <div className="space-y-3">
+              {pendingDeleteRule && (
+                <section
+                  role="alertdialog"
+                  aria-labelledby="automation-delete-confirm-title"
+                  aria-describedby="automation-delete-confirm-description"
+                  className="rounded-lg border border-red-400/30 bg-red-500/10 px-4 py-3 shadow-xl"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="flex gap-3">
+                      <span className="material-symbols-outlined mt-0.5 text-red-300" aria-hidden="true">
+                        warning
+                      </span>
+                      <div className="min-w-0">
+                        <p className="eyebrow !text-[10px] text-red-200">Automation delete confirmation</p>
+                        <h2 id="automation-delete-confirm-title" className="mt-1 font-display text-lg text-[var(--color-pib-text)]">
+                          Delete automation &quot;{pendingDeleteRule.name}&quot;?
+                        </h2>
+                        <p id="automation-delete-confirm-description" className="mt-2 text-sm text-red-100/90">
+                          This removes the CRM safety net for {pendingDeleteRule.trigger.event} and stops {pendingDeleteRule.actions.length} workflow {pendingDeleteRule.actions.length === 1 ? 'action' : 'actions'} from running. Existing CRM history stays available for audit.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPendingDeleteRule(null)
+                          setDeleteError(null)
+                        }}
+                        className="btn-pib-secondary text-xs"
+                        disabled={deletingId !== null}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={confirmDeleteRule}
+                        disabled={deletingId !== null}
+                        className="inline-flex items-center gap-1.5 rounded-md border border-red-300/30 bg-red-400/15 px-3 py-2 text-xs font-semibold text-red-100 transition-colors hover:bg-red-400/25 disabled:opacity-50"
+                        aria-label={`Confirm delete automation ${pendingDeleteRule.name}`}
+                      >
+                        <span className="material-symbols-outlined text-[14px]" aria-hidden="true">
+                          delete
+                        </span>
+                        {deletingId === pendingDeleteRule.id ? 'Deleting...' : 'Delete automation'}
+                      </button>
+                    </div>
+                  </div>
+                </section>
+              )}
+
               {visibleRules.map((rule) => {
                 const isToggling = togglingId === rule.id
                 const isDeleting = deletingId === rule.id
@@ -545,8 +610,12 @@ export default function AutomationsPage() {
                           </Link>
                           <button
                             type="button"
-                            onClick={() => handleDelete(rule)}
+                            onClick={() => {
+                              setDeleteError(null)
+                              setPendingDeleteRule(rule)
+                            }}
                             disabled={isDeleting}
+                            aria-label={`Delete automation ${rule.name}`}
                             title="Delete automation"
                             className="cursor-pointer flex h-8 w-8 items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] transition-colors hover:bg-red-400/[0.08] hover:text-red-400"
                           >
