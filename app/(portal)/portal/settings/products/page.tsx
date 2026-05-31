@@ -24,7 +24,7 @@ function productHealth(product: Product): { score: number; gaps: string[] } {
     { ok: Boolean(product.description?.trim()), label: 'description' },
     { ok: Boolean(product.unit?.trim()), label: 'unit' },
     { ok: Number.isFinite(product.unitPrice) && product.unitPrice > 0, label: 'price' },
-    { ok: Boolean(product.currency), label: 'currency' },
+    { ok: Boolean(product.currency?.trim()), label: 'currency' },
   ]
   const passed = checks.filter((check) => check.ok).length
   return {
@@ -39,6 +39,15 @@ function productDisplayName(product: Product): string {
 
 function productCurrencyLabel(product: Product): string {
   return product.currency?.trim() || 'Currency not set'
+}
+
+function productSearchText(product: Product): string {
+  return [
+    productDisplayName(product),
+    product.description,
+    product.unit,
+    productCurrencyLabel(product),
+  ].filter(Boolean).join(' ').toLowerCase()
 }
 
 function StatCard({ label, value, sub, icon }: { label: string; value: string; sub: string; icon: string }) {
@@ -156,12 +165,8 @@ export default function ProductsPage() {
     : 0
   const filteredProducts = products.filter((product) => {
     const q = search.trim().toLowerCase()
-    const matchesSearch = !q ||
-      product.name.toLowerCase().includes(q) ||
-      product.description?.toLowerCase().includes(q) ||
-      product.unit?.toLowerCase().includes(q) ||
-      product.currency.toLowerCase().includes(q)
-    const matchesCurrency = !currencyFilter || product.currency === currencyFilter
+    const matchesSearch = !q || productSearchText(product).includes(q)
+    const matchesCurrency = !currencyFilter || product.currency?.trim() === currencyFilter
     const health = productHealth(product)
     const matchesHealth =
       healthFilter === 'all' ||

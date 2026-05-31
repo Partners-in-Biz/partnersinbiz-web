@@ -134,6 +134,30 @@ describe('Portal settings products page', () => {
     expect(screen.getByRole('dialog', { name: 'Edit product' })).toBeInTheDocument()
   })
 
+  it('keeps sparse product rows searchable without crashing the catalog lens', async () => {
+    products = [{
+      id: 'product-sparse',
+      orgId: 'org-1',
+      description: '',
+      unit: '',
+      unitPrice: 0,
+      createdAt: null,
+      updatedAt: null,
+    } as unknown as Product]
+
+    render(<ProductsPage />)
+
+    expect(await screen.findByText('Product name missing')).toBeInTheDocument()
+
+    fireEvent.change(screen.getByPlaceholderText('Search product, unit, currency...'), {
+      target: { value: 'missing' },
+    })
+
+    expect(screen.getByText('Product name missing')).toBeInTheDocument()
+    expect(screen.getByText('Currency not set')).toBeInTheDocument()
+    expect(screen.getByText('Missing name, description, unit, price, currency')).toBeInTheDocument()
+  })
+
   it('treats an empty filtered product view as a reversible catalog lens', async () => {
     products = [{
       id: 'product-1',
