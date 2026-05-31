@@ -215,9 +215,20 @@ function StatusChip({ value, emptyLabel = 'Status not set' }: { value?: string; 
   if (!value) return <span className="text-xs text-[var(--color-pib-text-muted)]">{emptyLabel}</span>
   return (
     <span className="inline-flex rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-label uppercase tracking-wide text-emerald-300">
-      {value.replace(/_/g, ' ')}
+      {readableStatusLabel(value)}
     </span>
   )
+}
+
+function readableStatusLabel(value: string): string {
+  return value
+    .split(/[_-]+/)
+    .filter(Boolean)
+    .map((part, index) => {
+      const lower = part.toLowerCase()
+      return index === 0 ? lower.charAt(0).toUpperCase() + lower.slice(1) : lower
+    })
+    .join(' ')
 }
 
 function formatCurrency(value?: number, currency = 'ZAR') {

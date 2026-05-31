@@ -149,12 +149,17 @@ describe('Portal company detail page', () => {
     await waitFor(() => {
       expect(screen.getByText('Jane Client')).toBeInTheDocument()
     })
+    expect(screen.getByText('Client')).toBeInTheDocument()
+    expect(screen.getByText('Won')).toBeInTheDocument()
+    expect(screen.queryByText('client')).not.toBeInTheDocument()
+    expect(screen.queryByText('won')).not.toBeInTheDocument()
     expect(screen.queryByText(/Wave 3 wiring lands/i)).not.toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('tab', { name: /Invoices/i }))
     await waitFor(() => {
       expect(screen.getByText('INV-001')).toBeInTheDocument()
     })
+    expect(screen.getByText('Sent')).toBeInTheDocument()
   })
 
   it('names sparse linked contact fields on company detail instead of showing dash placeholders', async () => {
@@ -1130,9 +1135,18 @@ describe('Portal company detail page', () => {
 
     fireEvent.click(screen.getByRole('tab', { name: /Orders/i }))
     expect(await screen.findByText('Quote-to-delivery')).toBeInTheDocument()
+    expect(screen.getByText('In progress')).toBeInTheDocument()
+    expect(screen.queryByText('in_progress')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('tab', { name: /Shipments/i }))
+    expect(await screen.findByText('Internal delivery')).toBeInTheDocument()
+    expect(screen.getByText('In transit')).toBeInTheDocument()
+    expect(screen.queryByText('in_transit')).not.toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('tab', { name: /Inventory/i }))
     expect(await screen.findByText('SEO Hours')).toBeInTheDocument()
+    expect(screen.getByText('Low stock')).toBeInTheDocument()
+    expect(screen.queryByText('low_stock')).not.toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('tab', { name: /Analytics/i }))
     expect(await screen.findByText(/Account value/i)).toBeInTheDocument()
