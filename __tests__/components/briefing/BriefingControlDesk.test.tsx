@@ -46,6 +46,35 @@ const documentBriefingItem = {
   occurredAt: '2026-05-31T10:00:00.000Z',
 }
 
+const approvalBriefingItem = {
+  id: 'approval:approval-1',
+  orgId: 'org-1',
+  priority: 'needs-peet',
+  title: 'Approval pending',
+  summary: 'Status: pending. Comments: Please approve the landing page scope before Theo continues.',
+  excerpt: 'Please approve the landing page scope before Theo continues.',
+  timeAgo: '5 minutes ago',
+  requiresAction: true,
+  source: { type: 'approval', id: 'approval-1', url: '/portal/projects/project-1?taskId=approval-task-1' },
+  actor: { id: 'agent:theo', name: 'Theo', role: 'ai', type: 'agent' },
+  context: {
+    orgId: 'org-1',
+    orgName: 'Client One',
+    orgSlug: 'client-one',
+    projectId: 'project-1',
+    projectName: 'Launch site',
+    taskId: 'approval-task-1',
+    taskTitle: 'Approve landing page scope',
+  },
+  metadata: {
+    approvalStatus: 'pending',
+    approvalType: 'scope',
+    requestedBy: 'agent:theo',
+    approvalTaskId: 'approval-task-1',
+  },
+  occurredAt: '2026-05-31T10:00:00.000Z',
+}
+
 const secondOrgBriefingItem = {
   id: 'task:item-2',
   orgId: 'org-2',
@@ -211,7 +240,7 @@ describe('BriefingControlDesk', () => {
       if (url.startsWith('/api/v1/briefings/feed')) {
         const items = url.includes('orgId=org-2')
           ? [secondOrgBriefingItem]
-          : [briefingItem, documentBriefingItem, conversationBriefingItem, socialBriefingItem, notificationBriefingItem, activityBriefingItem, reportBriefingItem, secondOrgBriefingItem]
+          : [briefingItem, documentBriefingItem, approvalBriefingItem, conversationBriefingItem, socialBriefingItem, notificationBriefingItem, activityBriefingItem, reportBriefingItem, secondOrgBriefingItem]
         return {
           ok: true,
           json: async () => ({ data: { items, total: items.length, hasMore: false, generatedAt: '2026-05-31T10:05:00.000Z' } }),
@@ -227,6 +256,12 @@ describe('BriefingControlDesk', () => {
         return {
           ok: true,
           json: async () => ({ data: { id: 'comment-1' } }),
+        } as Response
+      }
+      if (url === '/api/v1/projects/project-1/tasks/approval-task-1') {
+        return {
+          ok: true,
+          json: async () => ({ data: { id: 'approval-task-1' } }),
         } as Response
       }
       if (url === '/api/v1/client-documents/doc-1/comments') {
@@ -298,7 +333,7 @@ describe('BriefingControlDesk', () => {
     expect(screen.getAllByText('Client One').length).toBeGreaterThan(0)
     expect(screen.getByRole('button', { name: /filter to client two workspace/i })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /open source/i })).toHaveAttribute('href', '/portal/projects/project-1?taskId=task-1')
-    expect(screen.getByRole('button', { name: /approve/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^approve$/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /send back to agent/i })).toBeInTheDocument()
   })
 
@@ -374,6 +409,47 @@ describe('BriefingControlDesk', () => {
     })
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /approve document/i })).not.toBeDisabled()
+    })
+  })
+
+  it('lets users approve and reject approval gate cards from the desk', async () => {
+    render(<BriefingControlDesk mode="portal" />)
+
+    fireEvent.click(await screen.findByRole('button', { name: /Approval pending/i }))
+
+    expect(screen.getByRole('link', { name: /open source/i })).toHaveAttribute('href', '/portal/projects/project-1?taskId=approval-task-1')
+    expect(screen.getByRole('button', { name: /approve approval/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /reject approval/i })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /approve approval/i }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/projects/project-1/tasks/approval-task-1', expect.objectContaining({
+        method: 'PATCH',
+        body: JSON.stringify({
+          reviewStatus: 'approved',
+          approvalStatus: 'approved',
+          columnId: 'done',
+          agentStatus: 'done',
+        }),
+      }))
+    })
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /reject approval/i })).not.toBeDisabled()
+    })
+    fireEvent.click(screen.getByRole('button', { name: /reject approval/i }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/projects/project-1/tasks/approval-task-1', expect.objectContaining({
+        method: 'PATCH',
+        body: JSON.stringify({
+          reviewStatus: 'changes-requested',
+          approvalStatus: 'rejected',
+          agentStatus: 'pending',
+          columnId: 'todo',
+        }),
+      }))
     })
   })
 

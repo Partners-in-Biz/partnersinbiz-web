@@ -190,6 +190,11 @@ function reviewable(item: BriefingCard) {
   return canTaskAct(item) && (item.priority === 'review' || item.source.type === 'agent-output')
 }
 
+function approvalGateReviewable(item: BriefingCard) {
+  const status = item.metadata?.approvalStatus
+  return canTaskAct(item) && item.source.type === 'approval' && (status === undefined || status === null || status === 'pending')
+}
+
 function documentReviewable(item: BriefingCard) {
   return canDocumentAct(item) && (item.source.type === 'client-document' || item.source.type === 'approval') && ['needs-peet', 'review'].includes(item.priority)
 }
@@ -832,6 +837,18 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                     <button className="pib-btn-secondary col-span-2 justify-center text-xs" type="button" onClick={() => taskPatch(selected, { reviewStatus: 'changes-requested', agentStatus: 'pending', columnId: 'todo' }, 'Sent back to the assigned agent.')} disabled={!!busyAction}>
                       <span className="material-symbols-outlined text-[15px]" aria-hidden="true">assignment_return</span>
                       Send back to agent
+                    </button>
+                  ) : null}
+                  {approvalGateReviewable(selected) ? (
+                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => taskPatch(selected, { reviewStatus: 'approved', approvalStatus: 'approved', columnId: 'done', agentStatus: 'done' }, 'Approval gate approved.')} disabled={!!busyAction}>
+                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">verified</span>
+                      Approve approval
+                    </button>
+                  ) : null}
+                  {approvalGateReviewable(selected) ? (
+                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => taskPatch(selected, { reviewStatus: 'changes-requested', approvalStatus: 'rejected', agentStatus: 'pending', columnId: 'todo' }, 'Approval gate rejected and sent back.')} disabled={!!busyAction}>
+                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">assignment_return</span>
+                      Reject approval
                     </button>
                   ) : null}
                   {documentReviewable(selected) ? (
