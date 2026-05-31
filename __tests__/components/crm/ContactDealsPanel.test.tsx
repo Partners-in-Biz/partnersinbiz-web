@@ -140,6 +140,23 @@ describe('ContactDealsPanel', () => {
     expect(screen.queryByText('—')).not.toBeInTheDocument()
   })
 
+  it('names unpriced pipeline summaries instead of rolling missing deal values into zero', async () => {
+    mockFetch.mockReturnValue(apiResponse([
+      makeDeal({ id: 'd1', title: 'Unpriced relationship deal', value: undefined }),
+    ]))
+
+    render(<ContactDealsPanel contactId="contact-1" contactName="Ava Owner" />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: 'Unpriced relationship deal' })).toBeInTheDocument()
+    })
+
+    expect(screen.getByText('No priced deals')).toBeInTheDocument()
+    expect(screen.getByText('Forecast value needed')).toBeInTheDocument()
+    expect(screen.getByText('Capture deal value to unlock linked pipeline totals')).toBeInTheDocument()
+    expect(screen.queryByText(/R\s*0/)).not.toBeInTheDocument()
+  })
+
   it('turns an empty contact deal panel into a relationship pipeline launch state', async () => {
     mockFetch.mockReturnValue(apiResponse([]))
     render(<ContactDealsPanel contactId="contact-1" contactName="Ava Owner" />)

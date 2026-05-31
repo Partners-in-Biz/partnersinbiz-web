@@ -111,19 +111,25 @@ export function ContactDealsPanel({ contactId, contactName, orgId = '' }: Props)
   const dealStats = deals.reduce(
     (stats, deal) => {
       const { kind } = resolveStage(deal, pipelinesById)
-      const value = deal.value ?? 0
-      stats.totalValue += value
+      const hasValue = deal.value !== null && deal.value !== undefined && !Number.isNaN(deal.value)
+      const value = hasValue ? deal.value : 0
+      if (hasValue) {
+        stats.priced += 1
+        stats.totalValue += value
+      } else {
+        stats.unpriced += 1
+      }
       if (kind === 'won') {
         stats.won += 1
       } else if (kind === 'lost') {
         stats.lost += 1
       } else {
         stats.open += 1
-        stats.weightedValue += value * ((deal.probability ?? 0) / 100)
+        if (hasValue) stats.weightedValue += value * ((deal.probability ?? 0) / 100)
       }
       return stats
     },
-    { open: 0, won: 0, lost: 0, totalValue: 0, weightedValue: 0 },
+    { open: 0, won: 0, lost: 0, priced: 0, unpriced: 0, totalValue: 0, weightedValue: 0 },
   )
   const primaryCurrency = deals.find((deal) => deal.currency)?.currency ?? 'ZAR'
 
@@ -192,13 +198,23 @@ export function ContactDealsPanel({ contactId, contactName, orgId = '' }: Props)
             </div>
             <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.02] p-3">
               <p className="text-[10px] font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">Total value</p>
-              <p className="mt-2 font-display text-2xl text-[var(--color-pib-text)]">{fmtMoney(dealStats.totalValue, primaryCurrency)}</p>
-              <p className="mt-1 text-[11px] text-[var(--color-pib-text-muted)]">linked to this contact</p>
+              <p className="mt-2 font-display text-2xl text-[var(--color-pib-text)]">
+                {dealStats.priced > 0 ? fmtMoney(dealStats.totalValue, primaryCurrency) : 'No priced deals'}
+              </p>
+              <p className="mt-1 text-[11px] text-[var(--color-pib-text-muted)]">
+                {dealStats.priced > 0
+                  ? `${dealStats.unpriced} unpriced ${dealStats.unpriced === 1 ? 'deal' : 'deals'}`
+                  : 'Capture deal value to unlock linked pipeline totals'}
+              </p>
             </div>
             <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.02] p-3">
               <p className="text-[10px] font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">Weighted value</p>
-              <p className="mt-2 font-display text-2xl text-[var(--color-pib-text)]">{fmtMoney(dealStats.weightedValue, primaryCurrency)}</p>
-              <p className="mt-1 text-[11px] text-[var(--color-pib-text-muted)]">open probability forecast</p>
+              <p className="mt-2 font-display text-2xl text-[var(--color-pib-text)]">
+                {dealStats.priced > 0 ? fmtMoney(dealStats.weightedValue, primaryCurrency) : 'Forecast value needed'}
+              </p>
+              <p className="mt-1 text-[11px] text-[var(--color-pib-text-muted)]">
+                {dealStats.priced > 0 ? 'open probability forecast' : 'Price at least one open deal to forecast this contact'}
+              </p>
             </div>
           </div>
         </div>
