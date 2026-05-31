@@ -169,6 +169,18 @@ function activityTimeLabel(activity: ActivityRecord): string {
   return fmtTimestamp(activity.createdAt) || 'Activity time not captured'
 }
 
+function activitySummaryLabel(activity: ActivityRecord): string {
+  const summary = activity.summary?.trim() || activity.notes?.trim()
+  if (summary) return summary
+  return 'Activity summary missing'
+}
+
+function activityActorLabel(activity: ActivityRecord): string {
+  if (activity.createdByRef?.displayName?.trim()) return activity.createdByRef.displayName
+  if (activity.createdByRef?.uid?.trim()) return 'Activity actor identity missing'
+  return 'Activity actor not captured'
+}
+
 function normalizeSequenceOptions(body: unknown): { id: string; name: string }[] {
   if (!body || typeof body !== 'object') return []
   const payload = body as { data?: unknown }
@@ -1922,9 +1934,9 @@ export default function PortalContactDetailPage() {
                     </div>
                     {/* Content */}
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm text-[var(--color-pib-text)]">{a.summary ?? a.notes ?? a.type}</p>
+                      <p className="text-sm text-[var(--color-pib-text)]">{activitySummaryLabel(a)}</p>
                       <p className="text-xs text-[var(--color-pib-text-muted)] mt-0.5">
-                        {a.createdByRef?.displayName ?? 'System'} · {activityTimeLabel(a)}
+                        {activityActorLabel(a)} · {activityTimeLabel(a)}
                       </p>
                     </div>
                   </div>

@@ -7,7 +7,7 @@ let mockContactCustomFieldDefinitions: CustomFieldDefinition[] = []
 let mockSuggestions: Array<{ action: string; reason: string; urgency: 'high' | 'medium' | 'low' }> = []
 let mockContactOverrides: Record<string, unknown> = {}
 let mockEmails: Array<{ id: string; subject?: string; status?: string; direction?: string; sentAt?: unknown; createdAt?: unknown }> = []
-let mockActivities: Array<{ id: string; type?: string; summary?: string; notes?: string; createdAt?: unknown; createdByRef?: { displayName?: string } }> = []
+let mockActivities: Array<{ id: string; type?: string; summary?: string; notes?: string; createdAt?: unknown; createdByRef?: { uid?: string; displayName?: string } }> = []
 let mockEnrollments: Array<{ id: string; sequenceId: string; sequenceName?: string; currentStep?: number; status?: string }> = []
 let mockSequences: Array<{ id: string; name: string }> = []
 let mockSequenceEnrollError = ''
@@ -730,6 +730,27 @@ describe('Portal contact detail page', () => {
     expect(screen.getByText('Discussed implementation handoff')).toBeInTheDocument()
     expect(screen.getByText('Mandy Manager · Activity time not captured')).toBeInTheDocument()
     expect(screen.queryAllByText('—')).toHaveLength(0)
+  })
+
+  it('names incomplete activity timeline rows instead of exposing raw activity snapshots', async () => {
+    mockActivities = [{
+      id: 'activity-raw',
+      type: 'stage_change',
+      summary: '',
+      notes: '',
+      createdByRef: { uid: 'uid-activity-1' },
+    }]
+
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    expect(await screen.findByText('Activity summary missing')).toBeInTheDocument()
+    expect(screen.getByText('Activity actor identity missing · Activity time not captured')).toBeInTheDocument()
+    expect(screen.queryByText('stage_change')).not.toBeInTheDocument()
+    expect(screen.queryByText('uid-activity-1')).not.toBeInTheDocument()
   })
 
   it('turns an unassigned relationship owner into an accountability action', async () => {
