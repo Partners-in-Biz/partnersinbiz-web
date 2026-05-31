@@ -64,6 +64,18 @@ function averageScore(contacts: Contact[], key: 'leadScore' | 'icpScore' | 'aiLe
   return Math.round(values.reduce((sum, value) => sum + value, 0) / values.length)
 }
 
+function scoreMetricLabel(score: number): string {
+  return score > 0 ? String(score) : 'Not scored'
+}
+
+function contactEmailLabel(contact: Contact): string {
+  return contact.email?.trim() || 'Email missing'
+}
+
+function contactCompanyLabel(contact: Contact): string {
+  return contact.companyName?.trim() || contact.company?.trim() || 'Company missing'
+}
+
 function MetricCard({
   icon,
   label,
@@ -344,7 +356,12 @@ export default function ContactsPage() {
             actionLabel={metrics.unowned ? 'Show unowned contacts needing an owner' : undefined}
             onAction={metrics.unowned ? () => setOwnerFilter('unowned') : undefined}
           />
-          <MetricCard icon="star_rate" label="Avg lead score" value={metrics.avgLead ? String(metrics.avgLead) : '-'} sub={`ICP ${metrics.avgIcp || '-'} · AI ${metrics.avgAi || '-'}`} />
+          <MetricCard
+            icon="star_rate"
+            label="Avg lead score"
+            value={scoreMetricLabel(metrics.avgLead)}
+            sub={`ICP ${scoreMetricLabel(metrics.avgIcp).toLowerCase()} · AI ${scoreMetricLabel(metrics.avgAi).toLowerCase()}`}
+          />
         </section>
       )}
 
@@ -522,8 +539,8 @@ export default function ContactsPage() {
                         <p className="mt-1 max-w-[220px] truncate text-[11px] text-on-surface-variant">{c.tags.join(', ')}</p>
                       )}
                     </td>
-                    <td className="px-3 py-3 text-on-surface-variant">{c.email || '—'}</td>
-                    <td className="px-3 py-3 text-on-surface-variant">{c.companyName || c.company || '—'}</td>
+                    <td className="px-3 py-3 text-on-surface-variant">{contactEmailLabel(c)}</td>
+                    <td className="px-3 py-3 text-on-surface-variant">{contactCompanyLabel(c)}</td>
                     <td className="px-3 py-3">
                       {owner ? (
                         <span className="pill !px-2 !py-0.5 !text-[10px]">Owner set</span>
@@ -544,7 +561,7 @@ export default function ContactsPage() {
                         {typeof c.icpScore === 'number' && <span className="pill !px-2 !py-0.5 !text-[10px]">ICP {c.icpScore}</span>}
                         {typeof c.aiLeadScore === 'number' && <span className="pill !px-2 !py-0.5 !text-[10px]">AI {c.aiLeadScore}</span>}
                         {typeof c.leadScore !== 'number' && typeof c.icpScore !== 'number' && typeof c.aiLeadScore !== 'number' && (
-                          <span className="text-xs text-on-surface-variant">—</span>
+                          <span className="text-xs text-on-surface-variant">Scores not captured</span>
                         )}
                       </div>
                     </td>

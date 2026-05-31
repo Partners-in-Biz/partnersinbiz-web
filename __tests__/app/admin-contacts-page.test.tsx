@@ -121,6 +121,55 @@ describe('Admin CRM contacts page', () => {
     expect(within(row as HTMLElement).getByText('Unassigned')).toBeInTheDocument()
   })
 
+  it('names sparse contact row and score readiness gaps', async () => {
+    global.fetch = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.startsWith('/api/v1/crm/contacts?')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: [
+              {
+                id: 'contact-sparse',
+                name: 'Sparse Prospect',
+                email: '',
+                company: '',
+                companyName: '',
+                type: 'lead',
+                stage: 'new',
+                assignedTo: '',
+                lastContactedAt: null,
+              },
+            ],
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/portal/settings/team') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ members: [] }),
+        } as Response)
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ data: [] }),
+      } as Response)
+    }) as jest.Mock
+
+    render(<AdminContactsPage />)
+
+    const row = (await screen.findByRole('link', { name: 'Sparse Prospect' })).closest('tr')
+    expect(row).not.toBeNull()
+    expect(within(row as HTMLElement).getByText('Email missing')).toBeInTheDocument()
+    expect(within(row as HTMLElement).getByText('Company missing')).toBeInTheDocument()
+    expect(within(row as HTMLElement).getByText('Scores not captured')).toBeInTheDocument()
+    expect(within(row as HTMLElement).queryByText('—')).not.toBeInTheDocument()
+
+    expect(screen.getByText('Avg lead score')).toBeInTheDocument()
+    expect(screen.getAllByText('Not scored').length).toBeGreaterThan(0)
+    expect(screen.getByText('ICP not scored · AI not scored')).toBeInTheDocument()
+  })
+
   it('assigns selected unowned contacts to an owner from the list view', async () => {
     render(<AdminContactsPage />)
 
