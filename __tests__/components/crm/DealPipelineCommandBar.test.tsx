@@ -16,7 +16,7 @@ function deal(patch: Partial<Deal>): Deal {
     orgId: 'org-1',
     contactId: patch.contactId ?? 'contact-1',
     title: patch.title ?? 'Growth retainer',
-    value: patch.value ?? 100_000,
+    value: Object.prototype.hasOwnProperty.call(patch, 'value') ? patch.value : 100_000,
     currency: patch.currency ?? 'ZAR',
     pipelineId: 'pipeline-1',
     stageId: patch.stageId ?? 'qualified',
@@ -61,6 +61,25 @@ describe('DealPipelineCommandBar', () => {
     expect(screen.getByText('1 risky')).toBeInTheDocument()
     expect(screen.getByText('1 missing contact')).toBeInTheDocument()
     expect(screen.getByText('1 quote-ready')).toBeInTheDocument()
+  })
+
+  it('names unpriced open pipeline instead of presenting missing deal value as zero', () => {
+    render(
+      <DealPipelineCommandBar
+        deals={[
+          deal({ id: 'deal-1', stageId: 'qualified', value: null }),
+        ]}
+        stages={stages}
+        search=""
+        focusMode="all"
+        onSearchChange={jest.fn()}
+        onFocusModeChange={jest.fn()}
+      />,
+    )
+
+    expect(screen.getByText('Forecast value needed')).toBeInTheDocument()
+    expect(screen.getByText('1 unpriced open deal')).toBeInTheDocument()
+    expect(screen.queryByText(/R\s*0/)).not.toBeInTheDocument()
   })
 
   it('drives search and focus filters from the command controls', () => {
