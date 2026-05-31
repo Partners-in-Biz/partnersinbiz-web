@@ -258,6 +258,22 @@ function projectUpdatedLabel(project: RelatedProject) {
   return date === '-' ? 'Project update time not captured' : date
 }
 
+function serviceWorkspaceNameLabel(workspace: RelatedServiceWorkspace) {
+  return workspace.name || 'Service workspace name missing'
+}
+
+function serviceWorkspaceTypeLabel(workspace: RelatedServiceWorkspace) {
+  return workspace.serviceType || 'Service type not set'
+}
+
+function serviceWorkspaceVisibilityLabel(workspace: RelatedServiceWorkspace) {
+  return workspace.visibility || 'Workspace visibility not set'
+}
+
+function serviceWorkspaceStatusLabel(workspace: RelatedServiceWorkspace) {
+  return workspace.status ? undefined : 'Service status not set'
+}
+
 function quoteTotalLabel(quote: RelatedQuote) {
   return typeof quote.total === 'number' && Number.isFinite(quote.total)
     ? formatCurrency(quote.total, quote.currency || 'ZAR')
@@ -636,8 +652,12 @@ function ServicesPanel({
       rows={serviceWorkspaces}
       emptyIcon="workspaces"
       emptyLabel="No service workspaces yet."
-      title={(row) => String(row.name ?? row.id)}
-      metaFor={(row) => [String(row.serviceType ?? ''), String(row.visibility ?? '')]}
+      title={(row) => serviceWorkspaceNameLabel(row as RelatedServiceWorkspace)}
+      metaFor={(row) => [
+        serviceWorkspaceTypeLabel(row as RelatedServiceWorkspace),
+        serviceWorkspaceVisibilityLabel(row as RelatedServiceWorkspace),
+        serviceWorkspaceStatusLabel(row as RelatedServiceWorkspace),
+      ]}
     />
   )
 }

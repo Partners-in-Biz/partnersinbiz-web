@@ -731,6 +731,80 @@ describe('Portal company detail page', () => {
     expect(screen.queryAllByText('-')).toHaveLength(0)
   })
 
+  it('names linked service readiness gaps on company detail instead of raw ids and silent blanks', async () => {
+    global.fetch = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/custom-fields?resource=company') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { definitions: [] } }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/companies/company-1') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              company: {
+                id: 'company-1',
+                orgId: 'org-1',
+                name: 'Acme Holdings',
+                lifecycleStage: 'customer',
+              },
+            },
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/companies/company-1/command-center?limit=100') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              summary: {},
+              analytics: {},
+              contacts: [
+                { id: 'contact-1', name: 'Jane Client', email: 'jane@example.com' },
+              ],
+              deals: [],
+              quotes: [],
+              invoices: [],
+              projects: [
+                { id: 'project-1', name: 'Delivery Sprint', status: 'active' },
+              ],
+              serviceWorkspaces: [
+                { id: 'svc-1' },
+              ],
+              relationships: [],
+              documents: [],
+              orders: [],
+              shipments: [],
+              inventoryItems: [],
+              activities: [],
+            },
+          }),
+        } as Response)
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ data: {} }),
+      } as Response)
+    }) as jest.Mock
+
+    render(<CompanyDetailPage />)
+
+    await screen.findByRole('heading', { name: 'Acme Holdings' })
+    fireEvent.click(screen.getByRole('tab', { name: /Services/i }))
+
+    expect(screen.getByText('Service workspace name missing')).toBeInTheDocument()
+    expect(screen.getByText(/Service type not set/)).toBeInTheDocument()
+    expect(screen.getByText(/Workspace visibility not set/)).toBeInTheDocument()
+    expect(screen.getByText(/Service status not set/)).toBeInTheDocument()
+    expect(screen.queryByText('svc-1')).not.toBeInTheDocument()
+    expect(screen.queryAllByText('-')).toHaveLength(0)
+  })
+
   it('surfaces CRM OS command-center tabs for delivery, commerce, and collaboration', async () => {
     render(<CompanyDetailPage />)
 
