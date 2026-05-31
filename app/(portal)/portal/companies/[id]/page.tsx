@@ -258,8 +258,7 @@ function projectStatusLabel(project: RelatedProject) {
 }
 
 function projectUpdatedLabel(project: RelatedProject) {
-  const date = formatDate(project.updatedAt)
-  return date === '-' ? 'Project update time not captured' : date
+  return dateReadinessLabel(project.updatedAt, 'Project update time not captured', 'Project update date needs review')
 }
 
 function serviceWorkspaceNameLabel(workspace: RelatedServiceWorkspace) {
@@ -291,8 +290,7 @@ function documentStatusLabel(document: RelatedDocument) {
 }
 
 function documentUpdatedLabel(document: RelatedDocument) {
-  const date = formatDate(document.updatedAt)
-  return date === '-' ? 'Document update time not captured' : date
+  return dateReadinessLabel(document.updatedAt, 'Document update time not captured', 'Document update date needs review')
 }
 
 function relationshipTargetLabel(relationship: RelatedRelationship) {
@@ -325,32 +323,61 @@ function invoiceTotalLabel(invoice: RelatedInvoice) {
     : 'No total captured'
 }
 
-function formatDate(value: unknown) {
-  if (!value) return '-'
-  let date: Date | null = null
-  if (value instanceof Date) date = value
+function dateFromValue(value: unknown): Date | null {
+  if (!value) return null
+  if (value instanceof Date) return Number.isFinite(value.getTime()) ? value : null
   else if (typeof value === 'string') {
     const parsed = new Date(value)
-    date = Number.isNaN(parsed.getTime()) ? null : parsed
+    return Number.isFinite(parsed.getTime()) ? parsed : null
   } else if (typeof value === 'object') {
-    const timestamp = value as { toDate?: () => Date; seconds?: number; _seconds?: number }
-    if (typeof timestamp.toDate === 'function') date = timestamp.toDate()
+    const timestamp = value as { toDate?: () => Date; seconds?: unknown; _seconds?: unknown }
+    if (typeof timestamp.toDate === 'function') {
+      const date = timestamp.toDate()
+      return Number.isFinite(date.getTime()) ? date : null
+    }
     else {
       const seconds = timestamp.seconds ?? timestamp._seconds
-      if (typeof seconds === 'number') date = new Date(seconds * 1000)
+      if (typeof seconds === 'number' && Number.isFinite(seconds)) return new Date(seconds * 1000)
     }
   }
+  return null
+}
+
+function hasUnreadableDate(value: unknown) {
+  if (!value) return false
+  if (value instanceof Date) return !Number.isFinite(value.getTime())
+  if (typeof value === 'string') return !Number.isFinite(new Date(value).getTime())
+  if (typeof value === 'object') {
+    const timestamp = value as { toDate?: () => Date; seconds?: unknown; _seconds?: unknown }
+    if (typeof timestamp.toDate === 'function') {
+      const date = timestamp.toDate()
+      return !Number.isFinite(date.getTime())
+    }
+    if ('seconds' in timestamp || '_seconds' in timestamp) {
+      const seconds = timestamp.seconds ?? timestamp._seconds
+      return typeof seconds !== 'number' || !Number.isFinite(seconds)
+    }
+  }
+  return false
+}
+
+function formatDate(value: unknown) {
+  const date = dateFromValue(value)
   return date ? date.toLocaleDateString('en-ZA', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'
 }
 
+function dateReadinessLabel(value: unknown, missingLabel: string, invalidLabel: string) {
+  if (hasUnreadableDate(value)) return invalidLabel
+  const date = formatDate(value)
+  return date === '-' ? missingLabel : date
+}
+
 function quoteValidUntilLabel(quote: RelatedQuote) {
-  const date = formatDate(quote.validUntil)
-  return date === '-' ? 'Valid date not set' : date
+  return dateReadinessLabel(quote.validUntil, 'Valid date not set', 'Valid date needs review')
 }
 
 function invoiceDueDateLabel(invoice: RelatedInvoice) {
-  const date = formatDate(invoice.dueDate)
-  return date === '-' ? 'Due date not set' : date
+  return dateReadinessLabel(invoice.dueDate, 'Due date not set', 'Due date needs review')
 }
 
 function orderTitleLabel(order: RelatedOrder) {
@@ -380,8 +407,7 @@ function shipmentTrackingLabel(shipment: RelatedShipment) {
 }
 
 function shipmentExpectedDeliveryLabel(shipment: RelatedShipment) {
-  const date = formatDate(shipment.expectedDeliveryDate)
-  return date === '-' ? 'Expected delivery not set' : date
+  return dateReadinessLabel(shipment.expectedDeliveryDate, 'Expected delivery not set', 'Expected delivery date needs review')
 }
 
 function shipmentStatusLabel(shipment: RelatedShipment) {
@@ -415,8 +441,7 @@ function activityTypeLabel(activity: RelatedActivity) {
 }
 
 function activityCreatedAtLabel(activity: RelatedActivity) {
-  const date = formatDate(activity.createdAt)
-  return date === '-' ? 'Activity time not captured' : date
+  return dateReadinessLabel(activity.createdAt, 'Activity time not captured', 'Activity time needs review')
 }
 
 function extractList<T>(body: unknown, key: keyof RelatedState): T[] {

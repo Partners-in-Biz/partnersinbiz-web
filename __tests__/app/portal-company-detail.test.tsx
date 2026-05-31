@@ -444,6 +444,100 @@ describe('Portal company detail page', () => {
     expect(screen.queryAllByText('-')).toHaveLength(0)
   })
 
+  it('names malformed linked-record dates on company detail as cleanup work', async () => {
+    global.fetch = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/custom-fields?resource=company') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { definitions: [] } }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/companies/company-1') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              company: {
+                id: 'company-1',
+                orgId: 'org-1',
+                name: 'Acme Holdings',
+                lifecycleStage: 'customer',
+              },
+            },
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/companies/company-1/command-center?limit=100') {
+        const invalidTimestamp = { _seconds: Number.NaN }
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              summary: {},
+              analytics: {},
+              contacts: [
+                { id: 'contact-1', name: 'Jane Client', email: 'jane@example.com' },
+              ],
+              deals: [],
+              projects: [
+                { id: 'project-1', name: 'Delivery Sprint', updatedAt: invalidTimestamp },
+              ],
+              documents: [
+                { id: 'doc-1', title: 'Statement of work', updatedAt: invalidTimestamp },
+              ],
+              quotes: [
+                { id: 'quote-1', quoteNumber: 'Q-001', validUntil: invalidTimestamp },
+              ],
+              invoices: [
+                { id: 'invoice-1', invoiceNumber: 'INV-001', dueDate: invalidTimestamp },
+              ],
+              shipments: [
+                { id: 'shipment-1', carrier: 'Internal delivery', expectedDeliveryDate: invalidTimestamp },
+              ],
+              activities: [
+                { id: 'activity-1', summary: 'Kickoff logged', createdAt: invalidTimestamp },
+              ],
+              serviceWorkspaces: [],
+              relationships: [],
+              orders: [],
+              inventoryItems: [],
+            },
+          }),
+        } as Response)
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ data: {} }),
+      } as Response)
+    }) as jest.Mock
+
+    render(<CompanyDetailPage />)
+
+    await screen.findByRole('heading', { name: 'Acme Holdings' })
+
+    fireEvent.click(screen.getByRole('tab', { name: /Projects/i }))
+    expect(await screen.findByText(/Project update date needs review/)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('tab', { name: /Documents/i }))
+    expect(await screen.findByText(/Document update date needs review/)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('tab', { name: /Quotes/i }))
+    expect(await screen.findByText('Valid date needs review')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('tab', { name: /Invoices/i }))
+    expect(await screen.findByText('Due date needs review')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('tab', { name: /Shipments/i }))
+    expect(await screen.findByText(/Expected delivery date needs review/)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('tab', { name: /Activity/i }))
+    expect(await screen.findByText('Activity time needs review')).toBeInTheDocument()
+    expect(screen.queryByText(/Invalid Date/)).not.toBeInTheDocument()
+  })
+
   it('names linked order fulfillment readiness gaps on company detail instead of raw ids and dash placeholders', async () => {
     global.fetch = jest.fn((input: RequestInfo | URL) => {
       const url = String(input)
