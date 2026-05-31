@@ -2,6 +2,15 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import DealsPage from '@/app/(portal)/portal/deals/page'
 
 let mockSearchParams = new URLSearchParams()
+let mockTeamMembers: Array<{
+  uid: string
+  firstName?: string
+  lastName?: string
+  displayName?: string
+  email?: string
+  jobTitle?: string
+  role?: string
+}> = []
 
 jest.mock('next/navigation', () => ({
   useSearchParams: () => mockSearchParams,
@@ -40,6 +49,15 @@ describe('Portal deals page', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     mockSearchParams = new URLSearchParams()
+    mockTeamMembers = [
+      {
+        uid: 'sales-lead-2',
+        firstName: 'Mandy',
+        lastName: 'Manager',
+        jobTitle: 'Sales lead',
+        role: 'admin',
+      },
+    ]
     mockDealRows = [
       {
         id: 'deal-1',
@@ -115,15 +133,7 @@ describe('Portal deals page', () => {
         return Promise.resolve({
           ok: true,
           json: async () => ({
-            members: [
-              {
-                uid: 'sales-lead-2',
-                firstName: 'Mandy',
-                lastName: 'Manager',
-                jobTitle: 'Sales lead',
-                role: 'admin',
-              },
-            ],
+            members: mockTeamMembers,
           }),
         } as Response)
       }
@@ -416,6 +426,38 @@ describe('Portal deals page', () => {
     const row = screen.getByText('Unowned expansion').closest('[data-deal-row]')
     expect(row).not.toBeNull()
     expect(within(row as HTMLElement).getByText('Mandy Manager')).toBeInTheDocument()
+  })
+
+  it('names sparse team member options when assigning deal owners', async () => {
+    mockTeamMembers = [{ uid: 'sales-lead-raw' }]
+
+    render(<DealsPage />)
+
+    fireEvent.click(await screen.findByRole('tab', { name: /List/i }))
+    await screen.findByText('Growth retainer')
+    fireEvent.click(screen.getByRole('button', { name: 'Show unassigned deals needing an owner' }))
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Select Unowned expansion for deal owner assignment' }))
+
+    expect(screen.getByRole('option', { name: 'Team member identity missing' })).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: 'sales-lead-raw' })).not.toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText('Assign selected deals to owner'), {
+      target: { value: 'sales-lead-raw' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Assign owner to 1 selected deal' }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/deals/deal-2', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ownerUid: 'sales-lead-raw' }),
+      })
+    })
+
+    const row = screen.getByText('Unowned expansion').closest('[data-deal-row]')
+    expect(row).not.toBeNull()
+    expect(within(row as HTMLElement).getByText('Team member identity missing')).toBeInTheDocument()
+    expect(within(row as HTMLElement).queryByText('sales-lead-raw')).not.toBeInTheDocument()
   })
 
   it('turns an empty forecast into a create-deal action', async () => {

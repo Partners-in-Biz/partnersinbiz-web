@@ -151,12 +151,15 @@ function dealOwnerLabel(deal: Deal): string {
 }
 
 function teamMemberLabel(member: TeamMember): string {
-  const name = member.displayName || [member.firstName, member.lastName].filter(Boolean).join(' ').trim() || member.email || member.uid
-  return member.jobTitle ? `${name} - ${member.jobTitle}` : name
+  const label = teamMemberDisplayName(member)
+  return member.jobTitle?.trim() ? `${label} - ${member.jobTitle.trim()}` : label
 }
 
 function teamMemberDisplayName(member: TeamMember): string {
-  return member.displayName || [member.firstName, member.lastName].filter(Boolean).join(' ').trim() || member.email || member.uid
+  return member.displayName?.trim()
+    || [member.firstName, member.lastName].map((part) => part?.trim()).filter(Boolean).join(' ')
+    || member.email?.trim()
+    || 'Team member identity missing'
 }
 
 function teamMemberOwnerRef(member: TeamMember) {
