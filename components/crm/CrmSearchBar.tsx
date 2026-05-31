@@ -25,6 +25,10 @@ interface Props {
   className?: string
 }
 
+function contactResultLabel(contact: ContactResult): string {
+  return contact.name?.trim() || contact.email?.trim() || 'Contact identity missing'
+}
+
 export function CrmSearchBar({ className }: Props) {
   const [query, setQuery] = useState('')
   const [contacts, setContacts] = useState<ContactResult[]>([])
@@ -182,7 +186,7 @@ export function CrmSearchBar({ className }: Props) {
                       className="flex items-center gap-2.5 px-4 py-2 hover:bg-[var(--color-pib-surface-2)] transition-colors"
                     >
                       <span className="material-symbols-outlined text-[14px] text-[var(--color-pib-text-muted)] shrink-0">person</span>
-                      <span className="text-sm flex-1 truncate">{c.name ?? c.email ?? '—'}</span>
+                      <span className="text-sm flex-1 truncate">{contactResultLabel(c)}</span>
                       <span className="text-xs text-[var(--color-pib-text-muted)] shrink-0">Contact</span>
                     </Link>
                   ))}
