@@ -241,6 +241,23 @@ function dealProbabilityLabel(deal: RelatedDeal) {
     : 'Probability not set'
 }
 
+function projectNameLabel(project: RelatedProject) {
+  return project.name || 'Project name missing'
+}
+
+function projectDescriptionLabel(project: RelatedProject) {
+  return project.description || 'Description not captured'
+}
+
+function projectStatusLabel(project: RelatedProject) {
+  return project.status ? undefined : 'Project status not set'
+}
+
+function projectUpdatedLabel(project: RelatedProject) {
+  const date = formatDate(project.updatedAt)
+  return date === '-' ? 'Project update time not captured' : date
+}
+
 function quoteTotalLabel(quote: RelatedQuote) {
   return typeof quote.total === 'number' && Number.isFinite(quote.total)
     ? formatCurrency(quote.total, quote.currency || 'ZAR')
@@ -557,9 +574,13 @@ function ProjectsPanel({
       rows={projects}
       emptyIcon="folder_off"
       emptyLabel="No linked projects yet."
-      title={(row) => String(row.name ?? row.id)}
+      title={(row) => projectNameLabel(row as RelatedProject)}
       hrefFor={(row) => `/portal/projects/${row.id}`}
-      metaFor={(row) => [String(row.description ?? ''), formatDate(row.updatedAt)]}
+      metaFor={(row) => [
+        projectDescriptionLabel(row as RelatedProject),
+        projectStatusLabel(row as RelatedProject),
+        projectUpdatedLabel(row as RelatedProject),
+      ]}
     />
   )
 }
