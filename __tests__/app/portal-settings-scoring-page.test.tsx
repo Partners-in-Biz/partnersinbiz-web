@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import ScoringPage from '@/app/(portal)/portal/settings/scoring/page'
 
 jest.mock('@/components/crm/IcpProfileEditor', () => ({
@@ -12,7 +12,7 @@ jest.mock('@/components/crm/LeadWeightsEditor', () => ({
 describe('Portal settings scoring page', () => {
   beforeEach(() => {
     jest.clearAllMocks()
-    global.fetch = jest.fn((input: RequestInfo | URL) => {
+    global.fetch = jest.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
       if (url === '/api/v1/crm/scoring/config') {
         return Promise.resolve({
@@ -30,8 +30,18 @@ describe('Portal settings scoring page', () => {
           }),
         } as Response)
       }
+      if (url === '/api/v1/crm/scoring/recompute-all' && init?.method === 'POST') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { processed: 12, succeeded: 11, failed: 1 } }),
+        } as Response)
+      }
       return Promise.reject(new Error(`Unexpected fetch: ${url}`))
     }) as jest.Mock
+  })
+
+  afterEach(() => {
+    jest.restoreAllMocks()
   })
 
   it('turns incomplete scoring setup into direct model priority actions', async () => {
@@ -51,5 +61,30 @@ describe('Portal settings scoring page', () => {
 
     expect(await screen.findByText('Email replies')).toBeInTheDocument()
     expect(screen.queryByText('emailReplies')).not.toBeInTheDocument()
+  })
+
+  it('uses an in-page confirmation before recomputing all contact scores', async () => {
+    const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(false)
+
+    render(<ScoringPage />)
+
+    expect(await screen.findByText('Scoring command center')).toBeInTheDocument()
+    expect(await screen.findByText('Model setup priorities')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /Recompute all/i }))
+
+    expect(confirmSpy).not.toHaveBeenCalled()
+    expect(screen.getByRole('alertdialog', { name: 'Recompute scores for all contacts?' })).toBeInTheDocument()
+    expect(screen.getByText('This refreshes lead, ICP, and AI score outputs across the active CRM workspace. Team priority lists may change after it finishes.')).toBeInTheDocument()
+    expect(global.fetch).not.toHaveBeenCalledWith('/api/v1/crm/scoring/recompute-all', expect.any(Object))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm recompute all contact scores' }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/scoring/recompute-all', { method: 'POST' })
+    })
+    expect(await screen.findByText('Done — 12 processed, 11 succeeded, 1 failed.')).toBeInTheDocument()
+
+    confirmSpy.mockRestore()
   })
 })
