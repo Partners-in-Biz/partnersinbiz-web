@@ -138,6 +138,35 @@ const notificationBriefingItem = {
   occurredAt: '2026-05-31T09:59:00.000Z',
 }
 
+const activityBriefingItem = {
+  id: 'activity:activity-1',
+  orgId: 'org-1',
+  priority: 'needs-peet',
+  title: 'Follow up with Ava Owner',
+  summary: 'Follow up with Ava about the retainer approval before Friday.',
+  excerpt: 'Confirm approval blockers',
+  timeAgo: '7 minutes ago',
+  requiresAction: true,
+  source: { type: 'activity', id: 'activity-1', url: '/portal/contacts/contact-1' },
+  actor: { id: 'user:client-1', name: 'Ava Owner', role: 'client', type: 'user' },
+  context: {
+    orgId: 'org-1',
+    orgName: 'Client One',
+    orgSlug: 'client-one',
+    contactId: 'contact-1',
+    contactName: 'Ava Owner',
+    dealId: 'deal-1',
+    dealTitle: 'Website retainer',
+  },
+  metadata: {
+    activityType: 'note',
+    contactId: 'contact-1',
+    dealId: 'deal-1',
+    followUpIntent: 'follow_up',
+  },
+  occurredAt: '2026-05-31T09:58:00.000Z',
+}
+
 describe('BriefingControlDesk', () => {
   beforeEach(() => {
     jest.useFakeTimers()
@@ -156,7 +185,7 @@ describe('BriefingControlDesk', () => {
       if (url.startsWith('/api/v1/briefings/feed')) {
         const items = url.includes('orgId=org-2')
           ? [secondOrgBriefingItem]
-          : [briefingItem, documentBriefingItem, conversationBriefingItem, socialBriefingItem, notificationBriefingItem, secondOrgBriefingItem]
+          : [briefingItem, documentBriefingItem, conversationBriefingItem, socialBriefingItem, notificationBriefingItem, activityBriefingItem, secondOrgBriefingItem]
         return {
           ok: true,
           json: async () => ({ data: { items, total: items.length, hasMore: false, generatedAt: '2026-05-31T10:05:00.000Z' } }),
@@ -208,6 +237,12 @@ describe('BriefingControlDesk', () => {
         return {
           ok: true,
           json: async () => ({ data: { id: 'notification-1' } }),
+        } as Response
+      }
+      if (url === '/api/v1/crm/activities') {
+        return {
+          ok: true,
+          json: async () => ({ data: { id: 'activity-note-1' } }),
         } as Response
       }
       return {
@@ -394,6 +429,39 @@ describe('BriefingControlDesk', () => {
         method: 'PATCH',
         body: JSON.stringify({ status: 'archived' }),
       }))
+    })
+  })
+
+  it('logs CRM follow-up notes from activity cards and keeps source links exact', async () => {
+    render(<BriefingControlDesk mode="portal" />)
+
+    fireEvent.click(await screen.findByRole('button', { name: /Follow up with Ava Owner/i }))
+
+    expect(screen.getByRole('link', { name: /open source/i })).toHaveAttribute('href', '/portal/contacts/contact-1')
+    expect(screen.getByText('Ava Owner (contact-1)')).toBeInTheDocument()
+    expect(screen.getByText('Website retainer (deal-1)')).toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText('Follow-up note'), { target: { value: 'Called Ava; approval is waiting on finance.' } })
+    fireEvent.click(screen.getByRole('button', { name: /log follow-up note/i }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/activities', expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          contactId: 'contact-1',
+          dealId: 'deal-1',
+          type: 'note',
+          summary: 'Called Ava; approval is waiting on finance.',
+          metadata: {
+            sourceBriefingId: 'activity:activity-1',
+            sourceActivityId: 'activity-1',
+            source: 'briefings-control-desk',
+          },
+        }),
+      }))
+    })
+    await waitFor(() => {
+      expect(screen.getByLabelText('Follow-up note')).toHaveValue('')
     })
   })
 })

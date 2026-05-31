@@ -276,4 +276,59 @@ describe('briefing feed', () => {
     expect(JSON.stringify(feed.items)).not.toContain('sk-test-123')
     expect(JSON.stringify(feed.items)).toContain('[REDACTED]')
   })
+
+  it('turns CRM follow-up activities into source-linked action cards', async () => {
+    collections.organizations = [makeDoc('org-1', { name: 'Client One', slug: 'client-one' })]
+    collections.activities = [
+      makeDoc('activity-1', {
+        orgId: 'org-1',
+        contactId: 'contact-1',
+        contactName: 'Ava Owner',
+        dealId: 'deal-1',
+        dealTitle: 'Website retainer',
+        type: 'note',
+        summary: 'Follow up with Ava about the retainer approval before Friday.',
+        metadata: {
+          intent: 'follow_up',
+          nextAction: 'Confirm approval blockers',
+        },
+        createdByRef: {
+          uid: 'client-1',
+          displayName: 'Ava Owner',
+          role: 'client',
+        },
+        occurredAt: '2026-05-31T08:45:00.000Z',
+        createdAt: '2026-05-31T08:50:00.000Z',
+      }),
+    ]
+
+    const { buildBriefingFeed } = await import('@/lib/briefing/feed')
+    const feed = await buildBriefingFeed(
+      { uid: 'admin-1', role: 'admin', allowedOrgIds: ['org-1'] },
+      { limit: 10, sourceType: 'activity' },
+    )
+
+    expect(feed.items).toHaveLength(1)
+    expect(feed.items[0]).toMatchObject({
+      priority: 'needs-peet',
+      requiresAction: true,
+      source: { type: 'activity', id: 'activity-1', url: '/portal/contacts/contact-1' },
+      title: 'Follow up with Ava Owner',
+      actor: { name: 'Ava Owner', role: 'client', type: 'user' },
+      context: {
+        orgName: 'Client One',
+        contactId: 'contact-1',
+        contactName: 'Ava Owner',
+        dealId: 'deal-1',
+        dealTitle: 'Website retainer',
+      },
+      metadata: expect.objectContaining({
+        activityType: 'note',
+        contactId: 'contact-1',
+        dealId: 'deal-1',
+        followUpIntent: 'follow_up',
+      }),
+    })
+    expect(feed.items[0].summary).toContain('Confirm approval blockers')
+  })
 })

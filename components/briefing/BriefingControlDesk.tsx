@@ -31,6 +31,10 @@ interface BriefingCard {
     documentTitle?: string | null
     conversationId?: string | null
     conversationTitle?: string | null
+    contactId?: string | null
+    contactName?: string | null
+    dealId?: string | null
+    dealTitle?: string | null
   }
   metadata?: Record<string, unknown> | null
   occurredAt: string
@@ -107,6 +111,8 @@ function sourceLabel(item: BriefingCard) {
   if (item.context.projectName) return `${item.source.type} / ${titledId(item.context.projectName, item.context.projectId ?? item.source.id)}`
   if (item.context.documentTitle) return `${item.source.type} / ${titledId(item.context.documentTitle, item.context.documentId ?? item.source.id)}`
   if (item.context.conversationTitle || item.context.conversationId) return `${item.source.type} / ${titledId(item.context.conversationTitle, item.context.conversationId ?? item.source.id)}`
+  if (item.context.contactName || item.context.contactId) return `${item.source.type} / ${titledId(item.context.contactName, item.context.contactId ?? item.source.id)}`
+  if (item.context.dealTitle || item.context.dealId) return `${item.source.type} / ${titledId(item.context.dealTitle, item.context.dealId ?? item.source.id)}`
   return `${item.source.type} / ${item.source.id}`
 }
 
@@ -117,6 +123,8 @@ function sourceHref(item: BriefingCard, mode: Mode) {
   if (item.context.conversationId) return `/portal/conversations?convId=${encodeURIComponent(item.context.conversationId)}`
   if (item.context.projectId) return `/portal/projects/${item.context.projectId}${item.context.taskId ? `?taskId=${encodeURIComponent(item.context.taskId)}` : ''}`
   if (item.context.documentId) return `/portal/documents/${item.context.documentId}`
+  if (item.context.contactId) return `/portal/contacts/${encodeURIComponent(item.context.contactId)}`
+  if (item.context.dealId) return `/portal/deals/${encodeURIComponent(item.context.dealId)}`
   return item.source.url || null
 }
 
@@ -131,6 +139,8 @@ function adminSourceHref(item: BriefingCard) {
     if (item.context.orgSlug) return `/admin/org/${item.context.orgSlug}/social/${encodeURIComponent(item.source.id)}`
     return `/admin/social?postId=${encodeURIComponent(item.source.id)}`
   }
+  if (item.context.contactId) return `/admin/crm/contacts/${encodeURIComponent(item.context.contactId)}`
+  if (item.context.dealId) return `/admin/crm/pipeline?dealId=${encodeURIComponent(item.context.dealId)}`
   return item.source.url || null
 }
 
@@ -152,6 +162,10 @@ function canSocialPostAct(item: BriefingCard) {
 
 function canNotificationAct(item: BriefingCard) {
   return item.source.type === 'notification' && Boolean(item.source.id)
+}
+
+function canActivityFollowUpAct(item: BriefingCard) {
+  return item.source.type === 'activity' && Boolean(item.context.contactId || item.metadata?.contactId)
 }
 
 function socialActionStage(item: BriefingCard): 'client' | 'qa' | null {
@@ -187,6 +201,7 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
   const [autoRefresh, setAutoRefresh] = useState(true)
   const [replyText, setReplyText] = useState('')
   const [socialChangeText, setSocialChangeText] = useState('')
+  const [followUpText, setFollowUpText] = useState('')
   const [busyAction, setBusyAction] = useState<string | null>(null)
   const [flash, setFlash] = useState<Flash>(null)
 
@@ -521,6 +536,45 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
     }
   }
 
+  async function logActivityFollowUp(item: BriefingCard) {
+    const contactId = typeof item.context.contactId === 'string'
+      ? item.context.contactId
+      : typeof item.metadata?.contactId === 'string' ? item.metadata.contactId : ''
+    const dealId = typeof item.context.dealId === 'string'
+      ? item.context.dealId
+      : typeof item.metadata?.dealId === 'string' ? item.metadata.dealId : ''
+    const summary = followUpText.trim()
+    if (!contactId || !summary) return
+
+    setBusyAction('activity-follow-up')
+    try {
+      const res = await fetch('/api/v1/crm/activities', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          contactId,
+          dealId,
+          type: 'note',
+          summary,
+          metadata: {
+            sourceBriefingId: item.id,
+            sourceActivityId: item.source.id,
+            source: 'briefings-control-desk',
+          },
+        }),
+      })
+      const body = await res.json()
+      if (!res.ok) throw new Error(body.error || 'Follow-up note failed')
+      setFollowUpText('')
+      setFlash({ kind: 'ok', message: 'Follow-up note logged to the CRM contact.' })
+      await loadFeed({ quiet: true })
+    } catch (err) {
+      setFlash({ kind: 'error', message: err instanceof Error ? err.message : 'Follow-up note failed' })
+    } finally {
+      setBusyAction(null)
+    }
+  }
+
   async function unblockTask(item: BriefingCard) {
     if (!canTaskAct(item)) return
     setBusyAction('unblock')
@@ -814,6 +868,25 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                   </div>
                 ) : null}
 
+                {canActivityFollowUpAct(selected) ? (
+                  <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                    <label className="text-xs font-medium text-on-surface-variant" htmlFor="briefing-follow-up">
+                      Follow-up note
+                    </label>
+                    <textarea
+                      id="briefing-follow-up"
+                      className="pib-input mt-2 min-h-24 w-full resize-y"
+                      value={followUpText}
+                      onChange={(event) => setFollowUpText(event.target.value)}
+                      placeholder="Log the call, decision, blocker, or next step against this CRM contact..."
+                    />
+                    <button className="pib-btn-primary mt-2 w-full justify-center text-xs" type="button" onClick={() => logActivityFollowUp(selected)} disabled={!followUpText.trim() || !!busyAction}>
+                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">add_notes</span>
+                      Log follow-up note
+                    </button>
+                  </div>
+                ) : null}
+
                 <dl className="space-y-3 text-sm">
                   <div><dt className="text-on-surface-variant">Actor</dt><dd className="text-on-surface">{titledId(selected.actor.name, selected.actor.id)}</dd></div>
                   <div><dt className="text-on-surface-variant">Workspace</dt><dd className="text-on-surface">{titledId(selected.context.orgName, selected.orgId)}</dd></div>
@@ -821,6 +894,8 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                   {selected.context.taskTitle || selected.context.taskId ? <div><dt className="text-on-surface-variant">Task</dt><dd className="text-on-surface">{titledId(selected.context.taskTitle, selected.context.taskId)}</dd></div> : null}
                   {selected.context.documentTitle || selected.context.documentId ? <div><dt className="text-on-surface-variant">Document</dt><dd className="text-on-surface">{titledId(selected.context.documentTitle, selected.context.documentId)}</dd></div> : null}
                   {selected.context.conversationTitle || selected.context.conversationId ? <div><dt className="text-on-surface-variant">Conversation</dt><dd className="text-on-surface">{titledId(selected.context.conversationTitle, selected.context.conversationId)}</dd></div> : null}
+                  {selected.context.contactName || selected.context.contactId ? <div><dt className="text-on-surface-variant">Contact</dt><dd className="text-on-surface">{titledId(selected.context.contactName, selected.context.contactId)}</dd></div> : null}
+                  {selected.context.dealTitle || selected.context.dealId ? <div><dt className="text-on-surface-variant">Deal</dt><dd className="text-on-surface">{titledId(selected.context.dealTitle, selected.context.dealId)}</dd></div> : null}
                   <div><dt className="text-on-surface-variant">Occurred</dt><dd className="text-on-surface">{new Date(selected.occurredAt).toLocaleString('en-ZA')}</dd></div>
                   <div><dt className="text-on-surface-variant">Source</dt><dd className="text-on-surface">{sourceLabel(selected)}</dd></div>
                 </dl>

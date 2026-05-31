@@ -76,6 +76,10 @@ export interface BriefingContext {
   documentTitle?: string | null
   conversationId?: string | null
   conversationTitle?: string | null
+  contactId?: string | null
+  contactName?: string | null
+  dealId?: string | null
+  dealTitle?: string | null
   sourceIds?: string[]  // Related source IDs for cross-reference
 }
 
