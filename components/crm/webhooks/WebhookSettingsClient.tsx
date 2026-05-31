@@ -195,12 +195,32 @@ function eventLabel(event: string) {
 
 function formatDate(value: unknown) {
   if (!value) return 'Never'
-  if (typeof value === 'string') return new Date(value).toLocaleString()
-  if (typeof value === 'object' && value !== null && 'seconds' in value) {
-    const seconds = Number((value as { seconds?: unknown }).seconds)
-    if (Number.isFinite(seconds)) return new Date(seconds * 1000).toLocaleString()
+  let date: Date | null = null
+
+  if (value instanceof Date) {
+    date = value
+  } else if (typeof value === 'string') {
+    const parsed = new Date(value)
+    date = Number.isNaN(parsed.getTime()) ? null : parsed
+  } else if (typeof value === 'object' && value !== null) {
+    const source = value as { toDate?: () => Date; seconds?: unknown; _seconds?: unknown }
+    if (typeof source.toDate === 'function') {
+      date = source.toDate()
+    } else {
+      const seconds = Number(source.seconds ?? source._seconds)
+      if (Number.isFinite(seconds)) date = new Date(seconds * 1000)
+    }
   }
-  return 'Recorded'
+
+  if (!date || Number.isNaN(date.getTime())) return 'Date unavailable'
+
+  return date.toLocaleString('en-ZA', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 }
 
 function parseApiError(body: unknown, fallback: string) {
