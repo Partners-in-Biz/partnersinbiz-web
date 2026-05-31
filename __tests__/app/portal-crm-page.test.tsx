@@ -145,4 +145,61 @@ describe('Portal CRM hub', () => {
     expect(screen.queryByText(/meeting_follow_up/)).not.toBeInTheDocument()
     expect(screen.queryByText(/Invalid Date/)).not.toBeInTheDocument()
   })
+
+  it('turns recent CRM activity rows into contact and deal drill-down links', async () => {
+    ;(global.fetch as jest.Mock).mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/dashboard') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: {
+              openDealsCount: 1,
+              openDealsValue: 20000,
+              weightedPipelineValue: 12000,
+              wonThisMonth: { count: 0, value: 0 },
+              lostThisMonth: { count: 0 },
+              recentActivities: [
+                {
+                  id: 'activity-1',
+                  type: 'call',
+                  summary: 'CEO call logged',
+                  contactName: 'Mandy CEO',
+                  contactId: 'contact-1',
+                  createdAt: null,
+                },
+                {
+                  id: 'activity-2',
+                  type: 'stage_change',
+                  summary: 'Proposal moved to review',
+                  contactName: 'Board Sponsor',
+                  dealId: 'deal-1',
+                  createdAt: null,
+                },
+              ],
+              topOpenDeals: [
+                {
+                  id: 'deal-1',
+                  title: 'Board reporting rollout',
+                  value: 20000,
+                  currency: 'ZAR',
+                  probability: 60,
+                  contactName: 'Mandy CEO',
+                },
+              ],
+            },
+          }),
+        } as Response)
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    })
+
+    render(<PortalCrmPage />)
+
+    const contactActivity = await screen.findByRole('link', { name: /CEO call logged/ })
+    expect(contactActivity).toHaveAttribute('href', '/portal/contacts/contact-1')
+
+    const dealActivity = screen.getByRole('link', { name: /Proposal moved to review/ })
+    expect(dealActivity).toHaveAttribute('href', '/portal/deals/deal-1')
+  })
 })

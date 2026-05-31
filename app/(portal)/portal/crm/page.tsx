@@ -14,7 +14,7 @@ type CrmDashboard = {
   weightedPipelineValue?: number
   wonThisMonth?: { count?: number; value?: number }
   lostThisMonth?: { count?: number }
-  recentActivities?: Array<{ id: string; type?: string; summary?: string; contactName?: string; createdAt?: unknown }>
+  recentActivities?: Array<{ id: string; type?: string; summary?: string; contactName?: string; contactId?: string; dealId?: string; createdAt?: unknown }>
   topOpenDeals?: Array<Deal & { contactName?: string }>
 }
 
@@ -231,6 +231,13 @@ function activityContactLabel(value: unknown): string {
   return textValue(value) || 'Contact not linked'
 }
 
+function activityHref(activity: NonNullable<CrmDashboard['recentActivities']>[number]): string {
+  const dealId = textValue(activity.dealId)
+  if (dealId) return `/portal/deals/${encodeURIComponent(dealId)}`
+  const contactId = textValue(activity.contactId)
+  return contactId ? `/portal/contacts/${encodeURIComponent(contactId)}` : ''
+}
+
 function DashboardMetric({
   label,
   value,
@@ -429,18 +436,31 @@ export default function PortalCrmPage() {
             </div>
           ) : (
             <div className="divide-y divide-[var(--color-pib-line)]">
-              {dashboard.recentActivities.map((activity) => (
-                <div key={activity.id} className="flex gap-3 px-5 py-3.5">
-                  <span className="material-symbols-outlined mt-0.5 text-[17px] text-[var(--color-pib-text-muted)]">radio_button_checked</span>
-                  <div className="min-w-0">
-                    <p className="truncate text-sm text-[var(--color-pib-text)]">{activitySummary(activity)}</p>
-                    <p className="mt-0.5 text-xs text-[var(--color-pib-text-muted)]">
-                      {activityContactLabel(activity.contactName)} · {' '}
-                      {formatRelative(activity.createdAt)}
-                    </p>
+              {dashboard.recentActivities.map((activity) => {
+                const href = activityHref(activity)
+                const content = (
+                  <>
+                    <span className="material-symbols-outlined mt-0.5 text-[17px] text-[var(--color-pib-text-muted)]">radio_button_checked</span>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm text-[var(--color-pib-text)]">{activitySummary(activity)}</p>
+                      <p className="mt-0.5 text-xs text-[var(--color-pib-text-muted)]">
+                        {activityContactLabel(activity.contactName)} · {' '}
+                        {formatRelative(activity.createdAt)}
+                      </p>
+                    </div>
+                  </>
+                )
+                const className = 'flex gap-3 px-5 py-3.5 transition-colors hover:bg-[var(--color-pib-surface-2)]'
+                return href ? (
+                  <Link key={activity.id} href={href} className={className}>
+                    {content}
+                  </Link>
+                ) : (
+                  <div key={activity.id} className="flex gap-3 px-5 py-3.5">
+                    {content}
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </div>
