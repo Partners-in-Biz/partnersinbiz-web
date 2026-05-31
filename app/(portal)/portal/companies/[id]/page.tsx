@@ -299,6 +299,23 @@ function orderTotalLabel(order: RelatedOrder) {
     : 'No total captured'
 }
 
+function shipmentCarrierLabel(shipment: RelatedShipment) {
+  return shipment.carrier || 'Carrier not set'
+}
+
+function shipmentTrackingLabel(shipment: RelatedShipment) {
+  return shipment.trackingNumber || 'Tracking number not set'
+}
+
+function shipmentExpectedDeliveryLabel(shipment: RelatedShipment) {
+  const date = formatDate(shipment.expectedDeliveryDate)
+  return date === '-' ? 'Expected delivery not set' : date
+}
+
+function shipmentStatusLabel(shipment: RelatedShipment) {
+  return shipment.status ? undefined : 'Shipment status not set'
+}
+
 function extractList<T>(body: unknown, key: keyof RelatedState): T[] {
   if (!body || typeof body !== 'object') return []
   const record = body as Record<string, unknown>
@@ -973,8 +990,12 @@ function ShipmentsPanel({
       rows={shipments}
       emptyIcon="local_shipping"
       emptyLabel="No shipments yet."
-      title={(row) => String(row.carrier ?? row.trackingNumber ?? row.id)}
-      metaFor={(row) => [String(row.trackingNumber ?? ''), formatDate(row.expectedDeliveryDate)]}
+      title={(row) => shipmentCarrierLabel(row as RelatedShipment)}
+      metaFor={(row) => [
+        shipmentTrackingLabel(row as RelatedShipment),
+        shipmentExpectedDeliveryLabel(row as RelatedShipment),
+        shipmentStatusLabel(row as RelatedShipment),
+      ]}
     />
   )
 }
