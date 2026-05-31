@@ -107,6 +107,7 @@ export function CompanyPanel({ companyId, companyName, emptyAction }: CompanyPan
   // Full company card
   const displayName = company?.name?.trim() || companyName?.trim() || 'Company identity missing'
   const am = company?.accountManagerRef
+  const accountManagerLabel = am?.displayName?.trim() || (am?.uid ? 'Account manager identity missing' : '')
   const lifecycle = labelize(company?.lifecycleStage)
   const tier = labelize(company?.tier)
   const health = typeof company?.healthScore === 'number' ? `Health ${company.healthScore}%` : null
@@ -130,8 +131,8 @@ export function CompanyPanel({ companyId, companyName, emptyAction }: CompanyPan
 
       <div className="flex-1 min-w-0 space-y-2">
         <p className="text-sm font-medium text-[var(--color-pib-text)] truncate">{displayName}</p>
-        {am && (
-          <p className="text-[11px] text-[var(--color-pib-text-muted)] truncate">{am.displayName}</p>
+        {accountManagerLabel && (
+          <p className="text-[11px] text-[var(--color-pib-text-muted)] truncate">{accountManagerLabel}</p>
         )}
         {signals.length > 0 && (
           <div className="flex flex-wrap gap-1.5">
