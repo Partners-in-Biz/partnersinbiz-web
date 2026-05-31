@@ -150,6 +150,14 @@ function formatAgreementRoles(roles: string[] | undefined): string {
     .join(', ')
 }
 
+function suggestionActionLabel(suggestion: SuggestionItem): string {
+  return textValue(suggestion.action) || 'Suggested action missing'
+}
+
+function suggestionReasonLabel(suggestion: SuggestionItem): string {
+  return textValue(suggestion.reason) || 'Suggestion reason missing'
+}
+
 function memberDisplayName(ref: MemberRef | undefined, fallback: string | undefined): string {
   return textValue(ref?.displayName) || textValue(fallback)
 }
@@ -398,7 +406,7 @@ export default function ContactDetailPage() {
   }
 
   function startSuggestion(suggestion: SuggestionItem) {
-    setNoteText(`Next action: ${suggestion.action} - ${suggestion.reason}`)
+    setNoteText(`Next action: ${suggestionActionLabel(suggestion)} - ${suggestionReasonLabel(suggestion)}`)
     focusNoteComposer()
     window.setTimeout(focusNoteComposer, 0)
   }
@@ -770,21 +778,26 @@ export default function ContactDetailPage() {
                 <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Next best actions</p>
               </div>
               <div className="grid gap-3 p-5 md:grid-cols-2">
-                {suggestions.slice(0, 4).map((suggestion, index) => (
-                  <div key={`${suggestion.action}-${index}`} className={`rounded-lg border px-4 py-3 ${toneForUrgency(suggestion.urgency)}`}>
-                    <p className="text-sm font-semibold">{suggestion.action}</p>
-                    <p className="mt-1 text-xs opacity-80">{suggestion.reason}</p>
-                    <button
-                      type="button"
-                      aria-label={`Start next action: ${suggestion.action}`}
-                      onClick={() => startSuggestion(suggestion)}
-                      className="mt-3 inline-flex items-center gap-1 rounded-md border border-current/25 px-2.5 py-1.5 text-[11px] font-semibold transition-colors hover:border-current"
-                    >
-                      <span className="material-symbols-outlined text-[14px]" aria-hidden="true">add_comment</span>
-                      Start action
-                    </button>
-                  </div>
-                ))}
+                {suggestions.slice(0, 4).map((suggestion, index) => {
+                  const actionLabel = suggestionActionLabel(suggestion)
+                  const reasonLabel = suggestionReasonLabel(suggestion)
+
+                  return (
+                    <div key={`${actionLabel}-${index}`} className={`rounded-lg border px-4 py-3 ${toneForUrgency(suggestion.urgency)}`}>
+                      <p className="text-sm font-semibold">{actionLabel}</p>
+                      <p className="mt-1 text-xs opacity-80">{reasonLabel}</p>
+                      <button
+                        type="button"
+                        aria-label={`Start next action: ${actionLabel}`}
+                        onClick={() => startSuggestion(suggestion)}
+                        className="mt-3 inline-flex items-center gap-1 rounded-md border border-current/25 px-2.5 py-1.5 text-[11px] font-semibold transition-colors hover:border-current"
+                      >
+                        <span className="material-symbols-outlined text-[14px]" aria-hidden="true">add_comment</span>
+                        Start action
+                      </button>
+                    </div>
+                  )
+                })}
               </div>
             </div>
           )}
