@@ -214,6 +214,11 @@ function readableStatusLabel(value: string): string {
     .join(' ')
 }
 
+function readableAccountLabel(value?: string): string | undefined {
+  if (!value) return undefined
+  return readableStatusLabel(value)
+}
+
 function rowTitle(row: OverviewRow, fallback: string): string {
   return (
     stringValue(row.title) ||
@@ -552,6 +557,12 @@ export function CompanyOverviewPanel({ company, center, loading, onSelectTab, on
   const currency = company.currency || 'ZAR'
   const riskSignals = center?.analytics?.riskSignals ?? []
   const movement = latestMovement(center)
+  const accountContext = [
+    readableAccountLabel(company.lifecycleStage),
+    readableAccountLabel(company.tier),
+    company.industry,
+    company.domain,
+  ].filter(Boolean).join(' · ')
 
   const pulseChartData = [
     { value: Math.max(profileScore, 1) },
@@ -599,12 +610,7 @@ export function CompanyOverviewPanel({ company, center, loading, onSelectTab, on
                   {company.name}
                 </h2>
                 <p className="mt-2 max-w-2xl text-sm text-[var(--color-pib-text-muted)]">
-                  {[
-                    company.lifecycleStage,
-                    company.tier,
-                    company.industry,
-                    company.domain,
-                  ].filter(Boolean).join(' · ') || 'Command center'}
+                  {accountContext || 'Command center'}
                 </p>
               </div>
               <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] px-4 py-3 text-right">

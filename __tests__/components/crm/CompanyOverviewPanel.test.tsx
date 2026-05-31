@@ -118,6 +118,20 @@ describe('CompanyOverviewPanel', () => {
     expect(screen.queryByText('in_progress')).not.toBeInTheDocument()
   })
 
+  it('renders account lifecycle and tier context as readable labels', () => {
+    render(
+      <CompanyOverviewPanel
+        company={company({
+          lifecycleStage: 'customer',
+          tier: 'mid-market',
+        })}
+      />,
+    )
+
+    expect(screen.getByText('Customer · Mid market · Creative services')).toBeInTheDocument()
+    expect(screen.queryByText('customer · mid-market · Creative services')).not.toBeInTheDocument()
+  })
+
   it('turns sparse identity and billing blocks into profile-capture actions', () => {
     const onEditCompany = jest.fn()
 

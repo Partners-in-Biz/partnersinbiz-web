@@ -63,6 +63,18 @@ function websiteHref(company: Company): string | undefined {
   return /^https?:\/\//i.test(raw) ? raw : `https://${raw}`
 }
 
+function readableAccountLabel(value?: string): string | undefined {
+  if (!value) return undefined
+  return value
+    .split(/[-_\s]+/)
+    .filter(Boolean)
+    .map((part, index) => {
+      const lower = part.toLowerCase()
+      return index === 0 ? lower.charAt(0).toUpperCase() + lower.slice(1) : lower
+    })
+    .join(' ')
+}
+
 // ── Props ─────────────────────────────────────────────────────────────────────
 
 export interface CompanyHeaderStats {
@@ -90,6 +102,8 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
   const lcCls = company.lifecycleStage
     ? (LIFECYCLE_COLOURS[company.lifecycleStage] ?? 'bg-[var(--color-surface-container)] text-on-surface-variant')
     : ''
+  const tierLabel = readableAccountLabel(company.tier)
+  const lifecycleLabel = readableAccountLabel(company.lifecycleStage)
   const am = company.accountManagerRef
   const strength = typeof company.healthScore === 'number' ? company.healthScore : profileStrength(company)
   const strengthColor = strength >= 75 ? '#4ade80' : strength >= 45 ? '#facc15' : '#f87171'
@@ -166,14 +180,14 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
             </div>
 
             <div className="mt-3 flex flex-wrap items-center gap-2">
-              {company.tier && (
+              {tierLabel && (
                 <span className={`rounded-full px-2 py-0.5 text-[10px] font-label uppercase tracking-wide ${tierCls}`}>
-                  {company.tier}
+                  {tierLabel}
                 </span>
               )}
-              {company.lifecycleStage && (
+              {lifecycleLabel && (
                 <span className={`rounded-full px-2 py-0.5 text-[10px] font-label uppercase tracking-wide ${lcCls}`}>
-                  {company.lifecycleStage}
+                  {lifecycleLabel}
                 </span>
               )}
               {company.size && (
