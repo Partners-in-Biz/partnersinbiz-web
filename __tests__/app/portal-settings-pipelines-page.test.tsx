@@ -1,15 +1,24 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import PipelinesPage from '@/app/(portal)/portal/settings/pipelines/page'
 import type { Pipeline } from '@/lib/pipelines/types'
 
 let pipelines: Pipeline[] = []
 
 jest.mock('@/components/crm/PipelineDefinitionsList', () => ({
-  PipelineDefinitionsList: ({ pipelines: visiblePipelines }: { pipelines: Pipeline[] }) => (
+  PipelineDefinitionsList: ({
+    pipelines: visiblePipelines,
+    onDelete,
+  }: {
+    pipelines: Pipeline[]
+    onDelete: (pipeline: Pipeline) => void
+  }) => (
     <div>
       {visiblePipelines.map((pipeline) => (
         <article key={pipeline.id} aria-label={`Pipeline ${pipeline.name?.trim() || 'Pipeline name missing'}`}>
           {pipeline.name?.trim() || 'Pipeline name missing'}
+          <button type="button" onClick={() => onDelete(pipeline)}>
+            Delete {pipeline.name?.trim() || 'Pipeline name missing'}
+          </button>
         </article>
       ))}
     </div>
@@ -98,5 +107,75 @@ describe('Portal settings pipelines page', () => {
     expect(screen.getByRole('article', { name: 'Pipeline Pipeline name missing' })).toBeInTheDocument()
     expect(screen.getByText('Pipeline health')).toBeInTheDocument()
     expect(screen.getByText('0/1')).toBeInTheDocument()
+  })
+
+  it('uses an in-page confirmation before deleting a revenue pipeline', async () => {
+    const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(false)
+    const alertSpy = jest.spyOn(window, 'alert').mockImplementation(() => {})
+    pipelines = [{
+      id: 'pipeline-delete',
+      orgId: 'org-1',
+      name: 'Enterprise sales',
+      description: 'High-touch enterprise path',
+      stages: [
+        { id: 'qualified', label: 'Qualified', kind: 'open', order: 0, probability: 20 },
+        { id: 'proposal', label: 'Proposal', kind: 'open', order: 1, probability: 60 },
+        { id: 'won', label: 'Won', kind: 'won', order: 2, probability: 100 },
+        { id: 'lost', label: 'Lost', kind: 'lost', order: 3, probability: 0 },
+      ],
+      isDefault: false,
+      archived: false,
+      createdAt: null,
+      updatedAt: null,
+    }]
+
+    const fetchMock = global.fetch as jest.Mock
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/v1/portal/settings/profile') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ profile: { role: 'owner' } }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/pipelines?archived=false') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { pipelines } }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/pipelines/pipeline-delete' && init?.method === 'DELETE') {
+        pipelines = []
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ success: true }),
+        } as Response)
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    })
+
+    render(<PipelinesPage />)
+
+    expect(await screen.findByRole('article', { name: 'Pipeline Enterprise sales' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete Enterprise sales' }))
+
+    expect(confirmSpy).not.toHaveBeenCalled()
+    expect(alertSpy).not.toHaveBeenCalled()
+    expect(await screen.findByRole('alertdialog', { name: 'Delete pipeline "Enterprise sales"?' })).toBeInTheDocument()
+    expect(screen.getByText('This removes the revenue path with 4 stages. Existing deal history stays available for audit.')).toBeInTheDocument()
+    expect(fetchMock).not.toHaveBeenCalledWith('/api/v1/crm/pipelines/pipeline-delete', { method: 'DELETE' })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm delete pipeline Enterprise sales' }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/crm/pipelines/pipeline-delete', { method: 'DELETE' })
+    })
+    await waitFor(() => {
+      expect(screen.queryByRole('article', { name: 'Pipeline Enterprise sales' })).not.toBeInTheDocument()
+    })
+
+    confirmSpy.mockRestore()
+    alertSpy.mockRestore()
   })
 })

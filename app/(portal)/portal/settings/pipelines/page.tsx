@@ -65,6 +65,9 @@ export default function PipelinesPage() {
   const [showArchived, setShowArchived] = useState(false)
   const [search, setSearch] = useState('')
   const [healthFilter, setHealthFilter] = useState<HealthFilter>('all')
+  const [pendingDeletePipeline, setPendingDeletePipeline] = useState<Pipeline | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   // Drawer state
   const [drawerOpen, setDrawerOpen] = useState(false)
@@ -163,7 +166,8 @@ export default function PipelinesPage() {
   }
 
   async function handleDelete(p: Pipeline) {
-    if (!confirm(`Delete "${pipelineDisplayName(p)}"? This cannot be undone.`)) return
+    setDeletingId(p.id)
+    setDeleteError(null)
     try {
       const res = await fetch(`/api/v1/crm/pipelines/${p.id}`, { method: 'DELETE' })
       if (!res.ok) {
@@ -172,13 +176,21 @@ export default function PipelinesPage() {
         const msg = res.status === 400
           ? (body.error ?? 'This pipeline has live deals and cannot be deleted. Archive it instead.')
           : (body.error ?? 'Failed to delete pipeline.')
-        alert(msg)
+        setDeleteError(msg)
         return
       }
+      setPendingDeletePipeline(null)
       await fetchPipelines(showArchived)
     } catch {
-      alert('Could not reach the server.')
+      setDeleteError('Could not reach the server.')
+    } finally {
+      setDeletingId(null)
     }
+  }
+
+  async function confirmDeletePipeline() {
+    if (!pendingDeletePipeline) return
+    await handleDelete(pendingDeletePipeline)
   }
 
   async function handleSave(data: Partial<Pipeline>) {
@@ -336,6 +348,61 @@ export default function PipelinesPage() {
         </div>
       </section>
 
+      {deleteError && (
+        <div className="rounded-lg border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm text-red-100">
+          <span className="material-symbols-outlined mr-1.5 align-middle text-[16px]" aria-hidden="true">error</span>
+          {deleteError}
+        </div>
+      )}
+
+      {pendingDeletePipeline && (
+        <section
+          role="alertdialog"
+          aria-modal="false"
+          aria-labelledby="pipeline-delete-confirm-title"
+          aria-describedby="pipeline-delete-confirm-description"
+          className="rounded-lg border border-red-400/25 bg-red-500/10 p-5 shadow-[0_18px_40px_rgba(127,29,29,0.18)]"
+        >
+          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+            <div className="flex gap-3">
+              <span className="material-symbols-outlined mt-0.5 text-red-200" aria-hidden="true">warning</span>
+              <div>
+                <p className="eyebrow !text-[10px] !text-red-100/80">Pipeline delete</p>
+                <h2 id="pipeline-delete-confirm-title" className="mt-1 font-display text-lg text-red-50">
+                  Delete pipeline &quot;{pipelineDisplayName(pendingDeletePipeline)}&quot;?
+                </h2>
+                <p id="pipeline-delete-confirm-description" className="mt-2 max-w-2xl text-sm text-red-100/90">
+                  This removes the revenue path with {pipelineStages(pendingDeletePipeline).length} stage{pipelineStages(pendingDeletePipeline).length === 1 ? '' : 's'}. Existing deal history stays available for audit.
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 md:justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setPendingDeletePipeline(null)
+                  setDeleteError(null)
+                }}
+                className="btn-pib-secondary text-xs"
+                disabled={deletingId === pendingDeletePipeline.id}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmDeletePipeline}
+                aria-label={`Confirm delete pipeline ${pipelineDisplayName(pendingDeletePipeline)}`}
+                className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-lg border border-red-300/30 bg-red-500/20 px-3 py-2 text-xs font-semibold text-red-50 transition-colors hover:border-red-200/60 hover:bg-red-500/30 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={deletingId === pendingDeletePipeline.id}
+              >
+                <span className="material-symbols-outlined text-[15px]" aria-hidden="true">delete</span>
+                {deletingId === pendingDeletePipeline.id ? 'Deleting...' : 'Delete pipeline'}
+              </button>
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* Content */}
       {loading ? (
         <div className="space-y-3">
@@ -367,7 +434,10 @@ export default function PipelinesPage() {
           isAdmin={isAdmin}
           onCreate={openCreate}
           onEdit={openEdit}
-          onDelete={handleDelete}
+          onDelete={(pipeline) => {
+            setPendingDeletePipeline(pipeline)
+            setDeleteError(null)
+          }}
           onSetDefault={handleSetDefault}
           onArchive={handleArchive}
         />

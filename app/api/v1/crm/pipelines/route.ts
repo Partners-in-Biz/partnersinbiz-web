@@ -88,11 +88,15 @@ export const POST = withCrmAuth('admin', async (req, ctx) => {
     .collection('pipelines')
     .where('orgId', '==', ctx.orgId)
     .where('name', '==', body.name.trim())
-    .where('deleted', '!=', true)
     .limit(1)
     .get()
 
-  if (!dupSnap.empty) {
+  const hasActiveDuplicate = dupSnap.docs.some((doc) => {
+    const pipeline = doc.data() as Partial<Pipeline>
+    return pipeline.orgId === ctx.orgId && pipeline.deleted !== true
+  })
+
+  if (hasActiveDuplicate) {
     return apiError(`A pipeline named "${body.name.trim()}" already exists in this workspace`, 400)
   }
 

@@ -142,21 +142,19 @@ export const DELETE = withCrmAuth<RouteCtx>('admin', async (_req, ctx, routeCtx)
     .collection('deals')
     .where('orgId', '==', ctx.orgId)
     .where('pipelineId', '==', id)
-    .where('deleted', '!=', true)
     .limit(1)
     .get()
 
-  if (!dealsSnap.empty) {
-    // Count all for the error message
-    const countSnap = await adminDb
-      .collection('deals')
-      .where('orgId', '==', ctx.orgId)
-      .where('pipelineId', '==', id)
-      .where('deleted', '!=', true)
-      .get()
+  const activeDealCount = dealsSnap.docs.filter((doc) => {
+    const deal = typeof doc.data === 'function'
+      ? doc.data() as { orgId?: string; pipelineId?: string; deleted?: boolean }
+      : {}
+    return deal.orgId === ctx.orgId && deal.pipelineId === id && deal.deleted !== true
+  }).length
 
+  if (activeDealCount > 0) {
     return apiError('Cannot delete pipeline with live deals attached', 400, {
-      dealCount: countSnap.size,
+      dealCount: activeDealCount,
     })
   }
 
