@@ -273,6 +273,33 @@ const supportBriefingItem = {
   occurredAt: '2026-05-31T09:56:00.000Z',
 }
 
+const invoiceBriefingItem = {
+  id: 'invoice:invoice-1',
+  orgId: 'org-1',
+  priority: 'needs-peet',
+  title: 'Draft invoice ready: INV-1001',
+  summary: 'R12,500.00 invoice for Riley Client is ready to send.',
+  excerpt: 'Draft invoice ready for client delivery.',
+  timeAgo: '10 minutes ago',
+  requiresAction: true,
+  source: { type: 'invoice', id: 'invoice-1', url: '/admin/invoicing/invoice-1' },
+  actor: { id: 'system', name: 'System', role: 'system', type: 'system' },
+  context: {
+    orgId: 'org-1',
+    orgName: 'Client One',
+    orgSlug: 'client-one',
+    invoiceId: 'invoice-1',
+    invoiceNumber: 'INV-1001',
+  },
+  metadata: {
+    invoiceStatus: 'draft',
+    total: 12500,
+    currency: 'ZAR',
+    recipientName: 'Riley Client',
+  },
+  occurredAt: '2026-05-31T09:55:00.000Z',
+}
+
 describe('BriefingControlDesk', () => {
   beforeEach(() => {
     jest.useFakeTimers()
@@ -291,7 +318,7 @@ describe('BriefingControlDesk', () => {
       if (url.startsWith('/api/v1/briefings/feed')) {
         const items = url.includes('orgId=org-2')
           ? [secondOrgBriefingItem]
-          : [briefingItem, documentBriefingItem, documentCommentBriefingItem, approvalBriefingItem, conversationBriefingItem, socialBriefingItem, notificationBriefingItem, activityBriefingItem, reportBriefingItem, supportBriefingItem, secondOrgBriefingItem]
+          : [briefingItem, documentBriefingItem, documentCommentBriefingItem, approvalBriefingItem, conversationBriefingItem, socialBriefingItem, notificationBriefingItem, activityBriefingItem, reportBriefingItem, supportBriefingItem, invoiceBriefingItem, secondOrgBriefingItem]
         return {
           ok: true,
           json: async () => ({ data: { items, total: items.length, hasMore: false, generatedAt: '2026-05-31T10:05:00.000Z' } }),
@@ -379,6 +406,12 @@ describe('BriefingControlDesk', () => {
         return {
           ok: true,
           json: async () => ({ data: { id: 'support-message-1' } }),
+        } as Response
+      }
+      if (url === '/api/v1/invoices/invoice-1/send') {
+        return {
+          ok: true,
+          json: async () => ({ data: { id: 'invoice-1', status: 'sent' } }),
         } as Response
       }
       return {
@@ -726,6 +759,24 @@ describe('BriefingControlDesk', () => {
     })
     await waitFor(() => {
       expect(screen.getByLabelText('Support reply')).toHaveValue('')
+    })
+  })
+
+  it('opens and sends draft invoice cards from the control desk', async () => {
+    render(<BriefingControlDesk mode="portal" />)
+
+    fireEvent.click(await screen.findByRole('button', { name: /Draft invoice ready: INV-1001/i }))
+
+    expect(screen.getByText('INV-1001 (invoice-1)')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /open source/i })).toHaveAttribute('href', '/portal/payments?invoice=invoice-1')
+    expect(screen.getByRole('button', { name: /send invoice/i })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /send invoice/i }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/invoices/invoice-1/send', expect.objectContaining({
+        method: 'POST',
+      }))
     })
   })
 })

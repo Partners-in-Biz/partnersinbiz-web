@@ -39,6 +39,8 @@ interface BriefingCard {
     reportTitle?: string | null
     supportTicketId?: string | null
     supportTicketSubject?: string | null
+    invoiceId?: string | null
+    invoiceNumber?: string | null
   }
   metadata?: Record<string, unknown> | null
   occurredAt: string
@@ -77,6 +79,7 @@ const SOURCES = [
   { value: 'activity', label: 'Activity' },
   { value: 'report', label: 'Reports' },
   { value: 'support-ticket', label: 'Support' },
+  { value: 'invoice', label: 'Invoices' },
 ]
 
 const PRIORITY_LABELS: Record<BriefingCard['priority'], string> = {
@@ -120,12 +123,14 @@ function sourceLabel(item: BriefingCard) {
   if (item.context.dealTitle || item.context.dealId) return `${item.source.type} / ${titledId(item.context.dealTitle, item.context.dealId ?? item.source.id)}`
   if (item.context.reportTitle || item.context.reportId) return `${item.source.type} / ${titledId(item.context.reportTitle, item.context.reportId ?? item.source.id)}`
   if (item.context.supportTicketSubject || item.context.supportTicketId) return `${item.source.type} / ${titledId(item.context.supportTicketSubject, item.context.supportTicketId ?? item.source.id)}`
+  if (item.context.invoiceNumber || item.context.invoiceId) return `${item.source.type} / ${titledId(item.context.invoiceNumber, item.context.invoiceId ?? item.source.id)}`
   return `${item.source.type} / ${item.source.id}`
 }
 
 function sourceHref(item: BriefingCard, mode: Mode) {
   if (item.source.type === 'social-post') return `/portal/social/review/${encodeURIComponent(item.source.id)}`
   if (item.source.type === 'support-ticket') return mode === 'admin' ? `/admin/support?ticket=${encodeURIComponent(item.source.id)}` : '/portal'
+  if (item.source.type === 'invoice') return mode === 'admin' ? `/admin/invoicing/${encodeURIComponent(item.source.id)}` : `/portal/payments?invoice=${encodeURIComponent(item.source.id)}`
   if (mode === 'admin') return item.source.url || null
   if (item.source.url?.startsWith('/portal')) return item.source.url
   if (item.context.conversationId) return `/portal/conversations?convId=${encodeURIComponent(item.context.conversationId)}`
@@ -139,6 +144,7 @@ function sourceHref(item: BriefingCard, mode: Mode) {
 
 function adminSourceHref(item: BriefingCard) {
   if (item.source.type === 'support-ticket') return `/admin/support?ticket=${encodeURIComponent(item.source.id)}`
+  if (item.source.type === 'invoice') return `/admin/invoicing/${encodeURIComponent(item.source.id)}`
   if (item.context.conversationId) {
     const query = `convId=${encodeURIComponent(item.context.conversationId)}`
     if (item.context.orgSlug) return `/admin/org/${item.context.orgSlug}/messages?${query}`
@@ -193,6 +199,14 @@ function canReportAct(item: BriefingCard) {
 
 function canSupportTicketAct(item: BriefingCard) {
   return item.source.type === 'support-ticket' && Boolean(item.source.id)
+}
+
+function canInvoiceAct(item: BriefingCard) {
+  return item.source.type === 'invoice' && Boolean(item.source.id)
+}
+
+function invoiceSendable(item: BriefingCard) {
+  return canInvoiceAct(item) && item.metadata?.invoiceStatus === 'draft'
 }
 
 function socialActionStage(item: BriefingCard): 'client' | 'qa' | null {
@@ -703,6 +717,25 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
     }
   }
 
+  async function sendInvoice(item: BriefingCard) {
+    if (!invoiceSendable(item)) return
+    setBusyAction('invoice-send')
+    try {
+      const res = await fetch(`/api/v1/invoices/${encodeURIComponent(item.source.id)}/send`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+      })
+      const body = await res.json()
+      if (!res.ok) throw new Error(body.error || 'Invoice send failed')
+      setFlash({ kind: 'ok', message: 'Invoice sent from the control desk.' })
+      await loadFeed({ quiet: true })
+    } catch (err) {
+      setFlash({ kind: 'error', message: err instanceof Error ? err.message : 'Invoice send failed' })
+    } finally {
+      setBusyAction(null)
+    }
+  }
+
   async function unblockTask(item: BriefingCard) {
     if (!canTaskAct(item)) return
     setBusyAction('unblock')
@@ -978,6 +1011,12 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                       Archive notification
                     </button>
                   ) : null}
+                  {invoiceSendable(selected) ? (
+                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => sendInvoice(selected)} disabled={!!busyAction}>
+                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">send</span>
+                      Send invoice
+                    </button>
+                  ) : null}
                 </div>
 
                 {canSocialPostAct(selected) && socialActionStage(selected) ? (
@@ -1082,6 +1121,7 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                   {selected.context.dealTitle || selected.context.dealId ? <div><dt className="text-on-surface-variant">Deal</dt><dd className="text-on-surface">{titledId(selected.context.dealTitle, selected.context.dealId)}</dd></div> : null}
                   {selected.context.reportTitle || selected.context.reportId ? <div><dt className="text-on-surface-variant">Report</dt><dd className="text-on-surface">{titledId(selected.context.reportTitle, selected.context.reportId)}</dd></div> : null}
                   {selected.context.supportTicketSubject || selected.context.supportTicketId ? <div><dt className="text-on-surface-variant">Support ticket</dt><dd className="text-on-surface">{titledId(selected.context.supportTicketSubject, selected.context.supportTicketId)}</dd></div> : null}
+                  {selected.context.invoiceNumber || selected.context.invoiceId ? <div><dt className="text-on-surface-variant">Invoice</dt><dd className="text-on-surface">{titledId(selected.context.invoiceNumber, selected.context.invoiceId ?? selected.source.id)}</dd></div> : null}
                   <div><dt className="text-on-surface-variant">Occurred</dt><dd className="text-on-surface">{new Date(selected.occurredAt).toLocaleString('en-ZA')}</dd></div>
                   <div><dt className="text-on-surface-variant">Source</dt><dd className="text-on-surface">{sourceLabel(selected)}</dd></div>
                 </dl>

@@ -39,6 +39,7 @@ export type BriefingSourceType =
   | 'activity'             // Activity log entries
   | 'report'               // Stored snapshot reports
   | 'support-ticket'       // Client support tickets and ticket replies
+  | 'invoice'              // Billing invoices that need review, payment, or sending
 
 /**
  * Briefing item lifecycle states.
@@ -85,6 +86,8 @@ export interface BriefingContext {
   reportTitle?: string | null
   supportTicketId?: string | null
   supportTicketSubject?: string | null
+  invoiceId?: string | null
+  invoiceNumber?: string | null
   sourceIds?: string[]  // Related source IDs for cross-reference
 }
 

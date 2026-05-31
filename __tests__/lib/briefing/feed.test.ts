@@ -442,4 +442,65 @@ describe('briefing feed', () => {
     expect(JSON.stringify(feed.items)).not.toContain('sk-live-123')
     expect(JSON.stringify(feed.items)).toContain('[REDACTED]')
   })
+
+  it('surfaces active invoices as finance-risk control cards', async () => {
+    collections.organizations = [makeDoc('org-1', { name: 'Client One', slug: 'client-one' })]
+    collections.invoices = [
+      makeDoc('invoice-1', {
+        orgId: 'org-1',
+        sourceOrgId: 'org-1',
+        recipientOrgId: 'client-org-1',
+        invoiceNumber: 'INV-1001',
+        status: 'overdue',
+        total: 12500,
+        currency: 'ZAR',
+        recipientName: 'Riley Client',
+        recipientCompanyName: 'Client One',
+        clientDetails: {
+          name: 'Riley Client',
+          email: 'billing@example.test',
+        },
+        dueDate: '2026-05-20T00:00:00.000Z',
+        publicToken: 'invoice-public-token',
+        updatedAt: '2026-05-31T09:30:00.000Z',
+      }),
+      makeDoc('invoice-2', {
+        orgId: 'org-1',
+        sourceOrgId: 'org-1',
+        invoiceNumber: 'INV-1002',
+        status: 'paid',
+        total: 5000,
+        currency: 'ZAR',
+        updatedAt: '2026-05-31T08:30:00.000Z',
+      }),
+    ]
+
+    const { buildBriefingFeed } = await import('@/lib/briefing/feed')
+    const feed = await buildBriefingFeed(
+      { uid: 'admin-1', role: 'admin', allowedOrgIds: ['org-1'] },
+      { limit: 10, sourceType: 'invoice' },
+    )
+
+    expect(feed.items).toHaveLength(1)
+    expect(feed.items[0]).toMatchObject({
+      priority: 'client-risk',
+      requiresAction: true,
+      source: { type: 'invoice', id: 'invoice-1', url: '/admin/invoicing/invoice-1' },
+      title: 'Overdue invoice: INV-1001',
+      actor: { id: 'system', type: 'system' },
+      context: {
+        orgName: 'Client One',
+        invoiceId: 'invoice-1',
+        invoiceNumber: 'INV-1001',
+      },
+      metadata: expect.objectContaining({
+        invoiceStatus: 'overdue',
+        total: 12500,
+        currency: 'ZAR',
+        publicToken: 'invoice-public-token',
+      }),
+    })
+    expect(feed.items[0].summary).toContain('R12,500.00')
+    expect(feed.items[0].summary).toContain('Due: 2026-05-20')
+  })
 })
