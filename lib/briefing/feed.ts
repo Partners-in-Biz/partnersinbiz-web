@@ -34,6 +34,13 @@ type ProjectSummary = { id: string; name?: string | null; title?: string | null;
 type TaskSummary = { id: string; title?: string | null; projectId?: string | null; orgId?: string | null }
 type UserSummary = { id: string; name?: string | null; email?: string | null }
 type TaskLookupRef = { id: string; projectId?: string | null }
+type BriefingUserState = {
+  itemId: string
+  status?: 'active' | 'handled' | 'snoozed' | string
+  note?: string | null
+  snoozedUntil?: unknown
+  updatedAt?: unknown
+}
 
 function chunk<T>(items: T[], size: number): T[][] {
   const out: T[][] = []
@@ -197,6 +204,56 @@ async function loadUserSummaries(actorIds: string[]): Promise<Map<string, UserSu
     }
   }
   return map
+}
+
+async function loadBriefingUserStates(userId: string): Promise<Map<string, BriefingUserState>> {
+  const map = new Map<string, BriefingUserState>()
+  if (!userId) return map
+  try {
+    const snap = await adminDb
+      .collection('briefing_user_states')
+      .where('userId', '==', userId)
+      .limit(500)
+      .get()
+    for (const doc of snap.docs as FirestoreDoc[]) {
+      const data = doc.data()
+      const itemId = typeof data.itemId === 'string' ? data.itemId : ''
+      if (!itemId) continue
+      map.set(itemId, {
+        itemId,
+        status: typeof data.status === 'string' ? data.status : 'active',
+        note: typeof data.note === 'string' ? data.note : null,
+        snoozedUntil: data.snoozedUntil,
+        updatedAt: data.updatedAt,
+      })
+    }
+  } catch {
+    // Per-user handling state must not break the live briefing feed.
+  }
+  return map
+}
+
+function applyUserState(items: BriefingCard[], states: Map<string, BriefingUserState>): BriefingCard[] {
+  const now = Date.now()
+  return items.flatMap((item) => {
+    const state = states.get(item.id ?? '')
+    if (!state) return [item]
+
+    const snoozedUntil = normalizeTimestamp(state.snoozedUntil)
+    const status = state.status === 'handled' || state.status === 'snoozed' ? state.status : 'active'
+    if (status === 'handled') return []
+    if (status === 'snoozed' && snoozedUntil && snoozedUntil.getTime() > now) return []
+
+    return [{
+      ...item,
+      userState: {
+        status: 'active',
+        note: state.note ?? null,
+        snoozedUntil: snoozedUntil ? snoozedUntil.toISOString() : null,
+        updatedAt: normalizeTimestamp(state.updatedAt)?.toISOString() ?? null,
+      },
+    }]
+  })
 }
 
 function normalizeDoc(doc: FirestoreDoc, extra: Record<string, unknown> = {}): Record<string, unknown> & { id: string } {
@@ -474,7 +531,10 @@ export async function buildBriefingFeed(user: ApiUser, options: BriefingFeedOpti
   const tasks = await loadTaskSummaries(taskRefs)
   const projects = await loadProjectSummaries([...projectIds, ...[...tasks.values()].map((task) => task.projectId).filter((id): id is string => typeof id === 'string' && id.length > 0)])
   const users = await loadUserSummaries(actorIds)
-  const labelledItems = enrichBriefingLabels(items, projects, tasks, users)
+  const labelledItems = applyUserState(
+    enrichBriefingLabels(items, projects, tasks, users),
+    await loadBriefingUserStates(user.uid),
+  )
 
   const filtered = labelledItems
     .filter((item) => !options.priority || options.priority === 'all' || item.priority === options.priority)

@@ -189,4 +189,39 @@ describe('briefing feed', () => {
       context: { projectName: 'Readable Project', taskTitle: 'Human readable task' },
     })
   })
+
+  it('filters cards a user has marked handled from the live control desk feed', async () => {
+    collectionGroups.tasks = [
+      makeDoc('task-1', {
+        orgId: 'org-1',
+        projectId: 'project-1',
+        columnId: 'todo',
+        title: 'Review launch plan',
+        agentStatus: 'awaiting-input',
+        updatedAt: '2026-05-30T10:00:00.000Z',
+      }, 'projects/project-1/tasks/task-1'),
+    ]
+
+    const { buildBriefingFeed } = await import('@/lib/briefing/feed')
+    const firstFeed = await buildBriefingFeed(
+      { uid: 'admin-1', role: 'admin', allowedOrgIds: ['org-1'] },
+      { limit: 10, sourceType: 'task' },
+    )
+    expect(firstFeed.items).toHaveLength(1)
+
+    collections.briefing_user_states = [
+      makeDoc('state-1', {
+        userId: 'admin-1',
+        itemId: firstFeed.items[0].id,
+        status: 'handled',
+      }),
+    ]
+
+    const handledFeed = await buildBriefingFeed(
+      { uid: 'admin-1', role: 'admin', allowedOrgIds: ['org-1'] },
+      { limit: 10, sourceType: 'task' },
+    )
+
+    expect(handledFeed.items).toHaveLength(0)
+  })
 })

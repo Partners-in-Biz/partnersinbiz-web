@@ -6,7 +6,7 @@ import type { BriefingPriority, BriefingSourceType } from '@/lib/briefing/types'
 
 export const dynamic = 'force-dynamic'
 
-export const POST = withAuth('admin', async (req: NextRequest, user) => {
+export const POST = withAuth('client', async (req: NextRequest, user) => {
   try {
     const body = await req.json().catch(() => ({}))
     const snapshot = await createBriefingSnapshot(user, {

@@ -195,6 +195,16 @@ export interface BriefingCard extends BriefingSourceItem {
    * Computed relevance score for sorting.
    */
   relevanceScore?: number
+
+  /**
+   * Per-user control state from the briefing desk.
+   */
+  userState?: {
+    status: 'active' | 'handled' | 'snoozed'
+    note?: string | null
+    snoozedUntil?: string | null
+    updatedAt?: string | null
+  } | null
 }
 
 /**
