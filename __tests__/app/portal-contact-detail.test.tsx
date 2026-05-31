@@ -748,7 +748,7 @@ describe('Portal contact detail page', () => {
     })
 
     expect(await screen.findByText('Proposal follow-up')).toBeInTheDocument()
-    expect(screen.getByText('sent · Email time not captured')).toBeInTheDocument()
+    expect(screen.getByText('Sent · Email time not captured')).toBeInTheDocument()
     expect(screen.getByText('Discussed implementation handoff')).toBeInTheDocument()
     expect(screen.getByText('Mandy Manager · Activity time not captured')).toBeInTheDocument()
     expect(screen.queryAllByText('—')).toHaveLength(0)
@@ -770,6 +770,26 @@ describe('Portal contact detail page', () => {
     expect(await screen.findByText('Email subject missing')).toBeInTheDocument()
     expect(screen.getByText('Email status not captured · Email time not captured')).toBeInTheDocument()
     expect(screen.queryByText('(no subject)')).not.toBeInTheDocument()
+  })
+
+  it('renders saved email status keys as readable history labels', async () => {
+    mockEmails = [{
+      id: 'email-1',
+      subject: 'Retrying proposal follow-up',
+      status: 'queued_for_retry',
+      direction: 'outbound',
+      createdAt: null,
+    }]
+
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    expect(await screen.findByText('Retrying proposal follow-up')).toBeInTheDocument()
+    expect(screen.getByText('Queued for retry · Email time not captured')).toBeInTheDocument()
+    expect(screen.queryByText(/queued_for_retry/)).not.toBeInTheDocument()
   })
 
   it('names incomplete activity timeline rows instead of exposing raw activity snapshots', async () => {

@@ -117,6 +117,23 @@ const SOURCE_LABELS: Record<string, string> = {
   import: 'Imported list',
   outreach: 'Outreach',
 }
+const EMAIL_STATUS_LABELS: Record<string, string> = {
+  draft: 'Draft',
+  queued: 'Queued',
+  queued_for_retry: 'Queued for retry',
+  sending: 'Sending',
+  sent: 'Sent',
+  delivered: 'Delivered',
+  opened: 'Opened',
+  clicked: 'Clicked',
+  replied: 'Replied',
+  bounced: 'Bounced',
+  hard_bounce: 'Hard bounce',
+  soft_bounce: 'Soft bounce',
+  failed: 'Failed',
+  suppressed: 'Suppressed',
+  unsubscribed: 'Unsubscribed',
+}
 
 function timestampMillis(value: unknown): number {
   if (!value) return 0
@@ -183,7 +200,10 @@ function emailSubjectLabel(email: EmailRecord): string {
 }
 
 function emailStatusLabel(email: EmailRecord): string {
-  return email.status?.trim() || 'Email status not captured'
+  const key = email.status?.trim()
+  if (!key) return 'Email status not captured'
+  const fallback = key.replace(/[_-]+/g, ' ').trim()
+  return EMAIL_STATUS_LABELS[key] ?? (fallback ? fallback.charAt(0).toUpperCase() + fallback.slice(1) : 'Email status not captured')
 }
 
 function activityTimeLabel(activity: ActivityRecord): string {
