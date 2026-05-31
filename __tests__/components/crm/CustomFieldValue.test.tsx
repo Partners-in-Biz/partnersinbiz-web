@@ -171,6 +171,25 @@ describe('CustomFieldValue', () => {
     expect(screen.queryByText('Y Option')).not.toBeInTheDocument()
   })
 
+  it('keeps stale multi-select values visible as CRM cleanup work', () => {
+    render(
+      <CustomFieldValue
+        definition={makeDef({
+          type: 'multi_select',
+          label: 'Service interests',
+          options: [
+            { value: 'web', label: 'Website build' },
+          ],
+        })}
+        value={['web', 'legacy_mobile_app']}
+      />,
+    )
+
+    expect(screen.getByText('Website build')).toBeInTheDocument()
+    expect(screen.getByText('1 stale Service interests option')).toBeInTheDocument()
+    expect(screen.queryByText('legacy_mobile_app')).not.toBeInTheDocument()
+  })
+
   it('renders "Yes" for checkbox true', () => {
     render(
       <CustomFieldValue

@@ -134,12 +134,16 @@ export function CustomFieldValue({ definition, value }: CustomFieldValueProps) {
     const selected = Array.isArray(value) ? (value as string[]) : []
     if (selected.length === 0) return <MissingValue />
     const matched = (options ?? []).filter((o) => selected.includes(o.value))
+    const staleCount = selected.length - matched.length
     if (matched.length === 0) return <MissingValue label={`Unknown ${definition.label} options`} />
     return (
       <div className="flex flex-wrap gap-1">
         {matched.map((opt) => (
           <Chip key={opt.value} label={opt.label} color={opt.color} />
         ))}
+        {staleCount > 0 && (
+          <MissingValue label={`${staleCount} stale ${definition.label} option${staleCount === 1 ? '' : 's'}`} />
+        )}
       </div>
     )
   }
