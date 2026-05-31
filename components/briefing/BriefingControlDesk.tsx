@@ -29,6 +29,8 @@ interface BriefingCard {
     taskTitle?: string | null
     documentId?: string | null
     documentTitle?: string | null
+    conversationId?: string | null
+    conversationTitle?: string | null
   }
   metadata?: Record<string, unknown> | null
   occurredAt: string
@@ -103,14 +105,25 @@ function sourceLabel(item: BriefingCard) {
   if (item.context.taskTitle) return `${item.source.type} / ${titledId(item.context.taskTitle, item.context.taskId ?? item.source.id)}`
   if (item.context.projectName) return `${item.source.type} / ${titledId(item.context.projectName, item.context.projectId ?? item.source.id)}`
   if (item.context.documentTitle) return `${item.source.type} / ${titledId(item.context.documentTitle, item.context.documentId ?? item.source.id)}`
+  if (item.context.conversationTitle || item.context.conversationId) return `${item.source.type} / ${titledId(item.context.conversationTitle, item.context.conversationId ?? item.source.id)}`
   return `${item.source.type} / ${item.source.id}`
 }
 
 function sourceHref(item: BriefingCard, mode: Mode) {
   if (mode === 'admin') return item.source.url || null
   if (item.source.url?.startsWith('/portal')) return item.source.url
+  if (item.context.conversationId) return `/portal/conversations?convId=${encodeURIComponent(item.context.conversationId)}`
   if (item.context.projectId) return `/portal/projects/${item.context.projectId}${item.context.taskId ? `?taskId=${encodeURIComponent(item.context.taskId)}` : ''}`
   if (item.context.documentId) return `/portal/documents/${item.context.documentId}`
+  return item.source.url || null
+}
+
+function adminSourceHref(item: BriefingCard) {
+  if (item.context.conversationId) {
+    const query = `convId=${encodeURIComponent(item.context.conversationId)}`
+    if (item.context.orgSlug) return `/admin/org/${item.context.orgSlug}/messages?${query}`
+    return `/admin/communications?${query}`
+  }
   return item.source.url || null
 }
 
@@ -120,6 +133,10 @@ function canTaskAct(item: BriefingCard) {
 
 function canDocumentAct(item: BriefingCard) {
   return Boolean(item.context.documentId)
+}
+
+function canConversationAct(item: BriefingCard) {
+  return Boolean(item.context.conversationId)
 }
 
 function reviewable(item: BriefingCard) {
@@ -350,6 +367,27 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
     }
   }
 
+  async function replyToConversation(item: BriefingCard, text: string) {
+    if (!canConversationAct(item) || !text.trim()) return
+    setBusyAction('conversation-reply')
+    try {
+      const res = await fetch(`/api/v1/conversations/${item.context.conversationId}/messages`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ content: text.trim() }),
+      })
+      const body = await res.json()
+      if (!res.ok) throw new Error(body.error || 'Conversation reply failed')
+      setReplyText('')
+      setFlash({ kind: 'ok', message: 'Reply posted to the source conversation.' })
+      await loadFeed({ quiet: true })
+    } catch (err) {
+      setFlash({ kind: 'error', message: err instanceof Error ? err.message : 'Conversation reply failed' })
+    } finally {
+      setBusyAction(null)
+    }
+  }
+
   async function approveDocument(item: BriefingCard) {
     if (!canDocumentAct(item)) return
     setBusyAction('document-approve')
@@ -382,6 +420,10 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
     }
     if (canDocumentAct(item)) {
       await replyToDocument(item, replyText)
+      return
+    }
+    if (canConversationAct(item)) {
+      await replyToConversation(item, replyText)
     }
   }
 
@@ -640,10 +682,10 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                   ) : null}
                 </div>
 
-                {canTaskAct(selected) || canDocumentAct(selected) ? (
+                {canTaskAct(selected) || canDocumentAct(selected) || canConversationAct(selected) ? (
                   <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
                     <label className="text-xs font-medium text-on-surface-variant" htmlFor="briefing-reply">
-                      {canTaskAct(selected) ? 'Inline task reply' : 'Inline document reply'}
+                      {canTaskAct(selected) ? 'Inline task reply' : canDocumentAct(selected) ? 'Inline document reply' : 'Inline conversation reply'}
                     </label>
                     <textarea
                       id="briefing-reply"
@@ -654,7 +696,7 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                     />
                     <button className="pib-btn-primary mt-2 w-full justify-center text-xs" type="button" onClick={() => replyToSelected(selected)} disabled={!replyText.trim() || !!busyAction}>
                       <span className="material-symbols-outlined text-[15px]" aria-hidden="true">reply</span>
-                      {canTaskAct(selected) ? 'Post reply to task' : 'Post reply to document'}
+                      {canTaskAct(selected) ? 'Post reply to task' : canDocumentAct(selected) ? 'Post reply to document' : 'Post reply to conversation'}
                     </button>
                   </div>
                 ) : null}
@@ -665,12 +707,13 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                   {selected.context.projectName || selected.context.projectId ? <div><dt className="text-on-surface-variant">Project</dt><dd className="text-on-surface">{titledId(selected.context.projectName, selected.context.projectId)}</dd></div> : null}
                   {selected.context.taskTitle || selected.context.taskId ? <div><dt className="text-on-surface-variant">Task</dt><dd className="text-on-surface">{titledId(selected.context.taskTitle, selected.context.taskId)}</dd></div> : null}
                   {selected.context.documentTitle || selected.context.documentId ? <div><dt className="text-on-surface-variant">Document</dt><dd className="text-on-surface">{titledId(selected.context.documentTitle, selected.context.documentId)}</dd></div> : null}
+                  {selected.context.conversationTitle || selected.context.conversationId ? <div><dt className="text-on-surface-variant">Conversation</dt><dd className="text-on-surface">{titledId(selected.context.conversationTitle, selected.context.conversationId)}</dd></div> : null}
                   <div><dt className="text-on-surface-variant">Occurred</dt><dd className="text-on-surface">{new Date(selected.occurredAt).toLocaleString('en-ZA')}</dd></div>
                   <div><dt className="text-on-surface-variant">Source</dt><dd className="text-on-surface">{sourceLabel(selected)}</dd></div>
                 </dl>
 
-                {sourceHref(selected, mode) ? (
-                  <a className="pib-btn-primary inline-flex w-full justify-center" href={sourceHref(selected, mode) ?? undefined}>
+                {(mode === 'admin' ? adminSourceHref(selected) : sourceHref(selected, mode)) ? (
+                  <a className="pib-btn-primary inline-flex w-full justify-center" href={(mode === 'admin' ? adminSourceHref(selected) : sourceHref(selected, mode)) ?? undefined}>
                     <span className="material-symbols-outlined text-[16px]" aria-hidden="true">open_in_new</span>
                     Open source
                   </a>

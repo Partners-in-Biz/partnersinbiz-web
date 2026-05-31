@@ -7,7 +7,7 @@
  */
 
 import type { BriefingSourceAdapter, BriefingPriority } from '../types'
-import { normalizeActor, hashSourceDocument, extractMultiFieldExcerpt, normalizeTimestamp, extractOrgId, extractTaskId, generateSourceUrl } from '../utils'
+import { hashSourceDocument, extractMultiFieldExcerpt, normalizeTimestamp, extractOrgId } from '../utils'
 
 /**
  * Comment Firestore document shape.
@@ -50,7 +50,7 @@ export const commentAdapter: BriefingSourceAdapter<CommentDocument> = {
    * Determine if this comment should generate a briefing item.
    * Skip system-generated comments and comments already picked up by agents.
    */
-  shouldGenerate(doc: CommentDocument, _docId: string): boolean {
+  shouldGenerate(doc: CommentDocument): boolean {
     // Skip if already picked up by an agent
     if (doc.agentPickedUp === true) return false
 
@@ -68,7 +68,7 @@ export const commentAdapter: BriefingSourceAdapter<CommentDocument> = {
   /**
    * Extract priority based on comment content and context.
    */
-  extractPriority(doc: CommentDocument, _docId: string): BriefingPriority {
+  extractPriority(doc: CommentDocument): BriefingPriority {
     const text = doc.text.toLowerCase()
 
     // Urgent keywords
@@ -103,7 +103,8 @@ export const commentAdapter: BriefingSourceAdapter<CommentDocument> = {
   /**
    * Extract actor information.
    */
-  extractActor(doc: CommentDocument, _docId: string) {
+  extractActor(doc: CommentDocument, docId: string) {
+    void docId
     const userId = typeof doc.userId === 'string' ? doc.userId : 'unknown'
     const userName = typeof doc.userName === 'string' ? doc.userName : null
     const userRole = (doc.userRole === 'admin' || doc.userRole === 'client' || doc.userRole === 'ai' || doc.userRole === 'system') ? doc.userRole : 'admin'
@@ -127,7 +128,7 @@ export const commentAdapter: BriefingSourceAdapter<CommentDocument> = {
   /**
    * Extract context metadata.
    */
-  extractContext(doc: CommentDocument, _docId: string) {
+  extractContext(doc: CommentDocument) {
     const orgId = extractOrgId(doc) ?? ''
     const projectId = typeof doc.projectId === 'string' ? doc.projectId : null
     const taskId = typeof doc.taskId === 'string' ? doc.taskId : null
@@ -146,8 +147,8 @@ export const commentAdapter: BriefingSourceAdapter<CommentDocument> = {
   /**
    * Extract title for the briefing card.
    */
-  extractTitle(doc: CommentDocument, _docId: string): string {
-    const actor = this.extractActor(doc, _docId)
+  extractTitle(doc: CommentDocument, docId: string): string {
+    const actor = this.extractActor(doc, docId)
     const actorName = actor.name || actor.id
     const actorType = actor.type
 
@@ -169,7 +170,7 @@ export const commentAdapter: BriefingSourceAdapter<CommentDocument> = {
   /**
    * Extract summary for the briefing card.
    */
-  extractSummary(doc: CommentDocument, _docId: string): string {
+  extractSummary(doc: CommentDocument): string {
     // Use the comment text itself as summary, truncated
     return extractMultiFieldExcerpt(doc, ['text'], { maxLength: 200 }) ?? 'No comment text.'
   },
@@ -177,21 +178,22 @@ export const commentAdapter: BriefingSourceAdapter<CommentDocument> = {
   /**
    * Extract safe excerpt from the comment.
    */
-  extractExcerpt(doc: CommentDocument, _docId: string, maxLength = 300): string | null {
+  extractExcerpt(doc: CommentDocument, docId: string, maxLength = 300): string | null {
+    void docId
     return extractMultiFieldExcerpt(doc, ['text'], { maxLength })
   },
 
   /**
    * Extract timestamp when the comment was created.
    */
-  extractOccurredAt(doc: CommentDocument, _docId: string): Date | null {
+  extractOccurredAt(doc: CommentDocument): Date | null {
     return normalizeTimestamp(doc.createdAt) ?? normalizeTimestamp(doc.updatedAt)
   },
 
   /**
    * Extract metadata specific to comments.
    */
-  extractMetadata(doc: CommentDocument, _docId: string): Record<string, unknown> | null {
+  extractMetadata(doc: CommentDocument): Record<string, unknown> | null {
     return {
       commentType: doc.type,
       agentPickedUp: doc.agentPickedUp,
@@ -225,6 +227,9 @@ export const commentAdapter: BriefingSourceAdapter<CommentDocument> = {
     } else if (context.documentId) {
       url = `https://partnersinbiz.online/admin/documents/${context.documentId}`
       collectionPath = `client-documents/${context.documentId}/comments`
+    } else if (context.conversationId) {
+      url = `/admin/communications?convId=${encodeURIComponent(context.conversationId)}`
+      collectionPath = `conversations/${context.conversationId}/comments`
     }
 
     return {

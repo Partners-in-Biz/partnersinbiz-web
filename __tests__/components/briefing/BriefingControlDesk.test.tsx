@@ -69,6 +69,27 @@ const secondOrgBriefingItem = {
   occurredAt: '2026-05-31T10:04:00.000Z',
 }
 
+const conversationBriefingItem = {
+  id: 'comment:conv-comment-1',
+  orgId: 'org-1',
+  priority: 'needs-peet',
+  title: 'Client comment from Sam',
+  summary: 'Can we confirm the launch date today?',
+  excerpt: 'Can we confirm the launch date today?',
+  timeAgo: '3 minutes ago',
+  requiresAction: true,
+  source: { type: 'comment', id: 'conv-comment-1', url: '/admin/communications?convId=conv-1' },
+  actor: { id: 'user:sam', name: 'Sam', role: 'client', type: 'user' },
+  context: {
+    orgId: 'org-1',
+    orgName: 'Client One',
+    orgSlug: 'client-one',
+    conversationId: 'conv-1',
+    conversationTitle: 'Launch planning',
+  },
+  occurredAt: '2026-05-31T10:02:00.000Z',
+}
+
 describe('BriefingControlDesk', () => {
   beforeEach(() => {
     jest.useFakeTimers()
@@ -87,7 +108,7 @@ describe('BriefingControlDesk', () => {
       if (url.startsWith('/api/v1/briefings/feed')) {
         const items = url.includes('orgId=org-2')
           ? [secondOrgBriefingItem]
-          : [briefingItem, documentBriefingItem, secondOrgBriefingItem]
+          : [briefingItem, documentBriefingItem, conversationBriefingItem, secondOrgBriefingItem]
         return {
           ok: true,
           json: async () => ({ data: { items, total: items.length, hasMore: false, generatedAt: '2026-05-31T10:05:00.000Z' } }),
@@ -115,6 +136,12 @@ describe('BriefingControlDesk', () => {
         return {
           ok: true,
           json: async () => ({ data: { id: 'approval-1' } }),
+        } as Response
+      }
+      if (url === '/api/v1/conversations/conv-1/messages') {
+        return {
+          ok: true,
+          json: async () => ({ data: { message: { id: 'message-1' } } }),
         } as Response
       }
       return {
@@ -214,6 +241,28 @@ describe('BriefingControlDesk', () => {
     })
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /approve document/i })).not.toBeDisabled()
+    })
+  })
+
+  it('deep-links and replies to conversation comment cards from the desk', async () => {
+    render(<BriefingControlDesk mode="portal" />)
+
+    fireEvent.click(await screen.findByRole('button', { name: /Client comment from Sam/i }))
+
+    expect(screen.getByRole('link', { name: /open source/i })).toHaveAttribute('href', '/portal/conversations?convId=conv-1')
+    expect(screen.getByText('Launch planning (conv-1)')).toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText('Inline conversation reply'), { target: { value: 'Yes, launch is confirmed for Friday.' } })
+    fireEvent.click(screen.getByRole('button', { name: /post reply to conversation/i }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/conversations/conv-1/messages', expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ content: 'Yes, launch is confirmed for Friday.' }),
+      }))
+    })
+    await waitFor(() => {
+      expect(screen.getByLabelText('Inline conversation reply')).toHaveValue('')
     })
   })
 })

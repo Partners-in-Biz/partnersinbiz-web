@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic'
 
 import { useEffect, useState } from 'react'
 import { onAuthStateChanged } from 'firebase/auth'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { auth, getClientAuth } from '@/lib/firebase/config'
 import UnifiedChat from '@/components/chat/UnifiedChat'
 
@@ -21,6 +21,8 @@ interface UserInfo {
 
 export default function ConversationsPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const initialConvId = searchParams.get('convId') ?? undefined
   const [org, setOrg] = useState<OrgInfo | null>(null)
   const [user, setUser] = useState<UserInfo | null>(null)
   const [checking, setChecking] = useState(true)
@@ -107,6 +109,7 @@ export default function ConversationsPage() {
         currentUserUid={user.uid}
         currentUserDisplayName={user.name}
         orgName={org.name}
+        initialConvId={initialConvId}
         allowAgentParticipants={user.role === 'admin'}
       />
     </div>
