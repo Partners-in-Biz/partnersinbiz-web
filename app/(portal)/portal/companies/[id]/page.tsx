@@ -316,6 +316,24 @@ function shipmentStatusLabel(shipment: RelatedShipment) {
   return shipment.status ? undefined : 'Shipment status not set'
 }
 
+function inventoryItemNameLabel(item: RelatedInventoryItem) {
+  return item.name || item.sku || 'Inventory item name missing'
+}
+
+function inventorySkuLabel(item: RelatedInventoryItem) {
+  return item.sku || 'SKU not set'
+}
+
+function inventoryQuantityLabel(item: RelatedInventoryItem) {
+  return typeof item.quantityAvailable === 'number' && Number.isFinite(item.quantityAvailable)
+    ? `${item.quantityAvailable} available`
+    : 'Quantity not captured'
+}
+
+function inventoryStatusLabel(item: RelatedInventoryItem) {
+  return item.status ? undefined : 'Inventory status not set'
+}
+
 function extractList<T>(body: unknown, key: keyof RelatedState): T[] {
   if (!body || typeof body !== 'object') return []
   const record = body as Record<string, unknown>
@@ -1039,10 +1057,11 @@ function InventoryPanel({
       rows={inventoryItems}
       emptyIcon="inventory_2"
       emptyLabel="No inventory items yet."
-      title={(row) => String(row.name ?? row.sku ?? row.id)}
+      title={(row) => inventoryItemNameLabel(row as RelatedInventoryItem)}
       metaFor={(row) => [
-        String(row.sku ?? ''),
-        typeof row.quantityAvailable === 'number' ? `${row.quantityAvailable} available` : undefined,
+        inventorySkuLabel(row as RelatedInventoryItem),
+        inventoryQuantityLabel(row as RelatedInventoryItem),
+        inventoryStatusLabel(row as RelatedInventoryItem),
       ]}
     />
   )
