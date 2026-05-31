@@ -41,6 +41,7 @@ export default function DocumentEditorPage() {
   const [loading, setLoading] = useState(true)
   const [titleValue, setTitleValue] = useState('')
   const [publishing, setPublishing] = useState(false)
+  const [signing, setSigning] = useState(false)
   const [copied, setCopied] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -113,6 +114,29 @@ export default function DocumentEditorPage() {
     setTimeout(() => setCopied(false), 2000)
   }
 
+  async function handleCountersign() {
+    setSigning(true)
+    setError(null)
+    try {
+      const res = await fetch(`/api/v1/client-documents/${id}/sign`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: 'Peet Stander',
+          capacity: 'Founder',
+          companyName: 'The Partners in Business',
+          signatureText: 'Peet Stander',
+        }),
+      })
+      if (!res.ok) throw new Error(`Failed to countersign document: ${res.status}`)
+      await load()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to countersign document')
+    } finally {
+      setSigning(false)
+    }
+  }
+
   if (loading) return <Skeleton />
 
   if (error) {
@@ -174,6 +198,16 @@ export default function DocumentEditorPage() {
           </button>
         )}
 
+        {document.approvalMode === 'formal_acceptance' && document.latestPublishedVersionId && !document.providerSignature && (
+          <button
+            onClick={handleCountersign}
+            disabled={signing}
+            className="shrink-0 rounded bg-[var(--color-pib-accent)] px-3 py-1.5 text-xs font-medium text-black disabled:opacity-50"
+          >
+            {signing ? 'Signing...' : 'Countersign'}
+          </button>
+        )}
+
         {document.shareEnabled && (
           <button
             onClick={handleShare}
@@ -183,6 +217,25 @@ export default function DocumentEditorPage() {
           </button>
         )}
       </div>
+
+      {document.approvalMode === 'formal_acceptance' && (
+        <div className="border-b border-[var(--color-outline)] bg-[var(--color-pib-surface)] px-4 py-3">
+          <div className="flex flex-wrap items-center gap-3 text-xs text-[var(--color-pib-text-muted)]">
+            <span className="font-semibold uppercase tracking-wider text-[var(--color-pib-text)]">
+              PiB countersignature
+            </span>
+            {document.providerSignature ? (
+              <span>
+                Signed by {document.providerSignature.name} as {document.providerSignature.capacity}.
+              </span>
+            ) : document.latestPublishedVersionId ? (
+              <span>Ready for Peet to countersign the published agreement.</span>
+            ) : (
+              <span>Publish the agreement before countersigning.</span>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Share settings — collapsible under the top bar so it's near the existing Share button */}
       <details className="border-b border-[var(--color-outline)] bg-[var(--color-pib-surface)] px-4 py-3">
