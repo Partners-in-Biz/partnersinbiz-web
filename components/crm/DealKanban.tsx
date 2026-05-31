@@ -30,7 +30,8 @@ import type { PipelineStage } from '@/lib/pipelines/types'
 
 // ── Internal deal card ─────────────────────────────────────────────────────────
 
-function formatValue(value: number, currency: string): string {
+function formatValue(value: number | null | undefined, currency: string): string {
+  if (value === null || value === undefined || Number.isNaN(value)) return 'No value captured'
   try {
     return new Intl.NumberFormat('en-ZA', { style: 'currency', currency, maximumFractionDigits: 0 }).format(value)
   } catch {

@@ -93,6 +93,16 @@ describe('DealKanban', () => {
     expect(valueEl).toBeInTheDocument()
   })
 
+  it('names missing deal values on kanban cards instead of showing invalid currency', () => {
+    const deal = makeDeal({ id: 'd1', title: 'Unpriced board deal', value: undefined, stageId: 'proposal' })
+
+    render(<DealKanban deals={[deal]} stages={TEST_STAGES} onStageChange={noop} />)
+
+    expect(screen.getByText('Unpriced board deal')).toBeInTheDocument()
+    expect(screen.getByText('No value captured')).toBeInTheDocument()
+    expect(screen.queryByText(/NaN/)).not.toBeInTheDocument()
+  })
+
   it('shows "Drop here" placeholder in empty columns', () => {
     // Only discovery has a deal — others should show the drop placeholder
     const deal = makeDeal({ id: 'd1', stageId: 'discovery' })
