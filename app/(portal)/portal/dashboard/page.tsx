@@ -95,12 +95,23 @@ interface CrmDashboardData {
   lostThisMonth: { count: number }
   recentActivities: Array<{
     id: string; type?: string; summary?: string; createdAt?: unknown;
-    createdByRef?: { displayName?: string }; contactId?: string
+    createdByRef?: { displayName?: string }; contactId?: string; dealId?: string
   }>
   topOpenDeals: Array<{
     id: string; title?: string; value?: number; currency?: string;
     probability?: number; stageId?: string
   }>
+}
+
+function textValue(value: unknown): string {
+  return typeof value === 'string' && value.trim() ? value.trim() : ''
+}
+
+function crmActivityHref(activity: CrmDashboardData['recentActivities'][number]): string {
+  const dealId = textValue(activity.dealId)
+  if (dealId) return `/portal/deals/${encodeURIComponent(dealId)}`
+  const contactId = textValue(activity.contactId)
+  return contactId ? `/portal/contacts/${encodeURIComponent(contactId)}` : ''
 }
 
 const EMPTY_CRM_DASHBOARD: CrmDashboardData = {
@@ -706,21 +717,34 @@ export default function PortalDashboard() {
               {crmData.recentActivities.length === 0 ? (
                 <p className="text-sm text-[var(--color-pib-text-muted)]">No recent activity.</p>
               ) : (
-                crmData.recentActivities.map(a => (
-                  <div key={a.id} className="flex items-start gap-2 py-2 border-b border-[var(--color-pib-line)] last:border-0">
-                    <span className="material-symbols-outlined text-[14px] text-[var(--color-pib-text-muted)] mt-0.5">
-                      {activityIcon(a.type)}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm truncate">{a.summary ?? a.type}</p>
-                      <p className="text-xs text-[var(--color-pib-text-muted)]">
-                        {a.createdByRef?.displayName ?? ''}
-                        {a.createdByRef?.displayName && a.createdAt ? ' · ' : ''}
-                        {fmtTimestamp(a.createdAt)}
-                      </p>
+                crmData.recentActivities.map(a => {
+                  const href = crmActivityHref(a)
+                  const content = (
+                    <>
+                      <span className="material-symbols-outlined text-[14px] text-[var(--color-pib-text-muted)] mt-0.5">
+                        {activityIcon(a.type)}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm truncate">{a.summary ?? a.type}</p>
+                        <p className="text-xs text-[var(--color-pib-text-muted)]">
+                          {a.createdByRef?.displayName ?? ''}
+                          {a.createdByRef?.displayName && a.createdAt ? ' · ' : ''}
+                          {fmtTimestamp(a.createdAt)}
+                        </p>
+                      </div>
+                    </>
+                  )
+                  const className = 'flex items-start gap-2 py-2 border-b border-[var(--color-pib-line)] last:border-0 transition-colors hover:text-[var(--color-pib-accent)]'
+                  return href ? (
+                    <Link key={a.id} href={href} className={className}>
+                      {content}
+                    </Link>
+                  ) : (
+                    <div key={a.id} className="flex items-start gap-2 py-2 border-b border-[var(--color-pib-line)] last:border-0">
+                      {content}
                     </div>
-                  </div>
-                ))
+                  )
+                })
               )}
             </div>
 
@@ -743,7 +767,11 @@ export default function PortalDashboard() {
                   ) : (
                     crmData.topOpenDeals.map(d => (
                       <tr key={d.id} className="border-b border-[var(--color-pib-line)] last:border-0">
-                        <td className="py-2">{d.title ?? '—'}</td>
+                        <td className="py-2">
+                          <Link href={`/portal/deals/${encodeURIComponent(d.id)}`} className="font-medium hover:text-[var(--color-pib-accent)]">
+                            {d.title ?? '—'}
+                          </Link>
+                        </td>
                         <td className="py-2 text-right">{formatCurrency(d.value ?? 0, d.currency)}</td>
                         <td className="py-2 text-right text-[var(--color-pib-text-muted)]">{d.probability ?? '—'}%</td>
                       </tr>
