@@ -118,24 +118,55 @@ function stringValue(value: unknown): string {
 
 function timestampMs(value: unknown): number {
   if (!value) return 0
-  if (value instanceof Date) return value.getTime()
+  if (value instanceof Date) {
+    const ms = value.getTime()
+    return Number.isFinite(ms) ? ms : 0
+  }
   if (typeof value === 'string') {
     const parsed = Date.parse(value)
-    return Number.isNaN(parsed) ? 0 : parsed
+    return Number.isFinite(parsed) ? parsed : 0
   }
   if (typeof value === 'object') {
     const timestamp = value as { toMillis?: () => number; toDate?: () => Date; seconds?: number; _seconds?: number }
-    if (typeof timestamp.toMillis === 'function') return timestamp.toMillis()
-    if (typeof timestamp.toDate === 'function') return timestamp.toDate().getTime()
+    if (typeof timestamp.toMillis === 'function') {
+      const ms = timestamp.toMillis()
+      return Number.isFinite(ms) ? ms : 0
+    }
+    if (typeof timestamp.toDate === 'function') {
+      const ms = timestamp.toDate().getTime()
+      return Number.isFinite(ms) ? ms : 0
+    }
     const seconds = timestamp.seconds ?? timestamp._seconds
-    if (typeof seconds === 'number') return seconds * 1000
+    if (typeof seconds === 'number' && Number.isFinite(seconds)) return seconds * 1000
   }
   return 0
 }
 
+function hasUnreadableTimestamp(value: unknown): boolean {
+  if (!value) return false
+  if (value instanceof Date) return !Number.isFinite(value.getTime())
+  if (typeof value === 'string') return !Number.isFinite(Date.parse(value))
+  if (typeof value === 'object') {
+    const timestamp = value as { toMillis?: () => number; toDate?: () => Date; seconds?: unknown; _seconds?: unknown }
+    if (typeof timestamp.toMillis === 'function') {
+      const ms = timestamp.toMillis()
+      return !Number.isFinite(ms)
+    }
+    if (typeof timestamp.toDate === 'function') {
+      const ms = timestamp.toDate().getTime()
+      return !Number.isFinite(ms)
+    }
+    if ('seconds' in timestamp || '_seconds' in timestamp) {
+      const seconds = timestamp.seconds ?? timestamp._seconds
+      return typeof seconds !== 'number' || !Number.isFinite(seconds)
+    }
+  }
+  return false
+}
+
 function formatDate(value: unknown): string {
   const ms = timestampMs(value)
-  if (!ms) return 'No date'
+  if (!ms) return hasUnreadableTimestamp(value) ? 'Movement date needs review' : 'No date'
   return new Date(ms).toLocaleDateString('en-ZA', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 

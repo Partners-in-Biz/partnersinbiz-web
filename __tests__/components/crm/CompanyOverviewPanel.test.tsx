@@ -118,6 +118,30 @@ describe('CompanyOverviewPanel', () => {
     expect(screen.queryByText('in_progress')).not.toBeInTheDocument()
   })
 
+  it('names unreadable latest movement dates as metadata cleanup work', () => {
+    render(
+      <CompanyOverviewPanel
+        company={company()}
+        center={{
+          deals: [
+            {
+              id: 'deal-invalid-date',
+              title: 'Expansion timing',
+              value: 12000,
+              status: 'open',
+              updatedAt: { _seconds: Number.NaN } as never,
+            },
+          ],
+        }}
+      />,
+    )
+
+    expect(screen.getByText('Expansion timing')).toBeInTheDocument()
+    expect(screen.getByText(/deal · Movement date needs review/)).toBeInTheDocument()
+    expect(screen.queryByText('Invalid Date')).not.toBeInTheDocument()
+    expect(screen.queryByText(/deal · No date/)).not.toBeInTheDocument()
+  })
+
   it('renders account lifecycle and tier context as readable labels', () => {
     render(
       <CompanyOverviewPanel
