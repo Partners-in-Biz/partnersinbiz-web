@@ -102,11 +102,15 @@ function actionDetail(action: AutomationAction): string {
     case 'send_notification':
       return action.notificationMessage?.trim() || 'Team notification'
     case 'assign_owner':
-      return action.ownerDisplayName || action.ownerUid || 'Owner assignment'
+      if (action.ownerDisplayName?.trim()) return action.ownerDisplayName
+      if (action.ownerUid?.trim()) return 'Owner identity missing'
+      return 'Owner assignment'
     case 'dispatch_webhook':
       return action.webhookUrl || 'External endpoint'
     case 'enroll_in_sequence':
-      return action.sequenceName || action.sequenceId || 'Sequence enrollment'
+      if (action.sequenceName?.trim()) return action.sequenceName
+      if (action.sequenceId?.trim()) return 'Sequence identity missing'
+      return 'Sequence enrollment'
     default:
       return 'Action'
   }

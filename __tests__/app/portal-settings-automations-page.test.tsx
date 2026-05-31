@@ -84,4 +84,50 @@ describe('Portal settings automations page', () => {
 
     expect(await screen.findByText('New lead owner alert')).toBeInTheDocument()
   })
+
+  it('names incomplete automation action snapshots instead of exposing raw ids', async () => {
+    global.fetch = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/automations') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: {
+              rules: [
+                {
+                  id: 'rule-sparse-actions',
+                  orgId: 'org-1',
+                  name: 'Sparse automation handoff',
+                  description: 'Check sparse action labels.',
+                  enabled: true,
+                  trigger: { event: 'contact.created' },
+                  actions: [
+                    {
+                      type: 'assign_owner',
+                      ownerUid: 'uid-owner-raw',
+                    },
+                    {
+                      type: 'enroll_in_sequence',
+                      sequenceId: 'seq-raw',
+                    },
+                  ],
+                  createdAt: null,
+                  updatedAt: null,
+                },
+              ],
+            },
+          }),
+        } as Response)
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    }) as jest.Mock
+
+    render(<AutomationsPage />)
+
+    expect(await screen.findByText('Sparse automation handoff')).toBeInTheDocument()
+    expect(screen.getByText('Owner identity missing')).toBeInTheDocument()
+    expect(screen.getByText('Sequence identity missing')).toBeInTheDocument()
+    expect(screen.queryByText('uid-owner-raw')).not.toBeInTheDocument()
+    expect(screen.queryByText('seq-raw')).not.toBeInTheDocument()
+  })
 })
