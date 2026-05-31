@@ -111,16 +111,18 @@ describe('CompaniesTable', () => {
     expect(handleClick).toHaveBeenCalledWith('co-42')
   })
 
-  it('renders tier chip when tier is set', () => {
-    const company = makeCompany({ id: 'co-1', tier: 'enterprise' })
+  it('renders tier chip as a readable account label when tier is set', () => {
+    const company = makeCompany({ id: 'co-1', tier: 'mid-market' })
     render(<CompaniesTable companies={[company]} loading={false} onRowClick={noop} />)
-    expect(screen.getByText('enterprise')).toBeInTheDocument()
+    expect(screen.getByText('Mid market')).toBeInTheDocument()
+    expect(screen.queryByText('mid-market')).not.toBeInTheDocument()
   })
 
-  it('renders lifecycleStage chip when set', () => {
+  it('renders lifecycleStage chip as a readable account label when set', () => {
     const company = makeCompany({ id: 'co-1', lifecycleStage: 'customer' })
     render(<CompaniesTable companies={[company]} loading={false} onRowClick={noop} />)
-    expect(screen.getByText('customer')).toBeInTheDocument()
+    expect(screen.getByText('Customer')).toBeInTheDocument()
+    expect(screen.queryByText('customer')).not.toBeInTheDocument()
   })
 
   it('renders industry when set', () => {

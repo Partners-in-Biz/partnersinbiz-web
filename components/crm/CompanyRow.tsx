@@ -59,6 +59,18 @@ function accountManagerName(company: Company): string {
   return company.accountManagerRef?.displayName || company.accountManagerUid || 'Unassigned'
 }
 
+function readableAccountLabel(value?: string): string | undefined {
+  if (!value) return undefined
+  return value
+    .split(/[-_\s]+/)
+    .filter(Boolean)
+    .map((part, index) => {
+      const lower = part.toLowerCase()
+      return index === 0 ? lower.charAt(0).toUpperCase() + lower.slice(1) : lower
+    })
+    .join(' ')
+}
+
 // ── Tier / lifecycle colour chips ─────────────────────────────────────────────
 
 const TIER_COLOURS: Record<string, string> = {
@@ -88,10 +100,12 @@ export function CompanyRow({ company, onClick, selected = false, onToggleSelecte
   const lcCls = company.lifecycleStage
     ? (LIFECYCLE_COLOURS[company.lifecycleStage] ?? 'bg-surface-container text-on-surface-variant')
     : ''
+  const lifecycleLabel = readableAccountLabel(company.lifecycleStage)
   const strength = profileStrength(company)
   const health = typeof company.healthScore === 'number' ? company.healthScore : strength
   const healthColor = health >= 75 ? '#4ade80' : health >= 45 ? '#facc15' : '#f87171'
   const tierCls = company.tier ? (TIER_COLOURS[company.tier] ?? 'bg-surface-container text-on-surface-variant') : ''
+  const tierLabel = readableAccountLabel(company.tier)
   const hasSetupGap = !company.domain && !company.website && !company.legalName
     || !company.industry
     || company.employeeCount == null && !company.size
@@ -162,9 +176,9 @@ export function CompanyRow({ company, onClick, selected = false, onToggleSelecte
 
       {/* Lifecycle */}
       <td className="px-4 py-3">
-        {company.lifecycleStage && (
+        {lifecycleLabel && (
           <span className={`text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full ${lcCls}`}>
-            {company.lifecycleStage}
+            {lifecycleLabel}
           </span>
         )}
       </td>
@@ -176,9 +190,9 @@ export function CompanyRow({ company, onClick, selected = false, onToggleSelecte
             {company.industry ?? 'No industry'}
           </span>
           <div className="flex flex-wrap gap-1">
-            {company.tier && (
+            {tierLabel && (
               <span className={`text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full ${tierCls}`}>
-                {company.tier}
+                {tierLabel}
               </span>
             )}
             {company.size && (
