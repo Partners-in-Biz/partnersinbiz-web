@@ -30,6 +30,7 @@ export { expenseAdapter } from './adapters/expenseAdapter'
 export { seoContentAdapter } from './adapters/seoContentAdapter'
 export { seoTaskAdapter } from './adapters/seoTaskAdapter'
 export { adCampaignAdapter } from './adapters/adCampaignAdapter'
+export { enquiryAdapter } from './adapters/enquiryAdapter'
 export { formSubmissionAdapter } from './adapters/formSubmissionAdapter'
 
 import type { BriefingSourceAdapter, BriefingSourceType } from './types'
@@ -55,6 +56,7 @@ import { expenseAdapter } from './adapters/expenseAdapter'
 import { seoContentAdapter } from './adapters/seoContentAdapter'
 import { seoTaskAdapter } from './adapters/seoTaskAdapter'
 import { adCampaignAdapter } from './adapters/adCampaignAdapter'
+import { enquiryAdapter } from './adapters/enquiryAdapter'
 import { formSubmissionAdapter } from './adapters/formSubmissionAdapter'
 
 /**
@@ -86,6 +88,7 @@ export const SOURCE_ADAPTERS: Record<BriefingSourceType, BriefingSourceAdapter> 
   'seo-content': seoContentAdapter,
   'seo-task': seoTaskAdapter,
   'ad-campaign': adCampaignAdapter,
+  enquiry: enquiryAdapter,
   'form-submission': formSubmissionAdapter,
 }
 

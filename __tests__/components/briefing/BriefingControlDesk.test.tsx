@@ -452,6 +452,33 @@ const inventoryBriefingItem = {
   occurredAt: '2026-05-31T09:52:30.000Z',
 }
 
+const enquiryBriefingItem = {
+  id: 'enquiry:enquiry-1',
+  orgId: 'pib-platform-owner',
+  priority: 'needs-peet',
+  title: 'New enquiry from Ava Owner',
+  summary: 'marketing enquiry from Ava Owner at Acme Holdings. Email: ava@example.test.',
+  excerpt: 'Can we book a proposal call?',
+  timeAgo: '13 minutes ago',
+  requiresAction: true,
+  source: { type: 'enquiry', id: 'enquiry-1', url: '/admin/briefings?source=enquiry&id=enquiry-1' },
+  actor: { id: 'public-enquiry', name: 'Ava Owner', role: 'client', type: 'user' },
+  context: {
+    orgId: 'pib-platform-owner',
+    orgName: 'Partners in Biz',
+    orgSlug: 'partners-in-biz',
+    enquiryId: 'enquiry-1',
+    enquiryName: 'Ava Owner',
+  },
+  metadata: {
+    enquiryStatus: 'new',
+    email: 'ava@example.test',
+    company: 'Acme Holdings',
+    projectType: 'marketing',
+  },
+  occurredAt: '2026-05-31T09:52:15.000Z',
+}
+
 const expenseBriefingItem = {
   id: 'expense:expense-1',
   orgId: 'org-1',
@@ -767,7 +794,7 @@ describe('BriefingControlDesk', () => {
       if (url.startsWith('/api/v1/briefings/feed')) {
         const items = url.includes('orgId=org-2')
           ? [secondOrgBriefingItem]
-          : [briefingItem, documentBriefingItem, documentCommentBriefingItem, approvalBriefingItem, conversationBriefingItem, socialBriefingItem, notificationBriefingItem, activityBriefingItem, reportBriefingItem, supportBriefingItem, invoiceBriefingItem, invoiceProofBriefingItem, quoteBriefingItem, shipmentBriefingItem, orderBriefingItem, inventoryBriefingItem, expenseBriefingItem, seoContentBriefingItem, seoTaskBriefingItem, adCampaignBriefingItem, formSubmissionBriefingItem, socialInboxBriefingItem, mailboxBriefingItem, agentRunBriefingItem, workspaceBrokerBriefingItem, calendarBriefingItem, secondOrgBriefingItem]
+          : [briefingItem, documentBriefingItem, documentCommentBriefingItem, approvalBriefingItem, conversationBriefingItem, socialBriefingItem, notificationBriefingItem, activityBriefingItem, reportBriefingItem, supportBriefingItem, invoiceBriefingItem, invoiceProofBriefingItem, quoteBriefingItem, shipmentBriefingItem, orderBriefingItem, inventoryBriefingItem, enquiryBriefingItem, expenseBriefingItem, seoContentBriefingItem, seoTaskBriefingItem, adCampaignBriefingItem, formSubmissionBriefingItem, socialInboxBriefingItem, mailboxBriefingItem, agentRunBriefingItem, workspaceBrokerBriefingItem, calendarBriefingItem, secondOrgBriefingItem]
         return {
           ok: true,
           json: async () => ({ data: { items, total: items.length, hasMore: false, generatedAt: '2026-05-31T10:05:00.000Z' } }),
@@ -921,6 +948,12 @@ describe('BriefingControlDesk', () => {
         return {
           ok: true,
           json: async () => ({ data: { id: 'submission-1', status: 'read' } }),
+        } as Response
+      }
+      if (url === '/api/enquiries/enquiry-1') {
+        return {
+          ok: true,
+          json: async () => ({ id: 'enquiry-1', status: 'reviewing' }),
         } as Response
       }
       if (url === '/api/v1/social/inbox/social-inbox-1') {
@@ -1500,6 +1533,51 @@ describe('BriefingControlDesk', () => {
       expect(global.fetch).toHaveBeenCalledWith('/api/v1/inventory-items?id=stock-1', expect.objectContaining({
         method: 'PATCH',
         body: JSON.stringify({ status: 'archived' }),
+      }))
+    })
+  })
+
+  it('handles public enquiry follow-up cards from the admin control desk', async () => {
+    render(<BriefingControlDesk mode="admin" />)
+
+    fireEvent.click(await screen.findByRole('button', { name: /New enquiry from Ava Owner/i }))
+
+    expect(screen.getByText('Ava Owner (enquiry-1)')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /open source/i })).toHaveAttribute('href', '/admin/briefings?source=enquiry&id=enquiry-1')
+    expect(screen.getByRole('button', { name: /mark enquiry reviewing/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /mark enquiry active/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /close enquiry/i })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /mark enquiry reviewing/i }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/enquiries/enquiry-1', expect.objectContaining({
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'reviewing' }),
+      }))
+    })
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /mark enquiry reviewing/i })).not.toBeDisabled()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /mark enquiry active/i }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/enquiries/enquiry-1', expect.objectContaining({
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'active' }),
+      }))
+    })
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /close enquiry/i })).not.toBeDisabled()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /close enquiry/i }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/enquiries/enquiry-1', expect.objectContaining({
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'closed' }),
       }))
     })
   })

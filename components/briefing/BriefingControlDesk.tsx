@@ -60,6 +60,8 @@ interface BriefingCard {
     seoSprintId?: string | null
     adCampaignId?: string | null
     adCampaignName?: string | null
+    enquiryId?: string | null
+    enquiryName?: string | null
     formId?: string | null
     formSubmissionId?: string | null
     formName?: string | null
@@ -129,6 +131,7 @@ const SOURCES = [
   { value: 'seo-content', label: 'SEO content' },
   { value: 'seo-task', label: 'SEO tasks' },
   { value: 'ad-campaign', label: 'Ad campaigns' },
+  { value: 'enquiry', label: 'Enquiries' },
   { value: 'form-submission', label: 'Form submissions' },
 ]
 
@@ -182,6 +185,7 @@ function sourceLabel(item: BriefingCard) {
   if (item.context.seoContentTitle || item.context.seoContentId) return `${item.source.type} / ${titledId(item.context.seoContentTitle, item.context.seoContentId ?? item.source.id)}`
   if (item.context.seoTaskTitle || item.context.seoTaskId) return `${item.source.type} / ${titledId(item.context.seoTaskTitle, item.context.seoTaskId ?? item.source.id)}`
   if (item.context.adCampaignName || item.context.adCampaignId) return `${item.source.type} / ${titledId(item.context.adCampaignName, item.context.adCampaignId ?? item.source.id)}`
+  if (item.context.enquiryName || item.context.enquiryId) return `${item.source.type} / ${titledId(item.context.enquiryName, item.context.enquiryId ?? item.source.id)}`
   if (item.context.formName || item.context.formId || item.context.formSubmissionId) return `${item.source.type} / ${titledId(item.context.formName, item.context.formSubmissionId ?? item.source.id)}`
   if (item.context.socialInboxFrom || item.context.socialInboxId) return `${item.source.type} / ${titledId(item.context.socialInboxFrom, item.context.socialInboxId ?? item.source.id)}`
   if (item.context.mailboxFrom || item.context.mailboxMessageId) return `${item.source.type} / ${titledId(item.context.mailboxFrom, item.context.mailboxMessageId ?? item.source.id)}`
@@ -207,6 +211,7 @@ function sourceHref(item: BriefingCard, mode: Mode) {
   if (item.source.type === 'shipment') return item.source.url || (item.context.companyId ? `/portal/companies/${encodeURIComponent(item.context.companyId)}?shipment=${encodeURIComponent(item.source.id)}` : `/portal/crm?shipment=${encodeURIComponent(item.source.id)}`)
   if (item.source.type === 'expense') return mode === 'admin' ? `/admin/finance?expense=${encodeURIComponent(item.source.id)}` : null
   if (item.source.type === 'ad-campaign') return mode === 'admin' ? adminSourceHref(item) : `/portal/ads/campaigns/${encodeURIComponent(item.source.id)}`
+  if (item.source.type === 'enquiry') return mode === 'admin' ? adminSourceHref(item) : null
   if (item.source.type === 'seo-content') {
     const sprintId = item.context.seoSprintId
     const contentId = encodeURIComponent(item.source.id)
@@ -261,6 +266,7 @@ function adminSourceHref(item: BriefingCard) {
     if (formId) return `/admin/forms/${encodeURIComponent(formId)}/submissions/${encodeURIComponent(item.source.id)}`
     return item.source.url || null
   }
+  if (item.source.type === 'enquiry') return item.source.url || `/admin/briefings?source=enquiry&id=${encodeURIComponent(item.source.id)}`
   if (item.source.type === 'social-inbox') {
     return item.source.url || `/admin/social/inbox?item=${encodeURIComponent(item.source.id)}`
   }
@@ -452,6 +458,10 @@ function canAdCampaignAct(item: BriefingCard) {
 
 function adCampaignReviewable(item: BriefingCard) {
   return canAdCampaignAct(item) && item.metadata?.reviewState === 'awaiting'
+}
+
+function enquiryActionable(item: BriefingCard, mode: Mode) {
+  return mode === 'admin' && item.source.type === 'enquiry' && Boolean(item.source.id) && item.metadata?.enquiryStatus !== 'closed'
 }
 
 function formSubmissionActionable(item: BriefingCard, mode: Mode) {
@@ -1364,6 +1374,31 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
     }
   }
 
+  async function enquiryAction(item: BriefingCard, status: 'reviewing' | 'active' | 'closed') {
+    if (!enquiryActionable(item, mode)) return
+    setBusyAction(`enquiry-${status}`)
+    try {
+      const res = await fetch(`/api/enquiries/${encodeURIComponent(item.source.id)}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ status }),
+      })
+      const body = await res.json()
+      if (!res.ok) throw new Error(body.error || 'Enquiry update failed')
+      const message = status === 'reviewing'
+        ? 'Enquiry marked reviewing.'
+        : status === 'active'
+          ? 'Enquiry marked active.'
+          : 'Enquiry closed.'
+      setFlash({ kind: 'ok', message })
+      await loadFeed({ quiet: true })
+    } catch (err) {
+      setFlash({ kind: 'error', message: err instanceof Error ? err.message : 'Enquiry update failed' })
+    } finally {
+      setBusyAction(null)
+    }
+  }
+
   async function formSubmissionAction(item: BriefingCard, status: 'read' | 'archived') {
     if (!formSubmissionActionable(item, mode)) return
     setBusyAction(`form-submission-${status}`)
@@ -1857,6 +1892,24 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                       Request ad campaign changes
                     </button>
                   ) : null}
+                  {enquiryActionable(selected, mode) ? (
+                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => enquiryAction(selected, 'reviewing')} disabled={!!busyAction}>
+                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">pageview</span>
+                      Mark enquiry reviewing
+                    </button>
+                  ) : null}
+                  {enquiryActionable(selected, mode) ? (
+                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => enquiryAction(selected, 'active')} disabled={!!busyAction}>
+                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">person_check</span>
+                      Mark enquiry active
+                    </button>
+                  ) : null}
+                  {enquiryActionable(selected, mode) ? (
+                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => enquiryAction(selected, 'closed')} disabled={!!busyAction}>
+                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">check_circle</span>
+                      Close enquiry
+                    </button>
+                  ) : null}
                   {formSubmissionActionable(selected, mode) ? (
                     <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => formSubmissionAction(selected, 'read')} disabled={!!busyAction}>
                       <span className="material-symbols-outlined text-[15px]" aria-hidden="true">mark_email_read</span>
@@ -2101,6 +2154,7 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                   {selected.context.seoContentTitle || selected.context.seoContentId ? <div><dt className="text-on-surface-variant">SEO content</dt><dd className="text-on-surface">{titledId(selected.context.seoContentTitle, selected.context.seoContentId ?? selected.source.id)}</dd></div> : null}
                   {selected.context.seoTaskTitle || selected.context.seoTaskId ? <div><dt className="text-on-surface-variant">SEO task</dt><dd className="text-on-surface">{titledId(selected.context.seoTaskTitle, selected.context.seoTaskId ?? selected.source.id)}</dd></div> : null}
                   {selected.context.adCampaignName || selected.context.adCampaignId ? <div><dt className="text-on-surface-variant">Ad campaign</dt><dd className="text-on-surface">{titledId(selected.context.adCampaignName, selected.context.adCampaignId ?? selected.source.id)}</dd></div> : null}
+                  {selected.context.enquiryName || selected.context.enquiryId ? <div><dt className="text-on-surface-variant">Enquiry</dt><dd className="text-on-surface">{titledId(selected.context.enquiryName, selected.context.enquiryId ?? selected.source.id)}</dd></div> : null}
                   {selected.context.formName || selected.context.formId || selected.context.formSubmissionId ? <div><dt className="text-on-surface-variant">Form submission</dt><dd className="text-on-surface">{titledId(selected.context.formName ?? selected.context.formId, selected.context.formSubmissionId ?? selected.source.id)}</dd></div> : null}
                   {selected.context.socialInboxFrom || selected.context.socialInboxId ? <div><dt className="text-on-surface-variant">Social inbox</dt><dd className="text-on-surface">{titledId(selected.context.socialInboxFrom, selected.context.socialInboxId ?? selected.source.id)}</dd></div> : null}
                   {selected.context.mailboxFrom || selected.context.mailboxMessageId ? <div><dt className="text-on-surface-variant">Mailbox</dt><dd className="text-on-surface">{titledId(selected.context.mailboxFrom, selected.context.mailboxMessageId ?? selected.source.id)}</dd></div> : null}

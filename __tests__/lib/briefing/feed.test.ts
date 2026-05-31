@@ -490,6 +490,60 @@ describe('briefing feed', () => {
     })
   })
 
+  it('surfaces new public enquiries as platform-owner follow-up cards', async () => {
+    collections.organizations = [makeDoc('pib-platform-owner', { name: 'Partners in Biz', slug: 'partners-in-biz' })]
+    collections.enquiries = [
+      makeDoc('enquiry-1', {
+        userId: null,
+        name: 'Ava Owner',
+        email: 'ava@example.test',
+        company: 'Acme Holdings',
+        projectType: 'marketing',
+        details: 'Can we book a proposal call? token: lead-secret-123',
+        status: 'new',
+        assignedTo: null,
+        createdAt: '2026-05-31T09:41:00.000Z',
+      }),
+      makeDoc('enquiry-2', {
+        name: 'Closed Lead',
+        email: 'closed@example.test',
+        projectType: 'seo',
+        details: 'Already handled.',
+        status: 'closed',
+        createdAt: '2026-05-31T09:40:00.000Z',
+      }),
+    ]
+
+    const { buildBriefingFeed } = await import('@/lib/briefing/feed')
+    const feed = await buildBriefingFeed(
+      { uid: 'admin-1', role: 'admin', orgId: 'pib-platform-owner', allowedOrgIds: ['pib-platform-owner'] },
+      { limit: 10, sourceType: 'enquiry' },
+    )
+
+    expect(feed.items).toHaveLength(1)
+    expect(feed.items[0]).toMatchObject({
+      source: { type: 'enquiry', id: 'enquiry-1', collectionPath: 'enquiries', url: '/admin/briefings?source=enquiry&id=enquiry-1' },
+      priority: 'needs-peet',
+      title: 'New enquiry from Ava Owner',
+      summary: expect.stringContaining('marketing enquiry from Ava Owner'),
+      context: {
+        orgId: 'pib-platform-owner',
+        orgName: 'Partners in Biz',
+        orgSlug: 'partners-in-biz',
+        enquiryId: 'enquiry-1',
+        enquiryName: 'Ava Owner',
+      },
+      metadata: expect.objectContaining({
+        enquiryStatus: 'new',
+        email: 'ava@example.test',
+        company: 'Acme Holdings',
+        projectType: 'marketing',
+      }),
+    })
+    expect(JSON.stringify(feed.items)).not.toContain('lead-secret-123')
+    expect(JSON.stringify(feed.items)).toContain('[REDACTED]')
+  })
+
   it('turns CRM follow-up activities into source-linked action cards', async () => {
     collections.organizations = [makeDoc('org-1', { name: 'Client One', slug: 'client-one' })]
     collections.activities = [
