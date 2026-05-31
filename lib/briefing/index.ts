@@ -22,6 +22,7 @@ export { socialInboxAdapter } from './adapters/socialInboxAdapter'
 export { mailboxMessageAdapter } from './adapters/mailboxMessageAdapter'
 export { supportTicketAdapter } from './adapters/supportTicketAdapter'
 export { invoiceAdapter } from './adapters/invoiceAdapter'
+export { quoteAdapter } from './adapters/quoteAdapter'
 export { expenseAdapter } from './adapters/expenseAdapter'
 export { seoContentAdapter } from './adapters/seoContentAdapter'
 export { seoTaskAdapter } from './adapters/seoTaskAdapter'
@@ -43,6 +44,7 @@ import { socialInboxAdapter } from './adapters/socialInboxAdapter'
 import { mailboxMessageAdapter } from './adapters/mailboxMessageAdapter'
 import { supportTicketAdapter } from './adapters/supportTicketAdapter'
 import { invoiceAdapter } from './adapters/invoiceAdapter'
+import { quoteAdapter } from './adapters/quoteAdapter'
 import { expenseAdapter } from './adapters/expenseAdapter'
 import { seoContentAdapter } from './adapters/seoContentAdapter'
 import { seoTaskAdapter } from './adapters/seoTaskAdapter'
@@ -70,6 +72,7 @@ export const SOURCE_ADAPTERS: Record<BriefingSourceType, BriefingSourceAdapter> 
   report: reportAdapter,
   'support-ticket': supportTicketAdapter,
   invoice: invoiceAdapter,
+  quote: quoteAdapter,
   expense: expenseAdapter,
   'seo-content': seoContentAdapter,
   'seo-task': seoTaskAdapter,

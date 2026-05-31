@@ -3,7 +3,7 @@ import { adminAuth, adminDb } from '@/lib/firebase/admin'
 import type { ApiUser } from '@/lib/api/types'
 import { canAccessOrg } from '@/lib/api/platformAdmin'
 import type { BriefingCard, BriefingPriority, BriefingResponse, BriefingSourceAdapter, BriefingSourceItem, BriefingSourceType } from './types'
-import { activityAdapter, adCampaignAdapter, agentOutputAdapter, agentRunAdapter, approvalAdapter, calendarEventAdapter, clientDocumentAdapter, commentAdapter, expenseAdapter, formSubmissionAdapter, invoiceAdapter, mailboxMessageAdapter, notificationAdapter, projectAdapter, reportAdapter, seoContentAdapter, seoTaskAdapter, socialInboxAdapter, socialPostAdapter, supportTicketAdapter, taskAdapter, workspaceBrokerJobAdapter } from './index'
+import { activityAdapter, adCampaignAdapter, agentOutputAdapter, agentRunAdapter, approvalAdapter, calendarEventAdapter, clientDocumentAdapter, commentAdapter, expenseAdapter, formSubmissionAdapter, invoiceAdapter, mailboxMessageAdapter, notificationAdapter, projectAdapter, quoteAdapter, reportAdapter, seoContentAdapter, seoTaskAdapter, socialInboxAdapter, socialPostAdapter, supportTicketAdapter, taskAdapter, workspaceBrokerJobAdapter } from './index'
 import { comparePriority, formatTimeAgo, normalizeTimestamp, priorityRequiresAction } from './utils'
 
 const PLATFORM_ORG_ID = 'pib-platform-owner'
@@ -302,6 +302,34 @@ async function fetchInvoiceDocs(scopedOrgIds: string[] | null): Promise<Firestor
         out.push(...snaps.flatMap((snap) => snap.docs as FirestoreDoc[]))
       } catch {
         // Billing records have evolved through several org fields; keep each lookup best-effort.
+      }
+    }
+  } else {
+    const snap = await ref.limit(SOURCE_FETCH_LIMIT).get()
+    out.push(...(snap.docs as FirestoreDoc[]))
+  }
+
+  const seen = new Set<string>()
+  return out.filter((doc) => {
+    const key = doc.ref?.path ?? doc.id
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+}
+
+async function fetchQuoteDocs(scopedOrgIds: string[] | null): Promise<FirestoreDoc[]> {
+  const ref = adminDb.collection('quotes')
+  const out: FirestoreDoc[] = []
+
+  if (scopedOrgIds && scopedOrgIds.length > 0) {
+    const fields = ['orgId', 'sourceOrgId', 'recipientOrgId', 'targetOrgId']
+    for (const field of fields) {
+      try {
+        const snaps = await Promise.all(chunk(scopedOrgIds, 30).map((ids) => ref.where(field, 'in', ids).limit(SOURCE_FETCH_LIMIT).get()))
+        out.push(...snaps.flatMap((snap) => snap.docs as FirestoreDoc[]))
+      } catch {
+        // Quote records share the same legacy org-field drift as invoices.
       }
     }
   } else {
@@ -708,6 +736,16 @@ export async function buildBriefingFeed(user: ApiUser, options: BriefingFeedOpti
       const docs = await fetchInvoiceDocs(scopedOrgIds)
       for (const doc of docs) {
         const item = toItemSafe(invoiceAdapter, normalizeDoc(doc), doc.id)
+        if (item) items.push(decorate(item, orgs))
+      }
+    } catch {}
+  }
+
+  if (include('quote')) {
+    try {
+      const docs = await fetchQuoteDocs(scopedOrgIds)
+      for (const doc of docs) {
+        const item = toItemSafe(quoteAdapter, normalizeDoc(doc), doc.id)
         if (item) items.push(decorate(item, orgs))
       }
     } catch {}

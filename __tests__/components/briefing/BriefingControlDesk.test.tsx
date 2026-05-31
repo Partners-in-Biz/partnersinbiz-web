@@ -329,6 +329,35 @@ const invoiceProofBriefingItem = {
   occurredAt: '2026-05-31T09:54:30.000Z',
 }
 
+const quoteBriefingItem = {
+  id: 'quote:quote-1',
+  orgId: 'org-1',
+  priority: 'needs-peet',
+  title: 'Quote awaiting decision: QUO-1001',
+  summary: 'R18,500.00 quote for Riley Client. Status: sent.',
+  excerpt: 'Approve this retainer quote before onboarding can continue.',
+  timeAgo: '11 minutes ago',
+  requiresAction: true,
+  source: { type: 'quote', id: 'quote-1', url: '/admin/quotes/quote-1' },
+  actor: { id: 'system', name: 'Sales', role: 'system', type: 'system' },
+  context: {
+    orgId: 'org-1',
+    orgName: 'Client One',
+    orgSlug: 'client-one',
+    quoteId: 'quote-1',
+    quoteNumber: 'QUO-1001',
+  },
+  metadata: {
+    quoteStatus: 'sent',
+    total: 18500,
+    currency: 'ZAR',
+    recipientName: 'Riley Client',
+    recipientOrgId: 'org-1',
+    sourceOrgId: 'pib-platform-owner',
+  },
+  occurredAt: '2026-05-31T09:54:00.000Z',
+}
+
 const expenseBriefingItem = {
   id: 'expense:expense-1',
   orgId: 'org-1',
@@ -644,7 +673,7 @@ describe('BriefingControlDesk', () => {
       if (url.startsWith('/api/v1/briefings/feed')) {
         const items = url.includes('orgId=org-2')
           ? [secondOrgBriefingItem]
-          : [briefingItem, documentBriefingItem, documentCommentBriefingItem, approvalBriefingItem, conversationBriefingItem, socialBriefingItem, notificationBriefingItem, activityBriefingItem, reportBriefingItem, supportBriefingItem, invoiceBriefingItem, invoiceProofBriefingItem, expenseBriefingItem, seoContentBriefingItem, seoTaskBriefingItem, adCampaignBriefingItem, formSubmissionBriefingItem, socialInboxBriefingItem, mailboxBriefingItem, agentRunBriefingItem, workspaceBrokerBriefingItem, calendarBriefingItem, secondOrgBriefingItem]
+          : [briefingItem, documentBriefingItem, documentCommentBriefingItem, approvalBriefingItem, conversationBriefingItem, socialBriefingItem, notificationBriefingItem, activityBriefingItem, reportBriefingItem, supportBriefingItem, invoiceBriefingItem, invoiceProofBriefingItem, quoteBriefingItem, expenseBriefingItem, seoContentBriefingItem, seoTaskBriefingItem, adCampaignBriefingItem, formSubmissionBriefingItem, socialInboxBriefingItem, mailboxBriefingItem, agentRunBriefingItem, workspaceBrokerBriefingItem, calendarBriefingItem, secondOrgBriefingItem]
         return {
           ok: true,
           json: async () => ({ data: { items, total: items.length, hasMore: false, generatedAt: '2026-05-31T10:05:00.000Z' } }),
@@ -1236,6 +1265,38 @@ describe('BriefingControlDesk', () => {
       expect(global.fetch).toHaveBeenCalledWith('/api/v1/invoices/invoice-proof-1/confirm-payment', expect.objectContaining({
         method: 'POST',
         body: JSON.stringify({ confirmed: false, reason: 'Proof does not match the invoice total.' }),
+      }))
+    })
+  })
+
+  it('accepts and declines received quote cards from the control desk', async () => {
+    render(<BriefingControlDesk mode="portal" />)
+
+    fireEvent.click(await screen.findByRole('button', { name: /Quote awaiting decision: QUO-1001/i }))
+
+    expect(screen.getByText('QUO-1001 (quote-1)')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /open source/i })).toHaveAttribute('href', '/portal/payments?quote=quote-1')
+    expect(screen.getByRole('button', { name: /accept quote/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /decline quote/i })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /accept quote/i }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/quotes/quote-1', expect.objectContaining({
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'accepted' }),
+      }))
+    })
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /accept quote/i })).not.toBeDisabled()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /decline quote/i }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/quotes/quote-1', expect.objectContaining({
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'declined' }),
       }))
     })
   })

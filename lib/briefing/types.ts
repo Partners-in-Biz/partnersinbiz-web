@@ -45,6 +45,7 @@ export type BriefingSourceType =
   | 'report'               // Stored snapshot reports
   | 'support-ticket'       // Client support tickets and ticket replies
   | 'invoice'              // Billing invoices that need review, payment, or sending
+  | 'quote'                // Sales quotes that need client decision or invoice conversion
   | 'expense'              // Submitted expenses that need approval or rejection
   | 'seo-content'          // SEO content awaiting client review or publishing action
   | 'seo-task'             // SEO sprint tasks needing admin execution, completion, or skip
@@ -98,6 +99,8 @@ export interface BriefingContext {
   supportTicketSubject?: string | null
   invoiceId?: string | null
   invoiceNumber?: string | null
+  quoteId?: string | null
+  quoteNumber?: string | null
   expenseId?: string | null
   expenseCategory?: string | null
   seoContentId?: string | null

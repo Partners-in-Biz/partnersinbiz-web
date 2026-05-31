@@ -41,6 +41,8 @@ interface BriefingCard {
     supportTicketSubject?: string | null
     invoiceId?: string | null
     invoiceNumber?: string | null
+    quoteId?: string | null
+    quoteNumber?: string | null
     expenseId?: string | null
     expenseCategory?: string | null
     seoContentId?: string | null
@@ -111,6 +113,7 @@ const SOURCES = [
   { value: 'report', label: 'Reports' },
   { value: 'support-ticket', label: 'Support' },
   { value: 'invoice', label: 'Invoices' },
+  { value: 'quote', label: 'Quotes' },
   { value: 'expense', label: 'Expenses' },
   { value: 'seo-content', label: 'SEO content' },
   { value: 'seo-task', label: 'SEO tasks' },
@@ -160,6 +163,7 @@ function sourceLabel(item: BriefingCard) {
   if (item.context.reportTitle || item.context.reportId) return `${item.source.type} / ${titledId(item.context.reportTitle, item.context.reportId ?? item.source.id)}`
   if (item.context.supportTicketSubject || item.context.supportTicketId) return `${item.source.type} / ${titledId(item.context.supportTicketSubject, item.context.supportTicketId ?? item.source.id)}`
   if (item.context.invoiceNumber || item.context.invoiceId) return `${item.source.type} / ${titledId(item.context.invoiceNumber, item.context.invoiceId ?? item.source.id)}`
+  if (item.context.quoteNumber || item.context.quoteId) return `${item.source.type} / ${titledId(item.context.quoteNumber, item.context.quoteId ?? item.source.id)}`
   if (item.context.expenseCategory || item.context.expenseId) return `${item.source.type} / ${titledId(item.context.expenseCategory, item.context.expenseId ?? item.source.id)}`
   if (item.context.seoContentTitle || item.context.seoContentId) return `${item.source.type} / ${titledId(item.context.seoContentTitle, item.context.seoContentId ?? item.source.id)}`
   if (item.context.seoTaskTitle || item.context.seoTaskId) return `${item.source.type} / ${titledId(item.context.seoTaskTitle, item.context.seoTaskId ?? item.source.id)}`
@@ -183,6 +187,7 @@ function sourceHref(item: BriefingCard, mode: Mode) {
   if (item.source.type === 'social-post') return `/portal/social/review/${encodeURIComponent(item.source.id)}`
   if (item.source.type === 'support-ticket') return mode === 'admin' ? `/admin/support?ticket=${encodeURIComponent(item.source.id)}` : '/portal'
   if (item.source.type === 'invoice') return mode === 'admin' ? `/admin/invoicing/${encodeURIComponent(item.source.id)}` : `/portal/payments?invoice=${encodeURIComponent(item.source.id)}`
+  if (item.source.type === 'quote') return mode === 'admin' ? `/admin/quotes/${encodeURIComponent(item.source.id)}` : `/portal/payments?quote=${encodeURIComponent(item.source.id)}`
   if (item.source.type === 'expense') return mode === 'admin' ? `/admin/finance?expense=${encodeURIComponent(item.source.id)}` : null
   if (item.source.type === 'ad-campaign') return mode === 'admin' ? adminSourceHref(item) : `/portal/ads/campaigns/${encodeURIComponent(item.source.id)}`
   if (item.source.type === 'seo-content') {
@@ -219,6 +224,7 @@ function adminSourceHref(item: BriefingCard) {
   }
   if (item.source.type === 'support-ticket') return `/admin/support?ticket=${encodeURIComponent(item.source.id)}`
   if (item.source.type === 'invoice') return `/admin/invoicing/${encodeURIComponent(item.source.id)}`
+  if (item.source.type === 'quote') return `/admin/quotes/${encodeURIComponent(item.source.id)}`
   if (item.source.type === 'expense') return `/admin/finance?expense=${encodeURIComponent(item.source.id)}`
   if (item.source.type === 'ad-campaign') {
     if (item.context.orgSlug) return `/admin/org/${encodeURIComponent(item.context.orgSlug)}/ads/campaigns/${encodeURIComponent(item.source.id)}`
@@ -356,6 +362,18 @@ function invoiceSendable(item: BriefingCard) {
 
 function invoicePaymentProofReviewable(item: BriefingCard, mode: Mode) {
   return mode === 'admin' && canInvoiceAct(item) && item.metadata?.invoiceStatus === 'payment_pending_verification'
+}
+
+function canQuoteAct(item: BriefingCard) {
+  return item.source.type === 'quote' && Boolean(item.source.id)
+}
+
+function quoteDecisionable(item: BriefingCard) {
+  return canQuoteAct(item) && item.metadata?.quoteStatus === 'sent'
+}
+
+function quoteConvertible(item: BriefingCard, mode: Mode) {
+  return mode === 'admin' && canQuoteAct(item) && item.metadata?.quoteStatus === 'accepted' && !item.metadata?.convertedInvoiceId
 }
 
 function expenseReviewable(item: BriefingCard, mode: Mode) {
@@ -1092,6 +1110,36 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
     }
   }
 
+  async function quoteAction(item: BriefingCard, action: 'accept' | 'decline' | 'convert') {
+    if (!canQuoteAct(item)) return
+    setBusyAction(`quote-${action}`)
+    try {
+      const body = action === 'convert'
+        ? { action: 'convert-to-invoice' }
+        : { status: action === 'accept' ? 'accepted' : 'declined' }
+      const res = await fetch(`/api/v1/quotes/${encodeURIComponent(item.source.id)}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const responseBody = await res.json()
+      if (!res.ok) throw new Error(responseBody.error || 'Quote update failed')
+      setFlash({
+        kind: 'ok',
+        message: action === 'accept'
+          ? 'Quote accepted from the control desk.'
+          : action === 'decline'
+            ? 'Quote declined from the control desk.'
+            : 'Quote converted to invoice.',
+      })
+      await loadFeed({ quiet: true })
+    } catch (err) {
+      setFlash({ kind: 'error', message: err instanceof Error ? err.message : 'Quote update failed' })
+    } finally {
+      setBusyAction(null)
+    }
+  }
+
   async function expenseAction(item: BriefingCard, action: 'approve' | 'reject') {
     if (!expenseReviewable(item, mode)) return
     const note = expenseReviewText.trim()
@@ -1573,6 +1621,24 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                       Reject payment proof
                     </button>
                   ) : null}
+                  {quoteDecisionable(selected) ? (
+                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => quoteAction(selected, 'accept')} disabled={!!busyAction}>
+                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">verified</span>
+                      Accept quote
+                    </button>
+                  ) : null}
+                  {quoteDecisionable(selected) ? (
+                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => quoteAction(selected, 'decline')} disabled={!!busyAction}>
+                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">block</span>
+                      Decline quote
+                    </button>
+                  ) : null}
+                  {quoteConvertible(selected, mode) ? (
+                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => quoteAction(selected, 'convert')} disabled={!!busyAction}>
+                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">receipt_long</span>
+                      Convert to invoice
+                    </button>
+                  ) : null}
                   {expenseReviewable(selected, mode) ? (
                     <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => expenseAction(selected, 'approve')} disabled={!!busyAction}>
                       <span className="material-symbols-outlined text-[15px]" aria-hidden="true">verified</span>
@@ -1863,6 +1929,7 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                   {selected.context.reportTitle || selected.context.reportId ? <div><dt className="text-on-surface-variant">Report</dt><dd className="text-on-surface">{titledId(selected.context.reportTitle, selected.context.reportId)}</dd></div> : null}
                   {selected.context.supportTicketSubject || selected.context.supportTicketId ? <div><dt className="text-on-surface-variant">Support ticket</dt><dd className="text-on-surface">{titledId(selected.context.supportTicketSubject, selected.context.supportTicketId)}</dd></div> : null}
                   {selected.context.invoiceNumber || selected.context.invoiceId ? <div><dt className="text-on-surface-variant">Invoice</dt><dd className="text-on-surface">{titledId(selected.context.invoiceNumber, selected.context.invoiceId ?? selected.source.id)}</dd></div> : null}
+                  {selected.context.quoteNumber || selected.context.quoteId ? <div><dt className="text-on-surface-variant">Quote</dt><dd className="text-on-surface">{titledId(selected.context.quoteNumber, selected.context.quoteId ?? selected.source.id)}</dd></div> : null}
                   {selected.context.expenseCategory || selected.context.expenseId ? <div><dt className="text-on-surface-variant">Expense</dt><dd className="text-on-surface">{titledId(selected.context.expenseCategory, selected.context.expenseId ?? selected.source.id)}</dd></div> : null}
                   {selected.context.seoContentTitle || selected.context.seoContentId ? <div><dt className="text-on-surface-variant">SEO content</dt><dd className="text-on-surface">{titledId(selected.context.seoContentTitle, selected.context.seoContentId ?? selected.source.id)}</dd></div> : null}
                   {selected.context.seoTaskTitle || selected.context.seoTaskId ? <div><dt className="text-on-surface-variant">SEO task</dt><dd className="text-on-surface">{titledId(selected.context.seoTaskTitle, selected.context.seoTaskId ?? selected.source.id)}</dd></div> : null}

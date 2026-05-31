@@ -277,6 +277,54 @@ describe('briefing feed', () => {
     expect(JSON.stringify(feed.items)).toContain('[REDACTED]')
   })
 
+  it('surfaces received quotes that need a client decision as action cards', async () => {
+    collections.organizations = [makeDoc('org-1', { name: 'Client One', slug: 'client-one' })]
+    collections.quotes = [
+      makeDoc('quote-1', {
+        orgId: 'pib-platform-owner',
+        sourceOrgId: 'pib-platform-owner',
+        recipientOrgId: 'org-1',
+        quoteNumber: 'QUO-1001',
+        status: 'sent',
+        total: 18500,
+        currency: 'ZAR',
+        recipientName: 'Riley Client',
+        recipientCompanyName: 'Client One',
+        notes: 'Approve this retainer quote before onboarding can continue.',
+        validUntil: '2026-06-15T00:00:00.000Z',
+        updatedAt: '2026-05-31T09:45:00.000Z',
+      }),
+    ]
+
+    const { buildBriefingFeed } = await import('@/lib/briefing/feed')
+    const feed = await buildBriefingFeed(
+      { uid: 'client-1', role: 'client', orgId: 'org-1', orgIds: ['org-1'] },
+      { limit: 10, sourceType: 'quote' },
+    )
+
+    expect(feed.items).toHaveLength(1)
+    expect(feed.items[0]).toMatchObject({
+      source: { type: 'quote', id: 'quote-1', collectionPath: 'quotes', url: '/admin/quotes/quote-1' },
+      priority: 'needs-peet',
+      title: 'Quote awaiting decision: QUO-1001',
+      summary: expect.stringContaining('R18,500.00 quote for Riley Client'),
+      context: {
+        orgId: 'org-1',
+        orgName: 'Client One',
+        orgSlug: 'client-one',
+        quoteId: 'quote-1',
+        quoteNumber: 'QUO-1001',
+      },
+      metadata: expect.objectContaining({
+        quoteStatus: 'sent',
+        total: 18500,
+        currency: 'ZAR',
+        recipientOrgId: 'org-1',
+        sourceOrgId: 'pib-platform-owner',
+      }),
+    })
+  })
+
   it('turns CRM follow-up activities into source-linked action cards', async () => {
     collections.organizations = [makeDoc('org-1', { name: 'Client One', slug: 'client-one' })]
     collections.activities = [
