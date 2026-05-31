@@ -177,6 +177,13 @@ function displayLabel(value: string, labels: Record<string, string>): string {
   return labels[key] ?? key
 }
 
+function websiteHref(value: string): string {
+  const trimmed = value.trim()
+  if (!trimmed) return ''
+  if (/^https?:\/\//i.test(trimmed)) return trimmed
+  return `https://${trimmed}`
+}
+
 function readableStatusLabel(value?: string): string {
   const key = value?.trim()
   if (!key) return 'Enrollment status not set'
@@ -1016,6 +1023,7 @@ export default function PortalContactDetailPage() {
     {
       label: 'Email',
       value: email.trim(),
+      href: email.trim() ? `mailto:${email.trim()}` : '',
       empty: 'No email captured',
       actionLabel: 'Add email',
       actionAriaLabel: `Add email from details for ${contactName}`,
@@ -1024,6 +1032,7 @@ export default function PortalContactDetailPage() {
     {
       label: 'Phone',
       value: phone.trim(),
+      href: phone.trim() ? `tel:${phone.trim()}` : '',
       empty: 'No phone captured',
       actionLabel: 'Add phone',
       actionAriaLabel: `Add phone from details for ${contactName}`,
@@ -1040,6 +1049,8 @@ export default function PortalContactDetailPage() {
     {
       label: 'Website',
       value: website.trim(),
+      href: websiteHref(website),
+      external: true,
       empty: 'No website captured',
       actionLabel: 'Add website',
       actionAriaLabel: `Add website from details for ${contactName}`,
@@ -1370,7 +1381,19 @@ export default function PortalContactDetailPage() {
                   {row.label}
                 </p>
                 {row.value ? (
-                  <p className="text-[var(--color-pib-text)] mt-1 break-words">{row.value}</p>
+                  row.href ? (
+                    <a
+                      href={row.href}
+                      target={row.external ? '_blank' : undefined}
+                      rel={row.external ? 'noreferrer' : undefined}
+                      className="mt-1 inline-flex max-w-full items-center gap-1 break-all text-[var(--color-pib-accent)] transition-colors hover:text-[var(--color-pib-text)]"
+                    >
+                      {row.value}
+                      {row.external && <span className="material-symbols-outlined text-[13px]" aria-hidden="true">open_in_new</span>}
+                    </a>
+                  ) : (
+                    <p className="text-[var(--color-pib-text)] mt-1 break-words">{row.value}</p>
+                  )
                 ) : (
                   <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
                     <p className="text-[var(--color-pib-text-muted)]">{row.empty}</p>

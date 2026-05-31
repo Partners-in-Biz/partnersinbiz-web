@@ -230,6 +230,27 @@ describe('Portal contact detail page', () => {
     expect(screen.getByRole('option', { name: 'Outreach' })).toBeInTheDocument()
   })
 
+  it('turns captured contact detail values into direct outreach links', async () => {
+    mockContactOverrides = {
+      phone: '+27821234567',
+      website: 'partnersinbiz.online',
+    }
+
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    expect(screen.getByRole('link', { name: 'jane@example.com' })).toHaveAttribute('href', 'mailto:jane@example.com')
+    expect(screen.getByRole('link', { name: '+27821234567' })).toHaveAttribute('href', 'tel:+27821234567')
+
+    const websiteLink = screen.getByRole('link', { name: 'partnersinbiz.online' })
+    expect(websiteLink).toHaveAttribute('href', 'https://partnersinbiz.online')
+    expect(websiteLink).toHaveAttribute('target', '_blank')
+    expect(websiteLink).toHaveAttribute('rel', 'noreferrer')
+  })
+
   it('uses an in-page archive confirmation before removing a portal contact', async () => {
     render(<PortalContactDetailPage />)
 
