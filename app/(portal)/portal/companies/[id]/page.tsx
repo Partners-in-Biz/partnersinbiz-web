@@ -7,7 +7,7 @@ import Link from 'next/link'
 import type { Company } from '@/lib/companies/types'
 import type { CustomFieldDefinition } from '@/lib/customFields/types'
 import { CompanyHeader } from '@/components/crm/CompanyHeader'
-import { CompanyTabsBar } from '@/components/crm/CompanyTabsBar'
+import { CompanyTabsBar, COMPANY_TABS } from '@/components/crm/CompanyTabsBar'
 import type { CompanyTab } from '@/components/crm/CompanyTabsBar'
 import { CompanyOverviewPanel } from '@/components/crm/CompanyOverviewPanel'
 import { CompanyEditDrawer } from '@/components/crm/CompanyEditDrawer'
@@ -125,6 +125,13 @@ type RelatedActivity = {
   type?: string
   summary?: string
   createdAt?: unknown
+}
+
+const COMPANY_TAB_KEYS = new Set<CompanyTab>(COMPANY_TABS.map((tab) => tab.key))
+
+function toCompanyTab(value: string | null): CompanyTab | null {
+  if (!value) return null
+  return COMPANY_TAB_KEYS.has(value as CompanyTab) ? value as CompanyTab : null
 }
 
 type CommandCenterSummary = {
@@ -1526,6 +1533,7 @@ export default function CompanyDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
   const searchParams = useSearchParams()
+  const initialTab = toCompanyTab(searchParams.get('tab')) ?? 'overview'
 
   const [company, setCompany] = useState<Company | null>(null)
   const [loading, setLoading] = useState(true)
@@ -1534,7 +1542,7 @@ export default function CompanyDetailPage() {
   const [archiveConfirmOpen, setArchiveConfirmOpen] = useState(false)
   const [archiveError, setArchiveError] = useState<string | null>(null)
 
-  const [tab, setTab] = useState<CompanyTab>('overview')
+  const [tab, setTab] = useState<CompanyTab>(initialTab)
   const [editOpen, setEditOpen] = useState(false)
   const [newContactOpen, setNewContactOpen] = useState(false)
   const [newDealOpen, setNewDealOpen] = useState(false)
@@ -1583,6 +1591,24 @@ export default function CompanyDetailPage() {
       setEditOpen(true)
     }
   }, [searchParams])
+
+  useEffect(() => {
+    setTab(toCompanyTab(searchParams.get('tab')) ?? 'overview')
+  }, [searchParams])
+
+  const selectTab = useCallback((nextTab: CompanyTab) => {
+    setTab(nextTab)
+
+    const params = new URLSearchParams(searchParams.toString())
+    if (nextTab === 'overview') {
+      params.delete('tab')
+    } else {
+      params.set('tab', nextTab)
+    }
+
+    const query = params.toString()
+    router.replace(`/portal/companies/${id}${query ? `?${query}` : ''}`, { scroll: false })
+  }, [id, router, searchParams])
   const [relatedLoading, setRelatedLoading] = useState(false)
   const [relatedError, setRelatedError] = useState<string | null>(null)
 
