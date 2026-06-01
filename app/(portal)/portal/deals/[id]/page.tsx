@@ -191,7 +191,9 @@ function extractPipelineRecord(body: unknown): PipelineRecord | null {
   return (payload?.data as PipelineRecord | undefined) ?? payload?.pipeline ?? null
 }
 
-function stageHistoryStageLabel(entry: NonNullable<DealRecord['stageHistory']>[number]): string {
+function stageHistoryStageLabel(entry: NonNullable<DealRecord['stageHistory']>[number], pipelineStages: PipelineRecord['stages']): string {
+  const stageLabel = pipelineStages?.find(stage => stage.id === entry.stageId)?.label
+  if (stageLabel?.trim()) return stageLabel
   if (entry.stageId?.trim()) return normalizeStageName(entry.stageId)
   return 'Stage not captured'
 }
@@ -239,6 +241,7 @@ export default function DealDetailPage() {
   const [archiveError, setArchiveError] = useState('')
 
   const [pipelineName, setPipelineName] = useState<string>('')
+  const [pipelineStages, setPipelineStages] = useState<PipelineRecord['stages']>([])
   const [stageName, setStageName] = useState<string>('')
   const [contactName, setContactName] = useState<string>('')
   const [contactLoading, setContactLoading] = useState(false)
@@ -262,6 +265,7 @@ export default function DealDetailPage() {
     setError('')
     setActivitiesLoading(true)
     setPipelineName('')
+    setPipelineStages([])
     setStageName('')
     setContactName('')
     setContactLoading(false)
@@ -288,6 +292,7 @@ export default function DealDetailPage() {
             .then(pb => {
               const pipeline = extractPipelineRecord(pb)
               setPipelineName(pipeline?.name ?? d.pipelineId ?? '')
+              setPipelineStages(pipeline?.stages ?? [])
               if (d.stageId && Array.isArray(pipeline?.stages)) {
                 const stage = pipeline.stages.find(s => s.id === d.stageId)
                 setStageName(stage?.label ?? d.stageId ?? '')
@@ -981,7 +986,7 @@ export default function DealDetailPage() {
                   <div key={`${entry.pipelineId}-${entry.stageId}-${index}`} className="flex items-start gap-3">
                     <div className="mt-1 h-2 w-2 rounded-full" style={{ background: index === 0 ? probColor : 'var(--color-pib-text-muted)' }} />
                     <div>
-                      <p className="text-sm text-[var(--color-pib-text)]">{stageHistoryStageLabel(entry)}</p>
+                      <p className="text-sm text-[var(--color-pib-text)]">{stageHistoryStageLabel(entry, pipelineStages)}</p>
                       <p className="text-xs text-[var(--color-pib-text-muted)]">
                         {stageHistoryTimeLabel(entry)} · {stageHistoryActorLabel(entry)}
                       </p>

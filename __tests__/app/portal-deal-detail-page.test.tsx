@@ -179,6 +179,25 @@ describe('Portal deal detail page', () => {
     expect(screen.queryByText('pipeline-1')).not.toBeInTheDocument()
   })
 
+  it('uses pipeline stage labels in stage movement history', async () => {
+    mockDealOverrides = {
+      stageHistory: [
+        {
+          pipelineId: 'pipeline-1',
+          stageId: 'proposal',
+          enteredAt: '2026-06-01T08:00:00.000Z',
+          enteredByRef: { uid: 'owner-1', displayName: 'Mandy Manager', kind: 'human' },
+        },
+      ],
+    }
+
+    render(<DealDetailPage />)
+
+    expect(await screen.findByRole('heading', { name: 'Enterprise rollout' })).toBeInTheDocument()
+    expect(await screen.findAllByText('Proposal')).toHaveLength(2)
+    expect(screen.queryByText('proposal')).not.toBeInTheDocument()
+  })
+
   it('turns command summary tiles into direct deal editing and forecast actions', async () => {
     render(<DealDetailPage />)
 
