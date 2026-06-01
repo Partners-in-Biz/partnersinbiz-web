@@ -409,7 +409,7 @@ export const DELETE = withAuth('admin', async (req: NextRequest, user: ApiUser) 
     return apiError('Forbidden', 403)
   }
 
-  await docRef.delete()
+  await adminDb.recursiveDelete(docRef)
 
   logActivity({
     orgId: typeof orgId === 'string' ? orgId : String(orgId ?? ''),
