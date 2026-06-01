@@ -104,6 +104,7 @@ export interface CompanyRowProps {
   onSetupProfile?: (id: string) => void
   onEditValue?: (id: string) => void
   onEditLifecycle?: (id: string) => void
+  onEditOwner?: (id: string) => void
 }
 
 export function CompanyRow({
@@ -114,6 +115,7 @@ export function CompanyRow({
   onSetupProfile,
   onEditValue,
   onEditLifecycle,
+  onEditOwner,
 }: CompanyRowProps) {
   const lcCls = company.lifecycleStage
     ? (LIFECYCLE_COLOURS[company.lifecycleStage] ?? 'bg-surface-container text-on-surface-variant')
@@ -127,6 +129,7 @@ export function CompanyRow({
   const websiteLabel = company.domain || company.website || ''
   const websiteLink = websiteHref(websiteLabel)
   const hasAnnualRevenue = typeof company.annualRevenue === 'number' && Number.isFinite(company.annualRevenue)
+  const hasOwner = Boolean(company.accountManagerRef || company.accountManagerUid)
   const hasSetupGap = !company.domain && !company.website && !company.legalName
     || !company.industry
     || company.employeeCount == null && !company.size
@@ -272,29 +275,33 @@ export function CompanyRow({
 
       {/* Account manager */}
       <td className="px-4 py-3">
-        {company.accountManagerRef ? (
-          <div className="flex items-center gap-2">
-            {company.accountManagerRef.avatarUrl ? (
-              <Image
-                src={company.accountManagerRef.avatarUrl}
-                alt={company.accountManagerRef.displayName}
-                width={24}
-                height={24}
-                unoptimized
-                className="w-6 h-6 rounded-full object-cover"
-              />
-            ) : (
-              <div className="w-6 h-6 rounded-full bg-[var(--color-surface-container)] flex items-center justify-center text-[9px] font-label text-on-surface-variant">
-                {initials(company.accountManagerRef.displayName)}
-              </div>
-            )}
-            <span className="text-xs text-[var(--color-pib-text-muted)] truncate max-w-[100px]">
-              {company.accountManagerRef.displayName}
-            </span>
-          </div>
-        ) : (
-          <span className="text-sm text-[var(--color-pib-text-muted)]">{accountManagerName(company)}</span>
-        )}
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation()
+            onEditOwner?.(company.id)
+          }}
+          aria-label={`${hasOwner ? 'Edit' : 'Assign'} owner for ${company.name}`}
+          className="group flex max-w-[150px] items-center gap-2 text-left transition-colors hover:text-[var(--color-pib-accent)]"
+        >
+          {company.accountManagerRef?.avatarUrl ? (
+            <Image
+              src={company.accountManagerRef.avatarUrl}
+              alt={company.accountManagerRef.displayName}
+              width={24}
+              height={24}
+              unoptimized
+              className="h-6 w-6 rounded-full object-cover"
+            />
+          ) : company.accountManagerRef ? (
+            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--color-surface-container)] text-[9px] font-label text-on-surface-variant">
+              {initials(company.accountManagerRef.displayName)}
+            </div>
+          ) : null}
+          <span className={`${hasOwner ? 'text-xs' : 'text-sm'} truncate text-[var(--color-pib-text-muted)] group-hover:text-[var(--color-pib-accent)]`}>
+            {accountManagerName(company)}
+          </span>
+        </button>
       </td>
 
       {/* Signals */}

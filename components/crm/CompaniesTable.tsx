@@ -166,6 +166,7 @@ export function CompaniesTable({
                 onSetupProfile={onSetupCompany}
                 onEditValue={onSetupCompany}
                 onEditLifecycle={onSetupCompany}
+                onEditOwner={onSetupCompany}
                 selected={selectedIds?.has(company.id) ?? false}
                 onToggleSelected={onToggleCompany}
               />
