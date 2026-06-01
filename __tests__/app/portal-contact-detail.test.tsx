@@ -816,7 +816,7 @@ describe('Portal contact detail page', () => {
       expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
     })
 
-    fireEvent.click(screen.getByRole('button', { name: 'Meeting' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Schedule meeting with Jane Client' }))
     fireEvent.change(screen.getByLabelText('Starts'), { target: { value: '2026-06-02T15:00' } })
     fireEvent.change(screen.getByLabelText('Ends'), { target: { value: '2026-06-02T14:30' } })
 
@@ -828,19 +828,20 @@ describe('Portal contact detail page', () => {
     expect(global.fetch).not.toHaveBeenCalledWith('/api/v1/crm/contacts/contact-1/schedule-meeting', expect.any(Object))
   })
 
-  it('keeps activity toolbar actions named by command instead of icon text', async () => {
+  it('names activity toolbar actions with the active contact context', async () => {
     render(<PortalContactDetailPage />)
 
     await waitFor(() => {
       expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
     })
 
-    expect(screen.getByRole('button', { name: 'Call' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Email' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Note' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'SMS' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Meeting' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'AI draft' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Log call with Jane Client' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Send email to Jane Client' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Log note for Jane Client' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Send SMS to Jane Client' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Schedule meeting with Jane Client' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Draft email with AI for Jane Client' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Call' })).not.toBeInTheDocument()
   })
 
   it('turns SMS on a contact without a phone into a phone capture action', async () => {
@@ -850,7 +851,7 @@ describe('Portal contact detail page', () => {
       expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
     })
 
-    fireEvent.click(screen.getByRole('button', { name: 'SMS' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Send SMS to Jane Client' }))
 
     expect(screen.getByRole('heading', { name: 'Add a phone number before SMS' })).toBeInTheDocument()
     expect(screen.getByText("Capture Jane Client's phone number before the team tries to send a text message from CRM.")).toBeInTheDocument()
@@ -868,7 +869,7 @@ describe('Portal contact detail page', () => {
       expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
     })
 
-    fireEvent.click(screen.getByRole('button', { name: 'Call' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Log call with Jane Client' }))
 
     expect(screen.getByRole('heading', { name: 'Add a phone number before calling' })).toBeInTheDocument()
     expect(screen.getByText("Capture Jane Client's phone number before the team logs a call from CRM.")).toBeInTheDocument()
@@ -888,7 +889,7 @@ describe('Portal contact detail page', () => {
       expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
     })
 
-    fireEvent.click(screen.getByRole('button', { name: 'Email' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Send email to Jane Client' }))
 
     expect(screen.getByRole('heading', { name: 'Add an email address before outreach' })).toBeInTheDocument()
     expect(screen.getByText("Capture Jane Client's email address before the team sends outreach from CRM.")).toBeInTheDocument()
@@ -907,7 +908,7 @@ describe('Portal contact detail page', () => {
       expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
     })
 
-    fireEvent.click(screen.getByRole('button', { name: 'AI draft' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Draft email with AI for Jane Client' }))
     fireEvent.change(screen.getByPlaceholderText('Purpose (e.g. Follow up after demo)'), {
       target: { value: 'Follow up after leadership review' },
     })

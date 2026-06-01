@@ -1916,14 +1916,17 @@ export default function PortalContactDetailPage() {
             <div className="px-5 pt-4">
               <div className="flex gap-2 mb-3 flex-wrap">
                 {([
-                  { type: 'call', icon: 'call', label: 'Call' },
-                  { type: 'email_sent', icon: 'mail', label: 'Email' },
-                  { type: 'note', icon: 'notes', label: 'Note' },
-                  { type: 'sms', icon: 'sms', label: 'SMS' },
-                  { type: 'meeting', icon: 'event', label: 'Meeting' },
-                ] as const).map(({ type, icon, label }) => (
+                  { type: 'call', icon: 'call', label: 'Call', command: `Log call with ${contactName}` },
+                  { type: 'email_sent', icon: 'mail', label: 'Email', command: `Send email to ${contactName}` },
+                  { type: 'note', icon: 'notes', label: 'Note', command: `Log note for ${contactName}` },
+                  { type: 'sms', icon: 'sms', label: 'SMS', command: `Send SMS to ${contactName}` },
+                  { type: 'meeting', icon: 'event', label: 'Meeting', command: `Schedule meeting with ${contactName}` },
+                ] as const).map(({ type, icon, label, command }) => (
                   <button
                     key={type}
+                    type="button"
+                    aria-label={command}
+                    aria-pressed={logType === type}
                     onClick={() => {
                       if (logType === type) {
                         setLogType(null)
@@ -1941,7 +1944,13 @@ export default function PortalContactDetailPage() {
                     {label}
                   </button>
                 ))}
-                <button onClick={() => setShowAiComposer((v) => !v)} className="btn-pib-secondary text-xs flex items-center gap-1">
+                <button
+                  type="button"
+                  aria-label={`Draft email with AI for ${contactName}`}
+                  aria-pressed={showAiComposer}
+                  onClick={() => setShowAiComposer((v) => !v)}
+                  className="btn-pib-secondary text-xs flex items-center gap-1"
+                >
                   <span className="material-symbols-outlined text-[14px]" aria-hidden="true">auto_awesome</span>
                   AI draft
                 </button>
