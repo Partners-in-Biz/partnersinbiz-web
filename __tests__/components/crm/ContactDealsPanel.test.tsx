@@ -14,13 +14,16 @@ jest.mock('next/link', () => ({
 
 jest.mock('@/components/crm/DealDrawer', () => ({
   DealDrawer: ({
+    deal,
     defaultContactLabel,
     onSaved,
   }: {
+    deal?: Deal
     defaultContactLabel?: string
     onSaved: (dealId: string) => void
   }) => (
     <div>
+      {deal && <p>Drawer deal title: {deal.title}</p>}
       <p>Drawer contact label: {defaultContactLabel || 'missing'}</p>
       <button type="button" onClick={() => onSaved('deal-new')}>
         Save mocked deal
@@ -152,6 +155,54 @@ describe('ContactDealsPanel', () => {
     })
 
     expect(screen.getByText(/Close date missing/)).toBeInTheDocument()
+  })
+
+  it('opens linked deal forecast cleanup directly from the contact deal row', async () => {
+    mockFetch.mockReturnValue(apiResponse([
+      makeDeal({ id: 'd1', title: 'Forecast hygiene deal', expectedCloseDate: null }),
+    ]))
+
+    render(<ContactDealsPanel contactId="contact-1" contactName="Ava Owner" />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: 'Forecast hygiene deal' })).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add close date for Forecast hygiene deal from contact deal row' }))
+
+    expect(screen.getByText('Drawer deal title: Forecast hygiene deal')).toBeInTheDocument()
+  })
+
+  it('opens linked deal value cleanup directly from the contact deal row', async () => {
+    mockFetch.mockReturnValue(apiResponse([
+      makeDeal({ id: 'd1', title: 'Unpriced relationship deal', value: undefined }),
+    ]))
+
+    render(<ContactDealsPanel contactId="contact-1" contactName="Ava Owner" />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: 'Unpriced relationship deal' })).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add value for Unpriced relationship deal from contact deal row' }))
+
+    expect(screen.getByText('Drawer deal title: Unpriced relationship deal')).toBeInTheDocument()
+  })
+
+  it('opens linked deal stage cleanup directly from the contact deal row', async () => {
+    mockFetch.mockReturnValue(apiResponse([
+      makeDeal({ id: 'd1', title: 'Stage review deal', stageId: 'proposal_sent' }),
+    ]))
+
+    render(<ContactDealsPanel contactId="contact-1" contactName="Ava Owner" />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: 'Stage review deal' })).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit stage for Stage review deal from contact deal row' }))
+
+    expect(screen.getByText('Drawer deal title: Stage review deal')).toBeInTheDocument()
   })
 
   it('names unreadable linked-deal close dates as forecast cleanup work', async () => {

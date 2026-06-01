@@ -119,6 +119,7 @@ export function ContactDealsPanel({ contactId, contactName, orgId = '' }: Props)
   const [loadError, setLoadError] = useState(false)
   const [reloadToken, setReloadToken] = useState(0)
   const [showDealDrawer, setShowDealDrawer] = useState(false)
+  const [selectedDeal, setSelectedDeal] = useState<Deal | null>(null)
   const contactLabel = contactName?.trim() || 'this contact'
   const opportunityHeadline = `Start ${contactLabel}'s first opportunity.`
   const dealStats = deals.reduce(
@@ -182,6 +183,16 @@ export function ContactDealsPanel({ contactId, contactName, orgId = '' }: Props)
     return () => { cancelled = true }
   }, [contactId, reloadToken])
 
+  function openNewDealDrawer() {
+    setSelectedDeal(null)
+    setShowDealDrawer(true)
+  }
+
+  function openDealEditor(deal: Deal) {
+    setSelectedDeal(deal)
+    setShowDealDrawer(true)
+  }
+
   return (
     <div className="pib-card-section">
       <div className="px-5 py-3.5 border-b border-[var(--color-pib-line)] bg-white/[0.02] flex items-center justify-between">
@@ -191,7 +202,7 @@ export function ContactDealsPanel({ contactId, contactName, orgId = '' }: Props)
             {loading ? '…' : `${deals.length} record${deals.length === 1 ? '' : 's'}`}
           </span>
           <button
-            onClick={() => setShowDealDrawer(true)}
+            onClick={openNewDealDrawer}
             className="btn-pib-secondary text-xs flex items-center gap-1"
           >
             <span className="material-symbols-outlined text-[14px]">add</span>
@@ -289,7 +300,7 @@ export function ContactDealsPanel({ contactId, contactName, orgId = '' }: Props)
           </div>
           <button
             type="button"
-            onClick={() => setShowDealDrawer(true)}
+            onClick={openNewDealDrawer}
             className="btn-pib-secondary mx-auto mt-5 inline-flex items-center gap-1.5 text-xs"
           >
             <span className="material-symbols-outlined text-[14px]" aria-hidden="true">add</span>
@@ -302,6 +313,8 @@ export function ContactDealsPanel({ contactId, contactName, orgId = '' }: Props)
             const closeDateLabel = closeDateReadinessLabel(deal.expectedCloseDate)
             const titleLabel = dealTitleLabel(deal)
             const { label: stageLabel, color: stageColor } = resolveStage(deal, pipelinesById)
+            const hasValue = deal.value !== null && deal.value !== undefined && !Number.isNaN(deal.value)
+            const closeDateAction = closeDateLabel === 'Close date missing' ? 'Add close date' : 'Edit close date'
             return (
               <div key={deal.id} className="px-5 py-3 flex items-center gap-4">
                 <span
@@ -316,20 +329,38 @@ export function ContactDealsPanel({ contactId, contactName, orgId = '' }: Props)
                   >
                     {titleLabel}
                   </Link>
-                  <p className="text-[11px] text-[var(--color-pib-text-muted)] font-mono mt-0.5">
-                    {fmtValue(deal)}
-                    {` · ${closeDateLabel}`}
-                  </p>
+                  <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-mono">
+                    <button
+                      type="button"
+                      onClick={() => openDealEditor(deal)}
+                      aria-label={`${hasValue ? 'Edit' : 'Add'} value for ${titleLabel} from contact deal row`}
+                      className="text-[var(--color-pib-text-muted)] transition-colors hover:text-[var(--color-pib-accent)]"
+                    >
+                      {fmtValue(deal)}
+                    </button>
+                    <span className="text-[var(--color-pib-text-muted)]" aria-hidden="true">·</span>
+                    <button
+                      type="button"
+                      onClick={() => openDealEditor(deal)}
+                      aria-label={`${closeDateAction} for ${titleLabel} from contact deal row`}
+                      className="text-[var(--color-pib-text-muted)] transition-colors hover:text-[var(--color-pib-accent)]"
+                    >
+                      {closeDateLabel}
+                    </button>
+                  </div>
                 </div>
-                <span
-                  className="text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full shrink-0"
+                <button
+                  type="button"
+                  onClick={() => openDealEditor(deal)}
+                  aria-label={`Edit stage for ${titleLabel} from contact deal row`}
+                  className="text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full shrink-0 transition-opacity hover:opacity-80"
                   style={{
                     background: `${stageColor}20`,
                     color: stageColor,
                   }}
                 >
                   {stageLabel}
-                </span>
+                </button>
               </div>
             )
           })}
@@ -338,18 +369,24 @@ export function ContactDealsPanel({ contactId, contactName, orgId = '' }: Props)
 
       {showDealDrawer && (
         <DealDrawer
+          deal={selectedDeal ?? undefined}
           defaultContactId={contactId}
           defaultContactLabel={contactName}
           orgId={orgId}
           onSaved={(dealId) => {
             setShowDealDrawer(false)
-            // Fetch the newly created deal and prepend it to the list
+            const editedDealId = selectedDeal?.id
+            setSelectedDeal(null)
+            // Fetch the saved deal and keep the contact-linked list current.
             fetch(`/api/v1/crm/deals/${dealId}`)
               .then(r => r.json())
               .then(b => {
                 const newDeal = unwrapDeal(b)
                 if (newDeal) {
-                  setDeals(prev => [newDeal, ...prev])
+                  setDeals(prev => editedDealId
+                    ? prev.map((deal) => deal.id === editedDealId ? newDeal : deal)
+                    : [newDeal, ...prev],
+                  )
                 }
               })
               .catch(() => {
@@ -360,7 +397,10 @@ export function ContactDealsPanel({ contactId, contactName, orgId = '' }: Props)
                   .catch(() => undefined)
               })
           }}
-          onClose={() => setShowDealDrawer(false)}
+          onClose={() => {
+            setSelectedDeal(null)
+            setShowDealDrawer(false)
+          }}
         />
       )}
     </div>
