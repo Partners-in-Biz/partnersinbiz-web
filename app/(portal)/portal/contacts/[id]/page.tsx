@@ -2327,7 +2327,12 @@ export default function PortalContactDetailPage() {
           <div className="bento-card !p-5">
             <div className="flex items-center justify-between mb-4">
               <p className="eyebrow !text-[10px]">Sequences</p>
-              <button onClick={handleOpenEnrollModal} className="btn-pib-secondary text-xs flex items-center gap-1">
+              <button
+                type="button"
+                onClick={handleOpenEnrollModal}
+                aria-label={`Open nurture enrollment for ${contactName}`}
+                className="btn-pib-secondary text-xs flex items-center gap-1"
+              >
                 <span className="material-symbols-outlined text-[14px]" aria-hidden="true">add</span>
                 Enroll
               </button>
@@ -2502,9 +2507,10 @@ export default function PortalContactDetailPage() {
             )}
             <div className="flex gap-2">
               <button
+                type="button"
                 onClick={handleEnroll}
                 disabled={!enrollingSequenceId || enrolling}
-                aria-label="Enroll contact"
+                aria-label={`Enroll ${contactName} in selected nurture sequence`}
                 className="btn-pib-accent text-sm disabled:opacity-50"
               >
                 {enrolling ? 'Enrolling…' : 'Enroll'}

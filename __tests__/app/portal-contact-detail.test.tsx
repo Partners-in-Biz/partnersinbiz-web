@@ -370,13 +370,15 @@ describe('Portal contact detail page', () => {
     expect(screen.getByRole('heading', { name: 'No nurture workflow enrolled' })).toBeInTheDocument()
     expect(screen.getByText('Enroll Jane Client into a sequence when outreach should happen on a repeatable cadence instead of relying on one-off reminders.')).toBeInTheDocument()
     expect(screen.queryByText('Not enrolled in any sequences.')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Open nurture enrollment for Jane Client' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Enroll' })).not.toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Choose nurture sequence for Jane Client' }))
 
     expect(await screen.findByRole('dialog', { name: 'Enroll Jane Client in a nurture sequence' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Enroll Jane Client in a nurture sequence' })).toBeInTheDocument()
     expect(screen.getByText('Choose an approved sequence so outreach steps, accountability, and follow-up timing are visible to the team from this contact record.')).toBeInTheDocument()
-    expect(await screen.findByRole('button', { name: 'Enroll contact' })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'Enroll Jane Client in selected nurture sequence' })).toBeInTheDocument()
   })
 
   it('names the sequence enrollment loading state for the active contact', async () => {
@@ -413,7 +415,7 @@ describe('Portal contact detail page', () => {
     expect(await screen.findByRole('heading', { name: 'Create a sequence before enrolling' })).toBeInTheDocument()
     expect(screen.getByText('This workspace needs at least one nurture sequence before Jane Client can be enrolled from the contact record.')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Build first sequence' })).toHaveAttribute('href', '/portal/settings/sequences/new')
-    expect(screen.getByRole('button', { name: 'Enroll contact' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Enroll Jane Client in selected nurture sequence' })).toBeDisabled()
   })
 
   it('shows sequence enrollment failures inside the modal', async () => {
@@ -430,10 +432,10 @@ describe('Portal contact detail page', () => {
     fireEvent.change(await screen.findByDisplayValue('Choose a sequence…'), {
       target: { value: 'seq-1' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Enroll contact' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Enroll Jane Client in selected nurture sequence' }))
 
     expect(await screen.findByText('Sequence is paused')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Enroll contact' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Enroll Jane Client in selected nurture sequence' })).toBeEnabled()
     expect(screen.getByText('Leadership follow-up')).toBeInTheDocument()
   })
 
