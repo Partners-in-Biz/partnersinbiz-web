@@ -262,7 +262,7 @@ export default function PipelinesPage() {
             onClick={openCreate}
             className="cursor-pointer btn-pib-accent flex items-center gap-1.5 text-sm shrink-0"
           >
-            <span className="material-symbols-outlined text-[16px]">add</span>
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
             New pipeline
           </button>
         )}
@@ -293,6 +293,7 @@ export default function PipelinesPage() {
               placeholder="Search pipeline, stage, or outcome..."
             />
             <select
+              aria-label="Filter pipelines by health"
               value={healthFilter}
               onChange={(event) => setHealthFilter(event.target.value as HealthFilter)}
               className="pib-input !w-auto"
@@ -318,7 +319,7 @@ export default function PipelinesPage() {
               onClick={() => { setSearch(''); setHealthFilter('all') }}
               className="btn-pib-secondary text-xs inline-flex items-center gap-1.5"
             >
-              <span className="material-symbols-outlined text-[14px]">filter_alt_off</span>
+              <span className="material-symbols-outlined text-[14px]" aria-hidden="true">filter_alt_off</span>
               Clear filters
             </button>
           ) : null}

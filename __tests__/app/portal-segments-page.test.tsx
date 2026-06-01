@@ -95,6 +95,26 @@ describe('portal segments page response parsing', () => {
     expect(screen.getByLabelText('Search segments')).toHaveValue('')
   })
 
+  it('names segment creation commands without decorative icon text', async () => {
+    fetchMock.mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/segments') {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ data: { segments: [] } }),
+        })
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ data: {} }) })
+    })
+
+    render(<PortalSegmentsPage />)
+
+    expect(await screen.findByRole('heading', { name: 'No segments yet.' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'New segment' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Create first segment' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /add New segment/i })).not.toBeInTheDocument()
+  })
+
   it('uses an in-page confirmation before deleting a saved audience segment', async () => {
     const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(false)
 

@@ -191,7 +191,7 @@ export function CrmSetupWizard() {
             </p>
           </div>
           <Link href="/portal/capture-sources/import" className="btn-pib-secondary inline-flex items-center gap-1.5 text-sm">
-            <span className="material-symbols-outlined text-[16px]">upload_file</span>
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">upload_file</span>
             Open CSV import
           </Link>
         </div>
@@ -201,7 +201,7 @@ export function CrmSetupWizard() {
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-sm font-semibold">Starter templates</h2>
           <button type="button" onClick={saveSetup} disabled={saving} className="btn-pib-accent inline-flex items-center gap-1.5 text-sm disabled:opacity-50">
-            <span className="material-symbols-outlined text-[16px]">save</span>
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">save</span>
             {saving ? 'Saving...' : 'Save setup'}
           </button>
         </div>
@@ -213,7 +213,7 @@ export function CrmSetupWizard() {
             return (
               <div key={template.id} className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4">
                 <div className="flex items-start gap-3">
-                  <span className="material-symbols-outlined mt-0.5 text-[20px] text-[var(--color-pib-accent)]">{templateIcon(template.kind)}</span>
+                  <span className="material-symbols-outlined mt-0.5 text-[20px] text-[var(--color-pib-accent)]" aria-hidden="true">{templateIcon(template.kind)}</span>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <h3 className="text-sm font-semibold">{template.name}</h3>
@@ -224,7 +224,12 @@ export function CrmSetupWizard() {
                 </div>
                 <div className="mt-4 flex flex-wrap items-center gap-2">
                   <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-[var(--color-pib-text-muted)]">
-                    <input type="checkbox" checked={selected} onChange={() => toggleTemplate(template.id)} />
+                    <input
+                      type="checkbox"
+                      checked={selected}
+                      onChange={() => toggleTemplate(template.id)}
+                      aria-label={`Select ${template.name} starter template`}
+                    />
                     Select
                   </label>
                   {template.kind === 'pipeline' && (
@@ -233,8 +238,15 @@ export function CrmSetupWizard() {
                       onClick={() => applyPipelineTemplate(template.id)}
                       disabled={applied || applyingId === template.id}
                       className="btn-pib-secondary inline-flex items-center gap-1.5 text-sm disabled:opacity-50"
+                      aria-label={
+                        applied
+                          ? `${template.name} template applied`
+                          : applyingId === template.id
+                            ? `Applying ${template.name} template`
+                            : `Apply ${template.name} template`
+                      }
                     >
-                      <span className="material-symbols-outlined text-[16px]">{applied ? 'check' : 'add'}</span>
+                      <span className="material-symbols-outlined text-[16px]" aria-hidden="true">{applied ? 'check' : 'add'}</span>
                       {applied ? 'Applied' : applyingId === template.id ? 'Applying...' : 'Apply pipeline'}
                     </button>
                   )}

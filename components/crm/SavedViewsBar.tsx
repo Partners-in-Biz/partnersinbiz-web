@@ -142,7 +142,7 @@ export function SavedViewsBar({
             onClick={() => setShowSaveForm(true)}
             className="btn-pib-accent !text-xs !px-3 !py-2"
           >
-            <span className="material-symbols-outlined text-[16px]">bookmark_add</span>
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">bookmark_add</span>
             Save current view
           </button>
         )}

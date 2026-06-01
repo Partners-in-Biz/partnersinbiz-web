@@ -46,6 +46,9 @@ describe('Portal settings custom fields page', () => {
     render(<CustomFieldsPage />)
 
     expect(await screen.findByText('Design your first CRM data field')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'New field' })).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Filter custom fields by type' })).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Filter custom fields by health' })).toBeInTheDocument()
     expect(screen.getByText('Qualification')).toBeInTheDocument()
     expect(screen.getByText('Reporting')).toBeInTheDocument()
     expect(screen.getByText('Handover')).toBeInTheDocument()

@@ -1086,6 +1086,8 @@ export default function CrmReportsPage() {
                 <button
                   key={d}
                   onClick={() => handleDaysChange(d)}
+                  aria-label={`Show CRM activity for last ${d} days`}
+                  aria-pressed={d === days}
                   className={[
                     'text-[10px] font-mono px-2.5 py-1 rounded-md transition-colors cursor-pointer',
                     d === days

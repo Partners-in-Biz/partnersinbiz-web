@@ -469,11 +469,11 @@ export default function PortalContactsPage() {
               disabled={duplicatesLoading}
               className="btn-pib-secondary text-xs flex items-center gap-1.5 disabled:opacity-50"
             >
-              <span className="material-symbols-outlined text-[14px]">merge</span>
+              <span className="material-symbols-outlined text-[14px]" aria-hidden="true">merge</span>
               {duplicatesLoading ? 'Scanning…' : 'Find duplicates'}
             </button>
             <button onClick={() => setShowNew(true)} className="btn-pib-accent">
-              <span className="material-symbols-outlined text-base">add</span>
+              <span className="material-symbols-outlined text-base" aria-hidden="true">add</span>
               New contact
             </button>
           </div>
@@ -553,6 +553,7 @@ export default function PortalContactsPage() {
           value={stageFilter}
           onChange={(e) => setStageFilter(e.target.value)}
           className="pib-input !w-auto"
+          aria-label="Filter contacts by stage"
         >
           <option value="">All stages</option>
           {STAGES.map((s) => (
@@ -565,6 +566,7 @@ export default function PortalContactsPage() {
           value={typeFilter}
           onChange={(e) => setTypeFilter(e.target.value)}
           className="pib-input !w-auto"
+          aria-label="Filter contacts by type"
         >
           <option value="">All types</option>
           {TYPES.map((t) => (

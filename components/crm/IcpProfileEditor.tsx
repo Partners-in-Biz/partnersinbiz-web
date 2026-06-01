@@ -158,7 +158,7 @@ export function IcpProfileEditor({ value, onChange, disabled }: Props) {
               onClick={addRegion}
               className="cursor-pointer text-xs text-[var(--color-pib-accent-hover)] hover:underline flex items-center gap-1"
             >
-              <span className="material-symbols-outlined text-[14px]">add</span>
+              <span className="material-symbols-outlined text-[14px]" aria-hidden="true">add</span>
               Add region
             </button>
           )}
@@ -198,7 +198,7 @@ export function IcpProfileEditor({ value, onChange, disabled }: Props) {
                     aria-label="Remove region"
                     className="cursor-pointer text-[var(--color-pib-text-muted)] hover:text-red-400 transition-colors"
                   >
-                    <span className="material-symbols-outlined text-[18px]">close</span>
+                    <span className="material-symbols-outlined text-[18px]" aria-hidden="true">close</span>
                   </button>
                 )}
               </div>

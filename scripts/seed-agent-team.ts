@@ -174,6 +174,15 @@ const AGENTS: AgentSeed[] = [
     iconKey: 'travel_explore',
     colorKey: 'emerald',
   },
+  {
+    agentId: 'sales',
+    name: 'Blake',
+    role: 'Sales',
+    persona: 'Revenue specialist — builds qualified prospect lists, drafts outbound, triages replies, and keeps sales CRM moving behind client-message approval gates',
+    defaultModel: 'gpt-5.5',
+    iconKey: 'paid',
+    colorKey: 'green',
+  },
 ]
 
 const PLACEHOLDER_API_KEY = 'PLACEHOLDER_ROTATE_ME'

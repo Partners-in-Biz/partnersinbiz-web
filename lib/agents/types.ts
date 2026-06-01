@@ -5,7 +5,7 @@ import type { Timestamp } from 'firebase-admin/firestore'
 
 export type AgentId = string
 
-export const AGENT_IDS: AgentId[] = ['pip', 'theo', 'maya', 'sage', 'nora', 'ads', 'qa-release', 'support', 'data', 'docs', 'seo']
+export const AGENT_IDS: AgentId[] = ['pip', 'theo', 'maya', 'sage', 'nora', 'ads', 'qa-release', 'support', 'data', 'docs', 'seo', 'sales']
 export const AGENT_ID_RE = /^[a-z][a-z0-9._-]{1,39}$/
 export function isValidAgentId(value: unknown): value is AgentId {
   return typeof value === 'string' && AGENT_ID_RE.test(value)

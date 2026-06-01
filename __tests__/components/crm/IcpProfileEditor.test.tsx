@@ -36,6 +36,18 @@ describe('IcpProfileEditor', () => {
     )
   })
 
+  it('keeps region management command names free of decorative icons', () => {
+    render(
+      <IcpProfileEditor
+        value={{ regions: [{ country: 'ZA', state: 'WC' }] }}
+        onChange={jest.fn()}
+      />,
+    )
+
+    expect(screen.getByRole('button', { name: 'Add region' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Remove region' })).toBeInTheDocument()
+  })
+
   it('toggles a tier button off and calls onChange with empty tiers', () => {
     const onChange = jest.fn()
     render(<IcpProfileEditor value={{ tiers: ['smb'] }} onChange={onChange} />)

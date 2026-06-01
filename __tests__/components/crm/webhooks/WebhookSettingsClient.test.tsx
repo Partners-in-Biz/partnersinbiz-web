@@ -39,6 +39,7 @@ describe('WebhookSettingsClient', () => {
     expect(screen.getByText('Signing secret')).toBeInTheDocument()
     expect(screen.getByText('Delivery test')).toBeInTheDocument()
     expect(screen.getByText('Fill in the subscription form above to create the first signed delivery endpoint.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Create webhook' })).toBeDisabled()
   })
 
   it('keeps webhook health timestamps executive-readable when API dates are malformed', async () => {

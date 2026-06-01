@@ -81,6 +81,7 @@ const AGENT_SOURCE_MAP: Record<string, string> = {
   data: SOURCE_PROFILE_DOC_ID,
   docs: SOURCE_PROFILE_DOC_ID,
   seo: SOURCE_PROFILE_DOC_ID,
+  sales: SOURCE_PROFILE_DOC_ID,
 }
 
 // ---------------------------------------------------------------------------

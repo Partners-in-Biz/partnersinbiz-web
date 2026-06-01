@@ -48,6 +48,11 @@ describe('Portal settings scoring page', () => {
     render(<ScoringPage />)
 
     expect(await screen.findByText('Model setup priorities')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Save model' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Recompute all' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Review ICP' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Tune lead weights' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Enable AI scoring' })).toBeInTheDocument()
     expect(screen.getByText('Define ICP fit')).toBeInTheDocument()
     expect(screen.getAllByText('Tune lead weights').length).toBeGreaterThanOrEqual(1)
     expect(screen.getByText('Enable AI supplement')).toBeInTheDocument()

@@ -9,6 +9,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     '',
     '/work',
     '/services',
+    '/gauteng-growth-audit',
     '/about',
     '/our-process',
     '/insights',

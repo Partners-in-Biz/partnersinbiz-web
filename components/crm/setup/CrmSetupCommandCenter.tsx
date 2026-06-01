@@ -54,7 +54,7 @@ function templateKindCount(templates: SetupCommandTemplate[], kind: SetupCommand
 function CommandLink({ href, icon, children }: { href: string; icon: string; children: React.ReactNode }) {
   return (
     <Link href={href} className="btn-pib-secondary justify-center text-xs">
-      <span className="material-symbols-outlined text-[14px]">{icon}</span>
+      <span className="material-symbols-outlined text-[14px]" aria-hidden="true">{icon}</span>
       {children}
     </Link>
   )

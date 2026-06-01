@@ -204,6 +204,21 @@ describe('Portal contacts page', () => {
     expect(screen.queryByRole('option', { name: 'client' })).not.toBeInTheDocument()
   })
 
+  it('names primary contact commands and filters without decorative icon text', async () => {
+    render(<PortalContactsPage />)
+
+    expect(await screen.findByRole('link', { name: 'Open contact Owned Client' })).toBeInTheDocument()
+
+    expect(screen.getByRole('button', { name: 'Find duplicates' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'New contact' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Save current view' })).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Filter contacts by stage' })).toHaveValue('')
+    expect(screen.getByRole('combobox', { name: 'Filter contacts by type' })).toHaveValue('')
+    expect(screen.queryByRole('button', { name: 'merge Find duplicates' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'add New contact' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'bookmark_add Save current view' })).not.toBeInTheDocument()
+  })
+
   it('turns contact list row details into direct outreach and company triage actions', async () => {
     render(<PortalContactsPage />)
 

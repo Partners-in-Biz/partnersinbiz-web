@@ -74,8 +74,10 @@ describe('Portal settings pipelines page', () => {
     render(<PipelinesPage />)
 
     expect(await screen.findByRole('article', { name: 'Pipeline Sales pipeline' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'New pipeline' })).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Filter pipelines by health' })).toBeInTheDocument()
 
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'needs-work' } })
+    fireEvent.change(screen.getByRole('combobox', { name: 'Filter pipelines by health' }), { target: { value: 'needs-work' } })
 
     expect(await screen.findByRole('heading', { name: 'No pipelines match this view.' })).toBeInTheDocument()
     expect(screen.getByText('Clear the pipeline filters to return to every revenue path.')).toBeInTheDocument()

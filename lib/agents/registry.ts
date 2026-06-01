@@ -166,6 +166,40 @@ export const AGENT_REGISTRY: Record<string, AgentRegistryEntry> = {
       'Create operational blocker tasks with exact required evidence',
     ],
   },
+  sales: {
+    responsibilities: [
+      'Revenue execution for Partners in Biz and approved client-growth pushes',
+      'Build and qualify prospect lists, keep CRM sales records clean, and turn research into daily outbound queues',
+      'Draft outreach, follow-ups, reply triage notes, and proposal handoffs without sending client-visible messages before approval',
+    ],
+    skills: [
+      'partnersinbiz/crm-sales',
+      'partnersinbiz/email-outreach',
+      'partnersinbiz/client-documents',
+      'partnersinbiz/project-management',
+      'partnersinbiz/client-manager',
+      'partnersinbiz/research-intelligence',
+      'partnersinbiz/data-analyst',
+      'productivity/google-workspace',
+    ],
+    cronWatchLoops: [
+      'Assigned sales task pickup and daily outbound queue preparation',
+      'Prospect/reply/CRM hygiene follow-up with approval-gate escalation',
+      'Revenue sprint blocker and evidence updates back to Projects/Kanban',
+    ],
+    allowedScopes: [
+      'platform-and-client-crm-records-when-assigned',
+      'prospect-research-and-qualification',
+      'draft-outreach-and-follow-up-assets',
+      'project-kanban-sales-handoff',
+      'approval-gated-client-visible-messaging',
+    ],
+    exampleTaskTypes: [
+      'Build a qualified high-ticket prospect list from an approved ICP',
+      'Draft a daily outbound batch and submit it for Peet approval',
+      'Triage inbound replies into CRM next actions and proposal/document handoffs',
+    ],
+  },
 }
 
 export function getAgentRegistryEntry(agentId: AgentId): AgentRegistryEntry | undefined {
