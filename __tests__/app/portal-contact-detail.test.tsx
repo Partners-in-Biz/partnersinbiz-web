@@ -230,6 +230,33 @@ describe('Portal contact detail page', () => {
     expect(screen.getByRole('option', { name: 'Outreach' })).toBeInTheDocument()
   })
 
+  it('turns first-viewport lifecycle chips into direct edit actions', async () => {
+    const scrollIntoView = jest.fn()
+    HTMLElement.prototype.scrollIntoView = scrollIntoView
+    mockContactOverrides = {
+      type: 'prospect',
+      stage: 'proposal',
+      tags: ['priority'],
+    }
+
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit lifecycle stage Proposal sent for Jane Client' }))
+    await waitFor(() => expect(screen.getByRole('combobox', { name: 'Stage' })).toHaveFocus())
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit contact type Prospect for Jane Client' }))
+    await waitFor(() => expect(screen.getByRole('combobox', { name: 'Type' })).toHaveFocus())
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit tag priority for Jane Client' }))
+    await waitFor(() => expect(screen.getByPlaceholderText('priority, referral, decision maker')).toHaveFocus())
+
+    expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'center' })
+  })
+
   it('turns captured contact detail values into direct outreach links', async () => {
     mockContactOverrides = {
       phone: '+27821234567',

@@ -295,7 +295,9 @@ export default function PortalContactDetailPage() {
   const timezoneFieldRef = useRef<HTMLInputElement | null>(null)
   const websiteFieldRef = useRef<HTMLInputElement | null>(null)
   const notesFieldRef = useRef<HTMLTextAreaElement | null>(null)
+  const typeFieldRef = useRef<HTMLSelectElement | null>(null)
   const stageFieldRef = useRef<HTMLSelectElement | null>(null)
+  const tagsFieldRef = useRef<HTMLInputElement | null>(null)
   const ownerFieldRef = useRef<HTMLSelectElement | null>(null)
   const sourceFieldRef = useRef<HTMLSelectElement | null>(null)
   const customFieldsEditRef = useRef<HTMLDivElement | null>(null)
@@ -1224,13 +1226,40 @@ export default function PortalContactDetailPage() {
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <span className="pill">{stageLabel}</span>
-              <span className="pill">{typeLabel}</span>
-              <span className="pill">{relationshipSignal}</span>
+              <button
+                type="button"
+                aria-label={`Edit lifecycle stage ${stageLabel} for ${contactName}`}
+                onClick={() => focusProfileField(stageFieldRef)}
+                className="pill cursor-pointer transition-colors hover:border-[var(--color-pib-accent)] hover:text-[var(--color-pib-text)]"
+              >
+                {stageLabel}
+              </button>
+              <button
+                type="button"
+                aria-label={`Edit contact type ${typeLabel} for ${contactName}`}
+                onClick={() => focusProfileField(typeFieldRef)}
+                className="pill cursor-pointer transition-colors hover:border-[var(--color-pib-accent)] hover:text-[var(--color-pib-text)]"
+              >
+                {typeLabel}
+              </button>
+              <button
+                type="button"
+                aria-label={`Log activity from relationship signal ${relationshipSignal} for ${contactName}`}
+                onClick={openFirstNoteComposer}
+                className="pill cursor-pointer transition-colors hover:border-[var(--color-pib-accent)] hover:text-[var(--color-pib-text)]"
+              >
+                {relationshipSignal}
+              </button>
               {tags.map((t) => (
-                <span key={t} className="pill">
+                <button
+                  key={t}
+                  type="button"
+                  aria-label={`Edit tag ${t} for ${contactName}`}
+                  onClick={() => focusProfileField(tagsFieldRef)}
+                  className="pill cursor-pointer transition-colors hover:border-[var(--color-pib-accent)] hover:text-[var(--color-pib-text)]"
+                >
                   {t}
-                </span>
+                </button>
               ))}
             </div>
           </div>
@@ -1620,13 +1649,13 @@ export default function PortalContactDetailPage() {
               </div>
               <div className="space-y-1">
                 <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">Type</p>
-                <select value={type} onChange={(e) => setType(e.target.value)} className="pib-input w-full">
+                <select ref={typeFieldRef} aria-label="Type" value={type} onChange={(e) => setType(e.target.value)} className="pib-input w-full">
                   {TYPE_OPTIONS.map((option) => <option key={option} value={option} className="bg-black">{displayLabel(option, TYPE_LABELS)}</option>)}
                 </select>
               </div>
               <div className="space-y-1">
                 <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">Stage</p>
-                <select ref={stageFieldRef} value={stage} onChange={(e) => setStage(e.target.value)} className="pib-input w-full">
+                <select ref={stageFieldRef} aria-label="Stage" value={stage} onChange={(e) => setStage(e.target.value)} className="pib-input w-full">
                   {STAGE_OPTIONS.map((option) => <option key={option} value={option} className="bg-black">{displayLabel(option, STAGE_LABELS)}</option>)}
                 </select>
               </div>
@@ -1654,6 +1683,8 @@ export default function PortalContactDetailPage() {
                 Tags
               </p>
               <input
+                ref={tagsFieldRef}
+                aria-label="Tags"
                 value={tagsInput}
                 onChange={(e) => setTagsInput(e.target.value)}
                 className="pib-input w-full"
