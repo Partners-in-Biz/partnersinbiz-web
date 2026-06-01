@@ -28,6 +28,7 @@ describe('Portal contacts page', () => {
             id: 'contact-owned',
             name: 'Owned Client',
             email: 'owned@example.com',
+            phone: '+27825550111',
             company: 'Owned Co',
             type: 'client',
             stage: 'won',
@@ -201,6 +202,27 @@ describe('Portal contacts page', () => {
     expect(screen.getByRole('option', { name: 'Client' })).toBeInTheDocument()
     expect(screen.queryByRole('option', { name: 'contacted' })).not.toBeInTheDocument()
     expect(screen.queryByRole('option', { name: 'client' })).not.toBeInTheDocument()
+  })
+
+  it('turns contact list row details into direct outreach and company triage actions', async () => {
+    render(<PortalContactsPage />)
+
+    const ownedRowLink = await screen.findByRole('link', { name: /Owned Client/i })
+    const ownedRow = ownedRowLink.closest('[data-contact-row]')
+    expect(ownedRow).not.toBeNull()
+
+    expect(within(ownedRow as HTMLElement).getByRole('link', { name: 'Open contact Owned Client' }))
+      .toHaveAttribute('href', '/portal/contacts/contact-owned')
+    expect(within(ownedRow as HTMLElement).getByRole('link', { name: 'Email owned@example.com from contacts list' }))
+      .toHaveAttribute('href', 'mailto:owned@example.com')
+    expect(within(ownedRow as HTMLElement).getByRole('link', { name: 'Call +27825550111 from contacts list' }))
+      .toHaveAttribute('href', 'tel:+27825550111')
+
+    fireEvent.click(within(ownedRow as HTMLElement).getByRole('button', { name: 'Filter contacts by company Owned Co' }))
+    expect(screen.getByPlaceholderText('Search name, email, company…')).toHaveValue('Owned Co')
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/contacts?search=Owned+Co')
+    })
   })
 
   it('treats an empty contact stage lens as a clean funnel stage', async () => {

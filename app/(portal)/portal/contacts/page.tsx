@@ -25,6 +25,7 @@ interface Contact {
   id: string
   name: string
   email: string
+  phone?: string
   company?: string
   type: string
   stage: string
@@ -270,6 +271,14 @@ export default function PortalContactsPage() {
       }
       return new Set([...prev, ...visibleIds])
     })
+  }
+
+  function filterByCompany(company: string) {
+    setSearch(company)
+    setStageFilter('')
+    setTypeFilter('')
+    setOwnerLens('all')
+    setFollowUpLens('all')
   }
 
   async function handleBulkDelete() {
@@ -715,25 +724,59 @@ export default function PortalContactsPage() {
                       aria-label={`Select ${contactName}`}
                     />
                   </div>
-                  {/* Rest of the row — wrapped in Link */}
-                  <Link
-                    href={`/portal/contacts/${c.id}`}
-                    className="col-span-1 md:col-span-14 grid grid-cols-1 md:grid-cols-14 gap-3 md:gap-4 items-center"
-                    onClick={e => { if (selectedIds.size > 0) e.preventDefault(); toggleSelect(c.id) }}
-                  >
+                  <div className="col-span-1 md:col-span-14 grid grid-cols-1 md:grid-cols-14 gap-3 md:gap-4 items-center">
                     <div className="md:col-span-2">
-                      <p className="font-medium text-[var(--color-pib-accent-hover)]">{contactName}</p>
+                      <Link
+                        href={`/portal/contacts/${c.id}`}
+                        aria-label={`Open contact ${contactName}`}
+                        className="font-medium text-[var(--color-pib-accent-hover)] transition-colors hover:text-[var(--color-pib-text)]"
+                      >
+                        {contactName}
+                      </Link>
                       {c.tags && c.tags.length > 0 && (
                         <p className="text-[11px] text-[var(--color-pib-text-muted)] mt-0.5 truncate">
                           {c.tags.join(', ')}
                         </p>
                       )}
                     </div>
-                    <div className="md:col-span-3 text-sm text-[var(--color-pib-text-muted)] truncate">
-                      {c.email || 'Email missing'}
+                    <div className="md:col-span-3 text-sm text-[var(--color-pib-text-muted)]">
+                      {c.email ? (
+                        <a
+                          href={`mailto:${c.email}`}
+                          aria-label={`Email ${c.email} from contacts list`}
+                          className="inline-flex max-w-full items-center gap-1 truncate text-[var(--color-pib-accent)] transition-colors hover:text-[var(--color-pib-text)]"
+                        >
+                          <span className="material-symbols-outlined text-[14px]" aria-hidden="true">alternate_email</span>
+                          <span className="truncate">{c.email}</span>
+                        </a>
+                      ) : (
+                        'Email missing'
+                      )}
+                      {c.phone?.trim() && (
+                        <a
+                          href={`tel:${c.phone.trim()}`}
+                          aria-label={`Call ${c.phone.trim()} from contacts list`}
+                          className="mt-1 inline-flex max-w-full items-center gap-1 truncate text-xs text-[var(--color-pib-accent)] transition-colors hover:text-[var(--color-pib-text)]"
+                        >
+                          <span className="material-symbols-outlined text-[13px]" aria-hidden="true">call</span>
+                          <span className="truncate">{c.phone.trim()}</span>
+                        </a>
+                      )}
                     </div>
                     <div className="md:col-span-2 text-sm text-[var(--color-pib-text-muted)] truncate">
-                      {c.company || 'Company missing'}
+                      {c.company ? (
+                        <button
+                          type="button"
+                          aria-label={`Filter contacts by company ${c.company}`}
+                          onClick={() => filterByCompany(c.company as string)}
+                          className="inline-flex max-w-full items-center gap-1 truncate text-left text-[var(--color-pib-accent)] transition-colors hover:text-[var(--color-pib-text)]"
+                        >
+                          <span className="material-symbols-outlined text-[14px]" aria-hidden="true">business</span>
+                          <span className="truncate">{c.company}</span>
+                        </button>
+                      ) : (
+                        'Company missing'
+                      )}
                       <p className="mt-1 text-[11px] text-[var(--color-pib-text-muted)]">
                         Owner: <span>{contactOwnerLabel(c)}</span>
                       </p>
@@ -756,7 +799,7 @@ export default function PortalContactsPage() {
                     <div className="md:col-span-1">
                       <ScoreChip score={c.aiLeadScore} kind="ai" label="AI lead score" size="sm" />
                     </div>
-                  </Link>
+                  </div>
                 </div>
               )
             })}
