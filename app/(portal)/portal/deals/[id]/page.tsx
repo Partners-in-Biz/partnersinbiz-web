@@ -211,6 +211,7 @@ function activityTimeLabel(activity: ActivityRecord): string {
 export default function DealDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
+  const probabilityInputRef = useRef<HTMLInputElement | null>(null)
   const closeDateInputRef = useRef<HTMLInputElement | null>(null)
 
   const [deal, setDeal] = useState<DealRecord | null>(null)
@@ -484,6 +485,41 @@ export default function DealDetailPage() {
     closeDateInputRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'center' })
     closeDateInputRef.current?.focus()
   }
+  const focusProbabilityInput = () => {
+    probabilityInputRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'center' })
+    probabilityInputRef.current?.focus()
+  }
+  const commandTiles = [
+    {
+      label: 'Deal value',
+      value: fmtValue(deal.value, deal.currency),
+      icon: 'payments',
+      ariaLabel: `Edit deal value for ${deal.title ?? 'this deal'} from command summary`,
+      onClick: () => setEditOpen(true),
+    },
+    {
+      label: 'Weighted',
+      value: fmtValue(weightedValue, deal.currency),
+      icon: 'query_stats',
+      ariaLabel: `Update weighted forecast for ${deal.title ?? 'this deal'} from command summary`,
+      onClick: focusProbabilityInput,
+    },
+    {
+      label: 'Close timing',
+      value: closeDateLabel(deal.expectedCloseDate),
+      icon: 'event_upcoming',
+      ariaLabel: `Update close timing for ${deal.title ?? 'this deal'} from command summary`,
+      onClick: focusCloseDateInput,
+    },
+    {
+      label: 'Activity',
+      value: activitiesLoading ? '...' : String(activities.length),
+      icon: 'history',
+      ariaLabel: `Review activity for ${deal.title ?? 'this deal'} from command summary`,
+      onClick: () => undefined,
+      disabled: true,
+    },
+  ]
   const nextBestActions = [
     {
       icon: deal.contactId ? 'mail' : 'person_add',
@@ -642,19 +678,21 @@ export default function DealDetailPage() {
         )}
 
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          {[
-            { label: 'Deal value', value: fmtValue(deal.value, deal.currency), icon: 'payments' },
-            { label: 'Weighted', value: fmtValue(weightedValue, deal.currency), icon: 'query_stats' },
-            { label: 'Close timing', value: closeDateLabel(deal.expectedCloseDate), icon: 'event_upcoming' },
-            { label: 'Activity', value: activitiesLoading ? '...' : String(activities.length), icon: 'history' },
-          ].map((tile) => (
-            <div key={tile.label} className="rounded-xl border border-[var(--color-pib-line)] bg-white/[0.02] p-3">
+          {commandTiles.map((tile) => (
+            <button
+              key={tile.label}
+              type="button"
+              aria-label={tile.ariaLabel}
+              onClick={tile.onClick}
+              disabled={tile.disabled}
+              className="rounded-xl border border-[var(--color-pib-line)] bg-white/[0.02] p-3 text-left transition-colors hover:bg-white/[0.05] disabled:cursor-default disabled:hover:bg-white/[0.02]"
+            >
               <div className="flex items-center justify-between gap-2">
                 <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">{tile.label}</p>
                 <span className="material-symbols-outlined text-[17px] text-[var(--color-pib-text-muted)]">{tile.icon}</span>
               </div>
               <p className="mt-2 text-lg font-semibold text-[var(--color-pib-text)]">{tile.value}</p>
-            </div>
+            </button>
           ))}
         </div>
 
@@ -670,6 +708,7 @@ export default function DealDetailPage() {
             <div className="min-w-[180px] flex-1">
               <label htmlFor="dealForecastProbability" className="pib-label">Update forecast probability</label>
               <input
+                ref={probabilityInputRef}
                 id="dealForecastProbability"
                 type="number"
                 min={0}

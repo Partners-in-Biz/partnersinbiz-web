@@ -138,4 +138,19 @@ describe('Portal deal detail page', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Add line items for Enterprise rollout' }))
     expect(screen.getByRole('dialog', { name: 'Edit Deal' })).toBeInTheDocument()
   })
+
+  it('turns command summary tiles into direct deal editing and forecast actions', async () => {
+    render(<DealDetailPage />)
+
+    expect(await screen.findByRole('heading', { name: 'Enterprise rollout' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit deal value for Enterprise rollout from command summary' }))
+    expect(screen.getByRole('dialog', { name: 'Edit Deal' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Update weighted forecast for Enterprise rollout from command summary' }))
+    expect(screen.getByLabelText('Update forecast probability')).toHaveFocus()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Update close timing for Enterprise rollout from command summary' }))
+    expect(screen.getByLabelText('Set expected close date')).toHaveFocus()
+  })
 })
