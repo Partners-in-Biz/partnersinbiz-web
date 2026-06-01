@@ -59,6 +59,7 @@ const enabledSource = {
   deleted: false,
   autoTags: ['leads'],
   autoCampaignIds: [],
+  autoSequenceIds: [],
   consentRequired: false,
   redirectUrl: '',
 }
@@ -209,5 +210,38 @@ describe('POST /api/public/capture/[publicKey]', () => {
         metadata: expect.objectContaining({ sourceId: 'src-1', sourceType: 'form' }),
       })
     )
+  })
+
+  it('auto-enrolls captured contacts into active direct sequences', async () => {
+    mockSourceLookup({ ...enabledSource, autoSequenceIds: ['seq-1'] })
+    mockExistingContactLookup(null)
+    mockAdd.mockResolvedValueOnce({ id: 'contact-new' })
+    mockGet
+      .mockResolvedValueOnce({
+        exists: true,
+        data: () => ({
+          orgId: 'org-1',
+          status: 'active',
+          name: 'Lead nurture',
+          steps: [{ delayDays: 0, subject: 'Welcome', bodyText: 'Hi' }],
+          deleted: false,
+        }),
+      })
+      .mockResolvedValueOnce({ empty: true, docs: [] })
+
+    const res = await POST(makeReq({ email: 'jane@x.com' }), params)
+
+    expect(res.status).toBe(201)
+    const enrollmentAdd = mockAdd.mock.calls.find((c) => c[0]?.sequenceId === 'seq-1')
+    expect(enrollmentAdd).toBeDefined()
+    expect(enrollmentAdd![0]).toEqual(expect.objectContaining({
+      orgId: 'org-1',
+      campaignId: '',
+      sequenceId: 'seq-1',
+      contactId: 'contact-new',
+      status: 'active',
+      currentStep: 0,
+      deleted: false,
+    }))
   })
 })

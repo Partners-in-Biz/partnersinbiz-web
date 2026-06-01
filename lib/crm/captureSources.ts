@@ -28,6 +28,7 @@ export interface CaptureSource {
   // Behavior on capture
   autoTags: string[]                 // tags applied to every captured contact
   autoCampaignIds: string[]          // campaigns to auto-enroll on capture
+  autoSequenceIds: string[]          // direct sequences to auto-enroll on capture
   redirectUrl: string                // form widget redirects here on success
   consentRequired: boolean           // require explicit checkbox in form widget
 

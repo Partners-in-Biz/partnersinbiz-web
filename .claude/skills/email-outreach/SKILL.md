@@ -80,6 +80,7 @@ All cron routes auth via `Authorization: Bearer ${CRON_SECRET}`.
 Send immediately via Resend. Body:
 ```json
 {
+  "orgId": "org_xyz",
   "to": "jane@acme.com",
   "cc": ["other@acme.com"],
   "subject": "Welcome to Partners in Biz",
@@ -93,6 +94,8 @@ Send immediately via Resend. Body:
 
 Required: `to`, `subject`, `bodyText` OR `bodyHtml`. Missing body is auto-generated from the other.
 
+For contact-linked sends, include `contactId`; the API can derive `orgId` from that contact when the caller omitted org scope. Visual email-builder send tests may also send rendered aliases `{ "html": "...", "text": "..." }`, which are accepted as `bodyHtml` / `bodyText`.
+
 ## `POST /email/schedule` — auth: admin/ai
 
 ```json
@@ -102,6 +105,8 @@ Required: `to`, `subject`, `bodyText` OR `bodyHtml`. Missing body is auto-genera
 ## `GET /email` — auth: admin
 
 Filters: `status` (`draft|scheduled|sent|failed|opened|clicked`), `direction` (`inbound|outbound`), `contactId`, `sequenceId`, `campaignId`, `broadcastId`, `page`, `limit`.
+
+Admin/agent callers should pass `orgId` for broad email lists. For contact history reads, `GET /email?contactId=<id>&limit=...` can derive org scope from the contact and keeps Firestore index-safe by filtering secondary facets in memory.
 
 ## `GET /email/[id]` — auth: admin
 ## `PUT /email/[id]` — auth: admin — only if `status === 'scheduled'`
@@ -172,6 +177,16 @@ Returns `{ id, name, document }`. See AI section below for full input shapes.
 
 A sequence is an ordered set of steps; each step has `delayDays`, `subject`, `bodyHtml`, `bodyText`, and optionally `ab` (A/B config — see A/B section).
 
+Preferred CRM-scoped endpoints for portal and agent work:
+
+- `GET /crm/sequences` — auth: cookie member+ or Bearer + `X-Org-Id`
+- `POST /crm/sequences` — auth: cookie admin+ or Bearer + `X-Org-Id`
+- `GET/PUT/DELETE /crm/sequences/[id]`
+- `GET/POST /crm/sequences/[id]/enrollments`
+- `DELETE /crm/sequences/[id]/enrollments/[enrollmentId]`
+
+Legacy endpoints still exist for admin/property integrations:
+
 ## `GET /sequences?orgId=...&status=...` — auth: client
 ## `POST /sequences` — auth: client
 
@@ -223,6 +238,17 @@ Returns `{ updated: true, steps: [...] }` and writes onto the sequence.
 ## `GET/PUT /sequences/[id]/steps/[stepNumber]/ab` — auth: client
 
 A/B configuration for a single sequence step. See A/B section.
+
+## Sequence capture routing
+
+For CRM capture sources shown at `/portal/capture-sources`, use the CRM capture-source API and `autoSequenceIds` for direct nurture enrollment:
+
+- `GET /crm/capture-sources`
+- `POST /crm/capture-sources` with `{ name, type, autoTags?, autoCampaignIds?, autoSequenceIds?, redirectUrl?, consentRequired? }`
+- `PUT /crm/capture-sources/[id]` with `{ autoSequenceIds: ["seq_..."] }`
+- Public submit path: `POST /api/public/capture/[publicKey]`
+
+On public capture, the platform dedupes contacts by `orgId + email`, applies source tags, and creates idempotent `sequence_enrollments` for each active same-org sequence in `autoSequenceIds` using `campaignId: ""`. Use `autoCampaignIds` when a campaign wrapper is needed for campaign-level stats or audience operations.
 
 ---
 
