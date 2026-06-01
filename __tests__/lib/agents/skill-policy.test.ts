@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs'
+import { existsSync, readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   AGENT_SKILL_POLICY,
@@ -11,7 +11,6 @@ import {
 
 describe('agent skill policy manifest', () => {
   function discoverRepoSkills(dir = join(process.cwd(), '.claude/skills'), prefix = ''): string[] {
-    const { readdirSync, statSync } = require('node:fs') as typeof import('node:fs')
     const found: string[] = []
     for (const entry of readdirSync(dir)) {
       const full = join(dir, entry)
@@ -37,6 +36,7 @@ describe('agent skill policy manifest', () => {
       'docs-lead',
       'email-outreach',
       'evidence-ledger',
+      'geo-seo-service',
       'google-workspace',
       'platform-ops',
       'project-management',
@@ -97,6 +97,7 @@ describe('agent skill policy manifest', () => {
       'pip',
       'qa-release',
       'sage',
+      'sales',
       'seo',
       'support',
       'theo',
@@ -127,6 +128,24 @@ describe('agent skill policy manifest', () => {
       'marketing/ads-meta',
     ]))
     expect(AGENT_SKILL_POLICY.futureAgentCandidates).toEqual([])
+  })
+
+  it('gives revenue and operations agents sequence creation and analytics skills', () => {
+    const sequenceAgents = ['pip', 'theo', 'maya', 'nora', 'support', 'data', 'sales']
+    for (const agentId of sequenceAgents) {
+      expect(AGENT_SKILL_POLICY.skillCatalog['email-outreach'].allowedAgentIds).toContain(agentId)
+      expect(AGENT_SKILL_POLICY.agents[agentId].runtimeSkills).toContain('email-outreach')
+    }
+
+    const performanceAgents = ['pip', 'theo', 'maya', 'nora', 'support', 'data', 'docs', 'seo', 'sales']
+    for (const agentId of performanceAgents) {
+      expect(AGENT_SKILL_POLICY.skillCatalog.analytics.allowedAgentIds).toContain(agentId)
+      expect(AGENT_SKILL_POLICY.skillCatalog['data-analyst'].allowedAgentIds).toContain(agentId)
+      expect(AGENT_SKILL_POLICY.agents[agentId].runtimeSkills).toEqual(expect.arrayContaining([
+        'analytics',
+        'data-analyst',
+      ]))
+    }
   })
 
   it('builds Firestore policy state and rewrites Hermes external_dirs', () => {
