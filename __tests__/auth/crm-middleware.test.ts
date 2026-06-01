@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server'
+import { createHash } from 'node:crypto'
 
 jest.mock('@/lib/firebase/admin', () => ({
   adminAuth: {
@@ -18,6 +19,8 @@ process.env.SESSION_COOKIE_NAME = '__session'
 
 const ORG_ID = 'org-test'
 const UID = 'uid-real'
+const mockApiKeyUpdate = jest.fn()
+let mockApiKeyDocs: Array<{ id: string; data: () => Record<string, unknown>; ref: { update: jest.Mock } }> = []
 
 function makeReq(headers: Record<string, string> = {}, method = 'GET') {
   return new NextRequest('http://localhost/api/v1/crm/contacts', {
@@ -67,8 +70,35 @@ function setupCollections({
         }),
       }
     }
+    if (name === 'api_keys') {
+      return {
+        where: jest.fn().mockReturnValue({
+          limit: jest.fn().mockReturnValue({
+            get: jest.fn().mockResolvedValue({
+              empty: mockApiKeyDocs.length === 0,
+              docs: mockApiKeyDocs,
+            }),
+          }),
+        }),
+      }
+    }
     throw new Error(`Unexpected collection: ${name}`)
   })
+}
+
+function apiKeyDoc(rawKey: string, data: Record<string, unknown>) {
+  return {
+    id: 'crm-api-key-1',
+    data: () => ({
+      keyHash: createHash('sha256').update(rawKey).digest('hex'),
+      role: 'ai',
+      permissions: [{ resource: 'email-outreach', actions: ['read', 'write'] }],
+      agentId: 'pip',
+      orgId: ORG_ID,
+      ...data,
+    }),
+    ref: { update: mockApiKeyUpdate },
+  }
 }
 
 describe('withCrmAuth — cookie path', () => {
@@ -102,6 +132,7 @@ describe('withCrmAuth — cookie path', () => {
       user: {
         role: 'admin',
         orgId: 'pib-platform-owner',
+        activeOrgId: ORG_ID,
         allowedOrgIds: [],
       },
       member: { orgId: ORG_ID, uid: UID, role: 'admin', firstName: 'Staff', lastName: 'User' },
@@ -183,7 +214,11 @@ describe('withCrmAuth — cookie path', () => {
 })
 
 describe('withCrmAuth — Bearer path', () => {
-  beforeEach(() => jest.clearAllMocks())
+  beforeEach(() => {
+    jest.clearAllMocks()
+    mockApiKeyDocs = []
+    mockApiKeyUpdate.mockResolvedValue(undefined)
+  })
 
   it('200s with system role for valid AI_API_KEY + X-Org-Id', async () => {
     setupCollections({
@@ -239,6 +274,57 @@ describe('withCrmAuth — Bearer path', () => {
       makeReq({ authorization: `Bearer ${AI_API_KEY}`, 'x-org-id': 'ghost-org' }),
     )
     expect(res.status).toBe(404)
+  })
+
+  it('200s with system role for a scoped per-agent API key', async () => {
+    const rawKey = 'pib_ag_crm_marketing_valid'
+    mockApiKeyDocs = [apiKeyDoc(rawKey, { agentId: 'marketing', orgId: ORG_ID })]
+    setupCollections({
+      user: null,
+      member: null,
+      org: { settings: { permissions: { membersCanExportContacts: true } } },
+    })
+    const handler = jest.fn().mockResolvedValue(new Response('ok', { status: 200 }))
+    const route = withCrmAuth('admin', handler)
+
+    const res = await route(makeReq({ authorization: `Bearer ${rawKey}`, 'x-org-id': ORG_ID }))
+
+    expect(res.status).toBe(200)
+    const ctx = handler.mock.calls[0][1]
+    expect(ctx.role).toBe('system')
+    expect(ctx.isAgent).toBe(true)
+    expect(ctx.orgId).toBe(ORG_ID)
+    expect(ctx.actor.uid).toBe('agent:marketing')
+    expect(ctx.actor.kind).toBe('agent')
+    expect(ctx.user.authKind).toBe('agent_api_key')
+    expect(mockApiKeyUpdate).toHaveBeenCalled()
+  })
+
+  it('derives org scope from a scoped per-agent API key when X-Org-Id is omitted', async () => {
+    const rawKey = 'pib_ag_crm_marketing_scoped'
+    mockApiKeyDocs = [apiKeyDoc(rawKey, { agentId: 'marketing', orgId: ORG_ID })]
+    setupCollections({
+      user: null,
+      member: null,
+      org: { settings: { permissions: {} } },
+    })
+    const handler = jest.fn().mockResolvedValue(new Response('ok', { status: 200 }))
+    const route = withCrmAuth('admin', handler)
+
+    const res = await route(makeReq({ authorization: `Bearer ${rawKey}` }))
+
+    expect(res.status).toBe(200)
+    expect(handler.mock.calls[0][1].orgId).toBe(ORG_ID)
+  })
+
+  it('403s when a scoped per-agent API key targets a different org', async () => {
+    const rawKey = 'pib_ag_crm_marketing_wrong_org'
+    mockApiKeyDocs = [apiKeyDoc(rawKey, { agentId: 'marketing', orgId: 'org-other' })]
+    const route = withCrmAuth('viewer', jest.fn())
+
+    const res = await route(makeReq({ authorization: `Bearer ${rawKey}`, 'x-org-id': ORG_ID }))
+
+    expect(res.status).toBe(403)
   })
 })
 

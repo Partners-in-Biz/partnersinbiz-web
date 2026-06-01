@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { adminAuth, adminDb } from '@/lib/firebase/admin'
 import { ROLE_RANK } from '@/lib/orgMembers/types'
 import type { OrgRole } from '@/lib/organizations/types'
+import { resolveAgentApiKeyUser } from '@/lib/api/auth'
+import type { ApiAuthKind, ApiPermission } from '@/lib/api/types'
 import {
   AGENT_PIP_REF,
   buildHumanRef,
@@ -30,6 +32,10 @@ export interface CrmAuthContext {
   user?: {
     uid: string
     role?: string
+    authKind?: ApiAuthKind
+    agentId?: string
+    apiKeyId?: string
+    permissions?: ApiPermission[]
     orgId?: string
     allowedOrgIds?: string[]
   }
@@ -61,6 +67,18 @@ async function loadOrgPermissions(orgId: string): Promise<{
   }
 }
 
+function agentRefFor(agentId: string | undefined): MemberRef {
+  const cleanAgentId = agentId?.trim()
+  if (!cleanAgentId || cleanAgentId === 'pip') return AGENT_PIP_REF
+
+  return {
+    uid: `agent:${cleanAgentId}`,
+    displayName: cleanAgentId,
+    jobTitle: 'AI Agent',
+    kind: 'agent',
+  }
+}
+
 export function withCrmAuth<RouteCtx = unknown>(
   minRole: Exclude<CrmRole, 'system'>,
   handler: CrmRouteHandler<RouteCtx>,
@@ -72,22 +90,37 @@ export function withCrmAuth<RouteCtx = unknown>(
     if (authHeader.startsWith('Bearer ')) {
       const token = authHeader.slice(7)
       const aiKey = process.env.AI_API_KEY
-      if (!aiKey || token !== aiKey) {
-        return apiError('Invalid API key', 401)
+      const isLegacyAiKey = Boolean(aiKey && token === aiKey)
+      const agentUser = isLegacyAiKey ? null : await resolveAgentApiKeyUser(token)
+      if (!isLegacyAiKey && !agentUser) return apiError('Invalid API key', 401)
+
+      const requestedOrgId = req.headers.get('x-org-id') ?? ''
+      if (agentUser?.orgId && requestedOrgId && requestedOrgId !== agentUser.orgId) {
+        return apiError('API key is not scoped to this organization', 403)
       }
-      const orgId = req.headers.get('x-org-id') ?? ''
+
+      const orgId = requestedOrgId || agentUser?.orgId || ''
       if (!orgId) {
         return apiError('Missing X-Org-Id header', 400)
       }
       const { permissions, exists: orgExists } = await loadOrgPermissions(orgId)
       if (!orgExists) return apiError('Organization not found', 404)
+      const actor = agentUser ? agentRefFor(agentUser.agentId) : AGENT_PIP_REF
       const ctx: CrmAuthContext = {
         orgId,
-        actor: AGENT_PIP_REF,
+        actor,
         role: 'system',
         isAgent: true,
         permissions,
-        user: { uid: AGENT_PIP_REF.uid, role: 'ai' },
+        user: {
+          uid: actor.uid,
+          role: 'ai',
+          authKind: agentUser?.authKind ?? 'legacy_ai_key',
+          agentId: agentUser?.agentId,
+          apiKeyId: agentUser?.apiKeyId,
+          permissions: agentUser?.permissions,
+          orgId,
+        },
       }
       return handler(req, ctx, routeCtx)
     }
