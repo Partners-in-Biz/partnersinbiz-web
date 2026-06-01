@@ -11,6 +11,7 @@ const mockGenerateApprovedDocumentProjectTasks = jest.fn()
 jest.mock('firebase-admin/firestore', () => ({
   FieldValue: {
     serverTimestamp: jest.fn(() => 'server-timestamp'),
+    delete: jest.fn(() => 'field-delete'),
   },
 }))
 
@@ -239,6 +240,53 @@ describe('client document approvals API', () => {
     )
   })
 
+  it('falls back to the linked CRM company name for formal client acceptance', async () => {
+    const documentDoc = {
+      id: 'doc-1',
+      get: mockDocumentGet,
+      collection: jest.fn(() => ({ doc: mockApprovalDoc.mockReturnValue({ id: 'approval-1' }) })),
+    }
+    const companyGet = jest.fn().mockResolvedValue({
+      exists: true,
+      data: () => ({ name: 'Elemental Sustainability' }),
+    })
+    const companyDoc = jest.fn(() => ({ get: companyGet }))
+    mockCollection.mockImplementation((name: string) => {
+      if (name === 'client_documents') return { doc: jest.fn(() => documentDoc) }
+      if (name === 'companies') return { doc: companyDoc }
+      throw new Error(`Unexpected collection: ${name}`)
+    })
+    mockDocumentGet.mockResolvedValueOnce({
+      exists: true,
+      id: 'doc-1',
+      data: () => ({
+        orgId: 'org-1',
+        approvalMode: 'formal_acceptance',
+        latestPublishedVersionId: 'version-1',
+        linked: { companyId: 'company-1' },
+        deleted: false,
+      }),
+    })
+
+    const { POST } = await import('@/app/api/v1/client-documents/[id]/accept/route')
+    const req = jsonRequest('http://localhost/api/v1/client-documents/doc-1/accept', {
+      actorName: 'Client Owner',
+      typedName: 'Client Owner',
+      checkboxText: 'I accept this proposal.',
+    })
+
+    const res = await POST(req, clientUser, { params: Promise.resolve({ id: 'doc-1' }) })
+
+    expect(res.status).toBe(200)
+    expect(companyDoc).toHaveBeenCalledWith('company-1')
+    expect(mockBatchSet).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+      companyName: 'Elemental Sustainability',
+    }))
+    expect(mockBatchUpdate).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+      clientAcceptance: expect.objectContaining({ companyName: 'Elemental Sustainability' }),
+    }))
+  })
+
   it('does not let an admin use the client acceptance route as the client signature', async () => {
     const adminUser = { uid: 'admin-1', role: 'admin' as const, orgId: 'org-1' }
     mockDocumentGet.mockResolvedValueOnce({
@@ -328,6 +376,44 @@ describe('client document approvals API', () => {
         updatedByType: 'user',
       }),
     )
+  })
+
+  it('repairs a mistaken PiB acceptance recorded on the client side while countersigning', async () => {
+    const adminUser = { uid: 'admin-1', role: 'admin' as const, orgId: 'org-1' }
+    mockDocumentGet.mockResolvedValueOnce({
+      exists: true,
+      id: 'doc-1',
+      data: () => ({
+        orgId: 'org-1',
+        approvalMode: 'formal_acceptance',
+        latestPublishedVersionId: 'version-1',
+        status: 'accepted',
+        clientAcceptance: {
+          actorId: 'admin-1',
+          actorName: 'admin-1',
+          typedName: 'Peet Stander',
+          checkboxText: 'I have read and agree to the terms above',
+        },
+        deleted: false,
+      }),
+    })
+
+    const { POST } = await import('@/app/api/v1/client-documents/[id]/sign/route')
+    const req = jsonRequest('http://localhost/api/v1/client-documents/doc-1/sign', {
+      name: 'Peet Stander',
+      capacity: 'Founder',
+      companyName: 'The Partners in Business',
+      signatureText: 'Peet Stander',
+    })
+
+    const res = await POST(req, adminUser, { params: Promise.resolve({ id: 'doc-1' }) })
+
+    expect(res.status).toBe(200)
+    expect(mockBatchUpdate).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+      providerSignature: expect.objectContaining({ name: 'Peet Stander' }),
+      clientAcceptance: 'field-delete',
+      status: 'client_review',
+    }))
   })
 
   it('allows an agent to record internal operational approval as an agent actor', async () => {

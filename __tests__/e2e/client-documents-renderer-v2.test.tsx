@@ -310,7 +310,7 @@ test('renders formal agreement signature evidence for both parties', () => {
       signatureText: 'Peet Stander',
       signedBy: 'admin-1',
       signedByType: 'user',
-      signedAt: '2026-05-31T12:00:00.000Z',
+      signedAt: { _seconds: 1780228800, _nanoseconds: 0 },
     },
     clientAcceptance: {
       versionId: 'v1',
@@ -319,7 +319,7 @@ test('renders formal agreement signature evidence for both parties', () => {
       typedName: 'Kumari Pillay',
       companyName: 'Elemental',
       checkboxText: 'I have read and agree to the terms above',
-      acceptedAt: '2026-05-31T13:00:00.000Z',
+      acceptedAt: { _seconds: 1780232400, _nanoseconds: 0 },
     },
     createdBy: 'u',
     createdByType: 'agent',
@@ -348,7 +348,7 @@ test('renders formal agreement signature evidence for both parties', () => {
     createdByType: 'agent',
   }
 
-  const { getByText } = render(<DocumentRenderer document={doc} version={version} />)
+  const { getByText, getAllByText } = render(<DocumentRenderer document={doc} version={version} />)
 
   expect(getByText('Agreement signatures')).toBeInTheDocument()
   expect(getByText('Peet Stander')).toBeInTheDocument()
@@ -356,6 +356,7 @@ test('renders formal agreement signature evidence for both parties', () => {
   expect(getByText('The Partners in Business')).toBeInTheDocument()
   expect(getByText('Kumari Pillay')).toBeInTheDocument()
   expect(getByText('Elemental')).toBeInTheDocument()
+  expect(getAllByText('31 May 2026')).toHaveLength(2)
   expect(getByText('Formal electronic acceptance via platform')).toBeInTheDocument()
 })
 

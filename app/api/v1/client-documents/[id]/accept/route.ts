@@ -27,6 +27,45 @@ function firstForwardedIp(req: NextRequest) {
   return req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? ''
 }
 
+function firstText(...values: unknown[]) {
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim()) return value.trim()
+  }
+  return ''
+}
+
+async function resolveClientCompanyName(document: { linked?: { companyId?: string; clientOrgId?: string } }) {
+  const companyId = document.linked?.companyId
+  if (companyId) {
+    try {
+      const snap = await adminDb.collection('companies').doc(companyId).get()
+      if (snap.exists) {
+        const data = snap.data() ?? {}
+        const name = firstText(data.legalName, data.registeredName, data.companyName, data.displayName, data.name)
+        if (name) return name
+      }
+    } catch (err) {
+      console.warn('[client-documents/accept] Failed to resolve linked company name:', err)
+    }
+  }
+
+  const clientOrgId = document.linked?.clientOrgId
+  if (clientOrgId) {
+    try {
+      const snap = await adminDb.collection('organizations').doc(clientOrgId).get()
+      if (snap.exists) {
+        const data = snap.data() ?? {}
+        const name = firstText(data.legalName, data.registeredName, data.companyName, data.displayName, data.name)
+        if (name) return name
+      }
+    } catch (err) {
+      console.warn('[client-documents/accept] Failed to resolve linked client organisation name:', err)
+    }
+  }
+
+  return ''
+}
+
 export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, ctx: RouteContext) => {
   const { id } = await ctx.params
   const access = await getAccessibleClientDocument(id, user)
@@ -41,7 +80,7 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
 
   const body = await req.json().catch(() => ({}))
   const actorName = typeof body.actorName === 'string' && body.actorName.trim() ? body.actorName.trim() : user.uid
-  const companyName = typeof body.companyName === 'string' ? body.companyName.trim() : ''
+  const companyName = firstText(body.companyName) || (await resolveClientCompanyName(document))
   const typedName = typeof body.typedName === 'string' ? body.typedName.trim() : ''
   const checkboxText = typeof body.checkboxText === 'string' ? body.checkboxText.trim() : ''
 
