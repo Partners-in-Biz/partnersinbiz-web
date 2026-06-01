@@ -2,7 +2,7 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import { MemberRow } from '@/components/settings/MemberRow'
 import type { OrgRole } from '@/lib/organizations/types'
 
@@ -20,6 +20,17 @@ interface Member {
 interface MyProfile {
   uid: string
   role: OrgRole | null
+}
+
+function InviteField({ id, label, children }: { id: string; label: string; children: ReactNode }) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label htmlFor={id} className="pib-label !mb-0">
+        {label}
+      </label>
+      {children}
+    </div>
+  )
 }
 
 export default function TeamPage() {
@@ -70,7 +81,7 @@ export default function TeamPage() {
     }
   }
 
-  async function handleInvite(e: React.FormEvent) {
+  async function handleInvite(e: FormEvent) {
     e.preventDefault()
     setInviting(true)
     setInviteError('')
@@ -108,16 +119,35 @@ export default function TeamPage() {
   const viewerRole = myProfile.role ?? 'viewer'
   const canInvite = viewerRole === 'owner' || viewerRole === 'admin'
 
-  if (loading) return <div className="text-sm text-[var(--color-pib-text-muted)]">Loading…</div>
+  if (loading) {
+    return (
+      <div className="space-y-3">
+        <div className="pib-skeleton h-24" />
+        <div className="pib-skeleton h-48" />
+      </div>
+    )
+  }
 
   return (
-    <div className="max-w-2xl">
-      <h1 className="text-lg font-semibold mb-1">Team</h1>
-      <p className="text-sm text-[var(--color-pib-text-muted)] mb-8">
-        All members of this workspace.
-      </p>
+    <div className="max-w-4xl space-y-6">
+      <header>
+        <p className="eyebrow">Workspace settings</p>
+        <h1 className="pib-page-title mt-2">Team</h1>
+        <p className="pib-page-sub max-w-2xl">
+          Manage who can access this workspace, what role they hold, and which area of the business they support.
+        </p>
+      </header>
 
-      <div className="bg-[var(--color-pib-surface)] border border-[var(--color-pib-line)] rounded-xl mb-6 overflow-hidden">
+      <section className="pib-card-section">
+        <div className="pib-card-section-header flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Members</p>
+            <h2 className="mt-1 text-base font-semibold text-[var(--color-pib-text)]">Workspace access</h2>
+          </div>
+          <span className="inline-flex w-fit items-center rounded-full border border-[var(--color-pib-line)] bg-white/[0.03] px-3 py-1 text-xs text-[var(--color-pib-text-muted)]">
+            {members.length} member{members.length === 1 ? '' : 's'}
+          </span>
+        </div>
         {members.length === 0 ? (
           <p className="text-sm text-[var(--color-pib-text-muted)] px-5 py-6">No members found.</p>
         ) : (
@@ -132,73 +162,114 @@ export default function TeamPage() {
             />
           ))
         )}
-      </div>
+      </section>
 
       {canInvite && (
-        <div className="bg-[var(--color-pib-surface)] border border-[var(--color-pib-line)] rounded-xl p-5">
-          <h2 className="text-sm font-semibold mb-4">Invite team member</h2>
-          <form onSubmit={handleInvite} className="space-y-3">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <input
-                type="email"
-                value={inviteEmail}
-                onChange={e => setInviteEmail(e.target.value)}
-                placeholder="colleague@example.com"
-                required
-                className="input-base text-sm"
-              />
-              <select
-                value={inviteRole}
-                onChange={e => setInviteRole(e.target.value as Exclude<OrgRole, 'owner'>)}
-                className="input-base text-sm"
-                aria-label="Invite role"
-              >
-                {viewerRole === 'owner' && <option value="admin">Admin</option>}
-                <option value="member">Member</option>
-                <option value="viewer">Viewer</option>
-              </select>
-              <input
-                type="text"
-                value={inviteJobTitle}
-                onChange={e => setInviteJobTitle(e.target.value)}
-                placeholder="Job title"
-                className="input-base text-sm"
-              />
-              <input
-                type="text"
-                value={inviteDepartment}
-                onChange={e => setInviteDepartment(e.target.value)}
-                placeholder="Department"
-                className="input-base text-sm"
-              />
-              <select
-                value={inviteAccessScope}
-                onChange={e => setInviteAccessScope(e.target.value)}
-                className="input-base text-sm"
-                aria-label="Invite workspace access"
-              >
-                <option value="all">All workspace areas</option>
-                <option value="crm">CRM and sales</option>
-                <option value="marketing">Marketing</option>
-                <option value="projects">Projects</option>
-                <option value="billing">Billing</option>
-                <option value="readonly">Read-only review</option>
-              </select>
-              <button type="submit" disabled={inviting} className="btn-primary shrink-0">
-                {inviting ? 'Inviting…' : 'Invite'}
-              </button>
+        <section className="pib-card space-y-5">
+          <div className="flex items-start gap-3">
+            <span className="material-symbols-outlined flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-accent-soft)] text-[18px] text-[var(--color-pib-accent)]" aria-hidden="true">
+              person_add
+            </span>
+            <div>
+              <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Invite access</p>
+              <h2 className="mt-1 text-base font-semibold text-[var(--color-pib-text)]">Invite team member</h2>
+              <p className="mt-1 max-w-2xl text-sm text-[var(--color-pib-text-muted)]">
+                Send a workspace invite with the right role, department context, and access focus.
+              </p>
             </div>
-            <textarea
-              value={inviteNote}
-              onChange={e => setInviteNote(e.target.value)}
-              placeholder="Invite note or onboarding context"
-              rows={2}
-              className="input-base text-sm w-full resize-none"
-            />
+          </div>
+
+          <form onSubmit={handleInvite} className="space-y-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <InviteField id="team-invite-email" label="Email">
+                <input
+                  id="team-invite-email"
+                  type="email"
+                  value={inviteEmail}
+                  onChange={e => setInviteEmail(e.target.value)}
+                  placeholder="colleague@example.com"
+                  required
+                  className="pib-input"
+                />
+              </InviteField>
+              <InviteField id="team-invite-role" label="Role">
+                <select
+                  id="team-invite-role"
+                  value={inviteRole}
+                  onChange={e => setInviteRole(e.target.value as Exclude<OrgRole, 'owner'>)}
+                  className="pib-select"
+                >
+                  {viewerRole === 'owner' && <option value="admin">Admin</option>}
+                  <option value="member">Member</option>
+                  <option value="viewer">Viewer</option>
+                </select>
+              </InviteField>
+              <InviteField id="team-invite-job-title" label="Job title">
+                <input
+                  id="team-invite-job-title"
+                  type="text"
+                  value={inviteJobTitle}
+                  onChange={e => setInviteJobTitle(e.target.value)}
+                  placeholder="Client success lead"
+                  className="pib-input"
+                />
+              </InviteField>
+              <InviteField id="team-invite-department" label="Department">
+                <input
+                  id="team-invite-department"
+                  type="text"
+                  value={inviteDepartment}
+                  onChange={e => setInviteDepartment(e.target.value)}
+                  placeholder="Sales, marketing, finance..."
+                  className="pib-input"
+                />
+              </InviteField>
+              <InviteField id="team-invite-access" label="Workspace access">
+                <select
+                  id="team-invite-access"
+                  value={inviteAccessScope}
+                  onChange={e => setInviteAccessScope(e.target.value)}
+                  className="pib-select"
+                >
+                  <option value="all">All workspace areas</option>
+                  <option value="crm">CRM and sales</option>
+                  <option value="marketing">Marketing</option>
+                  <option value="projects">Projects</option>
+                  <option value="billing">Billing</option>
+                  <option value="readonly">Read-only review</option>
+                </select>
+              </InviteField>
+              <div className="flex items-end">
+                <button type="submit" disabled={inviting} className="btn-pib-accent w-full">
+                  <span className="material-symbols-outlined text-[16px]" aria-hidden="true">send</span>
+                  {inviting ? 'Inviting...' : 'Send invite'}
+                </button>
+              </div>
+            </div>
+            <InviteField id="team-invite-note" label="Invite note">
+              <textarea
+                id="team-invite-note"
+                value={inviteNote}
+                onChange={e => setInviteNote(e.target.value)}
+                placeholder="Add onboarding context or first responsibilities."
+                rows={3}
+                className="pib-textarea resize-none"
+              />
+            </InviteField>
           </form>
-          {inviteSent && <p className="text-xs text-[var(--color-pib-accent)] mt-2">Invite sent.</p>}
-          {inviteError && <p className="text-xs text-red-400 mt-2">{inviteError}</p>}
-        </div>
+          {inviteSent && (
+            <p className="flex items-center gap-1.5 text-xs text-[var(--color-pib-accent)]">
+              <span className="material-symbols-outlined text-[15px]" aria-hidden="true">check_circle</span>
+              Invite sent.
+            </p>
+          )}
+          {inviteError && (
+            <p className="flex items-center gap-1.5 rounded-lg border border-red-400/20 bg-red-400/10 px-3 py-2 text-xs text-red-100">
+              <span className="material-symbols-outlined text-[15px]" aria-hidden="true">error</span>
+              {inviteError}
+            </p>
+          )}
+        </section>
       )}
     </div>
   )
