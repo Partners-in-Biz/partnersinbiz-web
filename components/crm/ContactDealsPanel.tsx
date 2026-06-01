@@ -245,7 +245,13 @@ export function ContactDealsPanel({ contactId, contactName, orgId = '' }: Props)
       )}
 
       {loading ? (
-        <div className="p-5 space-y-2">
+        <div className="p-5 space-y-3" role="status" aria-live="polite">
+          <div className="flex items-center gap-2 text-xs text-[var(--color-pib-text-muted)]">
+            <span className="material-symbols-outlined text-[16px] text-[var(--color-accent-v2)]" aria-hidden="true">
+              progress_activity
+            </span>
+            <span>Loading relationship pipeline for {contactLabel}...</span>
+          </div>
           {[...Array(2)].map((_, i) => (
             <div key={i} className="pib-skeleton h-12" />
           ))}
