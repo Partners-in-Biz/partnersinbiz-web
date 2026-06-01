@@ -44,6 +44,7 @@ function StepRow({
   onMoveDown: () => void
 }) {
   const isSms = step.channel === 'sms'
+  const stepNumber = index + 1
 
   return (
     <div className="bento-card !p-4 mb-3">
@@ -63,26 +64,29 @@ function StepRow({
             onClick={onMoveUp}
             disabled={index === 0}
             title="Move up"
+            aria-label={`Move step ${stepNumber} up`}
             className="cursor-pointer w-6 h-6 flex items-center justify-center rounded text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.06] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
           >
-            <span className="material-symbols-outlined text-[14px]">arrow_upward</span>
+            <span className="material-symbols-outlined text-[14px]" aria-hidden="true">arrow_upward</span>
           </button>
           <button
             type="button"
             onClick={onMoveDown}
             disabled={index === total - 1}
             title="Move down"
+            aria-label={`Move step ${stepNumber} down`}
             className="cursor-pointer w-6 h-6 flex items-center justify-center rounded text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.06] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
           >
-            <span className="material-symbols-outlined text-[14px]">arrow_downward</span>
+            <span className="material-symbols-outlined text-[14px]" aria-hidden="true">arrow_downward</span>
           </button>
           <button
             type="button"
             onClick={onRemove}
             title="Remove step"
+            aria-label={`Remove step ${stepNumber}`}
             className="cursor-pointer w-6 h-6 flex items-center justify-center rounded text-[var(--color-pib-text-muted)] hover:text-red-400 hover:bg-red-400/[0.08] transition-colors"
           >
-            <span className="material-symbols-outlined text-[14px]">close</span>
+            <span className="material-symbols-outlined text-[14px]" aria-hidden="true">close</span>
           </button>
         </div>
       </div>
@@ -93,6 +97,7 @@ function StepRow({
           <div className="flex-1">
             <label className="block text-xs text-[var(--color-pib-text-muted)] mb-1">Channel</label>
             <select
+              aria-label={`Step ${stepNumber} channel`}
               value={step.channel ?? 'email'}
               onChange={(e) =>
                 onChange({ ...step, channel: e.target.value as 'email' | 'sms' })
@@ -109,6 +114,7 @@ function StepRow({
             </label>
             <input
               type="number"
+              aria-label={`Step ${stepNumber} send delay in days`}
               min={0}
               value={step.delayDays}
               onChange={(e) =>
@@ -128,6 +134,7 @@ function StepRow({
               </label>
               <input
                 type="text"
+                aria-label={`Step ${stepNumber} email subject`}
                 placeholder="Email subject line"
                 value={step.subject}
                 onChange={(e) => onChange({ ...step, subject: e.target.value })}
@@ -140,6 +147,7 @@ function StepRow({
               </label>
               <textarea
                 rows={8}
+                aria-label={`Step ${stepNumber} email body`}
                 placeholder="<p>Hello {{firstName}},</p>"
                 value={step.bodyHtml}
                 onChange={(e) => onChange({ ...step, bodyHtml: e.target.value })}
@@ -157,6 +165,7 @@ function StepRow({
             </label>
             <textarea
               rows={4}
+              aria-label={`Step ${stepNumber} SMS body`}
               placeholder="Hi {{firstName}}, your message here…"
               value={step.smsBody ?? ''}
               onChange={(e) => onChange({ ...step, smsBody: e.target.value })}
@@ -334,6 +343,7 @@ export function SequenceForm({ initial, onSave, onCancel }: Props) {
             </label>
             <input
               type="text"
+              aria-label="Sequence name"
               placeholder="e.g. New lead welcome sequence"
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -347,6 +357,7 @@ export function SequenceForm({ initial, onSave, onCancel }: Props) {
             </label>
             <textarea
               rows={2}
+              aria-label="Sequence description"
               placeholder="Optional description of this sequence's purpose"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -357,6 +368,7 @@ export function SequenceForm({ initial, onSave, onCancel }: Props) {
           <div>
             <label className="block text-xs text-[var(--color-pib-text-muted)] mb-1">Status</label>
             <select
+              aria-label="Sequence status"
               value={status}
               onChange={(e) => setStatus(e.target.value as SequenceStatus)}
               className={inputCls}
@@ -405,7 +417,7 @@ export function SequenceForm({ initial, onSave, onCancel }: Props) {
           onClick={addStep}
           className="cursor-pointer btn-pib-secondary text-sm flex items-center gap-1.5 mt-3"
         >
-          <span className="material-symbols-outlined text-[16px]">add</span>
+          <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
           Add step
         </button>
       </div>
@@ -426,7 +438,7 @@ export function SequenceForm({ initial, onSave, onCancel }: Props) {
           disabled={saving}
           className="cursor-pointer btn-pib-accent flex items-center gap-1.5 text-sm disabled:opacity-60"
         >
-          <span className="material-symbols-outlined text-[16px]">save</span>
+          <span className="material-symbols-outlined text-[16px]" aria-hidden="true">save</span>
           {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Create sequence'}
         </button>
         <button
