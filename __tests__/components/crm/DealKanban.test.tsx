@@ -93,6 +93,25 @@ describe('DealKanban', () => {
     expect(valueEl).toBeInTheDocument()
   })
 
+  it('names missing deal values on kanban cards instead of showing invalid currency', () => {
+    const deal = makeDeal({ id: 'd1', title: 'Unpriced board deal', value: undefined, stageId: 'proposal' })
+
+    render(<DealKanban deals={[deal]} stages={TEST_STAGES} onStageChange={noop} />)
+
+    expect(screen.getByText('Unpriced board deal')).toBeInTheDocument()
+    expect(screen.getByText('No value captured')).toBeInTheDocument()
+    expect(screen.queryByText(/NaN/)).not.toBeInTheDocument()
+  })
+
+  it('names sparse deal titles on board cards instead of rendering blank pipeline cards', () => {
+    const deal = makeDeal({ id: 'd1', title: '', stageId: 'proposal' })
+
+    render(<DealKanban deals={[deal]} stages={TEST_STAGES} onStageChange={noop} />)
+
+    expect(screen.getByText('Deal name missing')).toBeInTheDocument()
+    expect(screen.queryByText('Test Deal')).not.toBeInTheDocument()
+  })
+
   it('shows "Drop here" placeholder in empty columns', () => {
     // Only discovery has a deal — others should show the drop placeholder
     const deal = makeDeal({ id: 'd1', stageId: 'discovery' })
@@ -118,11 +137,22 @@ describe('DealKanban', () => {
     expect(screen.queryByText('Test Deal')).not.toBeInTheDocument()
   })
 
-  it('renders a contact link for deals with contactId', () => {
+  it('renders a contact readiness link for deals with contactId', () => {
     const deal = makeDeal({ id: 'd1', contactId: 'c-99', stageId: 'negotiation' })
     render(<DealKanban deals={[deal]} stages={TEST_STAGES} onStageChange={noop} />)
-    const link = screen.getByRole('link', { name: 'Contact' })
+    const link = screen.getByRole('link', { name: 'Contact identity missing' })
     expect(link).toHaveAttribute('href', '/portal/contacts/c-99')
+  })
+
+  it('names missing contact snapshots on deal cards instead of showing generic contact chips', () => {
+    const deal = makeDeal({ id: 'd1', contactId: 'contact-raw-id', stageId: 'negotiation' })
+
+    render(<DealKanban deals={[deal]} stages={TEST_STAGES} onStageChange={noop} />)
+
+    const link = screen.getByRole('link', { name: 'Contact identity missing' })
+    expect(link).toHaveAttribute('href', '/portal/contacts/contact-raw-id')
+    expect(screen.queryByRole('link', { name: 'Contact' })).not.toBeInTheDocument()
+    expect(screen.queryByText('contact-raw-id')).not.toBeInTheDocument()
   })
 
   it('uses readable contact labels when provided for deal cards', () => {
@@ -138,6 +168,21 @@ describe('DealKanban', () => {
 
     const link = screen.getByRole('link', { name: 'Ava Owner' })
     expect(link).toHaveAttribute('href', '/portal/contacts/c-99')
+  })
+
+  it('names missing company snapshots on deal cards instead of hiding linked accounts', () => {
+    const deal = makeDeal({
+      id: 'd1',
+      companyId: 'company-raw-id',
+      companyName: '',
+      stageId: 'negotiation',
+    })
+
+    render(<DealKanban deals={[deal]} stages={TEST_STAGES} onStageChange={noop} />)
+
+    const link = screen.getByRole('link', { name: 'Company identity missing' })
+    expect(link).toHaveAttribute('href', '/portal/companies/company-raw-id')
+    expect(screen.queryByText('company-raw-id')).not.toBeInTheDocument()
   })
 
   it('does not render a contact link when contactId is empty', () => {

@@ -91,6 +91,30 @@ describe('CompaniesTable', () => {
     expect(handleSetup).toHaveBeenCalledWith('co-setup')
   })
 
+  it('names missing company row revenue and update metadata instead of showing bare dashes', () => {
+    const company = makeCompany({ id: 'co-missing', name: 'Missing Signals Ltd' })
+
+    render(<CompaniesTable companies={[company]} loading={false} onRowClick={noop} />)
+
+    expect(screen.getByText('No revenue tracked')).toBeInTheDocument()
+    expect(screen.getByText('No update logged')).toBeInTheDocument()
+    expect(screen.queryAllByText('—')).toHaveLength(0)
+  })
+
+  it('names unreadable company update timestamps as metadata cleanup work', () => {
+    const company = makeCompany({
+      id: 'co-invalid-update',
+      name: 'Invalid Update Ltd',
+      updatedAt: { _seconds: Number.NaN } as never,
+    })
+
+    render(<CompaniesTable companies={[company]} loading={false} onRowClick={noop} />)
+
+    expect(screen.getByText('Update date needs review')).toBeInTheDocument()
+    expect(screen.queryByText('Invalid Date')).not.toBeInTheDocument()
+    expect(screen.queryByText('No update logged')).not.toBeInTheDocument()
+  })
+
   it('calls onRowClick with the company id when a row is clicked', () => {
     const handleClick = jest.fn()
     const company = makeCompany({ id: 'co-42', name: 'Click Me Inc' })
@@ -101,16 +125,18 @@ describe('CompaniesTable', () => {
     expect(handleClick).toHaveBeenCalledWith('co-42')
   })
 
-  it('renders tier chip when tier is set', () => {
-    const company = makeCompany({ id: 'co-1', tier: 'enterprise' })
+  it('renders tier chip as a readable account label when tier is set', () => {
+    const company = makeCompany({ id: 'co-1', tier: 'mid-market' })
     render(<CompaniesTable companies={[company]} loading={false} onRowClick={noop} />)
-    expect(screen.getByText('enterprise')).toBeInTheDocument()
+    expect(screen.getByText('Mid market')).toBeInTheDocument()
+    expect(screen.queryByText('mid-market')).not.toBeInTheDocument()
   })
 
-  it('renders lifecycleStage chip when set', () => {
+  it('renders lifecycleStage chip as a readable account label when set', () => {
     const company = makeCompany({ id: 'co-1', lifecycleStage: 'customer' })
     render(<CompaniesTable companies={[company]} loading={false} onRowClick={noop} />)
-    expect(screen.getByText('customer')).toBeInTheDocument()
+    expect(screen.getByText('Customer')).toBeInTheDocument()
+    expect(screen.queryByText('customer')).not.toBeInTheDocument()
   })
 
   it('renders industry when set', () => {

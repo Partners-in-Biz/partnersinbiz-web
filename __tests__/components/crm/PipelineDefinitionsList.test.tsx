@@ -95,6 +95,26 @@ describe('PipelineDefinitionsList', () => {
     expect(onEdit).toHaveBeenCalledWith(expect.objectContaining({ id: 'pipeline-1' }))
   })
 
+  it('names sparse pipeline rows instead of crashing or exposing blank actions', () => {
+    const onEdit = jest.fn()
+
+    renderList({
+      pipelines: [pipeline({
+        name: '',
+        description: '',
+        stages: undefined,
+      } as Partial<Pipeline>) as unknown as Pipeline],
+      onEdit,
+    })
+
+    expect(screen.getByText('Pipeline name missing')).toBeInTheDocument()
+    expect(screen.getByText(/No stages configured/i)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /Add stages for Pipeline name missing/i }))
+    expect(onEdit).toHaveBeenCalledWith(expect.objectContaining({ id: 'pipeline-1' }))
+    expect(screen.queryByRole('button', { name: /Edit\s*$/i })).not.toBeInTheDocument()
+  })
+
   it('keeps row setup gap actions hidden from non-admin users', () => {
     renderList({ pipelines: [pipeline({ description: '', stages: [] })], isAdmin: false })
 

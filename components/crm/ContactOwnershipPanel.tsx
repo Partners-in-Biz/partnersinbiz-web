@@ -11,13 +11,58 @@ export interface ContactOwnershipProfile {
   updatedByRef?: MemberRef
 }
 
+const SOURCE_LABELS: Record<string, string> = {
+  manual: 'Manual entry',
+  form: 'Form capture',
+  import: 'Imported list',
+  outreach: 'Outreach',
+}
+
+const MEMBER_KIND_LABELS: Record<string, string> = {
+  human: 'Team member',
+  agent: 'AI agent',
+}
+
 function memberLabel(ref?: MemberRef, fallback?: string): string {
-  return ref?.displayName || fallback || 'Unassigned'
+  if (ref?.displayName) return ref.displayName
+  if (ref || fallback) return 'Owner identity missing'
+  return 'Unassigned'
+}
+
+function auditActorLabel(ref: MemberRef | undefined, missingLabel: string): string {
+  if (!ref) return missingLabel
+  if (ref.displayName) return ref.displayName
+  return missingLabel.replace('not captured', 'identity missing')
+}
+
+function sourceLabel(source?: string): string {
+  const key = source?.trim() ?? ''
+  if (!key) return 'Not captured'
+  return SOURCE_LABELS[key] ?? readableSourceFallback(key)
+}
+
+function readableSourceFallback(source: string): string {
+  return readableTokenLabel(source)
+}
+
+function captureSourceLabel(capturedFromId?: string): string {
+  const key = capturedFromId?.trim()
+  if (!key) return 'Manual or legacy record'
+  return readableTokenLabel(key)
+}
+
+function readableTokenLabel(value: string): string {
+  return value
+    .split(/[_\-\s]+/)
+    .filter(Boolean)
+    .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(' ')
 }
 
 function memberMeta(ref?: MemberRef): string {
   if (!ref) return 'No team snapshot yet'
-  return [ref.jobTitle, ref.kind].filter(Boolean).join(' · ') || ref.uid
+  const kind = ref.kind ? MEMBER_KIND_LABELS[ref.kind] ?? readableTokenLabel(ref.kind) : undefined
+  return [ref.jobTitle, kind].filter(Boolean).join(' · ') || 'Team snapshot details not captured'
 }
 
 function Field({
@@ -182,10 +227,10 @@ export function ContactOwnershipPanel({
   const owner = memberLabel(profile.assignedToRef, profile.assignedTo)
   const needsOwner = !profile.assignedToRef?.displayName && !profile.assignedTo
   const weakSource = !profile.capturedFromId?.trim() && (!profile.source?.trim() || profile.source === 'manual')
-  const source = profile.source || 'Not captured'
-  const captureSource = profile.capturedFromId || 'Manual or legacy record'
-  const creator = memberLabel(profile.createdByRef, undefined)
-  const updater = memberLabel(profile.updatedByRef, undefined)
+  const source = sourceLabel(profile.source)
+  const captureSource = captureSourceLabel(profile.capturedFromId)
+  const creator = auditActorLabel(profile.createdByRef, 'Creator not captured')
+  const updater = auditActorLabel(profile.updatedByRef, 'Updater not captured')
 
   return (
     <section className="bento-card !p-5 space-y-4">

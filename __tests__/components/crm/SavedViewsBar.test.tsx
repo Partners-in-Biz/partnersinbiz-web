@@ -82,4 +82,33 @@ describe('SavedViewsBar', () => {
       expect(onSelectView).toHaveBeenCalledWith({ stage: 'proposal', type: 'lead' })
     })
   })
+
+  it('uses an in-page confirmation before deleting a saved CRM view', async () => {
+    const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(false)
+
+    render(
+      <SavedViewsBar
+        currentFilters={{ stage: 'proposal' }}
+        onSelectView={jest.fn()}
+        resourceKind="contacts"
+      />,
+    )
+
+    expect(await screen.findByText('Hot proposal leads')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete saved view Hot proposal leads' }))
+
+    expect(confirmSpy).not.toHaveBeenCalled()
+    expect(screen.getByRole('alertdialog', { name: 'Delete saved view "Hot proposal leads"?' })).toBeInTheDocument()
+    expect(screen.getByText('This removes the shared CRM lens for everyone using the contacts workspace.')).toBeInTheDocument()
+    expect(global.fetch).not.toHaveBeenCalledWith('/api/v1/crm/saved-views/view-hot', expect.any(Object))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm delete saved view Hot proposal leads' }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/saved-views/view-hot', { method: 'DELETE' })
+    })
+
+    confirmSpy.mockRestore()
+  })
 })

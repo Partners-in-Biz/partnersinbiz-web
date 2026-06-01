@@ -487,6 +487,13 @@ export function buildProjectTaskUpdateData(body: Record<string, unknown>): Paylo
     }
     updates.reviewStatus = reviewStatus
   }
+  if (body.approvalStatus !== undefined) {
+    const approvalStatus = cleanString(body.approvalStatus)
+    if (approvalStatus && !['pending', 'approved', 'rejected', 'denied'].includes(approvalStatus)) {
+      return { ok: false, error: 'Invalid approvalStatus; expected pending | approved | rejected | denied', status: 400 }
+    }
+    updates.approvalStatus = approvalStatus
+  }
   if (body.agentConversationId !== undefined) {
     updates.agentConversationId =
       typeof body.agentConversationId === 'string' && body.agentConversationId.trim()

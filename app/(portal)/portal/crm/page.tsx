@@ -14,8 +14,21 @@ type CrmDashboard = {
   weightedPipelineValue?: number
   wonThisMonth?: { count?: number; value?: number }
   lostThisMonth?: { count?: number }
-  recentActivities?: Array<{ id: string; type?: string; summary?: string; contactName?: string; createdAt?: unknown }>
+  recentActivities?: Array<{ id: string; type?: string; summary?: string; contactName?: string; contactId?: string; dealId?: string; createdAt?: unknown }>
   topOpenDeals?: Array<Deal & { contactName?: string }>
+}
+
+const ACTIVITY_TYPE_LABELS: Record<string, string> = {
+  email_sent: 'Email sent',
+  email_received: 'Email received',
+  call: 'Call',
+  note: 'Note',
+  sms_sent: 'SMS sent',
+  meeting_scheduled: 'Meeting scheduled',
+  stage_change: 'Stage changed',
+  sequence_enrolled: 'Enrolled in sequence',
+  sequence_completed: 'Sequence completed',
+  contact_captured: 'Contact captured',
 }
 
 const SECTIONS: HubSection[] = [
@@ -175,14 +188,54 @@ function timestampMs(value: unknown): number {
   return 0
 }
 
+function hasUnreadableTimestamp(value: unknown): boolean {
+  if (!value) return false
+  if (value instanceof Date) return Number.isNaN(value.getTime())
+  if (typeof value === 'string') return Number.isNaN(Date.parse(value))
+  if (typeof value === 'object') {
+    const timestamp = value as { seconds?: unknown; _seconds?: unknown; toDate?: () => Date; toMillis?: () => number }
+    if (typeof timestamp.toMillis === 'function') return !Number.isFinite(timestamp.toMillis())
+    if (typeof timestamp.toDate === 'function') return Number.isNaN(timestamp.toDate().getTime())
+    const seconds = timestamp.seconds ?? timestamp._seconds
+    return seconds !== undefined && (typeof seconds !== 'number' || !Number.isFinite(seconds))
+  }
+  return true
+}
+
 function formatRelative(value: unknown): string {
   const ms = timestampMs(value)
-  if (!ms) return 'No date'
+  if (!ms) return hasUnreadableTimestamp(value) ? 'Activity date needs review' : 'Timestamp not captured'
   const diffDays = Math.round((Date.now() - ms) / 86_400_000)
   if (diffDays <= 0) return 'Today'
   if (diffDays === 1) return 'Yesterday'
   if (diffDays < 30) return `${diffDays}d ago`
   return new Date(ms).toLocaleDateString('en-ZA', { day: '2-digit', month: 'short' })
+}
+
+function textValue(value: unknown): string {
+  return typeof value === 'string' && value.trim() ? value.trim() : ''
+}
+
+function readableActivityType(value: unknown): string {
+  const key = textValue(value)
+  if (!key) return 'CRM activity'
+  const fallback = key.replace(/[_-]+/g, ' ').trim()
+  return ACTIVITY_TYPE_LABELS[key] ?? (fallback ? fallback.charAt(0).toUpperCase() + fallback.slice(1) : 'CRM activity')
+}
+
+function activitySummary(activity: NonNullable<CrmDashboard['recentActivities']>[number]): string {
+  return textValue(activity.summary) || readableActivityType(activity.type)
+}
+
+function activityContactLabel(value: unknown): string {
+  return textValue(value) || 'Contact not linked'
+}
+
+function activityHref(activity: NonNullable<CrmDashboard['recentActivities']>[number]): string {
+  const dealId = textValue(activity.dealId)
+  if (dealId) return `/portal/deals/${encodeURIComponent(dealId)}`
+  const contactId = textValue(activity.contactId)
+  return contactId ? `/portal/contacts/${encodeURIComponent(contactId)}` : ''
 }
 
 function DashboardMetric({
@@ -368,13 +421,13 @@ export default function PortalCrmPage() {
           ) : !dashboard?.recentActivities?.length ? (
             <div className="p-10 text-center">
               <span className="material-symbols-outlined text-4xl text-[var(--color-accent-v2)]" aria-hidden="true">history</span>
-              <h2 className="mt-3 font-display text-2xl text-[var(--color-pib-text)]">No relationship activity logged yet.</h2>
+              <h2 className="mt-3 font-display text-2xl text-[var(--color-pib-text)]">Relationship activity missing</h2>
               <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[var(--color-pib-text-muted)]">
-                Open the stale follow-up lens to give the team a working list for calls, emails, meetings, and notes.
+                Open the stale follow-up lens so managers can assign calls, emails, meetings, and notes before accounts go quiet.
               </p>
               <Link
                 href="/portal/contacts?followUp=stale"
-                aria-label="Open contacts to log CRM activity from the command center"
+                aria-label="Open stale contacts from CRM command center"
                 className="pib-btn-primary mt-4 inline-flex items-center gap-1.5 text-sm"
               >
                 <span className="material-symbols-outlined text-base">contacts</span>
@@ -383,18 +436,31 @@ export default function PortalCrmPage() {
             </div>
           ) : (
             <div className="divide-y divide-[var(--color-pib-line)]">
-              {dashboard.recentActivities.map((activity) => (
-                <div key={activity.id} className="flex gap-3 px-5 py-3.5">
-                  <span className="material-symbols-outlined mt-0.5 text-[17px] text-[var(--color-pib-text-muted)]">radio_button_checked</span>
-                  <div className="min-w-0">
-                    <p className="truncate text-sm text-[var(--color-pib-text)]">{activity.summary ?? activity.type ?? 'CRM activity'}</p>
-                    <p className="mt-0.5 text-xs text-[var(--color-pib-text-muted)]">
-                      {activity.contactName ? `${activity.contactName} · ` : ''}
-                      {formatRelative(activity.createdAt)}
-                    </p>
+              {dashboard.recentActivities.map((activity) => {
+                const href = activityHref(activity)
+                const content = (
+                  <>
+                    <span className="material-symbols-outlined mt-0.5 text-[17px] text-[var(--color-pib-text-muted)]">radio_button_checked</span>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm text-[var(--color-pib-text)]">{activitySummary(activity)}</p>
+                      <p className="mt-0.5 text-xs text-[var(--color-pib-text-muted)]">
+                        {activityContactLabel(activity.contactName)} · {' '}
+                        {formatRelative(activity.createdAt)}
+                      </p>
+                    </div>
+                  </>
+                )
+                const className = 'flex gap-3 px-5 py-3.5 transition-colors hover:bg-[var(--color-pib-surface-2)]'
+                return href ? (
+                  <Link key={activity.id} href={href} className={className}>
+                    {content}
+                  </Link>
+                ) : (
+                  <div key={activity.id} className="flex gap-3 px-5 py-3.5">
+                    {content}
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </div>

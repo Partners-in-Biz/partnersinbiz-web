@@ -2,6 +2,15 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import DealsPage from '@/app/(portal)/portal/deals/page'
 
 let mockSearchParams = new URLSearchParams()
+let mockTeamMembers: Array<{
+  uid: string
+  firstName?: string
+  lastName?: string
+  displayName?: string
+  email?: string
+  jobTitle?: string
+  role?: string
+}> = []
 
 jest.mock('next/navigation', () => ({
   useSearchParams: () => mockSearchParams,
@@ -34,11 +43,21 @@ function apiResponse(data: unknown) {
 }
 
 let mockDealRows: unknown[] = []
+let mockPipelineRows: unknown[] = []
 
 describe('Portal deals page', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     mockSearchParams = new URLSearchParams()
+    mockTeamMembers = [
+      {
+        uid: 'sales-lead-2',
+        firstName: 'Mandy',
+        lastName: 'Manager',
+        jobTitle: 'Sales lead',
+        role: 'admin',
+      },
+    ]
     mockDealRows = [
       {
         id: 'deal-1',
@@ -71,20 +90,21 @@ describe('Portal deals page', () => {
         updatedAt: null,
       },
     ]
+    mockPipelineRows = [
+      {
+        id: 'pipeline-1',
+        name: 'Sales pipeline',
+        isDefault: true,
+        stages: [
+          { id: 'qualified', label: 'Qualified', kind: 'open', order: 1, probability: 40 },
+          { id: 'proposal', label: 'Proposal', kind: 'open', order: 2, probability: 70 },
+        ],
+      },
+    ]
     global.fetch = jest.fn((url: RequestInfo | URL) => {
       const path = String(url)
       if (path === '/api/v1/crm/pipelines') {
-        return apiResponse([
-          {
-            id: 'pipeline-1',
-            name: 'Sales pipeline',
-            isDefault: true,
-            stages: [
-              { id: 'qualified', label: 'Qualified', kind: 'open', order: 1, probability: 40 },
-              { id: 'proposal', label: 'Proposal', kind: 'open', order: 2, probability: 70 },
-            ],
-          },
-        ])
+        return apiResponse(mockPipelineRows)
       }
       if (path === '/api/v1/crm/contacts?limit=200') {
         return apiResponse([
@@ -113,15 +133,7 @@ describe('Portal deals page', () => {
         return Promise.resolve({
           ok: true,
           json: async () => ({
-            members: [
-              {
-                uid: 'sales-lead-2',
-                firstName: 'Mandy',
-                lastName: 'Manager',
-                jobTitle: 'Sales lead',
-                role: 'admin',
-              },
-            ],
+            members: mockTeamMembers,
           }),
         } as Response)
       }
@@ -144,11 +156,217 @@ describe('Portal deals page', () => {
     const contactLink = screen.getByRole('link', { name: 'Ava Owner' })
     expect(contactLink).toHaveAttribute('href', '/portal/contacts/contact-1')
 
+    const unlinkedRow = screen.getByText('Unowned expansion').closest('[data-deal-row]')
+    expect(unlinkedRow).not.toBeNull()
+    expect(within(unlinkedRow as HTMLElement).getByText('No contact linked')).toBeInTheDocument()
+    expect(within(unlinkedRow as HTMLElement).queryByText('—')).not.toBeInTheDocument()
+
     fireEvent.change(screen.getByLabelText('Search deals'), {
       target: { value: 'Ava' },
     })
 
     await waitFor(() => expect(screen.getByText('Growth retainer')).toBeInTheDocument())
+  })
+
+  it('names missing deal values and renders zero values as explicit commercial data', async () => {
+    mockSearchParams = new URLSearchParams('view=list')
+    mockDealRows = [
+      {
+        id: 'deal-zero',
+        orgId: 'org-1',
+        contactId: 'contact-1',
+        title: 'Zero value discovery',
+        value: 0,
+        currency: 'ZAR',
+        pipelineId: 'pipeline-1',
+        stageId: 'qualified',
+        expectedCloseDate: '2026-06-15',
+        notes: '',
+        createdAt: null,
+        updatedAt: null,
+      },
+      {
+        id: 'deal-missing-value',
+        orgId: 'org-1',
+        contactId: 'contact-1',
+        title: 'Unpriced implementation',
+        currency: 'ZAR',
+        pipelineId: 'pipeline-1',
+        stageId: 'qualified',
+        expectedCloseDate: '2026-07-15',
+        notes: '',
+        createdAt: null,
+        updatedAt: null,
+      },
+    ]
+
+    render(<DealsPage />)
+
+    const zeroRow = (await screen.findByText('Zero value discovery')).closest('[data-deal-row]')
+    const missingValueRow = screen.getByText('Unpriced implementation').closest('[data-deal-row]')
+    expect(zeroRow).not.toBeNull()
+    expect(missingValueRow).not.toBeNull()
+
+    expect(within(zeroRow as HTMLElement).getAllByText('R 0').length).toBeGreaterThanOrEqual(2)
+    expect(within(missingValueRow as HTMLElement).getByText('No value captured')).toBeInTheDocument()
+    expect(within(missingValueRow as HTMLElement).getByText('R 0')).toBeInTheDocument()
+    expect(screen.queryByText('ZAR undefined')).not.toBeInTheDocument()
+    expect(screen.queryByText('—')).not.toBeInTheDocument()
+  })
+
+  it('turns deal list forecast hygiene gaps into direct edit actions', async () => {
+    mockSearchParams = new URLSearchParams('view=list')
+    mockDealRows = [
+      {
+        id: 'deal-missing-value',
+        orgId: 'org-1',
+        contactId: 'contact-1',
+        title: 'Unpriced implementation',
+        currency: 'ZAR',
+        pipelineId: 'pipeline-1',
+        stageId: 'qualified',
+        expectedCloseDate: null,
+        notes: '',
+        createdAt: null,
+        updatedAt: null,
+      },
+    ]
+
+    render(<DealsPage />)
+
+    const row = (await screen.findByText('Unpriced implementation')).closest('[data-deal-row]')
+    expect(row).not.toBeNull()
+
+    fireEvent.click(within(row as HTMLElement).getByRole('button', { name: 'Add value for Unpriced implementation from deals list' }))
+    expect(screen.getByTestId('deal-drawer')).toBeInTheDocument()
+    expect(screen.queryByTestId('deal-detail-drawer')).not.toBeInTheDocument()
+  })
+
+  it('turns deal list ownership gaps into direct edit actions', async () => {
+    mockSearchParams = new URLSearchParams('view=list')
+    mockDealRows = [
+      {
+        id: 'deal-unassigned',
+        orgId: 'org-1',
+        contactId: 'contact-1',
+        title: 'Unassigned expansion',
+        value: 25000,
+        currency: 'ZAR',
+        pipelineId: 'pipeline-1',
+        stageId: 'qualified',
+        expectedCloseDate: null,
+        notes: '',
+        createdAt: null,
+        updatedAt: null,
+      },
+    ]
+
+    render(<DealsPage />)
+
+    const row = (await screen.findByText('Unassigned expansion')).closest('[data-deal-row]')
+    expect(row).not.toBeNull()
+
+    fireEvent.click(within(row as HTMLElement).getByRole('button', { name: 'Assign owner for Unassigned expansion from deals list' }))
+    expect(screen.getByTestId('deal-drawer')).toBeInTheDocument()
+    expect(screen.queryByTestId('deal-detail-drawer')).not.toBeInTheDocument()
+  })
+
+  it('turns deal list probability into a direct forecast edit action', async () => {
+    mockSearchParams = new URLSearchParams('view=list')
+    mockDealRows = [
+      {
+        id: 'deal-probability',
+        orgId: 'org-1',
+        contactId: 'contact-1',
+        title: 'Probability review expansion',
+        value: 50000,
+        currency: 'ZAR',
+        pipelineId: 'pipeline-1',
+        stageId: 'qualified',
+        probability: 35,
+        expectedCloseDate: '2026-07-15',
+        notes: '',
+        createdAt: null,
+        updatedAt: null,
+      },
+    ]
+
+    render(<DealsPage />)
+
+    const row = (await screen.findByText('Probability review expansion')).closest('[data-deal-row]')
+    expect(row).not.toBeNull()
+
+    fireEvent.click(within(row as HTMLElement).getByRole('button', { name: 'Edit probability for Probability review expansion from deals list' }))
+    expect(screen.getByTestId('deal-drawer')).toBeInTheDocument()
+    expect(screen.queryByTestId('deal-detail-drawer')).not.toBeInTheDocument()
+  })
+
+  it('turns deal list stages into direct pipeline edit actions', async () => {
+    mockSearchParams = new URLSearchParams('view=list')
+    mockDealRows = [
+      {
+        id: 'deal-stage',
+        orgId: 'org-1',
+        contactId: 'contact-1',
+        title: 'Stage review expansion',
+        value: 50000,
+        currency: 'ZAR',
+        pipelineId: 'pipeline-1',
+        stageId: 'qualified',
+        probability: 40,
+        expectedCloseDate: '2026-07-15',
+        notes: '',
+        createdAt: null,
+        updatedAt: null,
+      },
+    ]
+
+    render(<DealsPage />)
+
+    const row = (await screen.findByText('Stage review expansion')).closest('[data-deal-row]')
+    expect(row).not.toBeNull()
+
+    fireEvent.click(within(row as HTMLElement).getByRole('button', { name: 'Edit stage for Stage review expansion from deals list' }))
+    expect(screen.getByTestId('deal-drawer')).toBeInTheDocument()
+    expect(screen.queryByTestId('deal-detail-drawer')).not.toBeInTheDocument()
+  })
+
+  it('names unpriced pipeline summaries instead of presenting missing values as zero', async () => {
+    mockSearchParams = new URLSearchParams('view=list')
+    mockDealRows = [
+      {
+        id: 'deal-missing-value',
+        orgId: 'org-1',
+        contactId: 'contact-1',
+        title: 'Unpriced implementation',
+        currency: 'ZAR',
+        pipelineId: 'pipeline-1',
+        stageId: 'qualified',
+        expectedCloseDate: '2026-07-15',
+        notes: '',
+        createdAt: null,
+        updatedAt: null,
+      },
+    ]
+
+    render(<DealsPage />)
+
+    expect(await screen.findByText('Unpriced implementation')).toBeInTheDocument()
+    expect(screen.getByText('No priced pipeline')).toBeInTheDocument()
+    expect(screen.getAllByText('Forecast value needed').length).toBeGreaterThanOrEqual(2)
+    expect(screen.getAllByText('1 open deal needs value').length).toBeGreaterThanOrEqual(2)
+  })
+
+  it('names empty pipeline summaries separately from unpriced forecast work', async () => {
+    mockSearchParams = new URLSearchParams('view=list')
+    mockDealRows = []
+
+    render(<DealsPage />)
+
+    expect(await screen.findByRole('heading', { name: 'No deals found.' })).toBeInTheDocument()
+    expect(screen.getByText('No open pipeline')).toBeInTheDocument()
+    expect(screen.getByText('No forecastable deals')).toBeInTheDocument()
+    expect(screen.queryByText('Forecast value needed')).not.toBeInTheDocument()
   })
 
   it('surfaces unassigned deals as a pipeline accountability lens', async () => {
@@ -166,6 +384,80 @@ describe('Portal deals page', () => {
     expect(screen.queryByText('Growth retainer')).not.toBeInTheDocument()
     expect(screen.getByText('Unowned expansion')).toBeInTheDocument()
     expect(screen.getByText('Unassigned')).toBeInTheDocument()
+  })
+
+  it('names incomplete deal owner snapshots instead of exposing raw owner ids', async () => {
+    mockSearchParams = new URLSearchParams('view=list')
+    mockDealRows = [
+      {
+        id: 'deal-sparse-owner',
+        orgId: 'org-1',
+        contactId: 'contact-1',
+        title: 'Sparse owner expansion',
+        value: 50000,
+        currency: 'ZAR',
+        pipelineId: 'pipeline-1',
+        stageId: 'qualified',
+        ownerUid: 'owner-raw-id',
+        expectedCloseDate: null,
+        notes: '',
+        createdAt: null,
+        updatedAt: null,
+      },
+      {
+        id: 'deal-unassigned',
+        orgId: 'org-1',
+        contactId: 'contact-1',
+        title: 'Unassigned expansion',
+        value: 25000,
+        currency: 'ZAR',
+        pipelineId: 'pipeline-1',
+        stageId: 'qualified',
+        expectedCloseDate: null,
+        notes: '',
+        createdAt: null,
+        updatedAt: null,
+      },
+    ]
+
+    render(<DealsPage />)
+
+    const sparseOwnerRow = (await screen.findByText('Sparse owner expansion')).closest('[data-deal-row]')
+    const unassignedRow = screen.getByText('Unassigned expansion').closest('[data-deal-row]')
+    expect(sparseOwnerRow).not.toBeNull()
+    expect(unassignedRow).not.toBeNull()
+    expect(within(sparseOwnerRow as HTMLElement).getByText('Deal owner identity missing')).toBeInTheDocument()
+    expect(within(sparseOwnerRow as HTMLElement).queryByText('owner-raw-id')).not.toBeInTheDocument()
+    expect(within(unassignedRow as HTMLElement).getByText('Unassigned')).toBeInTheDocument()
+  })
+
+  it('names unresolved linked contacts in the deal list instead of showing generic view links', async () => {
+    mockSearchParams = new URLSearchParams('view=list')
+    mockDealRows = [
+      {
+        id: 'deal-unresolved-contact',
+        orgId: 'org-1',
+        contactId: 'contact-raw-id',
+        title: 'Sparse contact expansion',
+        value: 50000,
+        currency: 'ZAR',
+        pipelineId: 'pipeline-1',
+        stageId: 'qualified',
+        expectedCloseDate: null,
+        notes: '',
+        createdAt: null,
+        updatedAt: null,
+      },
+    ]
+
+    render(<DealsPage />)
+
+    const row = (await screen.findByText('Sparse contact expansion')).closest('[data-deal-row]')
+    expect(row).not.toBeNull()
+    const link = within(row as HTMLElement).getByRole('link', { name: 'Contact identity missing' })
+    expect(link).toHaveAttribute('href', '/portal/contacts/contact-raw-id')
+    expect(within(row as HTMLElement).queryByRole('link', { name: 'View' })).not.toBeInTheDocument()
+    expect(within(row as HTMLElement).queryByText('contact-raw-id')).not.toBeInTheDocument()
   })
 
   it('opens directly to unassigned deals from CRM reports', async () => {
@@ -253,6 +545,105 @@ describe('Portal deals page', () => {
     expect(within(row as HTMLElement).getByText('Mandy Manager')).toBeInTheDocument()
   })
 
+  it('names sparse team member options when assigning deal owners', async () => {
+    mockTeamMembers = [{ uid: 'sales-lead-raw' }]
+
+    render(<DealsPage />)
+
+    fireEvent.click(await screen.findByRole('tab', { name: /List/i }))
+    await screen.findByText('Growth retainer')
+    fireEvent.click(screen.getByRole('button', { name: 'Show unassigned deals needing an owner' }))
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Select Unowned expansion for deal owner assignment' }))
+
+    expect(screen.getByRole('option', { name: 'Team member identity missing' })).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: 'sales-lead-raw' })).not.toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText('Assign selected deals to owner'), {
+      target: { value: 'sales-lead-raw' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Assign owner to 1 selected deal' }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/deals/deal-2', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ownerUid: 'sales-lead-raw' }),
+      })
+    })
+
+    const row = screen.getByText('Unowned expansion').closest('[data-deal-row]')
+    expect(row).not.toBeNull()
+    expect(within(row as HTMLElement).getByText('Team member identity missing')).toBeInTheDocument()
+    expect(within(row as HTMLElement).queryByText('sales-lead-raw')).not.toBeInTheDocument()
+  })
+
+  it('names sparse deal titles in list and forecast workflows', async () => {
+    mockSearchParams = new URLSearchParams('view=list')
+    mockDealRows = [
+      {
+        id: 'deal-sparse-title',
+        orgId: 'org-1',
+        contactId: 'contact-1',
+        title: '   ',
+        value: 50000,
+        currency: 'ZAR',
+        pipelineId: 'pipeline-1',
+        stageId: 'qualified',
+        ownerUid: 'owner-1',
+        ownerRef: { uid: 'owner-1', displayName: 'Maya Sales' },
+        expectedCloseDate: '2026-06-15',
+        notes: '',
+        createdAt: null,
+        updatedAt: null,
+      },
+    ]
+
+    render(<DealsPage />)
+
+    const row = (await screen.findByText('Deal name missing')).closest('[data-deal-row]')
+    expect(row).not.toBeNull()
+    expect(within(row as HTMLElement).getByRole('checkbox', { name: 'Select Deal name missing for deal owner assignment' })).toBeInTheDocument()
+    expect(within(row as HTMLElement).getByRole('link', { name: 'Deal name missing' })).toHaveAttribute('href', '/portal/deals/deal-sparse-title')
+
+    fireEvent.click(screen.getByRole('tab', { name: /Forecast/i }))
+
+    expect(await screen.findByRole('link', { name: 'Deal name missing' })).toHaveAttribute('href', '/portal/deals/deal-sparse-title')
+  })
+
+  it('names unresolved deal stages in list and forecast workflows', async () => {
+    mockSearchParams = new URLSearchParams('view=list')
+    mockDealRows = [
+      {
+        id: 'deal-stale-stage',
+        orgId: 'org-1',
+        contactId: 'contact-1',
+        title: 'Stale stage expansion',
+        value: 50000,
+        currency: 'ZAR',
+        pipelineId: 'pipeline-1',
+        stageId: 'proposal_sent',
+        ownerUid: 'owner-1',
+        ownerRef: { uid: 'owner-1', displayName: 'Maya Sales' },
+        expectedCloseDate: '2026-06-15',
+        notes: '',
+        createdAt: null,
+        updatedAt: null,
+      },
+    ]
+
+    render(<DealsPage />)
+
+    const row = (await screen.findByText('Stale stage expansion')).closest('[data-deal-row]')
+    expect(row).not.toBeNull()
+    expect(within(row as HTMLElement).getByText('Proposal Sent')).toBeInTheDocument()
+    expect(within(row as HTMLElement).queryByText('proposal_sent')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('tab', { name: /Forecast/i }))
+
+    expect(await screen.findByText('Proposal Sent')).toBeInTheDocument()
+    expect(screen.queryByText('proposal_sent')).not.toBeInTheDocument()
+  })
+
   it('turns an empty forecast into a create-deal action', async () => {
     mockDealRows = []
 
@@ -264,6 +655,18 @@ describe('Portal deals page', () => {
     fireEvent.click(screen.getByRole('button', { name: /create forecastable deal/i }))
 
     expect(screen.getByTestId('deal-drawer')).toBeInTheDocument()
+  })
+
+  it('does not leave the forecast stuck on skeletons when no pipeline exists yet', async () => {
+    mockSearchParams = new URLSearchParams('view=forecast')
+    mockPipelineRows = []
+    mockDealRows = []
+
+    render(<DealsPage />)
+
+    expect(await screen.findByText('No forecastable deals yet')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /create forecastable deal/i })).toBeInTheDocument()
+    expect(global.fetch).not.toHaveBeenCalledWith('/api/v1/crm/deals?pipelineId=pipeline-1&limit=200')
   })
 
   it('opens directly to forecast deals missing close dates from CRM reports', async () => {
@@ -309,6 +712,68 @@ describe('Portal deals page', () => {
     expect(await screen.findByText('No close date opportunity')).toBeInTheDocument()
     expect(screen.queryByText('Dated expansion')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Focus deals missing close dates' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByText('No close date captured')).toBeInTheDocument()
+    expect(screen.queryByText('—')).not.toBeInTheDocument()
+  })
+
+  it('turns missing forecast close dates into direct edit actions', async () => {
+    mockSearchParams = new URLSearchParams('view=forecast&focus=no-close-date')
+    mockDealRows = [
+      {
+        id: 'deal-no-date',
+        orgId: 'org-1',
+        contactId: 'contact-1',
+        title: 'No close date opportunity',
+        value: 25000,
+        currency: 'ZAR',
+        pipelineId: 'pipeline-1',
+        stageId: 'qualified',
+        ownerUid: 'owner-1',
+        ownerRef: { uid: 'owner-1', displayName: 'Maya Sales' },
+        expectedCloseDate: null,
+        notes: '',
+        createdAt: null,
+        updatedAt: null,
+      },
+    ]
+
+    render(<DealsPage />)
+
+    expect(await screen.findByRole('tab', { name: /Forecast/i })).toHaveAttribute('aria-selected', 'true')
+    expect(await screen.findByText('No close date opportunity')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Add close date for No close date opportunity from forecast' }))
+
+    expect(screen.getByTestId('deal-drawer')).toBeInTheDocument()
+    expect(screen.queryByTestId('deal-detail-drawer')).not.toBeInTheDocument()
+  })
+
+  it('names invalid forecast close dates as cleanup work instead of showing a dash', async () => {
+    mockSearchParams = new URLSearchParams('view=forecast')
+    mockDealRows = [
+      {
+        id: 'deal-invalid-close-date',
+        orgId: 'org-1',
+        contactId: 'contact-1',
+        title: 'Invalid timing expansion',
+        value: 50000,
+        currency: 'ZAR',
+        pipelineId: 'pipeline-1',
+        stageId: 'qualified',
+        ownerUid: 'owner-1',
+        ownerRef: { uid: 'owner-1', displayName: 'Maya Sales' },
+        expectedCloseDate: 'not-a-date',
+        notes: '',
+        createdAt: null,
+        updatedAt: null,
+      },
+    ]
+
+    render(<DealsPage />)
+
+    expect(await screen.findByText('Invalid timing expansion')).toBeInTheDocument()
+    expect(screen.getByText('Close date needs review')).toBeInTheDocument()
+    expect(screen.queryByText('—')).not.toBeInTheDocument()
+    expect(screen.queryByText('Invalid Date')).not.toBeInTheDocument()
   })
 
   it('treats an empty missing-close-date forecast lens as clean forecast hygiene', async () => {

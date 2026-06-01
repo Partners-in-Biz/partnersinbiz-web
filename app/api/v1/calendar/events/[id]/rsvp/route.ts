@@ -10,7 +10,9 @@
 import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
 import { lastActorFrom } from '@/lib/api/actor'
+import { canAccessOrg } from '@/lib/api/platformAdmin'
 import { apiSuccess, apiError } from '@/lib/api/response'
+import type { ApiUser } from '@/lib/api/types'
 import {
   VALID_ATTENDEE_STATUSES,
   type CalendarAttendee,
@@ -22,7 +24,13 @@ export const dynamic = 'force-dynamic'
 
 type RouteContext = { params: Promise<{ id: string }> }
 
-export const POST = withAuth('admin', async (req, user, context) => {
+function canAccessEventOrg(user: ApiUser, orgId: string): boolean {
+  if (user.role === 'admin') return canAccessOrg(user, orgId)
+  if (user.role === 'ai') return !user.orgId || user.orgId === orgId
+  return user.orgId === orgId || (user.orgIds ?? []).includes(orgId)
+}
+
+export const POST = withAuth('client', async (req, user, context) => {
   const { id } = await (context as RouteContext).params
 
   const body = (await req.json().catch(() => null)) as {
@@ -47,6 +55,7 @@ export const POST = withAuth('admin', async (req, user, context) => {
   if (!event || event.deleted === true) {
     return apiError('Event not found', 404)
   }
+  if (!canAccessEventOrg(user, event.orgId)) return apiError('Event not found', 404)
 
   const lowerEmail = email.toLowerCase()
   const attendees = Array.isArray(event.attendees) ? event.attendees : []

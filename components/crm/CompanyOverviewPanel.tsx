@@ -116,26 +116,64 @@ function stringValue(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
 }
 
+function externalHref(value?: string | null): string {
+  const trimmed = value?.trim() ?? ''
+  if (!trimmed) return ''
+  if (/^https?:\/\//i.test(trimmed)) return trimmed
+  return `https://${trimmed}`
+}
+
 function timestampMs(value: unknown): number {
   if (!value) return 0
-  if (value instanceof Date) return value.getTime()
+  if (value instanceof Date) {
+    const ms = value.getTime()
+    return Number.isFinite(ms) ? ms : 0
+  }
   if (typeof value === 'string') {
     const parsed = Date.parse(value)
-    return Number.isNaN(parsed) ? 0 : parsed
+    return Number.isFinite(parsed) ? parsed : 0
   }
   if (typeof value === 'object') {
     const timestamp = value as { toMillis?: () => number; toDate?: () => Date; seconds?: number; _seconds?: number }
-    if (typeof timestamp.toMillis === 'function') return timestamp.toMillis()
-    if (typeof timestamp.toDate === 'function') return timestamp.toDate().getTime()
+    if (typeof timestamp.toMillis === 'function') {
+      const ms = timestamp.toMillis()
+      return Number.isFinite(ms) ? ms : 0
+    }
+    if (typeof timestamp.toDate === 'function') {
+      const ms = timestamp.toDate().getTime()
+      return Number.isFinite(ms) ? ms : 0
+    }
     const seconds = timestamp.seconds ?? timestamp._seconds
-    if (typeof seconds === 'number') return seconds * 1000
+    if (typeof seconds === 'number' && Number.isFinite(seconds)) return seconds * 1000
   }
   return 0
 }
 
+function hasUnreadableTimestamp(value: unknown): boolean {
+  if (!value) return false
+  if (value instanceof Date) return !Number.isFinite(value.getTime())
+  if (typeof value === 'string') return !Number.isFinite(Date.parse(value))
+  if (typeof value === 'object') {
+    const timestamp = value as { toMillis?: () => number; toDate?: () => Date; seconds?: unknown; _seconds?: unknown }
+    if (typeof timestamp.toMillis === 'function') {
+      const ms = timestamp.toMillis()
+      return !Number.isFinite(ms)
+    }
+    if (typeof timestamp.toDate === 'function') {
+      const ms = timestamp.toDate().getTime()
+      return !Number.isFinite(ms)
+    }
+    if ('seconds' in timestamp || '_seconds' in timestamp) {
+      const seconds = timestamp.seconds ?? timestamp._seconds
+      return typeof seconds !== 'number' || !Number.isFinite(seconds)
+    }
+  }
+  return false
+}
+
 function formatDate(value: unknown): string {
   const ms = timestampMs(value)
-  if (!ms) return 'No date'
+  if (!ms) return hasUnreadableTimestamp(value) ? 'Movement date needs review' : 'No date'
   return new Date(ms).toLocaleDateString('en-ZA', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
@@ -190,16 +228,33 @@ function sumRows(rows: OverviewRow[], fieldNames: string[]): number {
 function statusTone(value: unknown): { label: string; className: string } {
   const status = stringValue(value).toLowerCase()
   if (!status) return { label: 'Linked', className: 'border-white/10 bg-white/5 text-[var(--color-pib-text-muted)]' }
+  const label = readableStatusLabel(status)
   if (['active', 'approved', 'paid', 'fulfilled', 'live', 'completed', 'won'].includes(status)) {
-    return { label: status.replace(/_/g, ' '), className: 'border-emerald-400/30 bg-emerald-400/10 text-emerald-200' }
+    return { label, className: 'border-emerald-400/30 bg-emerald-400/10 text-emerald-200' }
   }
   if (['pending', 'pending_approval', 'client_review', 'qa_review', 'in_progress', 'open', 'draft', 'review'].includes(status)) {
-    return { label: status.replace(/_/g, ' '), className: 'border-amber-400/30 bg-amber-400/10 text-amber-200' }
+    return { label, className: 'border-amber-400/30 bg-amber-400/10 text-amber-200' }
   }
   if (['blocked', 'overdue', 'failed', 'cancelled', 'lost', 'out_of_stock', 'low_stock'].includes(status)) {
-    return { label: status.replace(/_/g, ' '), className: 'border-red-400/30 bg-red-400/10 text-red-200' }
+    return { label, className: 'border-red-400/30 bg-red-400/10 text-red-200' }
   }
-  return { label: status.replace(/_/g, ' '), className: 'border-white/10 bg-white/5 text-[var(--color-pib-text-muted)]' }
+  return { label, className: 'border-white/10 bg-white/5 text-[var(--color-pib-text-muted)]' }
+}
+
+function readableStatusLabel(value: string): string {
+  return value
+    .split(/[_-]+/)
+    .filter(Boolean)
+    .map((part, index) => {
+      const lower = part.toLowerCase()
+      return index === 0 ? lower.charAt(0).toUpperCase() + lower.slice(1) : lower
+    })
+    .join(' ')
+}
+
+function readableAccountLabel(value?: string): string | undefined {
+  if (!value) return undefined
+  return readableStatusLabel(value)
 }
 
 function rowTitle(row: OverviewRow, fallback: string): string {
@@ -284,12 +339,33 @@ function SectionCard({ title, children, action }: { title: string; children: Rea
   )
 }
 
-function Field({ label, value }: { label: string; value?: string | number | null }) {
+function Field({
+  label,
+  value,
+  href,
+  external = false,
+}: {
+  label: string
+  value?: string | number | null
+  href?: string
+  external?: boolean
+}) {
   if (!value && value !== 0) return null
   return (
     <div className="flex items-baseline gap-3 py-1">
       <span className="w-28 shrink-0 text-[11px] text-[var(--color-pib-text-muted)]">{label}</span>
-      <span className="min-w-0 break-words text-sm text-[var(--color-pib-text)]">{value}</span>
+      {href ? (
+        <a
+          href={href}
+          target={external ? '_blank' : undefined}
+          rel={external ? 'noopener noreferrer' : undefined}
+          className="min-w-0 break-all text-sm text-[var(--color-accent-v2)] hover:underline"
+        >
+          {value}
+        </a>
+      ) : (
+        <span className="min-w-0 break-words text-sm text-[var(--color-pib-text)]">{value}</span>
+      )}
     </div>
   )
 }
@@ -421,14 +497,7 @@ function BusinessProfile({ company, onEditCompany }: { company: Company; onEditC
         <Field label="Size" value={company.size} />
         <Field label="Employees" value={company.employeeCount} />
         <Field label="Annual revenue" value={company.annualRevenue ? formatCurrency(company.annualRevenue, company.currency || 'ZAR') : null} />
-        {company.website && (
-          <div className="flex items-baseline gap-3 py-1">
-            <span className="w-28 shrink-0 text-[11px] text-[var(--color-pib-text-muted)]">Website</span>
-            <a href={company.website} target="_blank" rel="noopener noreferrer" className="min-w-0 break-all text-sm text-[var(--color-accent-v2)] hover:underline">
-              {company.website}
-            </a>
-          </div>
-        )}
+        <Field label="Website" value={company.website} href={externalHref(company.website)} external />
         {!company.legalName && !company.tradingName && !company.lifecycleStage && !company.tier && !company.industry && !company.size && !company.employeeCount && !company.annualRevenue && !company.website && (
           <ProfileCaptureAction
             title="Capture account identity."
@@ -441,13 +510,14 @@ function BusinessProfile({ company, onEditCompany }: { company: Company; onEditC
       </SectionCard>
 
       <SectionCard title="Billing & Contacts">
-        <Field label="Phone" value={company.phone} />
-        <Field label="Billing email" value={company.billingEmail} />
+        <Field label="Phone" value={company.phone} href={company.phone ? `tel:${company.phone}` : undefined} />
+        <Field label="Billing email" value={company.billingEmail} href={company.billingEmail ? `mailto:${company.billingEmail}` : undefined} />
         <Field label="Registration" value={company.registrationNumber} />
         <Field label="VAT" value={company.vatNumber} />
         <Field label="Tax number" value={company.taxNumber} />
         <Field label="Accounts" value={company.accountsContact?.name} />
-        <Field label="Accounts email" value={company.accountsContact?.email} />
+        <Field label="Accounts email" value={company.accountsContact?.email} href={company.accountsContact?.email ? `mailto:${company.accountsContact.email}` : undefined} />
+        <Field label="Accounts phone" value={company.accountsContact?.phone} href={company.accountsContact?.phone ? `tel:${company.accountsContact.phone}` : undefined} />
         <Field label="Signatory" value={company.authorizedSignatory?.name} />
         <Field label="PO required" value={company.purchaseOrderRequired ? 'Yes' : null} />
         <Field label="PO number" value={company.purchaseOrderNumber} />
@@ -540,6 +610,12 @@ export function CompanyOverviewPanel({ company, center, loading, onSelectTab, on
   const currency = company.currency || 'ZAR'
   const riskSignals = center?.analytics?.riskSignals ?? []
   const movement = latestMovement(center)
+  const accountContext = [
+    readableAccountLabel(company.lifecycleStage),
+    readableAccountLabel(company.tier),
+    company.industry,
+    company.domain,
+  ].filter(Boolean).join(' · ')
 
   const pulseChartData = [
     { value: Math.max(profileScore, 1) },
@@ -587,12 +663,7 @@ export function CompanyOverviewPanel({ company, center, loading, onSelectTab, on
                   {company.name}
                 </h2>
                 <p className="mt-2 max-w-2xl text-sm text-[var(--color-pib-text-muted)]">
-                  {[
-                    company.lifecycleStage,
-                    company.tier,
-                    company.industry,
-                    company.domain,
-                  ].filter(Boolean).join(' · ') || 'Command center'}
+                  {accountContext || 'Command center'}
                 </p>
               </div>
               <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] px-4 py-3 text-right">

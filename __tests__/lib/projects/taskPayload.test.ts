@@ -492,5 +492,22 @@ describe('project task payload helpers', () => {
         },
       })
     })
+
+    it('PATCH: accepts approval gate status transitions', () => {
+      const approved = buildProjectTaskUpdateData({ approvalStatus: 'approved' })
+      expect(approved.ok).toBe(true)
+      if (!approved.ok) return
+      expect(approved.value.approvalStatus).toBe('approved')
+
+      const rejected = buildProjectTaskUpdateData({ approvalStatus: 'rejected' })
+      expect(rejected.ok).toBe(true)
+      if (!rejected.ok) return
+      expect(rejected.value.approvalStatus).toBe('rejected')
+
+      const invalid = buildProjectTaskUpdateData({ approvalStatus: 'later' })
+      expect(invalid.ok).toBe(false)
+      if (invalid.ok) return
+      expect(invalid.error).toContain('Invalid approvalStatus')
+    })
   })
 })

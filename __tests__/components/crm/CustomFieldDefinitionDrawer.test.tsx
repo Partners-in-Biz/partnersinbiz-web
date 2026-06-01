@@ -204,8 +204,9 @@ describe('CustomFieldDefinitionDrawer', () => {
     fireEvent.change(keyInput, { target: { value: '123-invalid' } })
     fireEvent.click(screen.getByRole('button', { name: /Save field/i }))
     await waitFor(() => {
-      expect(screen.getByText(/must match/i)).toBeInTheDocument()
+      expect(screen.getByText('Start with a letter, then use lowercase letters, numbers, or underscores. Keep it under 40 characters.')).toBeInTheDocument()
     })
+    expect(screen.queryByText(/\^\[a-z\]/i)).not.toBeInTheDocument()
     expect(noopSave).not.toHaveBeenCalled()
   })
 

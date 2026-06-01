@@ -16,6 +16,7 @@ export interface NavItem {
 
 export const OPERATOR_NAV: NavItem[] = [
   { label: 'Home',         href: '/admin/dashboard',    icon: 'space_dashboard', group: 'work' },
+  { label: 'Briefings',    href: '/admin/briefings',    icon: 'team_dashboard', group: 'work' },
   { label: 'Clients',      href: '/admin/clients',      icon: 'groups', group: 'work', activePatterns: ['/admin/organizations'] },
   { label: 'Pipeline',     href: '/admin/crm/contacts', icon: 'view_kanban', group: 'work', activePatterns: ['/admin/crm'] },
   {
@@ -50,6 +51,7 @@ export const OPERATOR_NAV: NavItem[] = [
 
 export const OPERATOR_NAV_TOPBAR: NavItem[] = [
   { label: 'Home',     href: '/admin/dashboard',    icon: 'space_dashboard' },
+  { label: 'Briefings', href: '/admin/briefings', icon: 'team_dashboard' },
   { label: 'Clients',  href: '/admin/clients',      icon: 'groups', activePatterns: ['/admin/organizations'] },
   { label: 'Pipeline', href: '/admin/crm/contacts', icon: 'view_kanban', activePatterns: ['/admin/crm'] },
   {

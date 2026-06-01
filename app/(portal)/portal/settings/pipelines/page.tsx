@@ -6,12 +6,12 @@ import { useEffect, useState, useCallback } from 'react'
 import { PipelineDefinitionsList } from '@/components/crm/PipelineDefinitionsList'
 import { PipelineDrawer } from '@/components/crm/PipelineDrawer'
 import { extractPipelinesList } from '@/lib/pipelines/response'
-import type { Pipeline } from '@/lib/pipelines/types'
+import type { Pipeline, PipelineStage } from '@/lib/pipelines/types'
 
 type HealthFilter = 'all' | 'ready' | 'needs-work'
 
 function pipelineHealth(pipeline: Pipeline): { score: number; gaps: string[] } {
-  const stages = pipeline.stages ?? []
+  const stages = pipelineStages(pipeline)
   const checks = [
     { ok: Boolean(pipeline.name?.trim()), label: 'name' },
     { ok: stages.length > 0, label: 'stages' },
@@ -24,6 +24,22 @@ function pipelineHealth(pipeline: Pipeline): { score: number; gaps: string[] } {
     score: Math.round((passed / checks.length) * 100),
     gaps: checks.filter((check) => !check.ok).map((check) => check.label),
   }
+}
+
+function pipelineStages(pipeline: Pipeline): PipelineStage[] {
+  return Array.isArray(pipeline.stages) ? pipeline.stages : []
+}
+
+function pipelineDisplayName(pipeline: Pipeline): string {
+  return pipeline.name?.trim() || 'Pipeline name missing'
+}
+
+function pipelineSearchText(pipeline: Pipeline): string {
+  return [
+    pipelineDisplayName(pipeline),
+    pipeline.description,
+    ...pipelineStages(pipeline).flatMap((stage) => [stage.label, stage.kind]),
+  ].filter(Boolean).join(' ').toLowerCase()
 }
 
 function StatCard({ label, value, sub, icon }: { label: string; value: string; sub: string; icon: string }) {
@@ -49,6 +65,9 @@ export default function PipelinesPage() {
   const [showArchived, setShowArchived] = useState(false)
   const [search, setSearch] = useState('')
   const [healthFilter, setHealthFilter] = useState<HealthFilter>('all')
+  const [pendingDeletePipeline, setPendingDeletePipeline] = useState<Pipeline | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   // Drawer state
   const [drawerOpen, setDrawerOpen] = useState(false)
@@ -147,7 +166,8 @@ export default function PipelinesPage() {
   }
 
   async function handleDelete(p: Pipeline) {
-    if (!confirm(`Delete "${p.name}"? This cannot be undone.`)) return
+    setDeletingId(p.id)
+    setDeleteError(null)
     try {
       const res = await fetch(`/api/v1/crm/pipelines/${p.id}`, { method: 'DELETE' })
       if (!res.ok) {
@@ -156,13 +176,21 @@ export default function PipelinesPage() {
         const msg = res.status === 400
           ? (body.error ?? 'This pipeline has live deals and cannot be deleted. Archive it instead.')
           : (body.error ?? 'Failed to delete pipeline.')
-        alert(msg)
+        setDeleteError(msg)
         return
       }
+      setPendingDeletePipeline(null)
       await fetchPipelines(showArchived)
     } catch {
-      alert('Could not reach the server.')
+      setDeleteError('Could not reach the server.')
+    } finally {
+      setDeletingId(null)
     }
+  }
+
+  async function confirmDeletePipeline() {
+    if (!pendingDeletePipeline) return
+    await handleDelete(pendingDeletePipeline)
   }
 
   async function handleSave(data: Partial<Pipeline>) {
@@ -198,20 +226,17 @@ export default function PipelinesPage() {
   const activePipelines = pipelines.filter((pipeline) => !pipeline.archived)
   const archivedPipelines = pipelines.filter((pipeline) => pipeline.archived)
   const defaultPipeline = pipelines.find((pipeline) => pipeline.isDefault)
-  const totalStages = pipelines.reduce((sum, pipeline) => sum + pipeline.stages.length, 0)
-  const activeStageTotal = activePipelines.reduce((sum, pipeline) => sum + pipeline.stages.length, 0)
-  const openStageCount = pipelines.reduce((sum, pipeline) => sum + pipeline.stages.filter((stage) => stage.kind === 'open').length, 0)
-  const wonStageCount = pipelines.reduce((sum, pipeline) => sum + pipeline.stages.filter((stage) => stage.kind === 'won').length, 0)
-  const lostStageCount = pipelines.reduce((sum, pipeline) => sum + pipeline.stages.filter((stage) => stage.kind === 'lost').length, 0)
+  const totalStages = pipelines.reduce((sum, pipeline) => sum + pipelineStages(pipeline).length, 0)
+  const activeStageTotal = activePipelines.reduce((sum, pipeline) => sum + pipelineStages(pipeline).length, 0)
+  const openStageCount = pipelines.reduce((sum, pipeline) => sum + pipelineStages(pipeline).filter((stage) => stage.kind === 'open').length, 0)
+  const wonStageCount = pipelines.reduce((sum, pipeline) => sum + pipelineStages(pipeline).filter((stage) => stage.kind === 'won').length, 0)
+  const lostStageCount = pipelines.reduce((sum, pipeline) => sum + pipelineStages(pipeline).filter((stage) => stage.kind === 'lost').length, 0)
   const readyCount = pipelines.filter((pipeline) => pipelineHealth(pipeline).score >= 100).length
   const needsWorkCount = pipelines.filter((pipeline) => pipelineHealth(pipeline).score < 100).length
   const averageStages = activePipelines.length > 0 ? activeStageTotal / activePipelines.length : 0
   const filteredPipelines = pipelines.filter((pipeline) => {
     const q = search.trim().toLowerCase()
-    const matchesSearch = !q ||
-      pipeline.name.toLowerCase().includes(q) ||
-      pipeline.description?.toLowerCase().includes(q) ||
-      pipeline.stages.some((stage) => stage.label.toLowerCase().includes(q) || stage.kind.includes(q))
+    const matchesSearch = !q || pipelineSearchText(pipeline).includes(q)
     const health = pipelineHealth(pipeline)
     const matchesHealth =
       healthFilter === 'all' ||
@@ -245,7 +270,7 @@ export default function PipelinesPage() {
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Active pipelines" value={String(activePipelines.length)} sub={`${archivedPipelines.length} archived definitions hidden by default`} icon="account_tree" />
-        <StatCard label="Default route" value={defaultPipeline ? 'Set' : 'Missing'} sub={defaultPipeline?.name ?? 'Choose a default path for new deals'} icon="star" />
+        <StatCard label="Default route" value={defaultPipeline ? 'Set' : 'Missing'} sub={defaultPipeline ? pipelineDisplayName(defaultPipeline) : 'Choose a default path for new deals'} icon="star" />
         <StatCard label="Stage coverage" value={String(totalStages)} sub={`${openStageCount} open, ${wonStageCount} won, ${lostStageCount} lost`} icon="schema" />
         <StatCard label="Pipeline health" value={`${readyCount}/${pipelines.length || 0}`} sub={`${needsWorkCount} definition${needsWorkCount === 1 ? '' : 's'} need setup work`} icon="monitoring" />
       </section>
@@ -323,6 +348,61 @@ export default function PipelinesPage() {
         </div>
       </section>
 
+      {deleteError && (
+        <div className="rounded-lg border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm text-red-100">
+          <span className="material-symbols-outlined mr-1.5 align-middle text-[16px]" aria-hidden="true">error</span>
+          {deleteError}
+        </div>
+      )}
+
+      {pendingDeletePipeline && (
+        <section
+          role="alertdialog"
+          aria-modal="false"
+          aria-labelledby="pipeline-delete-confirm-title"
+          aria-describedby="pipeline-delete-confirm-description"
+          className="rounded-lg border border-red-400/25 bg-red-500/10 p-5 shadow-[0_18px_40px_rgba(127,29,29,0.18)]"
+        >
+          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+            <div className="flex gap-3">
+              <span className="material-symbols-outlined mt-0.5 text-red-200" aria-hidden="true">warning</span>
+              <div>
+                <p className="eyebrow !text-[10px] !text-red-100/80">Pipeline delete</p>
+                <h2 id="pipeline-delete-confirm-title" className="mt-1 font-display text-lg text-red-50">
+                  Delete pipeline &quot;{pipelineDisplayName(pendingDeletePipeline)}&quot;?
+                </h2>
+                <p id="pipeline-delete-confirm-description" className="mt-2 max-w-2xl text-sm text-red-100/90">
+                  This removes the revenue path with {pipelineStages(pendingDeletePipeline).length} stage{pipelineStages(pendingDeletePipeline).length === 1 ? '' : 's'}. Existing deal history stays available for audit.
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 md:justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setPendingDeletePipeline(null)
+                  setDeleteError(null)
+                }}
+                className="btn-pib-secondary text-xs"
+                disabled={deletingId === pendingDeletePipeline.id}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmDeletePipeline}
+                aria-label={`Confirm delete pipeline ${pipelineDisplayName(pendingDeletePipeline)}`}
+                className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-lg border border-red-300/30 bg-red-500/20 px-3 py-2 text-xs font-semibold text-red-50 transition-colors hover:border-red-200/60 hover:bg-red-500/30 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={deletingId === pendingDeletePipeline.id}
+              >
+                <span className="material-symbols-outlined text-[15px]" aria-hidden="true">delete</span>
+                {deletingId === pendingDeletePipeline.id ? 'Deleting...' : 'Delete pipeline'}
+              </button>
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* Content */}
       {loading ? (
         <div className="space-y-3">
@@ -354,7 +434,10 @@ export default function PipelinesPage() {
           isAdmin={isAdmin}
           onCreate={openCreate}
           onEdit={openEdit}
-          onDelete={handleDelete}
+          onDelete={(pipeline) => {
+            setPendingDeletePipeline(pipeline)
+            setDeleteError(null)
+          }}
           onSetDefault={handleSetDefault}
           onArchive={handleArchive}
         />

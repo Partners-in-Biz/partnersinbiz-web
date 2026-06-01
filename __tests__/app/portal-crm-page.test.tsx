@@ -43,13 +43,163 @@ describe('Portal CRM hub', () => {
     expect(createDealLink).toHaveAttribute('href', '/portal/deals?create=deal')
   })
 
-  it('turns the empty activity panel into a contact activity action', async () => {
+  it('turns the empty activity panel into a stale-follow-up command', async () => {
     render(<PortalCrmPage />)
 
-    expect(await screen.findByRole('heading', { name: 'No relationship activity logged yet.' })).toBeInTheDocument()
-    expect(screen.getByText('Open the stale follow-up lens to give the team a working list for calls, emails, meetings, and notes.')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Relationship activity missing' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'No relationship activity logged yet.' })).not.toBeInTheDocument()
+    expect(screen.getByText('Open the stale follow-up lens so managers can assign calls, emails, meetings, and notes before accounts go quiet.')).toBeInTheDocument()
 
-    const contactsLink = screen.getByRole('link', { name: 'Open contacts to log CRM activity from the command center' })
+    const contactsLink = screen.getByRole('link', { name: 'Open stale contacts from CRM command center' })
     expect(contactsLink).toHaveAttribute('href', '/portal/contacts?followUp=stale')
+  })
+
+  it('names missing activity timestamps instead of showing a generic no-date label', async () => {
+    ;(global.fetch as jest.Mock).mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/dashboard') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: {
+              openDealsCount: 1,
+              openDealsValue: 20000,
+              weightedPipelineValue: 12000,
+              wonThisMonth: { count: 0, value: 0 },
+              lostThisMonth: { count: 0 },
+              recentActivities: [
+                {
+                  id: 'activity-1',
+                  summary: 'Discovery call logged',
+                  contactName: 'Mandy CEO',
+                  createdAt: null,
+                },
+              ],
+              topOpenDeals: [
+                {
+                  id: 'deal-1',
+                  title: 'Board reporting rollout',
+                  value: 20000,
+                  currency: 'ZAR',
+                  probability: 60,
+                  contactName: 'Mandy CEO',
+                },
+              ],
+            },
+          }),
+        } as Response)
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    })
+
+    render(<PortalCrmPage />)
+
+    expect(await screen.findByText('Discovery call logged')).toBeInTheDocument()
+    expect(screen.getByText('Mandy CEO · Timestamp not captured')).toBeInTheDocument()
+    expect(screen.queryByText('Mandy CEO · No date')).not.toBeInTheDocument()
+  })
+
+  it('renders sparse recent activity rows as readable CRM follow-up context', async () => {
+    ;(global.fetch as jest.Mock).mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/dashboard') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: {
+              openDealsCount: 1,
+              openDealsValue: 20000,
+              weightedPipelineValue: 12000,
+              wonThisMonth: { count: 0, value: 0 },
+              lostThisMonth: { count: 0 },
+              recentActivities: [
+                {
+                  id: 'activity-1',
+                  type: 'meeting_follow_up',
+                  summary: '',
+                  contactName: '',
+                  createdAt: { seconds: Number.NaN },
+                },
+              ],
+              topOpenDeals: [
+                {
+                  id: 'deal-1',
+                  title: 'Board reporting rollout',
+                  value: 20000,
+                  currency: 'ZAR',
+                  probability: 60,
+                  contactName: 'Mandy CEO',
+                },
+              ],
+            },
+          }),
+        } as Response)
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    })
+
+    render(<PortalCrmPage />)
+
+    expect(await screen.findByText('Meeting follow up')).toBeInTheDocument()
+    expect(screen.getByText('Contact not linked · Activity date needs review')).toBeInTheDocument()
+    expect(screen.queryByText(/meeting_follow_up/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Invalid Date/)).not.toBeInTheDocument()
+  })
+
+  it('turns recent CRM activity rows into contact and deal drill-down links', async () => {
+    ;(global.fetch as jest.Mock).mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/dashboard') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: {
+              openDealsCount: 1,
+              openDealsValue: 20000,
+              weightedPipelineValue: 12000,
+              wonThisMonth: { count: 0, value: 0 },
+              lostThisMonth: { count: 0 },
+              recentActivities: [
+                {
+                  id: 'activity-1',
+                  type: 'call',
+                  summary: 'CEO call logged',
+                  contactName: 'Mandy CEO',
+                  contactId: 'contact-1',
+                  createdAt: null,
+                },
+                {
+                  id: 'activity-2',
+                  type: 'stage_change',
+                  summary: 'Proposal moved to review',
+                  contactName: 'Board Sponsor',
+                  dealId: 'deal-1',
+                  createdAt: null,
+                },
+              ],
+              topOpenDeals: [
+                {
+                  id: 'deal-1',
+                  title: 'Board reporting rollout',
+                  value: 20000,
+                  currency: 'ZAR',
+                  probability: 60,
+                  contactName: 'Mandy CEO',
+                },
+              ],
+            },
+          }),
+        } as Response)
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    })
+
+    render(<PortalCrmPage />)
+
+    const contactActivity = await screen.findByRole('link', { name: /CEO call logged/ })
+    expect(contactActivity).toHaveAttribute('href', '/portal/contacts/contact-1')
+
+    const dealActivity = screen.getByRole('link', { name: /Proposal moved to review/ })
+    expect(dealActivity).toHaveAttribute('href', '/portal/deals/deal-1')
   })
 })

@@ -7,7 +7,7 @@ import Link from 'next/link'
 import type { Company } from '@/lib/companies/types'
 import type { CustomFieldDefinition } from '@/lib/customFields/types'
 import { CompanyHeader } from '@/components/crm/CompanyHeader'
-import { CompanyTabsBar } from '@/components/crm/CompanyTabsBar'
+import { CompanyTabsBar, COMPANY_TABS } from '@/components/crm/CompanyTabsBar'
 import type { CompanyTab } from '@/components/crm/CompanyTabsBar'
 import { CompanyOverviewPanel } from '@/components/crm/CompanyOverviewPanel'
 import { CompanyEditDrawer } from '@/components/crm/CompanyEditDrawer'
@@ -127,6 +127,13 @@ type RelatedActivity = {
   createdAt?: unknown
 }
 
+const COMPANY_TAB_KEYS = new Set<CompanyTab>(COMPANY_TABS.map((tab) => tab.key))
+
+function toCompanyTab(value: string | null): CompanyTab | null {
+  if (!value) return null
+  return COMPANY_TAB_KEYS.has(value as CompanyTab) ? value as CompanyTab : null
+}
+
 type CommandCenterSummary = {
   projects?: number
   serviceWorkspaces?: number
@@ -211,13 +218,24 @@ function TableShell({ children }: { children: React.ReactNode }) {
   )
 }
 
-function StatusChip({ value }: { value?: string }) {
-  if (!value) return <span className="text-[var(--color-pib-text-muted)]">-</span>
+function StatusChip({ value, emptyLabel = 'Status not set' }: { value?: string; emptyLabel?: string }) {
+  if (!value) return <span className="text-xs text-[var(--color-pib-text-muted)]">{emptyLabel}</span>
   return (
     <span className="inline-flex rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-label uppercase tracking-wide text-emerald-300">
-      {value.replace(/_/g, ' ')}
+      {readableStatusLabel(value)}
     </span>
   )
+}
+
+function readableStatusLabel(value: string): string {
+  return value
+    .split(/[_-]+/)
+    .filter(Boolean)
+    .map((part, index) => {
+      const lower = part.toLowerCase()
+      return index === 0 ? lower.charAt(0).toUpperCase() + lower.slice(1) : lower
+    })
+    .join(' ')
 }
 
 function formatCurrency(value?: number, currency = 'ZAR') {
@@ -229,22 +247,219 @@ function formatCurrency(value?: number, currency = 'ZAR') {
   }).format(value)
 }
 
-function formatDate(value: unknown) {
-  if (!value) return '-'
-  let date: Date | null = null
-  if (value instanceof Date) date = value
+function dealValueLabel(deal: RelatedDeal) {
+  return typeof deal.value === 'number' && Number.isFinite(deal.value)
+    ? formatCurrency(deal.value, deal.currency || 'ZAR')
+    : 'No value captured'
+}
+
+function dealProbabilityLabel(deal: RelatedDeal) {
+  return typeof deal.probability === 'number' && Number.isFinite(deal.probability)
+    ? `${deal.probability}%`
+    : 'Probability not set'
+}
+
+function contactIdentityLabel(contact: RelatedContact) {
+  return contact.name || contact.email || 'Contact name missing'
+}
+
+function projectNameLabel(project: RelatedProject) {
+  return project.name || 'Project name missing'
+}
+
+function projectDescriptionLabel(project: RelatedProject) {
+  return project.description || 'Description not captured'
+}
+
+function projectStatusLabel(project: RelatedProject) {
+  return project.status ? undefined : 'Project status not set'
+}
+
+function projectUpdatedLabel(project: RelatedProject) {
+  return dateReadinessLabel(project.updatedAt, 'Project update time not captured', 'Project update date needs review')
+}
+
+function serviceWorkspaceNameLabel(workspace: RelatedServiceWorkspace) {
+  return workspace.name || 'Service workspace name missing'
+}
+
+function serviceWorkspaceTypeLabel(workspace: RelatedServiceWorkspace) {
+  return workspace.serviceType || 'Service type not set'
+}
+
+function serviceWorkspaceVisibilityLabel(workspace: RelatedServiceWorkspace) {
+  return workspace.visibility || 'Workspace visibility not set'
+}
+
+function serviceWorkspaceStatusLabel(workspace: RelatedServiceWorkspace) {
+  return workspace.status ? undefined : 'Service status not set'
+}
+
+function documentTitleLabel(document: RelatedDocument) {
+  return document.title || 'Document title missing'
+}
+
+function documentTypeLabel(document: RelatedDocument) {
+  return document.type || 'Document type not set'
+}
+
+function documentStatusLabel(document: RelatedDocument) {
+  return document.status ? undefined : 'Document status not set'
+}
+
+function documentUpdatedLabel(document: RelatedDocument) {
+  return dateReadinessLabel(document.updatedAt, 'Document update time not captured', 'Document update date needs review')
+}
+
+function relationshipTargetLabel(relationship: RelatedRelationship) {
+  return relationship.targetName || 'Relationship target missing'
+}
+
+function relationshipTypeLabel(relationship: RelatedRelationship) {
+  return relationship.relationshipType || 'Relationship type not set'
+}
+
+function relationshipStatusLabel(relationship: RelatedRelationship) {
+  return relationship.status ? undefined : 'Relationship status not set'
+}
+
+function relationshipCapabilitiesLabel(relationship: RelatedRelationship) {
+  return Array.isArray(relationship.sharedCapabilities) && relationship.sharedCapabilities.length > 0
+    ? relationship.sharedCapabilities.join(', ')
+    : 'Shared capabilities not captured'
+}
+
+function quoteTotalLabel(quote: RelatedQuote) {
+  return typeof quote.total === 'number' && Number.isFinite(quote.total)
+    ? formatCurrency(quote.total, quote.currency || 'ZAR')
+    : 'No total captured'
+}
+
+function invoiceTotalLabel(invoice: RelatedInvoice) {
+  return typeof invoice.total === 'number' && Number.isFinite(invoice.total)
+    ? formatCurrency(invoice.total, invoice.currency || 'ZAR')
+    : 'No total captured'
+}
+
+function dateFromValue(value: unknown): Date | null {
+  if (!value) return null
+  if (value instanceof Date) return Number.isFinite(value.getTime()) ? value : null
   else if (typeof value === 'string') {
     const parsed = new Date(value)
-    date = Number.isNaN(parsed.getTime()) ? null : parsed
+    return Number.isFinite(parsed.getTime()) ? parsed : null
   } else if (typeof value === 'object') {
-    const timestamp = value as { toDate?: () => Date; seconds?: number; _seconds?: number }
-    if (typeof timestamp.toDate === 'function') date = timestamp.toDate()
+    const timestamp = value as { toDate?: () => Date; seconds?: unknown; _seconds?: unknown }
+    if (typeof timestamp.toDate === 'function') {
+      const date = timestamp.toDate()
+      return Number.isFinite(date.getTime()) ? date : null
+    }
     else {
       const seconds = timestamp.seconds ?? timestamp._seconds
-      if (typeof seconds === 'number') date = new Date(seconds * 1000)
+      if (typeof seconds === 'number' && Number.isFinite(seconds)) return new Date(seconds * 1000)
     }
   }
+  return null
+}
+
+function hasUnreadableDate(value: unknown) {
+  if (!value) return false
+  if (value instanceof Date) return !Number.isFinite(value.getTime())
+  if (typeof value === 'string') return !Number.isFinite(new Date(value).getTime())
+  if (typeof value === 'object') {
+    const timestamp = value as { toDate?: () => Date; seconds?: unknown; _seconds?: unknown }
+    if (typeof timestamp.toDate === 'function') {
+      const date = timestamp.toDate()
+      return !Number.isFinite(date.getTime())
+    }
+    if ('seconds' in timestamp || '_seconds' in timestamp) {
+      const seconds = timestamp.seconds ?? timestamp._seconds
+      return typeof seconds !== 'number' || !Number.isFinite(seconds)
+    }
+  }
+  return false
+}
+
+function formatDate(value: unknown) {
+  const date = dateFromValue(value)
   return date ? date.toLocaleDateString('en-ZA', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'
+}
+
+function dateReadinessLabel(value: unknown, missingLabel: string, invalidLabel: string) {
+  if (hasUnreadableDate(value)) return invalidLabel
+  const date = formatDate(value)
+  return date === '-' ? missingLabel : date
+}
+
+function quoteValidUntilLabel(quote: RelatedQuote) {
+  return dateReadinessLabel(quote.validUntil, 'Valid date not set', 'Valid date needs review')
+}
+
+function invoiceDueDateLabel(invoice: RelatedInvoice) {
+  return dateReadinessLabel(invoice.dueDate, 'Due date not set', 'Due date needs review')
+}
+
+function orderTitleLabel(order: RelatedOrder) {
+  return order.title || 'Fulfillment order name missing'
+}
+
+function orderStatusLabel(order: RelatedOrder) {
+  return order.status ? undefined : 'Order status not set'
+}
+
+function orderFulfillmentStatusLabel(order: RelatedOrder) {
+  return order.fulfillmentStatus || 'Fulfillment status not set'
+}
+
+function orderTotalLabel(order: RelatedOrder) {
+  return typeof order.total === 'number' && Number.isFinite(order.total)
+    ? formatCurrency(order.total, order.currency || 'ZAR')
+    : 'No total captured'
+}
+
+function shipmentCarrierLabel(shipment: RelatedShipment) {
+  return shipment.carrier || 'Carrier not set'
+}
+
+function shipmentTrackingLabel(shipment: RelatedShipment) {
+  return shipment.trackingNumber || 'Tracking number not set'
+}
+
+function shipmentExpectedDeliveryLabel(shipment: RelatedShipment) {
+  return dateReadinessLabel(shipment.expectedDeliveryDate, 'Expected delivery not set', 'Expected delivery date needs review')
+}
+
+function shipmentStatusLabel(shipment: RelatedShipment) {
+  return shipment.status ? undefined : 'Shipment status not set'
+}
+
+function inventoryItemNameLabel(item: RelatedInventoryItem) {
+  return item.name || item.sku || 'Inventory item name missing'
+}
+
+function inventorySkuLabel(item: RelatedInventoryItem) {
+  return item.sku || 'SKU not set'
+}
+
+function inventoryQuantityLabel(item: RelatedInventoryItem) {
+  return typeof item.quantityAvailable === 'number' && Number.isFinite(item.quantityAvailable)
+    ? `${item.quantityAvailable} available`
+    : 'Quantity not captured'
+}
+
+function inventoryStatusLabel(item: RelatedInventoryItem) {
+  return item.status ? undefined : 'Inventory status not set'
+}
+
+function activitySummaryLabel(activity: RelatedActivity) {
+  return activity.summary || 'Activity summary missing'
+}
+
+function activityTypeLabel(activity: RelatedActivity) {
+  return activity.type ? activity.type.replace(/_/g, ' ') : 'Activity type not set'
+}
+
+function activityCreatedAtLabel(activity: RelatedActivity) {
+  return dateReadinessLabel(activity.createdAt, 'Activity time not captured', 'Activity time needs review')
 }
 
 function extractList<T>(body: unknown, key: keyof RelatedState): T[] {
@@ -293,12 +508,12 @@ function ContactsPanel({
             <tr key={contact.id} className="hover:bg-white/[0.02]">
               <td className="px-5 py-4">
                 <Link href={`/portal/contacts/${contact.id}`} className="font-medium text-[var(--color-accent-v2)] hover:underline">
-                  {contact.name || contact.email || contact.id}
+                  {contactIdentityLabel(contact)}
                 </Link>
               </td>
-              <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{contact.email || '-'}</td>
-              <td className="px-5 py-4"><StatusChip value={contact.type} /></td>
-              <td className="px-5 py-4"><StatusChip value={contact.stage} /></td>
+              <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{contact.email || 'No email captured'}</td>
+              <td className="px-5 py-4"><StatusChip value={contact.type} emptyLabel="Type not set" /></td>
+              <td className="px-5 py-4"><StatusChip value={contact.stage} emptyLabel="Stage not set" /></td>
             </tr>
           ))}
         </tbody>
@@ -308,7 +523,7 @@ function ContactsPanel({
 }
 
 function contactLabel(contact: RelatedContact) {
-  return contact.name || contact.email || contact.id
+  return contactIdentityLabel(contact)
 }
 
 function DealsPanel({
@@ -368,9 +583,9 @@ function DealsPanel({
                   {deal.title || deal.id}
                 </Link>
               </td>
-              <td className="px-5 py-4">{formatCurrency(deal.value, deal.currency || 'ZAR')}</td>
-              <td className="px-5 py-4"><StatusChip value={deal.stageId} /></td>
-              <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{typeof deal.probability === 'number' ? `${deal.probability}%` : '-'}</td>
+              <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{dealValueLabel(deal)}</td>
+              <td className="px-5 py-4"><StatusChip value={deal.stageId} emptyLabel="Stage not set" /></td>
+              <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{dealProbabilityLabel(deal)}</td>
             </tr>
           ))}
         </tbody>
@@ -470,9 +685,13 @@ function ProjectsPanel({
       rows={projects}
       emptyIcon="folder_off"
       emptyLabel="No linked projects yet."
-      title={(row) => String(row.name ?? row.id)}
+      title={(row) => projectNameLabel(row as RelatedProject)}
       hrefFor={(row) => `/portal/projects/${row.id}`}
-      metaFor={(row) => [String(row.description ?? ''), formatDate(row.updatedAt)]}
+      metaFor={(row) => [
+        projectDescriptionLabel(row as RelatedProject),
+        projectStatusLabel(row as RelatedProject),
+        projectUpdatedLabel(row as RelatedProject),
+      ]}
     />
   )
 }
@@ -528,8 +747,12 @@ function ServicesPanel({
       rows={serviceWorkspaces}
       emptyIcon="workspaces"
       emptyLabel="No service workspaces yet."
-      title={(row) => String(row.name ?? row.id)}
-      metaFor={(row) => [String(row.serviceType ?? ''), String(row.visibility ?? '')]}
+      title={(row) => serviceWorkspaceNameLabel(row as RelatedServiceWorkspace)}
+      metaFor={(row) => [
+        serviceWorkspaceTypeLabel(row as RelatedServiceWorkspace),
+        serviceWorkspaceVisibilityLabel(row as RelatedServiceWorkspace),
+        serviceWorkspaceStatusLabel(row as RelatedServiceWorkspace),
+      ]}
     />
   )
 }
@@ -573,9 +796,13 @@ function DocumentsPanel({
       rows={documents}
       emptyIcon="description"
       emptyLabel="No linked documents yet."
-      title={(row) => String(row.title ?? row.id)}
+      title={(row) => documentTitleLabel(row as RelatedDocument)}
       hrefFor={(row) => `/portal/documents/${row.id}`}
-      metaFor={(row) => [String(row.type ?? ''), formatDate(row.updatedAt)]}
+      metaFor={(row) => [
+        documentTypeLabel(row as RelatedDocument),
+        documentStatusLabel(row as RelatedDocument),
+        documentUpdatedLabel(row as RelatedDocument),
+      ]}
     />
   )
 }
@@ -626,10 +853,11 @@ function RelationshipsPanel({
       rows={relationships}
       emptyIcon="hub"
       emptyLabel="No business relationships yet."
-      title={(row) => String(row.targetName ?? row.relationshipType ?? row.id)}
+      title={(row) => relationshipTargetLabel(row as RelatedRelationship)}
       metaFor={(row) => [
-        String(row.relationshipType ?? ''),
-        Array.isArray(row.sharedCapabilities) ? row.sharedCapabilities.join(', ') : undefined,
+        relationshipTypeLabel(row as RelatedRelationship),
+        relationshipStatusLabel(row as RelatedRelationship),
+        relationshipCapabilitiesLabel(row as RelatedRelationship),
       ]}
     />
   )
@@ -700,9 +928,9 @@ function QuotesPanel({
           {quotes.map((quote) => (
             <tr key={quote.id} className="hover:bg-white/[0.02]">
               <td className="px-5 py-4 font-mono">{quote.quoteNumber || quote.id}</td>
-              <td className="px-5 py-4"><StatusChip value={quote.status} /></td>
-              <td className="px-5 py-4">{formatCurrency(quote.total, quote.currency || 'ZAR')}</td>
-              <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{formatDate(quote.validUntil)}</td>
+              <td className="px-5 py-4"><StatusChip value={quote.status} emptyLabel="Quote status not set" /></td>
+              <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{quoteTotalLabel(quote)}</td>
+              <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{quoteValidUntilLabel(quote)}</td>
             </tr>
           ))}
         </tbody>
@@ -781,9 +1009,9 @@ function InvoicesPanel({
           {invoices.map((invoice) => (
             <tr key={invoice.id} className="hover:bg-white/[0.02]">
               <td className="px-5 py-4 font-mono">{invoice.invoiceNumber || invoice.id}</td>
-              <td className="px-5 py-4"><StatusChip value={invoice.status} /></td>
-              <td className="px-5 py-4">{formatCurrency(invoice.total, invoice.currency || 'ZAR')}</td>
-              <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{formatDate(invoice.dueDate)}</td>
+              <td className="px-5 py-4"><StatusChip value={invoice.status} emptyLabel="Invoice status not set" /></td>
+              <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{invoiceTotalLabel(invoice)}</td>
+              <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{invoiceDueDateLabel(invoice)}</td>
               <td className="px-5 py-4 text-right">
                 <a href={`/api/v1/invoices/${invoice.id}/pdf`} target="_blank" rel="noopener noreferrer" className="text-[var(--color-accent-v2)] hover:underline">
                   Open
@@ -854,10 +1082,11 @@ function OrdersPanel({
       rows={orders}
       emptyIcon="orders"
       emptyLabel="No linked orders yet."
-      title={(row) => String(row.title ?? row.id)}
+      title={(row) => orderTitleLabel(row as RelatedOrder)}
       metaFor={(row) => [
-        String(row.fulfillmentStatus ?? ''),
-        formatCurrency(typeof row.total === 'number' ? row.total : undefined, String(row.currency ?? 'ZAR')),
+        orderFulfillmentStatusLabel(row as RelatedOrder),
+        orderTotalLabel(row as RelatedOrder),
+        orderStatusLabel(row as RelatedOrder),
       ]}
     />
   )
@@ -920,8 +1149,12 @@ function ShipmentsPanel({
       rows={shipments}
       emptyIcon="local_shipping"
       emptyLabel="No shipments yet."
-      title={(row) => String(row.carrier ?? row.trackingNumber ?? row.id)}
-      metaFor={(row) => [String(row.trackingNumber ?? ''), formatDate(row.expectedDeliveryDate)]}
+      title={(row) => shipmentCarrierLabel(row as RelatedShipment)}
+      metaFor={(row) => [
+        shipmentTrackingLabel(row as RelatedShipment),
+        shipmentExpectedDeliveryLabel(row as RelatedShipment),
+        shipmentStatusLabel(row as RelatedShipment),
+      ]}
     />
   )
 }
@@ -965,10 +1198,11 @@ function InventoryPanel({
       rows={inventoryItems}
       emptyIcon="inventory_2"
       emptyLabel="No inventory items yet."
-      title={(row) => String(row.name ?? row.sku ?? row.id)}
+      title={(row) => inventoryItemNameLabel(row as RelatedInventoryItem)}
       metaFor={(row) => [
-        String(row.sku ?? ''),
-        typeof row.quantityAvailable === 'number' ? `${row.quantityAvailable} available` : undefined,
+        inventorySkuLabel(row as RelatedInventoryItem),
+        inventoryQuantityLabel(row as RelatedInventoryItem),
+        inventoryStatusLabel(row as RelatedInventoryItem),
       ]}
     />
   )
@@ -1282,10 +1516,10 @@ function ActivityPanel({
         {activities.map((activity) => (
           <div key={activity.id} className="px-5 py-4 flex items-start justify-between gap-4">
             <div>
-              <p className="font-medium text-sm text-[var(--color-pib-text)]">{activity.summary || activity.type || 'Activity'}</p>
-              {activity.type && <p className="text-xs text-[var(--color-pib-text-muted)] mt-1">{activity.type.replace(/_/g, ' ')}</p>}
+              <p className="font-medium text-sm text-[var(--color-pib-text)]">{activitySummaryLabel(activity)}</p>
+              <p className="text-xs text-[var(--color-pib-text-muted)] mt-1">{activityTypeLabel(activity)}</p>
             </div>
-            <span className="text-xs text-[var(--color-pib-text-muted)] shrink-0">{formatDate(activity.createdAt)}</span>
+            <span className="text-xs text-[var(--color-pib-text-muted)] shrink-0">{activityCreatedAtLabel(activity)}</span>
           </div>
         ))}
       </div>
@@ -1299,13 +1533,16 @@ export default function CompanyDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
   const searchParams = useSearchParams()
+  const initialTab = toCompanyTab(searchParams.get('tab')) ?? 'overview'
 
   const [company, setCompany] = useState<Company | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [archiveConfirmOpen, setArchiveConfirmOpen] = useState(false)
+  const [archiveError, setArchiveError] = useState<string | null>(null)
 
-  const [tab, setTab] = useState<CompanyTab>('overview')
+  const [tab, setTab] = useState<CompanyTab>(initialTab)
   const [editOpen, setEditOpen] = useState(false)
   const [newContactOpen, setNewContactOpen] = useState(false)
   const [newDealOpen, setNewDealOpen] = useState(false)
@@ -1354,6 +1591,24 @@ export default function CompanyDetailPage() {
       setEditOpen(true)
     }
   }, [searchParams])
+
+  useEffect(() => {
+    setTab(toCompanyTab(searchParams.get('tab')) ?? 'overview')
+  }, [searchParams])
+
+  const selectTab = useCallback((nextTab: CompanyTab) => {
+    setTab(nextTab)
+
+    const params = new URLSearchParams(searchParams.toString())
+    if (nextTab === 'overview') {
+      params.delete('tab')
+    } else {
+      params.set('tab', nextTab)
+    }
+
+    const query = params.toString()
+    router.replace(`/portal/companies/${id}${query ? `?${query}` : ''}`, { scroll: false })
+  }, [id, router, searchParams])
   const [relatedLoading, setRelatedLoading] = useState(false)
   const [relatedError, setRelatedError] = useState<string | null>(null)
 
@@ -1795,10 +2050,8 @@ export default function CompanyDetailPage() {
 
   async function handleDelete(): Promise<void> {
     if (!company) return
-    const confirmed = window.confirm(`Archive ${company.name}? Linked contacts, deals, quotes, and activities will keep their history but no longer point at this company.`)
-    if (!confirmed) return
     setDeleting(true)
-    setError(null)
+    setArchiveError(null)
     try {
       const res = await fetch(`/api/v1/crm/companies/${id}`, { method: 'DELETE' })
       if (!res.ok) {
@@ -1808,7 +2061,7 @@ export default function CompanyDetailPage() {
       router.push('/portal/companies')
       router.refresh()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to archive company')
+      setArchiveError(err instanceof Error ? err.message : 'Failed to archive company')
       setDeleting(false)
     }
   }
@@ -1852,7 +2105,10 @@ export default function CompanyDetailPage() {
         <CompanyHeader
           company={company}
           onEdit={() => setEditOpen(true)}
-          onDelete={handleDelete}
+          onDelete={() => {
+            setArchiveConfirmOpen(true)
+            setArchiveError(null)
+          }}
           deleting={deleting}
           stats={{
             contacts: related.contacts.length,
@@ -1864,10 +2120,68 @@ export default function CompanyDetailPage() {
         />
       </div>
 
+      {archiveError && (
+        <div className="rounded-lg border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm text-red-100">
+          <span className="material-symbols-outlined mr-1.5 align-middle text-[16px]" aria-hidden="true">error</span>
+          {archiveError}
+        </div>
+      )}
+
+      {archiveConfirmOpen && (
+        <section
+          role="alertdialog"
+          aria-modal="false"
+          aria-labelledby="company-archive-confirm-title"
+          aria-describedby="company-archive-confirm-description"
+          className="rounded-lg border border-red-400/25 bg-red-500/10 p-5 shadow-[0_18px_40px_rgba(127,29,29,0.18)]"
+        >
+          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+            <div className="flex gap-3">
+              <span className="material-symbols-outlined mt-0.5 text-red-200" aria-hidden="true">warning</span>
+              <div>
+                <p className="eyebrow !text-[10px] !text-red-100/80">Account archive</p>
+                <h2 id="company-archive-confirm-title" className="mt-1 font-display text-lg text-red-50">
+                  Archive account &quot;{company.name}&quot;?
+                </h2>
+                <p id="company-archive-confirm-description" className="mt-2 max-w-2xl text-sm text-red-100/90">
+                  This removes the account from active company views while preserving linked contacts, deals, quotes, activities, and audit history.
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 md:justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setArchiveConfirmOpen(false)
+                  setArchiveError(null)
+                }}
+                className="btn-pib-secondary text-xs"
+                disabled={deleting}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDelete}
+                aria-label={`Confirm archive ${company.name}`}
+                className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-lg border border-red-300/30 bg-red-500/20 px-3 py-2 text-xs font-semibold text-red-50 transition-colors hover:border-red-200/60 hover:bg-red-500/30 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={deleting}
+              >
+                <span className="material-symbols-outlined text-[15px]" aria-hidden="true">archive</span>
+                {deleting ? 'Archiving...' : 'Archive account'}
+              </button>
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* Tabs */}
       <CompanyTabsBar
         activeTab={tab}
-        onChange={(t) => setTab(t as CompanyTab)}
+        onChange={(t) => {
+          const nextTab = toCompanyTab(t)
+          if (nextTab) selectTab(nextTab)
+        }}
         counts={{
           contacts: related.contacts.length,
           deals: related.deals.length,
@@ -1913,7 +2227,10 @@ export default function CompanyDetailPage() {
                 summary: related.summary,
                 analytics: related.analytics,
               }}
-              onSelectTab={(nextTab) => setTab(nextTab as CompanyTab)}
+              onSelectTab={(nextTab) => {
+                const selectedTab = toCompanyTab(nextTab)
+                if (selectedTab) selectTab(selectedTab)
+              }}
               onEditCompany={() => setEditOpen(true)}
             />
             {customFieldDefs.length > 0 && (
@@ -2041,7 +2358,7 @@ export default function CompanyDetailPage() {
           />
         )}
         {!relatedLoading && tab === 'analytics' && (
-          <AnalyticsPanel analytics={related.analytics} summary={related.summary} companyName={company.name} onOpenTab={setTab} />
+          <AnalyticsPanel analytics={related.analytics} summary={related.summary} companyName={company.name} onOpenTab={selectTab} />
         )}
         {!relatedLoading && tab === 'activity' && (
           <ActivityPanel

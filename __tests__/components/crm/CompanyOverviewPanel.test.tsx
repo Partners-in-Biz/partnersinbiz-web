@@ -98,6 +98,91 @@ describe('CompanyOverviewPanel', () => {
     expect(onSelectTab).toHaveBeenCalledWith('contacts')
   })
 
+  it('renders latest movement statuses as readable CRM labels', () => {
+    render(
+      <CompanyOverviewPanel
+        company={company()}
+        center={{
+          documents: [{ id: 'doc-1', title: 'Proposal', status: 'client_review', updatedAt: '2026-05-24T00:00:00.000Z' }],
+          orders: [{ id: 'order-1', orderNumber: 'ORD-001', status: 'pending_approval', updatedAt: '2026-05-25T00:00:00.000Z' }],
+          projects: [{ id: 'project-1', name: 'Website sprint', status: 'in_progress', updatedAt: '2026-05-26T00:00:00.000Z' }],
+        }}
+      />,
+    )
+
+    expect(screen.getByText('Client review')).toBeInTheDocument()
+    expect(screen.getByText('Pending approval')).toBeInTheDocument()
+    expect(screen.getByText('In progress')).toBeInTheDocument()
+    expect(screen.queryByText('client_review')).not.toBeInTheDocument()
+    expect(screen.queryByText('pending_approval')).not.toBeInTheDocument()
+    expect(screen.queryByText('in_progress')).not.toBeInTheDocument()
+  })
+
+  it('names unreadable latest movement dates as metadata cleanup work', () => {
+    render(
+      <CompanyOverviewPanel
+        company={company()}
+        center={{
+          deals: [
+            {
+              id: 'deal-invalid-date',
+              title: 'Expansion timing',
+              value: 12000,
+              status: 'open',
+              updatedAt: { _seconds: Number.NaN } as never,
+            },
+          ],
+        }}
+      />,
+    )
+
+    expect(screen.getByText('Expansion timing')).toBeInTheDocument()
+    expect(screen.getByText(/deal · Movement date needs review/)).toBeInTheDocument()
+    expect(screen.queryByText('Invalid Date')).not.toBeInTheDocument()
+    expect(screen.queryByText(/deal · No date/)).not.toBeInTheDocument()
+  })
+
+  it('renders account lifecycle and tier context as readable labels', () => {
+    render(
+      <CompanyOverviewPanel
+        company={company({
+          lifecycleStage: 'customer',
+          tier: 'mid-market',
+        })}
+      />,
+    )
+
+    expect(screen.getByText('Customer · Mid market · Creative services')).toBeInTheDocument()
+    expect(screen.queryByText('customer · mid-market · Creative services')).not.toBeInTheDocument()
+  })
+
+  it('turns captured account contact fields into direct action links', () => {
+    render(
+      <CompanyOverviewPanel
+        company={company({
+          website: 'acme.example',
+          phone: '+27821234567',
+          billingEmail: 'accounts@acme.example',
+          accountsContact: {
+            name: 'Morgan Accounts',
+            email: 'morgan.accounts@acme.example',
+            phone: '+27827654321',
+          },
+        })}
+      />,
+    )
+
+    const website = screen.getByRole('link', { name: 'acme.example' })
+    expect(website).toHaveAttribute('href', 'https://acme.example')
+    expect(website).toHaveAttribute('target', '_blank')
+    expect(website).toHaveAttribute('rel', 'noopener noreferrer')
+
+    expect(screen.getByRole('link', { name: '+27821234567' })).toHaveAttribute('href', 'tel:+27821234567')
+    expect(screen.getByRole('link', { name: 'accounts@acme.example' })).toHaveAttribute('href', 'mailto:accounts@acme.example')
+    expect(screen.getByRole('link', { name: 'morgan.accounts@acme.example' })).toHaveAttribute('href', 'mailto:morgan.accounts@acme.example')
+    expect(screen.getByRole('link', { name: '+27827654321' })).toHaveAttribute('href', 'tel:+27827654321')
+  })
+
   it('turns sparse identity and billing blocks into profile-capture actions', () => {
     const onEditCompany = jest.fn()
 

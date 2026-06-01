@@ -46,8 +46,14 @@ function fmtDate(value: unknown): string {
     ? Number((value as { seconds: number }).seconds) * 1000
     : null
   const date = seconds ? new Date(seconds) : new Date(value as string | number | Date)
-  if (Number.isNaN(date.getTime())) return 'No close date'
+  if (Number.isNaN(date.getTime())) return 'Close date needs review'
   return date.toLocaleDateString('en-ZA', { day: '2-digit', month: 'short', year: 'numeric' })
+}
+
+function dealOwnerLabel(deal: Deal): string {
+  if (deal.ownerRef?.displayName) return deal.ownerRef.displayName
+  if (deal.ownerRef?.uid || deal.ownerUid) return 'Deal owner identity missing'
+  return 'Unassigned'
 }
 
 export function DealDetailDrawer({
@@ -63,14 +69,27 @@ export function DealDetailDrawer({
   const stage = stages.find(s => s.id === deal.stageId)
   const stageColor = stage?.color ?? (stage?.kind === 'won' ? '#4ade80' : stage?.kind === 'lost' ? '#ef4444' : '#60a5fa')
   const showLostReason = isLostStage(stage)
-  const readableContact = contactLabel?.trim() || deal.contactId
-  const readableCompany = deal.companyName?.trim() || deal.companyId
-  const ownerLabel = deal.ownerRef?.displayName || deal.ownerUid || 'Unassigned'
-  const needsOwner = !deal.ownerRef?.displayName && !deal.ownerUid
+  const dealLabel = deal.title?.trim() || 'Deal name missing'
+  const readableContact = contactLabel?.trim() || 'Decision-maker name missing'
+  const readableCompany = deal.companyName?.trim() || (deal.companyId ? 'Company name missing' : '')
+  const ownerLabel = dealOwnerLabel(deal)
+  const needsOwner = !deal.ownerRef?.displayName && !deal.ownerRef?.uid && !deal.ownerUid
   const closeDateLabel = fmtDate(deal.expectedCloseDate)
+  const closeDateState = closeDateLabel === 'No close date'
+    ? 'missing'
+    : closeDateLabel === 'Close date needs review'
+      ? 'invalid'
+      : 'ready'
+  const needsCloseDate = closeDateState !== 'ready'
+  const closeDateActionLabel = closeDateState === 'invalid' ? 'Review close date' : 'Set close date'
+  const closeDateActionHeading = closeDateState === 'invalid' ? 'Review forecast timing' : 'Set forecast timing'
+  const closeDateActionDescription = closeDateState === 'invalid'
+    ? 'This deal has a saved close date that cannot be read. Re-enter the expected close date so leadership can trust forecast timing.'
+    : 'No expected close date is captured. Add one so leadership can trust forecast timing, stale-deal reviews, and pipeline commitments.'
 
   const probability = deal.probability ?? (stage?.probability ?? 100)
-  const weightedValue = (deal.value ?? 0) * (probability / 100)
+  const hasDealValue = deal.value !== null && deal.value !== undefined
+  const weightedValue = hasDealValue ? deal.value * (probability / 100) : null
 
   const labelCls = 'block text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1'
 
@@ -123,7 +142,7 @@ export function DealDetailDrawer({
           style={{ borderColor: 'var(--color-pib-line)' }}
         >
           <div className="flex items-center gap-3 min-w-0">
-            <p className="text-sm font-semibold text-[var(--color-pib-text)] truncate">{deal.title}</p>
+            <p className="text-sm font-semibold text-[var(--color-pib-text)] truncate">{dealLabel}</p>
             {stage && (
               <span
                 className="text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full shrink-0"
@@ -199,7 +218,7 @@ export function DealDetailDrawer({
             <div>
               <p className={labelCls}>Deal value</p>
               <p className="text-xl font-headline font-bold text-[var(--color-pib-text)]">
-                {fmtValue(deal.value ?? 0, deal.currency)}
+                {hasDealValue ? fmtValue(deal.value, deal.currency) : 'No value captured'}
               </p>
             </div>
             <div
@@ -208,7 +227,7 @@ export function DealDetailDrawer({
             >
               <p className={labelCls}>Weighted</p>
               <p className="text-sm font-mono font-semibold text-[var(--color-pib-text)]">
-                {fmtValue(weightedValue, deal.currency)}
+                {weightedValue === null ? 'Value needed' : fmtValue(weightedValue, deal.currency)}
               </p>
             </div>
           </div>
@@ -292,7 +311,7 @@ export function DealDetailDrawer({
                     {onEdit ? (
                       <button
                         type="button"
-                        aria-label={`Link decision-maker for ${deal.title}`}
+                        aria-label={`Link decision-maker for ${dealLabel}`}
                         onClick={onEdit}
                         className="inline-flex items-center gap-1 rounded-md border border-[var(--color-pib-line)] px-2 py-1 text-[11px] font-medium text-[var(--color-pib-accent)] transition-colors hover:border-[var(--color-pib-accent)] hover:text-[var(--color-pib-text)]"
                       >
@@ -318,7 +337,7 @@ export function DealDetailDrawer({
                     {onEdit ? (
                       <button
                         type="button"
-                        aria-label={`Link company for ${deal.title}`}
+                        aria-label={`Link company for ${dealLabel}`}
                         onClick={onEdit}
                         className="inline-flex items-center gap-1 rounded-md border border-[var(--color-pib-line)] px-2 py-1 text-[11px] font-medium text-[var(--color-pib-accent)] transition-colors hover:border-[var(--color-pib-accent)] hover:text-[var(--color-pib-text)]"
                       >
@@ -343,7 +362,7 @@ export function DealDetailDrawer({
                     {onEdit ? (
                       <button
                         type="button"
-                        aria-label={`Assign owner for ${deal.title}`}
+                        aria-label={`Assign owner for ${dealLabel}`}
                         onClick={onEdit}
                         className="btn-pib-secondary inline-flex items-center gap-1.5 text-xs"
                       >
@@ -358,7 +377,30 @@ export function DealDetailDrawer({
               </div>
               <div className="rounded-md bg-black/10 px-3 py-2">
                 <p className={labelCls}>Close date</p>
-                <p className="text-sm font-semibold text-[var(--color-pib-text)]">{closeDateLabel}</p>
+                {needsCloseDate ? (
+                  <div className="space-y-2">
+                    <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
+                      {closeDateLabel === 'No close date' ? 'Close date missing' : closeDateLabel}
+                    </p>
+                    <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">{closeDateActionHeading}</h3>
+                    <p className="text-xs leading-5 text-[var(--color-pib-text-muted)]">
+                      {closeDateActionDescription}
+                    </p>
+                    {onEdit ? (
+                      <button
+                        type="button"
+                        aria-label={`${closeDateActionLabel} for ${dealLabel}`}
+                        onClick={onEdit}
+                        className="btn-pib-secondary inline-flex items-center gap-1.5 text-xs"
+                      >
+                        <span className="material-symbols-outlined text-[14px]" aria-hidden="true">event_upcoming</span>
+                        {closeDateActionLabel}
+                      </button>
+                    ) : null}
+                  </div>
+                ) : (
+                  <p className="text-sm font-semibold text-[var(--color-pib-text)]">{closeDateLabel}</p>
+                )}
               </div>
             </div>
           </div>

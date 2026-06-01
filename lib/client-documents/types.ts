@@ -375,6 +375,8 @@ export interface ClientDocument {
   updatedBy: string
   updatedByType: DocumentActorType
   deleted: boolean
+  providerSignature?: DocumentProviderSignature
+  clientAcceptance?: DocumentClientAcceptance
 }
 
 export interface ClientDocumentVersion {
@@ -442,7 +444,9 @@ export interface DocumentApproval {
   actorId: string
   actorName: string
   actorRole: DocumentParticipantRole | 'ai'
+  signatureSide?: 'client' | 'provider'
   companyName?: string
+  capacity?: string
   typedName?: string
   checkboxText?: string
   termsSnapshot?: unknown
@@ -450,6 +454,32 @@ export interface DocumentApproval {
   ip?: string
   userAgent?: string
   createdAt?: unknown
+}
+
+export interface DocumentProviderSignature {
+  versionId: string
+  name: string
+  capacity: string
+  companyName: string
+  signatureText: string
+  statement?: string
+  signedBy: string
+  signedByType: DocumentActorType
+  signedAt?: unknown
+  ip?: string
+  userAgent?: string
+}
+
+export interface DocumentClientAcceptance {
+  versionId: string
+  actorId: string
+  actorName: string
+  typedName: string
+  companyName?: string
+  checkboxText: string
+  acceptedAt?: unknown
+  ip?: string
+  userAgent?: string
 }
 
 export type ClientDocumentTemplatePurpose =

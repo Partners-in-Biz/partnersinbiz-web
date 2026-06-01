@@ -1,7 +1,7 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { fmtTimestamp } from '@/components/admin/email/fmtTimestamp'
@@ -157,15 +157,69 @@ function teamMemberOwnerRef(member: TeamMember): MemberRef {
   }
 }
 
+function dealOwnerLabel(deal: DealRecord): string {
+  if (deal.ownerRef?.displayName?.trim()) return deal.ownerRef.displayName
+  if (deal.ownerUid?.trim()) return 'Deal owner identity missing'
+  return 'No owner assigned'
+}
+
+function dealContactLabel(deal: DealRecord, contactName: string): string {
+  if (contactName.trim()) return contactName
+  if (deal.contactId?.trim()) return 'Contact identity missing'
+  return 'No contact linked'
+}
+
+function dealCompanyLabel(deal: DealRecord): string {
+  if (deal.companyName?.trim()) return deal.companyName
+  if (deal.companyId?.trim()) return 'Company identity missing'
+  return 'No company linked'
+}
+
+function stageHistoryStageLabel(entry: NonNullable<DealRecord['stageHistory']>[number]): string {
+  if (entry.stageId?.trim()) return normalizeStageName(entry.stageId)
+  return 'Stage not captured'
+}
+
+function stageHistoryTimeLabel(entry: NonNullable<DealRecord['stageHistory']>[number]): string {
+  if (toDate(entry.enteredAt)) return fmtTimestamp(entry.enteredAt)
+  return 'Stage time not captured'
+}
+
+function stageHistoryActorLabel(entry: NonNullable<DealRecord['stageHistory']>[number]): string {
+  if (entry.enteredByRef?.displayName?.trim()) return entry.enteredByRef.displayName
+  if (entry.enteredByRef?.uid?.trim()) return 'Stage actor identity missing'
+  return 'Stage actor not captured'
+}
+
+function activitySummaryLabel(activity: ActivityRecord): string {
+  const summary = activity.summary?.trim() || activity.notes?.trim()
+  if (summary) return summary
+  return 'Activity summary missing'
+}
+
+function activityActorLabel(activity: ActivityRecord): string {
+  if (activity.createdByRef?.displayName?.trim()) return activity.createdByRef.displayName
+  if (activity.createdByRef?.uid?.trim()) return 'Activity actor identity missing'
+  return 'Activity actor not captured'
+}
+
+function activityTimeLabel(activity: ActivityRecord): string {
+  if (toDate(activity.createdAt)) return fmtTimestamp(activity.createdAt)
+  return 'Activity time not captured'
+}
+
 export default function DealDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
+  const closeDateInputRef = useRef<HTMLInputElement | null>(null)
 
   const [deal, setDeal] = useState<DealRecord | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string>('')
   const [editOpen, setEditOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [archiveConfirmOpen, setArchiveConfirmOpen] = useState(false)
+  const [archiveError, setArchiveError] = useState('')
 
   const [pipelineName, setPipelineName] = useState<string>('')
   const [stageName, setStageName] = useState<string>('')
@@ -361,10 +415,8 @@ export default function DealDetailPage() {
 
   async function handleArchive() {
     if (!deal) return
-    const confirmed = window.confirm(`Archive ${deal.title ?? 'this deal'}? The record will be hidden from active CRM views but activity history stays intact.`)
-    if (!confirmed) return
     setDeleting(true)
-    setError('')
+    setArchiveError('')
     try {
       const res = await fetch(`/api/v1/crm/deals/${id}`, { method: 'DELETE' })
       const body = await res.json().catch(() => ({}))
@@ -372,7 +424,7 @@ export default function DealDetailPage() {
       router.push('/portal/deals')
       router.refresh()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to archive deal')
+      setArchiveError(err instanceof Error ? err.message : 'Failed to archive deal')
       setDeleting(false)
     }
   }
@@ -427,6 +479,42 @@ export default function DealDetailPage() {
     deal.companyId ? 'Company linked' : 'No company',
     (deal.lineItems?.length ?? 0) > 0 ? `${deal.lineItems?.length} line items` : 'No line items',
     deal.expectedCloseDate ? closeDateLabel(deal.expectedCloseDate) : 'Close date missing',
+  ]
+  const focusCloseDateInput = () => {
+    closeDateInputRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'center' })
+    closeDateInputRef.current?.focus()
+  }
+  const nextBestActions = [
+    {
+      icon: deal.contactId ? 'mail' : 'person_add',
+      title: deal.contactId ? 'Follow up with the contact' : 'Link a decision-maker',
+      copy: deal.contactId ? 'Use the contact profile to send email, SMS, or schedule the next touch.' : 'A deal without a contact cannot drive reliable activity or automation.',
+      buttonLabel: deal.contactId ? 'Open contact' : 'Link contact',
+      ariaLabel: deal.contactId ? `Open contact for ${deal.title ?? 'this deal'}` : `Link a decision-maker for ${deal.title ?? 'this deal'}`,
+      onClick: () => {
+        if (deal.contactId) {
+          router.push(`/portal/contacts/${deal.contactId}`)
+          return
+        }
+        setEditOpen(true)
+      },
+    },
+    {
+      icon: deal.expectedCloseDate ? 'event_available' : 'event_busy',
+      title: deal.expectedCloseDate ? closeDateLabel(deal.expectedCloseDate) : 'Set a close date',
+      copy: deal.expectedCloseDate ? 'Keep the forecast honest by updating probability after each interaction.' : 'Forecast and pipeline velocity need an expected close date.',
+      buttonLabel: deal.expectedCloseDate ? 'Review close date' : 'Set close date',
+      ariaLabel: deal.expectedCloseDate ? `Review close date for ${deal.title ?? 'this deal'}` : `Set close date for ${deal.title ?? 'this deal'}`,
+      onClick: focusCloseDateInput,
+    },
+    {
+      icon: (deal.lineItems?.length ?? 0) > 0 ? 'request_quote' : 'playlist_add',
+      title: (deal.lineItems?.length ?? 0) > 0 ? 'Ready to quote' : 'Add line items',
+      copy: (deal.lineItems?.length ?? 0) > 0 ? 'Line items are captured, so this deal can move into quote creation.' : 'Products and services make the opportunity concrete and easier to approve.',
+      buttonLabel: (deal.lineItems?.length ?? 0) > 0 ? 'Edit line items' : 'Add line items',
+      ariaLabel: (deal.lineItems?.length ?? 0) > 0 ? `Edit line items for ${deal.title ?? 'this deal'}` : `Add line items for ${deal.title ?? 'this deal'}`,
+      onClick: () => setEditOpen(true),
+    },
   ]
 
   return (
@@ -485,14 +573,73 @@ export default function DealDetailPage() {
             </button>
             <button
               type="button"
-              onClick={handleArchive}
+              onClick={() => {
+                setArchiveConfirmOpen(true)
+                setArchiveError('')
+              }}
               disabled={deleting}
+              aria-label={`Archive ${deal.title ?? 'this deal'}`}
               className="cursor-pointer rounded-lg border border-red-400/30 px-3 py-2 text-sm font-medium text-red-300 transition-colors hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {deleting ? 'Archiving...' : 'Archive'}
             </button>
           </div>
         </div>
+
+        {archiveError && (
+          <div className="rounded-lg border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm text-red-100">
+            <span className="material-symbols-outlined mr-1.5 align-middle text-[16px]" aria-hidden="true">error</span>
+            {archiveError}
+          </div>
+        )}
+
+        {archiveConfirmOpen && (
+          <section
+            role="alertdialog"
+            aria-modal="false"
+            aria-labelledby="deal-archive-confirm-title"
+            aria-describedby="deal-archive-confirm-description"
+            className="rounded-lg border border-red-400/25 bg-red-500/10 p-5 shadow-[0_18px_40px_rgba(127,29,29,0.18)]"
+          >
+            <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+              <div className="flex gap-3">
+                <span className="material-symbols-outlined mt-0.5 text-red-200" aria-hidden="true">warning</span>
+                <div>
+                  <p className="eyebrow !text-[10px] !text-red-100/80">Revenue record archive</p>
+                  <h2 id="deal-archive-confirm-title" className="mt-1 font-display text-lg text-red-50">
+                    Archive deal &quot;{deal.title ?? 'this deal'}&quot;?
+                  </h2>
+                  <p id="deal-archive-confirm-description" className="mt-2 max-w-2xl text-sm text-red-100/90">
+                    This hides the revenue record from active pipeline views while preserving buyer history, activity, and forecast audit context.
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 md:justify-end">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setArchiveConfirmOpen(false)
+                    setArchiveError('')
+                  }}
+                  className="btn-pib-secondary text-xs"
+                  disabled={deleting}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleArchive}
+                  aria-label={`Confirm archive ${deal.title ?? 'this deal'}`}
+                  className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-lg border border-red-300/30 bg-red-500/20 px-3 py-2 text-xs font-semibold text-red-50 transition-colors hover:border-red-200/60 hover:bg-red-500/30 disabled:cursor-not-allowed disabled:opacity-60"
+                  disabled={deleting}
+                >
+                  <span className="material-symbols-outlined text-[15px]" aria-hidden="true">archive</span>
+                  {deleting ? 'Archiving...' : 'Archive deal'}
+                </button>
+              </div>
+            </div>
+          </section>
+        )}
 
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {[
@@ -553,6 +700,7 @@ export default function DealDetailPage() {
           <div className="min-w-[180px] flex-1">
             <label htmlFor="dealExpectedCloseDate" className="pib-label">Set expected close date</label>
             <input
+              ref={closeDateInputRef}
               id="dealExpectedCloseDate"
               type="date"
               value={closeDateInput}
@@ -613,7 +761,7 @@ export default function DealDetailPage() {
                   href={`/portal/contacts/${deal.contactId}`}
                   className="text-[var(--color-pib-accent)] hover:underline mt-0.5 inline-block"
                 >
-                  {contactName || deal.contactId}
+                  {dealContactLabel(deal, contactName)}
                 </Link>
               </div>
             )}
@@ -624,14 +772,14 @@ export default function DealDetailPage() {
                   href={`/portal/companies/${deal.companyId}`}
                   className="text-[var(--color-pib-accent)] hover:underline mt-0.5 inline-block"
                 >
-                  {deal.companyName || deal.companyId}
+                  {dealCompanyLabel(deal)}
                 </Link>
               </div>
             )}
             <div>
               <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">Owner</p>
               <p className="text-[var(--color-pib-text)] mt-0.5">
-                {deal.ownerRef?.displayName ?? deal.ownerUid ?? 'No owner assigned'}
+                {dealOwnerLabel(deal)}
               </p>
               <div className="mt-3 space-y-2 rounded-xl border border-[var(--color-pib-line)] bg-white/[0.02] p-3">
                 <label htmlFor="dealDetailOwner" className="pib-label">Assign deal owner</label>
@@ -668,9 +816,18 @@ export default function DealDetailPage() {
             </div>
             <div>
               <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">Close date</p>
-              <p className="text-[var(--color-pib-text-muted)] mt-0.5 font-mono text-xs">
-                {deal.expectedCloseDate ? fmtTimestamp(deal.expectedCloseDate) : '—'}
-              </p>
+              {deal.expectedCloseDate ? (
+                <p className="text-[var(--color-pib-text-muted)] mt-0.5 font-mono text-xs">
+                  {fmtTimestamp(deal.expectedCloseDate)}
+                </p>
+              ) : (
+                <div className="mt-1 rounded-lg border border-[var(--color-pib-line)] bg-white/[0.02] p-3">
+                  <p className="text-sm font-semibold text-[var(--color-pib-text)]">No close date captured</p>
+                  <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">
+                    Set forecast timing so leadership can trust pipeline commitments.
+                  </p>
+                </div>
+              )}
             </div>
             {deal.notes && (
               <div>
@@ -683,29 +840,24 @@ export default function DealDetailPage() {
           <div className="mt-4 bento-card !p-5 space-y-4">
             <p className="eyebrow !text-[10px]">Next best actions</p>
             <div className="space-y-3">
-              {[
-                {
-                  icon: deal.contactId ? 'mail' : 'person_add',
-                  title: deal.contactId ? 'Follow up with the contact' : 'Link a decision-maker',
-                  copy: deal.contactId ? 'Use the contact profile to send email, SMS, or schedule the next touch.' : 'A deal without a contact cannot drive reliable activity or automation.',
-                },
-                {
-                  icon: deal.expectedCloseDate ? 'event_available' : 'event_busy',
-                  title: deal.expectedCloseDate ? closeDateLabel(deal.expectedCloseDate) : 'Set a close date',
-                  copy: deal.expectedCloseDate ? 'Keep the forecast honest by updating probability after each interaction.' : 'Forecast and pipeline velocity need an expected close date.',
-                },
-                {
-                  icon: (deal.lineItems?.length ?? 0) > 0 ? 'request_quote' : 'playlist_add',
-                  title: (deal.lineItems?.length ?? 0) > 0 ? 'Ready to quote' : 'Add line items',
-                  copy: (deal.lineItems?.length ?? 0) > 0 ? 'Line items are captured, so this deal can move into quote creation.' : 'Products and services make the opportunity concrete and easier to approve.',
-                },
-              ].map((action) => (
-                <div key={action.title} className="flex gap-3 rounded-xl border border-[var(--color-pib-line)] bg-white/[0.02] p-3">
+              {nextBestActions.map((action) => (
+                <div key={action.title} className="flex flex-col gap-3 rounded-xl border border-[var(--color-pib-line)] bg-white/[0.02] p-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="flex gap-3">
                   <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">{action.icon}</span>
                   <div>
                     <p className="text-sm font-medium text-[var(--color-pib-text)]">{action.title}</p>
                     <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">{action.copy}</p>
                   </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={action.onClick}
+                    aria-label={action.ariaLabel}
+                    className="btn-pib-secondary inline-flex shrink-0 items-center justify-center gap-1.5 text-xs"
+                  >
+                    <span className="material-symbols-outlined text-[14px]" aria-hidden="true">arrow_forward</span>
+                    {action.buttonLabel}
+                  </button>
                 </div>
               ))}
             </div>
@@ -750,9 +902,9 @@ export default function DealDetailPage() {
                   <div key={`${entry.pipelineId}-${entry.stageId}-${index}`} className="flex items-start gap-3">
                     <div className="mt-1 h-2 w-2 rounded-full" style={{ background: index === 0 ? probColor : 'var(--color-pib-text-muted)' }} />
                     <div>
-                      <p className="text-sm text-[var(--color-pib-text)]">{normalizeStageName(entry.stageId ?? 'Stage')}</p>
+                      <p className="text-sm text-[var(--color-pib-text)]">{stageHistoryStageLabel(entry)}</p>
                       <p className="text-xs text-[var(--color-pib-text-muted)]">
-                        {fmtTimestamp(entry.enteredAt)}{entry.enteredByRef?.displayName ? ` · ${entry.enteredByRef.displayName}` : ''}
+                        {stageHistoryTimeLabel(entry)} · {stageHistoryActorLabel(entry)}
                       </p>
                     </div>
                   </div>
@@ -903,9 +1055,9 @@ export default function DealDetailPage() {
                       </span>
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm text-[var(--color-pib-text)]">{a.summary ?? a.notes ?? a.type}</p>
+                      <p className="text-sm text-[var(--color-pib-text)]">{activitySummaryLabel(a)}</p>
                       <p className="text-xs text-[var(--color-pib-text-muted)] mt-0.5">
-                        {a.createdByRef?.displayName ?? 'System'} · {fmtTimestamp(a.createdAt)}
+                        {activityActorLabel(a)} · {activityTimeLabel(a)}
                       </p>
                     </div>
                   </div>

@@ -20,6 +20,23 @@ import type { Email, EmailDirection, EmailStatus } from '@/lib/email/types'
 const VALID_DIRECTIONS: EmailDirection[] = ['outbound', 'inbound']
 const VALID_STATUSES: EmailStatus[] = ['draft', 'scheduled', 'sent', 'failed', 'opened', 'clicked']
 
+function timestampMillis(value: unknown): number {
+  if (!value) return 0
+  if (value instanceof Date) return value.getTime()
+  if (typeof value === 'number') return value
+  if (typeof value === 'string') {
+    const parsed = Date.parse(value)
+    return Number.isNaN(parsed) ? 0 : parsed
+  }
+  if (typeof value === 'object') {
+    const candidate = value as { toDate?: () => Date; _seconds?: number; seconds?: number }
+    if (typeof candidate.toDate === 'function') return candidate.toDate().getTime()
+    if (typeof candidate._seconds === 'number') return candidate._seconds * 1000
+    if (typeof candidate.seconds === 'number') return candidate.seconds * 1000
+  }
+  return 0
+}
+
 export const GET = withAuth('client', async (req: NextRequest, user) => {
   const { searchParams } = new URL(req.url)
   const scope = resolveOrgScope(user, searchParams.get('orgId'))
@@ -32,31 +49,31 @@ export const GET = withAuth('client', async (req: NextRequest, user) => {
   const limit = Math.min(parseInt(searchParams.get('limit') ?? '50'), 200)
   const page = Math.max(parseInt(searchParams.get('page') ?? '1'), 1)
 
+  // Keep the Firestore query index-safe; secondary filters and sorting happen in memory.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let query: any = adminDb.collection('emails').orderBy('createdAt', 'desc')
+  let query: any = adminDb.collection('emails')
 
   if (orgId) {
     query = query.where('orgId', '==', orgId)
   }
-  if (direction && VALID_DIRECTIONS.includes(direction)) {
-    query = query.where('direction', '==', direction)
-  }
-  if (status && VALID_STATUSES.includes(status)) {
-    query = query.where('status', '==', status)
-  }
-  if (contactId) {
-    query = query.where('contactId', '==', contactId)
-  }
-  if (campaignId) {
-    query = query.where('campaignId', '==', campaignId)
-  }
 
   const snapshot = await query.get()
+  type EmailDoc = { id: string; data: () => Record<string, unknown> }
+  const emailDocs = snapshot.docs as EmailDoc[]
 
-  // Filter soft-deleted docs in memory (avoids composite index requirement)
-  let emails: Email[] = snapshot.docs
-    .map((doc: any) => ({ id: doc.id, ...doc.data() } as Email))
-    .filter((e: Email & { deleted?: boolean }) => e.deleted !== true)
+  // Filter soft-deleted docs and optional facets in memory to avoid composite indexes.
+  let emails: Email[] = emailDocs
+    .map((doc: EmailDoc) => ({ id: doc.id, ...doc.data() } as Email))
+    .filter((e: Email & { deleted?: boolean; campaignId?: string }) => {
+      if (e.deleted === true) return false
+      if (orgId && e.orgId !== orgId) return false
+      if (direction && VALID_DIRECTIONS.includes(direction) && e.direction !== direction) return false
+      if (status && VALID_STATUSES.includes(status) && e.status !== status) return false
+      if (contactId && e.contactId !== contactId) return false
+      if (campaignId && e.campaignId !== campaignId) return false
+      return true
+    })
+    .sort((a, b) => timestampMillis(b.createdAt) - timestampMillis(a.createdAt))
 
   // Apply pagination after in-memory filter
   const total = emails.length

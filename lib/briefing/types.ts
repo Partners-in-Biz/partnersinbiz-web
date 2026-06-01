@@ -32,11 +32,33 @@ export type BriefingSourceType =
   | 'task'                 // Task events (created, updated, moved, completed)
   | 'comment'              // Comments on tasks, documents, conversations
   | 'agent-output'         // Agent completion summaries and artifacts
+  | 'agent-run'            // Live Hermes agent run status and approval prompts
+  | 'workspace-broker-job' // Google Workspace broker jobs awaiting approval or recovery
+  | 'calendar-event'      // Upcoming calendar events needing RSVP or schedule attention
   | 'approval'             // Approval gates and client document approvals
+  | 'booking'              // Public call bookings needing admin follow-up
+  | 'contact'              // CRM contacts needing relationship follow-up
   | 'client-document'      // Client documents, specs, reports
+  | 'social-post'          // Social content awaiting QA/client approval or attention
+  | 'social-inbox'         // Social engagement inbox items needing read/reply/archive
+  | 'mailbox-message'      // Unread mailbox messages needing read/archive/reply handling
   | 'notification'         // User notifications and inboxes
   | 'activity'             // Activity log entries
   | 'report'               // Stored snapshot reports
+  | 'support-ticket'       // Client support tickets and ticket replies
+  | 'invoice'              // Billing invoices that need review, payment, or sending
+  | 'quote'                // Sales quotes that need client decision or invoice conversion
+  | 'order'                // Fulfillment orders needing progress, completion, or cancellation
+  | 'inventory-item'       // Inventory items needing stock review or restock handling
+  | 'shipment'             // Fulfillment shipments needing delivery updates or recovery
+  | 'expense'              // Submitted expenses that need approval or rejection
+  | 'seo-content'          // SEO content awaiting client review or publishing action
+  | 'seo-task'             // SEO sprint tasks needing admin execution, completion, or skip
+  | 'ad-campaign'          // Ad campaigns awaiting client approval or changes
+  | 'broadcast'            // Broadcast campaigns needing send, pause, resume, or recovery action
+  | 'campaign'             // Top-level marketing campaigns needing launch, approval, or archive control
+  | 'enquiry'              // Public project enquiries needing admin follow-up
+  | 'form-submission'      // Public form submissions needing admin follow-up
 
 /**
  * Briefing item lifecycle states.
@@ -67,12 +89,68 @@ export interface BriefingContext {
   orgName?: string | null
   clientId?: string | null
   clientName?: string | null
+  companyId?: string | null
+  companyName?: string | null
   projectId?: string | null
   projectName?: string | null
   taskId?: string | null
   taskTitle?: string | null
   documentId?: string | null
   documentTitle?: string | null
+  conversationId?: string | null
+  conversationTitle?: string | null
+  contactId?: string | null
+  contactName?: string | null
+  dealId?: string | null
+  dealTitle?: string | null
+  reportId?: string | null
+  reportTitle?: string | null
+  bookingId?: string | null
+  bookingName?: string | null
+  supportTicketId?: string | null
+  supportTicketSubject?: string | null
+  invoiceId?: string | null
+  invoiceNumber?: string | null
+  quoteId?: string | null
+  quoteNumber?: string | null
+  orderId?: string | null
+  orderTitle?: string | null
+  inventoryItemId?: string | null
+  inventoryItemName?: string | null
+  shipmentId?: string | null
+  shipmentTrackingNumber?: string | null
+  expenseId?: string | null
+  expenseCategory?: string | null
+  seoContentId?: string | null
+  seoContentTitle?: string | null
+  seoTaskId?: string | null
+  seoTaskTitle?: string | null
+  seoSprintId?: string | null
+  adCampaignId?: string | null
+  adCampaignName?: string | null
+  broadcastId?: string | null
+  broadcastName?: string | null
+  campaignId?: string | null
+  campaignName?: string | null
+  enquiryId?: string | null
+  enquiryName?: string | null
+  formId?: string | null
+  formSubmissionId?: string | null
+  formName?: string | null
+  socialInboxId?: string | null
+  socialInboxFrom?: string | null
+  socialPostId?: string | null
+  mailboxMessageId?: string | null
+  mailboxFrom?: string | null
+  mailboxSubject?: string | null
+  agentRunId?: string | null
+  agentProfile?: string | null
+  workspaceBrokerJobId?: string | null
+  workspaceBrokerOperation?: string | null
+  workspaceArtifactId?: string | null
+  workspaceArtifactTitle?: string | null
+  calendarEventId?: string | null
+  calendarEventTitle?: string | null
   sourceIds?: string[]  // Related source IDs for cross-reference
 }
 
@@ -195,6 +273,16 @@ export interface BriefingCard extends BriefingSourceItem {
    * Computed relevance score for sorting.
    */
   relevanceScore?: number
+
+  /**
+   * Per-user control state from the briefing desk.
+   */
+  userState?: {
+    status: 'active' | 'handled' | 'snoozed'
+    note?: string | null
+    snoozedUntil?: string | null
+    updatedAt?: string | null
+  } | null
 }
 
 /**

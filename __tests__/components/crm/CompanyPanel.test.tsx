@@ -62,4 +62,57 @@ describe('CompanyPanel', () => {
     expect(screen.getByText('Maya Sales')).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'View' })).not.toBeInTheDocument()
   })
+
+  it('names missing linked company identity instead of showing unknown company', async () => {
+    global.fetch = jest.fn(() => Promise.resolve({
+      ok: true,
+      json: async () => ({
+        data: {
+          id: 'company-raw-id',
+          orgId: 'org-1',
+          tags: [],
+          notes: '',
+          createdAt: null,
+          updatedAt: null,
+        },
+      }),
+    } as Response))
+
+    render(<CompanyPanel companyId="company-raw-id" />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: 'Open Company identity missing' })).toBeInTheDocument()
+    })
+
+    expect(screen.getByText('Company identity missing')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Open Company identity missing' })).toHaveAttribute('href', '/portal/companies/company-raw-id')
+    expect(screen.queryByText('Unknown company')).not.toBeInTheDocument()
+    expect(screen.queryByText('company-raw-id')).not.toBeInTheDocument()
+  })
+
+  it('names incomplete account manager snapshots instead of showing blank owner context', async () => {
+    global.fetch = jest.fn(() => Promise.resolve({
+      ok: true,
+      json: async () => ({
+        data: {
+          id: 'company-1',
+          orgId: 'org-1',
+          name: 'Acme Growth',
+          accountManagerRef: { uid: 'manager-raw-id' },
+          tags: [],
+          notes: '',
+          createdAt: null,
+          updatedAt: null,
+        },
+      }),
+    } as Response))
+
+    render(<CompanyPanel companyId="company-1" companyName="Acme Growth" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Account manager identity missing')).toBeInTheDocument()
+    })
+
+    expect(screen.queryByText('manager-raw-id')).not.toBeInTheDocument()
+  })
 })

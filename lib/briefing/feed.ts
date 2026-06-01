@@ -1,9 +1,9 @@
 import { FieldValue } from 'firebase-admin/firestore'
-import { adminDb } from '@/lib/firebase/admin'
+import { adminAuth, adminDb } from '@/lib/firebase/admin'
 import type { ApiUser } from '@/lib/api/types'
 import { canAccessOrg } from '@/lib/api/platformAdmin'
 import type { BriefingCard, BriefingPriority, BriefingResponse, BriefingSourceAdapter, BriefingSourceItem, BriefingSourceType } from './types'
-import { activityAdapter, agentOutputAdapter, approvalAdapter, clientDocumentAdapter, commentAdapter, notificationAdapter, projectAdapter, reportAdapter, taskAdapter } from './index'
+import { activityAdapter, adCampaignAdapter, agentOutputAdapter, agentRunAdapter, approvalAdapter, bookingAdapter, broadcastAdapter, calendarEventAdapter, campaignAdapter, clientDocumentAdapter, commentAdapter, contactAdapter, enquiryAdapter, expenseAdapter, formSubmissionAdapter, inventoryItemAdapter, invoiceAdapter, mailboxMessageAdapter, notificationAdapter, orderAdapter, projectAdapter, quoteAdapter, reportAdapter, seoContentAdapter, seoTaskAdapter, shipmentAdapter, socialInboxAdapter, socialPostAdapter, supportTicketAdapter, taskAdapter, workspaceBrokerJobAdapter } from './index'
 import { comparePriority, formatTimeAgo, normalizeTimestamp, priorityRequiresAction } from './utils'
 
 const PLATFORM_ORG_ID = 'pib-platform-owner'
@@ -33,6 +33,14 @@ type OrgSummary = { id: string; name?: string | null; slug?: string | null }
 type ProjectSummary = { id: string; name?: string | null; title?: string | null; slug?: string | null }
 type TaskSummary = { id: string; title?: string | null; projectId?: string | null; orgId?: string | null }
 type UserSummary = { id: string; name?: string | null; email?: string | null }
+type TaskLookupRef = { id: string; projectId?: string | null }
+type BriefingUserState = {
+  itemId: string
+  status?: 'active' | 'handled' | 'snoozed' | string
+  note?: string | null
+  snoozedUntil?: unknown
+  updatedAt?: unknown
+}
 
 function chunk<T>(items: T[], size: number): T[][] {
   const out: T[][] = []
@@ -115,9 +123,10 @@ async function loadProjectSummaries(projectIds: string[]): Promise<Map<string, P
   return map
 }
 
-async function loadTaskSummaries(taskIds: string[]): Promise<Map<string, TaskSummary>> {
+async function loadTaskSummaries(taskRefs: TaskLookupRef[]): Promise<Map<string, TaskSummary>> {
   const map = new Map<string, TaskSummary>()
-  const ids = [...new Set(taskIds.filter(Boolean))]
+  const refs = taskRefs.filter((ref) => ref.id)
+  const ids = [...new Set(refs.map((ref) => ref.id))]
   if (ids.length === 0) return map
 
   const absorb = (docs: FirestoreDoc[]) => {
@@ -146,6 +155,20 @@ async function loadTaskSummaries(taskIds: string[]): Promise<Map<string, TaskSum
     // Standalone task labels are best-effort.
   }
 
+  const directRefs = refs.filter((ref) => ref.projectId && !map.has(ref.id))
+  if (directRefs.length > 0) {
+    try {
+      const docs: FirestoreDoc[] = []
+      await Promise.all(directRefs.map(async (ref) => {
+        const snap = await adminDb.collection('projects').doc(ref.projectId as string).collection('tasks').doc(ref.id).get()
+        if (snap.exists) docs.push(snap as FirestoreDoc)
+      }))
+      absorb(docs)
+    } catch {
+      // Nested project task labels are best-effort.
+    }
+  }
+
   return map
 }
 
@@ -168,7 +191,69 @@ async function loadUserSummaries(actorIds: string[]): Promise<Map<string, UserSu
   } catch {
     // Actor labels are display sugar.
   }
+
+  const missingAuthIds = ids.filter((id) => !map.has(id))
+  if (missingAuthIds.length > 0) {
+    try {
+      const result = await adminAuth.getUsers(missingAuthIds.slice(0, 100).map((uid) => ({ uid })))
+      for (const user of result.users) {
+        map.set(user.uid, { id: user.uid, name: user.displayName ?? null, email: user.email ?? null })
+      }
+    } catch {
+      // Firebase Auth fallback is display sugar too.
+    }
+  }
   return map
+}
+
+async function loadBriefingUserStates(userId: string): Promise<Map<string, BriefingUserState>> {
+  const map = new Map<string, BriefingUserState>()
+  if (!userId) return map
+  try {
+    const snap = await adminDb
+      .collection('briefing_user_states')
+      .where('userId', '==', userId)
+      .limit(500)
+      .get()
+    for (const doc of snap.docs as FirestoreDoc[]) {
+      const data = doc.data()
+      const itemId = typeof data.itemId === 'string' ? data.itemId : ''
+      if (!itemId) continue
+      map.set(itemId, {
+        itemId,
+        status: typeof data.status === 'string' ? data.status : 'active',
+        note: typeof data.note === 'string' ? data.note : null,
+        snoozedUntil: data.snoozedUntil,
+        updatedAt: data.updatedAt,
+      })
+    }
+  } catch {
+    // Per-user handling state must not break the live briefing feed.
+  }
+  return map
+}
+
+function applyUserState(items: BriefingCard[], states: Map<string, BriefingUserState>): BriefingCard[] {
+  const now = Date.now()
+  return items.flatMap((item) => {
+    const state = states.get(item.id ?? '')
+    if (!state) return [item]
+
+    const snoozedUntil = normalizeTimestamp(state.snoozedUntil)
+    const status = state.status === 'handled' || state.status === 'snoozed' ? state.status : 'active'
+    if (status === 'handled') return []
+    if (status === 'snoozed' && snoozedUntil && snoozedUntil.getTime() > now) return []
+
+    return [{
+      ...item,
+      userState: {
+        status: 'active',
+        note: state.note ?? null,
+        snoozedUntil: snoozedUntil ? snoozedUntil.toISOString() : null,
+        updatedAt: normalizeTimestamp(state.updatedAt)?.toISOString() ?? null,
+      },
+    }]
+  })
 }
 
 function normalizeDoc(doc: FirestoreDoc, extra: Record<string, unknown> = {}): Record<string, unknown> & { id: string } {
@@ -203,6 +288,155 @@ async function fetchCollectionDocs(collection: string, scopedOrgIds: string[] | 
   }
   const snap = await ref.limit(limit).get()
   return snap.docs as FirestoreDoc[]
+}
+
+async function fetchInvoiceDocs(scopedOrgIds: string[] | null): Promise<FirestoreDoc[]> {
+  const ref = adminDb.collection('invoices')
+  const out: FirestoreDoc[] = []
+
+  if (scopedOrgIds && scopedOrgIds.length > 0) {
+    const fields = ['orgId', 'sourceOrgId', 'recipientOrgId', 'targetOrgId']
+    for (const field of fields) {
+      try {
+        const snaps = await Promise.all(chunk(scopedOrgIds, 30).map((ids) => ref.where(field, 'in', ids).limit(SOURCE_FETCH_LIMIT).get()))
+        out.push(...snaps.flatMap((snap) => snap.docs as FirestoreDoc[]))
+      } catch {
+        // Billing records have evolved through several org fields; keep each lookup best-effort.
+      }
+    }
+  } else {
+    const snap = await ref.limit(SOURCE_FETCH_LIMIT).get()
+    out.push(...(snap.docs as FirestoreDoc[]))
+  }
+
+  const seen = new Set<string>()
+  return out.filter((doc) => {
+    const key = doc.ref?.path ?? doc.id
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+}
+
+async function fetchQuoteDocs(scopedOrgIds: string[] | null): Promise<FirestoreDoc[]> {
+  const ref = adminDb.collection('quotes')
+  const out: FirestoreDoc[] = []
+
+  if (scopedOrgIds && scopedOrgIds.length > 0) {
+    const fields = ['orgId', 'sourceOrgId', 'recipientOrgId', 'targetOrgId']
+    for (const field of fields) {
+      try {
+        const snaps = await Promise.all(chunk(scopedOrgIds, 30).map((ids) => ref.where(field, 'in', ids).limit(SOURCE_FETCH_LIMIT).get()))
+        out.push(...snaps.flatMap((snap) => snap.docs as FirestoreDoc[]))
+      } catch {
+        // Quote records share the same legacy org-field drift as invoices.
+      }
+    }
+  } else {
+    const snap = await ref.limit(SOURCE_FETCH_LIMIT).get()
+    out.push(...(snap.docs as FirestoreDoc[]))
+  }
+
+  const seen = new Set<string>()
+  return out.filter((doc) => {
+    const key = doc.ref?.path ?? doc.id
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+}
+
+async function fetchMailboxDocs(scopedOrgIds: string[] | null, uid: string): Promise<FirestoreDoc[]> {
+  const ref = adminDb.collection('mailbox_messages')
+  const out: FirestoreDoc[] = []
+
+  if (scopedOrgIds && scopedOrgIds.length > 0) {
+    const snaps = await Promise.all(chunk(scopedOrgIds, 30).map((ids) => ref.where('orgId', 'in', ids).where('uid', '==', uid).limit(SOURCE_FETCH_LIMIT).get()))
+    out.push(...snaps.flatMap((snap) => snap.docs as FirestoreDoc[]))
+  } else {
+    const snap = await ref.where('uid', '==', uid).limit(SOURCE_FETCH_LIMIT).get()
+    out.push(...(snap.docs as FirestoreDoc[]))
+  }
+
+  const seen = new Set<string>()
+  return out.filter((doc) => {
+    const data = doc.data()
+    if (data.uid !== uid) return false
+    if (scopedOrgIds && scopedOrgIds.length > 0 && !scopedOrgIds.includes(String(data.orgId ?? ''))) return false
+    const key = doc.ref?.path ?? doc.id
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+}
+
+async function fetchAgentRunDocs(scopedOrgIds: string[] | null): Promise<FirestoreDoc[]> {
+  const docs = await fetchCollectionDocs('hermes_runs', scopedOrgIds)
+  const seen = new Set<string>()
+  return docs.filter((doc) => {
+    const data = doc.data()
+    if (scopedOrgIds && scopedOrgIds.length > 0 && !scopedOrgIds.includes(String(data.orgId ?? ''))) return false
+    const key = doc.ref?.path ?? doc.id
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+}
+
+async function fetchEnquiryDocs(scopedOrgIds: string[] | null): Promise<FirestoreDoc[]> {
+  if (scopedOrgIds && scopedOrgIds.length > 0 && !scopedOrgIds.includes(PLATFORM_ORG_ID)) return []
+  const snap = await adminDb.collection('enquiries').limit(SOURCE_FETCH_LIMIT).get()
+  return snap.docs as FirestoreDoc[]
+}
+
+async function fetchBookingDocs(scopedOrgIds: string[] | null): Promise<FirestoreDoc[]> {
+  if (scopedOrgIds && scopedOrgIds.length > 0 && !scopedOrgIds.includes(PLATFORM_ORG_ID)) return []
+  const snap = await adminDb.collection('bookings').limit(SOURCE_FETCH_LIMIT).get()
+  return snap.docs as FirestoreDoc[]
+}
+
+async function fetchWorkspaceBrokerJobDocs(scopedOrgIds: string[] | null): Promise<FirestoreDoc[]> {
+  const docs = await fetchCollectionDocs('workspace_broker_jobs', scopedOrgIds)
+  const seen = new Set<string>()
+  return docs.filter((doc) => {
+    const data = doc.data()
+    if (scopedOrgIds && scopedOrgIds.length > 0 && !scopedOrgIds.includes(String(data.orgId ?? ''))) return false
+    const key = doc.ref?.path ?? doc.id
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+}
+
+function calendarVisibleToUser(data: Record<string, unknown>, user: ApiUser): boolean {
+  if (user.role === 'admin') return true
+
+  const assignedTo = data.assignedTo
+  if (assignedTo && typeof assignedTo === 'object') {
+    const assignee = assignedTo as Record<string, unknown>
+    if (assignee.type === 'user' && assignee.id === user.uid) return true
+    if (user.role === 'ai' && assignee.type === 'agent' && (assignee.id === user.agentId || assignee.id === user.uid.replace(/^agent:/, ''))) return true
+  }
+
+  const attendees = Array.isArray(data.attendees) ? data.attendees : []
+  return attendees.some((attendee) => {
+    if (!attendee || typeof attendee !== 'object') return false
+    return (attendee as Record<string, unknown>).userId === user.uid
+  })
+}
+
+async function fetchCalendarEventDocs(scopedOrgIds: string[] | null, user: ApiUser): Promise<FirestoreDoc[]> {
+  const docs = await fetchCollectionDocs('calendar_events', scopedOrgIds)
+  const seen = new Set<string>()
+  return docs.filter((doc) => {
+    const data = doc.data()
+    if (scopedOrgIds && scopedOrgIds.length > 0 && !scopedOrgIds.includes(String(data.orgId ?? ''))) return false
+    if (!calendarVisibleToUser(data, user)) return false
+    const key = doc.ref?.path ?? doc.id
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
 }
 
 async function fetchTaskDocs(scopedOrgIds: string[] | null): Promise<FirestoreDoc[]> {
@@ -274,9 +508,13 @@ function decorate(item: BriefingSourceItem, orgs: Map<string, OrgSummary>): Brie
     orgName: item.context.orgName ?? org?.name ?? (item.orgId === PLATFORM_ORG_ID ? 'Partners in Biz' : null),
     orgSlug: item.context.orgSlug ?? org?.slug ?? null,
   }
+  const source = item.source.type === 'ad-campaign' && context.orgSlug
+    ? { ...item.source, url: `/admin/org/${encodeURIComponent(context.orgSlug)}/ads/campaigns/${encodeURIComponent(item.source.id)}` }
+    : item.source
   const score = (priorityRequiresAction(item.priority) ? 100 : 0) + Math.max(0, 30 - Math.floor((Date.now() - occurred.getTime()) / 86_400_000))
   return {
     ...item,
+    source,
     id: item.id ?? `${item.source.type}:${item.source.id}:${item.sourceHash}`,
     context,
     occurredAt: occurred,
@@ -405,6 +643,86 @@ export async function buildBriefingFeed(user: ApiUser, options: BriefingFeedOpti
     } catch {}
   }
 
+  if (include('social-post')) {
+    try {
+      const docs = await fetchCollectionDocs('social_posts', scopedOrgIds)
+      for (const doc of docs) {
+        const item = toItemSafe(socialPostAdapter, normalizeDoc(doc), doc.id)
+        if (item) items.push(decorate(item, orgs))
+      }
+    } catch {}
+  }
+
+  if (include('social-inbox')) {
+    try {
+      const docs = await fetchCollectionDocs('social_inbox', scopedOrgIds)
+      for (const doc of docs) {
+        const item = toItemSafe(socialInboxAdapter, normalizeDoc(doc), doc.id)
+        if (item) items.push(decorate(item, orgs))
+      }
+    } catch {}
+  }
+
+  if (include('mailbox-message')) {
+    try {
+      const docs = await fetchMailboxDocs(scopedOrgIds, user.uid)
+      for (const doc of docs) {
+        const item = toItemSafe(mailboxMessageAdapter, normalizeDoc(doc), doc.id)
+        if (item) items.push(decorate(item, orgs))
+      }
+    } catch {}
+  }
+
+  if (include('agent-run') && (user.role === 'admin' || user.role === 'ai')) {
+    try {
+      const docs = await fetchAgentRunDocs(scopedOrgIds)
+      for (const doc of docs) {
+        const item = toItemSafe(agentRunAdapter, normalizeDoc(doc), doc.id)
+        if (item) items.push(decorate(item, orgs))
+      }
+    } catch {}
+  }
+
+  if (include('workspace-broker-job') && (user.role === 'admin' || user.role === 'ai')) {
+    try {
+      const docs = await fetchWorkspaceBrokerJobDocs(scopedOrgIds)
+      for (const doc of docs) {
+        const item = toItemSafe(workspaceBrokerJobAdapter, normalizeDoc(doc), doc.id)
+        if (item) items.push(decorate(item, orgs))
+      }
+    } catch {}
+  }
+
+  if (include('calendar-event')) {
+    try {
+      const docs = await fetchCalendarEventDocs(scopedOrgIds, user)
+      for (const doc of docs) {
+        const item = toItemSafe(calendarEventAdapter, normalizeDoc(doc), doc.id)
+        if (item) items.push(decorate(item, orgs))
+      }
+    } catch {}
+  }
+
+  if (include('booking') && (user.role === 'admin' || user.role === 'ai')) {
+    try {
+      const docs = await fetchBookingDocs(scopedOrgIds)
+      for (const doc of docs) {
+        const item = toItemSafe(bookingAdapter, normalizeDoc(doc), doc.id)
+        if (item) items.push(decorate(item, orgs))
+      }
+    } catch {}
+  }
+
+  if (include('contact')) {
+    try {
+      const docs = await fetchCollectionDocs('contacts', scopedOrgIds)
+      for (const doc of docs) {
+        const item = toItemSafe(contactAdapter, normalizeDoc(doc), doc.id)
+        if (item) items.push(decorate(item, orgs))
+      }
+    } catch {}
+  }
+
   if (include('notification')) {
     try {
       const docs = await fetchCollectionDocs('notifications', scopedOrgIds)
@@ -435,13 +753,161 @@ export async function buildBriefingFeed(user: ApiUser, options: BriefingFeedOpti
     } catch {}
   }
 
+  if (include('support-ticket')) {
+    try {
+      const docs = await fetchCollectionDocs('support_tickets', scopedOrgIds)
+      for (const doc of docs) {
+        const item = toItemSafe(supportTicketAdapter, normalizeDoc(doc), doc.id)
+        if (item) items.push(decorate(item, orgs))
+      }
+    } catch {}
+  }
+
+  if (include('invoice')) {
+    try {
+      const docs = await fetchInvoiceDocs(scopedOrgIds)
+      for (const doc of docs) {
+        const item = toItemSafe(invoiceAdapter, normalizeDoc(doc), doc.id)
+        if (item) items.push(decorate(item, orgs))
+      }
+    } catch {}
+  }
+
+  if (include('quote')) {
+    try {
+      const docs = await fetchQuoteDocs(scopedOrgIds)
+      for (const doc of docs) {
+        const item = toItemSafe(quoteAdapter, normalizeDoc(doc), doc.id)
+        if (item) items.push(decorate(item, orgs))
+      }
+    } catch {}
+  }
+
+  if (include('order')) {
+    try {
+      const docs = await fetchCollectionDocs('orders', scopedOrgIds)
+      for (const doc of docs) {
+        const item = toItemSafe(orderAdapter, normalizeDoc(doc), doc.id)
+        if (item) items.push(decorate(item, orgs))
+      }
+    } catch {}
+  }
+
+  if (include('inventory-item')) {
+    try {
+      const docs = await fetchCollectionDocs('inventoryItems', scopedOrgIds)
+      for (const doc of docs) {
+        const item = toItemSafe(inventoryItemAdapter, normalizeDoc(doc), doc.id)
+        if (item) items.push(decorate(item, orgs))
+      }
+    } catch {}
+  }
+
+  if (include('shipment')) {
+    try {
+      const docs = await fetchCollectionDocs('shipments', scopedOrgIds)
+      for (const doc of docs) {
+        const item = toItemSafe(shipmentAdapter, normalizeDoc(doc), doc.id)
+        if (item) items.push(decorate(item, orgs))
+      }
+    } catch {}
+  }
+
+  if (include('expense') && (user.role === 'admin' || user.role === 'ai')) {
+    try {
+      const docs = await fetchCollectionDocs('expenses', scopedOrgIds)
+      for (const doc of docs) {
+        const item = toItemSafe(expenseAdapter, normalizeDoc(doc), doc.id)
+        if (item) items.push(decorate(item, orgs))
+      }
+    } catch {}
+  }
+
+  if (include('seo-content')) {
+    try {
+      const docs = await fetchCollectionDocs('seo_content', scopedOrgIds)
+      for (const doc of docs) {
+        const item = toItemSafe(seoContentAdapter, normalizeDoc(doc), doc.id)
+        if (item) items.push(decorate(item, orgs))
+      }
+    } catch {}
+  }
+
+  if (include('seo-task') && (user.role === 'admin' || user.role === 'ai')) {
+    try {
+      const docs = await fetchCollectionDocs('seo_tasks', scopedOrgIds)
+      for (const doc of docs) {
+        const item = toItemSafe(seoTaskAdapter, normalizeDoc(doc), doc.id)
+        if (item) items.push(decorate(item, orgs))
+      }
+    } catch {}
+  }
+
+  if (include('ad-campaign')) {
+    try {
+      const docs = await fetchCollectionDocs('ad_campaigns', scopedOrgIds)
+      for (const doc of docs) {
+        const item = toItemSafe(adCampaignAdapter, normalizeDoc(doc), doc.id)
+        if (item) items.push(decorate(item, orgs))
+      }
+    } catch {}
+  }
+
+  if (include('broadcast')) {
+    try {
+      const docs = await fetchCollectionDocs('broadcasts', scopedOrgIds)
+      for (const doc of docs) {
+        const item = toItemSafe(broadcastAdapter, normalizeDoc(doc), doc.id)
+        if (item) items.push(decorate(item, orgs))
+      }
+    } catch {}
+  }
+
+  if (include('campaign')) {
+    try {
+      const docs = await fetchCollectionDocs('campaigns', scopedOrgIds)
+      for (const doc of docs) {
+        const item = toItemSafe(campaignAdapter, normalizeDoc(doc), doc.id)
+        if (item) items.push(decorate(item, orgs))
+      }
+    } catch {}
+  }
+
+  if (include('enquiry') && (user.role === 'admin' || user.role === 'ai')) {
+    try {
+      const docs = await fetchEnquiryDocs(scopedOrgIds)
+      for (const doc of docs) {
+        const item = toItemSafe(enquiryAdapter, normalizeDoc(doc), doc.id)
+        if (item) items.push(decorate(item, orgs))
+      }
+    } catch {}
+  }
+
+  if (include('form-submission') && (user.role === 'admin' || user.role === 'ai')) {
+    try {
+      const docs = await fetchCollectionDocs('form_submissions', scopedOrgIds)
+      for (const doc of docs) {
+        const item = toItemSafe(formSubmissionAdapter, normalizeDoc(doc), doc.id)
+        if (item) items.push(decorate(item, orgs))
+      }
+    } catch {}
+  }
+
   const projectIds = items.map((item) => item.context.projectId).filter((id): id is string => typeof id === 'string' && id.length > 0)
-  const taskIds = items.map((item) => item.context.taskId).filter((id): id is string => typeof id === 'string' && id.length > 0)
+  const taskRefs: TaskLookupRef[] = items.reduce<TaskLookupRef[]>((acc, item) => {
+    if (typeof item.context.taskId === 'string' && item.context.taskId.length > 0) {
+      acc.push({ id: item.context.taskId, projectId: item.context.projectId })
+    }
+    return acc
+  }, [])
   const actorIds = items.map((item) => item.actor.id).filter((id): id is string => typeof id === 'string' && id.length > 0)
-  const tasks = await loadTaskSummaries(taskIds)
+  const tasks = await loadTaskSummaries(taskRefs)
   const projects = await loadProjectSummaries([...projectIds, ...[...tasks.values()].map((task) => task.projectId).filter((id): id is string => typeof id === 'string' && id.length > 0)])
   const users = await loadUserSummaries(actorIds)
-  const labelledItems = enrichBriefingLabels(items, projects, tasks, users)
+  const labelledItems = applyUserState(
+    enrichBriefingLabels(items, projects, tasks, users),
+    await loadBriefingUserStates(user.uid),
+  )
 
   const filtered = labelledItems
     .filter((item) => !options.priority || options.priority === 'all' || item.priority === options.priority)

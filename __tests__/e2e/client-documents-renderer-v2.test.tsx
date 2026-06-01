@@ -285,6 +285,80 @@ test('renders showcase blocks with native renderers, card surfaces, and semantic
   expect(container.querySelector('[data-motion="reveal"]')).toBeInTheDocument()
 })
 
+test('renders formal agreement signature evidence for both parties', () => {
+  const doc: ClientDocument = {
+    id: 'd',
+    orgId: 'o',
+    title: 'Master services agreement',
+    type: 'sales_proposal',
+    templateId: 'sales-proposal-v1',
+    status: 'accepted',
+    linked: {},
+    currentVersionId: 'v1',
+    latestPublishedVersionId: 'v1',
+    approvalMode: 'formal_acceptance',
+    clientPermissions: { canComment: true, canSuggest: true, canDirectEdit: false, canApprove: true },
+    assumptions: [],
+    shareToken: 't',
+    shareEnabled: true,
+    editShareEnabled: false,
+    providerSignature: {
+      versionId: 'v1',
+      name: 'Peet Stander',
+      capacity: 'Founder',
+      companyName: 'The Partners in Business',
+      signatureText: 'Peet Stander',
+      signedBy: 'admin-1',
+      signedByType: 'user',
+      signedAt: '2026-05-31T12:00:00.000Z',
+    },
+    clientAcceptance: {
+      versionId: 'v1',
+      actorId: 'client-1',
+      actorName: 'Kumari Pillay',
+      typedName: 'Kumari Pillay',
+      companyName: 'Elemental',
+      checkboxText: 'I have read and agree to the terms above',
+      acceptedAt: '2026-05-31T13:00:00.000Z',
+    },
+    createdBy: 'u',
+    createdByType: 'agent',
+    updatedBy: 'u',
+    updatedByType: 'agent',
+    deleted: false,
+  }
+  const version: ClientDocumentVersion = {
+    id: 'v1',
+    documentId: 'd',
+    versionNumber: 1,
+    status: 'published',
+    blocks: [{
+      id: 'terms',
+      type: 'terms',
+      title: 'Terms',
+      content: 'Agreement terms',
+      required: true,
+      display: {},
+    }],
+    theme: {
+      palette: { bg: '#000', text: '#fff', accent: '#F5A623' },
+      typography: { heading: 'sans-serif', body: 'sans-serif' },
+    },
+    createdBy: 'u',
+    createdByType: 'agent',
+  }
+
+  const { getByText } = render(<DocumentRenderer document={doc} version={version} />)
+
+  expect(getByText('Agreement signatures')).toBeInTheDocument()
+  expect(getByText('Peet Stander')).toBeInTheDocument()
+  expect(getByText('Founder')).toBeInTheDocument()
+  expect(getByText('The Partners in Business')).toBeInTheDocument()
+  expect(getByText('Kumari Pillay')).toBeInTheDocument()
+  expect(getByText('Elemental')).toBeInTheDocument()
+  expect(getByText('Formal electronic acceptance via platform')).toBeInTheDocument()
+})
+
 test('does not crash when legacy generated lists contain objects', () => {
   const doc: ClientDocument = {
     id: 'd',

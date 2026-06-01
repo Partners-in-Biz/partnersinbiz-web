@@ -1,5 +1,5 @@
 import React from 'react'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import AdminContactDetailPage from '@/app/(admin)/admin/crm/contacts/[id]/page'
 
 const push = jest.fn()
@@ -11,11 +11,12 @@ jest.mock('next/navigation', () => ({
 }))
 
 jest.mock('@/components/admin/crm/ActivityTimeline', () => ({
-  ActivityTimeline: ({ onAddNote }: { onAddNote?: () => void }) => (
+  ActivityTimeline: ({ contactName, onAddNote }: { contactName?: string; onAddNote?: () => void }) => (
     <div data-testid="activity-timeline">
+      <span>{contactName ? `Timeline for ${contactName}` : 'Timeline contact missing'}</span>
       {onAddNote && (
-        <button type="button" onClick={onAddNote}>
-          Log first note from activity timeline
+        <button type="button" aria-label={`Log first activity note for ${contactName ?? 'this contact'}`} onClick={onAddNote}>
+          Log first note
         </button>
       )}
     </div>
@@ -24,7 +25,9 @@ jest.mock('@/components/admin/crm/ActivityTimeline', () => ({
 
 jest.mock('@/components/admin/crm/ContactBrief', () => ({
   __esModule: true,
-  default: () => <div data-testid="contact-brief" />,
+  default: ({ contactName }: { contactName?: string }) => (
+    <div data-testid="contact-brief">{contactName ? `Brief for ${contactName}` : 'Brief contact missing'}</div>
+  ),
 }))
 
 jest.mock('@/components/admin/crm/ContactForm', () => ({
@@ -116,8 +119,37 @@ describe('Admin contact detail page', () => {
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: 'Jane Client' })).toBeInTheDocument()
     })
+    expect(screen.getByText('Brief for Jane Client')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Recompute score for Jane Client from admin qualification panel' }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/contacts/contact-1/recompute-score', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ includeAi: true }),
+      })
+    })
+    await waitFor(() => {
+      expect(screen.getAllByText('90').length).toBeGreaterThan(0)
+    })
+  })
+
+  it('keeps captured admin contact qualification scores refreshable', async () => {
+    contactOverride = {
+      leadScore: 42,
+      icpScore: 61,
+      aiLeadScore: 73,
+      scoreUpdatedAt: '2026-01-01T08:00:00.000Z',
+    }
+
+    render(<AdminContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Jane Client' })).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh qualification scores for Jane Client from admin qualification panel' }))
 
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/contacts/contact-1/recompute-score', {
@@ -142,6 +174,32 @@ describe('Admin contact detail page', () => {
     expect(composeLink).toHaveAttribute('href', '/admin/email/compose?to=jane%40example.com&contactId=contact-1')
   })
 
+  it('turns empty admin email records into a command-center compose action', async () => {
+    render(<AdminContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Jane Client' })).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Compose first email to Jane Client from contact command center metric' }))
+
+    expect(push).toHaveBeenCalledWith('/admin/email/compose?to=jane%40example.com&contactId=contact-1')
+  })
+
+  it('turns blocked admin email history into an email capture action', async () => {
+    contactOverride = { email: '' }
+
+    render(<AdminContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Jane Client' })).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add email for Jane Client from admin email history' }))
+
+    expect(screen.getByTestId('contact-form')).toBeInTheDocument()
+  })
+
   it('keeps the admin header email action inside the in-app composer', async () => {
     render(<AdminContactDetailPage />)
 
@@ -151,6 +209,102 @@ describe('Admin contact detail page', () => {
 
     const headerEmailLink = screen.getByRole('link', { name: 'Email Jane Client from contact command center' })
     expect(headerEmailLink).toHaveAttribute('href', '/admin/email/compose?to=jane%40example.com&contactId=contact-1')
+  })
+
+  it('turns weak admin profile strength into a command-center enrichment action', async () => {
+    render(<AdminContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Jane Client' })).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Improve profile strength for Jane Client from contact command center' }))
+
+    expect(screen.getByTestId('contact-form')).toBeInTheDocument()
+  })
+
+  it('turns admin lifecycle stage into a command-center stage control action', async () => {
+    render(<AdminContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Jane Client' })).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Update lifecycle stage for Jane Client from contact command center' }))
+
+    expect(screen.getByRole('button', { name: 'New lead' })).toHaveFocus()
+  })
+
+  it('turns missing admin last touch into a command-center note action', async () => {
+    render(<AdminContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Jane Client' })).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Log first touch for Jane Client from contact command center' }))
+
+    expect(screen.getByPlaceholderText('Add an internal note, handoff, decision, or context...')).toHaveFocus()
+  })
+
+  it('turns empty admin custom fields into a command-center profile action', async () => {
+    contactOverride = { customFields: {} }
+
+    render(<AdminContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Jane Client' })).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add workspace data for Jane Client from contact command center' }))
+
+    expect(screen.getByTestId('contact-form')).toBeInTheDocument()
+  })
+
+  it('renders admin lifecycle labels as readable command-center text', async () => {
+    contactOverride = { stage: 'proposal', type: 'prospect', source: 'outreach' }
+
+    render(<AdminContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Jane Client' })).toBeInTheDocument()
+    })
+
+    const commandCenter = screen.getByRole('banner')
+    expect(within(commandCenter).getAllByText('Proposal sent').length).toBeGreaterThan(0)
+    expect(within(commandCenter).getByText('Prospect')).toBeInTheDocument()
+    expect(within(commandCenter).getByText('Source: Outreach')).toBeInTheDocument()
+    expect(within(commandCenter).queryByText('proposal')).not.toBeInTheDocument()
+    expect(within(commandCenter).queryByText('Source: outreach')).not.toBeInTheDocument()
+  })
+
+  it('logs admin stage changes with readable lifecycle labels while saving raw stage values', async () => {
+    render(<AdminContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Jane Client' })).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Proposal sent' }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/contacts/contact-1', {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ stage: 'proposal' }),
+      })
+    })
+    expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/activities', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        contactId: 'contact-1',
+        type: 'stage_change',
+        summary: 'Stage changed to Proposal sent',
+        dealId: '',
+        metadata: { newStage: 'proposal' },
+      }),
+    })
   })
 
   it('turns a missing admin contact email into a profile completion action', async () => {
@@ -167,6 +321,20 @@ describe('Admin contact detail page', () => {
     expect(screen.getByTestId('contact-form')).toBeInTheDocument()
   })
 
+  it('turns missing admin relationship-profile email into a local capture action', async () => {
+    contactOverride = { email: '' }
+
+    render(<AdminContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Jane Client' })).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add email for Jane Client from relationship profile' }))
+
+    expect(screen.getByTestId('contact-form')).toBeInTheDocument()
+  })
+
   it('turns a missing admin contact phone into a profile completion action', async () => {
     contactOverride = { phone: '' }
 
@@ -177,6 +345,20 @@ describe('Admin contact detail page', () => {
     })
 
     fireEvent.click(screen.getByRole('button', { name: 'Add phone for Jane Client from contact command center' }))
+
+    expect(screen.getByTestId('contact-form')).toBeInTheDocument()
+  })
+
+  it('turns missing admin relationship-profile phone into a local capture action', async () => {
+    contactOverride = { phone: '' }
+
+    render(<AdminContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Jane Client' })).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add phone for Jane Client from relationship profile' }))
 
     expect(screen.getByTestId('contact-form')).toBeInTheDocument()
   })
@@ -237,6 +419,68 @@ describe('Admin contact detail page', () => {
     expect(screen.getByTestId('contact-form')).toBeInTheDocument()
   })
 
+  it('renders the admin relationship owner as a readable team member label', async () => {
+    contactOverride = {
+      assignedTo: 'member-uid-123',
+      assignedToRef: {
+        uid: 'member-uid-123',
+        displayName: 'Mandy Manager',
+        jobTitle: 'Growth lead',
+        kind: 'human',
+      },
+    }
+
+    render(<AdminContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Jane Client' })).toBeInTheDocument()
+    })
+
+    expect(screen.getByText('Mandy Manager')).toBeInTheDocument()
+    expect(screen.queryByText('member-uid-123')).not.toBeInTheDocument()
+  })
+
+  it('turns missing admin contact profile notes into a profile completion action', async () => {
+    contactOverride = { notes: '' }
+
+    render(<AdminContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Jane Client' })).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add profile notes for Jane Client from admin qualification panel' }))
+
+    expect(screen.getByTestId('contact-form')).toBeInTheDocument()
+  })
+
+  it('turns missing admin agreement roles into a qualification completion action', async () => {
+    contactOverride = { agreementRoles: [] }
+
+    render(<AdminContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Jane Client' })).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add agreement roles for Jane Client from admin qualification panel' }))
+
+    expect(screen.getByTestId('contact-form')).toBeInTheDocument()
+  })
+
+  it('renders captured admin agreement roles as readable qualification labels', async () => {
+    contactOverride = { agreementRoles: ['primary_contact', 'authorized_signatory'] }
+
+    render(<AdminContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Jane Client' })).toBeInTheDocument()
+    })
+
+    expect(screen.getByText('Primary contact, Authorised signatory')).toBeInTheDocument()
+    expect(screen.queryByText('primary_contact, authorized_signatory')).not.toBeInTheDocument()
+  })
+
   it('turns empty admin activity history into a note composer action', async () => {
     render(<AdminContactDetailPage />)
 
@@ -244,8 +488,148 @@ describe('Admin contact detail page', () => {
       expect(screen.getByRole('heading', { name: 'Jane Client' })).toBeInTheDocument()
     })
 
-    fireEvent.click(screen.getByRole('button', { name: 'Log first note from activity timeline' }))
+    expect(screen.getByText('Timeline for Jane Client')).toBeInTheDocument()
 
+    fireEvent.click(screen.getByRole('button', { name: 'Log first activity note for Jane Client' }))
+
+    expect(screen.getByPlaceholderText('Add an internal note, handoff, decision, or context...')).toHaveFocus()
+  })
+
+  it('turns admin next-best-action advice into a prefilled note handoff', async () => {
+    ;(global.fetch as jest.Mock).mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/contacts/contact-1') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: {
+              contact: {
+                id: 'contact-1',
+                orgId: 'org-1',
+                name: 'Jane Client',
+                email: 'jane@example.com',
+                type: 'lead',
+                stage: 'new',
+              },
+            },
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/contacts/contact-1/activities') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { activities: [] } }),
+        } as Response)
+      }
+      if (url === '/api/v1/email?contactId=contact-1&limit=8') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: [] }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/contacts/contact-1/suggestions') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: {
+              suggestions: [
+                {
+                  action: 'Call Jane before proposal expires',
+                  reason: 'The relationship has no recent touch and needs a human handoff.',
+                  urgency: 'high',
+                },
+              ],
+            },
+          }),
+        } as Response)
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ data: {} }),
+      } as Response)
+    })
+
+    render(<AdminContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Call Jane before proposal expires')).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Start next action: Call Jane before proposal expires' }))
+
+    expect(screen.getByPlaceholderText('Add an internal note, handoff, decision, or context...')).toHaveValue(
+      'Next action: Call Jane before proposal expires - The relationship has no recent touch and needs a human handoff.'
+    )
+    expect(screen.getByPlaceholderText('Add an internal note, handoff, decision, or context...')).toHaveFocus()
+  })
+
+  it('names sparse admin next-best-action suggestions instead of rendering blank cards', async () => {
+    ;(global.fetch as jest.Mock).mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/contacts/contact-1') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: {
+              contact: {
+                id: 'contact-1',
+                orgId: 'org-1',
+                name: 'Jane Client',
+                email: 'jane@example.com',
+                type: 'lead',
+                stage: 'new',
+              },
+            },
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/contacts/contact-1/activities') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { activities: [] } }),
+        } as Response)
+      }
+      if (url === '/api/v1/email?contactId=contact-1&limit=8') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: [] }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/contacts/contact-1/suggestions') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: {
+              suggestions: [
+                {
+                  action: '',
+                  reason: '',
+                  urgency: 'medium',
+                },
+              ],
+            },
+          }),
+        } as Response)
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ data: {} }),
+      } as Response)
+    })
+
+    render(<AdminContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Suggested action missing')).toBeInTheDocument()
+    })
+
+    expect(screen.getByText('Suggestion reason missing')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Start next action: Suggested action missing' }))
+
+    expect(screen.getByPlaceholderText('Add an internal note, handoff, decision, or context...')).toHaveValue(
+      'Next action: Suggested action missing - Suggestion reason missing'
+    )
     expect(screen.getByPlaceholderText('Add an internal note, handoff, decision, or context...')).toHaveFocus()
   })
 })

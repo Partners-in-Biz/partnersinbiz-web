@@ -64,6 +64,18 @@ function averageScore(contacts: Contact[], key: 'leadScore' | 'icpScore' | 'aiLe
   return Math.round(values.reduce((sum, value) => sum + value, 0) / values.length)
 }
 
+function scoreMetricLabel(score: number): string {
+  return score > 0 ? String(score) : 'Not scored'
+}
+
+function contactEmailLabel(contact: Contact): string {
+  return contact.email?.trim() || 'Email missing'
+}
+
+function contactCompanyLabel(contact: Contact): string {
+  return contact.companyName?.trim() || contact.company?.trim() || 'Company missing'
+}
+
 function MetricCard({
   icon,
   label,
@@ -344,7 +356,12 @@ export default function ContactsPage() {
             actionLabel={metrics.unowned ? 'Show unowned contacts needing an owner' : undefined}
             onAction={metrics.unowned ? () => setOwnerFilter('unowned') : undefined}
           />
-          <MetricCard icon="star_rate" label="Avg lead score" value={metrics.avgLead ? String(metrics.avgLead) : '-'} sub={`ICP ${metrics.avgIcp || '-'} · AI ${metrics.avgAi || '-'}`} />
+          <MetricCard
+            icon="star_rate"
+            label="Avg lead score"
+            value={scoreMetricLabel(metrics.avgLead)}
+            sub={`ICP ${scoreMetricLabel(metrics.avgIcp).toLowerCase()} · AI ${scoreMetricLabel(metrics.avgAi).toLowerCase()}`}
+          />
         </section>
       )}
 
@@ -433,19 +450,42 @@ export default function ContactsPage() {
           ))}
         </div>
       ) : visibleContacts.length === 0 ? (
-        <div className="pib-card p-12 text-center">
-          <span className="material-symbols-outlined text-4xl text-on-surface-variant">contacts</span>
-          <h2 className="mt-4 font-headline text-2xl font-bold tracking-tight text-on-surface">
-            {hasActiveFilters ? 'No contacts match this view.' : 'No contacts yet.'}
+        <div className="pib-card p-8">
+          <div className="mx-auto max-w-3xl text-center">
+            <span className="material-symbols-outlined text-4xl text-on-surface-variant">contacts</span>
+            <h2 className="mt-4 font-headline text-2xl font-bold tracking-tight text-on-surface">
+              {hasActiveFilters
+                ? 'No contacts match this operating lens'
+                : activeOrgId
+                  ? 'Build the first admin contact record'
+                  : 'Select a client workspace first'}
           </h2>
-          <p className="mx-auto mt-2 max-w-md text-sm text-on-surface-variant">
-            {hasActiveFilters
-              ? 'Clear the filters to return to the full workspace audience.'
-              : activeOrgId
-                ? 'Create the first contact and start building pipeline, follow-up, and CRM history.'
-                : 'Choose a client workspace before creating or viewing contacts.'}
-          </p>
-          <div className="mt-6 flex justify-center gap-2">
+            <p className="mx-auto mt-2 max-w-xl text-sm text-on-surface-variant">
+              {hasActiveFilters
+                ? 'This filter combination is hiding the contact workspace. Clear filters to return to the full audience before ownership, follow-up, and stage gaps disappear from admin review.'
+                : activeOrgId
+                  ? 'Create the first contact so admin can assign ownership, track follow-up, and give every employee a shared relationship profile before pipeline work starts.'
+                  : 'Choose a client workspace before creating or viewing contacts.'}
+            </p>
+          </div>
+
+          {activeOrgId && !hasActiveFilters && (
+            <div className="mt-6 grid gap-3 md:grid-cols-3">
+              {[
+                ['supervisor_account', 'Assign ownership', 'Give every relationship a responsible employee from day one.'],
+                ['schedule', 'Track follow-up', 'Start with clean next-touch expectations instead of invisible handoffs.'],
+                ['account_tree', 'Feed pipeline', 'Connect people to companies, deals, and revenue work as the CRM grows.'],
+              ].map(([icon, title, copy]) => (
+                <div key={title} className="rounded-lg border border-[var(--color-card-border)] bg-white/[0.02] p-4 text-left">
+                  <span className="material-symbols-outlined text-[20px] text-on-surface-variant">{icon}</span>
+                  <p className="mt-3 text-sm font-label font-semibold text-on-surface">{title}</p>
+                  <p className="mt-1 text-xs leading-5 text-on-surface-variant">{copy}</p>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="mt-6 flex flex-wrap justify-center gap-2">
             {hasActiveFilters ? (
               <button onClick={() => { setSearch(''); setStageFilter(''); setTypeFilter(''); setOwnerFilter('all') }} className="pib-btn-secondary text-sm">
                 <span className="material-symbols-outlined text-base">filter_alt_off</span>
@@ -455,10 +495,11 @@ export default function ContactsPage() {
               <button
                 onClick={() => activeOrgId && setShowNew(true)}
                 disabled={!activeOrgId}
+                aria-label={activeOrgId ? 'Create first admin contact' : 'Select workspace before creating contacts'}
                 className="pib-btn-primary text-sm font-label disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <span className="material-symbols-outlined text-base">add</span>
-                Add contact
+                {activeOrgId ? 'Create first contact' : 'Add contact'}
               </button>
             )}
           </div>
@@ -498,8 +539,8 @@ export default function ContactsPage() {
                         <p className="mt-1 max-w-[220px] truncate text-[11px] text-on-surface-variant">{c.tags.join(', ')}</p>
                       )}
                     </td>
-                    <td className="px-3 py-3 text-on-surface-variant">{c.email || '—'}</td>
-                    <td className="px-3 py-3 text-on-surface-variant">{c.companyName || c.company || '—'}</td>
+                    <td className="px-3 py-3 text-on-surface-variant">{contactEmailLabel(c)}</td>
+                    <td className="px-3 py-3 text-on-surface-variant">{contactCompanyLabel(c)}</td>
                     <td className="px-3 py-3">
                       {owner ? (
                         <span className="pill !px-2 !py-0.5 !text-[10px]">Owner set</span>
@@ -520,7 +561,7 @@ export default function ContactsPage() {
                         {typeof c.icpScore === 'number' && <span className="pill !px-2 !py-0.5 !text-[10px]">ICP {c.icpScore}</span>}
                         {typeof c.aiLeadScore === 'number' && <span className="pill !px-2 !py-0.5 !text-[10px]">AI {c.aiLeadScore}</span>}
                         {typeof c.leadScore !== 'number' && typeof c.icpScore !== 'number' && typeof c.aiLeadScore !== 'number' && (
-                          <span className="text-xs text-on-surface-variant">—</span>
+                          <span className="text-xs text-on-surface-variant">Scores not captured</span>
                         )}
                       </div>
                     </td>

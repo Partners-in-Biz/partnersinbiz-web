@@ -38,10 +38,31 @@ describe('ContactEngagementPanel', () => {
     expect(screen.getByText('100%')).toBeInTheDocument()
     expect(screen.getByText('Warm')).toBeInTheDocument()
     expect(screen.getByText('2 emails')).toBeInTheDocument()
-    expect(screen.getByText('1 inbound')).toBeInTheDocument()
+    expect(screen.getByText('1 inbound reply')).toBeInTheDocument()
     expect(screen.getByText('3 activities')).toBeInTheDocument()
     expect(screen.getByText('Send the proposal recap')).toBeInTheDocument()
     expect(screen.getByText(/They replied after the demo/)).toBeInTheDocument()
+  })
+
+  it('explains when no inbound replies have been captured', () => {
+    render(<ContactEngagementPanel profile={{ ...profile, emails: [{ id: 'e1', direction: 'outbound', subject: 'Intro sent' }] }} />)
+
+    expect(screen.getByText('No inbound replies')).toBeInTheDocument()
+    expect(screen.queryByText('0 inbound')).not.toBeInTheDocument()
+  })
+
+  it('explains when no email thread has been captured', () => {
+    render(<ContactEngagementPanel profile={{ ...profile, emails: [] }} />)
+
+    expect(screen.getByText('No email thread')).toBeInTheDocument()
+    expect(screen.queryByText('0 emails')).not.toBeInTheDocument()
+  })
+
+  it('explains when no activity timeline has been captured', () => {
+    render(<ContactEngagementPanel profile={{ ...profile, activities: [] }} />)
+
+    expect(screen.getByText('No activity trail')).toBeInTheDocument()
+    expect(screen.queryByText('0 activities')).not.toBeInTheDocument()
   })
 
   it('turns a missing suggested action into direct engagement commands', () => {
@@ -76,5 +97,38 @@ describe('ContactEngagementPanel', () => {
     expect(onLogNote).toHaveBeenCalledTimes(1)
     expect(onSendEmail).toHaveBeenCalledTimes(1)
     expect(onScheduleMeeting).toHaveBeenCalledTimes(1)
+  })
+
+  it('names incomplete AI suggestions instead of rendering blank recommendation copy', () => {
+    const onStartSuggestion = jest.fn()
+
+    render(
+      <ContactEngagementPanel
+        profile={{
+          emails: [],
+          activities: [],
+          nextSuggestion: {
+            action: '',
+            reason: '',
+            urgency: 'medium',
+          },
+        }}
+        actions={{
+          contactName: 'Jane Client',
+          onStartSuggestion,
+        }}
+      />,
+    )
+
+    expect(screen.getByText('Suggested action missing')).toBeInTheDocument()
+    expect(screen.getByText('Suggestion reason missing')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Start suggested action: Suggested action missing for Jane Client' }))
+
+    expect(onStartSuggestion).toHaveBeenCalledWith({
+      action: '',
+      reason: '',
+      urgency: 'medium',
+    })
   })
 })

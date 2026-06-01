@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import PortalSegmentsPage, { extractSegmentsList } from '@/app/(portal)/portal/segments/page'
 
 const fetchMock = jest.fn()
@@ -93,5 +93,31 @@ describe('portal segments page response parsing', () => {
 
     expect(screen.getByText('VIP decision makers')).toBeInTheDocument()
     expect(screen.getByLabelText('Search segments')).toHaveValue('')
+  })
+
+  it('uses an in-page confirmation before deleting a saved audience segment', async () => {
+    const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(false)
+
+    render(<PortalSegmentsPage />)
+
+    expect(await screen.findByText('VIP decision makers')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete segment VIP decision makers' }))
+
+    expect(confirmSpy).not.toHaveBeenCalled()
+    expect(await screen.findByRole('alertdialog', { name: 'Delete segment "VIP decision makers"?' })).toBeInTheDocument()
+    expect(screen.getByText('This removes the saved audience lens for 7 contacts. Existing contact records and campaign history stay available for audit.')).toBeInTheDocument()
+    expect(fetchMock).not.toHaveBeenCalledWith('/api/v1/crm/segments/seg-vip', { method: 'DELETE' })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm delete segment VIP decision makers' }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/crm/segments/seg-vip', { method: 'DELETE' })
+    })
+    await waitFor(() => {
+      expect(screen.queryByText('VIP decision makers')).not.toBeInTheDocument()
+    })
+
+    confirmSpy.mockRestore()
   })
 })

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import SequencesPage from '@/app/(portal)/portal/settings/sequences/page'
 
 jest.mock('next/link', () => ({
@@ -84,5 +84,76 @@ describe('Portal settings sequences page', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Show all sequences' }))
 
     expect(await screen.findByText('Lead welcome')).toBeInTheDocument()
+  })
+
+  it('uses an in-page confirmation before deleting a sequence journey', async () => {
+    const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(false)
+    const alertSpy = jest.spyOn(window, 'alert').mockImplementation(() => undefined)
+
+    global.fetch = jest.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/sequences') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: {
+              sequences: [
+                {
+                  id: 'seq-delete',
+                  orgId: 'org-1',
+                  name: 'Lead welcome',
+                  description: 'Follow up new leads fast',
+                  status: 'active',
+                  steps: [
+                    {
+                      delayDays: 0,
+                      channel: 'email',
+                      subject: 'Welcome',
+                      bodyText: 'Thanks for getting in touch.',
+                    },
+                    {
+                      delayDays: 2,
+                      channel: 'sms',
+                      smsBody: 'Still keen to chat?',
+                    },
+                  ],
+                  createdAt: null,
+                  updatedAt: null,
+                },
+              ],
+            },
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/sequences/seq-delete' && init?.method === 'DELETE') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { ok: true } }),
+        } as Response)
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    }) as jest.Mock
+
+    render(<SequencesPage />)
+
+    expect(await screen.findByText('Lead welcome')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete sequence Lead welcome' }))
+
+    expect(confirmSpy).not.toHaveBeenCalled()
+    expect(alertSpy).not.toHaveBeenCalled()
+    expect(screen.getByRole('alertdialog', { name: 'Delete sequence "Lead welcome"?' })).toBeInTheDocument()
+    expect(screen.getByText('This removes the active follow-up journey with 2 steps. Existing contact history stays available for audit.')).toBeInTheDocument()
+    expect(global.fetch).not.toHaveBeenCalledWith('/api/v1/crm/sequences/seq-delete', expect.any(Object))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm delete sequence Lead welcome' }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/sequences/seq-delete', { method: 'DELETE' })
+    })
+    expect(screen.queryByText('Lead welcome')).not.toBeInTheDocument()
+
+    confirmSpy.mockRestore()
+    alertSpy.mockRestore()
   })
 })

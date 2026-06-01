@@ -88,4 +88,21 @@ describe('CompanyHeader', () => {
     expect(screen.queryByRole('button', { name: /Add industry/i })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Add company size/i })).not.toBeInTheDocument()
   })
+
+  it('renders lifecycle and tier chips as readable account labels', () => {
+    render(
+      <CompanyHeader
+        company={company({
+          lifecycleStage: 'customer',
+          tier: 'mid-market',
+        })}
+        onEdit={jest.fn()}
+      />,
+    )
+
+    expect(screen.getByText('Customer')).toBeInTheDocument()
+    expect(screen.getByText('Mid market')).toBeInTheDocument()
+    expect(screen.queryByText('customer')).not.toBeInTheDocument()
+    expect(screen.queryByText('mid-market')).not.toBeInTheDocument()
+  })
 })

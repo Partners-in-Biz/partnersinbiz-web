@@ -5,15 +5,31 @@ import type { CustomFieldDefinition } from '@/lib/customFields/types'
 
 let mockSearchParams = new URLSearchParams()
 let mockCompanyCustomFieldDefinitions: CustomFieldDefinition[] = []
+const pushMock = jest.fn()
+const replaceMock = jest.fn()
+const refreshMock = jest.fn()
 
 jest.mock('next/navigation', () => ({
   useParams: () => ({ id: 'company-1' }),
-  useRouter: () => ({ push: jest.fn() }),
+  useRouter: () => ({ push: pushMock, replace: replaceMock, refresh: refreshMock }),
   useSearchParams: () => mockSearchParams,
 }))
 
+async function selectCompanyTab(name: RegExp | string) {
+  const visibleTab = screen.queryByRole('tab', { name })
+  if (visibleTab) {
+    fireEvent.click(visibleTab)
+    return visibleTab
+  }
+
+  fireEvent.click(screen.getByRole('button', { name: 'More company sections' }))
+  fireEvent.click(await screen.findByRole('menuitemradio', { name }))
+  return screen.findByRole('tab', { name })
+}
+
 describe('Portal company detail page', () => {
   beforeEach(() => {
+    jest.clearAllMocks()
     mockSearchParams = new URLSearchParams()
     mockCompanyCustomFieldDefinitions = []
     global.fetch = jest.fn((input: RequestInfo | URL) => {
@@ -107,12 +123,68 @@ describe('Portal company detail page', () => {
     })
   })
 
+  it('uses an in-page confirmation before archiving an account', async () => {
+    const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(false)
+
+    render(<CompanyDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Acme Holdings' })).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Archive' }))
+
+    expect(confirmSpy).not.toHaveBeenCalled()
+    expect(
+      await screen.findByRole('alertdialog', { name: 'Archive account "Acme Holdings"?' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'This removes the account from active company views while preserving linked contacts, deals, quotes, activities, and audit history.',
+      ),
+    ).toBeInTheDocument()
+    expect(global.fetch).not.toHaveBeenCalledWith('/api/v1/crm/companies/company-1', { method: 'DELETE' })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm archive Acme Holdings' }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/companies/company-1', { method: 'DELETE' })
+    })
+    await waitFor(() => expect(pushMock).toHaveBeenCalledWith('/portal/companies'))
+    expect(refreshMock).toHaveBeenCalled()
+
+    confirmSpy.mockRestore()
+  })
+
   it('opens profile editing when routed from a list setup action', async () => {
     mockSearchParams = new URLSearchParams('edit=profile')
 
     render(<CompanyDetailPage />)
 
     expect(await screen.findByRole('dialog', { name: 'Edit Company' })).toBeInTheDocument()
+  })
+
+  it('opens the requested company module from a tab query parameter', async () => {
+    mockSearchParams = new URLSearchParams('tab=invoices')
+
+    render(<CompanyDetailPage />)
+
+    await screen.findByRole('heading', { name: 'Acme Holdings' })
+
+    expect(await screen.findByRole('tab', { name: /Invoices/i })).toHaveAttribute('aria-selected', 'true')
+    expect(await screen.findByText('INV-001')).toBeInTheDocument()
+  })
+
+  it('updates the URL when a company module changes without losing existing query state', async () => {
+    mockSearchParams = new URLSearchParams('edit=profile')
+
+    render(<CompanyDetailPage />)
+
+    await screen.findByRole('heading', { name: 'Acme Holdings' })
+
+    await selectCompanyTab(/Invoices/i)
+
+    expect(replaceMock).toHaveBeenCalledWith('/portal/companies/company-1?edit=profile&tab=invoices', { scroll: false })
   })
 
   it('turns empty company custom fields into a profile capture action', async () => {
@@ -145,16 +217,979 @@ describe('Portal company detail page', () => {
       expect(screen.getByRole('heading', { name: 'Acme Holdings' })).toBeInTheDocument()
     })
 
-    fireEvent.click(screen.getByRole('tab', { name: /Contacts/i }))
+    await selectCompanyTab(/Contacts/i)
     await waitFor(() => {
       expect(screen.getByText('Jane Client')).toBeInTheDocument()
     })
+    expect(screen.getByText('Client')).toBeInTheDocument()
+    expect(screen.getByText('Won')).toBeInTheDocument()
+    expect(screen.queryByText('client')).not.toBeInTheDocument()
+    expect(screen.queryByText('won')).not.toBeInTheDocument()
     expect(screen.queryByText(/Wave 3 wiring lands/i)).not.toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('tab', { name: /Invoices/i }))
+    await selectCompanyTab(/Invoices/i)
     await waitFor(() => {
       expect(screen.getByText('INV-001')).toBeInTheDocument()
     })
+    expect(screen.getByText('Sent')).toBeInTheDocument()
+  })
+
+  it('names sparse linked contact fields on company detail instead of showing dash placeholders', async () => {
+    global.fetch = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/custom-fields?resource=company') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { definitions: [] } }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/companies/company-1') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              company: {
+                id: 'company-1',
+                orgId: 'org-1',
+                name: 'Acme Holdings',
+                lifecycleStage: 'customer',
+              },
+            },
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/companies/company-1/command-center?limit=100') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              summary: {},
+              analytics: {},
+              contacts: [
+                { id: 'contact-1' },
+              ],
+              deals: [],
+              quotes: [],
+              invoices: [],
+              projects: [],
+              serviceWorkspaces: [],
+              relationships: [],
+              documents: [],
+              orders: [],
+              shipments: [],
+              inventoryItems: [],
+              activities: [],
+            },
+          }),
+        } as Response)
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ data: {} }),
+      } as Response)
+    }) as jest.Mock
+
+    render(<CompanyDetailPage />)
+
+    await screen.findByRole('heading', { name: 'Acme Holdings' })
+    await selectCompanyTab(/Contacts/i)
+
+    const row = (await screen.findByRole('link', { name: 'Contact name missing' })).closest('tr')
+    expect(row).not.toBeNull()
+    expect(row as HTMLElement).toHaveTextContent('No email captured')
+    expect(row as HTMLElement).toHaveTextContent('Type not set')
+    expect(row as HTMLElement).toHaveTextContent('Stage not set')
+    expect(screen.queryByText('contact-1')).not.toBeInTheDocument()
+    expect(screen.queryAllByText('-')).toHaveLength(0)
+  })
+
+  it('names linked deal commercial setup gaps on company detail instead of showing dash placeholders', async () => {
+    global.fetch = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/custom-fields?resource=company') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { definitions: [] } }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/companies/company-1') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              company: {
+                id: 'company-1',
+                orgId: 'org-1',
+                name: 'Acme Holdings',
+                lifecycleStage: 'customer',
+              },
+            },
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/companies/company-1/command-center?limit=100') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              summary: {},
+              analytics: {},
+              contacts: [
+                { id: 'contact-1', name: 'Jane Client', email: 'jane@example.com' },
+              ],
+              deals: [
+                { id: 'deal-1', title: 'Growth retainer' },
+              ],
+              quotes: [],
+              invoices: [],
+              projects: [],
+              serviceWorkspaces: [],
+              relationships: [],
+              documents: [],
+              orders: [],
+              shipments: [],
+              inventoryItems: [],
+              activities: [],
+            },
+          }),
+        } as Response)
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ data: {} }),
+      } as Response)
+    }) as jest.Mock
+
+    render(<CompanyDetailPage />)
+
+    await screen.findByRole('heading', { name: 'Acme Holdings' })
+    await selectCompanyTab(/Deals/i)
+
+    const row = (await screen.findByRole('link', { name: 'Growth retainer' })).closest('tr')
+    expect(row).not.toBeNull()
+    expect(row as HTMLElement).toHaveTextContent('No value captured')
+    expect(row as HTMLElement).toHaveTextContent('Stage not set')
+    expect(row as HTMLElement).toHaveTextContent('Probability not set')
+    expect(screen.queryAllByText('-')).toHaveLength(0)
+  })
+
+  it('names linked quote readiness gaps on company detail instead of showing dash placeholders', async () => {
+    global.fetch = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/custom-fields?resource=company') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { definitions: [] } }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/companies/company-1') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              company: {
+                id: 'company-1',
+                orgId: 'org-1',
+                name: 'Acme Holdings',
+                lifecycleStage: 'customer',
+              },
+            },
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/companies/company-1/command-center?limit=100') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              summary: {},
+              analytics: {},
+              contacts: [
+                { id: 'contact-1', name: 'Jane Client', email: 'jane@example.com' },
+              ],
+              deals: [],
+              quotes: [
+                { id: 'quote-1', quoteNumber: 'Q-001' },
+              ],
+              invoices: [],
+              projects: [],
+              serviceWorkspaces: [],
+              relationships: [],
+              documents: [],
+              orders: [],
+              shipments: [],
+              inventoryItems: [],
+              activities: [],
+            },
+          }),
+        } as Response)
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ data: {} }),
+      } as Response)
+    }) as jest.Mock
+
+    render(<CompanyDetailPage />)
+
+    await screen.findByRole('heading', { name: 'Acme Holdings' })
+    await selectCompanyTab(/Quotes/i)
+
+    const row = screen.getByText('Q-001').closest('tr')
+    expect(row).not.toBeNull()
+    expect(row as HTMLElement).toHaveTextContent('Quote status not set')
+    expect(row as HTMLElement).toHaveTextContent('No total captured')
+    expect(row as HTMLElement).toHaveTextContent('Valid date not set')
+    expect(screen.queryAllByText('-')).toHaveLength(0)
+  })
+
+  it('names linked invoice billing readiness gaps on company detail instead of showing dash placeholders', async () => {
+    global.fetch = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/custom-fields?resource=company') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { definitions: [] } }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/companies/company-1') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              company: {
+                id: 'company-1',
+                orgId: 'org-1',
+                name: 'Acme Holdings',
+                lifecycleStage: 'customer',
+              },
+            },
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/companies/company-1/command-center?limit=100') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              summary: {},
+              analytics: {},
+              contacts: [
+                { id: 'contact-1', name: 'Jane Client', email: 'jane@example.com' },
+              ],
+              deals: [],
+              quotes: [],
+              invoices: [
+                { id: 'invoice-1', invoiceNumber: 'INV-001' },
+              ],
+              projects: [],
+              serviceWorkspaces: [],
+              relationships: [],
+              documents: [],
+              orders: [],
+              shipments: [],
+              inventoryItems: [],
+              activities: [],
+            },
+          }),
+        } as Response)
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ data: {} }),
+      } as Response)
+    }) as jest.Mock
+
+    render(<CompanyDetailPage />)
+
+    await screen.findByRole('heading', { name: 'Acme Holdings' })
+    await selectCompanyTab(/Invoices/i)
+
+    const row = screen.getByText('INV-001').closest('tr')
+    expect(row).not.toBeNull()
+    expect(row as HTMLElement).toHaveTextContent('Invoice status not set')
+    expect(row as HTMLElement).toHaveTextContent('No total captured')
+    expect(row as HTMLElement).toHaveTextContent('Due date not set')
+    expect(screen.queryAllByText('-')).toHaveLength(0)
+  })
+
+  it('names malformed linked-record dates on company detail as cleanup work', async () => {
+    global.fetch = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/custom-fields?resource=company') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { definitions: [] } }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/companies/company-1') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              company: {
+                id: 'company-1',
+                orgId: 'org-1',
+                name: 'Acme Holdings',
+                lifecycleStage: 'customer',
+              },
+            },
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/companies/company-1/command-center?limit=100') {
+        const invalidTimestamp = { _seconds: Number.NaN }
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              summary: {},
+              analytics: {},
+              contacts: [
+                { id: 'contact-1', name: 'Jane Client', email: 'jane@example.com' },
+              ],
+              deals: [],
+              projects: [
+                { id: 'project-1', name: 'Delivery Sprint', updatedAt: invalidTimestamp },
+              ],
+              documents: [
+                { id: 'doc-1', title: 'Statement of work', updatedAt: invalidTimestamp },
+              ],
+              quotes: [
+                { id: 'quote-1', quoteNumber: 'Q-001', validUntil: invalidTimestamp },
+              ],
+              invoices: [
+                { id: 'invoice-1', invoiceNumber: 'INV-001', dueDate: invalidTimestamp },
+              ],
+              shipments: [
+                { id: 'shipment-1', carrier: 'Internal delivery', expectedDeliveryDate: invalidTimestamp },
+              ],
+              activities: [
+                { id: 'activity-1', summary: 'Kickoff logged', createdAt: invalidTimestamp },
+              ],
+              serviceWorkspaces: [],
+              relationships: [],
+              orders: [],
+              inventoryItems: [],
+            },
+          }),
+        } as Response)
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ data: {} }),
+      } as Response)
+    }) as jest.Mock
+
+    render(<CompanyDetailPage />)
+
+    await screen.findByRole('heading', { name: 'Acme Holdings' })
+
+    await selectCompanyTab(/Projects/i)
+    expect(await screen.findByText(/Project update date needs review/)).toBeInTheDocument()
+
+    await selectCompanyTab(/Documents/i)
+    expect(await screen.findByText(/Document update date needs review/)).toBeInTheDocument()
+
+    await selectCompanyTab(/Quotes/i)
+    expect(await screen.findByText('Valid date needs review')).toBeInTheDocument()
+
+    await selectCompanyTab(/Invoices/i)
+    expect(await screen.findByText('Due date needs review')).toBeInTheDocument()
+
+    await selectCompanyTab(/Shipments/i)
+    expect(await screen.findByText(/Expected delivery date needs review/)).toBeInTheDocument()
+
+    await selectCompanyTab(/Activity/i)
+    expect(await screen.findByText('Activity time needs review')).toBeInTheDocument()
+    expect(screen.queryByText(/Invalid Date/)).not.toBeInTheDocument()
+  })
+
+  it('names linked order fulfillment readiness gaps on company detail instead of raw ids and dash placeholders', async () => {
+    global.fetch = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/custom-fields?resource=company') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { definitions: [] } }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/companies/company-1') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              company: {
+                id: 'company-1',
+                orgId: 'org-1',
+                name: 'Acme Holdings',
+                lifecycleStage: 'customer',
+              },
+            },
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/companies/company-1/command-center?limit=100') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              summary: {},
+              analytics: {},
+              contacts: [
+                { id: 'contact-1', name: 'Jane Client', email: 'jane@example.com' },
+              ],
+              deals: [],
+              quotes: [],
+              invoices: [],
+              projects: [],
+              serviceWorkspaces: [],
+              relationships: [],
+              documents: [],
+              orders: [
+                { id: 'order-1' },
+              ],
+              shipments: [],
+              inventoryItems: [],
+              activities: [],
+            },
+          }),
+        } as Response)
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ data: {} }),
+      } as Response)
+    }) as jest.Mock
+
+    render(<CompanyDetailPage />)
+
+    await screen.findByRole('heading', { name: 'Acme Holdings' })
+    await selectCompanyTab(/Orders/i)
+
+    expect(screen.getByText('Fulfillment order name missing')).toBeInTheDocument()
+    expect(screen.getByText(/Fulfillment status not set/)).toBeInTheDocument()
+    expect(screen.getByText(/No total captured/)).toBeInTheDocument()
+    expect(screen.getByText(/Order status not set/)).toBeInTheDocument()
+    expect(screen.queryByText('order-1')).not.toBeInTheDocument()
+    expect(screen.queryAllByText('-')).toHaveLength(0)
+  })
+
+  it('names linked shipment delivery readiness gaps on company detail instead of raw ids and dash placeholders', async () => {
+    global.fetch = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/custom-fields?resource=company') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { definitions: [] } }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/companies/company-1') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              company: {
+                id: 'company-1',
+                orgId: 'org-1',
+                name: 'Acme Holdings',
+                lifecycleStage: 'customer',
+              },
+            },
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/companies/company-1/command-center?limit=100') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              summary: {},
+              analytics: {},
+              contacts: [
+                { id: 'contact-1', name: 'Jane Client', email: 'jane@example.com' },
+              ],
+              deals: [],
+              quotes: [],
+              invoices: [],
+              projects: [],
+              serviceWorkspaces: [],
+              relationships: [],
+              documents: [],
+              orders: [],
+              shipments: [
+                { id: 'shipment-1' },
+              ],
+              inventoryItems: [],
+              activities: [],
+            },
+          }),
+        } as Response)
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ data: {} }),
+      } as Response)
+    }) as jest.Mock
+
+    render(<CompanyDetailPage />)
+
+    await screen.findByRole('heading', { name: 'Acme Holdings' })
+    await selectCompanyTab(/Shipments/i)
+
+    expect(screen.getByText('Carrier not set')).toBeInTheDocument()
+    expect(screen.getByText(/Tracking number not set/)).toBeInTheDocument()
+    expect(screen.getByText(/Expected delivery not set/)).toBeInTheDocument()
+    expect(screen.getByText(/Shipment status not set/)).toBeInTheDocument()
+    expect(screen.queryByText('shipment-1')).not.toBeInTheDocument()
+    expect(screen.queryAllByText('-')).toHaveLength(0)
+  })
+
+  it('names linked inventory readiness gaps on company detail instead of raw ids and silent blanks', async () => {
+    global.fetch = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/custom-fields?resource=company') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { definitions: [] } }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/companies/company-1') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              company: {
+                id: 'company-1',
+                orgId: 'org-1',
+                name: 'Acme Holdings',
+                lifecycleStage: 'customer',
+              },
+            },
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/companies/company-1/command-center?limit=100') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              summary: {},
+              analytics: {},
+              contacts: [
+                { id: 'contact-1', name: 'Jane Client', email: 'jane@example.com' },
+              ],
+              deals: [],
+              quotes: [],
+              invoices: [],
+              projects: [],
+              serviceWorkspaces: [],
+              relationships: [],
+              documents: [],
+              orders: [],
+              shipments: [],
+              inventoryItems: [
+                { id: 'stock-1' },
+              ],
+              activities: [],
+            },
+          }),
+        } as Response)
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ data: {} }),
+      } as Response)
+    }) as jest.Mock
+
+    render(<CompanyDetailPage />)
+
+    await screen.findByRole('heading', { name: 'Acme Holdings' })
+    await selectCompanyTab(/Inventory/i)
+
+    expect(screen.getByText('Inventory item name missing')).toBeInTheDocument()
+    expect(screen.getByText(/SKU not set/)).toBeInTheDocument()
+    expect(screen.getByText(/Quantity not captured/)).toBeInTheDocument()
+    expect(screen.getByText(/Inventory status not set/)).toBeInTheDocument()
+    expect(screen.queryByText('stock-1')).not.toBeInTheDocument()
+    expect(screen.queryAllByText('-')).toHaveLength(0)
+  })
+
+  it('names linked project readiness gaps on company detail instead of raw ids and dash placeholders', async () => {
+    global.fetch = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/custom-fields?resource=company') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { definitions: [] } }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/companies/company-1') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              company: {
+                id: 'company-1',
+                orgId: 'org-1',
+                name: 'Acme Holdings',
+                lifecycleStage: 'customer',
+              },
+            },
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/companies/company-1/command-center?limit=100') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              summary: {},
+              analytics: {},
+              contacts: [
+                { id: 'contact-1', name: 'Jane Client', email: 'jane@example.com' },
+              ],
+              deals: [],
+              quotes: [],
+              invoices: [],
+              projects: [
+                { id: 'project-1' },
+              ],
+              serviceWorkspaces: [],
+              relationships: [],
+              documents: [],
+              orders: [],
+              shipments: [],
+              inventoryItems: [],
+              activities: [],
+            },
+          }),
+        } as Response)
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ data: {} }),
+      } as Response)
+    }) as jest.Mock
+
+    render(<CompanyDetailPage />)
+
+    await screen.findByRole('heading', { name: 'Acme Holdings' })
+    await selectCompanyTab(/Projects/i)
+
+    expect(screen.getByText('Project name missing')).toBeInTheDocument()
+    expect(screen.getByText(/Description not captured/)).toBeInTheDocument()
+    expect(screen.getByText(/Project status not set/)).toBeInTheDocument()
+    expect(screen.getByText(/Project update time not captured/)).toBeInTheDocument()
+    expect(screen.queryByText('project-1')).not.toBeInTheDocument()
+    expect(screen.queryAllByText('-')).toHaveLength(0)
+  })
+
+  it('names linked service readiness gaps on company detail instead of raw ids and silent blanks', async () => {
+    global.fetch = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/custom-fields?resource=company') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { definitions: [] } }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/companies/company-1') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              company: {
+                id: 'company-1',
+                orgId: 'org-1',
+                name: 'Acme Holdings',
+                lifecycleStage: 'customer',
+              },
+            },
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/companies/company-1/command-center?limit=100') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              summary: {},
+              analytics: {},
+              contacts: [
+                { id: 'contact-1', name: 'Jane Client', email: 'jane@example.com' },
+              ],
+              deals: [],
+              quotes: [],
+              invoices: [],
+              projects: [
+                { id: 'project-1', name: 'Delivery Sprint', status: 'active' },
+              ],
+              serviceWorkspaces: [
+                { id: 'svc-1' },
+              ],
+              relationships: [],
+              documents: [],
+              orders: [],
+              shipments: [],
+              inventoryItems: [],
+              activities: [],
+            },
+          }),
+        } as Response)
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ data: {} }),
+      } as Response)
+    }) as jest.Mock
+
+    render(<CompanyDetailPage />)
+
+    await screen.findByRole('heading', { name: 'Acme Holdings' })
+    await selectCompanyTab(/Services/i)
+
+    expect(screen.getByText('Service workspace name missing')).toBeInTheDocument()
+    expect(screen.getByText(/Service type not set/)).toBeInTheDocument()
+    expect(screen.getByText(/Workspace visibility not set/)).toBeInTheDocument()
+    expect(screen.getByText(/Service status not set/)).toBeInTheDocument()
+    expect(screen.queryByText('svc-1')).not.toBeInTheDocument()
+    expect(screen.queryAllByText('-')).toHaveLength(0)
+  })
+
+  it('names linked document readiness gaps on company detail instead of raw ids and dash placeholders', async () => {
+    global.fetch = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/custom-fields?resource=company') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { definitions: [] } }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/companies/company-1') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              company: {
+                id: 'company-1',
+                orgId: 'org-1',
+                name: 'Acme Holdings',
+                lifecycleStage: 'customer',
+              },
+            },
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/companies/company-1/command-center?limit=100') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              summary: {},
+              analytics: {},
+              contacts: [
+                { id: 'contact-1', name: 'Jane Client', email: 'jane@example.com' },
+              ],
+              deals: [],
+              quotes: [],
+              invoices: [],
+              projects: [],
+              serviceWorkspaces: [],
+              relationships: [],
+              documents: [
+                { id: 'doc-1' },
+              ],
+              orders: [],
+              shipments: [],
+              inventoryItems: [],
+              activities: [],
+            },
+          }),
+        } as Response)
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ data: {} }),
+      } as Response)
+    }) as jest.Mock
+
+    render(<CompanyDetailPage />)
+
+    await screen.findByRole('heading', { name: 'Acme Holdings' })
+    await selectCompanyTab(/Documents/i)
+
+    expect(screen.getByText('Document title missing')).toBeInTheDocument()
+    expect(screen.getByText(/Document type not set/)).toBeInTheDocument()
+    expect(screen.getByText(/Document status not set/)).toBeInTheDocument()
+    expect(screen.getByText(/Document update time not captured/)).toBeInTheDocument()
+    expect(screen.queryByText('doc-1')).not.toBeInTheDocument()
+    expect(screen.queryAllByText('-')).toHaveLength(0)
+  })
+
+  it('names linked relationship readiness gaps on company detail instead of raw ids and silent blanks', async () => {
+    global.fetch = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/custom-fields?resource=company') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { definitions: [] } }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/companies/company-1') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              company: {
+                id: 'company-1',
+                orgId: 'org-1',
+                name: 'Acme Holdings',
+                lifecycleStage: 'customer',
+              },
+            },
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/companies/company-1/command-center?limit=100') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              summary: {},
+              analytics: {},
+              contacts: [
+                { id: 'contact-1', name: 'Jane Client', email: 'jane@example.com' },
+              ],
+              deals: [],
+              quotes: [],
+              invoices: [],
+              projects: [],
+              serviceWorkspaces: [],
+              relationships: [
+                { id: 'rel-1' },
+              ],
+              documents: [],
+              orders: [],
+              shipments: [],
+              inventoryItems: [],
+              activities: [],
+            },
+          }),
+        } as Response)
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ data: {} }),
+      } as Response)
+    }) as jest.Mock
+
+    render(<CompanyDetailPage />)
+
+    await screen.findByRole('heading', { name: 'Acme Holdings' })
+    await selectCompanyTab(/Relationships/i)
+
+    expect(screen.getByText('Relationship target missing')).toBeInTheDocument()
+    expect(screen.getByText(/Relationship type not set/)).toBeInTheDocument()
+    expect(screen.getByText(/Relationship status not set/)).toBeInTheDocument()
+    expect(screen.getByText(/Shared capabilities not captured/)).toBeInTheDocument()
+    expect(screen.queryByText('rel-1')).not.toBeInTheDocument()
+    expect(screen.queryAllByText('-')).toHaveLength(0)
+  })
+
+  it('names sparse company activity readiness gaps instead of generic activity and dash dates', async () => {
+    global.fetch = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/custom-fields?resource=company') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { definitions: [] } }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/companies/company-1') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              company: {
+                id: 'company-1',
+                orgId: 'org-1',
+                name: 'Acme Holdings',
+                lifecycleStage: 'customer',
+              },
+            },
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/companies/company-1/command-center?limit=100') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              summary: {},
+              analytics: {},
+              contacts: [
+                { id: 'contact-1', name: 'Jane Client', email: 'jane@example.com' },
+              ],
+              deals: [],
+              quotes: [],
+              invoices: [],
+              projects: [],
+              serviceWorkspaces: [],
+              relationships: [],
+              documents: [],
+              orders: [],
+              shipments: [],
+              inventoryItems: [],
+              activities: [
+                { id: 'activity-1' },
+              ],
+            },
+          }),
+        } as Response)
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ data: {} }),
+      } as Response)
+    }) as jest.Mock
+
+    render(<CompanyDetailPage />)
+
+    await screen.findByRole('heading', { name: 'Acme Holdings' })
+    await selectCompanyTab(/Activity/i)
+
+    expect(screen.getByText('Activity summary missing')).toBeInTheDocument()
+    expect(screen.getByText('Activity type not set')).toBeInTheDocument()
+    expect(screen.getByText('Activity time not captured')).toBeInTheDocument()
+    expect(screen.queryAllByText('Activity')).toHaveLength(1)
+    expect(screen.queryAllByText('-')).toHaveLength(0)
   })
 
   it('surfaces CRM OS command-center tabs for delivery, commerce, and collaboration', async () => {
@@ -164,19 +1199,28 @@ describe('Portal company detail page', () => {
       expect(screen.getByRole('heading', { name: 'Acme Holdings' })).toBeInTheDocument()
     })
 
-    fireEvent.click(screen.getByRole('tab', { name: /Projects/i }))
+    await selectCompanyTab(/Projects/i)
     expect(await screen.findByText('SEO Sprint')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('tab', { name: /Services/i }))
+    await selectCompanyTab(/Services/i)
     expect(await screen.findByText('SEO Workspace')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('tab', { name: /Orders/i }))
+    await selectCompanyTab(/Orders/i)
     expect(await screen.findByText('Quote-to-delivery')).toBeInTheDocument()
+    expect(screen.getByText('In progress')).toBeInTheDocument()
+    expect(screen.queryByText('in_progress')).not.toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('tab', { name: /Inventory/i }))
+    await selectCompanyTab(/Shipments/i)
+    expect(await screen.findByText('Internal delivery')).toBeInTheDocument()
+    expect(screen.getByText('In transit')).toBeInTheDocument()
+    expect(screen.queryByText('in_transit')).not.toBeInTheDocument()
+
+    await selectCompanyTab(/Inventory/i)
     expect(await screen.findByText('SEO Hours')).toBeInTheDocument()
+    expect(screen.getByText('Low stock')).toBeInTheDocument()
+    expect(screen.queryByText('low_stock')).not.toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('tab', { name: /Analytics/i }))
+    await selectCompanyTab(/Analytics/i)
     expect(await screen.findByText(/Account value/i)).toBeInTheDocument()
   })
 
@@ -187,7 +1231,7 @@ describe('Portal company detail page', () => {
       expect(screen.getByRole('heading', { name: 'Acme Holdings' })).toBeInTheDocument()
     })
 
-    fireEvent.click(screen.getByRole('tab', { name: /Analytics/i }))
+    await selectCompanyTab(/Analytics/i)
 
     expect(await screen.findByText('Account operating brief')).toBeInTheDocument()
     expect(screen.getAllByText('1 low-stock item').length).toBeGreaterThan(0)
@@ -259,7 +1303,7 @@ describe('Portal company detail page', () => {
 
     expect(await screen.findByRole('heading', { name: 'Acme Holdings' })).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('tab', { name: /Analytics/i }))
+    await selectCompanyTab(/Analytics/i)
 
     expect(await screen.findByText('Risk watch clear')).toBeInTheDocument()
     expect(screen.getByText('Keep leadership risk reviewable')).toBeInTheDocument()
@@ -271,7 +1315,7 @@ describe('Portal company detail page', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Review invoices, orders, and inventory for Acme Holdings' }))
 
-    expect(await screen.findByRole('tab', { name: /Invoices/i })).toHaveAttribute('aria-selected', 'true')
+    expect(await selectCompanyTab(/Invoices/i)).toHaveAttribute('aria-selected', 'true')
   })
 
   it('turns an empty company contacts tab into a prefilled create-contact action', async () => {
@@ -340,7 +1384,7 @@ describe('Portal company detail page', () => {
     render(<CompanyDetailPage />)
 
     await screen.findByRole('heading', { name: 'Acme Holdings' })
-    fireEvent.click(screen.getByRole('tab', { name: /Contacts/i }))
+    await selectCompanyTab(/Contacts/i)
 
     fireEvent.click(await screen.findByRole('button', { name: 'Add first contact for Acme Holdings' }))
     expect(screen.getByText('New contact')).toBeInTheDocument()
@@ -446,7 +1490,7 @@ describe('Portal company detail page', () => {
     render(<CompanyDetailPage />)
 
     await screen.findByRole('heading', { name: 'Acme Holdings' })
-    fireEvent.click(screen.getByRole('tab', { name: /Deals/i }))
+    await selectCompanyTab(/Deals/i)
 
     fireEvent.click(await screen.findByRole('button', { name: 'Create first deal for Acme Holdings' }))
 
@@ -523,7 +1567,7 @@ describe('Portal company detail page', () => {
     render(<CompanyDetailPage />)
 
     await screen.findByRole('heading', { name: 'Acme Holdings' })
-    fireEvent.click(screen.getByRole('tab', { name: /Activity/i }))
+    await selectCompanyTab(/Activity/i)
     fireEvent.click(await screen.findByRole('button', { name: 'Log first note for Acme Holdings' }))
 
     expect(screen.getByLabelText('Company note')).toBeInTheDocument()
@@ -633,7 +1677,7 @@ describe('Portal company detail page', () => {
     render(<CompanyDetailPage />)
 
     await screen.findByRole('heading', { name: 'Acme Holdings' })
-    fireEvent.click(screen.getByRole('tab', { name: /Quotes/i }))
+    await selectCompanyTab(/Quotes/i)
     fireEvent.click(await screen.findByRole('button', { name: 'Create quote from Growth retainer' }))
 
     await waitFor(() => {
@@ -730,7 +1774,7 @@ describe('Portal company detail page', () => {
     render(<CompanyDetailPage />)
 
     await screen.findByRole('heading', { name: 'Acme Holdings' })
-    fireEvent.click(screen.getByRole('tab', { name: /Projects/i }))
+    await selectCompanyTab(/Projects/i)
     fireEvent.click(await screen.findByRole('button', { name: 'Create discovery project for Acme Holdings' }))
 
     await waitFor(() => {
@@ -825,7 +1869,7 @@ describe('Portal company detail page', () => {
     render(<CompanyDetailPage />)
 
     await screen.findByRole('heading', { name: 'Acme Holdings' })
-    fireEvent.click(screen.getByRole('tab', { name: /Services/i }))
+    await selectCompanyTab(/Services/i)
     fireEvent.click(await screen.findByRole('button', { name: 'Create service workspace for Acme Holdings' }))
 
     await waitFor(() => {
@@ -920,7 +1964,7 @@ describe('Portal company detail page', () => {
     render(<CompanyDetailPage />)
 
     await screen.findByRole('heading', { name: 'Acme Holdings' })
-    fireEvent.click(screen.getByRole('tab', { name: /Documents/i }))
+    await selectCompanyTab(/Documents/i)
     fireEvent.click(await screen.findByRole('button', { name: 'Create sales proposal for Acme Holdings' }))
 
     await waitFor(() => {
@@ -1013,7 +2057,7 @@ describe('Portal company detail page', () => {
     render(<CompanyDetailPage />)
 
     await screen.findByRole('heading', { name: 'Acme Holdings' })
-    fireEvent.click(screen.getByRole('tab', { name: /Relationships/i }))
+    await selectCompanyTab(/Relationships/i)
     fireEvent.click(await screen.findByRole('button', { name: 'Create relationship for Acme Holdings' }))
 
     await waitFor(() => {
@@ -1111,7 +2155,7 @@ describe('Portal company detail page', () => {
     render(<CompanyDetailPage />)
 
     await screen.findByRole('heading', { name: 'Acme Holdings' })
-    fireEvent.click(screen.getByRole('tab', { name: /Invoices/i }))
+    await selectCompanyTab(/Invoices/i)
     fireEvent.click(await screen.findByRole('button', { name: 'Create invoice from QUO-001' }))
 
     await waitFor(() => {
@@ -1196,7 +2240,7 @@ describe('Portal company detail page', () => {
     render(<CompanyDetailPage />)
 
     await screen.findByRole('heading', { name: 'Acme Holdings' })
-    fireEvent.click(screen.getByRole('tab', { name: /Orders/i }))
+    await selectCompanyTab(/Orders/i)
     fireEvent.click(await screen.findByRole('button', { name: 'Create fulfillment order from INV-001' }))
 
     await waitFor(() => {
@@ -1295,7 +2339,7 @@ describe('Portal company detail page', () => {
     render(<CompanyDetailPage />)
 
     await screen.findByRole('heading', { name: 'Acme Holdings' })
-    fireEvent.click(screen.getByRole('tab', { name: /Shipments/i }))
+    await selectCompanyTab(/Shipments/i)
     fireEvent.click(await screen.findByRole('button', { name: 'Create shipment for Acme Holdings fulfillment order' }))
 
     await waitFor(() => {
@@ -1386,7 +2430,7 @@ describe('Portal company detail page', () => {
     render(<CompanyDetailPage />)
 
     await screen.findByRole('heading', { name: 'Acme Holdings' })
-    fireEvent.click(screen.getByRole('tab', { name: /Inventory/i }))
+    await selectCompanyTab(/Inventory/i)
     fireEvent.click(await screen.findByRole('button', { name: 'Create inventory item for Acme Holdings' }))
 
     await waitFor(() => {

@@ -14,13 +14,16 @@ jest.mock('next/link', () => ({
 
 jest.mock('@/components/crm/DealDrawer', () => ({
   DealDrawer: ({
+    deal,
     defaultContactLabel,
     onSaved,
   }: {
+    deal?: Deal
     defaultContactLabel?: string
     onSaved: (dealId: string) => void
   }) => (
     <div>
+      {deal && <p>Drawer deal title: {deal.title}</p>}
       <p>Drawer contact label: {defaultContactLabel || 'missing'}</p>
       <button type="button" onClick={() => onSaved('deal-new')}>
         Save mocked deal
@@ -98,14 +101,160 @@ describe('ContactDealsPanel', () => {
       expect(screen.getByText('Gamma Deal')).toBeInTheDocument()
     })
 
-    // Stage chips show stageId text (W3-H will resolve to pretty labels)
-    expect(screen.getByText('discovery')).toBeInTheDocument()
-    expect(screen.getByText('proposal')).toBeInTheDocument()
-    expect(screen.getByText('won')).toBeInTheDocument()
+    expect(screen.getByText('Discovery')).toBeInTheDocument()
+    expect(screen.getByText('Proposal')).toBeInTheDocument()
+    expect(screen.getByText('Won')).toBeInTheDocument()
 
     // Values
     expect(screen.getAllByText(/10[\s ,.]?000/).length).toBeGreaterThan(0)
     expect(screen.getAllByText(/25[\s ,.]?000/).length).toBeGreaterThan(0)
+  })
+
+  it('formats fallback stage ids as readable labels when pipeline metadata is unavailable', async () => {
+    mockFetch.mockReturnValue(apiResponse([
+      makeDeal({ id: 'd1', title: 'Fallback Stage Deal', stageId: 'proposal_sent' }),
+    ]))
+
+    render(<ContactDealsPanel contactId="contact-1" />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: 'Fallback Stage Deal' })).toBeInTheDocument()
+    })
+
+    expect(screen.getByText('Proposal Sent')).toBeInTheDocument()
+    expect(screen.queryByText('proposal_sent')).not.toBeInTheDocument()
+  })
+
+  it('names missing deal values while keeping zero-value deals explicit on contact detail', async () => {
+    mockFetch.mockReturnValue(apiResponse([
+      makeDeal({ id: 'd1', title: 'Unpriced relationship deal', value: undefined }),
+      makeDeal({ id: 'd2', title: 'Zero value scoping deal', value: 0 }),
+    ]))
+
+    render(<ContactDealsPanel contactId="contact-1" contactName="Ava Owner" />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: 'Unpriced relationship deal' })).toBeInTheDocument()
+      expect(screen.getByRole('link', { name: 'Zero value scoping deal' })).toBeInTheDocument()
+    })
+
+    expect(screen.getByText(/No value captured/)).toBeInTheDocument()
+    expect(screen.getAllByText(/R\s*0/).length).toBeGreaterThan(0)
+    expect(screen.queryByText('—')).not.toBeInTheDocument()
+  })
+
+  it('names missing close dates on contact deal rows as forecast cleanup work', async () => {
+    mockFetch.mockReturnValue(apiResponse([
+      makeDeal({ id: 'd1', title: 'Forecast hygiene deal', expectedCloseDate: null }),
+    ]))
+
+    render(<ContactDealsPanel contactId="contact-1" contactName="Ava Owner" />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: 'Forecast hygiene deal' })).toBeInTheDocument()
+    })
+
+    expect(screen.getByText(/Close date missing/)).toBeInTheDocument()
+  })
+
+  it('opens linked deal forecast cleanup directly from the contact deal row', async () => {
+    mockFetch.mockReturnValue(apiResponse([
+      makeDeal({ id: 'd1', title: 'Forecast hygiene deal', expectedCloseDate: null }),
+    ]))
+
+    render(<ContactDealsPanel contactId="contact-1" contactName="Ava Owner" />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: 'Forecast hygiene deal' })).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add close date for Forecast hygiene deal from contact deal row' }))
+
+    expect(screen.getByText('Drawer deal title: Forecast hygiene deal')).toBeInTheDocument()
+  })
+
+  it('opens linked deal value cleanup directly from the contact deal row', async () => {
+    mockFetch.mockReturnValue(apiResponse([
+      makeDeal({ id: 'd1', title: 'Unpriced relationship deal', value: undefined }),
+    ]))
+
+    render(<ContactDealsPanel contactId="contact-1" contactName="Ava Owner" />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: 'Unpriced relationship deal' })).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add value for Unpriced relationship deal from contact deal row' }))
+
+    expect(screen.getByText('Drawer deal title: Unpriced relationship deal')).toBeInTheDocument()
+  })
+
+  it('opens linked deal stage cleanup directly from the contact deal row', async () => {
+    mockFetch.mockReturnValue(apiResponse([
+      makeDeal({ id: 'd1', title: 'Stage review deal', stageId: 'proposal_sent' }),
+    ]))
+
+    render(<ContactDealsPanel contactId="contact-1" contactName="Ava Owner" />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: 'Stage review deal' })).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit stage for Stage review deal from contact deal row' }))
+
+    expect(screen.getByText('Drawer deal title: Stage review deal')).toBeInTheDocument()
+  })
+
+  it('names unreadable linked-deal close dates as forecast cleanup work', async () => {
+    mockFetch.mockReturnValue(apiResponse([
+      makeDeal({
+        id: 'd1',
+        title: 'Corrupt timing deal',
+        expectedCloseDate: { _seconds: Number.NaN } as never,
+      }),
+    ]))
+
+    render(<ContactDealsPanel contactId="contact-1" contactName="Ava Owner" />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: 'Corrupt timing deal' })).toBeInTheDocument()
+    })
+
+    expect(screen.getByText(/Close date needs review/)).toBeInTheDocument()
+    expect(screen.queryByText(/Invalid Date/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Close date missing/)).not.toBeInTheDocument()
+  })
+
+  it('names sparse linked deal titles instead of rendering blank rows on contact detail', async () => {
+    mockFetch.mockReturnValue(apiResponse([
+      makeDeal({ id: 'd1', title: '' }),
+    ]))
+
+    render(<ContactDealsPanel contactId="contact-1" contactName="Ava Owner" />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: 'Deal name missing' })).toBeInTheDocument()
+    })
+
+    expect(screen.getByRole('link', { name: 'Deal name missing' })).toHaveAttribute('href', '/portal/deals/d1')
+    expect(screen.queryByText('Test Deal')).not.toBeInTheDocument()
+  })
+
+  it('names unpriced pipeline summaries instead of rolling missing deal values into zero', async () => {
+    mockFetch.mockReturnValue(apiResponse([
+      makeDeal({ id: 'd1', title: 'Unpriced relationship deal', value: undefined }),
+    ]))
+
+    render(<ContactDealsPanel contactId="contact-1" contactName="Ava Owner" />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: 'Unpriced relationship deal' })).toBeInTheDocument()
+    })
+
+    expect(screen.getByText('No priced deals')).toBeInTheDocument()
+    expect(screen.getByText('Forecast value needed')).toBeInTheDocument()
+    expect(screen.getByText('Capture deal value to unlock linked pipeline totals')).toBeInTheDocument()
+    expect(screen.queryByText(/R\s*0/)).not.toBeInTheDocument()
   })
 
   it('turns an empty contact deal panel into a relationship pipeline launch state', async () => {
@@ -134,6 +283,37 @@ describe('ContactDealsPanel', () => {
     mockFetch.mockReturnValue(new Promise(() => {}))
     const { container } = render(<ContactDealsPanel contactId="contact-1" />)
     expect(container.querySelectorAll('.pib-skeleton').length).toBeGreaterThan(0)
+  })
+
+  it('shows a retryable pipeline load error instead of an empty deal state', async () => {
+    mockFetch
+      .mockRejectedValueOnce(new Error('Deals request failed'))
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ success: true, data: [] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ success: true, data: [] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ success: true, data: [] }),
+      })
+
+    render(<ContactDealsPanel contactId="contact-1" contactName="Ava Owner" />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Deal pipeline unavailable' })).toBeInTheDocument()
+    })
+    expect(screen.getByText('We could not load linked deals for Ava Owner. Retry before treating this relationship as having no open opportunity.')).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: "Start Ava Owner's first opportunity." })).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Retry linked deals for Ava Owner' }))
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: "Start Ava Owner's first opportunity." })).toBeInTheDocument()
+    })
   })
 
   it('renders deal count in the panel header', async () => {

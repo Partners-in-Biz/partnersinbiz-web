@@ -108,6 +108,7 @@ function redactSensitiveText(text: string): string {
       return `${label}${separator} [REDACTED]`
     })
     .replace(/\bBearer\s+[A-Za-z0-9._~+\/-]+=*/gi, 'Bearer [REDACTED]')
+    .replace(/\bsk-[A-Za-z0-9_-]{6,}\b/g, '[REDACTED]')
     .replace(/\b(?:mongodb(?:\+srv)?|postgres(?:ql)?|mysql|redis):\/\/[^\s)]+/gi, '[REDACTED]')
 }
 

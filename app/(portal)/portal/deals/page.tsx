@@ -54,29 +54,45 @@ function PipelineSummary({ deals, stages }: PipelineSummaryProps) {
     }
   }
 
-  const total = deals
+  const valueStats = deals
     .filter(d => !lostStageIds.has(d.stageId))
-    .reduce((sum, d) => sum + (d.value ?? 0), 0)
-  const won = deals
-    .filter(d => wonStageIds.has(d.stageId))
-    .reduce((sum, d) => sum + (d.value ?? 0), 0)
-  const open = deals.filter(d => !wonStageIds.has(d.stageId) && !lostStageIds.has(d.stageId)).length
+    .reduce(
+      (stats, d) => {
+        const hasValue = typeof d.value === 'number' && Number.isFinite(d.value)
+        const stage = stages.find(s => s.id === d.stageId)
+        const prob = d.probability ?? stage?.probability ?? 100
 
-  // A5: weighted pipeline — sum of (value × probability / 100) for non-lost deals
-  const weightedTotal = deals
-    .filter(d => !lostStageIds.has(d.stageId))
-    .reduce((sum, d) => {
-      const stage = stages.find(s => s.id === d.stageId)
-      const prob = d.probability ?? stage?.probability ?? 100
-      return sum + (d.value ?? 0) * (prob / 100)
-    }, 0)
+        if (hasValue) {
+          stats.priced += 1
+          stats.total += d.value
+          stats.weightedTotal += d.value * (prob / 100)
+          if (wonStageIds.has(d.stageId)) stats.won += d.value
+        } else {
+          stats.unpriced += 1
+        }
+
+        return stats
+      },
+      { priced: 0, unpriced: 0, total: 0, weightedTotal: 0, won: 0 },
+    )
+  const open = deals.filter(d => !wonStageIds.has(d.stageId) && !lostStageIds.has(d.stageId)).length
+  const unpricedCopy = `${valueStats.unpriced} open ${valueStats.unpriced === 1 ? 'deal needs' : 'deals need'} value`
+  const hasPipelineRecords = valueStats.priced > 0 || valueStats.unpriced > 0
 
   return (
     <div className="flex gap-4 flex-wrap">
       {[
-        { label: 'Pipeline value', value: fmt(total), sub: 'excl. lost' },
-        { label: 'Weighted pipeline', value: fmt(weightedTotal), sub: 'prob-adjusted' },
-        { label: 'Won',            value: fmt(won),   sub: 'all time' },
+        {
+          label: 'Pipeline value',
+          value: valueStats.priced > 0 ? fmt(valueStats.total) : hasPipelineRecords ? 'No priced pipeline' : 'No open pipeline',
+          sub: valueStats.unpriced > 0 ? unpricedCopy : 'excl. lost',
+        },
+        {
+          label: 'Weighted pipeline',
+          value: valueStats.priced > 0 ? fmt(valueStats.weightedTotal) : hasPipelineRecords ? 'Forecast value needed' : 'No forecastable deals',
+          sub: valueStats.unpriced > 0 ? unpricedCopy : 'prob-adjusted',
+        },
+        { label: 'Won',            value: fmt(valueStats.won),   sub: 'all time' },
         { label: 'Open deals',     value: String(open), sub: 'active' },
         { label: 'Total deals',    value: String(deals.length), sub: 'all stages' },
       ].map(stat => (
@@ -95,8 +111,8 @@ function PipelineSummary({ deals, stages }: PipelineSummaryProps) {
 
 // ── Forecast helpers ───────────────────────────────────────────────────────────
 
-function fmtDealValue(value: number | undefined, currency?: string) {
-  if (!value) return '—'
+function fmtDealValue(value: number | null | undefined, currency?: string, missingLabel = 'No value captured') {
+  if (value == null || Number.isNaN(value)) return missingLabel
   try {
     return new Intl.NumberFormat('en-ZA', {
       style: 'currency', currency: currency ?? 'ZAR', maximumFractionDigits: 0,
@@ -129,16 +145,40 @@ function matchesDealOwnerLens(deal: Deal, ownerLens: string): boolean {
 }
 
 function dealOwnerLabel(deal: Deal): string {
-  return deal.ownerRef?.displayName || deal.ownerUid || 'Unassigned'
+  if (deal.ownerRef?.displayName?.trim()) return deal.ownerRef.displayName
+  if (deal.ownerUid?.trim()) return 'Deal owner identity missing'
+  return 'Unassigned'
+}
+
+function dealTitleLabel(deal: Deal): string {
+  return deal.title?.trim() || 'Deal name missing'
+}
+
+function fallbackStageLabel(stageId?: string): string {
+  const normalized = stageId?.trim()
+  if (!normalized) return 'Stage not set'
+
+  return normalized
+    .split(/[_\-\s]+/)
+    .filter(Boolean)
+    .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(' ')
+}
+
+function dealStageLabel(deal: Deal, stage?: PipelineStage): string {
+  return stage?.label?.trim() || fallbackStageLabel(deal.stageId)
 }
 
 function teamMemberLabel(member: TeamMember): string {
-  const name = member.displayName || [member.firstName, member.lastName].filter(Boolean).join(' ').trim() || member.email || member.uid
-  return member.jobTitle ? `${name} - ${member.jobTitle}` : name
+  const label = teamMemberDisplayName(member)
+  return member.jobTitle?.trim() ? `${label} - ${member.jobTitle.trim()}` : label
 }
 
 function teamMemberDisplayName(member: TeamMember): string {
-  return member.displayName || [member.firstName, member.lastName].filter(Boolean).join(' ').trim() || member.email || member.uid
+  return member.displayName?.trim()
+    || [member.firstName, member.lastName].map((part) => part?.trim()).filter(Boolean).join(' ')
+    || member.email?.trim()
+    || 'Team member identity missing'
 }
 
 function teamMemberOwnerRef(member: TeamMember) {
@@ -154,7 +194,7 @@ function fmtRelativeDate(ts: unknown): string {
   const date = ts && typeof ts === 'object' && 'toDate' in ts
     ? (ts as { toDate: () => Date }).toDate()
     : new Date(ts as string)
-  if (isNaN(date.getTime())) return '—'
+  if (isNaN(date.getTime())) return 'Close date needs review'
   const diffDays = Math.round((date.getTime() - Date.now()) / 86400000)
   if (diffDays === 0) return 'Today'
   if (diffDays < 0) return `${Math.abs(diffDays)}d overdue`
@@ -256,7 +296,11 @@ export default function DealsPage() {
         // Auto-select default pipeline
         const requestedPipeline = requestedPipelineId ? list.find(p => p.id === requestedPipelineId) : undefined
         const defaultPl = requestedPipeline ?? list.find(p => p.isDefault) ?? list[0]
-        if (defaultPl) setSelectedPipelineId(defaultPl.id)
+        if (defaultPl) {
+          setSelectedPipelineId(defaultPl.id)
+        } else {
+          setLoading(false)
+        }
         setPipelinesLoading(false)
       })
       .catch(err => {
@@ -389,8 +433,9 @@ export default function DealsPage() {
     const query = search.trim().toLowerCase()
     return deals.filter((deal) => {
       const contactLabel = contactLabelsById[deal.contactId]
+      const dealTitle = dealTitleLabel(deal)
       const matchesSearch = !query ||
-        deal.title.toLowerCase().includes(query) ||
+        dealTitle.toLowerCase().includes(query) ||
         deal.companyName?.toLowerCase().includes(query) ||
         deal.contactId?.toLowerCase().includes(query) ||
         contactLabel?.toLowerCase().includes(query) ||
@@ -804,10 +849,13 @@ export default function DealsPage() {
                 {filteredDeals.map(deal => {
                   const stage = stages.find(s => s.id === deal.stageId)
                   const stageColor = stage?.color ?? stageColorByKind(stage?.kind)
-                  const stageLabel = stage?.label ?? deal.stageId
+                  const stageLabel = dealStageLabel(deal, stage)
                   const prob = deal.probability ?? stage?.probability ?? 100
                   const weighted = (deal.value ?? 0) * (prob / 100)
                   const contactLabel = contactLabelsById[deal.contactId]
+                  const dealTitle = dealTitleLabel(deal)
+                  const hasCapturedValue = typeof deal.value === 'number' && Number.isFinite(deal.value)
+                  const hasAssignedOwner = hasDealOwner(deal)
                   return (
                     <tr
                       key={deal.id}
@@ -819,7 +867,7 @@ export default function DealsPage() {
                       <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
                         <input
                           type="checkbox"
-                          aria-label={`Select ${deal.title} for deal owner assignment`}
+                          aria-label={`Select ${dealTitle} for deal owner assignment`}
                           checked={selectedDealIds.has(deal.id)}
                           onChange={() => toggleDealSelection(deal.id)}
                           className="h-4 w-4 rounded border-[var(--color-pib-line)] bg-transparent"
@@ -831,39 +879,73 @@ export default function DealsPage() {
                           className="hover:text-[var(--color-pib-accent)] transition-colors font-medium"
                           onClick={e => e.stopPropagation()}
                         >
-                          {deal.title}
+                          {dealTitle}
                         </Link>
                       </td>
-                      <td className="px-4 py-3">
-                        <span
-                          className="text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full"
-                          style={{
-                            background: `${stageColor}20`,
-                            color: stageColor,
-                          }}
+                      <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          aria-label={`Edit stage for ${dealTitle} from deals list`}
+                          onClick={() => setEditingDeal(deal)}
+                          className="inline-flex rounded-md border border-transparent p-0.5 transition-colors hover:border-[var(--color-pib-accent)]"
                         >
-                          {stageLabel}
-                        </span>
+                          <span
+                            className="text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full"
+                            style={{
+                              background: `${stageColor}20`,
+                              color: stageColor,
+                            }}
+                          >
+                            {stageLabel}
+                          </span>
+                        </button>
                       </td>
-                      <td className="px-4 py-3 text-xs text-on-surface-variant">
-                        {dealOwnerLabel(deal)}
+                      <td className="px-4 py-3 text-xs text-on-surface-variant" onClick={e => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          aria-label={`${hasAssignedOwner ? 'Edit owner' : 'Assign owner'} for ${dealTitle} from deals list`}
+                          onClick={() => setEditingDeal(deal)}
+                          className="inline-flex max-w-full items-center gap-1 rounded-md border border-transparent px-1.5 py-1 text-left transition-colors hover:border-[var(--color-pib-accent)] hover:text-[var(--color-pib-text)]"
+                        >
+                          <span className="material-symbols-outlined text-[13px]" aria-hidden="true">
+                            {hasAssignedOwner ? 'manage_accounts' : 'person_add'}
+                          </span>
+                          <span className="truncate">{dealOwnerLabel(deal)}</span>
+                        </button>
+                      </td>
+                      <td className="px-4 py-3 font-mono text-on-surface-variant text-xs" onClick={e => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          aria-label={`${hasCapturedValue ? 'Edit' : 'Add'} value for ${dealTitle} from deals list`}
+                          onClick={() => setEditingDeal(deal)}
+                          className="inline-flex max-w-full items-center gap-1 rounded-md border border-transparent px-1.5 py-1 text-left transition-colors hover:border-[var(--color-pib-accent)] hover:text-[var(--color-pib-text)]"
+                        >
+                          <span className="material-symbols-outlined text-[13px]" aria-hidden="true">
+                            {hasCapturedValue ? 'edit' : 'add'}
+                          </span>
+                          {fmtDealValue(deal.value, deal.currency)}
+                        </button>
+                      </td>
+                      <td className="px-4 py-3 font-mono text-xs" onClick={e => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          aria-label={`Edit probability for ${dealTitle} from deals list`}
+                          onClick={() => setEditingDeal(deal)}
+                          className="inline-flex rounded-md border border-transparent p-0.5 transition-colors hover:border-[var(--color-pib-accent)]"
+                        >
+                          <span
+                            className="px-1.5 py-0.5 rounded-full text-[10px]"
+                            style={{
+                              background: prob >= 70 ? '#4ade8020' : prob >= 40 ? '#facc1520' : '#f8717120',
+                              color: prob >= 70 ? '#4ade80' : prob >= 40 ? '#facc15' : '#f87171',
+                            }}
+                          >
+                            {prob}%
+                          </span>
+                        </button>
                       </td>
                       <td className="px-4 py-3 font-mono text-on-surface-variant text-xs">
-                        {deal.currency} {deal.value?.toFixed(0)}
-                      </td>
-                      <td className="px-4 py-3 font-mono text-xs">
-                        <span
-                          className="px-1.5 py-0.5 rounded-full text-[10px]"
-                          style={{
-                            background: prob >= 70 ? '#4ade8020' : prob >= 40 ? '#facc1520' : '#f8717120',
-                            color: prob >= 70 ? '#4ade80' : prob >= 40 ? '#facc15' : '#f87171',
-                          }}
-                        >
-                          {prob}%
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 font-mono text-on-surface-variant text-xs">
-                        {deal.currency} {weighted.toFixed(0)}
+                        {fmtDealValue(weighted, deal.currency)}
                       </td>
                       <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
                         {deal.contactId ? (
@@ -871,10 +953,10 @@ export default function DealsPage() {
                             href={`/portal/contacts/${deal.contactId}`}
                             className="text-xs text-[var(--color-accent-v2)] hover:underline"
                           >
-                            {contactLabel || 'View'}
+                            {contactLabel || 'Contact identity missing'}
                           </a>
                         ) : (
-                          <span className="text-xs text-on-surface-variant">—</span>
+                          <span className="text-xs text-on-surface-variant">No contact linked</span>
                         )}
                       </td>
                     </tr>
@@ -956,9 +1038,10 @@ export default function DealsPage() {
                 ) : (
                   openDeals.map(deal => {
                     const stage = stages.find(s => s.id === deal.stageId)
-                    const stageLabel = stage?.label ?? deal.stageId
+                    const stageLabel = dealStageLabel(deal, stage)
                     const prob = deal.probability ?? stage?.probability ?? 50
                     const weighted = (deal.value ?? 0) * (prob / 100)
+                    const dealTitle = dealTitleLabel(deal)
                     return (
                       <tr
                         key={deal.id}
@@ -969,7 +1052,7 @@ export default function DealsPage() {
                             href={`/portal/deals/${deal.id}`}
                             className="hover:text-[var(--color-pib-accent)] transition-colors"
                           >
-                            {deal.title}
+                            {dealTitle}
                           </Link>
                         </td>
                         <td className="px-4 py-3 text-[var(--color-pib-text-muted)] hidden md:table-cell">{stageLabel}</td>
@@ -981,7 +1064,14 @@ export default function DealsPage() {
                           {fmtDealValue(weighted, deal.currency)}
                         </td>
                         <td className="px-4 py-3 text-right text-[var(--color-pib-text-muted)] hidden lg:table-cell">
-                          {deal.expectedCloseDate ? fmtRelativeDate(deal.expectedCloseDate) : '—'}
+                          <button
+                            type="button"
+                            onClick={() => setEditingDeal(deal)}
+                            aria-label={`${deal.expectedCloseDate ? 'Edit' : 'Add'} close date for ${dealTitle} from forecast`}
+                            className="inline-flex rounded-md border border-transparent px-1.5 py-1 text-right transition-colors hover:border-[var(--color-pib-accent)] hover:text-[var(--color-pib-text)]"
+                          >
+                            {deal.expectedCloseDate ? fmtRelativeDate(deal.expectedCloseDate) : 'No close date captured'}
+                          </button>
                         </td>
                       </tr>
                     )

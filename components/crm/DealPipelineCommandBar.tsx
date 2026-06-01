@@ -74,11 +74,23 @@ export function DealPipelineCommandBar({
   const lostStageIds = new Set(stages.filter((stage) => stage.kind === 'lost').map((stage) => stage.id))
   const primaryCurrency = deals.find((deal) => deal.currency)?.currency ?? 'ZAR'
   const openDeals = deals.filter((deal) => !lostStageIds.has(deal.stageId))
-  const weightedPipeline = openDeals.reduce((sum, deal) => {
-    const stage = stages.find((item) => item.id === deal.stageId)
-    const probability = deal.probability ?? stage?.probability ?? 50
-    return sum + (deal.value ?? 0) * (probability / 100)
-  }, 0)
+  const openPipeline = openDeals.reduce(
+    (stats, deal) => {
+      const stage = stages.find((item) => item.id === deal.stageId)
+      const probability = deal.probability ?? stage?.probability ?? 50
+      const hasValue = typeof deal.value === 'number' && Number.isFinite(deal.value)
+
+      if (hasValue) {
+        stats.priced += 1
+        stats.weightedValue += deal.value * (probability / 100)
+      } else {
+        stats.unpriced += 1
+      }
+
+      return stats
+    },
+    { priced: 0, unpriced: 0, weightedValue: 0 },
+  )
   const atRisk = deals.filter((deal) => isDealAtRisk(deal, stages)).length
   const missingContact = deals.filter((deal) => !deal.contactId).length
   const quoteReady = deals.filter(isDealQuoteReady).length
@@ -103,7 +115,20 @@ export function DealPipelineCommandBar({
             </div>
             <div className="rounded-xl border border-[var(--color-pib-line)] bg-white/[0.03] px-4 py-3 text-right">
               <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Weighted open value</p>
-              <p className="mt-1 text-lg font-semibold text-on-surface">{formatMoney(weightedPipeline, primaryCurrency)}</p>
+              <p className="mt-1 text-lg font-semibold text-on-surface">
+                {openPipeline.priced > 0
+                  ? formatMoney(openPipeline.weightedValue, primaryCurrency)
+                  : openDeals.length > 0
+                    ? 'Forecast value needed'
+                    : 'No open deals'}
+              </p>
+              <p className="mt-1 text-[11px] text-on-surface-variant">
+                {openPipeline.unpriced > 0
+                  ? `${openPipeline.unpriced} unpriced open ${openPipeline.unpriced === 1 ? 'deal' : 'deals'}`
+                  : openDeals.length > 0
+                    ? 'prob-adjusted forecast'
+                    : 'pipeline is clear'}
+              </p>
             </div>
           </div>
 

@@ -11,6 +11,17 @@ export const BULK_ACTION_LABELS: Record<BulkActionKey, string> = {
   'remove-tags': 'Remove tags...',
 }
 
+function readableBulkContactLabel(value: string): string {
+  return value
+    .split(/[-_\s]+/)
+    .filter(Boolean)
+    .map((part, index) => {
+      const lower = part.toLowerCase()
+      return index === 0 ? lower.charAt(0).toUpperCase() + lower.slice(1) : lower
+    })
+    .join(' ')
+}
+
 export interface BulkTeamMember {
   uid: string
   firstName: string
@@ -165,7 +176,7 @@ export function ContactsBulkCommandBar({
                 className="pib-input !w-full !py-2 !text-sm"
               >
                 {stages.map(stage => (
-                  <option key={stage} value={stage} className="bg-black">{stage}</option>
+                  <option key={stage} value={stage} className="bg-black">{readableBulkContactLabel(stage)}</option>
                 ))}
               </select>
             </label>
@@ -180,7 +191,7 @@ export function ContactsBulkCommandBar({
                 className="pib-input !w-full !py-2 !text-sm"
               >
                 {types.map(type => (
-                  <option key={type} value={type} className="bg-black">{type}</option>
+                  <option key={type} value={type} className="bg-black">{readableBulkContactLabel(type)}</option>
                 ))}
               </select>
             </label>

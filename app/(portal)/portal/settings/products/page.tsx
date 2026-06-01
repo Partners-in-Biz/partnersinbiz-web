@@ -6,11 +6,16 @@ import { ProductModal } from '@/components/crm/ProductModal'
 import type { Product } from '@/lib/products/types'
 
 function fmtMoney(value: number, currency = 'ZAR'): string {
-  return new Intl.NumberFormat('en-ZA', {
-    style: 'currency',
-    currency,
-    maximumFractionDigits: value % 1 === 0 ? 0 : 2,
-  }).format(value)
+  const safeCurrency = currency?.trim() || 'ZAR'
+  try {
+    return new Intl.NumberFormat('en-ZA', {
+      style: 'currency',
+      currency: safeCurrency,
+      maximumFractionDigits: value % 1 === 0 ? 0 : 2,
+    }).format(value)
+  } catch {
+    return `${safeCurrency} ${value.toLocaleString('en-ZA')}`
+  }
 }
 
 function productHealth(product: Product): { score: number; gaps: string[] } {
@@ -19,13 +24,30 @@ function productHealth(product: Product): { score: number; gaps: string[] } {
     { ok: Boolean(product.description?.trim()), label: 'description' },
     { ok: Boolean(product.unit?.trim()), label: 'unit' },
     { ok: Number.isFinite(product.unitPrice) && product.unitPrice > 0, label: 'price' },
-    { ok: Boolean(product.currency), label: 'currency' },
+    { ok: Boolean(product.currency?.trim()), label: 'currency' },
   ]
   const passed = checks.filter((check) => check.ok).length
   return {
     score: Math.round((passed / checks.length) * 100),
     gaps: checks.filter((check) => !check.ok).map((check) => check.label),
   }
+}
+
+function productDisplayName(product: Product): string {
+  return product.name?.trim() || 'Product name missing'
+}
+
+function productCurrencyLabel(product: Product): string {
+  return product.currency?.trim() || 'Currency not set'
+}
+
+function productSearchText(product: Product): string {
+  return [
+    productDisplayName(product),
+    product.description,
+    product.unit,
+    productCurrencyLabel(product),
+  ].filter(Boolean).join(' ').toLowerCase()
 }
 
 function StatCard({ label, value, sub, icon }: { label: string; value: string; sub: string; icon: string }) {
@@ -47,6 +69,7 @@ export default function ProductsPage() {
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [showModal, setShowModal] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
+  const [pendingDeleteProduct, setPendingDeleteProduct] = useState<Product | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [currencyFilter, setCurrencyFilter] = useState('')
@@ -102,15 +125,21 @@ export default function ProductsPage() {
   }
 
   async function handleDelete(p: Product) {
-    if (!window.confirm(`Delete "${p.name}"? This cannot be undone.`)) return
-    setDeletingId(p.id)
+    setPendingDeleteProduct(p)
+  }
+
+  async function confirmDeleteProduct() {
+    if (!pendingDeleteProduct) return
+    const product = pendingDeleteProduct
+    setDeletingId(product.id)
     try {
-      const res = await fetch(`/api/v1/crm/products/${p.id}`, { method: 'DELETE' })
+      const res = await fetch(`/api/v1/crm/products/${product.id}`, { method: 'DELETE' })
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
         throw new Error(body.error ?? `HTTP ${res.status}`)
       }
-      setProducts((prev) => prev.filter((x) => x.id !== p.id))
+      setProducts((prev) => prev.filter((x) => x.id !== product.id))
+      setPendingDeleteProduct(null)
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : 'Delete failed.')
     } finally {
@@ -143,12 +172,8 @@ export default function ProductsPage() {
     : 0
   const filteredProducts = products.filter((product) => {
     const q = search.trim().toLowerCase()
-    const matchesSearch = !q ||
-      product.name.toLowerCase().includes(q) ||
-      product.description?.toLowerCase().includes(q) ||
-      product.unit?.toLowerCase().includes(q) ||
-      product.currency.toLowerCase().includes(q)
-    const matchesCurrency = !currencyFilter || product.currency === currencyFilter
+    const matchesSearch = !q || productSearchText(product).includes(q)
+    const matchesCurrency = !currencyFilter || product.currency?.trim() === currencyFilter
     const health = productHealth(product)
     const matchesHealth =
       healthFilter === 'all' ||
@@ -358,6 +383,7 @@ export default function ProductsPage() {
                 const health = productHealth(p)
                 const hasDescription = Boolean(p.description?.trim())
                 const pricingGaps = health.gaps.filter((gap) => gap === 'unit' || gap === 'price' || gap === 'currency')
+                const displayName = productDisplayName(p)
                 return (
                   <tr
                     key={p.id}
@@ -367,7 +393,7 @@ export default function ProductsPage() {
                     ].join(' ')}
                   >
                     <td className="px-4 py-3">
-                      <p className="font-medium text-[var(--color-pib-text)]">{p.name}</p>
+                      <p className="font-medium text-[var(--color-pib-text)]">{displayName}</p>
                       <div className="mt-1 flex max-w-[360px] flex-wrap items-center gap-x-2 gap-y-1">
                         <p className="max-w-[320px] truncate text-xs text-[var(--color-pib-text-muted)]">
                           {hasDescription ? p.description : 'No product description yet.'}
@@ -376,7 +402,7 @@ export default function ProductsPage() {
                           <button
                             type="button"
                             onClick={() => handleOpenEdit(p)}
-                            aria-label={`Add description for ${p.name}`}
+                            aria-label={`Add description for ${displayName}`}
                             className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] px-2 py-1 text-[11px] font-medium text-[var(--color-pib-text)] transition-colors hover:border-[var(--color-accent-v2)]/40 hover:bg-[var(--color-accent-v2)]/10"
                           >
                             <span className="material-symbols-outlined text-[13px]" aria-hidden="true">edit_note</span>
@@ -406,7 +432,7 @@ export default function ProductsPage() {
                               <button
                                 type="button"
                                 onClick={() => handleOpenEdit(p)}
-                                aria-label={`Fix pricing setup for ${p.name}`}
+                                aria-label={`Fix pricing setup for ${displayName}`}
                                 className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-amber-300/20 bg-amber-300/10 px-2 py-1 text-[11px] font-medium text-amber-100 transition-colors hover:border-amber-200/50 hover:bg-amber-300/15"
                               >
                                 <span className="material-symbols-outlined text-[13px]" aria-hidden="true">price_check</span>
@@ -417,15 +443,17 @@ export default function ProductsPage() {
                         )}
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-[var(--color-pib-text-muted)]">{p.unit ?? '—'}</td>
+                    <td className="px-4 py-3 text-[var(--color-pib-text-muted)]">
+                      {p.unit?.trim() ? p.unit : 'Unit not set'}
+                    </td>
                     <td className="px-4 py-3 text-right tabular-nums">{fmtMoney(p.unitPrice, p.currency)}</td>
-                    <td className="px-4 py-3 text-[var(--color-pib-text-muted)]">{p.currency}</td>
+                    <td className="px-4 py-3 text-[var(--color-pib-text-muted)]">{productCurrencyLabel(p)}</td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1">
                         <button
                           type="button"
                           onClick={() => handleOpenEdit(p)}
-                          aria-label={`Edit ${p.name}`}
+                          aria-label={`Edit ${displayName}`}
                           title="Edit product"
                           className="cursor-pointer w-7 h-7 flex items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.06] transition-colors"
                         >
@@ -435,7 +463,7 @@ export default function ProductsPage() {
                           type="button"
                           onClick={() => handleDelete(p)}
                           disabled={deletingId === p.id}
-                          aria-label={`Delete ${p.name}`}
+                          aria-label={`Delete ${displayName}`}
                           title="Delete product"
                           className="cursor-pointer w-7 h-7 flex items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] hover:text-red-400 hover:bg-red-400/[0.08] transition-colors disabled:opacity-50"
                         >
@@ -457,6 +485,54 @@ export default function ProductsPage() {
           onSave={handleSave}
           onClose={handleClose}
         />
+      )}
+
+      {pendingDeleteProduct && (
+        <section
+          role="alertdialog"
+          aria-labelledby="delete-product-title"
+          aria-describedby="delete-product-description"
+          className="fixed inset-x-4 bottom-4 z-50 mx-auto max-w-4xl rounded-lg border border-red-400/30 bg-[var(--color-pib-surface)] p-4 shadow-2xl md:bottom-6"
+        >
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="flex gap-3">
+              <span className="material-symbols-outlined mt-0.5 text-red-300" aria-hidden="true">
+                warning
+              </span>
+              <div>
+                <p className="eyebrow !text-[10px] text-red-200">Catalog delete confirmation</p>
+                <h2 id="delete-product-title" className="mt-1 font-display text-lg text-[var(--color-pib-text)]">
+                  Delete catalog product &quot;{productDisplayName(pendingDeleteProduct)}&quot;?
+                </h2>
+                <p id="delete-product-description" className="mt-2 max-w-3xl text-sm text-[var(--color-pib-text-muted)]">
+                  This removes the product from the active catalog used by deal line items, quotes, and revenue reporting. Historical records keep their saved line-item data.
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setPendingDeleteProduct(null)}
+                className="btn-pib-secondary text-xs"
+                disabled={deletingId === pendingDeleteProduct.id}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmDeleteProduct}
+                className="inline-flex items-center gap-1.5 rounded-md border border-red-300/30 bg-red-400/15 px-3 py-2 text-xs font-semibold text-red-100 transition-colors hover:bg-red-400/25 disabled:opacity-50"
+                disabled={deletingId === pendingDeleteProduct.id}
+                aria-label={`Confirm delete catalog product ${productDisplayName(pendingDeleteProduct)}`}
+              >
+                <span className="material-symbols-outlined text-[14px]" aria-hidden="true">
+                  delete
+                </span>
+                {deletingId === pendingDeleteProduct.id ? 'Deleting...' : 'Delete product'}
+              </button>
+            </div>
+          </div>
+        </section>
       )}
     </div>
   )

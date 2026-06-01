@@ -11,6 +11,7 @@ import { sendCampaignEmail, FROM_ADDRESS } from '@/lib/email/resend'
 import { getReport } from '@/lib/reports/generate'
 import { REPORTS_COLLECTION } from '@/lib/reports/types'
 import type { ApiUser } from '@/lib/api/types'
+import { canAccessOrg } from '@/lib/api/platformAdmin'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 30
@@ -75,7 +76,7 @@ function emailHtml(report: Awaited<ReturnType<typeof getReport>>, link: string):
 </body></html>`
 }
 
-export const POST = withAuth('admin', async (req: NextRequest, user: ApiUser, ctx) => {
+export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, ctx) => {
   const { id } = await (ctx as RouteContext).params
   const body = (await req.json().catch(() => ({}))) as SendBody & Record<string, unknown>
   const capabilityError = enforceAgentCapability(user, 'message_client', req, body)
@@ -86,6 +87,7 @@ export const POST = withAuth('admin', async (req: NextRequest, user: ApiUser, ct
   }
   const report = await getReport(id)
   if (!report) return NextResponse.json({ error: 'Report not found' }, { status: 404 })
+  if (!canAccessOrg(user, report.orgId)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   if (!report.publicToken) {
     return NextResponse.json({ error: 'Report has no public token' }, { status: 400 })
   }

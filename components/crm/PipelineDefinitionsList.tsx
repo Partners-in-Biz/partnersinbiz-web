@@ -1,6 +1,6 @@
 'use client'
 
-import type { Pipeline } from '@/lib/pipelines/types'
+import type { Pipeline, PipelineStage } from '@/lib/pipelines/types'
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 
@@ -32,6 +32,18 @@ function ArchivedBadge() {
   )
 }
 
+function pipelineStages(pipeline: Pipeline): PipelineStage[] {
+  return Array.isArray(pipeline.stages) ? pipeline.stages : []
+}
+
+function pipelineDisplayName(pipeline: Pipeline): string {
+  return pipeline.name?.trim() || 'Pipeline name missing'
+}
+
+function stageDisplayName(stage: PipelineStage): string {
+  return stage.label?.trim() || 'Stage name missing'
+}
+
 // ── Pipeline row ──────────────────────────────────────────────────────────────
 
 function PipelineRow({
@@ -49,10 +61,12 @@ function PipelineRow({
   onSetDefault: (p: Pipeline) => void
   onArchive: (p: Pipeline) => void
 }) {
-  const stageCount = pipeline.stages.length
-  const openCount = pipeline.stages.filter((stage) => stage.kind === 'open').length
-  const wonCount = pipeline.stages.filter((stage) => stage.kind === 'won').length
-  const lostCount = pipeline.stages.filter((stage) => stage.kind === 'lost').length
+  const stages = pipelineStages(pipeline)
+  const displayName = pipelineDisplayName(pipeline)
+  const stageCount = stages.length
+  const openCount = stages.filter((stage) => stage.kind === 'open').length
+  const wonCount = stages.filter((stage) => stage.kind === 'won').length
+  const lostCount = stages.filter((stage) => stage.kind === 'lost').length
   const healthChecks = [
     Boolean(pipeline.name?.trim()),
     stageCount > 0,
@@ -61,7 +75,7 @@ function PipelineRow({
     lostCount > 0,
   ]
   const healthScore = Math.round((healthChecks.filter(Boolean).length / healthChecks.length) * 100)
-  const visibleStages = [...pipeline.stages].sort((a, b) => a.order - b.order).slice(0, 6)
+  const visibleStages = [...stages].sort((a, b) => a.order - b.order).slice(0, 6)
   const hasOperatingNote = Boolean(pipeline.description?.trim())
 
   return (
@@ -70,7 +84,7 @@ function PipelineRow({
       <div className="flex flex-col gap-4 p-4 lg:flex-row lg:items-start">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
-            <p className="text-base font-semibold text-[var(--color-pib-text)] truncate">{pipeline.name}</p>
+            <p className="text-base font-semibold text-[var(--color-pib-text)] truncate">{displayName}</p>
             {pipeline.isDefault && <DefaultBadge />}
             {pipeline.archived && <ArchivedBadge />}
             <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${healthScore >= 100 ? 'bg-emerald-500/10 text-emerald-300' : 'bg-amber-500/10 text-amber-200'}`}>
@@ -86,7 +100,7 @@ function PipelineRow({
             {isAdmin && !hasOperatingNote && (
               <button
                 type="button"
-                aria-label={`Add operating note for ${pipeline.name}`}
+                aria-label={`Add operating note for ${displayName}`}
                 onClick={() => onEdit(pipeline)}
                 className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] px-2 py-1 text-[11px] font-medium text-[var(--color-pib-text)] transition-colors hover:border-[var(--color-accent-v2)]/40 hover:bg-[var(--color-accent-v2)]/10"
               >
@@ -108,12 +122,12 @@ function PipelineRow({
                       ? 'border-red-400/20 bg-red-400/10 text-red-200'
                       : 'border-[var(--color-pib-line)] bg-white/[0.03] text-[var(--color-pib-text-muted)]',
                 ].join(' ')}
-                title={`${stage.label} (${stage.probability}% probability)`}
+                title={`${stageDisplayName(stage)} (${stage.probability}% probability)`}
               >
                 <span className="material-symbols-outlined text-[13px]">
                   {stage.kind === 'won' ? 'check_circle' : stage.kind === 'lost' ? 'cancel' : 'radio_button_unchecked'}
                 </span>
-                {stage.label}
+                {stageDisplayName(stage)}
               </span>
             )) : (
               <span className="inline-flex flex-wrap items-center gap-2 text-xs text-amber-200">
@@ -121,7 +135,7 @@ function PipelineRow({
                 {isAdmin && (
                   <button
                     type="button"
-                    aria-label={`Add stages for ${pipeline.name}`}
+                    aria-label={`Add stages for ${displayName}`}
                     onClick={() => onEdit(pipeline)}
                     className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-amber-300/20 bg-amber-300/10 px-2 py-1 text-[11px] font-medium text-amber-100 transition-colors hover:border-amber-200/50 hover:bg-amber-300/15"
                   >
@@ -131,8 +145,8 @@ function PipelineRow({
                 )}
               </span>
             )}
-            {pipeline.stages.length > visibleStages.length && (
-              <span className="text-xs text-[var(--color-pib-text-muted)]">+{pipeline.stages.length - visibleStages.length} more</span>
+            {stages.length > visibleStages.length && (
+              <span className="text-xs text-[var(--color-pib-text-muted)]">+{stages.length - visibleStages.length} more</span>
             )}
           </div>
         </div>
@@ -164,7 +178,7 @@ function PipelineRow({
           {!pipeline.isDefault && !pipeline.archived && (
             <button
               type="button"
-              aria-label={`Set ${pipeline.name} as default`}
+              aria-label={`Set ${displayName} as default`}
               onClick={() => onSetDefault(pipeline)}
               className="cursor-pointer w-8 h-8 flex items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] hover:text-[var(--color-accent-v2)] hover:bg-white/[0.06] transition-colors"
               title="Set as default"
@@ -176,7 +190,7 @@ function PipelineRow({
           {/* Archive / unarchive */}
           <button
             type="button"
-            aria-label={pipeline.archived ? `Unarchive ${pipeline.name}` : `Archive ${pipeline.name}`}
+            aria-label={pipeline.archived ? `Unarchive ${displayName}` : `Archive ${displayName}`}
             onClick={() => onArchive(pipeline)}
             className="cursor-pointer w-8 h-8 flex items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.06] transition-colors"
             title={pipeline.archived ? 'Unarchive' : 'Archive'}
@@ -189,7 +203,7 @@ function PipelineRow({
           {/* Edit */}
           <button
             type="button"
-            aria-label={`Edit ${pipeline.name}`}
+            aria-label={`Edit ${displayName}`}
             onClick={() => onEdit(pipeline)}
             className="cursor-pointer w-8 h-8 flex items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.06] transition-colors"
             title="Edit pipeline"
@@ -200,7 +214,7 @@ function PipelineRow({
           {/* Delete */}
           <button
             type="button"
-            aria-label={`Delete ${pipeline.name}`}
+            aria-label={`Delete ${displayName}`}
             onClick={() => onDelete(pipeline)}
             className="cursor-pointer w-8 h-8 flex items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] hover:text-red-400 hover:bg-red-400/[0.08] transition-colors"
             title="Delete pipeline"
@@ -307,7 +321,7 @@ export function PipelineDefinitionsList({
     if (!a.isDefault && b.isDefault) return 1
     if (!a.archived && b.archived) return -1
     if (a.archived && !b.archived) return 1
-    return a.name.localeCompare(b.name)
+    return pipelineDisplayName(a).localeCompare(pipelineDisplayName(b))
   })
 
   return (

@@ -92,9 +92,24 @@ export function CompanyPanel({ companyId, companyName, emptyAction }: CompanyPan
   // companyName only (hybrid fallback)
   if (!companyId && companyName) {
     return (
-      <div className="flex items-center gap-2">
-        <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">domain</span>
-        <p className="text-sm text-[var(--color-pib-text)]">{companyName}</p>
+      <div className="rounded-md border border-[var(--color-pib-line)] bg-white/[0.015] p-3">
+        <div className="flex items-center gap-2">
+          <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">domain</span>
+          <p className="text-sm text-[var(--color-pib-text)]">{companyName}</p>
+        </div>
+        {emptyAction && (
+          <button
+            type="button"
+            aria-label={emptyAction.ariaLabel}
+            onClick={emptyAction.onClick}
+            className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-[var(--color-pib-line)] px-2.5 py-1.5 text-xs font-medium text-[var(--color-pib-accent)] transition-colors hover:border-[var(--color-pib-accent)] hover:text-[var(--color-pib-text)]"
+          >
+            {emptyAction.icon && (
+              <span className="material-symbols-outlined text-[14px]" aria-hidden="true">{emptyAction.icon}</span>
+            )}
+            {emptyAction.label}
+          </button>
+        )}
       </div>
     )
   }
@@ -105,8 +120,9 @@ export function CompanyPanel({ companyId, companyName, emptyAction }: CompanyPan
   }
 
   // Full company card
-  const displayName = company?.name ?? companyName ?? 'Unknown company'
+  const displayName = company?.name?.trim() || companyName?.trim() || 'Company identity missing'
   const am = company?.accountManagerRef
+  const accountManagerLabel = am?.displayName?.trim() || (am?.uid ? 'Account manager identity missing' : '')
   const lifecycle = labelize(company?.lifecycleStage)
   const tier = labelize(company?.tier)
   const health = typeof company?.healthScore === 'number' ? `Health ${company.healthScore}%` : null
@@ -130,8 +146,8 @@ export function CompanyPanel({ companyId, companyName, emptyAction }: CompanyPan
 
       <div className="flex-1 min-w-0 space-y-2">
         <p className="text-sm font-medium text-[var(--color-pib-text)] truncate">{displayName}</p>
-        {am && (
-          <p className="text-[11px] text-[var(--color-pib-text-muted)] truncate">{am.displayName}</p>
+        {accountManagerLabel && (
+          <p className="text-[11px] text-[var(--color-pib-text-muted)] truncate">{accountManagerLabel}</p>
         )}
         {signals.length > 0 && (
           <div className="flex flex-wrap gap-1.5">

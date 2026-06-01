@@ -30,7 +30,8 @@ import type { PipelineStage } from '@/lib/pipelines/types'
 
 // ── Internal deal card ─────────────────────────────────────────────────────────
 
-function formatValue(value: number, currency: string): string {
+function formatValue(value: number | null | undefined, currency: string): string {
+  if (value === null || value === undefined || Number.isNaN(value)) return 'No value captured'
   try {
     return new Intl.NumberFormat('en-ZA', { style: 'currency', currency, maximumFractionDigits: 0 }).format(value)
   } catch {
@@ -38,16 +39,29 @@ function formatValue(value: number, currency: string): string {
   }
 }
 
+function dealTitleLabel(deal: Deal): string {
+  return deal.title?.trim() || 'Deal name missing'
+}
+
 interface DealCardProps {
   deal: Deal
   stageColor?: string
   contactBasePath?: string
+  companyBasePath?: string
   contactLabel?: string
 }
 
-function DealCard({ deal, stageColor = '#6b7280', contactBasePath = '/portal/contacts', contactLabel }: DealCardProps) {
+function DealCard({
+  deal,
+  stageColor = '#6b7280',
+  contactBasePath = '/portal/contacts',
+  companyBasePath = '/portal/companies',
+  contactLabel,
+}: DealCardProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: deal.id })
-  const readableContactLabel = contactLabel?.trim() || 'Contact'
+  const titleLabel = dealTitleLabel(deal)
+  const readableContactLabel = contactLabel?.trim() || 'Contact identity missing'
+  const readableCompanyLabel = deal.companyName?.trim() || (deal.companyId ? 'Company identity missing' : '')
 
   return (
     <div
@@ -60,7 +74,7 @@ function DealCard({ deal, stageColor = '#6b7280', contactBasePath = '/portal/con
         className="pib-card cursor-pointer select-none transition-all duration-150 hover:border-[var(--color-accent-v2)]"
         style={{ padding: '10px', borderLeft: `3px solid ${stageColor}` }}
       >
-        <p className="text-sm font-medium text-on-surface mb-2 leading-snug">{deal.title}</p>
+        <p className="text-sm font-medium text-on-surface mb-2 leading-snug">{titleLabel}</p>
         <div className="flex items-center justify-between gap-2">
           <span className="text-xs font-mono text-on-surface-variant font-semibold">
             {formatValue(deal.value, deal.currency)}
@@ -77,9 +91,18 @@ function DealCard({ deal, stageColor = '#6b7280', contactBasePath = '/portal/con
             </Link>
           )}
         </div>
-        {deal.companyName && (
-          <span className="text-xs text-gray-500 truncate mt-1 block">{deal.companyName}</span>
-        )}
+        {deal.companyId ? (
+          <Link
+            href={`${companyBasePath}/${deal.companyId}`}
+            onClick={e => e.stopPropagation()}
+            className="text-xs text-gray-500 truncate mt-1 block hover:underline"
+            title="View company"
+          >
+            {readableCompanyLabel}
+          </Link>
+        ) : readableCompanyLabel ? (
+          <span className="text-xs text-gray-500 truncate mt-1 block">{readableCompanyLabel}</span>
+        ) : null}
       </div>
     </div>
   )
@@ -91,10 +114,11 @@ interface DealColumnProps {
   stage: PipelineStage
   deals: Deal[]
   contactBasePath?: string
+  companyBasePath?: string
   contactLabelsById?: Record<string, string>
 }
 
-function DealColumn({ stage, deals, contactBasePath, contactLabelsById }: DealColumnProps) {
+function DealColumn({ stage, deals, contactBasePath, companyBasePath, contactLabelsById }: DealColumnProps) {
   const dealIds = deals.map(d => d.id)
   const { setNodeRef, isOver } = useDroppable({ id: stage.id })
   const color = stage.color ?? '#6b7280'
@@ -128,6 +152,7 @@ function DealColumn({ stage, deals, contactBasePath, contactLabelsById }: DealCo
               deal={deal}
               stageColor={color}
               contactBasePath={contactBasePath}
+              companyBasePath={companyBasePath}
               contactLabel={contactLabelsById?.[deal.contactId]}
             />
           ))}
@@ -148,12 +173,14 @@ function DealColumn({ stage, deals, contactBasePath, contactLabelsById }: DealCo
 // ── Overlay card (dragging ghost) ──────────────────────────────────────────────
 
 function DragGhost({ deal, stageColor = '#6b7280' }: { deal: Deal; stageColor?: string }) {
+  const titleLabel = dealTitleLabel(deal)
+
   return (
     <div
       className="pib-card select-none w-64"
       style={{ padding: '10px', borderLeft: `3px solid ${stageColor}`, opacity: 0.9 }}
     >
-      <p className="text-sm font-medium text-on-surface mb-2 leading-snug">{deal.title}</p>
+      <p className="text-sm font-medium text-on-surface mb-2 leading-snug">{titleLabel}</p>
       <span className="text-xs font-mono text-on-surface-variant font-semibold">
         {formatValue(deal.value, deal.currency)}
       </span>
@@ -169,6 +196,7 @@ export interface DealKanbanProps {
   loading?: boolean
   onStageChange: (dealId: string, newStageId: string) => Promise<void>
   contactBasePath?: string
+  companyBasePath?: string
   contactLabelsById?: Record<string, string>
 }
 
@@ -182,6 +210,7 @@ export function DealKanban({
   loading = false,
   onStageChange,
   contactBasePath = '/portal/contacts',
+  companyBasePath = '/portal/companies',
   contactLabelsById,
 }: DealKanbanProps) {
   const [deals, setDeals] = useState<Deal[]>(initialDeals)
@@ -278,6 +307,7 @@ export function DealKanban({
               stage={stage}
               deals={getDealsForStage(stage.id)}
               contactBasePath={contactBasePath}
+              companyBasePath={companyBasePath}
               contactLabelsById={contactLabelsById}
             />
           ),

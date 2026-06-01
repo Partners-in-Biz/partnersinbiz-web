@@ -24,34 +24,37 @@ function makeDef(overrides: Partial<CustomFieldDefinition>): CustomFieldDefiniti
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe('CustomFieldValue', () => {
-  it('renders "—" for undefined value', () => {
+  it('names an undefined text value as not captured', () => {
     render(
       <CustomFieldValue
         definition={makeDef({ type: 'text' })}
         value={undefined}
       />,
     )
-    expect(screen.getByText('—')).toBeInTheDocument()
+    expect(screen.getByText('Not captured')).toBeInTheDocument()
+    expect(screen.queryByText('—')).not.toBeInTheDocument()
   })
 
-  it('renders "—" for null value', () => {
+  it('names a null number value as not captured', () => {
     render(
       <CustomFieldValue
         definition={makeDef({ type: 'number' })}
         value={null}
       />,
     )
-    expect(screen.getByText('—')).toBeInTheDocument()
+    expect(screen.getByText('Not captured')).toBeInTheDocument()
+    expect(screen.queryByText('—')).not.toBeInTheDocument()
   })
 
-  it('renders "—" for empty string', () => {
+  it('names an empty string value as not captured', () => {
     render(
       <CustomFieldValue
         definition={makeDef({ type: 'text' })}
         value=""
       />,
     )
-    expect(screen.getByText('—')).toBeInTheDocument()
+    expect(screen.getByText('Not captured')).toBeInTheDocument()
+    expect(screen.queryByText('—')).not.toBeInTheDocument()
   })
 
   it('renders plain text for type "text"', () => {
@@ -134,17 +137,19 @@ describe('CustomFieldValue', () => {
     expect(screen.getByText('Beta')).toBeInTheDocument()
   })
 
-  it('renders "—" for unknown dropdown value', () => {
+  it('names unknown dropdown values as stale CRM options', () => {
     render(
       <CustomFieldValue
         definition={makeDef({
+          label: 'Buying committee role',
           type: 'dropdown',
           options: [{ value: 'a', label: 'Alpha' }],
         })}
         value="unknown"
       />,
     )
-    expect(screen.getByText('—')).toBeInTheDocument()
+    expect(screen.getByText('Unknown Buying committee role option')).toBeInTheDocument()
+    expect(screen.queryByText('—')).not.toBeInTheDocument()
   })
 
   it('renders one chip per matched option for multi_select', () => {
@@ -164,6 +169,25 @@ describe('CustomFieldValue', () => {
     expect(screen.getByText('X Option')).toBeInTheDocument()
     expect(screen.getByText('Z Option')).toBeInTheDocument()
     expect(screen.queryByText('Y Option')).not.toBeInTheDocument()
+  })
+
+  it('keeps stale multi-select values visible as CRM cleanup work', () => {
+    render(
+      <CustomFieldValue
+        definition={makeDef({
+          type: 'multi_select',
+          label: 'Service interests',
+          options: [
+            { value: 'web', label: 'Website build' },
+          ],
+        })}
+        value={['web', 'legacy_mobile_app']}
+      />,
+    )
+
+    expect(screen.getByText('Website build')).toBeInTheDocument()
+    expect(screen.getByText('1 stale Service interests option')).toBeInTheDocument()
+    expect(screen.queryByText('legacy_mobile_app')).not.toBeInTheDocument()
   })
 
   it('renders "Yes" for checkbox true', () => {
@@ -196,5 +220,17 @@ describe('CustomFieldValue', () => {
     )
     const expected = new Date(dateStr).toLocaleDateString()
     expect(screen.getByText(expected)).toBeInTheDocument()
+  })
+
+  it('names invalid date values as CRM data cleanup work', () => {
+    render(
+      <CustomFieldValue
+        definition={makeDef({ type: 'date', label: 'Contract start date' })}
+        value="not-a-date"
+      />,
+    )
+
+    expect(screen.getByText('Invalid Contract start date date')).toBeInTheDocument()
+    expect(screen.queryByText('Invalid Date')).not.toBeInTheDocument()
   })
 })

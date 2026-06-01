@@ -52,25 +52,39 @@ function formatRelative(value: unknown): string {
   return `${diffDays}d ago`
 }
 
-function fmtDealValue(value: number | undefined, currency?: string) {
-  const amount = typeof value === 'number' && Number.isFinite(value) ? value : 0
+function hasNumericDealValue(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value)
+}
+
+function fmtDealValue(value: number | null | undefined, currency?: string, missingLabel = 'No value captured') {
+  if (!hasNumericDealValue(value)) return missingLabel
   try {
     return new Intl.NumberFormat('en-ZA', {
       style: 'currency',
       currency: currency ?? 'ZAR',
       maximumFractionDigits: 0,
-    }).format(amount)
+    }).format(value)
   } catch {
-    return `${currency ?? 'ZAR'} ${amount.toFixed(0)}`
+    return `${currency ?? 'ZAR'} ${value.toFixed(0)}`
   }
 }
 
 function formatDealsTotal(deals: Deal[], mode: 'value' | 'weighted') {
-  const total = deals.reduce((sum, deal) => {
-    if (mode === 'weighted') return sum + (deal.value ?? 0) * ((deal.probability ?? 50) / 100)
-    return sum + (deal.value ?? 0)
+  const pricedDeals = deals.filter((deal) => hasNumericDealValue(deal.value))
+  if (pricedDeals.length === 0) {
+    if (deals.length === 0) return mode === 'weighted' ? 'No forecastable deals' : 'No open pipeline'
+    return mode === 'weighted' ? 'Forecast value needed' : 'No priced pipeline'
+  }
+  const total = pricedDeals.reduce((sum, deal) => {
+    if (mode === 'weighted') return sum + deal.value * ((deal.probability ?? 50) / 100)
+    return sum + deal.value
   }, 0)
-  return fmtDealValue(total, deals.find((deal) => deal.currency)?.currency)
+  return fmtDealValue(total, pricedDeals.find((deal) => deal.currency)?.currency)
+}
+
+function dealWeightedValue(deal: Deal, probability: number): number | null {
+  if (!hasNumericDealValue(deal.value)) return null
+  return deal.value * (probability / 100)
 }
 
 function hasDealOwner(deal: Deal): boolean {
@@ -97,6 +111,18 @@ function teamMemberOwnerRef(member: TeamMember) {
     ...(member.jobTitle ? { jobTitle: member.jobTitle } : {}),
     kind: 'human' as const,
   }
+}
+
+function contactEmailLabel(contact: Contact): string {
+  return contact.email?.trim() || 'Email missing'
+}
+
+function contactCompanyLabel(contact: Contact): string {
+  return contact.companyName?.trim() || contact.company?.trim() || 'Company missing'
+}
+
+function dealCompanyLabel(deal: Deal): string {
+  return deal.companyName?.trim() || 'Company missing'
 }
 
 async function readApiJson(res: Response, fallback: string) {
@@ -339,13 +365,18 @@ export default function PipelinePage() {
 
   const metrics = useMemo(() => {
     const primaryCurrency: Currency = deals.find((deal) => deal.currency)?.currency ?? 'ZAR'
-    const total = deals.filter((deal) => !lostStageIds.has(deal.stageId)).reduce((sum, deal) => sum + (deal.value ?? 0), 0)
-    const weighted = deals.filter((deal) => !lostStageIds.has(deal.stageId)).reduce((sum, deal) => {
+    const activeDeals = deals.filter((deal) => !lostStageIds.has(deal.stageId))
+    const pricedActiveDeals = activeDeals.filter((deal) => hasNumericDealValue(deal.value))
+    const unpricedActiveDeals = activeDeals.length - pricedActiveDeals.length
+    const total = pricedActiveDeals.reduce((sum, deal) => sum + deal.value, 0)
+    const weighted = pricedActiveDeals.reduce((sum, deal) => {
       const stage = stages.find((item) => item.id === deal.stageId)
       const probability = deal.probability ?? stage?.probability ?? 50
-      return sum + (deal.value ?? 0) * (probability / 100)
+      return sum + deal.value * (probability / 100)
     }, 0)
-    const won = deals.filter((deal) => wonStageIds.has(deal.stageId)).reduce((sum, deal) => sum + (deal.value ?? 0), 0)
+    const wonDeals = deals.filter((deal) => wonStageIds.has(deal.stageId))
+    const pricedWonDeals = wonDeals.filter((deal) => hasNumericDealValue(deal.value))
+    const won = pricedWonDeals.reduce((sum, deal) => sum + deal.value, 0)
     const assignedDeals = deals.filter(hasDealOwner).length
     const unassignedDeals = deals.length - assignedDeals
     const staleContacts = contacts.filter((contact) => {
@@ -358,6 +389,10 @@ export default function PipelinePage() {
       total,
       weighted,
       won,
+      pricedActiveDeals: pricedActiveDeals.length,
+      unpricedActiveDeals,
+      pricedWonDeals: pricedWonDeals.length,
+      unpricedWonDeals: wonDeals.length - pricedWonDeals.length,
       open: openDeals.length,
       totalDeals: deals.length,
       ownerCoverage: deals.length ? Math.round((assignedDeals / deals.length) * 100) : 100,
@@ -496,9 +531,24 @@ export default function PipelinePage() {
 
       {ready && !error && (
         <section className="flex flex-wrap gap-3">
-          <PipelineMetric icon="paid" label="Pipeline value" value={fmtDealValue(metrics.total, metrics.primaryCurrency)} sub="Excluding lost deals" />
-          <PipelineMetric icon="trending_up" label="Weighted forecast" value={fmtDealValue(metrics.weighted, metrics.primaryCurrency)} sub="Probability adjusted" />
-          <PipelineMetric icon="emoji_events" label="Won value" value={fmtDealValue(metrics.won, metrics.primaryCurrency)} sub="Current loaded pipeline" />
+          <PipelineMetric
+            icon="paid"
+            label="Pipeline value"
+            value={metrics.pricedActiveDeals > 0 ? fmtDealValue(metrics.total, metrics.primaryCurrency) : metrics.unpricedActiveDeals > 0 ? 'No priced pipeline' : 'No active pipeline'}
+            sub={metrics.unpricedActiveDeals > 0 ? `${metrics.unpricedActiveDeals} active deal${metrics.unpricedActiveDeals === 1 ? '' : 's'} missing value` : 'Excluding lost deals'}
+          />
+          <PipelineMetric
+            icon="trending_up"
+            label="Weighted forecast"
+            value={metrics.pricedActiveDeals > 0 ? fmtDealValue(metrics.weighted, metrics.primaryCurrency) : metrics.unpricedActiveDeals > 0 ? 'Forecast value needed' : 'No forecastable deals'}
+            sub={metrics.unpricedActiveDeals > 0 ? 'Capture values before revenue review' : 'Probability adjusted'}
+          />
+          <PipelineMetric
+            icon="emoji_events"
+            label="Won value"
+            value={metrics.pricedWonDeals > 0 ? fmtDealValue(metrics.won, metrics.primaryCurrency) : metrics.unpricedWonDeals > 0 ? 'Won value missing' : fmtDealValue(0, metrics.primaryCurrency)}
+            sub={metrics.unpricedWonDeals > 0 ? `${metrics.unpricedWonDeals} won deal${metrics.unpricedWonDeals === 1 ? '' : 's'} missing value` : 'Current loaded pipeline'}
+          />
           <PipelineMetric icon="view_kanban" label="Open deals" value={String(metrics.open)} sub={`${metrics.totalDeals} total deals`} />
           <PipelineMetric icon="supervisor_account" label="Deal owner coverage" value={`${metrics.ownerCoverage}%`} sub={`${metrics.unassignedDeals} unassigned`} />
           <PipelineMetric icon="schedule" label="Follow-up risk" value={String(metrics.staleContacts)} sub={`${metrics.contacts} contacts loaded`} />
@@ -710,7 +760,7 @@ export default function PipelinePage() {
                   const contactLabel = contactLabelsById[deal.contactId]
                   const color = stage?.color ?? stageColorByKind(stage?.kind)
                   const probability = deal.probability ?? stage?.probability ?? 50
-                  const weighted = (deal.value ?? 0) * (probability / 100)
+                  const weighted = dealWeightedValue(deal, probability)
                   return (
                     <tr
                       key={deal.id}
@@ -736,15 +786,15 @@ export default function PipelinePage() {
                       <td className="px-4 py-3 text-xs text-on-surface-variant">{dealOwnerLabel(deal)}</td>
                       <td className="px-4 py-3 font-mono text-xs text-on-surface-variant">{fmtDealValue(deal.value, deal.currency)}</td>
                       <td className="px-4 py-3 font-mono text-xs text-on-surface-variant">{probability}%</td>
-                      <td className="px-4 py-3 font-mono text-xs text-on-surface-variant">{fmtDealValue(weighted, deal.currency)}</td>
-                      <td className="px-4 py-3 text-on-surface-variant">{deal.companyName || '—'}</td>
+                      <td className="px-4 py-3 font-mono text-xs text-on-surface-variant">{fmtDealValue(weighted, deal.currency, 'Value needed')}</td>
+                      <td className="px-4 py-3 text-on-surface-variant">{dealCompanyLabel(deal)}</td>
                       <td className="px-4 py-3" onClick={(event) => event.stopPropagation()}>
                         {deal.contactId ? (
                           <Link href={`/admin/crm/contacts/${deal.contactId}`} className="text-xs text-[var(--color-accent-v2)] hover:underline">
                             {contactLabel || 'View contact'}
                           </Link>
                         ) : (
-                          <span className="text-xs text-on-surface-variant">—</span>
+                          <span className="text-xs text-on-surface-variant">No contact linked</span>
                         )}
                       </td>
                     </tr>
@@ -796,14 +846,14 @@ export default function PipelinePage() {
                   openDeals.map((deal) => {
                     const stage = stages.find((item) => item.id === deal.stageId)
                     const probability = deal.probability ?? stage?.probability ?? 50
-                    const weighted = (deal.value ?? 0) * (probability / 100)
+                    const weighted = dealWeightedValue(deal, probability)
                     return (
                       <tr key={deal.id} className="border-b border-[var(--color-card-border)] transition-colors hover:bg-surface-container">
                         <td className="px-4 py-3 font-medium text-on-surface">{deal.title}</td>
                         <td className="px-4 py-3 text-on-surface-variant">{stage?.label ?? deal.stageId}</td>
                         <td className="px-4 py-3">{fmtDealValue(deal.value, deal.currency)}</td>
                         <td className="px-4 py-3 text-right"><ProbabilityInput deal={deal} onUpdate={handleProbabilityUpdate} /></td>
-                        <td className="px-4 py-3 text-[var(--color-accent-v2)]">{fmtDealValue(weighted, deal.currency)}</td>
+                        <td className="px-4 py-3 text-[var(--color-accent-v2)]">{fmtDealValue(weighted, deal.currency, 'Value needed')}</td>
                         <td className="px-4 py-3 text-on-surface-variant">{deal.expectedCloseDate ? formatRelative(deal.expectedCloseDate) : 'No close date'}</td>
                       </tr>
                     )
@@ -841,9 +891,9 @@ export default function PipelinePage() {
                       <Link href={`/admin/crm/contacts/${contact.id}`} className="font-medium text-[var(--color-accent-v2)] hover:underline">
                         {contact.name || contact.email || 'Unnamed contact'}
                       </Link>
-                      <p className="mt-0.5 text-xs text-on-surface-variant">{contact.email}</p>
+                      <p className="mt-0.5 text-xs text-on-surface-variant">{contactEmailLabel(contact)}</p>
                     </td>
-                    <td className="px-4 py-3 text-on-surface-variant">{contact.companyName || contact.company || '—'}</td>
+                    <td className="px-4 py-3 text-on-surface-variant">{contactCompanyLabel(contact)}</td>
                     <td className="px-4 py-3 text-on-surface-variant">{contact.stage}</td>
                     <td className="px-4 py-3 text-on-surface-variant">{contact.type}</td>
                     <td className="px-4 py-3 text-on-surface-variant">{formatRelative(contact.lastContactedAt)}</td>
@@ -852,6 +902,9 @@ export default function PipelinePage() {
                         {typeof contact.leadScore === 'number' && <span className="pill !px-2 !py-0.5 !text-[10px]">Lead {contact.leadScore}</span>}
                         {typeof contact.icpScore === 'number' && <span className="pill !px-2 !py-0.5 !text-[10px]">ICP {contact.icpScore}</span>}
                         {typeof contact.aiLeadScore === 'number' && <span className="pill !px-2 !py-0.5 !text-[10px]">AI {contact.aiLeadScore}</span>}
+                        {typeof contact.leadScore !== 'number' && typeof contact.icpScore !== 'number' && typeof contact.aiLeadScore !== 'number' && (
+                          <span className="text-xs text-on-surface-variant">Scores not captured</span>
+                        )}
                       </div>
                     </td>
                   </tr>

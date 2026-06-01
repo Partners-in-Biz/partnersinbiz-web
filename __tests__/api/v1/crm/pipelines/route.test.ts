@@ -209,6 +209,71 @@ describe('POST /api/v1/crm/pipelines', () => {
     expect(body.data.pipeline.id).toBe('auto-pipe-id')
   })
 
+  it('checks duplicate names without requiring a deleted-field composite index', async () => {
+    const uid = uidFor('admin-index-safe')
+    const member = seedOrgMember('org-b', uid, { role: 'admin', firstName: 'Index', lastName: 'Safe' })
+    const captured = jest.fn().mockResolvedValue(undefined)
+    const pipelineCollection = {
+      doc: jest.fn().mockReturnValue({
+        id: 'auto-pipe-id',
+        set: captured,
+      }),
+      where: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      limit: jest.fn().mockReturnThis(),
+      get: jest.fn().mockResolvedValue({
+        empty: true,
+        docs: [],
+      }),
+    }
+
+    ;(adminAuth.verifySessionCookie as jest.Mock).mockResolvedValue({ uid: member.uid })
+    ;(adminDb.collection as jest.Mock).mockImplementation((name: string) => {
+      if (name === 'users') {
+        return {
+          doc: () => ({
+            get: () => Promise.resolve({ exists: true, data: () => ({ activeOrgId: member.orgId }) }),
+          }),
+        }
+      }
+      if (name === 'orgMembers') {
+        return {
+          doc: () => ({
+            get: () => Promise.resolve({ exists: true, data: () => member }),
+          }),
+          where: (_field: string, _op: string, value: string) => ({
+            get: () =>
+              Promise.resolve({
+                docs: value === member.uid
+                  ? [{ id: `${member.orgId}_${member.uid}`, data: () => member }]
+                  : [],
+              }),
+          }),
+        }
+      }
+      if (name === 'organizations') {
+        return {
+          doc: () => ({
+            get: () => Promise.resolve({ exists: true, data: () => ({ settings: { permissions: {} } }) }),
+          }),
+        }
+      }
+      if (name === 'pipelines') return pipelineCollection
+      return { doc: () => ({ get: () => Promise.resolve({ exists: false }) }) }
+    })
+
+    const req = callAsMember(member, 'POST', '/api/v1/crm/pipelines', {
+      name: 'Sales',
+      stages: defaultStages(),
+    })
+    const res = await routeModule.POST(req)
+
+    expect(res.status).toBe(201)
+    expect(pipelineCollection.where).toHaveBeenCalledWith('orgId', '==', 'org-b')
+    expect(pipelineCollection.where).toHaveBeenCalledWith('name', '==', 'Sales')
+    expect(pipelineCollection.where).not.toHaveBeenCalledWith('deleted', '!=', true)
+  })
+
   it('returns 400 when name is missing', async () => {
     const uid = uidFor('admin2')
     const member = seedOrgMember('org-b', uid, { role: 'admin' })
@@ -290,7 +355,10 @@ describe('POST /api/v1/crm/pipelines', () => {
           limit: jest.fn().mockReturnThis(),
           get: jest.fn().mockResolvedValue({
             empty: false,
-            docs: [{ id: 'existing-pipe', data: () => sampleDefaultPipeline }],
+            docs: [{
+              id: 'existing-pipe',
+              data: () => buildPipeline({ orgId: 'org-b', name: 'Sales', deleted: false }),
+            }],
           }),
         }
       }

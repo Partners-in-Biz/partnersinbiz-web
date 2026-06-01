@@ -476,7 +476,7 @@ export function CompanyEditDrawer({ company, onSave, onClose, mode, customFieldD
           <div className="grid grid-cols-2 gap-3">
             <Field label="Size" htmlFor="co-size">
               <select id="co-size" value={form.size} onChange={set('size')} className="pib-input w-full">
-                <option value="">—</option>
+                <option value="">Select company size</option>
                 {(['1-10', '11-50', '51-200', '201-1000', '1000+'] as CompanySize[]).map((s) => (
                   <option key={s} value={s}>{s}</option>
                 ))}
@@ -496,7 +496,7 @@ export function CompanyEditDrawer({ company, onSave, onClose, mode, customFieldD
           </div>
           <Field label="Tier" htmlFor="co-tier">
             <select id="co-tier" value={form.tier} onChange={set('tier')} className="pib-input w-full">
-              <option value="">—</option>
+              <option value="">Select account tier</option>
               {(['enterprise', 'mid-market', 'smb'] as CompanyTier[]).map((t) => (
                 <option key={t} value={t}>{t}</option>
               ))}
@@ -507,7 +507,7 @@ export function CompanyEditDrawer({ company, onSave, onClose, mode, customFieldD
           <Section title="Lifecycle & Tags" />
           <Field label="Lifecycle Stage" htmlFor="co-lifecycle">
             <select id="co-lifecycle" value={form.lifecycleStage} onChange={set('lifecycleStage')} className="pib-input w-full">
-              <option value="">—</option>
+              <option value="">Select lifecycle stage</option>
               {(['lead', 'prospect', 'customer', 'churned'] as CompanyLifecycleStage[]).map((l) => (
                 <option key={l} value={l}>{l}</option>
               ))}

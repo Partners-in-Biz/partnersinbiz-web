@@ -25,6 +25,7 @@ interface Contact {
   id: string
   name: string
   email: string
+  phone?: string
   company?: string
   type: string
   stage: string
@@ -102,7 +103,7 @@ function StageBadge({ stage }: { stage: string }) {
       className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full capitalize font-mono"
       style={{ background: `${color}20`, color }}
     >
-      {stage}
+      {readableContactLabel(stage)}
     </span>
   )
 }
@@ -119,13 +120,27 @@ function TypeBadge({ type }: { type: string }) {
       className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full capitalize font-mono"
       style={{ background: `${color}20`, color }}
     >
-      {type}
+      {readableContactLabel(type)}
     </span>
   )
 }
 
+function readableContactLabel(value?: string): string {
+  if (!value) return ''
+  return value
+    .split(/[-_\s]+/)
+    .filter(Boolean)
+    .map((part, index) => {
+      const lower = part.toLowerCase()
+      return index === 0 ? lower.charAt(0).toUpperCase() + lower.slice(1) : lower
+    })
+    .join(' ')
+}
+
 function contactOwnerLabel(contact: Contact): string {
-  return contact.assignedToRef?.displayName || contact.assignedTo || 'Unassigned'
+  if (contact.assignedToRef?.displayName) return contact.assignedToRef.displayName
+  if (hasContactOwner(contact)) return 'Owner identity missing'
+  return 'Unassigned'
 }
 
 function hasContactOwner(contact: Contact): boolean {
@@ -173,6 +188,7 @@ export default function PortalContactsPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [bulkAction, setBulkAction] = useState<BulkActionKey>('assign')
   const [bulkPending, setBulkPending] = useState(false)
+  const [bulkDeleteConfirmOpen, setBulkDeleteConfirmOpen] = useState(false)
 
   // Bulk action inputs
   const [bulkAssignUid, setBulkAssignUid] = useState('')
@@ -257,10 +273,22 @@ export default function PortalContactsPage() {
     })
   }
 
+  function filterByCompany(company: string) {
+    setSearch(company)
+    setStageFilter('')
+    setTypeFilter('')
+    setOwnerLens('all')
+    setFollowUpLens('all')
+  }
+
   async function handleBulkDelete() {
     if (selectedIds.size === 0) return
+    setBulkDeleteConfirmOpen(true)
+  }
+
+  async function confirmBulkDelete() {
+    if (selectedIds.size === 0) return
     const count = selectedIds.size
-    if (!confirm(`Delete ${count} contact${count === 1 ? '' : 's'}? This cannot be undone.`)) return
 
     setBulkPending(true)
     try {
@@ -276,6 +304,7 @@ export default function PortalContactsPage() {
       }
       setContacts(prev => prev.filter(c => !selectedIds.has(c.id)))
       setSelectedIds(new Set())
+      setBulkDeleteConfirmOpen(false)
       pushToast(`${count} contact${count === 1 ? '' : 's'} deleted`, 'success')
     } catch {
       pushToast('Network error — delete failed', 'error')
@@ -398,7 +427,7 @@ export default function PortalContactsPage() {
         ? 'No unowned contacts.'
         : `${displayedContacts.length} unowned contact${displayedContacts.length === 1 ? '' : 's'} need assignment.`
     : isStageLens && displayedContacts.length === 0
-      ? `No contacts in ${stageFilter}.`
+      ? `No contacts in ${readableContactLabel(stageFilter)}.`
     : hasActiveFilters
       ? `${displayedContacts.length} contact${displayedContacts.length === 1 ? '' : 's'} match this view.`
       : `${displayedContacts.length} contact${displayedContacts.length === 1 ? '' : 's'} in your audience.`
@@ -407,7 +436,7 @@ export default function PortalContactsPage() {
     : ownerLens === 'unowned'
       ? 'No unowned contacts.'
     : isStageLens
-      ? `No contacts in ${stageFilter}.`
+      ? `No contacts in ${readableContactLabel(stageFilter)}.`
     : hasActiveFilters
       ? 'No contacts match this view.'
       : 'No contacts yet.'
@@ -528,7 +557,7 @@ export default function PortalContactsPage() {
           <option value="">All stages</option>
           {STAGES.map((s) => (
             <option key={s} value={s} className="bg-black">
-              {s}
+              {readableContactLabel(s)}
             </option>
           ))}
         </select>
@@ -540,7 +569,7 @@ export default function PortalContactsPage() {
           <option value="">All types</option>
           {TYPES.map((t) => (
             <option key={t} value={t} className="bg-black">
-              {t}
+              {readableContactLabel(t)}
             </option>
           ))}
         </select>
@@ -572,6 +601,50 @@ export default function PortalContactsPage() {
           onApply={applyBulk}
           onDelete={handleBulkDelete}
         />
+      )}
+
+      {bulkDeleteConfirmOpen && selectedIds.size > 0 && (
+        <section
+          role="alertdialog"
+          aria-labelledby="bulk-delete-confirm-title"
+          aria-describedby="bulk-delete-confirm-description"
+          className="rounded-[var(--radius-card)] border border-red-500/30 bg-red-500/10 p-4 shadow-xl"
+        >
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="flex gap-3">
+              <span className="material-symbols-outlined mt-0.5 text-red-300" aria-hidden="true">warning</span>
+              <div>
+                <p className="eyebrow !text-[10px] text-red-200">Bulk delete confirmation</p>
+                <h2 id="bulk-delete-confirm-title" className="mt-1 font-display text-xl text-[var(--color-pib-text)]">
+                  Delete {selectedIds.size} selected contact{selectedIds.size === 1 ? '?' : 's?'}
+                </h2>
+                <p id="bulk-delete-confirm-description" className="mt-2 text-sm text-red-100/90">
+                  This cannot be undone. The selected contacts will be removed from this audience.
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setBulkDeleteConfirmOpen(false)}
+                className="btn-pib-secondary text-xs"
+                disabled={bulkPending}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmBulkDelete}
+                className="inline-flex items-center gap-1.5 rounded-[var(--radius-card)] border border-red-400/40 bg-red-500/15 px-3 py-2 text-xs font-medium text-red-100 transition-colors hover:bg-red-500/25 disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={bulkPending}
+                aria-label={`Confirm delete ${selectedIds.size} selected contact${selectedIds.size === 1 ? '' : 's'}`}
+              >
+                <span className="material-symbols-outlined text-[14px]" aria-hidden="true">delete</span>
+                {bulkPending ? 'Deleting...' : 'Delete selected'}
+              </button>
+            </div>
+          </div>
+        </section>
       )}
 
       {/* List */}
@@ -632,6 +705,8 @@ export default function PortalContactsPage() {
           <div className="divide-y divide-[var(--color-pib-line)]">
               {displayedContacts.map((c) => {
               const isSelected = selectedIds.has(c.id)
+              const contactName = c.name || 'Unnamed contact'
+              const lastContactedLabel = fmtTimestamp(c.lastContactedAt) || 'No touch logged'
               return (
                 <div
                   key={c.id}
@@ -646,28 +721,62 @@ export default function PortalContactsPage() {
                       checked={isSelected}
                       onChange={() => toggleSelect(c.id)}
                       className="w-4 h-4 rounded cursor-pointer accent-[var(--color-pib-accent)]"
-                      aria-label={`Select ${c.name}`}
+                      aria-label={`Select ${contactName}`}
                     />
                   </div>
-                  {/* Rest of the row — wrapped in Link */}
-                  <Link
-                    href={`/portal/contacts/${c.id}`}
-                    className="col-span-1 md:col-span-14 grid grid-cols-1 md:grid-cols-14 gap-3 md:gap-4 items-center"
-                    onClick={e => { if (selectedIds.size > 0) e.preventDefault(); toggleSelect(c.id) }}
-                  >
+                  <div className="col-span-1 md:col-span-14 grid grid-cols-1 md:grid-cols-14 gap-3 md:gap-4 items-center">
                     <div className="md:col-span-2">
-                      <p className="font-medium text-[var(--color-pib-accent-hover)]">{c.name || '—'}</p>
+                      <Link
+                        href={`/portal/contacts/${c.id}`}
+                        aria-label={`Open contact ${contactName}`}
+                        className="font-medium text-[var(--color-pib-accent-hover)] transition-colors hover:text-[var(--color-pib-text)]"
+                      >
+                        {contactName}
+                      </Link>
                       {c.tags && c.tags.length > 0 && (
                         <p className="text-[11px] text-[var(--color-pib-text-muted)] mt-0.5 truncate">
                           {c.tags.join(', ')}
                         </p>
                       )}
                     </div>
-                    <div className="md:col-span-3 text-sm text-[var(--color-pib-text-muted)] truncate">
-                      {c.email || '—'}
+                    <div className="md:col-span-3 text-sm text-[var(--color-pib-text-muted)]">
+                      {c.email ? (
+                        <a
+                          href={`mailto:${c.email}`}
+                          aria-label={`Email ${c.email} from contacts list`}
+                          className="inline-flex max-w-full items-center gap-1 truncate text-[var(--color-pib-accent)] transition-colors hover:text-[var(--color-pib-text)]"
+                        >
+                          <span className="material-symbols-outlined text-[14px]" aria-hidden="true">alternate_email</span>
+                          <span className="truncate">{c.email}</span>
+                        </a>
+                      ) : (
+                        'Email missing'
+                      )}
+                      {c.phone?.trim() && (
+                        <a
+                          href={`tel:${c.phone.trim()}`}
+                          aria-label={`Call ${c.phone.trim()} from contacts list`}
+                          className="mt-1 inline-flex max-w-full items-center gap-1 truncate text-xs text-[var(--color-pib-accent)] transition-colors hover:text-[var(--color-pib-text)]"
+                        >
+                          <span className="material-symbols-outlined text-[13px]" aria-hidden="true">call</span>
+                          <span className="truncate">{c.phone.trim()}</span>
+                        </a>
+                      )}
                     </div>
                     <div className="md:col-span-2 text-sm text-[var(--color-pib-text-muted)] truncate">
-                      {c.company || '—'}
+                      {c.company ? (
+                        <button
+                          type="button"
+                          aria-label={`Filter contacts by company ${c.company}`}
+                          onClick={() => filterByCompany(c.company as string)}
+                          className="inline-flex max-w-full items-center gap-1 truncate text-left text-[var(--color-pib-accent)] transition-colors hover:text-[var(--color-pib-text)]"
+                        >
+                          <span className="material-symbols-outlined text-[14px]" aria-hidden="true">business</span>
+                          <span className="truncate">{c.company}</span>
+                        </button>
+                      ) : (
+                        'Company missing'
+                      )}
                       <p className="mt-1 text-[11px] text-[var(--color-pib-text-muted)]">
                         Owner: <span>{contactOwnerLabel(c)}</span>
                       </p>
@@ -678,8 +787,15 @@ export default function PortalContactsPage() {
                     <div className="md:col-span-1">
                       <StageBadge stage={c.stage} />
                     </div>
-                    <div className="md:col-span-2 text-xs text-[var(--color-pib-text-muted)] font-mono">
-                      {fmtTimestamp(c.lastContactedAt) || '—'}
+                    <div className="md:col-span-2 text-xs font-mono">
+                      <Link
+                        href={`/portal/contacts/${c.id}?activity=note`}
+                        aria-label={`Log activity for ${contactName} from last contacted column`}
+                        className="inline-flex max-w-full items-center gap-1 text-[var(--color-pib-accent)] transition-colors hover:text-[var(--color-pib-text)]"
+                      >
+                        <span className="material-symbols-outlined text-[13px]" aria-hidden="true">edit_note</span>
+                        <span className="truncate">{lastContactedLabel}</span>
+                      </Link>
                     </div>
                     <div className="md:col-span-1">
                       <ScoreChip score={c.leadScore} kind="lead" label="Lead score (formula)" size="sm" />
@@ -690,7 +806,7 @@ export default function PortalContactsPage() {
                     <div className="md:col-span-1">
                       <ScoreChip score={c.aiLeadScore} kind="ai" label="AI lead score" size="sm" />
                     </div>
-                  </Link>
+                  </div>
                 </div>
               )
             })}

@@ -3,9 +3,13 @@ import { render, screen } from '@testing-library/react'
 import { ScoreChip } from '@/components/crm/ScoreChip'
 
 describe('ScoreChip', () => {
-  it('renders "—" when score is undefined', () => {
-    render(<ScoreChip />)
-    expect(screen.getByText('—')).toBeInTheDocument()
+  it('names missing scores instead of showing a bare dash', () => {
+    const { container } = render(<ScoreChip label="Lead score (formula)" kind="lead" />)
+    expect(screen.getByText('Not scored')).toBeInTheDocument()
+    expect(screen.queryByText('—')).not.toBeInTheDocument()
+
+    const chip = container.firstChild as HTMLElement
+    expect(chip.title).toBe('Lead score (formula) — not scored yet')
   })
 
   it('applies red color class when score is 20', () => {

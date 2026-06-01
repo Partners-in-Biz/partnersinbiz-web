@@ -34,6 +34,23 @@ export function applyContactMergeToDuplicateGroups(
   })
 }
 
+function readableDuplicateContactLabel(value?: string): string {
+  const key = value?.trim()
+  if (!key) return ''
+  return key
+    .split(/[-_\s]+/)
+    .filter(Boolean)
+    .map((part, index) => {
+      const lower = part.toLowerCase()
+      return index === 0 ? lower.charAt(0).toUpperCase() + lower.slice(1) : lower
+    })
+    .join(' ')
+}
+
+function duplicateContactIdentityLabel(contact?: DuplicateContact): string {
+  return contact?.name?.trim() || contact?.email?.trim() || 'Unnamed contact'
+}
+
 function DuplicateGroupResolver({
   group,
   groupIndex,
@@ -86,14 +103,14 @@ function DuplicateGroupResolver({
               />
               <span className="min-w-0">
                 <span className="block truncate text-sm font-medium text-[var(--color-pib-text)]">
-                  {contact.name || 'Unnamed contact'}
+                  {duplicateContactIdentityLabel(contact)}
                 </span>
                 <span className="mt-1 block truncate text-xs text-[var(--color-pib-text-muted)]">
                   {contact.email || 'No email'}
                 </span>
                 {(contact.company || contact.stage) && (
                   <span className="mt-1 block truncate text-xs text-[var(--color-pib-text-muted)]">
-                    {[contact.company, contact.stage].filter(Boolean).join(' · ')}
+                    {[contact.company, readableDuplicateContactLabel(contact.stage)].filter(Boolean).join(' · ')}
                   </span>
                 )}
                 {isWinner && (
@@ -110,7 +127,7 @@ function DuplicateGroupResolver({
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
         <p className="text-xs text-[var(--color-pib-text-muted)]">
           {loser
-            ? `Next merge will archive ${loser.name || loser.email || loser.id} into the selected canonical contact.`
+            ? `Next merge will archive ${duplicateContactIdentityLabel(loser)} into the selected canonical contact.`
             : 'Select a canonical contact to continue.'}
         </p>
         <button

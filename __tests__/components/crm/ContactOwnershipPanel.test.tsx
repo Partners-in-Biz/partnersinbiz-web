@@ -26,10 +26,79 @@ describe('ContactOwnershipPanel', () => {
     expect(screen.getByText('Relationship ownership')).toBeInTheDocument()
     expect(screen.getByText('100%')).toBeInTheDocument()
     expect(screen.getByText('Ava Owner')).toBeInTheDocument()
-    expect(screen.getByText('outreach')).toBeInTheDocument()
-    expect(screen.getByText('source-1')).toBeInTheDocument()
+    expect(screen.getByText('Outreach')).toBeInTheDocument()
+    expect(screen.queryByText('outreach')).not.toBeInTheDocument()
+    expect(screen.getByText('Source 1')).toBeInTheDocument()
+    expect(screen.queryByText('source-1')).not.toBeInTheDocument()
     expect(screen.getByText('Pip Agent')).toBeInTheDocument()
     expect(screen.getByText('Peet Stander')).toBeInTheDocument()
+    expect(screen.getAllByText('Team member')).toHaveLength(2)
+    expect(screen.getByText('AI agent')).toBeInTheDocument()
+    expect(screen.queryByText('human')).not.toBeInTheDocument()
+    expect(screen.queryByText('agent')).not.toBeInTheDocument()
+  })
+
+  it('formats unknown CRM source ids as readable provenance labels', () => {
+    render(
+      <ContactOwnershipPanel
+        profile={{
+          ...profile,
+          source: 'linkedin_ads',
+          capturedFromId: 'campaign-42',
+        }}
+      />,
+    )
+
+    expect(screen.getByText('Linkedin Ads')).toBeInTheDocument()
+    expect(screen.queryByText('linkedin_ads')).not.toBeInTheDocument()
+  })
+
+  it('formats unknown member kinds as readable governance labels', () => {
+    render(
+      <ContactOwnershipPanel
+        profile={{
+          ...profile,
+          assignedToRef: {
+            uid: 'partner-1',
+            displayName: 'External Partner',
+            kind: 'external_partner',
+          },
+        }}
+      />,
+    )
+
+    expect(screen.getAllByText('External Partner').length).toBeGreaterThanOrEqual(1)
+    expect(screen.queryByText('external_partner')).not.toBeInTheDocument()
+  })
+
+  it('formats capture source ids as readable provenance labels', () => {
+    render(
+      <ContactOwnershipPanel
+        profile={{
+          ...profile,
+          capturedFromId: 'facebook_lead_form',
+        }}
+      />,
+    )
+
+    expect(screen.getByText('Facebook Lead Form')).toBeInTheDocument()
+    expect(screen.queryByText('facebook_lead_form')).not.toBeInTheDocument()
+  })
+
+  it('names missing creator and updater audit fields', () => {
+    render(
+      <ContactOwnershipPanel
+        profile={{
+          ...profile,
+          createdByRef: undefined,
+          updatedByRef: undefined,
+        }}
+      />,
+    )
+
+    expect(screen.getByText('Creator not captured')).toBeInTheDocument()
+    expect(screen.getByText('Updater not captured')).toBeInTheDocument()
+    expect(screen.queryByText('Unassigned')).not.toBeInTheDocument()
   })
 
   it('turns a missing relationship owner into an accountability assignment action', () => {

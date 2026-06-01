@@ -62,6 +62,21 @@ function cadenceLabel(days: number | null): string {
   return 'Cold'
 }
 
+function inboundReplyLabel(count: number): string {
+  if (count === 0) return 'No inbound replies'
+  return `${count} inbound repl${count === 1 ? 'y' : 'ies'}`
+}
+
+function emailThreadLabel(count: number): string {
+  if (count === 0) return 'No email thread'
+  return `${count} email${count === 1 ? '' : 's'}`
+}
+
+function activityTrailLabel(count: number): string {
+  if (count === 0) return 'No activity trail'
+  return `${count} activit${count === 1 ? 'y' : 'ies'}`
+}
+
 function Signal({
   icon,
   label,
@@ -111,6 +126,8 @@ export function ContactEngagementPanel({
   const health = contactEngagementHealth(profile)
   const cadence = cadenceLabel(days)
   const suggestion = profile.nextSuggestion
+  const suggestionActionLabel = suggestion?.action?.trim() || 'Suggested action missing'
+  const suggestionReasonLabel = suggestion?.reason?.trim() || 'Suggestion reason missing'
   const contactName = actions?.contactName?.trim() || 'this contact'
   const hasActions = Boolean(actions?.onLogNote || actions?.onSendEmail || actions?.onScheduleMeeting)
 
@@ -138,9 +155,9 @@ export function ContactEngagementPanel({
 
       <div className="grid gap-2 sm:grid-cols-4">
         <Signal icon="local_fire_department" label="Cadence" value={cadence} />
-        <Signal icon="mail" label="Email thread" value={`${emails.length} email${emails.length === 1 ? '' : 's'}`} />
-        <Signal icon="inbox" label="Replies" value={`${inboundEmails} inbound`} />
-        <Signal icon="history" label="Timeline" value={`${activities.length} activit${activities.length === 1 ? 'y' : 'ies'}`} />
+        <Signal icon="mail" label="Email thread" value={emailThreadLabel(emails.length)} />
+        <Signal icon="inbox" label="Replies" value={inboundReplyLabel(inboundEmails)} />
+        <Signal icon="history" label="Timeline" value={activityTrailLabel(activities.length)} />
       </div>
 
       {suggestion ? (
@@ -149,17 +166,17 @@ export function ContactEngagementPanel({
             <span className="material-symbols-outlined text-[20px] text-[var(--color-pib-accent)]">tips_and_updates</span>
             <div>
               <div className="flex flex-wrap items-center gap-2">
-                <p className="text-sm font-semibold text-[var(--color-pib-text)]">{suggestion.action}</p>
+                <p className="text-sm font-semibold text-[var(--color-pib-text)]">{suggestionActionLabel}</p>
                 <span className="rounded-full border border-[var(--color-pib-line)] px-2 py-0.5 text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)]">
                   {suggestion.urgency}
                 </span>
               </div>
-              <p className="mt-1 text-xs leading-relaxed text-[var(--color-pib-text-muted)]">{suggestion.reason}</p>
+              <p className="mt-1 text-xs leading-relaxed text-[var(--color-pib-text-muted)]">{suggestionReasonLabel}</p>
               {actions?.onStartSuggestion ? (
                 <button
                   type="button"
                   onClick={() => actions.onStartSuggestion?.(suggestion)}
-                  aria-label={`Start suggested action: ${suggestion.action} for ${contactName}`}
+                  aria-label={`Start suggested action: ${suggestionActionLabel} for ${contactName}`}
                   className="btn-pib-secondary mt-3 inline-flex items-center gap-1.5 text-xs"
                 >
                   <span aria-hidden="true" className="material-symbols-outlined text-[14px]">play_arrow</span>

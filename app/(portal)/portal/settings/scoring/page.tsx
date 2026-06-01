@@ -36,6 +36,15 @@ const DEFAULT_WEIGHTS: Required<LeadSignalsWeights> = {
   formSubmission: 8,
 }
 
+const LEAD_SIGNAL_LABELS: Record<keyof Required<LeadSignalsWeights>, string> = {
+  emailOpens: 'Email opens',
+  emailClicks: 'Email clicks',
+  emailReplies: 'Email replies',
+  sequenceCompleted: 'Sequence completions',
+  recentContact: 'Recent contact',
+  formSubmission: 'Form submissions',
+}
+
 function activeIcpDimensions(icp: IcpProfile): string[] {
   return [
     icp.industries?.length ? 'Industries' : '',
@@ -138,6 +147,7 @@ export default function ScoringPage() {
   const [saveError, setSaveError] = useState<string | null>(null)
   const [recomputing, setRecomputing] = useState(false)
   const [recomputeMsg, setRecomputeMsg] = useState<string | null>(null)
+  const [recomputeConfirmOpen, setRecomputeConfirmOpen] = useState(false)
 
   // ── Fetch config ─────────────────────────────────────────────────────────────
 
@@ -190,9 +200,13 @@ export default function ScoringPage() {
   // ── Recompute all ─────────────────────────────────────────────────────────────
 
   async function handleRecompute() {
-    if (!confirm('Recompute scores for all contacts? This may take a moment.')) return
+    setRecomputeConfirmOpen(true)
+  }
+
+  async function confirmRecompute() {
     setRecomputing(true)
     setRecomputeMsg(null)
+    setRecomputeConfirmOpen(false)
     try {
       const res = await fetch('/api/v1/crm/scoring/recompute-all', { method: 'POST' })
       const body = await res.json().catch(() => ({}))
@@ -213,6 +227,7 @@ export default function ScoringPage() {
   const explicitWeightCount = Object.keys(DEFAULT_WEIGHTS).filter((key) => leadWeights[key as keyof LeadSignalsWeights] != null).length
   const totalWeight = Object.values(weights).reduce((sum, value) => sum + value, 0)
   const strongestSignal = Object.entries(weights).sort((a, b) => b[1] - a[1])[0] ?? ['None', 0]
+  const strongestSignalLabel = LEAD_SIGNAL_LABELS[strongestSignal[0] as keyof Required<LeadSignalsWeights>] ?? 'No lead signal weighted'
   const scoringHealth = Math.min(100, Math.round(((Math.min(icpDimensions.length, 4) / 4) * 50) + ((totalWeight > 0 ? 1 : 0) * 30) + (aiEnabled ? 20 : 0)))
   const setupGaps = [
     icpDimensions.length === 0 ? 'Define ICP dimensions' : '',
@@ -269,6 +284,54 @@ export default function ScoringPage() {
         </div>
       ) : (
         <div className="space-y-8">
+          {recomputeConfirmOpen && (
+            <section
+              role="alertdialog"
+              aria-labelledby="recompute-confirm-title"
+              aria-describedby="recompute-confirm-description"
+              className="rounded-lg border border-amber-400/30 bg-amber-500/10 px-4 py-3 shadow-xl"
+            >
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="flex gap-3">
+                  <span className="material-symbols-outlined mt-0.5 text-amber-300" aria-hidden="true">
+                    warning
+                  </span>
+                  <div>
+                    <p className="eyebrow !text-[10px] text-amber-200">Score recompute confirmation</p>
+                    <h2 id="recompute-confirm-title" className="mt-1 font-display text-lg text-[var(--color-pib-text)]">
+                      Recompute scores for all contacts?
+                    </h2>
+                    <p id="recompute-confirm-description" className="mt-2 max-w-3xl text-sm text-amber-100/90">
+                      This refreshes lead, ICP, and AI score outputs across the active CRM workspace. Team priority lists may change after it finishes.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setRecomputeConfirmOpen(false)}
+                    className="btn-pib-secondary text-xs"
+                    disabled={recomputing}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={confirmRecompute}
+                    className="inline-flex items-center gap-1.5 rounded-md border border-amber-300/30 bg-amber-400/15 px-3 py-2 text-xs font-semibold text-amber-100 transition-colors hover:bg-amber-400/25 disabled:opacity-50"
+                    disabled={recomputing}
+                    aria-label="Confirm recompute all contact scores"
+                  >
+                    <span className="material-symbols-outlined text-[14px]" aria-hidden="true">
+                      refresh
+                    </span>
+                    {recomputing ? 'Recomputing...' : 'Recompute scores'}
+                  </button>
+                </div>
+              </div>
+            </section>
+          )}
+
           <section className="grid gap-4 lg:grid-cols-[1fr_340px]">
             <div className="bento-card !p-5 space-y-4">
               <div>
@@ -303,7 +366,7 @@ export default function ScoringPage() {
               <div>
                 <p className="eyebrow !text-[10px]">Operational status</p>
                 <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">
-                  The strongest lead signal is <span className="text-[var(--color-pib-text)]">{strongestSignal[0]}</span> at {strongestSignal[1]} points.
+                  The strongest lead signal is <span className="text-[var(--color-pib-text)]">{strongestSignalLabel}</span> at {strongestSignal[1]} points.
                 </p>
               </div>
               <div className="space-y-2 text-xs text-[var(--color-pib-text-muted)]">

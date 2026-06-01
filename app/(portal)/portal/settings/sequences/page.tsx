@@ -112,6 +112,8 @@ export default function SequencesPage() {
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [togglingId, setTogglingId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [pendingDeleteSequence, setPendingDeleteSequence] = useState<Sequence | null>(null)
   const [filter, setFilter] = useState<ViewFilter>('all')
   const [channelFilter, setChannelFilter] = useState<ChannelFilter>('all')
   const [search, setSearch] = useState('')
@@ -221,7 +223,7 @@ export default function SequencesPage() {
   }
 
   async function handleDelete(seq: Sequence) {
-    if (!window.confirm('Delete this sequence? This cannot be undone.')) return
+    setDeleteError(null)
     setDeletingId(seq.id)
     try {
       const res = await fetch(`/api/v1/crm/sequences/${seq.id}`, {
@@ -232,11 +234,17 @@ export default function SequencesPage() {
         throw new Error((body as { error?: string }).error ?? `HTTP ${res.status}`)
       }
       setSequences((prev) => prev.filter((s) => s.id !== seq.id))
+      setPendingDeleteSequence(null)
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Delete failed.')
+      setDeleteError(err instanceof Error ? err.message : 'Delete failed.')
     } finally {
       setDeletingId(null)
     }
+  }
+
+  async function confirmDeleteSequence() {
+    if (!pendingDeleteSequence) return
+    await handleDelete(pendingDeleteSequence)
   }
 
   function clearViewFilters() {
@@ -346,6 +354,12 @@ export default function SequencesPage() {
         </aside>
 
         <section>
+          {deleteError && (
+            <div className="mb-3 rounded-lg border border-red-400/25 bg-red-400/10 px-4 py-3 text-sm text-red-200">
+              {deleteError}
+            </div>
+          )}
+
           {loading ? (
             <div className="bento-card !p-6">
               <p className="text-sm text-[var(--color-pib-text-muted)]">Loading sequences...</p>
@@ -410,6 +424,57 @@ export default function SequencesPage() {
             </div>
           ) : (
             <div className="space-y-3">
+              {pendingDeleteSequence && (
+                <section
+                  role="alertdialog"
+                  aria-labelledby="sequence-delete-confirm-title"
+                  aria-describedby="sequence-delete-confirm-description"
+                  className="rounded-lg border border-red-400/30 bg-red-500/10 px-4 py-3 shadow-xl"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="flex gap-3">
+                      <span className="material-symbols-outlined mt-0.5 text-red-300" aria-hidden="true">
+                        warning
+                      </span>
+                      <div className="min-w-0">
+                        <p className="eyebrow !text-[10px] text-red-200">Sequence delete confirmation</p>
+                        <h2 id="sequence-delete-confirm-title" className="mt-1 font-display text-lg text-[var(--color-pib-text)]">
+                          Delete sequence &quot;{pendingDeleteSequence.name}&quot;?
+                        </h2>
+                        <p id="sequence-delete-confirm-description" className="mt-2 text-sm text-red-100/90">
+                          This removes the {pendingDeleteSequence.status} follow-up journey with {pendingDeleteSequence.steps.length} step{pendingDeleteSequence.steps.length === 1 ? '' : 's'}. Existing contact history stays available for audit.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPendingDeleteSequence(null)
+                          setDeleteError(null)
+                        }}
+                        className="btn-pib-secondary text-xs"
+                        disabled={deletingId !== null}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={confirmDeleteSequence}
+                        disabled={deletingId !== null}
+                        className="inline-flex items-center gap-1.5 rounded-md border border-red-300/30 bg-red-400/15 px-3 py-2 text-xs font-semibold text-red-100 transition-colors hover:bg-red-400/25 disabled:opacity-50"
+                        aria-label={`Confirm delete sequence ${pendingDeleteSequence.name}`}
+                      >
+                        <span className="material-symbols-outlined text-[14px]" aria-hidden="true">
+                          delete
+                        </span>
+                        {deletingId === pendingDeleteSequence.id ? 'Deleting...' : 'Delete sequence'}
+                      </button>
+                    </div>
+                  </div>
+                </section>
+              )}
+
               {visibleSequences.map((seq) => {
                 const isToggling = togglingId === seq.id
                 const isDeleting = deletingId === seq.id
@@ -527,8 +592,12 @@ export default function SequencesPage() {
                           </Link>
                           <button
                             type="button"
-                            onClick={() => handleDelete(seq)}
+                            onClick={() => {
+                              setDeleteError(null)
+                              setPendingDeleteSequence(seq)
+                            }}
                             disabled={isDeleting}
+                            aria-label={`Delete sequence ${seq.name}`}
                             title="Delete sequence"
                             className="cursor-pointer flex h-8 w-8 items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] transition-colors hover:bg-red-400/[0.08] hover:text-red-400"
                           >

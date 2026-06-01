@@ -34,6 +34,54 @@ describe('ContactIdentityPanel', () => {
     expect(screen.getByText('3 replies')).toBeInTheDocument()
   })
 
+  it('explains why email reachability is blocked', () => {
+    const { rerender } = render(<ContactIdentityPanel profile={{ ...profile, unsubscribedAt: '2026-05-30' }} />)
+
+    expect(screen.getByText('Email unsubscribed')).toBeInTheDocument()
+    expect(screen.queryByText('Email blocked')).not.toBeInTheDocument()
+
+    rerender(<ContactIdentityPanel profile={{ ...profile, unsubscribedAt: null, bouncedAt: '2026-05-30' }} />)
+
+    expect(screen.getByText('Email bounced')).toBeInTheDocument()
+    expect(screen.queryByText('Email blocked')).not.toBeInTheDocument()
+  })
+
+  it('explains why SMS readiness is incomplete', () => {
+    const { rerender } = render(<ContactIdentityPanel profile={{ ...profile, phoneVerified: false }} />)
+
+    expect(screen.getByText('Phone unverified')).toBeInTheDocument()
+    expect(screen.queryByText('SMS incomplete')).not.toBeInTheDocument()
+
+    rerender(<ContactIdentityPanel profile={{ ...profile, phoneVerified: true, smsOptedIn: false }} />)
+
+    expect(screen.getByText('SMS opted out')).toBeInTheDocument()
+    expect(screen.queryByText('SMS incomplete')).not.toBeInTheDocument()
+  })
+
+  it('explains when no relationship replies have been captured', () => {
+    render(<ContactIdentityPanel profile={{ ...profile, repliesCount: 0 }} />)
+
+    expect(screen.getByText('No replies yet')).toBeInTheDocument()
+    expect(screen.queryByText('0 replies')).not.toBeInTheDocument()
+  })
+
+  it('names individual identity fields that still need capture', () => {
+    const { rerender } = render(<ContactIdentityPanel profile={{ ...profile, jobTitle: '' }} />)
+
+    expect(screen.getByText('Role not captured')).toBeInTheDocument()
+    expect(screen.queryByText('Not captured')).not.toBeInTheDocument()
+
+    rerender(<ContactIdentityPanel profile={{ ...profile, department: '' }} />)
+
+    expect(screen.getByText('Department not captured')).toBeInTheDocument()
+    expect(screen.queryByText('Not captured')).not.toBeInTheDocument()
+
+    rerender(<ContactIdentityPanel profile={{ ...profile, timezone: '' }} />)
+
+    expect(screen.getByText('Timezone not captured')).toBeInTheDocument()
+    expect(screen.queryByText('Not captured')).not.toBeInTheDocument()
+  })
+
   it('turns missing identity fields into supplied profile actions', () => {
     const onAddRole = jest.fn()
     const onAddDepartment = jest.fn()

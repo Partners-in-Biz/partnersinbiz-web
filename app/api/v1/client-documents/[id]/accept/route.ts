@@ -48,11 +48,15 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
   const documentRef = adminDb.collection(CLIENT_DOCUMENTS_COLLECTION).doc(id)
   const approvalRef = documentRef.collection('approvals').doc()
   const batch = adminDb.batch()
+  const now = FieldValue.serverTimestamp()
+  const ip = firstForwardedIp(req)
+  const userAgent = req.headers.get('user-agent') ?? ''
 
   batch.set(approvalRef, {
     documentId: id,
     versionId: document.latestPublishedVersionId,
     mode: 'formal_acceptance',
+    signatureSide: 'client',
     actorId: user.uid,
     actorName,
     actorRole: actorRole(user),
@@ -61,13 +65,24 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
     checkboxText,
     termsSnapshot: body.termsSnapshot ?? null,
     investmentSnapshot: body.investmentSnapshot ?? null,
-    ip: firstForwardedIp(req),
-    userAgent: req.headers.get('user-agent') ?? '',
-    createdAt: FieldValue.serverTimestamp(),
+    ip,
+    userAgent,
+    createdAt: now,
   })
   batch.update(documentRef, {
     status: 'accepted',
-    updatedAt: FieldValue.serverTimestamp(),
+    clientAcceptance: {
+      versionId: document.latestPublishedVersionId,
+      actorId: user.uid,
+      actorName,
+      typedName,
+      ...(companyName ? { companyName } : {}),
+      checkboxText,
+      acceptedAt: now,
+      ip,
+      userAgent,
+    },
+    updatedAt: now,
     updatedBy: user.uid,
     updatedByType: actorType(user),
   })

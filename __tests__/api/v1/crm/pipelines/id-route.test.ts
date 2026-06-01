@@ -328,7 +328,17 @@ describe('DELETE /api/v1/crm/pipelines/[id]', () => {
   it('returns 400 when live deals are attached', async () => {
     const uid = uidFor('admin11')
     const member = seedOrgMember('org-a', uid, { role: 'admin' })
-    stageAuth(member, { dealsSnap: { empty: false, size: 3, docs: [{}, {}, {}] } })
+    stageAuth(member, {
+      dealsSnap: {
+        empty: false,
+        size: 3,
+        docs: [
+          { data: () => ({ orgId: 'org-a', pipelineId: 'pipe-deals', deleted: false }) },
+          { data: () => ({ orgId: 'org-a', pipelineId: 'pipe-deals', deleted: false }) },
+          { data: () => ({ orgId: 'org-a', pipelineId: 'pipe-deals', deleted: false }) },
+        ],
+      },
+    })
     const pipe = buildPipeline({ id: 'pipe-deals', orgId: 'org-a' })
     ;(pipelineStore.loadPipeline as jest.Mock).mockResolvedValue(makeLoadedPipeline(pipe))
 
@@ -338,6 +348,56 @@ describe('DELETE /api/v1/crm/pipelines/[id]', () => {
     const body = await res.json()
     expect(body.error).toMatch(/live deals/i)
     expect(body.dealCount).toBeGreaterThan(0)
+  })
+
+  it('checks attached deals without requiring a deleted-field composite index', async () => {
+    const uid = uidFor('admin-index-safe-delete')
+    const member = seedOrgMember('org-a', uid, { role: 'admin' })
+    const dealsCollection = {
+      where: jest.fn().mockReturnThis(),
+      limit: jest.fn().mockReturnThis(),
+      get: jest.fn().mockResolvedValue({
+        empty: true,
+        size: 0,
+        docs: [],
+      }),
+    }
+
+    ;(adminAuth.verifySessionCookie as jest.Mock).mockResolvedValue({ uid: member.uid })
+    ;(adminDb.collection as jest.Mock).mockImplementation((name: string) => {
+      if (name === 'users') {
+        return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => ({ activeOrgId: member.orgId }) }) }) }
+      }
+      if (name === 'orgMembers') {
+        return {
+          doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => member }) }),
+          where: (_field: string, _op: string, value: string) => ({
+            get: () =>
+              Promise.resolve({
+                docs: value === member.uid
+                  ? [{ id: `${member.orgId}_${member.uid}`, data: () => member }]
+                  : [],
+              }),
+          }),
+        }
+      }
+      if (name === 'organizations') {
+        return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => ({ settings: { permissions: {} } }) }) }) }
+      }
+      if (name === 'deals') return dealsCollection
+      return { doc: () => ({ get: () => Promise.resolve({ exists: false }) }) }
+    })
+
+    const pipe = buildPipeline({ id: 'pipe-index-safe', orgId: 'org-a' })
+    ;(pipelineStore.loadPipeline as jest.Mock).mockResolvedValue(makeLoadedPipeline(pipe))
+
+    const req = callAsMember(member, 'DELETE', '/api/v1/crm/pipelines/pipe-index-safe')
+    const res = await routeModule.DELETE(req, routeCtx('pipe-index-safe'))
+
+    expect(res.status).toBe(200)
+    expect(dealsCollection.where).toHaveBeenCalledWith('orgId', '==', 'org-a')
+    expect(dealsCollection.where).toHaveBeenCalledWith('pipelineId', '==', 'pipe-index-safe')
+    expect(dealsCollection.where).not.toHaveBeenCalledWith('deleted', '!=', true)
   })
 
   it('returns 404 for cross-tenant delete', async () => {

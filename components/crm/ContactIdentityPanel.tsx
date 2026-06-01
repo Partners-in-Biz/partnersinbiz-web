@@ -35,10 +35,12 @@ export function contactIdentityHealth(profile: ContactIdentityProfile): number {
 }
 
 function Field({ label, value, action }: { label: string; value?: string; action?: IdentityFieldAction }) {
+  const displayValue = value || `${label} not captured`
+
   return (
     <div>
       <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">{label}</p>
-      <p className="mt-1 text-sm text-[var(--color-pib-text)]">{value || 'Not captured'}</p>
+      <p className="mt-1 text-sm text-[var(--color-pib-text)]">{displayValue}</p>
       {!value && action && (
         <button
           type="button"
@@ -116,6 +118,23 @@ function Signal({ icon, label, healthy }: { icon: string; label: string; healthy
   )
 }
 
+function emailReachabilityLabel(profile: ContactIdentityProfile): string {
+  if (profile.bouncedAt) return 'Email bounced'
+  if (profile.unsubscribedAt) return 'Email unsubscribed'
+  return 'Email reachable'
+}
+
+function smsReadinessLabel(profile: ContactIdentityProfile): string {
+  if (profile.phoneVerified !== true) return 'Phone unverified'
+  if (profile.smsOptedIn !== true) return 'SMS opted out'
+  return 'SMS ready'
+}
+
+function replySignalLabel(count: number): string {
+  if (count === 0) return 'No replies yet'
+  return `${count} repl${count === 1 ? 'y' : 'ies'}`
+}
+
 export function ContactIdentityPanel({
   profile,
   fieldActions,
@@ -125,7 +144,9 @@ export function ContactIdentityPanel({
 }) {
   const health = contactIdentityHealth(profile)
   const smsReady = profile.phoneVerified === true && profile.smsOptedIn === true
+  const smsLabel = smsReadinessLabel(profile)
   const emailReachable = !profile.unsubscribedAt && !profile.bouncedAt
+  const emailLabel = emailReachabilityLabel(profile)
   const replies = profile.repliesCount ?? 0
   const missingCoreIdentity = !profile.jobTitle?.trim() && !profile.department?.trim() && !profile.timezone?.trim()
 
@@ -162,9 +183,9 @@ export function ContactIdentityPanel({
       )}
 
       <div className="flex flex-wrap gap-2">
-        <Signal icon="sms" label={smsReady ? 'SMS ready' : 'SMS incomplete'} healthy={smsReady} />
-        <Signal icon="mark_email_read" label={emailReachable ? 'Email reachable' : 'Email blocked'} healthy={emailReachable} />
-        <Signal icon="forum" label={`${replies} repl${replies === 1 ? 'y' : 'ies'}`} healthy={replies > 0} />
+        <Signal icon="sms" label={smsLabel} healthy={smsReady} />
+        <Signal icon="mark_email_read" label={emailLabel} healthy={emailReachable} />
+        <Signal icon="forum" label={replySignalLabel(replies)} healthy={replies > 0} />
       </div>
     </section>
   )

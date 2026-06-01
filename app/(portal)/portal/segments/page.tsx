@@ -113,6 +113,9 @@ export default function PortalSegmentsPage() {
   const [editForm, setEditForm] = useState<FormState>(EMPTY_FORM)
   const [savingEdit, setSavingEdit] = useState(false)
   const [editError, setEditError] = useState('')
+  const [pendingDeleteSegment, setPendingDeleteSegment] = useState<Segment | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [deleteError, setDeleteError] = useState('')
 
   const fetchSegments = useCallback(async () => {
     setLoading(true)
@@ -224,12 +227,33 @@ export default function PortalSegmentsPage() {
   }
 
   async function deleteSegment(id: string, name: string) {
-    if (!window.confirm(`Delete segment "${name}"? This cannot be undone.`)) return
-    const res = await fetch(`/api/v1/crm/segments/${id}`, { method: 'DELETE' })
-    if (res.ok) {
+    setDeletingId(id)
+    setDeleteError('')
+    try {
+      const res = await fetch(`/api/v1/crm/segments/${id}`, { method: 'DELETE' })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        setDeleteError(body.error ?? `Failed to delete segment "${name}".`)
+        return
+      }
       setSegments((prev) => prev.filter((s) => s.id !== id))
+      setCounts((prev) => {
+        const next = { ...prev }
+        delete next[id]
+        return next
+      })
+      setPendingDeleteSegment(null)
       if (editingId === id) setEditingId(null)
+    } catch {
+      setDeleteError('Could not reach the server.')
+    } finally {
+      setDeletingId(null)
     }
+  }
+
+  async function confirmDeleteSegment() {
+    if (!pendingDeleteSegment) return
+    await deleteSegment(pendingDeleteSegment.id, pendingDeleteSegment.name)
   }
 
   function applyTemplate(presetId: string, target: 'new' | 'edit') {
@@ -435,6 +459,61 @@ export default function PortalSegmentsPage() {
         />
       )}
 
+      {deleteError && (
+        <div className="rounded-lg border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm text-red-100">
+          <span className="material-symbols-outlined mr-1.5 align-middle text-[16px]" aria-hidden="true">error</span>
+          {deleteError}
+        </div>
+      )}
+
+      {pendingDeleteSegment && (
+        <section
+          role="alertdialog"
+          aria-modal="false"
+          aria-labelledby="segment-delete-confirm-title"
+          aria-describedby="segment-delete-confirm-description"
+          className="rounded-lg border border-red-400/25 bg-red-500/10 p-5 shadow-[0_18px_40px_rgba(127,29,29,0.18)]"
+        >
+          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+            <div className="flex gap-3">
+              <span className="material-symbols-outlined mt-0.5 text-red-200" aria-hidden="true">warning</span>
+              <div>
+                <p className="eyebrow !text-[10px] !text-red-100/80">Saved audience delete</p>
+                <h2 id="segment-delete-confirm-title" className="mt-1 font-display text-lg text-red-50">
+                  Delete segment &quot;{pendingDeleteSegment.name}&quot;?
+                </h2>
+                <p id="segment-delete-confirm-description" className="mt-2 max-w-2xl text-sm text-red-100/90">
+                  This removes the saved audience lens for {counts[pendingDeleteSegment.id] ?? 'unresolved'} contact{counts[pendingDeleteSegment.id] === 1 ? '' : 's'}. Existing contact records and campaign history stay available for audit.
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 md:justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setPendingDeleteSegment(null)
+                  setDeleteError('')
+                }}
+                className="btn-pib-secondary text-xs"
+                disabled={deletingId === pendingDeleteSegment.id}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmDeleteSegment}
+                aria-label={`Confirm delete segment ${pendingDeleteSegment.name}`}
+                className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-lg border border-red-300/30 bg-red-500/20 px-3 py-2 text-xs font-semibold text-red-50 transition-colors hover:border-red-200/60 hover:bg-red-500/30 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={deletingId === pendingDeleteSegment.id}
+              >
+                <span className="material-symbols-outlined text-[15px]" aria-hidden="true">delete</span>
+                {deletingId === pendingDeleteSegment.id ? 'Deleting...' : 'Delete segment'}
+              </button>
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* New segment inline form */}
       {showNew && (
         <section className="bento-card !p-6 space-y-4">
@@ -560,9 +639,12 @@ export default function PortalSegmentsPage() {
                         Edit
                       </button>
                       <button
-                        onClick={() => deleteSegment(s.id, s.name)}
+                        onClick={() => {
+                          setPendingDeleteSegment(s)
+                          setDeleteError('')
+                        }}
                         className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-danger,#FCA5A5)] transition-colors p-2"
-                        aria-label="Delete segment"
+                        aria-label={`Delete segment ${s.name}`}
                       >
                         <span className="material-symbols-outlined text-[18px]">delete</span>
                       </button>

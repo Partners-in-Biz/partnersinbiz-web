@@ -136,6 +136,10 @@ function fmtZar(value: number): string {
   return `R ${value.toLocaleString('en-ZA', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
 }
 
+function openDealValueReadinessLabel(count: number): string {
+  return `${fmtNum(count)} open ${count === 1 ? 'deal needs' : 'deals need'} value`
+}
+
 function fmtNum(value: number): string {
   return value.toLocaleString('en-ZA', { maximumFractionDigits: 0 })
 }
@@ -165,6 +169,12 @@ function repDealsHref(rep: RepPerformanceRow): string {
     owner: rep.uid,
   })
   return `/portal/deals?${params.toString()}`
+}
+
+function repOpenValueLabel(rep: RepPerformanceRow): string {
+  if (rep.openDeals === 0) return 'No open deals'
+  if (rep.openValue === 0) return 'Open value needed'
+  return fmtZar(rep.openValue)
 }
 
 // ── Skeleton ───────────────────────────────────────────────────────────────────
@@ -337,18 +347,35 @@ function Section({ eyebrow, children }: { eyebrow: React.ReactNode; children: Re
 interface ForecastRowProps {
   label: string
   period: ForecastPeriod
+  href?: string
+  ariaLabel?: string
 }
 
-function ForecastRow({ label, period }: ForecastRowProps) {
+function ForecastRow({ label, period, href, ariaLabel }: ForecastRowProps) {
   const muted = period.dealCount === 0
+  const valueMissing = period.dealCount > 0 && period.totalValue === 0
   const cls = muted ? 'text-[var(--color-pib-text-muted)]' : 'text-[var(--color-pib-text)]'
+  const canOpen = Boolean(href && ariaLabel && period.dealCount > 0)
   return (
-    <tr className={`border-b border-[var(--color-pib-line)] last:border-0 ${muted ? 'opacity-50' : ''}`}>
-      <td className={`px-4 py-3 text-sm font-medium ${cls}`}>{label}</td>
+    <tr className={`border-b border-[var(--color-pib-line)] last:border-0 ${muted ? 'opacity-50' : ''} ${canOpen ? 'hover:bg-white/[0.03]' : ''}`}>
+      <td className={`px-4 py-3 text-sm font-medium ${cls}`}>
+        {canOpen ? (
+          <Link
+            href={href as string}
+            aria-label={ariaLabel as string}
+            className="inline-flex max-w-full items-center gap-1.5 rounded-md text-[var(--color-pib-text)] transition-colors hover:text-[var(--color-pib-accent)] focus:outline-none focus:ring-2 focus:ring-[var(--color-pib-accent)] focus:ring-offset-2 focus:ring-offset-[var(--color-pib-bg)]"
+          >
+            <span className="truncate">{label}</span>
+            <span aria-hidden="true" className="material-symbols-outlined text-[15px]">open_in_new</span>
+          </Link>
+        ) : (
+          label
+        )}
+      </td>
       <td className={`px-4 py-3 text-sm text-right font-mono ${cls}`}>{fmtNum(period.dealCount)}</td>
-      <td className={`px-4 py-3 text-sm text-right font-mono ${cls}`}>{period.dealCount > 0 ? fmtZar(period.totalValue) : '—'}</td>
+      <td className={`px-4 py-3 text-sm text-right font-mono ${cls}`}>{valueMissing ? 'No value captured' : fmtZar(period.totalValue)}</td>
       <td className={`px-4 py-3 text-sm text-right font-mono ${muted ? 'text-[var(--color-pib-text-muted)]' : 'text-[var(--color-pib-accent)]'}`}>
-        {period.dealCount > 0 ? fmtZar(period.weightedValue) : '—'}
+        {valueMissing ? 'Value needed' : fmtZar(period.weightedValue)}
       </td>
     </tr>
   )
@@ -448,6 +475,7 @@ export default function CrmReportsPage() {
   const clientMix = activeContactCount > 0 ? clientCount / activeContactCount : 0
   const prospectMix = activeContactCount > 0 ? prospectCount / activeContactCount : 0
   const topStage = byStageEntries[0] ?? null
+  const forecastHasUnpricedOpenDeals = Boolean(forecast && forecast.summary.totalOpenDeals > 0 && forecast.summary.totalValue === 0)
   const forecastCoverage =
     forecast && forecast.summary.totalValue > 0 ? forecast.summary.weightedValue / forecast.summary.totalValue : 0
   const nearTermForecastValue = forecast
@@ -459,6 +487,9 @@ export default function CrmReportsPage() {
     velocity && velocity.summary.stageCount > 0 ? velocity.summary.bottleneckCount / velocity.summary.stageCount : 0
   const totalRepDeals = repPerformance
     ? repPerformance.reps.reduce((sum, rep) => sum + rep.openDeals + rep.wonDeals + rep.lostDeals, 0)
+    : 0
+  const totalRepOpenDeals = repPerformance
+    ? repPerformance.reps.reduce((sum, rep) => sum + rep.openDeals, 0)
     : 0
   const unassignedRep = repPerformance?.reps.find((rep) => rep.uid === 'unassigned' || /unassigned/i.test(rep.displayName))
   const unassignedDealCount = unassignedRep ? unassignedRep.openDeals + unassignedRep.wonDeals + unassignedRep.lostDeals : 0
@@ -483,6 +514,31 @@ export default function CrmReportsPage() {
         ? 'Needs focus'
         : 'At risk'
   const pipelineSignalTone = pipelineSignal === 'Healthy' ? 'good' : pipelineSignal === 'Needs focus' ? 'warning' : 'neutral'
+  const openPipelineValue = !forecast
+    ? 'No forecast data'
+    : forecast.summary.totalOpenDeals === 0
+      ? 'No open pipeline'
+      : forecastHasUnpricedOpenDeals
+        ? 'No priced pipeline'
+        : fmtZar(forecast.summary.totalValue)
+  const openPipelineSub = !forecast
+    ? 'Forecast not loaded'
+    : forecast.summary.totalOpenDeals === 0
+      ? 'No open deals'
+      : forecastHasUnpricedOpenDeals
+        ? openDealValueReadinessLabel(forecast.summary.totalOpenDeals)
+        : `${fmtZar(forecast.summary.weightedValue)} weighted`
+  const totalPipelineSummary = forecastHasUnpricedOpenDeals ? 'No priced pipeline' : forecast ? fmtZar(forecast.summary.totalValue) : 'No forecast data'
+  const weightedPipelineSummary = forecastHasUnpricedOpenDeals ? 'Forecast value needed' : forecast ? fmtZar(forecast.summary.weightedValue) : 'No forecast data'
+  const nearTermForecastSummary = forecastHasUnpricedOpenDeals ? 'Forecast value needed' : fmtZar(nearTermForecastValue)
+  const repOpenValueSummary = !repPerformance
+    ? 'No rep data'
+    : totalRepOpenDeals === 0
+      ? 'No open deals'
+      : repPerformance.summary.totalOpenValue === 0
+        ? 'No priced open pipeline'
+        : fmtZar(repPerformance.summary.totalOpenValue)
+  const repOpenValueSub = totalRepOpenDeals > 0 && repPerformance?.summary.totalOpenValue === 0 ? 'Open deals need value' : 'Active rep pipeline'
   const teamExecutionAction =
     unassignedContacts > 0
       ? {
@@ -579,7 +635,7 @@ export default function CrmReportsPage() {
           </div>
           <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
             <StatCard label="Contacts" value={fmtNum(funnel?.total ?? 0)} sub={`${fmtPercent(clientMix)} clients in active base`} icon="contacts" />
-            <StatCard label="Open pipeline" value={fmtZar(forecast?.summary.totalValue ?? 0)} sub={`${fmtZar(forecast?.summary.weightedValue ?? 0)} weighted`} icon="payments" />
+            <StatCard label="Open pipeline" value={openPipelineValue} sub={openPipelineSub} icon="payments" />
             <StatCard label="Bottlenecks" value={fmtNum(velocity?.summary.bottleneckCount ?? 0)} sub={`${fmtPercent(bottleneckShare)} of tracked stages`} icon="speed" />
             <StatCard label="Contact owners" value={fmtPercent(contactOwnerCoverage)} sub={`${fmtNum(unassignedContacts)} unowned contacts`} icon="supervisor_account" />
             <StatCard label="Activity" value={fmtNum(activity?.total ?? 0)} sub={`${activityAverage.toFixed(1)} per day over ${days} days`} icon="task_alt" />
@@ -620,15 +676,20 @@ export default function CrmReportsPage() {
         <InsightCard
           icon="event_upcoming"
           label="Forecast focus"
-          title={`${fmtZar(nearTermForecastValue)} weighted near term`}
-          body={`${fmtNum(noDateDeals)} open deals have no close date, which limits forecast reliability.`}
-          action={noDateDeals > 0 ? {
+          title={forecastHasUnpricedOpenDeals ? 'Forecast value needed' : `${fmtZar(nearTermForecastValue)} weighted near term`}
+          body={forecastHasUnpricedOpenDeals ? 'Capture deal values before the next revenue review' : `${fmtNum(noDateDeals)} open deals have no close date, which limits forecast reliability.`}
+          action={forecastHasUnpricedOpenDeals ? {
+            href: '/portal/deals?view=list',
+            label: 'Review deal values',
+            ariaLabel: 'Open pipeline deals needing value capture',
+            icon: 'payments',
+          } : noDateDeals > 0 ? {
             href: '/portal/deals?view=forecast&focus=no-close-date',
             label: 'Review dates',
             ariaLabel: 'Open forecast deals missing close dates',
             icon: 'edit_calendar',
           } : undefined}
-          tone={noDateDeals === 0 ? 'good' : 'warning'}
+          tone={forecastHasUnpricedOpenDeals || noDateDeals > 0 ? 'warning' : 'good'}
         />
         <InsightCard
           icon="timer"
@@ -739,7 +800,7 @@ export default function CrmReportsPage() {
 
       {/* ── Section 2: Revenue forecast ─────────────────────────────────────── */}
       <Section eyebrow="Revenue forecast">
-        {!forecast ? (
+        {!forecast || forecast.summary.totalOpenDeals === 0 ? (
           <EmptyState
             icon="trending_up"
             title="No forecast data yet"
@@ -756,9 +817,9 @@ export default function CrmReportsPage() {
             {/* Summary chips */}
             <div className="flex gap-3 flex-wrap">
               <SummaryChip label="Open deals" value={fmtNum(forecast.summary.totalOpenDeals)} />
-              <SummaryChip label="Total pipeline" value={fmtZar(forecast.summary.totalValue)} />
-              <SummaryChip label="Weighted pipeline" value={fmtZar(forecast.summary.weightedValue)} />
-              <SummaryChip label="Near term" value={fmtZar(nearTermForecastValue)} />
+              <SummaryChip label="Total pipeline" value={totalPipelineSummary} />
+              <SummaryChip label="Weighted pipeline" value={weightedPipelineSummary} />
+              <SummaryChip label="Near term" value={nearTermForecastSummary} />
             </div>
 
             {/* Forecast table */}
@@ -783,7 +844,12 @@ export default function CrmReportsPage() {
                     <ForecastRow label="This quarter" period={forecast.periods.thisQuarter} />
                     <ForecastRow label="Next quarter" period={forecast.periods.nextQuarter} />
                     <ForecastRow label="Beyond" period={forecast.periods.beyond} />
-                    <ForecastRow label="No close date" period={forecast.periods.noDate} />
+                    <ForecastRow
+                      label="No close date"
+                      period={forecast.periods.noDate}
+                      href="/portal/deals?view=forecast&focus=no-close-date"
+                      ariaLabel="Open no close date forecast deals"
+                    />
                   </tbody>
                 </table>
               </div>
@@ -878,8 +944,17 @@ export default function CrmReportsPage() {
                 </thead>
                 <tbody>
                   {velocity.stages.slice(0, 8).map((stage) => (
-                    <tr key={`${stage.pipelineId}:${stage.stageId}`} className="border-b border-[var(--color-pib-line)] last:border-0">
-                      <td className="px-4 py-3 text-sm font-medium text-[var(--color-pib-text)]">{labelize(stage.stageId)}</td>
+                    <tr key={`${stage.pipelineId}:${stage.stageId}`} className="border-b border-[var(--color-pib-line)] last:border-0 hover:bg-white/[0.03]">
+                      <td className="px-4 py-3 text-sm font-medium text-[var(--color-pib-text)]">
+                        <Link
+                          href={dealStageLensHref(stage)}
+                          aria-label={`Open ${labelize(stage.stageId)} stage deals from velocity table`}
+                          className="inline-flex max-w-full items-center gap-1.5 rounded-md text-[var(--color-pib-text)] transition-colors hover:text-[var(--color-pib-accent)] focus:outline-none focus:ring-2 focus:ring-[var(--color-pib-accent)] focus:ring-offset-2 focus:ring-offset-[var(--color-pib-bg)]"
+                        >
+                          <span className="truncate">{labelize(stage.stageId)}</span>
+                          <span className="material-symbols-outlined text-[15px]" aria-hidden="true">open_in_new</span>
+                        </Link>
+                      </td>
                       <td className="px-4 py-3 text-sm text-right font-mono text-[var(--color-pib-text)]">{fmtNum(stage.dealCount)}</td>
                       <td className="px-4 py-3 text-sm text-right font-mono text-[var(--color-pib-text)]">{stage.avgDays.toFixed(1)}</td>
                       <td className="px-4 py-3 text-sm text-right font-mono text-[var(--color-pib-text)]">{stage.maxDays.toFixed(1)}</td>
@@ -917,7 +992,7 @@ export default function CrmReportsPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-[var(--color-pib-line)] bg-[var(--color-pib-surface)]">
-                    {['Rep', 'Won', 'Open', 'Lost', 'Won value', 'Activities', 'Win rate'].map((h) => (
+                    {['Rep', 'Won', 'Open', 'Lost', 'Open value', 'Won value', 'Activities', 'Win rate'].map((h) => (
                       <th
                         key={h}
                         className={`px-4 py-3 text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] ${h === 'Rep' ? 'text-left' : 'text-right'}`}
@@ -943,10 +1018,19 @@ export default function CrmReportsPage() {
                       <td className="px-4 py-3 text-sm text-right font-mono text-[var(--color-pib-text)]">{fmtNum(rep.wonDeals)}</td>
                       <td className="px-4 py-3 text-sm text-right font-mono text-[var(--color-pib-text)]">{fmtNum(rep.openDeals)}</td>
                       <td className="px-4 py-3 text-sm text-right font-mono text-[var(--color-pib-text)]">{fmtNum(rep.lostDeals)}</td>
+                      <td className="px-4 py-3 text-sm text-right font-mono text-[var(--color-pib-accent)]">{repOpenValueLabel(rep)}</td>
                       <td className="px-4 py-3 text-sm text-right font-mono text-[var(--color-pib-accent)]">{fmtZar(rep.wonValue)}</td>
                       <td className="px-4 py-3 text-sm text-right font-mono text-[var(--color-pib-text)]">{fmtNum(rep.activities)}</td>
                       <td className="px-4 py-3 text-sm text-right font-mono text-[var(--color-pib-text)]">
-                        {rep.winRate === null ? '—' : fmtPercent(rep.winRate)}
+                        {rep.winRate === null ? (
+                          <Link
+                            href={repDealsHref(rep)}
+                            aria-label={`Open ${rep.displayName} deals to create win-rate baseline`}
+                            className="inline-flex items-center gap-1 rounded-full border border-amber-400/20 bg-amber-400/10 px-2 py-1 text-[11px] font-medium text-amber-200 transition-colors hover:border-amber-300/40 hover:bg-amber-400/15 focus:outline-none focus:ring-2 focus:ring-[var(--color-pib-accent)] focus:ring-offset-2 focus:ring-offset-[var(--color-pib-bg)]"
+                          >
+                            No closes yet
+                          </Link>
+                        ) : fmtPercent(rep.winRate)}
                       </td>
                     </tr>
                   ))}
@@ -961,6 +1045,11 @@ export default function CrmReportsPage() {
               <HealthBar value={1 - unassignedDealShare} label="Assigned deal coverage" />
               <HealthBar value={contactOwnerCoverage} label="Assigned contact coverage" />
               <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-3">
+                  <p className="eyebrow !text-[10px]">Open value</p>
+                  <p className="mt-2 font-display text-xl font-bold text-[var(--color-pib-text)]">{repOpenValueSummary}</p>
+                  <p className="mt-1 text-[11px] text-[var(--color-pib-text-muted)]">{repOpenValueSub}</p>
+                </div>
                 <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-3">
                   <p className="eyebrow !text-[10px]">Won value</p>
                   <p className="mt-2 font-display text-xl font-bold text-[var(--color-pib-text)]">{fmtZar(repPerformance.summary.totalWonValue)}</p>
@@ -1009,7 +1098,7 @@ export default function CrmReportsPage() {
       >
         {activityLoading ? (
           <Skeleton className="h-52" />
-        ) : !activity ? (
+        ) : !activity || activity.total === 0 ? (
           <EmptyState
             icon="event_note"
             title="No activity data yet"

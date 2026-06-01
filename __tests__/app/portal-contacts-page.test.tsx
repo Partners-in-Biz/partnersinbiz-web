@@ -28,6 +28,7 @@ describe('Portal contacts page', () => {
             id: 'contact-owned',
             name: 'Owned Client',
             email: 'owned@example.com',
+            phone: '+27825550111',
             company: 'Owned Co',
             type: 'client',
             stage: 'won',
@@ -97,19 +98,19 @@ describe('Portal contacts page', () => {
     render(<PortalContactsPage />)
 
     await waitFor(() => {
-      expect(screen.getByRole('link', { name: /Owned Client/i })).toBeInTheDocument()
+      expect(screen.getByRole('link', { name: 'Open contact Owned Client' })).toBeInTheDocument()
     })
-    expect(screen.getByRole('link', { name: /Unowned Prospect/i })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Open contact Unowned Prospect' })).toBeInTheDocument()
 
     expect(screen.getByText('Owner coverage')).toBeInTheDocument()
     expect(screen.getByText('1 unowned')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Show unowned contacts needing an owner' }))
 
-    expect(screen.queryByRole('link', { name: /Owned Client/i })).not.toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /Unowned Prospect/i })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Open contact Owned Client' })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Open contact Unowned Prospect' })).toBeInTheDocument()
 
-    const row = screen.getByRole('link', { name: /Unowned Prospect/i }).closest('[data-contact-row]')
+    const row = screen.getByRole('link', { name: 'Open contact Unowned Prospect' }).closest('[data-contact-row]')
     expect(row).not.toBeNull()
     expect(within(row as HTMLElement).getByText('Unassigned')).toBeInTheDocument()
   })
@@ -120,10 +121,10 @@ describe('Portal contacts page', () => {
     render(<PortalContactsPage />)
 
     await waitFor(() => {
-      expect(screen.getByRole('link', { name: /Unowned Prospect/i })).toBeInTheDocument()
+      expect(screen.getByRole('link', { name: 'Open contact Unowned Prospect' })).toBeInTheDocument()
     })
 
-    expect(screen.queryByRole('link', { name: /Owned Client/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Open contact Owned Client' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Show all contacts' })).toBeInTheDocument()
     expect(screen.getByText('1 unowned contact need assignment.')).toBeInTheDocument()
     expect(screen.getByText('owner: unowned')).toBeInTheDocument()
@@ -177,12 +178,53 @@ describe('Portal contacts page', () => {
     render(<PortalContactsPage />)
 
     await waitFor(() => {
-      expect(screen.getByRole('link', { name: /Unowned Prospect/i })).toBeInTheDocument()
+      expect(screen.getByRole('link', { name: 'Open contact Unowned Prospect' })).toBeInTheDocument()
     })
 
-    expect(screen.queryByRole('link', { name: /Owned Client/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Open contact Owned Client' })).not.toBeInTheDocument()
     expect(screen.getByText('1 contact match this view.')).toBeInTheDocument()
     expect(screen.getByText('stage: new')).toBeInTheDocument()
+  })
+
+  it('renders contact stage and type labels as readable CRM language', async () => {
+    render(<PortalContactsPage />)
+
+    const ownedRowLink = await screen.findByRole('link', { name: 'Open contact Owned Client' })
+    const ownedRow = ownedRowLink.closest('[data-contact-row]')
+    expect(ownedRow).not.toBeNull()
+
+    expect(within(ownedRow as HTMLElement).getByText('Client')).toBeInTheDocument()
+    expect(within(ownedRow as HTMLElement).getByText('Won')).toBeInTheDocument()
+    expect(within(ownedRow as HTMLElement).queryByText('client')).not.toBeInTheDocument()
+    expect(within(ownedRow as HTMLElement).queryByText('won')).not.toBeInTheDocument()
+
+    expect(screen.getByRole('option', { name: 'Contacted' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Client' })).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: 'contacted' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: 'client' })).not.toBeInTheDocument()
+  })
+
+  it('turns contact list row details into direct outreach and company triage actions', async () => {
+    render(<PortalContactsPage />)
+
+    const ownedRowLink = await screen.findByRole('link', { name: 'Open contact Owned Client' })
+    const ownedRow = ownedRowLink.closest('[data-contact-row]')
+    expect(ownedRow).not.toBeNull()
+
+    expect(within(ownedRow as HTMLElement).getByRole('link', { name: 'Open contact Owned Client' }))
+      .toHaveAttribute('href', '/portal/contacts/contact-owned')
+    expect(within(ownedRow as HTMLElement).getByRole('link', { name: 'Email owned@example.com from contacts list' }))
+      .toHaveAttribute('href', 'mailto:owned@example.com')
+    expect(within(ownedRow as HTMLElement).getByRole('link', { name: 'Call +27825550111 from contacts list' }))
+      .toHaveAttribute('href', 'tel:+27825550111')
+    expect(within(ownedRow as HTMLElement).getByRole('link', { name: 'Log activity for Owned Client from last contacted column' }))
+      .toHaveAttribute('href', '/portal/contacts/contact-owned?activity=note')
+
+    fireEvent.click(within(ownedRow as HTMLElement).getByRole('button', { name: 'Filter contacts by company Owned Co' }))
+    expect(screen.getByPlaceholderText('Search name, email, company…')).toHaveValue('Owned Co')
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/contacts?search=Owned+Co')
+    })
   })
 
   it('treats an empty contact stage lens as a clean funnel stage', async () => {
@@ -190,7 +232,7 @@ describe('Portal contacts page', () => {
 
     render(<PortalContactsPage />)
 
-    expect(await screen.findByRole('heading', { name: 'No contacts in proposal.' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'No contacts in Proposal.' })).toBeInTheDocument()
     expect(screen.getByText('This funnel stage is clear for the current contact lens.')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Clear filters' })).toBeInTheDocument()
     expect(screen.getByText('stage: proposal')).toBeInTheDocument()
@@ -202,13 +244,99 @@ describe('Portal contacts page', () => {
     render(<PortalContactsPage />)
 
     await waitFor(() => {
-      expect(screen.getByRole('link', { name: /Owned Client/i })).toBeInTheDocument()
+      expect(screen.getByRole('link', { name: 'Open contact Owned Client' })).toBeInTheDocument()
     })
 
-    expect(screen.getByRole('link', { name: /Unowned Prospect/i })).toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: /Fresh Followup/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Open contact Unowned Prospect' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Open contact Fresh Followup' })).not.toBeInTheDocument()
     expect(screen.getByText('2 contacts need follow-up.')).toBeInTheDocument()
     expect(screen.getByText('followUp: stale')).toBeInTheDocument()
+  })
+
+  it('names missing row details instead of showing bare dashes', async () => {
+    ;(global.fetch as jest.Mock).mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.startsWith('/api/v1/crm/contacts')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: [
+              {
+                id: 'contact-needs-enrichment',
+                name: 'Needs Enrichment',
+                email: '',
+                company: '',
+                type: 'lead',
+                stage: 'new',
+                assignedTo: '',
+                tags: [],
+                lastContactedAt: null,
+              },
+            ],
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/portal/settings/team') {
+        return Promise.resolve({ ok: true, json: async () => ({ members: [] }) } as Response)
+      }
+      if (url.startsWith('/api/v1/crm/saved-views')) {
+        return Promise.resolve({ ok: true, json: async () => ({ data: [] }) } as Response)
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    })
+
+    render(<PortalContactsPage />)
+
+    const rowLink = await screen.findByRole('link', { name: 'Open contact Needs Enrichment' })
+    const row = rowLink.closest('[data-contact-row]')
+
+    expect(row).not.toBeNull()
+    expect(within(row as HTMLElement).getByText('Email missing')).toBeInTheDocument()
+    expect(within(row as HTMLElement).getByText('Company missing')).toBeInTheDocument()
+    expect(within(row as HTMLElement).getByText('No touch logged')).toBeInTheDocument()
+  })
+
+  it('names incomplete owner snapshots instead of exposing raw team member ids', async () => {
+    ;(global.fetch as jest.Mock).mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.startsWith('/api/v1/crm/contacts')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: [
+              {
+                id: 'contact-raw-owner',
+                name: 'Raw Owner Contact',
+                email: 'raw-owner@example.com',
+                company: 'Owner Gap Co',
+                type: 'lead',
+                stage: 'new',
+                assignedTo: 'sales-lead-raw',
+                assignedToRef: { uid: 'sales-lead-raw' },
+                tags: [],
+                lastContactedAt: null,
+              },
+            ],
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/portal/settings/team') {
+        return Promise.resolve({ ok: true, json: async () => ({ members: [] }) } as Response)
+      }
+      if (url.startsWith('/api/v1/crm/saved-views')) {
+        return Promise.resolve({ ok: true, json: async () => ({ data: [] }) } as Response)
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    })
+
+    render(<PortalContactsPage />)
+
+    const rowLink = await screen.findByRole('link', { name: 'Open contact Raw Owner Contact' })
+    const row = rowLink.closest('[data-contact-row]')
+
+    expect(row).not.toBeNull()
+    expect(within(row as HTMLElement).getByText('Owner identity missing')).toBeInTheDocument()
+    expect(within(row as HTMLElement).queryByText('sales-lead-raw')).not.toBeInTheDocument()
   })
 
   it('treats an empty stale follow-up lens as a clean relationship health state', async () => {
@@ -258,5 +386,32 @@ describe('Portal contacts page', () => {
     render(<PortalContactsPage />)
 
     expect(await screen.findByRole('heading', { name: 'New contact' })).toBeInTheDocument()
+  })
+
+  it('uses an in-page confirmation before bulk deleting selected contacts', async () => {
+    const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(false)
+
+    render(<PortalContactsPage />)
+
+    await screen.findByRole('link', { name: 'Open contact Owned Client' })
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Select Owned Client' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Delete selected contacts' }))
+
+    expect(confirmSpy).not.toHaveBeenCalled()
+    expect(screen.getByRole('alertdialog', { name: 'Delete 1 selected contact?' })).toBeInTheDocument()
+    expect(screen.getByText('This cannot be undone. The selected contacts will be removed from this audience.')).toBeInTheDocument()
+    expect(global.fetch).not.toHaveBeenCalledWith('/api/v1/crm/contacts/bulk', expect.any(Object))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm delete 1 selected contact' }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/contacts/bulk', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ ids: ['contact-owned'], patch: { delete: true } }),
+      })
+    })
+
+    confirmSpy.mockRestore()
   })
 })

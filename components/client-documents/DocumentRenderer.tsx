@@ -13,6 +13,99 @@ function readableType(type: string) {
   return type.replaceAll('_', ' ')
 }
 
+function formatSignatureDate(value: unknown) {
+  if (!value) return 'Date pending'
+  if (typeof value === 'string') {
+    const date = new Date(value)
+    return Number.isNaN(date.getTime()) ? 'Date recorded' : date.toLocaleDateString('en-ZA', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    })
+  }
+  if (
+    typeof value === 'object' &&
+    'toDate' in value &&
+    typeof (value as { toDate?: unknown }).toDate === 'function'
+  ) {
+    const date = (value as { toDate: () => Date }).toDate()
+    return date.toLocaleDateString('en-ZA', { day: '2-digit', month: 'short', year: 'numeric' })
+  }
+  return 'Date recorded'
+}
+
+function AgreementSignatureSection({ document }: { document: ClientDocument }) {
+  if (document.approvalMode !== 'formal_acceptance') return null
+
+  const provider = document.providerSignature
+  const client = document.clientAcceptance
+
+  return (
+    <section className="mt-12 border-t border-[var(--doc-border)] pt-10" aria-labelledby="agreement-signatures">
+      <div className="mb-6">
+        <p className="text-xs uppercase tracking-[0.2em] text-[var(--doc-muted)]">Formal acceptance</p>
+        <h2 id="agreement-signatures" className="mt-2 text-2xl font-semibold text-[var(--doc-text)]">
+          Agreement signatures
+        </h2>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="rounded-xl border border-[var(--doc-border)] bg-[var(--doc-surface)] p-5">
+          <p className="text-xs uppercase tracking-[0.16em] text-[var(--doc-muted)]">For Partners in Biz</p>
+          <dl className="mt-4 space-y-3 text-sm">
+            <div>
+              <dt className="text-[var(--doc-muted)]">Name</dt>
+              <dd className="font-medium text-[var(--doc-text)]">{provider?.name ?? 'Awaiting PiB countersignature'}</dd>
+            </div>
+            <div>
+              <dt className="text-[var(--doc-muted)]">Capacity</dt>
+              <dd className="font-medium text-[var(--doc-text)]">{provider?.capacity ?? 'Not signed yet'}</dd>
+            </div>
+            <div>
+              <dt className="text-[var(--doc-muted)]">Company</dt>
+              <dd className="font-medium text-[var(--doc-text)]">{provider?.companyName ?? 'The Partners in Business'}</dd>
+            </div>
+            <div>
+              <dt className="text-[var(--doc-muted)]">Signature</dt>
+              <dd className="font-medium text-[var(--doc-text)]">
+                {provider ? `Signature: ${provider.signatureText}` : 'Pending'}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-[var(--doc-muted)]">Date</dt>
+              <dd className="font-medium text-[var(--doc-text)]">{formatSignatureDate(provider?.signedAt)}</dd>
+            </div>
+          </dl>
+        </div>
+
+        <div className="rounded-xl border border-[var(--doc-border)] bg-[var(--doc-surface)] p-5">
+          <p className="text-xs uppercase tracking-[0.16em] text-[var(--doc-muted)]">For Client</p>
+          <dl className="mt-4 space-y-3 text-sm">
+            <div>
+              <dt className="text-[var(--doc-muted)]">Name</dt>
+              <dd className="font-medium text-[var(--doc-text)]">{client?.typedName ?? 'Awaiting client acceptance'}</dd>
+            </div>
+            <div>
+              <dt className="text-[var(--doc-muted)]">Company</dt>
+              <dd className="font-medium text-[var(--doc-text)]">{client?.companyName ?? 'Client organisation'}</dd>
+            </div>
+            <div>
+              <dt className="text-[var(--doc-muted)]">Signature</dt>
+              <dd className="font-medium text-[var(--doc-text)]">
+                {client ? 'Formal electronic acceptance via platform' : 'Pending platform acceptance'}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-[var(--doc-muted)]">Date</dt>
+              <dd className="font-medium text-[var(--doc-text)]">{formatSignatureDate(client?.acceptedAt)}</dd>
+            </div>
+          </dl>
+        </div>
+      </div>
+    </section>
+  )
+}
+
 export interface DocumentRendererProps {
   document: ClientDocument
   version: ClientDocumentVersion
@@ -170,6 +263,7 @@ export function DocumentRenderer({
                 const Renderer = getRenderer(block.type)
                 return <Renderer key={block.id} block={block} index={index} />
               })}
+              <AgreementSignatureSection document={clientDoc} />
             </div>
             <aside className="hidden pt-10 md:block">
               <nav className="sticky top-24 space-y-1 text-xs text-[var(--doc-muted)]">

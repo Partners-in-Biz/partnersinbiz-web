@@ -5,6 +5,7 @@ import {
   DndContext,
   closestCenter,
   PointerSensor,
+  KeyboardSensor,
   useSensor,
   useSensors,
   type DragEndEvent,
@@ -14,9 +15,10 @@ import {
   useSortable,
   verticalListSortingStrategy,
   arrayMove,
+  sortableKeyboardCoordinates,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import type { CustomFieldDefinition } from '@/lib/customFields/types'
+import type { CustomFieldDefinition, CustomFieldType } from '@/lib/customFields/types'
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 
@@ -31,10 +33,25 @@ export interface CustomFieldDefinitionsListProps {
 
 // ── Type chip ─────────────────────────────────────────────────────────────────
 
+const TYPE_LABELS: Record<CustomFieldType, string> = {
+  text: 'Text',
+  longtext: 'Long text',
+  number: 'Number',
+  currency: 'Currency',
+  date: 'Date',
+  datetime: 'Date & time',
+  dropdown: 'Dropdown',
+  multi_select: 'Multi-select',
+  checkbox: 'Checkbox',
+  url: 'URL',
+  email: 'Email',
+  phone: 'Phone',
+}
+
 function TypeChip({ type }: { type: string }) {
   return (
     <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-mono border border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)]">
-      {type}
+      {TYPE_LABELS[type as CustomFieldType] ?? type}
     </span>
   )
 }
@@ -221,7 +238,10 @@ export function CustomFieldDefinitionsList({
     setItems(definitions)
   }, [definitions])
 
-  const sensors = useSensors(useSensor(PointerSensor))
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  )
 
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event
@@ -254,7 +274,7 @@ export function CustomFieldDefinitionsList({
 
   return (
     <DndContext
-      sensors={isAdmin && canReorder ? sensors : undefined}
+      sensors={sensors}
       collisionDetection={closestCenter}
       onDragEnd={handleDragEnd}
     >

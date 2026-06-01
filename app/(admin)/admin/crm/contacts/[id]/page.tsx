@@ -17,6 +17,33 @@ import { ScoreChip } from '@/components/crm/ScoreChip'
 import type { MemberRef } from '@/lib/orgMembers/memberRef'
 
 const STAGES = ['new', 'contacted', 'replied', 'demo', 'proposal', 'won', 'lost'] as const
+const STAGE_LABELS: Record<string, string> = {
+  new: 'New lead',
+  contacted: 'Contacted',
+  replied: 'Replied',
+  demo: 'Demo booked',
+  proposal: 'Proposal sent',
+  won: 'Won customer',
+  lost: 'Lost opportunity',
+}
+const TYPE_LABELS: Record<string, string> = {
+  lead: 'Lead',
+  prospect: 'Prospect',
+  client: 'Client',
+  churned: 'Churned',
+}
+const SOURCE_LABELS: Record<string, string> = {
+  manual: 'Manual entry',
+  form: 'Form capture',
+  import: 'Imported list',
+  outreach: 'Outreach',
+}
+const AGREEMENT_ROLE_LABELS: Record<string, string> = {
+  primary_contact: 'Primary contact',
+  accounts_contact: 'Accounts contact',
+  authorized_signatory: 'Authorised signatory',
+  approval_contact: 'Approval contact',
+}
 
 type ContactRecord = {
   id?: string
@@ -110,6 +137,31 @@ function displayValue(value: unknown): string {
   return textValue(value) || 'Not captured'
 }
 
+function displayLabel(value: string | undefined, labels: Record<string, string>): string {
+  const key = textValue(value)
+  if (!key) return ''
+  return labels[key] ?? key
+}
+
+function formatAgreementRoles(roles: string[] | undefined): string {
+  if (!Array.isArray(roles) || roles.length === 0) return ''
+  return roles
+    .map((role) => AGREEMENT_ROLE_LABELS[role] ?? role)
+    .join(', ')
+}
+
+function suggestionActionLabel(suggestion: SuggestionItem): string {
+  return textValue(suggestion.action) || 'Suggested action missing'
+}
+
+function suggestionReasonLabel(suggestion: SuggestionItem): string {
+  return textValue(suggestion.reason) || 'Suggestion reason missing'
+}
+
+function memberDisplayName(ref: MemberRef | undefined, fallback: string | undefined): string {
+  return textValue(ref?.displayName) || textValue(fallback)
+}
+
 function contactDisplayName(contact: ContactRecord | null): string {
   if (!contact) return 'Contact'
   return textValue(contact.name) || textValue(contact.email) || 'Unnamed contact'
@@ -157,11 +209,17 @@ function CommandMetric({
   label,
   value,
   sub,
+  actionLabel,
+  actionText,
+  onAction,
 }: {
   icon: string
   label: string
   value: string
   sub: string
+  actionLabel?: string
+  actionText?: string
+  onAction?: () => void
 }) {
   return (
     <div className="pib-card min-w-[150px] flex-1 px-4 py-3">
@@ -171,6 +229,17 @@ function CommandMetric({
       </div>
       <p className="mt-2 text-xl font-headline font-bold text-on-surface leading-none">{value}</p>
       <p className="mt-1 text-[11px] text-on-surface-variant">{sub}</p>
+      {actionLabel && actionText && onAction && (
+        <button
+          type="button"
+          aria-label={actionLabel}
+          onClick={onAction}
+          className="mt-3 inline-flex items-center gap-1 rounded-full border border-[var(--color-card-border)] px-2.5 py-1 text-[10px] font-semibold text-[var(--color-accent-v2)] transition-colors hover:border-[var(--color-accent-v2)] hover:text-on-surface"
+        >
+          <span className="material-symbols-outlined text-[13px]" aria-hidden="true">add_comment</span>
+          {actionText}
+        </button>
+      )}
     </div>
   )
 }
@@ -216,6 +285,7 @@ export default function ContactDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
   const noteInputRef = useRef<HTMLInputElement | null>(null)
+  const activeStageRef = useRef<HTMLButtonElement | null>(null)
   const [contact, setContact] = useState<ContactRecord | null>(null)
   const [activities, setActivities] = useState<ActivityRecord[]>([])
   const [emails, setEmails] = useState<EmailRecord[]>([])
@@ -330,7 +400,19 @@ export default function ContactDetailPage() {
     noteInputRef.current?.focus()
   }
 
+  function focusStageControl() {
+    activeStageRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'center' })
+    activeStageRef.current?.focus()
+  }
+
+  function startSuggestion(suggestion: SuggestionItem) {
+    setNoteText(`Next action: ${suggestionActionLabel(suggestion)} - ${suggestionReasonLabel(suggestion)}`)
+    focusNoteComposer()
+    window.setTimeout(focusNoteComposer, 0)
+  }
+
   async function changeStage(stage: string) {
+    const nextStageLabel = displayLabel(stage, STAGE_LABELS)
     const res = await fetch(`/api/v1/crm/contacts/${id}`, {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
@@ -343,7 +425,7 @@ export default function ContactDetailPage() {
       body: JSON.stringify({
         contactId: id,
         type: 'stage_change',
-        summary: `Stage changed to ${stage}`,
+        summary: `Stage changed to ${nextStageLabel}`,
         dealId: '',
         metadata: { newStage: stage },
       }),
@@ -396,6 +478,9 @@ export default function ContactDetailPage() {
   const customFieldCount = contact?.customFields ? Object.keys(contact.customFields).length : 0
   const hasAnyScore = contact?.leadScore != null || contact?.icpScore != null || contact?.aiLeadScore != null
   const hasCompanyContext = Boolean(contact?.companyId || contact?.companyName || contact?.company)
+  const stageLabel = displayLabel(contact?.stage, STAGE_LABELS)
+  const typeLabel = displayLabel(contact?.type, TYPE_LABELS)
+  const sourceLabel = displayLabel(contact?.source, SOURCE_LABELS)
   const composeEmailHref = contact?.email
     ? `/admin/email/compose?to=${encodeURIComponent(contact.email)}&contactId=${encodeURIComponent(id)}`
     : ''
@@ -443,9 +528,9 @@ export default function ContactDetailPage() {
               <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Contact command center</p>
               <h1 className="mt-2 font-headline text-3xl font-bold tracking-tight text-on-surface">{name}</h1>
               <div className="mt-3 flex flex-wrap items-center gap-2">
-                {contact.stage && <span className="pill capitalize">{contact.stage}</span>}
-                {contact.type && <span className="pill capitalize">{contact.type}</span>}
-                {contact.source && <span className="pill capitalize">Source: {contact.source}</span>}
+                {stageLabel && <span className="pill">{stageLabel}</span>}
+                {typeLabel && <span className="pill">{typeLabel}</span>}
+                {sourceLabel && <span className="pill">Source: {sourceLabel}</span>}
                 {tags.slice(0, 6).map((tag) => <span key={tag} className="pill">{tag}</span>)}
               </div>
             </div>
@@ -504,11 +589,51 @@ export default function ContactDetailPage() {
         </div>
 
         <div className="flex flex-wrap gap-3 p-5">
-          <CommandMetric icon="fact_check" label="Profile strength" value={`${strength}%`} sub={strength >= 75 ? 'Ready for handoff' : 'Needs enrichment'} />
-          <CommandMetric icon="moving" label="Stage" value={displayValue(contact.stage)} sub="Lifecycle position" />
-          <CommandMetric icon="schedule" label="Last touch" value={lastTouchAge === null ? 'Never' : `${lastTouchAge}d`} sub={fmtTimestamp(contact.lastContactedAt) || 'No outreach logged'} />
-          <CommandMetric icon="mail" label="Email records" value={emailsLoading ? '...' : String(emails.length)} sub="Recent communication" />
-          <CommandMetric icon="hub" label="Custom fields" value={String(customFieldCount)} sub="Workspace data points" />
+          <CommandMetric
+            icon="fact_check"
+            label="Profile strength"
+            value={`${strength}%`}
+            sub={strength >= 75 ? 'Ready for handoff' : 'Needs enrichment'}
+            actionLabel={strength < 75 ? `Improve profile strength for ${name} from contact command center` : undefined}
+            actionText={strength < 75 ? 'Improve profile' : undefined}
+            onAction={strength < 75 ? () => setEditing(true) : undefined}
+          />
+          <CommandMetric
+            icon="moving"
+            label="Stage"
+            value={displayValue(stageLabel)}
+            sub="Lifecycle position"
+            actionLabel={`Update lifecycle stage for ${name} from contact command center`}
+            actionText="Update stage"
+            onAction={focusStageControl}
+          />
+          <CommandMetric
+            icon="schedule"
+            label="Last touch"
+            value={lastTouchAge === null ? 'Never' : `${lastTouchAge}d`}
+            sub={fmtTimestamp(contact.lastContactedAt) || 'No outreach logged'}
+            actionLabel={lastTouchAge === null ? `Log first touch for ${name} from contact command center` : undefined}
+            actionText={lastTouchAge === null ? 'Log first touch' : undefined}
+            onAction={lastTouchAge === null ? focusNoteComposer : undefined}
+          />
+          <CommandMetric
+            icon="mail"
+            label="Email records"
+            value={emailsLoading ? '...' : String(emails.length)}
+            sub="Recent communication"
+            actionLabel={!emailsLoading && emails.length === 0 && composeEmailHref ? `Compose first email to ${name} from contact command center metric` : undefined}
+            actionText={!emailsLoading && emails.length === 0 && composeEmailHref ? 'Compose first email' : undefined}
+            onAction={!emailsLoading && emails.length === 0 && composeEmailHref ? () => router.push(composeEmailHref) : undefined}
+          />
+          <CommandMetric
+            icon="hub"
+            label="Custom fields"
+            value={String(customFieldCount)}
+            sub="Workspace data points"
+            actionLabel={customFieldCount === 0 ? `Add workspace data for ${name} from contact command center` : undefined}
+            actionText={customFieldCount === 0 ? 'Add workspace data' : undefined}
+            onAction={customFieldCount === 0 ? () => setEditing(true) : undefined}
+          />
         </div>
       </header>
 
@@ -530,8 +655,20 @@ export default function ContactDetailPage() {
             <div className="space-y-3 p-5">
               <CompanyPanel companyId={contact.companyId} companyName={contact.companyName ?? contact.company} />
               <div className="grid gap-3">
-                <DetailRow label="Email" value={contact.email} />
-                <DetailRow label="Phone" value={contact.phone} />
+                <DetailRow
+                  label="Email"
+                  value={contact.email}
+                  actionLabel={`Add email for ${name} from relationship profile`}
+                  onAction={() => setEditing(true)}
+                  actionIcon="alternate_email"
+                />
+                <DetailRow
+                  label="Phone"
+                  value={contact.phone}
+                  actionLabel={`Add phone for ${name} from relationship profile`}
+                  onAction={() => setEditing(true)}
+                  actionIcon="add_call"
+                />
                 <DetailRow
                   label="Role"
                   value={[contact.jobTitle, contact.department].filter(Boolean).join(' · ')}
@@ -548,7 +685,7 @@ export default function ContactDetailPage() {
                 />
                 <DetailRow
                   label="Owner"
-                  value={contact.assignedTo}
+                  value={memberDisplayName(contact.assignedToRef, contact.assignedTo)}
                   actionLabel={`Add owner for ${name} from relationship profile`}
                   onAction={() => setEditing(true)}
                   actionIcon="supervisor_account"
@@ -571,22 +708,36 @@ export default function ContactDetailPage() {
                 <ScoreChip score={numberValue(contact.icpScore)} kind="icp" label="ICP match score" size="sm" />
                 <ScoreChip score={numberValue(contact.aiLeadScore)} kind="ai" label="AI lead score" size="sm" />
               </div>
-              {!hasAnyScore && (
-                <button
-                  type="button"
-                  aria-label={`Recompute score for ${name} from admin qualification panel`}
-                  onClick={recomputeScore}
-                  disabled={scoreSaving}
-                  className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-[var(--color-card-border)] px-3 py-2 text-xs font-semibold text-[var(--color-accent-v2)] transition-colors hover:border-[var(--color-accent-v2)] hover:text-on-surface disabled:opacity-50"
-                >
-                  <span className="material-symbols-outlined text-[15px]" aria-hidden="true">speed</span>
-                  {scoreSaving ? 'Scoring...' : 'Recompute score'}
-                </button>
-              )}
+              <button
+                type="button"
+                aria-label={
+                  hasAnyScore
+                    ? `Refresh qualification scores for ${name} from admin qualification panel`
+                    : `Recompute score for ${name} from admin qualification panel`
+                }
+                onClick={recomputeScore}
+                disabled={scoreSaving}
+                className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-[var(--color-card-border)] px-3 py-2 text-xs font-semibold text-[var(--color-accent-v2)] transition-colors hover:border-[var(--color-accent-v2)] hover:text-on-surface disabled:opacity-50"
+              >
+                <span className="material-symbols-outlined text-[15px]" aria-hidden="true">speed</span>
+                {scoreSaving ? 'Scoring...' : hasAnyScore ? 'Refresh scores' : 'Recompute score'}
+              </button>
               {scoreError && <p className="text-xs text-red-300">{scoreError}</p>}
               <DetailRow label="Score updated" value={fmtTimestamp(contact.scoreUpdatedAt)} />
-              <DetailRow label="Agreement roles" value={contact.agreementRoles?.join(', ')} />
-              <DetailRow label="Notes" value={contact.notes} />
+              <DetailRow
+                label="Agreement roles"
+                value={formatAgreementRoles(contact.agreementRoles)}
+                actionLabel={`Add agreement roles for ${name} from admin qualification panel`}
+                onAction={() => setEditing(true)}
+                actionIcon="contract_edit"
+              />
+              <DetailRow
+                label="Notes"
+                value={contact.notes}
+                actionLabel={`Add profile notes for ${name} from admin qualification panel`}
+                onAction={() => setEditing(true)}
+                actionIcon="edit_note"
+              />
             </div>
           </div>
 
@@ -598,6 +749,7 @@ export default function ContactDetailPage() {
               {STAGES.map((stage) => (
                 <button
                   key={stage}
+                  ref={contact.stage === stage ? activeStageRef : undefined}
                   onClick={() => changeStage(stage)}
                   className={`rounded-full border px-3 py-1.5 text-[10px] font-label uppercase tracking-widest transition-colors ${
                     contact.stage === stage
@@ -605,7 +757,7 @@ export default function ContactDetailPage() {
                       : 'border-[var(--color-card-border)] text-on-surface-variant hover:text-on-surface'
                   }`}
                 >
-                  {stage}
+                  {displayLabel(stage, STAGE_LABELS)}
                 </button>
               ))}
             </div>
@@ -626,12 +778,26 @@ export default function ContactDetailPage() {
                 <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Next best actions</p>
               </div>
               <div className="grid gap-3 p-5 md:grid-cols-2">
-                {suggestions.slice(0, 4).map((suggestion, index) => (
-                  <div key={`${suggestion.action}-${index}`} className={`rounded-lg border px-4 py-3 ${toneForUrgency(suggestion.urgency)}`}>
-                    <p className="text-sm font-semibold">{suggestion.action}</p>
-                    <p className="mt-1 text-xs opacity-80">{suggestion.reason}</p>
-                  </div>
-                ))}
+                {suggestions.slice(0, 4).map((suggestion, index) => {
+                  const actionLabel = suggestionActionLabel(suggestion)
+                  const reasonLabel = suggestionReasonLabel(suggestion)
+
+                  return (
+                    <div key={`${actionLabel}-${index}`} className={`rounded-lg border px-4 py-3 ${toneForUrgency(suggestion.urgency)}`}>
+                      <p className="text-sm font-semibold">{actionLabel}</p>
+                      <p className="mt-1 text-xs opacity-80">{reasonLabel}</p>
+                      <button
+                        type="button"
+                        aria-label={`Start next action: ${actionLabel}`}
+                        onClick={() => startSuggestion(suggestion)}
+                        className="mt-3 inline-flex items-center gap-1 rounded-md border border-current/25 px-2.5 py-1.5 text-[11px] font-semibold transition-colors hover:border-current"
+                      >
+                        <span className="material-symbols-outlined text-[14px]" aria-hidden="true">add_comment</span>
+                        Start action
+                      </button>
+                    </div>
+                  )
+                })}
               </div>
             </div>
           )}
@@ -662,6 +828,17 @@ export default function ContactDetailPage() {
                       Compose first email
                     </Link>
                   )}
+                  {!composeEmailHref && (
+                    <button
+                      type="button"
+                      aria-label={`Add email for ${name} from admin email history`}
+                      onClick={() => setEditing(true)}
+                      className="mt-4 inline-flex items-center justify-center gap-1.5 rounded-lg border border-[var(--color-card-border)] px-3 py-2 text-xs font-semibold text-[var(--color-accent-v2)] transition-colors hover:border-[var(--color-accent-v2)] hover:text-on-surface"
+                    >
+                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">alternate_email</span>
+                      Add email to start outreach
+                    </button>
+                  )}
                 </div>
               ) : (
                 <div className="divide-y divide-[var(--color-card-border)]">
@@ -683,7 +860,7 @@ export default function ContactDetailPage() {
               )}
             </div>
 
-            <ContactBrief contactId={id} />
+            <ContactBrief contactId={id} contactName={contact.name} />
           </div>
 
           <ContactDealsPanel
@@ -720,7 +897,12 @@ export default function ContactDetailPage() {
               </div>
             </div>
             <div className="p-5">
-              <ActivityTimeline activities={activities as never} loading={activitiesLoading} onAddNote={focusNoteComposer} />
+              <ActivityTimeline
+                activities={activities as never}
+                loading={activitiesLoading}
+                contactName={contact.name}
+                onAddNote={focusNoteComposer}
+              />
             </div>
           </div>
         </section>

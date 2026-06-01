@@ -8,7 +8,7 @@
  */
 
 import type { BriefingSourceAdapter, BriefingPriority } from '../types'
-import { normalizeActor, hashSourceDocument, extractMultiFieldExcerpt, normalizeTimestamp, extractOrgId, generateSourceUrl } from '../utils'
+import { hashSourceDocument, extractMultiFieldExcerpt, normalizeTimestamp, extractOrgId } from '../utils'
 
 /**
  * Notification document shape.
@@ -23,7 +23,7 @@ interface NotificationDocument extends Record<string, unknown> {
   body?: string | null
   link?: string | null
   data?: Record<string, unknown> | null
-  status: 'unread' | 'read'
+  status: 'unread' | 'read' | 'archived' | 'snoozed'
   priority?: string
   snoozedUntil?: unknown
   readAt?: unknown
@@ -36,16 +36,54 @@ interface NotificationDocument extends Record<string, unknown> {
 interface ActivityDocument extends Record<string, unknown> {
   id: string
   orgId: string
-  actorId: string
+  actorId?: string | null
   actorName?: string | null
   actorRole?: 'admin' | 'client' | 'ai' | 'system'
   type: string
-  description: string
+  description?: string | null
+  summary?: string | null
   entityId?: string | null
   entityType?: string | null
   entityTitle?: string | null
+  contactId?: string | null
+  contactName?: string | null
+  dealId?: string | null
+  dealTitle?: string | null
+  metadata?: Record<string, unknown> | null
+  createdBy?: string | null
+  createdByRef?: {
+    uid?: string | null
+    displayName?: string | null
+    name?: string | null
+    email?: string | null
+    role?: 'admin' | 'client' | 'ai' | 'system' | string | null
+  } | null
   createdAt?: unknown
+  occurredAt?: unknown
   projectId?: string | null
+}
+
+function cleanString(value: unknown): string | null {
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null
+}
+
+function activityText(doc: ActivityDocument): string {
+  return cleanString(doc.summary) ?? cleanString(doc.description) ?? cleanString(doc.metadata?.nextAction) ?? cleanString(doc.metadata?.note) ?? 'Activity logged'
+}
+
+function activityFollowUpIntent(doc: ActivityDocument): string | null {
+  const metadataIntent = cleanString(doc.metadata?.intent) ?? cleanString(doc.metadata?.followUpIntent)
+  const text = `${doc.type} ${doc.summary ?? ''} ${doc.description ?? ''} ${metadataIntent ?? ''}`.toLowerCase()
+  if (text.includes('follow')) return metadataIntent ?? 'follow_up'
+  if (text.includes('next action') || text.includes('next_action')) return metadataIntent ?? 'next_action'
+  return null
+}
+
+function actorRoleFromActivity(doc: ActivityDocument): 'admin' | 'client' | 'ai' | 'system' {
+  if (doc.actorRole === 'admin' || doc.actorRole === 'client' || doc.actorRole === 'ai' || doc.actorRole === 'system') return doc.actorRole
+  const refRole = doc.createdByRef?.role
+  if (refRole === 'admin' || refRole === 'client' || refRole === 'ai' || refRole === 'system') return refRole
+  return 'system'
 }
 
 /**
@@ -59,8 +97,12 @@ export const notificationAdapter: BriefingSourceAdapter<NotificationDocument> = 
     return hashSourceDocument(doc, docId, ['type', 'title', 'body', 'status', 'createdAt'])
   },
 
-  shouldGenerate(doc: NotificationDocument, _docId: string): boolean {
+  shouldGenerate(doc: NotificationDocument): boolean {
     // Skip snoozed notifications
+    if (doc.status === 'archived') {
+      return false
+    }
+
     if (doc.snoozedUntil) {
       const snoozedUntil = normalizeTimestamp(doc.snoozedUntil)
       if (snoozedUntil && snoozedUntil > new Date()) {
@@ -76,7 +118,7 @@ export const notificationAdapter: BriefingSourceAdapter<NotificationDocument> = 
     return true
   },
 
-  extractPriority(doc: NotificationDocument, _docId: string): BriefingPriority {
+  extractPriority(doc: NotificationDocument): BriefingPriority {
     const type = doc.type.toLowerCase()
 
     // Critical notification types
@@ -108,7 +150,7 @@ export const notificationAdapter: BriefingSourceAdapter<NotificationDocument> = 
     return 'fyi'
   },
 
-  extractActor(doc: NotificationDocument, _docId: string) {
+  extractActor(doc: NotificationDocument) {
     // Use agent if specified
     if (doc.agentId) {
       const agentId = doc.agentId
@@ -130,7 +172,7 @@ export const notificationAdapter: BriefingSourceAdapter<NotificationDocument> = 
     }
   },
 
-  extractContext(doc: NotificationDocument, _docId: string) {
+  extractContext(doc: NotificationDocument) {
     const orgId = extractOrgId(doc) ?? ''
 
     // Extract context from data if available
@@ -146,11 +188,11 @@ export const notificationAdapter: BriefingSourceAdapter<NotificationDocument> = 
     }
   },
 
-  extractTitle(doc: NotificationDocument, _docId: string): string {
+  extractTitle(doc: NotificationDocument): string {
     return doc.title
   },
 
-  extractSummary(doc: NotificationDocument, _docId: string): string {
+  extractSummary(doc: NotificationDocument): string {
     const parts: string[] = []
 
     parts.push(`Type: ${doc.type}`)
@@ -167,15 +209,16 @@ export const notificationAdapter: BriefingSourceAdapter<NotificationDocument> = 
     return parts.join('. ') || 'No details.'
   },
 
-  extractExcerpt(doc: NotificationDocument, _docId: string, maxLength = 300): string | null {
-    return extractMultiFieldExcerpt(doc, ['body'], { maxLength })
+  extractExcerpt(doc: NotificationDocument, docIdOrMaxLength: string | number = 300, maxLength = 300): string | null {
+    const limit = typeof docIdOrMaxLength === 'number' ? docIdOrMaxLength : maxLength
+    return extractMultiFieldExcerpt(doc, ['body'], { maxLength: limit })
   },
 
-  extractOccurredAt(doc: NotificationDocument, _docId: string): Date | null {
+  extractOccurredAt(doc: NotificationDocument): Date | null {
     return normalizeTimestamp(doc.createdAt)
   },
 
-  extractMetadata(doc: NotificationDocument, _docId: string): Record<string, unknown> | null {
+  extractMetadata(doc: NotificationDocument): Record<string, unknown> | null {
     return {
       notificationType: doc.type,
       userId: doc.userId,
@@ -231,10 +274,10 @@ export const activityAdapter: BriefingSourceAdapter<ActivityDocument> = {
   collectionPath: 'activity',
 
   hashSource(doc: ActivityDocument, docId: string): string {
-    return hashSourceDocument(doc, docId, ['type', 'description', 'actorId', 'createdAt'])
+    return hashSourceDocument(doc, docId, ['type', 'summary', 'description', 'actorId', 'contactId', 'dealId', 'createdAt', 'occurredAt'])
   },
 
-  shouldGenerate(doc: ActivityDocument, _docId: string): boolean {
+  shouldGenerate(doc: ActivityDocument): boolean {
     // Skip system/agent activity unless it's critical
     if (doc.actorRole === 'system' || doc.actorRole === 'ai') {
       const type = doc.type.toLowerCase()
@@ -252,8 +295,9 @@ export const activityAdapter: BriefingSourceAdapter<ActivityDocument> = {
     return true
   },
 
-  extractPriority(doc: ActivityDocument, _docId: string): BriefingPriority {
+  extractPriority(doc: ActivityDocument): BriefingPriority {
     const type = doc.type.toLowerCase()
+    const followUpIntent = activityFollowUpIntent(doc)
 
     // Critical activity types
     if (type.includes('deleted') || type.includes('error') || type.includes('incident') || type.includes('critical')) {
@@ -265,13 +309,17 @@ export const activityAdapter: BriefingSourceAdapter<ActivityDocument> = {
       return 'client-risk'
     }
 
+    if (followUpIntent) {
+      return 'needs-peet'
+    }
+
     // Client activity
-    if (doc.actorRole === 'client') {
+    if (actorRoleFromActivity(doc) === 'client') {
       return 'needs-peet'
     }
 
     // Admin activity
-    if (doc.actorRole === 'admin') {
+    if (actorRoleFromActivity(doc) === 'admin') {
       return 'fyi'
     }
 
@@ -279,16 +327,17 @@ export const activityAdapter: BriefingSourceAdapter<ActivityDocument> = {
     return 'fyi'
   },
 
-  extractActor(doc: ActivityDocument, _docId: string) {
-    const actorId = typeof doc.actorId === 'string' ? doc.actorId : 'system'
-    const actorName = typeof doc.actorName === 'string' ? doc.actorName : null
-    const actorRole = (doc.actorRole === 'admin' || doc.actorRole === 'client' || doc.actorRole === 'ai' || doc.actorRole === 'system') ? doc.actorRole : 'system'
+  extractActor(doc: ActivityDocument) {
+    const actorRole = actorRoleFromActivity(doc)
+    const rawActorId = cleanString(doc.actorId) ?? cleanString(doc.createdByRef?.uid) ?? cleanString(doc.createdBy) ?? (actorRole === 'system' ? 'system' : 'unknown')
+    const actorId = rawActorId === 'system' || rawActorId.startsWith('agent:') || rawActorId.startsWith('user:') ? rawActorId : `user:${rawActorId}`
+    const actorName = cleanString(doc.actorName) ?? cleanString(doc.createdByRef?.displayName) ?? cleanString(doc.createdByRef?.name) ?? cleanString(doc.createdByRef?.email) ?? cleanString(doc.contactName)
 
     // Determine actor type
     let actorType: 'user' | 'agent' | 'system' = 'user'
     if (actorId.startsWith('agent:')) {
       actorType = 'agent'
-    } else if (actorRole === 'system') {
+    } else if (actorRole === 'system' && actorId === 'system') {
       actorType = 'system'
     }
 
@@ -300,34 +349,55 @@ export const activityAdapter: BriefingSourceAdapter<ActivityDocument> = {
     }
   },
 
-  extractContext(doc: ActivityDocument, _docId: string) {
+  extractContext(doc: ActivityDocument) {
     const orgId = extractOrgId(doc) ?? ''
     const projectId = typeof doc.projectId === 'string' ? doc.projectId : null
     const entityId = typeof doc.entityId === 'string' ? doc.entityId : null
     const entityType = typeof doc.entityType === 'string' ? doc.entityType : null
+    const contactId = cleanString(doc.contactId)
+    const dealId = cleanString(doc.dealId)
 
     return {
       orgId,
       projectId,
       taskId: entityType === 'task' ? entityId : null,
       documentId: entityType === 'document' ? entityId : null,
+      contactId,
+      contactName: cleanString(doc.contactName),
+      dealId,
+      dealTitle: cleanString(doc.dealTitle),
       entityId,
       entityType,
       entityTitle: doc.entityTitle,
     }
   },
 
-  extractTitle(doc: ActivityDocument, _docId: string): string {
-    const actor = this.extractActor(doc, _docId)
-    const actorName = actor.name || actor.id
+  extractTitle(doc: ActivityDocument, docId: string): string {
+    const actor = this.extractActor(doc, docId)
+    const actorName = cleanString(doc.contactName) ?? actor.name ?? actor.id
+    const followUpIntent = activityFollowUpIntent(doc)
 
-    return `${actorName}: ${doc.description}`
+    if (followUpIntent) {
+      return `Follow up with ${actorName}`
+    }
+
+    return `${actorName}: ${activityText(doc)}`
   },
 
-  extractSummary(doc: ActivityDocument, _docId: string): string {
+  extractSummary(doc: ActivityDocument): string {
     const parts: string[] = []
 
     parts.push(`Activity: ${doc.type}`)
+
+    const text = activityText(doc)
+    if (text) {
+      parts.push(text)
+    }
+
+    const nextAction = cleanString(doc.metadata?.nextAction)
+    if (nextAction) {
+      parts.push(`Next action: ${nextAction}`)
+    }
 
     if (doc.entityType) {
       parts.push(`Entity: ${doc.entityType}`)
@@ -340,22 +410,28 @@ export const activityAdapter: BriefingSourceAdapter<ActivityDocument> = {
     return parts.join(' — ') || 'No details.'
   },
 
-  extractExcerpt(_doc: ActivityDocument, _docId: string, _maxLength = 300): string | null {
-    // Activity logs don't typically have long content
-    return null
+  extractExcerpt(doc: ActivityDocument, docIdOrMaxLength: string | number = 300, maxLength = 300): string | null {
+    const limit = typeof docIdOrMaxLength === 'number' ? docIdOrMaxLength : maxLength
+    return extractMultiFieldExcerpt(doc, ['summary', 'description'], { maxLength: limit })
   },
 
-  extractOccurredAt(doc: ActivityDocument, _docId: string): Date | null {
-    return normalizeTimestamp(doc.createdAt)
+  extractOccurredAt(doc: ActivityDocument): Date | null {
+    return normalizeTimestamp(doc.occurredAt) ?? normalizeTimestamp(doc.createdAt)
   },
 
-  extractMetadata(doc: ActivityDocument, _docId: string): Record<string, unknown> | null {
+  extractMetadata(doc: ActivityDocument): Record<string, unknown> | null {
+    const followUpIntent = activityFollowUpIntent(doc)
     return {
       activityType: doc.type,
-      actorRole: doc.actorRole,
+      actorRole: actorRoleFromActivity(doc),
       entityType: doc.entityType,
       entityId: doc.entityId,
       entityTitle: doc.entityTitle,
+      contactId: cleanString(doc.contactId),
+      contactName: cleanString(doc.contactName),
+      dealId: cleanString(doc.dealId),
+      dealTitle: cleanString(doc.dealTitle),
+      followUpIntent,
     }
   },
 
@@ -370,6 +446,11 @@ export const activityAdapter: BriefingSourceAdapter<ActivityDocument> = {
     const occurredAt = this.extractOccurredAt(doc, docId) ?? new Date()
     const metadata = this.extractMetadata?.(doc, docId)
     const sourceHash = this.hashSource(doc, docId)
+    const contactId = cleanString(doc.contactId)
+    const dealId = cleanString(doc.dealId)
+    const sourceUrl = contactId
+      ? `/portal/contacts/${encodeURIComponent(contactId)}`
+      : dealId ? `/portal/deals/${encodeURIComponent(dealId)}` : '/portal/crm'
 
     return {
       orgId,
@@ -377,10 +458,10 @@ export const activityAdapter: BriefingSourceAdapter<ActivityDocument> = {
         type: this.sourceType,
         id: docId,
         collectionPath: this.collectionPath,
-        url: '/admin/activity',
+        url: sourceUrl,
       },
       priority,
-      status: 'acknowledged',
+      status: priority === 'fyi' ? 'acknowledged' : 'new',
       title,
       summary,
       excerpt,

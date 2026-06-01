@@ -6,7 +6,7 @@ import type { BriefingPriority, BriefingSourceType } from '@/lib/briefing/types'
 
 export const dynamic = 'force-dynamic'
 
-export const GET = withAuth('admin', async (req: NextRequest, user) => {
+export const GET = withAuth('client', async (req: NextRequest, user) => {
   try {
     const { searchParams } = new URL(req.url)
     const feed = await buildBriefingFeed(user, {

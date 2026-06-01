@@ -59,6 +59,19 @@ function readableContactLabel(label?: string): string | undefined {
   return trimmed || undefined
 }
 
+function contactResultLabel(contact?: ContactResult): string | undefined {
+  return readableContactLabel(contact?.name) ?? readableContactLabel(contact?.email)
+}
+
+function dateInputValue(value: unknown): string {
+  if (!value) return ''
+  const date = typeof value === 'object' && value !== null && 'toDate' in value
+    ? (value as { toDate: () => Date }).toDate()
+    : new Date(value as string)
+  if (Number.isNaN(date.getTime())) return ''
+  return date.toISOString().slice(0, 10)
+}
+
 function ContactPicker({
   contactId,
   contactLabel,
@@ -104,7 +117,7 @@ function ContactPicker({
   }, [contactLabel, query])
 
   function select(contact: ContactResult) {
-    const label = contact.name || contact.email || contact.id
+    const label = contactResultLabel(contact) ?? contact.id
     setQuery(label)
     setResults([])
     setOpen(false)
@@ -213,6 +226,7 @@ export function DealDrawer({
   const [companyName, setCompanyName] = useState(deal?.companyName ?? defaultCompanyName ?? '')
   const [value, setValue] = useState(deal?.value ?? 0)
   const [currency, setCurrency] = useState<Currency>(deal?.currency ?? 'ZAR')
+  const [expectedCloseDate, setExpectedCloseDate] = useState(dateInputValue(deal?.expectedCloseDate))
   const [notes, setNotes] = useState(deal?.notes ?? '')
 
   // Pipeline / stage
@@ -238,6 +252,24 @@ export function DealDrawer({
     : []
   const selectedStage = stages.find(s => s.id === selectedStageId)
   const showLostReason = isLostStage(selectedStage)
+
+  useEffect(() => {
+    const activeContactId = contactId.trim()
+    if (!activeContactId) return
+    if (contactLabel.trim() && contactLabel.trim() !== activeContactId) return
+
+    let cancelled = false
+    fetch(`/api/v1/crm/contacts/${encodeURIComponent(activeContactId)}`)
+      .then((res) => res.ok ? res.json() : null)
+      .then((body) => {
+        if (cancelled) return
+        const contact = body?.data?.contact ?? body?.data ?? body?.contact
+        const label = contactResultLabel(contact)
+        if (label) setContactLabel(label)
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [contactId, contactLabel])
 
   // ── Fetch pipelines ─────────────────────────────────────────────────────────
 
@@ -322,6 +354,7 @@ export function DealDrawer({
         stageId: selectedStageId,
         notes: notes.trim(),
         probability,
+        expectedCloseDate: expectedCloseDate || null,
         lineItems: lineItems.length > 0 ? lineItems : undefined,
       }
       if (showLostReason && lostReason.trim()) payload.lostReason = lostReason.trim()
@@ -452,6 +485,17 @@ export function DealDrawer({
                 ))}
               </select>
             </div>
+          </div>
+
+          <div>
+            <label htmlFor="dealExpectedCloseDate" className={labelCls}>Expected close date</label>
+            <input
+              id="dealExpectedCloseDate"
+              type="date"
+              value={expectedCloseDate}
+              onChange={e => setExpectedCloseDate(e.target.value)}
+              className="pib-input w-full"
+            />
           </div>
 
           {/* Pipeline + Stage */}
