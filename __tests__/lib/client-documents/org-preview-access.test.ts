@@ -1,4 +1,7 @@
-import { isDocumentPreviewableInOrg } from '@/lib/client-documents/org-preview-access'
+import {
+  getDocumentPreviewOrgIds,
+  isDocumentPreviewableInOrg,
+} from '@/lib/client-documents/org-preview-access'
 
 describe('isDocumentPreviewableInOrg', () => {
   it('allows documents owned by the current org', () => {
@@ -21,5 +24,25 @@ describe('isDocumentPreviewableInOrg', () => {
         'client_org',
       ),
     ).toBe(false)
+  })
+})
+
+describe('getDocumentPreviewOrgIds', () => {
+  it('includes both source owner and linked client org for access checks', () => {
+    expect(
+      getDocumentPreviewOrgIds({
+        orgId: 'pib-platform-owner',
+        linked: { clientOrgId: 'client_org' },
+      }),
+    ).toEqual(['pib-platform-owner', 'client_org'])
+  })
+
+  it('deduplicates documents owned by and linked to the same org', () => {
+    expect(
+      getDocumentPreviewOrgIds({
+        orgId: 'client_org',
+        linked: { clientOrgId: 'client_org' },
+      }),
+    ).toEqual(['client_org'])
   })
 })

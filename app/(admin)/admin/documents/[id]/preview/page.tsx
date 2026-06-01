@@ -7,6 +7,7 @@ import { DocumentRenderer } from '@/components/client-documents/DocumentRenderer
 import { PreviewFrame } from '@/components/client-documents/PreviewFrame'
 import { deserializeBlocksFromFirestore } from '@/lib/client-documents/firestore-blocks'
 import { serializeForClient } from '@/lib/client-documents/serialize'
+import { getDocumentPreviewOrgIds } from '@/lib/client-documents/org-preview-access'
 import type { ClientDocument, ClientDocumentVersion } from '@/lib/client-documents/types'
 
 export const dynamic = 'force-dynamic'
@@ -29,8 +30,9 @@ export default async function PreviewPage({ params }: { params: Promise<{ id: st
   if (!docSnap.exists) notFound()
   const doc = { id: docSnap.id, ...docSnap.data() } as ClientDocument
   if (doc.deleted) notFound()
-  if (doc.orgId) {
-    if (!canAccessOrg(user, doc.orgId)) notFound()
+  const previewOrgIds = getDocumentPreviewOrgIds(doc)
+  if (previewOrgIds.length > 0) {
+    if (!previewOrgIds.some((orgId) => canAccessOrg(user, orgId))) notFound()
   } else if (!isSuperAdmin(user)) {
     notFound()
   }
