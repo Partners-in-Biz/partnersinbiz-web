@@ -43,6 +43,22 @@ describe('Portal CRM hub', () => {
     expect(createDealLink).toHaveAttribute('href', '/portal/deals?create=deal')
   })
 
+  it('names CRM hub navigation by business destination without decorative icon text', async () => {
+    render(<PortalCrmPage />)
+
+    expect(await screen.findByRole('heading', { name: 'Build the first active pipeline.' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Contacts' })).toHaveAttribute('href', '/portal/contacts')
+    expect(screen.getByRole('link', { name: 'Pipeline' })).toHaveAttribute('href', '/portal/deals')
+    expect(screen.getByRole('link', { name: 'Open Contacts CRM workspace' })).toHaveAttribute('href', '/portal/contacts')
+    expect(screen.getByRole('link', { name: 'Open Companies CRM workspace' })).toHaveAttribute('href', '/portal/companies')
+    expect(screen.getByRole('link', { name: 'Open Deals CRM workspace' })).toHaveAttribute('href', '/portal/deals')
+    expect(screen.getByRole('link', { name: 'Open CRM reports workspace' })).toHaveAttribute('href', '/portal/reports/crm')
+    expect(screen.getByRole('link', { name: 'Open CRM setup workspace' })).toHaveAttribute('href', '/portal/settings/crm-setup')
+    expect(screen.queryByRole('link', { name: /contacts People/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /arrow_forward/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /CRM reports CRM workspace/i })).not.toBeInTheDocument()
+  })
+
   it('turns the empty activity panel into a stale-follow-up command', async () => {
     render(<PortalCrmPage />)
 

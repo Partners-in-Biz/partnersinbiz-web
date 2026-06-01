@@ -223,6 +223,12 @@ function readableActivityType(value: unknown): string {
   return ACTIVITY_TYPE_LABELS[key] ?? (fallback ? fallback.charAt(0).toUpperCase() + fallback.slice(1) : 'CRM activity')
 }
 
+function hubActionLabel(label: string): string {
+  return label.toLowerCase().startsWith('crm ')
+    ? `Open ${label} workspace`
+    : `Open ${label} CRM workspace`
+}
+
 function activitySummary(activity: NonNullable<CrmDashboard['recentActivities']>[number]): string {
   return textValue(activity.summary) || readableActivityType(activity.type)
 }
@@ -253,7 +259,7 @@ function DashboardMetric({
     <div className="pib-card min-h-[126px] p-4">
       <div className="flex items-center justify-between gap-3">
         <p className="eyebrow !text-[10px]">{label}</p>
-        <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">{icon}</span>
+        <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]" aria-hidden="true">{icon}</span>
       </div>
       <p className="mt-3 text-2xl font-display leading-none text-[var(--color-pib-text)]">{value}</p>
       <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">{sub}</p>
@@ -312,11 +318,11 @@ export default function PortalCrmPage() {
         </div>
         <div className="flex flex-wrap gap-2">
           <Link href="/portal/contacts" className="btn-pib-secondary">
-            <span className="material-symbols-outlined text-base">contacts</span>
+            <span className="material-symbols-outlined text-base" aria-hidden="true">contacts</span>
             Contacts
           </Link>
           <Link href="/portal/deals" className="btn-pib-accent">
-            <span className="material-symbols-outlined text-base">view_kanban</span>
+            <span className="material-symbols-outlined text-base" aria-hidden="true">view_kanban</span>
             Pipeline
           </Link>
         </div>
@@ -476,11 +482,12 @@ export default function PortalCrmPage() {
               <Link
                 key={`${section.title}-${action.href}-${action.label}`}
                 href={action.href}
+                aria-label={hubActionLabel(action.label)}
                 className="pib-card group min-h-[152px] p-5 transition-colors hover:border-[var(--color-pib-accent)] hover:bg-white/[0.03]"
               >
                 <div className="flex items-start justify-between gap-4">
                   <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent)]">
-                    <span className="material-symbols-outlined text-[22px]">{action.icon}</span>
+                    <span className="material-symbols-outlined text-[22px]" aria-hidden="true">{action.icon}</span>
                   </span>
                   {action.eyebrow && <span className="pill !px-2 !py-0.5 !text-[10px]">{action.eyebrow}</span>}
                 </div>
@@ -488,7 +495,7 @@ export default function PortalCrmPage() {
                 <p className="mt-1 text-sm leading-relaxed text-[var(--color-pib-text-muted)]">{action.description}</p>
                 <span className="mt-4 inline-flex items-center gap-1 text-xs font-label text-[var(--color-pib-accent)]">
                   Open
-                  <span className="material-symbols-outlined text-sm transition-transform group-hover:translate-x-0.5">arrow_forward</span>
+                  <span className="material-symbols-outlined text-sm transition-transform group-hover:translate-x-0.5" aria-hidden="true">arrow_forward</span>
                 </span>
               </Link>
             ))}
