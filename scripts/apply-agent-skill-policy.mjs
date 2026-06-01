@@ -58,7 +58,7 @@ function resetSymlink(target, linkPath) {
 function resetManagedRepoSkillRoot(externalDir) {
   const managedRoot = join(externalDir, 'partnersinbiz')
   logAction(`reset generated repo skill root ${managedRoot}`)
-  if (apply) rmSync(managedRoot, { recursive: true, force: true })
+  if (apply) removeManagedRoot(managedRoot)
   ensureDir(managedRoot)
 }
 
@@ -67,6 +67,21 @@ function lstatSafe(path) {
     return lstatSync(path)
   } catch {
     return null
+  }
+}
+
+function removeManagedRoot(managedRoot) {
+  try {
+    rmSync(managedRoot, { recursive: true, force: true })
+    return
+  } catch (error) {
+    const existing = lstatSafe(managedRoot)
+    if (error?.code !== 'EACCES' || !existing?.isDirectory()) throw error
+    logAction(`keep generated repo skill root ${managedRoot}; cleaning contents in place after EACCES`)
+  }
+
+  for (const entry of readdirSync(managedRoot, { withFileTypes: true })) {
+    rmSync(join(managedRoot, entry.name), { recursive: true, force: true })
   }
 }
 
