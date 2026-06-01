@@ -1,6 +1,9 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { DealDrawer } from '@/components/crm/DealDrawer'
 
+let mockPipelinesBody: unknown = null
+let mockPipelineDetailBody: unknown = null
+
 jest.mock('@/components/crm/CompanyPicker', () => ({
   CompanyPicker: ({ onChange }: { onChange: (value: { companyId: string | null; companyName: string | null }) => void }) => (
     <button
@@ -22,12 +25,14 @@ jest.mock('next/link', () => ({
 describe('DealDrawer', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    mockPipelinesBody = null
+    mockPipelineDetailBody = null
     global.fetch = jest.fn((url: RequestInfo | URL, init?: RequestInit) => {
       const path = String(url)
       if (path === '/api/v1/crm/pipelines') {
         return Promise.resolve({
           ok: true,
-          json: async () => ({
+          json: async () => mockPipelinesBody ?? ({
             success: true,
             data: [
               {
@@ -37,6 +42,23 @@ describe('DealDrawer', () => {
                 stages: [{ id: 'stage-1', label: 'Discovery', kind: 'open', order: 1, probability: 25 }],
               },
             ],
+          }),
+        } as Response)
+      }
+
+      if (path === '/api/v1/crm/pipelines/pipeline-1') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => mockPipelineDetailBody ?? ({
+            success: true,
+            data: {
+              pipeline: {
+                id: 'pipeline-1',
+                name: 'Sales pipeline',
+                isDefault: true,
+                stages: [{ id: 'stage-1', label: 'Discovery', kind: 'open', order: 1, probability: 25 }],
+              },
+            },
           }),
         } as Response)
       }
@@ -175,6 +197,46 @@ describe('DealDrawer', () => {
     await screen.findByDisplayValue('Sales pipeline')
 
     expect(screen.getByPlaceholderText('Search contacts...')).toHaveValue('Ava Owner')
+  })
+
+  it('resolves an existing deal pipeline when it is missing from the list response', async () => {
+    mockPipelinesBody = { success: true, data: [] }
+    mockPipelineDetailBody = {
+      success: true,
+      data: {
+        pipeline: {
+          id: 'pipeline-1',
+          name: 'Sales pipeline',
+          isDefault: true,
+          stages: [{ id: 'stage-1', label: 'Discovery', kind: 'open', order: 1, probability: 25 }],
+        },
+      },
+    }
+
+    render(
+      <DealDrawer
+        deal={{
+          id: 'deal-1',
+          orgId: 'org-1',
+          title: 'Growth retainer',
+          contactId: 'contact-1',
+          pipelineId: 'pipeline-1',
+          stageId: 'stage-1',
+          value: 50000,
+          currency: 'ZAR',
+        }}
+        defaultContactLabel="Ava Owner"
+        orgId="org-1"
+        onSaved={jest.fn()}
+        onClose={jest.fn()}
+      />,
+    )
+
+    expect(await screen.findByDisplayValue('Sales pipeline')).toBeInTheDocument()
+    expect(await screen.findByDisplayValue('Discovery')).toBeInTheDocument()
+    expect(screen.getByLabelText('Pipeline')).toHaveValue('pipeline-1')
+    expect(screen.getByLabelText('Stage')).toHaveValue('stage-1')
+    expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/pipelines/pipeline-1')
   })
 
   it('lets reps edit expected close dates from the deal drawer', async () => {

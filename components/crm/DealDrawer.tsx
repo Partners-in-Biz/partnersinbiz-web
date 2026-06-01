@@ -69,6 +69,17 @@ function initialContactLabel(contactId: string, label?: string): string {
   return readableContactLabel(label) ?? (contactId ? CONTACT_RESOLVING_LABEL : '')
 }
 
+function extractPipelineRecord(body: unknown): Pipeline | null {
+  if (!body || typeof body !== 'object') return null
+  const payload = body as { data?: unknown; pipeline?: Pipeline }
+  if (payload.data && typeof payload.data === 'object') {
+    const data = payload.data as Pipeline | { pipeline?: Pipeline }
+    if ('pipeline' in data) return data.pipeline ?? null
+    return data as Pipeline
+  }
+  return payload.pipeline ?? null
+}
+
 function shouldResolveContactLabel(contactId: string, label: string): boolean {
   const trimmed = label.trim()
   return !trimmed || trimmed === contactId || trimmed === CONTACT_RESOLVING_LABEL || trimmed === CONTACT_MISSING_LABEL
@@ -290,9 +301,17 @@ export function DealDrawer({
     let cancelled = false
     fetch('/api/v1/crm/pipelines')
       .then(r => r.json())
-      .then(body => {
+      .then(async body => {
         if (cancelled) return
-        const list = extractPipelinesList(body)
+        let list = extractPipelinesList(body)
+        const needsSelectedPipeline = selectedPipelineId && !list.some(p => p.id === selectedPipelineId)
+        if (needsSelectedPipeline) {
+          const res = await fetch(`/api/v1/crm/pipelines/${encodeURIComponent(selectedPipelineId)}`)
+          const detailBody = res.ok ? await res.json().catch(() => null) : null
+          const selectedPipeline = extractPipelineRecord(detailBody)
+          if (selectedPipeline?.id) list = [...list, selectedPipeline]
+        }
+        if (cancelled) return
         setPipelines(list)
 
         if (!selectedPipelineId && list.length > 0) {
@@ -514,11 +533,12 @@ export function DealDrawer({
           {/* Pipeline + Stage */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className={labelCls}>Pipeline</label>
+              <label htmlFor="dealPipeline" className={labelCls}>Pipeline</label>
               {pipelinesLoading ? (
                 <div className="pib-skeleton h-9 rounded" />
               ) : (
                 <select
+                  id="dealPipeline"
                   value={selectedPipelineId}
                   onChange={e => {
                     setSelectedPipelineId(e.target.value)
@@ -534,11 +554,12 @@ export function DealDrawer({
               )}
             </div>
             <div>
-              <label className={labelCls}>Stage</label>
+              <label htmlFor="dealStage" className={labelCls}>Stage</label>
               {pipelinesLoading ? (
                 <div className="pib-skeleton h-9 rounded" />
               ) : (
                 <select
+                  id="dealStage"
                   value={selectedStageId}
                   onChange={e => handleStageChange(e.target.value)}
                   className="pib-input w-full"
