@@ -957,8 +957,11 @@ export default function PortalContactDetailPage() {
   const tags = splitTags(tagsInput)
   const hasContactName = Boolean(name.trim() || contact.name?.trim())
   const contactName = name.trim() || contact.name?.trim() || 'Unnamed contact'
-  const companyLabel = editCompanyName || contact.companyName || contact.company || 'No company linked'
-  const hasLinkedCompany = !!(editCompanyId || contact.companyId || editCompanyName || contact.companyName || contact.company)
+  const linkedCompanyId = editCompanyId || contact.companyId || ''
+  const companyNameValue = editCompanyName || contact.companyName || contact.company || ''
+  const companyLabel = companyNameValue || 'No company linked'
+  const hasLinkedCompany = Boolean(linkedCompanyId)
+  const hasCompanyContext = Boolean(companyNameValue)
   const lastTouchDays = daysSince(contact.lastContactedAt)
   const createdDays = daysSince(contact.createdAt)
   const profileFields = [
@@ -967,7 +970,7 @@ export default function PortalContactDetailPage() {
     phone,
     jobTitle,
     department,
-    hasLinkedCompany ? companyLabel : '',
+    hasLinkedCompany || hasCompanyContext ? companyLabel : '',
     website,
     timezone,
     source,
@@ -1042,11 +1045,12 @@ export default function PortalContactDetailPage() {
     },
     {
       label: 'Linked company',
-      value: hasLinkedCompany ? companyLabel : '',
+      value: hasLinkedCompany || hasCompanyContext ? companyLabel : '',
       empty: 'No company linked',
       actionLabel: 'Link company',
       actionAriaLabel: `Link company from details for ${contactName}`,
       onAction: focusCompanyPicker,
+      needsActionWhenValued: !hasLinkedCompany,
     },
     {
       label: 'Website',
@@ -1175,9 +1179,9 @@ export default function PortalContactDetailPage() {
                   <p className="mt-1 text-sm font-medium text-[var(--color-pib-accent)]">Unnamed contact</p>
                 )}
                 <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-[var(--color-pib-text-muted)]">
-                  {hasLinkedCompany && contact.companyId ? (
+                  {hasLinkedCompany ? (
                     <Link
-                      href={`/portal/companies/${encodeURIComponent(contact.companyId)}`}
+                      href={`/portal/companies/${encodeURIComponent(linkedCompanyId)}`}
                       aria-label={`Open linked company ${companyLabel} from contact header`}
                       className="inline-flex items-center gap-1 text-[var(--color-pib-accent)] transition-colors hover:text-[var(--color-pib-text)]"
                     >
@@ -1416,8 +1420,8 @@ export default function PortalContactDetailPage() {
           <div className="bento-card !p-5 space-y-3">
             <p className="eyebrow !text-[10px]">Company</p>
             <CompanyPanel
-              companyId={contact.companyId}
-              companyName={contact.companyName ?? contact.company}
+              companyId={linkedCompanyId}
+              companyName={companyNameValue}
               emptyAction={{
                 label: 'Link company',
                 ariaLabel: `Link company from company card for ${contactName}`,
@@ -1435,19 +1439,32 @@ export default function PortalContactDetailPage() {
                   {row.label}
                 </p>
                 {row.value ? (
-                  row.href ? (
-                    <a
-                      href={row.href}
-                      target={row.external ? '_blank' : undefined}
-                      rel={row.external ? 'noreferrer' : undefined}
-                      className="mt-1 inline-flex max-w-full items-center gap-1 break-all text-[var(--color-pib-accent)] transition-colors hover:text-[var(--color-pib-text)]"
-                    >
-                      {row.value}
-                      {row.external && <span className="material-symbols-outlined text-[13px]" aria-hidden="true">open_in_new</span>}
-                    </a>
-                  ) : (
-                    <p className="text-[var(--color-pib-text)] mt-1 break-words">{row.value}</p>
-                  )
+                  <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
+                    {row.href ? (
+                      <a
+                        href={row.href}
+                        target={row.external ? '_blank' : undefined}
+                        rel={row.external ? 'noreferrer' : undefined}
+                        className="inline-flex max-w-full items-center gap-1 break-all text-[var(--color-pib-accent)] transition-colors hover:text-[var(--color-pib-text)]"
+                      >
+                        {row.value}
+                        {row.external && <span className="material-symbols-outlined text-[13px]" aria-hidden="true">open_in_new</span>}
+                      </a>
+                    ) : (
+                      <p className="text-[var(--color-pib-text)] break-words">{row.value}</p>
+                    )}
+                    {row.needsActionWhenValued && row.onAction && (
+                      <button
+                        type="button"
+                        aria-label={row.actionAriaLabel}
+                        onClick={row.onAction}
+                        className="inline-flex items-center gap-1 rounded-md border border-[var(--color-pib-line)] px-2 py-1 text-[11px] font-medium text-[var(--color-pib-accent)] transition-colors hover:border-[var(--color-pib-accent)] hover:text-[var(--color-pib-text)]"
+                      >
+                        <span className="material-symbols-outlined text-[13px]">add</span>
+                        {row.actionLabel}
+                      </button>
+                    )}
+                  </div>
                 ) : (
                   <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
                     <p className="text-[var(--color-pib-text-muted)]">{row.empty}</p>

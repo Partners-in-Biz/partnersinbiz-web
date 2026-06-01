@@ -534,6 +534,22 @@ describe('Portal contact detail page', () => {
     expect(screen.getByPlaceholderText('Search companies…')).toHaveFocus()
   })
 
+  it('turns an unlinked company name into a profile linking action', async () => {
+    mockContactOverrides = { company: 'Acme Holdings' }
+
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    expect(screen.getAllByText('Acme Holdings').length).toBeGreaterThan(0)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Link company for Jane Client' }))
+
+    expect(screen.getByPlaceholderText('Search companies…')).toHaveFocus()
+  })
+
   it('turns empty contact custom fields into a focused capture action', async () => {
     mockContactCustomFieldDefinitions = [{
       id: 'field-1',

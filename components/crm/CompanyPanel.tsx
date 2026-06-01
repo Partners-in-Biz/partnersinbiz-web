@@ -92,9 +92,24 @@ export function CompanyPanel({ companyId, companyName, emptyAction }: CompanyPan
   // companyName only (hybrid fallback)
   if (!companyId && companyName) {
     return (
-      <div className="flex items-center gap-2">
-        <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">domain</span>
-        <p className="text-sm text-[var(--color-pib-text)]">{companyName}</p>
+      <div className="rounded-md border border-[var(--color-pib-line)] bg-white/[0.015] p-3">
+        <div className="flex items-center gap-2">
+          <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">domain</span>
+          <p className="text-sm text-[var(--color-pib-text)]">{companyName}</p>
+        </div>
+        {emptyAction && (
+          <button
+            type="button"
+            aria-label={emptyAction.ariaLabel}
+            onClick={emptyAction.onClick}
+            className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-[var(--color-pib-line)] px-2.5 py-1.5 text-xs font-medium text-[var(--color-pib-accent)] transition-colors hover:border-[var(--color-pib-accent)] hover:text-[var(--color-pib-text)]"
+          >
+            {emptyAction.icon && (
+              <span className="material-symbols-outlined text-[14px]" aria-hidden="true">{emptyAction.icon}</span>
+            )}
+            {emptyAction.label}
+          </button>
+        )}
       </div>
     )
   }
