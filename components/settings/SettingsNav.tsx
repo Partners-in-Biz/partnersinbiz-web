@@ -50,15 +50,17 @@ export function SettingsNav({ name, email, initials, role, collapsed }: Settings
         <Link
           href="/portal/dashboard"
           title="Back to portal"
+          aria-label="Back to portal"
           className="w-8 h-8 flex items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.05] transition-colors mb-2"
         >
-          <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+          <span className="material-symbols-outlined text-[18px]" aria-hidden="true">arrow_back</span>
         </Link>
         {[...ACCOUNT_LINKS, ...WORKSPACE_LINKS.filter((l) => canSee(l.minRole, role))].map((link) => (
           <Link
             key={link.href}
             href={link.href}
             title={link.label}
+            aria-label={link.label}
             className={[
               'w-8 h-8 flex items-center justify-center rounded-lg transition-colors',
               pathname === link.href || pathname.startsWith(link.href + '/')
@@ -66,7 +68,7 @@ export function SettingsNav({ name, email, initials, role, collapsed }: Settings
                 : 'text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.04]',
             ].join(' ')}
           >
-            <span className="material-symbols-outlined text-[18px]">{link.icon}</span>
+            <span className="material-symbols-outlined text-[18px]" aria-hidden="true">{link.icon}</span>
           </Link>
         ))}
       </nav>
@@ -78,9 +80,10 @@ export function SettingsNav({ name, email, initials, role, collapsed }: Settings
       <div className="p-4 border-b border-[var(--color-pib-line)]">
         <Link
           href="/portal/dashboard"
+          aria-label="Back to portal"
           className="flex items-center gap-2 text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors mb-4"
         >
-          <span className="material-symbols-outlined text-[16px]">arrow_back</span>
+          <span className="material-symbols-outlined text-[16px]" aria-hidden="true">arrow_back</span>
           Back to portal
         </Link>
         <div className="flex items-center gap-3">
@@ -103,6 +106,7 @@ export function SettingsNav({ name, email, initials, role, collapsed }: Settings
               <Link
                 key={link.href}
                 href={link.href}
+                aria-label={link.label}
                 className={[
                   'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors',
                   on
@@ -110,7 +114,7 @@ export function SettingsNav({ name, email, initials, role, collapsed }: Settings
                     : 'text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.04]',
                 ].join(' ')}
               >
-                <span className={['material-symbols-outlined text-[18px] shrink-0', on ? 'text-[var(--color-pib-accent)]' : 'opacity-70'].join(' ')}>
+                <span className={['material-symbols-outlined text-[18px] shrink-0', on ? 'text-[var(--color-pib-accent)]' : 'opacity-70'].join(' ')} aria-hidden="true">
                   {link.icon}
                 </span>
                 <span className="font-medium flex-1">{link.label}</span>
@@ -127,6 +131,7 @@ export function SettingsNav({ name, email, initials, role, collapsed }: Settings
               <Link
                 key={link.href}
                 href={link.href}
+                aria-label={link.label}
                 className={[
                   'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors',
                   on
@@ -134,12 +139,12 @@ export function SettingsNav({ name, email, initials, role, collapsed }: Settings
                     : 'text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.04]',
                 ].join(' ')}
               >
-                <span className={['material-symbols-outlined text-[18px] shrink-0', on ? 'text-[var(--color-pib-accent)]' : 'opacity-70'].join(' ')}>
+                <span className={['material-symbols-outlined text-[18px] shrink-0', on ? 'text-[var(--color-pib-accent)]' : 'opacity-70'].join(' ')} aria-hidden="true">
                   {link.icon}
                 </span>
                 <span className="font-medium flex-1">{link.label}</span>
                 {link.minRole && (
-                  <span className="text-[9px] bg-[var(--color-pib-line-strong)] text-[var(--color-pib-text-muted)] px-1.5 py-0.5 rounded-full">
+                  <span className="text-[9px] bg-[var(--color-pib-line-strong)] text-[var(--color-pib-text-muted)] px-1.5 py-0.5 rounded-full" aria-hidden="true">
                     {link.minRole}
                   </span>
                 )}
