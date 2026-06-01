@@ -147,6 +147,13 @@ describe('Portal deals page', () => {
     })
   })
 
+  it('names deal creation commands without decorative icon text', async () => {
+    render(<DealsPage />)
+
+    expect(await screen.findByRole('button', { name: 'New deal' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'add New deal' })).not.toBeInTheDocument()
+  })
+
   it('shows resolved contact names in the deal list and search', async () => {
     render(<DealsPage />)
 

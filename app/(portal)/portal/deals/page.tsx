@@ -586,8 +586,9 @@ export default function DealsPage() {
             <button
               onClick={() => setShowCreateDrawer(true)}
               className="cursor-pointer btn-pib-accent flex items-center gap-1.5 text-sm"
+              aria-label="New deal"
             >
-              <span className="material-symbols-outlined text-[16px]">add</span>
+              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
               New deal
             </button>
           </div>
@@ -758,8 +759,9 @@ export default function DealsPage() {
               <button
                 onClick={() => setShowCreateDrawer(true)}
                 className="btn-pib-accent inline-flex items-center gap-2"
+                aria-label="New deal"
               >
-                <span className="material-symbols-outlined text-[16px]">add</span>
+                <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
                 New deal
               </button>
             )}
