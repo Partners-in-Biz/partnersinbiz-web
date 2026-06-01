@@ -221,6 +221,18 @@ describe('Portal companies page', () => {
     expect(mockPush).toHaveBeenCalledWith('/portal/companies/company-unmanaged?edit=profile')
   })
 
+  it('turns company health scores into profile cleanup actions', async () => {
+    render(<CompaniesPage />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Unmanaged Account')).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Improve profile health for Unmanaged Account' }))
+
+    expect(mockPush).toHaveBeenCalledWith('/portal/companies/company-unmanaged?edit=profile')
+  })
+
   it('turns company row websites into direct website actions', async () => {
     render(<CompaniesPage />)
 

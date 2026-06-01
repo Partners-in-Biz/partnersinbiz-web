@@ -105,6 +105,7 @@ export interface CompanyRowProps {
   onEditValue?: (id: string) => void
   onEditLifecycle?: (id: string) => void
   onEditOwner?: (id: string) => void
+  onImproveHealth?: (id: string) => void
 }
 
 export function CompanyRow({
@@ -116,6 +117,7 @@ export function CompanyRow({
   onEditValue,
   onEditLifecycle,
   onEditOwner,
+  onImproveHealth,
 }: CompanyRowProps) {
   const lcCls = company.lifecycleStage
     ? (LIFECYCLE_COLOURS[company.lifecycleStage] ?? 'bg-surface-container text-on-surface-variant')
@@ -200,7 +202,15 @@ export function CompanyRow({
 
       {/* Health */}
       <td className="px-4 py-3">
-        <div className="min-w-24">
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation()
+            onImproveHealth?.(company.id)
+          }}
+          aria-label={`Improve profile health for ${company.name}`}
+          className="block min-w-24 text-left"
+        >
           <div className="flex items-center justify-between gap-2">
             <span className="text-xs font-mono" style={{ color: healthColor }}>{health}%</span>
             <span className="text-[10px] text-[var(--color-pib-text-muted)]">health</span>
@@ -208,7 +218,7 @@ export function CompanyRow({
           <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-white/10">
             <div className="h-full rounded-full" style={{ width: `${health}%`, background: healthColor }} />
           </div>
-        </div>
+        </button>
       </td>
 
       {/* Lifecycle */}
