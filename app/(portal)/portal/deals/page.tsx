@@ -855,6 +855,7 @@ export default function DealsPage() {
                   const contactLabel = contactLabelsById[deal.contactId]
                   const dealTitle = dealTitleLabel(deal)
                   const hasCapturedValue = typeof deal.value === 'number' && Number.isFinite(deal.value)
+                  const hasAssignedOwner = hasDealOwner(deal)
                   return (
                     <tr
                       key={deal.id}
@@ -892,8 +893,18 @@ export default function DealsPage() {
                           {stageLabel}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-xs text-on-surface-variant">
-                        {dealOwnerLabel(deal)}
+                      <td className="px-4 py-3 text-xs text-on-surface-variant" onClick={e => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          aria-label={`${hasAssignedOwner ? 'Edit owner' : 'Assign owner'} for ${dealTitle} from deals list`}
+                          onClick={() => setEditingDeal(deal)}
+                          className="inline-flex max-w-full items-center gap-1 rounded-md border border-transparent px-1.5 py-1 text-left transition-colors hover:border-[var(--color-pib-accent)] hover:text-[var(--color-pib-text)]"
+                        >
+                          <span className="material-symbols-outlined text-[13px]" aria-hidden="true">
+                            {hasAssignedOwner ? 'manage_accounts' : 'person_add'}
+                          </span>
+                          <span className="truncate">{dealOwnerLabel(deal)}</span>
+                        </button>
                       </td>
                       <td className="px-4 py-3 font-mono text-on-surface-variant text-xs" onClick={e => e.stopPropagation()}>
                         <button
