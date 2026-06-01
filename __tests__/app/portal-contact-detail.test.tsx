@@ -249,13 +249,13 @@ describe('Portal contact detail page', () => {
     })
 
     fireEvent.click(screen.getByRole('button', { name: 'Edit lifecycle stage Proposal sent for Jane Client' }))
-    await waitFor(() => expect(screen.getByRole('combobox', { name: 'Stage' })).toHaveFocus())
+    await waitFor(() => expect(screen.getByRole('combobox', { name: 'Lifecycle stage for Jane Client' })).toHaveFocus())
 
     fireEvent.click(screen.getByRole('button', { name: 'Edit contact type Prospect for Jane Client' }))
-    await waitFor(() => expect(screen.getByRole('combobox', { name: 'Type' })).toHaveFocus())
+    await waitFor(() => expect(screen.getByRole('combobox', { name: 'Contact type for Jane Client' })).toHaveFocus())
 
     fireEvent.click(screen.getByRole('button', { name: 'Edit tag priority for Jane Client' }))
-    await waitFor(() => expect(screen.getByPlaceholderText('priority, referral, decision maker')).toHaveFocus())
+    await waitFor(() => expect(screen.getByRole('textbox', { name: 'Tags for Jane Client' })).toHaveFocus())
 
     expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'center' })
   })
@@ -684,6 +684,29 @@ describe('Portal contact detail page', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Schedule meeting from engagement cockpit with Unnamed contact' }))
 
     expect(screen.getByDisplayValue('Meeting with Unnamed contact')).toBeInTheDocument()
+  })
+
+  it('names edit profile fields with the active contact context', async () => {
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    expect(screen.getByRole('textbox', { name: 'Contact name for Jane Client' })).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'Email address for Jane Client' })).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'Phone number for Jane Client' })).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'Job title for Jane Client' })).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'Department for Jane Client' })).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'Timezone for Jane Client' })).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'Website for Jane Client' })).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Contact source for Jane Client' })).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Contact type for Jane Client' })).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Lifecycle stage for Jane Client' })).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Relationship owner for Jane Client' })).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'Tags for Jane Client' })).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Linked company for Jane Client' })).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'Relationship notes for Jane Client' })).toBeInTheDocument()
   })
 
   it('keeps relationship notes visible as contact detail context', async () => {

@@ -34,6 +34,11 @@ describe('CompanyPicker', () => {
     expect(screen.getByRole('combobox')).toBeInTheDocument()
   })
 
+  it('accepts a contextual search label', () => {
+    render(<CompanyPicker ariaLabel="Linked company for Jane Client" onChange={noop} />)
+    expect(screen.getByRole('combobox', { name: 'Linked company for Jane Client' })).toBeInTheDocument()
+  })
+
   it('shows currentCompanyName in the input when provided', () => {
     render(
       <CompanyPicker

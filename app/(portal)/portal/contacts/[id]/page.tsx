@@ -1178,6 +1178,7 @@ export default function PortalContactDetailPage() {
               <div className="min-w-0 flex-1">
                 <p className="eyebrow">Contact command center</p>
                 <input
+                  aria-label={`Rename ${contactName} from contact header`}
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   className="mt-2 w-full border-0 bg-transparent p-0 font-display text-3xl tracking-tight text-[var(--color-pib-text)] outline-none md:text-4xl"
@@ -1583,6 +1584,7 @@ export default function PortalContactDetailPage() {
                 Name
               </p>
               <input
+                aria-label={`Contact name for ${contactName}`}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className="pib-input w-full"
@@ -1597,6 +1599,7 @@ export default function PortalContactDetailPage() {
                 </p>
                 <input
                   ref={emailFieldRef}
+                  aria-label={`Email address for ${contactName}`}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="pib-input w-full"
@@ -1609,6 +1612,7 @@ export default function PortalContactDetailPage() {
                 </p>
                 <input
                   ref={phoneFieldRef}
+                  aria-label={`Phone number for ${contactName}`}
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   className="pib-input w-full"
@@ -1621,6 +1625,7 @@ export default function PortalContactDetailPage() {
                 </p>
                 <input
                   ref={jobTitleFieldRef}
+                  aria-label={`Job title for ${contactName}`}
                   value={jobTitle}
                   onChange={(e) => setJobTitle(e.target.value)}
                   className="pib-input w-full"
@@ -1633,6 +1638,7 @@ export default function PortalContactDetailPage() {
                 </p>
                 <input
                   ref={departmentFieldRef}
+                  aria-label={`Department for ${contactName}`}
                   value={department}
                   onChange={(e) => setDepartment(e.target.value)}
                   className="pib-input w-full"
@@ -1645,6 +1651,7 @@ export default function PortalContactDetailPage() {
                 </p>
                 <input
                   ref={timezoneFieldRef}
+                  aria-label={`Timezone for ${contactName}`}
                   value={timezone}
                   onChange={(e) => setTimezone(e.target.value)}
                   className="pib-input w-full"
@@ -1657,6 +1664,7 @@ export default function PortalContactDetailPage() {
                 </p>
                 <input
                   ref={websiteFieldRef}
+                  aria-label={`Website for ${contactName}`}
                   value={website}
                   onChange={(e) => setWebsite(e.target.value)}
                   className="pib-input w-full"
@@ -1668,19 +1676,19 @@ export default function PortalContactDetailPage() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
               <div className="space-y-1">
                 <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">Source</p>
-                <select ref={sourceFieldRef} value={source} onChange={(e) => setSource(e.target.value)} className="pib-input w-full">
+                <select ref={sourceFieldRef} aria-label={`Contact source for ${contactName}`} value={source} onChange={(e) => setSource(e.target.value)} className="pib-input w-full">
                   {SOURCE_OPTIONS.map((option) => <option key={option} value={option} className="bg-black">{displayLabel(option, SOURCE_LABELS)}</option>)}
                 </select>
               </div>
               <div className="space-y-1">
                 <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">Type</p>
-                <select ref={typeFieldRef} aria-label="Type" value={type} onChange={(e) => setType(e.target.value)} className="pib-input w-full">
+                <select ref={typeFieldRef} aria-label={`Contact type for ${contactName}`} value={type} onChange={(e) => setType(e.target.value)} className="pib-input w-full">
                   {TYPE_OPTIONS.map((option) => <option key={option} value={option} className="bg-black">{displayLabel(option, TYPE_LABELS)}</option>)}
                 </select>
               </div>
               <div className="space-y-1">
                 <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">Stage</p>
-                <select ref={stageFieldRef} aria-label="Stage" value={stage} onChange={(e) => setStage(e.target.value)} className="pib-input w-full">
+                <select ref={stageFieldRef} aria-label={`Lifecycle stage for ${contactName}`} value={stage} onChange={(e) => setStage(e.target.value)} className="pib-input w-full">
                   {STAGE_OPTIONS.map((option) => <option key={option} value={option} className="bg-black">{displayLabel(option, STAGE_LABELS)}</option>)}
                 </select>
               </div>
@@ -1690,7 +1698,7 @@ export default function PortalContactDetailPage() {
               <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">
                 Owner
               </p>
-              <select ref={ownerFieldRef} value={assignedTo} onChange={(e) => setAssignedTo(e.target.value)} className="pib-input w-full">
+              <select ref={ownerFieldRef} aria-label={`Relationship owner for ${contactName}`} value={assignedTo} onChange={(e) => setAssignedTo(e.target.value)} className="pib-input w-full">
                 <option value="" className="bg-black">Unassigned</option>
                 {teamMembers.map((member) => {
                   const label = teamMemberDisplayLabel(member)
@@ -1709,7 +1717,7 @@ export default function PortalContactDetailPage() {
               </p>
               <input
                 ref={tagsFieldRef}
-                aria-label="Tags"
+                aria-label={`Tags for ${contactName}`}
                 value={tagsInput}
                 onChange={(e) => setTagsInput(e.target.value)}
                 className="pib-input w-full"
@@ -1725,6 +1733,7 @@ export default function PortalContactDetailPage() {
               <CompanyPicker
                 currentCompanyId={editCompanyId}
                 currentCompanyName={editCompanyName}
+                ariaLabel={`Linked company for ${contactName}`}
                 onChange={({ companyId, companyName }) => {
                   setEditCompanyId(companyId ?? '')
                   setEditCompanyName(companyName ?? undefined)
@@ -1738,6 +1747,7 @@ export default function PortalContactDetailPage() {
               </p>
               <textarea
                 ref={notesFieldRef}
+                aria-label={`Relationship notes for ${contactName}`}
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 rows={5}

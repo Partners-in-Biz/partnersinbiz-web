@@ -18,12 +18,13 @@ interface CreateFormState {
 export interface CompanyPickerProps {
   currentCompanyId?: string
   currentCompanyName?: string
+  ariaLabel?: string
   onChange: (val: { companyId: string | null; companyName: string | null }) => void
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function CompanyPicker({ currentCompanyId, currentCompanyName, onChange }: CompanyPickerProps) {
+export function CompanyPicker({ currentCompanyId, currentCompanyName, ariaLabel = 'Search companies', onChange }: CompanyPickerProps) {
   const [query, setQuery] = useState(currentCompanyName ?? '')
   const [results, setResults] = useState<CompanyResult[]>([])
   const [open, setOpen] = useState(false)
@@ -118,6 +119,7 @@ export function CompanyPicker({ currentCompanyId, currentCompanyName, onChange }
       <div className="relative flex items-center">
         <input
           role="combobox"
+          aria-label={ariaLabel}
           aria-expanded={open}
           aria-controls="company-picker-results"
           aria-autocomplete="list"
