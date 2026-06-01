@@ -567,6 +567,27 @@ describe('Portal contact detail page', () => {
     expect(screen.getByPlaceholderText('+27...')).toHaveFocus()
   })
 
+  it('turns first-viewport contact identity into direct email phone and company links', async () => {
+    mockContactOverrides = {
+      phone: '+27825550123',
+      companyId: 'company-1',
+      companyName: 'Acme Holdings',
+    }
+
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    expect(screen.getByRole('link', { name: 'Email jane@example.com from contact header' }))
+      .toHaveAttribute('href', 'mailto:jane@example.com')
+    expect(screen.getByRole('link', { name: 'Call +27825550123 from contact header' }))
+      .toHaveAttribute('href', 'tel:+27825550123')
+    expect(screen.getByRole('link', { name: 'Open linked company Acme Holdings from contact header' }))
+      .toHaveAttribute('href', '/portal/companies/company-1')
+  })
+
   it('uses the contact identity fallback across sparse contact workflows', async () => {
     mockContactOverrides = { name: '' }
 

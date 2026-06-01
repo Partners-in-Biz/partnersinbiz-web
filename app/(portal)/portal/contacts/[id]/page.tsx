@@ -1173,10 +1173,31 @@ export default function PortalContactDetailPage() {
                   <p className="mt-1 text-sm font-medium text-[var(--color-pib-accent)]">Unnamed contact</p>
                 )}
                 <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-[var(--color-pib-text-muted)]">
-                  <span className="inline-flex items-center gap-1">
-                    <span className="material-symbols-outlined text-[16px]">business</span>
-                    {companyLabel}
-                  </span>
+                  {hasLinkedCompany && contact.companyId ? (
+                    <Link
+                      href={`/portal/companies/${encodeURIComponent(contact.companyId)}`}
+                      aria-label={`Open linked company ${companyLabel} from contact header`}
+                      className="inline-flex items-center gap-1 text-[var(--color-pib-accent)] transition-colors hover:text-[var(--color-pib-text)]"
+                    >
+                      <span className="material-symbols-outlined text-[16px]" aria-hidden="true">business</span>
+                      {companyLabel}
+                    </Link>
+                  ) : (
+                    <span className="inline-flex items-center gap-1">
+                      <span className="material-symbols-outlined text-[16px]">business</span>
+                      {companyLabel}
+                    </span>
+                  )}
+                  {phone.trim() && (
+                    <a
+                      href={`tel:${phone.trim()}`}
+                      aria-label={`Call ${phone.trim()} from contact header`}
+                      className="inline-flex items-center gap-1 text-[var(--color-pib-accent)] transition-colors hover:text-[var(--color-pib-text)]"
+                    >
+                      <span className="material-symbols-outlined text-[16px]" aria-hidden="true">call</span>
+                      {phone.trim()}
+                    </a>
+                  )}
                   {!hasLinkedCompany && (
                     <button
                       type="button"
@@ -1189,10 +1210,14 @@ export default function PortalContactDetailPage() {
                     </button>
                   )}
                   {email.trim() && (
-                    <span className="inline-flex items-center gap-1">
-                      <span className="material-symbols-outlined text-[16px]">alternate_email</span>
+                    <a
+                      href={`mailto:${email.trim()}`}
+                      aria-label={`Email ${email.trim()} from contact header`}
+                      className="inline-flex items-center gap-1 text-[var(--color-pib-accent)] transition-colors hover:text-[var(--color-pib-text)]"
+                    >
+                      <span className="material-symbols-outlined text-[16px]" aria-hidden="true">alternate_email</span>
                       {email.trim()}
-                    </span>
+                    </a>
                   )}
                   {createdDays !== null && <span>{createdDays === 0 ? 'Created today' : `Created ${createdDays}d ago`}</span>}
                 </div>
