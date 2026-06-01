@@ -98,19 +98,19 @@ describe('Portal contacts page', () => {
     render(<PortalContactsPage />)
 
     await waitFor(() => {
-      expect(screen.getByRole('link', { name: /Owned Client/i })).toBeInTheDocument()
+      expect(screen.getByRole('link', { name: 'Open contact Owned Client' })).toBeInTheDocument()
     })
-    expect(screen.getByRole('link', { name: /Unowned Prospect/i })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Open contact Unowned Prospect' })).toBeInTheDocument()
 
     expect(screen.getByText('Owner coverage')).toBeInTheDocument()
     expect(screen.getByText('1 unowned')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Show unowned contacts needing an owner' }))
 
-    expect(screen.queryByRole('link', { name: /Owned Client/i })).not.toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /Unowned Prospect/i })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Open contact Owned Client' })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Open contact Unowned Prospect' })).toBeInTheDocument()
 
-    const row = screen.getByRole('link', { name: /Unowned Prospect/i }).closest('[data-contact-row]')
+    const row = screen.getByRole('link', { name: 'Open contact Unowned Prospect' }).closest('[data-contact-row]')
     expect(row).not.toBeNull()
     expect(within(row as HTMLElement).getByText('Unassigned')).toBeInTheDocument()
   })
@@ -121,10 +121,10 @@ describe('Portal contacts page', () => {
     render(<PortalContactsPage />)
 
     await waitFor(() => {
-      expect(screen.getByRole('link', { name: /Unowned Prospect/i })).toBeInTheDocument()
+      expect(screen.getByRole('link', { name: 'Open contact Unowned Prospect' })).toBeInTheDocument()
     })
 
-    expect(screen.queryByRole('link', { name: /Owned Client/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Open contact Owned Client' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Show all contacts' })).toBeInTheDocument()
     expect(screen.getByText('1 unowned contact need assignment.')).toBeInTheDocument()
     expect(screen.getByText('owner: unowned')).toBeInTheDocument()
@@ -178,10 +178,10 @@ describe('Portal contacts page', () => {
     render(<PortalContactsPage />)
 
     await waitFor(() => {
-      expect(screen.getByRole('link', { name: /Unowned Prospect/i })).toBeInTheDocument()
+      expect(screen.getByRole('link', { name: 'Open contact Unowned Prospect' })).toBeInTheDocument()
     })
 
-    expect(screen.queryByRole('link', { name: /Owned Client/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Open contact Owned Client' })).not.toBeInTheDocument()
     expect(screen.getByText('1 contact match this view.')).toBeInTheDocument()
     expect(screen.getByText('stage: new')).toBeInTheDocument()
   })
@@ -189,7 +189,7 @@ describe('Portal contacts page', () => {
   it('renders contact stage and type labels as readable CRM language', async () => {
     render(<PortalContactsPage />)
 
-    const ownedRowLink = await screen.findByRole('link', { name: /Owned Client/i })
+    const ownedRowLink = await screen.findByRole('link', { name: 'Open contact Owned Client' })
     const ownedRow = ownedRowLink.closest('[data-contact-row]')
     expect(ownedRow).not.toBeNull()
 
@@ -207,7 +207,7 @@ describe('Portal contacts page', () => {
   it('turns contact list row details into direct outreach and company triage actions', async () => {
     render(<PortalContactsPage />)
 
-    const ownedRowLink = await screen.findByRole('link', { name: /Owned Client/i })
+    const ownedRowLink = await screen.findByRole('link', { name: 'Open contact Owned Client' })
     const ownedRow = ownedRowLink.closest('[data-contact-row]')
     expect(ownedRow).not.toBeNull()
 
@@ -217,6 +217,8 @@ describe('Portal contacts page', () => {
       .toHaveAttribute('href', 'mailto:owned@example.com')
     expect(within(ownedRow as HTMLElement).getByRole('link', { name: 'Call +27825550111 from contacts list' }))
       .toHaveAttribute('href', 'tel:+27825550111')
+    expect(within(ownedRow as HTMLElement).getByRole('link', { name: 'Log activity for Owned Client from last contacted column' }))
+      .toHaveAttribute('href', '/portal/contacts/contact-owned?activity=note')
 
     fireEvent.click(within(ownedRow as HTMLElement).getByRole('button', { name: 'Filter contacts by company Owned Co' }))
     expect(screen.getByPlaceholderText('Search name, email, company…')).toHaveValue('Owned Co')
@@ -242,11 +244,11 @@ describe('Portal contacts page', () => {
     render(<PortalContactsPage />)
 
     await waitFor(() => {
-      expect(screen.getByRole('link', { name: /Owned Client/i })).toBeInTheDocument()
+      expect(screen.getByRole('link', { name: 'Open contact Owned Client' })).toBeInTheDocument()
     })
 
-    expect(screen.getByRole('link', { name: /Unowned Prospect/i })).toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: /Fresh Followup/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Open contact Unowned Prospect' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Open contact Fresh Followup' })).not.toBeInTheDocument()
     expect(screen.getByText('2 contacts need follow-up.')).toBeInTheDocument()
     expect(screen.getByText('followUp: stale')).toBeInTheDocument()
   })
@@ -285,7 +287,7 @@ describe('Portal contacts page', () => {
 
     render(<PortalContactsPage />)
 
-    const rowLink = await screen.findByRole('link', { name: /Needs Enrichment/i })
+    const rowLink = await screen.findByRole('link', { name: 'Open contact Needs Enrichment' })
     const row = rowLink.closest('[data-contact-row]')
 
     expect(row).not.toBeNull()
@@ -329,7 +331,7 @@ describe('Portal contacts page', () => {
 
     render(<PortalContactsPage />)
 
-    const rowLink = await screen.findByRole('link', { name: /Raw Owner Contact/i })
+    const rowLink = await screen.findByRole('link', { name: 'Open contact Raw Owner Contact' })
     const row = rowLink.closest('[data-contact-row]')
 
     expect(row).not.toBeNull()
@@ -391,7 +393,7 @@ describe('Portal contacts page', () => {
 
     render(<PortalContactsPage />)
 
-    await screen.findByRole('link', { name: /Owned Client/i })
+    await screen.findByRole('link', { name: 'Open contact Owned Client' })
     fireEvent.click(screen.getByRole('checkbox', { name: 'Select Owned Client' }))
     fireEvent.click(screen.getByRole('button', { name: 'Delete selected contacts' }))
 

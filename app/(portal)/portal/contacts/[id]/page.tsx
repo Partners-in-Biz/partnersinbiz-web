@@ -2,7 +2,7 @@
 export const dynamic = 'force-dynamic'
 
 import { useEffect, useRef, useState, type RefObject } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { fmtTimestamp } from '@/components/admin/email/fmtTimestamp'
 import { ContactDealsPanel } from '@/components/crm/ContactDealsPanel'
@@ -287,6 +287,7 @@ function teamMemberDisplayLabel(member: TeamMemberOption): string {
 export default function PortalContactDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const companyPickerRef = useRef<HTMLDivElement | null>(null)
   const emailFieldRef = useRef<HTMLInputElement | null>(null)
   const phoneFieldRef = useRef<HTMLInputElement | null>(null)
@@ -488,6 +489,13 @@ export default function PortalContactDetailPage() {
       })
       .catch(() => setEnrollmentsLoading(false))
   }, [id])
+
+  useEffect(() => {
+    if (searchParams.get('activity') !== 'note') return
+    setLogType('note')
+    setShowAiComposer(false)
+    setLogError(null)
+  }, [searchParams])
 
   async function saveChanges() {
     setSaving(true)

@@ -14,10 +14,12 @@ let mockTeamMembers: Array<{ uid: string; firstName?: string; lastName?: string;
 let mockSequenceEnrollError = ''
 let mockSequenceUnenrollError = ''
 let mockRouterPush = jest.fn()
+let mockSearchParams = new URLSearchParams()
 
 jest.mock('next/navigation', () => ({
   useParams: () => ({ id: 'contact-1' }),
   useRouter: () => ({ push: mockRouterPush }),
+  useSearchParams: () => mockSearchParams,
 }))
 
 jest.mock('@/components/crm/ContactDealsPanel', () => ({
@@ -39,6 +41,7 @@ describe('Portal contact detail page', () => {
     mockSequenceEnrollError = ''
     mockSequenceUnenrollError = ''
     mockRouterPush = jest.fn()
+    mockSearchParams = new URLSearchParams()
     global.fetch = jest.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
       if (url === '/api/v1/crm/contacts/contact-1') {
@@ -311,6 +314,17 @@ describe('Portal contact detail page', () => {
 
     expect(screen.getByPlaceholderText('Add a relationship note, handoff, or context…')).toBeInTheDocument()
     expect(screen.queryByPlaceholderText('Add note notes…')).not.toBeInTheDocument()
+  })
+
+  it('opens the activity note composer from contact list activity links', async () => {
+    mockSearchParams = new URLSearchParams('activity=note')
+
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+    expect(screen.getByPlaceholderText('Add a relationship note, handoff, or context…')).toBeInTheDocument()
   })
 
   it('lets a busy team member discard unsaved contact profile edits', async () => {

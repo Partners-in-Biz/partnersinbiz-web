@@ -787,8 +787,15 @@ export default function PortalContactsPage() {
                     <div className="md:col-span-1">
                       <StageBadge stage={c.stage} />
                     </div>
-                    <div className="md:col-span-2 text-xs text-[var(--color-pib-text-muted)] font-mono">
-                      {lastContactedLabel}
+                    <div className="md:col-span-2 text-xs font-mono">
+                      <Link
+                        href={`/portal/contacts/${c.id}?activity=note`}
+                        aria-label={`Log activity for ${contactName} from last contacted column`}
+                        className="inline-flex max-w-full items-center gap-1 text-[var(--color-pib-accent)] transition-colors hover:text-[var(--color-pib-text)]"
+                      >
+                        <span className="material-symbols-outlined text-[13px]" aria-hidden="true">edit_note</span>
+                        <span className="truncate">{lastContactedLabel}</span>
+                      </Link>
                     </div>
                     <div className="md:col-span-1">
                       <ScoreChip score={c.leadScore} kind="lead" label="Lead score (formula)" size="sm" />
