@@ -233,6 +233,18 @@ describe('Portal companies page', () => {
     expect(mockPush).toHaveBeenCalledWith('/portal/companies/company-unmanaged?edit=profile')
   })
 
+  it('turns company profile cells into profile edit actions', async () => {
+    render(<CompaniesPage />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Managed Account')).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit profile for Managed Account' }))
+
+    expect(mockPush).toHaveBeenCalledWith('/portal/companies/company-managed?edit=profile')
+  })
+
   it('turns company row websites into direct website actions', async () => {
     render(<CompaniesPage />)
 

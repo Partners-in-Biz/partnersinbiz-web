@@ -106,6 +106,7 @@ export interface CompanyRowProps {
   onEditLifecycle?: (id: string) => void
   onEditOwner?: (id: string) => void
   onImproveHealth?: (id: string) => void
+  onEditProfile?: (id: string) => void
 }
 
 export function CompanyRow({
@@ -118,6 +119,7 @@ export function CompanyRow({
   onEditLifecycle,
   onEditOwner,
   onImproveHealth,
+  onEditProfile,
 }: CompanyRowProps) {
   const lcCls = company.lifecycleStage
     ? (LIFECYCLE_COLOURS[company.lifecycleStage] ?? 'bg-surface-container text-on-surface-variant')
@@ -244,7 +246,15 @@ export function CompanyRow({
 
       {/* Profile */}
       <td className="px-4 py-3">
-        <div className="space-y-1">
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation()
+            onEditProfile?.(company.id)
+          }}
+          aria-label={`Edit profile for ${company.name}`}
+          className="block max-w-[170px] space-y-1 text-left"
+        >
           <span className="text-sm text-[var(--color-pib-text-muted)] truncate max-w-[150px] block">
             {company.industry ?? 'No industry'}
           </span>
@@ -260,7 +270,7 @@ export function CompanyRow({
               </span>
             )}
           </div>
-        </div>
+        </button>
       </td>
 
       {/* Value */}
