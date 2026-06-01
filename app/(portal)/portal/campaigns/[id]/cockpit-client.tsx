@@ -470,6 +470,7 @@ function PlatformPanel({
       blogs={blogs}
       videos={videos}
       filter={filter}
+      approvalMode="client"
     />
   )
 }
