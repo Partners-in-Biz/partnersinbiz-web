@@ -59,7 +59,8 @@ export async function generateReport(input: GenerateInput): Promise<Report> {
     kpis: snapshot.kpis,
   })
 
-  const id = `${input.orgId}_${input.period.start}_${input.period.end}_${input.type}`
+  const scopeKey = input.propertyId ? `_${input.propertyId}` : ''
+  const id = `${input.orgId}${scopeKey}_${input.period.start}_${input.period.end}_${input.type}`
     .replace(/[^a-zA-Z0-9_-]/g, '_')
     .slice(0, 1500)
   const publicToken = crypto.randomBytes(24).toString('base64url')
@@ -67,6 +68,7 @@ export async function generateReport(input: GenerateInput): Promise<Report> {
   const report: Omit<Report, 'createdAt' | 'updatedAt'> & { createdAt: unknown; updatedAt: unknown } = {
     id,
     orgId: input.orgId,
+    ...(input.propertyId ? { propertyId: input.propertyId } : {}),
     type: input.type,
     period: input.period,
     previousPeriod,

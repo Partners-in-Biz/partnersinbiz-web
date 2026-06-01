@@ -2,9 +2,11 @@
 export const dynamic = 'force-dynamic'
 
 import { useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import type { FunnelResults } from '@/lib/analytics/types'
 import { VALID_FUNNEL_WINDOWS } from '@/lib/analytics/types'
 import { AnalyticsNav } from '@/components/admin/AnalyticsNav'
+import { AnalyticsPropertyPicker } from '@/components/admin/AnalyticsPropertyPicker'
 
 interface Funnel {
   id: string
@@ -15,7 +17,9 @@ interface Funnel {
 }
 
 export default function FunnelsPage() {
-  const [propertyId, setPropertyId] = useState('')
+  const sp = useSearchParams()
+  const initialPid = sp?.get('propertyId') ?? ''
+  const [propertyId, setPropertyId] = useState(initialPid)
   const [funnels, setFunnels] = useState<Funnel[]>([])
   const [loading, setLoading] = useState(false)
   const [creating, setCreating] = useState(false)
@@ -92,23 +96,16 @@ export default function FunnelsPage() {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
-      <AnalyticsNav active="funnels" />
+      <AnalyticsNav active="funnels" propertyId={propertyId} />
       <h1 className="text-xl font-headline font-bold text-on-surface">Funnels</h1>
 
-      <div className="pib-card p-4 flex gap-3 items-end">
-        <div>
-          <label className="text-xs text-on-surface-variant font-label block mb-1">Property ID</label>
-          <input
-            type="text"
-            value={propertyId}
-            onChange={e => setPropertyId(e.target.value)}
-            placeholder="prop-abc123"
-            className="pib-input text-sm w-56"
-          />
+      <div className="pib-card p-4 space-y-3">
+        <AnalyticsPropertyPicker value={propertyId} onChange={setPropertyId} />
+        <div className="flex justify-end">
+          <button onClick={fetchFunnels} disabled={!propertyId || loading} className="pib-btn-primary text-sm font-label">
+            {loading ? 'Loading…' : 'Load Funnels'}
+          </button>
         </div>
-        <button onClick={fetchFunnels} disabled={!propertyId || loading} className="pib-btn-primary text-sm font-label">
-          {loading ? 'Loading…' : 'Load Funnels'}
-        </button>
       </div>
 
       {/* Create funnel form */}

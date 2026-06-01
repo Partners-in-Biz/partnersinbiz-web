@@ -5,6 +5,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { AnalyticsNav } from '@/components/admin/AnalyticsNav'
+import { AnalyticsPropertyPicker } from '@/components/admin/AnalyticsPropertyPicker'
 
 interface UserRow {
   distinctId: string
@@ -32,17 +33,16 @@ export default function AnalyticsUsersPage() {
 
   return (
     <div className="p-6 space-y-6">
-      <AnalyticsNav active="users" />
+      <AnalyticsNav active="users" propertyId={propertyId} />
       <h1 className="text-2xl font-headline font-bold text-on-surface">Users</h1>
 
-      <div className="pib-card p-4 flex gap-3 items-end">
-        <div className="flex-1">
-          <label className="text-xs font-label uppercase tracking-widest text-on-surface-variant block mb-1">Property ID</label>
-          <input className="pib-input w-full" value={propertyId} onChange={e => setPropertyId(e.target.value)} placeholder="prop_abc" />
+      <div className="pib-card p-4 space-y-3">
+        <AnalyticsPropertyPicker value={propertyId} onChange={setPropertyId} />
+        <div className="flex justify-end">
+          <button className="pib-btn-primary" onClick={load} disabled={!propertyId || loading}>
+            {loading ? 'Loading…' : 'Load'}
+          </button>
         </div>
-        <button className="pib-btn-primary" onClick={load} disabled={!propertyId || loading}>
-          {loading ? 'Loading…' : 'Load'}
-        </button>
       </div>
 
       {loading && (

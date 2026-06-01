@@ -2,10 +2,12 @@ import { NextRequest } from 'next/server'
 import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
+import { analyticsPropertyErrorResponse, requireAnalyticsProperty } from '@/lib/analytics/property-access'
+import type { ApiUser } from '@/lib/api/types'
 
 type RouteContext = { params: Promise<{ distinctId: string }> }
 
-export const GET = withAuth('admin', async (req: NextRequest, ctx: unknown) => {
+export const GET = withAuth('admin', async (req: NextRequest, user: ApiUser, ctx: unknown) => {
   const { distinctId } = await (ctx as RouteContext).params
   const { searchParams } = new URL(req.url)
   const propertyId = searchParams.get('propertyId')
@@ -14,20 +16,30 @@ export const GET = withAuth('admin', async (req: NextRequest, ctx: unknown) => {
 
   if (!propertyId) return apiError('propertyId required', 400)
 
-  const [eventsSnap, sessionsSnap] = await Promise.all([
-    adminDb.collection('product_events')
-      .where('propertyId', '==', propertyId)
-      .where('distinctId', '==', distinctId)
-      .orderBy('serverTime', 'desc')
-      .limit(limit)
-      .get(),
-    adminDb.collection('product_sessions')
-      .where('propertyId', '==', propertyId)
-      .where('distinctId', '==', distinctId)
-      .orderBy('startedAt', 'desc')
-      .limit(50)
-      .get(),
-  ])
+  let eventsSnap: FirebaseFirestore.QuerySnapshot
+  let sessionsSnap: FirebaseFirestore.QuerySnapshot
+  try {
+    const property = await requireAnalyticsProperty(user, { propertyId })
+    ;[eventsSnap, sessionsSnap] = await Promise.all([
+      adminDb.collection('product_events')
+        .where('propertyId', '==', property.id)
+        .where('distinctId', '==', distinctId)
+        .orderBy('serverTime', 'desc')
+        .limit(limit)
+        .get(),
+      adminDb.collection('product_sessions')
+        .where('propertyId', '==', property.id)
+        .where('distinctId', '==', distinctId)
+        .orderBy('startedAt', 'desc')
+        .limit(50)
+        .get(),
+    ])
+  } catch (e) {
+    const propertyError = analyticsPropertyErrorResponse(e)
+    if (propertyError) return propertyError
+    console.error('[analytics-user-get]', e)
+    return apiError('Failed to query user', 500)
+  }
 
   if (eventsSnap.empty) return apiError('User not found', 404)
 
@@ -37,19 +49,29 @@ export const GET = withAuth('admin', async (req: NextRequest, ctx: unknown) => {
   return apiSuccess({ distinctId, events, sessions })
 })
 
-export const DELETE = withAuth('admin', async (req: NextRequest, ctx: unknown) => {
+export const DELETE = withAuth('admin', async (req: NextRequest, user: ApiUser, ctx: unknown) => {
   const { distinctId } = await (ctx as RouteContext).params
   const { searchParams } = new URL(req.url)
   const propertyId = searchParams.get('propertyId')
 
   if (!propertyId) return apiError('propertyId required', 400)
 
+  let property: { id: string }
+  try {
+    property = await requireAnalyticsProperty(user, { propertyId })
+  } catch (e) {
+    const propertyError = analyticsPropertyErrorResponse(e)
+    if (propertyError) return propertyError
+    console.error('[analytics-user-delete-property]', e)
+    return apiError('Failed to verify property', 500)
+  }
+
   let totalEvents = 0
   let totalSessions = 0
 
   while (true) {
     const snap = await adminDb.collection('product_events')
-      .where('propertyId', '==', propertyId)
+      .where('propertyId', '==', property.id)
       .where('distinctId', '==', distinctId)
       .limit(490)
       .get()
@@ -63,7 +85,7 @@ export const DELETE = withAuth('admin', async (req: NextRequest, ctx: unknown) =
 
   while (true) {
     const snap = await adminDb.collection('product_sessions')
-      .where('propertyId', '==', propertyId)
+      .where('propertyId', '==', property.id)
       .where('distinctId', '==', distinctId)
       .limit(490)
       .get()

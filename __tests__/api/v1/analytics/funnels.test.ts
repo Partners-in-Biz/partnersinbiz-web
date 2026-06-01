@@ -19,11 +19,24 @@ function makeReq(method: string, body?: object, search = '') {
 
 function mockDb(docs: object[] = []) {
   const mockDocs = docs.map((d: any) => ({ id: (d as any).id ?? 'f1', data: () => d }))
-  ;(adminDb.collection as jest.Mock).mockReturnValue({
-    where: jest.fn().mockReturnThis(),
-    orderBy: jest.fn().mockReturnThis(),
-    get: jest.fn().mockResolvedValue({ docs: mockDocs }),
-    add: jest.fn().mockResolvedValue({ id: 'new-funnel' }),
+  ;(adminDb.collection as jest.Mock).mockImplementation((name: string) => {
+    if (name === 'properties') {
+      return {
+        doc: jest.fn().mockReturnValue({
+          get: jest.fn().mockResolvedValue({
+            exists: true,
+            id: 'prop-1',
+            data: () => ({ orgId: 'org-1', deleted: false }),
+          }),
+        }),
+      }
+    }
+    return {
+      where: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      get: jest.fn().mockResolvedValue({ docs: mockDocs }),
+      add: jest.fn().mockResolvedValue({ id: 'new-funnel' }),
+    }
   })
 }
 

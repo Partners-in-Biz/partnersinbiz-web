@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic'
 import { useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { AnalyticsNav } from '@/components/admin/AnalyticsNav'
+import { AnalyticsPropertyPicker } from '@/components/admin/AnalyticsPropertyPicker'
 
 interface Session {
   id: string
@@ -13,20 +14,27 @@ interface Session {
   device: string | null
   country: string | null
   utmSource: string | null
-  startedAt: any
-  lastActivityAt: any
+  startedAt: unknown
+  lastActivityAt: unknown
 }
 
-function formatTs(ts: any): string {
+function timestampSeconds(ts: unknown): number | null {
+  if (!ts) return null
+  const source = ts as { _seconds?: number; seconds?: number }
+  return source._seconds ?? source.seconds ?? null
+}
+
+function formatTs(ts: unknown): string {
   if (!ts) return '—'
-  const d = ts._seconds ? new Date(ts._seconds * 1000) : new Date(ts)
+  const seconds = timestampSeconds(ts)
+  const d = typeof seconds === 'number' ? new Date(seconds * 1000) : new Date(ts as string)
   return d.toLocaleString()
 }
 
-function durationLabel(start: any, end: any): string {
+function durationLabel(start: unknown, end: unknown): string {
   if (!start || !end) return '—'
-  const s = (start._seconds ?? 0)
-  const e = (end._seconds ?? 0)
+  const s = timestampSeconds(start) ?? 0
+  const e = timestampSeconds(end) ?? 0
   const diff = e - s
   if (diff < 60) return `${diff}s`
   return `${Math.floor(diff / 60)}m ${diff % 60}s`
@@ -62,20 +70,12 @@ export default function SessionsPage() {
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
-      <AnalyticsNav active="sessions" />
+      <AnalyticsNav active="sessions" propertyId={propertyId} />
       <h1 className="text-xl font-headline font-bold text-on-surface">Sessions</h1>
 
-      <div className="pib-card p-4 flex flex-wrap gap-3 items-end">
-        <div>
-          <label className="text-xs text-on-surface-variant font-label block mb-1">Property ID</label>
-          <input
-            type="text"
-            value={propertyId}
-            onChange={e => setPropertyId(e.target.value)}
-            placeholder="prop-abc123"
-            className="pib-input text-sm w-56"
-          />
-        </div>
+      <div className="pib-card p-4 space-y-3">
+        <AnalyticsPropertyPicker value={propertyId} onChange={setPropertyId} />
+        <div className="flex flex-wrap gap-3 items-end">
         <div>
           <label className="text-xs text-on-surface-variant font-label block mb-1">From</label>
           <input type="date" value={from} onChange={e => setFrom(e.target.value)} className="pib-input text-sm" />
@@ -87,6 +87,7 @@ export default function SessionsPage() {
         <button onClick={fetchSessions} disabled={!propertyId || loading} className="pib-btn-primary text-sm font-label">
           {loading ? 'Loading…' : 'Search'}
         </button>
+        </div>
       </div>
 
       {sessions.length > 0 && (

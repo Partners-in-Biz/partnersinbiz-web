@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic'
 import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { AnalyticsNav } from '@/components/admin/AnalyticsNav'
+import { AnalyticsPropertyPicker } from '@/components/admin/AnalyticsPropertyPicker'
 
 interface LiveEvent {
   id: string
@@ -23,6 +24,14 @@ const EVENT_COLORS: Record<string, string> = {
   'signup_completed': 'text-green-400',
 }
 const defaultColor = 'text-amber-400'
+
+function formatLiveTime(value: unknown): string {
+  if (!value) return 'now'
+  const source = value as { _seconds?: number; seconds?: number; toDate?: () => Date }
+  if (typeof source.toDate === 'function') return source.toDate().toLocaleTimeString()
+  const seconds = source._seconds ?? source.seconds
+  return typeof seconds === 'number' ? new Date(seconds * 1000).toLocaleTimeString() : 'now'
+}
 
 export default function LivePage() {
   const sp = useSearchParams()
@@ -64,7 +73,7 @@ export default function LivePage() {
 
   return (
     <div className="p-6 space-y-6">
-      <AnalyticsNav active="live" />
+      <AnalyticsNav active="live" propertyId={propertyId} />
       <div className="flex items-center gap-4">
         <h1 className="text-2xl font-headline font-bold text-on-surface">Live</h1>
         {active && (
@@ -75,16 +84,14 @@ export default function LivePage() {
         )}
       </div>
 
-      <div className="pib-card p-4 flex gap-3 items-end">
-        <div className="flex-1">
-          <label className="text-xs font-label uppercase tracking-widest text-on-surface-variant block mb-1">Property ID</label>
-          <input className="pib-input w-full" value={propertyId} onChange={e => setPropertyId(e.target.value)}
-            placeholder="prop_abc" disabled={active} />
+      <div className="pib-card p-4 space-y-3">
+        <AnalyticsPropertyPicker value={propertyId} onChange={setPropertyId} disabled={active} />
+        <div className="flex justify-end">
+          {!active
+            ? <button className="pib-btn-primary" onClick={start} disabled={!propertyId}>Start</button>
+            : <button className="pib-btn-secondary" onClick={stop}>Stop</button>
+          }
         </div>
-        {!active
-          ? <button className="pib-btn-primary" onClick={start} disabled={!propertyId}>Start</button>
-          : <button className="pib-btn-secondary" onClick={stop}>Stop</button>
-        }
       </div>
 
       {events.length === 0 && active && (
@@ -107,9 +114,7 @@ export default function LivePage() {
                 </p>
               </div>
               <span className="text-on-surface-variant text-xs whitespace-nowrap">
-                {(ev.serverTime as any)?._seconds
-                  ? new Date((ev.serverTime as any)._seconds * 1000).toLocaleTimeString()
-                  : 'now'}
+                {formatLiveTime(ev.serverTime)}
               </span>
             </div>
           ))}

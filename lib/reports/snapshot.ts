@@ -8,7 +8,7 @@
 // portal dashboard and the report generator consume it.
 
 import { adminDb } from '@/lib/firebase/admin'
-import { dailySeries, listMetrics, lastValue, sumZar, sumValue } from '@/lib/metrics/query'
+import { dailySeries, lastValue, sumZar, sumValue } from '@/lib/metrics/query'
 import type {
   ReportKpis,
   ReportPeriod,
@@ -77,9 +77,88 @@ interface SnapshotResult {
   series: ReportSeries[]
 }
 
+interface ProductAnalyticsKpis {
+  sessions: number
+  pageviews: number
+  users: number
+  conversions: number
+}
+
 function pct(curr: number, prev: number): number | null {
   if (prev === 0) return null
   return ((curr - prev) / prev) * 100
+}
+
+function isPageviewEvent(event: unknown): boolean {
+  return event === '$pageview' || event === 'page_view' || event === 'pageview'
+}
+
+function isConversionEvent(data: Record<string, unknown>): boolean {
+  if ((data.properties as { conversion?: unknown } | undefined)?.conversion === true) return true
+  const event = typeof data.event === 'string' ? data.event.toLowerCase() : ''
+  return [
+    'conversion',
+    'lead_submitted',
+    'form_submitted',
+    'signup',
+    'signup_completed',
+    'purchase',
+    'checkout_completed',
+  ].includes(event)
+}
+
+async function productAnalyticsForScope(
+  orgId: string,
+  period: ReportPeriod,
+  propertyId?: string,
+): Promise<ProductAnalyticsKpis> {
+  const start = new Date(period.start + 'T00:00:00Z')
+  const end = new Date(period.end + 'T23:59:59Z')
+
+  let sessionsQuery: FirebaseFirestore.Query = adminDb
+    .collection('product_sessions')
+    .where('orgId', '==', orgId)
+    .where('startedAt', '>=', start)
+    .where('startedAt', '<=', end)
+
+  let eventsQuery: FirebaseFirestore.Query = adminDb
+    .collection('product_events')
+    .where('orgId', '==', orgId)
+    .where('serverTime', '>=', start)
+    .where('serverTime', '<=', end)
+
+  if (propertyId) {
+    sessionsQuery = sessionsQuery.where('propertyId', '==', propertyId)
+    eventsQuery = eventsQuery.where('propertyId', '==', propertyId)
+  }
+
+  const [sessionsSnap, eventsSnap] = await Promise.all([
+    sessionsQuery.get().catch(() => ({ docs: [] as FirebaseFirestore.QueryDocumentSnapshot[] })),
+    eventsQuery.get().catch(() => ({ docs: [] as FirebaseFirestore.QueryDocumentSnapshot[] })),
+  ])
+
+  const users = new Set<string>()
+  let pageviews = 0
+  let conversions = 0
+
+  for (const doc of eventsSnap.docs) {
+    const data = doc.data() as Record<string, unknown>
+    if (typeof data.distinctId === 'string' && data.distinctId) users.add(data.distinctId)
+    if (isPageviewEvent(data.event)) pageviews++
+    if (isConversionEvent(data)) conversions++
+  }
+
+  for (const doc of sessionsSnap.docs) {
+    const data = doc.data() as { distinctId?: unknown }
+    if (typeof data.distinctId === 'string' && data.distinctId) users.add(data.distinctId)
+  }
+
+  return {
+    sessions: sessionsSnap.docs.length,
+    pageviews,
+    users: users.size,
+    conversions,
+  }
 }
 
 async function snapshotForScope(orgId: string, period: ReportPeriod, propertyId?: string): Promise<Partial<ReportKpis>> {
@@ -121,6 +200,8 @@ async function snapshotForScope(orgId: string, period: ReportPeriod, propertyId?
     lastValue({ ...base, metric: 'roas' }),
   ])
 
+  const firstPartyAnalytics = await productAnalyticsForScope(orgId, period, propertyId)
+
   return {
     mrr: mrr ?? 0,
     arr: arr ?? 0,
@@ -136,10 +217,10 @@ async function snapshotForScope(orgId: string, period: ReportPeriod, propertyId?
     clicks,
     installs,
     uninstalls,
-    sessions,
-    pageviews,
-    users,
-    conversions,
+    sessions: sessions || firstPartyAnalytics.sessions,
+    pageviews: pageviews || firstPartyAnalytics.pageviews,
+    users: users || firstPartyAnalytics.users,
+    conversions: conversions || firstPartyAnalytics.conversions,
     ad_spend: adSpend,
     roas,
   }

@@ -12,6 +12,12 @@ interface Org {
   slug?: string
 }
 
+interface PropertyOption {
+  id: string
+  name: string
+  domain: string
+}
+
 interface Report {
   id: string
   orgId: string
@@ -42,6 +48,8 @@ function fmtTs(ts: { _seconds: number } | null) {
 export default function AdminReportsPage() {
   const [orgs, setOrgs] = useState<Org[]>([])
   const [orgId, setOrgId] = useState<string>('')
+  const [propertyId, setPropertyId] = useState<string>('')
+  const [properties, setProperties] = useState<PropertyOption[]>([])
   const [reports, setReports] = useState<Report[]>([])
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
@@ -99,6 +107,25 @@ export default function AdminReportsPage() {
     if (orgId) loadReports(orgId)
   }, [orgId, loadReports])
 
+  useEffect(() => {
+    if (!orgId) {
+      setProperties([])
+      setPropertyId('')
+      return
+    }
+    let cancelled = false
+    ;(async () => {
+      try {
+        const r = await fetch(`/api/v1/properties?${new URLSearchParams({ orgId })}`)
+        const data = await r.json()
+        if (!cancelled) setProperties((data.data ?? []) as PropertyOption[])
+      } catch {
+        if (!cancelled) setProperties([])
+      }
+    })()
+    return () => { cancelled = true }
+  }, [orgId])
+
   async function generateNow() {
     if (!orgId) return
     setGenerating(true)
@@ -106,7 +133,7 @@ export default function AdminReportsPage() {
       const r = await fetch('/api/v1/reports', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ orgId, type: 'monthly' }),
+        body: JSON.stringify({ orgId, propertyId: propertyId || undefined, type: 'monthly' }),
       })
       const data = await r.json()
       if (data.ok) {
@@ -155,11 +182,26 @@ export default function AdminReportsPage() {
         <div className="flex items-center gap-3">
           <select
             value={orgId}
-            onChange={(e) => setOrgId(e.target.value)}
+            onChange={(e) => {
+              setOrgId(e.target.value)
+              setPropertyId('')
+            }}
             className="bg-white/[0.04] border border-white/10 rounded-full px-4 py-2 text-sm text-white"
           >
             {orgs.map((o) => (
               <option key={o.id} value={o.id} className="bg-[#0A0A0B]">{o.name}</option>
+            ))}
+          </select>
+          <select
+            value={propertyId}
+            onChange={(e) => setPropertyId(e.target.value)}
+            className="bg-white/[0.04] border border-white/10 rounded-full px-4 py-2 text-sm text-white"
+          >
+            <option value="" className="bg-[#0A0A0B]">All properties</option>
+            {properties.map((property) => (
+              <option key={property.id} value={property.id} className="bg-[#0A0A0B]">
+                {property.name} - {property.domain}
+              </option>
             ))}
           </select>
           <button

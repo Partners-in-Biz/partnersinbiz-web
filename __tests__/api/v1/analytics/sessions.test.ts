@@ -17,6 +17,16 @@ function makeReq(url: string) {
 function mockCollection(col: string, docs: object[]) {
   const mockDocs = docs.map((d: any) => ({ id: d.id ?? 'sess-1', data: () => d }))
   ;(adminDb.collection as jest.Mock).mockImplementation((c: string) => {
+    if (c === 'properties')
+      return {
+        doc: jest.fn().mockReturnValue({
+          get: jest.fn().mockResolvedValue({
+            exists: true,
+            id: 'prop-1',
+            data: () => ({ orgId: 'org-1', deleted: false }),
+          }),
+        }),
+      }
     if (c === col)
       return {
         where: jest.fn().mockReturnThis(),
@@ -77,7 +87,7 @@ describe('GET /api/v1/analytics/sessions/:id', () => {
   beforeEach(() => jest.clearAllMocks())
 
   it('returns session with events', async () => {
-    mockCollection('product_sessions', [{ id: 'sess-1', distinctId: 'anon_1' }])
+    mockCollection('product_sessions', [{ id: 'sess-1', propertyId: 'prop-1', distinctId: 'anon_1' }])
     const ctx = { params: Promise.resolve({ id: 'sess-1' }) }
     const res = await GET_DETAIL(
       makeReq('http://localhost/api/v1/analytics/sessions/sess-1'),
