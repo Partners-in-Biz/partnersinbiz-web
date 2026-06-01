@@ -33,6 +33,9 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
   if (!access.ok) return access.response
 
   const document = access.document
+  if (user.role !== 'client') {
+    return apiError('Only a client user can formally accept on behalf of the client organisation. Use the countersign route for the Partners in Biz signature.', 403)
+  }
   if (document.approvalMode !== 'formal_acceptance') return apiError('Document does not use formal acceptance', 400)
   if (!document.latestPublishedVersionId) return apiError('Publish a version before acceptance', 400)
 

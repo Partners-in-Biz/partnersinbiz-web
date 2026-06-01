@@ -239,6 +239,32 @@ describe('client document approvals API', () => {
     )
   })
 
+  it('does not let an admin use the client acceptance route as the client signature', async () => {
+    const adminUser = { uid: 'admin-1', role: 'admin' as const, orgId: 'org-1' }
+    mockDocumentGet.mockResolvedValueOnce({
+      exists: true,
+      id: 'doc-1',
+      data: () => ({
+        orgId: 'org-1',
+        approvalMode: 'formal_acceptance',
+        latestPublishedVersionId: 'version-1',
+        deleted: false,
+      }),
+    })
+
+    const { POST } = await import('@/app/api/v1/client-documents/[id]/accept/route')
+    const req = jsonRequest('http://localhost/api/v1/client-documents/doc-1/accept', {
+      typedName: 'Peet Stander',
+      checkboxText: 'I accept this agreement.',
+    })
+
+    const res = await POST(req, adminUser, { params: Promise.resolve({ id: 'doc-1' }) })
+
+    expect(res.status).toBe(403)
+    expect(mockBatchSet).not.toHaveBeenCalled()
+    expect(mockBatchUpdate).not.toHaveBeenCalled()
+  })
+
   it('lets an admin countersign a formal agreement for Partners in Biz', async () => {
     const adminUser = { uid: 'admin-1', role: 'admin' as const, orgId: 'org-1' }
     mockDocumentGet.mockResolvedValueOnce({
