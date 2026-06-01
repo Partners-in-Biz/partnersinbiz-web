@@ -180,4 +180,16 @@ describe('Portal deal detail page', () => {
 
     expect(await screen.findByRole('link', { name: 'Ava Owner' })).toHaveAttribute('href', '/portal/contacts/contact-1')
   })
+
+  it('uses contact-aware activity empty state actions for linked deals', async () => {
+    render(<DealDetailPage />)
+
+    expect(await screen.findByRole('heading', { name: 'Enterprise rollout' })).toBeInTheDocument()
+    expect(await screen.findByText('Log the first note, call, email, or meeting so every employee can see who owns the conversation and what happened next.')).toBeInTheDocument()
+    expect(screen.queryByText('Link a contact before the first note, email, call, or meeting so every employee can see who owns the conversation and what happened next.')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Log first activity for Enterprise rollout' }))
+
+    expect(pushMock).toHaveBeenCalledWith('/portal/contacts/contact-1?activity=note')
+  })
 })

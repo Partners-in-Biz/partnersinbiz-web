@@ -558,6 +558,21 @@ export default function DealDetailPage() {
       onClick: () => setEditOpen(true),
     },
   ]
+  const activityEmptyState = deal.contactId
+    ? {
+      copy: 'Log the first note, call, email, or meeting so every employee can see who owns the conversation and what happened next.',
+      buttonLabel: 'Log first activity',
+      ariaLabel: `Log first activity for ${deal.title ?? 'this deal'}`,
+      icon: 'note_add',
+      onClick: () => router.push(`/portal/contacts/${deal.contactId}?activity=note`),
+    }
+    : {
+      copy: 'Link a contact before the first note, email, call, or meeting so every employee can see who owns the conversation and what happened next.',
+      buttonLabel: 'Link contact and start activity',
+      ariaLabel: `Link contact and start activity for ${deal.title ?? 'this deal'}`,
+      icon: 'person_add',
+      onClick: () => setEditOpen(true),
+    }
 
   return (
     <div className="space-y-6">
@@ -1076,17 +1091,17 @@ export default function DealDetailPage() {
                     </p>
                     <h3 className="mt-1 text-base font-semibold text-[var(--color-pib-text)]">Anchor the first deal activity</h3>
                     <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">
-                      Link a contact before the first note, email, call, or meeting so every employee can see who owns the conversation and what happened next.
+                      {activityEmptyState.copy}
                     </p>
                   </div>
                   <button
                     type="button"
-                    onClick={() => setEditOpen(true)}
+                    onClick={activityEmptyState.onClick}
                     className="pib-btn-primary mt-4 inline-flex items-center gap-1.5 text-sm"
-                    aria-label={`Link contact and start activity for ${deal.title ?? 'this deal'}`}
+                    aria-label={activityEmptyState.ariaLabel}
                   >
-                    <span className="material-symbols-outlined text-base">person_add</span>
-                    Link contact and start activity
+                    <span className="material-symbols-outlined text-base">{activityEmptyState.icon}</span>
+                    {activityEmptyState.buttonLabel}
                   </button>
                 </div>
               </div>
