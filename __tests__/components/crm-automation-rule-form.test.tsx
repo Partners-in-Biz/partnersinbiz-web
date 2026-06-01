@@ -2,6 +2,10 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { AutomationRuleForm } from '@/components/crm/AutomationRuleForm'
 
 describe('AutomationRuleForm', () => {
+  beforeEach(() => {
+    jest.restoreAllMocks()
+  })
+
   it('names every primary automation builder control with CRM language', () => {
     render(<AutomationRuleForm onSave={jest.fn()} onCancel={jest.fn()} />)
 
@@ -16,5 +20,29 @@ describe('AutomationRuleForm', () => {
     expect(screen.getByRole('combobox', { name: 'Action 1 type' })).toBeInTheDocument()
     expect(screen.getByRole('combobox', { name: 'Action 1 notification recipient' })).toBeInTheDocument()
     expect(screen.getByRole('textbox', { name: 'Action 1 notification message' })).toBeInTheDocument()
+  })
+
+  it('only offers active sequences for automation enrollment actions', async () => {
+    const fetchMock = jest.fn().mockResolvedValue({
+      json: async () => ({
+        data: {
+          sequences: [
+            { id: 'seq-active', name: 'Active welcome', status: 'active' },
+            { id: 'seq-draft', name: 'Draft welcome', status: 'draft' },
+          ],
+        },
+      }),
+    } as Response)
+    Object.defineProperty(global, 'fetch', { value: fetchMock, writable: true })
+
+    render(<AutomationRuleForm onSave={jest.fn()} onCancel={jest.fn()} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add action' }))
+    fireEvent.change(screen.getByRole('combobox', { name: 'Action 1 type' }), {
+      target: { value: 'enroll_in_sequence' },
+    })
+
+    expect(await screen.findByRole('option', { name: 'Active welcome' })).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: 'Draft welcome' })).not.toBeInTheDocument()
   })
 })

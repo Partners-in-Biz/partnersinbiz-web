@@ -236,6 +236,22 @@ describe('POST /api/v1/crm/sequences/:id/enrollments', () => {
     expect(res.status).toBe(404)
   })
 
+  it('returns 400 when sequence is not active', async () => {
+    const uid = uidFor('member-enroll-inactive')
+    const member = seedOrgMember('org-1', uid, { role: 'member' })
+    stageAuth(member)
+    ;(sequenceStore.getSequence as jest.Mock).mockResolvedValue(buildSequence({ status: 'draft' }))
+
+    const req = callAsMember(member, 'POST', '/api/v1/crm/sequences/seq-1/enrollments', {
+      contactId: 'contact-1',
+    })
+    const res = await seqEnrollmentsRoute.POST(req, { params: Promise.resolve({ id: 'seq-1' }) })
+
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toMatch(/active/i)
+    expect(enrollmentModule.enrollContact).not.toHaveBeenCalled()
+  })
+
   it('returns 500 when enrollContact throws', async () => {
     const uid = uidFor('member-enroll-err')
     const member = seedOrgMember('org-1', uid, { role: 'member' })

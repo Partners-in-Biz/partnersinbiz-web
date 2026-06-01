@@ -44,6 +44,9 @@ export const POST = withCrmAuth<RouteCtx>('member', async (req, ctx, routeCtx) =
   try {
     const sequence = await getSequence(ctx.orgId, id)
     if (!sequence) return apiError('Not found', 404)
+    if (sequence.status !== 'active') {
+      return apiError('Sequence must be active before enrollment', 400)
+    }
 
     const firstStepDelayDays = sequence.steps[0]?.delayDays ?? 0
 

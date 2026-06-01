@@ -30,8 +30,13 @@ jest.mock('@/lib/automations/store', () => ({
   markFailed: jest.fn(),
 }))
 
+jest.mock('@/lib/sequences/store', () => ({
+  getSequence: jest.fn(),
+}))
+
 import { adminAuth, adminDb } from '@/lib/firebase/admin'
 import * as automationStore from '@/lib/automations/store'
+import * as sequenceStore from '@/lib/sequences/store'
 import { seedOrgMember, callAsMember } from '../../../../helpers/crm'
 
 const AI_API_KEY = 'test-ai-key-automations-root'
@@ -100,6 +105,13 @@ function stageAuth(member: { uid: string; orgId: string; role: string; firstName
 
 beforeEach(() => {
   jest.clearAllMocks()
+  ;(sequenceStore.getSequence as jest.Mock).mockResolvedValue({
+    id: 'seq-active',
+    orgId: 'org-1',
+    name: 'Active welcome',
+    status: 'active',
+    steps: [{ stepNumber: 0, delayDays: 0, subject: 'Hi', bodyHtml: '<p>Hi</p>', bodyText: 'Hi' }],
+  })
 })
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -279,6 +291,30 @@ describe('POST /api/v1/crm/automations', () => {
 
     const [, calledInput] = (automationStore.createRule as jest.Mock).mock.calls[0]
     expect(calledInput.enabled).toBe(true)
+  })
+
+  it('returns 400 when a sequence enrollment action targets an inactive sequence', async () => {
+    const uid = uidFor('admin-inactive-sequence')
+    const member = seedOrgMember('org-1', uid, { role: 'admin' })
+    stageAuth(member)
+    ;(sequenceStore.getSequence as jest.Mock).mockResolvedValueOnce({
+      id: 'seq-draft',
+      orgId: 'org-1',
+      name: 'Draft welcome',
+      status: 'draft',
+      steps: [{ stepNumber: 0, delayDays: 0, subject: 'Hi', bodyHtml: '<p>Hi</p>', bodyText: 'Hi' }],
+    })
+
+    const req = callAsMember(member, 'POST', '/api/v1/crm/automations', {
+      name: 'Enroll new contact',
+      trigger: { event: 'contact.created' },
+      actions: [{ type: 'enroll_in_sequence', sequenceId: 'seq-draft' }],
+    })
+    const res = await routeModule.POST(req)
+
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toMatch(/active sequence/i)
+    expect(automationStore.createRule).not.toHaveBeenCalled()
   })
 
   it('returns 400 for empty body', async () => {

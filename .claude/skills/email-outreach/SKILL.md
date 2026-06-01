@@ -187,6 +187,8 @@ Preferred CRM-scoped endpoints for portal and agent work:
 
 Activation rule: agents may save incomplete sequences as `draft`, but `active` sequences must have at least one step and every step must be sendable. Email steps require `subject` plus `bodyHtml` or `bodyText`; SMS steps require `smsBody`. The CRM and legacy sequence APIs reject activation with a 400 when this launch-readiness check fails.
 
+Enrollment rule: contacts may only be enrolled into `active` sequences. Manual CRM enrollment, legacy enrollment, and CRM automation actions reject draft/paused/missing sequences before creating a `sequence_enrollments` row. For automation capture flows, use `POST /crm/automations` or `PUT /crm/automations/[id]` with an action such as `{ "type": "enroll_in_sequence", "sequenceId": "seq_active" }`; the sequence picker and API only allow active launch-ready sequences, and the executor uses the first step's `delayDays` when scheduling `nextSendAt`.
+
 Legacy endpoints still exist for admin/property integrations:
 
 ## `GET /sequences?orgId=...&status=...` — auth: client

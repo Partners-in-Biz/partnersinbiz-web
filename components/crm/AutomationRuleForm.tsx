@@ -53,11 +53,14 @@ function SequencePickerInline({
   onChange: (id: string, name: string) => void
   label: string
 }) {
-  const [sequences, setSequences] = useState<{ id: string; name: string }[]>([])
+  const [sequences, setSequences] = useState<{ id: string; name: string; status?: string }[]>([])
   useEffect(() => {
     fetch('/api/v1/crm/sequences')
       .then(r => r.json())
-      .then(b => setSequences(b.data?.sequences ?? b.data ?? []))
+      .then(b => {
+        const allSequences = (b.data?.sequences ?? b.data ?? []) as { id: string; name: string; status?: string }[]
+        setSequences(allSequences.filter((sequence) => sequence.status === 'active'))
+      })
       .catch(() => {})
   }, [])
   return (

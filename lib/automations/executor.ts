@@ -95,6 +95,34 @@ async function executeDispatchWebhook(action: AutomationAction, context: Trigger
   }
 }
 
+async function executeEnrollInSequence(action: AutomationAction, context: TriggerContext): Promise<void> {
+  if (!action.sequenceId) {
+    throw new Error('Sequence is required for automation enrollment')
+  }
+
+  if (!context.contactId) {
+    throw new Error('Contact is required to enroll in a sequence')
+  }
+
+  const [{ getSequence }, { enrollContact }, { AGENT_PIP_REF }] = await Promise.all([
+    import('@/lib/sequences/store'),
+    import('@/lib/sequences/enrollment'),
+    import('@/lib/orgMembers/memberRef'),
+  ])
+
+  const sequence = await getSequence(context.orgId, action.sequenceId)
+  if (!sequence) {
+    throw new Error('Sequence not found')
+  }
+
+  if (sequence.status !== 'active') {
+    throw new Error('Sequence must be active before automation enrollment')
+  }
+
+  const firstStepDelayDays = sequence.steps[0]?.delayDays ?? 0
+  await enrollContact(context.orgId, action.sequenceId, context.contactId, AGENT_PIP_REF, firstStepDelayDays)
+}
+
 export async function executeActions(
   actions: AutomationAction[],
   context: TriggerContext,
@@ -118,13 +146,9 @@ export async function executeActions(
         case 'dispatch_webhook':
           await executeDispatchWebhook(action, context)
           break
-        case 'enroll_in_sequence': {
-          if (!action.sequenceId || !context.contactId) break
-          const { enrollContact } = await import('@/lib/sequences/enrollment')
-          const { AGENT_PIP_REF } = await import('@/lib/orgMembers/memberRef')
-          await enrollContact(context.orgId, action.sequenceId, context.contactId, AGENT_PIP_REF, 0)
+        case 'enroll_in_sequence':
+          await executeEnrollInSequence(action, context)
           break
-        }
         default: {
           const _exhaustive: never = action.type
           throw new Error(`Unknown action type: ${_exhaustive}`)
