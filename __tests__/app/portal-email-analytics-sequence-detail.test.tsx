@@ -25,9 +25,26 @@ beforeEach(() => {
         success: true,
         data: {
           sequenceId: 'seq-1',
+          sequence: {
+            id: 'seq-1',
+            name: 'Website welcome sequence',
+            description: 'Turns new website leads into booked calls.',
+            status: 'active',
+            stepsCount: 1,
+          },
           totalEnrollments: 42,
           byStatus: { active: 30, paused: 2, completed: 10, exited: 0 },
           averageCompletionDays: 6.5,
+          insights: {
+            completionRate: 0.2381,
+            openRate: 0.7381,
+            clickRate: 0.2857,
+            weakestStepNumber: 1,
+            nextActions: [
+              'Review Step 1 subject, offer, and call to action because it has the largest drop-off.',
+              'Connect this sequence to capture sources or automations that qualify website leads.',
+            ],
+          },
           stepFunnel: [
             {
               stepNumber: 1,
@@ -47,7 +64,11 @@ describe('PortalSequenceAnalyticsPage', () => {
   it('renders sequence analytics for portal users', async () => {
     render(<PortalSequenceAnalyticsPage params={Promise.resolve({ id: 'seq-1' })} />)
 
-    expect(await screen.findByRole('heading', { name: 'Sequence performance' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Website welcome sequence performance' })).toBeInTheDocument()
+    expect(screen.getByText('Turns new website leads into booked calls.')).toBeInTheDocument()
+    expect(screen.getByText('Active sequence · 1 step')).toBeInTheDocument()
+    expect(screen.getByText('Agent next moves')).toBeInTheDocument()
+    expect(screen.getByText(/Review Step 1 subject/)).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /Back to email analytics/i })).toHaveAttribute(
       'href',
       '/portal/email-analytics',

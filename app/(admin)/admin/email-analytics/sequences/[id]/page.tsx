@@ -46,7 +46,9 @@ export default function SequenceAnalyticsPage({
     )
   }
 
-  const { totalEnrollments, byStatus, stepFunnel, averageCompletionDays } = data
+  const { totalEnrollments, byStatus, stepFunnel, averageCompletionDays, sequence, insights } = data
+  const sequenceName = sequence?.name || 'Sequence'
+  const sequenceDescription = sequence?.description || `ID: ${id}`
   const statusData = Object.entries(byStatus)
     .filter(([, v]) => v > 0)
     .map(([label, value]) => ({ label, value }))
@@ -56,10 +58,15 @@ export default function SequenceAnalyticsPage({
       <Link href="/admin/email-analytics" className="text-amber-500 text-sm hover:underline">
         ← Back to email analytics
       </Link>
-      <h1 className="text-2xl font-semibold text-on-surface">Sequence detail</h1>
-      <p className="text-xs text-on-surface-variant">ID: {id}</p>
+      <header>
+        <h1 className="text-2xl font-semibold text-on-surface">{sequenceName} performance</h1>
+        <p className="mt-2 text-sm text-on-surface-variant">{sequenceDescription}</p>
+        <p className="mt-2 text-xs text-on-surface-variant">
+          {formatStatus(sequence?.status)} · {formatSteps(sequence?.stepsCount ?? stepFunnel.length)}
+        </p>
+      </header>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
         <Kpi label="Total enrolled" value={totalEnrollments} />
         <Kpi label="Active" value={byStatus.active ?? 0} />
         <Kpi label="Completed" value={byStatus.completed ?? 0} />
@@ -68,7 +75,22 @@ export default function SequenceAnalyticsPage({
           value={averageCompletionDays}
           sub={averageCompletionDays > 0 ? 'days' : '—'}
         />
+        <Kpi label="Open rate" value={formatPercent(insights?.openRate ?? 0)} />
+        <Kpi label="Click rate" value={formatPercent(insights?.clickRate ?? 0)} />
       </div>
+
+      {insights?.nextActions?.length > 0 && (
+        <Section title="Agent next moves">
+          <ul className="space-y-2 text-sm text-on-surface">
+            {insights.nextActions.map((action) => (
+              <li key={action} className="flex gap-2">
+                <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" />
+                <span>{action}</span>
+              </li>
+            ))}
+          </ul>
+        </Section>
+      )}
 
       <div className="grid md:grid-cols-2 gap-6">
         <Section title="Enrollment status">
@@ -131,13 +153,14 @@ function Kpi({
   sub,
 }: {
   label: string
-  value: number
+  value: number | string
   sub?: string
 }) {
+  const displayValue = typeof value === 'number' ? value.toLocaleString() : value
   return (
     <div className="rounded-xl bg-surface-container p-4">
       <div className="text-xs text-on-surface-variant">{label}</div>
-      <div className="text-2xl font-semibold text-on-surface">{value.toLocaleString()}</div>
+      <div className="text-2xl font-semibold text-on-surface">{displayValue}</div>
       {sub && <div className="text-xs text-on-surface-variant mt-1">{sub}</div>}
     </div>
   )
@@ -154,4 +177,17 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 function Empty({ children }: { children: React.ReactNode }) {
   return <div className="text-on-surface-variant text-sm">{children}</div>
+}
+
+function formatStatus(status?: string): string {
+  if (!status) return 'Sequence'
+  return `${status.charAt(0).toUpperCase()}${status.slice(1)} sequence`
+}
+
+function formatSteps(count: number): string {
+  return `${count} ${count === 1 ? 'step' : 'steps'}`
+}
+
+function formatPercent(value: number): string {
+  return `${(value * 100).toFixed(1)}%`
 }

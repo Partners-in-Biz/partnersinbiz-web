@@ -57,7 +57,9 @@ export default function PortalSequenceAnalyticsPage({
     )
   }
 
-  const { totalEnrollments, byStatus, stepFunnel, averageCompletionDays } = data
+  const { totalEnrollments, byStatus, stepFunnel, averageCompletionDays, sequence, insights } = data
+  const sequenceName = sequence?.name || 'Sequence'
+  const sequenceDescription = sequence?.description || `ID: ${id}`
   const statusData = Object.entries(byStatus)
     .filter(([, value]) => value > 0)
     .map(([label, value]) => ({ label, value }))
@@ -67,16 +69,34 @@ export default function PortalSequenceAnalyticsPage({
       <BackLink />
       <header>
         <p className="eyebrow">Email nurture</p>
-        <h1 className="pib-page-title mt-2">Sequence performance</h1>
-        <p className="pib-page-sub mt-2">ID: {id}</p>
+        <h1 className="pib-page-title mt-2">{sequenceName} performance</h1>
+        <p className="pib-page-sub mt-2">{sequenceDescription}</p>
+        <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">
+          {formatStatus(sequence?.status)} · {formatSteps(sequence?.stepsCount ?? stepFunnel.length)}
+        </p>
       </header>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-6">
         <Kpi label="Total enrolled" value={totalEnrollments} />
         <Kpi label="Active" value={byStatus.active ?? 0} />
         <Kpi label="Completed" value={byStatus.completed ?? 0} />
         <Kpi label="Avg completion" value={averageCompletionDays} sub={averageCompletionDays > 0 ? 'days' : '-'} />
+        <Kpi label="Open rate" value={formatPercent(insights?.openRate ?? 0)} />
+        <Kpi label="Click rate" value={formatPercent(insights?.clickRate ?? 0)} />
       </div>
+
+      {insights?.nextActions?.length > 0 && (
+        <Section title="Agent next moves">
+          <ul className="space-y-2 text-sm text-[var(--color-pib-text)]">
+            {insights.nextActions.map((action) => (
+              <li key={action} className="flex gap-2">
+                <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-pib-accent)]" />
+                <span>{action}</span>
+              </li>
+            ))}
+          </ul>
+        </Section>
+      )}
 
       <div className="grid gap-6 md:grid-cols-2">
         <Section title="Enrollment status">
@@ -140,11 +160,12 @@ function BackLink() {
   )
 }
 
-function Kpi({ label, value, sub }: { label: string; value: number; sub?: string }) {
+function Kpi({ label, value, sub }: { label: string; value: number | string; sub?: string }) {
+  const displayValue = typeof value === 'number' ? value.toLocaleString() : value
   return (
     <div className="rounded-xl border border-[var(--color-pib-line)] bg-white/[0.03] p-4">
       <div className="text-xs text-[var(--color-pib-text-muted)]">{label}</div>
-      <div className="text-2xl font-semibold text-[var(--color-pib-text)]">{value.toLocaleString()}</div>
+      <div className="text-2xl font-semibold text-[var(--color-pib-text)]">{displayValue}</div>
       {sub && <div className="mt-1 text-xs text-[var(--color-pib-text-muted)]">{sub}</div>}
     </div>
   )
@@ -161,4 +182,17 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 function Empty({ children }: { children: React.ReactNode }) {
   return <div className="text-sm text-[var(--color-pib-text-muted)]">{children}</div>
+}
+
+function formatStatus(status?: string): string {
+  if (!status) return 'Sequence'
+  return `${status.charAt(0).toUpperCase()}${status.slice(1)} sequence`
+}
+
+function formatSteps(count: number): string {
+  return `${count} ${count === 1 ? 'step' : 'steps'}`
+}
+
+function formatPercent(value: number): string {
+  return `${(value * 100).toFixed(1)}%`
 }
