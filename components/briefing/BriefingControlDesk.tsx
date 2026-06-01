@@ -2453,7 +2453,7 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                 </dl>
 
                 {(mode === 'admin' ? adminSourceHref(selected) : sourceHref(selected, mode)) ? (
-                  <a className="pib-btn-primary inline-flex w-full justify-center" href={(mode === 'admin' ? adminSourceHref(selected) : sourceHref(selected, mode)) ?? undefined}>
+                  <a className="pib-btn-primary inline-flex w-full justify-center" href={(mode === 'admin' ? adminSourceHref(selected) : sourceHref(selected, mode)) ?? undefined} target="_blank" rel="noopener noreferrer">
                     <span className="material-symbols-outlined text-[16px]" aria-hidden="true">open_in_new</span>
                     Open source
                   </a>
