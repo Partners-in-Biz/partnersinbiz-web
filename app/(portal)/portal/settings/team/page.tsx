@@ -151,6 +151,7 @@ export default function TeamPage() {
                 value={inviteRole}
                 onChange={e => setInviteRole(e.target.value as Exclude<OrgRole, 'owner'>)}
                 className="input-base text-sm"
+                aria-label="Invite role"
               >
                 {viewerRole === 'owner' && <option value="admin">Admin</option>}
                 <option value="member">Member</option>
@@ -174,6 +175,7 @@ export default function TeamPage() {
                 value={inviteAccessScope}
                 onChange={e => setInviteAccessScope(e.target.value)}
                 className="input-base text-sm"
+                aria-label="Invite workspace access"
               >
                 <option value="all">All workspace areas</option>
                 <option value="crm">CRM and sales</option>

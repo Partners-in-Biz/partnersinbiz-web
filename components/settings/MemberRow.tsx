@@ -75,9 +75,12 @@ export function MemberRow({ uid, firstName, lastName, jobTitle, department, acce
         <button
           onClick={() => onRemove(uid)}
           title={`Remove ${displayName}`}
+          aria-label={`Remove ${displayName}`}
           className="text-[var(--color-pib-text-muted)] hover:text-red-400 transition-colors p-1"
         >
-          <span className="material-symbols-outlined text-[18px]">person_remove</span>
+          <span className="material-symbols-outlined text-[18px]" aria-hidden="true">
+            person_remove
+          </span>
         </button>
       )}
     </div>
