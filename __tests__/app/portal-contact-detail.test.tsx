@@ -379,6 +379,28 @@ describe('Portal contact detail page', () => {
     expect(await screen.findByRole('button', { name: 'Enroll contact' })).toBeInTheDocument()
   })
 
+  it('names the sequence enrollment loading state for the active contact', async () => {
+    const defaultFetch = global.fetch as jest.Mock
+    const defaultFetchImpl = defaultFetch.getMockImplementation()
+    defaultFetch.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/contacts/contact-1/enrollments') {
+        return new Promise(() => undefined)
+      }
+      return defaultFetchImpl!(input, init)
+    })
+
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    expect(screen.getByText('Loading nurture workflow enrollment for Jane Client...')).toBeInTheDocument()
+    expect(screen.getByRole('status', { name: 'Loading nurture workflow enrollment for Jane Client' })).toHaveAttribute('aria-live', 'polite')
+    expect(screen.queryByText('Loading…')).not.toBeInTheDocument()
+  })
+
   it('turns an empty sequence picker into a setup action', async () => {
     render(<PortalContactDetailPage />)
 
