@@ -72,6 +72,35 @@ describe('CompanyPanel', () => {
     expect(screen.getByRole('link', { name: 'Open Acme Growth' })).toHaveAttribute('href', '/portal/companies/company-1')
   })
 
+  it('keeps long linked company names readable in the narrow contact rail', async () => {
+    const longName = 'North Pretoria Strategic Growth Advisory Collective'
+
+    global.fetch = jest.fn(() => Promise.resolve({
+      ok: true,
+      json: async () => ({
+        data: {
+          company: {
+            id: 'company-1',
+            orgId: 'org-1',
+            name: longName,
+            lifecycleStage: 'customer',
+            tags: [],
+            notes: '',
+            createdAt: null,
+            updatedAt: null,
+          },
+        },
+      }),
+    } as Response))
+
+    render(<CompanyPanel companyId="company-1" companyName={longName} />)
+
+    const companyName = await screen.findByText(longName)
+
+    expect(companyName).toHaveClass('break-words')
+    expect(companyName).not.toHaveClass('truncate')
+  })
+
   it('resolves nested company API responses into the linked company card', async () => {
     global.fetch = jest.fn(() => Promise.resolve({
       ok: true,
