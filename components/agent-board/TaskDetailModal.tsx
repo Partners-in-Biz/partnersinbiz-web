@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import type { AgentId, AgentTaskCard } from '@/lib/agent-board/types'
+import type { AgentTaskCard } from '@/lib/agent-board/types'
+import { buildBlockedTaskRecovery } from '@/lib/projects/blockerRecovery'
 
 const AGENT_COLORS: Record<string, string> = {
   pip: 'bg-amber-400/15 text-amber-200 border border-amber-400/30',
@@ -46,10 +47,14 @@ function formatRel(iso: string | null): string {
 type Props = {
   task: AgentTaskCard | null
   onClose: () => void
+  onRefresh?: () => void
   slug: string
 }
 
-export function TaskDetailModal({ task, onClose, slug }: Props) {
+export function TaskDetailModal({ task, onClose, onRefresh, slug }: Props) {
+  const [retrying, setRetrying] = useState(false)
+  const [retryError, setRetryError] = useState<string | null>(null)
+
   useEffect(() => {
     if (!task) return
     const onKey = (e: KeyboardEvent) => {
@@ -59,9 +64,52 @@ export function TaskDetailModal({ task, onClose, slug }: Props) {
     return () => document.removeEventListener('keydown', onKey)
   }, [task, onClose])
 
+  useEffect(() => {
+    setRetryError(null)
+    setRetrying(false)
+  }, [task?.id])
+
+  const blockerRecovery = useMemo(() => {
+    if (!task) return null
+    return buildBlockedTaskRecovery({
+      id: task.id,
+      title: task.title,
+      columnId: task.columnId,
+      agentStatus: task.agentStatus,
+      assigneeAgentId: task.assigneeAgentId,
+      agentInput: task.agentInputSpec ? { spec: task.agentInputSpec } : null,
+      agentOutput: task.agentOutputSummary ? { summary: task.agentOutputSummary } : null,
+      dependsOn: task.dependsOn,
+      labels: task.labels,
+    })
+  }, [task])
+
   if (!task) return null
 
   const statusLabel = task.agentStatus ? STATUS_LABELS[task.agentStatus] ?? task.agentStatus : 'No status'
+  const canRetry = task.source === 'standalone' && Boolean(blockerRecovery?.isBlocked)
+
+  const handleRetryTask = async () => {
+    if (!canRetry || retrying) return
+    setRetrying(true)
+    setRetryError(null)
+    try {
+      const res = await fetch(`/api/v1/tasks/${task.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ columnId: 'todo' }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok || body.success === false) {
+        throw new Error(body.error ?? `HTTP ${res.status}`)
+      }
+      onRefresh?.()
+    } catch (error) {
+      setRetryError(error instanceof Error ? error.message : String(error))
+    } finally {
+      setRetrying(false)
+    }
+  }
 
   return (
     <>
@@ -110,6 +158,35 @@ export function TaskDetailModal({ task, onClose, slug }: Props) {
             <p className="mt-1.5 text-sm text-on-surface-variant/60 italic">(no output yet)</p>
           )}
         </section>
+
+        {blockerRecovery?.isBlocked && (
+          <section className="mt-4 rounded-md border border-orange-500/25 bg-orange-500/5 p-3 text-xs text-on-surface-variant">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-[10px] font-medium uppercase tracking-wider text-orange-300">Unblock guidance</h3>
+              {canRetry && (
+                <button
+                  type="button"
+                  onClick={handleRetryTask}
+                  disabled={retrying}
+                  className="inline-flex items-center gap-1 rounded bg-orange-500/20 px-2 py-1 text-[10px] font-medium uppercase tracking-wide text-orange-300 transition hover:bg-orange-500/30 disabled:opacity-40"
+                  title="Move back to To Do and let it be tried again"
+                >
+                  <span className="material-symbols-outlined text-[12px]" aria-hidden="true">replay</span>
+                  {retrying ? 'Trying...' : 'Try again'}
+                </button>
+              )}
+            </div>
+            <div className="mt-2 space-y-1.5">
+              <p><span className="text-on-surface">What is wrong:</span> {blockerRecovery.whatIsWrong}</p>
+              <p><span className="text-on-surface">Who/what can unblock:</span> {blockerRecovery.whoCanUnblock}</p>
+              <p><span className="text-on-surface">Proof needed:</span> {blockerRecovery.requiredEvidence}</p>
+              <p><span className="text-on-surface">Message for agent:</span> {blockerRecovery.messageForAgent}</p>
+              {retryError && (
+                <p className="rounded border border-red-500/20 bg-red-500/10 p-2 text-red-300">{retryError}</p>
+              )}
+            </div>
+          </section>
+        )}
 
         {task.projectId && task.projectName && (
           <section className="mt-4 text-sm text-on-surface-variant">
