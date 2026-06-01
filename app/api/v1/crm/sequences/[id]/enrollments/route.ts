@@ -4,7 +4,7 @@
  */
 import { withCrmAuth } from '@/lib/auth/crm-middleware'
 import { apiSuccess, apiError } from '@/lib/api/response'
-import { listEnrollments, enrollContact } from '@/lib/sequences/enrollment'
+import { listEnrollments, enrollContact, SequenceEnrollmentError } from '@/lib/sequences/enrollment'
 import { getSequence } from '@/lib/sequences/store'
 
 export const dynamic = 'force-dynamic'
@@ -56,6 +56,7 @@ export const POST = withCrmAuth<RouteCtx>('member', async (req, ctx, routeCtx) =
     )
     return apiSuccess({ enrollment }, 201)
   } catch (err) {
+    if (err instanceof SequenceEnrollmentError) return apiError(err.message, err.status)
     console.error('[sequence-enrollments-create-error]', err)
     return apiError('Internal Server Error', 500)
   }

@@ -26,7 +26,6 @@ jest.mock('firebase-admin/firestore', () => ({
   },
 }))
 
-// eslint-disable-next-line import/first
 import {
   enrollContact,
   unenrollContact,
@@ -49,12 +48,22 @@ function makeQuery() {
 }
 
 beforeEach(() => {
-  jest.clearAllMocks()
+  mockGet.mockReset()
+  mockDoc.mockReset()
+  mockAdd.mockReset()
+  mockDocUpdate.mockReset()
+  mockCollection.mockReset()
+  mockWhere.mockReset()
+  mockOrderBy.mockReset()
+  mockLimit.mockReset()
+  mockTimestampFromMillis.mockClear()
+  mockTimestampNow.mockClear()
   jest.spyOn(Date, 'now').mockReturnValue(MOCK_NOW_MS)
   const query = makeQuery()
   mockWhere.mockReturnValue(query)
   mockOrderBy.mockReturnValue(query)
   mockLimit.mockReturnValue(query)
+  mockDoc.mockReturnValue({ get: mockGet, update: mockDocUpdate })
   mockCollection.mockReturnValue({ doc: mockDoc, where: mockWhere, add: mockAdd })
 })
 
@@ -68,16 +77,22 @@ describe('enrollContact', () => {
   it('writes correct doc shape with nextSendAt computed from firstStepDelayDays', async () => {
     const fakeRef = { id: 'enr-1', get: mockGet }
     mockAdd.mockResolvedValue(fakeRef)
-    mockGet.mockResolvedValue({
-      data: () => ({
-        orgId: 'org-a',
-        sequenceId: 'seq-1',
-        contactId: 'con-1',
-        campaignId: '',
-        status: 'active',
-        currentStep: 0,
-      }),
-    })
+    mockGet
+      .mockResolvedValueOnce({
+        exists: true,
+        data: () => ({ orgId: 'org-a', deleted: false }),
+      })
+      .mockResolvedValueOnce({ docs: [] })
+      .mockResolvedValueOnce({
+        data: () => ({
+          orgId: 'org-a',
+          sequenceId: 'seq-1',
+          contactId: 'con-1',
+          campaignId: '',
+          status: 'active',
+          currentStep: 0,
+        }),
+      })
 
     await enrollContact('org-a', 'seq-1', 'con-1', ACTOR, 3)
 
@@ -101,11 +116,58 @@ describe('enrollContact', () => {
   it('returns the enrollment with its new id', async () => {
     const fakeRef = { id: 'enr-99', get: mockGet }
     mockAdd.mockResolvedValue(fakeRef)
-    mockGet.mockResolvedValue({
-      data: () => ({ orgId: 'org-a', sequenceId: 'seq-1', contactId: 'con-1', campaignId: '', status: 'active', currentStep: 0 }),
-    })
+    mockGet
+      .mockResolvedValueOnce({
+        exists: true,
+        data: () => ({ orgId: 'org-a', deleted: false }),
+      })
+      .mockResolvedValueOnce({ docs: [] })
+      .mockResolvedValueOnce({
+        data: () => ({ orgId: 'org-a', sequenceId: 'seq-1', contactId: 'con-1', campaignId: '', status: 'active', currentStep: 0 }),
+      })
     const result = await enrollContact('org-a', 'seq-1', 'con-1', ACTOR, 0)
     expect(result.id).toBe('enr-99')
+  })
+
+  it('returns an existing active enrollment instead of duplicating the contact', async () => {
+    mockGet
+      .mockResolvedValueOnce({
+        exists: true,
+        data: () => ({ orgId: 'org-a', deleted: false }),
+      })
+      .mockResolvedValueOnce({
+        docs: [
+          {
+            id: 'enr-existing',
+            data: () => ({
+              orgId: 'org-a',
+              sequenceId: 'seq-1',
+              contactId: 'con-1',
+              campaignId: '',
+              status: 'active',
+              currentStep: 0,
+            }),
+          },
+        ],
+      })
+
+    const result = await enrollContact('org-a', 'seq-1', 'con-1', ACTOR, 0)
+
+    expect(result.id).toBe('enr-existing')
+    expect(mockAdd).not.toHaveBeenCalled()
+  })
+
+  it('rejects contacts outside the workspace before creating an enrollment', async () => {
+    mockGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({ orgId: 'org-other', deleted: false }),
+    })
+
+    await expect(enrollContact('org-a', 'seq-1', 'con-1', ACTOR, 0)).rejects.toMatchObject({
+      message: 'Contact not found',
+      status: 404,
+    })
+    expect(mockAdd).not.toHaveBeenCalled()
   })
 })
 

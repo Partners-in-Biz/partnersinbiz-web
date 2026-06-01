@@ -12,6 +12,16 @@ export interface ListEnrollmentOpts {
   status?: string
 }
 
+export class SequenceEnrollmentError extends Error {
+  status: number
+
+  constructor(message: string, status: number) {
+    super(message)
+    this.name = 'SequenceEnrollmentError'
+    this.status = status
+  }
+}
+
 export async function listEnrollments(
   orgId: string,
   opts?: ListEnrollmentOpts,
@@ -35,6 +45,33 @@ export async function getEnrollment(
   return { ...data, id: snap.id }
 }
 
+async function assertContactInOrg(orgId: string, contactId: string): Promise<void> {
+  const snap = await adminDb.collection('contacts').doc(contactId).get()
+  const data = snap.exists ? snap.data() : null
+  if (!data || data.deleted === true || data.orgId !== orgId) {
+    throw new SequenceEnrollmentError('Contact not found', 404)
+  }
+}
+
+async function getActiveEnrollment(
+  orgId: string,
+  sequenceId: string,
+  contactId: string,
+): Promise<SequenceEnrollment | null> {
+  const snap = await adminDb
+    .collection(ENROLLMENTS)
+    .where('orgId', '==', orgId)
+    .where('sequenceId', '==', sequenceId)
+    .where('contactId', '==', contactId)
+    .where('status', '==', 'active')
+    .limit(1)
+    .get()
+
+  const doc = snap.docs[0]
+  if (!doc) return null
+  return { ...(doc.data() as Omit<SequenceEnrollment, 'id'>), id: doc.id }
+}
+
 export async function enrollContact(
   orgId: string,
   sequenceId: string,
@@ -42,6 +79,11 @@ export async function enrollContact(
   actor: MemberRef,
   firstStepDelayDays: number,
 ): Promise<SequenceEnrollment> {
+  await assertContactInOrg(orgId, contactId)
+
+  const existing = await getActiveEnrollment(orgId, sequenceId, contactId)
+  if (existing) return existing
+
   const ref = await adminDb.collection(ENROLLMENTS).add({
     orgId,
     sequenceId,
