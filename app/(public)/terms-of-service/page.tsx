@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 export const metadata: Metadata = {
   title: 'Terms of Service | PiB',
   description: 'The terms and conditions governing your use of Partners in Biz services.',
+  alternates: { canonical: '/terms-of-service' },
 }
 
 export default function TermsOfServicePage() {

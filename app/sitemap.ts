@@ -3,7 +3,7 @@ import { SITE, SERVICES, CASE_STUDIES } from '@/lib/seo/site'
 import { POSTS } from '@/lib/content/posts'
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const now = new Date('2026-04-25')
+  const staticLastModified = new Date('2026-06-01')
 
   const staticPages: MetadataRoute.Sitemap = [
     '',
@@ -14,20 +14,22 @@ export default function sitemap(): MetadataRoute.Sitemap {
     '/our-process',
     '/insights',
     '/pricing',
-    '/products',
+    '/properties',
+    '/faq',
+    '/book-a-call',
     '/start-a-project',
     '/privacy-policy',
     '/terms-of-service',
-  ].map((path) => ({ url: `${SITE.url}${path}`, lastModified: now }))
+  ].map((path) => ({ url: `${SITE.url}${path}`, lastModified: staticLastModified }))
 
   const services: MetadataRoute.Sitemap = SERVICES.map((s) => ({
     url: `${SITE.url}/services/${s.slug}`,
-    lastModified: now,
+    lastModified: staticLastModified,
   }))
 
   const work: MetadataRoute.Sitemap = CASE_STUDIES.map((c) => ({
     url: `${SITE.url}/work/${c.slug}`,
-    lastModified: now,
+    lastModified: staticLastModified,
   }))
 
   const insights: MetadataRoute.Sitemap = POSTS.map((p) => ({

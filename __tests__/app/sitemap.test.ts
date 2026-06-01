@@ -9,4 +9,17 @@ describe('public sitemap', () => {
       ])
     )
   })
+
+  it('includes public conversion pages and excludes redirected URLs', () => {
+    const urls = sitemap().map((entry) => entry.url)
+
+    expect(urls).toEqual(
+      expect.arrayContaining([
+        `${SITE.url}/book-a-call`,
+        `${SITE.url}/faq`,
+        `${SITE.url}/properties`,
+      ])
+    )
+    expect(urls).not.toContain(`${SITE.url}/products`)
+  })
 })

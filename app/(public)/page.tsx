@@ -65,6 +65,9 @@ export default function HomePage() {
               <Link href="/work" prefetch={false} className="btn-pib-secondary">
                 See the work
               </Link>
+              <Link href="/gauteng-growth-audit" prefetch={false} className="btn-pib-secondary">
+                Free growth audit
+              </Link>
             </div>
           </Reveal>
 
