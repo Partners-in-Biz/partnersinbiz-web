@@ -132,7 +132,7 @@ export const VALID_TASK_PRIORITIES: TaskPriority[] = [
 
 export const VALID_ASSIGNEE_TYPES: TaskAssignee['type'][] = ['user', 'agent']
 
-export const VALID_AGENT_IDS: AgentId[] = ['pip', 'theo', 'maya', 'sage', 'nora', 'ads', 'qa-release', 'support', 'data', 'docs', 'seo']
+export const VALID_AGENT_IDS: AgentId[] = ['pip', 'theo', 'maya', 'sage', 'nora', 'ads', 'qa-release', 'support', 'data', 'docs', 'seo', 'sales']
 
 export const VALID_AGENT_STATUSES: AgentStatus[] = [
   'pending',

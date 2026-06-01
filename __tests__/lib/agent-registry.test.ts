@@ -8,7 +8,7 @@ import { AGENT_IDS } from '@/lib/agents/types'
 
 describe('agent registry', () => {
   it('advertises platform agents with responsibilities, skills, cron loops, scopes, and examples', () => {
-    expect(Object.keys(AGENT_REGISTRY).sort()).toEqual(['maya', 'nora', 'pip', 'sage', 'theo'])
+    expect(Object.keys(AGENT_REGISTRY).sort()).toEqual(['maya', 'nora', 'pip', 'sage', 'sales', 'theo'])
 
     for (const agentId of AGENT_IDS) {
       const entry = mergeAgentRegistry(agentId)
