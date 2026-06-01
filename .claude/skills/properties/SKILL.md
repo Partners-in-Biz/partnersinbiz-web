@@ -20,11 +20,27 @@ Properties are the central registry for every deployed site or app PiB manages. 
 links the analytics SDK (via `ingestKey`), runtime config, and external revenue/ad integrations
 into one record.
 
+## Critical org linkage
+
+Every property belongs to a client organisation through `properties/{propertyId}.orgId`.
+This is the source of truth for analytics, integration metrics, and property-scoped client reports.
+
+Do not ask Peet to supply raw property IDs for normal admin analytics work. Use the admin
+client/property picker, or list properties with `GET /api/v1/properties?orgId=<clientOrgId>`.
+When code receives both `orgId` and `propertyId`, verify that the property belongs to the org before
+reading analytics or generating reports. The shared analytics guard is:
+
+```ts
+import { requireAnalyticsProperty } from '@/lib/analytics/property-access'
+
+await requireAnalyticsProperty(user, { propertyId, orgId })
+```
+
 ## Concepts
 
 | Concept | Description |
 |---------|-------------|
-| **Property** | A deployed web, iOS, Android, or universal app PiB tracks (e.g. `scrolledbrain.com`) |
+| **Property** | A deployed web, iOS, Android, or universal app PiB tracks, linked to one client org by `orgId` |
 | **ingestKey** | 64-char hex string. The analytics SDK sends events with this key. Rotate if leaked. |
 | **config** | Key-value blob served to the micro-site at runtime — App Store URL, Play Store URL, kill switch, feature flags, etc. Fetched by the site using only the ingestKey (no Bearer auth). |
 | **connections** | Per-provider integration records (RevenueCat, AdMob, AdSense, GA4, Google Ads, App Store Connect, Play Console, Firebase Analytics). Each holds encrypted credentials and pulls daily metrics into the unified `metrics` collection. |
@@ -218,6 +234,14 @@ Response:
 ## Property Analytics
 
 All analytics endpoints accept `?propertyId=<id>` to scope results to a single property.
+Admin pages should select properties by client and property name, not by hand-entered IDs.
+Analytics APIs must verify the property/org relationship before returning events, sessions, users,
+funnels, retention, or live data.
+
+For reports, `/admin/reports` can generate either all-properties reports for a client org or a
+single-property report. Single-property reports include `report.propertyId`, use a distinct report
+document id, and can roll first-party `product_events` / `product_sessions` into web KPIs for SEO
+client reporting.
 Auth is `Authorization: Bearer $AI_API_KEY`. Base: `https://partnersinbiz.online`.
 
 ### `GET /api/v1/analytics/sessions?propertyId=<id>&limit=100` — auth: admin
