@@ -52,6 +52,8 @@ describe('GautengGrowthAuditForm', () => {
         name: 'Ava Owner',
         email: 'ava@example.com',
         company: 'Ava Florist - https://instagram.com/avaflorist',
+        phone: '067 000 0000',
+        website: 'Ava Florist - https://instagram.com/avaflorist',
         projectType: 'marketing',
         details: [
           'Gauteng Growth Audit request',

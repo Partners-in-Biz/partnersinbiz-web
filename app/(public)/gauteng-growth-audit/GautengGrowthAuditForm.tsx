@@ -73,6 +73,8 @@ export default function GautengGrowthAuditForm() {
           name: data.name.trim(),
           email: data.email.trim().toLowerCase(),
           company: data.businessLink.trim(),
+          phone: data.whatsapp.trim(),
+          website: data.businessLink.trim(),
           projectType: 'marketing',
           details,
         }),
