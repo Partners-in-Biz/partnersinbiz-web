@@ -55,6 +55,8 @@ https://partnersinbiz.online/api/v1
 Authorization: Bearer <AI_API_KEY>
 ```
 
+CRM-scoped endpoints also accept scoped per-agent API keys (`pib_...`) created in platform API-key management. Pass `Authorization: Bearer <pib_agent_key>` and either `X-Org-Id: <orgId>` or rely on the key's saved `orgId`; scoped keys are rejected with 403 if the request targets another org.
+
 Public (no-auth) endpoints — used by hosted forms / web hooks:
 - `POST /email/webhook` — Resend delivery webhook receiver
 - `POST /capture-sources/[id]/submit` — newsletter / lead capture form submit (CORS open)
