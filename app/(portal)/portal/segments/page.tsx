@@ -441,7 +441,7 @@ export default function PortalSegmentsPage() {
           </div>
           {!showNew && (
             <button onClick={() => setShowNew(true)} className="btn-pib-accent">
-              <span className="material-symbols-outlined text-base">add</span>
+              <span className="material-symbols-outlined text-base" aria-hidden="true">add</span>
               New segment
             </button>
           )}
@@ -544,14 +544,14 @@ export default function PortalSegmentsPage() {
         </div>
       ) : segments.length === 0 ? (
         <div className="bento-card p-10 text-center">
-          <span className="material-symbols-outlined text-4xl text-[var(--color-pib-accent)]">filter_alt</span>
+          <span className="material-symbols-outlined text-4xl text-[var(--color-pib-accent)]" aria-hidden="true">filter_alt</span>
           <h2 className="font-display text-2xl mt-4">No segments yet.</h2>
           <p className="text-sm text-[var(--color-pib-text-muted)] mt-2">
             Build a saved filter to target the right people each time.
           </p>
           {!showNew && (
             <button onClick={() => setShowNew(true)} className="btn-pib-accent mt-6">
-              <span className="material-symbols-outlined text-base">add</span>
+              <span className="material-symbols-outlined text-base" aria-hidden="true">add</span>
               Create first segment
             </button>
           )}
