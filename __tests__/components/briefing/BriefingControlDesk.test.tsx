@@ -1255,6 +1255,7 @@ describe('BriefingControlDesk', () => {
     expect(screen.getByRole('button', { name: /live on/i })).toBeInTheDocument()
     expect((await screen.findAllByText('Theo completed work - review required')).length).toBeGreaterThan(0)
     expect(screen.getAllByText('Client One').length).toBeGreaterThan(0)
+    expect(screen.getByLabelText('Live briefing cards')).toHaveClass('xl:overflow-y-auto')
     expect(screen.getByRole('button', { name: /filter to client two workspace/i })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /open source/i })).toHaveAttribute('href', '/portal/projects/project-1?taskId=task-1')
     expect(screen.getByRole('button', { name: /^approve$/i })).toBeInTheDocument()
