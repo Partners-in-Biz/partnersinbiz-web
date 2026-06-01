@@ -854,6 +854,7 @@ export default function DealsPage() {
                   const weighted = (deal.value ?? 0) * (prob / 100)
                   const contactLabel = contactLabelsById[deal.contactId]
                   const dealTitle = dealTitleLabel(deal)
+                  const hasCapturedValue = typeof deal.value === 'number' && Number.isFinite(deal.value)
                   return (
                     <tr
                       key={deal.id}
@@ -894,8 +895,18 @@ export default function DealsPage() {
                       <td className="px-4 py-3 text-xs text-on-surface-variant">
                         {dealOwnerLabel(deal)}
                       </td>
-                      <td className="px-4 py-3 font-mono text-on-surface-variant text-xs">
-                        {fmtDealValue(deal.value, deal.currency)}
+                      <td className="px-4 py-3 font-mono text-on-surface-variant text-xs" onClick={e => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          aria-label={`${hasCapturedValue ? 'Edit' : 'Add'} value for ${dealTitle} from deals list`}
+                          onClick={() => setEditingDeal(deal)}
+                          className="inline-flex max-w-full items-center gap-1 rounded-md border border-transparent px-1.5 py-1 text-left transition-colors hover:border-[var(--color-pib-accent)] hover:text-[var(--color-pib-text)]"
+                        >
+                          <span className="material-symbols-outlined text-[13px]" aria-hidden="true">
+                            {hasCapturedValue ? 'edit' : 'add'}
+                          </span>
+                          {fmtDealValue(deal.value, deal.currency)}
+                        </button>
                       </td>
                       <td className="px-4 py-3 font-mono text-xs">
                         <span

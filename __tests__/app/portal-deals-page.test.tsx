@@ -214,6 +214,34 @@ describe('Portal deals page', () => {
     expect(screen.queryByText('—')).not.toBeInTheDocument()
   })
 
+  it('turns deal list forecast hygiene gaps into direct edit actions', async () => {
+    mockSearchParams = new URLSearchParams('view=list')
+    mockDealRows = [
+      {
+        id: 'deal-missing-value',
+        orgId: 'org-1',
+        contactId: 'contact-1',
+        title: 'Unpriced implementation',
+        currency: 'ZAR',
+        pipelineId: 'pipeline-1',
+        stageId: 'qualified',
+        expectedCloseDate: null,
+        notes: '',
+        createdAt: null,
+        updatedAt: null,
+      },
+    ]
+
+    render(<DealsPage />)
+
+    const row = (await screen.findByText('Unpriced implementation')).closest('[data-deal-row]')
+    expect(row).not.toBeNull()
+
+    fireEvent.click(within(row as HTMLElement).getByRole('button', { name: 'Add value for Unpriced implementation from deals list' }))
+    expect(screen.getByTestId('deal-drawer')).toBeInTheDocument()
+    expect(screen.queryByTestId('deal-detail-drawer')).not.toBeInTheDocument()
+  })
+
   it('names unpriced pipeline summaries instead of presenting missing values as zero', async () => {
     mockSearchParams = new URLSearchParams('view=list')
     mockDealRows = [
