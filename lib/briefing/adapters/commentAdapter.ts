@@ -70,9 +70,17 @@ export const commentAdapter: BriefingSourceAdapter<CommentDocument> = {
    */
   extractPriority(doc: CommentDocument): BriefingPriority {
     const text = doc.text.toLowerCase()
+    const hasResolvedSignal = /\b(unblocked|unblock(ed|s|ing)? by|resolved|clears? the|closed|moved to done|marked done)\b/.test(text)
+    const hasStillBlockedSignal = /\b(still|remains?|not|cannot|can't|isn't|is not|fully)\s+\w{0,24}\s*blocked\b/.test(text) || /\bblocked\b/.test(text)
+    const hasBlockerSignal = /\b(blocker|blocked)\b/.test(text) && (!hasResolvedSignal || hasStillBlockedSignal)
+
+    // Agent resolution comments should not keep completed work in the blocked lane.
+    if (doc.userId.startsWith('agent:') && hasResolvedSignal && !hasStillBlockedSignal) {
+      return 'progress'
+    }
 
     // Urgent keywords
-    if (text.includes('urgent') || text.includes('emergency') || text.includes('critical') || text.includes('blocker')) {
+    if (text.includes('urgent') || text.includes('emergency') || text.includes('critical') || hasBlockerSignal) {
       return 'critical'
     }
 
@@ -82,7 +90,7 @@ export const commentAdapter: BriefingSourceAdapter<CommentDocument> = {
     }
 
     // Blocked/error keywords
-    if (text.includes('blocked') || text.includes('error') || text.includes('failed') || text.includes('broken')) {
+    if (hasBlockerSignal || text.includes('error') || text.includes('failed') || text.includes('broken')) {
       return 'critical'
     }
 
