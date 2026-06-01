@@ -10,7 +10,7 @@ import { CompanyHeader } from '@/components/crm/CompanyHeader'
 import { CompanyTabsBar, COMPANY_TABS } from '@/components/crm/CompanyTabsBar'
 import type { CompanyTab } from '@/components/crm/CompanyTabsBar'
 import { CompanyOverviewPanel } from '@/components/crm/CompanyOverviewPanel'
-import { CompanyEditDrawer } from '@/components/crm/CompanyEditDrawer'
+import { CompanyEditDrawer, type CompanyTeamMember } from '@/components/crm/CompanyEditDrawer'
 import { CustomFieldsSection } from '@/components/crm/CustomFieldsSection'
 import { ContactForm } from '@/components/admin/crm/ContactForm'
 import { DealDrawer } from '@/components/crm/DealDrawer'
@@ -1569,6 +1569,7 @@ export default function CompanyDetailPage() {
   const [creatingQuote, setCreatingQuote] = useState(false)
   const [quoteError, setQuoteError] = useState<string | null>(null)
   const [customFieldDefs, setCustomFieldDefs] = useState<CustomFieldDefinition[]>([])
+  const [teamMembers, setTeamMembers] = useState<CompanyTeamMember[]>([])
   const [related, setRelated] = useState<RelatedState>({
     contacts: [],
     deals: [],
@@ -1617,6 +1618,21 @@ export default function CompanyDetailPage() {
       .then((r) => r.json())
       .then((b) => setCustomFieldDefs(b.data?.definitions ?? b.definitions ?? []))
       .catch(() => setCustomFieldDefs([]))
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/v1/portal/settings/team')
+      .then((res) => res.ok ? res.json() : null)
+      .then((body) => {
+        if (cancelled) return
+        const members = Array.isArray(body?.members) ? body.members : []
+        setTeamMembers(members.filter((member: CompanyTeamMember) => member.uid))
+      })
+      .catch(() => {
+        if (!cancelled) setTeamMembers([])
+      })
+    return () => { cancelled = true }
   }, [])
 
   const fetchCompany = useCallback(async () => {
@@ -2389,6 +2405,7 @@ export default function CompanyDetailPage() {
           mode="edit"
           onSave={handleSave}
           onClose={() => setEditOpen(false)}
+          teamMembers={teamMembers}
           customFieldDefinitions={customFieldDefs}
         />
       )}

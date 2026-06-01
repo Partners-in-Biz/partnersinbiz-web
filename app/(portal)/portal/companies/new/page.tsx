@@ -2,14 +2,31 @@
 export const dynamic = 'force-dynamic'
 
 import { useRouter } from 'next/navigation'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import type { Company } from '@/lib/companies/types'
-import { CompanyEditDrawer } from '@/components/crm/CompanyEditDrawer'
+import { CompanyEditDrawer, type CompanyTeamMember } from '@/components/crm/CompanyEditDrawer'
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function NewCompanyPage() {
   const router = useRouter()
+  const [teamMembers, setTeamMembers] = useState<CompanyTeamMember[]>([])
+
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/v1/portal/settings/team')
+      .then((res) => res.ok ? res.json() : null)
+      .then((body) => {
+        if (cancelled) return
+        const members = Array.isArray(body?.members) ? body.members : []
+        setTeamMembers(members.filter((member: CompanyTeamMember) => member.uid))
+      })
+      .catch(() => {
+        if (!cancelled) setTeamMembers([])
+      })
+    return () => { cancelled = true }
+  }, [])
 
   async function handleSave(data: Partial<Company>): Promise<void> {
     const res = await fetch('/api/v1/crm/companies', {
@@ -89,6 +106,7 @@ export default function NewCompanyPage() {
         mode="create"
         onSave={handleSave}
         onClose={handleClose}
+        teamMembers={teamMembers}
       />
     </>
   )
