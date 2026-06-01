@@ -301,6 +301,36 @@ describe('Portal deals page', () => {
     expect(screen.queryByTestId('deal-detail-drawer')).not.toBeInTheDocument()
   })
 
+  it('turns deal list stages into direct pipeline edit actions', async () => {
+    mockSearchParams = new URLSearchParams('view=list')
+    mockDealRows = [
+      {
+        id: 'deal-stage',
+        orgId: 'org-1',
+        contactId: 'contact-1',
+        title: 'Stage review expansion',
+        value: 50000,
+        currency: 'ZAR',
+        pipelineId: 'pipeline-1',
+        stageId: 'qualified',
+        probability: 40,
+        expectedCloseDate: '2026-07-15',
+        notes: '',
+        createdAt: null,
+        updatedAt: null,
+      },
+    ]
+
+    render(<DealsPage />)
+
+    const row = (await screen.findByText('Stage review expansion')).closest('[data-deal-row]')
+    expect(row).not.toBeNull()
+
+    fireEvent.click(within(row as HTMLElement).getByRole('button', { name: 'Edit stage for Stage review expansion from deals list' }))
+    expect(screen.getByTestId('deal-drawer')).toBeInTheDocument()
+    expect(screen.queryByTestId('deal-detail-drawer')).not.toBeInTheDocument()
+  })
+
   it('names unpriced pipeline summaries instead of presenting missing values as zero', async () => {
     mockSearchParams = new URLSearchParams('view=list')
     mockDealRows = [

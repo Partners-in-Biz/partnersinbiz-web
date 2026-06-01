@@ -882,16 +882,23 @@ export default function DealsPage() {
                           {dealTitle}
                         </Link>
                       </td>
-                      <td className="px-4 py-3">
-                        <span
-                          className="text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full"
-                          style={{
-                            background: `${stageColor}20`,
-                            color: stageColor,
-                          }}
+                      <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          aria-label={`Edit stage for ${dealTitle} from deals list`}
+                          onClick={() => setEditingDeal(deal)}
+                          className="inline-flex rounded-md border border-transparent p-0.5 transition-colors hover:border-[var(--color-pib-accent)]"
                         >
-                          {stageLabel}
-                        </span>
+                          <span
+                            className="text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full"
+                            style={{
+                              background: `${stageColor}20`,
+                              color: stageColor,
+                            }}
+                          >
+                            {stageLabel}
+                          </span>
+                        </button>
                       </td>
                       <td className="px-4 py-3 text-xs text-on-surface-variant" onClick={e => e.stopPropagation()}>
                         <button
