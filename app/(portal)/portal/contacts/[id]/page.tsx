@@ -2493,6 +2493,7 @@ export default function PortalContactDetailPage() {
                 setEnrollingSequenceId(e.target.value)
                 setEnrollError('')
               }}
+              aria-label={`Nurture sequence for ${contactName}`}
               className="w-full text-sm border border-[var(--color-pib-line)] rounded p-2 bg-transparent"
             >
               <option value="">Choose a sequence…</option>
@@ -2516,7 +2517,9 @@ export default function PortalContactDetailPage() {
                 {enrolling ? 'Enrolling…' : 'Enroll'}
               </button>
               <button
+                type="button"
                 onClick={() => setShowEnrollModal(false)}
+                aria-label={`Cancel sequence enrollment for ${contactName}`}
                 className="btn-pib-secondary text-sm"
               >
                 Cancel

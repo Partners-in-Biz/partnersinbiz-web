@@ -378,7 +378,9 @@ describe('Portal contact detail page', () => {
     expect(await screen.findByRole('dialog', { name: 'Enroll Jane Client in a nurture sequence' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Enroll Jane Client in a nurture sequence' })).toBeInTheDocument()
     expect(screen.getByText('Choose an approved sequence so outreach steps, accountability, and follow-up timing are visible to the team from this contact record.')).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Nurture sequence for Jane Client' })).toBeInTheDocument()
     expect(await screen.findByRole('button', { name: 'Enroll Jane Client in selected nurture sequence' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Cancel sequence enrollment for Jane Client' })).toBeInTheDocument()
   })
 
   it('names the sequence enrollment loading state for the active contact', async () => {
@@ -429,7 +431,7 @@ describe('Portal contact detail page', () => {
     })
 
     fireEvent.click(screen.getByRole('button', { name: 'Choose nurture sequence for Jane Client' }))
-    fireEvent.change(await screen.findByDisplayValue('Choose a sequence…'), {
+    fireEvent.change(await screen.findByRole('combobox', { name: 'Nurture sequence for Jane Client' }), {
       target: { value: 'seq-1' },
     })
     fireEvent.click(screen.getByRole('button', { name: 'Enroll Jane Client in selected nurture sequence' }))
