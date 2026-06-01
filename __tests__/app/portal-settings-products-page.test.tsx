@@ -43,6 +43,9 @@ describe('Portal settings products page', () => {
     render(<ProductsPage />)
 
     expect(await screen.findByText('Build a quote-ready catalog')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'New product' })).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Filter products by currency' })).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Filter products by health' })).toBeInTheDocument()
     expect(screen.getByText('Pricing')).toBeInTheDocument()
     expect(screen.getByText('Units')).toBeInTheDocument()
     expect(screen.getByText('Sales copy')).toBeInTheDocument()

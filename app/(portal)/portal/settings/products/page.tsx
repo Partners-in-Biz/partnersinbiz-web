@@ -224,7 +224,7 @@ export default function ProductsPage() {
           onClick={handleOpenCreate}
           className="cursor-pointer btn-pib-accent flex items-center gap-1.5 text-sm shrink-0"
         >
-          <span className="material-symbols-outlined text-[16px]">add</span>
+          <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
           New product
         </button>
       </header>
@@ -246,6 +246,7 @@ export default function ProductsPage() {
               placeholder="Search product, unit, currency..."
             />
             <select
+              aria-label="Filter products by currency"
               value={currencyFilter}
               onChange={(event) => setCurrencyFilter(event.target.value)}
               className="pib-input !w-auto"
@@ -256,6 +257,7 @@ export default function ProductsPage() {
               ))}
             </select>
             <select
+              aria-label="Filter products by health"
               value={healthFilter}
               onChange={(event) => setHealthFilter(event.target.value as 'all' | 'ready' | 'needs-work')}
               className="pib-input !w-auto"
@@ -272,7 +274,7 @@ export default function ProductsPage() {
               onClick={() => { setSearch(''); setCurrencyFilter(''); setHealthFilter('all') }}
               className="btn-pib-secondary text-xs inline-flex items-center gap-1.5"
             >
-              <span className="material-symbols-outlined text-[14px]">filter_alt_off</span>
+              <span className="material-symbols-outlined text-[14px]" aria-hidden="true">filter_alt_off</span>
               Clear filters
             </button>
           ) : null}
@@ -328,7 +330,7 @@ export default function ProductsPage() {
                 onClick={handleOpenCreate}
                 className="btn-pib-accent mt-5 inline-flex cursor-pointer items-center gap-1.5 text-sm"
               >
-                <span className="material-symbols-outlined text-[16px]">add</span>
+                <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
                 Create the first catalog item
               </button>
             </div>
