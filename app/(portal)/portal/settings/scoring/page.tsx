@@ -464,7 +464,7 @@ export default function ScoringPage() {
           {/* AI toggle */}
           <div className="bento-card !p-5 flex items-center justify-between gap-4">
             <div>
-              <p className="text-sm font-medium">AI scoring</p>
+              <p id="ai-scoring-toggle-label" className="text-sm font-medium">AI scoring</p>
               <p className="text-xs text-[var(--color-pib-text-muted)] mt-0.5">
                 Use AI to compute a supplemental lead score alongside the formula score.
               </p>
@@ -472,6 +472,7 @@ export default function ScoringPage() {
             <label className="relative inline-flex items-center cursor-pointer shrink-0">
               <input
                 type="checkbox"
+                aria-labelledby="ai-scoring-toggle-label"
                 className="sr-only peer"
                 checked={aiEnabled}
                 onChange={(e) => setAiEnabled(e.target.checked)}

@@ -63,6 +63,12 @@ describe('Portal settings scoring page', () => {
     expect(screen.queryByText('emailReplies')).not.toBeInTheDocument()
   })
 
+  it('gives the AI scoring toggle a business-readable accessible name', async () => {
+    render(<ScoringPage />)
+
+    expect(await screen.findByRole('checkbox', { name: 'AI scoring' })).toBeInTheDocument()
+  })
+
   it('uses an in-page confirmation before recomputing all contact scores', async () => {
     const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(false)
 
