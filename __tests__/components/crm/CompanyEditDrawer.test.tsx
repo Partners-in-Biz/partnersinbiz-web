@@ -190,6 +190,66 @@ describe('CompanyEditDrawer', () => {
     expect(screen.queryAllByRole('option', { name: '—' })).toHaveLength(0)
   })
 
+  it('lets users assign an account manager from workspace members instead of typing a raw UID', async () => {
+    const handleSave = jest.fn().mockResolvedValue(undefined)
+
+    render(
+      <CompanyEditDrawer
+        company={makeCompany()}
+        mode="edit"
+        onSave={handleSave}
+        onClose={noopClose}
+        teamMembers={[
+          { uid: 'uid-maya', firstName: 'Maya', lastName: 'Sales', jobTitle: 'Client success' },
+          { uid: 'uid-nora', displayName: 'Nora Finance' },
+        ]}
+      />,
+    )
+
+    const managerSelect = screen.getByLabelText('Account manager') as HTMLSelectElement
+    expect(managerSelect).toHaveValue('')
+    expect(screen.getByRole('option', { name: 'Select account manager' })).toHaveValue('')
+    expect(screen.getByRole('option', { name: 'Maya Sales (Client success)' })).toHaveValue('uid-maya')
+    expect(screen.getByRole('option', { name: 'Nora Finance' })).toHaveValue('uid-nora')
+
+    fireEvent.change(managerSelect, { target: { value: 'uid-maya' } })
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
+
+    await waitFor(() => {
+      expect(handleSave).toHaveBeenCalledWith(
+        expect.objectContaining({ accountManagerUid: 'uid-maya' }),
+      )
+    })
+  })
+
+  it('sends an explicit empty account manager value when clearing an existing assignment', async () => {
+    const handleSave = jest.fn().mockResolvedValue(undefined)
+
+    render(
+      <CompanyEditDrawer
+        company={makeCompany({
+          accountManagerUid: 'uid-maya',
+          accountManagerRef: { uid: 'uid-maya', displayName: 'Maya Sales' },
+        })}
+        mode="edit"
+        onSave={handleSave}
+        onClose={noopClose}
+        teamMembers={[
+          { uid: 'uid-maya', firstName: 'Maya', lastName: 'Sales', jobTitle: 'Client success' },
+        ]}
+      />,
+    )
+
+    fireEvent.change(screen.getByLabelText('Account manager'), { target: { value: '' } })
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
+
+    await waitFor(() => {
+      expect(handleSave).toHaveBeenCalledWith(
+        expect.objectContaining({ accountManagerUid: '' }),
+      )
+    })
+  })
+
   it('pre-fills edit mode fields (domain, industry)', () => {
     render(
       <CompanyEditDrawer

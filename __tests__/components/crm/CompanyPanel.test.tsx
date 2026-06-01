@@ -53,14 +53,54 @@ describe('CompanyPanel', () => {
 
     render(<CompanyPanel companyId="company-1" companyName="Acme Growth" />)
 
-    await waitFor(() => expect(screen.getByRole('link', { name: 'Open Acme Growth' })).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('Customer')).toBeInTheDocument())
 
     expect(screen.getByRole('link', { name: 'Open Acme Growth' })).toHaveAttribute('href', '/portal/companies/company-1')
-    expect(screen.getByText('Customer')).toBeInTheDocument()
     expect(screen.getByText('Mid-market')).toBeInTheDocument()
     expect(screen.getByText('Health 82%')).toBeInTheDocument()
     expect(screen.getByText('Maya Sales')).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'View' })).not.toBeInTheDocument()
+  })
+
+  it('keeps known company context visible while the linked profile resolves', () => {
+    global.fetch = jest.fn(() => new Promise(() => undefined))
+
+    render(<CompanyPanel companyId="company-1" companyName="Acme Growth" />)
+
+    expect(screen.getByText('Acme Growth')).toBeInTheDocument()
+    expect(screen.getByText('Resolving company profile...')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Open Acme Growth' })).toHaveAttribute('href', '/portal/companies/company-1')
+  })
+
+  it('resolves nested company API responses into the linked company card', async () => {
+    global.fetch = jest.fn(() => Promise.resolve({
+      ok: true,
+      json: async () => ({
+        data: {
+          company: {
+            id: 'company-1',
+            orgId: 'org-1',
+            name: 'Acme Growth',
+            lifecycleStage: 'customer',
+            tier: 'mid-market',
+            healthScore: 82,
+            accountManagerRef: { uid: 'owner-1', displayName: 'Maya Sales' },
+            tags: [],
+            notes: '',
+            createdAt: null,
+            updatedAt: null,
+          },
+        },
+      }),
+    } as Response))
+
+    render(<CompanyPanel companyId="company-1" />)
+
+    await waitFor(() => expect(screen.getByRole('link', { name: 'Open Acme Growth' })).toBeInTheDocument())
+
+    expect(screen.getByText('Customer')).toBeInTheDocument()
+    expect(screen.getByText('Mid-market')).toBeInTheDocument()
+    expect(screen.getByText('Health 82%')).toBeInTheDocument()
   })
 
   it('names missing linked company identity instead of showing unknown company', async () => {

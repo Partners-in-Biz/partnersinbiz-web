@@ -30,6 +30,17 @@ function labelize(value?: string): string | null {
     .join('-')
 }
 
+function extractCompanyRecord(body: unknown): Company | null {
+  if (!body || typeof body !== 'object') return null
+  const payload = body as { data?: unknown; company?: Company }
+  if (payload.data && typeof payload.data === 'object') {
+    const data = payload.data as Company | { company?: Company }
+    if ('company' in data) return data.company ?? null
+    return data as Company
+  }
+  return payload.company ?? null
+}
+
 // ── Props ─────────────────────────────────────────────────────────────────────
 
 export interface CompanyPanelProps {
@@ -52,14 +63,14 @@ export function CompanyPanel({ companyId, companyName, emptyAction }: CompanyPan
   useEffect(() => {
     if (!companyId) return
     let cancelled = false
-    // Existing async fetch pattern: show a compact skeleton while the linked company resolves.
+    // Keep the known company name actionable while the richer profile resolves.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true)
     fetch(`/api/v1/crm/companies/${companyId}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((body) => {
         if (cancelled) return
-        const data: Company | null = body?.data ?? null
+        const data = extractCompanyRecord(body)
         setCompany(data)
         setLoading(false)
       })
@@ -116,7 +127,28 @@ export function CompanyPanel({ companyId, companyName, emptyAction }: CompanyPan
 
   // companyId set — loading state
   if (loading) {
-    return <div className="pib-skeleton h-12 w-full rounded-lg" />
+    const displayName = companyName?.trim() || 'Resolving company identity...'
+    return (
+      <div className="pib-card p-3 flex items-start gap-3">
+        <div className="w-10 h-10 rounded-full bg-[var(--color-surface-container)] flex items-center justify-center text-xs font-label text-on-surface-variant shrink-0">
+          {initials(displayName)}
+        </div>
+        <div className="flex-1 min-w-0 space-y-1">
+          <p className="text-sm font-medium text-[var(--color-pib-text)] truncate">{displayName}</p>
+          <p className="text-[11px] text-[var(--color-pib-text-muted)]">Resolving company profile...</p>
+        </div>
+        {companyId && (
+          <Link
+            href={`/portal/companies/${companyId}`}
+            aria-label={`Open ${displayName}`}
+            className="text-xs text-[var(--color-accent-v2)] hover:underline shrink-0 flex items-center gap-0.5"
+          >
+            Open
+            <span className="material-symbols-outlined text-[14px]" aria-hidden="true">arrow_forward</span>
+          </Link>
+        )}
+      </div>
+    )
   }
 
   // Full company card

@@ -1,7 +1,7 @@
 'use client'
 
 import { FormEvent, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import type { MailboxAccountSafe, MailboxFolder, MailboxMessageSafe } from '@/lib/mailbox/types'
 
 export const dynamic = 'force-dynamic'
@@ -98,6 +98,7 @@ function htmlToText(html: string): string {
 }
 
 export default function PortalEmailPage() {
+  const router = useRouter()
   const searchParams = useSearchParams()
   const [accounts, setAccounts] = useState<MailboxAccountSafe[]>([])
   const [messages, setMessages] = useState<MailboxMessageSafe[]>([])
@@ -158,6 +159,15 @@ export default function PortalEmailPage() {
   const selected = useMemo(() => messages.find((item) => item.id === selectedId) ?? null, [messages, selectedId])
   const unread = messages.filter((item) => !item.read).length
   const defaultAccountId = compose.accountId || accounts.find((account) => account.isDefault)?.id || accounts[0]?.id || ''
+  const compact = searchParams.get('compact') === '1'
+
+  function closeMailboxPage() {
+    if (window.history.length > 1) {
+      router.back()
+      return
+    }
+    router.push('/admin/dashboard')
+  }
 
   function startCompose(prefill?: Partial<ComposeState>) {
     setError(null)
@@ -309,9 +319,22 @@ export default function PortalEmailPage() {
   return (
     <div className="flex min-h-[calc(100dvh-5.5rem)] flex-col gap-4">
       <header className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p className="eyebrow">Admin workspace email</p>
-          <h1 className="text-2xl font-semibold">Internal mailbox</h1>
+        <div className="flex min-w-0 items-start gap-3">
+          {!compact ? (
+            <button
+              type="button"
+              aria-label="Close email and return to workspace"
+              title="Close email"
+              onClick={closeMailboxPage}
+              className="mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.05] hover:text-[var(--color-pib-text)] sm:hidden"
+            >
+              <span className="material-symbols-outlined text-[22px]">close</span>
+            </button>
+          ) : null}
+          <div className="min-w-0">
+            <p className="eyebrow">Admin workspace email</p>
+            <h1 className="text-2xl font-semibold">Internal mailbox</h1>
+          </div>
         </div>
         <div className="flex flex-wrap gap-2">
           <button type="button" className="btn-pib-secondary" onClick={() => setShowAccount((v) => !v)}>

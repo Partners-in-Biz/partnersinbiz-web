@@ -7,6 +7,14 @@ import type { CustomFieldDefinition } from '@/lib/customFields/types'
 import { CompanyPicker } from '@/components/crm/CompanyPicker'
 import { CustomFieldsSection } from '@/components/crm/CustomFieldsSection'
 
+export interface CompanyTeamMember {
+  uid: string
+  firstName?: string
+  lastName?: string
+  displayName?: string
+  jobTitle?: string
+}
+
 // ── Form state ────────────────────────────────────────────────────────────────
 
 interface FormState {
@@ -113,7 +121,7 @@ function companyToForm(company: Partial<Company>): FormState {
     logoUrl: company.logoUrl ?? '',
     parentCompanyId: company.parentCompanyId ?? '',
     parentCompanyName: company.parentCompanyName ?? '',
-    accountManagerUid: company.accountManagerUid ?? '',
+    accountManagerUid: company.accountManagerUid ?? company.accountManagerRef?.uid ?? '',
     notes: company.notes ?? '',
   }
 }
@@ -201,6 +209,7 @@ export interface CompanyEditDrawerProps {
   onSave: (data: Partial<Company>) => Promise<void>
   onClose: () => void
   mode: 'create' | 'edit'
+  teamMembers?: CompanyTeamMember[]
   /** Custom-field definitions for the `company` resource — when present, render the dynamic section. */
   customFieldDefinitions?: CustomFieldDefinition[]
 }
@@ -235,9 +244,20 @@ function Section({ title }: { title: string }) {
   )
 }
 
+function teamMemberName(member: CompanyTeamMember): string {
+  return member.displayName?.trim()
+    || [member.firstName, member.lastName].map((part) => part?.trim()).filter(Boolean).join(' ')
+    || member.uid
+}
+
+function teamMemberOptionLabel(member: CompanyTeamMember): string {
+  const name = teamMemberName(member)
+  return member.jobTitle?.trim() ? `${name} (${member.jobTitle.trim()})` : name
+}
+
 // ── Public component ──────────────────────────────────────────────────────────
 
-export function CompanyEditDrawer({ company, onSave, onClose, mode, customFieldDefinitions }: CompanyEditDrawerProps) {
+export function CompanyEditDrawer({ company, onSave, onClose, mode, teamMembers = [], customFieldDefinitions }: CompanyEditDrawerProps) {
   const [form, setForm] = useState<FormState>(() => companyToForm(company ?? {}))
   const [customFields, setCustomFields] = useState<Record<string, unknown>>(
     () => ((company?.customFields as Record<string, unknown>) ?? {}),
@@ -265,6 +285,10 @@ export function CompanyEditDrawer({ company, onSave, onClose, mode, customFieldD
     setSaving(true)
     try {
       const partial = formToPartialCompany(form)
+      const hadAccountManager = Boolean(company?.accountManagerUid || company?.accountManagerRef?.uid)
+      if (mode === 'edit' && hadAccountManager && !form.accountManagerUid.trim()) {
+        partial.accountManagerUid = ''
+      }
       // Include customFields when definitions exist OR existing record had values
       const hasDefs = (customFieldDefinitions?.length ?? 0) > 0
       const hadExisting = Object.keys((company?.customFields as Record<string, unknown>) ?? {}).length > 0
@@ -279,6 +303,8 @@ export function CompanyEditDrawer({ company, onSave, onClose, mode, customFieldD
   }
 
   const title = mode === 'create' ? 'New Company' : 'Edit Company'
+  const knownManagerIds = new Set(teamMembers.map((member) => member.uid))
+  const unresolvedManagerUid = form.accountManagerUid && !knownManagerIds.has(form.accountManagerUid)
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true" aria-label={title}>
@@ -552,15 +578,34 @@ export function CompanyEditDrawer({ company, onSave, onClose, mode, customFieldD
               }}
             />
           </Field>
-          <Field label="Account Manager UID" htmlFor="co-am">
-            <input
-              id="co-am"
-              type="text"
-              value={form.accountManagerUid}
-              onChange={set('accountManagerUid')}
-              placeholder="uid of team member"
-              className="pib-input w-full"
-            />
+          <Field label={teamMembers.length > 0 ? 'Account manager' : 'Account Manager UID'} htmlFor="co-am">
+            {teamMembers.length > 0 ? (
+              <select
+                id="co-am"
+                value={form.accountManagerUid}
+                onChange={set('accountManagerUid')}
+                className="pib-input w-full"
+              >
+                <option value="">Select account manager</option>
+                {unresolvedManagerUid && (
+                  <option value={form.accountManagerUid}>Account manager identity missing</option>
+                )}
+                {teamMembers.map((member) => (
+                  <option key={member.uid} value={member.uid}>
+                    {teamMemberOptionLabel(member)}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input
+                id="co-am"
+                type="text"
+                value={form.accountManagerUid}
+                onChange={set('accountManagerUid')}
+                placeholder="uid of team member"
+                className="pib-input w-full"
+              />
+            )}
           </Field>
 
           {/* Custom fields (only when workspace has defined any) */}

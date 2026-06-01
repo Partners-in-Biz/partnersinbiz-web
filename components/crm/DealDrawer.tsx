@@ -41,6 +41,8 @@ export interface DealDrawerProps {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const CURRENCIES: Currency[] = ['ZAR', 'USD', 'EUR']
+const CONTACT_RESOLVING_LABEL = 'Resolving contact identity...'
+const CONTACT_MISSING_LABEL = 'Contact identity missing'
 
 type ContactResult = {
   id: string
@@ -61,6 +63,26 @@ function readableContactLabel(label?: string): string | undefined {
 
 function contactResultLabel(contact?: ContactResult): string | undefined {
   return readableContactLabel(contact?.name) ?? readableContactLabel(contact?.email)
+}
+
+function initialContactLabel(contactId: string, label?: string): string {
+  return readableContactLabel(label) ?? (contactId ? CONTACT_RESOLVING_LABEL : '')
+}
+
+function extractPipelineRecord(body: unknown): Pipeline | null {
+  if (!body || typeof body !== 'object') return null
+  const payload = body as { data?: unknown; pipeline?: Pipeline }
+  if (payload.data && typeof payload.data === 'object') {
+    const data = payload.data as Pipeline | { pipeline?: Pipeline }
+    if ('pipeline' in data) return data.pipeline ?? null
+    return data as Pipeline
+  }
+  return payload.pipeline ?? null
+}
+
+function shouldResolveContactLabel(contactId: string, label: string): boolean {
+  const trimmed = label.trim()
+  return !trimmed || trimmed === contactId || trimmed === CONTACT_RESOLVING_LABEL || trimmed === CONTACT_MISSING_LABEL
 }
 
 function dateInputValue(value: unknown): string {
@@ -221,7 +243,7 @@ export function DealDrawer({
   // Core fields
   const [title, setTitle] = useState(deal?.title ?? '')
   const [contactId, setContactId] = useState(deal?.contactId ?? defaultContactId ?? '')
-  const [contactLabel, setContactLabel] = useState(readableContactLabel(defaultContactLabel) ?? deal?.contactId ?? defaultContactId ?? '')
+  const [contactLabel, setContactLabel] = useState(initialContactLabel(deal?.contactId ?? defaultContactId ?? '', defaultContactLabel))
   const [companyId, setCompanyId] = useState(deal?.companyId ?? defaultCompanyId ?? '')
   const [companyName, setCompanyName] = useState(deal?.companyName ?? defaultCompanyName ?? '')
   const [value, setValue] = useState(deal?.value ?? 0)
@@ -256,7 +278,7 @@ export function DealDrawer({
   useEffect(() => {
     const activeContactId = contactId.trim()
     if (!activeContactId) return
-    if (contactLabel.trim() && contactLabel.trim() !== activeContactId) return
+    if (!shouldResolveContactLabel(activeContactId, contactLabel)) return
 
     let cancelled = false
     fetch(`/api/v1/crm/contacts/${encodeURIComponent(activeContactId)}`)
@@ -265,9 +287,11 @@ export function DealDrawer({
         if (cancelled) return
         const contact = body?.data?.contact ?? body?.data ?? body?.contact
         const label = contactResultLabel(contact)
-        if (label) setContactLabel(label)
+        setContactLabel(label ?? CONTACT_MISSING_LABEL)
       })
-      .catch(() => {})
+      .catch(() => {
+        if (!cancelled) setContactLabel(CONTACT_MISSING_LABEL)
+      })
     return () => { cancelled = true }
   }, [contactId, contactLabel])
 
@@ -277,9 +301,17 @@ export function DealDrawer({
     let cancelled = false
     fetch('/api/v1/crm/pipelines')
       .then(r => r.json())
-      .then(body => {
+      .then(async body => {
         if (cancelled) return
-        const list = extractPipelinesList(body)
+        let list = extractPipelinesList(body)
+        const needsSelectedPipeline = selectedPipelineId && !list.some(p => p.id === selectedPipelineId)
+        if (needsSelectedPipeline) {
+          const res = await fetch(`/api/v1/crm/pipelines/${encodeURIComponent(selectedPipelineId)}`)
+          const detailBody = res.ok ? await res.json().catch(() => null) : null
+          const selectedPipeline = extractPipelineRecord(detailBody)
+          if (selectedPipeline?.id) list = [...list, selectedPipeline]
+        }
+        if (cancelled) return
         setPipelines(list)
 
         if (!selectedPipelineId && list.length > 0) {
@@ -501,11 +533,12 @@ export function DealDrawer({
           {/* Pipeline + Stage */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className={labelCls}>Pipeline</label>
+              <label htmlFor="dealPipeline" className={labelCls}>Pipeline</label>
               {pipelinesLoading ? (
                 <div className="pib-skeleton h-9 rounded" />
               ) : (
                 <select
+                  id="dealPipeline"
                   value={selectedPipelineId}
                   onChange={e => {
                     setSelectedPipelineId(e.target.value)
@@ -521,11 +554,12 @@ export function DealDrawer({
               )}
             </div>
             <div>
-              <label className={labelCls}>Stage</label>
+              <label htmlFor="dealStage" className={labelCls}>Stage</label>
               {pipelinesLoading ? (
                 <div className="pib-skeleton h-9 rounded" />
               ) : (
                 <select
+                  id="dealStage"
                   value={selectedStageId}
                   onChange={e => handleStageChange(e.target.value)}
                   className="pib-input w-full"

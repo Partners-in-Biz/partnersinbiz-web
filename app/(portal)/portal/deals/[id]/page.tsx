@@ -46,6 +46,12 @@ interface DealRecord {
   updatedAt?: unknown
 }
 
+type PipelineRecord = {
+  id?: string
+  name?: string
+  stages?: Array<{ id: string; label: string }>
+}
+
 interface ActivityRecord {
   id: string
   type?: string
@@ -163,8 +169,9 @@ function dealOwnerLabel(deal: DealRecord): string {
   return 'No owner assigned'
 }
 
-function dealContactLabel(deal: DealRecord, contactName: string): string {
+function dealContactLabel(deal: DealRecord, contactName: string, contactLoading: boolean): string {
   if (contactName.trim()) return contactName
+  if (contactLoading && deal.contactId?.trim()) return 'Resolving contact identity...'
   if (deal.contactId?.trim()) return 'Contact identity missing'
   return 'No contact linked'
 }
@@ -175,7 +182,18 @@ function dealCompanyLabel(deal: DealRecord): string {
   return 'No company linked'
 }
 
-function stageHistoryStageLabel(entry: NonNullable<DealRecord['stageHistory']>[number]): string {
+function extractPipelineRecord(body: unknown): PipelineRecord | null {
+  const payload = body as {
+    data?: PipelineRecord | { pipeline?: PipelineRecord }
+    pipeline?: PipelineRecord
+  }
+  if (payload?.data && 'pipeline' in payload.data) return payload.data.pipeline ?? null
+  return (payload?.data as PipelineRecord | undefined) ?? payload?.pipeline ?? null
+}
+
+function stageHistoryStageLabel(entry: NonNullable<DealRecord['stageHistory']>[number], pipelineStages: PipelineRecord['stages']): string {
+  const stageLabel = pipelineStages?.find(stage => stage.id === entry.stageId)?.label
+  if (stageLabel?.trim()) return stageLabel
   if (entry.stageId?.trim()) return normalizeStageName(entry.stageId)
   return 'Stage not captured'
 }
@@ -211,6 +229,7 @@ function activityTimeLabel(activity: ActivityRecord): string {
 export default function DealDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
+  const probabilityInputRef = useRef<HTMLInputElement | null>(null)
   const closeDateInputRef = useRef<HTMLInputElement | null>(null)
 
   const [deal, setDeal] = useState<DealRecord | null>(null)
@@ -222,8 +241,10 @@ export default function DealDetailPage() {
   const [archiveError, setArchiveError] = useState('')
 
   const [pipelineName, setPipelineName] = useState<string>('')
+  const [pipelineStages, setPipelineStages] = useState<PipelineRecord['stages']>([])
   const [stageName, setStageName] = useState<string>('')
   const [contactName, setContactName] = useState<string>('')
+  const [contactLoading, setContactLoading] = useState(false)
 
   const [activities, setActivities] = useState<ActivityRecord[]>([])
   const [activitiesLoading, setActivitiesLoading] = useState(true)
@@ -244,8 +265,10 @@ export default function DealDetailPage() {
     setError('')
     setActivitiesLoading(true)
     setPipelineName('')
+    setPipelineStages([])
     setStageName('')
     setContactName('')
+    setContactLoading(false)
 
     try {
       const res = await fetch(`/api/v1/crm/deals/${id}`)
@@ -267,10 +290,11 @@ export default function DealDetailPage() {
           fetch(`/api/v1/crm/pipelines/${d.pipelineId}`)
             .then(r => r.json())
             .then(pb => {
-              const pipeline = pb.data ?? pb
+              const pipeline = extractPipelineRecord(pb)
               setPipelineName(pipeline?.name ?? d.pipelineId ?? '')
+              setPipelineStages(pipeline?.stages ?? [])
               if (d.stageId && Array.isArray(pipeline?.stages)) {
-                const stage = (pipeline.stages as Array<{ id: string; label: string }>).find(s => s.id === d.stageId)
+                const stage = pipeline.stages.find(s => s.id === d.stageId)
                 setStageName(stage?.label ?? d.stageId ?? '')
               }
             })
@@ -279,6 +303,7 @@ export default function DealDetailPage() {
       }
 
       if (d.contactId) {
+        setContactLoading(true)
         secondaryFetches.push(
           fetch(`/api/v1/crm/contacts/${d.contactId}`)
             .then(r => r.json())
@@ -286,7 +311,8 @@ export default function DealDetailPage() {
               const contact = cb.data?.contact ?? cb.data ?? cb
               setContactName(contact?.name ?? contact?.email ?? '')
             })
-            .catch(() => {}),
+            .catch(() => {})
+            .finally(() => setContactLoading(false)),
         )
         secondaryFetches.push(
           fetch(`/api/v1/crm/activities?contactId=${encodeURIComponent(d.contactId)}&limit=20`)
@@ -298,6 +324,7 @@ export default function DealDetailPage() {
             .catch(() => setActivitiesLoading(false)),
         )
       } else {
+        setContactLoading(false)
         setActivitiesLoading(false)
       }
 
@@ -484,6 +511,41 @@ export default function DealDetailPage() {
     closeDateInputRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'center' })
     closeDateInputRef.current?.focus()
   }
+  const focusProbabilityInput = () => {
+    probabilityInputRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'center' })
+    probabilityInputRef.current?.focus()
+  }
+  const commandTiles = [
+    {
+      label: 'Deal value',
+      value: fmtValue(deal.value, deal.currency),
+      icon: 'payments',
+      ariaLabel: `Edit deal value for ${deal.title ?? 'this deal'} from command summary`,
+      onClick: () => setEditOpen(true),
+    },
+    {
+      label: 'Weighted',
+      value: fmtValue(weightedValue, deal.currency),
+      icon: 'query_stats',
+      ariaLabel: `Update weighted forecast for ${deal.title ?? 'this deal'} from command summary`,
+      onClick: focusProbabilityInput,
+    },
+    {
+      label: 'Close timing',
+      value: closeDateLabel(deal.expectedCloseDate),
+      icon: 'event_upcoming',
+      ariaLabel: `Update close timing for ${deal.title ?? 'this deal'} from command summary`,
+      onClick: focusCloseDateInput,
+    },
+    {
+      label: 'Activity',
+      value: activitiesLoading ? '...' : String(activities.length),
+      icon: 'history',
+      ariaLabel: `Review activity for ${deal.title ?? 'this deal'} from command summary`,
+      onClick: () => undefined,
+      disabled: true,
+    },
+  ]
   const nextBestActions = [
     {
       icon: deal.contactId ? 'mail' : 'person_add',
@@ -516,6 +578,21 @@ export default function DealDetailPage() {
       onClick: () => setEditOpen(true),
     },
   ]
+  const activityEmptyState = deal.contactId
+    ? {
+      copy: 'Log the first note, call, email, or meeting so every employee can see who owns the conversation and what happened next.',
+      buttonLabel: 'Log first activity',
+      ariaLabel: `Log first activity for ${deal.title ?? 'this deal'}`,
+      icon: 'note_add',
+      onClick: () => router.push(`/portal/contacts/${deal.contactId}?activity=note`),
+    }
+    : {
+      copy: 'Link a contact before the first note, email, call, or meeting so every employee can see who owns the conversation and what happened next.',
+      buttonLabel: 'Link contact and start activity',
+      ariaLabel: `Link contact and start activity for ${deal.title ?? 'this deal'}`,
+      icon: 'person_add',
+      onClick: () => setEditOpen(true),
+    }
 
   return (
     <div className="space-y-6">
@@ -642,19 +719,21 @@ export default function DealDetailPage() {
         )}
 
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          {[
-            { label: 'Deal value', value: fmtValue(deal.value, deal.currency), icon: 'payments' },
-            { label: 'Weighted', value: fmtValue(weightedValue, deal.currency), icon: 'query_stats' },
-            { label: 'Close timing', value: closeDateLabel(deal.expectedCloseDate), icon: 'event_upcoming' },
-            { label: 'Activity', value: activitiesLoading ? '...' : String(activities.length), icon: 'history' },
-          ].map((tile) => (
-            <div key={tile.label} className="rounded-xl border border-[var(--color-pib-line)] bg-white/[0.02] p-3">
+          {commandTiles.map((tile) => (
+            <button
+              key={tile.label}
+              type="button"
+              aria-label={tile.ariaLabel}
+              onClick={tile.onClick}
+              disabled={tile.disabled}
+              className="rounded-xl border border-[var(--color-pib-line)] bg-white/[0.02] p-3 text-left transition-colors hover:bg-white/[0.05] disabled:cursor-default disabled:hover:bg-white/[0.02]"
+            >
               <div className="flex items-center justify-between gap-2">
                 <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">{tile.label}</p>
                 <span className="material-symbols-outlined text-[17px] text-[var(--color-pib-text-muted)]">{tile.icon}</span>
               </div>
               <p className="mt-2 text-lg font-semibold text-[var(--color-pib-text)]">{tile.value}</p>
-            </div>
+            </button>
           ))}
         </div>
 
@@ -670,6 +749,7 @@ export default function DealDetailPage() {
             <div className="min-w-[180px] flex-1">
               <label htmlFor="dealForecastProbability" className="pib-label">Update forecast probability</label>
               <input
+                ref={probabilityInputRef}
                 id="dealForecastProbability"
                 type="number"
                 min={0}
@@ -761,7 +841,7 @@ export default function DealDetailPage() {
                   href={`/portal/contacts/${deal.contactId}`}
                   className="text-[var(--color-pib-accent)] hover:underline mt-0.5 inline-block"
                 >
-                  {dealContactLabel(deal, contactName)}
+                  {dealContactLabel(deal, contactName, contactLoading)}
                 </Link>
               </div>
             )}
@@ -837,23 +917,27 @@ export default function DealDetailPage() {
             )}
           </div>
 
-          <div className="mt-4 bento-card !p-5 space-y-4">
+          <section className="mt-4 bento-card !p-5 space-y-4" aria-label="Next best actions">
             <p className="eyebrow !text-[10px]">Next best actions</p>
             <div className="space-y-3">
               {nextBestActions.map((action) => (
-                <div key={action.title} className="flex flex-col gap-3 rounded-xl border border-[var(--color-pib-line)] bg-white/[0.02] p-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="flex gap-3">
-                  <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">{action.icon}</span>
-                  <div>
-                    <p className="text-sm font-medium text-[var(--color-pib-text)]">{action.title}</p>
-                    <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">{action.copy}</p>
-                  </div>
+                <div
+                  key={action.title}
+                  data-testid="deal-next-best-action"
+                  className="flex min-w-0 flex-col gap-3 rounded-xl border border-[var(--color-pib-line)] bg-white/[0.02] p-3"
+                >
+                  <div className="flex min-w-0 items-start gap-3">
+                    <span className="material-symbols-outlined shrink-0 text-[18px] text-[var(--color-pib-text-muted)]">{action.icon}</span>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium leading-5 text-[var(--color-pib-text)]">{action.title}</p>
+                      <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">{action.copy}</p>
+                    </div>
                   </div>
                   <button
                     type="button"
                     onClick={action.onClick}
                     aria-label={action.ariaLabel}
-                    className="btn-pib-secondary inline-flex shrink-0 items-center justify-center gap-1.5 text-xs"
+                    className="btn-pib-secondary inline-flex max-w-full shrink-0 self-start items-center justify-center gap-1.5 text-xs"
                   >
                     <span className="material-symbols-outlined text-[14px]" aria-hidden="true">arrow_forward</span>
                     {action.buttonLabel}
@@ -861,7 +945,7 @@ export default function DealDetailPage() {
                 </div>
               ))}
             </div>
-          </div>
+          </section>
 
           <div className="mt-4 bento-card !p-5 space-y-3">
             <p className="eyebrow !text-[10px]">Stage movement</p>
@@ -902,7 +986,7 @@ export default function DealDetailPage() {
                   <div key={`${entry.pipelineId}-${entry.stageId}-${index}`} className="flex items-start gap-3">
                     <div className="mt-1 h-2 w-2 rounded-full" style={{ background: index === 0 ? probColor : 'var(--color-pib-text-muted)' }} />
                     <div>
-                      <p className="text-sm text-[var(--color-pib-text)]">{stageHistoryStageLabel(entry)}</p>
+                      <p className="text-sm text-[var(--color-pib-text)]">{stageHistoryStageLabel(entry, pipelineStages)}</p>
                       <p className="text-xs text-[var(--color-pib-text-muted)]">
                         {stageHistoryTimeLabel(entry)} · {stageHistoryActorLabel(entry)}
                       </p>
@@ -1031,17 +1115,17 @@ export default function DealDetailPage() {
                     </p>
                     <h3 className="mt-1 text-base font-semibold text-[var(--color-pib-text)]">Anchor the first deal activity</h3>
                     <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">
-                      Link a contact before the first note, email, call, or meeting so every employee can see who owns the conversation and what happened next.
+                      {activityEmptyState.copy}
                     </p>
                   </div>
                   <button
                     type="button"
-                    onClick={() => setEditOpen(true)}
+                    onClick={activityEmptyState.onClick}
                     className="pib-btn-primary mt-4 inline-flex items-center gap-1.5 text-sm"
-                    aria-label={`Link contact and start activity for ${deal.title ?? 'this deal'}`}
+                    aria-label={activityEmptyState.ariaLabel}
                   >
-                    <span className="material-symbols-outlined text-base">person_add</span>
-                    Link contact and start activity
+                    <span className="material-symbols-outlined text-base">{activityEmptyState.icon}</span>
+                    {activityEmptyState.buttonLabel}
                   </button>
                 </div>
               </div>

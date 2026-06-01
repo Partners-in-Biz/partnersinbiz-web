@@ -6,6 +6,7 @@ import { PreviewFrame } from '@/components/client-documents/PreviewFrame'
 import { OrgThemedFrame } from '@/components/admin/OrgThemedFrame'
 import { deserializeBlocksFromFirestore } from '@/lib/client-documents/firestore-blocks'
 import { serializeForClient } from '@/lib/client-documents/serialize'
+import { isDocumentPreviewableInOrg } from '@/lib/client-documents/org-preview-access'
 import type { ClientDocument, ClientDocumentVersion } from '@/lib/client-documents/types'
 
 export const dynamic = 'force-dynamic'
@@ -34,7 +35,7 @@ export default async function OrgPreviewPage({
   if (!docSnap.exists) notFound()
   const doc = { id: docSnap.id, ...docSnap.data() } as ClientDocument
   if (doc.deleted) notFound()
-  if (doc.orgId !== org.id) notFound()
+  if (!isDocumentPreviewableInOrg(doc, org.id)) notFound()
 
   const versionSnap = await adminDb
     .collection('client_documents')
