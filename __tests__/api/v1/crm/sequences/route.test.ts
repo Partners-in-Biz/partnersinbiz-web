@@ -214,6 +214,25 @@ describe('POST /api/v1/crm/sequences', () => {
     expect((await res.json()).error).toMatch(/steps/i)
   })
 
+  it('returns 400 when an active email sequence step has no body copy', async () => {
+    const uid = uidFor('admin-active-empty-body')
+    const member = seedOrgMember('org-1', uid, { role: 'admin' })
+    stageAuth(member)
+
+    const req = callAsMember(member, 'POST', '/api/v1/crm/sequences', {
+      name: 'Incomplete Active Sequence',
+      status: 'active',
+      steps: [{ stepNumber: 0, delayDays: 0, subject: 'Hi', bodyHtml: '', bodyText: '' }],
+    })
+    const res = await routeModule.POST(req)
+    const body = await res.json()
+
+    expect(res.status).toBe(400)
+    expect(body.error).toMatch(/Step 1/i)
+    expect(body.error).toMatch(/body/i)
+    expect(sequenceStore.createSequence).not.toHaveBeenCalled()
+  })
+
   it('returns 403 when member (not admin) tries to POST', async () => {
     const uid = uidFor('member-post')
     const member = seedOrgMember('org-1', uid, { role: 'member' })

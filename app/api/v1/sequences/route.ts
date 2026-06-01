@@ -7,6 +7,7 @@ import { apiSuccess, apiError } from '@/lib/api/response'
 import { FieldValue } from 'firebase-admin/firestore'
 import type { ApiUser } from '@/lib/api/types'
 import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
+import { validateSequenceActivation } from '@/lib/sequences/validation'
 
 export const dynamic = 'force-dynamic'
 
@@ -76,13 +77,18 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) =
   const scope = resolveOrgScope(user, requestedOrgId)
   if (!scope.ok) return apiError(scope.error, scope.status)
   const orgId = scope.orgId
+  const status = body.status ?? 'draft'
+  const steps = body.steps ?? []
+
+  const activationError = validateSequenceActivation({ status, steps })
+  if (activationError) return apiError(activationError, 400)
 
   const ref = await adminDb.collection('sequences').add({
     orgId,
     name: body.name,
     description: body.description ?? '',
-    status: body.status ?? 'draft',
-    steps: body.steps ?? [],
+    status,
+    steps,
     topicId:
       typeof body.topicId === 'string' && body.topicId.trim()
         ? body.topicId.trim()

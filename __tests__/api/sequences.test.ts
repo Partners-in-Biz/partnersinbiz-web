@@ -111,4 +111,25 @@ describe('POST /api/v1/sequences', () => {
     const res = await POST(req)
     expect(res.status).toBe(400)
   })
+
+  it('rejects active sequence creation when an email step has no body copy', async () => {
+    const { POST } = await import('@/app/api/v1/sequences/route')
+    const req = new NextRequest('http://localhost/api/v1/sequences', {
+      method: 'POST',
+      headers: { ...authHeader, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        orgId: 'org-test',
+        name: 'Incomplete active sequence',
+        status: 'active',
+        steps: [{ stepNumber: 0, delayDays: 0, subject: 'Hi', bodyHtml: '', bodyText: '' }],
+      }),
+    })
+    const res = await POST(req)
+    const body = await res.json()
+
+    expect(res.status).toBe(400)
+    expect(body.error).toMatch(/Step 1/i)
+    expect(body.error).toMatch(/body/i)
+    expect(mockAdd).not.toHaveBeenCalled()
+  })
 })

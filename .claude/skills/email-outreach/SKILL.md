@@ -185,6 +185,8 @@ Preferred CRM-scoped endpoints for portal and agent work:
 - `GET/POST /crm/sequences/[id]/enrollments`
 - `DELETE /crm/sequences/[id]/enrollments/[enrollmentId]`
 
+Activation rule: agents may save incomplete sequences as `draft`, but `active` sequences must have at least one step and every step must be sendable. Email steps require `subject` plus `bodyHtml` or `bodyText`; SMS steps require `smsBody`. The CRM and legacy sequence APIs reject activation with a 400 when this launch-readiness check fails.
+
 Legacy endpoints still exist for admin/property integrations:
 
 ## `GET /sequences?orgId=...&status=...` — auth: client

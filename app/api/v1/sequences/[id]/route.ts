@@ -6,6 +6,8 @@ import { resolveOrgScope } from '@/lib/api/orgScope'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { FieldValue } from 'firebase-admin/firestore'
 import type { ApiUser } from '@/lib/api/types'
+import type { SequenceInput } from '@/lib/sequences/types'
+import { mergeSequenceForActivationValidation, validateSequenceActivation } from '@/lib/sequences/validation'
 
 export const dynamic = 'force-dynamic'
 
@@ -27,6 +29,12 @@ export const PUT = withAuth('client', async (req: NextRequest, user: ApiUser, co
   const scope = resolveOrgScope(user, (snap.data()?.orgId as string | undefined) ?? null)
   if (!scope.ok) return apiError(scope.error, scope.status)
   const body = await req.json().catch(() => ({}))
+  if (body.status === 'active' || body.steps !== undefined) {
+    const activationError = validateSequenceActivation(
+      mergeSequenceForActivationValidation(snap.data() as SequenceInput, body as Partial<SequenceInput>),
+    )
+    if (activationError) return apiError(activationError, 400)
+  }
   await adminDb.collection('sequences').doc(id).update({ ...body, updatedAt: FieldValue.serverTimestamp() })
   return apiSuccess({ id, ...body })
 })
