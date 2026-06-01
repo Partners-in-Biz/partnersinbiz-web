@@ -59,6 +59,10 @@ function readableContactLabel(label?: string): string | undefined {
   return trimmed || undefined
 }
 
+function contactResultLabel(contact?: ContactResult): string | undefined {
+  return readableContactLabel(contact?.name) ?? readableContactLabel(contact?.email)
+}
+
 function ContactPicker({
   contactId,
   contactLabel,
@@ -104,7 +108,7 @@ function ContactPicker({
   }, [contactLabel, query])
 
   function select(contact: ContactResult) {
-    const label = contact.name || contact.email || contact.id
+    const label = contactResultLabel(contact) ?? contact.id
     setQuery(label)
     setResults([])
     setOpen(false)
@@ -238,6 +242,24 @@ export function DealDrawer({
     : []
   const selectedStage = stages.find(s => s.id === selectedStageId)
   const showLostReason = isLostStage(selectedStage)
+
+  useEffect(() => {
+    const activeContactId = contactId.trim()
+    if (!activeContactId) return
+    if (contactLabel.trim() && contactLabel.trim() !== activeContactId) return
+
+    let cancelled = false
+    fetch(`/api/v1/crm/contacts/${encodeURIComponent(activeContactId)}`)
+      .then((res) => res.ok ? res.json() : null)
+      .then((body) => {
+        if (cancelled) return
+        const contact = body?.data?.contact ?? body?.data ?? body?.contact
+        const label = contactResultLabel(contact)
+        if (label) setContactLabel(label)
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [contactId, contactLabel])
 
   // ── Fetch pipelines ─────────────────────────────────────────────────────────
 

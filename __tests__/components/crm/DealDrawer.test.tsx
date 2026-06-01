@@ -55,6 +55,13 @@ describe('DealDrawer', () => {
         } as Response)
       }
 
+      if (path === '/api/v1/crm/contacts/contact-1') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ success: true, data: { id: 'contact-1', name: 'Ava Owner', email: 'ava@example.test' } }),
+        } as Response)
+      }
+
       return Promise.reject(new Error(`Unexpected fetch: ${path}`))
     })
   })
@@ -163,7 +170,7 @@ describe('DealDrawer', () => {
     expect(screen.getByPlaceholderText('Search contacts...')).toHaveValue('Ava Owner')
   })
 
-  it('falls back to the existing contact id when an edit label is blank', async () => {
+  it('resolves the readable contact label when an edit label is missing', async () => {
     render(
       <DealDrawer
         deal={{
@@ -185,7 +192,10 @@ describe('DealDrawer', () => {
 
     await screen.findByDisplayValue('Sales pipeline')
 
-    expect(screen.getByPlaceholderText('Search contacts...')).toHaveValue('contact-1')
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText('Search contacts...')).toHaveValue('Ava Owner')
+    })
+    expect(screen.queryByDisplayValue('contact-1')).not.toBeInTheDocument()
   })
 
   it('turns an empty contact search into an operational contact creation state', async () => {
