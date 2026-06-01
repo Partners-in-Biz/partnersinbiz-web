@@ -9,6 +9,7 @@ import type { Timestamp } from 'firebase-admin/firestore'
 
 import { AGENT_IDS, type AgentId } from '@/lib/agents/types'
 import type { ContextReference } from '@/lib/context-references/types'
+import type { SlashCommandPayload } from '@/lib/chat/slash-commands'
 export type { AgentId }
 
 export interface OrgChatConfig {
@@ -92,6 +93,7 @@ export interface ConversationMessage {
   content: string
   attachments?: ConversationAttachment[]
   contextRefs?: ContextReference[]
+  slashCommand?: SlashCommandPayload
   runId?: string
   runDocId?: string
   status?: 'pending' | 'streaming' | 'completed' | 'failed' | 'waiting_approval'

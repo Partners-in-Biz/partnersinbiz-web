@@ -28,6 +28,7 @@ import {
   sanitizeContextReferenceSeeds,
   type ContextReferenceSeed,
 } from '@/lib/context-references/types'
+import { getSlashCommandByToken, slashCommandInstruction, type SlashCommandPayload } from '@/lib/chat/slash-commands'
 import type { HermesProfileLink } from '@/lib/hermes/types'
 import type { ApiUser } from '@/lib/api/types'
 import type { AgentTeamDoc } from '@/lib/agents/types'
@@ -79,6 +80,22 @@ function sanitizeAttachments(value: unknown): ConversationAttachment[] {
       ...(storagePath ? { storagePath } : {}),
     }]
   })
+}
+
+function sanitizeSlashCommand(value: unknown): SlashCommandPayload | null {
+  if (!value || typeof value !== 'object') return null
+  const raw = value as Record<string, unknown>
+  const token = typeof raw.token === 'string' ? raw.token.trim().toLowerCase() : ''
+  const definition = getSlashCommandByToken(token)
+  if (!definition) return null
+  const args = typeof raw.args === 'string' ? raw.args.slice(0, 4000).trim() : ''
+  return {
+    id: definition.id,
+    token: definition.token,
+    label: definition.label,
+    executorKind: definition.executorKind,
+    args,
+  }
 }
 
 function mergeContextReferenceSeeds(...groups: ContextReferenceSeed[][]): ContextReferenceSeed[] {
@@ -199,6 +216,7 @@ export const POST = withAuth(
 
     const content = typeof body.content === 'string' ? body.content.trim() : ''
     const attachments = sanitizeAttachments((body as Record<string, unknown>).attachments)
+    const slashCommand = sanitizeSlashCommand((body as Record<string, unknown>).slashCommand)
     if (!content && attachments.length === 0) return apiError('content or attachments are required', 400)
     const resolvedContextRefs = await resolveContextReferences(
       mergeContextReferenceSeeds(
@@ -227,6 +245,7 @@ export const POST = withAuth(
       content,
       ...(attachments.length > 0 ? { attachments } : {}),
       ...(resolvedContextRefs.length > 0 ? { contextRefs: resolvedContextRefs } : {}),
+      ...(slashCommand ? { slashCommand } : {}),
       authorKind: 'user',
       authorId: user.uid,
       authorDisplayName,
@@ -301,10 +320,11 @@ export const POST = withAuth(
       const convContext = buildConversationContext(conversation, authorDisplayName)
       const orchestrationContext = buildOrchestrationContext(conversation, agentId)
       const attachedContext = buildAttachedContextBlock(resolvedContextRefs)
+      const commandContext = slashCommand ? slashCommandInstruction(slashCommand) : ''
       const attachmentContext = attachments.length > 0
         ? `\n\n[Attachments]\n${attachments.map((attachment) => `- ${attachment.name}: ${attachment.url} (${attachment.contentType}, ${attachment.sizeBytes} bytes)`).join('\n')}`
         : ''
-      const hermesInput = orgContext + convContext + orchestrationContext + attachedContext + content + attachmentContext
+      const hermesInput = orgContext + convContext + orchestrationContext + attachedContext + commandContext + content + attachmentContext
 
       // Dispatch Hermes run
       const runResult = await createHermesRun(agentLink, user.uid, {
@@ -319,6 +339,7 @@ export const POST = withAuth(
           orchestrationMode: conversation.orchestration?.mode ?? (conversation.participantAgentIds.length > 1 ? 'pip-orchestrator' : 'direct'),
           source: 'pib-unified-chat',
           ...(resolvedContextRefs.length > 0 ? { contextRefs: resolvedContextRefs } : {}),
+          ...(slashCommand ? { slashCommand } : {}),
         },
       }).catch(async (err) => {
         console.error('[conversation-agent-dispatch-failed]', {

@@ -5,6 +5,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ChatEvent } from '@/lib/hermes/types'
 import type { ContextReference } from '@/lib/context-references/types'
+import type { SlashCommandPayload } from '@/lib/chat/slash-commands'
 import { copyToClipboard } from '@/lib/utils/clipboard'
 
 // Matches Phase 1 ConversationMessage shape
@@ -15,6 +16,7 @@ export interface ConversationMessage {
   content: string
   attachments?: ConversationAttachment[]
   contextRefs?: ContextReference[]
+  slashCommand?: SlashCommandPayload
   runId?: string
   status?: string
   error?: string

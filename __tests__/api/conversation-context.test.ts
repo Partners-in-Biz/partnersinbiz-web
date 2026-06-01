@@ -153,4 +153,53 @@ describe('conversation message context dispatch', () => {
       }),
     }))
   })
+
+  it('sanitizes slash command metadata and prepends it to Hermes input', async () => {
+    mockGetConversation.mockResolvedValue({
+      id: 'conv-1',
+      orgId: 'org-1',
+      participantUids: ['admin-1'],
+      participantAgentIds: ['pip'],
+      participants: [
+        { kind: 'user', uid: 'admin-1', role: 'admin', displayName: 'Peet' },
+        { kind: 'agent', agentId: 'pip', name: 'Pip' },
+      ],
+      contextRefs: [],
+    })
+    mockResolveContextReferences.mockResolvedValue([])
+    mockBuildAttachedContextBlock.mockReturnValue('')
+    const { POST } = await import('@/app/api/v1/conversations/[convId]/messages/route')
+    const req = new NextRequest('http://localhost/api/v1/conversations/conv-1/messages', {
+      method: 'POST',
+      body: JSON.stringify({
+        content: 'Create this as a task',
+        slashCommand: {
+          id: 'fake-id',
+          token: '/task',
+          label: 'Wrong label from client',
+          executorKind: 'fake',
+          args: 'Create this as a task',
+        },
+      }),
+    })
+
+    const res = await POST(req, { params: Promise.resolve({ convId: 'conv-1' }) })
+
+    expect(res.status).toBe(201)
+    expect(mockCreateMessage).toHaveBeenCalledWith('conv-1', expect.objectContaining({
+      slashCommand: expect.objectContaining({
+        id: 'task',
+        token: '/task',
+        label: 'Create task',
+        executorKind: 'agent_intent',
+        args: 'Create this as a task',
+      }),
+    }))
+    expect(mockCreateHermesRun).toHaveBeenCalledWith(expect.anything(), 'admin-1', expect.objectContaining({
+      prompt: expect.stringContaining('[Slash command]\nid: task'),
+      metadata: expect.objectContaining({
+        slashCommand: expect.objectContaining({ id: 'task', token: '/task' }),
+      }),
+    }))
+  })
 })

@@ -20,6 +20,16 @@ import {
   type ContextReference,
   type ContextReferenceSeed,
 } from '@/lib/context-references/types'
+import {
+  buildSlashCommandPayload,
+  filterSlashCommands,
+  findActiveSlashCommandPrompt,
+  parseLeadingSlashCommand,
+  replaceSlashCommandToken,
+  type ActiveSlashCommandPrompt,
+  type SlashCommandDefinition,
+  type SlashCommandPayload,
+} from '@/lib/chat/slash-commands'
 import MessageBubble, { type ConversationAttachment, type ConversationMessage } from './MessageBubble'
 import ParticipantBar from './ParticipantBar'
 import ParticipantPicker, { type SelectedParticipant } from './ParticipantPicker'
@@ -132,6 +142,8 @@ export default function UnifiedChat({
   const [contextRefs, setContextRefs] = useState<ContextReference[]>([])
   const [contextMention, setContextMention] = useState<ActiveContextMention | null>(null)
   const [contextTypePrompt, setContextTypePrompt] = useState<ActiveContextTypePrompt | null>(null)
+  const [slashPrompt, setSlashPrompt] = useState<ActiveSlashCommandPrompt | null>(null)
+  const [selectedSlashCommand, setSelectedSlashCommand] = useState<SlashCommandDefinition | null>(null)
   const [contextSearchResults, setContextSearchResults] = useState<ContextReference[]>([])
   const [contextSearchLoading, setContextSearchLoading] = useState(false)
 
@@ -201,6 +213,10 @@ export default function UnifiedChat({
   const contextTypeOptions = useMemo(
     () => (contextTypePrompt ? filterContextReferenceMentionOptions(contextTypePrompt.query) : []),
     [contextTypePrompt],
+  )
+  const slashCommandOptions = useMemo(
+    () => (slashPrompt ? filterSlashCommands(slashPrompt.query) : []),
+    [slashPrompt],
   )
 
   const coerceContextRef = useCallback((ref: ContextReference | ContextReferenceSeed): ContextReference => ({
@@ -656,9 +672,17 @@ export default function UnifiedChat({
 
   const updateMentionFromComposer = useCallback((value: string, caret = value.length) => {
     const mention = findActiveContextMention(value, caret)
+    const typePrompt = mention ? null : findActiveContextTypePrompt(value, caret)
+    const commandPrompt = mention || typePrompt ? null : findActiveSlashCommandPrompt(value, caret)
     setContextMention(mention)
-    setContextTypePrompt(mention ? null : findActiveContextTypePrompt(value, caret))
-  }, [])
+    setContextTypePrompt(typePrompt)
+    setSlashPrompt(commandPrompt)
+    const parsed = parseLeadingSlashCommand(value)
+    if (!parsed) setSelectedSlashCommand(null)
+    else if (!selectedSlashCommand || parsed.command.id !== selectedSlashCommand.id) {
+      setSelectedSlashCommand(parsed.command)
+    }
+  }, [selectedSlashCommand])
 
   const patchContextRefs = useCallback(async (
     action: 'add' | 'remove' | 'clear',
@@ -732,12 +756,27 @@ export default function UnifiedChat({
     const caret = contextTypePrompt.start + option.namespace.length + 2
     setInput(nextInput)
     setContextTypePrompt(null)
+    setSlashPrompt(null)
     setContextMention(findActiveContextMention(nextInput, caret))
     requestAnimationFrame(() => {
       composerRef.current?.focus()
       composerRef.current?.setSelectionRange(caret, caret)
     })
   }, [contextTypePrompt, input])
+
+  const selectSlashCommand = useCallback((command: SlashCommandDefinition) => {
+    if (!slashPrompt) return
+    const next = replaceSlashCommandToken(input, slashPrompt, command)
+    setInput(next.value)
+    setSelectedSlashCommand(command)
+    setSlashPrompt(null)
+    setContextMention(null)
+    setContextTypePrompt(null)
+    requestAnimationFrame(() => {
+      composerRef.current?.focus()
+      composerRef.current?.setSelectionRange(next.caret, next.caret)
+    })
+  }, [input, slashPrompt])
 
   // ── Rename conversation ───────────────────────────────────────────────────
   const renameConversation = useCallback(async (convId: string, title: string) => {
@@ -901,14 +940,30 @@ export default function UnifiedChat({
 
       try {
         const currentPageCommand = extractCurrentPageContextCommand(input)
-        const messageText = currentPageCommand.shouldUseCurrentPage ? currentPageCommand.content : input
+        const parsedSlashCommand = parseLeadingSlashCommand(input)
+        const activeSlashCommand = selectedSlashCommand ?? parsedSlashCommand?.command ?? null
+        const slashArgs = parsedSlashCommand?.args ?? ''
+        const slashPayload: SlashCommandPayload | null = activeSlashCommand
+          ? buildSlashCommandPayload(activeSlashCommand, slashArgs)
+          : null
+        const shouldUseCurrentPage =
+          currentPageCommand.shouldUseCurrentPage || activeSlashCommand?.id === 'use-current-page'
+        const messageText = currentPageCommand.shouldUseCurrentPage
+          ? currentPageCommand.content
+          : activeSlashCommand?.id === 'use-current-page'
+            ? slashArgs
+            : activeSlashCommand
+              ? slashArgs || activeSlashCommand.description
+              : input
         let refsForSend = contextRefs
-        if (currentPageCommand.shouldUseCurrentPage) {
+        if (shouldUseCurrentPage) {
           refsForSend = await pinCurrentPageContext()
           if (!messageText.trim() && attachments.length === 0) {
             setInput('')
             setContextMention(null)
             setContextTypePrompt(null)
+            setSlashPrompt(null)
+            setSelectedSlashCommand(null)
             return
           }
         }
@@ -956,6 +1011,8 @@ export default function UnifiedChat({
         setInput('')
         setContextMention(null)
         setContextTypePrompt(null)
+        setSlashPrompt(null)
+        setSelectedSlashCommand(null)
         setContextSearchResults([])
         setAttachments([])
         const nowSec = Date.now() / 1000
@@ -974,6 +1031,7 @@ export default function UnifiedChat({
           authorDisplayName: currentUserDisplayName,
           ...(uploadedAttachments.length > 0 ? { attachments: uploadedAttachments } : {}),
           ...(refsForSend.length > 0 ? { contextRefs: refsForSend } : {}),
+          ...(slashPayload ? { slashCommand: slashPayload } : {}),
           status: 'completed',
           createdAt: { seconds: nowSec },
         }
@@ -995,7 +1053,12 @@ export default function UnifiedChat({
         const res = await fetch(`/api/v1/conversations/${convId}/messages`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ content, attachments: uploadedAttachments, contextRefs: refsForSend }),
+          body: JSON.stringify({
+            content,
+            attachments: uploadedAttachments,
+            contextRefs: refsForSend,
+            ...(slashPayload ? { slashCommand: slashPayload } : {}),
+          }),
         })
         const body = await res.json()
         if (!res.ok) throw new Error(body.error ?? 'Send failed')
@@ -1043,6 +1106,7 @@ export default function UnifiedChat({
       startEventStream,
       conversations,
       activeConversation?.participantAgentIds?.length,
+      selectedSlashCommand,
     ],
   )
 
@@ -1461,6 +1525,33 @@ export default function UnifiedChat({
             </div>
           )}
 
+          {slashPrompt && (
+            <div className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-1 shadow-xl">
+              <div className="px-2 py-1 text-[10px] uppercase tracking-wide text-on-surface-variant">
+                Slash commands
+              </div>
+              {slashCommandOptions.length === 0 ? (
+                <div className="px-2 py-2 text-xs text-on-surface-variant">No matching commands</div>
+              ) : (
+                slashCommandOptions.map((command) => (
+                  <button
+                    key={command.id}
+                    type="button"
+                    aria-label={`Use ${command.token}`}
+                    onClick={() => selectSlashCommand(command)}
+                    className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm text-on-surface transition-colors hover:bg-white/[0.06]"
+                  >
+                    <span className="material-symbols-outlined text-[16px] text-on-surface-variant">{command.icon}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-xs font-medium">{command.label}</span>
+                      <span className="block truncate text-[11px] text-on-surface-variant">{command.token} · {command.description}</span>
+                    </span>
+                  </button>
+                ))
+              )}
+            </div>
+          )}
+
           {contextTypePrompt && (
             <div className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-1 shadow-xl">
               <div className="px-2 py-1 text-[10px] uppercase tracking-wide text-on-surface-variant">
@@ -1591,9 +1682,10 @@ export default function UnifiedChat({
               onClick={(e) => updateMentionFromComposer(input, e.currentTarget.selectionStart ?? input.length)}
               onKeyUp={(e) => updateMentionFromComposer(input, e.currentTarget.selectionStart ?? input.length)}
               onKeyDown={(e) => {
-                if (e.key === 'Escape' && (contextMention || contextTypePrompt)) {
+                if (e.key === 'Escape' && (contextMention || contextTypePrompt || slashPrompt)) {
                   setContextMention(null)
                   setContextTypePrompt(null)
+                  setSlashPrompt(null)
                   setContextSearchResults([])
                   return
                 }

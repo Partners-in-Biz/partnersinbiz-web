@@ -198,4 +198,68 @@ describe('UnifiedChat context references', () => {
 
     expect(input).toHaveValue('@products:')
   })
+
+  it('shows slash commands and sends structured command metadata', async () => {
+    render(
+      <UnifiedChat
+        orgId="org-1"
+        currentUserUid="user-1"
+        currentUserDisplayName="Peet"
+      />,
+    )
+
+    const input = await screen.findByPlaceholderText('Send a message')
+    fireEvent.change(input, { target: { value: '/' } })
+
+    expect(await screen.findByRole('button', { name: 'Use /task' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Use /route' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Use /task' }))
+    expect(input).toHaveValue('/task ')
+
+    fireEvent.change(input, { target: { value: '/task Follow up with Theo about slash commands' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Send message' }))
+
+    await waitFor(() => {
+      const messagePost = mockFetch.mock.calls.find(([url, init]) =>
+        String(url) === '/api/v1/conversations/conv-1/messages' && init?.method === 'POST',
+      )
+      expect(messagePost).toBeTruthy()
+      const body = JSON.parse(messagePost![1].body as string)
+      expect(body.content).toBe('Follow up with Theo about slash commands')
+      expect(body.slashCommand).toMatchObject({
+        id: 'task',
+        token: '/task',
+        executorKind: 'agent_intent',
+        args: 'Follow up with Theo about slash commands',
+      })
+    })
+  })
+
+  it('treats /use-current-page as a structured pin-only command with no message send', async () => {
+    render(
+      <UnifiedChat
+        orgId="org-1"
+        currentUserUid="user-1"
+        currentUserDisplayName="Peet"
+        currentPageContext={{
+          type: 'contact',
+          id: 'contact-1',
+          orgId: 'org-1',
+          origin: 'current_page',
+          href: '/admin/crm/contacts/contact-1',
+        }}
+      />,
+    )
+
+    const input = await screen.findByPlaceholderText('Send a message')
+    fireEvent.change(input, { target: { value: '/use-current-page' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Send message' }))
+
+    await waitFor(() => expect(screen.getByTitle('contact: Jane Client')).toBeInTheDocument())
+    const messagePosts = mockFetch.mock.calls.filter(([url, init]) =>
+      String(url) === '/api/v1/conversations/conv-1/messages' && init?.method === 'POST',
+    )
+    expect(messagePosts).toHaveLength(0)
+  })
 })
