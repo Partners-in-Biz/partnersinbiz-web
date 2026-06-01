@@ -131,6 +131,16 @@ describe('Portal CRM reports page', () => {
     expect(within(metrics).getByText('Open pipeline')).toBeInTheDocument()
   })
 
+  it('names activity period controls by the report window they apply', async () => {
+    render(<CrmReportsPage />)
+
+    expect(await screen.findByText('Activity last 30 days')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Show CRM activity for last 30 days' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'Show CRM activity for last 60 days' })).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByRole('button', { name: 'Show CRM activity for last 90 days' })).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.queryByRole('button', { name: '30' })).not.toBeInTheDocument()
+  })
+
   it('turns unassigned deal ownership into a direct deal owner lens', async () => {
     ;(global.fetch as jest.Mock).mockImplementation((url: RequestInfo | URL) => {
       const path = String(url)
