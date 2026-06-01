@@ -102,9 +102,17 @@ export interface CompanyRowProps {
   selected?: boolean
   onToggleSelected?: (id: string) => void
   onSetupProfile?: (id: string) => void
+  onEditValue?: (id: string) => void
 }
 
-export function CompanyRow({ company, onClick, selected = false, onToggleSelected, onSetupProfile }: CompanyRowProps) {
+export function CompanyRow({
+  company,
+  onClick,
+  selected = false,
+  onToggleSelected,
+  onSetupProfile,
+  onEditValue,
+}: CompanyRowProps) {
   const lcCls = company.lifecycleStage
     ? (LIFECYCLE_COLOURS[company.lifecycleStage] ?? 'bg-surface-container text-on-surface-variant')
     : ''
@@ -116,6 +124,7 @@ export function CompanyRow({ company, onClick, selected = false, onToggleSelecte
   const tierLabel = readableAccountLabel(company.tier)
   const websiteLabel = company.domain || company.website || ''
   const websiteLink = websiteHref(websiteLabel)
+  const hasAnnualRevenue = typeof company.annualRevenue === 'number' && Number.isFinite(company.annualRevenue)
   const hasSetupGap = !company.domain && !company.website && !company.legalName
     || !company.industry
     || company.employeeCount == null && !company.size
@@ -229,10 +238,18 @@ export function CompanyRow({ company, onClick, selected = false, onToggleSelecte
 
       {/* Value */}
       <td className="px-4 py-3">
-        <div>
-          <span className="text-sm font-mono text-[var(--color-pib-text)]">
+        <div className="space-y-1">
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation()
+              onEditValue?.(company.id)
+            }}
+            aria-label={`${hasAnnualRevenue ? 'Edit' : 'Add'} annual revenue for ${company.name}`}
+            className="block text-left text-sm font-mono text-[var(--color-pib-text)] transition-colors hover:text-[var(--color-pib-accent)]"
+          >
             {fmtCurrency(company.annualRevenue, company.currency)}
-          </span>
+          </button>
           <p className="text-[11px] text-[var(--color-pib-text-muted)]">
             {company.employeeCount != null ? `${company.employeeCount.toLocaleString()} people` : 'No size data'}
           </p>

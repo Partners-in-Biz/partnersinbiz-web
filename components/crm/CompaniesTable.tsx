@@ -164,6 +164,7 @@ export function CompaniesTable({
                 company={company}
                 onClick={onRowClick}
                 onSetupProfile={onSetupCompany}
+                onEditValue={onSetupCompany}
                 selected={selectedIds?.has(company.id) ?? false}
                 onToggleSelected={onToggleCompany}
               />
