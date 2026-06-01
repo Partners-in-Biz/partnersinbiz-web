@@ -633,7 +633,11 @@ export default function CrmReportsPage() {
               {pipelineSignal}
             </span>
           </div>
-          <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+          <div
+            role="group"
+            aria-label="Executive CRM signal metrics"
+            className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
+          >
             <StatCard label="Contacts" value={fmtNum(funnel?.total ?? 0)} sub={`${fmtPercent(clientMix)} clients in active base`} icon="contacts" />
             <StatCard label="Open pipeline" value={openPipelineValue} sub={openPipelineSub} icon="payments" />
             <StatCard label="Bottlenecks" value={fmtNum(velocity?.summary.bottleneckCount ?? 0)} sub={`${fmtPercent(bottleneckShare)} of tracked stages`} icon="speed" />

@@ -28,6 +28,22 @@ function requiredText(value: unknown) {
   return typeof value === 'string' && value.trim() ? value.trim() : ''
 }
 
+function normalizedText(value: unknown) {
+  return typeof value === 'string' ? value.trim().toLowerCase() : ''
+}
+
+function isMistakenProviderAcceptance(document: { clientAcceptance?: { actorId?: string; actorName?: string; typedName?: string; companyName?: string } }, signerName: string) {
+  const acceptance = document.clientAcceptance
+  if (!acceptance) return false
+  if (normalizedText(acceptance.typedName) !== normalizedText(signerName)) return false
+
+  // A real client acceptance should carry a client company name. The broken
+  // admin-side path recorded Peet's name as the client typedName, usually with
+  // the Firebase uid as actorName and no company. Clear that stale client slot
+  // when the same PiB signature is being written to the provider side.
+  return !requiredText(acceptance.companyName) || acceptance.actorName === acceptance.actorId
+}
+
 export const POST = withAuth('admin', async (req: NextRequest, user: ApiUser, ctx: RouteContext) => {
   const { id } = await ctx.params
   const access = await getAccessibleClientDocument(id, user)
@@ -56,6 +72,8 @@ export const POST = withAuth('admin', async (req: NextRequest, user: ApiUser, ct
   const now = FieldValue.serverTimestamp()
   const ip = firstForwardedIp(req)
   const userAgent = req.headers.get('user-agent') ?? ''
+
+  const shouldClearMistakenClientAcceptance = isMistakenProviderAcceptance(document, name)
 
   batch.set(approvalRef, {
     documentId: id,
@@ -87,6 +105,10 @@ export const POST = withAuth('admin', async (req: NextRequest, user: ApiUser, ct
       ip,
       userAgent,
     },
+    ...(shouldClearMistakenClientAcceptance ? {
+      clientAcceptance: FieldValue.delete(),
+      status: 'client_review',
+    } : {}),
     updatedAt: now,
     updatedBy: user.uid,
     updatedByType: actorType(user),

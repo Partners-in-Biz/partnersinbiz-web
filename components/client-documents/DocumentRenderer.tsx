@@ -15,6 +15,27 @@ function readableType(type: string) {
 
 function formatSignatureDate(value: unknown) {
   if (!value) return 'Date pending'
+  if (typeof value === 'number') {
+    const date = new Date(value)
+    return Number.isNaN(date.getTime()) ? 'Date recorded' : date.toLocaleDateString('en-ZA', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    })
+  }
+  if (typeof value === 'object') {
+    const timestamp = value as { seconds?: number; _seconds?: number; nanoseconds?: number; _nanoseconds?: number }
+    const seconds = timestamp.seconds ?? timestamp._seconds
+    if (typeof seconds === 'number') {
+      const nanos = timestamp.nanoseconds ?? timestamp._nanoseconds ?? 0
+      const date = new Date(seconds * 1000 + Math.floor(nanos / 1e6))
+      return Number.isNaN(date.getTime()) ? 'Date recorded' : date.toLocaleDateString('en-ZA', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      })
+    }
+  }
   if (typeof value === 'string') {
     const date = new Date(value)
     return Number.isNaN(date.getTime()) ? 'Date recorded' : date.toLocaleDateString('en-ZA', {

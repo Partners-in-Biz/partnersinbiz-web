@@ -278,10 +278,13 @@ describe('ContactDealsPanel', () => {
     })
   })
 
-  it('shows loading skeletons while fetching', () => {
+  it('names the linked-deal loading state while fetching', () => {
     // Never resolve so loading stays true
     mockFetch.mockReturnValue(new Promise(() => {}))
-    const { container } = render(<ContactDealsPanel contactId="contact-1" />)
+    const { container } = render(<ContactDealsPanel contactId="contact-1" contactName="Ava Owner" />)
+
+    expect(screen.getByText('Loading relationship pipeline for Ava Owner...')).toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveAttribute('aria-live', 'polite')
     expect(container.querySelectorAll('.pib-skeleton').length).toBeGreaterThan(0)
   })
 

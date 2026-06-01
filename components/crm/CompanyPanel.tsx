@@ -134,7 +134,7 @@ export function CompanyPanel({ companyId, companyName, emptyAction }: CompanyPan
           {initials(displayName)}
         </div>
         <div className="flex-1 min-w-0 space-y-1">
-          <p className="text-sm font-medium text-[var(--color-pib-text)] truncate">{displayName}</p>
+          <p className="text-sm font-medium leading-snug text-[var(--color-pib-text)] break-words">{displayName}</p>
           <p className="text-[11px] text-[var(--color-pib-text-muted)]">Resolving company profile...</p>
         </div>
         {companyId && (
@@ -177,7 +177,7 @@ export function CompanyPanel({ companyId, companyName, emptyAction }: CompanyPan
       )}
 
       <div className="flex-1 min-w-0 space-y-2">
-        <p className="text-sm font-medium text-[var(--color-pib-text)] truncate">{displayName}</p>
+        <p className="text-sm font-medium leading-snug text-[var(--color-pib-text)] break-words">{displayName}</p>
         {accountManagerLabel && (
           <p className="text-[11px] text-[var(--color-pib-text-muted)] truncate">{accountManagerLabel}</p>
         )}

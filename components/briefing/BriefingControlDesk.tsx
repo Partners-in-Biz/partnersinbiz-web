@@ -171,6 +171,23 @@ function priorityClass(priority: BriefingCard['priority']) {
   }
 }
 
+function priorityAccentColor(priority: BriefingCard['priority'] | string) {
+  switch (priority) {
+    case 'critical':
+      return '#ef4444'
+    case 'needs-peet':
+      return 'var(--color-accent-v2)'
+    case 'client-risk':
+      return '#f97316'
+    case 'review':
+      return '#60a5fa'
+    case 'progress':
+      return '#4ade80'
+    default:
+      return 'var(--color-outline)'
+  }
+}
+
 function titledId(title: string | null | undefined, id: string | null | undefined) {
   if (title && id && title === id) return title
   if (title && id) return `${title} (${id})`
@@ -1628,9 +1645,10 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
   return (
     <div className="min-h-screen bg-page text-on-surface">
       <div className="mx-auto flex w-full max-w-[1500px] flex-col gap-5 px-4 py-5 sm:px-6 lg:px-8">
-        <section className="overflow-hidden rounded-lg border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(96,165,250,0.18),transparent_32%),linear-gradient(135deg,rgba(17,24,39,0.94),rgba(11,18,32,0.98))] p-5 shadow-2xl">
+        <section className="relative overflow-hidden rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-5 shadow-[var(--shadow-card)]">
+          <span className="absolute inset-y-0 left-0 w-1.5 bg-[var(--color-accent-v2)]" aria-hidden="true" />
           <div className="grid gap-5 lg:grid-cols-[minmax(0,1.4fr)_minmax(420px,0.8fr)] lg:items-end">
-            <div>
+            <div className="pl-2">
               <p className="eyebrow !text-[10px] text-brand">{mode === 'admin' ? 'Admin / Control Desk' : 'Workspace / Control Desk'}</p>
               <h1 className="mt-2 max-w-4xl font-display text-4xl font-semibold text-on-surface sm:text-5xl">Briefings control desk</h1>
               <p className="mt-3 max-w-3xl text-sm leading-6 text-on-surface-variant">
@@ -1639,13 +1657,13 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
             </div>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               {[
-                { label: 'Needs action', value: topStats.action, icon: 'bolt' },
-                { label: 'Blocked', value: topStats.blocked, icon: 'priority_high' },
-                { label: 'For review', value: topStats.review, icon: 'rate_review' },
-                { label: 'Agent signals', value: topStats.agents, icon: 'smart_toy' },
+                { label: 'Needs action', value: topStats.action, icon: 'bolt', color: 'var(--color-accent-v2)' },
+                { label: 'Blocked', value: topStats.blocked, icon: 'priority_high', color: '#ef4444' },
+                { label: 'For review', value: topStats.review, icon: 'rate_review', color: '#60a5fa' },
+                { label: 'Agent signals', value: topStats.agents, icon: 'smart_toy', color: '#4ade80' },
               ].map((stat) => (
-                <div key={stat.label} className="rounded-lg border border-white/10 bg-white/[0.04] p-3">
-                  <span className="material-symbols-outlined text-[18px] text-brand" aria-hidden="true">{stat.icon}</span>
+                <div key={stat.label} className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface-container)] p-3">
+                  <span className="material-symbols-outlined text-[18px]" style={{ color: stat.color }} aria-hidden="true">{stat.icon}</span>
                   <p className="mt-2 text-2xl font-semibold text-on-surface">{stat.value}</p>
                   <p className="text-xs text-on-surface-variant">{stat.label}</p>
                 </div>
@@ -1660,7 +1678,7 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
           </div>
         ) : null}
 
-        <section className="rounded-lg border border-white/10 bg-[var(--color-pib-surface)] p-4">
+        <section className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-4">
           <div className="grid gap-3 lg:grid-cols-[1.1fr_0.85fr_0.85fr_auto] lg:items-end">
             <label className="flex flex-col gap-2 text-sm text-on-surface-variant">
               Workspace
@@ -1700,7 +1718,7 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
           </div>
         </section>
 
-        <section className="rounded-lg border border-white/10 bg-[var(--color-pib-surface)] p-4">
+        <section className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="eyebrow !text-[10px] text-brand">Workspace pulse</p>
@@ -1716,7 +1734,7 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
 
           <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             {workspacePulse.length === 0 ? (
-              <div className="rounded-lg border border-white/10 bg-white/[0.03] p-4 text-sm text-on-surface-variant">
+              <div className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface-container)] p-4 text-sm text-on-surface-variant">
                 Workspace counts will appear when the live feed returns active cards.
               </div>
             ) : workspacePulse.map((workspace) => (
@@ -1725,7 +1743,7 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                 type="button"
                 onClick={() => setOrgId(workspace.id)}
                 aria-label={`Filter to ${workspace.name} workspace`}
-                className={`min-h-36 rounded-lg border p-4 text-left transition ${orgId === workspace.id ? 'border-brand bg-brand/15 shadow-lg shadow-brand/10' : 'border-white/10 bg-white/[0.03] hover:border-brand/50'}`}
+                className={`min-h-36 rounded-lg border p-4 text-left transition ${orgId === workspace.id ? 'border-[var(--color-accent-v2)] bg-[var(--color-accent-subtle)] shadow-lg shadow-black/20' : 'border-[var(--color-card-border)] bg-[var(--color-surface-container)] hover:border-[var(--color-accent-v2)]/50'}`}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
@@ -1747,13 +1765,19 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
           </div>
         </section>
 
-        <section className="grid gap-4 xl:grid-cols-[280px_minmax(0,1fr)_420px]">
-          <aside className="rounded-lg border border-white/10 bg-[var(--color-pib-surface)] p-3 xl:sticky xl:top-4 xl:h-fit">
+        <section className="grid gap-4 xl:grid-cols-[280px_minmax(0,1fr)_420px] xl:items-start">
+          <aside className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-3 xl:sticky xl:top-4 xl:h-fit">
             <p className="eyebrow !text-[10px] px-1">Signal lanes</p>
             <div className="mt-3 grid grid-cols-2 gap-2 xl:grid-cols-1">
               {PRIORITIES.filter((p) => p.value !== 'all').map((p) => (
-                <button key={p.value} type="button" onClick={() => setPriority(p.value)} className={`flex min-h-14 items-center gap-3 rounded-lg border px-3 py-2 text-left text-sm ${priority === p.value ? 'border-brand bg-brand/15 text-on-surface' : 'border-white/10 bg-white/[0.03] text-on-surface-variant hover:text-on-surface'}`}>
-                  <span className="material-symbols-outlined text-[19px]" aria-hidden="true">{p.icon}</span>
+                <button
+                  key={p.value}
+                  type="button"
+                  onClick={() => setPriority(p.value)}
+                  className={`flex min-h-14 items-center gap-3 rounded-lg border px-3 py-2 text-left text-sm transition ${priority === p.value ? 'border-[var(--color-accent-v2)] bg-[var(--color-accent-subtle)] text-on-surface' : 'border-[var(--color-card-border)] bg-[var(--color-surface-container)] text-on-surface-variant hover:border-[var(--color-accent-v2)]/50 hover:text-on-surface'}`}
+                  style={{ borderLeft: `3px solid ${priorityAccentColor(p.value)}` }}
+                >
+                  <span className="material-symbols-outlined text-[19px]" style={{ color: priorityAccentColor(p.value) }} aria-hidden="true">{p.icon}</span>
                   <span className="min-w-0 flex-1">
                     <span className="block font-medium">{p.label}</span>
                     <span className="block text-xs text-on-surface-variant">{counts[p.value] ?? 0} live</span>
@@ -1763,38 +1787,46 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
             </div>
           </aside>
 
-          <div className="flex flex-col gap-3">
-            <div className="flex items-center justify-between rounded-lg border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-on-surface-variant">
+          <div className="flex min-h-0 flex-col gap-3 xl:sticky xl:top-4 xl:h-[calc(100vh-2rem)]">
+            <div className="flex shrink-0 items-center justify-between rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface-container)] px-4 py-3 text-sm text-on-surface-variant">
               <span>{feed?.total ?? 0} live cards</span>
               <span>{feed?.generatedAt ? `Updated ${new Date(feed.generatedAt).toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' })}` : 'Waiting for feed'}</span>
             </div>
 
-            {loading ? (
-              <div className="rounded-lg border border-white/10 bg-[var(--color-pib-surface)] p-6 text-sm text-on-surface-variant">Loading live control desk...</div>
-            ) : items.length === 0 ? (
-              <div className="rounded-lg border border-white/10 bg-[var(--color-pib-surface)] p-6 text-sm text-on-surface-variant">No matching cards are active. Handled and snoozed cards stay out of this live view until they return.</div>
-            ) : (
-              items.map((item) => (
-                <button key={item.id} type="button" onClick={() => setSelectedId(item.id)} className={`rounded-lg border border-white/10 bg-[var(--color-pib-surface)] p-4 text-left transition hover:border-brand/60 ${selected?.id === item.id ? 'ring-2 ring-brand/40' : ''}`}>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${priorityClass(item.priority)}`}>{PRIORITY_LABELS[item.priority]}</span>
-                    <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-xs text-on-surface-variant">{item.source.type}</span>
-                    {item.requiresAction ? <span className="rounded-full border border-brand/35 bg-brand/10 px-2.5 py-1 text-xs text-brand">Action</span> : null}
-                    <span className="ml-auto text-xs text-on-surface-variant">{item.timeAgo}</span>
-                  </div>
-                  <h2 className="mt-3 text-lg font-semibold text-on-surface">{item.title}</h2>
-                  <p className="mt-2 text-sm leading-6 text-on-surface-variant">{item.summary}</p>
-                  <div className="mt-3 flex flex-wrap gap-2 text-xs text-on-surface-variant">
-                    <span>Workspace: {titledId(item.context.orgName, item.orgId)}</span>
-                    {item.context.projectName || item.context.projectId ? <span>Project: {titledId(item.context.projectName, item.context.projectId)}</span> : null}
-                    {item.context.taskTitle || item.context.taskId ? <span>Task: {titledId(item.context.taskTitle, item.context.taskId)}</span> : null}
-                  </div>
-                </button>
-              ))
-            )}
+            <div aria-label="Live briefing cards" className="min-h-0 flex-1 space-y-3 xl:overflow-y-auto xl:pr-2">
+              {loading ? (
+                <div className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-6 text-sm text-on-surface-variant">Loading live control desk...</div>
+              ) : items.length === 0 ? (
+                <div className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-6 text-sm text-on-surface-variant">No matching cards are active. Handled and snoozed cards stay out of this live view until they return.</div>
+              ) : (
+                items.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setSelectedId(item.id)}
+                    className={`w-full overflow-hidden rounded-lg border bg-[var(--color-card)] p-4 text-left transition-all duration-150 hover:-translate-y-0.5 hover:border-[var(--color-accent-v2)]/60 hover:bg-[var(--color-card-hover)] ${selected?.id === item.id ? 'border-[var(--color-accent-v2)] bg-[var(--color-card-hover)] shadow-[0_18px_40px_rgba(0,0,0,0.24)]' : 'border-[var(--color-card-border)]'}`}
+                    style={{ borderLeft: `3px solid ${priorityAccentColor(item.priority)}` }}
+                  >
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${priorityClass(item.priority)}`}>{PRIORITY_LABELS[item.priority]}</span>
+                      <span className="rounded-full border border-[var(--color-card-border)] bg-[var(--color-surface-container)] px-2.5 py-1 text-xs text-on-surface-variant">{sourceLabel(item)}</span>
+                      {item.requiresAction ? <span className="rounded-full border border-[var(--color-accent-v2)]/35 bg-[var(--color-accent-subtle)] px-2.5 py-1 text-xs text-[var(--color-accent-text)]">Action</span> : null}
+                      <span className="ml-auto text-xs text-on-surface-variant">{item.timeAgo}</span>
+                    </div>
+                    <h2 className="mt-3 text-lg font-semibold leading-snug text-on-surface">{item.title}</h2>
+                    <p className="mt-2 text-sm leading-6 text-on-surface-variant">{item.summary}</p>
+                    <div className="mt-3 flex flex-wrap gap-2 text-xs text-on-surface-variant">
+                      <span>Workspace: {titledId(item.context.orgName, item.orgId)}</span>
+                      {item.context.projectName || item.context.projectId ? <span>Project: {titledId(item.context.projectName, item.context.projectId)}</span> : null}
+                      {item.context.taskTitle || item.context.taskId ? <span>Task: {titledId(item.context.taskTitle, item.context.taskId)}</span> : null}
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
           </div>
 
-          <aside className="rounded-lg border border-white/10 bg-[var(--color-pib-surface)] p-5 xl:sticky xl:top-4 xl:h-fit">
+          <aside className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-5 xl:sticky xl:top-4 xl:h-[calc(100vh-2rem)] xl:overflow-y-auto">
             <p className="eyebrow !text-[10px] text-brand">Action panel</p>
             {selected ? (
               <div className="mt-4 space-y-5">

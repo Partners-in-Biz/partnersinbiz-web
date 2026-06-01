@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import CrmReportsPage from '@/app/(portal)/portal/reports/crm/page'
 
 jest.mock('next/link', () => ({
@@ -119,6 +119,16 @@ describe('Portal CRM reports page', () => {
     expect(await screen.findByText('Revenue forecast')).toBeInTheDocument()
     expect(screen.queryAllByText('—')).toHaveLength(0)
     expect(screen.getAllByText('R 0').length).toBeGreaterThanOrEqual(6)
+  })
+
+  it('keeps executive KPI tiles readable at desktop CRM widths', async () => {
+    render(<CrmReportsPage />)
+
+    const metrics = await screen.findByRole('group', { name: 'Executive CRM signal metrics' })
+
+    expect(metrics).toHaveClass('xl:grid-cols-3')
+    expect(metrics).not.toHaveClass('xl:grid-cols-5')
+    expect(within(metrics).getByText('Open pipeline')).toBeInTheDocument()
   })
 
   it('turns unassigned deal ownership into a direct deal owner lens', async () => {

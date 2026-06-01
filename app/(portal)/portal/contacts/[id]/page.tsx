@@ -2314,7 +2314,19 @@ export default function PortalContactDetailPage() {
               </button>
             </div>
             {enrollmentsLoading ? (
-              <p className="text-sm text-[var(--color-pib-text-muted)]">Loading…</p>
+              <div
+                role="status"
+                aria-live="polite"
+                aria-label={`Loading nurture workflow enrollment for ${contactName}`}
+                className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.02] p-4"
+              >
+                <div className="flex items-center gap-2 text-sm text-[var(--color-pib-text-muted)]">
+                  <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-accent)]" aria-hidden="true">
+                    progress_activity
+                  </span>
+                  <span>Loading nurture workflow enrollment for {contactName}...</span>
+                </div>
+              </div>
             ) : enrollments.length === 0 ? (
               <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.02] p-4">
                 <div className="flex items-start gap-3">
