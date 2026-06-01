@@ -103,6 +103,7 @@ export interface CompanyRowProps {
   onToggleSelected?: (id: string) => void
   onSetupProfile?: (id: string) => void
   onEditValue?: (id: string) => void
+  onEditLifecycle?: (id: string) => void
 }
 
 export function CompanyRow({
@@ -112,6 +113,7 @@ export function CompanyRow({
   onToggleSelected,
   onSetupProfile,
   onEditValue,
+  onEditLifecycle,
 }: CompanyRowProps) {
   const lcCls = company.lifecycleStage
     ? (LIFECYCLE_COLOURS[company.lifecycleStage] ?? 'bg-surface-container text-on-surface-variant')
@@ -208,11 +210,23 @@ export function CompanyRow({
 
       {/* Lifecycle */}
       <td className="px-4 py-3">
-        {lifecycleLabel && (
+        {lifecycleLabel && onEditLifecycle ? (
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation()
+              onEditLifecycle(company.id)
+            }}
+            aria-label={`Edit lifecycle for ${company.name}`}
+            className={`text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full transition-opacity hover:opacity-80 ${lcCls}`}
+          >
+            {lifecycleLabel}
+          </button>
+        ) : lifecycleLabel ? (
           <span className={`text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full ${lcCls}`}>
             {lifecycleLabel}
           </span>
-        )}
+        ) : null}
       </td>
 
       {/* Profile */}

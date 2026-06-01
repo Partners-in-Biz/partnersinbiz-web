@@ -197,6 +197,18 @@ describe('Portal companies page', () => {
     expect(mockPush).toHaveBeenCalledWith('/portal/companies/company-managed?edit=profile')
   })
 
+  it('turns company lifecycle chips into profile edit actions', async () => {
+    render(<CompaniesPage />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Managed Account')).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit lifecycle for Managed Account' }))
+
+    expect(mockPush).toHaveBeenCalledWith('/portal/companies/company-managed?edit=profile')
+  })
+
   it('turns company row websites into direct website actions', async () => {
     render(<CompaniesPage />)
 
