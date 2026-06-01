@@ -4,6 +4,7 @@ import DealDetailPage from '@/app/(portal)/portal/deals/[id]/page'
 const pushMock = jest.fn()
 const refreshMock = jest.fn()
 let mockDealOverrides: Record<string, unknown> = {}
+let mockPipelineResponse: unknown = null
 type DeferredResponse = {
   promise: Promise<Response>
   resolve: (response: Response) => void
@@ -40,6 +41,7 @@ describe('Portal deal detail page', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     mockDealOverrides = {}
+    mockPipelineResponse = null
     contactLookupDeferred = null
     global.fetch = jest.fn((url: RequestInfo | URL, init?: RequestInit) => {
       const path = String(url)
@@ -69,6 +71,7 @@ describe('Portal deal detail page', () => {
         })
       }
       if (path === '/api/v1/crm/pipelines/pipeline-1') {
+        if (mockPipelineResponse) return apiResponse(mockPipelineResponse)
         return apiResponse({
           id: 'pipeline-1',
           name: 'Growth pipeline',
@@ -158,6 +161,22 @@ describe('Portal deal detail page', () => {
     expect(actionCards[0]).toHaveClass('min-w-0')
     expect(actionCards[0]).not.toHaveClass('sm:flex-row')
     expect(within(actionCards[0]).getByRole('button', { name: 'Open contact for Enterprise rollout' })).toHaveClass('self-start')
+  })
+
+  it('resolves nested pipeline API responses into readable detail labels', async () => {
+    mockPipelineResponse = {
+      pipeline: {
+        id: 'pipeline-1',
+        name: 'Growth pipeline',
+        stages: [{ id: 'proposal', label: 'Proposal', kind: 'open', order: 1, probability: 70 }],
+      },
+    }
+
+    render(<DealDetailPage />)
+
+    expect(await screen.findByRole('heading', { name: 'Enterprise rollout' })).toBeInTheDocument()
+    expect(await screen.findAllByText('Growth pipeline')).toHaveLength(2)
+    expect(screen.queryByText('pipeline-1')).not.toBeInTheDocument()
   })
 
   it('turns command summary tiles into direct deal editing and forecast actions', async () => {

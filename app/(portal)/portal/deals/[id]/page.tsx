@@ -46,6 +46,12 @@ interface DealRecord {
   updatedAt?: unknown
 }
 
+type PipelineRecord = {
+  id?: string
+  name?: string
+  stages?: Array<{ id: string; label: string }>
+}
+
 interface ActivityRecord {
   id: string
   type?: string
@@ -176,6 +182,15 @@ function dealCompanyLabel(deal: DealRecord): string {
   return 'No company linked'
 }
 
+function extractPipelineRecord(body: unknown): PipelineRecord | null {
+  const payload = body as {
+    data?: PipelineRecord | { pipeline?: PipelineRecord }
+    pipeline?: PipelineRecord
+  }
+  if (payload?.data && 'pipeline' in payload.data) return payload.data.pipeline ?? null
+  return (payload?.data as PipelineRecord | undefined) ?? payload?.pipeline ?? null
+}
+
 function stageHistoryStageLabel(entry: NonNullable<DealRecord['stageHistory']>[number]): string {
   if (entry.stageId?.trim()) return normalizeStageName(entry.stageId)
   return 'Stage not captured'
@@ -271,10 +286,10 @@ export default function DealDetailPage() {
           fetch(`/api/v1/crm/pipelines/${d.pipelineId}`)
             .then(r => r.json())
             .then(pb => {
-              const pipeline = pb.data ?? pb
+              const pipeline = extractPipelineRecord(pb)
               setPipelineName(pipeline?.name ?? d.pipelineId ?? '')
               if (d.stageId && Array.isArray(pipeline?.stages)) {
-                const stage = (pipeline.stages as Array<{ id: string; label: string }>).find(s => s.id === d.stageId)
+                const stage = pipeline.stages.find(s => s.id === d.stageId)
                 setStageName(stage?.label ?? d.stageId ?? '')
               }
             })
