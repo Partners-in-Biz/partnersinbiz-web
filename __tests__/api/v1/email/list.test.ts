@@ -28,6 +28,29 @@ function mockCollection(docs: Array<Record<string, unknown>>) {
   return query
 }
 
+function mockEmailAndContactCollections(
+  emails: Array<Record<string, unknown>>,
+  contact: Record<string, unknown> | null,
+) {
+  const emailDocs = emails.map((d) => ({ id: typeof d.id === 'string' ? d.id : 'e1', data: () => d }))
+  const emailQuery = {
+    where: jest.fn().mockReturnThis(),
+    orderBy: jest.fn().mockReturnThis(),
+    get: jest.fn().mockResolvedValue({ docs: emailDocs }),
+  }
+  const contactGet = jest.fn().mockResolvedValue({
+    exists: Boolean(contact),
+    data: () => contact ?? {},
+  })
+  ;(adminDb.collection as jest.Mock).mockImplementation((collectionName: string) => {
+    if (collectionName === 'contacts') {
+      return { doc: jest.fn(() => ({ get: contactGet })) }
+    }
+    return emailQuery
+  })
+  return { emailQuery, contactGet }
+}
+
 describe('GET /api/v1/email', () => {
   it('returns 401 without auth', async () => {
     const req = new NextRequest('http://localhost/api/v1/email')
@@ -100,6 +123,30 @@ describe('GET /api/v1/email', () => {
     const body = await res.json()
     expect(body.data.map((email: { id: string }) => email.id)).toEqual(['newer', 'older'])
     expect(body.meta).toMatchObject({ total: 2, page: 1, limit: 20 })
+  })
+
+  it('derives org scope from contactId when no orgId is supplied', async () => {
+    const { emailQuery, contactGet } = mockEmailAndContactCollections(
+      [
+        {
+          id: 'matching',
+          orgId: 'org-from-contact',
+          contactId: 'c1',
+          subject: 'Contact history',
+          createdAt: '2026-05-30T09:00:00.000Z',
+        },
+      ],
+      { orgId: 'org-from-contact' },
+    )
+
+    const res = await GET(makeReq('?contactId=c1&limit=8'))
+
+    expect(res.status).toBe(200)
+    expect(contactGet).toHaveBeenCalledTimes(1)
+    expect(emailQuery.where).toHaveBeenCalledWith('orgId', '==', 'org-from-contact')
+    const body = await res.json()
+    expect(body.data).toHaveLength(1)
+    expect(body.data[0].id).toBe('matching')
   })
 
   it('returns empty array when no emails exist', async () => {
