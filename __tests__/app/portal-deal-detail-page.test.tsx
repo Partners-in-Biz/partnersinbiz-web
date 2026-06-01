@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import DealDetailPage from '@/app/(portal)/portal/deals/[id]/page'
 
 const pushMock = jest.fn()
@@ -144,6 +144,20 @@ describe('Portal deal detail page', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Add line items for Enterprise rollout' }))
     expect(screen.getByRole('dialog', { name: 'Edit Deal' })).toBeInTheDocument()
+  })
+
+  it('keeps next best action cards readable in the deal side rail', async () => {
+    render(<DealDetailPage />)
+
+    expect(await screen.findByRole('heading', { name: 'Enterprise rollout' })).toBeInTheDocument()
+
+    const actionsRegion = screen.getByRole('region', { name: 'Next best actions' })
+    const actionCards = within(actionsRegion).getAllByTestId('deal-next-best-action')
+
+    expect(actionCards).toHaveLength(3)
+    expect(actionCards[0]).toHaveClass('min-w-0')
+    expect(actionCards[0]).not.toHaveClass('sm:flex-row')
+    expect(within(actionCards[0]).getByRole('button', { name: 'Open contact for Enterprise rollout' })).toHaveClass('self-start')
   })
 
   it('turns command summary tiles into direct deal editing and forecast actions', async () => {

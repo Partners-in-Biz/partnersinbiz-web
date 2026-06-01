@@ -897,23 +897,27 @@ export default function DealDetailPage() {
             )}
           </div>
 
-          <div className="mt-4 bento-card !p-5 space-y-4">
+          <section className="mt-4 bento-card !p-5 space-y-4" aria-label="Next best actions">
             <p className="eyebrow !text-[10px]">Next best actions</p>
             <div className="space-y-3">
               {nextBestActions.map((action) => (
-                <div key={action.title} className="flex flex-col gap-3 rounded-xl border border-[var(--color-pib-line)] bg-white/[0.02] p-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="flex gap-3">
-                  <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">{action.icon}</span>
-                  <div>
-                    <p className="text-sm font-medium text-[var(--color-pib-text)]">{action.title}</p>
-                    <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">{action.copy}</p>
-                  </div>
+                <div
+                  key={action.title}
+                  data-testid="deal-next-best-action"
+                  className="flex min-w-0 flex-col gap-3 rounded-xl border border-[var(--color-pib-line)] bg-white/[0.02] p-3"
+                >
+                  <div className="flex min-w-0 items-start gap-3">
+                    <span className="material-symbols-outlined shrink-0 text-[18px] text-[var(--color-pib-text-muted)]">{action.icon}</span>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium leading-5 text-[var(--color-pib-text)]">{action.title}</p>
+                      <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">{action.copy}</p>
+                    </div>
                   </div>
                   <button
                     type="button"
                     onClick={action.onClick}
                     aria-label={action.ariaLabel}
-                    className="btn-pib-secondary inline-flex shrink-0 items-center justify-center gap-1.5 text-xs"
+                    className="btn-pib-secondary inline-flex max-w-full shrink-0 self-start items-center justify-center gap-1.5 text-xs"
                   >
                     <span className="material-symbols-outlined text-[14px]" aria-hidden="true">arrow_forward</span>
                     {action.buttonLabel}
@@ -921,7 +925,7 @@ export default function DealDetailPage() {
                 </div>
               ))}
             </div>
-          </div>
+          </section>
 
           <div className="mt-4 bento-card !p-5 space-y-3">
             <p className="eyebrow !text-[10px]">Stage movement</p>
