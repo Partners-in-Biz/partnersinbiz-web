@@ -33,6 +33,7 @@ describe('Portal companies page', () => {
                   id: 'company-managed',
                   orgId: 'org-1',
                   name: 'Managed Account',
+                  website: 'https://managed.example',
                   industry: 'SaaS',
                   lifecycleStage: 'customer',
                   accountManagerUid: 'uid-1',
@@ -182,5 +183,22 @@ describe('Portal companies page', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Complete account profile for Unmanaged Account' }))
 
     expect(mockPush).toHaveBeenCalledWith('/portal/companies/company-unmanaged?edit=profile')
+  })
+
+  it('turns company row websites into direct website actions', async () => {
+    render(<CompaniesPage />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Managed Account')).toBeInTheDocument()
+    })
+
+    const websiteLink = screen.getByRole('link', { name: 'Open website for Managed Account' })
+
+    expect(websiteLink).toHaveAttribute('href', 'https://managed.example')
+    expect(websiteLink).toHaveAttribute('target', '_blank')
+
+    fireEvent.click(websiteLink)
+
+    expect(mockPush).not.toHaveBeenCalled()
   })
 })

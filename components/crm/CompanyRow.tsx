@@ -73,6 +73,12 @@ function readableAccountLabel(value?: string): string | undefined {
     .join(' ')
 }
 
+function websiteHref(value?: string): string {
+  const trimmed = value?.trim()
+  if (!trimmed) return ''
+  return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`
+}
+
 // ── Tier / lifecycle colour chips ─────────────────────────────────────────────
 
 const TIER_COLOURS: Record<string, string> = {
@@ -108,6 +114,8 @@ export function CompanyRow({ company, onClick, selected = false, onToggleSelecte
   const healthColor = health >= 75 ? '#4ade80' : health >= 45 ? '#facc15' : '#f87171'
   const tierCls = company.tier ? (TIER_COLOURS[company.tier] ?? 'bg-surface-container text-on-surface-variant') : ''
   const tierLabel = readableAccountLabel(company.tier)
+  const websiteLabel = company.domain || company.website || ''
+  const websiteLink = websiteHref(websiteLabel)
   const hasSetupGap = !company.domain && !company.website && !company.legalName
     || !company.industry
     || company.employeeCount == null && !company.size
@@ -158,9 +166,22 @@ export function CompanyRow({ company, onClick, selected = false, onToggleSelecte
         <p className="text-sm font-medium text-[var(--color-pib-text)] truncate max-w-xs">
           {company.name}
         </p>
-        <p className="text-[11px] text-[var(--color-pib-text-muted)] font-mono">
-          {company.domain || company.website || company.legalName || 'No domain captured'}
-        </p>
+        {websiteLink ? (
+          <a
+            href={websiteLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(event) => event.stopPropagation()}
+            aria-label={`Open website for ${company.name}`}
+            className="text-[11px] text-[var(--color-pib-text-muted)] font-mono transition-colors hover:text-[var(--color-pib-accent)]"
+          >
+            {websiteLabel}
+          </a>
+        ) : (
+          <p className="text-[11px] text-[var(--color-pib-text-muted)] font-mono">
+            {company.legalName || 'No domain captured'}
+          </p>
+        )}
       </td>
 
       {/* Health */}
