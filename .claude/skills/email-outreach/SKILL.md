@@ -700,6 +700,8 @@ Per-broadcast detail (KPIs + timeline + topClicks + topDomains).
 ## `GET /email-analytics/sequences/[id]` — auth: client
 Per-sequence (status breakdown + step funnel).
 
+Portal users can reach sequence reporting from `/portal/email-analytics`: active `/crm/sequences` appear in the `Sequence performance` list and link to `/portal/email-analytics/sequences/[id]`. Use that drilldown to inspect enrollment status, active/completed counts, average completion days, and step-level sent/open/click/drop-off data.
+
 ## `GET /email-analytics/contacts?orgId=...&status=highly-engaged|engaged|cooling|dormant|unsubscribed|bounced&limit=...` — auth: client
 
 Engagement-scored contacts (score 0..100). Status buckets derived from score + recency.

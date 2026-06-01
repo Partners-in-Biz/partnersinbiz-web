@@ -1,11 +1,18 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
 import { LineChart, Donut } from '@/components/admin/email-analytics/charts'
 import type {
   OrgEmailOverview,
   EngagementTimeseries,
 } from '@/lib/email-analytics/aggregate'
+
+interface SequenceSummary {
+  id: string
+  name: string
+  status: string
+}
 
 function isoDate(d: Date): string {
   return d.toISOString().slice(0, 10)
@@ -26,10 +33,11 @@ export function EmailAnalyticsClient({ orgId }: { orgId: string }) {
   const [state, setState] = useState<{
     overview: OrgEmailOverview | null
     series: EngagementTimeseries | null
+    sequences: SequenceSummary[]
     loading: boolean
     key: string
     error: string
-  }>({ overview: null, series: null, loading: true, key: '', error: '' })
+  }>({ overview: null, series: null, sequences: [], loading: true, key: '', error: '' })
 
   useEffect(() => {
     const key = `${from}|${to}|${orgId}`
@@ -42,12 +50,24 @@ export function EmailAnalyticsClient({ orgId }: { orgId: string }) {
     Promise.all([
       fetch(`/api/v1/email-analytics/overview?${query.toString()}`).then((r) => r.json()),
       fetch(`/api/v1/email-analytics/timeseries?${seriesQuery.toString()}`).then((r) => r.json()),
-    ]).then(([o, s]) => {
+      fetch('/api/v1/crm/sequences').then((r) => r.json()),
+    ]).then(([o, s, seq]) => {
       if (cancelled) return
       const error = o.error || s.error || ''
+      const rawSequences = seq.data?.sequences ?? seq.data ?? []
+      const sequences = Array.isArray(rawSequences)
+        ? rawSequences
+          .filter((item): item is SequenceSummary => (
+            item &&
+            typeof item.id === 'string' &&
+            typeof item.name === 'string' &&
+            item.status === 'active'
+          ))
+        : []
       setState({
         overview: o.data ?? null,
         series: s.data ?? null,
+        sequences,
         loading: false,
         key,
         error,
@@ -57,6 +77,7 @@ export function EmailAnalyticsClient({ orgId }: { orgId: string }) {
       setState({
         overview: null,
         series: null,
+        sequences: [],
         loading: false,
         key,
         error: err instanceof Error ? err.message : 'Failed to load analytics.',
@@ -70,6 +91,7 @@ export function EmailAnalyticsClient({ orgId }: { orgId: string }) {
   const loading = state.loading || state.key !== `${from}|${to}|${orgId}`
   const overview = state.overview
   const series = state.series
+  const sequences = state.sequences
 
   return (
     <div className="space-y-6">
@@ -142,6 +164,38 @@ export function EmailAnalyticsClient({ orgId }: { orgId: string }) {
                   { label: 'One-off', value: overview.bySource.oneOff.sent },
                 ].filter((d) => d.value > 0)}
               />
+            </div>
+          </section>
+
+          <section>
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <h2 className="text-sm font-medium text-[var(--color-pib-text-muted)]">
+                Sequence performance
+              </h2>
+              <Link
+                href="/portal/settings/sequences"
+                className="text-xs font-medium text-[var(--color-pib-accent)] hover:underline"
+              >
+                Manage sequences
+              </Link>
+            </div>
+            <div className="rounded-xl bg-white/[0.03] border border-[var(--color-pib-line)] divide-y divide-[var(--color-pib-line)]">
+              {sequences.length === 0 ? (
+                <p className="p-4 text-sm text-[var(--color-pib-text-muted)]">
+                  No active sequences yet.
+                </p>
+              ) : (
+                sequences.map((sequence) => (
+                  <Link
+                    key={sequence.id}
+                    href={`/portal/email-analytics/sequences/${sequence.id}`}
+                    className="flex items-center justify-between gap-4 p-4 text-sm transition-colors hover:bg-white/[0.04]"
+                  >
+                    <span className="font-medium text-[var(--color-pib-text)]">{sequence.name}</span>
+                    <span className="text-xs text-[var(--color-pib-accent)]">Open analytics</span>
+                  </Link>
+                ))
+              )}
             </div>
           </section>
         </>

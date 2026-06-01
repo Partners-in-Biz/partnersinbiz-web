@@ -103,6 +103,46 @@ export default function PortalMarketingPage() {
           ],
         },
         {
+          title: 'Email nurture',
+          actions: [
+            {
+              label: 'Sequences',
+              href: '/portal/settings/sequences',
+              icon: 'route',
+              description: 'Build multi-step email nurture paths for captured contacts and clients.',
+              eyebrow: 'Journey',
+            },
+            {
+              label: 'Automations',
+              href: '/portal/settings/automations',
+              icon: 'bolt',
+              description: 'Trigger follow-up actions from CRM events, tags, forms, and sequence activity.',
+              eyebrow: 'Rules',
+            },
+            {
+              label: 'Email analytics',
+              href: '/portal/email-analytics',
+              icon: 'query_stats',
+              description: 'Track email delivery, opens, clicks, and engagement performance.',
+              eyebrow: 'Reporting',
+            },
+            {
+              label: 'Capture sources',
+              href: '/portal/capture-sources',
+              icon: 'inventory_2',
+              description: 'Manage lead forms, imports, and capture surfaces.',
+              eyebrow: 'Leads',
+            },
+            {
+              label: 'Email domains',
+              href: '/portal/email-domains',
+              icon: 'dns',
+              description: 'Check sender-domain verification and deliverability setup.',
+              eyebrow: 'Email',
+            },
+          ],
+        },
+        {
           title: 'Audience and setup',
           actions: [
             {
@@ -120,32 +160,11 @@ export default function PortalMarketingPage() {
               eyebrow: 'Comms',
             },
             {
-              label: 'Email analytics',
-              href: '/portal/email-analytics',
-              icon: 'query_stats',
-              description: 'Track email delivery, opens, clicks, and engagement performance.',
-              eyebrow: 'Reporting',
-            },
-            {
-              label: 'Capture sources',
-              href: '/portal/capture-sources',
-              icon: 'inventory_2',
-              description: 'Manage lead forms, imports, and capture surfaces.',
-              eyebrow: 'Leads',
-            },
-            {
               label: 'Integrations',
               href: '/portal/integrations',
               icon: 'extension',
               description: 'Review connected systems and marketing integrations.',
               eyebrow: 'Systems',
-            },
-            {
-              label: 'Email domains',
-              href: '/portal/email-domains',
-              icon: 'dns',
-              description: 'Check sender-domain verification and deliverability setup.',
-              eyebrow: 'Email',
             },
           ],
         },
