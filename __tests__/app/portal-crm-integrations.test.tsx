@@ -110,4 +110,27 @@ describe('PortalIntegrationsPage', () => {
 
     expect(screen.getByRole('heading', { name: 'Connect Mailchimp' })).toBeInTheDocument()
   })
+
+  it('names provider setup choices by action and current selection state', async () => {
+    render(<PortalIntegrationsPage />)
+
+    const mailchimp = await screen.findByRole('button', { name: 'Choose Mailchimp CRM source setup' })
+    expect(mailchimp).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByRole('button', { name: 'Choose HubSpot CRM source setup' })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    )
+    expect(screen.getByRole('button', { name: 'Choose Google Contacts CRM source setup' })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    )
+    expect(screen.getByRole('button', { name: 'Zapier / n8n / Make API capture source setup unavailable' })).toBeDisabled()
+
+    fireEvent.click(mailchimp)
+
+    expect(screen.getByRole('button', { name: 'Selected Mailchimp CRM source setup' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+  })
 })

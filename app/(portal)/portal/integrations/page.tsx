@@ -115,6 +115,16 @@ function statsSummary(s: PublicCrmIntegrationView['lastSyncStats']): string {
   return `${s.imported} imported · ${s.created} new · ${s.updated} updated${s.skipped ? ` · ${s.skipped} skipped` : ''}${s.errored ? ` · ${s.errored} errored` : ''}`
 }
 
+function providerSetupLabel(entry: ProviderRegistryEntry, selected: boolean, disabled: boolean): string {
+  const sourceName =
+    entry.provider === 'zapier'
+      ? 'Zapier / n8n / Make API capture source'
+      : entry.displayName
+  if (disabled) return `${sourceName} setup unavailable`
+  if (selected) return `Selected ${sourceName} CRM source setup`
+  return `Choose ${sourceName} CRM source setup`
+}
+
 const CADENCE_OPTIONS: Array<{ value: number; label: string }> = [
   { value: 0, label: 'Manual only' },
   { value: 60, label: 'Every hour' },
@@ -126,19 +136,24 @@ function ProviderTile({
   connectedCount,
   entry,
   onAdd,
+  selected,
 }: {
   connectedCount: number
   entry: ProviderRegistryEntry
   onAdd: (p: CrmIntegrationProvider) => void
+  selected: boolean
 }) {
   const disabled = entry.comingSoon || entry.configFields.length === 0
   return (
     <button
       type="button"
+      aria-label={providerSetupLabel(entry, selected, disabled)}
+      aria-pressed={disabled ? undefined : selected}
       onClick={() => !disabled && onAdd(entry.provider)}
       disabled={disabled}
       className={[
         'text-left p-4 rounded-xl border bg-[var(--color-pib-surface)] border-[var(--color-pib-line)] transition-colors',
+        selected ? 'ring-2 ring-[var(--color-pib-accent)]/45 border-[var(--color-pib-accent)]/70 bg-[var(--color-pib-accent-soft)]' : '',
         disabled
           ? 'opacity-60 cursor-not-allowed'
           : 'hover:bg-white/[0.04] cursor-pointer',
@@ -707,6 +722,7 @@ export default function PortalIntegrationsPage() {
                 connectedCount={connectedByProvider[entry.provider]}
                 entry={entry}
                 onAdd={(p) => setAddingProvider(p)}
+                selected={addingProvider === entry.provider}
               />
             ))}
           </div>
