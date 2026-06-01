@@ -44,7 +44,15 @@ function actionCompleteness(action: AutomationAction) {
 
 // ── SequencePickerInline ───────────────────────────────────────────────────────
 
-function SequencePickerInline({ value, onChange }: { value: string; onChange: (id: string, name: string) => void }) {
+function SequencePickerInline({
+  value,
+  onChange,
+  label,
+}: {
+  value: string
+  onChange: (id: string, name: string) => void
+  label: string
+}) {
   const [sequences, setSequences] = useState<{ id: string; name: string }[]>([])
   useEffect(() => {
     fetch('/api/v1/crm/sequences')
@@ -54,6 +62,7 @@ function SequencePickerInline({ value, onChange }: { value: string; onChange: (i
   }, [])
   return (
     <select
+      aria-label={label}
       value={value}
       onChange={e => {
         const seq = sequences.find(s => s.id === e.target.value)
@@ -71,17 +80,22 @@ function SequencePickerInline({ value, onChange }: { value: string; onChange: (i
 
 function ActionRow({
   action,
+  index,
   onChange,
   onRemove,
 }: {
   action: AutomationAction
+  index: number
   onChange: (a: AutomationAction) => void
   onRemove: () => void
 }) {
+  const actionNumber = index + 1
+
   return (
     <div className="bento-card !p-4 mb-2 flex flex-col gap-2">
       <div className="flex items-center justify-between gap-2">
         <select
+          aria-label={`Action ${actionNumber} type`}
           value={action.type}
           onChange={(e) => onChange({ type: e.target.value as ActionType })}
           className="flex-1 text-sm px-3 py-2 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] text-[var(--color-pib-text)] focus:outline-none focus:ring-1 focus:ring-[var(--color-pib-accent)]"
@@ -96,15 +110,16 @@ function ActionRow({
           type="button"
           onClick={onRemove}
           className="cursor-pointer text-[var(--color-pib-text-muted)] hover:text-red-400 transition-colors shrink-0"
-          aria-label="Remove action"
+          aria-label={`Remove action ${actionNumber}`}
         >
-          <span className="material-symbols-outlined text-[18px]">close</span>
+          <span className="material-symbols-outlined text-[18px]" aria-hidden="true">close</span>
         </button>
       </div>
 
       {action.type === 'send_email' && (
         <>
           <select
+            aria-label={`Action ${actionNumber} email recipient`}
             value={action.emailTo ?? 'contact'}
             onChange={(e) => onChange({ ...action, emailTo: e.target.value as 'contact' | 'owner' })}
             className="text-sm px-3 py-2 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] text-[var(--color-pib-text)] focus:outline-none focus:ring-1 focus:ring-[var(--color-pib-accent)]"
@@ -114,6 +129,7 @@ function ActionRow({
           </select>
           <input
             type="text"
+            aria-label={`Action ${actionNumber} email subject`}
             placeholder="Subject"
             value={action.emailSubject ?? ''}
             onChange={(e) => onChange({ ...action, emailSubject: e.target.value })}
@@ -121,6 +137,7 @@ function ActionRow({
           />
           <textarea
             rows={4}
+            aria-label={`Action ${actionNumber} email body`}
             placeholder="Email body (HTML supported)"
             value={action.emailBody ?? ''}
             onChange={(e) => onChange({ ...action, emailBody: e.target.value })}
@@ -132,6 +149,7 @@ function ActionRow({
       {action.type === 'send_notification' && (
         <>
           <select
+            aria-label={`Action ${actionNumber} notification recipient`}
             value={action.notificationTo ?? 'owner'}
             onChange={(e) =>
               onChange({ ...action, notificationTo: e.target.value as 'owner' | 'all_admins' })
@@ -143,6 +161,7 @@ function ActionRow({
           </select>
           <input
             type="text"
+            aria-label={`Action ${actionNumber} notification message`}
             placeholder="Notification message"
             value={action.notificationMessage ?? ''}
             onChange={(e) => onChange({ ...action, notificationMessage: e.target.value })}
@@ -154,6 +173,7 @@ function ActionRow({
       {action.type === 'assign_owner' && (
         <input
           type="text"
+          aria-label={`Action ${actionNumber} owner UID`}
           placeholder="Owner UID"
           value={action.ownerUid ?? ''}
           onChange={(e) => onChange({ ...action, ownerUid: e.target.value })}
@@ -164,6 +184,7 @@ function ActionRow({
       {action.type === 'dispatch_webhook' && (
         <input
           type="url"
+          aria-label={`Action ${actionNumber} webhook URL`}
           placeholder="https://example.com/webhook"
           value={action.webhookUrl ?? ''}
           onChange={(e) => onChange({ ...action, webhookUrl: e.target.value })}
@@ -174,6 +195,7 @@ function ActionRow({
       {action.type === 'enroll_in_sequence' && (
         <SequencePickerInline
           value={action.sequenceId ?? ''}
+          label={`Action ${actionNumber} sequence`}
           onChange={(id, name) => onChange({ ...action, sequenceId: id, sequenceName: name })}
         />
       )}
@@ -301,12 +323,13 @@ export function AutomationRuleForm({ initial, onSave, onCancel }: Props) {
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
             <p className="eyebrow !text-[10px]">Rule identity</p>
-            <h2 className="mt-2 text-sm font-semibold">Name the business outcome</h2>
+            <h2 id="automation-rule-name-label" className="mt-2 text-sm font-semibold">Name the business outcome</h2>
           </div>
           <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">edit_note</span>
         </div>
         <input
           type="text"
+          aria-labelledby="automation-rule-name-label"
           placeholder="e.g. Welcome email on contact created"
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -319,11 +342,12 @@ export function AutomationRuleForm({ initial, onSave, onCancel }: Props) {
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
             <p className="eyebrow !text-[10px]">Trigger</p>
-            <h2 className="mt-2 text-sm font-semibold">Choose the CRM moment</h2>
+            <h2 id="automation-trigger-label" className="mt-2 text-sm font-semibold">Choose the CRM moment</h2>
           </div>
           <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">bolt</span>
         </div>
         <select
+          aria-labelledby="automation-trigger-label"
           value={trigger.event}
           onChange={(e) =>
             setTrigger({ event: e.target.value as TriggerEvent })
@@ -345,6 +369,7 @@ export function AutomationRuleForm({ initial, onSave, onCancel }: Props) {
             </label>
             <input
               type="text"
+              aria-label="Filter by stage ID"
               placeholder="Leave blank to fire on any stage change"
               value={trigger.toStageId ?? ''}
               onChange={(e) =>
@@ -395,12 +420,14 @@ export function AutomationRuleForm({ initial, onSave, onCancel }: Props) {
           <div className="flex items-center gap-2 mt-3">
             <input
               type="number"
+              aria-label="Delay amount"
               min={1}
               value={delayValue}
               onChange={(e) => setDelayValue(Math.max(1, Number(e.target.value)))}
               className="w-20 text-sm px-3 py-2 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] text-[var(--color-pib-text)] focus:outline-none focus:ring-1 focus:ring-[var(--color-pib-accent)]"
             />
             <select
+              aria-label="Delay unit"
               value={delayUnit}
               onChange={(e) => setDelayUnit(e.target.value as 'minutes' | 'hours' | 'days')}
               className="text-sm px-3 py-2 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] text-[var(--color-pib-text)] focus:outline-none focus:ring-1 focus:ring-[var(--color-pib-accent)]"
@@ -432,6 +459,7 @@ export function AutomationRuleForm({ initial, onSave, onCancel }: Props) {
         {actions.map((action, i) => (
           <ActionRow
             key={i}
+            index={i}
             action={action}
             onChange={(updated) => updateAction(i, updated)}
             onRemove={() => removeAction(i)}
@@ -443,7 +471,7 @@ export function AutomationRuleForm({ initial, onSave, onCancel }: Props) {
           onClick={addAction}
           className="cursor-pointer btn-pib-secondary text-sm flex items-center gap-1.5 mt-3"
         >
-          <span className="material-symbols-outlined text-[16px]">add</span>
+          <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
           Add action
         </button>
       </div>
@@ -451,7 +479,7 @@ export function AutomationRuleForm({ initial, onSave, onCancel }: Props) {
       {/* ── Enabled toggle ── */}
       <div className="bento-card !p-5 flex items-center justify-between gap-4">
         <div>
-          <p className="text-sm font-medium">Enabled</p>
+          <p id="automation-enabled-label" className="text-sm font-medium">Enabled</p>
           <p className="text-xs text-[var(--color-pib-text-muted)] mt-0.5">
             Disabled rules are saved but will not fire.
           </p>
@@ -459,6 +487,7 @@ export function AutomationRuleForm({ initial, onSave, onCancel }: Props) {
         <label className="relative inline-flex items-center cursor-pointer shrink-0">
           <input
             type="checkbox"
+            aria-labelledby="automation-enabled-label"
             className="sr-only peer"
             checked={enabled}
             onChange={(e) => setEnabled(e.target.checked)}
@@ -484,7 +513,7 @@ export function AutomationRuleForm({ initial, onSave, onCancel }: Props) {
           disabled={saving}
           className="cursor-pointer btn-pib-accent flex items-center gap-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-60"
         >
-          <span className="material-symbols-outlined text-[16px]">save</span>
+          <span className="material-symbols-outlined text-[16px]" aria-hidden="true">save</span>
           {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Create rule'}
         </button>
         <button
