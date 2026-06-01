@@ -81,6 +81,15 @@ describe('Portal companies page', () => {
     expect(screen.getByText('Unassigned')).toBeInTheDocument()
   })
 
+  it('names the company creation command without decorative icon text', async () => {
+    render(<CompaniesPage />)
+
+    expect(await screen.findByText('Managed Account')).toBeInTheDocument()
+
+    expect(screen.getByRole('link', { name: 'New company' })).toHaveAttribute('href', '/portal/companies/new')
+    expect(screen.queryByRole('link', { name: 'add New company' })).not.toBeInTheDocument()
+  })
+
   it('treats an empty unmanaged-company lens as clean account accountability', async () => {
     global.fetch = jest.fn((input: RequestInfo | URL) => {
       const url = String(input)
