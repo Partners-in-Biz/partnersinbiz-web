@@ -28,6 +28,18 @@ const TOGGLES: { key: keyof Permissions; label: string; description: string }[] 
   },
 ]
 
+function permissionActionLabel(key: keyof Permissions, enabled: boolean): string {
+  if (key === 'membersCanDeleteContacts') {
+    return enabled ? 'Stop members from deleting contacts' : 'Allow members to delete contacts'
+  }
+  if (key === 'membersCanExportContacts') {
+    return enabled ? 'Stop members from exporting contacts' : 'Allow members to export contacts'
+  }
+  return enabled
+    ? 'Stop members from creating and sending campaigns'
+    : 'Allow members to create and send campaigns'
+}
+
 const FIXED_ROWS: { label: string; description: string }[] = [
   { label: 'Admins have full access (except changing roles)', description: 'Fixed — cannot be restricted.' },
   { label: 'Owners always have full access', description: 'Fixed — cannot be restricted.' },
@@ -84,7 +96,8 @@ export default function PermissionsPage() {
             <button
               onClick={() => toggle(t.key)}
               disabled={saving === t.key}
-              aria-label={`Toggle ${t.label}`}
+              aria-label={permissionActionLabel(t.key, permissions[t.key])}
+              aria-pressed={permissions[t.key]}
               className={[
                 'relative w-10 h-5 rounded-full transition-colors shrink-0',
                 permissions[t.key] ? 'bg-[var(--color-pib-accent)]' : 'bg-[var(--color-pib-line-strong)]',
@@ -112,7 +125,7 @@ export default function PermissionsPage() {
               <p className="text-sm font-medium">{r.label}</p>
               <p className="text-xs text-[var(--color-pib-text-muted)]">{r.description}</p>
             </div>
-            <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)] shrink-0">lock</span>
+            <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)] shrink-0" aria-hidden="true">lock</span>
           </div>
         ))}
       </div>
