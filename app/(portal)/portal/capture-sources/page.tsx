@@ -81,7 +81,10 @@ function MetricCard({
           </p>
           <p className="mt-2 text-2xl font-display text-[var(--color-pib-text)]">{value}</p>
         </div>
-        <span className="material-symbols-outlined rounded-lg border border-[var(--color-pib-line)] bg-white/[0.04] p-2 text-[18px] text-[var(--color-pib-text-muted)]">
+        <span
+          className="material-symbols-outlined rounded-lg border border-[var(--color-pib-line)] bg-white/[0.04] p-2 text-[18px] text-[var(--color-pib-text-muted)]"
+          aria-hidden="true"
+        >
           {icon}
         </span>
       </div>
@@ -251,7 +254,10 @@ function SourceCard({
     <div className="rounded-xl bg-[var(--color-pib-surface)] border border-[var(--color-pib-line)] overflow-hidden">
       <div className="p-4 flex items-start justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-3 min-w-0 flex-1">
-          <span className="material-symbols-outlined rounded-lg border border-[var(--color-pib-line)] bg-white/[0.04] p-2 text-[var(--color-pib-text-muted)] text-[20px]">
+          <span
+            className="material-symbols-outlined rounded-lg border border-[var(--color-pib-line)] bg-white/[0.04] p-2 text-[var(--color-pib-text-muted)] text-[20px]"
+            aria-hidden="true"
+          >
             inventory_2
           </span>
           <div className="min-w-0 flex-1">
@@ -602,7 +608,9 @@ export default function PortalCaptureSourcesPage() {
           href="/portal/capture-sources/import"
           className="btn-pib-secondary !py-2 !px-4 !text-sm"
         >
-          <span className="material-symbols-outlined text-base">upload_file</span>
+          <span className="material-symbols-outlined text-base" aria-hidden="true">
+            upload_file
+          </span>
           Import CSV
         </Link>
       </header>
@@ -659,6 +667,7 @@ export default function PortalCaptureSourcesPage() {
               onChange={(e) => setNewType(e.target.value as CaptureSourceType)}
               className="px-3 py-2 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-bg)] text-[var(--color-pib-text)] text-sm"
               disabled={submitting}
+              aria-label="Capture source type"
             >
               <option value="form">Form</option>
               <option value="api">API</option>

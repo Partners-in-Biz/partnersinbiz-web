@@ -72,6 +72,17 @@ beforeEach(() => {
 })
 
 describe('PortalCaptureSourcesPage', () => {
+  it('names intake setup commands without decorative icon text', async () => {
+    render(<PortalCaptureSourcesPage />)
+
+    expect(await screen.findByRole('link', { name: 'Import CSV' })).toHaveAttribute(
+      'href',
+      '/portal/capture-sources/import',
+    )
+    expect(screen.queryByRole('link', { name: 'upload_file Import CSV' })).not.toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Capture source type' })).toBeInTheDocument()
+  })
+
   it('renders capture sources as a lead intake command center', async () => {
     render(<PortalCaptureSourcesPage />)
 
