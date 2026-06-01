@@ -325,6 +325,7 @@ export default function CompaniesPage() {
             href="/portal/companies/new"
             className="cursor-pointer flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
             style={{ background: 'var(--color-accent-v2)', color: '#fff' }}
+            aria-label="New company"
           >
             <span className="material-symbols-outlined text-[16px]">add</span>
             New company
