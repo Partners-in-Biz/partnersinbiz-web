@@ -919,16 +919,23 @@ export default function DealsPage() {
                           {fmtDealValue(deal.value, deal.currency)}
                         </button>
                       </td>
-                      <td className="px-4 py-3 font-mono text-xs">
-                        <span
-                          className="px-1.5 py-0.5 rounded-full text-[10px]"
-                          style={{
-                            background: prob >= 70 ? '#4ade8020' : prob >= 40 ? '#facc1520' : '#f8717120',
-                            color: prob >= 70 ? '#4ade80' : prob >= 40 ? '#facc15' : '#f87171',
-                          }}
+                      <td className="px-4 py-3 font-mono text-xs" onClick={e => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          aria-label={`Edit probability for ${dealTitle} from deals list`}
+                          onClick={() => setEditingDeal(deal)}
+                          className="inline-flex rounded-md border border-transparent p-0.5 transition-colors hover:border-[var(--color-pib-accent)]"
                         >
-                          {prob}%
-                        </span>
+                          <span
+                            className="px-1.5 py-0.5 rounded-full text-[10px]"
+                            style={{
+                              background: prob >= 70 ? '#4ade8020' : prob >= 40 ? '#facc1520' : '#f8717120',
+                              color: prob >= 70 ? '#4ade80' : prob >= 40 ? '#facc15' : '#f87171',
+                            }}
+                          >
+                            {prob}%
+                          </span>
+                        </button>
                       </td>
                       <td className="px-4 py-3 font-mono text-on-surface-variant text-xs">
                         {fmtDealValue(weighted, deal.currency)}
