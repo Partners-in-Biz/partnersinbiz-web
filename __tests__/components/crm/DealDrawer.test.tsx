@@ -239,6 +239,9 @@ describe('DealDrawer', () => {
       />,
     )
 
+    expect(screen.getByPlaceholderText('Search contacts...')).toHaveValue('Resolving contact identity...')
+    expect(screen.queryByDisplayValue('contact-1')).not.toBeInTheDocument()
+
     await screen.findByDisplayValue('Sales pipeline')
 
     await waitFor(() => {
