@@ -497,7 +497,7 @@ export function WebhookSettingsClient() {
           disabled={loading || !orgId}
           className="cursor-pointer btn-pib-secondary flex items-center gap-1.5 text-sm w-fit disabled:opacity-50"
         >
-          <span className="material-symbols-outlined text-[16px]">refresh</span>
+          <span className="material-symbols-outlined text-[16px]" aria-hidden="true">refresh</span>
           Refresh
         </button>
       </div>
@@ -690,7 +690,7 @@ export function WebhookSettingsClient() {
                     disabled={!canSaveEdit}
                     className="cursor-pointer btn-pib-accent flex flex-1 items-center justify-center gap-1.5 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <span className="material-symbols-outlined text-[16px]">save</span>
+                    <span className="material-symbols-outlined text-[16px]" aria-hidden="true">save</span>
                     {saving ? 'Saving...' : 'Save webhook'}
                   </button>
                   <button
@@ -709,7 +709,7 @@ export function WebhookSettingsClient() {
                   disabled={!canCreate}
                   className="cursor-pointer btn-pib-accent w-full flex items-center justify-center gap-1.5 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <span className="material-symbols-outlined text-[16px]">add</span>
+                  <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
                   {saving ? 'Creating...' : 'Create webhook'}
                 </button>
               )}
