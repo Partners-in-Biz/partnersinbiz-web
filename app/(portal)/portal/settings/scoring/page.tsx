@@ -121,7 +121,7 @@ function PriorityAction({
         onClick={onClick}
         className="cursor-pointer btn-pib-secondary mt-4 flex w-full items-center justify-center gap-1.5 text-xs"
       >
-        <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
+        <span className="material-symbols-outlined text-[14px]" aria-hidden="true">arrow_forward</span>
         {actionLabel}
       </button>
     </div>
@@ -252,7 +252,7 @@ export default function ScoringPage() {
             disabled={saving || loading}
             className="cursor-pointer btn-pib-accent flex items-center gap-1.5 text-sm disabled:opacity-60"
           >
-            <span className="material-symbols-outlined text-[16px]">save</span>
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">save</span>
             {saving ? 'Saving...' : 'Save model'}
           </button>
           <button
@@ -261,7 +261,7 @@ export default function ScoringPage() {
             disabled={recomputing || loading}
             className="cursor-pointer btn-pib-secondary flex items-center gap-1.5 text-sm disabled:opacity-60"
           >
-            <span className="material-symbols-outlined text-[16px]">refresh</span>
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">refresh</span>
             {recomputing ? 'Recomputing...' : 'Recompute all'}
           </button>
         </div>
