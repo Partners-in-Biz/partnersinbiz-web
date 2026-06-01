@@ -48,6 +48,13 @@ describe('DealDrawer', () => {
         } as Response)
       }
 
+      if (path === '/api/v1/crm/deals/deal-1' && init?.method === 'PUT') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ success: true, data: { id: 'deal-1' } }),
+        } as Response)
+      }
+
       if (path.startsWith('/api/v1/crm/contacts?')) {
         return Promise.resolve({
           ok: true,
@@ -168,6 +175,48 @@ describe('DealDrawer', () => {
     await screen.findByDisplayValue('Sales pipeline')
 
     expect(screen.getByPlaceholderText('Search contacts...')).toHaveValue('Ava Owner')
+  })
+
+  it('lets reps edit expected close dates from the deal drawer', async () => {
+    const onSaved = jest.fn()
+
+    render(
+      <DealDrawer
+        deal={{
+          id: 'deal-1',
+          orgId: 'org-1',
+          title: 'Growth retainer',
+          contactId: 'contact-1',
+          pipelineId: 'pipeline-1',
+          stageId: 'stage-1',
+          value: 50000,
+          currency: 'ZAR',
+          expectedCloseDate: null,
+          notes: '',
+          createdAt: null,
+          updatedAt: null,
+        }}
+        defaultContactLabel="Ava Owner"
+        orgId="org-1"
+        onSaved={onSaved}
+        onClose={jest.fn()}
+      />,
+    )
+
+    await screen.findByDisplayValue('Sales pipeline')
+    fireEvent.change(screen.getByLabelText('Expected close date'), {
+      target: { value: '2026-06-30' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /Save changes/i }))
+
+    await waitFor(() => expect(onSaved).toHaveBeenCalledWith('deal-1'))
+
+    const putCall = (global.fetch as jest.Mock).mock.calls.find(([url, init]) => (
+      url === '/api/v1/crm/deals/deal-1' && init?.method === 'PUT'
+    ))
+    expect(JSON.parse(putCall[1].body)).toEqual(expect.objectContaining({
+      expectedCloseDate: '2026-06-30',
+    }))
   })
 
   it('resolves the readable contact label when an edit label is missing', async () => {

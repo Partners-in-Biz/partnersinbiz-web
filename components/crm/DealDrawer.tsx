@@ -63,6 +63,15 @@ function contactResultLabel(contact?: ContactResult): string | undefined {
   return readableContactLabel(contact?.name) ?? readableContactLabel(contact?.email)
 }
 
+function dateInputValue(value: unknown): string {
+  if (!value) return ''
+  const date = typeof value === 'object' && value !== null && 'toDate' in value
+    ? (value as { toDate: () => Date }).toDate()
+    : new Date(value as string)
+  if (Number.isNaN(date.getTime())) return ''
+  return date.toISOString().slice(0, 10)
+}
+
 function ContactPicker({
   contactId,
   contactLabel,
@@ -217,6 +226,7 @@ export function DealDrawer({
   const [companyName, setCompanyName] = useState(deal?.companyName ?? defaultCompanyName ?? '')
   const [value, setValue] = useState(deal?.value ?? 0)
   const [currency, setCurrency] = useState<Currency>(deal?.currency ?? 'ZAR')
+  const [expectedCloseDate, setExpectedCloseDate] = useState(dateInputValue(deal?.expectedCloseDate))
   const [notes, setNotes] = useState(deal?.notes ?? '')
 
   // Pipeline / stage
@@ -344,6 +354,7 @@ export function DealDrawer({
         stageId: selectedStageId,
         notes: notes.trim(),
         probability,
+        expectedCloseDate: expectedCloseDate || null,
         lineItems: lineItems.length > 0 ? lineItems : undefined,
       }
       if (showLostReason && lostReason.trim()) payload.lostReason = lostReason.trim()
@@ -474,6 +485,17 @@ export function DealDrawer({
                 ))}
               </select>
             </div>
+          </div>
+
+          <div>
+            <label htmlFor="dealExpectedCloseDate" className={labelCls}>Expected close date</label>
+            <input
+              id="dealExpectedCloseDate"
+              type="date"
+              value={expectedCloseDate}
+              onChange={e => setExpectedCloseDate(e.target.value)}
+              className="pib-input w-full"
+            />
           </div>
 
           {/* Pipeline + Stage */}

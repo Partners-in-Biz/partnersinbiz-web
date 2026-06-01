@@ -716,6 +716,37 @@ describe('Portal deals page', () => {
     expect(screen.queryByText('—')).not.toBeInTheDocument()
   })
 
+  it('turns missing forecast close dates into direct edit actions', async () => {
+    mockSearchParams = new URLSearchParams('view=forecast&focus=no-close-date')
+    mockDealRows = [
+      {
+        id: 'deal-no-date',
+        orgId: 'org-1',
+        contactId: 'contact-1',
+        title: 'No close date opportunity',
+        value: 25000,
+        currency: 'ZAR',
+        pipelineId: 'pipeline-1',
+        stageId: 'qualified',
+        ownerUid: 'owner-1',
+        ownerRef: { uid: 'owner-1', displayName: 'Maya Sales' },
+        expectedCloseDate: null,
+        notes: '',
+        createdAt: null,
+        updatedAt: null,
+      },
+    ]
+
+    render(<DealsPage />)
+
+    expect(await screen.findByRole('tab', { name: /Forecast/i })).toHaveAttribute('aria-selected', 'true')
+    expect(await screen.findByText('No close date opportunity')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Add close date for No close date opportunity from forecast' }))
+
+    expect(screen.getByTestId('deal-drawer')).toBeInTheDocument()
+    expect(screen.queryByTestId('deal-detail-drawer')).not.toBeInTheDocument()
+  })
+
   it('names invalid forecast close dates as cleanup work instead of showing a dash', async () => {
     mockSearchParams = new URLSearchParams('view=forecast')
     mockDealRows = [

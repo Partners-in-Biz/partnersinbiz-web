@@ -1064,7 +1064,14 @@ export default function DealsPage() {
                           {fmtDealValue(weighted, deal.currency)}
                         </td>
                         <td className="px-4 py-3 text-right text-[var(--color-pib-text-muted)] hidden lg:table-cell">
-                          {deal.expectedCloseDate ? fmtRelativeDate(deal.expectedCloseDate) : 'No close date captured'}
+                          <button
+                            type="button"
+                            onClick={() => setEditingDeal(deal)}
+                            aria-label={`${deal.expectedCloseDate ? 'Edit' : 'Add'} close date for ${dealTitle} from forecast`}
+                            className="inline-flex rounded-md border border-transparent px-1.5 py-1 text-right transition-colors hover:border-[var(--color-pib-accent)] hover:text-[var(--color-pib-text)]"
+                          >
+                            {deal.expectedCloseDate ? fmtRelativeDate(deal.expectedCloseDate) : 'No close date captured'}
+                          </button>
                         </td>
                       </tr>
                     )
