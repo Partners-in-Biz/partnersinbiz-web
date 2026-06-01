@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, readlinkSync, renameSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { dirname, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -35,6 +35,7 @@ const summary = {
   updateConfig,
   agents: {},
   warnings: [],
+  nonFatalWarnings: [],
 }
 
 function logAction(text) {
@@ -48,11 +49,32 @@ function ensureDir(path) {
 }
 
 function resetSymlink(target, linkPath) {
-  if (existsSync(linkPath) || lstatSafe(linkPath)?.isSymbolicLink()) {
-    if (apply) rmSync(linkPath, { recursive: true, force: true })
+  const existing = lstatSafe(linkPath)
+  if (existing) {
+    if (existing.isSymbolicLink() && readlinkSafe(linkPath) === target) return true
+    if (apply) {
+      try {
+        rmSync(linkPath, { recursive: true, force: true })
+      } catch (error) {
+        if (error?.code !== 'EACCES') throw error
+        summary.nonFatalWarnings.push(`kept locked existing skill link ${linkPath}`)
+        logAction(`skip locked existing skill link ${linkPath}`)
+        return false
+      }
+    }
   }
   ensureDir(dirname(linkPath))
-  if (apply) symlinkSync(target, linkPath, 'dir')
+  if (apply) {
+    try {
+      symlinkSync(target, linkPath, 'dir')
+    } catch (error) {
+      if (error?.code !== 'EACCES') throw error
+      summary.nonFatalWarnings.push(`could not create locked skill link ${linkPath}`)
+      logAction(`skip locked skill link ${linkPath}`)
+      return false
+    }
+  }
+  return true
 }
 
 function resetManagedRepoSkillRoot(externalDir) {
@@ -70,6 +92,14 @@ function lstatSafe(path) {
   }
 }
 
+function readlinkSafe(path) {
+  try {
+    return readlinkSync(path)
+  } catch {
+    return null
+  }
+}
+
 function removeManagedRoot(managedRoot) {
   try {
     rmSync(managedRoot, { recursive: true, force: true })
@@ -77,11 +107,19 @@ function removeManagedRoot(managedRoot) {
   } catch (error) {
     const existing = lstatSafe(managedRoot)
     if (error?.code !== 'EACCES' || !existing?.isDirectory()) throw error
+    summary.nonFatalWarnings.push(`kept locked generated repo skill root ${managedRoot}`)
     logAction(`keep generated repo skill root ${managedRoot}; cleaning contents in place after EACCES`)
   }
 
   for (const entry of readdirSync(managedRoot, { withFileTypes: true })) {
-    rmSync(join(managedRoot, entry.name), { recursive: true, force: true })
+    const entryPath = join(managedRoot, entry.name)
+    try {
+      rmSync(entryPath, { recursive: true, force: true })
+    } catch (error) {
+      if (error?.code !== 'EACCES') throw error
+      summary.nonFatalWarnings.push(`kept locked generated skill entry ${entryPath}`)
+      logAction(`keep locked generated skill entry ${entryPath}`)
+    }
   }
 }
 
@@ -219,9 +257,10 @@ for (const [agentId, agentPolicy] of agentEntries) {
       summary.warnings.push(`${agentId}: missing repo skill source ${source}`)
       continue
     }
-    resetSymlink(source, dest)
-    agentSummary.linkedPibSkills.push(skill)
-    logAction(`link ${agentId}/partnersinbiz/${skill} -> ${relative(root, source)}`)
+    if (resetSymlink(source, dest)) {
+      agentSummary.linkedPibSkills.push(skill)
+      logAction(`link ${agentId}/partnersinbiz/${skill} -> ${relative(root, source)}`)
+    }
   }
 
   for (const skill of agentPolicy.globalSkills) {
@@ -232,9 +271,10 @@ for (const [agentId, agentPolicy] of agentEntries) {
       summary.warnings.push(`${agentId}: missing global skill source ${source}`)
       continue
     }
-    resetSymlink(source, dest)
-    agentSummary.linkedGlobalSkills.push(skill)
-    logAction(`link ${agentId}/${skill} -> ${relative(root, source)}`)
+    if (resetSymlink(source, dest)) {
+      agentSummary.linkedGlobalSkills.push(skill)
+      logAction(`link ${agentId}/${skill} -> ${relative(root, source)}`)
+    }
   }
 
   if (quarantine) {
