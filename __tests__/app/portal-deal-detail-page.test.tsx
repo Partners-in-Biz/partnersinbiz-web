@@ -4,6 +4,11 @@ import DealDetailPage from '@/app/(portal)/portal/deals/[id]/page'
 const pushMock = jest.fn()
 const refreshMock = jest.fn()
 let mockDealOverrides: Record<string, unknown> = {}
+type DeferredResponse = {
+  promise: Promise<Response>
+  resolve: (response: Response) => void
+}
+let contactLookupDeferred: DeferredResponse | null = null
 
 jest.mock('next/navigation', () => ({
   useParams: () => ({ id: 'deal-archive-1' }),
@@ -35,6 +40,7 @@ describe('Portal deal detail page', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     mockDealOverrides = {}
+    contactLookupDeferred = null
     global.fetch = jest.fn((url: RequestInfo | URL, init?: RequestInit) => {
       const path = String(url)
       if (path === '/api/v1/crm/deals/deal-archive-1' && init?.method === 'DELETE') {
@@ -70,6 +76,7 @@ describe('Portal deal detail page', () => {
         })
       }
       if (path === '/api/v1/crm/contacts/contact-1') {
+        if (contactLookupDeferred) return contactLookupDeferred.promise
         return apiResponse({ contact: { id: 'contact-1', name: 'Ava Owner', email: 'ava@example.com' } })
       }
       if (path === '/api/v1/crm/activities?contactId=contact-1&limit=20') {
@@ -152,5 +159,25 @@ describe('Portal deal detail page', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Update close timing for Enterprise rollout from command summary' }))
     expect(screen.getByLabelText('Set expected close date')).toHaveFocus()
+  })
+
+  it('shows a resolving contact identity state before secondary contact details finish loading', async () => {
+    let resolveContactLookup: DeferredResponse['resolve'] = () => undefined
+    contactLookupDeferred = {
+      promise: new Promise<Response>((resolve) => {
+        resolveContactLookup = resolve
+      }),
+      resolve: (response) => resolveContactLookup(response),
+    }
+
+    render(<DealDetailPage />)
+
+    expect(await screen.findByRole('heading', { name: 'Enterprise rollout' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Resolving contact identity...' })).toHaveAttribute('href', '/portal/contacts/contact-1')
+    expect(screen.queryByText('Contact identity missing')).not.toBeInTheDocument()
+
+    contactLookupDeferred.resolve(await apiResponse({ contact: { id: 'contact-1', name: 'Ava Owner', email: 'ava@example.com' } }))
+
+    expect(await screen.findByRole('link', { name: 'Ava Owner' })).toHaveAttribute('href', '/portal/contacts/contact-1')
   })
 })

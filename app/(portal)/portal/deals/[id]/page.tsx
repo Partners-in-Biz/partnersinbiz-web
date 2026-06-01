@@ -163,8 +163,9 @@ function dealOwnerLabel(deal: DealRecord): string {
   return 'No owner assigned'
 }
 
-function dealContactLabel(deal: DealRecord, contactName: string): string {
+function dealContactLabel(deal: DealRecord, contactName: string, contactLoading: boolean): string {
   if (contactName.trim()) return contactName
+  if (contactLoading && deal.contactId?.trim()) return 'Resolving contact identity...'
   if (deal.contactId?.trim()) return 'Contact identity missing'
   return 'No contact linked'
 }
@@ -225,6 +226,7 @@ export default function DealDetailPage() {
   const [pipelineName, setPipelineName] = useState<string>('')
   const [stageName, setStageName] = useState<string>('')
   const [contactName, setContactName] = useState<string>('')
+  const [contactLoading, setContactLoading] = useState(false)
 
   const [activities, setActivities] = useState<ActivityRecord[]>([])
   const [activitiesLoading, setActivitiesLoading] = useState(true)
@@ -247,6 +249,7 @@ export default function DealDetailPage() {
     setPipelineName('')
     setStageName('')
     setContactName('')
+    setContactLoading(false)
 
     try {
       const res = await fetch(`/api/v1/crm/deals/${id}`)
@@ -280,6 +283,7 @@ export default function DealDetailPage() {
       }
 
       if (d.contactId) {
+        setContactLoading(true)
         secondaryFetches.push(
           fetch(`/api/v1/crm/contacts/${d.contactId}`)
             .then(r => r.json())
@@ -287,7 +291,8 @@ export default function DealDetailPage() {
               const contact = cb.data?.contact ?? cb.data ?? cb
               setContactName(contact?.name ?? contact?.email ?? '')
             })
-            .catch(() => {}),
+            .catch(() => {})
+            .finally(() => setContactLoading(false)),
         )
         secondaryFetches.push(
           fetch(`/api/v1/crm/activities?contactId=${encodeURIComponent(d.contactId)}&limit=20`)
@@ -299,6 +304,7 @@ export default function DealDetailPage() {
             .catch(() => setActivitiesLoading(false)),
         )
       } else {
+        setContactLoading(false)
         setActivitiesLoading(false)
       }
 
@@ -800,7 +806,7 @@ export default function DealDetailPage() {
                   href={`/portal/contacts/${deal.contactId}`}
                   className="text-[var(--color-pib-accent)] hover:underline mt-0.5 inline-block"
                 >
-                  {dealContactLabel(deal, contactName)}
+                  {dealContactLabel(deal, contactName, contactLoading)}
                 </Link>
               </div>
             )}
