@@ -295,7 +295,7 @@ export default function CustomFieldsPage() {
             onClick={openCreate}
             className="cursor-pointer btn-pib-accent flex items-center gap-1.5 text-sm shrink-0"
           >
-            <span className="material-symbols-outlined text-[16px]">add</span>
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
             New field
           </button>
         )}
@@ -333,6 +333,7 @@ export default function CustomFieldsPage() {
               placeholder="Search label, key, group, help..."
             />
             <select
+              aria-label="Filter custom fields by type"
               value={typeFilter}
               onChange={(event) => setTypeFilter(event.target.value)}
               className="pib-input !w-auto"
@@ -343,6 +344,7 @@ export default function CustomFieldsPage() {
               ))}
             </select>
             <select
+              aria-label="Filter custom fields by health"
               value={readinessFilter}
               onChange={(event) => setReadinessFilter(event.target.value as ReadinessFilter)}
               className="pib-input !w-auto"
@@ -359,7 +361,7 @@ export default function CustomFieldsPage() {
               onClick={() => { setSearch(''); setTypeFilter(''); setReadinessFilter('all') }}
               className="btn-pib-secondary text-xs inline-flex items-center gap-1.5"
             >
-              <span className="material-symbols-outlined text-[14px]">filter_alt_off</span>
+              <span className="material-symbols-outlined text-[14px]" aria-hidden="true">filter_alt_off</span>
               Clear filters
             </button>
           ) : null}
@@ -435,7 +437,7 @@ export default function CustomFieldsPage() {
                     onClick={openCreate}
                     className="cursor-pointer btn-pib-accent flex w-fit items-center gap-1.5 text-sm"
                   >
-                    <span className="material-symbols-outlined text-[16px]">add</span>
+                    <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
                     Create the first {currentTab.label.toLowerCase()} field
                   </button>
                 ) : (
