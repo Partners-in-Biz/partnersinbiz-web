@@ -1148,35 +1148,67 @@ function InvoicesPanel({
       </EmptyPanel>
     )
   }
+  const acceptedQuote = quotes.find((quote) => quote.status === 'accepted')
   return (
-    <TableShell>
-      <table className="w-full text-sm">
-        <thead className="border-b border-[var(--color-pib-line)] text-[10px] font-label uppercase tracking-wider text-[var(--color-pib-text-muted)]">
-          <tr>
-            <th className="px-5 py-3 text-left">Invoice</th>
-            <th className="px-5 py-3 text-left">Status</th>
-            <th className="px-5 py-3 text-left">Total</th>
-            <th className="px-5 py-3 text-left">Due</th>
-            <th className="px-5 py-3 text-right">PDF</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-[var(--color-pib-line)]">
-          {invoices.map((invoice) => (
-            <tr key={invoice.id} className="hover:bg-white/[0.02]">
-              <td className="px-5 py-4 font-mono">{invoice.invoiceNumber || invoice.id}</td>
-              <td className="px-5 py-4"><StatusChip value={invoice.status} emptyLabel="Invoice status not set" /></td>
-              <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{invoiceTotalLabel(invoice)}</td>
-              <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{invoiceDueDateLabel(invoice)}</td>
-              <td className="px-5 py-4 text-right">
-                <a href={`/api/v1/invoices/${invoice.id}/pdf`} target="_blank" rel="noopener noreferrer" className="text-[var(--color-accent-v2)] hover:underline">
-                  Open
-                </a>
-              </td>
+    <div className="space-y-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="eyebrow !text-[10px]">Billing invoices</p>
+          <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
+            Keep accepted revenue, billing status, due dates, and finance handoffs connected to {company.name}.
+          </p>
+        </div>
+        {acceptedQuote ? (
+          <button
+            type="button"
+            onClick={() => onCreateInvoiceFromQuote(acceptedQuote)}
+            disabled={creatingInvoiceId === acceptedQuote.id}
+            className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">receipt_long</span>
+            {creatingInvoiceId === acceptedQuote.id ? 'Creating invoice...' : `Create another invoice from ${quoteLabel(acceptedQuote)}`}
+          </button>
+        ) : (
+          <button
+            type="button"
+            disabled
+            className="btn-pib-secondary inline-flex shrink-0 cursor-not-allowed items-center gap-1.5 opacity-60"
+          >
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">approval</span>
+            Accept quote before invoice
+          </button>
+        )}
+      </div>
+      {invoiceError ? <p className="text-xs text-red-300">{invoiceError}</p> : null}
+      <TableShell>
+        <table className="w-full text-sm">
+          <thead className="border-b border-[var(--color-pib-line)] text-[10px] font-label uppercase tracking-wider text-[var(--color-pib-text-muted)]">
+            <tr>
+              <th className="px-5 py-3 text-left">Invoice</th>
+              <th className="px-5 py-3 text-left">Status</th>
+              <th className="px-5 py-3 text-left">Total</th>
+              <th className="px-5 py-3 text-left">Due</th>
+              <th className="px-5 py-3 text-right">PDF</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </TableShell>
+          </thead>
+          <tbody className="divide-y divide-[var(--color-pib-line)]">
+            {invoices.map((invoice) => (
+              <tr key={invoice.id} className="hover:bg-white/[0.02]">
+                <td className="px-5 py-4 font-mono">{invoice.invoiceNumber || invoice.id}</td>
+                <td className="px-5 py-4"><StatusChip value={invoice.status} emptyLabel="Invoice status not set" /></td>
+                <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{invoiceTotalLabel(invoice)}</td>
+                <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{invoiceDueDateLabel(invoice)}</td>
+                <td className="px-5 py-4 text-right">
+                  <a href={`/api/v1/invoices/${invoice.id}/pdf`} target="_blank" rel="noopener noreferrer" className="text-[var(--color-accent-v2)] hover:underline">
+                    Open
+                  </a>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </TableShell>
+    </div>
   )
 }
 
