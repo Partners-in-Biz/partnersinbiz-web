@@ -177,8 +177,8 @@ describe('Portal contact detail page', () => {
     expect(screen.getByText('Send the first message so future replies, campaign touches, and account history are visible to every team member working this relationship.')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Send first email to Jane Client' }))
 
-    expect(screen.getByPlaceholderText('Subject…')).toBeInTheDocument()
-    expect(screen.getByPlaceholderText('Message…')).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'Email subject for Jane Client' })).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'Email message for Jane Client' })).toBeInTheDocument()
   })
 
   it('moves the portal header email action into the active CRM composer', async () => {

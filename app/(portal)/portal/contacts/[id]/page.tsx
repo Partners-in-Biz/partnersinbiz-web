@@ -1990,12 +1990,14 @@ export default function PortalContactDetailPage() {
                     email.trim() ? (
                       <>
                         <input
+                          aria-label={`Email subject for ${contactName}`}
                           placeholder="Subject…"
                           value={logEmailSubject}
                           onChange={(e) => setLogEmailSubject(e.target.value)}
                           className="w-full text-sm border border-[var(--color-pib-line)] rounded-lg p-2 bg-transparent"
                         />
                         <textarea
+                          aria-label={`Email message for ${contactName}`}
                           rows={3}
                           placeholder="Message…"
                           value={logSummary}
