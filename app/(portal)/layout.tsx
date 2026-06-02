@@ -534,7 +534,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
                   href={adminViewHref}
                   className="flex items-center gap-2 px-3 py-2 text-sm text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] rounded-lg hover:bg-white/[0.04]"
                 >
-                  <span className="material-symbols-outlined text-[18px]">person</span>
+                  <span className="material-symbols-outlined text-[18px] inline-flex items-center justify-center min-w-[18px] min-h-[18px] leading-none">person</span>
                   Switch to admin view
                 </Link>
               )}
