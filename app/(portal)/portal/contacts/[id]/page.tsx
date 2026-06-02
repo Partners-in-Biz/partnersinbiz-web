@@ -2141,6 +2141,7 @@ export default function PortalContactDetailPage() {
                         <label className="space-y-1">
                           <span className="block text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">Starts</span>
                           <input
+                            aria-label={`Meeting start time for ${contactName}`}
                             type="datetime-local"
                             value={meetingStartAt}
                             onChange={(e) => setMeetingStartAt(e.target.value)}
@@ -2150,6 +2151,7 @@ export default function PortalContactDetailPage() {
                         <label className="space-y-1">
                           <span className="block text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">Ends</span>
                           <input
+                            aria-label={`Meeting end time for ${contactName}`}
                             type="datetime-local"
                             value={meetingEndAt}
                             onChange={(e) => setMeetingEndAt(e.target.value)}
@@ -2252,6 +2254,7 @@ export default function PortalContactDetailPage() {
                     <option value="bold">Bold</option>
                   </select>
                   <button
+                    aria-label={`Generate AI email draft for ${contactName}`}
                     onClick={handleAiGenerate}
                     disabled={aiLoading || !aiPurpose.trim()}
                     className="btn-pib-accent text-xs disabled:opacity-50"

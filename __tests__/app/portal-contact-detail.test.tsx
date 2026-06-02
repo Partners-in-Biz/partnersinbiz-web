@@ -834,8 +834,8 @@ describe('Portal contact detail page', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Schedule meeting from engagement cockpit with Jane Client' }))
 
     expect(screen.getByRole('textbox', { name: 'Meeting title for Jane Client' })).toHaveValue('Meeting with Jane Client')
-    expect(screen.getByLabelText('Starts')).toBeInTheDocument()
-    expect(screen.getByLabelText('Ends')).toBeInTheDocument()
+    expect(screen.getByLabelText('Meeting start time for Jane Client')).toBeInTheDocument()
+    expect(screen.getByLabelText('Meeting end time for Jane Client')).toBeInTheDocument()
     expect(screen.getByRole('textbox', { name: 'Meeting link for Jane Client' })).toBeInTheDocument()
     expect(screen.getByRole('textbox', { name: 'Meeting agenda or notes for Jane Client' })).toBeInTheDocument()
   })
@@ -848,8 +848,8 @@ describe('Portal contact detail page', () => {
     })
 
     fireEvent.click(screen.getByRole('button', { name: 'Schedule meeting with Jane Client' }))
-    fireEvent.change(screen.getByLabelText('Starts'), { target: { value: '2026-06-02T15:00' } })
-    fireEvent.change(screen.getByLabelText('Ends'), { target: { value: '2026-06-02T14:30' } })
+    fireEvent.change(screen.getByLabelText('Meeting start time for Jane Client'), { target: { value: '2026-06-02T15:00' } })
+    fireEvent.change(screen.getByLabelText('Meeting end time for Jane Client'), { target: { value: '2026-06-02T14:30' } })
 
     expect(screen.getByRole('alert')).toHaveTextContent('Meeting end time must be after the start time.')
     expect(screen.getByRole('button', { name: 'Cancel meeting composer for Jane Client' })).toBeInTheDocument()
@@ -962,7 +962,7 @@ describe('Portal contact detail page', () => {
     fireEvent.change(screen.getByRole('textbox', { name: 'AI email purpose for Jane Client' }), {
       target: { value: 'Follow up after leadership review' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Generate' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Generate AI email draft for Jane Client' }))
 
     expect(await screen.findByText('Executive follow-up')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Use AI draft in email composer for Jane Client' }))
