@@ -584,9 +584,64 @@ function defaultSnoozeDate() {
   return new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
 }
 
+type PulseRow = {
+  id: string
+  name: string
+  total: number
+  action: number
+  blocked: number
+  review: number
+  agents: number
+  documents: number
+  latestAt: number
+}
+
+const WORKSPACE_OPERATIONS_KEY = 'workspace-operations'
+
+function cleanText(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : ''
+}
+
+function slugKey(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+}
+
+function pulseRow(id: string, name: string): PulseRow {
+  return {
+    id,
+    name,
+    total: 0,
+    action: 0,
+    blocked: 0,
+    review: 0,
+    agents: 0,
+    documents: 0,
+    latestAt: 0,
+  }
+}
+
+function addPulseItem(row: PulseRow, item: BriefingCard) {
+  row.total += 1
+  if (item.requiresAction) row.action += 1
+  if (item.priority === 'critical') row.blocked += 1
+  if (item.priority === 'review' || item.priority === 'needs-peet') row.review += 1
+  if (item.actor.type === 'agent' || item.source.type === 'agent-output') row.agents += 1
+  if (item.source.type === 'client-document' || item.source.type === 'approval') row.documents += 1
+  row.latestAt = Math.max(row.latestAt, new Date(item.occurredAt).getTime())
+}
+
+function accountPulseIdentity(item: BriefingCard): { id: string; name: string } {
+  const companyName = cleanText(item.context.companyName) || cleanText(item.metadata?.company) || cleanText(item.metadata?.recipientCompanyName)
+  const companyId = cleanText(item.context.companyId)
+  if (companyName) return { id: `company-name:${slugKey(companyName)}`, name: companyName }
+  if (companyId) return { id: `company-id:${companyId}`, name: `Company ${companyId}` }
+  return { id: WORKSPACE_OPERATIONS_KEY, name: 'Workspace operations' }
+}
+
 export function BriefingControlDesk({ mode }: { mode: Mode }) {
   const [orgs, setOrgs] = useState<OrgSummary[]>([])
   const [orgId, setOrgId] = useState('')
+  const [accountPulseId, setAccountPulseId] = useState('')
   const [priority, setPriority] = useState('all')
   const [sourceType, setSourceType] = useState('all')
   const [feed, setFeed] = useState<BriefingFeed | null>(null)
@@ -610,17 +665,41 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
   const [flash, setFlash] = useState<Flash>(null)
 
   useEffect(() => {
+    let cancelled = false
     ;(async () => {
       try {
+        if (mode === 'portal') {
+          const res = await fetch('/api/v1/portal/org')
+          const body = await res.json()
+          if (!res.ok) throw new Error(body.error || 'Workspace lookup failed')
+          const org = body.org
+          if (cancelled) return
+          if (org?.id) {
+            setOrgId(org.id)
+            setOrgs([{ id: org.id, name: org.name || 'Current workspace', slug: org.slug }])
+          } else {
+            setOrgs([])
+          }
+          return
+        }
+
         const res = await fetch('/api/v1/organizations')
         const body = await res.json()
         const rows = (body.data ?? body.organizations ?? body.orgs ?? []) as OrgSummary[]
+        if (cancelled) return
         setOrgs(rows)
       } catch {
+        if (cancelled) return
         setOrgs([])
+        if (mode === 'portal') setLoading(false)
       }
     })()
-  }, [])
+    return () => { cancelled = true }
+  }, [mode])
+
+  useEffect(() => {
+    setAccountPulseId('')
+  }, [mode, orgId])
 
   const query = useMemo(() => {
     const params = new URLSearchParams()
@@ -632,6 +711,7 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
   }, [orgId, priority, sourceType])
 
   const loadFeed = useCallback(async ({ quiet = false }: { quiet?: boolean } = {}) => {
+    if (mode === 'portal' && !orgId) return
     if (!quiet) setLoading(true)
     try {
       const res = await fetch(`/api/v1/briefings/feed?${query}`)
@@ -647,19 +727,25 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
     } finally {
       if (!quiet) setLoading(false)
     }
-  }, [query])
+  }, [mode, orgId, query])
 
   useEffect(() => {
+    if (mode === 'portal' && !orgId) return
     loadFeed()
-  }, [loadFeed])
+  }, [loadFeed, mode, orgId])
 
   useEffect(() => {
     if (!autoRefresh) return
+    if (mode === 'portal' && !orgId) return
     const timer = window.setInterval(() => loadFeed({ quiet: true }), 30_000)
     return () => window.clearInterval(timer)
-  }, [autoRefresh, loadFeed])
+  }, [autoRefresh, loadFeed, mode, orgId])
 
-  const items = useMemo(() => feed?.items ?? [], [feed?.items])
+  const allItems = useMemo(() => feed?.items ?? [], [feed?.items])
+  const items = useMemo(() => {
+    if (mode !== 'portal' || !accountPulseId) return allItems
+    return allItems.filter((item) => accountPulseIdentity(item).id === accountPulseId)
+  }, [accountPulseId, allItems, mode])
   const selected = items.find((item) => item.id === selectedId) ?? items[0] ?? null
 
   const counts = useMemo(() => {
@@ -676,53 +762,17 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
   }), [counts, items])
 
   const workspacePulse = useMemo(() => {
-    const byOrg = new Map<string, {
-      id: string
-      name: string
-      total: number
-      action: number
-      blocked: number
-      review: number
-      agents: number
-      documents: number
-      latestAt: number
-    }>()
+    const byOrg = new Map<string, PulseRow>()
 
     for (const org of orgs) {
-      byOrg.set(org.id, {
-        id: org.id,
-        name: org.name,
-        total: 0,
-        action: 0,
-        blocked: 0,
-        review: 0,
-        agents: 0,
-        documents: 0,
-        latestAt: 0,
-      })
+      byOrg.set(org.id, pulseRow(org.id, org.name))
     }
 
-    for (const item of items) {
+    for (const item of allItems) {
       const id = item.orgId || item.context.orgId || 'unknown'
-      const current = byOrg.get(id) ?? {
-        id,
-        name: item.context.orgName || id,
-        total: 0,
-        action: 0,
-        blocked: 0,
-        review: 0,
-        agents: 0,
-        documents: 0,
-        latestAt: 0,
-      }
+      const current = byOrg.get(id) ?? pulseRow(id, item.context.orgName || id)
       current.name = item.context.orgName || current.name
-      current.total += 1
-      if (item.requiresAction) current.action += 1
-      if (item.priority === 'critical') current.blocked += 1
-      if (item.priority === 'review' || item.priority === 'needs-peet') current.review += 1
-      if (item.actor.type === 'agent' || item.source.type === 'agent-output') current.agents += 1
-      if (item.source.type === 'client-document' || item.source.type === 'approval') current.documents += 1
-      current.latestAt = Math.max(current.latestAt, new Date(item.occurredAt).getTime())
+      addPulseItem(current, item)
       byOrg.set(id, current)
     }
 
@@ -730,7 +780,46 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
       .filter((row) => row.total > 0 || !orgId)
       .sort((a, b) => b.action - a.action || b.blocked - a.blocked || b.latestAt - a.latestAt || a.name.localeCompare(b.name))
       .slice(0, 8)
-  }, [items, orgId, orgs])
+  }, [allItems, orgId, orgs])
+
+  const accountPulse = useMemo(() => {
+    const byAccount = new Map<string, PulseRow>()
+    for (const item of allItems) {
+      const identity = accountPulseIdentity(item)
+      const current = byAccount.get(identity.id) ?? pulseRow(identity.id, identity.name)
+      addPulseItem(current, item)
+      byAccount.set(identity.id, current)
+    }
+    return [...byAccount.values()]
+      .sort((a, b) => b.action - a.action || b.blocked - a.blocked || b.latestAt - a.latestAt || a.name.localeCompare(b.name))
+      .slice(0, 8)
+  }, [allItems])
+
+  function selectAccountPulse(id: string) {
+    setAccountPulseId(id)
+    const next = allItems.find((item) => accountPulseIdentity(item).id === id)
+    setSelectedId(next?.id ?? null)
+  }
+
+  const pulseRows = mode === 'portal' ? accountPulse : workspacePulse
+  const pulseSelectionId = mode === 'portal' ? accountPulseId : orgId
+  const activeWorkspaceName = orgs[0]?.name ?? 'Current workspace'
+
+  function clearPulseSelection() {
+    if (mode === 'portal') {
+      setAccountPulseId('')
+      return
+    }
+    setOrgId('')
+  }
+
+  function selectPulseRow(row: PulseRow) {
+    if (mode === 'portal') {
+      selectAccountPulse(row.id)
+      return
+    }
+    setOrgId(row.id)
+  }
 
   async function createSnapshot() {
     setSnapshotting(true)
@@ -1690,15 +1779,22 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
 
         <section className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-4">
           <div className="grid gap-3 lg:grid-cols-[1.1fr_0.85fr_0.85fr_auto] lg:items-end">
-            <label className="flex flex-col gap-2 text-sm text-on-surface-variant">
-              Workspace
-              <select className="pib-input" value={orgId} onChange={(event) => setOrgId(event.target.value)}>
-                <option value="">All visible workspaces</option>
-                {orgs.map((org) => (
-                  <option key={org.id} value={org.id}>{org.name}</option>
-                ))}
-              </select>
-            </label>
+            {mode === 'admin' ? (
+              <label className="flex flex-col gap-2 text-sm text-on-surface-variant">
+                Workspace
+                <select className="pib-input" value={orgId} onChange={(event) => setOrgId(event.target.value)}>
+                  <option value="">All visible workspaces</option>
+                  {orgs.map((org) => (
+                    <option key={org.id} value={org.id}>{org.name}</option>
+                  ))}
+                </select>
+              </label>
+            ) : (
+              <div className="flex min-h-[74px] flex-col justify-center rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface-container)] px-3 py-2">
+                <p className="text-xs text-on-surface-variant">Active workspace</p>
+                <p className="mt-1 truncate text-sm font-semibold text-on-surface">{activeWorkspaceName}</p>
+              </div>
+            )}
             <label className="flex flex-col gap-2 text-sm text-on-surface-variant">
               Priority
               <select className="pib-input" value={priority} onChange={(event) => setPriority(event.target.value)}>
@@ -1731,44 +1827,50 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
         <section className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="eyebrow !text-[10px] text-brand">Workspace pulse</p>
-              <p className="mt-1 text-sm text-on-surface-variant">Jump between organisations by action pressure, blockers, document approvals, and agent signals.</p>
+              <p className="eyebrow !text-[10px] text-brand">{mode === 'portal' ? 'Account pulse' : 'Workspace pulse'}</p>
+              <p className="mt-1 text-sm text-on-surface-variant">
+                {mode === 'portal'
+                  ? 'Jump between CRM companies and workspace operations by action pressure, blockers, approvals, and agent signals.'
+                  : 'Jump between organisations by action pressure, blockers, document approvals, and agent signals.'}
+              </p>
             </div>
-            {orgId ? (
-              <button type="button" className="pib-btn-secondary text-xs" onClick={() => setOrgId('')}>
+            {pulseSelectionId ? (
+              <button type="button" className="pib-btn-secondary text-xs" onClick={clearPulseSelection}>
                 <span className="material-symbols-outlined text-[15px]" aria-hidden="true">select_all</span>
-                All workspaces
+                {mode === 'portal' ? 'All accounts' : 'All workspaces'}
               </button>
             ) : null}
           </div>
 
           <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            {workspacePulse.length === 0 ? (
+            {pulseRows.length === 0 ? (
               <div className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface-container)] p-4 text-sm text-on-surface-variant">
-                Workspace counts will appear when the live feed returns active cards.
+                {mode === 'portal'
+                  ? 'Account counts will appear when the live feed returns active cards.'
+                  : 'Workspace counts will appear when the live feed returns active cards.'}
               </div>
-            ) : workspacePulse.map((workspace) => (
+            ) : pulseRows.map((row) => (
               <button
-                key={workspace.id}
+                key={row.id}
                 type="button"
-                onClick={() => setOrgId(workspace.id)}
-                aria-label={`Filter to ${workspace.name} workspace`}
-                className={`min-h-36 rounded-lg border p-4 text-left transition ${orgId === workspace.id ? 'border-[var(--color-accent-v2)] bg-[var(--color-accent-subtle)] shadow-lg shadow-black/20' : 'border-[var(--color-card-border)] bg-[var(--color-surface-container)] hover:border-[var(--color-accent-v2)]/50'}`}
+                onClick={() => selectPulseRow(row)}
+                aria-label={`Filter to ${row.name} ${mode === 'portal' ? 'account' : 'workspace'}`}
+                className={`min-h-36 rounded-lg border p-4 text-left transition ${pulseSelectionId === row.id ? 'border-[var(--color-accent-v2)] bg-[var(--color-accent-subtle)] shadow-lg shadow-black/20' : 'border-[var(--color-card-border)] bg-[var(--color-surface-container)] hover:border-[var(--color-accent-v2)]/50'}`}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-on-surface">{workspace.name}</p>
-                    <p className="mt-1 text-xs text-on-surface-variant">{workspace.total} live cards</p>
+                    <p className="truncate text-sm font-semibold text-on-surface">{row.name}</p>
+                    <p className="mt-1 text-xs text-on-surface-variant">{row.total} live cards</p>
                   </div>
-                  <span className={`rounded-full px-2 py-1 text-xs font-semibold ${workspace.action > 0 ? 'bg-amber-300/15 text-amber-100' : 'bg-emerald-300/15 text-emerald-100'}`}>
-                    {workspace.action} action
+                  <span className={`rounded-full px-2 py-1 text-xs font-semibold ${row.action > 0 ? 'bg-amber-300/15 text-amber-100' : 'bg-emerald-300/15 text-emerald-100'}`}>
+                    {row.action} action
                   </span>
                 </div>
                 <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
-                  <span className="rounded-md bg-red-400/10 px-2 py-1 text-red-100">{workspace.blocked} blocked</span>
-                  <span className="rounded-md bg-sky-400/10 px-2 py-1 text-sky-100">{workspace.review} review</span>
-                  <span className="rounded-md bg-emerald-400/10 px-2 py-1 text-emerald-100">{workspace.agents} agents</span>
-                  <span className="rounded-md bg-violet-400/10 px-2 py-1 text-violet-100">{workspace.documents} docs</span>
+                  <span className="rounded-md bg-red-400/10 px-2 py-1 text-red-100">{row.blocked} blocked</span>
+                  <span className="rounded-md bg-sky-400/10 px-2 py-1 text-sky-100">{row.review} review</span>
+                  <span className="rounded-md bg-emerald-400/10 px-2 py-1 text-emerald-100">{row.agents} agents</span>
+                  <span className="rounded-md bg-violet-400/10 px-2 py-1 text-violet-100">{row.documents} docs</span>
                 </div>
               </button>
             ))}
@@ -1799,7 +1901,7 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
 
           <div className="flex min-h-0 flex-col gap-3 xl:sticky xl:top-4 xl:h-[calc(100vh-2rem)]">
             <div className="flex shrink-0 items-center justify-between rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface-container)] px-4 py-3 text-sm text-on-surface-variant">
-              <span>{feed?.total ?? 0} live cards</span>
+              <span>{items.length} live cards</span>
               <span>{feed?.generatedAt ? `Updated ${new Date(feed.generatedAt).toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' })}` : 'Waiting for feed'}</span>
             </div>
 
@@ -1827,6 +1929,7 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                     <p className="mt-2 text-sm leading-6 text-on-surface-variant">{item.summary}</p>
                     <div className="mt-3 flex flex-wrap gap-2 text-xs text-on-surface-variant">
                       <span>Workspace: {titledId(item.context.orgName, item.orgId)}</span>
+                      {item.context.companyName || item.context.companyId ? <span>Company: {titledId(item.context.companyName, item.context.companyId)}</span> : null}
                       {item.context.projectName || item.context.projectId ? <span>Project: {titledId(item.context.projectName, item.context.projectId)}</span> : null}
                       {item.context.taskTitle || item.context.taskId ? <span>Task: {titledId(item.context.taskTitle, item.context.taskId)}</span> : null}
                     </div>

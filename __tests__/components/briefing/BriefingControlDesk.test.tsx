@@ -406,6 +406,7 @@ const shipmentBriefingItem = {
     orgName: 'Client One',
     orgSlug: 'client-one',
     companyId: 'company-1',
+    companyName: 'Acme Holdings',
     orderId: 'order-1',
     shipmentId: 'shipment-1',
     shipmentTrackingNumber: 'DHL-123',
@@ -436,6 +437,7 @@ const orderBriefingItem = {
     orgName: 'Client One',
     orgSlug: 'client-one',
     companyId: 'company-1',
+    companyName: 'Acme Holdings',
     projectId: 'project-1',
     quoteId: 'quote-1',
     invoiceId: 'invoice-1',
@@ -468,6 +470,7 @@ const inventoryBriefingItem = {
     orgName: 'Client One',
     orgSlug: 'client-one',
     companyId: 'company-1',
+    companyName: 'Acme Holdings',
     projectId: 'project-1',
     inventoryItemId: 'stock-1',
     inventoryItemName: 'SEO implementation hours',
@@ -982,6 +985,15 @@ describe('BriefingControlDesk', () => {
     jest.setSystemTime(new Date('2026-05-31T10:05:00.000Z'))
     global.fetch = jest.fn(async (input: RequestInfo | URL) => {
       const url = String(input)
+      if (url === '/api/v1/portal/org') {
+        return {
+          ok: true,
+          json: async () => ({
+            org: { id: 'org-1', name: 'Client One', slug: 'client-one', type: 'client' },
+            user: { uid: 'client-user-1', role: 'client' },
+          }),
+        } as Response
+      }
       if (url === '/api/v1/organizations') {
         return {
           ok: true,
@@ -992,9 +1004,12 @@ describe('BriefingControlDesk', () => {
         } as Response
       }
       if (url.startsWith('/api/v1/briefings/feed')) {
+        const orgOneItems = [briefingItem, documentBriefingItem, documentCommentBriefingItem, approvalBriefingItem, conversationBriefingItem, socialBriefingItem, notificationBriefingItem, activityBriefingItem, contactBriefingItem, reportBriefingItem, supportBriefingItem, invoiceBriefingItem, invoiceProofBriefingItem, quoteBriefingItem, shipmentBriefingItem, orderBriefingItem, inventoryBriefingItem, expenseBriefingItem, seoContentBriefingItem, seoTaskBriefingItem, adCampaignBriefingItem, draftBroadcastBriefingItem, scheduledBroadcastBriefingItem, pausedBroadcastBriefingItem, draftCampaignBriefingItem, activeCampaignBriefingItem, formSubmissionBriefingItem, socialInboxBriefingItem, mailboxBriefingItem, agentRunBriefingItem, workspaceBrokerBriefingItem, calendarBriefingItem]
         const items = url.includes('orgId=org-2')
           ? [secondOrgBriefingItem]
-          : [briefingItem, documentBriefingItem, documentCommentBriefingItem, approvalBriefingItem, conversationBriefingItem, socialBriefingItem, notificationBriefingItem, activityBriefingItem, contactBriefingItem, reportBriefingItem, supportBriefingItem, invoiceBriefingItem, invoiceProofBriefingItem, quoteBriefingItem, shipmentBriefingItem, orderBriefingItem, inventoryBriefingItem, enquiryBriefingItem, bookingBriefingItem, expenseBriefingItem, seoContentBriefingItem, seoTaskBriefingItem, adCampaignBriefingItem, draftBroadcastBriefingItem, scheduledBroadcastBriefingItem, pausedBroadcastBriefingItem, draftCampaignBriefingItem, activeCampaignBriefingItem, formSubmissionBriefingItem, socialInboxBriefingItem, mailboxBriefingItem, agentRunBriefingItem, workspaceBrokerBriefingItem, calendarBriefingItem, secondOrgBriefingItem]
+          : url.includes('orgId=org-1')
+            ? orgOneItems
+            : [...orgOneItems, enquiryBriefingItem, bookingBriefingItem, secondOrgBriefingItem]
         return {
           ok: true,
           json: async () => ({ data: { items, total: items.length, hasMore: false, generatedAt: '2026-05-31T10:05:00.000Z' } }),
@@ -1252,7 +1267,7 @@ describe('BriefingControlDesk', () => {
     jest.restoreAllMocks()
   })
 
-  it('renders a live multi-org control desk with source-aware task actions', async () => {
+  it('renders a live portal control desk with source-aware task actions', async () => {
     render(<BriefingControlDesk mode="portal" />)
 
     expect(await screen.findByText('Briefings control desk')).toBeInTheDocument()
@@ -1260,15 +1275,38 @@ describe('BriefingControlDesk', () => {
     expect((await screen.findAllByText('Theo completed work - review required')).length).toBeGreaterThan(0)
     expect(screen.getAllByText('Client One').length).toBeGreaterThan(0)
     expect(screen.getByLabelText('Live briefing cards')).toHaveClass('xl:overflow-y-auto')
-    expect(screen.getByRole('button', { name: /filter to client two workspace/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /filter to acme holdings account/i })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /open source/i })).toHaveAttribute('href', '/portal/projects/project-1?taskId=task-1')
     expect(screen.queryByRole('button', { name: /^unblock$/i })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /^approve$/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /send back to agent/i })).toBeInTheDocument()
   })
 
-  it('lets users switch the live desk to a noisy organisation from workspace pulse', async () => {
+  it('renders portal briefings as an active-workspace CRM account pulse', async () => {
     render(<BriefingControlDesk mode="portal" />)
+
+    expect(await screen.findByText('Account pulse')).toBeInTheDocument()
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/portal/org')
+      expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/api/v1/briefings/feed?orgId=org-1'))
+    })
+    expect(screen.queryByLabelText('Workspace')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /filter to client two workspace/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /filter to acme holdings account/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /filter to workspace operations/i })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /filter to acme holdings account/i }))
+
+    expect(await screen.findByText('Order blocked: Website onboarding order')).toBeInTheDocument()
+    expect(screen.queryByText('Report ready to review: May performance report')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /all accounts/i })).toBeInTheDocument()
+  })
+
+  it('keeps admin briefings grouped by system organisations', async () => {
+    render(<BriefingControlDesk mode="admin" />)
+
+    expect(await screen.findByText('Workspace pulse')).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: /filter to client two workspace/i })).toBeInTheDocument()
 
     fireEvent.click(await screen.findByRole('button', { name: /filter to client two workspace/i }))
 
