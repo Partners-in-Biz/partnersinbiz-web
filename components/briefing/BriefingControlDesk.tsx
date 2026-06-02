@@ -1266,7 +1266,7 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
       if (!res.ok) throw new Error(body.error || 'Follow-up note failed')
       setFollowUpText('')
       setFlash({ kind: 'ok', message: 'Follow-up note logged to the CRM contact.' })
-      await loadFeed({ quiet: true })
+      void loadFeed({ quiet: true })
     } catch (err) {
       setFlash({ kind: 'error', message: err instanceof Error ? err.message : 'Follow-up note failed' })
     } finally {
@@ -1312,7 +1312,7 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
 
       setFollowUpText('')
       setFlash({ kind: 'ok', message: 'Contact follow-up logged and cleared.' })
-      await loadFeed({ quiet: true })
+      void loadFeed({ quiet: true })
     } catch (err) {
       setFlash({ kind: 'error', message: err instanceof Error ? err.message : 'Contact follow-up failed' })
     } finally {
@@ -2372,7 +2372,7 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                       onChange={(event) => setFollowUpText(event.target.value)}
                       placeholder="Log the call, decision, blocker, or next step against this CRM contact..."
                     />
-                    <button className="pib-btn-primary mt-2 w-full justify-center text-xs" type="button" onClick={() => logActivityFollowUp(selected)} disabled={!followUpText.trim() || !!busyAction}>
+                    <button className="pib-btn-primary mt-2 w-full justify-center text-xs" type="button" onClick={() => canContactFollowUpComplete(selected) ? completeContactFollowUp(selected) : logActivityFollowUp(selected)} disabled={!followUpText.trim() || !!busyAction}>
                       <span className="material-symbols-outlined text-[15px]" aria-hidden="true">add_notes</span>
                       Log follow-up note
                     </button>
