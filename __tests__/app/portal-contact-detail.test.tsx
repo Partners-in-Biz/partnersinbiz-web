@@ -1050,6 +1050,28 @@ describe('Portal contact detail page', () => {
     expect(screen.queryByText('(no subject)')).not.toBeInTheDocument()
   })
 
+  it('turns populated email history rows into follow-up composer actions', async () => {
+    mockEmails = [{
+      id: 'email-1',
+      subject: 'Proposal follow-up',
+      status: 'sent',
+      direction: 'outbound',
+    }]
+
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    expect(await screen.findByText('Proposal follow-up')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Follow up on Proposal follow-up with Jane Client' }))
+
+    expect(screen.getByRole('textbox', { name: 'Email subject for Jane Client' })).toHaveValue('Re: Proposal follow-up')
+    expect(screen.getByRole('textbox', { name: 'Email message for Jane Client' })).toBeInTheDocument()
+  })
+
   it('renders saved email status keys as readable history labels', async () => {
     mockEmails = [{
       id: 'email-1',

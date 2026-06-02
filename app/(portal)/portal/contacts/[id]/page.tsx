@@ -239,6 +239,12 @@ function emailSubjectLabel(email: EmailRecord): string {
   return email.subject?.trim() || 'Email subject missing'
 }
 
+function emailFollowUpSubject(email: EmailRecord): string {
+  const subject = email.subject?.trim()
+  if (!subject) return ''
+  return subject.toLowerCase().startsWith('re:') ? subject : `Re: ${subject}`
+}
+
 function emailStatusLabel(email: EmailRecord): string {
   const key = email.status?.trim()
   if (!key) return 'Email status not captured'
@@ -676,6 +682,12 @@ export default function PortalContactDetailPage() {
     setLogType('email_sent')
     setShowAiComposer(false)
     setLogError(null)
+  }
+
+  function openEmailFollowUp(email: EmailRecord) {
+    setLogEmailSubject(emailFollowUpSubject(email))
+    setLogSummary('')
+    openFirstEmailComposer()
   }
 
   function useAiDraftInComposer() {
@@ -1899,6 +1911,15 @@ export default function PortalContactDetailPage() {
                         {emailTimeLabel(e)}
                       </p>
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => openEmailFollowUp(e)}
+                      aria-label={`Follow up on ${emailSubjectLabel(e)} with ${contactName}`}
+                      className="inline-flex shrink-0 items-center gap-1 rounded-md border border-[var(--color-pib-line)] px-2 py-1 text-[11px] font-medium text-[var(--color-pib-accent)] transition-colors hover:border-[var(--color-pib-accent)] hover:text-[var(--color-pib-text)]"
+                    >
+                      <span className="material-symbols-outlined text-[13px]" aria-hidden="true">reply</span>
+                      Follow up
+                    </button>
                   </div>
                 ))}
               </div>
