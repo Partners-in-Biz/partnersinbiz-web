@@ -113,6 +113,7 @@ export function CompanyPicker({ currentCompanyId, currentCompanyName, ariaLabel 
   }
 
   const hasSelection = !!currentCompanyId
+  const clearLabel = ariaLabel === 'Search companies' ? 'Clear company' : `Clear ${ariaLabel}`
 
   return (
     <div ref={containerRef} className="relative w-full">
@@ -138,7 +139,7 @@ export function CompanyPicker({ currentCompanyId, currentCompanyName, ariaLabel 
         {(hasSelection || query) && (
           <button
             type="button"
-            aria-label="Clear company"
+            aria-label={clearLabel}
             onClick={clearSelection}
             className="cursor-pointer absolute right-2 text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors"
           >
