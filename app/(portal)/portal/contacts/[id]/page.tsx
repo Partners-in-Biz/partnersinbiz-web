@@ -2390,7 +2390,9 @@ export default function PortalContactDetailPage() {
                 ))}
                 {activities.length === 50 && (
                   <button
+                    type="button"
                     onClick={loadMoreActivities}
+                    aria-label={`Load more activity for ${contactName}`}
                     className="text-sm text-[var(--color-pib-text-muted)] w-full py-2 hover:text-[var(--color-pib-text)]"
                   >
                     Load more

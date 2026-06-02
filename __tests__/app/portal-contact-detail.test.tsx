@@ -1162,6 +1162,22 @@ describe('Portal contact detail page', () => {
     expect(screen.getByRole('textbox', { name: 'Relationship note for Jane Client' })).toHaveValue('Follow-up from: Discussed implementation handoff')
   })
 
+  it('names the activity timeline pagination action by active contact', async () => {
+    mockActivities = Array.from({ length: 50 }, (_, index) => ({
+      id: `activity-${index}`,
+      type: 'note',
+      summary: `Timeline note ${index + 1}`,
+    }))
+
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    expect(await screen.findByRole('button', { name: 'Load more activity for Jane Client' })).toBeInTheDocument()
+  })
+
   it('turns an unassigned relationship owner into an accountability action', async () => {
     render(<PortalContactDetailPage />)
 
