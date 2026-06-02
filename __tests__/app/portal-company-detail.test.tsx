@@ -235,6 +235,93 @@ describe('Portal company detail page', () => {
     expect(screen.getByText('Sent')).toBeInTheDocument()
   })
 
+  it('keeps deal creation available when a company already has opportunities', async () => {
+    global.fetch = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/custom-fields?resource=company') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { definitions: [] } }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/companies/company-1') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              company: {
+                id: 'company-1',
+                orgId: 'org-1',
+                name: 'Acme Holdings',
+                lifecycleStage: 'customer',
+              },
+            },
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/companies/company-1/command-center?limit=100') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              summary: {},
+              analytics: {},
+              contacts: [
+                { id: 'contact-1', name: 'Jane Client', email: 'jane@example.com', type: 'client', stage: 'won' },
+              ],
+              deals: [
+                { id: 'deal-1', title: 'Growth retainer', stageId: 'proposal', value: 25000, probability: 60 },
+              ],
+              quotes: [],
+              invoices: [],
+              projects: [],
+              serviceWorkspaces: [],
+              relationships: [],
+              documents: [],
+              orders: [],
+              shipments: [],
+              inventoryItems: [],
+              activities: [],
+            },
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/pipelines') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: [
+              {
+                id: 'pipeline-1',
+                name: 'Sales pipeline',
+                isDefault: true,
+                stages: [{ id: 'stage-1', label: 'Discovery', kind: 'open', order: 1, probability: 25 }],
+              },
+            ],
+          }),
+        } as Response)
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ data: {} }),
+      } as Response)
+    }) as jest.Mock
+
+    render(<CompanyDetailPage />)
+
+    await screen.findByRole('heading', { name: 'Acme Holdings' })
+    await selectCompanyTab(/Deals/i)
+    expect(await screen.findByText('Growth retainer')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add deal for Acme Holdings' }))
+
+    expect(await screen.findByRole('dialog', { name: 'Create deal for Acme Holdings with Jane Client' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Deal contact for Acme Holdings')).toHaveValue('Jane Client')
+  })
+
   it('names sparse linked contact fields on company detail instead of showing dash placeholders', async () => {
     global.fetch = jest.fn((input: RequestInfo | URL) => {
       const url = String(input)

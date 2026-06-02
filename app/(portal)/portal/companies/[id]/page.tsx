@@ -579,32 +579,53 @@ function DealsPanel({
     )
   }
   return (
-    <TableShell>
-      <table className="w-full text-sm">
-        <thead className="border-b border-[var(--color-pib-line)] text-[10px] font-label uppercase tracking-wider text-[var(--color-pib-text-muted)]">
-          <tr>
-            <th className="px-5 py-3 text-left">Deal</th>
-            <th className="px-5 py-3 text-left">Value</th>
-            <th className="px-5 py-3 text-left">Stage</th>
-            <th className="px-5 py-3 text-left">Probability</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-[var(--color-pib-line)]">
-          {deals.map((deal) => (
-            <tr key={deal.id} className="hover:bg-white/[0.02]">
-              <td className="px-5 py-4">
-                <Link href={`/portal/deals/${deal.id}`} className="font-medium text-[var(--color-accent-v2)] hover:underline">
-                  {deal.title || deal.id}
-                </Link>
-              </td>
-              <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{dealValueLabel(deal)}</td>
-              <td className="px-5 py-4"><StatusChip value={deal.stageId} emptyLabel="Stage not set" /></td>
-              <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{dealProbabilityLabel(deal)}</td>
+    <div className="space-y-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="eyebrow !text-[10px]">Opportunities</p>
+          <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
+            Keep every expansion, renewal, and new commercial track visible for {company.name}.
+          </p>
+        </div>
+        {contacts[0] ? (
+          <button type="button" onClick={onCreateDeal} className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5">
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add_business</span>
+            Add deal for {company.name}
+          </button>
+        ) : (
+          <button type="button" onClick={onCreateContact} className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5">
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">person_add</span>
+            Add contact before deal
+          </button>
+        )}
+      </div>
+      <TableShell>
+        <table className="w-full text-sm">
+          <thead className="border-b border-[var(--color-pib-line)] text-[10px] font-label uppercase tracking-wider text-[var(--color-pib-text-muted)]">
+            <tr>
+              <th className="px-5 py-3 text-left">Deal</th>
+              <th className="px-5 py-3 text-left">Value</th>
+              <th className="px-5 py-3 text-left">Stage</th>
+              <th className="px-5 py-3 text-left">Probability</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </TableShell>
+          </thead>
+          <tbody className="divide-y divide-[var(--color-pib-line)]">
+            {deals.map((deal) => (
+              <tr key={deal.id} className="hover:bg-white/[0.02]">
+                <td className="px-5 py-4">
+                  <Link href={`/portal/deals/${deal.id}`} className="font-medium text-[var(--color-accent-v2)] hover:underline">
+                    {deal.title || deal.id}
+                  </Link>
+                </td>
+                <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{dealValueLabel(deal)}</td>
+                <td className="px-5 py-4"><StatusChip value={deal.stageId} emptyLabel="Stage not set" /></td>
+                <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{dealProbabilityLabel(deal)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </TableShell>
+    </div>
   )
 }
 
