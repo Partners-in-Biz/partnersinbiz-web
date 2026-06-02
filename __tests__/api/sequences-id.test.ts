@@ -10,7 +10,7 @@ jest.mock('@/lib/firebase/admin', () => ({
   adminDb: { collection: mockCollection },
 }))
 jest.mock('@/lib/auth/middleware', () => ({
-  withAuth: (_role: string, handler: Function) => handler,
+  withAuth: (_role: string, handler: (...args: unknown[]) => unknown) => handler,
 }))
 
 process.env.AI_API_KEY = 'test-key'
@@ -55,6 +55,36 @@ describe('PUT /api/v1/sequences/[id]', () => {
     })
     const res = await PUT(req, params)
     expect(res.status).toBe(200)
+  })
+
+  it('rejects activation when an email step has no body copy', async () => {
+    mockGet.mockResolvedValue({
+      exists: true,
+      id: 'seq1',
+      data: () => ({
+        orgId: 'org-test',
+        name: 'Old',
+        status: 'draft',
+        steps: [{ stepNumber: 0, delayDays: 0, subject: 'Existing', bodyHtml: '<p>Hi</p>', bodyText: '' }],
+        deleted: false,
+      }),
+    })
+    const { PUT } = await import('@/app/api/v1/sequences/[id]/route')
+    const req = new NextRequest('http://localhost/api/v1/sequences/seq1', {
+      method: 'PUT',
+      headers: { ...authHeader, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        status: 'active',
+        steps: [{ stepNumber: 0, delayDays: 0, subject: 'Hi', bodyHtml: '', bodyText: '' }],
+      }),
+    })
+    const res = await PUT(req, params)
+    const body = await res.json()
+
+    expect(res.status).toBe(400)
+    expect(body.error).toMatch(/Step 1/i)
+    expect(body.error).toMatch(/body/i)
+    expect(mockUpdate).not.toHaveBeenCalled()
   })
 })
 

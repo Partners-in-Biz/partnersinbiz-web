@@ -56,8 +56,6 @@ PiB-issued invoices and quotes are source/recipient records:
 - `companyId` / `sourceCompanyId` point to the sender-owned CRM Company, normally the PiB platform CRM Company whose `linkedOrgId` is the client org.
 - `contactId` / `sourceContactId` point to the sender-owned CRM Contact when the invoice or quote targets a specific contact.
 
-Before creating PiB-issued billing for a client, confirm the client org has a platform-owner CRM Company (`linkedOrgId=<clientOrgId>`) and, for stakeholder-specific billing, a Contact linked by `linkedUserId`/email and `companyId`. If these links are missing on older data, run the platform-owner CRM backfill before issuing the invoice/quote so reporting, account review, and CRM timelines stay connected.
-
 Do not treat `allowedOrgIds` as client portal/CRM access. It scopes admin billing visibility only. Client users and explicit client members see received billing through `view=received`.
 
 ## Invoice status machine
@@ -76,7 +74,7 @@ Any status → `cancelled`. `partially_paid` exists as a state but is rarely use
 
 ## Collaboration primitives
 
-- **Idempotency** on `POST /invoices`, `POST /quotes` (see `crm-sales`), `POST /expenses`, `POST /recurring-schedules`
+- **Idempotency** on `POST /invoices`, `POST /quotes` (see `crm-sales`), and `POST /expenses`
 - **Comments** (`resourceType: 'invoice' | 'expense'`): internal notes with `@mentions`
 - **Notifications**: auto-created on `invoice.paid`, `invoice.overdue`, `expense.submitted`, proof uploads
 
@@ -119,8 +117,6 @@ Body:
 
 For admin/AI PiB-issued invoices without CRM claim fields, `orgId` is the client/recipient org in the request; the API resolves the platform owner as `sourceOrgId` and writes `recipientOrgId=orgId`. For CRM-targeted invoices, pass `companyId`/`contactId` and optional `recipientOrgId`; if the Company already has `linkedOrgId`, the API reuses it.
 
-When the client is already onboarded, prefer passing the platform-owner CRM `companyId` and primary stakeholder `contactId` explicitly rather than relying on fallback matching. This keeps the invoice visible from the CRM Company/Contact timeline and from client lifetime-value/account views.
-
 Auto-snapshots:
 - `fromDetails` from platform owner org (name, address, email, phone, vatNumber, bankingDetails)
 - `clientDetails` from client org (`billingDetails`, `billingEmail`)
@@ -136,14 +132,14 @@ Response (201): `{ id, invoiceNumber }`. Dispatches `invoice.created`.
 #### `GET /invoices/[id]` — auth: admin
 Full invoice.
 
-#### `PUT /invoices/[id]` — auth: admin
+#### `PATCH /invoices/[id]` — auth: admin
 Update fields. Recomputes totals if `lineItems` or `taxRate` changes.
 
 #### `DELETE /invoices/[id]` — auth: admin
 Soft-cancel (`status: 'cancelled'`).
 
-#### `GET /invoices/preview` — auth: admin
-Query: `orgId`, `lineItems` (JSON), `taxRate`, `currency`. Returns what the invoice would look like without saving. Useful before committing.
+#### `POST /invoices/preview` — auth: admin
+Body: invoice-like JSON. Optional `orgId` enriches the preview with real client billing details and platform-owner sender details after access validation. Returns rendered invoice HTML and does not create a Firestore invoice. Useful before committing.
 
 #### `GET /invoices/next-number?orgId=X` — auth: admin
 Returns the next invoice number for the client org: `{ invoiceNumber: "CLI-042" }`.
@@ -155,7 +151,10 @@ Returns a PDF binary (Content-Type: application/pdf).
 Clones the invoice as a new `draft`. Returns `{ id, invoiceNumber }`.
 
 #### `POST /invoices/[id]/recurring` — auth: admin
-Converts the invoice into a template + creates a recurring schedule. See `/recurring-schedules`.
+Creates an active recurring schedule for this invoice. Body requires `interval` (`daily|weekly|monthly|quarterly|yearly`) and `startDate`; optional `endDate`. Fails with 409 if an active/paused schedule already exists.
+
+#### `DELETE /invoices/[id]/recurring` — auth: admin
+Cancels the active/paused recurring schedule for this invoice by setting `status: cancelled`.
 
 ### Invoice actions — send + status
 
@@ -252,25 +251,17 @@ Always returns 200 (prevents PayPal retries). Logs failures.
 ### Recurring schedules
 
 #### `GET /recurring-schedules` — auth: admin
-Filters: `orgId`, `active`, `type` (`invoice`|`email`|etc.).
+Lists up to 100 schedules, ordered newest first. Query: `status` (`active` by default, or `all`). Restricted admins are filtered to explicit allowed orgs.
 
-#### `POST /recurring-schedules` — auth: admin
+#### `PATCH /recurring-schedules/[id]` — auth: admin
 Body:
 ```json
-{
-  "orgId": "org_abc",
-  "type": "invoice",
-  "cadence": "monthly",        // monthly | weekly | daily | yearly
-  "dayOfMonth": 1,
-  "templateInvoiceId": "inv_template_xyz",
-  "active": true,
-  "nextRunAt": "2026-05-01"
-}
+{ "status": "active" | "paused" | "cancelled" }
 ```
 
-The daily cron `/api/cron/invoices` runs at 2am UTC and generates invoices from active schedules whose `nextRunAt <= now`.
+Cannot update a schedule already marked `cancelled`. Create/cancel schedules from the invoice-owned route: `POST /invoices/[id]/recurring` and `DELETE /invoices/[id]/recurring`.
 
-#### `GET/PUT/DELETE /recurring-schedules/[id]` — auth: admin
+The daily cron `/api/cron/invoices` runs at 2am UTC and generates invoices from active schedules whose `nextDueAt <= now`.
 
 ### Expenses
 
@@ -415,10 +406,7 @@ POST /invoices
   "unitPrice": 15000 }], "taxRate": 15, "currency": "ZAR" }
 
 POST /invoices/inv_template/recurring
-# Or directly:
-POST /recurring-schedules
-{ "orgId": "org_client", "type": "invoice", "cadence": "monthly", "dayOfMonth": 1,
-  "templateInvoiceId": "inv_template", "active": true, "nextRunAt": "2026-05-01" }
+{ "interval": "monthly", "startDate": "2026-05-01" }
 
 # Daily cron generates the new invoice at 2am UTC on the schedule
 ```

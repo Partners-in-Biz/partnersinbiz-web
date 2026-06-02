@@ -7,6 +7,7 @@ import { callAgentPath, getAgent, recordAgentSkillPolicyApplied } from '@/lib/ag
 import { isValidAgentId, type AgentId } from '@/lib/agents/types'
 import {
   AGENT_SKILL_POLICY,
+  classifyInstalledSkills,
   computeAgentSkillDrift,
   extractHermesExternalDirs,
   getAgentSkillPolicy,
@@ -18,32 +19,6 @@ export const dynamic = 'force-dynamic'
 
 type Ctx = { params: Promise<{ agentId: string }> }
 
-function skillBasename(skill: string): string {
-  return skill.split('/').filter(Boolean).at(-1) ?? skill
-}
-
-function classifyInstalledSkills(installed: string[]): { pib: string[]; global: string[] } {
-  const catalogPaths = new Set(Object.keys(AGENT_SKILL_POLICY.skillCatalog))
-  const catalogByBase = new Map(Object.keys(AGENT_SKILL_POLICY.skillCatalog).map((skill) => [skillBasename(skill), skill]))
-  const pib: string[] = []
-  const global: string[] = []
-
-  for (const skill of installed) {
-    const base = skillBasename(skill)
-    const catalogSkill = catalogPaths.has(skill) ? skill : catalogByBase.get(base)
-    if (catalogSkill) {
-      pib.push(catalogSkill)
-    } else {
-      global.push(skill)
-    }
-  }
-
-  return {
-    pib: Array.from(new Set(pib)).sort(),
-    global: Array.from(new Set(global)).sort(),
-  }
-}
-
 function extractSkillListPayload(payload: unknown): unknown {
   if (Array.isArray(payload)) return payload
   if (!payload || typeof payload !== 'object') return []
@@ -53,6 +28,15 @@ function extractSkillListPayload(payload: unknown): unknown {
     return (source.data as Record<string, unknown>).skills
   }
   return []
+}
+
+function extractConfigPayload(payload: unknown): unknown {
+  if (!payload || typeof payload !== 'object') return payload
+  const source = payload as Record<string, unknown>
+  if (source.config && typeof source.config === 'object' && !Array.isArray(source.config)) {
+    return source.config
+  }
+  return payload
 }
 
 async function loadPolicyView(agentId: AgentId) {
@@ -75,7 +59,7 @@ async function loadPolicyView(agentId: AgentId) {
 
   try {
     const cfg = await callAgentPath(agentId, '/admin/config')
-    if (cfg.response.ok) liveConfig = cfg.data
+    if (cfg.response.ok) liveConfig = extractConfigPayload(cfg.data)
   } catch {
     // Sidecar may be temporarily unavailable. The caller still gets the manifest.
   }

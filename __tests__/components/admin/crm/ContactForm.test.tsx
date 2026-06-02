@@ -52,4 +52,37 @@ describe('ContactForm', () => {
       assignedTo: 'sales-lead-1',
     }))
   })
+
+  it('names account-scoped contact fields and actions by company context', async () => {
+    const onSave = jest.fn().mockResolvedValue(undefined)
+
+    render(
+      <ContactForm
+        onSave={onSave}
+        onCancel={jest.fn()}
+        contextName="Acme Holdings"
+        initial={{
+          company: 'Acme Holdings',
+          companyId: 'company-1',
+          companyName: 'Acme Holdings',
+        }}
+      />,
+    )
+
+    expect(screen.getByLabelText('Contact name for Acme Holdings')).toBeInTheDocument()
+    expect(screen.getByLabelText('Contact email for Acme Holdings')).toBeInTheDocument()
+    expect(screen.getByLabelText('Contact phone for Acme Holdings')).toBeInTheDocument()
+    expect(screen.getByLabelText('Contact job title for Acme Holdings')).toBeInTheDocument()
+    expect(screen.getByLabelText('Contact department for Acme Holdings')).toBeInTheDocument()
+    expect(screen.getByLabelText('Contact company for Acme Holdings')).toHaveValue('Acme Holdings')
+    expect(screen.getByLabelText('Contact owner for Acme Holdings')).toBeInTheDocument()
+    expect(screen.getByLabelText('Contact source for Acme Holdings')).toHaveValue('manual')
+    expect(screen.getByLabelText('Contact type for Acme Holdings')).toHaveValue('lead')
+    expect(screen.getByLabelText('Contact stage for Acme Holdings')).toHaveValue('new')
+    expect(screen.getByLabelText('Contact tags for Acme Holdings')).toBeInTheDocument()
+    expect(screen.getByLabelText('Contact notes for Acme Holdings')).toBeInTheDocument()
+    expect(screen.getByRole('checkbox', { name: 'Primary contact role for Acme Holdings' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Save contact for Acme Holdings' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Cancel contact for Acme Holdings' })).toBeInTheDocument()
+  })
 })

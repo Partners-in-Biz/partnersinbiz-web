@@ -33,6 +33,8 @@ type SendEmailBody = {
   subject?: string
   bodyText?: string
   bodyHtml?: string
+  text?: string
+  html?: string
   cc?: string[]
   contactId?: string
   sequenceId?: string
@@ -45,6 +47,14 @@ type SendEmailBody = {
   approvalGateTaskId?: string
 }
 
+async function resolveOrgIdFromContact(contactId: string): Promise<string | null> {
+  if (!contactId.trim()) return null
+  const snap = await adminDb.collection('contacts').doc(contactId.trim()).get()
+  if (!snap.exists) return null
+  const orgId = snap.data()?.orgId
+  return typeof orgId === 'string' && orgId.trim() ? orgId.trim() : null
+}
+
 export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) => {
   const body = await req.json() as SendEmailBody & Record<string, unknown>
   const {
@@ -52,6 +62,8 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) =
     subject,
     bodyText,
     bodyHtml,
+    text,
+    html,
     cc = [],
     contactId = '',
     sequenceId = '',
@@ -62,14 +74,17 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) =
 
   const cleanTo = to?.trim() ?? ''
   const cleanSubject = subject?.trim() ?? ''
-  const cleanBodyText = bodyText?.trim() ?? ''
-  const cleanBodyHtml = bodyHtml?.trim() ?? ''
+  const cleanBodyText = (bodyText ?? text)?.trim() ?? ''
+  const cleanBodyHtml = (bodyHtml ?? html)?.trim() ?? ''
 
   if (!cleanTo) return apiError('to is required')
   if (!cleanSubject) return apiError('subject is required')
   if (!cleanBodyText && !cleanBodyHtml) return apiError('bodyText or bodyHtml is required')
 
-  const requestedOrgId = typeof body.orgId === 'string' ? body.orgId.trim() : null
+  const requestedOrgId =
+    typeof body.orgId === 'string' && body.orgId.trim()
+      ? body.orgId.trim()
+      : await resolveOrgIdFromContact(contactId)
   const scope = resolveOrgScope(user, requestedOrgId)
   if (!scope.ok) return apiError(scope.error, scope.status)
   const orgId = scope.orgId

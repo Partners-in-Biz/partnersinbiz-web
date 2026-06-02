@@ -148,6 +148,7 @@ describe('PUT /api/v1/crm/sequences/:id', () => {
     const member = seedOrgMember('org-1', uid, { role: 'admin' })
     stageAuth(member)
     const updated = buildSequence({ name: 'Updated Series', status: 'active' })
+    ;(sequenceStore.getSequence as jest.Mock).mockResolvedValue(buildSequence())
     ;(sequenceStore.updateSequence as jest.Mock).mockResolvedValue(updated)
 
     const req = callAsMember(member, 'PUT', '/api/v1/crm/sequences/seq-1', {
@@ -184,6 +185,25 @@ describe('PUT /api/v1/crm/sequences/:id', () => {
     })
     const res = await routeModule.PUT(req, routeCtx)
     expect(res.status).toBe(403)
+  })
+
+  it('returns 400 when activating a sequence with an incomplete email step', async () => {
+    const uid = uidFor('admin-put-active-empty-body')
+    const member = seedOrgMember('org-1', uid, { role: 'admin' })
+    stageAuth(member)
+    ;(sequenceStore.getSequence as jest.Mock).mockResolvedValue(buildSequence())
+
+    const req = callAsMember(member, 'PUT', '/api/v1/crm/sequences/seq-1', {
+      status: 'active',
+      steps: [{ stepNumber: 0, delayDays: 0, subject: 'Hi', bodyHtml: '', bodyText: '' }],
+    })
+    const res = await routeModule.PUT(req, routeCtx)
+    const body = await res.json()
+
+    expect(res.status).toBe(400)
+    expect(body.error).toMatch(/Step 1/i)
+    expect(body.error).toMatch(/body/i)
+    expect(sequenceStore.updateSequence).not.toHaveBeenCalled()
   })
 })
 

@@ -102,6 +102,13 @@ export interface BroadcastDetailedStats {
 
 export interface SequenceDetailedStats {
   sequenceId: string
+  sequence: {
+    id: string
+    name: string
+    description: string
+    status: Sequence['status']
+    stepsCount: number
+  }
   totalEnrollments: number
   byStatus: Record<string, number>
   stepFunnel: Array<{
@@ -113,6 +120,13 @@ export interface SequenceDetailedStats {
     dropOffPercent: number
   }>
   averageCompletionDays: number
+  insights: {
+    completionRate: number
+    openRate: number
+    clickRate: number
+    weakestStepNumber: number | null
+    nextActions: string[]
+  }
 }
 
 export interface ContactEngagement {
@@ -774,9 +788,51 @@ export async function getSequenceStats(
       dropOffPercent,
     }
   })
+  const totals = stepFunnel.reduce(
+    (acc, step) => ({
+      sent: acc.sent + step.sent,
+      opened: acc.opened + step.opened,
+      clicked: acc.clicked + step.clicked,
+    }),
+    { sent: 0, opened: 0, clicked: 0 },
+  )
+  const weakestStep = stepFunnel.reduce<(typeof stepFunnel)[number] | null>((weakest, step) => {
+    if (!weakest) return step
+    return step.dropOffPercent > weakest.dropOffPercent ? step : weakest
+  }, null)
+  const completionRate = safeRate(byStatus.completed ?? 0, totalEnrollments)
+  const openRate = safeRate(totals.opened, totals.sent)
+  const clickRate = safeRate(totals.clicked, totals.sent)
+  const nextActions: string[] = []
+
+  if (steps.length === 0) {
+    nextActions.push('Add at least one sequence step before routing captured contacts into this journey.')
+  }
+  if (totalEnrollments === 0) {
+    nextActions.push('Connect this sequence to capture sources or automations so new contacts enter the journey automatically.')
+  }
+  if (weakestStep && weakestStep.dropOffPercent >= 25) {
+    nextActions.push(`Review Step ${weakestStep.stepNumber} subject, offer, and call to action because it has the largest drop-off.`)
+  }
+  if (totals.sent > 0 && openRate < 0.25) {
+    nextActions.push('Test a stronger subject line and sender framing because the open rate is below 25%.')
+  }
+  if (totals.sent > 0 && clickRate < 0.05) {
+    nextActions.push('Strengthen the call to action and link placement because the click rate is below 5%.')
+  }
+  if (nextActions.length === 0) {
+    nextActions.push('Keep monitoring this sequence and compare the next batch against current completion, open, and click rates.')
+  }
 
   return {
     sequenceId,
+    sequence: {
+      id: sequenceId,
+      name: sequence.name ?? 'Untitled sequence',
+      description: sequence.description ?? '',
+      status: sequence.status,
+      stepsCount: steps.length,
+    },
     totalEnrollments,
     byStatus,
     stepFunnel,
@@ -784,6 +840,13 @@ export async function getSequenceStats(
       completionCount > 0
         ? Math.round((completionDaysSum / completionCount) * 100) / 100
         : 0,
+    insights: {
+      completionRate,
+      openRate,
+      clickRate,
+      weakestStepNumber: weakestStep ? weakestStep.stepNumber : null,
+      nextActions,
+    },
   }
 }
 

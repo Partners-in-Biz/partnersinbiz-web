@@ -1,8 +1,9 @@
-import { existsSync } from 'node:fs'
+import { existsSync, readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   AGENT_SKILL_POLICY,
   buildAgentSkillPolicyState,
+  classifyInstalledSkills,
   computeAgentSkillDrift,
   listCatalogSkillPaths,
   listSyncableRepoSkillPaths,
@@ -11,7 +12,6 @@ import {
 
 describe('agent skill policy manifest', () => {
   function discoverRepoSkills(dir = join(process.cwd(), '.claude/skills'), prefix = ''): string[] {
-    const { readdirSync, statSync } = require('node:fs') as typeof import('node:fs')
     const found: string[] = []
     for (const entry of readdirSync(dir)) {
       const full = join(dir, entry)
@@ -28,20 +28,21 @@ describe('agent skill policy manifest', () => {
       'ads-manager',
       'analytics',
       'billing-finance',
-      'collaboration-runtime',
       'client-documents',
       'client-manager',
+      'collaboration-runtime',
       'content-engine',
       'crm-sales',
       'data-analyst',
       'docs-lead',
       'email-outreach',
       'evidence-ledger',
+      'geo-seo-service',
       'google-workspace',
       'platform-ops',
       'project-management',
-      'qa-release',
       'properties',
+      'qa-release',
       'research-intelligence',
       'seo-sprint-manager',
       'social-media-manager',
@@ -97,6 +98,7 @@ describe('agent skill policy manifest', () => {
       'pip',
       'qa-release',
       'sage',
+      'sales',
       'seo',
       'support',
       'theo',
@@ -127,6 +129,26 @@ describe('agent skill policy manifest', () => {
       'marketing/ads-meta',
     ]))
     expect(AGENT_SKILL_POLICY.futureAgentCandidates).toEqual([])
+  })
+
+  it('gives role owners outreach skills and every profile the analytics baseline', () => {
+    const sequenceAgents = ['theo', 'maya', 'nora', 'qa-release', 'support', 'sales']
+    for (const agentId of sequenceAgents) {
+      expect(AGENT_SKILL_POLICY.skillCatalog['email-outreach'].allowedAgentIds).toContain(agentId)
+      expect(AGENT_SKILL_POLICY.agents[agentId].runtimeSkills).toContain('email-outreach')
+    }
+
+    expect(AGENT_SKILL_POLICY.agents.data.runtimeSkills).not.toContain('email-outreach')
+
+    const performanceAgents = Object.keys(AGENT_SKILL_POLICY.agents)
+    for (const agentId of performanceAgents) {
+      expect(AGENT_SKILL_POLICY.skillCatalog.analytics.allowedAgentIds).toContain(agentId)
+      expect(AGENT_SKILL_POLICY.skillCatalog['data-analyst'].allowedAgentIds).toContain(agentId)
+      expect(AGENT_SKILL_POLICY.agents[agentId].runtimeSkills).toEqual(expect.arrayContaining([
+        'analytics',
+        'data-analyst',
+      ]))
+    }
   })
 
   it('builds Firestore policy state and rewrites Hermes external_dirs', () => {
@@ -177,5 +199,34 @@ describe('agent skill policy manifest', () => {
     }))
     expect(drift?.missingPibSkills).toContain('research-intelligence')
     expect(drift?.unexpectedPibSkills).toContain('content-engine')
+  })
+
+  it('classifies fully qualified globals without colliding with PiB skills that share a basename', () => {
+    const installed = classifyInstalledSkills([
+      'partnersinbiz/analytics',
+      'partnersinbiz/client-documents',
+      'partnersinbiz/client-manager',
+      'partnersinbiz/collaboration-runtime',
+      'partnersinbiz/crm-sales',
+      'partnersinbiz/data-analyst',
+      'partnersinbiz/docs-lead',
+      'partnersinbiz/evidence-ledger',
+      'partnersinbiz/google-workspace',
+      'partnersinbiz/platform-ops',
+      'partnersinbiz/project-management',
+      'partnersinbiz/properties',
+      'partnersinbiz/research-intelligence',
+      'productivity/google-workspace',
+      'productivity/powerpoint',
+    ])
+
+    expect(installed.pib).toEqual(AGENT_SKILL_POLICY.agents.docs.runtimeSkills)
+    expect(installed.global).toEqual(AGENT_SKILL_POLICY.agents.docs.globalSkills)
+    expect(computeAgentSkillDrift({
+      agentId: 'docs',
+      installedPibSkills: installed.pib,
+      installedGlobalSkills: installed.global,
+      configExternalDirs: ['/var/lib/hermes/agent-skills/docs'],
+    })?.status).toBe('in_sync')
   })
 })

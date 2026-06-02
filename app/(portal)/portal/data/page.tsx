@@ -57,11 +57,15 @@ export default function PortalData() {
           <p className="eyebrow">Export format</p>
           <div className="flex gap-3 mt-3 flex-wrap">
             <button onClick={() => dl('csv')} className="btn-pib-accent !py-2 !px-4 !text-sm">
-              <span className="material-symbols-outlined text-base">download</span>
+              <span className="material-symbols-outlined text-base" aria-hidden="true">
+                download
+              </span>
               Download CSV
             </button>
             <button onClick={() => dl('json')} className="btn-pib-secondary !py-2 !px-4 !text-sm">
-              <span className="material-symbols-outlined text-base">code</span>
+              <span className="material-symbols-outlined text-base" aria-hidden="true">
+                code
+              </span>
               Download JSON
             </button>
           </div>

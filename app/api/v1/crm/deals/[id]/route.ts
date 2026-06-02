@@ -14,11 +14,11 @@ import { dispatchWebhook } from '@/lib/webhooks/dispatch'
 import { logActivity } from '@/lib/activity/log'
 import { tryAttributeDealWon } from '@/lib/email-analytics/attribution-hooks'
 import { loadCompany } from '@/lib/companies/store'
-import { sanitizeDealForWrite } from '@/lib/crm/deals'
+import { normalizeDealCommercialFields, sanitizeDealForWrite } from '@/lib/crm/deals'
 import { getDefinitionsForResource } from '@/lib/customFields/store'
 import { validateCustomFields } from '@/lib/customFields/validation'
 import { loadPipeline } from '@/lib/pipelines/store'
-import type { Contact, DealLineItem } from '@/lib/crm/types'
+import type { Contact, Currency } from '@/lib/crm/types'
 
 async function deriveCompanyFromContact(contactId: string, orgId: string): Promise<{ companyId?: string; companyName?: string }> {
   try {
@@ -84,6 +84,17 @@ async function handleDealUpdate(
     updatedBy: ctx.isAgent ? undefined : ctx.actor.uid,
     updatedByRef: actorRef,
     updatedAt: FieldValue.serverTimestamp(),
+  }
+
+  try {
+    const fallbackCurrency = (
+      typeof body.currency === 'string' ? body.currency :
+        typeof before.currency === 'string' ? before.currency :
+          'ZAR'
+    ) as Currency
+    Object.assign(patch, normalizeDealCommercialFields(body, fallbackCurrency))
+  } catch (err) {
+    return apiError(err instanceof Error ? err.message : 'Invalid deal commercial fields', 400)
   }
 
   if (ownerChanged) {
@@ -191,13 +202,6 @@ async function handleDealUpdate(
     } else {
       patch.lostReason = null
     }
-  }
-
-  // ── lineItems (A5) ────────────────────────────────────────────────────────────
-  // Passed through as-is (sanitizeDealForWrite already lets it through).
-  // Explicit undefined check: only touch the field when provided.
-  if (Array.isArray(body.lineItems)) {
-    patch.lineItems = body.lineItems as DealLineItem[]
   }
 
   // Firestore rejects undefined values — strip them before write

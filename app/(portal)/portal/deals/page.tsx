@@ -284,8 +284,6 @@ export default function DealsPage() {
   // Fetch pipelines once on mount
   useEffect(() => {
     let cancelled = false
-    // Existing route-level refresh pattern: show the skeleton while the async fetch resolves.
-    setPipelinesLoading(true)
     fetch('/api/v1/crm/pipelines')
       .then(r => readApiJson(r, 'Failed to load pipelines'))
       .then(body => {
@@ -328,8 +326,6 @@ export default function DealsPage() {
 
   useEffect(() => {
     let cancelled = false
-    // Existing route-level refresh pattern: keep deal relationship labels in a loading state while contacts resolve.
-    setContactsLoading(true)
     fetch('/api/v1/crm/contacts?limit=200')
       .then(r => readApiJson(r, 'Failed to load contacts'))
       .then(body => {
@@ -349,8 +345,6 @@ export default function DealsPage() {
   useEffect(() => {
     if (!selectedPipelineId) return
     let cancelled = false
-    // Existing route-level refresh pattern: show the skeleton while the async fetch resolves.
-    setLoading(true)
     fetch(`/api/v1/crm/deals?pipelineId=${encodeURIComponent(selectedPipelineId)}&limit=200`)
       .then(r => readApiJson(r, 'Failed to load deals'))
       .then(body => {
@@ -398,6 +392,7 @@ export default function DealsPage() {
   }, [])
 
   const handlePipelineChange = useCallback((id: string) => {
+    setLoading(true)
     setSelectedPipelineId(id)
     setDeals([])
     setError(null)
@@ -586,8 +581,9 @@ export default function DealsPage() {
             <button
               onClick={() => setShowCreateDrawer(true)}
               className="cursor-pointer btn-pib-accent flex items-center gap-1.5 text-sm"
+              aria-label="New deal"
             >
-              <span className="material-symbols-outlined text-[16px]">add</span>
+              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
               New deal
             </button>
           </div>
@@ -758,8 +754,9 @@ export default function DealsPage() {
               <button
                 onClick={() => setShowCreateDrawer(true)}
                 className="btn-pib-accent inline-flex items-center gap-2"
+                aria-label="New deal"
               >
-                <span className="material-symbols-outlined text-[16px]">add</span>
+                <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
                 New deal
               </button>
             )}

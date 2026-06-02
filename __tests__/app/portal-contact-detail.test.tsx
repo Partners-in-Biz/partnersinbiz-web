@@ -177,8 +177,8 @@ describe('Portal contact detail page', () => {
     expect(screen.getByText('Send the first message so future replies, campaign touches, and account history are visible to every team member working this relationship.')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Send first email to Jane Client' }))
 
-    expect(screen.getByPlaceholderText('Subject…')).toBeInTheDocument()
-    expect(screen.getByPlaceholderText('Message…')).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'Email subject for Jane Client' })).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'Email message for Jane Client' })).toBeInTheDocument()
   })
 
   it('moves the portal header email action into the active CRM composer', async () => {
@@ -193,8 +193,8 @@ describe('Portal contact detail page', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Email Jane Client from contact command center' }))
 
-    await waitFor(() => expect(screen.getByPlaceholderText('Subject…')).toHaveFocus())
-    expect(screen.getByPlaceholderText('Message…')).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByRole('textbox', { name: 'Email subject for Jane Client' })).toHaveFocus())
+    expect(screen.getByRole('textbox', { name: 'Email message for Jane Client' })).toBeInTheDocument()
     expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'center' })
   })
 
@@ -209,7 +209,7 @@ describe('Portal contact detail page', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Log call with Jane Client from contact command center' }))
 
-    expect(screen.getByPlaceholderText('Add call notes…')).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'Call notes for Jane Client' })).toBeInTheDocument()
   })
 
   it('renders portal lifecycle values as readable CRM labels', async () => {
@@ -249,13 +249,13 @@ describe('Portal contact detail page', () => {
     })
 
     fireEvent.click(screen.getByRole('button', { name: 'Edit lifecycle stage Proposal sent for Jane Client' }))
-    await waitFor(() => expect(screen.getByRole('combobox', { name: 'Stage' })).toHaveFocus())
+    await waitFor(() => expect(screen.getByRole('combobox', { name: 'Lifecycle stage for Jane Client' })).toHaveFocus())
 
     fireEvent.click(screen.getByRole('button', { name: 'Edit contact type Prospect for Jane Client' }))
-    await waitFor(() => expect(screen.getByRole('combobox', { name: 'Type' })).toHaveFocus())
+    await waitFor(() => expect(screen.getByRole('combobox', { name: 'Contact type for Jane Client' })).toHaveFocus())
 
     fireEvent.click(screen.getByRole('button', { name: 'Edit tag priority for Jane Client' }))
-    await waitFor(() => expect(screen.getByPlaceholderText('priority, referral, decision maker')).toHaveFocus())
+    await waitFor(() => expect(screen.getByRole('textbox', { name: 'Tags for Jane Client' })).toHaveFocus())
 
     expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'center' })
   })
@@ -312,7 +312,7 @@ describe('Portal contact detail page', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Start activity trail for Jane Client' }))
 
-    expect(screen.getByPlaceholderText('Add a relationship note, handoff, or context…')).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'Relationship note for Jane Client' })).toBeInTheDocument()
     expect(screen.queryByPlaceholderText('Add note notes…')).not.toBeInTheDocument()
   })
 
@@ -324,7 +324,7 @@ describe('Portal contact detail page', () => {
     await waitFor(() => {
       expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
     })
-    expect(screen.getByPlaceholderText('Add a relationship note, handoff, or context…')).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'Relationship note for Jane Client' })).toBeInTheDocument()
   })
 
   it('lets a busy team member discard unsaved contact profile edits', async () => {
@@ -346,7 +346,8 @@ describe('Portal contact detail page', () => {
     expect(screen.getByPlaceholderText('+27...')).toHaveValue('')
     expect(screen.queryByText('Unsaved changes')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Discard unsaved profile edits for Jane Client' })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Save changes' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Save profile changes for Jane Client' })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: 'Save changes' })).not.toBeInTheDocument()
   })
 
   it('uses relationship-history copy for the empty activity metric', async () => {
@@ -370,13 +371,17 @@ describe('Portal contact detail page', () => {
     expect(screen.getByRole('heading', { name: 'No nurture workflow enrolled' })).toBeInTheDocument()
     expect(screen.getByText('Enroll Jane Client into a sequence when outreach should happen on a repeatable cadence instead of relying on one-off reminders.')).toBeInTheDocument()
     expect(screen.queryByText('Not enrolled in any sequences.')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Open nurture enrollment for Jane Client' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Enroll' })).not.toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Choose nurture sequence for Jane Client' }))
 
     expect(await screen.findByRole('dialog', { name: 'Enroll Jane Client in a nurture sequence' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Enroll Jane Client in a nurture sequence' })).toBeInTheDocument()
     expect(screen.getByText('Choose an approved sequence so outreach steps, accountability, and follow-up timing are visible to the team from this contact record.')).toBeInTheDocument()
-    expect(await screen.findByRole('button', { name: 'Enroll contact' })).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Nurture sequence for Jane Client' })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'Enroll Jane Client in selected nurture sequence' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Cancel sequence enrollment for Jane Client' })).toBeInTheDocument()
   })
 
   it('names the sequence enrollment loading state for the active contact', async () => {
@@ -413,7 +418,7 @@ describe('Portal contact detail page', () => {
     expect(await screen.findByRole('heading', { name: 'Create a sequence before enrolling' })).toBeInTheDocument()
     expect(screen.getByText('This workspace needs at least one nurture sequence before Jane Client can be enrolled from the contact record.')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Build first sequence' })).toHaveAttribute('href', '/portal/settings/sequences/new')
-    expect(screen.getByRole('button', { name: 'Enroll contact' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Enroll Jane Client in selected nurture sequence' })).toBeDisabled()
   })
 
   it('shows sequence enrollment failures inside the modal', async () => {
@@ -427,13 +432,13 @@ describe('Portal contact detail page', () => {
     })
 
     fireEvent.click(screen.getByRole('button', { name: 'Choose nurture sequence for Jane Client' }))
-    fireEvent.change(await screen.findByDisplayValue('Choose a sequence…'), {
+    fireEvent.change(await screen.findByRole('combobox', { name: 'Nurture sequence for Jane Client' }), {
       target: { value: 'seq-1' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Enroll contact' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Enroll Jane Client in selected nurture sequence' }))
 
     expect(await screen.findByText('Sequence is paused')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Enroll contact' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Enroll Jane Client in selected nurture sequence' })).toBeEnabled()
     expect(screen.getByText('Leadership follow-up')).toBeInTheDocument()
   })
 
@@ -686,6 +691,29 @@ describe('Portal contact detail page', () => {
     expect(screen.getByDisplayValue('Meeting with Unnamed contact')).toBeInTheDocument()
   })
 
+  it('names edit profile fields with the active contact context', async () => {
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    expect(screen.getByRole('textbox', { name: 'Contact name for Jane Client' })).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'Email address for Jane Client' })).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'Phone number for Jane Client' })).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'Job title for Jane Client' })).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'Department for Jane Client' })).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'Timezone for Jane Client' })).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'Website for Jane Client' })).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Contact source for Jane Client' })).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Contact type for Jane Client' })).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Lifecycle stage for Jane Client' })).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Relationship owner for Jane Client' })).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'Tags for Jane Client' })).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Linked company for Jane Client' })).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'Relationship notes for Jane Client' })).toBeInTheDocument()
+  })
+
   it('keeps relationship notes visible as contact detail context', async () => {
     render(<PortalContactDetailPage />)
 
@@ -697,6 +725,49 @@ describe('Portal contact detail page', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Add relationship notes from details for Jane Client' }))
 
     expect(screen.getByPlaceholderText('Add a note about this contact…')).toHaveFocus()
+  })
+
+  it('turns a missing company profile gap into a link-company action', async () => {
+    mockContactOverrides = {
+      phone: '+27821234567',
+      assignedTo: 'owner-1',
+      website: 'https://example.com',
+      notes: 'Prefers quarterly leadership reviews.',
+    }
+
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    expect(screen.getByText('Missing company.')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Link company for Jane Client from profile strength' }))
+
+    expect(screen.getByRole('combobox', { name: 'Linked company for Jane Client' })).toHaveFocus()
+  })
+
+  it('turns a missing owner profile gap into an accountability action', async () => {
+    mockContactOverrides = {
+      phone: '+27821234567',
+      companyId: 'company-1',
+      companyName: 'Acme Holdings',
+      website: 'https://example.com',
+      notes: 'Prefers quarterly leadership reviews.',
+    }
+
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    expect(screen.getByText('Missing owner.')).toBeInTheDocument()
+    expect(screen.queryByText('The core contact profile is complete enough for segmentation, scoring, and follow-up.')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Assign owner for Jane Client from profile strength' }))
+
+    expect(screen.getByRole('combobox', { name: 'Relationship owner for Jane Client' })).toHaveFocus()
   })
 
   it('turns a missing last touch insight into an activity action', async () => {
@@ -793,7 +864,7 @@ describe('Portal contact detail page', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Log activity for Jane Client from activity insight' }))
 
-    expect(screen.getByPlaceholderText('Add a relationship note, handoff, or context…')).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'Relationship note for Jane Client' })).toBeInTheDocument()
   })
 
   it('wires engagement cockpit actions to contact composers', async () => {
@@ -805,8 +876,11 @@ describe('Portal contact detail page', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Schedule meeting from engagement cockpit with Jane Client' }))
 
-    expect(screen.getByPlaceholderText('Meeting title…')).toBeInTheDocument()
-    expect(screen.getByDisplayValue('Meeting with Jane Client')).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'Meeting title for Jane Client' })).toHaveValue('Meeting with Jane Client')
+    expect(screen.getByLabelText('Meeting start time for Jane Client')).toBeInTheDocument()
+    expect(screen.getByLabelText('Meeting end time for Jane Client')).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'Meeting link for Jane Client' })).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'Meeting agenda or notes for Jane Client' })).toBeInTheDocument()
   })
 
   it('blocks meeting scheduling when the end time is before the start time', async () => {
@@ -816,31 +890,51 @@ describe('Portal contact detail page', () => {
       expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
     })
 
-    fireEvent.click(screen.getByRole('button', { name: 'Meeting' }))
-    fireEvent.change(screen.getByLabelText('Starts'), { target: { value: '2026-06-02T15:00' } })
-    fireEvent.change(screen.getByLabelText('Ends'), { target: { value: '2026-06-02T14:30' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Schedule meeting with Jane Client' }))
+    fireEvent.change(screen.getByLabelText('Meeting start time for Jane Client'), { target: { value: '2026-06-02T15:00' } })
+    fireEvent.change(screen.getByLabelText('Meeting end time for Jane Client'), { target: { value: '2026-06-02T14:30' } })
 
     expect(screen.getByRole('alert')).toHaveTextContent('Meeting end time must be after the start time.')
-    expect(screen.getByRole('button', { name: 'Schedule' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Cancel meeting composer for Jane Client' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Schedule meeting with Jane Client from activity composer' })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: 'Schedule' })).not.toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Schedule' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Schedule meeting with Jane Client from activity composer' }))
 
     expect(global.fetch).not.toHaveBeenCalledWith('/api/v1/crm/contacts/contact-1/schedule-meeting', expect.any(Object))
   })
 
-  it('keeps activity toolbar actions named by command instead of icon text', async () => {
+  it('names activity toolbar actions with the active contact context', async () => {
     render(<PortalContactDetailPage />)
 
     await waitFor(() => {
       expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
     })
 
-    expect(screen.getByRole('button', { name: 'Call' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Email' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Note' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'SMS' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Meeting' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'AI draft' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Log call with Jane Client' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Send email to Jane Client' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Log note for Jane Client' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Send SMS to Jane Client' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Schedule meeting with Jane Client' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Draft email with AI for Jane Client' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Call' })).not.toBeInTheDocument()
+  })
+
+  it('names phone-backed activity message fields with the active contact context', async () => {
+    mockContactOverrides = { phone: '+27821234567' }
+
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Send SMS to Jane Client' }))
+    expect(screen.getByRole('textbox', { name: 'SMS message for Jane Client' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Log call with Jane Client' }))
+    expect(screen.getByRole('textbox', { name: 'Call notes for Jane Client' })).toBeInTheDocument()
   })
 
   it('turns SMS on a contact without a phone into a phone capture action', async () => {
@@ -850,7 +944,7 @@ describe('Portal contact detail page', () => {
       expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
     })
 
-    fireEvent.click(screen.getByRole('button', { name: 'SMS' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Send SMS to Jane Client' }))
 
     expect(screen.getByRole('heading', { name: 'Add a phone number before SMS' })).toBeInTheDocument()
     expect(screen.getByText("Capture Jane Client's phone number before the team tries to send a text message from CRM.")).toBeInTheDocument()
@@ -868,7 +962,7 @@ describe('Portal contact detail page', () => {
       expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
     })
 
-    fireEvent.click(screen.getByRole('button', { name: 'Call' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Log call with Jane Client' }))
 
     expect(screen.getByRole('heading', { name: 'Add a phone number before calling' })).toBeInTheDocument()
     expect(screen.getByText("Capture Jane Client's phone number before the team logs a call from CRM.")).toBeInTheDocument()
@@ -888,7 +982,7 @@ describe('Portal contact detail page', () => {
       expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
     })
 
-    fireEvent.click(screen.getByRole('button', { name: 'Email' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Send email to Jane Client' }))
 
     expect(screen.getByRole('heading', { name: 'Add an email address before outreach' })).toBeInTheDocument()
     expect(screen.getByText("Capture Jane Client's email address before the team sends outreach from CRM.")).toBeInTheDocument()
@@ -907,11 +1001,11 @@ describe('Portal contact detail page', () => {
       expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
     })
 
-    fireEvent.click(screen.getByRole('button', { name: 'AI draft' }))
-    fireEvent.change(screen.getByPlaceholderText('Purpose (e.g. Follow up after demo)'), {
+    fireEvent.click(screen.getByRole('button', { name: 'Draft email with AI for Jane Client' }))
+    fireEvent.change(screen.getByRole('textbox', { name: 'AI email purpose for Jane Client' }), {
       target: { value: 'Follow up after leadership review' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Generate' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Generate AI email draft for Jane Client' }))
 
     expect(await screen.findByText('Executive follow-up')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Use AI draft in email composer for Jane Client' }))
@@ -919,6 +1013,24 @@ describe('Portal contact detail page', () => {
     expect(screen.getByDisplayValue('Executive follow-up')).toBeInTheDocument()
     expect(screen.getByDisplayValue('Hi Jane, here is the next step we discussed.')).toBeInTheDocument()
     expect(screen.queryByText('AI email composer')).not.toBeInTheDocument()
+  })
+
+  it('names the AI draft copy action by draft subject and active contact', async () => {
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Draft email with AI for Jane Client' }))
+    fireEvent.change(screen.getByRole('textbox', { name: 'AI email purpose for Jane Client' }), {
+      target: { value: 'Follow up after leadership review' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Generate AI email draft for Jane Client' }))
+
+    expect(await screen.findByText('Executive follow-up')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Copy AI draft Executive follow-up for Jane Client' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Copy to clipboard' })).not.toBeInTheDocument()
   })
 
   it('turns a missing best score insight into a recompute action', async () => {
@@ -999,6 +1111,28 @@ describe('Portal contact detail page', () => {
     expect(screen.queryByText('(no subject)')).not.toBeInTheDocument()
   })
 
+  it('turns populated email history rows into follow-up composer actions', async () => {
+    mockEmails = [{
+      id: 'email-1',
+      subject: 'Proposal follow-up',
+      status: 'sent',
+      direction: 'outbound',
+    }]
+
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    expect(await screen.findByText('Proposal follow-up')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Follow up on Proposal follow-up with Jane Client' }))
+
+    expect(screen.getByRole('textbox', { name: 'Email subject for Jane Client' })).toHaveValue('Re: Proposal follow-up')
+    expect(screen.getByRole('textbox', { name: 'Email message for Jane Client' })).toBeInTheDocument()
+  })
+
   it('renders saved email status keys as readable history labels', async () => {
     mockEmails = [{
       id: 'email-1',
@@ -1066,6 +1200,43 @@ describe('Portal contact detail page', () => {
     expect(screen.getByText('Activity actor identity missing · Activity time not captured')).toBeInTheDocument()
     expect(screen.queryByText('stage_change')).not.toBeInTheDocument()
     expect(screen.queryByText('uid-activity-1')).not.toBeInTheDocument()
+  })
+
+  it('turns populated activity timeline rows into continuation note actions', async () => {
+    mockActivities = [{
+      id: 'activity-1',
+      type: 'note',
+      summary: 'Discussed implementation handoff',
+      createdByRef: { displayName: 'Mandy Manager' },
+    }]
+
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    expect(await screen.findByText('Discussed implementation handoff')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Continue from activity Discussed implementation handoff with Jane Client' }))
+
+    expect(screen.getByRole('textbox', { name: 'Relationship note for Jane Client' })).toHaveValue('Follow-up from: Discussed implementation handoff')
+  })
+
+  it('names the activity timeline pagination action by active contact', async () => {
+    mockActivities = Array.from({ length: 50 }, (_, index) => ({
+      id: `activity-${index}`,
+      type: 'note',
+      summary: `Timeline note ${index + 1}`,
+    }))
+
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    expect(await screen.findByRole('button', { name: 'Load more activity for Jane Client' })).toBeInTheDocument()
   })
 
   it('turns an unassigned relationship owner into an accountability action', async () => {

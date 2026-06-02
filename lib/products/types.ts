@@ -15,8 +15,8 @@ export interface Product {
   taxRate?: number        // percentage 0–100
   active?: boolean
   deleted?: boolean
-  createdAt: Timestamp | null
-  updatedAt: Timestamp | null
+  createdAt?: Timestamp | null
+  updatedAt?: Timestamp | null
   createdByRef?: MemberRef
   updatedByRef?: MemberRef
 }

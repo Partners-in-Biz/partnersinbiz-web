@@ -8,6 +8,8 @@ const mockWhere = jest.fn()
 const mockGet = jest.fn()
 const mockUpdate = jest.fn()
 const mockFetch = jest.fn()
+const mockGetSequence = jest.fn()
+const mockEnrollContact = jest.fn()
 
 jest.mock('@/lib/email/send', () => ({
   sendEmail: mockSendEmail,
@@ -17,13 +19,24 @@ jest.mock('@/lib/firebase/admin', () => ({
   adminDb: { collection: mockCollection },
 }))
 
+jest.mock('@/lib/sequences/store', () => ({
+  getSequence: mockGetSequence,
+}))
+
+jest.mock('@/lib/sequences/enrollment', () => ({
+  enrollContact: mockEnrollContact,
+}))
+
+jest.mock('@/lib/orgMembers/memberRef', () => ({
+  AGENT_PIP_REF: { kind: 'agent', id: 'pip', displayName: 'Pip' },
+}))
+
 jest.mock('firebase-admin/firestore', () => ({
   FieldValue: { serverTimestamp: jest.fn(() => 'SERVER_TIMESTAMP') },
 }))
 
 global.fetch = mockFetch as unknown as typeof fetch
 
-// eslint-disable-next-line import/first
 import { executeActions } from '@/lib/automations/executor'
 import type { AutomationAction, TriggerContext } from '@/lib/automations/types'
 
@@ -54,6 +67,14 @@ beforeEach(() => {
   mockSendEmail.mockResolvedValue({ success: true })
   mockFetch.mockResolvedValue({ ok: true, status: 200, statusText: 'OK' })
   mockUpdate.mockResolvedValue(undefined)
+  mockGetSequence.mockResolvedValue({
+    id: 'seq-1',
+    orgId: 'org-a',
+    name: 'Welcome',
+    status: 'active',
+    steps: [{ stepNumber: 0, delayDays: 3, subject: 'Hi', bodyHtml: '<p>Hi</p>', bodyText: 'Hi' }],
+  })
+  mockEnrollContact.mockResolvedValue({ id: 'enrollment-1' })
 })
 
 // ── send_email ────────────────────────────────────────────────────────────
@@ -168,6 +189,79 @@ describe('dispatch_webhook action', () => {
       body: JSON.stringify(CTX),
     })
     expect(result.succeeded).toBe(1)
+  })
+})
+
+// ── enroll_in_sequence ────────────────────────────────────────────────────
+
+describe('enroll_in_sequence action', () => {
+  it('enrolls the contact into an active sequence using the first step delay', async () => {
+    const action: AutomationAction = {
+      type: 'enroll_in_sequence',
+      sequenceId: 'seq-1',
+      sequenceName: 'Welcome',
+    }
+
+    const result = await executeActions([action], CTX)
+
+    expect(mockGetSequence).toHaveBeenCalledWith('org-a', 'seq-1')
+    expect(mockEnrollContact).toHaveBeenCalledWith(
+      'org-a',
+      'seq-1',
+      'contact-1',
+      expect.objectContaining({ id: 'pip', displayName: 'Pip' }),
+      3,
+    )
+    expect(result.succeeded).toBe(1)
+    expect(result.failed).toBe(0)
+  })
+
+  it('fails clearly when the action has no contact context', async () => {
+    const result = await executeActions(
+      [{ type: 'enroll_in_sequence', sequenceId: 'seq-1' }],
+      { orgId: 'org-a' },
+    )
+
+    expect(mockGetSequence).not.toHaveBeenCalled()
+    expect(mockEnrollContact).not.toHaveBeenCalled()
+    expect(result.succeeded).toBe(0)
+    expect(result.failed).toBe(1)
+    expect(result.errors).toEqual(['Contact is required to enroll in a sequence'])
+  })
+
+  it('fails clearly when the selected sequence does not exist in the org', async () => {
+    mockGetSequence.mockResolvedValueOnce(null)
+
+    const result = await executeActions(
+      [{ type: 'enroll_in_sequence', sequenceId: 'missing-seq' }],
+      CTX,
+    )
+
+    expect(mockGetSequence).toHaveBeenCalledWith('org-a', 'missing-seq')
+    expect(mockEnrollContact).not.toHaveBeenCalled()
+    expect(result.succeeded).toBe(0)
+    expect(result.failed).toBe(1)
+    expect(result.errors).toEqual(['Sequence not found'])
+  })
+
+  it('does not enroll contacts into draft or paused sequences', async () => {
+    mockGetSequence.mockResolvedValueOnce({
+      id: 'seq-1',
+      orgId: 'org-a',
+      name: 'Draft welcome',
+      status: 'draft',
+      steps: [{ stepNumber: 0, delayDays: 0, subject: 'Hi', bodyHtml: '<p>Hi</p>', bodyText: 'Hi' }],
+    })
+
+    const result = await executeActions(
+      [{ type: 'enroll_in_sequence', sequenceId: 'seq-1' }],
+      CTX,
+    )
+
+    expect(mockEnrollContact).not.toHaveBeenCalled()
+    expect(result.succeeded).toBe(0)
+    expect(result.failed).toBe(1)
+    expect(result.errors).toEqual(['Sequence must be active before automation enrollment'])
   })
 })
 

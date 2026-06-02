@@ -18,12 +18,13 @@ interface CreateFormState {
 export interface CompanyPickerProps {
   currentCompanyId?: string
   currentCompanyName?: string
+  ariaLabel?: string
   onChange: (val: { companyId: string | null; companyName: string | null }) => void
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function CompanyPicker({ currentCompanyId, currentCompanyName, onChange }: CompanyPickerProps) {
+export function CompanyPicker({ currentCompanyId, currentCompanyName, ariaLabel = 'Search companies', onChange }: CompanyPickerProps) {
   const [query, setQuery] = useState(currentCompanyName ?? '')
   const [results, setResults] = useState<CompanyResult[]>([])
   const [open, setOpen] = useState(false)
@@ -112,12 +113,14 @@ export function CompanyPicker({ currentCompanyId, currentCompanyName, onChange }
   }
 
   const hasSelection = !!currentCompanyId
+  const clearLabel = ariaLabel === 'Search companies' ? 'Clear company' : `Clear ${ariaLabel}`
 
   return (
     <div ref={containerRef} className="relative w-full">
       <div className="relative flex items-center">
         <input
           role="combobox"
+          aria-label={ariaLabel}
           aria-expanded={open}
           aria-controls="company-picker-results"
           aria-autocomplete="list"
@@ -136,7 +139,7 @@ export function CompanyPicker({ currentCompanyId, currentCompanyName, onChange }
         {(hasSelection || query) && (
           <button
             type="button"
-            aria-label="Clear company"
+            aria-label={clearLabel}
             onClick={clearSelection}
             className="cursor-pointer absolute right-2 text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors"
           >

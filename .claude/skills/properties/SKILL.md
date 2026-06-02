@@ -218,6 +218,13 @@ Response:
 ## Property Analytics
 
 All analytics endpoints accept `?propertyId=<id>` to scope results to a single property.
+
+## Provider webhooks
+
+These webhook routes live outside `/api/v1` because they are called directly by external providers:
+
+- `POST /api/integrations/revenuecat/webhook/[propertyId]` — RevenueCat webhook receiver.
+- `POST /api/integrations/play_console/webhook/[propertyId]` — Google Play Console webhook receiver.
 Auth is `Authorization: Bearer $AI_API_KEY`. Base: `https://partnersinbiz.online`.
 
 ### `GET /api/v1/analytics/sessions?propertyId=<id>&limit=100` — auth: admin

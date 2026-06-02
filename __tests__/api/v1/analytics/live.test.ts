@@ -6,7 +6,8 @@ jest.mock('@/lib/firebase/admin', () => ({
   adminDb: { collection: jest.fn() },
 }))
 jest.mock('@/lib/api/auth', () => ({
-  withAuth: (_role: string, handler: Function) => handler,
+  withAuth: (_role: string, handler: Function) => (req: unknown, ctx?: unknown) =>
+    handler(req, { uid: 'admin-1', role: 'admin', authKind: 'session' }, ctx),
 }))
 jest.mock('@/lib/api/response', () => ({
   apiSuccess: (data: unknown) => Response.json(data),
@@ -32,7 +33,20 @@ describe('GET /api/v1/analytics/live', () => {
         }],
       }),
     }
-    ;(adminDb.collection as jest.Mock).mockReturnValue(mockQuery)
+    ;(adminDb.collection as jest.Mock).mockImplementation((name: string) => {
+      if (name === 'properties') {
+        return {
+          doc: jest.fn().mockReturnValue({
+            get: jest.fn().mockResolvedValue({
+              exists: true,
+              id: 'prop_x',
+              data: () => ({ orgId: 'org-1', deleted: false }),
+            }),
+          }),
+        }
+      }
+      return mockQuery
+    })
     const req = new NextRequest('http://localhost/api/v1/analytics/live?propertyId=prop_x')
     const res = await GET(req)
     expect(res.status).toBe(200)

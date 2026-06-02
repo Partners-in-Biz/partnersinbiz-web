@@ -234,6 +234,43 @@ describe('POST /api/v1/crm/capture-sources', () => {
     expect(body.data.orgId).toBe('org-1')
   })
 
+  it('admin POST stores direct sequence auto-enrollment targets', async () => {
+    const admin = seedOrgMember('org-1', 'uid-a', { role: 'admin', firstName: 'A', lastName: 'A' })
+    const add = jest.fn().mockImplementation((doc) => Promise.resolve({
+      id: 'auto-src',
+      get: () => Promise.resolve({
+        exists: true,
+        id: 'auto-src',
+        data: () => doc,
+      }),
+    }))
+    ;(adminAuth.verifySessionCookie as jest.Mock).mockResolvedValue({ uid: admin.uid })
+    ;(adminDb.collection as jest.Mock).mockImplementation((name: string) => {
+      if (name === 'users') return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => ({ activeOrgId: admin.orgId }) }) }) }
+      if (name === 'orgMembers') return {
+        doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => admin }) }),
+        where: () => ({ get: () => Promise.resolve({ docs: [{ id: `${admin.orgId}_${admin.uid}`, data: () => admin }] }) }),
+      }
+      if (name === 'organizations') return { doc: () => ({ get: () => Promise.resolve({ exists: true, data: () => ({ settings: { permissions: {} } }) }) }) }
+      if (name === 'capture_sources') return { add }
+      return { doc: () => ({ get: () => Promise.resolve({ exists: false }) }) }
+    })
+
+    const req = callAsMember(admin, 'POST', '/api/v1/crm/capture-sources', {
+      name: 'Landing page form',
+      type: 'form',
+      autoSequenceIds: ['seq-1', '', 'seq-2'],
+    })
+    const { POST } = await import('@/app/api/v1/crm/capture-sources/route')
+
+    const res = await POST(req)
+
+    expect(res.status).toBe(201)
+    expect(add).toHaveBeenCalledWith(expect.objectContaining({
+      autoSequenceIds: ['seq-1', 'seq-2'],
+    }))
+  })
+
   it('member cannot POST (403)', async () => {
     const member = seedOrgMember('org-1', 'uid-1', { role: 'member' })
     stageAuth(member)
@@ -351,6 +388,25 @@ describe('PUT /api/v1/crm/capture-sources/[id]', () => {
     expect(patch.name).toBe('New name')
     expect(patch.updatedByRef).toBeDefined()
     expect(patch.updatedByRef.displayName).toBe('Ada Min')
+  })
+
+  it('admin can update direct sequence auto-enrollment targets', async () => {
+    const admin = seedOrgMember('org-1', 'uid-a', { role: 'admin', firstName: 'Ada', lastName: 'Min' })
+    const captured = jest.fn().mockResolvedValue(undefined)
+    stageAuth(admin, {
+      existingSource: { id: 'src-1', data: { orgId: 'org-1', deleted: false, name: 'Old name', publicKey: 'key123' } },
+      capturedUpdate: captured,
+    })
+    const req = callAsMember(admin, 'PUT', '/api/v1/crm/capture-sources/src-1', {
+      autoSequenceIds: ['seq-1', '', 'seq-2'],
+    })
+    const { PUT } = await import('@/app/api/v1/crm/capture-sources/[id]/route')
+
+    const res = await PUT(req, routeCtx('src-1'))
+
+    expect(res.status).toBeLessThan(300)
+    const patch = captured.mock.calls[0][0]
+    expect(patch.autoSequenceIds).toEqual(['seq-1', 'seq-2'])
   })
 
   it('admin PUT with rotateKey:true regenerates publicKey', async () => {

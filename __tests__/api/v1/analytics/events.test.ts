@@ -18,11 +18,42 @@ function makeReq(search: string) {
 
 function mockEvents(docs: object[]) {
   const mockDocs = docs.map((d: any) => ({ id: d.id ?? 'evt-1', data: () => d }))
-  ;(adminDb.collection as jest.Mock).mockReturnValue({
-    where: jest.fn().mockReturnThis(),
-    orderBy: jest.fn().mockReturnThis(),
-    limit: jest.fn().mockReturnThis(),
-    get: jest.fn().mockResolvedValue({ docs: mockDocs }),
+  ;(adminDb.collection as jest.Mock).mockImplementation((name: string) => {
+    if (name === 'properties') {
+      return {
+        doc: jest.fn().mockReturnValue({
+          get: jest.fn().mockResolvedValue({
+            exists: true,
+            id: 'prop-1',
+            data: () => ({ orgId: 'org-1', deleted: false }),
+          }),
+        }),
+      }
+    }
+    return {
+      where: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      limit: jest.fn().mockReturnThis(),
+      get: jest.fn().mockResolvedValue({ docs: mockDocs }),
+    }
+  })
+}
+
+function mockMissingProperty() {
+  ;(adminDb.collection as jest.Mock).mockImplementation((name: string) => {
+    if (name === 'properties') {
+      return {
+        doc: jest.fn().mockReturnValue({
+          get: jest.fn().mockResolvedValue({ exists: false, data: () => null }),
+        }),
+      }
+    }
+    return {
+      where: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      limit: jest.fn().mockReturnThis(),
+      get: jest.fn().mockResolvedValue({ docs: [] }),
+    }
   })
 }
 
@@ -47,6 +78,12 @@ describe('GET /api/v1/analytics/events', () => {
     const body = await res.json()
     expect(body.success).toBe(true)
     expect(Array.isArray(body.data)).toBe(true)
+  })
+
+  it('rejects unknown property ids before querying events', async () => {
+    mockMissingProperty()
+    const res = await GET(makeReq('?propertyId=prop-missing'))
+    expect(res.status).toBe(404)
   })
 })
 

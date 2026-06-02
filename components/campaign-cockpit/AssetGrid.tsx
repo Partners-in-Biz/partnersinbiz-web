@@ -19,6 +19,7 @@ import {
 import { VideoTriptych } from './VideoTriptych'
 
 type Filter = 'all' | 'social' | 'blogs' | 'videos'
+type ApprovalMode = 'direct' | 'client'
 
 interface Props {
   campaignId: string
@@ -28,6 +29,16 @@ interface Props {
   videos: PreviewSocialPost[]
   filter?: Filter
   readonly?: boolean
+  approvalMode?: ApprovalMode
+}
+
+type ScopedAsset = { id: string; orgId?: unknown }
+
+function withOrgScope(path: string, asset?: ScopedAsset): string {
+  const orgId = typeof asset?.orgId === 'string' ? asset.orgId.trim() : ''
+  if (!orgId) return path
+  const separator = path.includes('?') ? '&' : '?'
+  return `${path}${separator}orgId=${encodeURIComponent(orgId)}`
 }
 
 function pickSocialCard(post: PreviewSocialPost) {
@@ -49,24 +60,25 @@ function pickSocialCard(post: PreviewSocialPost) {
 }
 
 export function AssetGrid({
-  campaignId: _campaignId,
   brand,
   social,
   blogs,
   videos,
   filter = 'all',
   readonly = false,
+  approvalMode = 'direct',
 }: Props) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [busyId, setBusyId] = useState<string | null>(null)
 
-  async function approve(assetId: string, type: 'social_post' | 'seo_content' | 'video') {
+  async function approve(asset: ScopedAsset, type: 'social_post' | 'seo_content' | 'video') {
     if (readonly) return
+    const assetId = asset.id
     setBusyId(assetId)
     try {
       if (type === 'seo_content') {
-        const r = await fetch(`/api/v1/seo/content/${assetId}/publish`, {
+        const r = await fetch(withOrgScope(`/api/v1/seo/content/${encodeURIComponent(assetId)}/publish`, asset), {
           method: 'POST',
           credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
@@ -74,11 +86,12 @@ export function AssetGrid({
         })
         if (!r.ok) throw new Error('publish failed')
       } else {
-        const r = await fetch(`/api/v1/social/posts/${assetId}/approve`, {
+        const routeAction = approvalMode === 'client' ? 'client-approve' : 'approve'
+        const r = await fetch(withOrgScope(`/api/v1/social/posts/${encodeURIComponent(assetId)}/${routeAction}`, asset), {
           method: 'POST',
           credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'approve' }),
+          body: JSON.stringify(approvalMode === 'client' ? {} : { action: 'approve' }),
         })
         if (!r.ok) throw new Error('approve failed')
       }
@@ -89,18 +102,19 @@ export function AssetGrid({
   }
 
   async function requestChanges(
-    assetId: string,
+    asset: ScopedAsset,
     type: 'social_post' | 'seo_content' | 'video',
     feedback: string,
   ) {
     if (readonly) return
+    const assetId = asset.id
     setBusyId(assetId)
     try {
       const url =
         type === 'seo_content'
-          ? `/api/v1/seo/content/${assetId}/comments`
-          : `/api/v1/social/posts/${assetId}/comments`
-      const r = await fetch(url, {
+          ? `/api/v1/seo/content/${encodeURIComponent(assetId)}/comments`
+          : `/api/v1/social/posts/${encodeURIComponent(assetId)}/comments`
+      const r = await fetch(withOrgScope(url, asset), {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -113,16 +127,17 @@ export function AssetGrid({
     }
   }
 
-  function actionsFor(assetId: string, type: 'social_post' | 'seo_content' | 'video', status: string) {
+  function actionsFor(asset: ScopedAsset, type: 'social_post' | 'seo_content' | 'video', status: string) {
     if (readonly) return null
+    const assetId = asset.id
     return (
       <AssetActions
         assetId={assetId}
         type={type}
         status={status}
         busy={busyId === assetId || isPending}
-        onApprove={() => approve(assetId, type)}
-        onRequestChanges={(text: string) => requestChanges(assetId, type, text)}
+        onApprove={() => approve(asset, type)}
+        onRequestChanges={(text: string) => requestChanges(asset, type, text)}
         onEdit={() => alert('Inline edit coming next.')}
       />
     )
@@ -151,7 +166,7 @@ export function AssetGrid({
                   </span>
                 </div>
                 <VideoTriptych post={post} brand={brand} />
-                {actionsFor(post.id, 'video', post.status ?? 'draft')}
+                {actionsFor(post, 'video', post.status ?? 'draft')}
               </div>
             ))}
           </div>
@@ -165,7 +180,7 @@ export function AssetGrid({
             {blogs.map((blog) => (
               <div key={blog.id} className="space-y-2">
                 <BlogReaderCard blog={blog} brand={brand} />
-                {actionsFor(blog.id, 'seo_content', blog.status ?? 'idea')}
+                {actionsFor(blog, 'seo_content', blog.status ?? 'idea')}
               </div>
             ))}
           </div>
@@ -181,7 +196,7 @@ export function AssetGrid({
               return (
                 <div key={post.id} className="space-y-2">
                   <Card post={post} brand={brand} />
-                  {actionsFor(post.id, 'social_post', post.status ?? 'draft')}
+                  {actionsFor(post, 'social_post', post.status ?? 'draft')}
                 </div>
               )
             })}

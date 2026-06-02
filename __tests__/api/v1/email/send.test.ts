@@ -48,9 +48,17 @@ process.env.AI_API_KEY = 'test-key'
 const mockAdd = jest.fn().mockResolvedValue({ id: 'email-doc-1' })
 const mockDocUpdate = jest.fn().mockResolvedValue(undefined)
 const mockActivitiesAdd = jest.fn().mockResolvedValue({ id: 'act-1' })
+const mockContactGet = jest.fn()
 
 function mockCollections() {
   ;(adminDb.collection as jest.Mock).mockImplementation((col: string) => {
+    if (col === 'contacts') {
+      return {
+        doc: jest.fn().mockReturnValue({
+          get: mockContactGet,
+        }),
+      }
+    }
     if (col === 'emails') {
       return {
         add: mockAdd,
@@ -83,6 +91,10 @@ const validPayload = {
 describe('POST /api/v1/email/send', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    mockContactGet.mockResolvedValue({
+      exists: true,
+      data: () => ({ orgId: 'org-from-contact', email: 'client@example.com' }),
+    })
     mockCollections()
   })
 
@@ -117,6 +129,22 @@ describe('POST /api/v1/email/send', () => {
     expect(body.data.id).toBe('email-doc-1')
   })
 
+  it('accepts rendered email builder html and text aliases', async () => {
+    const res = await POST(makeReq({
+      orgId: 'org-test',
+      to: 'client@example.com',
+      subject: 'Rendered template',
+      html: '<p>Rendered body</p>',
+      text: 'Rendered body',
+    }))
+
+    expect(res.status).toBe(201)
+    expect(mockAdd).toHaveBeenCalledWith(expect.objectContaining({
+      bodyHtml: expect.stringContaining('Rendered body'),
+      bodyText: 'Rendered body',
+    }))
+  })
+
   it('creates a Firestore doc with status sent', async () => {
     await POST(makeReq(validPayload))
     expect(mockAdd).toHaveBeenCalledWith(
@@ -132,6 +160,28 @@ describe('POST /api/v1/email/send', () => {
     expect(mockActivitiesAdd).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'email_sent', contactId: 'contact-abc' }),
     )
+  })
+
+  it('derives org scope from contactId when orgId is not supplied', async () => {
+    const payloadWithoutOrg = {
+      to: validPayload.to,
+      subject: validPayload.subject,
+      bodyText: validPayload.bodyText,
+      contactId: validPayload.contactId,
+    }
+
+    const res = await POST(makeReq({ ...payloadWithoutOrg, contactId: 'contact-abc' }))
+
+    expect(res.status).toBe(201)
+    expect(mockContactGet).toHaveBeenCalledTimes(1)
+    expect(mockAdd).toHaveBeenCalledWith(expect.objectContaining({
+      orgId: 'org-from-contact',
+      contactId: 'contact-abc',
+    }))
+    expect(mockActivitiesAdd).toHaveBeenCalledWith(expect.objectContaining({
+      orgId: 'org-from-contact',
+      contactId: 'contact-abc',
+    }))
   })
 
   it('does not log activity when contactId is empty', async () => {

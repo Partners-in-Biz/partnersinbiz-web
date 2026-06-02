@@ -203,6 +203,29 @@ function activityNotesPlaceholder(logType: string): string {
   return `Add ${logType} notes…`
 }
 
+function activityNotesFieldName(logType: string, contactName: string): string {
+  if (logType === 'note') return `Relationship note for ${contactName}`
+  if (logType === 'call') return `Call notes for ${contactName}`
+  if (logType === 'sms') return `SMS message for ${contactName}`
+  return `Activity notes for ${contactName}`
+}
+
+function activityComposerActionName(logType: string, contactName: string): string {
+  if (logType === 'email_sent') return `Send email to ${contactName} from activity composer`
+  if (logType === 'sms') return `Send SMS to ${contactName} from activity composer`
+  if (logType === 'meeting') return `Schedule meeting with ${contactName} from activity composer`
+  if (logType === 'call') return `Log call with ${contactName} from activity composer`
+  return `Save note for ${contactName} from activity composer`
+}
+
+function activityComposerCancelName(logType: string, contactName: string): string {
+  if (logType === 'email_sent') return `Cancel email composer for ${contactName}`
+  if (logType === 'sms') return `Cancel SMS composer for ${contactName}`
+  if (logType === 'meeting') return `Cancel meeting composer for ${contactName}`
+  if (logType === 'call') return `Cancel call composer for ${contactName}`
+  return `Cancel note composer for ${contactName}`
+}
+
 function activityMetricCaption(count: number): string {
   if (count === 0) return 'No relationship history yet'
   return count === 1 ? '1 relationship touch logged' : `${count} relationship touches logged`
@@ -214,6 +237,12 @@ function emailTimeLabel(email: EmailRecord): string {
 
 function emailSubjectLabel(email: EmailRecord): string {
   return email.subject?.trim() || 'Email subject missing'
+}
+
+function emailFollowUpSubject(email: EmailRecord): string {
+  const subject = email.subject?.trim()
+  if (!subject) return ''
+  return subject.toLowerCase().startsWith('re:') ? subject : `Re: ${subject}`
 }
 
 function emailStatusLabel(email: EmailRecord): string {
@@ -231,6 +260,12 @@ function activitySummaryLabel(activity: ActivityRecord): string {
   const summary = activity.summary?.trim() || activity.notes?.trim()
   if (summary) return summary
   return 'Activity summary missing'
+}
+
+function activityContinuationNote(activity: ActivityRecord): string {
+  const summary = activity.summary?.trim() || activity.notes?.trim()
+  if (!summary) return ''
+  return `Follow-up from: ${summary}`
 }
 
 function activityActorLabel(activity: ActivityRecord): string {
@@ -655,6 +690,12 @@ export default function PortalContactDetailPage() {
     setLogError(null)
   }
 
+  function openEmailFollowUp(email: EmailRecord) {
+    setLogEmailSubject(emailFollowUpSubject(email))
+    setLogSummary('')
+    openFirstEmailComposer()
+  }
+
   function useAiDraftInComposer() {
     if (!aiDraft) return
     setLogEmailSubject(aiDraft.subject)
@@ -697,6 +738,11 @@ export default function PortalContactDetailPage() {
     setLogError(null)
   }
 
+  function continueFromActivity(activity: ActivityRecord) {
+    setLogSummary(activityContinuationNote(activity))
+    openFirstNoteComposer()
+  }
+
   function openFirstMeetingComposer() {
     if (!meetingStartAt) {
       const start = new Date(Date.now() + 60 * 60 * 1000)
@@ -719,7 +765,10 @@ export default function PortalContactDetailPage() {
   function focusProfileField(fieldRef: RefObject<HTMLElement | null>) {
     const field = fieldRef.current
     field?.scrollIntoView?.({ behavior: 'smooth', block: 'center' })
-    field?.focus()
+    const focusTarget = field?.matches('input, select, textarea, button')
+      ? field
+      : field?.querySelector<HTMLElement>('input, select, textarea, button')
+    focusTarget?.focus()
   }
 
   function focusCustomFields() {
@@ -1003,6 +1052,7 @@ export default function PortalContactDetailPage() {
     !email.trim() ? 'email' : '',
     !phone.trim() ? 'phone' : '',
     !hasLinkedCompany ? 'company' : '',
+    !assignedTo ? 'owner' : '',
     !website.trim() ? 'website' : '',
     !notes.trim() ? 'relationship notes' : '',
   ].filter(Boolean)
@@ -1010,11 +1060,15 @@ export default function PortalContactDetailPage() {
     ? { label: 'Add email', icon: 'alternate_email', ariaLabel: `Add email for ${contactName}`, fieldRef: emailFieldRef }
     : !phone.trim()
       ? { label: 'Add phone', icon: 'call', ariaLabel: `Add phone for ${contactName}`, fieldRef: phoneFieldRef }
-      : !website.trim()
-        ? { label: 'Add website', icon: 'language', ariaLabel: `Add website for ${contactName}`, fieldRef: websiteFieldRef }
-        : !notes.trim()
-          ? { label: 'Add notes', icon: 'notes', ariaLabel: `Add notes for ${contactName}`, fieldRef: notesFieldRef }
-          : null
+      : !hasLinkedCompany
+        ? { label: 'Link company', icon: 'add_business', ariaLabel: `Link company for ${contactName} from profile strength`, fieldRef: companyPickerRef }
+        : !assignedTo
+          ? { label: 'Assign owner', icon: 'assignment_ind', ariaLabel: `Assign owner for ${contactName} from profile strength`, fieldRef: ownerFieldRef }
+          : !website.trim()
+            ? { label: 'Add website', icon: 'language', ariaLabel: `Add website for ${contactName}`, fieldRef: websiteFieldRef }
+            : !notes.trim()
+              ? { label: 'Add notes', icon: 'notes', ariaLabel: `Add notes for ${contactName}`, fieldRef: notesFieldRef }
+              : null
   const relationshipSignal =
     lastTouchDays === null
       ? 'No touch logged'
@@ -1178,6 +1232,7 @@ export default function PortalContactDetailPage() {
               <div className="min-w-0 flex-1">
                 <p className="eyebrow">Contact command center</p>
                 <input
+                  aria-label={`Rename ${contactName} from contact header`}
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   className="mt-2 w-full border-0 bg-transparent p-0 font-display text-3xl tracking-tight text-[var(--color-pib-text)] outline-none md:text-4xl"
@@ -1583,6 +1638,7 @@ export default function PortalContactDetailPage() {
                 Name
               </p>
               <input
+                aria-label={`Contact name for ${contactName}`}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className="pib-input w-full"
@@ -1597,6 +1653,7 @@ export default function PortalContactDetailPage() {
                 </p>
                 <input
                   ref={emailFieldRef}
+                  aria-label={`Email address for ${contactName}`}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="pib-input w-full"
@@ -1609,6 +1666,7 @@ export default function PortalContactDetailPage() {
                 </p>
                 <input
                   ref={phoneFieldRef}
+                  aria-label={`Phone number for ${contactName}`}
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   className="pib-input w-full"
@@ -1621,6 +1679,7 @@ export default function PortalContactDetailPage() {
                 </p>
                 <input
                   ref={jobTitleFieldRef}
+                  aria-label={`Job title for ${contactName}`}
                   value={jobTitle}
                   onChange={(e) => setJobTitle(e.target.value)}
                   className="pib-input w-full"
@@ -1633,6 +1692,7 @@ export default function PortalContactDetailPage() {
                 </p>
                 <input
                   ref={departmentFieldRef}
+                  aria-label={`Department for ${contactName}`}
                   value={department}
                   onChange={(e) => setDepartment(e.target.value)}
                   className="pib-input w-full"
@@ -1645,6 +1705,7 @@ export default function PortalContactDetailPage() {
                 </p>
                 <input
                   ref={timezoneFieldRef}
+                  aria-label={`Timezone for ${contactName}`}
                   value={timezone}
                   onChange={(e) => setTimezone(e.target.value)}
                   className="pib-input w-full"
@@ -1657,6 +1718,7 @@ export default function PortalContactDetailPage() {
                 </p>
                 <input
                   ref={websiteFieldRef}
+                  aria-label={`Website for ${contactName}`}
                   value={website}
                   onChange={(e) => setWebsite(e.target.value)}
                   className="pib-input w-full"
@@ -1668,19 +1730,19 @@ export default function PortalContactDetailPage() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
               <div className="space-y-1">
                 <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">Source</p>
-                <select ref={sourceFieldRef} value={source} onChange={(e) => setSource(e.target.value)} className="pib-input w-full">
+                <select ref={sourceFieldRef} aria-label={`Contact source for ${contactName}`} value={source} onChange={(e) => setSource(e.target.value)} className="pib-input w-full">
                   {SOURCE_OPTIONS.map((option) => <option key={option} value={option} className="bg-black">{displayLabel(option, SOURCE_LABELS)}</option>)}
                 </select>
               </div>
               <div className="space-y-1">
                 <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">Type</p>
-                <select ref={typeFieldRef} aria-label="Type" value={type} onChange={(e) => setType(e.target.value)} className="pib-input w-full">
+                <select ref={typeFieldRef} aria-label={`Contact type for ${contactName}`} value={type} onChange={(e) => setType(e.target.value)} className="pib-input w-full">
                   {TYPE_OPTIONS.map((option) => <option key={option} value={option} className="bg-black">{displayLabel(option, TYPE_LABELS)}</option>)}
                 </select>
               </div>
               <div className="space-y-1">
                 <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">Stage</p>
-                <select ref={stageFieldRef} aria-label="Stage" value={stage} onChange={(e) => setStage(e.target.value)} className="pib-input w-full">
+                <select ref={stageFieldRef} aria-label={`Lifecycle stage for ${contactName}`} value={stage} onChange={(e) => setStage(e.target.value)} className="pib-input w-full">
                   {STAGE_OPTIONS.map((option) => <option key={option} value={option} className="bg-black">{displayLabel(option, STAGE_LABELS)}</option>)}
                 </select>
               </div>
@@ -1690,7 +1752,7 @@ export default function PortalContactDetailPage() {
               <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">
                 Owner
               </p>
-              <select ref={ownerFieldRef} value={assignedTo} onChange={(e) => setAssignedTo(e.target.value)} className="pib-input w-full">
+              <select ref={ownerFieldRef} aria-label={`Relationship owner for ${contactName}`} value={assignedTo} onChange={(e) => setAssignedTo(e.target.value)} className="pib-input w-full">
                 <option value="" className="bg-black">Unassigned</option>
                 {teamMembers.map((member) => {
                   const label = teamMemberDisplayLabel(member)
@@ -1709,7 +1771,7 @@ export default function PortalContactDetailPage() {
               </p>
               <input
                 ref={tagsFieldRef}
-                aria-label="Tags"
+                aria-label={`Tags for ${contactName}`}
                 value={tagsInput}
                 onChange={(e) => setTagsInput(e.target.value)}
                 className="pib-input w-full"
@@ -1725,6 +1787,7 @@ export default function PortalContactDetailPage() {
               <CompanyPicker
                 currentCompanyId={editCompanyId}
                 currentCompanyName={editCompanyName}
+                ariaLabel={`Linked company for ${contactName}`}
                 onChange={({ companyId, companyName }) => {
                   setEditCompanyId(companyId ?? '')
                   setEditCompanyName(companyName ?? undefined)
@@ -1738,6 +1801,7 @@ export default function PortalContactDetailPage() {
               </p>
               <textarea
                 ref={notesFieldRef}
+                aria-label={`Relationship notes for ${contactName}`}
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 rows={5}
@@ -1778,8 +1842,10 @@ export default function PortalContactDetailPage() {
                 </button>
               )}
               <button
+                type="button"
                 onClick={saveChanges}
                 disabled={!dirty || saving}
+                aria-label={`Save profile changes for ${contactName}`}
                 className="btn-pib-accent !py-2 !px-4 !text-sm disabled:opacity-40"
               >
                 {saving ? 'Saving…' : 'Save changes'}
@@ -1864,6 +1930,15 @@ export default function PortalContactDetailPage() {
                         {emailTimeLabel(e)}
                       </p>
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => openEmailFollowUp(e)}
+                      aria-label={`Follow up on ${emailSubjectLabel(e)} with ${contactName}`}
+                      className="inline-flex shrink-0 items-center gap-1 rounded-md border border-[var(--color-pib-line)] px-2 py-1 text-[11px] font-medium text-[var(--color-pib-accent)] transition-colors hover:border-[var(--color-pib-accent)] hover:text-[var(--color-pib-text)]"
+                    >
+                      <span className="material-symbols-outlined text-[13px]" aria-hidden="true">reply</span>
+                      Follow up
+                    </button>
                   </div>
                 ))}
               </div>
@@ -1916,14 +1991,17 @@ export default function PortalContactDetailPage() {
             <div className="px-5 pt-4">
               <div className="flex gap-2 mb-3 flex-wrap">
                 {([
-                  { type: 'call', icon: 'call', label: 'Call' },
-                  { type: 'email_sent', icon: 'mail', label: 'Email' },
-                  { type: 'note', icon: 'notes', label: 'Note' },
-                  { type: 'sms', icon: 'sms', label: 'SMS' },
-                  { type: 'meeting', icon: 'event', label: 'Meeting' },
-                ] as const).map(({ type, icon, label }) => (
+                  { type: 'call', icon: 'call', label: 'Call', command: `Log call with ${contactName}` },
+                  { type: 'email_sent', icon: 'mail', label: 'Email', command: `Send email to ${contactName}` },
+                  { type: 'note', icon: 'notes', label: 'Note', command: `Log note for ${contactName}` },
+                  { type: 'sms', icon: 'sms', label: 'SMS', command: `Send SMS to ${contactName}` },
+                  { type: 'meeting', icon: 'event', label: 'Meeting', command: `Schedule meeting with ${contactName}` },
+                ] as const).map(({ type, icon, label, command }) => (
                   <button
                     key={type}
+                    type="button"
+                    aria-label={command}
+                    aria-pressed={logType === type}
                     onClick={() => {
                       if (logType === type) {
                         setLogType(null)
@@ -1941,7 +2019,13 @@ export default function PortalContactDetailPage() {
                     {label}
                   </button>
                 ))}
-                <button onClick={() => setShowAiComposer((v) => !v)} className="btn-pib-secondary text-xs flex items-center gap-1">
+                <button
+                  type="button"
+                  aria-label={`Draft email with AI for ${contactName}`}
+                  aria-pressed={showAiComposer}
+                  onClick={() => setShowAiComposer((v) => !v)}
+                  className="btn-pib-secondary text-xs flex items-center gap-1"
+                >
                   <span className="material-symbols-outlined text-[14px]" aria-hidden="true">auto_awesome</span>
                   AI draft
                 </button>
@@ -1953,12 +2037,14 @@ export default function PortalContactDetailPage() {
                     email.trim() ? (
                       <>
                         <input
+                          aria-label={`Email subject for ${contactName}`}
                           placeholder="Subject…"
                           value={logEmailSubject}
                           onChange={(e) => setLogEmailSubject(e.target.value)}
                           className="w-full text-sm border border-[var(--color-pib-line)] rounded-lg p-2 bg-transparent"
                         />
                         <textarea
+                          aria-label={`Email message for ${contactName}`}
                           rows={3}
                           placeholder="Message…"
                           value={logSummary}
@@ -2001,6 +2087,7 @@ export default function PortalContactDetailPage() {
                   ) : logType === 'sms' ? (
                     phone.trim() ? (
                       <textarea
+                        aria-label={activityNotesFieldName(logType, contactName)}
                         rows={3}
                         placeholder="SMS message…"
                         value={logSummary}
@@ -2042,6 +2129,7 @@ export default function PortalContactDetailPage() {
                   ) : logType === 'call' ? (
                     phone.trim() ? (
                       <textarea
+                        aria-label={activityNotesFieldName(logType, contactName)}
                         rows={3}
                         placeholder={activityNotesPlaceholder(logType)}
                         value={logSummary}
@@ -2083,6 +2171,7 @@ export default function PortalContactDetailPage() {
                   ) : logType === 'meeting' ? (
                     <>
                       <input
+                        aria-label={`Meeting title for ${contactName}`}
                         placeholder="Meeting title…"
                         value={meetingTitle}
                         onChange={(e) => setMeetingTitle(e.target.value)}
@@ -2092,6 +2181,7 @@ export default function PortalContactDetailPage() {
                         <label className="space-y-1">
                           <span className="block text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">Starts</span>
                           <input
+                            aria-label={`Meeting start time for ${contactName}`}
                             type="datetime-local"
                             value={meetingStartAt}
                             onChange={(e) => setMeetingStartAt(e.target.value)}
@@ -2101,6 +2191,7 @@ export default function PortalContactDetailPage() {
                         <label className="space-y-1">
                           <span className="block text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">Ends</span>
                           <input
+                            aria-label={`Meeting end time for ${contactName}`}
                             type="datetime-local"
                             value={meetingEndAt}
                             onChange={(e) => setMeetingEndAt(e.target.value)}
@@ -2109,6 +2200,7 @@ export default function PortalContactDetailPage() {
                         </label>
                       </div>
                       <input
+                        aria-label={`Meeting link for ${contactName}`}
                         placeholder="Meeting link (optional)…"
                         value={meetingUrl}
                         onChange={(e) => setMeetingUrl(e.target.value)}
@@ -2120,6 +2212,7 @@ export default function PortalContactDetailPage() {
                         </p>
                       )}
                       <textarea
+                        aria-label={`Meeting agenda or notes for ${contactName}`}
                         rows={3}
                         placeholder="Agenda or notes…"
                         value={logSummary}
@@ -2129,6 +2222,7 @@ export default function PortalContactDetailPage() {
                     </>
                   ) : (
                     <textarea
+                      aria-label={activityNotesFieldName(logType, contactName)}
                       rows={3}
                       placeholder={activityNotesPlaceholder(logType)}
                       value={logSummary}
@@ -2138,6 +2232,7 @@ export default function PortalContactDetailPage() {
                   )}
                   <div className="flex items-center gap-3">
                     <button
+                      type="button"
                       onClick={handleLogActivity}
                       disabled={
                         logSaving ||
@@ -2151,6 +2246,7 @@ export default function PortalContactDetailPage() {
                           ? !phone.trim() || !logSummary.trim()
                           : !logSummary.trim())
                       }
+                      aria-label={activityComposerActionName(logType, contactName)}
                       className="btn-pib-accent text-xs disabled:opacity-50"
                     >
                       {logSaving
@@ -2164,7 +2260,9 @@ export default function PortalContactDetailPage() {
                         : 'Save'}
                     </button>
                     <button
+                      type="button"
                       onClick={() => { setLogType(null); setLogSummary(''); setLogEmailSubject(''); setMeetingTitle(''); setMeetingStartAt(''); setMeetingEndAt(''); setMeetingUrl(''); setLogError(null) }}
+                      aria-label={activityComposerCancelName(logType, contactName)}
                       className="text-xs text-[var(--color-pib-text-muted)]"
                     >
                       Cancel
@@ -2179,12 +2277,14 @@ export default function PortalContactDetailPage() {
                 <div className="bento-card !p-4 mb-4 space-y-3">
                   <p className="text-xs font-medium">AI email composer</p>
                   <input
+                    aria-label={`AI email purpose for ${contactName}`}
                     placeholder="Purpose (e.g. Follow up after demo)"
                     value={aiPurpose}
                     onChange={(e) => setAiPurpose(e.target.value)}
                     className="w-full text-sm border border-[var(--color-pib-line)] rounded-lg p-2 bg-transparent"
                   />
                   <select
+                    aria-label={`AI email tone for ${contactName}`}
                     value={aiTone}
                     onChange={(e) => setAiTone(e.target.value as 'professional' | 'friendly' | 'bold')}
                     className="text-sm border border-[var(--color-pib-line)] rounded p-1 bg-transparent"
@@ -2194,6 +2294,7 @@ export default function PortalContactDetailPage() {
                     <option value="bold">Bold</option>
                   </select>
                   <button
+                    aria-label={`Generate AI email draft for ${contactName}`}
                     onClick={handleAiGenerate}
                     disabled={aiLoading || !aiPurpose.trim()}
                     className="btn-pib-accent text-xs disabled:opacity-50"
@@ -2208,6 +2309,8 @@ export default function PortalContactDetailPage() {
                       <p className="text-xs font-medium text-[var(--color-pib-text-muted)]">Body:</p>
                       <p className="text-sm whitespace-pre-wrap">{aiDraft.bodyText}</p>
                       <button
+                        type="button"
+                        aria-label={`Copy AI draft ${aiDraft.subject} for ${contactName}`}
                         onClick={() => {
                           void navigator.clipboard.writeText(`Subject: ${aiDraft!.subject}\n\n${aiDraft!.bodyText}`)
                         }}
@@ -2284,11 +2387,22 @@ export default function PortalContactDetailPage() {
                         {activityActorLabel(a)} · {activityTimeLabel(a)}
                       </p>
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => continueFromActivity(a)}
+                      aria-label={`Continue from activity ${activitySummaryLabel(a)} with ${contactName}`}
+                      className="inline-flex shrink-0 items-center gap-1 rounded-md border border-[var(--color-pib-line)] px-2 py-1 text-[11px] font-medium text-[var(--color-pib-accent)] transition-colors hover:border-[var(--color-pib-accent)] hover:text-[var(--color-pib-text)]"
+                    >
+                      <span className="material-symbols-outlined text-[13px]" aria-hidden="true">edit_note</span>
+                      Continue
+                    </button>
                   </div>
                 ))}
                 {activities.length === 50 && (
                   <button
+                    type="button"
                     onClick={loadMoreActivities}
+                    aria-label={`Load more activity for ${contactName}`}
                     className="text-sm text-[var(--color-pib-text-muted)] w-full py-2 hover:text-[var(--color-pib-text)]"
                   >
                     Load more
@@ -2308,7 +2422,12 @@ export default function PortalContactDetailPage() {
           <div className="bento-card !p-5">
             <div className="flex items-center justify-between mb-4">
               <p className="eyebrow !text-[10px]">Sequences</p>
-              <button onClick={handleOpenEnrollModal} className="btn-pib-secondary text-xs flex items-center gap-1">
+              <button
+                type="button"
+                onClick={handleOpenEnrollModal}
+                aria-label={`Open nurture enrollment for ${contactName}`}
+                className="btn-pib-secondary text-xs flex items-center gap-1"
+              >
                 <span className="material-symbols-outlined text-[14px]" aria-hidden="true">add</span>
                 Enroll
               </button>
@@ -2469,6 +2588,7 @@ export default function PortalContactDetailPage() {
                 setEnrollingSequenceId(e.target.value)
                 setEnrollError('')
               }}
+              aria-label={`Nurture sequence for ${contactName}`}
               className="w-full text-sm border border-[var(--color-pib-line)] rounded p-2 bg-transparent"
             >
               <option value="">Choose a sequence…</option>
@@ -2483,15 +2603,18 @@ export default function PortalContactDetailPage() {
             )}
             <div className="flex gap-2">
               <button
+                type="button"
                 onClick={handleEnroll}
                 disabled={!enrollingSequenceId || enrolling}
-                aria-label="Enroll contact"
+                aria-label={`Enroll ${contactName} in selected nurture sequence`}
                 className="btn-pib-accent text-sm disabled:opacity-50"
               >
                 {enrolling ? 'Enrolling…' : 'Enroll'}
               </button>
               <button
+                type="button"
                 onClick={() => setShowEnrollModal(false)}
+                aria-label={`Cancel sequence enrollment for ${contactName}`}
                 className="btn-pib-secondary text-sm"
               >
                 Cancel

@@ -97,10 +97,14 @@ function dateInputValue(value: unknown): string {
 function ContactPicker({
   contactId,
   contactLabel,
+  ariaLabel = 'Search deal contacts',
+  clearLabel = 'Clear contact',
   onChange,
 }: {
   contactId: string
   contactLabel: string
+  ariaLabel?: string
+  clearLabel?: string
   onChange: (contact: { id: string; label: string } | null) => void
 }) {
   const [query, setQuery] = useState(contactLabel)
@@ -151,6 +155,7 @@ function ContactPicker({
       <div className="relative">
         <input
           type="text"
+          aria-label={ariaLabel}
           value={query}
           onChange={(event) => {
             setQuery(event.target.value)
@@ -171,7 +176,7 @@ function ContactPicker({
               onChange(null)
             }}
             className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]"
-            aria-label="Clear contact"
+            aria-label={clearLabel}
           >
             <span className="material-symbols-outlined text-[16px]">close</span>
           </button>
@@ -266,6 +271,19 @@ export function DealDrawer({
   // Form state
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const readableCompanyName = companyName.trim()
+  const readableSelectedContact = readableContactLabel(contactLabel)
+  const dealContextName = readableCompanyName || readableSelectedContact || title.trim() || 'this deal'
+  const dialogLabel = isEdit
+    ? `Edit deal ${title.trim() || deal?.id || dealContextName}`
+    : readableCompanyName && readableSelectedContact
+      ? `Create deal for ${readableCompanyName} with ${readableSelectedContact}`
+      : `Create deal for ${dealContextName}`
+  const closeDrawerLabel = `Close deal drawer for ${dealContextName}`
+  const cancelDealLabel = isEdit ? `Cancel deal changes for ${dealContextName}` : `Cancel deal for ${dealContextName}`
+  const saveDealLabel = isEdit ? `Save deal changes for ${dealContextName}` : `Create deal for ${dealContextName}`
+  const fieldLabel = (label: string) => `${label} for ${dealContextName}`
 
   // Derived
   const selectedPipeline = pipelines.find(p => p.id === selectedPipelineId)
@@ -422,7 +440,7 @@ export function DealDrawer({
       className="fixed inset-0 z-40 flex items-start justify-end"
       role="dialog"
       aria-modal="true"
-      aria-label={isEdit ? 'Edit deal' : 'Create deal'}
+      aria-label={dialogLabel}
     >
       {/* Backdrop */}
       <div
@@ -447,18 +465,20 @@ export function DealDrawer({
             type="button"
             onClick={onClose}
             className="cursor-pointer text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors"
+            aria-label={closeDrawerLabel}
           >
             <span className="material-symbols-outlined text-[20px]">close</span>
           </button>
         </div>
 
         {/* Scrollable body */}
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-5 py-5 space-y-5">
+        <form id="deal-drawer-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-5 py-5 space-y-5">
           {/* Title */}
           <div>
             <label className={labelCls}>Deal title *</label>
             <input
               type="text"
+              aria-label={fieldLabel('Deal title')}
               value={title}
               onChange={e => setTitle(e.target.value)}
               placeholder="e.g. Acme Corp — Annual License"
@@ -473,6 +493,8 @@ export function DealDrawer({
               <ContactPicker
                 contactId={contactId}
                 contactLabel={contactLabel}
+                ariaLabel={fieldLabel('Deal contact')}
+                clearLabel={`Clear deal contact for ${dealContextName}`}
                 onChange={(contact) => {
                   setContactId(contact?.id ?? '')
                   setContactLabel(contact?.label ?? '')
@@ -484,6 +506,7 @@ export function DealDrawer({
               <CompanyPicker
                 currentCompanyId={companyId || undefined}
                 currentCompanyName={companyName || undefined}
+                ariaLabel={fieldLabel('Deal company')}
                 onChange={({ companyId: nextCompanyId, companyName: nextCompanyName }) => {
                   setCompanyId(nextCompanyId ?? '')
                   setCompanyName(nextCompanyName ?? '')
@@ -498,6 +521,7 @@ export function DealDrawer({
               <label className={labelCls}>Value</label>
               <input
                 type="number"
+                aria-label={fieldLabel('Deal value')}
                 min={0}
                 step={0.01}
                 value={value}
@@ -508,6 +532,7 @@ export function DealDrawer({
             <div>
               <label className={labelCls}>Currency</label>
               <select
+                aria-label={fieldLabel('Deal currency')}
                 value={currency}
                 onChange={e => setCurrency(e.target.value as Currency)}
                 className="pib-input w-full"
@@ -523,6 +548,7 @@ export function DealDrawer({
             <label htmlFor="dealExpectedCloseDate" className={labelCls}>Expected close date</label>
             <input
               id="dealExpectedCloseDate"
+              aria-label={fieldLabel('Expected close date')}
               type="date"
               value={expectedCloseDate}
               onChange={e => setExpectedCloseDate(e.target.value)}
@@ -539,6 +565,7 @@ export function DealDrawer({
               ) : (
                 <select
                   id="dealPipeline"
+                  aria-label={fieldLabel('Deal pipeline')}
                   value={selectedPipelineId}
                   onChange={e => {
                     setSelectedPipelineId(e.target.value)
@@ -560,6 +587,7 @@ export function DealDrawer({
               ) : (
                 <select
                   id="dealStage"
+                  aria-label={fieldLabel('Deal stage')}
                   value={selectedStageId}
                   onChange={e => handleStageChange(e.target.value)}
                   className="pib-input w-full"
@@ -578,6 +606,7 @@ export function DealDrawer({
             <div className="flex items-center gap-3">
               <input
                 type="range"
+                aria-label={fieldLabel('Deal probability slider')}
                 min={0}
                 max={100}
                 step={1}
@@ -588,6 +617,7 @@ export function DealDrawer({
               <div className="flex items-center gap-1.5 shrink-0">
                 <input
                   type="number"
+                  aria-label={fieldLabel('Deal probability percent')}
                   min={0}
                   max={100}
                   value={probability}
@@ -619,6 +649,7 @@ export function DealDrawer({
             <div>
               <label className={labelCls}>Lost reason</label>
               <textarea
+                aria-label={fieldLabel('Deal lost reason')}
                 value={lostReason}
                 onChange={e => setLostReason(e.target.value)}
                 placeholder="Why was this deal lost?"
@@ -632,6 +663,7 @@ export function DealDrawer({
           <div>
             <label className={labelCls}>Notes</label>
             <textarea
+              aria-label={fieldLabel('Deal notes')}
               value={notes}
               onChange={e => setNotes(e.target.value)}
               rows={2}
@@ -670,6 +702,7 @@ export function DealDrawer({
             type="button"
             onClick={onClose}
             className="cursor-pointer btn-pib-secondary text-sm"
+            aria-label={cancelDealLabel}
           >
             Cancel
           </button>
@@ -679,6 +712,7 @@ export function DealDrawer({
             disabled={saving}
             onClick={handleSubmit}
             className="cursor-pointer btn-pib-accent text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            aria-label={saveDealLabel}
           >
             {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Create deal'}
           </button>

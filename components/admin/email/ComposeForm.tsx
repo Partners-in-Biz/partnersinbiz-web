@@ -216,6 +216,8 @@ function ContactAutocomplete({
 export function ComposeForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const contactId = searchParams.get('contactId') ?? ''
+  const orgId = searchParams.get('orgId') ?? ''
   const [form, setForm] = useState({
     to: searchParams.get('to') ?? '',
     cc: '',
@@ -250,6 +252,8 @@ export function ComposeForm() {
       subject: form.subject,
       bodyText: form.bodyText,
     }
+    if (contactId) payload.contactId = contactId
+    if (orgId) payload.orgId = orgId
     if (mode === 'schedule') payload.scheduledFor = scheduledFor
 
     try {

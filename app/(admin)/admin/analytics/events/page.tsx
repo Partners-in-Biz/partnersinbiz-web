@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic'
 import { useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { AnalyticsNav } from '@/components/admin/AnalyticsNav'
+import { AnalyticsPropertyPicker } from '@/components/admin/AnalyticsPropertyPicker'
 
 interface AnalyticsEvent {
   id: string
@@ -14,13 +15,15 @@ interface AnalyticsEvent {
   pageUrl: string | null
   country: string | null
   device: string | null
-  serverTime: any
+  serverTime: unknown
   properties: Record<string, unknown>
 }
 
-function formatTs(ts: any): string {
+function formatTs(ts: unknown): string {
   if (!ts) return '—'
-  const d = ts._seconds ? new Date(ts._seconds * 1000) : new Date(ts)
+  const source = ts as { _seconds?: number; seconds?: number }
+  const seconds = source._seconds ?? source.seconds
+  const d = typeof seconds === 'number' ? new Date(seconds * 1000) : new Date(ts as string)
   return d.toLocaleString()
 }
 
@@ -56,20 +59,12 @@ export default function AnalyticsEventsPage() {
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
-      <AnalyticsNav active="events" />
+      <AnalyticsNav active="events" propertyId={propertyId} />
       <h1 className="text-xl font-headline font-bold text-on-surface">Events</h1>
 
-      <div className="pib-card p-4 flex flex-wrap gap-3 items-end">
-        <div>
-          <label className="text-xs text-on-surface-variant font-label block mb-1">Property ID</label>
-          <input
-            type="text"
-            value={propertyId}
-            onChange={e => setPropertyId(e.target.value)}
-            placeholder="prop-abc123"
-            className="pib-input text-sm w-56"
-          />
-        </div>
+      <div className="pib-card p-4 space-y-3">
+        <AnalyticsPropertyPicker value={propertyId} onChange={setPropertyId} />
+        <div className="flex flex-wrap gap-3 items-end">
         <div>
           <label className="text-xs text-on-surface-variant font-label block mb-1">Event name</label>
           <input
@@ -91,6 +86,7 @@ export default function AnalyticsEventsPage() {
         <button onClick={fetchEvents} disabled={!propertyId || loading} className="pib-btn-primary text-sm font-label">
           {loading ? 'Loading…' : 'Search'}
         </button>
+        </div>
       </div>
 
       {events.length > 0 && (

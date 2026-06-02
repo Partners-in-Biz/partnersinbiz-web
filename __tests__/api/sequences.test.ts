@@ -16,7 +16,7 @@ jest.mock('@/lib/firebase/admin', () => ({
 }))
 
 jest.mock('@/lib/auth/middleware', () => ({
-  withAuth: (_role: string, handler: Function) => handler,
+  withAuth: (_role: string, handler: (...args: unknown[]) => unknown) => handler,
 }))
 
 process.env.AI_API_KEY = 'test-key'
@@ -46,6 +46,26 @@ describe('GET /api/v1/sequences', () => {
     expect(body.data).toHaveLength(1)
     expect(body.data[0].id).toBe('seq1')
   })
+
+  it('keeps legacy sequence listing index-safe by sorting in memory', async () => {
+    mockGet.mockResolvedValue({
+      docs: [
+        { id: 'older', data: () => ({ orgId: 'org-test', name: 'Older', status: 'active', createdAt: { seconds: 1000 } }) },
+        { id: 'newer', data: () => ({ orgId: 'org-test', name: 'Newer', status: 'draft', createdAt: { seconds: 2000 } }) },
+        { id: 'deleted', data: () => ({ orgId: 'org-test', name: 'Deleted', status: 'active', deleted: true, createdAt: { seconds: 3000 } }) },
+      ],
+    })
+    const { GET } = await import('@/app/api/v1/sequences/route')
+    const req = new NextRequest('http://localhost/api/v1/sequences?orgId=org-test&limit=20', { headers: authHeader })
+
+    const res = await GET(req)
+
+    expect(res.status).toBe(200)
+    expect(mockWhere).toHaveBeenCalledWith('orgId', '==', 'org-test')
+    expect(mockOrderBy).not.toHaveBeenCalled()
+    const body = await res.json()
+    expect(body.data.map((sequence: { id: string }) => sequence.id)).toEqual(['newer', 'older'])
+  })
 })
 
 describe('POST /api/v1/sequences', () => {
@@ -63,6 +83,24 @@ describe('POST /api/v1/sequences', () => {
     expect(body.data.id).toBe('new-seq')
   })
 
+  it('uses the platform owner org for legacy unscoped sequence creation', async () => {
+    mockAdd.mockResolvedValue({ id: 'new-seq' })
+    const { POST } = await import('@/app/api/v1/sequences/route')
+    const req = new NextRequest('http://localhost/api/v1/sequences', {
+      method: 'POST',
+      headers: { ...authHeader, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Onboarding', description: '', status: 'draft', steps: [] }),
+    })
+
+    const res = await POST(req)
+
+    expect(res.status).toBe(201)
+    expect(mockAdd).toHaveBeenCalledWith(expect.objectContaining({
+      orgId: 'pib-platform-owner',
+      name: 'Onboarding',
+    }))
+  })
+
   it('rejects missing name', async () => {
     const { POST } = await import('@/app/api/v1/sequences/route')
     const req = new NextRequest('http://localhost/api/v1/sequences', {
@@ -72,5 +110,26 @@ describe('POST /api/v1/sequences', () => {
     })
     const res = await POST(req)
     expect(res.status).toBe(400)
+  })
+
+  it('rejects active sequence creation when an email step has no body copy', async () => {
+    const { POST } = await import('@/app/api/v1/sequences/route')
+    const req = new NextRequest('http://localhost/api/v1/sequences', {
+      method: 'POST',
+      headers: { ...authHeader, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        orgId: 'org-test',
+        name: 'Incomplete active sequence',
+        status: 'active',
+        steps: [{ stepNumber: 0, delayDays: 0, subject: 'Hi', bodyHtml: '', bodyText: '' }],
+      }),
+    })
+    const res = await POST(req)
+    const body = await res.json()
+
+    expect(res.status).toBe(400)
+    expect(body.error).toMatch(/Step 1/i)
+    expect(body.error).toMatch(/body/i)
+    expect(mockAdd).not.toHaveBeenCalled()
   })
 })

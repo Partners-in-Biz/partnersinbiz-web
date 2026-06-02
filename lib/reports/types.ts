@@ -77,6 +77,8 @@ export interface ReportSeries {
 export interface Report {
   id: string
   orgId: string
+  /** Optional single-property scope. Missing means org-wide. */
+  propertyId?: string
   type: ReportType
   period: ReportPeriod
   /** Inclusive prior period used for delta calculations. */

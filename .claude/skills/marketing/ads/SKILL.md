@@ -36,6 +36,156 @@ LinkedIn, TikTok, Microsoft). Orchestrates 17 specialized sub-skills and
 | `/ads generate` | Generate AI ad images from brief, outputs to `ad-assets/` |
 | `/ads photoshoot` | Product photography in 5 styles (Studio, Floating, Ingredient, In Use, Lifestyle) |
 
+## Partners in Biz Ads Platform API
+
+Use this section when the task is not just strategy/audit, but operating the Partners in Biz Ads product online.
+
+Base URL:
+
+```text
+https://partnersinbiz.online/api/v1
+```
+
+Auth:
+
+```text
+Authorization: Bearer <AI_API_KEY>
+X-Org-Id: <orgId>   # required for AI/agent tenant-scoped calls
+```
+
+Current route inventory from `partnersinbiz-web@origin/development`:
+
+### Core campaign objects
+
+| Method | Path | Use |
+|---|---|---|
+| GET/POST | `/ads/campaigns` | List/create ad campaigns. |
+| GET/PATCH/DELETE | `/ads/campaigns/[id]` | Read/update/archive a campaign. |
+| POST | `/ads/campaigns/[id]/validate` | Validate readiness before launch/review. |
+| POST | `/ads/campaigns/[id]/submit-for-review` | Submit for review/approval. |
+| POST | `/ads/campaigns/[id]/launch` | Launch an approved campaign. |
+| POST | `/ads/campaigns/[id]/pause` | Pause a live campaign. |
+| GET/POST | `/ads/ad-sets` | List/create ad sets. |
+| GET/PATCH/DELETE | `/ads/ad-sets/[id]` | Read/update/archive an ad set. |
+| POST | `/ads/ad-sets/[id]/validate` | Validate ad-set readiness. |
+| POST | `/ads/ad-sets/[id]/launch` | Launch an ad set. |
+| POST | `/ads/ad-sets/[id]/pause` | Pause an ad set. |
+| GET/POST | `/ads/ads` | List/create individual ads. |
+| GET/PATCH/DELETE | `/ads/ads/[id]` | Read/update/archive an ad. |
+| GET | `/ads/ads/[id]/comments` | Read review comments on an ad. |
+| POST | `/ads/ads/[id]/validate` | Validate ad readiness. |
+| POST | `/ads/ads/[id]/launch` | Launch an ad. |
+| POST | `/ads/ads/[id]/pause` | Pause an ad. |
+
+Always run validate endpoints before launching. If validation returns warnings/errors, resolve or document the reason before launch.
+
+### Budgets, insights, and experiments
+
+| Method | Path | Use |
+|---|---|---|
+| GET/POST | `/ads/budgets` | List/create budget records. |
+| GET/PATCH/DELETE | `/ads/budgets/[id]` | Read/update/archive budget. |
+| POST | `/ads/budgets/[id]/check` | Run pacing/budget check. |
+| POST | `/ads/budgets/[id]/reset` | Reset a budget window/counter. |
+| GET | `/ads/insights` | Query performance insights. |
+| GET | `/ads/insights/summary` | Summary metrics. |
+| POST | `/ads/insights/refresh` | Pull fresh insights. |
+| GET/POST | `/ads/experiments` | List/create A/B experiments. |
+| GET/PATCH/DELETE | `/ads/experiments/[id]` | Read/update/archive experiment. |
+| POST | `/ads/experiments/[id]/start` | Start experiment. |
+| POST | `/ads/experiments/[id]/stop` | Stop experiment. |
+| POST | `/ads/experiments/[id]/compute` | Compute significance/results. |
+| POST | `/ads/experiments/[id]/declare-winner` | Record a winner. |
+| GET/POST | `/ads/keywords` | List/create ad keyword records. |
+| GET/PATCH/DELETE | `/ads/keywords/[id]` | Read/update/archive an ad keyword. |
+
+### Portal ad review and approval
+
+| Method | Path | Use |
+|---|---|---|
+| GET | `/portal/ads/activity` | Client-visible ads activity feed. |
+| GET | `/portal/ads/campaigns` | List client-visible ad campaigns. |
+| GET | `/portal/ads/campaigns/[id]` | Read one client-visible ad campaign. |
+| POST | `/portal/ads/campaigns/[id]/approve` | Client approval for an ad campaign. |
+| POST | `/portal/ads/campaigns/[id]/reject` | Client rejection for an ad campaign. |
+| POST | `/portal/ads/campaigns/bulk-approve` | Bulk client approval. |
+| GET/POST | `/portal/ads/ads/[id]/comments` | List/create client-visible ad comments. |
+| PATCH/DELETE | `/portal/ads/ads/[id]/comments/[commentId]` | Update/delete ad comment. |
+
+### Creatives, audiences, tracking, and conversions
+
+| Method | Path | Use |
+|---|---|---|
+| GET/POST | `/ads/creatives` | List/create creative assets. |
+| GET/PATCH/DELETE | `/ads/creatives/[id]` | Read/update/archive creative. |
+| POST | `/ads/creatives/upload-url` | Request an upload URL. |
+| POST | `/ads/creatives/[id]/finalize` | Finalize an uploaded creative. |
+| POST | `/ads/creatives/[id]/sync/[platform]` | Sync creative to platform. |
+| GET/POST | `/ads/custom-audiences` | List/create custom audiences. |
+| GET/PATCH/DELETE | `/ads/custom-audiences/[id]` | Read/update/archive audience. |
+| POST | `/ads/custom-audiences/[id]/upload-list` | Upload hashed customer list. |
+| POST | `/ads/custom-audiences/[id]/refresh-size` | Refresh audience size. |
+| POST | `/ads/custom-audiences/[id]/sync/[platform]` | Sync audience to platform. |
+| GET/POST | `/ads/saved-audiences` | List/create saved audiences. |
+| GET/PATCH/DELETE | `/ads/saved-audiences/[id]` | Read/update/archive saved audience. |
+| GET/POST | `/ads/pixel-configs` | List/create pixel/server-side tracking config. |
+| GET/PATCH/DELETE | `/ads/pixel-configs/[id]` | Read/update/archive pixel config. |
+| POST | `/ads/pixel-configs/[id]/test-event` | Send test event. |
+| GET/POST | `/ads/conversion-actions` | List/create conversion actions. |
+| GET/PATCH/DELETE | `/ads/conversion-actions/[id]` | Read/update/archive conversion action. |
+| GET | `/ads/conversions/events` | List captured conversion events. |
+| POST | `/ads/conversions/track` | Track a conversion event. |
+| POST | `/ads/conversions/upload` | Upload conversions. |
+| POST | `/ads/conversions/offline/upload` | Upload offline conversions. |
+| GET | `/ads/conversions/offline/batches` | List offline conversion batches. |
+| GET | `/ads/conversions/offline/batches/[id]` | Inspect a batch. |
+| POST | `/ads/conversions/offline/batches/[id]/process` | Process a batch. |
+| POST | `/ads/conversions/offline/batches/[id]/retry-failed` | Retry failed rows. |
+
+### Platform connections
+
+| Method | Path | Use |
+|---|---|---|
+| GET | `/ads/connections` | List connected ad platforms. |
+| DELETE | `/ads/connections/[platform]` | Disconnect a platform. |
+| POST | `/ads/connections/[platform]/authorize` | Start OAuth/connect flow. |
+| GET | `/ads/connections/[platform]/callback` | OAuth callback. |
+| POST | `/ads/connections/[platform]/refresh` | Refresh connection/account data. |
+| GET | `/ads/connections/[platform]/ad-accounts` | List ad accounts for a platform. |
+| PATCH | `/ads/connections/[platform]/ad-accounts/[id]` | Select/update an ad account. |
+| POST | `/ads/google/oauth/authorize` | Start Google OAuth. |
+| GET | `/ads/google/oauth/callback` | Google OAuth callback. |
+| GET | `/ads/google/customers` | List Google Ads customers. |
+| PATCH | `/ads/google/connections/[id]/customer` | Attach a Google customer. |
+| POST | `/ads/linkedin/oauth/authorize` | Start LinkedIn OAuth. |
+| GET | `/ads/linkedin/oauth/callback` | LinkedIn OAuth callback. |
+| GET | `/ads/linkedin/accounts` | List LinkedIn ad accounts. |
+| PATCH | `/ads/linkedin/connections/[id]/account` | Attach LinkedIn account. |
+| POST | `/ads/tiktok/oauth/authorize` | Start TikTok OAuth. |
+| GET | `/ads/tiktok/oauth/callback` | TikTok OAuth callback. |
+| GET | `/ads/tiktok/accounts` | List TikTok ad accounts. |
+| PATCH | `/ads/tiktok/connections/[id]/account` | Attach TikTok account. |
+
+### Platform-specific helpers and cron
+
+| Method | Path | Use |
+|---|---|---|
+| POST | `/ads/google/asset-groups` | Google asset group helper. |
+| GET | `/ads/google/audiences/browse` | Browse Google audiences. |
+| GET | `/ads/google/merchant-center` | List Merchant Center links. |
+| GET/PATCH/DELETE | `/ads/google/merchant-center/[id]` | Manage Merchant Center link. |
+| POST | `/ads/google/merchant-center/oauth/authorize` | Start Merchant Center OAuth. |
+| GET | `/ads/google/merchant-center/oauth/callback` | Merchant Center callback. |
+| POST | `/ads/google/video-assets` | Upload/register Google video asset. |
+| POST | `/ads/tiktok/creatives/upload` | Upload TikTok creative. |
+| GET | `/ads/tiktok/identities` | List TikTok identities. |
+| GET/POST | `/ads/cron/daily-insights-pull` | Pull daily insights. |
+| GET | `/ads/cron/budget-pacing-check` | Budget pacing check. |
+| GET | `/ads/cron/experiment-significance-check` | Experiment significance check. |
+| GET/POST | `/ads/cron/process-refresh-queue` | Process platform refresh queue. |
+
+Agents can draft campaigns, audiences, creatives, conversion configs, and experiments. Launching, pausing, submitting for review, syncing externally, changing budgets, and uploading customer lists are client-visible or spend-impacting; require explicit user approval or a platform approval state before execution.
+
 ## Context Intake (Required: Always Do This First)
 
 Before any audit or analysis, collect this context. Without it, benchmarks will
@@ -152,9 +302,9 @@ Do NOT show the footer after:
 
 Load these on-demand as needed; do NOT load all at startup.
 
-**Path resolution:** All references are installed at `~/.claude/skills/ads/references/`.
+**Path resolution:** All references are installed at `~/.Codex/skills/ads/references/`.
 When sub-skills or agents reference `ads/references/*.md`, resolve to
-`~/.claude/skills/ads/references/*.md`.
+`~/.Codex/skills/ads/references/*.md`.
 
 - `references/scoring-system.md`: Weighted scoring algorithm and grading thresholds
 - `references/benchmarks.md`: Industry benchmarks by platform (CPC, CTR, CVR, ROAS)

@@ -202,10 +202,12 @@ export function ContactDealsPanel({ contactId, contactName, orgId = '' }: Props)
             {loading ? '…' : `${deals.length} record${deals.length === 1 ? '' : 's'}`}
           </span>
           <button
+            type="button"
+            aria-label={`New deal for ${contactLabel}`}
             onClick={openNewDealDrawer}
             className="btn-pib-secondary text-xs flex items-center gap-1"
           >
-            <span className="material-symbols-outlined text-[14px]">add</span>
+            <span className="material-symbols-outlined text-[14px]" aria-hidden="true">add</span>
             New deal
           </button>
         </div>
@@ -306,6 +308,7 @@ export function ContactDealsPanel({ contactId, contactName, orgId = '' }: Props)
           </div>
           <button
             type="button"
+            aria-label={`Create first deal for ${contactLabel}`}
             onClick={openNewDealDrawer}
             className="btn-pib-secondary mx-auto mt-5 inline-flex items-center gap-1.5 text-xs"
           >

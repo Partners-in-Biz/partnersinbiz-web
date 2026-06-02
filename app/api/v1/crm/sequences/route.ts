@@ -6,6 +6,7 @@ import { withCrmAuth } from '@/lib/auth/crm-middleware'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { listSequences, createSequence } from '@/lib/sequences/store'
 import type { SequenceInput } from '@/lib/sequences/types'
+import { validateSequenceActivation } from '@/lib/sequences/validation'
 
 export const dynamic = 'force-dynamic'
 
@@ -65,6 +66,12 @@ export const POST = withCrmAuth('admin', async (req, ctx) => {
   // Ensure required SequenceInput fields have defaults
   if (!input.description) input.description = ''
   if (!input.status) input.status = 'draft'
+
+  const activationError = validateSequenceActivation({
+    status: input.status,
+    steps: input.steps,
+  })
+  if (activationError) return apiError(activationError, 400)
 
   try {
     const sequence = await createSequence(ctx.orgId, input as SequenceInput, ctx.actor)

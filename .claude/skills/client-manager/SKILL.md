@@ -2,7 +2,7 @@
 name: client-manager
 description: >
   Manage client organisations and onboarding on the Partners in Biz platform. Create orgs, invite and
-  manage team members, sync platform CRM Company/Contact links, generate client logins, update brand profiles, route portal
+  manage team members, link client records, generate client logins, update brand profiles, route portal
   enquiries and messages, and run product onboarding flows. Use this skill whenever the user mentions
   anything related to clients or organisations, including but not limited to: "create a client",
   "new client", "set up a new org", "create organisation", "onboard a client", "client onboarding",
@@ -20,7 +20,7 @@ description: >
 
 # Client Manager — Partners in Biz Platform API
 
-This skill handles the full client lifecycle on Partners in Biz: creating client organisations, managing members and roles, linking each client tenant to its platform-owner CRM Company and real client members to CRM Contacts, issuing portal logins, running product-specific onboarding flows, routing portal enquiries, and maintaining brand profiles that downstream skills (content, social, email) read from.
+This skill handles the full client lifecycle on Partners in Biz: creating client organisations, managing members and roles, linking CRM contacts to billing orgs, issuing portal logins, running product-specific onboarding flows, routing portal enquiries, and maintaining brand profiles that downstream skills (content, social, email) read from.
 
 ## Base URL & Authentication
 
@@ -59,14 +59,12 @@ When debugging "You do not have access to this organisation", first check explic
 
 Client organizations and members are mirrored into the Partners in Biz platform-owner CRM:
 
-- One CRM Company per client org in `pib-platform-owner`, deduped by `linkedOrgId` first, then normalized name/domain.
-- One CRM Contact per active real client member, deduped by `linkedUserId` first, then email, linked to that Company by `companyId` and `linkedOrgId`.
-- Client setup is not complete until the tenant org, its platform CRM Company, and its real member Contacts are in sync. Do not rely on the legacy `/clients` collection as the client/account source of truth.
-- Internal `@partnersinbiz.online` staff can be explicit portal members for support/admin access, but they are skipped as client Contacts during backfills and should not be counted as client stakeholders.
+- One Company per client org in `pib-platform-owner`, deduped by `linkedOrgId` then normalized name/domain.
+- One Contact per active real client member, deduped by `linkedUserId` then email, linked to the Company by `companyId`.
+- Internal `@partnersinbiz.online` staff are skipped as client contacts when backfilling client orgs.
 - Member removal marks the platform Contact inactive/former instead of deleting relationship history.
-- PiB-issued invoices, quotes, projects, and reports should reuse the platform CRM Company (`companyId` / `sourceCompanyId`) whose `linkedOrgId=<clientOrgId>` and the platform CRM Contact (`contactId` / `sourceContactId`) whose `linkedUserId=<client user id>` when a specific stakeholder is involved.
 
-App code should use `lib/platform-owner/relationships.ts`; existing-data repair uses `scripts/backfill-platform-owner-crm-relationships.ts` in dry-run mode before `--commit`, then `scripts/backfill-platform-owner-resource-company-links.ts` to attach existing PiB-issued resources to the Company links.
+App code should use `lib/platform-owner/relationships.ts`; existing-data repair uses `scripts/backfill-platform-owner-crm-relationships.ts` in dry-run mode before `--commit`.
 
 ## Collaboration primitives
 
@@ -123,8 +121,6 @@ Response (201): `{ "id": "org_xyz", "slug": "acme-corp" }`
 
 The creating user is added as `{ userId, role: 'owner' }` in `members`.
 
-Client-org creation should also ensure the platform-owner CRM Company exists for the org (`companies.orgId=pib-platform-owner`, `companies.linkedOrgId=<ORG_ID>`). If the route does not return the Company id, verify through CRM or run the platform-owner relationship backfill before creating PiB-issued invoices, quotes, or projects for the client.
-
 #### `GET /organizations/[id]` — auth: admin
 Full org document including `members[]`, `settings`, `brandProfile`, `billingDetails`.
 
@@ -148,16 +144,17 @@ If the user exists in Firebase Auth, they're added directly. If not, the route c
 
 If the user is an existing PiB staff/admin account, this also grants explicit client-portal access for that organization by updating `orgMembers` and mirroring the org into `users.orgIds`; it does not change the user's primary platform-owner account.
 
-Adding a real client member should sync a platform-owner CRM Contact linked to the client's Company (`contacts.linkedUserId=<uid>`, `contacts.linkedOrgId=<orgId>`, `contacts.companyId=<companyId>`). If the member is PiB internal staff, grant portal access but do not treat them as the client Contact for billing/project handoff.
-
-#### `GET /organizations/[id]/members/[userId]` — auth: admin
-Get a single member with user details.
-
-#### `PUT /organizations/[id]/members/[userId]` — auth: admin
-Update member role. Body: `{ role: 'owner'|'admin'|'member' }`. Cannot demote the last owner.
+#### `PATCH /organizations/[id]/members/[userId]` — auth: admin
+Update member role. Body: `{ role: 'owner'|'admin'|'member'|'viewer' }`. Cannot demote the last owner.
 
 #### `DELETE /organizations/[id]/members/[userId]` — auth: admin
 Remove a member. Cannot remove the last owner.
+
+#### `GET /organizations/[id]/members/client?q=...` — auth: admin
+Search existing client users who are not yet members of this organization. Requires at least 2 query characters.
+
+#### `POST /organizations/[id]/members/client` — auth: admin
+Add an existing client user to the organization. Body: `{ uid, role?: 'admin'|'member'|'viewer', accessScope? }`. Only users with `role: client` can be added through this flow.
 
 ### Org accounts (billing/stripe linkage placeholder)
 
@@ -167,9 +164,7 @@ Returns billing/subscription account details for the org (platform-owner-only re
 ### Link client
 
 #### `POST /organizations/[id]/link-client` — auth: admin
-Legacy association route. Body: `{ clientId: string }`. Sets `linkedClientId` on the org for backwards compatibility with old client/contact records.
-
-For current setup, the durable relationship is the platform-owner CRM Company/Contact link: `companies.linkedOrgId=<orgId>` and member `contacts.linkedUserId=<uid>` / `contacts.linkedOrgId=<orgId>`. Use `link-client` only when you must preserve an older `/clients` record reference.
+Associate a CRM contact/client with an org. Body: `{ clientId: string }`. Sets `linkedClientId` on org. Useful when a contact converts to a paying org.
 
 Response: `{ orgId, clientId, linked: true }`.
 
@@ -183,11 +178,11 @@ Provision a portal login for a client user. Body:
 
 Creates a Firebase Auth user (or links an existing one) and adds them to `members`. Sends a welcome email with a sign-in link. Returns `{ userId, inviteSent: true }`.
 
-New client logins and member updates should also keep the PiB platform-owner CRM Company/Contact relationship current through the platform CRM sync helper. After creating the primary login, verify the client has exactly one current platform CRM Company and that the primary stakeholder Contact is linked to it.
+New client logins and member updates should also keep the PiB platform-owner CRM Company/Contact relationship current through the platform CRM sync helper.
 
-### Clients (legacy/simple list — not the client setup source of truth)
+### Clients (legacy/simple list)
 
-A lightweight legacy "contact-of-contacts" collection used by older admin UI paths. Do not use it as the canonical client/account record for new setup. Current setup uses `organizations` for tenants plus platform-owner CRM `companies`/`contacts` for the business and people links. For full CRM power, use the `crm-sales` skill's `/crm/contacts` and `/crm/companies`.
+A lightweight "contact-of-contacts" collection used by the admin UI. For full CRM power, use the `crm-sales` skill's `/crm/contacts`.
 
 #### `GET /clients` — auth: admin
 List all clients ordered by `createdAt desc`.
@@ -215,9 +210,24 @@ Body (Athleet):
 
 Required: `product` (must be in `['athleet-management']`), `clubName`, `contactEmail` (valid). Creates a record in `onboarding_submissions` and emails the platform owner.
 
+### Public bookings and claims
+
+| Method | Route | Auth | Use |
+|---|---|---|---|
+| GET | `/api/bookings/slots` | public | List available booking slots. |
+| POST | `/api/bookings` | public | Create a booking request. |
+| PATCH | `/api/bookings/[id]` | admin/internal | Update a booking request. |
+| GET/POST | `/public/claims/[claimToken]` | public token | Read or claim token-backed client resources such as claimable billing/client records. |
+
 ### Portal enquiries
 
 Inbound enquiries from the public portal.
+
+#### `POST /api/enquiries` — public
+Public marketing-site enquiry submit endpoint.
+
+#### `PATCH /api/enquiries/[id]` — admin/internal
+Update an enquiry from the non-v1 public-site route family.
 
 #### `GET /portal/enquiries` — auth: admin
 List enquiries. Filter by `status` (`new`, `read`, `replied`, `archived`).
@@ -237,9 +247,44 @@ Inbox of messages between platform and client users across all orgs.
 #### `POST /portal/messages` — auth: admin or client
 Send a message. Body: `{ orgId, subject, body, threadId? }`.
 
+### Portal workspace operations
+
+Use these when acting as, supporting, or troubleshooting a client portal user. Portal scoping is based on the user's explicit org membership, not `allowedOrgIds`.
+
+| Method | Route | Auth | Notes |
+|---|---|---|---|
+| GET | `/portal/orgs` | client | Lists portal orgs the current user can enter. The Admin/Portal switch depends on this. |
+| GET | `/portal/org` | client | Returns the active portal org summary/profile. |
+| GET/POST | `/portal/active-org` | client | Read or switch active portal org; POST target must be in the user's orgs. |
+| GET | `/portal/dashboard` | client | Client portal dashboard snapshot. |
+| GET | `/portal/data-export?format=csv|json&from=YYYY-MM-DD&to=YYYY-MM-DD` | client | Export portal-accessible CRM/data records. |
+| GET | `/portal/reports` | client | List generated reports for the active portal org. |
+| GET/PATCH | `/portal/settings/organization` | client | Read/update organization settings. |
+| GET/PATCH | `/portal/settings/profile` | client | Read/update the user's portal profile. |
+| GET/PATCH | `/portal/settings/permissions` | client admin | Read/update CRM/team permissions. |
+| GET | `/portal/settings/team` | client | List team members. |
+| POST | `/portal/settings/team/invite` | client admin | Invite a team member. |
+| PATCH | `/portal/settings/team/[uid]/role` | client admin | Change a member role. |
+| DELETE | `/portal/settings/team/[uid]` | client admin | Remove a member. |
+| GET/PUT | `/portal/mobile-apps` | client | Read/update mobile-app configuration visible to the client. |
+| GET/PUT/DELETE | `/mobile-apps/[id]` | admin/client | Read/update/delete a mobile-app record. |
+| GET/POST | `/portal/support` | client | List/create support tickets. |
+| GET/POST | `/portal/support/[id]/messages` | client | Read/add support ticket messages. |
+| GET | `/portal/knowledge` | client | Read portal knowledge context. |
+| POST | `/portal/campaign-requests` | client | Submit a client portal campaign request. |
+
+Before doing portal work for a human, call `/portal/orgs` or `/portal/active-org` to confirm the active org. If the requested org is missing, add explicit membership with `POST /organizations/[id]/members`; do not try to solve it with `allowedOrgIds`.
+
 ### Brand profile
 
 Agents depend on this endpoint for every piece of content, design, or copy they generate. **Always call `GET /agent/brand/[orgId]` before producing any output for a client.** The profile is the single source of truth.
+
+Portal users can manage the same brand surface from their active org:
+
+| Method | Route | Auth | Notes |
+|---|---|---|---|
+| GET/PUT | `/portal/brand-profile` | client | Read/update the active portal org brand profile. |
+| POST | `/portal/brand-profile/upload` | client | Upload an image asset for the brand profile; image files only. |
 
 #### `GET /agent/brand/[orgId]` — auth: admin
 Returns the full brand profile. Key fields:
@@ -542,10 +587,6 @@ POST /organizations
 { "name": "Acme Corp", "type": "client", "industry": "SaaS", "billingEmail": "billing@acme.com" }
 # → { id: "org_abc", slug: "acme-corp" }
 
-# 1b. Confirm/repair platform-owner CRM relationship before downstream work
-# Expected: one Company in pib-platform-owner with linkedOrgId=org_abc.
-# If missing for existing data, run scripts/backfill-platform-owner-crm-relationships.ts --orgId org_abc first in dry-run, then --commit.
-
 # 2. Set brand profile (optional but recommended before content generation)
 PUT /agent/brand/org_abc
 { "brandProfile": { "voice": "confident, warm", "audience": "SMB founders" },
@@ -560,7 +601,6 @@ PUT /organizations/org_abc
 # 4. Create login for primary contact
 POST /organizations/org_abc/create-login
 { "email": "jane@acme.com", "displayName": "Jane Doe", "role": "owner" }
-# Expected: platform-owner Contact linkedUserId=<created uid>, linkedOrgId=org_abc, companyId=<Acme Company id>
 
 # 5. Kick off onboarding (if applicable product)
 POST /onboarding
@@ -578,7 +618,7 @@ POST /comments
 POST /organizations/org_abc/members       # invite
 { "email": "alex@acme.com", "role": "admin" }
 
-PUT /organizations/org_abc/members/user_xyz
+PATCH /organizations/org_abc/members/user_xyz
 { "role": "member" }                       # demote
 
 DELETE /organizations/org_abc/members/user_xyz

@@ -37,14 +37,23 @@ function timestampMillis(value: unknown): number {
   return 0
 }
 
+async function resolveOrgIdFromContact(contactId: string): Promise<string | null> {
+  if (!contactId.trim()) return null
+  const snap = await adminDb.collection('contacts').doc(contactId.trim()).get()
+  if (!snap.exists) return null
+  const orgId = snap.data()?.orgId
+  return typeof orgId === 'string' && orgId.trim() ? orgId.trim() : null
+}
+
 export const GET = withAuth('client', async (req: NextRequest, user) => {
   const { searchParams } = new URL(req.url)
-  const scope = resolveOrgScope(user, searchParams.get('orgId'))
+  const contactId = searchParams.get('contactId') ?? ''
+  const requestedOrgId = searchParams.get('orgId') ?? await resolveOrgIdFromContact(contactId)
+  const scope = resolveOrgScope(user, requestedOrgId)
   if (!scope.ok) return apiError(scope.error, scope.status)
   const orgId = scope.orgId
   const direction = searchParams.get('direction') as EmailDirection | null
   const status = searchParams.get('status') as EmailStatus | null
-  const contactId = searchParams.get('contactId') ?? ''
   const campaignId = searchParams.get('campaignId') ?? ''
   const limit = Math.min(parseInt(searchParams.get('limit') ?? '50'), 200)
   const page = Math.max(parseInt(searchParams.get('page') ?? '1'), 1)

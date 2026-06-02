@@ -5,6 +5,7 @@ import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { lastActorFrom } from '@/lib/api/actor'
 import { generateIngestKey } from '@/lib/properties/ingest-key'
+import { canAccessOrg } from '@/lib/api/platformAdmin'
 
 export const dynamic = 'force-dynamic'
 
@@ -16,6 +17,7 @@ export const POST = withAuth('admin', async (_req: NextRequest, user, ctx) => {
     const ref = adminDb.collection('properties').doc(id)
     const snap = await ref.get()
     if (!snap.exists || snap.data()?.deleted) return apiError('Not found', 404)
+    if (!canAccessOrg(user, snap.data()?.orgId)) return apiError('Forbidden', 403)
 
     const ingestKey = generateIngestKey()
 

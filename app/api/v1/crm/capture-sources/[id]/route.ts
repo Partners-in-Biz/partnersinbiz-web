@@ -17,6 +17,14 @@ import { generatePublicKey, type CaptureSource } from '@/lib/crm/captureSources'
 
 type RouteCtx = { params: Promise<{ id: string }> }
 
+function stringList(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  return value
+    .filter((item): item is string => typeof item === 'string')
+    .map((item) => item.trim())
+    .filter(Boolean)
+}
+
 // ---------------------------------------------------------------------------
 // Tenant-scoped loader — returns 404 for missing OR cross-org OR deleted docs
 // ---------------------------------------------------------------------------
@@ -60,8 +68,9 @@ export const PUT = withCrmAuth<RouteCtx>('admin', async (req: NextRequest, ctx, 
   const editable: Record<string, unknown> = {}
   if (typeof body.name === 'string') editable.name = body.name.trim()
   if (typeof body.enabled === 'boolean') editable.enabled = body.enabled
-  if (Array.isArray(body.autoTags)) editable.autoTags = body.autoTags
-  if (Array.isArray(body.autoCampaignIds)) editable.autoCampaignIds = body.autoCampaignIds
+  if (Array.isArray(body.autoTags)) editable.autoTags = stringList(body.autoTags)
+  if (Array.isArray(body.autoCampaignIds)) editable.autoCampaignIds = stringList(body.autoCampaignIds)
+  if (Array.isArray(body.autoSequenceIds)) editable.autoSequenceIds = stringList(body.autoSequenceIds)
   if (typeof body.redirectUrl === 'string') editable.redirectUrl = body.redirectUrl
   if (typeof body.consentRequired === 'boolean') editable.consentRequired = body.consentRequired
   if (body.rotateKey === true) editable.publicKey = generatePublicKey()

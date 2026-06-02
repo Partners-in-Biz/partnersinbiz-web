@@ -48,15 +48,13 @@ export const POST = withCrmAuth('admin', async (req, ctx) => {
   }
 
   // NEVER_FROM_BODY: id, orgId, createdAt, updatedAt, createdByRef, updatedByRef
-  const {
-    id: _id,
-    orgId: _orgId,
-    createdAt: _createdAt,
-    updatedAt: _updatedAt,
-    createdByRef: _createdByRef,
-    updatedByRef: _updatedByRef,
-    ...rest
-  } = body
+  const rest = { ...body }
+  delete rest.id
+  delete rest.orgId
+  delete rest.createdAt
+  delete rest.updatedAt
+  delete rest.createdByRef
+  delete rest.updatedByRef
 
   const input: Partial<ProductInput> = {
     name: (rest.name as string).trim(),

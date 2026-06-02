@@ -35,6 +35,8 @@
  *   - If source.autoCampaignIds includes any *active* campaigns, an enrollment
  *     is created for each (idempotent — skips already-enrolled). First-step
  *     `nextSendAt` honors the sequence's first-step delay.
+ *   - If source.autoSequenceIds includes any *active* sequences, direct
+ *     sequence enrollments are also created idempotently.
  *   - 'contact_captured' activity logged on first creation
  */
 import { NextRequest, NextResponse } from 'next/server'
@@ -275,6 +277,56 @@ export async function POST(req: NextRequest, context: Params) {
       })
     } catch (err) {
       console.error('[capture] auto-enroll failed', { campaignId, contactId }, err)
+    }
+  }
+
+  // ── 8. Auto-enroll directly into active sequences ─────────────────────────
+  // Capture sources can route leads straight into nurture without requiring a
+  // campaign wrapper. Existing sequence_enrollments use campaignId="" for this.
+  for (const sequenceId of source.autoSequenceIds ?? []) {
+    try {
+      const seqSnap = await adminDb.collection('sequences').doc(sequenceId).get()
+      if (!seqSnap.exists) continue
+      const sequence = seqSnap.data() as Sequence
+      if (sequence.deleted || sequence.status !== 'active') continue
+      if (sequence.orgId !== source.orgId) continue
+      if (!sequence.steps?.length) continue
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const existing = await (adminDb.collection('sequence_enrollments') as any)
+        .where('sequenceId', '==', sequenceId)
+        .where('contactId', '==', contactId)
+        .limit(1)
+        .get()
+      if (!existing.empty) continue
+
+      const firstStep = sequence.steps[0]
+      const delayMs = (firstStep.delayDays ?? 0) * 24 * 60 * 60 * 1000
+      const nextSendAt = Timestamp.fromDate(new Date(Date.now() + delayMs))
+
+      await adminDb.collection('sequence_enrollments').add({
+        orgId: source.orgId,
+        campaignId: '',
+        sequenceId,
+        contactId,
+        status: 'active',
+        currentStep: 0,
+        enrolledAt: FieldValue.serverTimestamp(),
+        nextSendAt,
+        deleted: false,
+      })
+
+      await adminDb.collection('activities').add({
+        orgId: source.orgId,
+        contactId,
+        type: 'sequence_enrolled',
+        summary: `Auto-enrolled in sequence: ${sequence.name}`,
+        metadata: { sequenceId, sourceId: source.id },
+        createdBy: 'capture',
+        createdAt: FieldValue.serverTimestamp(),
+      })
+    } catch (err) {
+      console.error('[capture] direct sequence auto-enroll failed', { sequenceId, contactId }, err)
     }
   }
 

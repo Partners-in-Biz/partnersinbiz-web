@@ -14,6 +14,7 @@ import { loadCompany } from '@/lib/companies/store'
 import { getDefinitionsForResource } from '@/lib/customFields/store'
 import { validateCustomFields } from '@/lib/customFields/validation'
 import { loadPipeline, getDefaultPipelineForOrg } from '@/lib/pipelines/store'
+import { normalizeDealCommercialFields } from '@/lib/crm/deals'
 
 async function deriveCompanyFromContact(contactId: string, orgId: string): Promise<{ companyId?: string; companyName?: string }> {
   try {
@@ -147,6 +148,12 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
       enteredAt: Timestamp.now(),
       enteredByRef: actorRef,
     }],
+  }
+
+  try {
+    Object.assign(dealData, normalizeDealCommercialFields(body, currency as Currency))
+  } catch (err) {
+    return apiError(err instanceof Error ? err.message : 'Invalid deal commercial fields', 400)
   }
 
   // Auto-derive companyId from contact when not explicitly provided

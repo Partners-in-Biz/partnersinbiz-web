@@ -6,6 +6,7 @@ import { apiSuccess, apiError } from '@/lib/api/response'
 import { notifyNewComment } from '@/lib/notifications/notify'
 import { logActivity } from '@/lib/activity/log'
 import { getProjectForUser } from '@/lib/projects/access'
+import { adminProjectTaskLink } from '@/lib/projects/links'
 import { resolveContextReferences } from '@/lib/context-references/registry'
 import {
   sanitizeContextReferenceSeeds,
@@ -137,6 +138,9 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
     // Send notification for new comment
     const projectDoc = await adminDb.collection('projects').doc(projectId).get()
     const notificationOrgId = projectDoc.data()?.orgId
+    const viewUrl = typeof notificationOrgId === 'string'
+      ? await adminProjectTaskLink({ db: adminDb, orgId: notificationOrgId, projectId, taskId })
+      : `/admin/projects?projectId=${encodeURIComponent(projectId)}&taskId=${encodeURIComponent(taskId)}`
 
     notifyNewComment({
       commentText: text.trim(),
@@ -144,7 +148,7 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
       commenterRole: userRole,
       context: `task "${taskTitle}"`,
       orgId: notificationOrgId,
-      viewUrl: `/admin/org/${projectDoc.data()?.orgSlug ?? ''}/projects/${projectId}?taskId=${encodeURIComponent(taskId)}`,
+      viewUrl,
     }).catch(() => {})
 
     // Log activity event (fire and forget)

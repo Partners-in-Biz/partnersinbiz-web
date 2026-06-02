@@ -8,6 +8,7 @@ import { lastCompletedMonth, monthPeriod } from '@/lib/reports/snapshot'
 import type { ReportType } from '@/lib/reports/types'
 import { adminDb } from '@/lib/firebase/admin'
 import { canAccessOrg } from '@/lib/api/platformAdmin'
+import { analyticsPropertyErrorResponse, requireAnalyticsProperty } from '@/lib/analytics/property-access'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -40,6 +41,16 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
     return NextResponse.json({ error: 'orgId required' }, { status: 400 })
   }
   if (!canAccessOrg(user, body.orgId)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+
+  if (body.propertyId) {
+    try {
+      await requireAnalyticsProperty(user, { propertyId: body.propertyId, orgId: body.orgId })
+    } catch (err) {
+      const propertyError = analyticsPropertyErrorResponse(err)
+      if (propertyError) return propertyError
+      throw err
+    }
+  }
 
   // Resolve org timezone (default UTC).
   const orgDoc = await adminDb.collection('organizations').doc(body.orgId).get()

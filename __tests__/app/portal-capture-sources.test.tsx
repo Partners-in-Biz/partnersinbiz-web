@@ -31,6 +31,7 @@ beforeEach(() => {
                 enabled: true,
                 autoTags: ['website', 'priority'],
                 autoCampaignIds: ['campaign-1'],
+                autoSequenceIds: ['seq-1'],
                 redirectUrl: 'https://example.com/thanks',
                 consentRequired: true,
                 capturedCount: 32,
@@ -47,6 +48,7 @@ beforeEach(() => {
                 enabled: false,
                 autoTags: [],
                 autoCampaignIds: [],
+                autoSequenceIds: [],
                 redirectUrl: '',
                 consentRequired: false,
                 capturedCount: 0,
@@ -67,11 +69,33 @@ beforeEach(() => {
           }),
       })
     }
+    if (url.startsWith('/api/v1/crm/sequences')) {
+      return Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            data: {
+              sequences: [{ id: 'seq-1', name: 'Website welcome sequence', status: 'active' }],
+            },
+          }),
+      })
+    }
     return Promise.resolve({ ok: true, json: () => Promise.resolve({ data: [] }) })
   })
 })
 
 describe('PortalCaptureSourcesPage', () => {
+  it('names intake setup commands without decorative icon text', async () => {
+    render(<PortalCaptureSourcesPage />)
+
+    expect(await screen.findByRole('link', { name: 'Import CSV' })).toHaveAttribute(
+      'href',
+      '/portal/capture-sources/import',
+    )
+    expect(screen.queryByRole('link', { name: 'upload_file Import CSV' })).not.toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Capture source type' })).toBeInTheDocument()
+  })
+
   it('renders capture sources as a lead intake command center', async () => {
     render(<PortalCaptureSourcesPage />)
 
@@ -90,6 +114,15 @@ describe('PortalCaptureSourcesPage', () => {
     expect(screen.getAllByText('Paused').length).toBeGreaterThan(0)
     expect(screen.getByText('Auto-enrolls')).toBeInTheDocument()
     expect(screen.getByText('No captures yet')).toBeInTheDocument()
+  })
+
+  it('shows sequence enrollment controls for capture sources', async () => {
+    render(<PortalCaptureSourcesPage />)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Details for Homepage enquiry form' }))
+
+    expect(await screen.findByText('Auto-enroll sequences')).toBeInTheDocument()
+    expect(screen.getByLabelText('Website welcome sequence')).toBeChecked()
   })
 
   it('turns an empty capture-source list into a first-channel setup action', async () => {

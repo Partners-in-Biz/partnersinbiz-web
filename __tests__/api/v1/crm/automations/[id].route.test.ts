@@ -30,8 +30,13 @@ jest.mock('@/lib/automations/store', () => ({
   markFailed: jest.fn(),
 }))
 
+jest.mock('@/lib/sequences/store', () => ({
+  getSequence: jest.fn(),
+}))
+
 import { adminAuth, adminDb } from '@/lib/firebase/admin'
 import * as automationStore from '@/lib/automations/store'
+import * as sequenceStore from '@/lib/sequences/store'
 import { seedOrgMember, callAsMember } from '../../../../helpers/crm'
 
 const AI_API_KEY = 'test-ai-key-automations-id'
@@ -107,6 +112,13 @@ function makeCtx(id: string) {
 
 beforeEach(() => {
   jest.clearAllMocks()
+  ;(sequenceStore.getSequence as jest.Mock).mockResolvedValue({
+    id: 'seq-active',
+    orgId: 'org-1',
+    name: 'Active welcome',
+    status: 'active',
+    steps: [{ stepNumber: 0, delayDays: 0, subject: 'Hi', bodyHtml: '<p>Hi</p>', bodyText: 'Hi' }],
+  })
 })
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -190,6 +202,28 @@ describe('PUT /api/v1/crm/automations/:id', () => {
     expect(calledPatch).not.toHaveProperty('updatedAt')
     expect(calledPatch).not.toHaveProperty('createdByRef')
     expect(calledPatch).not.toHaveProperty('updatedByRef')
+  })
+
+  it('returns 400 when updated actions target an inactive enrollment sequence', async () => {
+    const uid = uidFor('admin-put-inactive-sequence')
+    const member = seedOrgMember('org-1', uid, { role: 'admin' })
+    stageAuth(member)
+    ;(sequenceStore.getSequence as jest.Mock).mockResolvedValueOnce({
+      id: 'seq-paused',
+      orgId: 'org-1',
+      name: 'Paused welcome',
+      status: 'paused',
+      steps: [{ stepNumber: 0, delayDays: 0, subject: 'Hi', bodyHtml: '<p>Hi</p>', bodyText: 'Hi' }],
+    })
+
+    const req = callAsMember(member, 'PUT', '/api/v1/crm/automations/rule-1', {
+      actions: [{ type: 'enroll_in_sequence', sequenceId: 'seq-paused' }],
+    })
+    const res = await routeModule.PUT(req, makeCtx('rule-1'))
+
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toMatch(/active sequence/i)
+    expect(automationStore.updateRule).not.toHaveBeenCalled()
   })
 })
 

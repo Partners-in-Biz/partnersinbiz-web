@@ -268,6 +268,19 @@ describe('ContactDealsPanel', () => {
     expect(screen.getByText('Forecast ready')).toBeInTheDocument()
   })
 
+  it('names contact deal creation commands without decorative icon text', async () => {
+    mockFetch.mockReturnValue(apiResponse([]))
+    render(<ContactDealsPanel contactId="contact-1" contactName="Ava Owner" />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: "Start Ava Owner's first opportunity." })).toBeInTheDocument()
+    })
+
+    expect(screen.getByRole('button', { name: 'New deal for Ava Owner' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Create first deal for Ava Owner' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'add New deal' })).not.toBeInTheDocument()
+  })
+
   it('calls the correct API endpoint with the contactId', async () => {
     mockFetch.mockReturnValue(apiResponse([]))
     render(<ContactDealsPanel contactId="abc-123" />)

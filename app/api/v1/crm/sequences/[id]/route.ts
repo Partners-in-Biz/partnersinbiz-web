@@ -7,6 +7,7 @@ import { withCrmAuth } from '@/lib/auth/crm-middleware'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { getSequence, updateSequence, deleteSequence } from '@/lib/sequences/store'
 import type { SequenceInput } from '@/lib/sequences/types'
+import { mergeSequenceForActivationValidation, validateSequenceActivation } from '@/lib/sequences/validation'
 
 export const dynamic = 'force-dynamic'
 
@@ -62,6 +63,15 @@ export const PUT = withCrmAuth<RouteCtx>('admin', async (req, ctx, routeCtx) => 
   if (rest.deleted !== undefined) patch.deleted = rest.deleted as boolean
 
   try {
+    if (patch.status === 'active' || patch.steps !== undefined) {
+      const existing = await getSequence(ctx.orgId, id)
+      if (!existing) return apiError('Not found', 404)
+      const activationError = validateSequenceActivation(
+        mergeSequenceForActivationValidation(existing, patch),
+      )
+      if (activationError) return apiError(activationError, 400)
+    }
+
     const sequence = await updateSequence(ctx.orgId, id, patch, ctx.actor)
     return apiSuccess({ sequence })
   } catch (err) {

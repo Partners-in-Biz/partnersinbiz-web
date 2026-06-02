@@ -7,9 +7,13 @@ type ProjectResponse = { data: Array<{ id: string }> }
 const mockAdd = jest.fn()
 const mockProjectDoc = jest.fn()
 const mockProjectUpdate = jest.fn()
+const mockProjectGetById = jest.fn()
+const mockProjectDelete = jest.fn()
 const mockProjectMemberDoc = jest.fn()
 const mockProjectMemberSet = jest.fn()
 const mockCollection = jest.fn()
+const mockRecursiveDelete = jest.fn()
+const mockActivityAdd = jest.fn()
 const mockOrgWhere = jest.fn()
 const mockOrgLimit = jest.fn()
 const mockOrgGet = jest.fn()
@@ -29,7 +33,7 @@ const mockEnsurePlatformCompanyForOrg = jest.fn()
 let mockUser: MockUser = { uid: 'admin-1', role: 'admin', orgId: 'platform' }
 
 jest.mock('@/lib/firebase/admin', () => ({
-  adminDb: { collection: mockCollection },
+  adminDb: { collection: mockCollection, recursiveDelete: mockRecursiveDelete },
 }))
 
 jest.mock('@/lib/api/auth', () => ({
@@ -81,7 +85,18 @@ beforeEach(() => {
   }
   mockProjectWhere.mockReturnValue(scopedProjectQuery)
   mockProjectOrderBy.mockReturnValue(scopedProjectQuery)
-  mockProjectDoc.mockReturnValue({ update: mockProjectUpdate })
+  mockProjectDoc.mockReturnValue({
+    get: mockProjectGetById,
+    update: mockProjectUpdate,
+    delete: mockProjectDelete,
+  })
+  mockProjectGetById.mockResolvedValue({
+    exists: true,
+    data: () => ({ orgId: 'platform', name: 'Project to delete' }),
+  })
+  mockProjectDelete.mockResolvedValue(undefined)
+  mockRecursiveDelete.mockResolvedValue(undefined)
+  mockActivityAdd.mockResolvedValue({ id: 'activity-1' })
   mockProjectUpdate.mockResolvedValue(undefined)
   mockProjectMemberDoc.mockReturnValue({ set: mockProjectMemberSet })
   mockProjectMemberSet.mockResolvedValue(undefined)
@@ -109,6 +124,7 @@ beforeEach(() => {
     if (name === 'projectMembers') return { doc: mockProjectMemberDoc }
     if (name === 'companies') return { doc: mockCompanyDoc }
     if (name === 'contacts') return { doc: mockContactDoc }
+    if (name === 'activity') return { add: mockActivityAdd }
     throw new Error(`Unexpected collection: ${name}`)
   })
 })
@@ -348,5 +364,25 @@ describe('POST /api/v1/projects', () => {
       claimToken: 'claim-token-1',
       claimStatus: 'claimed',
     }))
+  })
+})
+
+describe('DELETE /api/v1/projects', () => {
+  it('recursively deletes the project document and nested task subcollections', async () => {
+    const projectRef = {
+      get: mockProjectGetById,
+      update: mockProjectUpdate,
+      delete: mockProjectDelete,
+    }
+    mockProjectDoc.mockReturnValue(projectRef)
+
+    const { DELETE } = await import('@/app/api/v1/projects/route')
+    const req = new NextRequest('http://localhost/api/v1/projects?id=project-1', { method: 'DELETE' })
+    const res = await DELETE(req)
+
+    expect(res.status).toBe(200)
+    expect(mockProjectDoc).toHaveBeenCalledWith('project-1')
+    expect(mockRecursiveDelete).toHaveBeenCalledWith(projectRef)
+    expect(mockProjectDelete).not.toHaveBeenCalled()
   })
 })

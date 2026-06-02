@@ -5,7 +5,8 @@
 import { withCrmAuth } from '@/lib/auth/crm-middleware'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { listRules, createRule } from '@/lib/automations/store'
-import type { AutomationRuleInput, TriggerEvent } from '@/lib/automations/types'
+import type { AutomationAction, AutomationRuleInput, TriggerEvent } from '@/lib/automations/types'
+import { validateAutomationActionsForSave } from '@/lib/automations/validation'
 
 export const dynamic = 'force-dynamic'
 
@@ -67,12 +68,15 @@ export const POST = withCrmAuth('admin', async (req, ctx) => {
     return apiError('actions must be a non-empty array', 400)
   }
 
-  const actions = body.actions as Record<string, unknown>[]
+  const actions = body.actions as AutomationAction[]
   for (const action of actions) {
     if (!action.type) {
       return apiError('each action must have a type field', 400)
     }
   }
+
+  const actionError = await validateAutomationActionsForSave(ctx.orgId, actions)
+  if (actionError) return apiError(actionError, 400)
 
   // NEVER_FROM_BODY: id, orgId, createdAt, updatedAt, createdByRef, updatedByRef
   const {

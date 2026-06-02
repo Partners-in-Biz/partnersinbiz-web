@@ -482,7 +482,7 @@ export default function ContactDetailPage() {
   const typeLabel = displayLabel(contact?.type, TYPE_LABELS)
   const sourceLabel = displayLabel(contact?.source, SOURCE_LABELS)
   const composeEmailHref = contact?.email
-    ? `/admin/email/compose?to=${encodeURIComponent(contact.email)}&contactId=${encodeURIComponent(id)}`
+    ? `/admin/email/compose?to=${encodeURIComponent(contact.email)}&contactId=${encodeURIComponent(id)}${contact.orgId ? `&orgId=${encodeURIComponent(contact.orgId)}` : ''}`
     : ''
 
   if (loading) {

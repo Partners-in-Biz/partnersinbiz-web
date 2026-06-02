@@ -441,7 +441,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
                   title="Switch to admin view"
                   className="hidden md:flex items-center gap-1.5 px-2.5 h-8 rounded-lg text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.05] transition-colors"
                 >
-                  <span className="material-symbols-outlined text-[18px]">admin_panel_settings</span>
+                  <span className="material-symbols-outlined text-[18px]">person</span>
                   <span className="hidden lg:inline">Admin</span>
                 </Link>
               )}
@@ -534,7 +534,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
                   href={adminViewHref}
                   className="flex items-center gap-2 px-3 py-2 text-sm text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] rounded-lg hover:bg-white/[0.04]"
                 >
-                  <span className="material-symbols-outlined text-[18px]">admin_panel_settings</span>
+                  <span className="material-symbols-outlined text-[18px]">person</span>
                   Switch to admin view
                 </Link>
               )}
@@ -625,7 +625,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
               aria-label="Switch to admin view"
               className="h-8 w-8 border-l border-[var(--color-pib-line)] flex items-center justify-center text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.05] transition-colors"
             >
-              <span className="material-symbols-outlined text-[18px]">admin_panel_settings</span>
+              <span className="material-symbols-outlined text-[18px]">person</span>
             </Link>
           )}
         </div>
@@ -638,7 +638,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
               aria-label="Switch to admin view"
               className="mx-auto my-2 flex h-8 w-8 items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.05] transition-colors"
             >
-              <span className="material-symbols-outlined text-[18px]">admin_panel_settings</span>
+              <span className="material-symbols-outlined text-[18px]">person</span>
             </Link>
           </div>
         )}
@@ -769,7 +769,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
                 title="Switch to admin view"
                 className="hidden md:flex items-center gap-1.5 px-2.5 h-8 rounded-lg text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.05] transition-colors"
               >
-                <span className="material-symbols-outlined text-[18px]">admin_panel_settings</span>
+                <span className="material-symbols-outlined text-[18px]">person</span>
                 <span className="hidden lg:inline">Admin</span>
               </Link>
             )}

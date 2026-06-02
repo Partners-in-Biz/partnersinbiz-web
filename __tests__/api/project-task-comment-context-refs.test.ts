@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server'
+import { notifyNewComment } from '@/lib/notifications/notify'
 
 const mockGetProjectForUser = jest.fn()
 const mockResolveContextReferences = jest.fn()
@@ -12,6 +13,10 @@ const mockTasksCollection = jest.fn()
 const mockProjectGet = jest.fn()
 const mockProjectDoc = jest.fn()
 const mockUserDoc = jest.fn()
+const mockOrganizationGet = jest.fn()
+const mockOrganizationDoc = jest.fn()
+const mockOrganizationWhereGet = jest.fn()
+const mockOrganizationWhere = jest.fn()
 const mockCollection = jest.fn()
 
 jest.mock('firebase-admin/firestore', () => ({
@@ -115,9 +120,17 @@ beforeEach(() => {
   mockUserDoc.mockReturnValue({
     get: jest.fn(async () => ({ exists: true, data: () => ({ displayName: 'Peet Stander' }) })),
   })
+  mockOrganizationGet.mockResolvedValue({
+    exists: true,
+    data: () => ({ slug: 'test-org' }),
+  })
+  mockOrganizationDoc.mockReturnValue({ get: mockOrganizationGet })
+  mockOrganizationWhereGet.mockResolvedValue({ docs: [] })
+  mockOrganizationWhere.mockReturnValue({ limit: () => ({ get: mockOrganizationWhereGet }) })
   mockCollection.mockImplementation((name: string) => {
     if (name === 'projects') return { doc: mockProjectDoc }
     if (name === 'users') return { doc: mockUserDoc }
+    if (name === 'organizations') return { doc: mockOrganizationDoc, where: mockOrganizationWhere }
     throw new Error(`Unexpected collection ${name}`)
   })
 })
@@ -155,6 +168,31 @@ describe('project task comment context refs', () => {
     expect(mockCommentSet).toHaveBeenCalledWith(expect.objectContaining({
       text: 'Jane confirmed the requirements.',
       contextRefs: resolvedRefs,
+    }))
+  })
+
+  it('resolves task comment notification links from orgId when the project has no orgSlug', async () => {
+    mockProjectGet.mockResolvedValue({
+      data: () => ({ orgId: 'org-1' }),
+    })
+    mockOrganizationGet.mockResolvedValue({
+      exists: true,
+      data: () => ({ slug: 'lumen-speeds' }),
+    })
+
+    const { POST } = await import('@/app/api/v1/projects/[projectId]/tasks/[taskId]/comments/route')
+    const res = await POST(new NextRequest('http://localhost/api/v1/projects/project-1/tasks/task-1/comments', {
+      method: 'POST',
+      body: JSON.stringify({ text: 'This needs a working email link.' }),
+    }), {
+      params: Promise.resolve({ projectId: 'project-1', taskId: 'task-1' }),
+    })
+
+    expect(res.status).toBe(201)
+    expect(mockOrganizationDoc).toHaveBeenCalledWith('org-1')
+    expect(notifyNewComment).toHaveBeenCalledWith(expect.objectContaining({
+      orgId: 'org-1',
+      viewUrl: '/admin/org/lumen-speeds/projects/project-1?taskId=task-1',
     }))
   })
 })

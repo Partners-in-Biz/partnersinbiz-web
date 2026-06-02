@@ -12,6 +12,12 @@ interface CampaignSummary {
   status: string
 }
 
+interface SequenceSummary {
+  id: string
+  name: string
+  status: string
+}
+
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://partnersinbiz.online'
 
 const TYPE_STYLES: Record<CaptureSourceType, string> = {
@@ -81,7 +87,10 @@ function MetricCard({
           </p>
           <p className="mt-2 text-2xl font-display text-[var(--color-pib-text)]">{value}</p>
         </div>
-        <span className="material-symbols-outlined rounded-lg border border-[var(--color-pib-line)] bg-white/[0.04] p-2 text-[18px] text-[var(--color-pib-text-muted)]">
+        <span
+          className="material-symbols-outlined rounded-lg border border-[var(--color-pib-line)] bg-white/[0.04] p-2 text-[18px] text-[var(--color-pib-text-muted)]"
+          aria-hidden="true"
+        >
           {icon}
         </span>
       </div>
@@ -122,12 +131,14 @@ function buildCurl(publicKey: string): string {
 function SourceCard({
   source,
   campaigns,
+  sequences,
   initiallyExpanded,
   onUpdated,
   onDeleted,
 }: {
   source: CaptureSource
   campaigns: CampaignSummary[]
+  sequences: SequenceSummary[]
   initiallyExpanded: boolean
   onUpdated: (s: CaptureSource) => void
   onDeleted: (id: string) => void
@@ -205,6 +216,10 @@ function SourceCard({
     await patch({ autoCampaignIds: ids })
   }
 
+  async function handleSequencesChange(ids: string[]) {
+    await patch({ autoSequenceIds: ids })
+  }
+
   async function handleRotateKey() {
     if (!confirm('Rotate the public key? Any forms or integrations using the current key will immediately stop working.')) return
     await patch({ rotateKey: true })
@@ -236,22 +251,33 @@ function SourceCard({
     handleCampaignsChange(Array.from(set))
   }
 
+  function toggleSequence(id: string) {
+    const set = new Set(source.autoSequenceIds ?? [])
+    if (set.has(id)) set.delete(id)
+    else set.add(id)
+    handleSequencesChange(Array.from(set))
+  }
+
   const captured = source.capturedCount ?? 0
   const lastAt = fmtTimestamp(source.lastCapturedAt)
   const tagCount = source.autoTags?.length ?? 0
   const campaignCount = source.autoCampaignIds?.length ?? 0
+  const sequenceCount = source.autoSequenceIds?.length ?? 0
   const readinessItems = [
     source.enabled ? 'Live' : 'Paused',
     captured > 0 ? `${captured} captured` : 'No captures yet',
     tagCount > 0 ? `${tagCount} auto-tag${tagCount === 1 ? '' : 's'}` : 'No auto-tags',
-    campaignCount > 0 ? 'Auto-enrolls' : 'No nurture',
+    campaignCount + sequenceCount > 0 ? 'Auto-enrolls' : 'No nurture',
   ]
 
   return (
     <div className="rounded-xl bg-[var(--color-pib-surface)] border border-[var(--color-pib-line)] overflow-hidden">
       <div className="p-4 flex items-start justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-3 min-w-0 flex-1">
-          <span className="material-symbols-outlined rounded-lg border border-[var(--color-pib-line)] bg-white/[0.04] p-2 text-[var(--color-pib-text-muted)] text-[20px]">
+          <span
+            className="material-symbols-outlined rounded-lg border border-[var(--color-pib-line)] bg-white/[0.04] p-2 text-[var(--color-pib-text-muted)] text-[20px]"
+            aria-hidden="true"
+          >
             inventory_2
           </span>
           <div className="min-w-0 flex-1">
@@ -313,6 +339,7 @@ function SourceCard({
             onClick={() => setExpanded((v) => !v)}
             className="px-3 py-1.5 rounded-lg bg-white/[0.04] text-[var(--color-pib-text)] text-sm border border-[var(--color-pib-line)] hover:bg-white/[0.08] transition-colors"
             type="button"
+            aria-label={`${expanded ? 'Hide details' : 'Details'} for ${source.name}`}
           >
             {expanded ? 'Hide' : 'Details'}
           </button>
@@ -424,6 +451,42 @@ function SourceCard({
             )}
           </div>
 
+          {/* Auto-enroll direct sequences */}
+          <div>
+            <label className="block text-[10px] font-medium uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1.5">
+              Auto-enroll sequences
+            </label>
+            {sequences.length === 0 ? (
+              <p className="text-sm text-[var(--color-pib-text-muted)]">
+                No active sequences to choose from.{' '}
+                <Link href="/portal/settings/sequences/new" className="text-[var(--color-pib-accent)] hover:underline">
+                  Create a sequence
+                </Link>
+              </p>
+            ) : (
+              <div className="space-y-1.5">
+                {sequences.map((sequence) => {
+                  const checked = (source.autoSequenceIds ?? []).includes(sequence.id)
+                  return (
+                    <label
+                      key={sequence.id}
+                      className="flex items-center gap-2 text-sm text-[var(--color-pib-text)] cursor-pointer select-none"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleSequence(sequence.id)}
+                        disabled={busy}
+                        className="h-4 w-4"
+                      />
+                      <span>{sequence.name}</span>
+                    </label>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
           {/* Form-only: redirect URL + consent */}
           {source.type === 'form' && (
             <>
@@ -478,6 +541,7 @@ export default function PortalCaptureSourcesPage() {
   const [sources, setSources] = useState<CaptureSource[]>([])
   const [loading, setLoading] = useState(true)
   const [campaigns, setCampaigns] = useState<CampaignSummary[]>([])
+  const [sequences, setSequences] = useState<SequenceSummary[]>([])
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
 
   const [newName, setNewName] = useState('')
@@ -505,10 +569,30 @@ export default function PortalCaptureSourcesPage() {
       .catch(() => {})
   }, [])
 
+  const loadSequences = useCallback(() => {
+    fetch('/api/v1/crm/sequences')
+      .then((r) => r.json())
+      .then((body) => {
+        const raw = body.data?.sequences ?? body.data ?? []
+        const list = Array.isArray(raw) ? raw as Array<{ id: string; name: string; status: string }> : []
+        setSequences(
+          list
+            .filter((sequence) => sequence.status === 'active')
+            .map((sequence) => ({
+              id: sequence.id,
+              name: sequence.name,
+              status: sequence.status,
+            })),
+        )
+      })
+      .catch(() => {})
+  }, [])
+
   useEffect(() => {
     loadSources()
     loadCampaigns()
-  }, [loadSources, loadCampaigns])
+    loadSequences()
+  }, [loadSources, loadCampaigns, loadSequences])
 
   const metrics = useMemo(() => {
     const totalCaptures = sources.reduce((sum, source) => sum + (source.capturedCount ?? 0), 0)
@@ -518,6 +602,7 @@ export default function PortalCaptureSourcesPage() {
         source.enabled &&
         ((source.autoTags?.length ?? 0) > 0 ||
           (source.autoCampaignIds?.length ?? 0) > 0 ||
+          (source.autoSequenceIds?.length ?? 0) > 0 ||
           source.consentRequired),
     ).length
     const needsAttention = sources.filter(
@@ -602,7 +687,9 @@ export default function PortalCaptureSourcesPage() {
           href="/portal/capture-sources/import"
           className="btn-pib-secondary !py-2 !px-4 !text-sm"
         >
-          <span className="material-symbols-outlined text-base">upload_file</span>
+          <span className="material-symbols-outlined text-base" aria-hidden="true">
+            upload_file
+          </span>
           Import CSV
         </Link>
       </header>
@@ -659,6 +746,7 @@ export default function PortalCaptureSourcesPage() {
               onChange={(e) => setNewType(e.target.value as CaptureSourceType)}
               className="px-3 py-2 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-bg)] text-[var(--color-pib-text)] text-sm"
               disabled={submitting}
+              aria-label="Capture source type"
             >
               <option value="form">Form</option>
               <option value="api">API</option>
@@ -760,6 +848,7 @@ export default function PortalCaptureSourcesPage() {
               key={s.id}
               source={s}
               campaigns={campaigns}
+              sequences={sequences}
               initiallyExpanded={expandedIds.has(s.id)}
               onUpdated={handleUpdated}
               onDeleted={handleDeleted}

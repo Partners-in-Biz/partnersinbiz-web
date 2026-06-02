@@ -2,7 +2,7 @@
  * GET  /api/v1/crm/capture-sources   — list sources for the authenticated org
  * POST /api/v1/crm/capture-sources   — create a new capture source
  *
- * Body (POST): { name, type, autoTags?, autoCampaignIds?, redirectUrl?, consentRequired? }
+ * Body (POST): { name, type, autoTags?, autoCampaignIds?, autoSequenceIds?, redirectUrl?, consentRequired? }
  * Auth: GET → viewer+, POST → admin+
  */
 import { NextRequest } from 'next/server'
@@ -17,6 +17,14 @@ import {
 } from '@/lib/crm/captureSources'
 
 const VALID_TYPES: CaptureSourceType[] = ['form', 'api', 'csv', 'integration', 'manual']
+
+function stringList(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  return value
+    .filter((item): item is string => typeof item === 'string')
+    .map((item) => item.trim())
+    .filter(Boolean)
+}
 
 export const GET = withCrmAuth('viewer', async (_req: NextRequest, ctx) => {
   const orgId = ctx.orgId
@@ -67,8 +75,9 @@ export const POST = withCrmAuth('admin', async (req: NextRequest, ctx) => {
     type,
     publicKey: generatePublicKey(),
     enabled: true,
-    autoTags: Array.isArray(body.autoTags) ? body.autoTags : [],
-    autoCampaignIds: Array.isArray(body.autoCampaignIds) ? body.autoCampaignIds : [],
+    autoTags: stringList(body.autoTags),
+    autoCampaignIds: stringList(body.autoCampaignIds),
+    autoSequenceIds: stringList(body.autoSequenceIds),
     redirectUrl: typeof body.redirectUrl === 'string' ? body.redirectUrl : '',
     consentRequired: body.consentRequired === true,
     capturedCount: 0,

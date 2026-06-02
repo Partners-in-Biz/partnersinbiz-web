@@ -2,22 +2,30 @@
 name: platform-ops
 description: >
   Cross-cutting platform operations on Partners in Biz: API key management, global search,
-  dashboard stats, activity feed, file uploads and library, workspace inbox (unified across all
-  resources), notifications, outbound webhooks with delivery history and replay, the agent
-  manifest, platform staff management (super-admin), all report types (revenue, pipeline,
+  agent memory lookup, Obsidian/Hermes vector memory indexing,
+  dashboard stats, activity feed, file uploads and library, Workspace OS folders/artifacts,
+  Workspace Broker jobs, workspace inbox (unified across all resources), notifications,
+  outbound webhooks with delivery history and replay, the agent manifest, admin agent/Hermes
+  profile operations, platform staff management (super-admin), all report types (revenue, pipeline,
   outstanding invoices, client lifetime value, expense summary, activity summary, team
   utilization, monthly reports), and FX exchange rates. Also the canonical reference for
   collaboration primitives (idempotency, actor tagging, unified comments, mentions) that all
   other skills use. Use this skill whenever the user mentions anything operational or
   cross-cutting, including: "dashboard stats", "platform stats", "global search",
-  "search across everything", "find a doc", "find a contact", "API key", "create API key",
+  "search across everything", "find a doc", "find a contact", "agent memory",
+  "memory lookup", "semantic memory", "Obsidian memory", "get client context",
+  "what does the agent know", "reindex memory", "API key", "create API key",
   "rotate key", "revoke key", "list keys", "upload a file", "file library", "list files",
-  "find file", "delete file", "system health", "uptime", "platform health", "my inbox",
+  "find file", "delete file", "workspace artifact", "workspace folder", "Google Drive folder",
+  "create Google Doc", "create Google Sheet", "export artifact", "share artifact",
+  "permission audit", "system health", "uptime", "platform health", "my inbox",
   "workspace inbox", "what needs my attention", "assigned to me", "pending approvals",
   "overdue items", "mentions", "mark as read", "snooze notification", "notifications",
   "mark all read", "create webhook", "outbound webhook", "subscribe to events", "HMAC verify",
   "webhook delivery", "webhook history", "test webhook", "replay failed webhook",
-  "disable webhook", "agent manifest", "what can the agent do", "leave a comment",
+  "disable webhook", "agent manifest", "agent skills", "agent skill policy",
+  "Hermes profile", "Hermes run", "Hermes job", "agent logs", "agent files",
+  "what can the agent do", "leave a comment",
   "@mention teammate", "activity feed", "audit log", "recent activity", "platform users",
   "add staff", "invite admin", "super admin", "allowedOrgIds", "restrict admin access",
   "revenue report", "pipeline report", "outstanding invoices report", "client value",
@@ -39,7 +47,30 @@ https://partnersinbiz.online/api/v1
 Authorization: Bearer <AI_API_KEY>
 ```
 
-The `AI_API_KEY` env var contains the platform-wide agent key. Alternatively, per-agent `api_keys` can be created via this skill for granular revocation.
+Prefer per-agent `pib_ag_...` keys from Firestore `api_keys` for VPS Hermes profiles. The legacy shared `AI_API_KEY` remains a migration/admin fallback, but it should not be treated as the desired long-term credential model.
+
+For AI/agent bearer requests to tenant-scoped routes, also send:
+
+```
+X-Org-Id: <orgId>
+```
+
+Some routes have stricter delegation rules than ordinary admin-style agent access. Agent memory and mailbox operations must prove the requesting user context unless the agent has an explicit system permission.
+
+### Browser auth and guest session routes
+
+These routes are for browser sign-in/session cookies, not agent bearer automation:
+
+| Method | Path | Auth | Use |
+|---|---|---|---|
+| POST | `/auth/magic-link/send` | public, rate-limited | Sends a single-use magic link. Body: `{ email, redirectUrl?, context?, docTitle? }`. Always returns `{ sent: true }` when accepted so account existence is not leaked. |
+| GET | `/auth/magic-link/verify` | public token link | Consumes the magic-link token, creates/finds the guest user, mints a Firebase custom token, and redirects to `/auth/magic-link/verify`. |
+| POST | `/auth/session` | public with Firebase ID token | Exchanges an ID token for the `__session` cookie and bootstraps `users/{uid}`. |
+| POST/DELETE | `/api/auth/session` | public with Firebase ID token or cookie | Legacy browser session create/delete route. |
+| GET/POST | `/api/auth/verify` | browser cookie/session-cookie helper | Verifies session and returns uid, role, email/name, and super-admin state. |
+| GET/POST | `/api/auth/logout` | browser | Clears the session cookie and redirects to `/`. |
+
+Do not use these for server-to-server agent calls. Agent work should use API keys, platform sessions, or delegated user evidence depending on the route.
 
 ## Collaboration primitives (canonical reference)
 
@@ -115,6 +146,60 @@ Response (201): `{ id, keyOnce, keyPrefix }`.
 #### `GET/PUT/DELETE /platform/api-keys/[id]` — auth: admin
 `DELETE` revokes.
 
+### Agent memory lookup
+
+#### `POST /agent/lookup` — auth: admin/agent
+Hybrid memory lookup for agents. Use this for questions like "get me the client called John" or "what context do we have around this company?"
+
+Body:
+```json
+{
+  "query": "client John",
+  "orgId": "org_abc",
+  "sourceTypes": ["obsidian", "crm_contact", "crm_company"],
+  "limit": 8,
+  "requestingUserId": "uid_123",
+  "delegationEvidenceId": "delegation_abc"
+}
+```
+
+Response:
+```json
+{
+  "intent": "entity_lookup",
+  "entityCandidates": [],
+  "selectedEntity": { "type": "contact", "id": "contact_abc", "label": "John" },
+  "memory": [],
+  "nextActions": [],
+  "citations": []
+}
+```
+
+Operating model:
+- Exact/normalized Firestore entity resolution runs first across organizations, companies, contacts, and aliases.
+- Vector retrieval runs only after structured tenant/org filters are applied.
+- Memory comes from `agent_memory_chunks`, including compiled Obsidian/Hermes `index`, `wiki`, `raw`, `logs`, and selected operational Firestore data.
+- Use vector memory for semantic recall and citations, not as the primary database operation.
+
+Security model:
+- VPS Hermes agents (`pip`, `theo`, `maya`, `sage`, `nora`, and specialists) are `role: "ai"` bearer-key callers.
+- A Hermes agent lookup must include `requestingUserId` plus valid `agent_memory_delegations` evidence scoped to actor, org, user, status, expiry, and `read`, unless the agent has explicit `agent_memory_system:<orgId>` or `agent_memory_system:*`.
+- Delegated lookup runs with the requesting user's effective org permissions.
+- Client-effective lookups return only `public` memory chunks by default; internal, restricted, and sensitive chunks are hidden.
+- Sensitive mailbox/support/social/ads snippets stay redacted unless source-specific delegated permission is present.
+- Direct client Firestore access to `agent_memory_chunks` is denied; all retrieval goes through this API.
+
+#### `POST /admin/agent-memory/reindex` — auth: admin
+Manual/admin reindex. Use after new source connectors, schema changes, or backfills.
+
+Body:
+```json
+{ "orgId": "org_abc", "sourceTypes": ["obsidian", "crm_contact"], "full": false }
+```
+
+#### `POST /cron/agent-memory-index`
+Incremental scheduled indexing endpoint. Intended for Vercel cron or platform scheduler use, not direct client use.
+
 ### Global search
 
 #### `GET /search?q=...` — auth: admin
@@ -149,6 +234,55 @@ Recent activity feed for dashboard widgets.
 
 #### `GET /activity` — auth: admin
 Full activity feed (audit log). Filters: `orgId`, `type`, `resourceType`, `resourceId`, `from`, `to`, `page`, `limit`.
+
+### Briefings
+
+Briefings aggregate current account/project/CRM/document/social/support signals into a scannable action feed. Use these when the user asks what needs attention, asks for an account pulse, or wants to mark/read/defer briefing cards.
+
+| Method | Path | Auth | Use |
+|---|---|---|---|
+| GET | `/briefings/feed` | client | Build the current briefing feed for the authenticated user's active scope. |
+| POST | `/briefings/items/[itemId]/state` | client | Save per-user state for a briefing item (read/dismissed/snoozed/etc., based on route body). |
+| POST | `/briefings/reports` | client | Create a durable briefing snapshot/report. |
+
+Recent guardrail: urgent `task.agent_done` notification cards can be review work even when the task is already done. Inspect the source task state before calling something blocked; for project tasks, `columnId=done`, `agentStatus=done`, and `reviewStatus=approved` means the action is review/open-source, not unblock.
+
+### Platform utility and cron routes
+
+These routes are cross-cutting infrastructure. Use them for platform health, setup, session-safe public metadata, push-token registration, and scheduled workers.
+
+| Method | Path | Auth | Use |
+|---|---|---|---|
+| GET | `/firebase-config` | public/client | Browser Firebase config bootstrap. |
+| GET | `/org-dashboard` | client | Organization dashboard summary. |
+| GET/PUT | `/settings/domain` | admin | Domain-related platform settings. |
+| GET/PATCH | `/settings/features` | admin | Feature flags/settings. |
+| GET/PATCH | `/settings/integrations` | admin | Integration settings. |
+| POST | `/push-tokens` | client | Register mobile/web push token. |
+| DELETE | `/push-tokens/[token]` | client | Remove a push token. |
+| GET/PUT | `/orgs/[orgId]/chat-config` | admin/client with org access | Configure visible agents/chat behavior for an org. |
+| GET | `/orgs/[orgId]/contacts` | client | Org-scoped contact lookup helper. |
+| GET | `/orgs/[orgId]/visible-agents` | client | Visible agents for chat/portal context. |
+| GET | `/llms.txt` | public | Public AI crawler/discovery metadata. |
+| GET | `/llms-full.txt` | public | Expanded public AI crawler/discovery metadata. |
+
+Current cron routes:
+
+| Method | Path | Use |
+|---|---|---|
+| POST | `/api/cron/agent-memory-index` | Incremental agent memory indexing. |
+| GET | `/api/cron/anomalies` | Scheduled anomaly checks. |
+| GET | `/api/cron/conversation-runs` | Unified chat/Hermes run finalization. |
+| GET | `/api/cron/crm-integrations` | CRM integration syncs. |
+| GET | `/api/cron/integrations` | Generic property/integration dispatch. |
+| GET | `/api/cron/project-playbooks` | Scheduled project playbook jobs. |
+| GET | `/api/cron/reports` | Scheduled report generation/sending. |
+| GET | `/api/cron/seo-daily` | SEO daily loop. |
+| GET | `/api/cron/seo-weekly` | SEO weekly optimization loop. |
+| GET | `/api/cron/social-analytics` | Social analytics pull. |
+| GET | `/api/cron/social-inbox-poll` | Social inbox polling. |
+| GET | `/api/cron/social-rss` | RSS social auto-posting. |
+| GET | `/api/cron/webhooks` | Outbound webhook queue processing. |
 
 ### Ads activity types (Phase 7)
 
@@ -197,6 +331,55 @@ V1 operating rules:
 - Conflicts must be preserved and audited. Do not use blind last-writer-wins.
 
 Runbook: `docs/deploy/workspace-folder-sync-v1.md`.
+
+#### Workspace OS API surface
+
+Current route inventory from `partnersinbiz-web@origin/development`:
+
+| Method | Path | Auth | Use |
+|---|---|---|---|
+| GET/POST | `/workspace-folders` | client | List or create linked workspace folders for an org/resource. |
+| GET/PATCH/DELETE | `/workspace-folders/[id]` | client | Read, update, or disconnect a linked folder. |
+| POST | `/workspace-folders/[id]/resync` | client | Request a resync for a linked folder. |
+| GET | `/workspace-artifacts` | client | List artifacts the caller can read. |
+| GET/PATCH/DELETE | `/workspace-artifacts/[id]` | client | Read, update, or request deletion/removal for an artifact record. |
+| POST | `/workspace-artifacts/link-existing` | client | Register an existing Drive/file artifact against the workspace. |
+| GET/POST | `/workspace-connections` | client | List or create connected external workspace accounts. |
+| GET/PATCH/DELETE | `/workspace-connections/[id]` | client | Manage connected external workspace accounts. |
+| POST | `/workspace-connections/[id]/reconnect` | client | Restart a broken connection flow. |
+| POST | `/workspace-connections/[id]/review` | client | Record review/approval of a connection. |
+| GET | `/agent/workspace-folders` | admin/agent | Agent lookup for readable workspace folders by org/resource/tag. |
+| GET | `/agent/workspace-artifacts` | client/agent | Agent lookup for readable artifacts by org/resource/project/task/folder/type/status/q. |
+
+Workspace artifacts are capability-scoped. `canReadWorkspaceArtifact` gates reads by org membership, role, visibility, and linked folder/resource policy. Do not bypass these APIs with raw Drive URLs unless Peet explicitly gives a direct file link.
+
+#### Knowledge note proxy
+
+| Method | Path | Auth | Use |
+|---|---|---|---|
+| GET/POST | `/admin/knowledge` | admin | Read or save markdown notes through Pip's knowledge backend. Supports `scope: shared|agent`, `section: index|wiki|raw|logs`, `agent`, `path`, and `content` for writes. |
+
+Use this route for platform-mediated Obsidian/wiki persistence. For client-agent knowledge, pass the client knowledge agent/domain as `agent`; the route resolves aliases and rejects unsafe names.
+
+#### Workspace Broker API surface
+
+Use Workspace Broker when the agent needs the platform to create/copy/export Google workspace assets on behalf of the authenticated user/org.
+
+| Method | Path | Auth | Use |
+|---|---|---|---|
+| POST | `/workspace-broker/docs/create` | admin | Create a Google Doc and record a broker job. |
+| POST | `/workspace-broker/docs/copy-template` | admin | Copy a Google Doc template. |
+| POST | `/workspace-broker/sheets/create` | admin | Create a Google Sheet and record a broker job. |
+| POST | `/workspace-broker/sheets/copy-template` | admin | Copy a Google Sheet template. |
+| POST | `/workspace-broker/folders/create` | admin | Create a Google Drive folder. |
+| POST | `/workspace-broker/artifacts/[id]/export` | admin | Export an artifact. |
+| POST | `/workspace-broker/artifacts/[id]/permission-audit` | admin | Audit artifact sharing/ACL state. |
+| POST | `/workspace-broker/artifacts/[id]/request-share` | admin | Request or apply sharing changes. |
+| POST | `/workspace-broker/artifacts/[id]/request-delete` | admin | Request deletion/removal through the broker. |
+| GET | `/workspace-broker/jobs` | admin | List broker jobs. |
+| GET/PATCH | `/workspace-broker/jobs/[id]` | admin | Read or update a broker job. |
+
+Broker routes create durable `workspace-broker` jobs. After a broker call, poll `/workspace-broker/jobs/[id]` instead of assuming synchronous completion.
 
 ### Health
 
@@ -398,6 +581,146 @@ Returns a manifest of agent-accessible endpoints with examples. Use this to disc
 #### `GET /agent/inbox` — auth: admin
 Legacy agent-specific inbox — superseded by `/inbox` for new work.
 
+#### Agent email work queue
+
+Current route inventory:
+
+| Method | Path | Auth | Use |
+|---|---|---|---|
+| GET | `/agent/email` | admin/agent | Agent email capability overview. |
+| GET | `/agent/email/messages` | admin/agent | List delegated messages available to the agent. |
+| POST | `/agent/email/drafts` | admin/agent | Draft a reply or outbound email for human review. |
+| POST | `/agent/email/replies` | admin/agent | Prepare or submit a reply depending on delegation. |
+| POST | `/agent/email/send-requests` | admin/agent | Create an auditable send request. |
+
+Mailbox/email operations are stricter than ordinary admin-like agent access. The route must prove the requesting user/delegation context unless the agent has explicit system permission.
+
+### Workspace mailbox operations
+
+Mailbox routes manage connected Gmail/Google mailbox accounts and messages. Use `email-outreach` for marketing sends, sequences, broadcasts, templates, and analytics. Use this section for operational inbox work, delegated mailbox triage, account sync, and support replies.
+
+#### Admin mailbox
+
+| Method | Path | Auth | Use |
+|---|---|---|---|
+| GET/POST | `/admin/mailbox/accounts` | admin | List/connect admin mailbox accounts. |
+| DELETE/PATCH | `/admin/mailbox/accounts/[id]` | admin | Disconnect/update a mailbox account. |
+| POST | `/admin/mailbox/accounts/[id]/sync` | admin | Trigger account sync. |
+| GET | `/admin/mailbox/google/authorize` | admin | Start Google OAuth authorization. |
+| GET | `/admin/mailbox/google/callback` | admin | Google OAuth callback. |
+| GET/POST | `/admin/mailbox/messages` | admin | List/send admin mailbox messages. |
+| DELETE/PATCH | `/admin/mailbox/messages/[id]` | admin | Delete/update a mailbox message. |
+
+#### Portal mailbox
+
+| Method | Path | Auth | Use |
+|---|---|---|---|
+| GET/POST | `/portal/email/accounts` | client | List/connect portal mailbox accounts. |
+| DELETE/PATCH | `/portal/email/accounts/[id]` | client | Disconnect/update a portal mailbox account. |
+| POST | `/portal/email/accounts/[id]/sync` | client | Trigger portal account sync. |
+| GET | `/portal/email/google/authorize` | client | Start Google OAuth authorization. |
+| GET | `/portal/email/google/callback` | client | Google OAuth callback. |
+| GET/POST | `/portal/email/messages` | client | List/send portal mailbox messages. |
+| DELETE/PATCH | `/portal/email/messages/[id]` | client | Delete/update a portal mailbox message. |
+
+Agents should not treat mailbox messages as marketing broadcasts. Respect delegated user context and keep outbound replies auditable via `/agent/email/*` or the mailbox message routes, depending on the requested workflow.
+
+### Admin agent and Hermes profile operations
+
+These are admin UI/VPS orchestration routes, not ordinary client-facing task APIs. They let platform admins inspect and operate named agents and Hermes profile links. Use them only when Peet asks to manage agents, inspect agent health/logs/files, apply skill policy, or control a Hermes run/job.
+
+#### Admin agent registry
+
+| Method | Path | Auth | Use |
+|---|---|---|---|
+| GET/POST | `/admin/agents` | admin; POST super-admin | List or provision named agents. |
+| PUT | `/admin/agents/[agentId]` | admin | Update agent metadata/config reference. |
+| GET/PUT | `/admin/agents/[agentId]/config` | admin | Read/write live agent config. |
+| GET/PATCH | `/admin/agents/[agentId]/env` | admin | Read/update safe env keys. |
+| GET | `/admin/agents/[agentId]/health` | admin | Read runtime health. |
+| GET | `/admin/agents/[agentId]/logs` | admin | Read recent logs. |
+| GET | `/admin/agents/[agentId]/files` | admin | List agent files. |
+| GET/PUT | `/admin/agents/[agentId]/files/[...filePath]` | admin | Read/write a file through the agent file proxy. |
+| GET/POST | `/admin/agents/[agentId]/cron` | admin | List/create cron jobs. |
+| DELETE/POST | `/admin/agents/[agentId]/cron/[jobId]` | admin | Delete or trigger a cron job. |
+| GET | `/admin/agents/[agentId]/runs/[runId]` | admin | Inspect a run. |
+| GET | `/admin/agents/[agentId]/runs/[runId]/events` | admin | Stream/list run events. |
+| POST | `/admin/agents/[agentId]/runs/[runId]/approval` | admin | Approve/reject a gated run action. |
+| GET/POST | `/admin/agents/[agentId]/skills` | admin | List/install skills for the agent. |
+| DELETE | `/admin/agents/[agentId]/skills/[skillName]` | admin | Remove an installed skill. |
+| GET/POST | `/admin/agents/[agentId]/skill-policy` | admin; POST super-admin | Preview/apply the platform skill policy. |
+
+`POST /admin/agents` provisions through Pip's VPS profile and is super-admin only. `POST /admin/agents/[agentId]/skill-policy` may rewrite live Hermes config, so preview with GET first.
+
+#### Admin operations utility routes
+
+| Method | Path | Auth | Use |
+|---|---|---|---|
+| GET | `/admin/agent-tasks` | admin | List platform-visible agent tasks. |
+| GET/PATCH | `/admin/notification-preferences` | admin | Read/update admin notification preferences. |
+| GET/POST | `/admin/platform-members` | super-admin | List/create platform members. |
+| PATCH | `/admin/platform-members/[uid]/password` | super-admin | Set/reset platform member password. |
+| POST | `/admin/platform-members/[uid]/reset` | super-admin | Send/reset platform member access. |
+| PATCH | `/admin/platform-users/[uid]/password` | super-admin | Set/reset platform user password. |
+| POST | `/admin/platform-users/[uid]/reset` | super-admin | Send/reset platform user access. |
+| GET | `/admin/support` | admin | List support tickets. |
+| PATCH | `/admin/support/[id]` | admin | Update support ticket status/metadata. |
+| GET/POST | `/admin/support/[id]/messages` | admin | List/add support ticket messages. |
+
+#### Hermes profile links and controls
+
+| Method | Path | Auth | Use |
+|---|---|---|---|
+| GET/PUT/DELETE | `/admin/hermes/profiles/[orgId]` | GET client; PUT/DELETE super-admin | Read/configure/disable a Hermes profile link for an org. |
+| GET/POST/PUT/PATCH/DELETE | `/admin/hermes/profiles/[orgId]/controls/[control]/[[...path]]` | admin/client with capability | Proxy a resolved Hermes admin control. |
+| GET/POST/PUT/PATCH/DELETE | `/admin/hermes/profiles/[orgId]/dashboard/[...path]` | admin/client with capability | Proxy Hermes dashboard paths for the org profile. |
+| GET/POST | `/admin/hermes/profiles/[orgId]/conversations` | admin/client with capability | List/start Hermes conversations. |
+| GET/PATCH/DELETE | `/admin/hermes/profiles/[orgId]/conversations/[convId]` | admin/client with capability | Manage a conversation. |
+| GET/POST | `/admin/hermes/profiles/[orgId]/conversations/[convId]/messages` | admin/client with capability | List/send messages. |
+| POST | `/admin/hermes/profiles/[orgId]/conversations/[convId]/messages/[msgId]/finalize` | admin/client with capability | Finalize a message. |
+| GET/POST | `/admin/hermes/profiles/[orgId]/jobs` | admin/client with capability | List/create jobs. |
+| GET/PATCH/PUT/DELETE | `/admin/hermes/profiles/[orgId]/jobs/[jobId]` | admin/client with capability | Manage a job. |
+| POST | `/admin/hermes/profiles/[orgId]/jobs/[jobId]/run` | admin/client with capability | Run a job now. |
+| POST | `/admin/hermes/profiles/[orgId]/jobs/[jobId]/pause` | admin/client with capability | Pause a job. |
+| POST | `/admin/hermes/profiles/[orgId]/jobs/[jobId]/resume` | admin/client with capability | Resume a job. |
+| POST | `/admin/hermes/profiles/[orgId]/runs` | admin/client with capability | Start a run. |
+| GET | `/admin/hermes/profiles/[orgId]/runs/[runId]` | admin/client with capability | Inspect a run. |
+| GET | `/admin/hermes/profiles/[orgId]/runs/[runId]/events` | admin/client with capability | Stream/list run events. |
+| POST | `/admin/hermes/profiles/[orgId]/runs/[runId]/approval` | admin/client with capability | Approve/reject a gated run action. |
+| POST | `/admin/hermes/profiles/[orgId]/runs/[runId]/stop` | admin/client with capability | Stop a run. |
+| GET/POST | `/admin/hermes/profiles/[orgId]/skills` | admin/client with capability | List/install profile skills. |
+| DELETE | `/admin/hermes/profiles/[orgId]/skills/[skillName]` | admin/client with capability | Remove a profile skill. |
+
+Hermes controls go through `requireHermesProfileAccess` and `resolveHermesAdminControl`; do not construct arbitrary VPS URLs from the client side. The API capability gate is the source of truth.
+
+### Unified chat conversations
+
+These routes back the in-app admin/client/agent chat surface. They are distinct from `/communications/*`, which is the customer-channel inbox for WhatsApp/SMS/email/in-app/social DMs.
+
+| Method | Path | Auth | Use |
+|---|---|---|---|
+| GET/POST | `/conversations` | client | List or create a unified chat conversation for an org. `POST` requires `orgId` and `participants`. Valid scopes: `general`, `project`, `task`, `campaign`. |
+| GET/PATCH | `/conversations/[convId]` | participant or admin/ai | Fetch conversation or update `title`/`archived`. |
+| DELETE | `/conversations/[convId]` | admin | Permanently delete a conversation. |
+| GET/POST | `/conversations/[convId]/messages` | participant or admin/ai | List messages or add a user message/attachments/slash command; agent participants dispatch Hermes runs. |
+| POST | `/conversations/[convId]/attachments` | participant or admin/ai | Upload an attachment up to 10MB. Allowed: common image types, PDF, text/markdown/csv/json, docx, xlsx. |
+| PATCH | `/conversations/[convId]/context` | participant or admin/ai | Add/remove/clear structured context references. Body action is `add`, `remove`, or `clear`. |
+| POST | `/conversations/[convId]/messages/[msgId]/finalize` | participant or admin/ai | Poll Hermes and write a run result back into the pending assistant message. Requires `runId` and `agentId`. |
+| POST | `/conversations/[convId]/messages/[msgId]/stop` | admin | Stop an in-flight agent run through the agent gateway and mark the message failed. |
+
+Conversation participant rules:
+- Client callers may start conversations only with people in their org or platform admins.
+- Admin/AI callers may include visible agents. When multiple agents are selected, Pip is inserted as orchestrator when available.
+- Client org context and attached context refs are injected into the Hermes prompt. Do not manually paste unrelated client context into a conversation.
+
+#### Context reference search
+
+| Method | Path | Auth | Use |
+|---|---|---|---|
+| GET | `/context-references/search` | client | Search attachable context references by `type`, `q`, `orgId`, optional `projectId`, `contextType`, `contextId`, and `limit`. |
+
+Use this before adding references to conversations, comments, research items, or project artifacts. Context refs are tenant-scoped and access-filtered by the resolver; do not fabricate refs from raw IDs unless the resolver can see them.
+
 ### Reports (cross-cutting)
 
 #### `GET /reports/activity-summary?orgId=X&from=...&to=...` — auth: admin
@@ -535,8 +858,6 @@ GET /webhooks/wh_xyz/deliveries?limit=50
 ## Platform Users (super-admin staff management)
 
 These endpoints manage PiB **internal staff** (users with `role === 'admin'`). They are restricted to **super admins only** — an admin whose `allowedOrgIds` array is empty. A restricted admin (non-empty `allowedOrgIds`) cannot call these endpoints; this prevents silent self-elevation.
-
-Staff access is not the same thing as client membership. `allowedOrgIds` controls admin-surface visibility; it does not create client portal/CRM membership and it does not create the client's CRM Company/Contact relationship. To let staff enter a client portal, add them as explicit org members. To represent the client business and stakeholders, use the platform-owner CRM Company/Contact links described in `client-manager` and `crm-sales`.
 
 ### User model
 

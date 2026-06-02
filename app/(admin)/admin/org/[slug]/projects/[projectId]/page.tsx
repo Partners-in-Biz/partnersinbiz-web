@@ -140,7 +140,7 @@ export default function ProjectDetailPage() {
   const searchParams = useSearchParams()
   const slug = params.slug as string
   const projectId = params.projectId as string
-  const deepLinkedTaskId = searchParams.get('taskId')
+  const deepLinkedTaskId = searchParams.get('taskId') ?? searchParams.get('task')
 
   const [project, setProject] = useState<Project | null>(null)
   const [tasks, setTasks] = useState<Task[]>([])

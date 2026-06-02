@@ -40,6 +40,20 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
     // Cross-org isolation: contact must be in the same org as the sequence
     if (contactSnap.data()?.orgId && contactSnap.data()?.orgId !== seqOrgId) continue
 
+    const existingSnap = await adminDb
+      .collection('sequence_enrollments')
+      .where('orgId', '==', seqOrgId)
+      .where('sequenceId', '==', id)
+      .where('contactId', '==', contactId)
+      .where('status', '==', 'active')
+      .limit(1)
+      .get()
+    const existing = existingSnap.docs[0]
+    if (existing) {
+      enrolled.push(existing.id)
+      continue
+    }
+
     const ref = await adminDb.collection('sequence_enrollments').add({
       orgId: seqOrgId,
       campaignId,

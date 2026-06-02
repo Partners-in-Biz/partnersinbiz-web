@@ -7,8 +7,9 @@ import { apiSuccess, apiError } from '@/lib/api/response'
 import { actorFrom } from '@/lib/api/actor'
 import { generateIngestKey } from '@/lib/properties/ingest-key'
 import { VALID_PROPERTY_TYPES, VALID_PROPERTY_STATUSES } from '@/lib/properties/types'
-import type { CreatePropertyInput } from '@/lib/properties/types'
+import type { CreatePropertyInput, PropertyStatus, PropertyType } from '@/lib/properties/types'
 import { dispatchWebhook } from '@/lib/webhooks/dispatch'
+import { canAccessOrg } from '@/lib/api/platformAdmin'
 
 export const dynamic = 'force-dynamic'
 
@@ -25,16 +26,16 @@ export const GET = withAuth('admin', async (req: NextRequest) => {
   const limit = Math.min(Math.max(Number.isFinite(rawLimit) ? rawLimit : DEFAULT_LIMIT, 1), 200)
   const offset = Math.max(parseInt(searchParams.get('offset') ?? '0', 10), 0)
 
-  let query = adminDb.collection('properties')
+  let query: FirebaseFirestore.Query = adminDb.collection('properties')
     .where('orgId', '==', orgId)
     .where('deleted', '==', false)
     .orderBy('createdAt', 'desc')
 
-  if (status && VALID_PROPERTY_STATUSES.includes(status as any)) {
-    query = query.where('status', '==', status) as any
+  if (status && VALID_PROPERTY_STATUSES.includes(status as PropertyStatus)) {
+    query = query.where('status', '==', status)
   }
-  if (type && VALID_PROPERTY_TYPES.includes(type as any)) {
-    query = query.where('type', '==', type) as any
+  if (type && VALID_PROPERTY_TYPES.includes(type as PropertyType)) {
+    query = query.where('type', '==', type)
   }
 
   const snap = await query.limit(limit).offset(offset).get().catch((err) => {
@@ -42,7 +43,7 @@ export const GET = withAuth('admin', async (req: NextRequest) => {
     return null
   })
   if (!snap) return apiError('Failed to list properties', 500)
-  const data = snap.docs.map((d: any) => ({ id: d.id, ...d.data() }))
+  const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
 
   return apiSuccess(data)
 })
@@ -51,6 +52,7 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
   const body = await req.json() as CreatePropertyInput
 
   if (!body.orgId?.trim()) return apiError('orgId is required', 400)
+  if (!canAccessOrg(user, body.orgId.trim())) return apiError('Forbidden', 403)
   if (!body.name?.trim()) return apiError('name is required', 400)
   if (!body.domain?.trim()) return apiError('domain is required', 400)
   if (!body.type || !VALID_PROPERTY_TYPES.includes(body.type)) {

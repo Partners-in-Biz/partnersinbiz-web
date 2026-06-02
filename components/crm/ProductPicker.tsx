@@ -28,7 +28,7 @@ export function ProductPicker({ onSelect, onAdHoc, placeholder = 'Search product
       .then(body => {
         if (cancelled) return
         if (!body.success) throw new Error(body.error ?? 'Failed to load products')
-        setProducts(body.data ?? [])
+        setProducts(body.data?.products ?? body.data ?? [])
       })
       .catch(err => {
         if (cancelled) return
@@ -36,7 +36,7 @@ export function ProductPicker({ onSelect, onAdHoc, placeholder = 'Search product
       })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
-  }, []) // intentionally not including _orgId — the API uses session org
+  }, []) // the API uses the session org
 
   // Close on outside click
   useEffect(() => {

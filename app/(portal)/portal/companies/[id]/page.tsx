@@ -493,32 +493,46 @@ function ContactsPanel({
     )
   }
   return (
-    <TableShell>
-      <table className="w-full text-sm">
-        <thead className="border-b border-[var(--color-pib-line)] text-[10px] font-label uppercase tracking-wider text-[var(--color-pib-text-muted)]">
-          <tr>
-            <th className="px-5 py-3 text-left">Name</th>
-            <th className="px-5 py-3 text-left">Email</th>
-            <th className="px-5 py-3 text-left">Type</th>
-            <th className="px-5 py-3 text-left">Stage</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-[var(--color-pib-line)]">
-          {contacts.map((contact) => (
-            <tr key={contact.id} className="hover:bg-white/[0.02]">
-              <td className="px-5 py-4">
-                <Link href={`/portal/contacts/${contact.id}`} className="font-medium text-[var(--color-accent-v2)] hover:underline">
-                  {contactIdentityLabel(contact)}
-                </Link>
-              </td>
-              <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{contact.email || 'No email captured'}</td>
-              <td className="px-5 py-4"><StatusChip value={contact.type} emptyLabel="Type not set" /></td>
-              <td className="px-5 py-4"><StatusChip value={contact.stage} emptyLabel="Stage not set" /></td>
+    <div className="space-y-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="eyebrow !text-[10px]">Stakeholders</p>
+          <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
+            Add every buyer, approver, finance owner, and delivery contact that matters for {company.name}.
+          </p>
+        </div>
+        <button type="button" onClick={onCreateContact} className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5">
+          <span className="material-symbols-outlined text-[16px]" aria-hidden="true">person_add</span>
+          Add contact for {company.name}
+        </button>
+      </div>
+      <TableShell>
+        <table className="w-full text-sm">
+          <thead className="border-b border-[var(--color-pib-line)] text-[10px] font-label uppercase tracking-wider text-[var(--color-pib-text-muted)]">
+            <tr>
+              <th className="px-5 py-3 text-left">Name</th>
+              <th className="px-5 py-3 text-left">Email</th>
+              <th className="px-5 py-3 text-left">Type</th>
+              <th className="px-5 py-3 text-left">Stage</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </TableShell>
+          </thead>
+          <tbody className="divide-y divide-[var(--color-pib-line)]">
+            {contacts.map((contact) => (
+              <tr key={contact.id} className="hover:bg-white/[0.02]">
+                <td className="px-5 py-4">
+                  <Link href={`/portal/contacts/${contact.id}`} className="font-medium text-[var(--color-accent-v2)] hover:underline">
+                    {contactIdentityLabel(contact)}
+                  </Link>
+                </td>
+                <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{contact.email || 'No email captured'}</td>
+                <td className="px-5 py-4"><StatusChip value={contact.type} emptyLabel="Type not set" /></td>
+                <td className="px-5 py-4"><StatusChip value={contact.stage} emptyLabel="Stage not set" /></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </TableShell>
+    </div>
   )
 }
 
@@ -565,32 +579,53 @@ function DealsPanel({
     )
   }
   return (
-    <TableShell>
-      <table className="w-full text-sm">
-        <thead className="border-b border-[var(--color-pib-line)] text-[10px] font-label uppercase tracking-wider text-[var(--color-pib-text-muted)]">
-          <tr>
-            <th className="px-5 py-3 text-left">Deal</th>
-            <th className="px-5 py-3 text-left">Value</th>
-            <th className="px-5 py-3 text-left">Stage</th>
-            <th className="px-5 py-3 text-left">Probability</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-[var(--color-pib-line)]">
-          {deals.map((deal) => (
-            <tr key={deal.id} className="hover:bg-white/[0.02]">
-              <td className="px-5 py-4">
-                <Link href={`/portal/deals/${deal.id}`} className="font-medium text-[var(--color-accent-v2)] hover:underline">
-                  {deal.title || deal.id}
-                </Link>
-              </td>
-              <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{dealValueLabel(deal)}</td>
-              <td className="px-5 py-4"><StatusChip value={deal.stageId} emptyLabel="Stage not set" /></td>
-              <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{dealProbabilityLabel(deal)}</td>
+    <div className="space-y-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="eyebrow !text-[10px]">Opportunities</p>
+          <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
+            Keep every expansion, renewal, and new commercial track visible for {company.name}.
+          </p>
+        </div>
+        {contacts[0] ? (
+          <button type="button" onClick={onCreateDeal} className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5">
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add_business</span>
+            Add deal for {company.name}
+          </button>
+        ) : (
+          <button type="button" onClick={onCreateContact} className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5">
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">person_add</span>
+            Add contact before deal
+          </button>
+        )}
+      </div>
+      <TableShell>
+        <table className="w-full text-sm">
+          <thead className="border-b border-[var(--color-pib-line)] text-[10px] font-label uppercase tracking-wider text-[var(--color-pib-text-muted)]">
+            <tr>
+              <th className="px-5 py-3 text-left">Deal</th>
+              <th className="px-5 py-3 text-left">Value</th>
+              <th className="px-5 py-3 text-left">Stage</th>
+              <th className="px-5 py-3 text-left">Probability</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </TableShell>
+          </thead>
+          <tbody className="divide-y divide-[var(--color-pib-line)]">
+            {deals.map((deal) => (
+              <tr key={deal.id} className="hover:bg-white/[0.02]">
+                <td className="px-5 py-4">
+                  <Link href={`/portal/deals/${deal.id}`} className="font-medium text-[var(--color-accent-v2)] hover:underline">
+                    {deal.title || deal.id}
+                  </Link>
+                </td>
+                <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{dealValueLabel(deal)}</td>
+                <td className="px-5 py-4"><StatusChip value={deal.stageId} emptyLabel="Stage not set" /></td>
+                <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{dealProbabilityLabel(deal)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </TableShell>
+    </div>
   )
 }
 
@@ -681,18 +716,50 @@ function ProjectsPanel({
     )
   }
   return (
-    <SimpleRowsPanel
-      rows={projects}
-      emptyIcon="folder_off"
-      emptyLabel="No linked projects yet."
-      title={(row) => projectNameLabel(row as RelatedProject)}
-      hrefFor={(row) => `/portal/projects/${row.id}`}
-      metaFor={(row) => [
-        projectDescriptionLabel(row as RelatedProject),
-        projectStatusLabel(row as RelatedProject),
-        projectUpdatedLabel(row as RelatedProject),
-      ]}
-    />
+    <div className="space-y-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="eyebrow !text-[10px]">Delivery workspaces</p>
+          <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
+            Keep every discovery sprint, build, handoff, and delivery track connected to {company.name}.
+          </p>
+        </div>
+        {firstContact?.email ? (
+          <button
+            type="button"
+            onClick={onCreateProject}
+            disabled={creatingProject}
+            className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add_task</span>
+            {creatingProject ? 'Creating project...' : `Create another project for ${company.name}`}
+          </button>
+        ) : firstContact ? (
+          <Link href={`/portal/contacts/${firstContact.id}`} className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5">
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">alternate_email</span>
+            Add email to {contactLabel(firstContact)}
+          </Link>
+        ) : (
+          <button type="button" onClick={onCreateContact} className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5">
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">person_add</span>
+            Add contact before project
+          </button>
+        )}
+      </div>
+      {projectError ? <p className="text-xs text-red-300">{projectError}</p> : null}
+      <SimpleRowsPanel
+        rows={projects}
+        emptyIcon="folder_off"
+        emptyLabel="No linked projects yet."
+        title={(row) => projectNameLabel(row as RelatedProject)}
+        hrefFor={(row) => `/portal/projects/${row.id}`}
+        metaFor={(row) => [
+          projectDescriptionLabel(row as RelatedProject),
+          projectStatusLabel(row as RelatedProject),
+          projectUpdatedLabel(row as RelatedProject),
+        ]}
+      />
+    </div>
   )
 }
 
@@ -743,17 +810,37 @@ function ServicesPanel({
     )
   }
   return (
-    <SimpleRowsPanel
-      rows={serviceWorkspaces}
-      emptyIcon="workspaces"
-      emptyLabel="No service workspaces yet."
-      title={(row) => serviceWorkspaceNameLabel(row as RelatedServiceWorkspace)}
-      metaFor={(row) => [
-        serviceWorkspaceTypeLabel(row as RelatedServiceWorkspace),
-        serviceWorkspaceVisibilityLabel(row as RelatedServiceWorkspace),
-        serviceWorkspaceStatusLabel(row as RelatedServiceWorkspace),
-      ]}
-    />
+    <div className="space-y-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="eyebrow !text-[10px]">Service workspaces</p>
+          <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
+            Keep every retainer, delivery lane, and operational workspace connected to {company.name}.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onCreateService}
+          disabled={creatingService}
+          className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          <span className="material-symbols-outlined text-[16px]" aria-hidden="true">workspaces</span>
+          {creatingService ? 'Creating workspace...' : `Create another service workspace for ${company.name}`}
+        </button>
+      </div>
+      {serviceError ? <p className="text-xs text-red-300">{serviceError}</p> : null}
+      <SimpleRowsPanel
+        rows={serviceWorkspaces}
+        emptyIcon="workspaces"
+        emptyLabel="No service workspaces yet."
+        title={(row) => serviceWorkspaceNameLabel(row as RelatedServiceWorkspace)}
+        metaFor={(row) => [
+          serviceWorkspaceTypeLabel(row as RelatedServiceWorkspace),
+          serviceWorkspaceVisibilityLabel(row as RelatedServiceWorkspace),
+          serviceWorkspaceStatusLabel(row as RelatedServiceWorkspace),
+        ]}
+      />
+    </div>
   )
 }
 
@@ -792,18 +879,38 @@ function DocumentsPanel({
     )
   }
   return (
-    <SimpleRowsPanel
-      rows={documents}
-      emptyIcon="description"
-      emptyLabel="No linked documents yet."
-      title={(row) => documentTitleLabel(row as RelatedDocument)}
-      hrefFor={(row) => `/portal/documents/${row.id}`}
-      metaFor={(row) => [
-        documentTypeLabel(row as RelatedDocument),
-        documentStatusLabel(row as RelatedDocument),
-        documentUpdatedLabel(row as RelatedDocument),
-      ]}
-    />
+    <div className="space-y-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="eyebrow !text-[10px]">Commercial documents</p>
+          <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
+            Keep proposals, approvals, and client-facing account history connected to {company.name}.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onCreateDocument}
+          disabled={creatingDocument}
+          className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          <span className="material-symbols-outlined text-[16px]" aria-hidden="true">note_add</span>
+          {creatingDocument ? 'Creating proposal...' : `Create another sales proposal for ${company.name}`}
+        </button>
+      </div>
+      {documentError ? <p className="text-xs text-red-300">{documentError}</p> : null}
+      <SimpleRowsPanel
+        rows={documents}
+        emptyIcon="description"
+        emptyLabel="No linked documents yet."
+        title={(row) => documentTitleLabel(row as RelatedDocument)}
+        hrefFor={(row) => `/portal/documents/${row.id}`}
+        metaFor={(row) => [
+          documentTypeLabel(row as RelatedDocument),
+          documentStatusLabel(row as RelatedDocument),
+          documentUpdatedLabel(row as RelatedDocument),
+        ]}
+      />
+    </div>
   )
 }
 
@@ -849,17 +956,37 @@ function RelationshipsPanel({
     )
   }
   return (
-    <SimpleRowsPanel
-      rows={relationships}
-      emptyIcon="hub"
-      emptyLabel="No business relationships yet."
-      title={(row) => relationshipTargetLabel(row as RelatedRelationship)}
-      metaFor={(row) => [
-        relationshipTypeLabel(row as RelatedRelationship),
-        relationshipStatusLabel(row as RelatedRelationship),
-        relationshipCapabilitiesLabel(row as RelatedRelationship),
-      ]}
-    />
+    <div className="space-y-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="eyebrow !text-[10px]">Business relationships</p>
+          <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
+            Keep partnerships, shared delivery, and collaboration context connected to {company.name}.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onCreateRelationship}
+          disabled={creatingRelationship}
+          className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add_link</span>
+          {creatingRelationship ? 'Creating relationship...' : `Create another relationship for ${company.name}`}
+        </button>
+      </div>
+      {relationshipError ? <p className="text-xs text-red-300">{relationshipError}</p> : null}
+      <SimpleRowsPanel
+        rows={relationships}
+        emptyIcon="hub"
+        emptyLabel="No business relationships yet."
+        title={(row) => relationshipTargetLabel(row as RelatedRelationship)}
+        metaFor={(row) => [
+          relationshipTypeLabel(row as RelatedRelationship),
+          relationshipStatusLabel(row as RelatedRelationship),
+          relationshipCapabilitiesLabel(row as RelatedRelationship),
+        ]}
+      />
+    </div>
   )
 }
 
@@ -913,29 +1040,57 @@ function QuotesPanel({
       </EmptyPanel>
     )
   }
+  const firstDeal = deals[0]
   return (
-    <TableShell>
-      <table className="w-full text-sm">
-        <thead className="border-b border-[var(--color-pib-line)] text-[10px] font-label uppercase tracking-wider text-[var(--color-pib-text-muted)]">
-          <tr>
-            <th className="px-5 py-3 text-left">Quote</th>
-            <th className="px-5 py-3 text-left">Status</th>
-            <th className="px-5 py-3 text-left">Total</th>
-            <th className="px-5 py-3 text-left">Valid Until</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-[var(--color-pib-line)]">
-          {quotes.map((quote) => (
-            <tr key={quote.id} className="hover:bg-white/[0.02]">
-              <td className="px-5 py-4 font-mono">{quote.quoteNumber || quote.id}</td>
-              <td className="px-5 py-4"><StatusChip value={quote.status} emptyLabel="Quote status not set" /></td>
-              <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{quoteTotalLabel(quote)}</td>
-              <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{quoteValidUntilLabel(quote)}</td>
+    <div className="space-y-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="eyebrow !text-[10px]">Commercial quotes</p>
+          <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
+            Keep proposal momentum, pricing context, and validity windows connected to {company.name}.
+          </p>
+        </div>
+        {firstDeal ? (
+          <button
+            type="button"
+            onClick={onCreateQuote}
+            disabled={creatingQuote}
+            className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">request_quote</span>
+            {creatingQuote ? 'Creating quote...' : `Create another quote from ${dealLabel(firstDeal)}`}
+          </button>
+        ) : (
+          <button type="button" onClick={onCreateDeal} className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5">
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add_business</span>
+            Create deal before quote
+          </button>
+        )}
+      </div>
+      {quoteError ? <p className="text-xs text-red-300">{quoteError}</p> : null}
+      <TableShell>
+        <table className="w-full text-sm">
+          <thead className="border-b border-[var(--color-pib-line)] text-[10px] font-label uppercase tracking-wider text-[var(--color-pib-text-muted)]">
+            <tr>
+              <th className="px-5 py-3 text-left">Quote</th>
+              <th className="px-5 py-3 text-left">Status</th>
+              <th className="px-5 py-3 text-left">Total</th>
+              <th className="px-5 py-3 text-left">Valid Until</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </TableShell>
+          </thead>
+          <tbody className="divide-y divide-[var(--color-pib-line)]">
+            {quotes.map((quote) => (
+              <tr key={quote.id} className="hover:bg-white/[0.02]">
+                <td className="px-5 py-4 font-mono">{quote.quoteNumber || quote.id}</td>
+                <td className="px-5 py-4"><StatusChip value={quote.status} emptyLabel="Quote status not set" /></td>
+                <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{quoteTotalLabel(quote)}</td>
+                <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{quoteValidUntilLabel(quote)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </TableShell>
+    </div>
   )
 }
 
@@ -993,35 +1148,67 @@ function InvoicesPanel({
       </EmptyPanel>
     )
   }
+  const acceptedQuote = quotes.find((quote) => quote.status === 'accepted')
   return (
-    <TableShell>
-      <table className="w-full text-sm">
-        <thead className="border-b border-[var(--color-pib-line)] text-[10px] font-label uppercase tracking-wider text-[var(--color-pib-text-muted)]">
-          <tr>
-            <th className="px-5 py-3 text-left">Invoice</th>
-            <th className="px-5 py-3 text-left">Status</th>
-            <th className="px-5 py-3 text-left">Total</th>
-            <th className="px-5 py-3 text-left">Due</th>
-            <th className="px-5 py-3 text-right">PDF</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-[var(--color-pib-line)]">
-          {invoices.map((invoice) => (
-            <tr key={invoice.id} className="hover:bg-white/[0.02]">
-              <td className="px-5 py-4 font-mono">{invoice.invoiceNumber || invoice.id}</td>
-              <td className="px-5 py-4"><StatusChip value={invoice.status} emptyLabel="Invoice status not set" /></td>
-              <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{invoiceTotalLabel(invoice)}</td>
-              <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{invoiceDueDateLabel(invoice)}</td>
-              <td className="px-5 py-4 text-right">
-                <a href={`/api/v1/invoices/${invoice.id}/pdf`} target="_blank" rel="noopener noreferrer" className="text-[var(--color-accent-v2)] hover:underline">
-                  Open
-                </a>
-              </td>
+    <div className="space-y-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="eyebrow !text-[10px]">Billing invoices</p>
+          <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
+            Keep accepted revenue, billing status, due dates, and finance handoffs connected to {company.name}.
+          </p>
+        </div>
+        {acceptedQuote ? (
+          <button
+            type="button"
+            onClick={() => onCreateInvoiceFromQuote(acceptedQuote)}
+            disabled={creatingInvoiceId === acceptedQuote.id}
+            className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">receipt_long</span>
+            {creatingInvoiceId === acceptedQuote.id ? 'Creating invoice...' : `Create another invoice from ${quoteLabel(acceptedQuote)}`}
+          </button>
+        ) : (
+          <button
+            type="button"
+            disabled
+            className="btn-pib-secondary inline-flex shrink-0 cursor-not-allowed items-center gap-1.5 opacity-60"
+          >
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">approval</span>
+            Accept quote before invoice
+          </button>
+        )}
+      </div>
+      {invoiceError ? <p className="text-xs text-red-300">{invoiceError}</p> : null}
+      <TableShell>
+        <table className="w-full text-sm">
+          <thead className="border-b border-[var(--color-pib-line)] text-[10px] font-label uppercase tracking-wider text-[var(--color-pib-text-muted)]">
+            <tr>
+              <th className="px-5 py-3 text-left">Invoice</th>
+              <th className="px-5 py-3 text-left">Status</th>
+              <th className="px-5 py-3 text-left">Total</th>
+              <th className="px-5 py-3 text-left">Due</th>
+              <th className="px-5 py-3 text-right">PDF</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </TableShell>
+          </thead>
+          <tbody className="divide-y divide-[var(--color-pib-line)]">
+            {invoices.map((invoice) => (
+              <tr key={invoice.id} className="hover:bg-white/[0.02]">
+                <td className="px-5 py-4 font-mono">{invoice.invoiceNumber || invoice.id}</td>
+                <td className="px-5 py-4"><StatusChip value={invoice.status} emptyLabel="Invoice status not set" /></td>
+                <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{invoiceTotalLabel(invoice)}</td>
+                <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{invoiceDueDateLabel(invoice)}</td>
+                <td className="px-5 py-4 text-right">
+                  <a href={`/api/v1/invoices/${invoice.id}/pdf`} target="_blank" rel="noopener noreferrer" className="text-[var(--color-accent-v2)] hover:underline">
+                    Open
+                  </a>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </TableShell>
+    </div>
   )
 }
 
@@ -1077,18 +1264,50 @@ function OrdersPanel({
       </EmptyPanel>
     )
   }
+  const firstInvoice = invoices[0]
   return (
-    <SimpleRowsPanel
-      rows={orders}
-      emptyIcon="orders"
-      emptyLabel="No linked orders yet."
-      title={(row) => orderTitleLabel(row as RelatedOrder)}
-      metaFor={(row) => [
-        orderFulfillmentStatusLabel(row as RelatedOrder),
-        orderTotalLabel(row as RelatedOrder),
-        orderStatusLabel(row as RelatedOrder),
-      ]}
-    />
+    <div className="space-y-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="eyebrow !text-[10px]">Fulfillment orders</p>
+          <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
+            Keep delivery commitments, order value, and fulfillment status connected to {company.name}.
+          </p>
+        </div>
+        {firstInvoice ? (
+          <button
+            type="button"
+            onClick={() => onCreateOrderFromInvoice(firstInvoice)}
+            disabled={creatingOrder}
+            className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add_shopping_cart</span>
+            {creatingOrder ? 'Creating order...' : `Create another fulfillment order from ${invoiceLabel(firstInvoice)}`}
+          </button>
+        ) : (
+          <button
+            type="button"
+            disabled
+            className="btn-pib-secondary inline-flex shrink-0 cursor-not-allowed items-center gap-1.5 opacity-60"
+          >
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">receipt_long</span>
+            Create invoice before order
+          </button>
+        )}
+      </div>
+      {orderError ? <p className="text-xs text-red-300">{orderError}</p> : null}
+      <SimpleRowsPanel
+        rows={orders}
+        emptyIcon="orders"
+        emptyLabel="No linked orders yet."
+        title={(row) => orderTitleLabel(row as RelatedOrder)}
+        metaFor={(row) => [
+          orderFulfillmentStatusLabel(row as RelatedOrder),
+          orderTotalLabel(row as RelatedOrder),
+          orderStatusLabel(row as RelatedOrder),
+        ]}
+      />
+    </div>
   )
 }
 
@@ -1144,18 +1363,50 @@ function ShipmentsPanel({
       </EmptyPanel>
     )
   }
+  const firstOrder = orders[0]
   return (
-    <SimpleRowsPanel
-      rows={shipments}
-      emptyIcon="local_shipping"
-      emptyLabel="No shipments yet."
-      title={(row) => shipmentCarrierLabel(row as RelatedShipment)}
-      metaFor={(row) => [
-        shipmentTrackingLabel(row as RelatedShipment),
-        shipmentExpectedDeliveryLabel(row as RelatedShipment),
-        shipmentStatusLabel(row as RelatedShipment),
-      ]}
-    />
+    <div className="space-y-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="eyebrow !text-[10px]">Delivery shipments</p>
+          <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
+            Keep carrier, tracking, and expected delivery context connected to {company.name}.
+          </p>
+        </div>
+        {firstOrder ? (
+          <button
+            type="button"
+            onClick={() => onCreateShipmentFromOrder(firstOrder)}
+            disabled={creatingShipment}
+            className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">local_shipping</span>
+            {creatingShipment ? 'Creating shipment...' : `Create another shipment for ${orderLabel(firstOrder)}`}
+          </button>
+        ) : (
+          <button
+            type="button"
+            disabled
+            className="btn-pib-secondary inline-flex shrink-0 cursor-not-allowed items-center gap-1.5 opacity-60"
+          >
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">orders</span>
+            Create order before shipment
+          </button>
+        )}
+      </div>
+      {shipmentError ? <p className="text-xs text-red-300">{shipmentError}</p> : null}
+      <SimpleRowsPanel
+        rows={shipments}
+        emptyIcon="local_shipping"
+        emptyLabel="No shipments yet."
+        title={(row) => shipmentCarrierLabel(row as RelatedShipment)}
+        metaFor={(row) => [
+          shipmentTrackingLabel(row as RelatedShipment),
+          shipmentExpectedDeliveryLabel(row as RelatedShipment),
+          shipmentStatusLabel(row as RelatedShipment),
+        ]}
+      />
+    </div>
   )
 }
 
@@ -1194,17 +1445,37 @@ function InventoryPanel({
     )
   }
   return (
-    <SimpleRowsPanel
-      rows={inventoryItems}
-      emptyIcon="inventory_2"
-      emptyLabel="No inventory items yet."
-      title={(row) => inventoryItemNameLabel(row as RelatedInventoryItem)}
-      metaFor={(row) => [
-        inventorySkuLabel(row as RelatedInventoryItem),
-        inventoryQuantityLabel(row as RelatedInventoryItem),
-        inventoryStatusLabel(row as RelatedInventoryItem),
-      ]}
-    />
+    <div className="space-y-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="eyebrow !text-[10px]">Inventory control</p>
+          <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
+            Keep stock levels, reservations, low-stock thresholds, and fulfillment readiness visible for {company.name}.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onCreateInventoryItem}
+          disabled={creatingInventoryItem}
+          className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add_box</span>
+          {creatingInventoryItem ? 'Creating item...' : `Create another inventory item for ${company.name}`}
+        </button>
+      </div>
+      {inventoryError ? <p className="text-xs text-red-300">{inventoryError}</p> : null}
+      <SimpleRowsPanel
+        rows={inventoryItems}
+        emptyIcon="inventory_2"
+        emptyLabel="No inventory items yet."
+        title={(row) => inventoryItemNameLabel(row as RelatedInventoryItem)}
+        metaFor={(row) => [
+          inventorySkuLabel(row as RelatedInventoryItem),
+          inventoryQuantityLabel(row as RelatedInventoryItem),
+          inventoryStatusLabel(row as RelatedInventoryItem),
+        ]}
+      />
+    </div>
   )
 }
 
@@ -1283,6 +1554,7 @@ function AnalyticsPanel({
     value: string
     icon: string
     tab: CompanyTab
+    ariaLabel: string
     tone: 'risk' | 'watch' | 'good'
   }> = [
     ...(lowStockItems > 0
@@ -1291,6 +1563,7 @@ function AnalyticsPanel({
           value: `${lowStockItems} low-stock ${lowStockItems === 1 ? 'item' : 'items'}`,
           icon: 'inventory_2',
           tab: 'inventory' as CompanyTab,
+          ariaLabel: `Review inventory risk for ${companyName}`,
           tone: 'risk' as const,
         }]
       : [{
@@ -1298,6 +1571,7 @@ function AnalyticsPanel({
           value: 'No low-stock items',
           icon: 'inventory_2',
           tab: 'inventory' as CompanyTab,
+          ariaLabel: `Review inventory coverage for ${companyName}`,
           tone: 'good' as const,
         }]),
     {
@@ -1305,6 +1579,7 @@ function AnalyticsPanel({
       value: openOrders > 0 ? `${openOrders} open ${openOrders === 1 ? 'order' : 'orders'}` : 'No open order blockers',
       icon: 'orders',
       tab: 'orders',
+      ariaLabel: `Review fulfillment orders for ${companyName}`,
       tone: openOrders > 0 ? 'watch' : 'good',
     },
     {
@@ -1312,6 +1587,7 @@ function AnalyticsPanel({
       value: overdueInvoices > 0 ? `${overdueInvoices} overdue ${overdueInvoices === 1 ? 'invoice' : 'invoices'}` : 'No overdue invoices',
       icon: 'receipt_long',
       tab: 'invoices',
+      ariaLabel: `Review cash collection for ${companyName}`,
       tone: overdueInvoices > 0 ? 'risk' : 'good',
     },
     {
@@ -1319,6 +1595,7 @@ function AnalyticsPanel({
       value: weightedPipelineValue > 0 ? `${formatCurrency(weightedPipelineValue)} weighted` : 'No weighted pipeline',
       icon: 'query_stats',
       tab: 'deals',
+      ariaLabel: `Review pipeline for ${companyName}`,
       tone: weightedPipelineValue > 0 ? 'watch' : 'risk',
     },
   ]
@@ -1356,7 +1633,7 @@ function AnalyticsPanel({
               key={action.label}
               type="button"
               onClick={() => onOpenTab(action.tab)}
-              aria-label={`Open ${action.tab.charAt(0).toUpperCase()}${action.tab.slice(1)} tab`}
+              aria-label={action.ariaLabel}
               className={`rounded-xl border p-4 text-left transition-transform hover:-translate-y-0.5 ${toneClass[action.tone]}`}
             >
               <div className="flex items-center justify-between gap-3">
@@ -1429,6 +1706,13 @@ function ActivityPanel({
   onCreateContact: () => void
 }) {
   const firstContact = contacts[0]
+  const contactName = firstContact ? contactLabel(firstContact) : null
+  const companyNoteLabel = contactName
+    ? `Company note for ${company.name} anchored to ${contactName}`
+    : `Company note for ${company.name}`
+  const dismissCompanyNoteLabel = `Dismiss company note composer for ${company.name}`
+  const cancelCompanyNoteLabel = `Cancel company note for ${company.name}`
+  const saveCompanyNoteLabel = `Save company note for ${company.name}`
   const composer = noteOpen && firstContact ? (
     <div className="bento-card p-5 text-left">
       <div className="flex items-start justify-between gap-4">
@@ -1443,7 +1727,7 @@ function ActivityPanel({
           type="button"
           onClick={onCancelNote}
           className="text-[var(--color-pib-text-muted)] transition-colors hover:text-[var(--color-pib-text)]"
-          aria-label="Cancel note"
+          aria-label={dismissCompanyNoteLabel}
         >
           <span className="material-symbols-outlined text-[20px]">close</span>
         </button>
@@ -1454,6 +1738,7 @@ function ActivityPanel({
         </label>
         <textarea
           id="company-activity-note"
+          aria-label={companyNoteLabel}
           value={note}
           onChange={(event) => onNoteChange(event.target.value)}
           rows={4}
@@ -1462,7 +1747,13 @@ function ActivityPanel({
         />
         {noteError ? <p className="text-xs text-red-300">{noteError}</p> : null}
         <div className="flex flex-wrap justify-end gap-2">
-          <button type="button" onClick={onCancelNote} disabled={savingNote} className="btn-pib-secondary">
+          <button
+            type="button"
+            onClick={onCancelNote}
+            disabled={savingNote}
+            className="btn-pib-secondary"
+            aria-label={cancelCompanyNoteLabel}
+          >
             Cancel
           </button>
           <button
@@ -1470,6 +1761,7 @@ function ActivityPanel({
             onClick={onSaveNote}
             disabled={savingNote || !note.trim()}
             className="btn-pib-primary disabled:cursor-not-allowed disabled:opacity-60"
+            aria-label={saveCompanyNoteLabel}
           >
             {savingNote ? 'Saving...' : 'Save note'}
           </button>
@@ -2411,19 +2703,24 @@ export default function CompanyDetailPage() {
       )}
 
       {newContactOpen && (
-        <div className="fixed inset-0 z-50 flex">
+        <div
+          className="fixed inset-0 z-50 flex"
+          role="dialog"
+          aria-modal="true"
+          aria-label={`New contact for ${company.name}`}
+        >
           <div className="flex-1 bg-black/60 backdrop-blur-sm" onClick={() => setNewContactOpen(false)} />
           <div className="w-full max-w-md overflow-y-auto border-l border-[var(--color-pib-line)] bg-[var(--color-pib-surface)]">
             <div className="flex items-center justify-between border-b border-[var(--color-pib-line)] px-6 py-4">
               <div>
                 <p className="eyebrow !text-[10px]">Company contact</p>
-                <h2 className="font-display text-lg">New contact</h2>
+                <h2 className="font-display text-lg">New contact for {company.name}</h2>
               </div>
               <button
                 type="button"
                 onClick={() => setNewContactOpen(false)}
                 className="text-[var(--color-pib-text-muted)] transition-colors hover:text-[var(--color-pib-text)]"
-                aria-label="Close"
+                aria-label={`Close contact drawer for ${company.name}`}
               >
                 <span className="material-symbols-outlined text-[20px]">close</span>
               </button>
@@ -2431,6 +2728,7 @@ export default function CompanyDetailPage() {
             <ContactForm
               onSave={createCompanyContact}
               onCancel={() => setNewContactOpen(false)}
+              contextName={company.name}
               initial={{
                 company: company.name,
                 companyId: company.id,

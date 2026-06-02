@@ -31,7 +31,7 @@ const VALID_CATEGORIES: SocialPostCategory[] = ['work', 'personal', 'ai', 'sport
 
 type Params = { params: Promise<{ id: string }> }
 
-export const GET = withAuth('admin', withTenant(async (_req, _user, orgId, context) => {
+export const GET = withAuth('client', withTenant(async (_req, _user, orgId, context) => {
   const { id } = await (context as Params).params
   const doc = await adminDb.collection('social_posts').doc(id).get()
   if (!doc.exists) return apiError('Post not found', 404)

@@ -4,6 +4,7 @@ import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { computeFunnelResults } from '@/lib/analytics/funnel-compute'
+import { analyticsPropertyErrorResponse, requireAnalyticsProperty } from '@/lib/analytics/property-access'
 import type { ApiUser } from '@/lib/api/types'
 import type { FunnelWindow } from '@/lib/analytics/types'
 
@@ -25,10 +26,11 @@ export const GET = withAuth('admin', async (req: NextRequest, _user: ApiUser, ct
     if (!funnelSnap.exists) return apiError('Funnel not found', 404)
 
     const funnel = funnelSnap.data()!
+    const property = await requireAnalyticsProperty(_user, { propertyId: funnel.propertyId })
     const stepEvents = funnel.steps.map((s: { event: string }) => s.event) as string[]
 
     const eventsSnap = await adminDb.collection('product_events')
-      .where('propertyId', '==', funnel.propertyId)
+      .where('propertyId', '==', property.id)
       .where('serverTime', '>=', Timestamp.fromDate(new Date(from)))
       .where('serverTime', '<=', Timestamp.fromDate(new Date(to)))
       .orderBy('serverTime', 'asc')
@@ -42,7 +44,9 @@ export const GET = withAuth('admin', async (req: NextRequest, _user: ApiUser, ct
           event: data.event as string,
           distinctId: data.distinctId as string,
           sessionId: data.sessionId as string,
-          timestamp: (data.serverTime?._seconds ?? 0) * 1000,
+          timestamp: data.serverTime?.toMillis?.()
+            ?? data.serverTime?.toDate?.()?.getTime?.()
+            ?? ((data.serverTime?._seconds ?? data.serverTime?.seconds ?? 0) * 1000),
         }
       })
       .filter(e => stepEvents.includes(e.event))
@@ -50,6 +54,8 @@ export const GET = withAuth('admin', async (req: NextRequest, _user: ApiUser, ct
     const results = computeFunnelResults(rawEvents, funnel.steps, funnel.window as FunnelWindow)
     return apiSuccess(results)
   } catch (e) {
+    const propertyError = analyticsPropertyErrorResponse(e)
+    if (propertyError) return propertyError
     console.error('[analytics-funnel-results]', e)
     return apiError('Failed to compute funnel results', 500)
   }

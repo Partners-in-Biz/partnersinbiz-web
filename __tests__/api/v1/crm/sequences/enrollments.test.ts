@@ -29,11 +29,24 @@ jest.mock('@/lib/sequences/store', () => ({
   deleteSequence: jest.fn(),
 }))
 
-jest.mock('@/lib/sequences/enrollment', () => ({
-  listEnrollments: jest.fn(),
-  enrollContact: jest.fn(),
-  unenrollContact: jest.fn(),
-}))
+jest.mock('@/lib/sequences/enrollment', () => {
+  class MockSequenceEnrollmentError extends Error {
+    status: number
+
+    constructor(message: string, status: number) {
+      super(message)
+      this.name = 'SequenceEnrollmentError'
+      this.status = status
+    }
+  }
+
+  return {
+    listEnrollments: jest.fn(),
+    enrollContact: jest.fn(),
+    unenrollContact: jest.fn(),
+    SequenceEnrollmentError: MockSequenceEnrollmentError,
+  }
+})
 
 import { adminAuth, adminDb } from '@/lib/firebase/admin'
 import * as sequenceStore from '@/lib/sequences/store'
@@ -223,6 +236,22 @@ describe('POST /api/v1/crm/sequences/:id/enrollments', () => {
     expect(res.status).toBe(404)
   })
 
+  it('returns 400 when sequence is not active', async () => {
+    const uid = uidFor('member-enroll-inactive')
+    const member = seedOrgMember('org-1', uid, { role: 'member' })
+    stageAuth(member)
+    ;(sequenceStore.getSequence as jest.Mock).mockResolvedValue(buildSequence({ status: 'draft' }))
+
+    const req = callAsMember(member, 'POST', '/api/v1/crm/sequences/seq-1/enrollments', {
+      contactId: 'contact-1',
+    })
+    const res = await seqEnrollmentsRoute.POST(req, { params: Promise.resolve({ id: 'seq-1' }) })
+
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toMatch(/active/i)
+    expect(enrollmentModule.enrollContact).not.toHaveBeenCalled()
+  })
+
   it('returns 500 when enrollContact throws', async () => {
     const uid = uidFor('member-enroll-err')
     const member = seedOrgMember('org-1', uid, { role: 'member' })
@@ -235,6 +264,25 @@ describe('POST /api/v1/crm/sequences/:id/enrollments', () => {
     })
     const res = await seqEnrollmentsRoute.POST(req, { params: Promise.resolve({ id: 'seq-1' }) })
     expect(res.status).toBe(500)
+  })
+
+  it('returns the typed enrollment error status when the contact is not enrollable', async () => {
+    const uid = uidFor('member-enroll-wrong-org-contact')
+    const member = seedOrgMember('org-1', uid, { role: 'member' })
+    stageAuth(member)
+    ;(sequenceStore.getSequence as jest.Mock).mockResolvedValue(buildSequence())
+    ;(enrollmentModule.enrollContact as jest.Mock).mockRejectedValue(
+      new enrollmentModule.SequenceEnrollmentError('Contact not found', 404),
+    )
+
+    const req = callAsMember(member, 'POST', '/api/v1/crm/sequences/seq-1/enrollments', {
+      contactId: 'contact-other-org',
+    })
+    const res = await seqEnrollmentsRoute.POST(req, { params: Promise.resolve({ id: 'seq-1' }) })
+    const body = await res.json()
+
+    expect(res.status).toBe(404)
+    expect(body.error).toBe('Contact not found')
   })
 })
 

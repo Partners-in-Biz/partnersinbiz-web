@@ -3,6 +3,7 @@ import { adminDb } from '@/lib/firebase/admin'
 import { FieldValue } from 'firebase-admin/firestore'
 import { getResendClient, FROM_ADDRESS } from '@/lib/email/resend'
 import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
+import { fireTrigger } from '@/lib/automations/trigger'
 
 function isValidEmail(email: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
@@ -21,7 +22,7 @@ function escapeHtml(str: string): string {
 
 export async function POST(request: NextRequest) {
   const body = await request.json()
-  const { name, email, company, projectType, details, userId } = body
+  const { name, email, company, projectType, details, userId, phone, website } = body
 
   if (!name?.trim()) return NextResponse.json({ error: 'Name is required' }, { status: 400 })
   if (!email?.trim()) return NextResponse.json({ error: 'Email is required' }, { status: 400 })
@@ -30,13 +31,22 @@ export async function POST(request: NextRequest) {
   if (!projectType?.trim()) return NextResponse.json({ error: 'Project type is required' }, { status: 400 })
   if (!VALID_PROJECT_TYPES.includes(projectType)) return NextResponse.json({ error: 'Invalid project type' }, { status: 400 })
 
+  const normalizedName = name.trim()
+  const normalizedEmail = email.trim().toLowerCase()
+  const normalizedCompany = company?.trim() ?? ''
+  const normalizedDetails = details.trim()
+  const normalizedPhone = typeof phone === 'string' ? phone.trim() : ''
+  const normalizedWebsite = typeof website === 'string' ? website.trim() : ''
+
   const docRef = await adminDb.collection('enquiries').add({
     userId: userId ?? null,
-    name: name.trim(),
-    email: email.trim().toLowerCase(),
-    company: company?.trim() ?? '',
+    name: normalizedName,
+    email: normalizedEmail,
+    company: normalizedCompany,
+    phone: normalizedPhone,
+    website: normalizedWebsite,
     projectType: projectType,
-    details: details.trim(),
+    details: normalizedDetails,
     status: 'new',
     createdAt: FieldValue.serverTimestamp(),
     assignedTo: null,
@@ -44,14 +54,14 @@ export async function POST(request: NextRequest) {
 
   // Also create a CRM contact for this lead — scoped to the PIB platform org
   // (PIB-internal enquiries land in the platform-owner org's CRM).
-  await adminDb.collection('contacts').add({
+  const contactRef = await adminDb.collection('contacts').add({
     orgId: PIB_PLATFORM_ORG_ID,
     capturedFromId: '',
-    name: name.trim(),
-    email: email.trim().toLowerCase(),
-    company: company?.trim() ?? '',
-    phone: '',
-    website: '',
+    name: normalizedName,
+    email: normalizedEmail,
+    company: normalizedCompany,
+    phone: normalizedPhone,
+    website: normalizedWebsite,
     source: 'form',
     type: 'lead',
     stage: 'new',
@@ -67,22 +77,43 @@ export async function POST(request: NextRequest) {
     lastContactedAt: null,
   })
 
+  await fireTrigger('contact.created', {
+    orgId: PIB_PLATFORM_ORG_ID,
+    contactId: contactRef.id,
+    contactEmail: normalizedEmail,
+  })
+
   // Notification email — fire-and-forget; failure must not break form submission
   try {
     const adminEmail = process.env.ADMIN_EMAIL || 'peet.stander@partnersinbiz.online'
-    await getResendClient().emails.send({
+    const resend = getResendClient()
+    await resend.emails.send({
       from: FROM_ADDRESS,
       to: adminEmail,
-      subject: `New Project Inquiry from ${escapeHtml(name)}`,
+      subject: `New Project Inquiry from ${escapeHtml(normalizedName)}`,
       html: `
         <h2>New Project Inquiry</h2>
-        <p><strong>Name:</strong> ${escapeHtml(name)}</p>
-        <p><strong>Email:</strong> ${escapeHtml(email)}</p>
-        <p><strong>Company:</strong> ${escapeHtml(company ?? 'Not provided')}</p>
+        <p><strong>Name:</strong> ${escapeHtml(normalizedName)}</p>
+        <p><strong>Email:</strong> ${escapeHtml(normalizedEmail)}</p>
+        <p><strong>Company:</strong> ${escapeHtml(normalizedCompany || 'Not provided')}</p>
+        <p><strong>Phone:</strong> ${escapeHtml(normalizedPhone || 'Not provided')}</p>
+        <p><strong>Website / online link:</strong> ${escapeHtml(normalizedWebsite || 'Not provided')}</p>
         <p><strong>Project Type:</strong> ${escapeHtml(projectType)}</p>
         <p><strong>Details:</strong></p>
-        <p>${escapeHtml(details)}</p>
+        <p>${escapeHtml(normalizedDetails).replace(/\n/g, '<br />')}</p>
         <p><em>Enquiry ID: ${docRef.id}</em></p>
+      `,
+    })
+
+    await resend.emails.send({
+      from: FROM_ADDRESS,
+      to: normalizedEmail,
+      subject: 'We received your Partners in Biz request',
+      html: `
+        <p>Hi ${escapeHtml(normalizedName)},</p>
+        <p>Thank you for reaching out to Partners in Biz. We received your request and will review your website, search visibility, and social presence before replying.</p>
+        <p>You can expect a practical response within one business day with the first fixes we would make.</p>
+        <p>Regards,<br />Partners in Biz</p>
       `,
     })
   } catch (err) {

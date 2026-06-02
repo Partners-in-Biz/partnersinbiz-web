@@ -2,7 +2,9 @@
 export const dynamic = 'force-dynamic'
 
 import { useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { AnalyticsNav } from '@/components/admin/AnalyticsNav'
+import { AnalyticsPropertyPicker } from '@/components/admin/AnalyticsPropertyPicker'
 
 interface CohortRow {
   cohortLabel: string
@@ -27,7 +29,9 @@ function heatColor(pct: number | null): string {
 }
 
 export default function RetentionPage() {
-  const [propertyId, setPropertyId] = useState('')
+  const sp = useSearchParams()
+  const initialPid = sp?.get('propertyId') ?? ''
+  const [propertyId, setPropertyId] = useState(initialPid)
   const [cohortEvent, setCohortEvent] = useState('$pageview')
   const [returnEvent, setReturnEvent] = useState('$pageview')
   const [from, setFrom] = useState(() => {
@@ -54,14 +58,12 @@ export default function RetentionPage() {
 
   return (
     <div className="p-6 space-y-6">
-      <AnalyticsNav active="retention" />
+      <AnalyticsNav active="retention" propertyId={propertyId} />
       <h1 className="text-2xl font-headline font-bold text-on-surface">Retention</h1>
 
-      <div className="pib-card p-4 grid grid-cols-2 md:grid-cols-3 gap-3 items-end">
-        <div>
-          <label className="text-xs font-label uppercase tracking-widest text-on-surface-variant block mb-1">Property ID</label>
-          <input className="pib-input w-full" value={propertyId} onChange={e => setPropertyId(e.target.value)} placeholder="prop_abc" />
-        </div>
+      <div className="pib-card p-4 space-y-3">
+        <AnalyticsPropertyPicker value={propertyId} onChange={setPropertyId} />
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 items-end">
         <div>
           <label className="text-xs font-label uppercase tracking-widest text-on-surface-variant block mb-1">Cohort Event</label>
           <input className="pib-input w-full" value={cohortEvent} onChange={e => setCohortEvent(e.target.value)} />
@@ -89,6 +91,7 @@ export default function RetentionPage() {
           <button className="pib-btn-primary w-full" onClick={load} disabled={!propertyId || loading}>
             {loading ? 'Computing…' : 'Compute Retention'}
           </button>
+        </div>
         </div>
       </div>
 

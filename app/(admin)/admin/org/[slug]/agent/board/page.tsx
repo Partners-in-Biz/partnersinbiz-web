@@ -361,7 +361,7 @@ export default function AgentBoardPage() {
 
       {!loading && data && data.total === 0 && <EmptyState slug={slug} />}
 
-      <TaskDetailModal task={selected} onClose={() => setSelected(null)} slug={slug} />
+      <TaskDetailModal task={selected} onClose={() => setSelected(null)} onRefresh={load} slug={slug} />
     </div>
   )
 }

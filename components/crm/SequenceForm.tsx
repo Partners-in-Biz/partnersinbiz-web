@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import type { Sequence, SequenceStep, SequenceStatus } from '@/lib/sequences/types'
+import { validateSequenceActivation } from '@/lib/sequences/validation'
 
 // ── Input class helper ────────────────────────────────────────────────────────
 
@@ -282,6 +283,11 @@ export function SequenceForm({ initial, onSave, onCancel }: Props) {
 
     // Assign stepNumbers from array position
     const numberedSteps: SequenceStep[] = steps.map((s, i) => ({ ...s, stepNumber: i }))
+    const activationError = validateSequenceActivation({ status, steps: numberedSteps })
+    if (activationError) {
+      setValidationError(activationError)
+      return
+    }
 
     setSaving(true)
     try {

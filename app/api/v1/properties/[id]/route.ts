@@ -4,6 +4,7 @@ import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { lastActorFrom } from '@/lib/api/actor'
+import { canAccessOrg } from '@/lib/api/platformAdmin'
 import { VALID_PROPERTY_TYPES, VALID_PROPERTY_STATUSES } from '@/lib/properties/types'
 import type { UpdatePropertyInput } from '@/lib/properties/types'
 
@@ -11,12 +12,13 @@ export const dynamic = 'force-dynamic'
 
 type RouteContext = { params: Promise<{ id: string }> }
 
-export const GET = withAuth('admin', async (_req: NextRequest, _user, ctx) => {
+export const GET = withAuth('admin', async (_req: NextRequest, user, ctx) => {
   const { id } = await (ctx as RouteContext).params
   try {
     const ref = adminDb.collection('properties').doc(id)
     const snap = await ref.get()
     if (!snap.exists || snap.data()?.deleted) return apiError('Not found', 404)
+    if (!canAccessOrg(user, snap.data()?.orgId)) return apiError('Forbidden', 403)
     return apiSuccess({ id: snap.id, ...snap.data() })
   } catch (err) {
     console.error('[properties-detail-get-error]', err)
@@ -30,6 +32,7 @@ export const PUT = withAuth('admin', async (req: NextRequest, user, ctx) => {
     const ref = adminDb.collection('properties').doc(id)
     const snap = await ref.get()
     if (!snap.exists || snap.data()?.deleted) return apiError('Not found', 404)
+    if (!canAccessOrg(user, snap.data()?.orgId)) return apiError('Forbidden', 403)
 
     const body = await req.json() as UpdatePropertyInput
 
@@ -68,6 +71,7 @@ export const DELETE = withAuth('admin', async (_req: NextRequest, user, ctx) => 
     const ref = adminDb.collection('properties').doc(id)
     const snap = await ref.get()
     if (!snap.exists || snap.data()?.deleted) return apiError('Not found', 404)
+    if (!canAccessOrg(user, snap.data()?.orgId)) return apiError('Forbidden', 403)
 
     await ref.update({
       deleted: true,

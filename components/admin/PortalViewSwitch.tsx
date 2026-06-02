@@ -91,7 +91,7 @@ export function PortalViewSwitch({ orgId, collapsed = false, compact = false, ic
         title="Switch to portal view"
         className="hidden md:flex items-center gap-1.5 px-2.5 h-8 rounded-lg text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.05] transition-colors disabled:opacity-60"
       >
-        <span className="material-symbols-outlined text-[18px]">web_asset</span>
+        <span className="material-symbols-outlined text-[18px]">admin_panel_settings</span>
         <span className="hidden lg:inline">{loading ? 'Opening...' : 'Portal'}</span>
       </button>
     )
@@ -110,7 +110,7 @@ export function PortalViewSwitch({ orgId, collapsed = false, compact = false, ic
           collapsed ? 'mx-auto my-2 h-8 w-8 rounded-lg' : 'h-8 w-8 border-l border-[var(--color-pib-line)]',
         ].join(' ')}
       >
-        <span className="material-symbols-outlined text-[18px]">web_asset</span>
+        <span className="material-symbols-outlined text-[18px]">admin_panel_settings</span>
       </button>
     )
   }
@@ -128,7 +128,7 @@ export function PortalViewSwitch({ orgId, collapsed = false, compact = false, ic
           'text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.03]',
         ].join(' ')}
       >
-        <span className="material-symbols-outlined text-[20px] shrink-0 opacity-70">web_asset</span>
+        <span className="material-symbols-outlined text-[20px] shrink-0 opacity-70">admin_panel_settings</span>
         {!collapsed && <span className="font-medium">{loading ? 'Opening portal...' : 'Portal view'}</span>}
       </button>
       {!collapsed && error && (

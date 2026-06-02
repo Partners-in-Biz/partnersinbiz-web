@@ -34,6 +34,11 @@ describe('CompanyPicker', () => {
     expect(screen.getByRole('combobox')).toBeInTheDocument()
   })
 
+  it('accepts a contextual search label', () => {
+    render(<CompanyPicker ariaLabel="Linked company for Jane Client" onChange={noop} />)
+    expect(screen.getByRole('combobox', { name: 'Linked company for Jane Client' })).toBeInTheDocument()
+  })
+
   it('shows currentCompanyName in the input when provided', () => {
     render(
       <CompanyPicker
@@ -100,10 +105,12 @@ describe('CompanyPicker', () => {
       <CompanyPicker
         currentCompanyId="co-1"
         currentCompanyName="ACME Corp"
+        ariaLabel="Linked company for Jane Client"
         onChange={noop}
       />,
     )
-    expect(screen.getByRole('button', { name: /clear/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Clear Linked company for Jane Client' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Clear company' })).not.toBeInTheDocument()
   })
 
   it('calls onChange with nulls when cleared', () => {
