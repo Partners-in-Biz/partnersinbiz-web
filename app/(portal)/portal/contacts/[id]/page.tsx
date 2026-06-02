@@ -1788,8 +1788,10 @@ export default function PortalContactDetailPage() {
                 </button>
               )}
               <button
+                type="button"
                 onClick={saveChanges}
                 disabled={!dirty || saving}
+                aria-label={`Save profile changes for ${contactName}`}
                 className="btn-pib-accent !py-2 !px-4 !text-sm disabled:opacity-40"
               >
                 {saving ? 'Saving…' : 'Save changes'}

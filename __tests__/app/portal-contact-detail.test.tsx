@@ -346,7 +346,8 @@ describe('Portal contact detail page', () => {
     expect(screen.getByPlaceholderText('+27...')).toHaveValue('')
     expect(screen.queryByText('Unsaved changes')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Discard unsaved profile edits for Jane Client' })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Save changes' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Save profile changes for Jane Client' })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: 'Save changes' })).not.toBeInTheDocument()
   })
 
   it('uses relationship-history copy for the empty activity metric', async () => {
