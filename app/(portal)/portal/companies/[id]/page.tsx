@@ -956,17 +956,37 @@ function RelationshipsPanel({
     )
   }
   return (
-    <SimpleRowsPanel
-      rows={relationships}
-      emptyIcon="hub"
-      emptyLabel="No business relationships yet."
-      title={(row) => relationshipTargetLabel(row as RelatedRelationship)}
-      metaFor={(row) => [
-        relationshipTypeLabel(row as RelatedRelationship),
-        relationshipStatusLabel(row as RelatedRelationship),
-        relationshipCapabilitiesLabel(row as RelatedRelationship),
-      ]}
-    />
+    <div className="space-y-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="eyebrow !text-[10px]">Business relationships</p>
+          <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
+            Keep partnerships, shared delivery, and collaboration context connected to {company.name}.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onCreateRelationship}
+          disabled={creatingRelationship}
+          className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add_link</span>
+          {creatingRelationship ? 'Creating relationship...' : `Create another relationship for ${company.name}`}
+        </button>
+      </div>
+      {relationshipError ? <p className="text-xs text-red-300">{relationshipError}</p> : null}
+      <SimpleRowsPanel
+        rows={relationships}
+        emptyIcon="hub"
+        emptyLabel="No business relationships yet."
+        title={(row) => relationshipTargetLabel(row as RelatedRelationship)}
+        metaFor={(row) => [
+          relationshipTypeLabel(row as RelatedRelationship),
+          relationshipStatusLabel(row as RelatedRelationship),
+          relationshipCapabilitiesLabel(row as RelatedRelationship),
+        ]}
+      />
+    </div>
   )
 }
 
