@@ -1264,18 +1264,50 @@ function OrdersPanel({
       </EmptyPanel>
     )
   }
+  const firstInvoice = invoices[0]
   return (
-    <SimpleRowsPanel
-      rows={orders}
-      emptyIcon="orders"
-      emptyLabel="No linked orders yet."
-      title={(row) => orderTitleLabel(row as RelatedOrder)}
-      metaFor={(row) => [
-        orderFulfillmentStatusLabel(row as RelatedOrder),
-        orderTotalLabel(row as RelatedOrder),
-        orderStatusLabel(row as RelatedOrder),
-      ]}
-    />
+    <div className="space-y-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="eyebrow !text-[10px]">Fulfillment orders</p>
+          <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
+            Keep delivery commitments, order value, and fulfillment status connected to {company.name}.
+          </p>
+        </div>
+        {firstInvoice ? (
+          <button
+            type="button"
+            onClick={() => onCreateOrderFromInvoice(firstInvoice)}
+            disabled={creatingOrder}
+            className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add_shopping_cart</span>
+            {creatingOrder ? 'Creating order...' : `Create another fulfillment order from ${invoiceLabel(firstInvoice)}`}
+          </button>
+        ) : (
+          <button
+            type="button"
+            disabled
+            className="btn-pib-secondary inline-flex shrink-0 cursor-not-allowed items-center gap-1.5 opacity-60"
+          >
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">receipt_long</span>
+            Create invoice before order
+          </button>
+        )}
+      </div>
+      {orderError ? <p className="text-xs text-red-300">{orderError}</p> : null}
+      <SimpleRowsPanel
+        rows={orders}
+        emptyIcon="orders"
+        emptyLabel="No linked orders yet."
+        title={(row) => orderTitleLabel(row as RelatedOrder)}
+        metaFor={(row) => [
+          orderFulfillmentStatusLabel(row as RelatedOrder),
+          orderTotalLabel(row as RelatedOrder),
+          orderStatusLabel(row as RelatedOrder),
+        ]}
+      />
+    </div>
   )
 }
 
