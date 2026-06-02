@@ -2085,6 +2085,106 @@ describe('Portal company detail page', () => {
     )
   })
 
+  it('keeps service workspace creation available when a company already has services', async () => {
+    const postServiceWorkspace = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ success: true, data: { serviceWorkspace: { id: 'svc-new' } } }),
+    } as Response)
+
+    global.fetch = jest.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/custom-fields?resource=company') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { definitions: [] } }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/companies/company-1') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              company: {
+                id: 'company-1',
+                orgId: 'org-1',
+                name: 'Acme Holdings',
+                lifecycleStage: 'customer',
+              },
+            },
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/companies/company-1/command-center?limit=100') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              summary: {},
+              analytics: {},
+              contacts: [
+                { id: 'contact-1', name: 'Jane Client', email: 'jane@example.com', type: 'client', stage: 'won' },
+              ],
+              deals: [],
+              quotes: [],
+              invoices: [],
+              projects: [
+                { id: 'project-1', name: 'Discovery sprint', status: 'active' },
+              ],
+              serviceWorkspaces: [
+                { id: 'svc-1', name: 'SEO Workspace', serviceType: 'seo', status: 'active', visibility: 'relationship' },
+              ],
+              relationships: [],
+              documents: [],
+              orders: [],
+              shipments: [],
+              inventoryItems: [],
+              activities: [],
+            },
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/service-workspaces' && init?.method === 'POST') {
+        return postServiceWorkspace(input, init)
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ data: {} }),
+      } as Response)
+    }) as jest.Mock
+
+    render(<CompanyDetailPage />)
+
+    await screen.findByRole('heading', { name: 'Acme Holdings' })
+    await selectCompanyTab(/Services/i)
+    expect(await screen.findByText('SEO Workspace')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Create another service workspace for Acme Holdings' }))
+
+    await waitFor(() => {
+      expect(postServiceWorkspace).toHaveBeenCalledWith(
+        '/api/v1/service-workspaces',
+        expect.objectContaining({
+          method: 'POST',
+          body: expect.stringContaining('"companyId":"company-1"'),
+        }),
+      )
+    })
+    expect(JSON.parse((postServiceWorkspace.mock.calls[0][1] as RequestInit).body as string)).toEqual(
+      expect.objectContaining({
+        companyId: 'company-1',
+        contactId: 'contact-1',
+        projectId: 'project-1',
+        linkedProjectIds: ['project-1'],
+        name: 'Acme Holdings service workspace',
+        serviceType: 'custom',
+        status: 'active',
+        visibility: 'relationship',
+      }),
+    )
+  })
+
   it('turns an empty company documents tab into a linked sales proposal draft action', async () => {
     const postDocument = jest.fn().mockResolvedValue({
       ok: true,

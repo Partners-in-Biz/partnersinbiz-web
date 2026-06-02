@@ -810,17 +810,37 @@ function ServicesPanel({
     )
   }
   return (
-    <SimpleRowsPanel
-      rows={serviceWorkspaces}
-      emptyIcon="workspaces"
-      emptyLabel="No service workspaces yet."
-      title={(row) => serviceWorkspaceNameLabel(row as RelatedServiceWorkspace)}
-      metaFor={(row) => [
-        serviceWorkspaceTypeLabel(row as RelatedServiceWorkspace),
-        serviceWorkspaceVisibilityLabel(row as RelatedServiceWorkspace),
-        serviceWorkspaceStatusLabel(row as RelatedServiceWorkspace),
-      ]}
-    />
+    <div className="space-y-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="eyebrow !text-[10px]">Service workspaces</p>
+          <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
+            Keep every retainer, delivery lane, and operational workspace connected to {company.name}.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onCreateService}
+          disabled={creatingService}
+          className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          <span className="material-symbols-outlined text-[16px]" aria-hidden="true">workspaces</span>
+          {creatingService ? 'Creating workspace...' : `Create another service workspace for ${company.name}`}
+        </button>
+      </div>
+      {serviceError ? <p className="text-xs text-red-300">{serviceError}</p> : null}
+      <SimpleRowsPanel
+        rows={serviceWorkspaces}
+        emptyIcon="workspaces"
+        emptyLabel="No service workspaces yet."
+        title={(row) => serviceWorkspaceNameLabel(row as RelatedServiceWorkspace)}
+        metaFor={(row) => [
+          serviceWorkspaceTypeLabel(row as RelatedServiceWorkspace),
+          serviceWorkspaceVisibilityLabel(row as RelatedServiceWorkspace),
+          serviceWorkspaceStatusLabel(row as RelatedServiceWorkspace),
+        ]}
+      />
+    </div>
   )
 }
 
