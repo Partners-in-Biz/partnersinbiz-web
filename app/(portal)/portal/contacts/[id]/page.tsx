@@ -2120,6 +2120,7 @@ export default function PortalContactDetailPage() {
                   ) : logType === 'meeting' ? (
                     <>
                       <input
+                        aria-label={`Meeting title for ${contactName}`}
                         placeholder="Meeting title…"
                         value={meetingTitle}
                         onChange={(e) => setMeetingTitle(e.target.value)}
@@ -2146,6 +2147,7 @@ export default function PortalContactDetailPage() {
                         </label>
                       </div>
                       <input
+                        aria-label={`Meeting link for ${contactName}`}
                         placeholder="Meeting link (optional)…"
                         value={meetingUrl}
                         onChange={(e) => setMeetingUrl(e.target.value)}
@@ -2157,6 +2159,7 @@ export default function PortalContactDetailPage() {
                         </p>
                       )}
                       <textarea
+                        aria-label={`Meeting agenda or notes for ${contactName}`}
                         rows={3}
                         placeholder="Agenda or notes…"
                         value={logSummary}

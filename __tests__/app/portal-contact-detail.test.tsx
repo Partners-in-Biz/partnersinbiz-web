@@ -833,8 +833,11 @@ describe('Portal contact detail page', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Schedule meeting from engagement cockpit with Jane Client' }))
 
-    expect(screen.getByPlaceholderText('Meeting title…')).toBeInTheDocument()
-    expect(screen.getByDisplayValue('Meeting with Jane Client')).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'Meeting title for Jane Client' })).toHaveValue('Meeting with Jane Client')
+    expect(screen.getByLabelText('Starts')).toBeInTheDocument()
+    expect(screen.getByLabelText('Ends')).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'Meeting link for Jane Client' })).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'Meeting agenda or notes for Jane Client' })).toBeInTheDocument()
   })
 
   it('blocks meeting scheduling when the end time is before the start time', async () => {
