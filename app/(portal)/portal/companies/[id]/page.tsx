@@ -1554,6 +1554,7 @@ function AnalyticsPanel({
     value: string
     icon: string
     tab: CompanyTab
+    ariaLabel: string
     tone: 'risk' | 'watch' | 'good'
   }> = [
     ...(lowStockItems > 0
@@ -1562,6 +1563,7 @@ function AnalyticsPanel({
           value: `${lowStockItems} low-stock ${lowStockItems === 1 ? 'item' : 'items'}`,
           icon: 'inventory_2',
           tab: 'inventory' as CompanyTab,
+          ariaLabel: `Review inventory risk for ${companyName}`,
           tone: 'risk' as const,
         }]
       : [{
@@ -1569,6 +1571,7 @@ function AnalyticsPanel({
           value: 'No low-stock items',
           icon: 'inventory_2',
           tab: 'inventory' as CompanyTab,
+          ariaLabel: `Review inventory coverage for ${companyName}`,
           tone: 'good' as const,
         }]),
     {
@@ -1576,6 +1579,7 @@ function AnalyticsPanel({
       value: openOrders > 0 ? `${openOrders} open ${openOrders === 1 ? 'order' : 'orders'}` : 'No open order blockers',
       icon: 'orders',
       tab: 'orders',
+      ariaLabel: `Review fulfillment orders for ${companyName}`,
       tone: openOrders > 0 ? 'watch' : 'good',
     },
     {
@@ -1583,6 +1587,7 @@ function AnalyticsPanel({
       value: overdueInvoices > 0 ? `${overdueInvoices} overdue ${overdueInvoices === 1 ? 'invoice' : 'invoices'}` : 'No overdue invoices',
       icon: 'receipt_long',
       tab: 'invoices',
+      ariaLabel: `Review cash collection for ${companyName}`,
       tone: overdueInvoices > 0 ? 'risk' : 'good',
     },
     {
@@ -1590,6 +1595,7 @@ function AnalyticsPanel({
       value: weightedPipelineValue > 0 ? `${formatCurrency(weightedPipelineValue)} weighted` : 'No weighted pipeline',
       icon: 'query_stats',
       tab: 'deals',
+      ariaLabel: `Review pipeline for ${companyName}`,
       tone: weightedPipelineValue > 0 ? 'watch' : 'risk',
     },
   ]
@@ -1627,7 +1633,7 @@ function AnalyticsPanel({
               key={action.label}
               type="button"
               onClick={() => onOpenTab(action.tab)}
-              aria-label={`Open ${action.tab.charAt(0).toUpperCase()}${action.tab.slice(1)} tab`}
+              aria-label={action.ariaLabel}
               className={`rounded-xl border p-4 text-left transition-transform hover:-translate-y-0.5 ${toneClass[action.tone]}`}
             >
               <div className="flex items-center justify-between gap-3">

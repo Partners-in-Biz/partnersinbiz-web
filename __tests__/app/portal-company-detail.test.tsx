@@ -1323,9 +1323,9 @@ describe('Portal company detail page', () => {
 
     expect(await screen.findByText('Account operating brief')).toBeInTheDocument()
     expect(screen.getAllByText('1 low-stock item').length).toBeGreaterThan(0)
-    expect(screen.getByRole('button', { name: 'Open Inventory tab' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Review inventory risk for Acme Holdings' })).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Open Inventory tab' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Review inventory risk for Acme Holdings' }))
 
     expect(await screen.findByText('SEO Hours')).toBeInTheDocument()
   })
