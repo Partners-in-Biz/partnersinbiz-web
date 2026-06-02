@@ -493,32 +493,46 @@ function ContactsPanel({
     )
   }
   return (
-    <TableShell>
-      <table className="w-full text-sm">
-        <thead className="border-b border-[var(--color-pib-line)] text-[10px] font-label uppercase tracking-wider text-[var(--color-pib-text-muted)]">
-          <tr>
-            <th className="px-5 py-3 text-left">Name</th>
-            <th className="px-5 py-3 text-left">Email</th>
-            <th className="px-5 py-3 text-left">Type</th>
-            <th className="px-5 py-3 text-left">Stage</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-[var(--color-pib-line)]">
-          {contacts.map((contact) => (
-            <tr key={contact.id} className="hover:bg-white/[0.02]">
-              <td className="px-5 py-4">
-                <Link href={`/portal/contacts/${contact.id}`} className="font-medium text-[var(--color-accent-v2)] hover:underline">
-                  {contactIdentityLabel(contact)}
-                </Link>
-              </td>
-              <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{contact.email || 'No email captured'}</td>
-              <td className="px-5 py-4"><StatusChip value={contact.type} emptyLabel="Type not set" /></td>
-              <td className="px-5 py-4"><StatusChip value={contact.stage} emptyLabel="Stage not set" /></td>
+    <div className="space-y-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="eyebrow !text-[10px]">Stakeholders</p>
+          <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
+            Add every buyer, approver, finance owner, and delivery contact that matters for {company.name}.
+          </p>
+        </div>
+        <button type="button" onClick={onCreateContact} className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5">
+          <span className="material-symbols-outlined text-[16px]" aria-hidden="true">person_add</span>
+          Add contact for {company.name}
+        </button>
+      </div>
+      <TableShell>
+        <table className="w-full text-sm">
+          <thead className="border-b border-[var(--color-pib-line)] text-[10px] font-label uppercase tracking-wider text-[var(--color-pib-text-muted)]">
+            <tr>
+              <th className="px-5 py-3 text-left">Name</th>
+              <th className="px-5 py-3 text-left">Email</th>
+              <th className="px-5 py-3 text-left">Type</th>
+              <th className="px-5 py-3 text-left">Stage</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </TableShell>
+          </thead>
+          <tbody className="divide-y divide-[var(--color-pib-line)]">
+            {contacts.map((contact) => (
+              <tr key={contact.id} className="hover:bg-white/[0.02]">
+                <td className="px-5 py-4">
+                  <Link href={`/portal/contacts/${contact.id}`} className="font-medium text-[var(--color-accent-v2)] hover:underline">
+                    {contactIdentityLabel(contact)}
+                  </Link>
+                </td>
+                <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{contact.email || 'No email captured'}</td>
+                <td className="px-5 py-4"><StatusChip value={contact.type} emptyLabel="Type not set" /></td>
+                <td className="px-5 py-4"><StatusChip value={contact.stage} emptyLabel="Stage not set" /></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </TableShell>
+    </div>
   )
 }
 
@@ -2426,19 +2440,24 @@ export default function CompanyDetailPage() {
       )}
 
       {newContactOpen && (
-        <div className="fixed inset-0 z-50 flex">
+        <div
+          className="fixed inset-0 z-50 flex"
+          role="dialog"
+          aria-modal="true"
+          aria-label={`New contact for ${company.name}`}
+        >
           <div className="flex-1 bg-black/60 backdrop-blur-sm" onClick={() => setNewContactOpen(false)} />
           <div className="w-full max-w-md overflow-y-auto border-l border-[var(--color-pib-line)] bg-[var(--color-pib-surface)]">
             <div className="flex items-center justify-between border-b border-[var(--color-pib-line)] px-6 py-4">
               <div>
                 <p className="eyebrow !text-[10px]">Company contact</p>
-                <h2 className="font-display text-lg">New contact</h2>
+                <h2 className="font-display text-lg">New contact for {company.name}</h2>
               </div>
               <button
                 type="button"
                 onClick={() => setNewContactOpen(false)}
                 className="text-[var(--color-pib-text-muted)] transition-colors hover:text-[var(--color-pib-text)]"
-                aria-label="Close"
+                aria-label={`Close contact drawer for ${company.name}`}
               >
                 <span className="material-symbols-outlined text-[20px]">close</span>
               </button>
@@ -2446,6 +2465,7 @@ export default function CompanyDetailPage() {
             <ContactForm
               onSave={createCompanyContact}
               onCancel={() => setNewContactOpen(false)}
+              contextName={company.name}
               initial={{
                 company: company.name,
                 companyId: company.id,

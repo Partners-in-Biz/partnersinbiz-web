@@ -226,6 +226,7 @@ describe('Portal company detail page', () => {
     expect(screen.queryByText('client')).not.toBeInTheDocument()
     expect(screen.queryByText('won')).not.toBeInTheDocument()
     expect(screen.queryByText(/Wave 3 wiring lands/i)).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Add contact for Acme Holdings' })).toBeInTheDocument()
 
     await selectCompanyTab(/Invoices/i)
     await waitFor(() => {
@@ -1387,12 +1388,13 @@ describe('Portal company detail page', () => {
     await selectCompanyTab(/Contacts/i)
 
     fireEvent.click(await screen.findByRole('button', { name: 'Add first contact for Acme Holdings' }))
-    expect(screen.getByText('New contact')).toBeInTheDocument()
+    expect(screen.getByRole('dialog', { name: 'New contact for Acme Holdings' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Close contact drawer for Acme Holdings' })).toBeInTheDocument()
     expect(screen.getByDisplayValue('Acme Holdings')).toBeInTheDocument()
 
-    fireEvent.change(screen.getByLabelText('Name *'), { target: { value: 'Morgan Buyer' } })
-    fireEvent.change(screen.getByLabelText('Email *'), { target: { value: 'morgan@example.com' } })
-    fireEvent.click(screen.getByRole('button', { name: /save contact/i }))
+    fireEvent.change(screen.getByLabelText('Contact name for Acme Holdings'), { target: { value: 'Morgan Buyer' } })
+    fireEvent.change(screen.getByLabelText('Contact email for Acme Holdings'), { target: { value: 'morgan@example.com' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save contact for Acme Holdings' }))
 
     await waitFor(() => {
       expect(postContact).toHaveBeenCalledWith(

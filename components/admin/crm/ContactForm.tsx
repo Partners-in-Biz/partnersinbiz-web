@@ -35,9 +35,10 @@ interface ContactFormProps {
   onSave: (data: Record<string, unknown>) => Promise<void>
   onCancel: () => void
   initial?: Record<string, unknown>
+  contextName?: string
 }
 
-export function ContactForm({ onSave, onCancel, initial = {} }: ContactFormProps) {
+export function ContactForm({ onSave, onCancel, initial = {}, contextName }: ContactFormProps) {
   const initialRoles = Array.isArray(initial.agreementRoles)
     ? initial.agreementRoles.filter((role): role is string => typeof role === 'string')
     : []
@@ -62,6 +63,11 @@ export function ContactForm({ onSave, onCancel, initial = {} }: ContactFormProps
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const context = contextName?.trim()
+  const contextualLabel = (label: string) => {
+    if (!context) return undefined
+    return `${label} for ${context}`
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -84,12 +90,14 @@ export function ContactForm({ onSave, onCancel, initial = {} }: ContactFormProps
 
   const field = (label: string, key: ContactTextField, type = 'text') => {
     const id = `crm-contact-${key}`
+    const cleanLabel = label.replace(/\s*\*$/, '')
     return (
       <div className="flex flex-col gap-1">
         <label htmlFor={id} className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">{label}</label>
         <input
           id={id}
           type={type}
+          aria-label={contextualLabel(`Contact ${cleanLabel.toLowerCase()}`)}
           value={form[key]}
           onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
           className="pib-input"
@@ -109,6 +117,7 @@ export function ContactForm({ onSave, onCancel, initial = {} }: ContactFormProps
     <div className="flex flex-col gap-1">
       <label className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">{label}</label>
       <select
+        aria-label={contextualLabel(`Contact ${label.toLowerCase()}`)}
         value={form[key]}
         onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
         className="pib-input"
@@ -149,6 +158,7 @@ export function ContactForm({ onSave, onCancel, initial = {} }: ContactFormProps
         <input
           id="admin-crm-contact-tags"
           type="text"
+          aria-label={contextualLabel('Contact tags')}
           value={form.tagsInput}
           onChange={(e) => setForm((f) => ({ ...f, tagsInput: e.target.value }))}
           placeholder="vip, newsletter, key-account"
@@ -163,6 +173,7 @@ export function ContactForm({ onSave, onCancel, initial = {} }: ContactFormProps
             <label key={role.value} className="flex items-center gap-2 rounded-md border border-outline-variant/60 px-3 py-2 text-xs text-on-surface-variant">
               <input
                 type="checkbox"
+                aria-label={contextualLabel(`${role.label} role`)}
                 checked={form.agreementRoles.includes(role.value)}
                 onChange={() => toggleAgreementRole(role.value)}
                 className="h-4 w-4 rounded border-outline text-primary"
@@ -173,8 +184,10 @@ export function ContactForm({ onSave, onCancel, initial = {} }: ContactFormProps
         </div>
       </div>
       <div className="flex flex-col gap-1">
-        <label className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Notes</label>
+        <label htmlFor="crm-contact-notes" className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Notes</label>
         <textarea
+          id="crm-contact-notes"
+          aria-label={contextualLabel('Contact notes')}
           value={form.notes}
           onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
           rows={3}
@@ -187,6 +200,7 @@ export function ContactForm({ onSave, onCancel, initial = {} }: ContactFormProps
           type="submit"
           disabled={saving}
           className="pib-btn-primary flex-1 justify-center text-sm font-label disabled:opacity-40"
+          aria-label={contextualLabel('Save contact')}
         >
           {saving ? 'Saving…' : 'Save Contact'}
         </button>
@@ -194,6 +208,7 @@ export function ContactForm({ onSave, onCancel, initial = {} }: ContactFormProps
           type="button"
           onClick={onCancel}
           className="pib-btn-secondary flex-1 justify-center text-sm font-label"
+          aria-label={contextualLabel('Cancel contact')}
         >
           Cancel
         </button>
