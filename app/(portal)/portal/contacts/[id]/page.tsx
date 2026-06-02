@@ -262,6 +262,12 @@ function activitySummaryLabel(activity: ActivityRecord): string {
   return 'Activity summary missing'
 }
 
+function activityContinuationNote(activity: ActivityRecord): string {
+  const summary = activity.summary?.trim() || activity.notes?.trim()
+  if (!summary) return ''
+  return `Follow-up from: ${summary}`
+}
+
 function activityActorLabel(activity: ActivityRecord): string {
   if (activity.createdByRef?.displayName?.trim()) return activity.createdByRef.displayName
   if (activity.createdByRef?.uid?.trim()) return 'Activity actor identity missing'
@@ -730,6 +736,11 @@ export default function PortalContactDetailPage() {
     setLogType('note')
     setShowAiComposer(false)
     setLogError(null)
+  }
+
+  function continueFromActivity(activity: ActivityRecord) {
+    setLogSummary(activityContinuationNote(activity))
+    openFirstNoteComposer()
   }
 
   function openFirstMeetingComposer() {
@@ -2366,6 +2377,15 @@ export default function PortalContactDetailPage() {
                         {activityActorLabel(a)} · {activityTimeLabel(a)}
                       </p>
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => continueFromActivity(a)}
+                      aria-label={`Continue from activity ${activitySummaryLabel(a)} with ${contactName}`}
+                      className="inline-flex shrink-0 items-center gap-1 rounded-md border border-[var(--color-pib-line)] px-2 py-1 text-[11px] font-medium text-[var(--color-pib-accent)] transition-colors hover:border-[var(--color-pib-accent)] hover:text-[var(--color-pib-text)]"
+                    >
+                      <span className="material-symbols-outlined text-[13px]" aria-hidden="true">edit_note</span>
+                      Continue
+                    </button>
                   </div>
                 ))}
                 {activities.length === 50 && (

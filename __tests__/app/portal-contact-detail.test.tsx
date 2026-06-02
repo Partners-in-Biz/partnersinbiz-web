@@ -1141,6 +1141,27 @@ describe('Portal contact detail page', () => {
     expect(screen.queryByText('uid-activity-1')).not.toBeInTheDocument()
   })
 
+  it('turns populated activity timeline rows into continuation note actions', async () => {
+    mockActivities = [{
+      id: 'activity-1',
+      type: 'note',
+      summary: 'Discussed implementation handoff',
+      createdByRef: { displayName: 'Mandy Manager' },
+    }]
+
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    expect(await screen.findByText('Discussed implementation handoff')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Continue from activity Discussed implementation handoff with Jane Client' }))
+
+    expect(screen.getByRole('textbox', { name: 'Relationship note for Jane Client' })).toHaveValue('Follow-up from: Discussed implementation handoff')
+  })
+
   it('turns an unassigned relationship owner into an accountability action', async () => {
     render(<PortalContactDetailPage />)
 
