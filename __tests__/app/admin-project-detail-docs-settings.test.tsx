@@ -4,11 +4,12 @@ import ProjectDetailPage from '@/app/(admin)/admin/org/[slug]/projects/[projectI
 
 let snapshotCallback: ((snap: { docChanges: () => Array<{ type: 'added' | 'modified' | 'removed'; doc: { id: string; data: () => Record<string, unknown> } }> }) => void) | null = null
 const unsubscribe = jest.fn()
+const mockSearchParamsGet = jest.fn(() => null)
 
 jest.mock('next/navigation', () => ({
   useParams: () => ({ slug: 'acme-client', projectId: 'project-1' }),
   useRouter: () => ({ push: jest.fn() }),
-  useSearchParams: () => ({ get: jest.fn(() => null) }),
+  useSearchParams: () => ({ get: mockSearchParamsGet }),
 }))
 
 jest.mock('firebase/firestore', () => ({
@@ -32,7 +33,7 @@ jest.mock('@/components/kanban/KanbanBoard', () => ({
 }))
 
 jest.mock('@/components/kanban/TaskDetailPanel', () => ({
-  TaskDetailPanel: () => <div data-testid="task-detail-panel" />,
+  TaskDetailPanel: ({ task }: { task: { title: string } }) => <div data-testid="task-detail-panel">{task.title}</div>,
 }))
 
 jest.mock('@/components/kanban/TaskComposer', () => ({
@@ -284,6 +285,8 @@ describe('Admin project docs and settings tabs', () => {
   beforeEach(() => {
     snapshotCallback = null
     unsubscribe.mockClear()
+    mockSearchParamsGet.mockReset()
+    mockSearchParamsGet.mockReturnValue(null)
     Object.defineProperty(window, 'matchMedia', {
       writable: true,
       value: jest.fn().mockImplementation(query => ({
@@ -298,6 +301,14 @@ describe('Admin project docs and settings tabs', () => {
       })),
     })
     mockFetch()
+  })
+
+  it('opens project task details from legacy task query links', async () => {
+    mockSearchParamsGet.mockImplementation((key: string) => key === 'task' ? 'task-2' : null)
+
+    render(<ProjectDetailPage />)
+
+    await waitFor(() => expect(screen.getByTestId('task-detail-panel')).toHaveTextContent('Latest task should float up'))
   })
 
   it('opens a document preview when an admin clicks a project doc', async () => {

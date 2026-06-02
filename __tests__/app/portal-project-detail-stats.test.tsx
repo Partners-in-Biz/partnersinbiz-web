@@ -4,9 +4,11 @@ import ProjectDetailPage from '@/app/(portal)/portal/projects/[projectId]/page'
 
 let snapshotCallback: ((snap: { docChanges: () => Array<{ type: 'added' | 'modified' | 'removed'; doc: { id: string; data: () => Record<string, unknown> } }> }) => void) | null = null
 const unsubscribe = jest.fn()
+const mockSearchParamsGet = jest.fn(() => null)
 
 jest.mock('next/navigation', () => ({
   useParams: () => ({ projectId: 'project-1' }),
+  useSearchParams: () => ({ get: mockSearchParamsGet }),
 }))
 
 jest.mock('firebase/firestore', () => ({
@@ -30,7 +32,7 @@ jest.mock('@/components/kanban/KanbanBoard', () => ({
 }))
 
 jest.mock('@/components/kanban/TaskDetailPanel', () => ({
-  TaskDetailPanel: () => <div data-testid="task-detail-panel" />,
+  TaskDetailPanel: ({ task }: { task: { title: string } }) => <div data-testid="task-detail-panel">{task.title}</div>,
 }))
 
 jest.mock('@/components/kanban/TaskComposer', () => ({
@@ -48,6 +50,10 @@ function mockSnapshotChange(type: 'added' | 'modified' | 'removed', id: string, 
       ],
     })
   })
+}
+
+function upcomingIsoDate() {
+  return new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
 }
 
 function mockFetch() {
@@ -81,7 +87,7 @@ function mockFetch() {
               title: 'Open task',
               columnId: 'todo',
               order: 1,
-              dueDate: '2026-05-25T00:00:00.000Z',
+              dueDate: upcomingIsoDate(),
               attachments: [{ id: 'file-1' }],
             },
             {
@@ -119,6 +125,8 @@ describe('Portal project detail kanban stat cards', () => {
   beforeEach(() => {
     snapshotCallback = null
     unsubscribe.mockClear()
+    mockSearchParamsGet.mockReset()
+    mockSearchParamsGet.mockReturnValue(null)
     Object.defineProperty(window, 'matchMedia', {
       writable: true,
       value: jest.fn().mockImplementation(query => ({
@@ -133,6 +141,14 @@ describe('Portal project detail kanban stat cards', () => {
       })),
     })
     mockFetch()
+  })
+
+  it('opens project task details from legacy task query links', async () => {
+    mockSearchParamsGet.mockImplementation((key: string) => key === 'task' ? 'task-3' : null)
+
+    render(<ProjectDetailPage />)
+
+    await waitFor(() => expect(screen.getByTestId('task-detail-panel')).toHaveTextContent('Board blocker'))
   })
 
   it('uses a board-progress summary and ignores stale blocked labels outside active blockers', async () => {

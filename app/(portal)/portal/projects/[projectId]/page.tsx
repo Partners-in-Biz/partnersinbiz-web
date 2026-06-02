@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useSearchParams } from 'next/navigation'
 import { collection, onSnapshot } from 'firebase/firestore'
 import { getClientDb } from '@/lib/firebase/config'
 import Link from 'next/link'
@@ -120,7 +120,9 @@ function mergeProjectAccessMembers(orgMembers: TeamMember[], accessMembers: Proj
 
 export default function ProjectDetailPage() {
   const params = useParams()
+  const searchParams = useSearchParams()
   const projectId = params.projectId as string
+  const deepLinkedTaskId = searchParams.get('taskId') ?? searchParams.get('task')
 
   const [project, setProject] = useState<Project | null>(null)
   const [tasks, setTasks] = useState<Task[]>([])
@@ -192,6 +194,19 @@ export default function ProjectDetailPage() {
     )
     return () => unsubscribe()
   }, [projectId])
+
+  useEffect(() => {
+    if (!deepLinkedTaskId) return
+    const task = tasks.find(t => t.id === deepLinkedTaskId)
+    if (!task) return
+    let cancelled = false
+    queueMicrotask(() => {
+      if (cancelled) return
+      setActiveTab('kanban')
+      setSelectedTask(task)
+    })
+    return () => { cancelled = true }
+  }, [deepLinkedTaskId, tasks])
 
   useEffect(() => {
     if (!project?.orgId) return

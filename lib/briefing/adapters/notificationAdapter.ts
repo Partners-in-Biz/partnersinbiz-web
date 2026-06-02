@@ -121,14 +121,14 @@ export const notificationAdapter: BriefingSourceAdapter<NotificationDocument> = 
   extractPriority(doc: NotificationDocument): BriefingPriority {
     const type = doc.type.toLowerCase()
 
+    // Agent task done notifications are review-level even when the original task was urgent.
+    if (type.includes('task.agent_done') || type.includes('agent_done')) {
+      return 'review'
+    }
+
     // Critical notification types
     if (type.includes('error') || type.includes('incident') || type.includes('alert') || doc.priority === 'urgent') {
       return 'critical'
-    }
-
-    // Agent task done notifications are review-level
-    if (type.includes('task.agent_done') || type.includes('agent_done')) {
-      return 'review'
     }
 
     // Client-facing notifications

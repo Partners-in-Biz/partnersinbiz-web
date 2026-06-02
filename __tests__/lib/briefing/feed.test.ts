@@ -225,6 +225,39 @@ describe('briefing feed', () => {
     expect(handledFeed.items).toHaveLength(0)
   })
 
+  it('treats urgent agent-done notifications as review cards instead of blockers', async () => {
+    collections.organizations = [makeDoc('org-1', { name: 'Client One', slug: 'client-one' })]
+    collections.notifications = [
+      makeDoc('notification-1', {
+        orgId: 'org-1',
+        userId: 'admin-1',
+        agentId: null,
+        type: 'task.agent_done',
+        title: 'Theo finished a task',
+        body: 'Runtime fix completed',
+        link: '/admin/projects/project-1?task=task-1',
+        data: { projectId: 'project-1', taskId: 'task-1' },
+        status: 'unread',
+        priority: 'urgent',
+        createdAt: '2026-05-30T10:00:00.000Z',
+      }),
+    ]
+
+    const { buildBriefingFeed } = await import('@/lib/briefing/feed')
+    const feed = await buildBriefingFeed(
+      { uid: 'admin-1', role: 'admin', allowedOrgIds: ['org-1'] },
+      { limit: 10, sourceType: 'notification' },
+    )
+
+    expect(feed.items).toHaveLength(1)
+    expect(feed.items[0]).toMatchObject({
+      priority: 'review',
+      requiresAction: true,
+      title: 'Theo finished a task',
+      context: { projectId: 'project-1', taskId: 'task-1' },
+    })
+  })
+
   it('surfaces social posts awaiting QA or client approval as action cards', async () => {
     collections.organizations = [makeDoc('org-1', { name: 'Client One', slug: 'client-one' })]
     collections.social_posts = [
