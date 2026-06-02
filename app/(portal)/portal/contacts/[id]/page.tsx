@@ -765,7 +765,10 @@ export default function PortalContactDetailPage() {
   function focusProfileField(fieldRef: RefObject<HTMLElement | null>) {
     const field = fieldRef.current
     field?.scrollIntoView?.({ behavior: 'smooth', block: 'center' })
-    field?.focus()
+    const focusTarget = field?.matches('input, select, textarea, button')
+      ? field
+      : field?.querySelector<HTMLElement>('input, select, textarea, button')
+    focusTarget?.focus()
   }
 
   function focusCustomFields() {
@@ -1056,11 +1059,13 @@ export default function PortalContactDetailPage() {
     ? { label: 'Add email', icon: 'alternate_email', ariaLabel: `Add email for ${contactName}`, fieldRef: emailFieldRef }
     : !phone.trim()
       ? { label: 'Add phone', icon: 'call', ariaLabel: `Add phone for ${contactName}`, fieldRef: phoneFieldRef }
-      : !website.trim()
-        ? { label: 'Add website', icon: 'language', ariaLabel: `Add website for ${contactName}`, fieldRef: websiteFieldRef }
-        : !notes.trim()
-          ? { label: 'Add notes', icon: 'notes', ariaLabel: `Add notes for ${contactName}`, fieldRef: notesFieldRef }
-          : null
+      : !hasLinkedCompany
+        ? { label: 'Link company', icon: 'add_business', ariaLabel: `Link company for ${contactName} from profile strength`, fieldRef: companyPickerRef }
+        : !website.trim()
+          ? { label: 'Add website', icon: 'language', ariaLabel: `Add website for ${contactName}`, fieldRef: websiteFieldRef }
+          : !notes.trim()
+            ? { label: 'Add notes', icon: 'notes', ariaLabel: `Add notes for ${contactName}`, fieldRef: notesFieldRef }
+            : null
   const relationshipSignal =
     lastTouchDays === null
       ? 'No touch logged'

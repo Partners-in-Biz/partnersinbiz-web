@@ -727,6 +727,25 @@ describe('Portal contact detail page', () => {
     expect(screen.getByPlaceholderText('Add a note about this contact…')).toHaveFocus()
   })
 
+  it('turns a missing company profile gap into a link-company action', async () => {
+    mockContactOverrides = {
+      phone: '+27821234567',
+      website: 'https://example.com',
+      notes: 'Prefers quarterly leadership reviews.',
+    }
+
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    expect(screen.getByText('Missing company.')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Link company for Jane Client from profile strength' }))
+
+    expect(screen.getByRole('combobox', { name: 'Linked company for Jane Client' })).toHaveFocus()
+  })
+
   it('turns a missing last touch insight into an activity action', async () => {
     render(<PortalContactDetailPage />)
 
