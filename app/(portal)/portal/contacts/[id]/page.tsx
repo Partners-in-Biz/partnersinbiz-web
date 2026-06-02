@@ -1052,6 +1052,7 @@ export default function PortalContactDetailPage() {
     !email.trim() ? 'email' : '',
     !phone.trim() ? 'phone' : '',
     !hasLinkedCompany ? 'company' : '',
+    !assignedTo ? 'owner' : '',
     !website.trim() ? 'website' : '',
     !notes.trim() ? 'relationship notes' : '',
   ].filter(Boolean)
@@ -1061,11 +1062,13 @@ export default function PortalContactDetailPage() {
       ? { label: 'Add phone', icon: 'call', ariaLabel: `Add phone for ${contactName}`, fieldRef: phoneFieldRef }
       : !hasLinkedCompany
         ? { label: 'Link company', icon: 'add_business', ariaLabel: `Link company for ${contactName} from profile strength`, fieldRef: companyPickerRef }
-        : !website.trim()
-          ? { label: 'Add website', icon: 'language', ariaLabel: `Add website for ${contactName}`, fieldRef: websiteFieldRef }
-          : !notes.trim()
-            ? { label: 'Add notes', icon: 'notes', ariaLabel: `Add notes for ${contactName}`, fieldRef: notesFieldRef }
-            : null
+        : !assignedTo
+          ? { label: 'Assign owner', icon: 'assignment_ind', ariaLabel: `Assign owner for ${contactName} from profile strength`, fieldRef: ownerFieldRef }
+          : !website.trim()
+            ? { label: 'Add website', icon: 'language', ariaLabel: `Add website for ${contactName}`, fieldRef: websiteFieldRef }
+            : !notes.trim()
+              ? { label: 'Add notes', icon: 'notes', ariaLabel: `Add notes for ${contactName}`, fieldRef: notesFieldRef }
+              : null
   const relationshipSignal =
     lastTouchDays === null
       ? 'No touch logged'

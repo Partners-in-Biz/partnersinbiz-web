@@ -730,6 +730,7 @@ describe('Portal contact detail page', () => {
   it('turns a missing company profile gap into a link-company action', async () => {
     mockContactOverrides = {
       phone: '+27821234567',
+      assignedTo: 'owner-1',
       website: 'https://example.com',
       notes: 'Prefers quarterly leadership reviews.',
     }
@@ -744,6 +745,29 @@ describe('Portal contact detail page', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Link company for Jane Client from profile strength' }))
 
     expect(screen.getByRole('combobox', { name: 'Linked company for Jane Client' })).toHaveFocus()
+  })
+
+  it('turns a missing owner profile gap into an accountability action', async () => {
+    mockContactOverrides = {
+      phone: '+27821234567',
+      companyId: 'company-1',
+      companyName: 'Acme Holdings',
+      website: 'https://example.com',
+      notes: 'Prefers quarterly leadership reviews.',
+    }
+
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    expect(screen.getByText('Missing owner.')).toBeInTheDocument()
+    expect(screen.queryByText('The core contact profile is complete enough for segmentation, scoring, and follow-up.')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Assign owner for Jane Client from profile strength' }))
+
+    expect(screen.getByRole('combobox', { name: 'Relationship owner for Jane Client' })).toHaveFocus()
   })
 
   it('turns a missing last touch insight into an activity action', async () => {
