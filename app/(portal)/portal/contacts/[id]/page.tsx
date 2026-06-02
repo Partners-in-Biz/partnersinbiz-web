@@ -203,6 +203,13 @@ function activityNotesPlaceholder(logType: string): string {
   return `Add ${logType} notes…`
 }
 
+function activityNotesFieldName(logType: string, contactName: string): string {
+  if (logType === 'note') return `Relationship note for ${contactName}`
+  if (logType === 'call') return `Call notes for ${contactName}`
+  if (logType === 'sms') return `SMS message for ${contactName}`
+  return `Activity notes for ${contactName}`
+}
+
 function activityComposerActionName(logType: string, contactName: string): string {
   if (logType === 'email_sent') return `Send email to ${contactName} from activity composer`
   if (logType === 'sms') return `Send SMS to ${contactName} from activity composer`
@@ -2040,6 +2047,7 @@ export default function PortalContactDetailPage() {
                   ) : logType === 'sms' ? (
                     phone.trim() ? (
                       <textarea
+                        aria-label={activityNotesFieldName(logType, contactName)}
                         rows={3}
                         placeholder="SMS message…"
                         value={logSummary}
@@ -2081,6 +2089,7 @@ export default function PortalContactDetailPage() {
                   ) : logType === 'call' ? (
                     phone.trim() ? (
                       <textarea
+                        aria-label={activityNotesFieldName(logType, contactName)}
                         rows={3}
                         placeholder={activityNotesPlaceholder(logType)}
                         value={logSummary}
@@ -2171,6 +2180,7 @@ export default function PortalContactDetailPage() {
                     </>
                   ) : (
                     <textarea
+                      aria-label={activityNotesFieldName(logType, contactName)}
                       rows={3}
                       placeholder={activityNotesPlaceholder(logType)}
                       value={logSummary}
@@ -2225,12 +2235,14 @@ export default function PortalContactDetailPage() {
                 <div className="bento-card !p-4 mb-4 space-y-3">
                   <p className="text-xs font-medium">AI email composer</p>
                   <input
+                    aria-label={`AI email purpose for ${contactName}`}
                     placeholder="Purpose (e.g. Follow up after demo)"
                     value={aiPurpose}
                     onChange={(e) => setAiPurpose(e.target.value)}
                     className="w-full text-sm border border-[var(--color-pib-line)] rounded-lg p-2 bg-transparent"
                   />
                   <select
+                    aria-label={`AI email tone for ${contactName}`}
                     value={aiTone}
                     onChange={(e) => setAiTone(e.target.value as 'professional' | 'friendly' | 'bold')}
                     className="text-sm border border-[var(--color-pib-line)] rounded p-1 bg-transparent"

@@ -193,8 +193,8 @@ describe('Portal contact detail page', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Email Jane Client from contact command center' }))
 
-    await waitFor(() => expect(screen.getByPlaceholderText('Subject…')).toHaveFocus())
-    expect(screen.getByPlaceholderText('Message…')).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByRole('textbox', { name: 'Email subject for Jane Client' })).toHaveFocus())
+    expect(screen.getByRole('textbox', { name: 'Email message for Jane Client' })).toBeInTheDocument()
     expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'center' })
   })
 
@@ -209,7 +209,7 @@ describe('Portal contact detail page', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Log call with Jane Client from contact command center' }))
 
-    expect(screen.getByPlaceholderText('Add call notes…')).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'Call notes for Jane Client' })).toBeInTheDocument()
   })
 
   it('renders portal lifecycle values as readable CRM labels', async () => {
@@ -312,7 +312,7 @@ describe('Portal contact detail page', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Start activity trail for Jane Client' }))
 
-    expect(screen.getByPlaceholderText('Add a relationship note, handoff, or context…')).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'Relationship note for Jane Client' })).toBeInTheDocument()
     expect(screen.queryByPlaceholderText('Add note notes…')).not.toBeInTheDocument()
   })
 
@@ -324,7 +324,7 @@ describe('Portal contact detail page', () => {
     await waitFor(() => {
       expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
     })
-    expect(screen.getByPlaceholderText('Add a relationship note, handoff, or context…')).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'Relationship note for Jane Client' })).toBeInTheDocument()
   })
 
   it('lets a busy team member discard unsaved contact profile edits', async () => {
@@ -821,7 +821,7 @@ describe('Portal contact detail page', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Log activity for Jane Client from activity insight' }))
 
-    expect(screen.getByPlaceholderText('Add a relationship note, handoff, or context…')).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'Relationship note for Jane Client' })).toBeInTheDocument()
   })
 
   it('wires engagement cockpit actions to contact composers', async () => {
@@ -876,6 +876,22 @@ describe('Portal contact detail page', () => {
     expect(screen.getByRole('button', { name: 'Schedule meeting with Jane Client' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Draft email with AI for Jane Client' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Call' })).not.toBeInTheDocument()
+  })
+
+  it('names phone-backed activity message fields with the active contact context', async () => {
+    mockContactOverrides = { phone: '+27821234567' }
+
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Send SMS to Jane Client' }))
+    expect(screen.getByRole('textbox', { name: 'SMS message for Jane Client' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Log call with Jane Client' }))
+    expect(screen.getByRole('textbox', { name: 'Call notes for Jane Client' })).toBeInTheDocument()
   })
 
   it('turns SMS on a contact without a phone into a phone capture action', async () => {
@@ -943,7 +959,7 @@ describe('Portal contact detail page', () => {
     })
 
     fireEvent.click(screen.getByRole('button', { name: 'Draft email with AI for Jane Client' }))
-    fireEvent.change(screen.getByPlaceholderText('Purpose (e.g. Follow up after demo)'), {
+    fireEvent.change(screen.getByRole('textbox', { name: 'AI email purpose for Jane Client' }), {
       target: { value: 'Follow up after leadership review' },
     })
     fireEvent.click(screen.getByRole('button', { name: 'Generate' }))
