@@ -18,28 +18,6 @@ description: >
 Product analytics module: event collection, session tracking, funnel analysis, user timelines,
 cohort retention, live event stream, and browser SDK.
 
-## Critical property/org rule
-
-Properties are already linked to clients. The source of truth is:
-
-```
-properties/{propertyId}.orgId = client organisation id
-```
-
-Do not treat `propertyId` as a standalone user-managed identifier. In admin UI work, prefer the
-client/property picker on `/admin/analytics/*` and `/admin/reports`. In API work, verify every
-admin analytics `propertyId` through `lib/analytics/property-access.ts` before querying or mutating
-analytics data:
-
-```ts
-await requireAnalyticsProperty(user, { propertyId, orgId }) // orgId optional unless report/client scope is known
-```
-
-This guard checks property existence, deleted state, org ownership, and restricted-admin access.
-Use it for events, sessions, users, funnels, retention, live streams, GDPR deletion, and
-property-scoped reports. If both `orgId` and `propertyId` are supplied, reject the request unless
-the property belongs to that org.
-
 ## Architecture overview
 
 ```
@@ -48,8 +26,6 @@ Browser SDK (@partnersinbiz/analytics-js)
     │  POST /api/v1/analytics/ingest   (public, ingest-key auth)
     ▼
 product_events  ←→  product_sessions  ←→  product_funnels
-       │                    │
-       └──── report snapshots roll these into SEO/client web KPIs
     │
 Admin API (all require Bearer auth)
     ├── GET  /api/v1/analytics/events
@@ -325,35 +301,14 @@ Located at `/admin/analytics/`:
 
 | Route | Description |
 |-------|-------------|
-| `/admin/analytics/events` | Client/property picker plus event/date filters |
-| `/admin/analytics/sessions` | Client/property picker plus sessions list with user/device/UTM columns |
+| `/admin/analytics/events` | Events table with property/event/date filters |
+| `/admin/analytics/sessions` | Sessions list with user/device/UTM columns |
 | `/admin/analytics/sessions/[id]` | Session detail — metadata grid + event timeline |
-| `/admin/analytics/funnels` | Client/property picker, funnel list, create form, inline results |
-| `/admin/analytics/users` | Client/property picker plus user list with event counts + first/last seen |
+| `/admin/analytics/funnels` | Funnel list, create form, inline results |
+| `/admin/analytics/users` | Users list with event counts + first/last seen |
 | `/admin/analytics/users/[distinctId]` | Full event timeline for one user |
-| `/admin/analytics/retention` | Client/property picker plus cohort retention heatmap |
-| `/admin/analytics/live` | Client/property picker plus real-time event feed |
-
-The shared picker is `components/admin/AnalyticsPropertyPicker.tsx`. It loads client orgs from
-`GET /api/v1/organizations`, properties from `GET /api/v1/properties?orgId=...`, and preserves
-deep links with `?propertyId=...`. The tab nav keeps the selected property in the query string.
-
-## Client analytics reports
-
-`/admin/reports` can generate either an org-wide client report or a single-property report. For
-SEO clients, prefer selecting the specific website property when the report should describe one
-site. Property-scoped reports:
-
-- call `POST /api/v1/reports` with both `orgId` and `propertyId`
-- verify `propertyId` belongs to `orgId`
-- store `report.propertyId`
-- use distinct report ids: `orgId_propertyId_start_end_type`
-- roll first-party `product_sessions` and `product_events` into `sessions`, `pageviews`, `users`,
-  and `conversions` when no `metrics` fact rows exist
-
-Conversion fallback event names currently include `conversion`, `lead_submitted`,
-`form_submitted`, `signup`, `signup_completed`, `purchase`, and `checkout_completed`, plus events
-whose `properties.conversion === true`.
+| `/admin/analytics/retention` | Cohort retention heatmap (day/week granularity) |
+| `/admin/analytics/live` | Real-time event feed (polls every 5s, last 5 min) |
 
 ---
 
@@ -380,15 +335,13 @@ All collections: `allow read, write: if false` in `firestore.rules` — all acce
 | `lib/analytics/ingest-rate-limit.ts` | Rate limiter (Firestore transaction) |
 | `lib/analytics/funnel-compute.ts` | Pure funnel computation |
 | `lib/analytics/retention-compute.ts` | Pure cohort retention computation (ISO 8601 week) |
-| `lib/analytics/property-access.ts` | Shared property/org guard for admin analytics and reports |
 | `packages/analytics-js/src/index.ts` | Browser SDK |
 | `app/api/v1/analytics/ingest/route.ts` | Public ingest endpoint |
 | `app/api/v1/analytics/users/route.ts` | Users list |
 | `app/api/v1/analytics/users/[distinctId]/route.ts` | User timeline + GDPR purge |
 | `app/api/v1/analytics/retention/route.ts` | Cohort retention endpoint |
 | `app/api/v1/analytics/live/route.ts` | Live event feed |
-| `components/admin/AnalyticsPropertyPicker.tsx` | Client/property selector shared across analytics pages |
-| `components/admin/AnalyticsNav.tsx` | Tab nav shared across analytics pages |
+| `components/admin/AnalyticsNav.tsx` | 6-tab nav shared across all analytics pages |
 
 ---
 

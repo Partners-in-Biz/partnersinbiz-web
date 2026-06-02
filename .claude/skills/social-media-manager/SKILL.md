@@ -32,7 +32,7 @@ Note: The legacy `x` alias maps to `twitter` internally. Prefer `twitter` in new
 
 - **`client`** — org-scoped user. Can read/create posts and inbox items.
 - **`admin`** — platform admin. Required for all single-resource operations (`/[id]`), analytics, media, RSS, bulk, publish, approve, and most write operations.
-- **AI agents** using `AI_API_KEY` have admin-level access.
+- **AI/Hermes agents** use a bearer key plus `X-Org-Id`. Prefer per-agent `pib_ag_...` keys from Firestore `api_keys`; the legacy shared `AI_API_KEY` is fallback. Current social routes treat AI callers as admin-level for social operations while scoping the request by `X-Org-Id`.
 
 ---
 
@@ -41,13 +41,13 @@ Note: The legacy `x` alias maps to `twitter` internally. Prefer `twitter` in new
 All requests require **two** headers for AI agent requests:
 
 ```
-Authorization: Bearer <AI_API_KEY>
+Authorization: Bearer <PIB_AGENT_OR_AI_API_KEY>
 X-Org-Id: <orgId>
 ```
 
-> **Required for AI agents:** The `X-Org-Id` header is mandatory when authenticating with `AI_API_KEY`. Omitting it returns `{"success":false,"error":"X-Org-Id header is required for AI agent requests"}` even with a valid token.
+> **Required for AI/Hermes agents:** The `X-Org-Id` header is mandatory when authenticating with a PiB agent key or the legacy shared `AI_API_KEY`. Omitting it returns `{"success":false,"error":"X-Org-Id header is required for AI agent requests"}` even with a valid token.
 
-The token must match `process.env.AI_API_KEY` set in Vercel for the `partnersinbiz-web` project. Read it from the environment:
+On VPS Hermes profiles, read the PiB key from the profile environment, normally `AI_API_KEY`. That value may be a per-agent `pib_ag_...` key or the legacy shared key:
 
 ```javascript
 const headers = {
@@ -61,15 +61,15 @@ const headers = {
 
 If all endpoints return **401 Unauthorized** with `{"success":false,"error":"Unauthorized"}`:
 
-1. **Token rotated.** Get the current `AI_API_KEY` from the Vercel dashboard:
+1. **Wrong/stale PiB credential.** Confirm the Hermes profile's `AI_API_KEY` is a current PiB key, not a model-provider key. Per-agent `pib_ag_...` keys are preferred; legacy shared `AI_API_KEY` can still work as fallback.
+2. **Key revoked or expired.** Check Admin Settings -> API Keys / Firestore `api_keys` for the matching `keyPrefix`, expiry, revocation, and org/permission scope.
+3. **Legacy token rotated.** If using the shared fallback, get the current `AI_API_KEY` from the Vercel dashboard:
    - Project: `peet-standers-projects-caab22b2/partnersinbiz-web`
    - Settings → Environment Variables → `AI_API_KEY`
-2. **Vercel CLI may not work** — local project isn't linked and CLI tends to hang. Use the web dashboard.
-3. **gcloud credentials may need refresh** — run `gcloud auth application-default login` to restore Firestore access as a fallback.
-4. **Update cron jobs.** Both cron jobs in `~/.hermes/profiles/partners-main/cron/jobs.json` contain the token in their prompts. Update both `pib-weekly-content-scheduler` and `pib-weekly-performance-report`.
-5. **Cron output logs** at `~/.hermes/profiles/partners-main/cron/output/<job_id>/` — check for failure history.
-6. **Local codebase unavailable** — worktrees at `~/.claude-squad/worktrees/` are empty. The auth middleware is at `lib/api/auth.ts` (the `resolveUser` function checks AI_API_KEY against Bearer token).
-7. **Cron scheduler has never successfully posted content.** The content scheduler cron (`e30975908977`) has failed on every run (timeout Apr 6, connection error Apr 13, 401 Apr 20). The performance report cron (`aec8fa1224fa`) did successfully fetch posts on Apr 3 and Apr 10 using the same token — so the token was valid then but has since been invalidated.
+4. **Vercel CLI may not work** — local project isn't linked and CLI tends to hang. Use the web dashboard.
+5. **Missing tenant header.** A valid PiB key without `X-Org-Id` should fail with a tenant-header error, not a credential `401`.
+6. **Update cron jobs.** Any cron prompt or profile env that carries a raw key must be updated after rotation/revocation.
+7. **Cron output logs** at `~/.hermes/profiles/<profile>/cron/output/<job_id>/` — check for failure history.
 
 ### Base URL
 
@@ -154,7 +154,7 @@ Every endpoint scopes to an org via `orgId`.
 - **Admin/AI agents**: pass `orgId` as query param (GET) or body field (POST/PUT/PATCH)
 - **Client users**: scoped automatically
 
-If you don't know the `orgId`, look it up from `organizations` or the platform-owner CRM Company (`companies.linkedOrgId`). Do not treat legacy `/clients` rows as the canonical client/account source.
+If you don't know the `orgId`, look it up from client records first.
 
 ---
 
@@ -181,6 +181,62 @@ Error responses:
 ```
 
 List endpoints that support pagination use `page` + `limit` (not `offset`).
+
+---
+
+## Current Route Inventory
+
+The base URL section uses `/api/v1/social`, but route references below include `/social/...` so agents can match the platform route inventory exactly.
+
+| Method | Route | Use |
+|---|---|---|
+| `GET` | `/social/platforms` | List supported social platform metadata. |
+| `GET` | `/social/platforms/[platform]` | Read one platform's metadata/capabilities. |
+| `GET/POST` | `/social/accounts` | List or connect social accounts. |
+| `GET/PUT/DELETE` | `/social/accounts/[id]` | Read, update, or disconnect a social account. |
+| `PUT` | `/social/accounts/[id]/set-default` | Make an account the default for its platform/org. |
+| `POST` | `/social/accounts/confirm` | Confirm pending OAuth account selections by nonce. |
+| `GET` | `/social/oauth/[platform]` | Start OAuth for a platform. |
+| `GET` | `/social/oauth/[platform]/callback` | OAuth callback. |
+| `GET` | `/social/oauth/pending/[nonce]` | Inspect pending OAuth selections. |
+| `GET/POST` | `/social/posts` | List or create posts. |
+| `GET/PUT/DELETE` | `/social/posts/[id]` | Read, update, or delete a post. |
+| `POST` | `/social/posts/bulk` | Bulk create posts; avoid if campaignId preservation is critical. |
+| `GET` | `/social/posts/pending` | Pending approval queue. |
+| `POST` | `/social/posts/[id]/approve` | Admin approval. |
+| `POST` | `/social/posts/[id]/client-approve` | Client approval. |
+| `POST` | `/social/posts/[id]/client-reject` | Client rejection. |
+| `POST` | `/social/posts/[id]/qa-approve` | QA approval. |
+| `POST` | `/social/posts/[id]/qa-reject` | QA rejection. |
+| `POST` | `/social/posts/[id]/submit` | Submit a draft into review/approval flow. |
+| `POST` | `/social/posts/[id]/publish` | Publish via connected provider. |
+| `POST` | `/social/posts/[id]/regenerate` | Regenerate post content. |
+| `GET` | `/social/posts/[id]/download` | Download rendered/exported post asset. |
+| `GET/POST` | `/social/posts/[id]/comments` | List or create post comments. |
+| `PATCH` | `/social/posts/[id]/comments/[commentId]` | Update or mark a comment. |
+| `GET/POST` | `/social/media` | List or register media. |
+| `GET/DELETE` | `/social/media/[id]` | Read or remove media. |
+| `POST` | `/social/media/upload` | Upload media. |
+| `GET` | `/social/analytics` | Org/platform/post analytics summary. |
+| `GET/POST` | `/social/analytics/[postId]` | Read or refresh analytics for one post. |
+| `GET` | `/social/stats` | Social dashboard stats. |
+| `GET` | `/social/health` | Provider/account health. |
+| `GET/POST` | `/social/inbox` | List/create social engagement inbox items. |
+| `PATCH/DELETE` | `/social/inbox/[id]` | Update/delete inbox item state. |
+| `POST` | `/social/inbox/poll` | Poll connected providers for inbox updates. |
+| `POST` | `/social/inbox/webhook` | Provider webhook receiver. |
+| `GET/POST` | `/social/rss/feeds` | List/create RSS feeds for auto-posting. |
+| `GET/PATCH/POST/DELETE` | `/social/rss/feeds/[feedId]` | Manage or run a feed. |
+| `GET` | `/social/vault` | Social content vault/library. |
+| `GET` | `/social/x/reply-suggestions` | X/Twitter reply suggestions. |
+| `GET` | `/social/ai/best-time` | AI best-posting-time helper. |
+| `POST` | `/social/ai/generate` | Generate social copy. |
+| `POST` | `/social/ai/hashtags` | Generate hashtag suggestions. |
+| `POST` | `/social/ai/image` | Generate social image. |
+| `GET` | `/social/ai/image-templates` | List AI image templates. |
+| `POST` | `/social/ai/repurpose` | Repurpose content across platforms. |
+| `POST` | `/portal/social/posts/[id]/publish-now` | Client portal publish-now action for approved posts. |
+| `POST` | `/portal/social/posts/[id]/reschedule` | Client portal reschedule action for approved posts. |
 
 ---
 
@@ -262,6 +318,40 @@ Update account metadata. Updatable fields: `displayName`, `username`, `avatarUrl
 #### `DELETE /accounts/[id]` — auth: admin
 
 **Soft-deletes** — sets `status: "disconnected"` and clears stored tokens. Does not remove the record.
+
+#### `PUT /accounts/[id]/set-default` — auth: client
+
+Marks one connected account as the default for its platform inside the active tenant. The route clears any other default account for the same `orgId` + `platform`.
+
+Full path: `/api/v1/social/accounts/[id]/set-default`
+
+Response: `{ "id": "acc_123" }`
+
+#### `POST /accounts/confirm` — auth: client
+
+Finalizes a multi-account OAuth callback after the platform returned one or more selectable accounts/pages.
+
+Full path: `/api/v1/social/accounts/confirm`
+
+Body:
+```json
+{
+  "nonce": "oauth_pending_nonce",
+  "selections": [
+    { "index": 0, "isDefault": true },
+    { "index": 1, "isDefault": false }
+  ]
+}
+```
+
+Rules:
+- `nonce` must exist in `social_oauth_pending`, match the active tenant, and not be expired.
+- `selections[].index` points into the pending `options[]` array returned by `/oauth/pending/[nonce]`.
+- Only one selected account can be default for a platform.
+- Personal OAuth pending records must match the current `ownerUid`.
+- The route creates/updates `social_accounts` and deletes the pending selection.
+
+Response: `{ "accountIds": ["acc_123"] }` (201)
 
 ---
 
@@ -370,6 +460,27 @@ Rescheduling (`scheduledFor`/`scheduledAt`) automatically syncs the queue entry.
 #### `POST /posts/[id]/publish` — auth: admin
 
 Immediately publish a post, bypassing the schedule. Supported platforms: all standard platforms plus `youtube`, `mastodon`, `dribbble`. Returns `{ id, externalId, platform }`.
+
+#### `POST /portal/social/posts/[id]/publish-now` — auth: client
+
+Client-portal publish-now action for an already approved post in the active portal org. It validates final approval, publish-ready text, connected active account, and token refresh before publishing.
+
+Full path: `/api/v1/portal/social/posts/[id]/publish-now`
+
+Returns the updated post id/status/external id on success. Failure states update the post/queue with `status='failed'` and audit `post.failed`.
+
+#### `POST /portal/social/posts/[id]/reschedule` — auth: client
+
+Client-portal reschedule action for approved, unpublished, non-cancelled posts.
+
+Full path: `/api/v1/portal/social/posts/[id]/reschedule`
+
+Body:
+```json
+{ "scheduledAt": "2026-06-05T09:00:00+02:00" }
+```
+
+Requires final approval and an active publishing account. Writes both `scheduledAt` and `scheduledFor`, sets `status='scheduled'`, and upserts the matching `social_queue` entry.
 
 #### `POST /posts/[id]/approve` — auth: admin (or client with approval role)
 
@@ -1345,6 +1456,24 @@ After the user authorizes, the callback automatically creates/updates the accoun
 #### `GET /oauth/[platform]/callback`
 
 Handles the redirect from the platform. Exchanges auth code for tokens, fetches profile, and creates/updates the `social_accounts` entry. Not called directly by agents.
+
+#### `GET /oauth/pending/[nonce]` — auth: client
+
+Reads a pending multi-account OAuth selection for the active tenant. Tokens are stripped from the response.
+
+Full path: `/api/v1/social/oauth/pending/[nonce]`
+
+Response:
+```json
+{
+  "platform": "linkedin",
+  "options": [
+    { "index": 0, "displayName": "Company Page", "username": "company", "accountType": "page", "platformAccountId": "..." }
+  ]
+}
+```
+
+Use this immediately before `POST /accounts/confirm` when an OAuth callback asks the user/agent to choose which pages/accounts to connect.
 
 ---
 

@@ -92,7 +92,7 @@ Use for: client review cycles, collaborative editing with external stakeholders,
 
 **Approval modes:**
 - `operational` — client clicks an "Approve" button (most documents)
-- `formal_acceptance` — client must type their name + check a box (proposals/SOW only)
+- `formal_acceptance` — client must type their name + check a box (proposals/SOW only). Formal documents can also carry a PiB-side countersignature through `POST /api/v1/client-documents/[id]/sign` after a published version exists.
 
 ---
 
@@ -144,7 +144,7 @@ internal_draft → internal_review → client_review → changes_requested → a
 - `client_review`: client can see and comment (requires publish)
 - `changes_requested`: client requested changes via portal
 - `approved`: operational approval given
-- `accepted`: formal acceptance signed (proposals only)
+- `accepted`: formal acceptance signed by the client (proposals only); the rendered/shared copy also shows PiB countersignature evidence when `providerSignature` is present
 - `archived`: soft-deleted from active views
 
 Research reports follow the same status flow, but keep them internal unless Peet has approved client visibility and the report has passed the research checklist: source ledger is safe to expose, confidence/assumptions are explicit, sensitive internal notes are removed, recommendations do not imply unapproved spend/publishing/implementation, and the linked `research_item` visibility is appropriate.
@@ -166,6 +166,7 @@ All responses: `{ success: boolean, data: ... }` — always unwrap `body.data ??
 | `GET` | `/api/v1/client-documents/[id]` | — | Fetch single document |
 | `PATCH` | `/api/v1/client-documents/[id]` | `{ title?, status?, orgId?, linked?, assumptions?, clientPermissions?, shareEnabled? }` | Update metadata |
 | `DELETE` | `/api/v1/client-documents/[id]` | — | Archive (soft delete) |
+| `POST` | `/api/v1/client-documents/[id]/archive` | `{}` | Explicit admin archive action; use this from admin UI/workflows when available |
 | `POST` | `/api/v1/client-documents/[id]/publish` | `{}` | Move to `client_review`, generate shareToken |
 
 ### Edit share
@@ -184,6 +185,8 @@ All responses: `{ success: boolean, data: ... }` — always unwrap `body.data ??
 | `GET` | `/api/v1/client-documents/[id]/versions` | — | List all versions |
 | `POST` | `/api/v1/client-documents/[id]/versions` | `{ blocks, theme, changeSummary? }` | Create new draft version |
 | `GET` | `/api/v1/client-documents/[id]/versions/[versionId]` | — | Fetch specific version |
+| `GET` | `/api/v1/portal/documents/count` | — | Portal-visible document count for the active org |
+| `GET` | `/api/v1/portal/documents/unresolved-count` | — | Portal-visible unresolved document comments/suggestions count |
 
 ### Comments
 
@@ -192,12 +195,15 @@ All responses: `{ success: boolean, data: ... }` — always unwrap `body.data ??
 | `GET` | `/api/v1/client-documents/[id]/comments` | `?blockId=&status=` | List comments |
 | `POST` | `/api/v1/client-documents/[id]/comments` | `{ text, blockId?, anchor? }` | Add comment |
 | `PATCH` | `/api/v1/client-documents/[id]/comments/[commentId]` | `{ status }` | Resolve comment |
+| `POST` | `/api/v1/client-documents/[id]/comments/[commentId]/replies` | `{ text }` | Add a threaded reply |
+| `POST` | `/api/v1/client-documents/[id]/comments/[commentId]/resolve` | `{}` | Mark a comment resolved |
 
 ### Suggestions
 
 | Method | Route | Body | Notes |
 |---|---|---|---|
 | `GET` | `/api/v1/client-documents/[id]/suggestions` | `?blockId=&status=` | List suggestions |
+| `POST` | `/api/v1/client-documents/[id]/suggestions` | `{ blockId?, versionId?, originalText?, suggestedText, reason? }` | Add a client/editor suggestion |
 | `POST` | `/api/v1/client-documents/[id]/suggestions/[suggestionId]/accept` | `{}` | Accept a client suggestion |
 | `POST` | `/api/v1/client-documents/[id]/suggestions/[suggestionId]/reject` | `{}` | Reject a suggestion |
 
@@ -206,7 +212,8 @@ All responses: `{ success: boolean, data: ... }` — always unwrap `body.data ??
 | Method | Route | Body | Notes |
 |---|---|---|---|
 | `POST` | `/api/v1/client-documents/[id]/approve` | `{ actorName, mode }` | Operational approval (agent/admin) |
-| `POST` | `/api/v1/client-documents/[id]/accept` | `{ typedName, checkboxText, termsSnapshot?, investmentSnapshot? }` | Formal acceptance (proposals) |
+| `POST` | `/api/v1/client-documents/[id]/accept` | `{ typedName, checkboxText, termsSnapshot?, investmentSnapshot? }` | Client formal acceptance. Records `clientAcceptance` and moves the document to `accepted`. |
+| `POST` | `/api/v1/client-documents/[id]/sign` | `{ name, capacity, companyName?, signatureText, statement? }` | Admin-only PiB countersignature for `formal_acceptance` documents after publish. Records `providerSignature` and an approval row with `signatureSide: "provider"`. |
 
 ### Public (no auth)
 
@@ -312,6 +319,7 @@ When a shared spec has client feedback:
    - Summary of `blocks_publish` assumptions that must be resolved before you can publish
    - Never publish without Peet's explicit instruction
 8. **Publish/send to client:** only after blockers are resolved and Peet approves, call `POST /api/v1/client-documents/[id]/publish`. This moves the document to `client_review` and enables share. For system clients, verify both the PiB CRM company Documents tab and the client/org Documents list.
+9. **Countersign proposals/SOWs when needed:** if Peet wants a visible PiB signature, use the admin document editor `Countersign` action or call `POST /api/v1/client-documents/[id]/sign` after publish. Default values are Peet Stander, Founder, The Partners in Business. The shared/rendered document appends an `Agreement signatures` section showing PiB signature state and the client's platform acceptance.
 
 ---
 

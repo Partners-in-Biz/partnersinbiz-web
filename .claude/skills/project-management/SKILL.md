@@ -45,8 +45,7 @@ Projects can be source/recipient records just like invoices:
 - `companyId` / `sourceCompanyId` point to the sender-owned CRM Company. For PiB client projects this should be the platform CRM Company with `linkedOrgId=<clientOrgId>`.
 - `contactId` / `sourceContactId` point to the sender-owned CRM Contact when the project is shared with a specific contact.
 - `claimStatus`, `claimToken`, and `claimableRelationshipId` appear when a project is shared to a CRM recipient that has not joined or claimed yet.
-
-Before creating a PiB-sourced project for an onboarded client, confirm the client org is linked to a platform-owner CRM Company and real members are linked to Contacts. Pass the Company `companyId` and, when relevant, the stakeholder `contactId` so Projects/Kanban, CRM timelines, billing, and account reviews all point at the same business/person relationship.
+- CRM OS command centers surface projects from the company detail page. When creating or moving projects, preserve stable links where known: `companyId`, `sourceCompanyId`, `recipientOrgId`/`targetOrgId`/`clientOrgId`, `relationshipId`, `serviceWorkspaceId`, `allowedOrgIds`, `visibility`, and `approvalState`. The command-center API uses org-scoped project reads plus in-memory matching, including active `businessRelationships`, so do not add composite-index-sensitive project queries for company visibility.
 
 Client-created project requests remain client-originated until PiB accepts/converts them into PiB-sourced work. Client portal project screens must use `GET /projects?view=received`; do not attach unscoped Firestore listeners to the top-level `projects` collection.
 
@@ -125,14 +124,14 @@ marked `blocked`. The agent remains responsible for writing a useful blocker rea
 
 ### Projects
 
-#### `GET /projects` — auth: admin
+#### `GET /projects` — auth: client
 Filters: `orgId`, `status` (`active`|`completed`|`on_hold`|`cancelled`), `clientOrgId`, `page`, `limit`, `view`.
 
 - Default/sent view filters by source `orgId`.
 - `view=received` filters by `recipientOrgId` and compatible `clientOrgId` legacy rows.
 - `view=shared` lists claim-token/shared projects.
 
-#### `POST /projects` — auth: admin (idempotent)
+#### `POST /projects` — auth: client (idempotent)
 Body:
 ```json
 {
@@ -156,14 +155,28 @@ For PiB/admin-created client projects, the request `orgId` is the client/recipie
 
 Response (201): `{ id }`.
 
-#### `GET /projects/[projectId]` — auth: admin
+#### `DELETE /projects` — auth: admin
+Deletes/archives a project through the collection route. Check current route code before use; this is admin-only and should be treated as destructive.
+
+#### `GET /projects/[projectId]` — auth: client
 Full project.
 
-#### `PUT /projects/[projectId]` — auth: admin
-Update fields.
+#### `PATCH /projects/[projectId]` — auth: client
+Update fields. Current API accepts `name`, `status`, `description`, and `brief`.
 
-#### `DELETE /projects/[projectId]` — auth: admin
-Soft-delete.
+`PUT` and `DELETE` are not exported on `/projects/[projectId]` in the current app; use collection-level `DELETE /projects` for destructive admin operations.
+
+#### `GET/POST /projects/[projectId]/access` — auth: client
+Project access surface. `GET` returns the caller's project access plus member candidates. `POST` is for project managers to add/link/invite access. Use this instead of editing access arrays directly.
+
+#### `POST /projects/[projectId]/move` — auth: admin
+Moves a project to a client org through `moveProjectToClientOrg`. Use for converting or relocating client-originated/project-shared work. This logs `project_moved` activity and should not be replaced by manual Firestore edits.
+
+#### `GET/POST/PATCH/DELETE /projects/[projectId]/suite` — auth: client
+Project Suite records are the richer operational layer for tasks, milestones, approvals, risks, capacities, and revenue rows. Reads are client-authenticated through `getProjectForUser`; writes require the project role permission for the suite type.
+
+#### `GET /projects/reporting` — auth: client
+Project reporting surface that aggregates visible project suite rows for accessible projects. Use this for project portfolio/reporting summaries instead of trying to join suite subcollections manually.
 
 ### Project-nested tasks
 
@@ -213,13 +226,27 @@ This gives the human a real audit trail on the board without you needing to ask 
 
 Use `PATCH` for project-nested task updates. `PUT` returns 405 on the current API.
 
+#### `POST /projects/[projectId]/tasks/[taskId]/unblock` — auth: client
+
+Unblocks a task that is actually blocked or awaiting input. The route:
+- requires an authorised user role,
+- checks project access through `getProjectForUser`,
+- verifies the task is blocked (`columnId='blocked'` or `agentStatus='blocked'|'awaiting-input'`),
+- returns `409` with readiness reasons if dependencies/input are not ready,
+- moves the task to `columnId='todo'`,
+- sets agent tasks back to `agentStatus='pending'`,
+- sets `reviewStatus='changes-requested'` for agent tasks.
+
+Do not call unblock on ordinary review/done tasks. For revision requests, add a task comment first, then move/patch the task so the watcher has the requested change context.
+
 #### `GET /projects/[projectId]/tasks/[taskId]/comments` — auth: admin
 List comments on a project task (pre-existing per-task comment collection — distinct from the unified `/comments`).
 
 #### `POST /projects/[projectId]/tasks/[taskId]/comments` — auth: admin
 Body: `{ text: string }`.
 
-#### `DELETE /projects/[projectId]/tasks/[taskId]/comments/[commentId]` — auth: admin
+#### `PATCH /projects/[projectId]/tasks/[taskId]/comments/[commentId]` — auth: admin
+Marks a project-task comment as picked up by an AI agent. Body: `{ "agentPickedUp": true }`.
 
 ### Project docs (wiki)
 
@@ -229,7 +256,8 @@ List docs.
 #### `POST /projects/[projectId]/docs` — auth: admin
 Body: `{ title, content (markdown), type? }`.
 
-#### `GET/PUT/DELETE /projects/[projectId]/docs/[docId]` — auth: admin
+#### `GET/PATCH/DELETE /projects/[projectId]/docs/[docId]` — auth: client
+`PATCH` updates legacy project docs. `GET` can also resolve linked `client_documents` records when `linked.projectId` points at this project.
 
 ### Agent project context — **gold endpoint for AI**
 

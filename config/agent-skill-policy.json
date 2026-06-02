@@ -1,6 +1,6 @@
 {
-  "version": "2026-05-22.v2",
-  "catalogVersion": "2026-05-22.skills-v2",
+  "version": "2026-06-02.v1",
+  "catalogVersion": "2026-06-02.skills-v1",
   "mode": "hard_allowlist",
   "vpsRoot": "/var/lib/hermes/agent-skills",
   "futureAgentCandidates": [],
@@ -17,21 +17,42 @@
     "delete"
   ],
   "approvalGates": {
-    "approve": { "requiresApproval": true, "reason": "Formal approval authority must be explicit." },
-    "publish": { "requiresApproval": true, "reason": "Public or client-visible publishing requires approval." },
-    "deploy": { "requiresApproval": true, "reason": "production deployment or release promotion requires approval." },
-    "spend": { "requiresApproval": true, "reason": "Paid media spend, launch, or budget change requires approval." },
-    "message_client": { "requiresApproval": true, "reason": "Client-visible outbound messages require approval." },
-    "access_secret": { "requiresApproval": true, "reason": "Secret, env, and live profile config access requires approval." },
-    "delete": { "requiresApproval": true, "reason": "Destructive data operations require approval." }
+    "approve": {
+      "requiresApproval": true,
+      "reason": "Formal approval authority must be explicit."
+    },
+    "publish": {
+      "requiresApproval": true,
+      "reason": "Public or client-visible publishing requires approval."
+    },
+    "deploy": {
+      "requiresApproval": true,
+      "reason": "production deployment or release promotion requires approval."
+    },
+    "spend": {
+      "requiresApproval": true,
+      "reason": "Paid media spend, launch, or budget change requires approval."
+    },
+    "message_client": {
+      "requiresApproval": true,
+      "reason": "Client-visible outbound messages require approval."
+    },
+    "access_secret": {
+      "requiresApproval": true,
+      "reason": "Secret, env, and live profile config access requires approval."
+    },
+    "delete": {
+      "requiresApproval": true,
+      "reason": "Destructive data operations require approval."
+    }
   },
   "repoPibSkills": [
     "ads-manager",
     "analytics",
     "billing-finance",
-    "collaboration-runtime",
     "client-documents",
     "client-manager",
+    "collaboration-runtime",
     "content-engine",
     "crm-sales",
     "data-analyst",
@@ -42,66 +63,587 @@
     "google-workspace",
     "platform-ops",
     "project-management",
-    "qa-release",
     "properties",
+    "qa-release",
     "research-intelligence",
     "seo-sprint-manager",
     "social-media-manager",
     "support-manager"
   ],
   "skillCatalog": {
-    "ads-manager": { "ownerAgentId": "ads", "allowedAgentIds": ["ads"], "riskLevel": "critical", "syncTarget": "vps" },
-    "analytics": { "ownerAgentId": "data", "allowedAgentIds": ["pip", "theo", "maya", "sage", "nora", "support", "data", "docs", "seo", "sales"], "riskLevel": "medium", "syncTarget": "vps" },
-    "billing-finance": { "ownerAgentId": "nora", "allowedAgentIds": ["nora"], "riskLevel": "critical", "syncTarget": "vps" },
-    "client-documents": { "ownerAgentId": "docs", "allowedAgentIds": ["pip", "theo", "maya", "sage", "nora", "ads", "qa-release", "support", "data", "docs", "seo", "sales"], "riskLevel": "medium", "syncTarget": "vps" },
-    "client-manager": { "ownerAgentId": "pip", "allowedAgentIds": ["pip", "theo", "nora", "support", "docs", "data", "sales"], "riskLevel": "medium", "syncTarget": "vps" },
-    "collaboration-runtime": { "ownerAgentId": "pip", "allowedAgentIds": ["pip", "theo", "maya", "sage", "nora", "ads", "qa-release", "support", "data", "docs", "seo", "sales"], "riskLevel": "low", "syncTarget": "vps" },
-    "content-engine": { "ownerAgentId": "maya", "allowedAgentIds": ["pip", "maya", "docs", "seo"], "riskLevel": "high", "syncTarget": "vps" },
-    "crm-sales": { "ownerAgentId": "nora", "allowedAgentIds": ["nora", "support", "sales"], "riskLevel": "high", "syncTarget": "vps" },
-    "data-analyst": { "ownerAgentId": "data", "allowedAgentIds": ["pip", "theo", "maya", "sage", "nora", "support", "data", "docs", "seo", "sales"], "riskLevel": "medium", "syncTarget": "vps" },
-    "docs-lead": { "ownerAgentId": "docs", "allowedAgentIds": ["docs", "pip", "theo", "maya", "sage", "nora", "ads", "seo", "sales"], "riskLevel": "medium", "syncTarget": "vps" },
-    "email-outreach": { "ownerAgentId": "maya", "allowedAgentIds": ["pip", "theo", "maya", "nora", "support", "data", "sales"], "riskLevel": "critical", "syncTarget": "vps" },
-    "evidence-ledger": { "ownerAgentId": "pip", "allowedAgentIds": ["pip", "theo", "maya", "sage", "nora", "ads", "qa-release", "support", "data", "docs", "seo", "sales"], "riskLevel": "low", "syncTarget": "vps" },
-    "geo-seo-service": { "ownerAgentId": "seo", "allowedAgentIds": ["pip", "theo", "maya", "sage", "data", "docs", "seo", "sales"], "riskLevel": "high", "syncTarget": "vps" },
-    "google-workspace": { "ownerAgentId": "docs", "allowedAgentIds": ["docs", "nora", "maya", "ads", "seo", "data", "pip", "sales"], "riskLevel": "high", "syncTarget": "vps" },
-    "marketing/ads": { "ownerAgentId": "ads", "allowedAgentIds": ["ads"], "riskLevel": "critical", "syncTarget": "vps" },
-    "marketing/ads-apple": { "ownerAgentId": "ads", "allowedAgentIds": ["ads"], "riskLevel": "high", "syncTarget": "vps" },
-    "marketing/ads-audit": { "ownerAgentId": "ads", "allowedAgentIds": ["ads"], "riskLevel": "medium", "syncTarget": "vps" },
-    "marketing/ads-budget": { "ownerAgentId": "ads", "allowedAgentIds": ["ads"], "riskLevel": "critical", "syncTarget": "vps" },
-    "marketing/ads-competitor": { "ownerAgentId": "ads", "allowedAgentIds": ["ads"], "riskLevel": "medium", "syncTarget": "vps" },
-    "marketing/ads-create": { "ownerAgentId": "ads", "allowedAgentIds": ["ads", "maya"], "riskLevel": "high", "syncTarget": "vps" },
-    "marketing/ads-creative": { "ownerAgentId": "ads", "allowedAgentIds": ["ads", "maya"], "riskLevel": "high", "syncTarget": "vps" },
-    "marketing/ads-dna": { "ownerAgentId": "ads", "allowedAgentIds": ["ads", "maya"], "riskLevel": "medium", "syncTarget": "vps" },
-    "marketing/ads-generate": { "ownerAgentId": "ads", "allowedAgentIds": ["ads", "maya"], "riskLevel": "medium", "syncTarget": "vps" },
-    "marketing/ads-google": { "ownerAgentId": "ads", "allowedAgentIds": ["ads"], "riskLevel": "high", "syncTarget": "vps" },
-    "marketing/ads-landing": { "ownerAgentId": "ads", "allowedAgentIds": ["ads", "maya"], "riskLevel": "medium", "syncTarget": "vps" },
-    "marketing/ads-linkedin": { "ownerAgentId": "ads", "allowedAgentIds": ["ads"], "riskLevel": "high", "syncTarget": "vps" },
-    "marketing/ads-math": { "ownerAgentId": "ads", "allowedAgentIds": ["ads", "data"], "riskLevel": "medium", "syncTarget": "vps" },
-    "marketing/ads-meta": { "ownerAgentId": "ads", "allowedAgentIds": ["ads"], "riskLevel": "high", "syncTarget": "vps" },
-    "marketing/ads-microsoft": { "ownerAgentId": "ads", "allowedAgentIds": ["ads"], "riskLevel": "high", "syncTarget": "vps" },
-    "marketing/ads-photoshoot": { "ownerAgentId": "ads", "allowedAgentIds": ["ads", "maya"], "riskLevel": "medium", "syncTarget": "vps" },
-    "marketing/ads-plan": { "ownerAgentId": "ads", "allowedAgentIds": ["ads"], "riskLevel": "medium", "syncTarget": "vps" },
-    "marketing/ads-test": { "ownerAgentId": "ads", "allowedAgentIds": ["ads", "data"], "riskLevel": "medium", "syncTarget": "vps" },
-    "marketing/ads-tiktok": { "ownerAgentId": "ads", "allowedAgentIds": ["ads"], "riskLevel": "high", "syncTarget": "vps" },
-    "marketing/ads-youtube": { "ownerAgentId": "ads", "allowedAgentIds": ["ads"], "riskLevel": "high", "syncTarget": "vps" },
-    "marketing/local-seo-system": { "ownerAgentId": "seo", "allowedAgentIds": ["seo", "sage"], "riskLevel": "high", "syncTarget": "vps" },
-    "platform-ops": { "ownerAgentId": "pip", "allowedAgentIds": ["pip", "theo", "maya", "sage", "nora", "qa-release", "support", "data", "docs", "sales"], "riskLevel": "high", "syncTarget": "vps" },
-    "project-management": { "ownerAgentId": "pip", "allowedAgentIds": ["pip", "theo", "maya", "sage", "nora", "ads", "qa-release", "support", "data", "docs", "seo", "sales"], "riskLevel": "medium", "syncTarget": "vps" },
-    "properties": { "ownerAgentId": "theo", "allowedAgentIds": ["pip", "theo", "sage", "data", "docs", "seo"], "riskLevel": "high", "syncTarget": "vps" },
-    "qa-release": { "ownerAgentId": "qa-release", "allowedAgentIds": ["qa-release", "theo"], "riskLevel": "high", "syncTarget": "vps" },
-    "research-intelligence": { "ownerAgentId": "sage", "allowedAgentIds": ["pip", "theo", "maya", "sage", "nora", "ads", "support", "data", "docs", "seo", "sales"], "riskLevel": "medium", "syncTarget": "vps" },
-    "seo-sprint-manager": { "ownerAgentId": "seo", "allowedAgentIds": ["seo", "sage", "pip"], "riskLevel": "high", "syncTarget": "vps" },
-    "social-media-manager": { "ownerAgentId": "maya", "allowedAgentIds": ["pip", "maya"], "riskLevel": "critical", "syncTarget": "vps" },
-    "software-development/code-review": { "ownerAgentId": "theo", "allowedAgentIds": ["theo", "qa-release"], "riskLevel": "medium", "syncTarget": "vps" },
-    "software-development/karpathy-guidelines": { "ownerAgentId": "theo", "allowedAgentIds": ["theo", "qa-release"], "riskLevel": "low", "syncTarget": "vps" },
-    "software-development/plan": { "ownerAgentId": "theo", "allowedAgentIds": ["theo"], "riskLevel": "medium", "syncTarget": "vps" },
-    "software-development/requesting-code-review": { "ownerAgentId": "theo", "allowedAgentIds": ["theo", "qa-release"], "riskLevel": "medium", "syncTarget": "vps" },
-    "software-development/revenuecat-capacitor-iap": { "ownerAgentId": "theo", "allowedAgentIds": ["theo"], "riskLevel": "critical", "syncTarget": "vps" },
-    "software-development/subagent-driven-development": { "ownerAgentId": "theo", "allowedAgentIds": ["theo"], "riskLevel": "medium", "syncTarget": "vps" },
-    "software-development/systematic-debugging": { "ownerAgentId": "theo", "allowedAgentIds": ["theo", "qa-release"], "riskLevel": "medium", "syncTarget": "vps" },
-    "software-development/test-driven-development": { "ownerAgentId": "theo", "allowedAgentIds": ["theo"], "riskLevel": "medium", "syncTarget": "vps" },
-    "software-development/writing-plans": { "ownerAgentId": "theo", "allowedAgentIds": ["theo"], "riskLevel": "medium", "syncTarget": "vps" },
-    "support-manager": { "ownerAgentId": "support", "allowedAgentIds": ["support", "pip"], "riskLevel": "medium", "syncTarget": "vps" }
+    "ads-manager": {
+      "ownerAgentId": "ads",
+      "allowedAgentIds": [
+        "ads",
+        "qa-release",
+        "theo"
+      ],
+      "riskLevel": "critical",
+      "syncTarget": "vps"
+    },
+    "analytics": {
+      "ownerAgentId": "data",
+      "allowedAgentIds": [
+        "ads",
+        "data",
+        "docs",
+        "maya",
+        "nora",
+        "pip",
+        "qa-release",
+        "sage",
+        "sales",
+        "seo",
+        "support",
+        "theo"
+      ],
+      "riskLevel": "medium",
+      "syncTarget": "vps"
+    },
+    "billing-finance": {
+      "ownerAgentId": "nora",
+      "allowedAgentIds": [
+        "nora",
+        "qa-release",
+        "theo"
+      ],
+      "riskLevel": "critical",
+      "syncTarget": "vps"
+    },
+    "client-documents": {
+      "ownerAgentId": "docs",
+      "allowedAgentIds": [
+        "ads",
+        "data",
+        "docs",
+        "maya",
+        "nora",
+        "pip",
+        "qa-release",
+        "sage",
+        "sales",
+        "seo",
+        "support",
+        "theo"
+      ],
+      "riskLevel": "medium",
+      "syncTarget": "vps"
+    },
+    "client-manager": {
+      "ownerAgentId": "pip",
+      "allowedAgentIds": [
+        "ads",
+        "data",
+        "docs",
+        "maya",
+        "nora",
+        "pip",
+        "qa-release",
+        "sage",
+        "sales",
+        "seo",
+        "support",
+        "theo"
+      ],
+      "riskLevel": "medium",
+      "syncTarget": "vps"
+    },
+    "collaboration-runtime": {
+      "ownerAgentId": "pip",
+      "allowedAgentIds": [
+        "ads",
+        "data",
+        "docs",
+        "maya",
+        "nora",
+        "pip",
+        "qa-release",
+        "sage",
+        "sales",
+        "seo",
+        "support",
+        "theo"
+      ],
+      "riskLevel": "low",
+      "syncTarget": "vps"
+    },
+    "content-engine": {
+      "ownerAgentId": "maya",
+      "allowedAgentIds": [
+        "maya",
+        "pip",
+        "qa-release",
+        "seo",
+        "theo"
+      ],
+      "riskLevel": "high",
+      "syncTarget": "vps"
+    },
+    "crm-sales": {
+      "ownerAgentId": "nora",
+      "allowedAgentIds": [
+        "ads",
+        "data",
+        "docs",
+        "maya",
+        "nora",
+        "pip",
+        "qa-release",
+        "sage",
+        "sales",
+        "seo",
+        "support",
+        "theo"
+      ],
+      "riskLevel": "high",
+      "syncTarget": "vps"
+    },
+    "data-analyst": {
+      "ownerAgentId": "data",
+      "allowedAgentIds": [
+        "ads",
+        "data",
+        "docs",
+        "maya",
+        "nora",
+        "pip",
+        "qa-release",
+        "sage",
+        "sales",
+        "seo",
+        "support",
+        "theo"
+      ],
+      "riskLevel": "medium",
+      "syncTarget": "vps"
+    },
+    "docs-lead": {
+      "ownerAgentId": "docs",
+      "allowedAgentIds": [
+        "docs",
+        "qa-release",
+        "theo"
+      ],
+      "riskLevel": "medium",
+      "syncTarget": "vps"
+    },
+    "email-outreach": {
+      "ownerAgentId": "maya",
+      "allowedAgentIds": [
+        "maya",
+        "nora",
+        "qa-release",
+        "sales",
+        "support",
+        "theo"
+      ],
+      "riskLevel": "critical",
+      "syncTarget": "vps"
+    },
+    "evidence-ledger": {
+      "ownerAgentId": "pip",
+      "allowedAgentIds": [
+        "ads",
+        "data",
+        "docs",
+        "maya",
+        "nora",
+        "pip",
+        "qa-release",
+        "sage",
+        "sales",
+        "seo",
+        "support",
+        "theo"
+      ],
+      "riskLevel": "low",
+      "syncTarget": "vps"
+    },
+    "geo-seo-service": {
+      "ownerAgentId": "seo",
+      "allowedAgentIds": [
+        "qa-release",
+        "seo",
+        "theo"
+      ],
+      "riskLevel": "high",
+      "syncTarget": "vps"
+    },
+    "google-workspace": {
+      "ownerAgentId": "docs",
+      "allowedAgentIds": [
+        "ads",
+        "docs",
+        "maya",
+        "nora",
+        "qa-release",
+        "sales",
+        "theo"
+      ],
+      "riskLevel": "high",
+      "syncTarget": "vps"
+    },
+    "marketing/ads": {
+      "ownerAgentId": "ads",
+      "allowedAgentIds": [
+        "ads",
+        "theo"
+      ],
+      "riskLevel": "critical",
+      "syncTarget": "vps"
+    },
+    "marketing/ads-apple": {
+      "ownerAgentId": "ads",
+      "allowedAgentIds": [
+        "ads"
+      ],
+      "riskLevel": "high",
+      "syncTarget": "vps"
+    },
+    "marketing/ads-audit": {
+      "ownerAgentId": "ads",
+      "allowedAgentIds": [
+        "ads"
+      ],
+      "riskLevel": "medium",
+      "syncTarget": "vps"
+    },
+    "marketing/ads-budget": {
+      "ownerAgentId": "ads",
+      "allowedAgentIds": [
+        "ads"
+      ],
+      "riskLevel": "critical",
+      "syncTarget": "vps"
+    },
+    "marketing/ads-competitor": {
+      "ownerAgentId": "ads",
+      "allowedAgentIds": [
+        "ads"
+      ],
+      "riskLevel": "medium",
+      "syncTarget": "vps"
+    },
+    "marketing/ads-create": {
+      "ownerAgentId": "ads",
+      "allowedAgentIds": [
+        "ads",
+        "maya"
+      ],
+      "riskLevel": "high",
+      "syncTarget": "vps"
+    },
+    "marketing/ads-creative": {
+      "ownerAgentId": "ads",
+      "allowedAgentIds": [
+        "ads",
+        "maya"
+      ],
+      "riskLevel": "high",
+      "syncTarget": "vps"
+    },
+    "marketing/ads-dna": {
+      "ownerAgentId": "ads",
+      "allowedAgentIds": [
+        "ads",
+        "maya"
+      ],
+      "riskLevel": "medium",
+      "syncTarget": "vps"
+    },
+    "marketing/ads-generate": {
+      "ownerAgentId": "ads",
+      "allowedAgentIds": [
+        "ads",
+        "maya"
+      ],
+      "riskLevel": "medium",
+      "syncTarget": "vps"
+    },
+    "marketing/ads-google": {
+      "ownerAgentId": "ads",
+      "allowedAgentIds": [
+        "ads"
+      ],
+      "riskLevel": "high",
+      "syncTarget": "vps"
+    },
+    "marketing/ads-landing": {
+      "ownerAgentId": "ads",
+      "allowedAgentIds": [
+        "ads",
+        "maya"
+      ],
+      "riskLevel": "medium",
+      "syncTarget": "vps"
+    },
+    "marketing/ads-linkedin": {
+      "ownerAgentId": "ads",
+      "allowedAgentIds": [
+        "ads"
+      ],
+      "riskLevel": "high",
+      "syncTarget": "vps"
+    },
+    "marketing/ads-math": {
+      "ownerAgentId": "ads",
+      "allowedAgentIds": [
+        "ads",
+        "data"
+      ],
+      "riskLevel": "medium",
+      "syncTarget": "vps"
+    },
+    "marketing/ads-meta": {
+      "ownerAgentId": "ads",
+      "allowedAgentIds": [
+        "ads"
+      ],
+      "riskLevel": "high",
+      "syncTarget": "vps"
+    },
+    "marketing/ads-microsoft": {
+      "ownerAgentId": "ads",
+      "allowedAgentIds": [
+        "ads"
+      ],
+      "riskLevel": "high",
+      "syncTarget": "vps"
+    },
+    "marketing/ads-photoshoot": {
+      "ownerAgentId": "ads",
+      "allowedAgentIds": [
+        "ads",
+        "maya"
+      ],
+      "riskLevel": "medium",
+      "syncTarget": "vps"
+    },
+    "marketing/ads-plan": {
+      "ownerAgentId": "ads",
+      "allowedAgentIds": [
+        "ads"
+      ],
+      "riskLevel": "medium",
+      "syncTarget": "vps"
+    },
+    "marketing/ads-test": {
+      "ownerAgentId": "ads",
+      "allowedAgentIds": [
+        "ads",
+        "data"
+      ],
+      "riskLevel": "medium",
+      "syncTarget": "vps"
+    },
+    "marketing/ads-tiktok": {
+      "ownerAgentId": "ads",
+      "allowedAgentIds": [
+        "ads"
+      ],
+      "riskLevel": "high",
+      "syncTarget": "vps"
+    },
+    "marketing/ads-youtube": {
+      "ownerAgentId": "ads",
+      "allowedAgentIds": [
+        "ads"
+      ],
+      "riskLevel": "high",
+      "syncTarget": "vps"
+    },
+    "marketing/local-seo-system": {
+      "ownerAgentId": "seo",
+      "allowedAgentIds": [
+        "sage",
+        "seo"
+      ],
+      "riskLevel": "high",
+      "syncTarget": "vps"
+    },
+    "platform-ops": {
+      "ownerAgentId": "pip",
+      "allowedAgentIds": [
+        "data",
+        "docs",
+        "pip",
+        "qa-release",
+        "support",
+        "theo"
+      ],
+      "riskLevel": "high",
+      "syncTarget": "vps"
+    },
+    "project-management": {
+      "ownerAgentId": "pip",
+      "allowedAgentIds": [
+        "ads",
+        "data",
+        "docs",
+        "maya",
+        "nora",
+        "pip",
+        "qa-release",
+        "sage",
+        "sales",
+        "seo",
+        "support",
+        "theo"
+      ],
+      "riskLevel": "medium",
+      "syncTarget": "vps"
+    },
+    "properties": {
+      "ownerAgentId": "theo",
+      "allowedAgentIds": [
+        "data",
+        "docs",
+        "pip",
+        "qa-release",
+        "sage",
+        "seo",
+        "theo"
+      ],
+      "riskLevel": "high",
+      "syncTarget": "vps"
+    },
+    "qa-release": {
+      "ownerAgentId": "qa-release",
+      "allowedAgentIds": [
+        "qa-release",
+        "theo"
+      ],
+      "riskLevel": "high",
+      "syncTarget": "vps"
+    },
+    "research-intelligence": {
+      "ownerAgentId": "sage",
+      "allowedAgentIds": [
+        "ads",
+        "data",
+        "docs",
+        "maya",
+        "nora",
+        "pip",
+        "qa-release",
+        "sage",
+        "sales",
+        "seo",
+        "support",
+        "theo"
+      ],
+      "riskLevel": "medium",
+      "syncTarget": "vps"
+    },
+    "seo-sprint-manager": {
+      "ownerAgentId": "seo",
+      "allowedAgentIds": [
+        "pip",
+        "qa-release",
+        "sage",
+        "seo",
+        "theo"
+      ],
+      "riskLevel": "high",
+      "syncTarget": "vps"
+    },
+    "social-media-manager": {
+      "ownerAgentId": "maya",
+      "allowedAgentIds": [
+        "maya",
+        "pip",
+        "qa-release",
+        "theo"
+      ],
+      "riskLevel": "critical",
+      "syncTarget": "vps"
+    },
+    "software-development/code-review": {
+      "ownerAgentId": "theo",
+      "allowedAgentIds": [
+        "qa-release",
+        "theo"
+      ],
+      "riskLevel": "medium",
+      "syncTarget": "vps"
+    },
+    "software-development/karpathy-guidelines": {
+      "ownerAgentId": "theo",
+      "allowedAgentIds": [
+        "theo"
+      ],
+      "riskLevel": "low",
+      "syncTarget": "vps"
+    },
+    "software-development/plan": {
+      "ownerAgentId": "theo",
+      "allowedAgentIds": [
+        "theo"
+      ],
+      "riskLevel": "medium",
+      "syncTarget": "vps"
+    },
+    "software-development/requesting-code-review": {
+      "ownerAgentId": "theo",
+      "allowedAgentIds": [
+        "qa-release",
+        "theo"
+      ],
+      "riskLevel": "medium",
+      "syncTarget": "vps"
+    },
+    "software-development/revenuecat-capacitor-iap": {
+      "ownerAgentId": "theo",
+      "allowedAgentIds": [
+        "theo"
+      ],
+      "riskLevel": "critical",
+      "syncTarget": "vps"
+    },
+    "software-development/subagent-driven-development": {
+      "ownerAgentId": "theo",
+      "allowedAgentIds": [
+        "theo"
+      ],
+      "riskLevel": "medium",
+      "syncTarget": "vps"
+    },
+    "software-development/systematic-debugging": {
+      "ownerAgentId": "theo",
+      "allowedAgentIds": [
+        "qa-release",
+        "theo"
+      ],
+      "riskLevel": "medium",
+      "syncTarget": "vps"
+    },
+    "software-development/test-driven-development": {
+      "ownerAgentId": "theo",
+      "allowedAgentIds": [
+        "theo"
+      ],
+      "riskLevel": "medium",
+      "syncTarget": "vps"
+    },
+    "software-development/writing-plans": {
+      "ownerAgentId": "theo",
+      "allowedAgentIds": [
+        "theo"
+      ],
+      "riskLevel": "medium",
+      "syncTarget": "vps"
+    },
+    "support-manager": {
+      "ownerAgentId": "support",
+      "allowedAgentIds": [
+        "pip",
+        "qa-release",
+        "support",
+        "theo"
+      ],
+      "riskLevel": "medium",
+      "syncTarget": "vps"
+    }
   },
   "agents": {
     "pip": {
@@ -109,180 +651,934 @@
       "label": "Operator",
       "role": "Front-door operator and orchestrator",
       "vpsExternalDir": "/var/lib/hermes/agent-skills/pip",
-      "pibSkills": ["analytics", "collaboration-runtime", "client-documents", "client-manager", "data-analyst", "email-outreach", "evidence-ledger", "platform-ops", "project-management", "properties", "research-intelligence"],
-      "runtimeSkills": ["analytics", "collaboration-runtime", "client-documents", "client-manager", "data-analyst", "email-outreach", "evidence-ledger", "platform-ops", "project-management", "properties", "research-intelligence"],
-      "globalSkills": ["autonomous-ai-agents/hermes-agent"],
-      "capabilities": ["read", "draft", "write", "approve", "message_client"],
-      "approvalGates": ["approve", "message_client"],
-      "primaryOwnerOf": ["routing", "client context", "approvals", "kanban orchestration", "blocker follow-up"],
-      "mayRequestFrom": ["theo", "maya", "sage", "nora", "ads", "qa-release", "support", "data", "docs", "seo"],
+      "pibSkills": [
+        "analytics",
+        "client-documents",
+        "client-manager",
+        "collaboration-runtime",
+        "content-engine",
+        "crm-sales",
+        "data-analyst",
+        "evidence-ledger",
+        "platform-ops",
+        "project-management",
+        "properties",
+        "research-intelligence",
+        "seo-sprint-manager",
+        "social-media-manager",
+        "support-manager"
+      ],
+      "runtimeSkills": [
+        "analytics",
+        "client-documents",
+        "client-manager",
+        "collaboration-runtime",
+        "content-engine",
+        "crm-sales",
+        "data-analyst",
+        "evidence-ledger",
+        "platform-ops",
+        "project-management",
+        "properties",
+        "research-intelligence",
+        "seo-sprint-manager",
+        "social-media-manager",
+        "support-manager"
+      ],
+      "globalSkills": [
+        "autonomous-ai-agents/hermes-agent"
+      ],
+      "capabilities": [
+        "read",
+        "draft",
+        "write",
+        "approve",
+        "message_client"
+      ],
+      "approvalGates": [
+        "approve",
+        "message_client"
+      ],
+      "primaryOwnerOf": [
+        "routing",
+        "client context",
+        "approvals",
+        "kanban orchestration",
+        "blocker follow-up"
+      ],
+      "mayRequestFrom": [
+        "theo",
+        "maya",
+        "sage",
+        "nora",
+        "ads",
+        "qa-release",
+        "support",
+        "data",
+        "docs",
+        "seo",
+        "sales"
+      ],
       "reviewerAgentId": "qa-release",
-      "deniedSkills": ["red-teaming/godmode", "mlops/inference/obliteratus"]
+      "deniedSkills": [
+        "red-teaming/godmode",
+        "mlops/inference/obliteratus"
+      ]
     },
     "theo": {
       "name": "Theo",
       "label": "Builder",
       "role": "Engineering and infrastructure specialist",
       "vpsExternalDir": "/var/lib/hermes/agent-skills/theo",
-      "pibSkills": ["analytics", "collaboration-runtime", "client-documents", "client-manager", "data-analyst", "email-outreach", "evidence-ledger", "platform-ops", "project-management", "properties", "research-intelligence"],
-      "runtimeSkills": ["analytics", "collaboration-runtime", "client-documents", "client-manager", "data-analyst", "email-outreach", "evidence-ledger", "platform-ops", "project-management", "properties", "research-intelligence", "software-development/code-review", "software-development/karpathy-guidelines", "software-development/plan", "software-development/requesting-code-review", "software-development/revenuecat-capacitor-iap", "software-development/subagent-driven-development", "software-development/systematic-debugging", "software-development/test-driven-development", "software-development/writing-plans"],
-      "globalSkills": ["autonomous-ai-agents/codex", "autonomous-ai-agents/hermes-agent", "github/codebase-inspection", "github/github-auth", "github/github-code-review", "github/github-issues", "github/github-pr-workflow", "github/github-repo-management"],
-      "capabilities": ["read", "draft", "write", "deploy", "access_secret"],
-      "approvalGates": ["deploy", "access_secret"],
-      "primaryOwnerOf": ["code", "infra", "deployments", "debugging", "tests", "GitHub", "Vercel"],
-      "mayRequestFrom": ["pip", "docs", "qa-release", "data", "support"],
+      "pibSkills": [
+        "ads-manager",
+        "analytics",
+        "billing-finance",
+        "client-documents",
+        "client-manager",
+        "collaboration-runtime",
+        "content-engine",
+        "crm-sales",
+        "data-analyst",
+        "docs-lead",
+        "email-outreach",
+        "evidence-ledger",
+        "geo-seo-service",
+        "google-workspace",
+        "platform-ops",
+        "project-management",
+        "properties",
+        "qa-release",
+        "research-intelligence",
+        "seo-sprint-manager",
+        "social-media-manager",
+        "support-manager"
+      ],
+      "runtimeSkills": [
+        "ads-manager",
+        "analytics",
+        "billing-finance",
+        "client-documents",
+        "client-manager",
+        "collaboration-runtime",
+        "content-engine",
+        "crm-sales",
+        "data-analyst",
+        "docs-lead",
+        "email-outreach",
+        "evidence-ledger",
+        "geo-seo-service",
+        "google-workspace",
+        "marketing/ads",
+        "platform-ops",
+        "project-management",
+        "properties",
+        "qa-release",
+        "research-intelligence",
+        "seo-sprint-manager",
+        "social-media-manager",
+        "software-development/code-review",
+        "software-development/karpathy-guidelines",
+        "software-development/plan",
+        "software-development/requesting-code-review",
+        "software-development/revenuecat-capacitor-iap",
+        "software-development/subagent-driven-development",
+        "software-development/systematic-debugging",
+        "software-development/test-driven-development",
+        "software-development/writing-plans",
+        "support-manager"
+      ],
+      "globalSkills": [
+        "autonomous-ai-agents/codex",
+        "autonomous-ai-agents/hermes-agent",
+        "github/codebase-inspection",
+        "github/github-auth",
+        "github/github-code-review",
+        "github/github-issues",
+        "github/github-pr-workflow",
+        "github/github-repo-management"
+      ],
+      "capabilities": [
+        "read",
+        "draft",
+        "write",
+        "deploy",
+        "access_secret"
+      ],
+      "approvalGates": [
+        "deploy",
+        "access_secret"
+      ],
+      "primaryOwnerOf": [
+        "code",
+        "infra",
+        "deployments",
+        "debugging",
+        "tests",
+        "GitHub",
+        "Vercel"
+      ],
+      "mayRequestFrom": [
+        "pip",
+        "docs",
+        "qa-release",
+        "data",
+        "support"
+      ],
       "reviewerAgentId": "qa-release",
-      "deniedSkills": ["red-teaming/godmode", "mlops/inference/obliteratus"]
+      "deniedSkills": [
+        "red-teaming/godmode",
+        "mlops/inference/obliteratus"
+      ]
     },
     "maya": {
       "name": "Maya",
       "label": "Marketer",
       "role": "Marketing and creative specialist",
       "vpsExternalDir": "/var/lib/hermes/agent-skills/maya",
-      "pibSkills": ["analytics", "collaboration-runtime", "client-documents", "content-engine", "data-analyst", "email-outreach", "evidence-ledger", "google-workspace", "project-management", "research-intelligence", "social-media-manager"],
-      "runtimeSkills": ["analytics", "collaboration-runtime", "client-documents", "content-engine", "data-analyst", "email-outreach", "evidence-ledger", "google-workspace", "project-management", "research-intelligence", "social-media-manager", "marketing/ads-create", "marketing/ads-creative", "marketing/ads-dna", "marketing/ads-generate", "marketing/ads-landing", "marketing/ads-photoshoot"],
-      "globalSkills": ["creative/creative-ideation", "creative/popular-web-designs", "media/youtube-content", "productivity/google-workspace"],
-      "capabilities": ["read", "draft", "write", "publish", "message_client"],
-      "approvalGates": ["publish", "message_client"],
-      "primaryOwnerOf": ["content engine", "social", "brand voice", "creative packs", "non-spend marketing execution"],
-      "mayRequestFrom": ["pip", "sage", "docs", "ads", "seo"],
+      "pibSkills": [
+        "analytics",
+        "client-documents",
+        "client-manager",
+        "collaboration-runtime",
+        "content-engine",
+        "crm-sales",
+        "data-analyst",
+        "email-outreach",
+        "evidence-ledger",
+        "google-workspace",
+        "project-management",
+        "research-intelligence",
+        "social-media-manager"
+      ],
+      "runtimeSkills": [
+        "analytics",
+        "client-documents",
+        "client-manager",
+        "collaboration-runtime",
+        "content-engine",
+        "crm-sales",
+        "data-analyst",
+        "email-outreach",
+        "evidence-ledger",
+        "google-workspace",
+        "marketing/ads-create",
+        "marketing/ads-creative",
+        "marketing/ads-dna",
+        "marketing/ads-generate",
+        "marketing/ads-landing",
+        "marketing/ads-photoshoot",
+        "project-management",
+        "research-intelligence",
+        "social-media-manager"
+      ],
+      "globalSkills": [
+        "creative/creative-ideation",
+        "creative/popular-web-designs",
+        "media/youtube-content",
+        "productivity/google-workspace"
+      ],
+      "capabilities": [
+        "read",
+        "draft",
+        "write",
+        "publish",
+        "message_client"
+      ],
+      "approvalGates": [
+        "publish",
+        "message_client"
+      ],
+      "primaryOwnerOf": [
+        "content engine",
+        "social",
+        "brand voice",
+        "creative packs",
+        "non-spend marketing execution"
+      ],
+      "mayRequestFrom": [
+        "pip",
+        "sage",
+        "docs",
+        "ads",
+        "seo",
+        "sales"
+      ],
       "reviewerAgentId": "qa-release",
-      "deniedSkills": ["red-teaming/godmode", "mlops/inference/obliteratus"]
+      "deniedSkills": [
+        "red-teaming/godmode",
+        "mlops/inference/obliteratus"
+      ]
     },
     "sage": {
       "name": "Sage",
       "label": "Researcher",
       "role": "Research and strategic intelligence specialist",
       "vpsExternalDir": "/var/lib/hermes/agent-skills/sage",
-      "pibSkills": ["analytics", "collaboration-runtime", "client-documents", "data-analyst", "evidence-ledger", "project-management", "properties", "research-intelligence"],
-      "runtimeSkills": ["analytics", "collaboration-runtime", "client-documents", "data-analyst", "evidence-ledger", "project-management", "properties", "research-intelligence", "marketing/local-seo-system"],
-      "globalSkills": ["note-taking/obsidian", "productivity/google-workspace", "productivity/maps", "research/arxiv", "research/blogwatcher", "research/llm-wiki", "research/research-paper-writing"],
-      "capabilities": ["read", "draft", "write"],
+      "pibSkills": [
+        "analytics",
+        "client-documents",
+        "client-manager",
+        "collaboration-runtime",
+        "crm-sales",
+        "data-analyst",
+        "evidence-ledger",
+        "project-management",
+        "properties",
+        "research-intelligence",
+        "seo-sprint-manager"
+      ],
+      "runtimeSkills": [
+        "analytics",
+        "client-documents",
+        "client-manager",
+        "collaboration-runtime",
+        "crm-sales",
+        "data-analyst",
+        "evidence-ledger",
+        "marketing/local-seo-system",
+        "project-management",
+        "properties",
+        "research-intelligence",
+        "seo-sprint-manager"
+      ],
+      "globalSkills": [
+        "note-taking/obsidian",
+        "productivity/google-workspace",
+        "productivity/maps",
+        "research/arxiv",
+        "research/blogwatcher",
+        "research/llm-wiki",
+        "research/research-paper-writing"
+      ],
+      "capabilities": [
+        "read",
+        "draft",
+        "write"
+      ],
       "approvalGates": [],
-      "primaryOwnerOf": ["research", "market intelligence", "competitor intelligence", "evidence-backed recommendations"],
-      "mayRequestFrom": ["pip", "data", "docs", "seo"],
+      "primaryOwnerOf": [
+        "research",
+        "market intelligence",
+        "competitor intelligence",
+        "evidence-backed recommendations"
+      ],
+      "mayRequestFrom": [
+        "pip",
+        "data",
+        "docs",
+        "seo",
+        "sales"
+      ],
       "reviewerAgentId": "qa-release",
-      "deniedSkills": ["red-teaming/godmode", "mlops/inference/obliteratus"]
+      "deniedSkills": [
+        "red-teaming/godmode",
+        "mlops/inference/obliteratus"
+      ]
     },
     "nora": {
       "name": "Nora",
       "label": "Operations",
       "role": "Operations, CRM, billing, and inbox specialist",
       "vpsExternalDir": "/var/lib/hermes/agent-skills/nora",
-      "pibSkills": ["analytics", "billing-finance", "collaboration-runtime", "client-documents", "client-manager", "crm-sales", "data-analyst", "email-outreach", "evidence-ledger", "google-workspace", "project-management", "research-intelligence"],
-      "runtimeSkills": ["analytics", "billing-finance", "collaboration-runtime", "client-documents", "client-manager", "crm-sales", "data-analyst", "email-outreach", "evidence-ledger", "google-workspace", "project-management", "research-intelligence"],
-      "globalSkills": ["email/himalaya", "productivity/google-workspace"],
-      "capabilities": ["read", "draft", "write", "approve", "message_client", "delete"],
-      "approvalGates": ["approve", "message_client", "delete"],
-      "primaryOwnerOf": ["billing", "CRM hygiene", "inbox ops", "reports", "finance-sensitive reconciliation"],
-      "mayRequestFrom": ["pip", "support", "docs", "data"],
+      "pibSkills": [
+        "analytics",
+        "billing-finance",
+        "client-documents",
+        "client-manager",
+        "collaboration-runtime",
+        "crm-sales",
+        "data-analyst",
+        "email-outreach",
+        "evidence-ledger",
+        "google-workspace",
+        "project-management",
+        "research-intelligence"
+      ],
+      "runtimeSkills": [
+        "analytics",
+        "billing-finance",
+        "client-documents",
+        "client-manager",
+        "collaboration-runtime",
+        "crm-sales",
+        "data-analyst",
+        "email-outreach",
+        "evidence-ledger",
+        "google-workspace",
+        "project-management",
+        "research-intelligence"
+      ],
+      "globalSkills": [
+        "email/himalaya",
+        "productivity/google-workspace"
+      ],
+      "capabilities": [
+        "read",
+        "draft",
+        "write",
+        "approve",
+        "message_client",
+        "delete"
+      ],
+      "approvalGates": [
+        "approve",
+        "message_client",
+        "delete"
+      ],
+      "primaryOwnerOf": [
+        "billing",
+        "CRM hygiene",
+        "inbox ops",
+        "reports",
+        "finance-sensitive reconciliation"
+      ],
+      "mayRequestFrom": [
+        "pip",
+        "support",
+        "docs",
+        "data",
+        "sales"
+      ],
       "reviewerAgentId": "qa-release",
-      "deniedSkills": ["red-teaming/godmode", "mlops/inference/obliteratus"]
+      "deniedSkills": [
+        "red-teaming/godmode",
+        "mlops/inference/obliteratus"
+      ]
     },
     "ads": {
       "name": "Ari",
       "label": "Ads",
       "role": "Paid advertising specialist",
       "vpsExternalDir": "/var/lib/hermes/agent-skills/ads",
-      "pibSkills": ["ads-manager", "collaboration-runtime", "client-documents", "evidence-ledger", "google-workspace", "project-management", "research-intelligence"],
-      "runtimeSkills": ["ads-manager", "collaboration-runtime", "client-documents", "evidence-ledger", "google-workspace", "project-management", "research-intelligence", "marketing/ads", "marketing/ads-apple", "marketing/ads-audit", "marketing/ads-budget", "marketing/ads-competitor", "marketing/ads-create", "marketing/ads-creative", "marketing/ads-dna", "marketing/ads-generate", "marketing/ads-google", "marketing/ads-landing", "marketing/ads-linkedin", "marketing/ads-math", "marketing/ads-meta", "marketing/ads-microsoft", "marketing/ads-photoshoot", "marketing/ads-plan", "marketing/ads-test", "marketing/ads-tiktok", "marketing/ads-youtube"],
-      "globalSkills": ["productivity/google-workspace"],
-      "capabilities": ["read", "draft", "write", "publish", "spend", "message_client"],
-      "approvalGates": ["publish", "spend", "message_client"],
-      "primaryOwnerOf": ["paid ads", "ad audits", "media planning", "budgets", "experiments"],
-      "mayRequestFrom": ["pip", "maya", "data", "docs", "qa-release"],
+      "pibSkills": [
+        "ads-manager",
+        "analytics",
+        "client-documents",
+        "client-manager",
+        "collaboration-runtime",
+        "crm-sales",
+        "data-analyst",
+        "evidence-ledger",
+        "google-workspace",
+        "project-management",
+        "research-intelligence"
+      ],
+      "runtimeSkills": [
+        "ads-manager",
+        "analytics",
+        "client-documents",
+        "client-manager",
+        "collaboration-runtime",
+        "crm-sales",
+        "data-analyst",
+        "evidence-ledger",
+        "google-workspace",
+        "marketing/ads",
+        "marketing/ads-apple",
+        "marketing/ads-audit",
+        "marketing/ads-budget",
+        "marketing/ads-competitor",
+        "marketing/ads-create",
+        "marketing/ads-creative",
+        "marketing/ads-dna",
+        "marketing/ads-generate",
+        "marketing/ads-google",
+        "marketing/ads-landing",
+        "marketing/ads-linkedin",
+        "marketing/ads-math",
+        "marketing/ads-meta",
+        "marketing/ads-microsoft",
+        "marketing/ads-photoshoot",
+        "marketing/ads-plan",
+        "marketing/ads-test",
+        "marketing/ads-tiktok",
+        "marketing/ads-youtube",
+        "project-management",
+        "research-intelligence"
+      ],
+      "globalSkills": [
+        "productivity/google-workspace"
+      ],
+      "capabilities": [
+        "read",
+        "draft",
+        "write",
+        "publish",
+        "spend",
+        "message_client"
+      ],
+      "approvalGates": [
+        "publish",
+        "spend",
+        "message_client"
+      ],
+      "primaryOwnerOf": [
+        "paid ads",
+        "ad audits",
+        "media planning",
+        "budgets",
+        "experiments"
+      ],
+      "mayRequestFrom": [
+        "pip",
+        "maya",
+        "data",
+        "docs",
+        "qa-release",
+        "sales"
+      ],
       "reviewerAgentId": "qa-release",
-      "deniedSkills": ["red-teaming/godmode", "mlops/inference/obliteratus"]
+      "deniedSkills": [
+        "red-teaming/godmode",
+        "mlops/inference/obliteratus"
+      ]
     },
     "qa-release": {
       "name": "Quinn",
       "label": "QA Release",
       "role": "QA and release readiness specialist",
       "vpsExternalDir": "/var/lib/hermes/agent-skills/qa-release",
-      "pibSkills": ["collaboration-runtime", "client-documents", "evidence-ledger", "platform-ops", "project-management", "qa-release"],
-      "runtimeSkills": ["collaboration-runtime", "client-documents", "evidence-ledger", "platform-ops", "project-management", "qa-release", "software-development/code-review", "software-development/karpathy-guidelines", "software-development/requesting-code-review", "software-development/systematic-debugging"],
-      "globalSkills": ["github/github-code-review", "github/github-pr-workflow", "github/codebase-inspection"],
-      "capabilities": ["read", "draft", "write", "approve", "deploy"],
-      "approvalGates": ["approve", "deploy"],
-      "primaryOwnerOf": ["QA", "release readiness", "smoke tests", "production verification", "rollback notes"],
-      "mayRequestFrom": ["pip", "theo", "ads", "data", "docs", "seo"],
+      "pibSkills": [
+        "ads-manager",
+        "analytics",
+        "billing-finance",
+        "client-documents",
+        "client-manager",
+        "collaboration-runtime",
+        "content-engine",
+        "crm-sales",
+        "data-analyst",
+        "docs-lead",
+        "email-outreach",
+        "evidence-ledger",
+        "geo-seo-service",
+        "google-workspace",
+        "platform-ops",
+        "project-management",
+        "properties",
+        "qa-release",
+        "research-intelligence",
+        "seo-sprint-manager",
+        "social-media-manager",
+        "support-manager"
+      ],
+      "runtimeSkills": [
+        "ads-manager",
+        "analytics",
+        "billing-finance",
+        "client-documents",
+        "client-manager",
+        "collaboration-runtime",
+        "content-engine",
+        "crm-sales",
+        "data-analyst",
+        "docs-lead",
+        "email-outreach",
+        "evidence-ledger",
+        "geo-seo-service",
+        "google-workspace",
+        "platform-ops",
+        "project-management",
+        "properties",
+        "qa-release",
+        "research-intelligence",
+        "seo-sprint-manager",
+        "social-media-manager",
+        "software-development/code-review",
+        "software-development/requesting-code-review",
+        "software-development/systematic-debugging",
+        "support-manager"
+      ],
+      "globalSkills": [
+        "github/codebase-inspection",
+        "github/github-code-review",
+        "github/github-pr-workflow"
+      ],
+      "capabilities": [
+        "read",
+        "draft",
+        "write",
+        "approve",
+        "deploy"
+      ],
+      "approvalGates": [
+        "approve",
+        "deploy"
+      ],
+      "primaryOwnerOf": [
+        "QA",
+        "release readiness",
+        "smoke tests",
+        "production verification",
+        "rollback notes"
+      ],
+      "mayRequestFrom": [
+        "pip",
+        "theo",
+        "ads",
+        "data",
+        "docs",
+        "seo",
+        "support",
+        "sales"
+      ],
       "reviewerAgentId": "qa-release",
-      "deniedSkills": ["red-teaming/godmode", "mlops/inference/obliteratus"]
+      "deniedSkills": [
+        "red-teaming/godmode",
+        "mlops/inference/obliteratus"
+      ]
     },
     "support": {
       "name": "Luca",
       "label": "Support",
       "role": "Client support triage specialist",
       "vpsExternalDir": "/var/lib/hermes/agent-skills/support",
-      "pibSkills": ["analytics", "collaboration-runtime", "client-manager", "data-analyst", "email-outreach", "evidence-ledger", "platform-ops", "project-management", "research-intelligence", "support-manager"],
-      "runtimeSkills": ["analytics", "collaboration-runtime", "client-manager", "data-analyst", "email-outreach", "evidence-ledger", "platform-ops", "project-management", "research-intelligence", "support-manager"],
-      "globalSkills": ["productivity/google-workspace"],
-      "capabilities": ["read", "draft", "write", "message_client"],
-      "approvalGates": ["message_client"],
-      "primaryOwnerOf": ["ticket triage", "client issue intake", "reproduction", "routing", "follow-up tracking"],
-      "mayRequestFrom": ["pip", "theo", "maya", "sage", "nora", "qa-release"],
+      "pibSkills": [
+        "analytics",
+        "client-documents",
+        "client-manager",
+        "collaboration-runtime",
+        "crm-sales",
+        "data-analyst",
+        "email-outreach",
+        "evidence-ledger",
+        "platform-ops",
+        "project-management",
+        "research-intelligence",
+        "support-manager"
+      ],
+      "runtimeSkills": [
+        "analytics",
+        "client-documents",
+        "client-manager",
+        "collaboration-runtime",
+        "crm-sales",
+        "data-analyst",
+        "email-outreach",
+        "evidence-ledger",
+        "platform-ops",
+        "project-management",
+        "research-intelligence",
+        "support-manager"
+      ],
+      "globalSkills": [
+        "productivity/google-workspace"
+      ],
+      "capabilities": [
+        "read",
+        "draft",
+        "write",
+        "message_client"
+      ],
+      "approvalGates": [
+        "message_client"
+      ],
+      "primaryOwnerOf": [
+        "ticket triage",
+        "client issue intake",
+        "reproduction",
+        "routing",
+        "follow-up tracking"
+      ],
+      "mayRequestFrom": [
+        "pip",
+        "theo",
+        "maya",
+        "sage",
+        "nora",
+        "qa-release",
+        "data",
+        "sales"
+      ],
       "reviewerAgentId": "qa-release",
-      "deniedSkills": ["red-teaming/godmode", "mlops/inference/obliteratus"]
+      "deniedSkills": [
+        "red-teaming/godmode",
+        "mlops/inference/obliteratus"
+      ]
     },
     "data": {
       "name": "Vera",
       "label": "Data",
       "role": "Analytics, reporting, and data-quality specialist",
       "vpsExternalDir": "/var/lib/hermes/agent-skills/data",
-      "pibSkills": ["analytics", "collaboration-runtime", "client-documents", "data-analyst", "email-outreach", "evidence-ledger", "platform-ops", "project-management", "properties", "research-intelligence"],
-      "runtimeSkills": ["analytics", "collaboration-runtime", "client-documents", "data-analyst", "email-outreach", "evidence-ledger", "platform-ops", "project-management", "properties", "research-intelligence", "marketing/ads-math", "marketing/ads-test"],
-      "globalSkills": ["productivity/google-workspace", "data-science/jupyter-live-kernel"],
-      "capabilities": ["read", "draft", "write", "delete"],
-      "approvalGates": ["delete"],
-      "primaryOwnerOf": ["analytics", "dashboards", "attribution", "reporting", "data quality"],
-      "mayRequestFrom": ["pip", "sage", "ads", "docs", "qa-release"],
+      "pibSkills": [
+        "analytics",
+        "client-documents",
+        "client-manager",
+        "collaboration-runtime",
+        "crm-sales",
+        "data-analyst",
+        "evidence-ledger",
+        "platform-ops",
+        "project-management",
+        "properties",
+        "research-intelligence"
+      ],
+      "runtimeSkills": [
+        "analytics",
+        "client-documents",
+        "client-manager",
+        "collaboration-runtime",
+        "crm-sales",
+        "data-analyst",
+        "evidence-ledger",
+        "marketing/ads-math",
+        "marketing/ads-test",
+        "platform-ops",
+        "project-management",
+        "properties",
+        "research-intelligence"
+      ],
+      "globalSkills": [
+        "data-science/jupyter-live-kernel",
+        "productivity/google-workspace"
+      ],
+      "capabilities": [
+        "read",
+        "draft",
+        "write",
+        "delete"
+      ],
+      "approvalGates": [
+        "delete"
+      ],
+      "primaryOwnerOf": [
+        "analytics",
+        "dashboards",
+        "attribution",
+        "reporting",
+        "data quality"
+      ],
+      "mayRequestFrom": [
+        "pip",
+        "sage",
+        "ads",
+        "docs",
+        "qa-release",
+        "sales"
+      ],
       "reviewerAgentId": "qa-release",
-      "deniedSkills": ["red-teaming/godmode", "mlops/inference/obliteratus"]
+      "deniedSkills": [
+        "red-teaming/godmode",
+        "mlops/inference/obliteratus"
+      ]
     },
     "docs": {
       "name": "Iris",
       "label": "Docs",
       "role": "Client documents and approvals specialist",
       "vpsExternalDir": "/var/lib/hermes/agent-skills/docs",
-      "pibSkills": ["analytics", "collaboration-runtime", "client-documents", "data-analyst", "docs-lead", "evidence-ledger", "google-workspace", "platform-ops", "project-management", "properties", "research-intelligence"],
-      "runtimeSkills": ["analytics", "collaboration-runtime", "client-documents", "data-analyst", "docs-lead", "evidence-ledger", "google-workspace", "platform-ops", "project-management", "properties", "research-intelligence"],
-      "globalSkills": ["productivity/google-workspace", "productivity/powerpoint"],
-      "capabilities": ["read", "draft", "write", "publish", "message_client"],
-      "approvalGates": ["publish", "message_client"],
-      "primaryOwnerOf": ["client documents", "specs", "approval packs", "reports", "deliverable polish"],
-      "mayRequestFrom": ["pip", "theo", "maya", "sage", "nora", "ads", "seo", "qa-release"],
+      "pibSkills": [
+        "analytics",
+        "client-documents",
+        "client-manager",
+        "collaboration-runtime",
+        "crm-sales",
+        "data-analyst",
+        "docs-lead",
+        "evidence-ledger",
+        "google-workspace",
+        "platform-ops",
+        "project-management",
+        "properties",
+        "research-intelligence"
+      ],
+      "runtimeSkills": [
+        "analytics",
+        "client-documents",
+        "client-manager",
+        "collaboration-runtime",
+        "crm-sales",
+        "data-analyst",
+        "docs-lead",
+        "evidence-ledger",
+        "google-workspace",
+        "platform-ops",
+        "project-management",
+        "properties",
+        "research-intelligence"
+      ],
+      "globalSkills": [
+        "productivity/google-workspace",
+        "productivity/powerpoint"
+      ],
+      "capabilities": [
+        "read",
+        "draft",
+        "write",
+        "publish",
+        "message_client"
+      ],
+      "approvalGates": [
+        "publish",
+        "message_client"
+      ],
+      "primaryOwnerOf": [
+        "client documents",
+        "specs",
+        "approval packs",
+        "reports",
+        "deliverable polish"
+      ],
+      "mayRequestFrom": [
+        "pip",
+        "theo",
+        "maya",
+        "sage",
+        "nora",
+        "ads",
+        "seo",
+        "qa-release",
+        "sales"
+      ],
       "reviewerAgentId": "qa-release",
-      "deniedSkills": ["red-teaming/godmode", "mlops/inference/obliteratus"]
+      "deniedSkills": [
+        "red-teaming/godmode",
+        "mlops/inference/obliteratus"
+      ]
     },
     "seo": {
       "name": "Silas",
       "label": "SEO",
       "role": "SEO sprint and local SEO specialist",
       "vpsExternalDir": "/var/lib/hermes/agent-skills/seo",
-      "pibSkills": ["analytics", "collaboration-runtime", "client-documents", "data-analyst", "evidence-ledger", "geo-seo-service", "project-management", "properties", "research-intelligence", "seo-sprint-manager"],
-      "runtimeSkills": ["analytics", "collaboration-runtime", "client-documents", "data-analyst", "evidence-ledger", "geo-seo-service", "project-management", "properties", "research-intelligence", "seo-sprint-manager", "marketing/local-seo-system"],
-      "globalSkills": ["productivity/google-workspace", "productivity/maps", "research/blogwatcher"],
-      "capabilities": ["read", "draft", "write", "publish"],
-      "approvalGates": ["publish"],
-      "primaryOwnerOf": ["SEO sprint execution", "local SEO", "GSC", "PageSpeed", "Bing interpretation"],
-      "mayRequestFrom": ["pip", "sage", "maya", "docs", "data", "qa-release", "sales"],
+      "pibSkills": [
+        "analytics",
+        "client-documents",
+        "client-manager",
+        "collaboration-runtime",
+        "content-engine",
+        "crm-sales",
+        "data-analyst",
+        "evidence-ledger",
+        "geo-seo-service",
+        "project-management",
+        "properties",
+        "research-intelligence",
+        "seo-sprint-manager"
+      ],
+      "runtimeSkills": [
+        "analytics",
+        "client-documents",
+        "client-manager",
+        "collaboration-runtime",
+        "content-engine",
+        "crm-sales",
+        "data-analyst",
+        "evidence-ledger",
+        "geo-seo-service",
+        "marketing/local-seo-system",
+        "project-management",
+        "properties",
+        "research-intelligence",
+        "seo-sprint-manager"
+      ],
+      "globalSkills": [
+        "productivity/google-workspace",
+        "productivity/maps",
+        "research/blogwatcher"
+      ],
+      "capabilities": [
+        "read",
+        "draft",
+        "write",
+        "publish"
+      ],
+      "approvalGates": [
+        "publish"
+      ],
+      "primaryOwnerOf": [
+        "SEO sprint execution",
+        "local SEO",
+        "GSC",
+        "PageSpeed",
+        "Bing interpretation"
+      ],
+      "mayRequestFrom": [
+        "pip",
+        "sage",
+        "maya",
+        "docs",
+        "data",
+        "qa-release",
+        "sales"
+      ],
       "reviewerAgentId": "qa-release",
-      "deniedSkills": ["red-teaming/godmode", "mlops/inference/obliteratus"]
+      "deniedSkills": [
+        "red-teaming/godmode",
+        "mlops/inference/obliteratus"
+      ]
     },
     "sales": {
       "name": "Blake",
       "label": "Sales",
       "role": "Revenue and outbound sales specialist",
       "vpsExternalDir": "/var/lib/hermes/agent-skills/sales",
-      "pibSkills": ["analytics", "collaboration-runtime", "client-documents", "client-manager", "crm-sales", "data-analyst", "docs-lead", "email-outreach", "evidence-ledger", "google-workspace", "platform-ops", "project-management", "research-intelligence"],
-      "runtimeSkills": ["analytics", "collaboration-runtime", "client-documents", "client-manager", "crm-sales", "data-analyst", "docs-lead", "email-outreach", "evidence-ledger", "google-workspace", "platform-ops", "project-management", "research-intelligence"],
-      "globalSkills": ["productivity/google-workspace"],
-      "capabilities": ["read", "draft", "write", "message_client"],
-      "approvalGates": ["message_client"],
-      "primaryOwnerOf": ["lead lists", "prospect qualification", "CRM sales pipeline hygiene", "outreach drafting", "reply triage", "proposal handoff", "daily revenue cadence"],
-      "mayRequestFrom": ["pip", "sage", "maya", "nora", "docs", "data", "support", "seo", "ads", "qa-release"],
+      "pibSkills": [
+        "analytics",
+        "client-documents",
+        "client-manager",
+        "collaboration-runtime",
+        "crm-sales",
+        "data-analyst",
+        "email-outreach",
+        "evidence-ledger",
+        "google-workspace",
+        "project-management",
+        "research-intelligence"
+      ],
+      "runtimeSkills": [
+        "analytics",
+        "client-documents",
+        "client-manager",
+        "collaboration-runtime",
+        "crm-sales",
+        "data-analyst",
+        "email-outreach",
+        "evidence-ledger",
+        "google-workspace",
+        "project-management",
+        "research-intelligence"
+      ],
+      "globalSkills": [
+        "productivity/google-workspace"
+      ],
+      "capabilities": [
+        "read",
+        "draft",
+        "write",
+        "message_client"
+      ],
+      "approvalGates": [
+        "message_client"
+      ],
+      "primaryOwnerOf": [
+        "lead lists",
+        "prospect qualification",
+        "CRM sales pipeline hygiene",
+        "outreach drafting",
+        "reply triage",
+        "proposal handoff",
+        "daily revenue cadence"
+      ],
+      "mayRequestFrom": [
+        "pip",
+        "sage",
+        "maya",
+        "nora",
+        "docs",
+        "data",
+        "support",
+        "seo",
+        "ads",
+        "qa-release"
+      ],
       "reviewerAgentId": "qa-release",
-      "deniedSkills": ["red-teaming/godmode", "mlops/inference/obliteratus"]
+      "deniedSkills": [
+        "red-teaming/godmode",
+        "mlops/inference/obliteratus"
+      ]
     }
   }
 }

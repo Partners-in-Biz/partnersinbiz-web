@@ -84,6 +84,16 @@ function resetManagedRepoSkillRoot(externalDir) {
   ensureDir(managedRoot)
 }
 
+function resetManagedGlobalSkillRoots(externalDir) {
+  if (!existsSync(externalDir)) return
+  for (const entry of readdirSync(externalDir, { withFileTypes: true })) {
+    if (entry.name === 'partnersinbiz') continue
+    const entryPath = join(externalDir, entry.name)
+    logAction(`remove generated global skill root ${entryPath}`)
+    if (apply) rmSync(entryPath, { recursive: true, force: true })
+  }
+}
+
 function lstatSafe(path) {
   try {
     return lstatSync(path)
@@ -248,6 +258,7 @@ for (const [agentId, agentPolicy] of agentEntries) {
   const externalDir = agentPolicy.vpsExternalDir
   ensureDir(externalDir)
   resetManagedRepoSkillRoot(externalDir)
+  resetManagedGlobalSkillRoots(externalDir)
 
   for (const skill of runtimeSkillsFor(agentPolicy)) {
     const source = join(pibSourceRoot, ...skill.split('/'))

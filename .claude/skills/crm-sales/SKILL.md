@@ -1,10 +1,11 @@
 ---
 name: crm-sales
 description: >
-  Run the full sales cycle on Partners in Biz: contacts, leads, deals, pipeline, quotes, proposals,
-  activity logging, AI-generated contact briefs, public lead-capture forms, form submission triage,
-  dynamic contact segments, CRM integrations (Mailchimp, HubSpot, Google Contacts), capture source
-  attribution, and bulk contact import.
+  Run the full CRM operating system on Partners in Biz: companies, contacts, leads, deals, pipeline,
+  quotes, proposals, company command centers, business relationships, service workspaces, orders,
+  shipments, inventory, activity logging, AI-generated contact briefs, public lead-capture forms,
+  form submission triage, dynamic contact segments, CRM integrations (Mailchimp, HubSpot, Google
+  Contacts), capture source attribution, and bulk contact import.
   Use this skill whenever the user mentions anything related to sales or CRM, including but not limited
   to: "add a contact", "new lead", "import contacts", "bulk import", "CSV import", "tag contact",
   "remove tag", "filter by tag", "qualify lead", "convert lead to client", "contact brief",
@@ -16,9 +17,11 @@ description: >
   "review submissions", "schedule meeting with contact", "task for this deal", "comment on contact",
   "comment on deal", "leave a note on deal", "@mention sales rep", "sales notification",
   "create segment", "dynamic list", "audience segment", "resolve segment", "who is in this segment",
-  "connect Mailchimp", "connect HubSpot", "sync contacts", "CRM integration", "capture source",
-  "lead source", "where did this contact come from", "attribution". If in doubt, trigger — this skill
-  owns the full lead-to-won lifecycle.
+  "company command center", "business relationship", "supplier company", "service workspace",
+  "SEO workspace", "order", "shipment", "inventory", "quote to delivery", "CRM OS dashboard",
+  "reconcile CRM links", "connect Mailchimp", "connect HubSpot", "sync contacts", "CRM integration",
+  "capture source", "lead source", "where did this contact come from", "attribution". If in doubt,
+  trigger — this skill owns the full company-to-delivery lifecycle.
 ---
 
 # CRM & Sales — Partners in Biz Platform API
@@ -51,12 +54,89 @@ CRM Companies and Contacts are now the bridge between one workspace and another 
 - Secure public claim links use `claimable_relationships` to connect `sourceOrgId/sourceCompanyId/sourceContactId` to `targetOrgId/targetUserId` after signup or sign-in.
 - Sender-owned CRM links are relationship metadata only: `companies.linkedOrgId` and `contacts.linkedUserId` do not grant the sender admin rights inside the recipient workspace.
 - For PiB-issued resources, `pib-platform-owner` is the canonical source/issuer org and the client org is the recipient/target org. Platform CRM Companies are deduped by `linkedOrgId`; platform CRM Contacts are deduped by `linkedUserId`, then email.
-- For client setup/onboarding, each client tenant org must have exactly one platform-owner CRM Company with `linkedOrgId=<clientOrgId>`, and each real client member should have a platform-owner CRM Contact with `linkedUserId=<uid>`, `linkedOrgId=<clientOrgId>`, and `companyId=<Company id>`.
-- Future PiB invoices, quotes, projects, reports, and account reviews to a linked client org should reuse that existing platform CRM Company and write `companyId/sourceCompanyId`; use `contactId/sourceContactId` when a specific stakeholder/member is the recipient.
-- The legacy `/clients` collection and `organizations.linkedClientId` are compatibility references only. Do not use them as the canonical business/person relationship for new setup.
+- Future PiB invoices, quotes, and projects to a linked client org should reuse the existing platform CRM Company and write `companyId/sourceCompanyId`.
 - Client-created project requests remain client-originated until PiB accepts or converts them into PiB-sourced work.
 
 Use `lib/platform-owner/relationships.ts` in app code when syncing PiB's platform-owner CRM with client orgs/members. Use the dry-run scripts before touching existing data: `scripts/migrate-pib-owned-client-resources.ts`, `scripts/backfill-platform-owner-crm-relationships.ts`, and `scripts/backfill-platform-owner-resource-company-links.ts`.
+
+## CRM operating system command center
+
+The company detail page is now the main CRM operating surface. The portal route `/portal/companies/[id]` loads `GET /api/v1/crm/companies/[id]/command-center` and renders one company command center with overview, contacts, deals, projects, documents, service workspaces, relationships, quotes, invoices, orders, shipments, inventory, analytics, and activity.
+
+Project visibility from a company must be index-safe. The command center reads projects by `orgId == company.orgId`, then filters in memory by `companyId`, `sourceCompanyId`, company id arrays, `recipientOrgId`/`targetOrgId`/`clientOrgId`/`legacyOrgId`/`linkedOrgId`, `allowedOrgIds`, and active `businessRelationships` (`relationshipId`, related company ids, and target org ids). Do not add composite-index-sensitive chained Firestore queries for this surface.
+
+New CRM OS APIs:
+
+- `GET /crm/companies/[id]/command-center`
+- `GET /admin/crm/companies/[id]/command-center?orgSlug=<slug>` for selected-client admin views
+- `GET /crm/companies/[id]/projects`
+- `GET/POST/PATCH /crm/relationships`
+- `GET/POST/PATCH /service-workspaces`
+- `GET/POST/PATCH /orders` (`PATCH` uses `?id=<orderId>`)
+- `GET/POST/PATCH /shipments` (`PATCH` uses `?id=<shipmentId>`)
+- `GET/POST/PATCH /inventory-items` (`PATCH` uses `?id=<inventoryItemId>`)
+- `POST /crm/reconcile-links`
+- `GET /crm/os-dashboard`
+- `GET/POST /crm/data-tools`
+- `GET/PUT /crm/setup`
+- `POST /crm/setup/apply-template`
+- `GET/POST /crm/saved-views`
+- `DELETE /crm/saved-views/[id]`
+- `GET/POST /crm/webhooks`
+- `GET/PUT/DELETE /crm/webhooks/[id]`
+- `POST /crm/webhooks/[id]/enable`
+- `POST /crm/webhooks/[id]/disable`
+- `POST /crm/webhooks/[id]/rotate-secret`
+- `POST /crm/webhooks/[id]/test`
+- `GET /crm/notifications`
+- `POST /crm/notifications/mark-read`
+
+Current contact quick-action routes:
+
+| Method | Route | Use |
+|---|---|---|
+| `GET` | `/crm/contacts/[id]/activities` | Contact activity timeline. |
+| `GET` | `/crm/contacts/[id]/enrollments` | Contact sequence enrollments. |
+| `POST` | `/crm/contacts/[id]/send-email` | Send/log a CRM-scoped email. |
+| `POST` | `/crm/contacts/[id]/send-sms` | Send/log a CRM-scoped SMS. |
+| `POST` | `/crm/contacts/[id]/schedule-meeting` | Create a contact-linked meeting/calendar event. |
+| `POST` | `/crm/contacts/[id]/recompute-score` | Recompute engagement/lead score for one contact. |
+| `GET` | `/crm/contacts/[id]/suggestions` | Agent/CRM suggestions for the contact. |
+| `POST` | `/crm/contacts/[id]/tags` | Add/update contact tags. |
+
+CRM report routes:
+
+| Method | Route | Use |
+|---|---|---|
+| `GET` | `/crm/reports/activity-summary` | Activity counts and recency. |
+| `GET` | `/crm/reports/forecast` | Forecast by stage/close window. |
+| `GET` | `/crm/reports/funnel` | Funnel conversion data. |
+| `GET` | `/crm/reports/pipeline-velocity` | Stage velocity and cycle-time signals. |
+| `GET` | `/crm/reports/rep-performance` | Sales rep performance rollup. |
+
+New collections/modules:
+
+- `businessRelationships`: explicit B2B links between source and target org/company records, including `relationshipType`, `status`, `sharedCapabilities`, `portalVisible`, `visibility`, `allowedOrgIds`, `allowedUserIds`, `approvalState`, and `fieldSharingPolicy`.
+- `serviceWorkspaces`: company-scoped delivery workspaces for `seo`, `geo_seo`, `properties`, `social`, `ads`, `email`, `documents`, `support`, or `custom` service lines. Link them to company/contact/project/document/report/task/approval/invoice/analytics records where possible.
+- `orders`, `shipments`, `inventoryItems`: ERP-lite quote-to-delivery records. Use existing projects as the execution layer; commerce records link into projects and service workspaces rather than replacing Kanban/project work.
+
+When PiB links a client org, `ensurePlatformCompanyForOrg` now keeps both sides visible:
+
+- Platform owner org gets/updates the client CRM Company (`linkedOrgId=<clientOrgId>`).
+- The client org gets/updates a CRM Company representing Partners in Biz (`source='reciprocal_platform_supplier'`, `visibility='client_visible'`, `allowedOrgIds=[clientOrgId, platformOrgId]`).
+- Reciprocal `businessRelationships` are created/updated: platform `customer` relationship and client `supplier` relationship, both `client_visible` and portal-visible.
+
+Agents may suggest, draft, reconcile, create tasks/documents, and prepare CRM updates. Any agent action that is client-visible, destructive, billing-related, or changes sharing/visibility must return or create a pending approval state instead of applying the change directly unless `approvalState='approved'`.
+
+Hardening rules from the CRM OS follow-up:
+
+- Selected-client admin company route is `/admin/org/[slug]/crm/companies/[id]`, backed by `GET /api/v1/admin/crm/companies/[id]/command-center?orgSlug=<slug>`. Admin routes use selected-client access checks; portal routes use the portal command-center endpoint.
+- Portal/company command-center data must pass through `filterCompanyCommandCenterForVisibility`. It hides `internal`/`private` rows unless explicitly allowed by `allowedOrgIds`/`allowedUserIds`, and enforces active relationship `fieldSharingPolicy` for contacts, projects, documents, commerce, and analytics.
+- `POST /crm/reconcile-links` defaults to dry-run. Apply mode must include `{"mode":"apply","approved":true}` after a reviewed dry-run report. Do not run apply mode speculatively.
+- When a quote transitions to `accepted`, `createFulfillmentForAcceptedQuote` creates the confirmed order, pending shipment, reserved inventory movement, audit event, notification, and quote fulfillment links. Do not manually duplicate fulfillment records unless reconciling a failed partial write.
+- `/crm/data-tools` is for admin export, dry-run import, approved import, and dedupe review across companies, contacts, relationships, products, and inventory. Import apply mode requires `approved:true`.
+- Relationship, service workspace, shipment, commerce approval, and quote fulfillment changes write `crmAuditEvents`; shipment and approval-sensitive changes also create notifications.
+- Commerce/service writes are guarded by `guardAgentCrmAction`. If an agent request changes billing, client-visible delivery state, or visibility without approved state, expect a `202` response `{ approvalRequired: true, reason }`; create or update a project/client-document approval rather than retrying blindly.
 
 ## Auth & org scoping (PR 2+)
 
@@ -326,6 +406,9 @@ Response (201): `{ id, slug }`.
 
 #### `POST /forms/[slug]/submit` — **public, no auth**
 Query param: `?orgId=X` (required). Body is the form data keyed by `fieldId`.
+
+#### `GET /embed/form/[publicKey]` — **public, no auth**
+Embeddable public form surface for a published capture form.
 
 Safeguards:
 - Form must be `active: true`
@@ -1307,6 +1390,16 @@ Response:
 - `probability?: number` — 0–100; auto-set from `stage.probability` when stageId changes; overridable
 - `lostReason?: string` — freetext; only surfaced/persisted on stages whose name contains "lost"
 - `lineItems?: DealLineItem[]` — snapshot array; each item: `{ productId?, name, qty, unitPrice, discount?, total, currency }`
+
+Deal line item normalization is route-enforced in `lib/crm/deals.ts`:
+- `name` is required and trimmed.
+- `qty` and `unitPrice` must be finite numbers >= 0.
+- `discount` is optional percentage 0–100.
+- `total` is recalculated as `qty * unitPrice * (1 - discount/100)` and rounded to cents.
+- `currency` must be `USD`, `EUR`, or `ZAR`; invalid/missing values fall back to the deal currency.
+- Request-controlled `id`, `orgId`, audit fields, and `deleted` are stripped before Firestore writes.
+
+Do not send quote-style `{ quantity, amount }` objects to deals. Quotes use `{ description, quantity, unitPrice, amount }`; deal line items use `{ name, qty, unitPrice, discount?, total, currency }`, and quote pre-fill maps deal `qty` to quote `quantity`.
 
 ### Quote pre-fill
 - `POST /api/v1/quotes` accepts optional `dealId` — pre-populates lineItems from the deal

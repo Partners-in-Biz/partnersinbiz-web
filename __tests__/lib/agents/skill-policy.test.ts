@@ -27,9 +27,9 @@ describe('agent skill policy manifest', () => {
       'ads-manager',
       'analytics',
       'billing-finance',
-      'collaboration-runtime',
       'client-documents',
       'client-manager',
+      'collaboration-runtime',
       'content-engine',
       'crm-sales',
       'data-analyst',
@@ -40,8 +40,8 @@ describe('agent skill policy manifest', () => {
       'google-workspace',
       'platform-ops',
       'project-management',
-      'qa-release',
       'properties',
+      'qa-release',
       'research-intelligence',
       'seo-sprint-manager',
       'social-media-manager',
@@ -130,14 +130,16 @@ describe('agent skill policy manifest', () => {
     expect(AGENT_SKILL_POLICY.futureAgentCandidates).toEqual([])
   })
 
-  it('gives revenue and operations agents sequence creation and analytics skills', () => {
-    const sequenceAgents = ['pip', 'theo', 'maya', 'nora', 'support', 'data', 'sales']
+  it('gives role owners outreach skills and every profile the analytics baseline', () => {
+    const sequenceAgents = ['theo', 'maya', 'nora', 'qa-release', 'support', 'sales']
     for (const agentId of sequenceAgents) {
       expect(AGENT_SKILL_POLICY.skillCatalog['email-outreach'].allowedAgentIds).toContain(agentId)
       expect(AGENT_SKILL_POLICY.agents[agentId].runtimeSkills).toContain('email-outreach')
     }
 
-    const performanceAgents = ['pip', 'theo', 'maya', 'nora', 'support', 'data', 'docs', 'seo', 'sales']
+    expect(AGENT_SKILL_POLICY.agents.data.runtimeSkills).not.toContain('email-outreach')
+
+    const performanceAgents = Object.keys(AGENT_SKILL_POLICY.agents)
     for (const agentId of performanceAgents) {
       expect(AGENT_SKILL_POLICY.skillCatalog.analytics.allowedAgentIds).toContain(agentId)
       expect(AGENT_SKILL_POLICY.skillCatalog['data-analyst'].allowedAgentIds).toContain(agentId)

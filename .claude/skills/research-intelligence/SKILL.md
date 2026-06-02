@@ -1,60 +1,87 @@
 ---
 name: research-intelligence
-description: Capture, review, share, and preserve PiB research findings for clients and internal strategy.
-version: 1.0.0
+description: >
+  Use when creating, updating, citing, reviewing, exporting, or converting
+  Partners in Biz Research records for prospects, clients, campaigns, SEO,
+  CRM, ads, onboarding, internal decisions, and client-visible evidence.
 ---
 
-# Research Intelligence
+# Research Intelligence — Partners in Biz
 
-Use this skill whenever work produces reusable research: competitor audits, market scans, SEO/SERP/GEO findings, audience questions, content insights, ad inspiration, CRM/company intelligence, prospect research, brand/product discovery, onboarding notes, local/property research, or internal PiB strategy.
+Research is the source of truth for working evidence before it becomes a polished client document, project task, campaign decision, CRM action, SEO recommendation, or durable knowledge note.
 
-## Source-of-truth rule
+Use this skill whenever work needs to answer "what is true?", "what evidence supports this?", "what is still unknown?", or "what should we recommend next?".
 
-- **Research** is the working evidence layer: findings, sources, recommendations, comments, status, confidence, and links to projects/campaigns/SEO/CRM.
-- **Documents** are the polished output layer: client-ready reports, proposals, strategy docs, approvals, and sign-offs.
-- **Obsidian/Knowledge** is the durable memory layer: export summaries and source indexes after meaningful research so future agents can reuse the learning.
+## Platform Surface
 
-Do not leave research only in chat, temporary files, local scratch notes, or private markdown.
+Base URL: `/api/v1`
 
-## API workflow
+Authentication:
+- Admin Research routes use `withAuth('admin')` and `resolveOrgScope`.
+- Portal Research routes use `withPortalAuthAndRole('viewer')` and only expose `client_visible` records for the active portal org.
+- Agents acting with Peet/admin access may create and edit Research. Client users may view and comment only on visible records.
 
-1. Create or find a research item: `POST /api/v1/research` or `GET /api/v1/research?orgId=&kind=&status=&visibility=&q=`.
-2. Attach evidence: `POST /api/v1/research/[id]/sources`.
-3. Add findings and recommendations: `PATCH /api/v1/research/[id]`.
-4. Use comments for review and handoff: `POST /api/v1/comments` with `resourceType: "research_item"`.
-5. Export durable knowledge: `POST /api/v1/research/[id]/export-obsidian`.
-6. Create polished client output only when needed: `POST /api/v1/research/[id]/create-document`.
+UI routes:
+- `/admin/research`
+- `/admin/research/[id]`
+- `/admin/org/[slug]/research`
+- `/admin/org/[slug]/research/[id]`
+- `/portal/research`
+- `/portal/research/[id]`
 
-## Minimum standard
+## API Reference
 
-Every substantial research item should include a client/org link, kind, status, visibility, summary, sources where possible, findings with confidence, recommendations with priority, and links to the relevant project, campaign, SEO sprint, deal, company, contact, or document.
+| Method | Route | Purpose |
+| --- | --- | --- |
+| `GET` | `/research` | List active Research items for the resolved org. Supports `orgId`, `kind`, `status`, `visibility`, and `q`. |
+| `POST` | `/research` | Create a Research item. Requires `title`; accepts `orgId`, `kind`, `status`, `visibility`, `summary`, `notesMarkdown`, `tags`, `linked`, `findings`, and `recommendations`. |
+| `GET` | `/research/[id]` | Fetch one Research item after org-scope validation. |
+| `PATCH` | `/research/[id]` | Update title, kind, status, visibility, summary, notes, tags, links, findings, or recommendations. |
+| `DELETE` | `/research/[id]` | Archive a Research item by setting `status: archived` and `deleted: true`. |
+| `GET` | `/research/[id]/sources` | List non-deleted sources attached to a Research item. |
+| `POST` | `/research/[id]/sources` | Add a source. Requires `title`; accepts source type, URL, excerpt, media, date, publisher, confidence, verification flag, raw text, and metadata. |
+| `PATCH` | `/research/[id]/sources/[sourceId]` | Update a source. |
+| `DELETE` | `/research/[id]/sources/[sourceId]` | Archive a source by setting `deleted: true`. |
+| `POST` | `/research/[id]/create-document` | Create or refresh a `research_report` client document from the Research item and sources. |
+| `POST` | `/research/[id]/export-obsidian` | Export rendered Research and sources into the client knowledge base. |
+| `GET` | `/portal/research` | Portal list of `client_visible` Research items for the active org. |
+| `GET` | `/portal/research/[id]` | Portal detail view with item and sources when visible to the active org. |
+| `GET` | `/portal/research/[id]/comments` | Portal comments for a visible Research item. |
+| `POST` | `/portal/research/[id]/comments` | Portal comment with optional anchor and context refs. |
 
-Keep research `internal` while evidence is incomplete, disputed, sensitive, or only useful to PiB. Switch to `client_visible` when the client can safely review the working findings.
+## Data Model
 
-## Research report differentiation standard
+Research item fields:
+- `orgId`: tenant owner.
+- `title`, `slug`, `summary`, `notesMarkdown`, `tags`.
+- `kind`: `competitor`, `market`, `seo`, `audience`, `content`, `ads`, `crm`, `prospect`, `brand`, `product`, `local`, `onboarding`, `internal`, or `other`.
+- `status`: `draft`, `in_review`, `verified`, `used_in_document`, or `archived`.
+- `visibility`: `internal` or `client_visible`.
+- `linked`: `{ projectId, campaignId, seoSprintId, dealId, companyId, contactId, documentIds }`.
+- `findings`: each finding has `id`, `title`, `body`, `confidence`, `status`, `sourceIds`, and `tags`.
+- `recommendations`: each recommendation has `id`, `title`, `body`, `priority`, `status`, and `sourceIds`.
+- `obsidian`: export state with `path`, `sourcesPath`, `exportedAt`, and `exportedBy`.
 
-A `research_item` is the source-of-truth evidence ledger. A `research_report` client document is only the polished presentation/decision-support layer. Do not turn every research item into a document.
+Research source fields:
+- `type`: `url`, `file`, `screenshot`, `quote`, `dataset`, `email`, or `note`.
+- `title`, `url`, `excerpt`, `mediaUrl`, `sourceDate`, `publisher`, `confidence`, `verified`, `rawText`, and `metadata`.
 
-Keep work as a `research_item` when evidence is still draft/in_review, sources are weak or sensitive, the audience is internal agents/Peet, or the research will feed a proposal/spec directly without needing a separate review artifact.
+## Workflow
 
-Create a `research_report` document when Peet or the client needs a readable review artifact, multiple research items must be synthesized, comments/suggestions/acknowledgement are needed, or findings must be approved before becoming a proposal/spec/task chain.
+1. Create the Research item first, using a concrete title and the best `kind`.
+2. Link it immediately with `linked.projectId`, `linked.campaignId`, `linked.seoSprintId`, `linked.dealId`, `linked.companyId`, or `linked.contactId` when context exists.
+3. Add sources before final recommendations. Use `sourceIds` on findings and recommendations so evidence is traceable.
+4. Keep `visibility: internal` while the item is incomplete or speculative.
+5. Move to `status: verified` only when sources and confidence are good enough for decisions.
+6. Use `visibility: client_visible` only for material that is safe for the client to inspect in `/portal/research`.
+7. Use `/research/[id]/create-document` when the research needs polished client review, approval, signatures, or task generation.
+8. Use `/research/[id]/export-obsidian` when the finding is reusable and should live in the client knowledge base. The export writes `research/<slug>.md` and `research/<slug>-sources.md`.
 
-Every research report must stay evidence-led and visibly different from sales proposals/build specs:
-1. Research question or decision to support.
-2. Context/hypothesis and methodology.
-3. Source ledger with source IDs, type, publisher/date, confidence, verified flag, and URL/media when safe.
-4. Findings with confidence, status, and source IDs.
-5. Confidence/assumptions/contradictions/unknowns, including low-confidence or disputed evidence.
-6. Recommendations grouped by priority (`urgent`, `high`, `medium`, `low`) with source basis and routing target.
-7. Decision gate: keep as research, request more evidence, convert to proposal/spec/campaign/SEO/GEO workflow, or create gated tasks.
+## Guardrails
 
-Use purpose-specific report patterns instead of one generic rhythm:
-- Market/category scan: market map, opportunity lanes, risks, decision path.
-- Competitor/SEO/local audit: competitor/SERP matrix, verification status, priority fixes/opportunities.
-- Technical/product/platform research: options matrix, constraints, approval gates, convert-to-spec decision.
-- Audience/prospect/CRM intelligence: segment map, privacy/sensitivity flags, message/offer angles.
-- Operational/onboarding/internal strategy: prerequisites, access/assets, blockers, owner matrix, readiness gate.
-
-Client visibility rules: keep the document internal if evidence is incomplete, sensitive, private, or could imply unapproved spend/publishing/implementation. Before client review/publish, sanitize internal notes and private paths, check linked research item visibility, keep publish-blocking assumptions open, and never publish without Peet approval.
-
-Canonical detailed standard: `/var/lib/hermes/cowork-wiki/agents/partners/wiki/research-document-differentiation-2026-05-25.md`.
+- Research decides what is true; specs and tasks decide what to build. Do not skip straight to implementation when the facts are still unsettled.
+- Do not mark a Research item `client_visible` until confidential notes, raw assumptions, and internal-only source text are removed.
+- Do not use `research_report` documents as scratchpads. Keep scratch work in `research_items`; convert to documents only for reviewable output.
+- Do not delete evidence to hide uncertainty. Archive stale sources and mark findings `disputed` or `outdated` when needed.
+- The list route intentionally queries by org and filters in memory to avoid Firestore composite-index blockers. Preserve that pattern unless indexes are explicitly added.
+- Portal users can comment on visible Research items, but admin agents remain responsible for source quality, status changes, and exports.

@@ -59,11 +59,57 @@ CRM-scoped endpoints also accept scoped per-agent API keys (`pib_...`) created i
 
 Public (no-auth) endpoints — used by hosted forms / web hooks:
 - `POST /email/webhook` — Resend delivery webhook receiver
+- `POST /email/webhook/ses` — SES delivery webhook receiver
 - `POST /capture-sources/[id]/submit` — newsletter / lead capture form submit (CORS open)
 - `POST /api/embed/newsletter/[sourceId]/submit` — alias of above
 - `GET  /api/embed/newsletter/[sourceId]/widget.js` — embeddable widget JS bundle
 - `GET  /embed/newsletter/[sourceId]` — iframe-able signup page
 - `GET  /lead/confirm/[token]` — double-opt-in confirmation page
+- `POST /api/newsletter` — public newsletter signup helper
+- `POST /api/preferences/[token]` — public preferences update
+- `GET/POST /api/unsubscribe` — public unsubscribe link/action
+- `GET /l/[code]` — public tracked short-link redirect
+
+Additional current email utility routes:
+- `DELETE /email-images/[id]` — remove an uploaded email image
+- `GET/PUT/DELETE /email-snippets/[id]` — read/update/delete reusable snippets
+- `GET /email-analytics/revenue/[source]/[sourceId]` — revenue attribution drilldown
+
+## Omnichannel Communications Console
+
+The newer Communications surface is the operational inbox and campaign layer for WhatsApp, SMS, email, in-app, Messenger, and Instagram. Use it for human/agent customer conversations, queue assignment, approved reply drafting, WhatsApp-style templates, and cross-channel communication analytics. Use the older `/broadcasts`, `/sequences`, `/email`, and `/sms` routes below for dedicated email/SMS marketing automation.
+
+UI routes:
+- `/admin/communications`
+- `/portal/communications`
+
+Channels: `whatsapp`, `sms`, `email`, `in_app`, `messenger`, `instagram`.
+
+Providers: `twilio`, `resend`, `ses`, `in_app`, `meta`, `manual`.
+
+| Method | Route | Purpose |
+|---|---|---|
+| `GET` | `/communications/channels?orgId=...` | Returns channel accounts, queues, routing rules, provider readiness, and missing setup checks. |
+| `GET` | `/communications/providers` | Lists supported communication providers and readiness. |
+| `GET` | `/communications/analytics?orgId=...` | Rollup across conversations, campaigns, and events for the org. |
+| `GET/POST` | `/communications/templates` | List or create message templates. `POST` requires `channel` and `content.body`; validates variables/buttons/media before saving. |
+| `GET/POST` | `/communications/campaigns` | List or create channel campaigns. `POST` requires `name`, `channel`, and `templateId`; accepts audience, variable map, reply routing, and schedule. |
+| `GET/POST` | `/communications/automations` | List or create automation rules with conditions/actions across channels. |
+| `GET/POST` | `/communications/conversations` | List or create conversations. Filters: `status`, `channel`, `assignee`, `campaignId`, `queueId`, `priority`, `label`, `limit`. |
+| `GET/PATCH` | `/communications/conversations/[id]` | Get a conversation bundle or update status, priority, queue, assignees, labels, or snooze state. |
+| `GET/POST` | `/communications/conversations/[id]/messages` | List or add messages. Outbound `sendNow: true` requires `humanApproved: true` in V1. |
+
+Conversation statuses: `new`, `open`, `pending`, `resolved`, `snoozed`.
+
+Priorities: `low`, `normal`, `high`, `urgent`.
+
+Message statuses: `draft`, `queued`, `sent`, `delivered`, `read`, `failed`, `received`.
+
+Guardrails:
+- Do not send customer-facing replies with `sendNow: true` unless a human explicitly approved the exact message.
+- Use `status: draft` for agent-prepared replies awaiting review.
+- Keep `replyRouting` or conversation assignees set when a campaign needs human follow-up.
+- Check `/communications/channels` before promising WhatsApp, SMS, or social-DM delivery; readiness can be `needs_setup`, `degraded`, or missing provider credentials.
 
 ## Crons that drive this skill
 

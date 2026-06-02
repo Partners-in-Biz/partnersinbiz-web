@@ -55,6 +55,15 @@ function extractSkillListPayload(payload: unknown): unknown {
   return []
 }
 
+function extractConfigPayload(payload: unknown): unknown {
+  if (!payload || typeof payload !== 'object') return payload
+  const source = payload as Record<string, unknown>
+  if (source.config && typeof source.config === 'object' && !Array.isArray(source.config)) {
+    return source.config
+  }
+  return payload
+}
+
 async function loadPolicyView(agentId: AgentId) {
   const agent = await getAgent(agentId)
   if (!agent) throw new Error(`agent_team/${agentId} not found`)
@@ -75,7 +84,7 @@ async function loadPolicyView(agentId: AgentId) {
 
   try {
     const cfg = await callAgentPath(agentId, '/admin/config')
-    if (cfg.response.ok) liveConfig = cfg.data
+    if (cfg.response.ok) liveConfig = extractConfigPayload(cfg.data)
   } catch {
     // Sidecar may be temporarily unavailable. The caller still gets the manifest.
   }
