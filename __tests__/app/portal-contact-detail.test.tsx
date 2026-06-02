@@ -972,6 +972,24 @@ describe('Portal contact detail page', () => {
     expect(screen.queryByText('AI email composer')).not.toBeInTheDocument()
   })
 
+  it('names the AI draft copy action by draft subject and active contact', async () => {
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Draft email with AI for Jane Client' }))
+    fireEvent.change(screen.getByRole('textbox', { name: 'AI email purpose for Jane Client' }), {
+      target: { value: 'Follow up after leadership review' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Generate AI email draft for Jane Client' }))
+
+    expect(await screen.findByText('Executive follow-up')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Copy AI draft Executive follow-up for Jane Client' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Copy to clipboard' })).not.toBeInTheDocument()
+  })
+
   it('turns a missing best score insight into a recompute action', async () => {
     render(<PortalContactDetailPage />)
 

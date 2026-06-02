@@ -2301,6 +2301,8 @@ export default function PortalContactDetailPage() {
                       <p className="text-xs font-medium text-[var(--color-pib-text-muted)]">Body:</p>
                       <p className="text-sm whitespace-pre-wrap">{aiDraft.bodyText}</p>
                       <button
+                        type="button"
+                        aria-label={`Copy AI draft ${aiDraft.subject} for ${contactName}`}
                         onClick={() => {
                           void navigator.clipboard.writeText(`Subject: ${aiDraft!.subject}\n\n${aiDraft!.bodyText}`)
                         }}
