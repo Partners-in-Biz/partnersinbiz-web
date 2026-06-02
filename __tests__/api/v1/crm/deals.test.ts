@@ -239,6 +239,46 @@ describe('POST /api/v1/crm/deals', () => {
     expect(body.data.id).toBe('auto-deal-id')
   })
 
+  it('persists probability, lost reason, and normalized line items on create', async () => {
+    const member = seedOrgMember('org-test', 'uid-member', { role: 'member' })
+    const captured = jest.fn().mockResolvedValue(undefined)
+    stageAuth(member, {}, { capturedDealSet: captured })
+    const req = callAsMember(member, 'POST', '/api/v1/crm/deals', {
+      ...validDeal,
+      currency: 'ZAR',
+      probability: 45,
+      lostReason: 'Budget moved',
+      lineItems: [
+        {
+          productId: 'product-1',
+          name: 'SEO sprint',
+          qty: 2,
+          unitPrice: 1000,
+          discount: 10,
+          total: 1,
+          currency: 'ZAR',
+        },
+      ],
+    })
+    const { POST } = await import('@/app/api/v1/crm/deals/route')
+    const res = await POST(req)
+    expect(res.status).toBe(201)
+    const data = captured.mock.calls[0][0]
+    expect(data.probability).toBe(45)
+    expect(data.lostReason).toBe('Budget moved')
+    expect(data.lineItems).toEqual([
+      {
+        productId: 'product-1',
+        name: 'SEO sprint',
+        qty: 2,
+        unitPrice: 1000,
+        discount: 10,
+        total: 1800,
+        currency: 'ZAR',
+      },
+    ])
+  })
+
   it('creates deal with default pipeline when pipelineId omitted', async () => {
     const member = seedOrgMember('org-test', 'uid-member', { role: 'member' })
     const captured = jest.fn().mockResolvedValue(undefined)
