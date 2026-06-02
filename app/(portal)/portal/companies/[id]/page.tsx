@@ -716,18 +716,50 @@ function ProjectsPanel({
     )
   }
   return (
-    <SimpleRowsPanel
-      rows={projects}
-      emptyIcon="folder_off"
-      emptyLabel="No linked projects yet."
-      title={(row) => projectNameLabel(row as RelatedProject)}
-      hrefFor={(row) => `/portal/projects/${row.id}`}
-      metaFor={(row) => [
-        projectDescriptionLabel(row as RelatedProject),
-        projectStatusLabel(row as RelatedProject),
-        projectUpdatedLabel(row as RelatedProject),
-      ]}
-    />
+    <div className="space-y-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="eyebrow !text-[10px]">Delivery workspaces</p>
+          <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
+            Keep every discovery sprint, build, handoff, and delivery track connected to {company.name}.
+          </p>
+        </div>
+        {firstContact?.email ? (
+          <button
+            type="button"
+            onClick={onCreateProject}
+            disabled={creatingProject}
+            className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add_task</span>
+            {creatingProject ? 'Creating project...' : `Create another project for ${company.name}`}
+          </button>
+        ) : firstContact ? (
+          <Link href={`/portal/contacts/${firstContact.id}`} className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5">
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">alternate_email</span>
+            Add email to {contactLabel(firstContact)}
+          </Link>
+        ) : (
+          <button type="button" onClick={onCreateContact} className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5">
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">person_add</span>
+            Add contact before project
+          </button>
+        )}
+      </div>
+      {projectError ? <p className="text-xs text-red-300">{projectError}</p> : null}
+      <SimpleRowsPanel
+        rows={projects}
+        emptyIcon="folder_off"
+        emptyLabel="No linked projects yet."
+        title={(row) => projectNameLabel(row as RelatedProject)}
+        hrefFor={(row) => `/portal/projects/${row.id}`}
+        metaFor={(row) => [
+          projectDescriptionLabel(row as RelatedProject),
+          projectStatusLabel(row as RelatedProject),
+          projectUpdatedLabel(row as RelatedProject),
+        ]}
+      />
+    </div>
   )
 }
 
