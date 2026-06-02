@@ -496,6 +496,7 @@ export default function PortalSegmentsPage() {
                 }}
                 className="btn-pib-secondary text-xs"
                 disabled={deletingId === pendingDeleteSegment.id}
+                aria-label={`Cancel delete for segment ${pendingDeleteSegment.name}`}
               >
                 Cancel
               </button>

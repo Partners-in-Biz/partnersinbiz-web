@@ -128,6 +128,7 @@ describe('portal segments page response parsing', () => {
     expect(await screen.findByRole('alertdialog', { name: 'Delete segment "VIP decision makers"?' })).toBeInTheDocument()
     expect(screen.getByText('This removes the saved audience lens for 7 contacts. Existing contact records and campaign history stay available for audit.')).toBeInTheDocument()
     expect(fetchMock).not.toHaveBeenCalledWith('/api/v1/crm/segments/seg-vip', { method: 'DELETE' })
+    expect(screen.getByRole('button', { name: 'Cancel delete for segment VIP decision makers' })).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Confirm delete segment VIP decision makers' }))
 
