@@ -783,6 +783,22 @@ describe('Portal contact detail page', () => {
     expect(screen.getByPlaceholderText('Add a relationship note, handoff, or context…')).toBeInTheDocument()
   })
 
+  it('turns stale last contacted detail into a fresh touch action', async () => {
+    mockContactOverrides = {
+      lastContactedAt: new Date('2026-01-01T08:00:00.000Z'),
+    }
+
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Log fresh touch for Jane Client from last contacted detail' }))
+
+    expect(screen.getByRole('textbox', { name: 'Relationship note for Jane Client' })).toBeInTheDocument()
+  })
+
   it('turns a follow-up suggestion into a prefilled email action', async () => {
     mockSuggestions = [{
       action: 'Send a follow-up',

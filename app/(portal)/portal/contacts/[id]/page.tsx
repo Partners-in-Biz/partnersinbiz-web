@@ -1079,6 +1079,7 @@ export default function PortalContactDetailPage() {
           : 'Cold'
   const lastTouchLabel = lastTouchDays === null ? 'No touch yet' : lastTouchDays === 0 ? 'Today' : `${lastTouchDays}d`
   const shouldPromptTouchLog = lastTouchDays === null || lastTouchDays > 30
+  const shouldPromptLastContactedRefresh = lastTouchDays !== null && lastTouchDays > 30
   const ownerRef =
     assignedTo && contact.assignedToRef?.uid === assignedTo
       ? contact.assignedToRef
@@ -1556,6 +1557,17 @@ export default function PortalContactDetailPage() {
                 </p>
               </div>
             ) : null}
+            {shouldPromptLastContactedRefresh && (
+              <button
+                type="button"
+                aria-label={`Log fresh touch for ${contactName} from last contacted detail`}
+                onClick={openFirstNoteComposer}
+                className="inline-flex w-full items-center justify-center gap-1 rounded-md border border-[var(--color-pib-line)] px-2 py-1.5 text-[11px] font-medium text-[var(--color-pib-accent)] transition-colors hover:border-[var(--color-pib-accent)] hover:text-[var(--color-pib-text)]"
+              >
+                <span className="material-symbols-outlined text-[13px]" aria-hidden="true">edit_note</span>
+                Log fresh touch
+              </button>
+            )}
           </div>
 
           <ContactIdentityPanel
