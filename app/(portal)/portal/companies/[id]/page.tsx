@@ -1445,17 +1445,37 @@ function InventoryPanel({
     )
   }
   return (
-    <SimpleRowsPanel
-      rows={inventoryItems}
-      emptyIcon="inventory_2"
-      emptyLabel="No inventory items yet."
-      title={(row) => inventoryItemNameLabel(row as RelatedInventoryItem)}
-      metaFor={(row) => [
-        inventorySkuLabel(row as RelatedInventoryItem),
-        inventoryQuantityLabel(row as RelatedInventoryItem),
-        inventoryStatusLabel(row as RelatedInventoryItem),
-      ]}
-    />
+    <div className="space-y-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="eyebrow !text-[10px]">Inventory control</p>
+          <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
+            Keep stock levels, reservations, low-stock thresholds, and fulfillment readiness visible for {company.name}.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onCreateInventoryItem}
+          disabled={creatingInventoryItem}
+          className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add_box</span>
+          {creatingInventoryItem ? 'Creating item...' : `Create another inventory item for ${company.name}`}
+        </button>
+      </div>
+      {inventoryError ? <p className="text-xs text-red-300">{inventoryError}</p> : null}
+      <SimpleRowsPanel
+        rows={inventoryItems}
+        emptyIcon="inventory_2"
+        emptyLabel="No inventory items yet."
+        title={(row) => inventoryItemNameLabel(row as RelatedInventoryItem)}
+        metaFor={(row) => [
+          inventorySkuLabel(row as RelatedInventoryItem),
+          inventoryQuantityLabel(row as RelatedInventoryItem),
+          inventoryStatusLabel(row as RelatedInventoryItem),
+        ]}
+      />
+    </div>
   )
 }
 
