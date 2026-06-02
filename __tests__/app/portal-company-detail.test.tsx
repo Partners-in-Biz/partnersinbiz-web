@@ -1799,6 +1799,116 @@ describe('Portal company detail page', () => {
     )
   })
 
+  it('keeps quote creation available when a company already has quotes', async () => {
+    const postQuote = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ success: true, data: { id: 'quote-new', quoteNumber: 'Q-ACM-002' } }),
+    } as Response)
+
+    global.fetch = jest.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/custom-fields?resource=company') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { definitions: [] } }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/companies/company-1') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              company: {
+                id: 'company-1',
+                orgId: 'org-1',
+                name: 'Acme Holdings',
+                lifecycleStage: 'customer',
+              },
+            },
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/companies/company-1/command-center?limit=100') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              summary: {},
+              analytics: {},
+              contacts: [
+                { id: 'contact-1', name: 'Jane Client', email: 'jane@example.com', type: 'client', stage: 'won' },
+              ],
+              deals: [
+                {
+                  id: 'deal-1',
+                  title: 'Growth retainer',
+                  contactId: 'contact-1',
+                  value: 24000,
+                  currency: 'ZAR',
+                  probability: 70,
+                },
+              ],
+              quotes: [
+                { id: 'quote-1', quoteNumber: 'Q-ACM-001', status: 'draft', total: 12000, currency: 'ZAR' },
+              ],
+              invoices: [],
+              projects: [],
+              serviceWorkspaces: [],
+              relationships: [],
+              documents: [],
+              orders: [],
+              shipments: [],
+              inventoryItems: [],
+              activities: [],
+            },
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/quotes' && init?.method === 'POST') {
+        return postQuote(input, init)
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ data: {} }),
+      } as Response)
+    }) as jest.Mock
+
+    render(<CompanyDetailPage />)
+
+    await screen.findByRole('heading', { name: 'Acme Holdings' })
+    await selectCompanyTab(/Quotes/i)
+    expect(await screen.findByText('Q-ACM-001')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Create another quote from Growth retainer' }))
+
+    await waitFor(() => {
+      expect(postQuote).toHaveBeenCalledWith(
+        '/api/v1/quotes',
+        expect.objectContaining({
+          method: 'POST',
+          body: expect.stringContaining('"dealId":"deal-1"'),
+        }),
+      )
+    })
+    expect(JSON.parse((postQuote.mock.calls[0][1] as RequestInit).body as string)).toEqual(
+      expect.objectContaining({
+        dealId: 'deal-1',
+        contactId: 'contact-1',
+        companyId: 'company-1',
+        currency: 'ZAR',
+        lineItems: [
+          {
+            description: 'Growth retainer',
+            quantity: 1,
+            unitPrice: 24000,
+          },
+        ],
+      }),
+    )
+  })
+
   it('turns an empty company projects tab into a create-project action anchored to the first linked contact', async () => {
     const postProject = jest.fn().mockResolvedValue({
       ok: true,

@@ -1040,29 +1040,57 @@ function QuotesPanel({
       </EmptyPanel>
     )
   }
+  const firstDeal = deals[0]
   return (
-    <TableShell>
-      <table className="w-full text-sm">
-        <thead className="border-b border-[var(--color-pib-line)] text-[10px] font-label uppercase tracking-wider text-[var(--color-pib-text-muted)]">
-          <tr>
-            <th className="px-5 py-3 text-left">Quote</th>
-            <th className="px-5 py-3 text-left">Status</th>
-            <th className="px-5 py-3 text-left">Total</th>
-            <th className="px-5 py-3 text-left">Valid Until</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-[var(--color-pib-line)]">
-          {quotes.map((quote) => (
-            <tr key={quote.id} className="hover:bg-white/[0.02]">
-              <td className="px-5 py-4 font-mono">{quote.quoteNumber || quote.id}</td>
-              <td className="px-5 py-4"><StatusChip value={quote.status} emptyLabel="Quote status not set" /></td>
-              <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{quoteTotalLabel(quote)}</td>
-              <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{quoteValidUntilLabel(quote)}</td>
+    <div className="space-y-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="eyebrow !text-[10px]">Commercial quotes</p>
+          <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
+            Keep proposal momentum, pricing context, and validity windows connected to {company.name}.
+          </p>
+        </div>
+        {firstDeal ? (
+          <button
+            type="button"
+            onClick={onCreateQuote}
+            disabled={creatingQuote}
+            className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">request_quote</span>
+            {creatingQuote ? 'Creating quote...' : `Create another quote from ${dealLabel(firstDeal)}`}
+          </button>
+        ) : (
+          <button type="button" onClick={onCreateDeal} className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5">
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add_business</span>
+            Create deal before quote
+          </button>
+        )}
+      </div>
+      {quoteError ? <p className="text-xs text-red-300">{quoteError}</p> : null}
+      <TableShell>
+        <table className="w-full text-sm">
+          <thead className="border-b border-[var(--color-pib-line)] text-[10px] font-label uppercase tracking-wider text-[var(--color-pib-text-muted)]">
+            <tr>
+              <th className="px-5 py-3 text-left">Quote</th>
+              <th className="px-5 py-3 text-left">Status</th>
+              <th className="px-5 py-3 text-left">Total</th>
+              <th className="px-5 py-3 text-left">Valid Until</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </TableShell>
+          </thead>
+          <tbody className="divide-y divide-[var(--color-pib-line)]">
+            {quotes.map((quote) => (
+              <tr key={quote.id} className="hover:bg-white/[0.02]">
+                <td className="px-5 py-4 font-mono">{quote.quoteNumber || quote.id}</td>
+                <td className="px-5 py-4"><StatusChip value={quote.status} emptyLabel="Quote status not set" /></td>
+                <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{quoteTotalLabel(quote)}</td>
+                <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{quoteValidUntilLabel(quote)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </TableShell>
+    </div>
   )
 }
 
