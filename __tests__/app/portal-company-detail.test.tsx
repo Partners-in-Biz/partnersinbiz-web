@@ -1494,7 +1494,7 @@ describe('Portal company detail page', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: 'Create first deal for Acme Holdings' }))
 
-    expect(await screen.findByRole('dialog', { name: 'Create deal' })).toBeInTheDocument()
+    expect(await screen.findByRole('dialog', { name: 'Create deal for Acme Holdings with Jane Client' })).toBeInTheDocument()
     expect(screen.getByPlaceholderText('Search contacts...')).toHaveValue('Jane Client')
     expect(screen.getByText('Acme Holdings')).toBeInTheDocument()
   })

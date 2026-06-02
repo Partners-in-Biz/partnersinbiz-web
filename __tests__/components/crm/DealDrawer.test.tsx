@@ -5,12 +5,21 @@ let mockPipelinesBody: unknown = null
 let mockPipelineDetailBody: unknown = null
 
 jest.mock('@/components/crm/CompanyPicker', () => ({
-  CompanyPicker: ({ onChange }: { onChange: (value: { companyId: string | null; companyName: string | null }) => void }) => (
+  CompanyPicker: ({
+    ariaLabel,
+    currentCompanyName,
+    onChange,
+  }: {
+    ariaLabel?: string
+    currentCompanyName?: string
+    onChange: (value: { companyId: string | null; companyName: string | null }) => void
+  }) => (
     <button
       type="button"
+      aria-label={ariaLabel}
       onClick={() => onChange({ companyId: 'company-1', companyName: 'Acme Growth' })}
     >
-      Pick Acme Growth
+      {currentCompanyName || 'Pick Acme Growth'}
     </button>
   ),
 }))
@@ -158,6 +167,36 @@ describe('DealDrawer', () => {
     }))
   })
 
+  it('names account-scoped deal creation controls by company and contact context', async () => {
+    render(
+      <DealDrawer
+        defaultContactId="contact-1"
+        defaultContactLabel="Ava Owner"
+        defaultCompanyId="company-1"
+        defaultCompanyName="Acme Growth"
+        orgId="org-1"
+        onSaved={jest.fn()}
+        onClose={jest.fn()}
+      />,
+    )
+
+    expect(screen.getByRole('dialog', { name: 'Create deal for Acme Growth with Ava Owner' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Close deal drawer for Acme Growth' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Deal title for Acme Growth')).toBeInTheDocument()
+    expect(screen.getByLabelText('Deal contact for Acme Growth')).toHaveValue('Ava Owner')
+    expect(screen.getByLabelText('Deal company for Acme Growth')).toBeInTheDocument()
+    expect(screen.getByLabelText('Deal value for Acme Growth')).toBeInTheDocument()
+    expect(screen.getByLabelText('Deal currency for Acme Growth')).toBeInTheDocument()
+    expect(screen.getByLabelText('Expected close date for Acme Growth')).toBeInTheDocument()
+    expect(await screen.findByLabelText('Deal pipeline for Acme Growth')).toHaveValue('pipeline-1')
+    expect(screen.getByLabelText('Deal stage for Acme Growth')).toHaveValue('stage-1')
+    expect(screen.getByLabelText('Deal probability slider for Acme Growth')).toBeInTheDocument()
+    expect(screen.getByLabelText('Deal probability percent for Acme Growth')).toBeInTheDocument()
+    expect(screen.getByLabelText('Deal notes for Acme Growth')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Cancel deal for Acme Growth' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Create deal for Acme Growth' })).toBeInTheDocument()
+  })
+
   it('shows the readable default contact label for preselected contact deals', async () => {
     render(
       <DealDrawer
@@ -269,7 +308,7 @@ describe('DealDrawer', () => {
     fireEvent.change(screen.getByLabelText('Expected close date'), {
       target: { value: '2026-06-30' },
     })
-    fireEvent.click(screen.getByRole('button', { name: /Save changes/i }))
+    fireEvent.click(screen.getByRole('button', { name: /Save deal changes/i }))
 
     await waitFor(() => expect(onSaved).toHaveBeenCalledWith('deal-1'))
 
