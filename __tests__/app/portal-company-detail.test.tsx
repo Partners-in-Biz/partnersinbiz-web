@@ -3152,6 +3152,105 @@ describe('Portal company detail page', () => {
     )
   })
 
+  it('keeps shipment creation available when a company already has shipments', async () => {
+    const postShipment = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ success: true, data: { shipment: { id: 'shipment-new' } } }),
+    } as Response)
+
+    global.fetch = jest.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/custom-fields?resource=company') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { definitions: [] } }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/companies/company-1') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              company: {
+                id: 'company-1',
+                orgId: 'org-1',
+                linkedOrgId: 'client-org-1',
+                name: 'Acme Holdings',
+                lifecycleStage: 'customer',
+              },
+            },
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/companies/company-1/command-center?limit=100') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              summary: {},
+              analytics: {},
+              contacts: [
+                { id: 'contact-1', name: 'Jane Client', email: 'jane@example.com', type: 'client', stage: 'won' },
+              ],
+              deals: [],
+              quotes: [],
+              invoices: [],
+              projects: [],
+              serviceWorkspaces: [],
+              relationships: [],
+              documents: [],
+              orders: [
+                { id: 'order-1', title: 'Acme Holdings fulfillment order', status: 'confirmed', fulfillmentStatus: 'not_started', total: 12000, currency: 'ZAR' },
+              ],
+              shipments: [
+                { id: 'shipment-1', carrier: 'DHL', trackingNumber: 'DHL-001', status: 'pending' },
+              ],
+              inventoryItems: [],
+              activities: [],
+            },
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/shipments' && init?.method === 'POST') {
+        return postShipment(input, init)
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ data: {} }),
+      } as Response)
+    }) as jest.Mock
+
+    render(<CompanyDetailPage />)
+
+    await screen.findByRole('heading', { name: 'Acme Holdings' })
+    await selectCompanyTab(/Shipments/i)
+    expect(await screen.findByText('DHL')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Create another shipment for Acme Holdings fulfillment order' }))
+
+    await waitFor(() => {
+      expect(postShipment).toHaveBeenCalledWith(
+        '/api/v1/shipments',
+        expect.objectContaining({
+          method: 'POST',
+          body: expect.stringContaining('"orderId":"order-1"'),
+        }),
+      )
+    })
+    expect(JSON.parse((postShipment.mock.calls[0][1] as RequestInit).body as string)).toEqual(
+      expect.objectContaining({
+        companyId: 'company-1',
+        orderId: 'order-1',
+        status: 'pending',
+        carrier: 'Internal delivery',
+        visibility: 'relationship',
+        approvalState: 'approved',
+      }),
+    )
+  })
+
   it('turns an empty company inventory tab into a tracked inventory item action', async () => {
     const postInventoryItem = jest.fn().mockResolvedValue({
       ok: true,

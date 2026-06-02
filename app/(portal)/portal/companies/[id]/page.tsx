@@ -1363,18 +1363,50 @@ function ShipmentsPanel({
       </EmptyPanel>
     )
   }
+  const firstOrder = orders[0]
   return (
-    <SimpleRowsPanel
-      rows={shipments}
-      emptyIcon="local_shipping"
-      emptyLabel="No shipments yet."
-      title={(row) => shipmentCarrierLabel(row as RelatedShipment)}
-      metaFor={(row) => [
-        shipmentTrackingLabel(row as RelatedShipment),
-        shipmentExpectedDeliveryLabel(row as RelatedShipment),
-        shipmentStatusLabel(row as RelatedShipment),
-      ]}
-    />
+    <div className="space-y-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="eyebrow !text-[10px]">Delivery shipments</p>
+          <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
+            Keep carrier, tracking, and expected delivery context connected to {company.name}.
+          </p>
+        </div>
+        {firstOrder ? (
+          <button
+            type="button"
+            onClick={() => onCreateShipmentFromOrder(firstOrder)}
+            disabled={creatingShipment}
+            className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">local_shipping</span>
+            {creatingShipment ? 'Creating shipment...' : `Create another shipment for ${orderLabel(firstOrder)}`}
+          </button>
+        ) : (
+          <button
+            type="button"
+            disabled
+            className="btn-pib-secondary inline-flex shrink-0 cursor-not-allowed items-center gap-1.5 opacity-60"
+          >
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">orders</span>
+            Create order before shipment
+          </button>
+        )}
+      </div>
+      {shipmentError ? <p className="text-xs text-red-300">{shipmentError}</p> : null}
+      <SimpleRowsPanel
+        rows={shipments}
+        emptyIcon="local_shipping"
+        emptyLabel="No shipments yet."
+        title={(row) => shipmentCarrierLabel(row as RelatedShipment)}
+        metaFor={(row) => [
+          shipmentTrackingLabel(row as RelatedShipment),
+          shipmentExpectedDeliveryLabel(row as RelatedShipment),
+          shipmentStatusLabel(row as RelatedShipment),
+        ]}
+      />
+    </div>
   )
 }
 
