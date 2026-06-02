@@ -1429,6 +1429,13 @@ function ActivityPanel({
   onCreateContact: () => void
 }) {
   const firstContact = contacts[0]
+  const contactName = firstContact ? contactLabel(firstContact) : null
+  const companyNoteLabel = contactName
+    ? `Company note for ${company.name} anchored to ${contactName}`
+    : `Company note for ${company.name}`
+  const dismissCompanyNoteLabel = `Dismiss company note composer for ${company.name}`
+  const cancelCompanyNoteLabel = `Cancel company note for ${company.name}`
+  const saveCompanyNoteLabel = `Save company note for ${company.name}`
   const composer = noteOpen && firstContact ? (
     <div className="bento-card p-5 text-left">
       <div className="flex items-start justify-between gap-4">
@@ -1443,7 +1450,7 @@ function ActivityPanel({
           type="button"
           onClick={onCancelNote}
           className="text-[var(--color-pib-text-muted)] transition-colors hover:text-[var(--color-pib-text)]"
-          aria-label="Cancel note"
+          aria-label={dismissCompanyNoteLabel}
         >
           <span className="material-symbols-outlined text-[20px]">close</span>
         </button>
@@ -1454,6 +1461,7 @@ function ActivityPanel({
         </label>
         <textarea
           id="company-activity-note"
+          aria-label={companyNoteLabel}
           value={note}
           onChange={(event) => onNoteChange(event.target.value)}
           rows={4}
@@ -1462,7 +1470,13 @@ function ActivityPanel({
         />
         {noteError ? <p className="text-xs text-red-300">{noteError}</p> : null}
         <div className="flex flex-wrap justify-end gap-2">
-          <button type="button" onClick={onCancelNote} disabled={savingNote} className="btn-pib-secondary">
+          <button
+            type="button"
+            onClick={onCancelNote}
+            disabled={savingNote}
+            className="btn-pib-secondary"
+            aria-label={cancelCompanyNoteLabel}
+          >
             Cancel
           </button>
           <button
@@ -1470,6 +1484,7 @@ function ActivityPanel({
             onClick={onSaveNote}
             disabled={savingNote || !note.trim()}
             className="btn-pib-primary disabled:cursor-not-allowed disabled:opacity-60"
+            aria-label={saveCompanyNoteLabel}
           >
             {savingNote ? 'Saving...' : 'Save note'}
           </button>

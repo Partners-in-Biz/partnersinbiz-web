@@ -1570,11 +1570,15 @@ describe('Portal company detail page', () => {
     await selectCompanyTab(/Activity/i)
     fireEvent.click(await screen.findByRole('button', { name: 'Log first note for Acme Holdings' }))
 
-    expect(screen.getByLabelText('Company note')).toBeInTheDocument()
-    fireEvent.change(screen.getByLabelText('Company note'), {
+    const companyNoteField = screen.getByLabelText('Company note for Acme Holdings anchored to Jane Client')
+    expect(companyNoteField).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Dismiss company note composer for Acme Holdings' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Cancel company note for Acme Holdings' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Save note' })).not.toBeInTheDocument()
+    fireEvent.change(companyNoteField, {
       target: { value: 'Discussed launch priorities and next decision date.' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Save note' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Save company note for Acme Holdings' }))
 
     await waitFor(() => {
       expect(postActivity).toHaveBeenCalledWith(
