@@ -136,6 +136,54 @@ export function normalizeInstalledSkillNames(value: unknown): string[] {
   return Array.from(new Set(rawList.map(normalizeSkillName).filter((item): item is string => !!item))).sort()
 }
 
+function skillBasename(skill: string): string {
+  return skill.split('/').filter(Boolean).at(-1) ?? skill
+}
+
+export function classifyInstalledSkills(installed: string[]): { pib: string[]; global: string[] } {
+  const catalogPaths = new Set(Object.keys(AGENT_SKILL_POLICY.skillCatalog))
+  const catalogByBase = new Map(Object.keys(AGENT_SKILL_POLICY.skillCatalog).map((skill) => [skillBasename(skill), skill]))
+  const pib: string[] = []
+  const global: string[] = []
+
+  for (const skill of installed) {
+    const normalized = skill.trim()
+    if (!normalized) continue
+
+    if (normalized.startsWith('partnersinbiz/')) {
+      const repoSkill = normalized.slice('partnersinbiz/'.length)
+      if (catalogPaths.has(repoSkill)) pib.push(repoSkill)
+      else global.push(normalized)
+      continue
+    }
+
+    if (catalogPaths.has(normalized)) {
+      pib.push(normalized)
+      continue
+    }
+
+    // Fully-qualified non-PiB skills are global skills. Do not map them by
+    // basename, because globals can intentionally share names with PiB skills
+    // such as productivity/google-workspace vs partnersinbiz/google-workspace.
+    if (normalized.includes('/')) {
+      global.push(normalized)
+      continue
+    }
+
+    const catalogSkill = catalogByBase.get(skillBasename(normalized))
+    if (catalogSkill) {
+      pib.push(catalogSkill)
+    } else {
+      global.push(normalized)
+    }
+  }
+
+  return {
+    pib: Array.from(new Set(pib)).sort(),
+    global: Array.from(new Set(global)).sort(),
+  }
+}
+
 export function extractHermesExternalDirs(config: unknown): string[] {
   const source = config && typeof config === 'object' ? config as Record<string, unknown> : {}
   const skills = source.skills && typeof source.skills === 'object' ? source.skills as Record<string, unknown> : {}

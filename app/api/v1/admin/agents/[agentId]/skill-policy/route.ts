@@ -7,6 +7,7 @@ import { callAgentPath, getAgent, recordAgentSkillPolicyApplied } from '@/lib/ag
 import { isValidAgentId, type AgentId } from '@/lib/agents/types'
 import {
   AGENT_SKILL_POLICY,
+  classifyInstalledSkills,
   computeAgentSkillDrift,
   extractHermesExternalDirs,
   getAgentSkillPolicy,
@@ -17,32 +18,6 @@ import {
 export const dynamic = 'force-dynamic'
 
 type Ctx = { params: Promise<{ agentId: string }> }
-
-function skillBasename(skill: string): string {
-  return skill.split('/').filter(Boolean).at(-1) ?? skill
-}
-
-function classifyInstalledSkills(installed: string[]): { pib: string[]; global: string[] } {
-  const catalogPaths = new Set(Object.keys(AGENT_SKILL_POLICY.skillCatalog))
-  const catalogByBase = new Map(Object.keys(AGENT_SKILL_POLICY.skillCatalog).map((skill) => [skillBasename(skill), skill]))
-  const pib: string[] = []
-  const global: string[] = []
-
-  for (const skill of installed) {
-    const base = skillBasename(skill)
-    const catalogSkill = catalogPaths.has(skill) ? skill : catalogByBase.get(base)
-    if (catalogSkill) {
-      pib.push(catalogSkill)
-    } else {
-      global.push(skill)
-    }
-  }
-
-  return {
-    pib: Array.from(new Set(pib)).sort(),
-    global: Array.from(new Set(global)).sort(),
-  }
-}
 
 function extractSkillListPayload(payload: unknown): unknown {
   if (Array.isArray(payload)) return payload

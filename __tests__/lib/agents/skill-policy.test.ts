@@ -3,6 +3,7 @@ import { join } from 'node:path'
 import {
   AGENT_SKILL_POLICY,
   buildAgentSkillPolicyState,
+  classifyInstalledSkills,
   computeAgentSkillDrift,
   listCatalogSkillPaths,
   listSyncableRepoSkillPaths,
@@ -198,5 +199,34 @@ describe('agent skill policy manifest', () => {
     }))
     expect(drift?.missingPibSkills).toContain('research-intelligence')
     expect(drift?.unexpectedPibSkills).toContain('content-engine')
+  })
+
+  it('classifies fully qualified globals without colliding with PiB skills that share a basename', () => {
+    const installed = classifyInstalledSkills([
+      'partnersinbiz/analytics',
+      'partnersinbiz/client-documents',
+      'partnersinbiz/client-manager',
+      'partnersinbiz/collaboration-runtime',
+      'partnersinbiz/crm-sales',
+      'partnersinbiz/data-analyst',
+      'partnersinbiz/docs-lead',
+      'partnersinbiz/evidence-ledger',
+      'partnersinbiz/google-workspace',
+      'partnersinbiz/platform-ops',
+      'partnersinbiz/project-management',
+      'partnersinbiz/properties',
+      'partnersinbiz/research-intelligence',
+      'productivity/google-workspace',
+      'productivity/powerpoint',
+    ])
+
+    expect(installed.pib).toEqual(AGENT_SKILL_POLICY.agents.docs.runtimeSkills)
+    expect(installed.global).toEqual(AGENT_SKILL_POLICY.agents.docs.globalSkills)
+    expect(computeAgentSkillDrift({
+      agentId: 'docs',
+      installedPibSkills: installed.pib,
+      installedGlobalSkills: installed.global,
+      configExternalDirs: ['/var/lib/hermes/agent-skills/docs'],
+    })?.status).toBe('in_sync')
   })
 })
