@@ -120,6 +120,10 @@ const secondOrgBriefingItem = {
     taskId: 'task-2',
     taskTitle: 'Provide DNS access',
   },
+  metadata: {
+    columnId: 'blocked',
+    agentStatus: 'blocked',
+  },
   occurredAt: '2026-05-31T10:04:00.000Z',
 }
 
@@ -1258,6 +1262,7 @@ describe('BriefingControlDesk', () => {
     expect(screen.getByLabelText('Live briefing cards')).toHaveClass('xl:overflow-y-auto')
     expect(screen.getByRole('button', { name: /filter to client two workspace/i })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /open source/i })).toHaveAttribute('href', '/portal/projects/project-1?taskId=task-1')
+    expect(screen.queryByRole('button', { name: /^unblock$/i })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /^approve$/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /send back to agent/i })).toBeInTheDocument()
   })
@@ -1272,6 +1277,7 @@ describe('BriefingControlDesk', () => {
     })
     expect((await screen.findAllByText('Blocked launch checklist')).length).toBeGreaterThan(0)
     expect(screen.queryByText('Theo completed work - review required')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^unblock$/i })).toBeInTheDocument()
     expect(screen.getAllByText('1 live cards').length).toBeGreaterThan(0)
     expect(screen.getByRole('button', { name: /all workspaces/i })).toBeInTheDocument()
   })

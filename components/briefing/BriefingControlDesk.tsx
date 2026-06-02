@@ -341,6 +341,16 @@ function canTaskAct(item: BriefingCard) {
   return Boolean(item.context.projectId && item.context.taskId)
 }
 
+function canTaskUnblock(item: BriefingCard) {
+  if (!canTaskAct(item)) return false
+  const columnId = typeof item.metadata?.columnId === 'string' ? item.metadata.columnId : null
+  const agentStatus = typeof item.metadata?.agentStatus === 'string' ? item.metadata.agentStatus : null
+  if (columnId || agentStatus) {
+    return columnId === 'blocked' || agentStatus === 'blocked' || agentStatus === 'awaiting-input'
+  }
+  return item.source.type === 'task' && ['critical', 'needs-peet'].includes(item.priority) && /\b(blocked|awaiting[- ]input)\b/i.test(`${item.title} ${item.summary}`)
+}
+
 function canDocumentAct(item: BriefingCard) {
   return Boolean(item.context.documentId)
 }
@@ -1844,7 +1854,7 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                     <span className="material-symbols-outlined text-[15px]" aria-hidden="true">snooze</span>
                     Snooze 24h
                   </button>
-                  {canTaskAct(selected) ? (
+                  {canTaskUnblock(selected) ? (
                     <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => unblockTask(selected)} disabled={!!busyAction}>
                       <span className="material-symbols-outlined text-[15px]" aria-hidden="true">play_arrow</span>
                       Unblock
