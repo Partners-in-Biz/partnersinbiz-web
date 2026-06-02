@@ -879,18 +879,38 @@ function DocumentsPanel({
     )
   }
   return (
-    <SimpleRowsPanel
-      rows={documents}
-      emptyIcon="description"
-      emptyLabel="No linked documents yet."
-      title={(row) => documentTitleLabel(row as RelatedDocument)}
-      hrefFor={(row) => `/portal/documents/${row.id}`}
-      metaFor={(row) => [
-        documentTypeLabel(row as RelatedDocument),
-        documentStatusLabel(row as RelatedDocument),
-        documentUpdatedLabel(row as RelatedDocument),
-      ]}
-    />
+    <div className="space-y-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="eyebrow !text-[10px]">Commercial documents</p>
+          <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
+            Keep proposals, approvals, and client-facing account history connected to {company.name}.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onCreateDocument}
+          disabled={creatingDocument}
+          className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          <span className="material-symbols-outlined text-[16px]" aria-hidden="true">note_add</span>
+          {creatingDocument ? 'Creating proposal...' : `Create another sales proposal for ${company.name}`}
+        </button>
+      </div>
+      {documentError ? <p className="text-xs text-red-300">{documentError}</p> : null}
+      <SimpleRowsPanel
+        rows={documents}
+        emptyIcon="description"
+        emptyLabel="No linked documents yet."
+        title={(row) => documentTitleLabel(row as RelatedDocument)}
+        hrefFor={(row) => `/portal/documents/${row.id}`}
+        metaFor={(row) => [
+          documentTypeLabel(row as RelatedDocument),
+          documentStatusLabel(row as RelatedDocument),
+          documentUpdatedLabel(row as RelatedDocument),
+        ]}
+      />
+    </div>
   )
 }
 
