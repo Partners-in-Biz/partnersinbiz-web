@@ -517,6 +517,7 @@ export default function ProductsPage() {
                 onClick={() => setPendingDeleteProduct(null)}
                 className="btn-pib-secondary text-xs"
                 disabled={deletingId === pendingDeleteProduct.id}
+                aria-label={`Cancel delete for catalog product ${productDisplayName(pendingDeleteProduct)}`}
               >
                 Cancel
               </button>

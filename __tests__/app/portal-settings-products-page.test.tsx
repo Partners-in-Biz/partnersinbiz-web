@@ -222,6 +222,7 @@ describe('Portal settings products page', () => {
     expect(screen.getByRole('alertdialog', { name: 'Delete catalog product "Launch package"?' })).toBeInTheDocument()
     expect(screen.getByText('This removes the product from the active catalog used by deal line items, quotes, and revenue reporting. Historical records keep their saved line-item data.')).toBeInTheDocument()
     expect(global.fetch).not.toHaveBeenCalledWith('/api/v1/crm/products/product-1', expect.any(Object))
+    expect(screen.getByRole('button', { name: 'Cancel delete for catalog product Launch package' })).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Confirm delete catalog product Launch package' }))
 
