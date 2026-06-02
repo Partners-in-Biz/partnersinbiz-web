@@ -203,6 +203,22 @@ function activityNotesPlaceholder(logType: string): string {
   return `Add ${logType} notes…`
 }
 
+function activityComposerActionName(logType: string, contactName: string): string {
+  if (logType === 'email_sent') return `Send email to ${contactName} from activity composer`
+  if (logType === 'sms') return `Send SMS to ${contactName} from activity composer`
+  if (logType === 'meeting') return `Schedule meeting with ${contactName} from activity composer`
+  if (logType === 'call') return `Log call with ${contactName} from activity composer`
+  return `Save note for ${contactName} from activity composer`
+}
+
+function activityComposerCancelName(logType: string, contactName: string): string {
+  if (logType === 'email_sent') return `Cancel email composer for ${contactName}`
+  if (logType === 'sms') return `Cancel SMS composer for ${contactName}`
+  if (logType === 'meeting') return `Cancel meeting composer for ${contactName}`
+  if (logType === 'call') return `Cancel call composer for ${contactName}`
+  return `Cancel note composer for ${contactName}`
+}
+
 function activityMetricCaption(count: number): string {
   if (count === 0) return 'No relationship history yet'
   return count === 1 ? '1 relationship touch logged' : `${count} relationship touches logged`
@@ -2159,6 +2175,7 @@ export default function PortalContactDetailPage() {
                   )}
                   <div className="flex items-center gap-3">
                     <button
+                      type="button"
                       onClick={handleLogActivity}
                       disabled={
                         logSaving ||
@@ -2172,6 +2189,7 @@ export default function PortalContactDetailPage() {
                           ? !phone.trim() || !logSummary.trim()
                           : !logSummary.trim())
                       }
+                      aria-label={activityComposerActionName(logType, contactName)}
                       className="btn-pib-accent text-xs disabled:opacity-50"
                     >
                       {logSaving
@@ -2185,7 +2203,9 @@ export default function PortalContactDetailPage() {
                         : 'Save'}
                     </button>
                     <button
+                      type="button"
                       onClick={() => { setLogType(null); setLogSummary(''); setLogEmailSubject(''); setMeetingTitle(''); setMeetingStartAt(''); setMeetingEndAt(''); setMeetingUrl(''); setLogError(null) }}
+                      aria-label={activityComposerCancelName(logType, contactName)}
                       className="text-xs text-[var(--color-pib-text-muted)]"
                     >
                       Cancel

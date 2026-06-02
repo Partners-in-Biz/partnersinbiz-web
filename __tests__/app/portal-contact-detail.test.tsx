@@ -849,9 +849,12 @@ describe('Portal contact detail page', () => {
     fireEvent.change(screen.getByLabelText('Ends'), { target: { value: '2026-06-02T14:30' } })
 
     expect(screen.getByRole('alert')).toHaveTextContent('Meeting end time must be after the start time.')
-    expect(screen.getByRole('button', { name: 'Schedule' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Cancel meeting composer for Jane Client' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Schedule meeting with Jane Client from activity composer' })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: 'Schedule' })).not.toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Schedule' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Schedule meeting with Jane Client from activity composer' }))
 
     expect(global.fetch).not.toHaveBeenCalledWith('/api/v1/crm/contacts/contact-1/schedule-meeting', expect.any(Object))
   })
