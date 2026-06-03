@@ -69,8 +69,16 @@ beforeEach(() => {
             data: () => ({
               agentId,
               enabled: true,
-              name: 'Pip',
+              name: agentId === 'maya' ? 'Maya' : 'Pip',
               baseUrl: 'https://hermes.example.com',
+              skillPolicy: {
+                runtimeSkills: ['content-engine', 'social-media-manager'],
+                pibSkills: ['content-engine', 'social-media-manager'],
+                globalSkills: ['google-workspace'],
+                capabilities: ['read', 'draft', 'write'],
+                approvalGates: ['publish'],
+                primaryOwnerOf: ['content-engine'],
+              },
             }),
           }),
         }),
@@ -170,6 +178,31 @@ describe('unified conversation message routing', () => {
     expect(body.data.assistantMessage.id).toBe('assistant-1')
     expect(body.data.runId).toBe('run-1')
     expect(body.data.dispatchAgentId).toBe('pip')
+  })
+
+  it('injects selected agent skills and approval gates into the dispatched prompt', async () => {
+    mockGetConversation.mockResolvedValue({
+      id: 'conv-1',
+      orgId: 'pib-platform-owner',
+      participantUids: ['client-1'],
+      participantAgentIds: ['maya'],
+      participants: [
+        { kind: 'user', uid: 'client-1', role: 'client', displayName: 'Client User' },
+        { kind: 'agent', agentId: 'maya', name: 'Maya' },
+      ],
+    })
+    const { POST } = await import('@/app/api/v1/conversations/[convId]/messages/route')
+
+    const res = await POST(req(), { params: Promise.resolve({ convId: 'conv-1' }) })
+
+    expect(res.status).toBe(201)
+    expect(mockCreateHermesRun).toHaveBeenCalledTimes(1)
+    const prompt = mockCreateHermesRun.mock.calls[0][2].prompt as string
+    expect(prompt).toContain('[Selected agent skills]')
+    expect(prompt).toContain('agent: Maya (maya)')
+    expect(prompt).toContain('available-skills: content-engine, social-media-manager, google-workspace')
+    expect(prompt).toContain('capabilities: read, draft, write')
+    expect(prompt).toContain('approval-gates: publish')
   })
 
   it('returns a failed assistant message instead of a 500 when agent key decrypt fails', async () => {

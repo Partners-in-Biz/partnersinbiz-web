@@ -6,6 +6,7 @@ export type SlashCommandId =
   | 'route'
   | 'briefing'
   | 'search'
+  | 'skills'
   | 'help'
 
 export interface SlashCommandDefinition {
@@ -79,6 +80,15 @@ export const SLASH_COMMANDS: SlashCommandDefinition[] = [
     description: 'Search platform/project context and attach or summarise the right result.',
     aliases: ['/find'],
     icon: 'search',
+    executorKind: 'agent_intent',
+  },
+  {
+    id: 'skills',
+    token: '/skills',
+    label: 'Show agent skills',
+    description: 'Show the selected agent skills, capabilities, and the best skill for this request.',
+    aliases: ['/agent-skills', '/capabilities'],
+    icon: 'psychology',
     executorKind: 'agent_intent',
   },
   {
