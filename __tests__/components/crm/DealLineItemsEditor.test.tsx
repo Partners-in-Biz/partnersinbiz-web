@@ -28,4 +28,20 @@ describe('DealLineItemsEditor', () => {
 
     expect(await screen.findByPlaceholderText('Product name…')).toBeInTheDocument()
   })
+
+  it('names quote item draft confirm and cancel actions by commercial context', async () => {
+    render(
+      <DealLineItemsEditor
+        value={[]}
+        onChange={jest.fn()}
+        currency="ZAR"
+        orgId="org-1"
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add first quote item' }))
+
+    expect(await screen.findByRole('button', { name: 'Add quote item' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Cancel quote item draft' })).toBeInTheDocument()
+  })
 })
