@@ -74,6 +74,16 @@ interface ActivityRecord {
   createdByRef?: MemberRef
 }
 
+interface RelationshipRiskItem {
+  title: string
+  body: string
+  icon: string
+  actionLabel: string
+  actionAriaLabel: string
+  onAction: () => void | Promise<void>
+  disabled?: boolean
+}
+
 interface TeamMemberOption {
   uid: string
   firstName?: string
@@ -1137,7 +1147,7 @@ export default function PortalContactDetailPage() {
     { label: 'Type', value: typeLabel },
     { label: 'Stage', value: stageLabel },
   ]
-  const relationshipRiskItems = [
+  const relationshipRiskItems = ([
     !assignedTo
       ? {
           title: 'No accountable owner',
@@ -1179,15 +1189,7 @@ export default function PortalContactDetailPage() {
           disabled: scoreSaving,
         }
       : null,
-  ].filter((item): item is {
-    title: string
-    body: string
-    icon: string
-    actionLabel: string
-    actionAriaLabel: string
-    onAction: () => void
-    disabled?: boolean
-  } => Boolean(item))
+  ] as Array<RelationshipRiskItem | null>).filter((item): item is RelationshipRiskItem => Boolean(item))
 
   return (
     <div className="space-y-8">

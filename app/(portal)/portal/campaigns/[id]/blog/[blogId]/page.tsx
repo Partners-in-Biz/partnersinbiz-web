@@ -164,7 +164,7 @@ function PortalCampaignBlogDetail({
       if (!res.ok) throw new Error(body?.error ?? 'Comment could not be sent.')
 
       if (body?.data?.statusFlipped) {
-        setBlog((current) => current ? { ...current, status: 'idea' } : current)
+        setBlog((current: AnyObj | null) => current ? { ...current, status: 'idea' } : current)
       }
       await refreshComments()
       setComposerAnchor(null)
@@ -222,7 +222,7 @@ function PortalCampaignBlogDetail({
       })
       const body = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(body?.error ?? 'Approval could not be recorded.')
-      setBlog((current) => current ? { ...current, status: body?.data?.status ?? 'client_approved' } : current)
+      setBlog((current: AnyObj | null) => current ? { ...current, status: body?.data?.status ?? 'client_approved' } : current)
       router.refresh()
     } catch (err: unknown) {
       setActionError(err instanceof Error ? err.message : 'Approval could not be recorded.')

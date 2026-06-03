@@ -1655,6 +1655,42 @@ describe('BriefingControlDesk', () => {
     })
   })
 
+  it('schedules a contact task while logging a stale CRM contact follow-up note', async () => {
+    render(<BriefingControlDesk mode="portal" />)
+
+    fireEvent.click(await screen.findByRole('button', { name: /Follow up Ava Owner/i }))
+    fireEvent.change(screen.getByLabelText('Follow-up note'), { target: { value: 'Called Ava; proposal decision due tomorrow.' } })
+    fireEvent.change(screen.getByLabelText('Next follow-up task'), { target: { value: 'Send Ava the revised proposal' } })
+    fireEvent.change(screen.getByLabelText('Next task due date'), { target: { value: '2026-06-04' } })
+    fireEvent.click(screen.getByRole('button', { name: /log note and schedule task/i }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/activities', expect.objectContaining({
+        method: 'POST',
+      }))
+    })
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/tasks', expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          orgId: 'org-1',
+          title: 'Send Ava the revised proposal',
+          description: 'Called Ava; proposal decision due tomorrow.',
+          status: 'todo',
+          priority: 'normal',
+          dueDate: '2026-06-04',
+          contactId: 'contact-1',
+          dealId: '',
+          tags: ['crm-follow-up'],
+        }),
+      }))
+    })
+    await waitFor(() => {
+      expect(screen.getByLabelText('Next follow-up task')).toHaveValue('')
+      expect(screen.getByLabelText('Next task due date')).toHaveValue('')
+    })
+  })
+
   it('does not keep CRM follow-up actions busy when the feed refresh hangs', async () => {
     let feedCalls = 0
     global.fetch = jest.fn(async (input: RequestInfo | URL) => {
