@@ -226,6 +226,12 @@ export default function PipelinesPage() {
   const activePipelines = pipelines.filter((pipeline) => !pipeline.archived)
   const archivedPipelines = pipelines.filter((pipeline) => pipeline.archived)
   const defaultPipeline = pipelines.find((pipeline) => pipeline.isDefault)
+  const defaultCandidatePipeline = !defaultPipeline
+    ? activePipelines.find((pipeline) => pipelineHealth(pipeline).score >= 100) ?? activePipelines[0]
+    : undefined
+  const defaultCandidateReady = defaultCandidatePipeline
+    ? pipelineHealth(defaultCandidatePipeline).score >= 100
+    : false
   const totalStages = pipelines.reduce((sum, pipeline) => sum + pipelineStages(pipeline).length, 0)
   const activeStageTotal = activePipelines.reduce((sum, pipeline) => sum + pipelineStages(pipeline).length, 0)
   const openStageCount = pipelines.reduce((sum, pipeline) => sum + pipelineStages(pipeline).filter((stage) => stage.kind === 'open').length, 0)
@@ -274,6 +280,60 @@ export default function PipelinesPage() {
           <StatCard label="Default route" value={defaultPipeline ? 'Set' : 'Missing'} sub={defaultPipeline ? pipelineDisplayName(defaultPipeline) : 'Choose a default path for new deals'} icon="star" />
           <StatCard label="Stage coverage" value={String(totalStages)} sub={`${openStageCount} open, ${wonStageCount} won, ${lostStageCount} lost`} icon="schema" />
           <StatCard label="Pipeline health" value={`${readyCount}/${pipelines.length || 0}`} sub={`${needsWorkCount} definition${needsWorkCount === 1 ? '' : 's'} need setup work`} icon="monitoring" />
+        </section>
+      )}
+
+      {!fetchError && defaultCandidatePipeline && (
+        <section
+          role="region"
+          aria-label="Default pipeline route review"
+          className="rounded-[var(--radius-card)] border border-amber-400/25 bg-amber-400/[0.08] p-5 shadow-[0_18px_40px_rgba(146,64,14,0.14)]"
+        >
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="flex gap-3">
+              <span className="material-symbols-outlined mt-0.5 text-amber-200" aria-hidden="true">alt_route</span>
+              <div>
+                <p className="eyebrow !text-[10px] text-amber-200">Revenue routing</p>
+                <h2 className="mt-1 font-display text-xl text-[var(--color-pib-text)]">Default route is missing</h2>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--color-pib-text-muted)]">
+                  New deals need a default revenue path before the team scales pipeline entry.
+                </p>
+                <div className="mt-4 flex flex-wrap items-center gap-2">
+                  <span className="rounded-full border border-amber-300/25 bg-amber-300/10 px-3 py-1 text-xs font-semibold text-amber-50">
+                    {pipelineDisplayName(defaultCandidatePipeline)}
+                  </span>
+                  <span className="text-xs text-[var(--color-pib-text-muted)]">
+                    {defaultCandidateReady
+                      ? 'Ready to become the first route for new deals.'
+                      : 'Needs setup before it can carry new deals confidently.'}
+                  </span>
+                </div>
+              </div>
+            </div>
+            {isAdmin && (
+              defaultCandidateReady ? (
+                <button
+                  type="button"
+                  onClick={() => handleSetDefault(defaultCandidatePipeline)}
+                  aria-label={`Set ${pipelineDisplayName(defaultCandidatePipeline)} as default pipeline route`}
+                  className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5 text-sm"
+                >
+                  <span className="material-symbols-outlined text-base" aria-hidden="true">star</span>
+                  Set default route
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => openEdit(defaultCandidatePipeline)}
+                  aria-label={`Review ${pipelineDisplayName(defaultCandidatePipeline)} before setting a default pipeline route`}
+                  className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5 text-sm"
+                >
+                  <span className="material-symbols-outlined text-base" aria-hidden="true">edit_note</span>
+                  Review setup
+                </button>
+              )
+            )}
+          </div>
         </section>
       )}
 

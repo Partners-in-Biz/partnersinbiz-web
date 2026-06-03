@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import PipelinesPage from '@/app/(portal)/portal/settings/pipelines/page'
 import type { Pipeline } from '@/lib/pipelines/types'
 
@@ -8,14 +8,19 @@ jest.mock('@/components/crm/PipelineDefinitionsList', () => ({
   PipelineDefinitionsList: ({
     pipelines: visiblePipelines,
     onDelete,
+    onSetDefault,
   }: {
     pipelines: Pipeline[]
     onDelete: (pipeline: Pipeline) => void
+    onSetDefault: (pipeline: Pipeline) => void
   }) => (
     <div>
       {visiblePipelines.map((pipeline) => (
         <article key={pipeline.id} aria-label={`Pipeline ${pipeline.name?.trim() || 'Pipeline name missing'}`}>
           {pipeline.name?.trim() || 'Pipeline name missing'}
+          <button type="button" onClick={() => onSetDefault(pipeline)}>
+            Set {pipeline.name?.trim() || 'Pipeline name missing'} as default
+          </button>
           <button type="button" onClick={() => onDelete(pipeline)}>
             Delete {pipeline.name?.trim() || 'Pipeline name missing'}
           </button>
@@ -143,6 +148,64 @@ describe('Portal settings pipelines page', () => {
     expect(screen.getByRole('article', { name: 'Pipeline Pipeline name missing' })).toBeInTheDocument()
     expect(screen.getByText('Pipeline health')).toBeInTheDocument()
     expect(screen.getByText('0/1')).toBeInTheDocument()
+  })
+
+  it('flags a missing default route and lets leaders set the ready pipeline', async () => {
+    pipelines = [{
+      id: 'pipeline-ready',
+      orgId: 'org-1',
+      name: 'Sales pipeline',
+      description: 'Main sales route',
+      stages: [
+        { id: 'qualified', label: 'Qualified', kind: 'open', order: 0, probability: 20 },
+        { id: 'proposal', label: 'Proposal', kind: 'open', order: 1, probability: 60 },
+        { id: 'won', label: 'Won', kind: 'won', order: 2, probability: 100 },
+        { id: 'lost', label: 'Lost', kind: 'lost', order: 3, probability: 0 },
+      ],
+      isDefault: false,
+      archived: false,
+      createdAt: null,
+      updatedAt: null,
+    }]
+
+    const fetchMock = global.fetch as jest.Mock
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/v1/portal/settings/profile') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ profile: { role: 'owner' } }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/pipelines?archived=false') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { pipelines } }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/pipelines/pipeline-ready/set-default' && init?.method === 'POST') {
+        pipelines = pipelines.map((pipeline) => ({ ...pipeline, isDefault: pipeline.id === 'pipeline-ready' }))
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ success: true }),
+        } as Response)
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    })
+
+    render(<PipelinesPage />)
+
+    expect(await screen.findByRole('article', { name: 'Pipeline Sales pipeline' })).toBeInTheDocument()
+    expect(screen.getByText('Missing')).toBeInTheDocument()
+    const warning = screen.getByRole('region', { name: 'Default pipeline route review' })
+    expect(within(warning).getByRole('heading', { name: 'Default route is missing' })).toBeInTheDocument()
+    expect(within(warning).getByText('New deals need a default revenue path before the team scales pipeline entry.')).toBeInTheDocument()
+
+    fireEvent.click(within(warning).getByRole('button', { name: 'Set Sales pipeline as default pipeline route' }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/crm/pipelines/pipeline-ready/set-default', { method: 'POST' })
+    })
   })
 
   it('uses an in-page confirmation before deleting a revenue pipeline', async () => {
