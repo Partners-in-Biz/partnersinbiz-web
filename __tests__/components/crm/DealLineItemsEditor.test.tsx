@@ -44,4 +44,25 @@ describe('DealLineItemsEditor', () => {
     expect(await screen.findByRole('button', { name: 'Add quote item' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Cancel quote item draft' })).toBeInTheDocument()
   })
+
+  it('names quote item removal by the active line item', () => {
+    render(
+      <DealLineItemsEditor
+        value={[
+          {
+            name: 'Discovery Sprint',
+            qty: 1,
+            unitPrice: 12000,
+            total: 12000,
+            currency: 'ZAR',
+          },
+        ]}
+        onChange={jest.fn()}
+        currency="ZAR"
+        orgId="org-1"
+      />,
+    )
+
+    expect(screen.getByRole('button', { name: 'Remove quote item Discovery Sprint' })).toBeInTheDocument()
+  })
 })

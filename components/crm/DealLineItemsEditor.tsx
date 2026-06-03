@@ -241,7 +241,7 @@ export function DealLineItemsEditor({ value, onChange, currency, orgId, readOnly
                     <button
                       type="button"
                       onClick={() => removeItem(idx)}
-                      aria-label="Remove item"
+                      aria-label={`Remove quote item ${item.name || `line ${idx + 1}`}`}
                       className="cursor-pointer text-[var(--color-pib-text-muted)] hover:text-red-400 transition-colors"
                     >
                       <span className="material-symbols-outlined text-[16px]">delete</span>
