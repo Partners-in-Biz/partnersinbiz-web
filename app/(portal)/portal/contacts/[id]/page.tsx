@@ -1137,6 +1137,57 @@ export default function PortalContactDetailPage() {
     { label: 'Type', value: typeLabel },
     { label: 'Stage', value: stageLabel },
   ]
+  const relationshipRiskItems = [
+    !assignedTo
+      ? {
+          title: 'No accountable owner',
+          body: 'Assign a team member so follow-up has a named owner.',
+          icon: 'assignment_ind',
+          actionLabel: 'Assign owner',
+          actionAriaLabel: `Assign owner for ${contactName} from relationship risk brief`,
+          onAction: () => focusProfileField(ownerFieldRef),
+        }
+      : null,
+    !hasLinkedCompany
+      ? {
+          title: 'No linked company',
+          body: 'Link this person to an account so revenue, documents, and delivery context roll up.',
+          icon: 'add_business',
+          actionLabel: 'Link company',
+          actionAriaLabel: `Link company for ${contactName} from relationship risk brief`,
+          onAction: focusCompanyPicker,
+        }
+      : null,
+    lastTouchDays === null
+      ? {
+          title: 'No relationship touch logged',
+          body: 'Record the first note, call, email, or meeting so the team can see relationship history.',
+          icon: 'edit_note',
+          actionLabel: 'Log touch',
+          actionAriaLabel: `Log relationship touch for ${contactName} from relationship risk brief`,
+          onAction: openFirstNoteComposer,
+        }
+      : null,
+    !hasAnyScore
+      ? {
+          title: 'No score available',
+          body: 'Run scoring so leadership can compare this contact against pipeline quality.',
+          icon: 'speed',
+          actionLabel: 'Recompute score',
+          actionAriaLabel: `Recompute score for ${contactName} from relationship risk brief`,
+          onAction: handleRecomputeScore,
+          disabled: scoreSaving,
+        }
+      : null,
+  ].filter((item): item is {
+    title: string
+    body: string
+    icon: string
+    actionLabel: string
+    actionAriaLabel: string
+    onAction: () => void
+    disabled?: boolean
+  } => Boolean(item))
 
   return (
     <div className="space-y-8">
@@ -1438,6 +1489,48 @@ export default function PortalContactDetailPage() {
             )}
           </div>
         </div>
+
+        {relationshipRiskItems.length > 0 && (
+          <section className="bento-card !p-5">
+            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+              <div>
+                <p className="eyebrow !text-[10px]">Leadership brief</p>
+                <h2 className="mt-2 font-display text-xl text-[var(--color-pib-text)]">Relationship risk brief</h2>
+                <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">
+                  {relationshipRiskItems.length} open {relationshipRiskItems.length === 1 ? 'risk needs' : 'risks need'} attention before this relationship is leadership-ready.
+                </p>
+              </div>
+              <span
+                aria-hidden="true"
+                className="material-symbols-outlined flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-[var(--color-pib-line)] bg-white/[0.04] text-[20px] text-[var(--color-pib-accent)]"
+              >
+                crisis_alert
+              </span>
+            </div>
+            <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              {relationshipRiskItems.map((item) => (
+                <div key={item.title} className="rounded-md border border-[var(--color-pib-line)] bg-white/[0.03] p-3">
+                  <div className="flex items-start gap-2">
+                    <span aria-hidden="true" className="material-symbols-outlined text-[18px] text-[var(--color-pib-accent)]">{item.icon}</span>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-[var(--color-pib-text)]">{item.title}</p>
+                      <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">{item.body}</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    aria-label={item.actionAriaLabel}
+                    onClick={item.onAction}
+                    disabled={item.disabled}
+                    className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-[var(--color-pib-line)] px-2 py-1.5 text-xs font-medium text-[var(--color-pib-accent)] transition-colors hover:border-[var(--color-pib-accent)] hover:text-[var(--color-pib-text)] disabled:opacity-50"
+                  >
+                    {item.actionLabel}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
         {(contact.leadScore !== undefined || contact.icpScore !== undefined || contact.aiLeadScore !== undefined || nextSuggestion) && (
           <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
