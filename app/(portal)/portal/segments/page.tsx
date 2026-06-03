@@ -98,6 +98,10 @@ function formFromSegment(s: Segment): FormState {
   }
 }
 
+function segmentDisplayName(segment: Segment): string {
+  return segment.name?.trim() || 'Segment name missing'
+}
+
 export default function PortalSegmentsPage() {
   const [segments, setSegments] = useState<Segment[]>([])
   const [counts, setCounts] = useState<Record<string, number | null>>({})
@@ -264,7 +268,7 @@ export default function PortalSegmentsPage() {
 
   async function confirmDeleteSegment() {
     if (!pendingDeleteSegment) return
-    await deleteSegment(pendingDeleteSegment.id, pendingDeleteSegment.name)
+    await deleteSegment(pendingDeleteSegment.id, segmentDisplayName(pendingDeleteSegment))
   }
 
   function applyTemplate(presetId: string, target: 'new' | 'edit') {
@@ -491,7 +495,7 @@ export default function PortalSegmentsPage() {
               <div>
                 <p className="eyebrow !text-[10px] !text-red-100/80">Saved audience delete</p>
                 <h2 id="segment-delete-confirm-title" className="mt-1 font-display text-lg text-red-50">
-                  Delete segment &quot;{pendingDeleteSegment.name}&quot;?
+                  Delete segment &quot;{segmentDisplayName(pendingDeleteSegment)}&quot;?
                 </h2>
                 <p id="segment-delete-confirm-description" className="mt-2 max-w-2xl text-sm text-red-100/90">
                   This removes the saved audience lens for {counts[pendingDeleteSegment.id] ?? 'unresolved'} contact{counts[pendingDeleteSegment.id] === 1 ? '' : 's'}. Existing contact records and campaign history stay available for audit.
@@ -507,14 +511,14 @@ export default function PortalSegmentsPage() {
                 }}
                 className="btn-pib-secondary text-xs"
                 disabled={deletingId === pendingDeleteSegment.id}
-                aria-label={`Cancel delete for segment ${pendingDeleteSegment.name}`}
+                aria-label={`Cancel delete for segment ${segmentDisplayName(pendingDeleteSegment)}`}
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={confirmDeleteSegment}
-                aria-label={`Confirm delete segment ${pendingDeleteSegment.name}`}
+                aria-label={`Confirm delete segment ${segmentDisplayName(pendingDeleteSegment)}`}
                 className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-lg border border-red-300/30 bg-red-500/20 px-3 py-2 text-xs font-semibold text-red-50 transition-colors hover:border-red-200/60 hover:bg-red-500/30 disabled:cursor-not-allowed disabled:opacity-60"
                 disabled={deletingId === pendingDeleteSegment.id}
               >
@@ -614,6 +618,7 @@ export default function PortalSegmentsPage() {
           {filteredSegments.map((s) => {
             const isEditing = editingId === s.id
             const count = counts[s.id]
+            const displayName = segmentDisplayName(s)
             const filterChips: string[] = []
             if (s.filters?.stage) filterChips.push(`stage: ${s.filters.stage}`)
             if (s.filters?.type) filterChips.push(`type: ${s.filters.type}`)
@@ -646,7 +651,7 @@ export default function PortalSegmentsPage() {
                   <div className="flex items-start justify-between gap-4 flex-wrap">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-3 flex-wrap">
-                        <h3 className="font-display text-xl">{s.name}</h3>
+                        <h3 className="font-display text-xl">{displayName}</h3>
                         <span className="pill">
                           {count === undefined || count === null ? '…' : `${count} contact${count === 1 ? '' : 's'}`}
                         </span>
@@ -678,7 +683,7 @@ export default function PortalSegmentsPage() {
                           setDeleteError('')
                         }}
                         className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-danger,#FCA5A5)] transition-colors p-2"
-                        aria-label={`Delete segment ${s.name}`}
+                        aria-label={`Delete segment ${displayName}`}
                       >
                         <span className="material-symbols-outlined text-[18px]">delete</span>
                       </button>

@@ -167,4 +167,45 @@ describe('portal segments page response parsing', () => {
 
     confirmSpy.mockRestore()
   })
+
+  it('names sparse segment rows and delete confirmations instead of exposing blank controls', async () => {
+    fetchMock.mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/segments') {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              data: {
+                segments: [
+                  {
+                    id: 'seg-sparse',
+                    name: '',
+                    description: '',
+                    filters: {},
+                  },
+                ],
+              },
+            }),
+        })
+      }
+      if (url === '/api/v1/crm/segments/seg-sparse/resolve') {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ data: { count: 0 } }),
+        })
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ data: {} }) })
+    })
+
+    render(<PortalSegmentsPage />)
+
+    expect(await screen.findByText('Segment name missing')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete segment Segment name missing' }))
+
+    expect(await screen.findByRole('alertdialog', { name: 'Delete segment "Segment name missing"?' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Cancel delete for segment Segment name missing' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Confirm delete segment Segment name missing' })).toBeInTheDocument()
+  })
 })
