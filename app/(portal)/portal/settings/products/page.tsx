@@ -71,6 +71,7 @@ export default function ProductsPage() {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
   const [pendingDeleteProduct, setPendingDeleteProduct] = useState<Product | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [currencyFilter, setCurrencyFilter] = useState('')
   const [healthFilter, setHealthFilter] = useState<'all' | 'ready' | 'needs-work'>('all')
@@ -136,12 +137,14 @@ export default function ProductsPage() {
 
   async function handleDelete(p: Product) {
     setPendingDeleteProduct(p)
+    setDeleteError(null)
   }
 
   async function confirmDeleteProduct() {
     if (!pendingDeleteProduct) return
     const product = pendingDeleteProduct
     setDeletingId(product.id)
+    setDeleteError(null)
     try {
       const res = await fetch(`/api/v1/crm/products/${product.id}`, { method: 'DELETE' })
       if (!res.ok) {
@@ -151,7 +154,7 @@ export default function ProductsPage() {
       setProducts((prev) => prev.filter((x) => x.id !== product.id))
       setPendingDeleteProduct(null)
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Delete failed.')
+      setDeleteError(err instanceof Error ? err.message : 'Delete failed.')
     } finally {
       setDeletingId(null)
     }
@@ -583,12 +586,27 @@ export default function ProductsPage() {
                 <p id="delete-product-description" className="mt-2 max-w-3xl text-sm text-[var(--color-pib-text-muted)]">
                   This removes the product from the active catalog used by deal line items, quotes, and revenue reporting. Historical records keep their saved line-item data.
                 </p>
+                {deleteError && (
+                  <div
+                    role="status"
+                    aria-label="Catalog product delete failed"
+                    className="mt-3 rounded-md border border-amber-400/25 bg-amber-400/10 p-3"
+                  >
+                    <p className="text-sm font-medium text-amber-100">{deleteError}</p>
+                    <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">
+                      The product stayed in the catalog. Resolve the dependency or archive it before trying again.
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
-                onClick={() => setPendingDeleteProduct(null)}
+                onClick={() => {
+                  setPendingDeleteProduct(null)
+                  setDeleteError(null)
+                }}
                 className="btn-pib-secondary text-xs"
                 disabled={deletingId === pendingDeleteProduct.id}
                 aria-label={`Cancel delete for catalog product ${productDisplayName(pendingDeleteProduct)}`}

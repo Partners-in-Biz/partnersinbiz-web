@@ -294,4 +294,53 @@ describe('Portal settings products page', () => {
 
     confirmSpy.mockRestore()
   })
+
+  it('keeps catalog delete failures inside the product command center', async () => {
+    const alertSpy = jest.spyOn(window, 'alert').mockImplementation(() => {})
+    products = [{
+      id: 'product-locked',
+      orgId: 'org-1',
+      name: 'Locked retainer',
+      description: 'Used by active deal lines',
+      unit: 'month',
+      unitPrice: 15000,
+      currency: 'ZAR',
+      createdAt: null,
+      updatedAt: null,
+    }]
+
+    ;(global.fetch as jest.Mock).mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/products') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { products } }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/products/product-locked' && init?.method === 'DELETE') {
+        return Promise.resolve({
+          ok: false,
+          status: 409,
+          json: async () => ({ error: 'Product is used by an active deal' }),
+        } as Response)
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    })
+
+    render(<ProductsPage />)
+
+    expect(await screen.findByText('Locked retainer')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete Locked retainer' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm delete catalog product Locked retainer' }))
+
+    const warning = await screen.findByRole('status', { name: 'Catalog product delete failed' })
+    expect(warning).toHaveTextContent('Product is used by an active deal')
+    expect(warning).toHaveTextContent('The product stayed in the catalog. Resolve the dependency or archive it before trying again.')
+    expect(screen.getByRole('alertdialog', { name: 'Delete catalog product "Locked retainer"?' })).toBeInTheDocument()
+    expect(screen.getByText('Locked retainer')).toBeInTheDocument()
+    expect(alertSpy).not.toHaveBeenCalled()
+
+    alertSpy.mockRestore()
+  })
 })
