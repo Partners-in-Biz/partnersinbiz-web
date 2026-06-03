@@ -85,6 +85,10 @@ function websiteHref(value?: string): string {
   return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`
 }
 
+function openAccountDetailLabel(companyName: string): string {
+  return `Open account detail for ${companyName}`
+}
+
 // ── Tier / lifecycle colour chips ─────────────────────────────────────────────
 
 const TIER_COLOURS: Record<string, string> = {
@@ -188,9 +192,17 @@ export function CompanyRow({
 
       {/* Name */}
       <td className="px-4 py-3">
-        <p className="text-sm font-medium text-[var(--color-pib-text)] truncate max-w-xs">
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation()
+            onClick(company.id)
+          }}
+          aria-label={openAccountDetailLabel(company.name)}
+          className="block max-w-xs truncate text-left text-sm font-medium text-[var(--color-pib-text)] transition-colors hover:text-[var(--color-pib-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-pib-accent)]"
+        >
           {company.name}
-        </p>
+        </button>
         {websiteLink ? (
           <a
             href={websiteLink}

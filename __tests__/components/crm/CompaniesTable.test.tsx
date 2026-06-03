@@ -139,6 +139,17 @@ describe('CompaniesTable', () => {
     expect(handleClick).toHaveBeenCalledWith('co-42')
   })
 
+  it('names the account identity as a direct detail command', () => {
+    const handleClick = jest.fn()
+    const company = makeCompany({ id: 'co-detail', name: 'Board Account Ltd' })
+
+    render(<CompaniesTable companies={[company]} loading={false} onRowClick={handleClick} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open account detail for Board Account Ltd' }))
+
+    expect(handleClick).toHaveBeenCalledWith('co-detail')
+  })
+
   it('renders tier chip as a readable account label when tier is set', () => {
     const company = makeCompany({ id: 'co-1', tier: 'mid-market' })
     render(<CompaniesTable companies={[company]} loading={false} onRowClick={noop} />)
