@@ -115,6 +115,22 @@ describe('Portal contacts page', () => {
     expect(within(row as HTMLElement).getByText('Unassigned')).toBeInTheDocument()
   })
 
+  it('turns the team workload card into a bulk owner-gap assignment command', async () => {
+    render(<PortalContactsPage />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: 'Open contact Owned Client' })).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Select 1 unowned contact for owner assignment' }))
+
+    expect(screen.getByRole('checkbox', { name: 'Select Unowned Prospect' })).toBeChecked()
+    expect(screen.queryByRole('checkbox', { name: 'Select Owned Client' })).not.toBeInTheDocument()
+    expect(screen.getByText('1 selected')).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Bulk action' })).toHaveValue('assign')
+    expect(screen.getByText('owner: unowned')).toBeInTheDocument()
+  })
+
   it('warns when contacts fail to load instead of presenting the audience as empty', async () => {
     ;(global.fetch as jest.Mock).mockImplementation((input: RequestInfo | URL) => {
       const url = String(input)

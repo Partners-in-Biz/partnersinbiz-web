@@ -291,6 +291,15 @@ export default function PortalContactsPage() {
     setFollowUpLens('all')
   }
 
+  function selectUnownedContactsForAssignment() {
+    const ids = unownedContacts.map((contact) => contact.id)
+    if (!ids.length) return
+    setSelectedIds(new Set(ids))
+    setBulkAction('assign')
+    setOwnerLens('unowned')
+    setFollowUpLens('all')
+  }
+
   async function handleBulkDelete() {
     if (selectedIds.size === 0) return
     setBulkDeleteConfirmOpen(true)
@@ -530,6 +539,22 @@ export default function PortalContactsPage() {
           <p className="mt-1 text-xs leading-relaxed text-[var(--color-pib-text-muted)]">
             Select unowned contacts, assign a team member, and keep the customer base accountable from this workspace.
           </p>
+          <button
+            type="button"
+            onClick={selectUnownedContactsForAssignment}
+            disabled={unownedContacts.length === 0}
+            className="btn-pib-secondary mt-4 w-full justify-center text-xs disabled:cursor-not-allowed disabled:opacity-50"
+            aria-label={
+              unownedContacts.length === 1
+                ? 'Select 1 unowned contact for owner assignment'
+                : `Select ${unownedContacts.length} unowned contacts for owner assignment`
+            }
+          >
+            <span className="material-symbols-outlined text-[14px]" aria-hidden="true">playlist_add_check</span>
+            {unownedContacts.length > 0
+              ? `Select ${unownedContacts.length} owner gap${unownedContacts.length === 1 ? '' : 's'}`
+              : 'No owner gaps'}
+          </button>
         </div>
       </section>
 
