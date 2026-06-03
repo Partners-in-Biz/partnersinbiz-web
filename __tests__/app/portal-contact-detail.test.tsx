@@ -181,6 +181,22 @@ describe('Portal contact detail page', () => {
     expect(screen.getByRole('textbox', { name: 'Email message for Jane Client' })).toBeInTheDocument()
   })
 
+  it('warns leaders when the contact detail looks like smoke-test setup data', async () => {
+    mockContactOverrides = {
+      name: 'Smoke composer focus contact 20260531172148',
+      email: 'smoke-20260531172148@example.com',
+    }
+
+    render(<PortalContactDetailPage />)
+
+    expect(await screen.findByRole('heading', { name: 'Contact setup needs review' })).toBeInTheDocument()
+    expect(screen.getByText('Smoke composer focus contact 20260531172148')).toBeInTheDocument()
+    expect(screen.getByText(/looks like smoke-test contact data/)).toBeInTheDocument()
+
+    const reviewButton = screen.getByRole('button', { name: 'Review contact setup for Smoke composer focus contact 20260531172148' })
+    expect(reviewButton).toBeInTheDocument()
+  })
+
   it('warns when contact details fail to load and gives leaders a retry path', async () => {
     global.fetch = jest.fn((input: RequestInfo | URL) => {
       const url = String(input)

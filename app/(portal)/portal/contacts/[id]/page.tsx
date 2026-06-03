@@ -84,6 +84,45 @@ interface RelationshipRiskItem {
   disabled?: boolean
 }
 
+function ContactSetupReviewCard({
+  contactName,
+  onReviewProfile,
+}: {
+  contactName: string
+  onReviewProfile: () => void
+}) {
+  return (
+    <section
+      role="region"
+      aria-label={`Contact setup review for ${contactName}`}
+      className="rounded-[var(--radius-card)] border border-amber-500/25 bg-amber-500/[0.07] p-5"
+    >
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div className="flex gap-3">
+          <span className="material-symbols-outlined mt-0.5 text-amber-200" aria-hidden="true">rule_settings</span>
+          <div>
+            <p className="eyebrow !text-[10px] text-amber-200">Contact hygiene</p>
+            <h2 className="mt-1 font-display text-xl text-[var(--color-pib-text)]">Contact setup needs review</h2>
+            <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">
+              <span className="font-medium text-[var(--color-pib-text)]">{contactName}</span> looks like smoke-test contact data.
+              Review the profile before the team treats this as a real relationship.
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={onReviewProfile}
+          className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5 text-sm"
+          aria-label={`Review contact setup for ${contactName}`}
+        >
+          <span className="material-symbols-outlined text-base" aria-hidden="true">edit</span>
+          Review profile
+        </button>
+      </div>
+    </section>
+  )
+}
+
 interface TeamMemberOption {
   uid: string
   firstName?: string
@@ -192,6 +231,15 @@ function websiteHref(value: string): string {
   if (!trimmed) return ''
   if (/^https?:\/\//i.test(trimmed)) return trimmed
   return `https://${trimmed}`
+}
+
+function isContactSetupArtifact(contact: Pick<ContactRecord, 'name' | 'email'>): boolean {
+  const haystack = [contact.name, contact.email]
+    .map((value) => value?.trim().toLowerCase() ?? '')
+    .filter(Boolean)
+    .join(' ')
+  if (!haystack) return false
+  return /\b(smoke|test|fixture|delete)\b/.test(haystack)
 }
 
 function readableStatusLabel(value?: string): string {
@@ -334,6 +382,7 @@ export default function PortalContactDetailPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const companyPickerRef = useRef<HTMLDivElement | null>(null)
+  const nameFieldRef = useRef<HTMLInputElement | null>(null)
   const emailFieldRef = useRef<HTMLInputElement | null>(null)
   const phoneFieldRef = useRef<HTMLInputElement | null>(null)
   const jobTitleFieldRef = useRef<HTMLInputElement | null>(null)
@@ -1084,6 +1133,7 @@ export default function PortalContactDetailPage() {
   const tags = splitTags(tagsInput)
   const hasContactName = Boolean(name.trim() || contact.name?.trim())
   const contactName = name.trim() || contact.name?.trim() || 'Unnamed contact'
+  const contactNeedsSetupReview = isContactSetupArtifact({ name: contactName, email })
   const linkedCompanyId = editCompanyId || contact.companyId || ''
   const companyNameValue = editCompanyName || contact.companyName || contact.company || ''
   const companyLabel = companyNameValue || 'No company linked'
@@ -1297,6 +1347,13 @@ export default function PortalContactDetailPage() {
         </div>
       </div>
 
+      {contactNeedsSetupReview && (
+        <ContactSetupReviewCard
+          contactName={contactName}
+          onReviewProfile={() => focusProfileField(nameFieldRef)}
+        />
+      )}
+
       {archiveConfirmOpen && (
         <section
           role="alertdialog"
@@ -1347,6 +1404,7 @@ export default function PortalContactDetailPage() {
               <div className="min-w-0 flex-1">
                 <p className="eyebrow">Contact command center</p>
                 <input
+                  ref={nameFieldRef}
                   aria-label={`Rename ${contactName} from contact header`}
                   value={name}
                   onChange={(e) => setName(e.target.value)}
