@@ -115,6 +115,32 @@ describe('portal segments page response parsing', () => {
     expect(screen.queryByRole('button', { name: /add New segment/i })).not.toBeInTheDocument()
   })
 
+  it('warns when segments fail to load and gives leaders a retry path', async () => {
+    fetchMock.mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/segments') {
+        return Promise.resolve({
+          ok: false,
+          json: () => Promise.resolve({ error: 'Segments index unavailable' }),
+        })
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    })
+
+    render(<PortalSegmentsPage />)
+
+    expect(await screen.findByRole('heading', { name: 'Segments could not load' })).toBeInTheDocument()
+    expect(screen.getByText('Segments index unavailable')).toBeInTheDocument()
+    expect(screen.queryByText('No segments yet.')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Retry loading segments' }))
+
+    await waitFor(() => {
+      const segmentRequests = fetchMock.mock.calls.filter(([url]) => String(url) === '/api/v1/crm/segments')
+      expect(segmentRequests).toHaveLength(2)
+    })
+  })
+
   it('uses an in-page confirmation before deleting a saved audience segment', async () => {
     const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(false)
 
