@@ -45,11 +45,15 @@ function displayUrn(urn: string): string {
 
 export function LinkedinConnectionsPanel({ orgSlug, orgId, connections }: Props) {
   const router = useRouter()
-  const linkedin = connections.find((c) => c.platform === 'linkedin')
+  const [linkedinDisconnected, setLinkedinDisconnected] = useState(false)
+  const linkedin = linkedinDisconnected ? undefined : connections.find((c) => c.platform === 'linkedin')
   const selectedAdAccountUrn = getSelectedAdAccountUrn(linkedin)
 
   const [connecting, setConnecting] = useState(false)
   const [disconnecting, setDisconnecting] = useState(false)
+  const [confirmDisconnect, setConfirmDisconnect] = useState(false)
+  const [actionError, setActionError] = useState<string | null>(null)
+  const [message, setMessage] = useState<string | null>(null)
   const [accounts, setAccounts] = useState<LinkedinAccountSummary[]>([])
   const [accountsLoading, setAccountsLoading] = useState(false)
   const [accountsError, setAccountsError] = useState<string | null>(null)
@@ -93,6 +97,8 @@ export function LinkedinConnectionsPanel({ orgSlug, orgId, connections }: Props)
 
   async function startConnect() {
     setConnecting(true)
+    setActionError(null)
+    setMessage(null)
     try {
       const res = await fetch('/api/v1/ads/linkedin/oauth/authorize', {
         method: 'POST',
@@ -103,13 +109,15 @@ export function LinkedinConnectionsPanel({ orgSlug, orgId, connections }: Props)
       window.location.href = body.data.authorizeUrl
     } catch (err) {
       setConnecting(false)
-      alert((err as Error).message)
+      setActionError((err as Error).message)
     }
   }
 
   async function saveAdAccount() {
     if (!linkedin || !selected) return
     setSaving(true)
+    setActionError(null)
+    setMessage(null)
     try {
       const res = await fetch(
         `/api/v1/ads/linkedin/connections/${encodeURIComponent(linkedin.id)}/account`,
@@ -124,18 +132,26 @@ export function LinkedinConnectionsPanel({ orgSlug, orgId, connections }: Props)
       )
       const body = await res.json()
       if (!body.success) throw new Error(body.error ?? `HTTP ${res.status}`)
+      setMessage('LinkedIn Ads account updated.')
       router.refresh()
     } catch (err) {
-      alert((err as Error).message)
+      setActionError((err as Error).message)
     } finally {
       setSaving(false)
     }
   }
 
+  function requestDisconnect() {
+    setActionError(null)
+    setMessage(null)
+    setConfirmDisconnect(true)
+  }
+
   async function disconnect() {
     if (!linkedin) return
-    if (!confirm('Disconnect LinkedIn Ads? This revokes ad account access.')) return
     setDisconnecting(true)
+    setActionError(null)
+    setMessage(null)
     try {
       const res = await fetch('/api/v1/ads/connections/linkedin', {
         method: 'DELETE',
@@ -143,9 +159,12 @@ export function LinkedinConnectionsPanel({ orgSlug, orgId, connections }: Props)
       })
       const body = await res.json()
       if (!body.success) throw new Error(body.error ?? `HTTP ${res.status}`)
+      setConfirmDisconnect(false)
+      setLinkedinDisconnected(true)
+      setMessage('LinkedIn Ads disconnected.')
       router.refresh()
     } catch (err) {
-      alert((err as Error).message)
+      setActionError((err as Error).message)
     } finally {
       setDisconnecting(false)
     }
@@ -153,6 +172,54 @@ export function LinkedinConnectionsPanel({ orgSlug, orgId, connections }: Props)
 
   return (
     <div className="rounded-lg border border-white/10 p-5">
+      {confirmDisconnect && (
+        <div
+          role="alertdialog"
+          aria-modal="true"
+          aria-label={`Disconnect LinkedIn Ads connection for ${orgSlug}?`}
+          className="mb-4 rounded-lg border border-red-400/30 bg-red-400/10 p-4"
+        >
+          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+            <div>
+              <h2 className="font-semibold text-red-100">Disconnect LinkedIn Ads connection?</h2>
+              <p className="mt-1 text-sm text-red-100/80">
+                This revokes LinkedIn Marketing API ad account access for this workspace. Campaign history stays in PiB.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                className="rounded-md border border-red-100/30 px-3 py-2 text-xs font-medium text-red-50 hover:bg-red-50/10 disabled:cursor-not-allowed disabled:opacity-50"
+                onClick={() => setConfirmDisconnect(false)}
+                disabled={disconnecting}
+              >
+                Keep LinkedIn Ads connected
+              </button>
+              <button
+                type="button"
+                className="rounded-md bg-red-300 px-3 py-2 text-xs font-medium text-red-950 hover:bg-red-200 disabled:cursor-not-allowed disabled:opacity-60"
+                onClick={disconnect}
+                disabled={disconnecting}
+              >
+                {disconnecting ? 'Disconnecting...' : `Confirm disconnect LinkedIn Ads connection for ${orgSlug}`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {(message || actionError) && (
+        <div
+          className={`mb-4 rounded-lg border px-4 py-3 text-sm ${
+            actionError
+              ? 'border-red-400/30 bg-red-400/10 text-red-200'
+              : 'border-emerald-400/30 bg-emerald-400/10 text-emerald-200'
+          }`}
+        >
+          {actionError ?? message}
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <div>
           <h2 className="font-medium">LinkedIn Ads</h2>
@@ -167,7 +234,8 @@ export function LinkedinConnectionsPanel({ orgSlug, orgId, connections }: Props)
         {linkedin ? (
           <button
             className="btn-pib-ghost text-sm"
-            onClick={disconnect}
+            aria-label={`Disconnect LinkedIn Ads connection for ${orgSlug}`}
+            onClick={requestDisconnect}
             disabled={disconnecting}
           >
             {disconnecting ? 'Disconnecting…' : 'Disconnect'}
