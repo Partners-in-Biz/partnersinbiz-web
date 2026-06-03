@@ -140,6 +140,9 @@ describe('Portal deals page', () => {
       if (path === '/api/v1/crm/deals?pipelineId=pipeline-1&limit=200') {
         return apiResponse(mockDealRows)
       }
+      if (path === '/api/v1/crm/deals?pipelineId=pipeline-smoke&limit=200') {
+        return apiResponse(mockDealRows)
+      }
       if (path === '/api/v1/crm/deals/deal-2') {
         return apiResponse({ id: 'deal-2' })
       }
@@ -388,6 +391,30 @@ describe('Portal deals page', () => {
     expect(screen.getByText('Forecast baseline')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Create first deal for this pipeline' })).toBeInTheDocument()
     expect(screen.queryByText('No deals yet.')).not.toBeInTheDocument()
+  })
+
+  it('warns leaders when the active pipeline looks like smoke-test setup data', async () => {
+    mockDealRows = []
+    mockPipelineRows = [
+      {
+        id: 'pipeline-smoke',
+        name: 'Smoke delete pipeline 1780236200000',
+        isDefault: false,
+        archived: false,
+        stages: [
+          { id: 'qualified', label: 'Qualified', kind: 'open', order: 1, probability: 40 },
+        ],
+      },
+    ]
+
+    render(<DealsPage />)
+
+    expect(await screen.findByRole('heading', { name: 'Pipeline setup needs review' })).toBeInTheDocument()
+    const review = screen.getByRole('region', { name: 'Pipeline setup review for Smoke delete pipeline 1780236200000' })
+    expect(within(review).getByText('Smoke delete pipeline 1780236200000')).toBeInTheDocument()
+    expect(within(review).getByText(/looks like smoke-test pipeline data/)).toBeInTheDocument()
+    expect(within(review).getByRole('link', { name: 'Review pipeline settings for Smoke delete pipeline 1780236200000' }))
+      .toHaveAttribute('href', '/portal/settings/pipelines')
   })
 
   it('warns when deals fail to load and gives leaders a retry path', async () => {

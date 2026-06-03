@@ -181,6 +181,44 @@ function PipelineLaunchCommandCenter({ onCreateDeal }: { onCreateDeal: () => voi
   )
 }
 
+function isPipelineSetupArtifact(pipeline?: Pipeline): boolean {
+  const name = pipeline?.name?.trim().toLowerCase() ?? ''
+  if (!name) return false
+  return /\b(smoke|test|delete)\b/.test(name)
+}
+
+function PipelineSetupReviewCard({ pipeline }: { pipeline: Pipeline }) {
+  return (
+    <section
+      role="region"
+      aria-label={`Pipeline setup review for ${pipeline.name}`}
+      className="rounded-[var(--radius-card)] border border-amber-500/25 bg-amber-500/[0.07] p-5"
+    >
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div className="flex gap-3">
+          <span className="material-symbols-outlined mt-0.5 text-amber-200" aria-hidden="true">rule_settings</span>
+          <div>
+            <p className="eyebrow !text-[10px] text-amber-200">Pipeline hygiene</p>
+            <h2 className="mt-1 font-display text-xl text-[var(--color-pib-text)]">Pipeline setup needs review</h2>
+            <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">
+              <span className="font-medium text-[var(--color-pib-text)]">{pipeline.name}</span> looks like smoke-test pipeline data.
+              Review pipeline settings before the team treats this as a board-ready revenue path.
+            </p>
+          </div>
+        </div>
+        <Link
+          href="/portal/settings/pipelines"
+          className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5 text-sm"
+          aria-label={`Review pipeline settings for ${pipeline.name}`}
+        >
+          <span className="material-symbols-outlined text-base" aria-hidden="true">settings</span>
+          Review settings
+        </Link>
+      </div>
+    </section>
+  )
+}
+
 // ── Forecast helpers ───────────────────────────────────────────────────────────
 
 function fmtDealValue(value: number | null | undefined, currency?: string, missingLabel = 'No value captured') {
@@ -437,6 +475,7 @@ export default function DealsPage() {
   }, [requestedStageId, selectedPipelineId])
 
   const selectedPipeline = pipelines.find(p => p.id === selectedPipelineId)
+  const selectedPipelineNeedsReview = isPipelineSetupArtifact(selectedPipeline)
   const stages = useMemo<PipelineStage[]>(
     () => selectedPipeline ? [...selectedPipeline.stages].sort((a, b) => a.order - b.order) : [],
     [selectedPipeline],
@@ -706,6 +745,10 @@ export default function DealsPage() {
 
       {/* Summary strip */}
       {isReady && !error && <PipelineSummary deals={deals} stages={stages} />}
+
+      {isReady && !error && selectedPipeline && selectedPipelineNeedsReview && (
+        <PipelineSetupReviewCard pipeline={selectedPipeline} />
+      )}
 
       {isReady && !error && (
         <section className="grid gap-3 md:grid-cols-[220px_1fr_1fr]">
