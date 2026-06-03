@@ -125,6 +125,30 @@ describe('PortalCaptureSourcesPage', () => {
     expect(screen.getByLabelText('Website welcome sequence')).toBeChecked()
   })
 
+  it('uses an in-page confirmation before deleting a capture source', async () => {
+    const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(false)
+
+    render(<PortalCaptureSourcesPage />)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Details for Homepage enquiry form' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Delete capture source Homepage enquiry form' }))
+
+    expect(confirmSpy).not.toHaveBeenCalled()
+    expect(screen.getByRole('alertdialog', { name: 'Delete capture source "Homepage enquiry form"?' })).toBeInTheDocument()
+    expect(screen.getByText('This removes the tracked intake channel, embed/API key, and future attribution path. Existing captured contacts and CRM history stay available for audit.')).toBeInTheDocument()
+    expect(global.fetch).not.toHaveBeenCalledWith('/api/v1/crm/capture-sources/src-form', expect.objectContaining({ method: 'DELETE' }))
+    expect(screen.getByRole('button', { name: 'Cancel delete for capture source Homepage enquiry form' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm delete capture source Homepage enquiry form' }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/capture-sources/src-form', { method: 'DELETE' })
+    })
+    expect(screen.queryByText('Homepage enquiry form')).not.toBeInTheDocument()
+
+    confirmSpy.mockRestore()
+  })
+
   it('turns an empty capture-source list into a first-channel setup action', async () => {
     fetchMock.mockImplementation((input: RequestInfo | URL) => {
       const url = String(input)

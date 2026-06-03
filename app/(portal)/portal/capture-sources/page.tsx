@@ -150,6 +150,7 @@ function SourceCard({
   const [redirectDraft, setRedirectDraft] = useState(source.redirectUrl ?? '')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
 
   useEffect(() => {
     setNameDraft(source.name)
@@ -225,8 +226,7 @@ function SourceCard({
     await patch({ rotateKey: true })
   }
 
-  async function handleDelete() {
-    if (!confirm(`Delete capture source "${source.name}"? This cannot be undone.`)) return
+  async function confirmDelete() {
     setBusy(true)
     setError(null)
     try {
@@ -521,15 +521,66 @@ function SourceCard({
           )}
 
           {/* Delete */}
-          <div className="pt-3 border-t border-[var(--color-pib-line)] flex justify-end">
-            <button
-              onClick={handleDelete}
-              disabled={busy}
-              className="px-3 py-1.5 rounded-lg bg-white/[0.04] text-[#FCA5A5] text-sm border border-[var(--color-pib-line)] hover:bg-red-500/10 disabled:opacity-50 transition-colors"
-              type="button"
-            >
-              Delete source
-            </button>
+          <div className="space-y-3 border-t border-[var(--color-pib-line)] pt-3">
+            {deleteConfirmOpen && (
+              <section
+                role="alertdialog"
+                aria-labelledby={`capture-source-delete-title-${source.id}`}
+                aria-describedby={`capture-source-delete-description-${source.id}`}
+                className="rounded-lg border border-red-400/30 bg-red-500/10 px-4 py-3 shadow-xl"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="flex gap-3">
+                    <span className="material-symbols-outlined mt-0.5 text-red-300" aria-hidden="true">
+                      warning
+                    </span>
+                    <div className="min-w-0">
+                      <p className="eyebrow !text-[10px] text-red-200">Capture source delete confirmation</p>
+                      <h3 id={`capture-source-delete-title-${source.id}`} className="mt-1 font-display text-lg text-[var(--color-pib-text)]">
+                        Delete capture source &quot;{source.name}&quot;?
+                      </h3>
+                      <p id={`capture-source-delete-description-${source.id}`} className="mt-2 text-sm text-red-100/90">
+                        This removes the tracked intake channel, embed/API key, and future attribution path. Existing captured contacts and CRM history stay available for audit.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setDeleteConfirmOpen(false)}
+                      className="btn-pib-secondary text-xs"
+                      disabled={busy}
+                      aria-label={`Cancel delete for capture source ${source.name}`}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={confirmDelete}
+                      disabled={busy}
+                      className="inline-flex items-center gap-1.5 rounded-md border border-red-300/30 bg-red-400/15 px-3 py-2 text-xs font-semibold text-red-100 transition-colors hover:bg-red-400/25 disabled:opacity-50"
+                      aria-label={`Confirm delete capture source ${source.name}`}
+                    >
+                      <span className="material-symbols-outlined text-[14px]" aria-hidden="true">
+                        delete
+                      </span>
+                      {busy ? 'Deleting...' : 'Delete source'}
+                    </button>
+                  </div>
+                </div>
+              </section>
+            )}
+            <div className="flex justify-end">
+              <button
+                onClick={() => setDeleteConfirmOpen(true)}
+                disabled={busy}
+                className="px-3 py-1.5 rounded-lg bg-white/[0.04] text-[#FCA5A5] text-sm border border-[var(--color-pib-line)] hover:bg-red-500/10 disabled:opacity-50 transition-colors"
+                type="button"
+                aria-label={`Delete capture source ${source.name}`}
+              >
+                Delete source
+              </button>
+            </div>
           </div>
         </div>
       )}
