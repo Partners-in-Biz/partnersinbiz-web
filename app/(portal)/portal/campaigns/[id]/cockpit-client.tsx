@@ -43,6 +43,9 @@ export function CockpitClient({ campaignId, campaign, assets: initialAssets, bra
 
   const [assets, setAssets] = useState<AnyObj>(initialAssets)
   const [approving, setApproving] = useState(false)
+  const [showApproveAllConfirm, setShowApproveAllConfirm] = useState(false)
+  const [approveAllStatus, setApproveAllStatus] = useState<string | null>(null)
+  const [approveAllError, setApproveAllError] = useState<string | null>(null)
 
   const split = useMemo(() => splitAssets(assets), [assets])
   const totalAwaiting = (assets?.meta?.byStatus?.pending_approval ?? 0) as number
@@ -57,14 +60,22 @@ export function CockpitClient({ campaignId, campaign, assets: initialAssets, bra
 
   async function approveAll() {
     if (approving) return
-    if (!confirm('Approve every pending asset on this campaign?')) return
     setApproving(true)
+    setApproveAllStatus(null)
+    setApproveAllError(null)
     try {
       const r = await fetch(`/api/v1/campaigns/${campaignId}/approve-all`, { method: 'POST' })
-      if (!r.ok) throw new Error('approve-all failed')
+      if (!r.ok) {
+        const json = await r.json().catch(() => ({}))
+        throw new Error(json?.error ?? 'Approval failed')
+      }
       const a = await fetch(`/api/v1/campaigns/${campaignId}/assets`).then(res => res.json())
       setAssets(a.data ?? null)
+      setApproveAllStatus('All campaign assets are approved and ready for publishing.')
+      setShowApproveAllConfirm(false)
       router.refresh()
+    } catch (err) {
+      setApproveAllError(err instanceof Error ? err.message : 'Approval failed')
     } finally {
       setApproving(false)
     }
@@ -123,7 +134,11 @@ export function CockpitClient({ campaignId, campaign, assets: initialAssets, bra
             )}
             <button
               type="button"
-              onClick={approveAll}
+              onClick={() => {
+                setApproveAllStatus(null)
+                setApproveAllError(null)
+                setShowApproveAllConfirm(true)
+              }}
               disabled={approving || totalAwaiting === 0}
               className="text-sm font-label px-4 py-2 rounded-md transition-opacity disabled:opacity-40"
               style={{
@@ -131,10 +146,65 @@ export function CockpitClient({ campaignId, campaign, assets: initialAssets, bra
                 color: '#000',
               }}
             >
-              {approving ? 'Approving…' : 'Approve all'}
+              {approving ? 'Approving…' : `Approve all awaiting assets (${totalAwaiting})`}
             </button>
           </div>
         </div>
+        {(showApproveAllConfirm || approveAllStatus || approveAllError) && (
+          <div className="mt-4 max-w-xl">
+            {showApproveAllConfirm && (
+              <div
+                role="alertdialog"
+                aria-modal="true"
+                aria-label={`Approve ${totalAwaiting} campaign assets?`}
+                className="rounded-lg border border-[var(--org-border,var(--color-pib-line))] bg-[var(--org-surface,var(--color-pib-card))] p-4 shadow-xl"
+              >
+                <p className="font-label text-sm">Approve {totalAwaiting} campaign assets?</p>
+                <p className="mt-2 text-xs leading-5 text-[var(--org-text-muted,var(--color-pib-text-muted))]">
+                  This approves every pending asset in the campaign preview and moves the work out of client review for publishing.
+                </p>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={approveAll}
+                    disabled={approving}
+                    className="rounded-md px-3 py-2 text-xs font-label transition-opacity disabled:opacity-50"
+                    style={{
+                      background: 'var(--org-accent, var(--color-pib-accent))',
+                      color: '#000',
+                    }}
+                  >
+                    {approving ? 'Approving assets…' : `Confirm approve ${totalAwaiting} campaign assets`}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowApproveAllConfirm(false)}
+                    disabled={approving}
+                    className="rounded-md border border-[var(--org-border,var(--color-pib-line))] px-3 py-2 text-xs font-label text-[var(--org-text,var(--color-pib-text))] transition-colors hover:bg-[var(--org-surface-soft,var(--color-pib-surface))] disabled:opacity-50"
+                  >
+                    Keep reviewing
+                  </button>
+                </div>
+              </div>
+            )}
+            {approveAllStatus && (
+              <p
+                role="status"
+                className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-300"
+              >
+                {approveAllStatus}
+              </p>
+            )}
+            {approveAllError && (
+              <p
+                role="alert"
+                className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300"
+              >
+                {approveAllError}
+              </p>
+            )}
+          </div>
+        )}
       </header>
 
       <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
