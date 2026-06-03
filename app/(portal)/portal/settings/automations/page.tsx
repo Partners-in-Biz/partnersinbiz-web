@@ -301,8 +301,9 @@ export default function AutomationsPage() {
         <Link
           href="/portal/settings/automations/new"
           className="btn-pib-accent flex w-fit shrink-0 items-center gap-1.5 text-sm"
+          aria-label="New automation"
         >
-          <span className="material-symbols-outlined text-[16px]">add</span>
+          <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
           New automation
         </Link>
       </div>
@@ -444,8 +445,9 @@ export default function AutomationsPage() {
                     <Link
                       href="/portal/settings/automations/new"
                       className="btn-pib-accent flex w-fit items-center gap-1.5 text-sm"
+                      aria-label="Create the first automation"
                     >
-                      <span className="material-symbols-outlined text-[16px]">add</span>
+                      <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
                       Create the first automation
                     </Link>
                     <span className="rounded-full border border-[var(--color-pib-line)] px-3 py-1.5 text-xs text-[var(--color-pib-text-muted)]">

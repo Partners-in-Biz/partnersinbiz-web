@@ -38,6 +38,16 @@ describe('Portal settings automations page', () => {
     )
   })
 
+  it('names automation creation commands without decorative icon text', async () => {
+    render(<AutomationsPage />)
+
+    expect(await screen.findByText('Launch your first CRM safety net')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'New automation' })).toHaveAttribute('href', '/portal/settings/automations/new')
+    expect(screen.getByRole('link', { name: 'Create the first automation' })).toHaveAttribute('href', '/portal/settings/automations/new')
+    expect(screen.queryByRole('link', { name: 'addNew automation' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'addCreate the first automation' })).not.toBeInTheDocument()
+  })
+
   it('warns when automations fail to load and gives leaders a retry path', async () => {
     global.fetch = jest.fn((input: RequestInfo | URL) => {
       const url = String(input)
