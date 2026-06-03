@@ -125,6 +125,10 @@ function providerSetupLabel(entry: ProviderRegistryEntry, selected: boolean, dis
   return `Choose ${sourceName} CRM source setup`
 }
 
+function integrationDisplayName(integration: PublicCrmIntegrationView): string {
+  return integration.name.trim() || 'Integration name missing'
+}
+
 const CADENCE_OPTIONS: Array<{ value: number; label: string }> = [
   { value: 0, label: 'Manual only' },
   { value: 60, label: 'Every hour' },
@@ -302,6 +306,7 @@ function IntegrationCard({
   const [busy, setBusy] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [tagsDraft, setTagsDraft] = useState((integration.autoTags ?? []).join(', '))
   const [secretDrafts, setSecretDrafts] = useState<Record<string, string>>({})
 
@@ -357,7 +362,6 @@ function IntegrationCard({
   }
 
   async function handleDelete() {
-    if (!confirm(`Delete integration "${integration.name}"? This cannot be undone.`)) return
     setBusy(true)
     setError(null)
     try {
@@ -368,6 +372,7 @@ function IntegrationCard({
         setBusy(false)
         return
       }
+      setDeleteConfirmOpen(false)
       onDeleted(integration.id)
     } catch {
       setError('Failed to delete')
@@ -402,6 +407,7 @@ function IntegrationCard({
   const sensitiveFields = entry?.configFields.filter((f) => f.sensitive) ?? []
   const campaignCount = integration.autoCampaignIds?.length ?? 0
   const tagCount = integration.autoTags?.length ?? 0
+  const displayName = integrationDisplayName(integration)
   const readinessItems = [
     cadenceLabel(integration.cadenceMinutes),
     integration.lastSyncedAt ? `${integration.lastSyncStats.imported} imported` : 'Never synced',
@@ -418,7 +424,7 @@ function IntegrationCard({
           </span>
           <div className="min-w-0 flex-1">
             <p className="font-medium text-[var(--color-pib-text)] truncate">
-              {integration.name}
+              {displayName}
               <span className="ml-2 text-xs text-[var(--color-pib-text-muted)] font-normal">
                 {entry?.displayName ?? integration.provider}
               </span>
@@ -465,13 +471,15 @@ function IntegrationCard({
           </button>
           <button
             onClick={() => setExpanded((v) => !v)}
+            aria-label={`${expanded ? 'Hide details' : 'Details'} for ${displayName}`}
             className="px-3 py-1.5 rounded-lg bg-white/[0.04] text-[var(--color-pib-text)] text-sm border border-[var(--color-pib-line)] hover:bg-white/[0.08] transition-colors"
             type="button"
           >
             {expanded ? 'Hide' : 'Details'}
           </button>
           <button
-            onClick={handleDelete}
+            onClick={() => setDeleteConfirmOpen(true)}
+            aria-label={`Delete integration ${displayName}`}
             disabled={busy}
             className="px-3 py-1.5 rounded-lg bg-white/[0.04] text-[#FCA5A5] text-sm border border-[var(--color-pib-line)] hover:bg-red-500/10 disabled:opacity-50 transition-colors"
             type="button"
@@ -483,6 +491,48 @@ function IntegrationCard({
 
       {(error || integration.lastError) && (
         <p className="px-4 pb-2 text-sm text-[#FCA5A5]">{error || integration.lastError}</p>
+      )}
+
+      {deleteConfirmOpen && (
+        <div className="px-4 pb-4">
+          <section
+            role="alertdialog"
+            aria-modal="false"
+            aria-labelledby={`integration-delete-title-${integration.id}`}
+            className="rounded-xl border border-red-500/25 bg-red-500/10 p-4"
+          >
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0">
+                <h3 id={`integration-delete-title-${integration.id}`} className="font-medium text-red-100">
+                  Delete integration &quot;{displayName}&quot;?
+                </h3>
+                <p className="mt-1 text-sm leading-relaxed text-red-100/80">
+                  This disconnects the CRM source, stops future syncs, and keeps imported contact history available for audit.
+                </p>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setDeleteConfirmOpen(false)}
+                  disabled={busy}
+                  aria-label={`Cancel delete integration ${displayName}`}
+                  className="rounded-lg border border-red-200/20 bg-white/[0.04] px-3 py-1.5 text-sm text-red-50 transition-colors hover:bg-white/[0.08] disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  disabled={busy}
+                  aria-label={`Confirm delete integration ${displayName}`}
+                  className="rounded-lg border border-red-300/30 bg-red-500/20 px-3 py-1.5 text-sm font-medium text-red-50 transition-colors hover:bg-red-500/30 disabled:opacity-50"
+                >
+                  {busy ? 'Deleting...' : 'Delete source'}
+                </button>
+              </div>
+            </div>
+          </section>
+        </div>
       )}
 
       {expanded && (
