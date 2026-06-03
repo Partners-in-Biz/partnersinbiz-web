@@ -128,6 +128,10 @@ function buildCurl(publicKey: string): string {
   return `curl -X POST ${BASE_URL}/api/public/capture/${publicKey} \\\n  -H 'Content-Type: application/json' \\\n  -d '{"email":"jane@example.com","name":"Jane"}'`
 }
 
+function sourceDisplayName(source: CaptureSource) {
+  return source.name?.trim() || 'Capture source name missing'
+}
+
 function SourceCard({
   source,
   campaigns,
@@ -264,6 +268,7 @@ function SourceCard({
   const tagCount = source.autoTags?.length ?? 0
   const campaignCount = source.autoCampaignIds?.length ?? 0
   const sequenceCount = source.autoSequenceIds?.length ?? 0
+  const displayName = sourceDisplayName(source)
   const readinessItems = [
     source.enabled ? 'Live' : 'Paused',
     captured > 0 ? `${captured} captured` : 'No captures yet',
@@ -304,7 +309,7 @@ function SourceCard({
                 type="button"
                 title="Click to rename"
               >
-                {source.name}
+                {displayName}
               </button>
             )}
             <p className="text-xs text-[var(--color-pib-text-muted)] mt-0.5">
@@ -340,7 +345,7 @@ function SourceCard({
             onClick={() => setExpanded((v) => !v)}
             className="px-3 py-1.5 rounded-lg bg-white/[0.04] text-[var(--color-pib-text)] text-sm border border-[var(--color-pib-line)] hover:bg-white/[0.08] transition-colors"
             type="button"
-            aria-label={`${expanded ? 'Hide details' : 'Details'} for ${source.name}`}
+            aria-label={`${expanded ? 'Hide details' : 'Details'} for ${displayName}`}
           >
             {expanded ? 'Hide' : 'Details'}
           </button>
@@ -366,7 +371,7 @@ function SourceCard({
                 disabled={busy}
                 className="px-2.5 py-1 rounded-md text-xs bg-white/[0.04] hover:bg-white/[0.08] text-[var(--color-pib-text)] border border-[var(--color-pib-line)] transition-colors disabled:opacity-50"
                 type="button"
-                aria-label={`Rotate public key for ${source.name}`}
+                aria-label={`Rotate public key for ${displayName}`}
               >
                 Rotate
               </button>
@@ -386,7 +391,7 @@ function SourceCard({
                     <div className="min-w-0">
                       <p className="eyebrow !text-[10px] text-amber-100">Public key rotation confirmation</p>
                       <h3 id={`capture-source-rotate-title-${source.id}`} className="mt-1 font-display text-lg text-[var(--color-pib-text)]">
-                        Rotate public key for &quot;{source.name}&quot;?
+                        Rotate public key for &quot;{displayName}&quot;?
                       </h3>
                       <p id={`capture-source-rotate-description-${source.id}`} className="mt-2 text-sm text-amber-50/90">
                         This immediately invalidates the current embed/API key. Update every form, API client, and integration using this capture source before sending more traffic.
@@ -399,7 +404,7 @@ function SourceCard({
                       onClick={() => setRotateConfirmOpen(false)}
                       className="btn-pib-secondary text-xs"
                       disabled={busy}
-                      aria-label={`Cancel key rotation for capture source ${source.name}`}
+                      aria-label={`Cancel key rotation for capture source ${displayName}`}
                     >
                       Cancel
                     </button>
@@ -408,7 +413,7 @@ function SourceCard({
                       onClick={confirmRotateKey}
                       disabled={busy}
                       className="inline-flex items-center gap-1.5 rounded-md border border-amber-200/30 bg-amber-300/15 px-3 py-2 text-xs font-semibold text-amber-50 transition-colors hover:bg-amber-300/25 disabled:opacity-50"
-                      aria-label={`Confirm rotate public key for capture source ${source.name}`}
+                      aria-label={`Confirm rotate public key for capture source ${displayName}`}
                     >
                       <span className="material-symbols-outlined text-[14px]" aria-hidden="true">
                         key
@@ -587,7 +592,7 @@ function SourceCard({
                     <div className="min-w-0">
                       <p className="eyebrow !text-[10px] text-red-200">Capture source delete confirmation</p>
                       <h3 id={`capture-source-delete-title-${source.id}`} className="mt-1 font-display text-lg text-[var(--color-pib-text)]">
-                        Delete capture source &quot;{source.name}&quot;?
+                        Delete capture source &quot;{displayName}&quot;?
                       </h3>
                       <p id={`capture-source-delete-description-${source.id}`} className="mt-2 text-sm text-red-100/90">
                         This removes the tracked intake channel, embed/API key, and future attribution path. Existing captured contacts and CRM history stay available for audit.
@@ -600,7 +605,7 @@ function SourceCard({
                       onClick={() => setDeleteConfirmOpen(false)}
                       className="btn-pib-secondary text-xs"
                       disabled={busy}
-                      aria-label={`Cancel delete for capture source ${source.name}`}
+                      aria-label={`Cancel delete for capture source ${displayName}`}
                     >
                       Cancel
                     </button>
@@ -609,7 +614,7 @@ function SourceCard({
                       onClick={confirmDelete}
                       disabled={busy}
                       className="inline-flex items-center gap-1.5 rounded-md border border-red-300/30 bg-red-400/15 px-3 py-2 text-xs font-semibold text-red-100 transition-colors hover:bg-red-400/25 disabled:opacity-50"
-                      aria-label={`Confirm delete capture source ${source.name}`}
+                      aria-label={`Confirm delete capture source ${displayName}`}
                     >
                       <span className="material-symbols-outlined text-[14px]" aria-hidden="true">
                         delete
@@ -626,7 +631,7 @@ function SourceCard({
                 disabled={busy}
                 className="px-3 py-1.5 rounded-lg bg-white/[0.04] text-[#FCA5A5] text-sm border border-[var(--color-pib-line)] hover:bg-red-500/10 disabled:opacity-50 transition-colors"
                 type="button"
-                aria-label={`Delete capture source ${source.name}`}
+                aria-label={`Delete capture source ${displayName}`}
               >
                 Delete source
               </button>
