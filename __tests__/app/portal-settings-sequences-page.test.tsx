@@ -38,6 +38,34 @@ describe('Portal settings sequences page', () => {
     )
   })
 
+  it('warns when sequences fail to load and gives leaders a retry path', async () => {
+    global.fetch = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/sequences') {
+        return Promise.resolve({
+          ok: false,
+          json: async () => ({ error: 'Sequence journeys unavailable' }),
+        } as Response)
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    }) as jest.Mock
+
+    render(<SequencesPage />)
+
+    expect(await screen.findByRole('heading', { name: 'Follow-up journeys could not load' })).toBeInTheDocument()
+    expect(screen.getByText('Sequence journeys unavailable')).toBeInTheDocument()
+    expect(screen.queryByText('Active journeys')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Retry loading follow-up journeys' }))
+
+    await waitFor(() => {
+      const sequenceRequests = (global.fetch as jest.Mock).mock.calls.filter(([url]) => (
+        String(url) === '/api/v1/crm/sequences'
+      ))
+      expect(sequenceRequests).toHaveLength(2)
+    })
+  })
+
   it('treats an empty filtered sequence view as a reversible journey lens', async () => {
     global.fetch = jest.fn((input: RequestInfo | URL) => {
       const url = String(input)
