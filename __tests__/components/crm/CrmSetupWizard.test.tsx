@@ -81,4 +81,16 @@ describe('CrmSetupWizard', () => {
     expect(screen.getByRole('checkbox', { name: 'Select Hot leads starter template' })).toBeChecked()
     expect(screen.getByRole('button', { name: 'Apply Simple sales pipeline template' })).toBeInTheDocument()
   })
+
+  it('shows a setup workspace loading state instead of a bare loading label', () => {
+    global.fetch = jest.fn(() => new Promise(() => undefined)) as jest.Mock
+
+    render(<CrmSetupWizard />)
+
+    expect(screen.getByRole('heading', { name: 'Preparing CRM setup workspace' })).toBeInTheDocument()
+    expect(screen.getByText('Loading pipeline templates, import status, and launch blockers for this workspace.')).toBeInTheDocument()
+    expect(screen.getByText('Readiness')).toBeInTheDocument()
+    expect(screen.getByText('Starter templates')).toBeInTheDocument()
+    expect(screen.queryByText('Loading...')).not.toBeInTheDocument()
+  })
 })
