@@ -115,6 +115,37 @@ describe('Portal contacts page', () => {
     expect(within(row as HTMLElement).getByText('Unassigned')).toBeInTheDocument()
   })
 
+  it('warns when contacts fail to load instead of presenting the audience as empty', async () => {
+    ;(global.fetch as jest.Mock).mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.startsWith('/api/v1/crm/contacts')) {
+        return Promise.resolve({
+          ok: false,
+          json: async () => ({ error: 'Contacts index unavailable' }),
+        } as Response)
+      }
+      if (url === '/api/v1/portal/settings/team') {
+        return Promise.resolve({ ok: true, json: async () => ({ members: [] }) } as Response)
+      }
+      if (url.startsWith('/api/v1/crm/saved-views')) {
+        return Promise.resolve({ ok: true, json: async () => ({ data: [] }) } as Response)
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    })
+
+    render(<PortalContactsPage />)
+
+    expect(await screen.findByRole('heading', { name: 'Contacts could not load' })).toBeInTheDocument()
+    expect(screen.getByText('Contacts index unavailable')).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'No contacts yet.' })).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Retry loading contacts' }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledTimes(4)
+    })
+  })
+
   it('opens directly to the unowned-owner lens from CRM reports', async () => {
     mockSearchParams = new URLSearchParams('owner=unowned')
 
