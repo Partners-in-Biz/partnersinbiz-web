@@ -220,9 +220,23 @@ describe('CustomFieldDefinitionDrawer', () => {
         onClose={noopClose}
       />,
     )
-    const cancelButtons = screen.getAllByRole('button', { name: /cancel/i })
-    fireEvent.click(cancelButtons[0])
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel New contact field' }))
     expect(noopClose).toHaveBeenCalled()
+  })
+
+  it('names close and cancel actions by the active custom field drawer context', () => {
+    render(
+      <CustomFieldDefinitionDrawer
+        mode="create"
+        resource="contact"
+        open
+        onSave={noopSave}
+        onClose={noopClose}
+      />,
+    )
+
+    expect(screen.getByRole('button', { name: 'Close New contact field drawer' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Cancel New contact field' })).toBeInTheDocument()
   })
 
   it('does not render when open is false', () => {

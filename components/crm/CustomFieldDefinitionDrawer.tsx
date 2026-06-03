@@ -304,7 +304,7 @@ export function CustomFieldDefinitionDrawer({
           <h2 className="text-base font-semibold text-[var(--color-pib-text)]">{title}</h2>
           <button
             type="button"
-            aria-label="Cancel"
+            aria-label={`Close ${title} drawer`}
             onClick={onClose}
             className="cursor-pointer text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors"
           >
@@ -482,7 +482,7 @@ export function CustomFieldDefinitionDrawer({
           <button
             type="button"
             onClick={onClose}
-            aria-label="Cancel"
+            aria-label={`Cancel ${title}`}
             className="cursor-pointer btn-pib-secondary"
           >
             Cancel
