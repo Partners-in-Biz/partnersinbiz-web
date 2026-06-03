@@ -53,6 +53,40 @@ describe('Portal settings pipelines page', () => {
     }) as jest.Mock
   })
 
+  it('warns when pipelines fail to load and gives leaders a retry path', async () => {
+    global.fetch = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/portal/settings/profile') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ profile: { role: 'owner' } }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/pipelines?archived=false') {
+        return Promise.resolve({
+          ok: false,
+          json: async () => ({ error: 'Pipeline definitions unavailable' }),
+        } as Response)
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    }) as jest.Mock
+
+    render(<PipelinesPage />)
+
+    expect(await screen.findByRole('heading', { name: 'Pipeline definitions could not load' })).toBeInTheDocument()
+    expect(screen.getByText('Pipeline definitions unavailable')).toBeInTheDocument()
+    expect(screen.queryByText('Pipeline health')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Retry loading pipelines' }))
+
+    await waitFor(() => {
+      const pipelineRequests = (global.fetch as jest.Mock).mock.calls.filter(([url]) => (
+        String(url) === '/api/v1/crm/pipelines?archived=false'
+      ))
+      expect(pipelineRequests).toHaveLength(2)
+    })
+  })
+
   it('treats an empty filtered pipeline view as a reversible revenue-path lens', async () => {
     pipelines = [{
       id: 'pipeline-1',

@@ -90,17 +90,17 @@ export default function PipelinesPage() {
     setFetchError(null)
     try {
       const res = await fetch(`/api/v1/crm/pipelines?archived=${archived}`)
+      const body = await res.json().catch(() => ({}))
       if (res.status === 404) {
         setFetchError('Pipelines API is not yet available. It will be ready shortly.')
         setPipelines([])
         return
       }
       if (!res.ok) {
-        setFetchError('Failed to load pipelines. Please try again.')
+        setFetchError(typeof body?.error === 'string' ? body.error : 'Failed to load pipelines. Please try again.')
         setPipelines([])
         return
       }
-      const body = await res.json()
       const list = extractPipelinesList(body)
       setPipelines(list)
     } catch {
@@ -268,12 +268,14 @@ export default function PipelinesPage() {
         )}
       </header>
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Active pipelines" value={String(activePipelines.length)} sub={`${archivedPipelines.length} archived definitions hidden by default`} icon="account_tree" />
-        <StatCard label="Default route" value={defaultPipeline ? 'Set' : 'Missing'} sub={defaultPipeline ? pipelineDisplayName(defaultPipeline) : 'Choose a default path for new deals'} icon="star" />
-        <StatCard label="Stage coverage" value={String(totalStages)} sub={`${openStageCount} open, ${wonStageCount} won, ${lostStageCount} lost`} icon="schema" />
-        <StatCard label="Pipeline health" value={`${readyCount}/${pipelines.length || 0}`} sub={`${needsWorkCount} definition${needsWorkCount === 1 ? '' : 's'} need setup work`} icon="monitoring" />
-      </section>
+      {!fetchError && (
+        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <StatCard label="Active pipelines" value={String(activePipelines.length)} sub={`${archivedPipelines.length} archived definitions hidden by default`} icon="account_tree" />
+          <StatCard label="Default route" value={defaultPipeline ? 'Set' : 'Missing'} sub={defaultPipeline ? pipelineDisplayName(defaultPipeline) : 'Choose a default path for new deals'} icon="star" />
+          <StatCard label="Stage coverage" value={String(totalStages)} sub={`${openStageCount} open, ${wonStageCount} won, ${lostStageCount} lost`} icon="schema" />
+          <StatCard label="Pipeline health" value={`${readyCount}/${pipelines.length || 0}`} sub={`${needsWorkCount} definition${needsWorkCount === 1 ? '' : 's'} need setup work`} icon="monitoring" />
+        </section>
+      )}
 
       {/* Read-only banner for non-admins */}
       {role !== null && !isAdmin && (
@@ -283,71 +285,73 @@ export default function PipelinesPage() {
         </div>
       )}
 
-      <section className="grid gap-4 lg:grid-cols-[1fr_340px]">
-        <div className="space-y-4">
-          <div className="flex flex-wrap gap-3">
-            <input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              className="pib-input min-w-[220px] flex-1"
-              placeholder="Search pipeline, stage, or outcome..."
-            />
-            <select
-              aria-label="Filter pipelines by health"
-              value={healthFilter}
-              onChange={(event) => setHealthFilter(event.target.value as HealthFilter)}
-              className="pib-input !w-auto"
-            >
-              <option value="all">All health</option>
-              <option value="ready">Ready</option>
-              <option value="needs-work">Needs work</option>
-            </select>
-            <label className="flex min-h-10 items-center gap-2 rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] px-3 text-sm text-[var(--color-pib-text-muted)]">
+      {!fetchError && (
+        <section className="grid gap-4 lg:grid-cols-[1fr_340px]">
+          <div className="space-y-4">
+            <div className="flex flex-wrap gap-3">
               <input
-                type="checkbox"
-                checked={showArchived}
-                onChange={e => setShowArchived(e.target.checked)}
-                className="cursor-pointer"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                className="pib-input min-w-[220px] flex-1"
+                placeholder="Search pipeline, stage, or outcome..."
               />
-              Show archived
-            </label>
+              <select
+                aria-label="Filter pipelines by health"
+                value={healthFilter}
+                onChange={(event) => setHealthFilter(event.target.value as HealthFilter)}
+                className="pib-input !w-auto"
+              >
+                <option value="all">All health</option>
+                <option value="ready">Ready</option>
+                <option value="needs-work">Needs work</option>
+              </select>
+              <label className="flex min-h-10 items-center gap-2 rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] px-3 text-sm text-[var(--color-pib-text-muted)]">
+                <input
+                  type="checkbox"
+                  checked={showArchived}
+                  onChange={e => setShowArchived(e.target.checked)}
+                  className="cursor-pointer"
+                />
+                Show archived
+              </label>
+            </div>
+
+            {canClearFilters ? (
+              <button
+                type="button"
+                onClick={() => { setSearch(''); setHealthFilter('all') }}
+                className="btn-pib-secondary text-xs inline-flex items-center gap-1.5"
+              >
+                <span className="material-symbols-outlined text-[14px]" aria-hidden="true">filter_alt_off</span>
+                Clear filters
+              </button>
+            ) : null}
           </div>
 
-          {canClearFilters ? (
-            <button
-              type="button"
-              onClick={() => { setSearch(''); setHealthFilter('all') }}
-              className="btn-pib-secondary text-xs inline-flex items-center gap-1.5"
-            >
-              <span className="material-symbols-outlined text-[14px]" aria-hidden="true">filter_alt_off</span>
-              Clear filters
-            </button>
-          ) : null}
-        </div>
-
-        <div className="bento-card !p-5 space-y-4">
-          <div>
-            <p className="eyebrow !text-[10px]">Pipeline focus</p>
-            <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">
-              Every live path should include open work, a won close, and a lost close so reports and automations can trust the outcome.
-            </p>
-          </div>
-          <div className="grid grid-cols-3 gap-2 text-center">
-            <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-3">
-              <p className="font-display text-xl text-[var(--color-pib-text)]">{averageStages.toFixed(1)}</p>
-              <p className="mt-1 text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)]">Avg stages</p>
+          <div className="bento-card !p-5 space-y-4">
+            <div>
+              <p className="eyebrow !text-[10px]">Pipeline focus</p>
+              <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">
+                Every live path should include open work, a won close, and a lost close so reports and automations can trust the outcome.
+              </p>
             </div>
-            <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-3">
-              <p className="font-display text-xl text-[var(--color-pib-text)]">{wonStageCount}</p>
-              <p className="mt-1 text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)]">Won exits</p>
-            </div>
-            <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-3">
-              <p className="font-display text-xl text-[var(--color-pib-text)]">{lostStageCount}</p>
-              <p className="mt-1 text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)]">Lost exits</p>
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-3">
+                <p className="font-display text-xl text-[var(--color-pib-text)]">{averageStages.toFixed(1)}</p>
+                <p className="mt-1 text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)]">Avg stages</p>
+              </div>
+              <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-3">
+                <p className="font-display text-xl text-[var(--color-pib-text)]">{wonStageCount}</p>
+                <p className="mt-1 text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)]">Won exits</p>
+              </div>
+              <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-3">
+                <p className="font-display text-xl text-[var(--color-pib-text)]">{lostStageCount}</p>
+                <p className="mt-1 text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)]">Lost exits</p>
+              </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {deleteError && (
         <div className="rounded-lg border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm text-red-100">
@@ -411,9 +415,29 @@ export default function PipelinesPage() {
           {Array.from({ length: 4 }).map((_, index) => <div key={index} className="pib-skeleton h-24" />)}
         </div>
       ) : fetchError ? (
-        <div className="px-4 py-3 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] text-sm text-[var(--color-pib-text-muted)]">
-          {fetchError}
-        </div>
+        <section className="rounded-[var(--radius-card)] border border-amber-500/25 bg-amber-500/[0.07] p-5">
+          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+            <div className="flex gap-3">
+              <span className="material-symbols-outlined mt-0.5 text-amber-200" aria-hidden="true">warning</span>
+              <div>
+                <p className="eyebrow !text-[10px] text-amber-200">Source health</p>
+                <h2 className="mt-1 font-display text-xl text-[var(--color-pib-text)]">
+                  Pipeline definitions could not load
+                </h2>
+                <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">{fetchError}</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => fetchPipelines(showArchived)}
+              className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5 text-sm"
+              aria-label="Retry loading pipelines"
+            >
+              <span className="material-symbols-outlined text-base" aria-hidden="true">refresh</span>
+              Retry
+            </button>
+          </div>
+        </section>
       ) : pipelines.length > 0 && filteredPipelines.length === 0 ? (
         <div className="bento-card !p-8 text-center">
           <span className="material-symbols-outlined text-[34px] text-[var(--color-pib-text-muted)] mb-3 block" aria-hidden="true">search_off</span>
