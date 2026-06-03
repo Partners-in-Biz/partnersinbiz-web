@@ -256,6 +256,10 @@ function activityHref(activity: NonNullable<CrmDashboard['recentActivities']>[nu
   return contactId ? `/portal/contacts/${encodeURIComponent(contactId)}` : ''
 }
 
+function countActivityAttributionGaps(activities: CrmDashboard['recentActivities']): number {
+  return activities?.filter((activity) => !textValue(activity.contactName)).length ?? 0
+}
+
 function buildLeadershipRisks(dashboard: CrmDashboard | null): CrmLeadershipRisk[] {
   if (!dashboard) return []
   const risks: CrmLeadershipRisk[] = []
@@ -371,6 +375,36 @@ function CrmLeadershipRiskBrief({ risks }: { risks: CrmLeadershipRisk[] }) {
   )
 }
 
+function ActivityAttributionReview({ count }: { count: number }) {
+  if (count <= 0) return null
+  const itemCopy = `${count} recent CRM activity ${count === 1 ? 'item is' : 'items are'} missing visible contact or deal names.`
+
+  return (
+    <div className="border-b border-[var(--color-pib-line)] bg-amber-500/[0.07] px-5 py-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex gap-3">
+          <span className="material-symbols-outlined mt-0.5 text-amber-200" aria-hidden="true">hub</span>
+          <div>
+            <p className="eyebrow !text-[10px] text-amber-200">Activity hygiene</p>
+            <h2 className="mt-1 font-display text-xl text-[var(--color-pib-text)]">Activity attribution needs review</h2>
+            <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">
+              {itemCopy} Managers need those touches clearly attributed before activity can drive accountable follow-up.
+            </p>
+          </div>
+        </div>
+        <Link
+          href="/portal/contacts?followUp=stale"
+          aria-label="Review unlinked CRM activity from command center"
+          className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5 text-sm"
+        >
+          <span className="material-symbols-outlined text-base" aria-hidden="true">contacts</span>
+          Review follow-up
+        </Link>
+      </div>
+    </div>
+  )
+}
+
 function Skeleton({ className = '' }: { className?: string }) {
   return <div className={`pib-skeleton ${className}`} />
 }
@@ -410,6 +444,10 @@ export default function PortalCrmPage() {
     lostThisMonthCount: dashboard?.lostThisMonth?.count ?? 0,
   }
   const leadershipRisks = useMemo(() => buildLeadershipRisks(dashboard), [dashboard])
+  const activityAttributionGapCount = useMemo(
+    () => countActivityAttributionGaps(dashboard?.recentActivities),
+    [dashboard?.recentActivities],
+  )
 
   return (
     <div className="mx-auto max-w-7xl space-y-8">
@@ -549,6 +587,7 @@ export default function PortalCrmPage() {
             </div>
           ) : (
             <div className="divide-y divide-[var(--color-pib-line)]">
+              <ActivityAttributionReview count={activityAttributionGapCount} />
               {dashboard.recentActivities.map((activity) => {
                 const href = activityHref(activity)
                 const content = (

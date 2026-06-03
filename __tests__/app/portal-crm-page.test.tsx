@@ -162,6 +162,50 @@ describe('Portal CRM hub', () => {
     expect(screen.queryByText(/Invalid Date/)).not.toBeInTheDocument()
   })
 
+  it('warns leaders when recent activity is missing visible contact or deal attribution', async () => {
+    ;(global.fetch as jest.Mock).mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/dashboard') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: {
+              openDealsCount: 0,
+              openDealsValue: 0,
+              weightedPipelineValue: 0,
+              wonThisMonth: { count: 0, value: 0 },
+              lostThisMonth: { count: 0 },
+              recentActivities: [
+                {
+                  id: 'activity-1',
+                  summary: 'Rikus and AHS is current an active client',
+                  contactName: '',
+                  createdAt: '2026-06-02T10:00:00.000Z',
+                },
+                {
+                  id: 'activity-2',
+                  summary: 'Sequence step 2: Yes or no works, Coach',
+                  contactName: '',
+                  createdAt: '2026-05-29T10:00:00.000Z',
+                },
+              ],
+              topOpenDeals: [],
+            },
+          }),
+        } as Response)
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    })
+
+    render(<PortalCrmPage />)
+
+    expect(await screen.findByRole('heading', { name: 'Activity attribution needs review' })).toBeInTheDocument()
+    expect(screen.getByText(/2 recent CRM activity items are missing visible contact or deal names/)).toBeInTheDocument()
+    expect(screen.getByText(/Managers need those touches clearly attributed before activity can drive accountable follow-up/)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Review unlinked CRM activity from command center' }))
+      .toHaveAttribute('href', '/portal/contacts?followUp=stale')
+  })
+
   it('turns recent CRM activity rows into contact and deal drill-down links', async () => {
     ;(global.fetch as jest.Mock).mockImplementation((input: RequestInfo | URL) => {
       const url = String(input)
