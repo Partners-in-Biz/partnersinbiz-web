@@ -97,6 +97,8 @@ type ReportSourceResult<T> = {
   failed: boolean
 }
 
+const REPORT_SOURCE_TIMEOUT_MS = 8000
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
 }
@@ -106,8 +108,12 @@ async function fetchReportSource<T>(
   url: string,
   validate: (value: unknown) => value is T,
 ): Promise<ReportSourceResult<T>> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined
   try {
-    const response = await fetch(url)
+    const timeout = new Promise<never>((_, reject) => {
+      timeoutId = setTimeout(() => reject(new Error(`${label} report timed out`)), REPORT_SOURCE_TIMEOUT_MS)
+    })
+    const response = await Promise.race([fetch(url), timeout])
     if (!response.ok) return { label, data: null, failed: true }
     const body = await response.json()
     const data = isRecord(body) && 'data' in body ? body.data : body
@@ -115,6 +121,8 @@ async function fetchReportSource<T>(
     return validate(data) ? { label, data, failed: false } : { label, data: null, failed: true }
   } catch {
     return { label, data: null, failed: true }
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId)
   }
 }
 

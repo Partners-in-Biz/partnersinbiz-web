@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import CrmReportsPage from '@/app/(portal)/portal/reports/crm/page'
 
 jest.mock('next/link', () => ({
@@ -165,6 +165,68 @@ describe('Portal CRM reports page', () => {
 
     const reloadLink = screen.getByRole('link', { name: 'Reload CRM reports after source failure' })
     expect(reloadLink).toHaveAttribute('href', '/portal/reports/crm')
+  })
+
+  it('times out a stalled CRM report source and still renders partial executive analytics', async () => {
+    jest.useFakeTimers()
+    ;(global.fetch as jest.Mock).mockImplementation((url: RequestInfo | URL) => {
+      const path = String(url)
+      if (path === '/api/v1/crm/reports/funnel') {
+        return apiResponse({
+          byType: { lead: 3, prospect: 2, client: 1, churned: 0, other: 0 },
+          byStage: { new: 3, contacted: 2, qualified: 1 },
+          total: 6,
+        })
+      }
+      if (path === '/api/v1/crm/reports/forecast') {
+        return apiResponse({
+          periods: {
+            thisMonth: { dealCount: 1, totalValue: 10000, weightedValue: 5000 },
+            nextMonth: { dealCount: 0, totalValue: 0, weightedValue: 0 },
+            thisQuarter: { dealCount: 1, totalValue: 10000, weightedValue: 5000 },
+            nextQuarter: { dealCount: 0, totalValue: 0, weightedValue: 0 },
+            beyond: { dealCount: 0, totalValue: 0, weightedValue: 0 },
+            noDate: { dealCount: 0, totalValue: 0, weightedValue: 0 },
+          },
+          summary: { totalOpenDeals: 1, totalValue: 10000, weightedValue: 5000 },
+        })
+      }
+      if (path === '/api/v1/crm/reports/pipeline-velocity') {
+        return new Promise(() => undefined)
+      }
+      if (path === '/api/v1/crm/reports/rep-performance') {
+        return apiResponse({
+          reps: [],
+          summary: {
+            repCount: 0,
+            totalWonValue: 0,
+            totalOpenValue: 0,
+            totalActivities: 0,
+            totalContacts: 6,
+            unassignedContacts: 0,
+            contactOwnerCoverage: 1,
+          },
+        })
+      }
+      if (path === '/api/v1/crm/reports/activity-summary?days=30') {
+        return apiResponse({ byType: { call: 1 }, total: 1, perDay: [{ date: '2026-05-29', count: 1 }], since: '2026-04-29', days: 30 })
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${path}`))
+    })
+
+    render(<CrmReportsPage />)
+
+    await act(async () => {
+      jest.advanceTimersByTime(8000)
+    })
+
+    expect(await screen.findByRole('heading', { name: 'CRM report data needs attention' })).toBeInTheDocument()
+    expect(screen.getByText('Pipeline velocity report failed to load. Current analytics may be incomplete.')).toBeInTheDocument()
+    expect(screen.getByText('Executive signal')).toBeInTheDocument()
+    const metrics = screen.getByRole('group', { name: 'Executive CRM signal metrics' })
+    expect(within(metrics).getByText('Open pipeline')).toBeInTheDocument()
+
+    jest.useRealTimers()
   })
 
   it('renders zero-value forecast periods as explicit forecast values instead of bare placeholders', async () => {
