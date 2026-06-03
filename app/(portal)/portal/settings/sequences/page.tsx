@@ -35,6 +35,10 @@ function stepReady(step: SequenceStep) {
   return Boolean(step.subject?.trim() && (step.bodyHtml?.trim() || step.bodyText?.trim()))
 }
 
+function hasExitGoal(sequence: Sequence) {
+  return Boolean(sequence.goals?.some((goal) => goal.label?.trim()))
+}
+
 function sequenceGaps(sequence: Sequence): string[] {
   const gaps: string[] = []
   if (!sequence.name?.trim()) gaps.push('name')
@@ -45,6 +49,7 @@ function sequenceGaps(sequence: Sequence): string[] {
     if (!Number.isFinite(Number(step.delayDays)) || Number(step.delayDays) < 0) gaps.push(`step ${index + 1} timing`)
   })
   if (sequence.status === 'active' && sequence.steps.length === 0) gaps.push('active journey')
+  if (sequence.status === 'active' && !hasExitGoal(sequence)) gaps.push('exit goal')
   return Array.from(new Set(gaps))
 }
 
@@ -55,6 +60,7 @@ function readinessScore(sequence: Sequence) {
     sequence.steps.length > 0,
     sequence.steps.every(stepReady),
     sequence.steps.some((step) => step.delayDays > 0) || sequence.steps.length === 1,
+    sequence.status !== 'active' || hasExitGoal(sequence),
   ]
   return Math.round((checks.filter(Boolean).length / checks.length) * 100)
 }
@@ -177,6 +183,11 @@ export default function SequencesPage() {
     })
   }, [channelFilter, filter, search, sequences])
 
+  const activeSequencesWithoutExitGoals = useMemo(
+    () => sequences.filter((sequence) => sequence.status === 'active' && !hasExitGoal(sequence)),
+    [sequences],
+  )
+
   const journeyBlueprint = [
     {
       label: 'First touch',
@@ -288,8 +299,65 @@ export default function SequencesPage() {
           <StatCard label="Active journeys" value={String(stats.active)} sub={`${stats.paused} paused, ${stats.draft} draft`} icon="route" />
           <StatCard label="Journey steps" value={String(stats.steps)} sub="Touchpoints across all sequences" icon="format_list_numbered" />
           <StatCard label="Multi-channel" value={String(stats.sms)} sub="Sequences using SMS or mixed channels" icon="forum" />
-          <StatCard label="Readiness" value={`${stats.averageReadiness}%`} sub={`${stats.needsWork} sequence${stats.needsWork === 1 ? '' : 's'} need detail`} icon="task_alt" />
+          <StatCard
+            label="Readiness"
+            value={`${stats.averageReadiness}%`}
+            sub={`${stats.needsWork} sequence${stats.needsWork === 1 ? ' needs' : 's need'} detail`}
+            icon="task_alt"
+          />
         </div>
+      )}
+
+      {!fetchError && activeSequencesWithoutExitGoals.length > 0 && (
+        <section
+          role="region"
+          aria-label="Sequence exit goal review"
+          className="rounded-[var(--radius-card)] border border-amber-400/30 bg-amber-400/10 p-5"
+        >
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="flex gap-3">
+              <span
+                className="material-symbols-outlined mt-0.5 rounded-lg border border-amber-400/25 bg-amber-400/10 p-2 text-[20px] text-amber-200"
+                aria-hidden="true"
+              >
+                flag
+              </span>
+              <div>
+                <p className="eyebrow !text-[10px] text-amber-200">Journey governance</p>
+                <h2 className="mt-1 font-display text-xl text-[var(--color-pib-text)]">Exit goals need review</h2>
+                <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">
+                  {activeSequencesWithoutExitGoals.length} active sequence{activeSequencesWithoutExitGoals.length === 1 ? ' can' : 's can'} run without an exit goal.
+                </p>
+                <p className="mt-2 text-xs leading-5 text-[var(--color-pib-text-muted)]">
+                  Add reply, stage, tag, or click goals so automated follow-up stops when the customer has already moved forward.
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {activeSequencesWithoutExitGoals.slice(0, 3).map((sequence) => (
+                    <span
+                      key={sequence.id}
+                      className="rounded-full border border-amber-300/20 bg-amber-300/10 px-2.5 py-1 text-xs text-amber-100"
+                    >
+                      {sequence.name || 'Unnamed sequence'}
+                    </span>
+                  ))}
+                  {activeSequencesWithoutExitGoals.length > 3 && (
+                    <span className="rounded-full border border-amber-300/20 bg-amber-300/10 px-2.5 py-1 text-xs text-amber-100">
+                      +{activeSequencesWithoutExitGoals.length - 3} more
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+            <Link
+              href={`/portal/settings/sequences/${activeSequencesWithoutExitGoals[0].id}/edit`}
+              className="btn-pib-secondary shrink-0 justify-center text-xs"
+              aria-label={`Review exit goal for ${activeSequencesWithoutExitGoals[0].name || 'sequence'}`}
+            >
+              <span className="material-symbols-outlined text-[14px]" aria-hidden="true">edit</span>
+              Review exit goal
+            </Link>
+          </div>
+        </section>
       )}
 
       <div className={fetchError ? '' : 'grid gap-5 xl:grid-cols-[minmax(0,0.7fr)_minmax(0,1.3fr)]'}>
@@ -623,6 +691,7 @@ export default function SequencesPage() {
                           <Link
                             href={`/portal/settings/sequences/${seq.id}/edit`}
                             title="Edit sequence"
+                            aria-label={`Edit sequence ${seq.name}`}
                             className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.06] hover:text-[var(--color-pib-text)]"
                           >
                             <span className="material-symbols-outlined text-[17px]">edit</span>
