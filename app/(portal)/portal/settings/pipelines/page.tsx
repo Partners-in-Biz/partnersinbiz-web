@@ -380,6 +380,7 @@ export default function PipelinesPage() {
             <div className="flex flex-wrap items-center gap-2 md:justify-end">
               <button
                 type="button"
+                aria-label={`Cancel delete pipeline ${pipelineDisplayName(pendingDeletePipeline)}`}
                 onClick={() => {
                   setPendingDeletePipeline(null)
                   setDeleteError(null)

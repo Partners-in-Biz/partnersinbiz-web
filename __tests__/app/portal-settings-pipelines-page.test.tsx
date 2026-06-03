@@ -167,6 +167,7 @@ describe('Portal settings pipelines page', () => {
     expect(await screen.findByRole('alertdialog', { name: 'Delete pipeline "Enterprise sales"?' })).toBeInTheDocument()
     expect(screen.getByText('This removes the revenue path with 4 stages. Existing deal history stays available for audit.')).toBeInTheDocument()
     expect(fetchMock).not.toHaveBeenCalledWith('/api/v1/crm/pipelines/pipeline-delete', { method: 'DELETE' })
+    expect(screen.getByRole('button', { name: 'Cancel delete pipeline Enterprise sales' })).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Confirm delete pipeline Enterprise sales' }))
 
