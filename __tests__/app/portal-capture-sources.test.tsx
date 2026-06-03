@@ -202,6 +202,38 @@ describe('PortalCaptureSourcesPage', () => {
 
     expect(screen.getByPlaceholderText('Source name (e.g. Homepage form)')).toHaveFocus()
   })
+
+  it('warns when capture sources fail to load and gives leaders a retry path', async () => {
+    fetchMock.mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/capture-sources') {
+        return Promise.resolve({
+          ok: false,
+          json: () => Promise.resolve({ error: 'Capture source index unavailable' }),
+        })
+      }
+      if (url.startsWith('/api/v1/campaigns')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ data: [] }) })
+      }
+      if (url.startsWith('/api/v1/crm/sequences')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ data: { sequences: [] } }) })
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    })
+
+    render(<PortalCaptureSourcesPage />)
+
+    expect(await screen.findByRole('heading', { name: 'Capture sources could not load' })).toBeInTheDocument()
+    expect(screen.getByText('Capture source index unavailable')).toBeInTheDocument()
+    expect(screen.queryByText('No tracked intake channels yet.')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Retry loading capture sources' }))
+
+    await waitFor(() => {
+      const sourceRequests = fetchMock.mock.calls.filter(([url]) => String(url) === '/api/v1/crm/capture-sources')
+      expect(sourceRequests).toHaveLength(2)
+    })
+  })
 })
 
 describe('PortalCaptureSourceImportPage', () => {

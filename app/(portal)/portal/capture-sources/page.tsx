@@ -641,6 +641,7 @@ function SourceCard({
 export default function PortalCaptureSourcesPage() {
   const [sources, setSources] = useState<CaptureSource[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [campaigns, setCampaigns] = useState<CampaignSummary[]>([])
   const [sequences, setSequences] = useState<SequenceSummary[]>([])
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
@@ -653,10 +654,20 @@ export default function PortalCaptureSourcesPage() {
 
   const loadSources = useCallback(() => {
     setLoading(true)
+    setLoadError(null)
     fetch('/api/v1/crm/capture-sources')
-      .then((r) => r.json())
+      .then(async (r) => {
+        const body = await r.json().catch(() => ({}))
+        if (!r.ok) {
+          throw new Error(typeof body?.error === 'string' ? body.error : `Failed to load capture sources (${r.status})`)
+        }
+        return body
+      })
       .then((body) => setSources((body.data ?? []) as CaptureSource[]))
-      .catch(() => {})
+      .catch((err) => {
+        setSources([])
+        setLoadError(err instanceof Error ? err.message : 'Failed to load capture sources')
+      })
       .finally(() => setLoading(false))
   }, [])
 
@@ -885,6 +896,30 @@ export default function PortalCaptureSourcesPage() {
             <div key={i} className="pib-skeleton h-20 rounded-xl" />
           ))}
         </div>
+      ) : loadError ? (
+        <section className="rounded-[var(--radius-card)] border border-amber-500/25 bg-amber-500/[0.07] p-5">
+          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+            <div className="flex gap-3">
+              <span className="material-symbols-outlined mt-0.5 text-amber-200" aria-hidden="true">warning</span>
+              <div>
+                <p className="eyebrow !text-[10px] text-amber-200">Source health</p>
+                <h2 className="mt-1 font-display text-xl text-[var(--color-pib-text)]">
+                  Capture sources could not load
+                </h2>
+                <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">{loadError}</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={loadSources}
+              className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5 text-sm"
+              aria-label="Retry loading capture sources"
+            >
+              <span className="material-symbols-outlined text-base" aria-hidden="true">refresh</span>
+              Retry
+            </button>
+          </div>
+        </section>
       ) : sources.length === 0 ? (
         <div className="overflow-hidden rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)]">
           <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_300px]">
