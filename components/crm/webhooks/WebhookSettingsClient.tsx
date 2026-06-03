@@ -231,6 +231,10 @@ function parseApiError(body: unknown, fallback: string) {
   return fallback
 }
 
+function webhookDisplayName(webhook: OutboundWebhook) {
+  return webhook.name?.trim() || 'Webhook subscription name missing'
+}
+
 function isHealthy(webhook: OutboundWebhook) {
   return webhook.active && !webhook.autoDisabledAt && (webhook.failureCount ?? 0) === 0
 }
@@ -494,6 +498,8 @@ export function WebhookSettingsClient() {
   const canCreate = Boolean(name.trim() && url.trim() && selectedEvents.length > 0 && !saving)
   const canSaveEdit = Boolean(editing?.name.trim() && editing?.url.trim() && editing.events.length > 0 && !saving)
   const hasSourceFailure = Boolean(fetchError)
+  const pendingDeleteWebhookName = pendingDeleteWebhook ? webhookDisplayName(pendingDeleteWebhook) : ''
+  const pendingRotateWebhookName = pendingRotateWebhook ? webhookDisplayName(pendingRotateWebhook) : ''
 
   return (
     <div className="max-w-6xl space-y-6">
@@ -784,7 +790,7 @@ export function WebhookSettingsClient() {
                     <div className="min-w-0">
                       <p className="eyebrow !text-[10px] text-red-200">Webhook delete confirmation</p>
                       <h3 id="webhook-delete-confirm-title" className="mt-1 font-display text-lg text-[var(--color-pib-text)]">
-                        Delete webhook subscription &quot;{pendingDeleteWebhook.name}&quot;?
+                        Delete webhook subscription &quot;{pendingDeleteWebhookName}&quot;?
                       </h3>
                       <p id="webhook-delete-confirm-description" className="mt-2 text-sm text-red-100/90">
                         This stops outbound CRM deliveries to {pendingDeleteWebhook.url}. Delivery history stays available for audit.
@@ -794,7 +800,7 @@ export function WebhookSettingsClient() {
                   <div className="flex flex-wrap items-center gap-2">
                     <button
                       type="button"
-                      aria-label={`Cancel delete webhook subscription ${pendingDeleteWebhook.name}`}
+                      aria-label={`Cancel delete webhook subscription ${pendingDeleteWebhookName}`}
                       onClick={() => setPendingDeleteWebhook(null)}
                       className="btn-pib-secondary text-xs"
                       disabled={busyId !== null}
@@ -806,7 +812,7 @@ export function WebhookSettingsClient() {
                       onClick={confirmDeleteWebhook}
                       disabled={busyId !== null}
                       className="inline-flex items-center gap-1.5 rounded-md border border-red-300/30 bg-red-400/15 px-3 py-2 text-xs font-semibold text-red-100 transition-colors hover:bg-red-400/25 disabled:opacity-50"
-                      aria-label={`Confirm delete webhook subscription ${pendingDeleteWebhook.name}`}
+                      aria-label={`Confirm delete webhook subscription ${pendingDeleteWebhookName}`}
                     >
                       <span className="material-symbols-outlined text-[14px]" aria-hidden="true">
                         delete
@@ -833,7 +839,7 @@ export function WebhookSettingsClient() {
                     <div className="min-w-0">
                       <p className="eyebrow !text-[10px] text-amber-200">Webhook secret rotation</p>
                       <h3 id="webhook-rotate-confirm-title" className="mt-1 font-display text-lg text-[var(--color-pib-text)]">
-                        Rotate signing secret for &quot;{pendingRotateWebhook.name}&quot;?
+                        Rotate signing secret for &quot;{pendingRotateWebhookName}&quot;?
                       </h3>
                       <p id="webhook-rotate-confirm-description" className="mt-2 text-sm text-amber-100/90">
                         Existing consumers must be updated immediately after rotation. The new secret is shown once for the CEO or integration owner to store securely.
@@ -843,7 +849,7 @@ export function WebhookSettingsClient() {
                   <div className="flex flex-wrap items-center gap-2">
                     <button
                       type="button"
-                      aria-label={`Cancel rotate webhook signing secret ${pendingRotateWebhook.name}`}
+                      aria-label={`Cancel rotate webhook signing secret ${pendingRotateWebhookName}`}
                       onClick={() => setPendingRotateWebhook(null)}
                       className="btn-pib-secondary text-xs"
                       disabled={busyId !== null}
@@ -855,7 +861,7 @@ export function WebhookSettingsClient() {
                       onClick={confirmRotateWebhook}
                       disabled={busyId !== null}
                       className="inline-flex items-center gap-1.5 rounded-md border border-amber-300/30 bg-amber-400/15 px-3 py-2 text-xs font-semibold text-amber-100 transition-colors hover:bg-amber-400/25 disabled:opacity-50"
-                      aria-label={`Confirm rotate webhook signing secret ${pendingRotateWebhook.name}`}
+                      aria-label={`Confirm rotate webhook signing secret ${pendingRotateWebhookName}`}
                     >
                       <span className="material-symbols-outlined text-[14px]" aria-hidden="true">
                         key
@@ -906,11 +912,15 @@ export function WebhookSettingsClient() {
               </div>
             ) : (
               <div className="divide-y divide-[var(--color-pib-line)]">
-                {webhooks.map((webhook) => (
+                {webhooks.map((webhook) => {
+                  const displayName = webhookDisplayName(webhook)
+                  const toggleActionLabel = webhook.active ? 'Disable' : 'Enable'
+
+                  return (
                   <div key={webhook.id} className="p-4">
                     <div className="flex items-start justify-between gap-3 mb-2">
                       <div className="min-w-0">
-                        <p className="text-sm font-medium truncate">{webhook.name}</p>
+                        <p className="text-sm font-medium truncate">{displayName}</p>
                         <p className="text-xs text-[var(--color-pib-text-muted)] truncate">{webhook.url}</p>
                       </div>
                       <span className={`text-[10px] rounded-full border px-2 py-0.5 shrink-0 ${healthClass(webhook)}`}>
@@ -941,6 +951,7 @@ export function WebhookSettingsClient() {
                         type="button"
                         onClick={() => postAction(webhook, 'test')}
                         disabled={busyId !== null}
+                        aria-label={`Test webhook subscription ${displayName}`}
                         className="cursor-pointer btn-pib-secondary flex items-center gap-1.5 text-xs disabled:opacity-50"
                       >
                         <span className="material-symbols-outlined text-[14px]">send</span>
@@ -950,6 +961,7 @@ export function WebhookSettingsClient() {
                         type="button"
                         onClick={() => postAction(webhook, webhook.active ? 'disable' : 'enable')}
                         disabled={busyId !== null}
+                        aria-label={`${toggleActionLabel} webhook subscription ${displayName}`}
                         className="cursor-pointer btn-pib-secondary flex items-center gap-1.5 text-xs disabled:opacity-50"
                       >
                         <span className="material-symbols-outlined text-[14px]">
@@ -961,6 +973,7 @@ export function WebhookSettingsClient() {
                         type="button"
                         onClick={() => startEdit(webhook)}
                         disabled={busyId !== null}
+                        aria-label={`Edit webhook subscription ${displayName}`}
                         className="cursor-pointer btn-pib-secondary flex items-center gap-1.5 text-xs disabled:opacity-50"
                       >
                         <span className="material-symbols-outlined text-[14px]">edit</span>
@@ -973,7 +986,7 @@ export function WebhookSettingsClient() {
                           setPendingRotateWebhook(webhook)
                         }}
                         disabled={busyId !== null}
-                        aria-label={`Rotate webhook signing secret ${webhook.name}`}
+                        aria-label={`Rotate webhook signing secret ${displayName}`}
                         className="cursor-pointer btn-pib-secondary flex items-center gap-1.5 text-xs disabled:opacity-50"
                       >
                         <span className="material-symbols-outlined text-[14px]">key</span>
@@ -986,7 +999,7 @@ export function WebhookSettingsClient() {
                           setPendingDeleteWebhook(webhook)
                         }}
                         disabled={busyId !== null}
-                        aria-label={`Delete webhook subscription ${webhook.name}`}
+                        aria-label={`Delete webhook subscription ${displayName}`}
                         className="cursor-pointer btn-pib-secondary flex items-center gap-1.5 text-xs text-red-300 hover:bg-red-400/10 disabled:opacity-50"
                       >
                         <span className="material-symbols-outlined text-[14px]">delete</span>
@@ -994,7 +1007,8 @@ export function WebhookSettingsClient() {
                       </button>
                     </div>
                   </div>
-                ))}
+                  )
+                })}
               </div>
             )}
           </div>
