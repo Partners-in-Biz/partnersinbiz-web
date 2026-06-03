@@ -1,5 +1,5 @@
 import React from 'react'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { CompanyOverviewPanel } from '@/components/crm/CompanyOverviewPanel'
 import type { Company } from '@/lib/companies/types'
 
@@ -92,7 +92,7 @@ describe('CompanyOverviewPanel', () => {
     expect(screen.getByText('Risk map')).toBeInTheDocument()
     expect(screen.getByText('Latest movement')).toBeInTheDocument()
     expect(screen.getByText('Retainer expansion')).toBeInTheDocument()
-    expect(screen.getByText('1 overdue invoice')).toBeInTheDocument()
+    expect(screen.getAllByText('1 overdue invoice').length).toBeGreaterThan(0)
 
     fireEvent.click(screen.getByRole('button', { name: /Contacts/i }))
     expect(onSelectTab).toHaveBeenCalledWith('contacts')
@@ -154,6 +154,63 @@ describe('CompanyOverviewPanel', () => {
 
     expect(screen.getByText('Customer · Mid market · Creative services')).toBeInTheDocument()
     expect(screen.queryByText('customer · mid-market · Creative services')).not.toBeInTheDocument()
+  })
+
+  it('summarizes account risk on the overview with direct leadership actions', () => {
+    const onSelectTab = jest.fn()
+    const onEditCompany = jest.fn()
+
+    render(
+      <CompanyOverviewPanel
+        company={company({
+          accountManagerUid: undefined,
+          accountManagerRef: undefined,
+          website: undefined,
+          healthScore: 42,
+        })}
+        center={{
+          summary: {
+            contacts: 0,
+            deals: 0,
+            openOrders: 2,
+            lowStockItems: 1,
+            overdueInvoices: 1,
+          },
+          analytics: {
+            weightedPipelineValue: 0,
+            riskSignals: ['1 overdue invoice', '1 low-stock item'],
+          },
+        }}
+        onSelectTab={onSelectTab}
+        onEditCompany={onEditCompany}
+      />,
+    )
+
+    const brief = screen.getByRole('region', { name: 'Account risk brief' })
+    expect(within(brief).getByRole('heading', { name: 'Account risk brief' })).toBeInTheDocument()
+    expect(within(brief).getByText('7 account risks need leadership attention before Acme Studio is board-ready.')).toBeInTheDocument()
+    expect(within(brief).getByText('No account owner')).toBeInTheDocument()
+    expect(within(brief).getByText('Profile below 70%')).toBeInTheDocument()
+    expect(within(brief).getByText('No stakeholders linked')).toBeInTheDocument()
+    expect(within(brief).getByText('No active pipeline')).toBeInTheDocument()
+    expect(within(brief).getByText('1 overdue invoice')).toBeInTheDocument()
+    expect(within(brief).getByText('2 open orders')).toBeInTheDocument()
+    expect(within(brief).getByText('1 low-stock item')).toBeInTheDocument()
+
+    fireEvent.click(within(brief).getByRole('button', { name: 'Assign account owner for Acme Studio from account risk brief' }))
+    fireEvent.click(within(brief).getByRole('button', { name: 'Improve profile completeness for Acme Studio from account risk brief' }))
+    expect(onEditCompany).toHaveBeenCalledTimes(2)
+
+    fireEvent.click(within(brief).getByRole('button', { name: 'Review stakeholders for Acme Studio from account risk brief' }))
+    fireEvent.click(within(brief).getByRole('button', { name: 'Review pipeline for Acme Studio from account risk brief' }))
+    fireEvent.click(within(brief).getByRole('button', { name: 'Review overdue invoices for Acme Studio from account risk brief' }))
+    fireEvent.click(within(brief).getByRole('button', { name: 'Review fulfillment orders for Acme Studio from account risk brief' }))
+    fireEvent.click(within(brief).getByRole('button', { name: 'Review inventory risk for Acme Studio from account risk brief' }))
+    expect(onSelectTab).toHaveBeenNthCalledWith(1, 'contacts')
+    expect(onSelectTab).toHaveBeenNthCalledWith(2, 'deals')
+    expect(onSelectTab).toHaveBeenNthCalledWith(3, 'invoices')
+    expect(onSelectTab).toHaveBeenNthCalledWith(4, 'orders')
+    expect(onSelectTab).toHaveBeenNthCalledWith(5, 'inventory')
   })
 
   it('turns captured account contact fields into direct action links', () => {
