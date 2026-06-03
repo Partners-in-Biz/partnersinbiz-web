@@ -50,6 +50,9 @@ export default function TeamPage() {
   const [inviting, setInviting] = useState(false)
   const [inviteError, setInviteError] = useState('')
   const [inviteSent, setInviteSent] = useState(false)
+  const [pendingRemoveMember, setPendingRemoveMember] = useState<Member | null>(null)
+  const [removingUid, setRemovingUid] = useState<string | null>(null)
+  const [removeError, setRemoveError] = useState('')
 
   useEffect(() => {
     Promise.all([
@@ -69,9 +72,17 @@ export default function TeamPage() {
   }, [])
 
   async function handleRemove(uid: string) {
-    if (!confirm('Remove this member from the workspace?')) return
+    setRemovingUid(uid)
+    setRemoveError('')
     const res = await fetch(`/api/v1/portal/settings/team/${uid}`, { method: 'DELETE' })
-    if (res.ok) setMembers(prev => prev.filter(m => m.uid !== uid))
+    if (res.ok) {
+      setMembers(prev => prev.filter(m => m.uid !== uid))
+      setPendingRemoveMember(null)
+    } else {
+      const body = await res.json().catch(() => ({}))
+      setRemoveError(body.error ?? 'Failed to remove team member.')
+    }
+    setRemovingUid(null)
   }
 
   async function handleRoleChange(uid: string, newRole: OrgRole) {
@@ -226,12 +237,70 @@ export default function TeamPage() {
               {...m}
               viewerRole={viewerRole as OrgRole}
               isSelf={m.uid === myProfile.uid}
-              onRemove={handleRemove}
+              onRemove={() => {
+                setPendingRemoveMember(m)
+                setRemoveError('')
+              }}
               onRoleChange={handleRoleChange}
             />
           ))
         )}
       </section>
+
+      {pendingRemoveMember && (
+        <section
+          role="alertdialog"
+          aria-labelledby="team-remove-confirm-title"
+          aria-describedby="team-remove-confirm-description"
+          className="rounded-[var(--radius-card)] border border-red-400/25 bg-red-500/10 p-5 shadow-[0_18px_40px_rgba(127,29,29,0.18)]"
+        >
+          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+            <div className="flex gap-3">
+              <span className="material-symbols-outlined mt-0.5 text-red-200" aria-hidden="true">
+                person_remove
+              </span>
+              <div>
+                <p className="eyebrow !text-[10px] !text-red-100/80">Workspace access removal</p>
+                <h2 id="team-remove-confirm-title" className="mt-1 font-display text-lg text-red-50">
+                  Remove {[pendingRemoveMember.firstName, pendingRemoveMember.lastName].filter(Boolean).join(' ') || pendingRemoveMember.uid} from this workspace?
+                </h2>
+                <p id="team-remove-confirm-description" className="mt-2 max-w-2xl text-sm text-red-100/90">
+                  This removes their access to CRM contacts, deals, projects, and workspace data. Existing activity history remains available for audit.
+                </p>
+                {removeError && (
+                  <p className="mt-3 rounded-lg border border-red-300/25 bg-red-400/10 px-3 py-2 text-sm text-red-100">
+                    {removeError}
+                  </p>
+                )}
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 md:justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setPendingRemoveMember(null)
+                  setRemoveError('')
+                }}
+                disabled={removingUid === pendingRemoveMember.uid}
+                aria-label={`Cancel remove ${[pendingRemoveMember.firstName, pendingRemoveMember.lastName].filter(Boolean).join(' ') || pendingRemoveMember.uid} from workspace`}
+                className="btn-pib-secondary text-xs disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => handleRemove(pendingRemoveMember.uid)}
+                disabled={removingUid === pendingRemoveMember.uid}
+                aria-label={`Confirm remove ${[pendingRemoveMember.firstName, pendingRemoveMember.lastName].filter(Boolean).join(' ') || pendingRemoveMember.uid} from workspace`}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-red-300/30 bg-red-500/20 px-3 py-2 text-xs font-semibold text-red-50 transition-colors hover:bg-red-500/30 disabled:opacity-50"
+              >
+                <span className="material-symbols-outlined text-[14px]" aria-hidden="true">person_remove</span>
+                {removingUid === pendingRemoveMember.uid ? 'Removing...' : 'Remove member'}
+              </button>
+            </div>
+          </div>
+        </section>
+      )}
 
       {canInvite && (
         <section className="pib-card space-y-5">

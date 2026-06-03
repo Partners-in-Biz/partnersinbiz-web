@@ -91,4 +91,32 @@ describe('TeamPage', () => {
     expect(screen.getByRole('combobox', { name: 'Workspace access' })).toHaveValue('crm')
     expect(screen.getByRole('textbox', { name: 'Department' })).toHaveValue('Sales')
   })
+
+  it('uses an in-page confirmation before removing workspace members', async () => {
+    const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(false)
+
+    render(<TeamPage />)
+
+    expect(await screen.findByText('Sam Sales')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Sam Sales' }))
+
+    expect(confirmSpy).not.toHaveBeenCalled()
+    expect(screen.getByRole('alertdialog', { name: 'Remove Sam Sales from this workspace?' })).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'This removes their access to CRM contacts, deals, projects, and workspace data. Existing activity history remains available for audit.',
+      ),
+    ).toBeInTheDocument()
+    expect(fetchMock).not.toHaveBeenCalledWith('/api/v1/portal/settings/team/sales-rep', expect.any(Object))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm remove Sam Sales from workspace' }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/portal/settings/team/sales-rep', { method: 'DELETE' })
+    })
+    expect(screen.queryByText('Sam Sales')).not.toBeInTheDocument()
+
+    confirmSpy.mockRestore()
+  })
 })
