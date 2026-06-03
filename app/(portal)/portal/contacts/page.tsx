@@ -782,20 +782,27 @@ export default function PortalContactsPage() {
                 <div
                   key={c.id}
                   data-contact-row
-                  className="grid grid-cols-2 md:grid-cols-15 gap-3 md:gap-4 items-center px-5 py-4 hover:bg-[var(--color-pib-surface-2)] transition-colors"
+                  className="relative grid grid-cols-1 md:grid-cols-15 gap-3 md:gap-4 items-start md:items-center px-4 py-4 md:px-5 hover:bg-[var(--color-pib-surface-2)] transition-colors"
                   style={isSelected ? { background: 'var(--color-pib-accent, #7c3aed)10' } : undefined}
                 >
                   {/* Checkbox */}
-                  <div className="col-span-1 flex items-center" onClick={e => e.stopPropagation()}>
+                  <div
+                    data-contact-select
+                    className="absolute right-4 top-4 z-10 flex items-center md:static md:col-span-1 md:z-auto"
+                    onClick={e => e.stopPropagation()}
+                  >
                     <input
                       type="checkbox"
                       checked={isSelected}
                       onChange={() => toggleSelect(c.id)}
-                      className="w-4 h-4 rounded cursor-pointer accent-[var(--color-pib-accent)]"
+                      className="h-5 w-5 rounded cursor-pointer accent-[var(--color-pib-accent)] md:h-4 md:w-4"
                       aria-label={`Select ${contactName}`}
                     />
                   </div>
-                  <div className="col-span-1 md:col-span-14 grid grid-cols-1 md:grid-cols-14 gap-3 md:gap-4 items-center">
+                  <div
+                    data-contact-card-content
+                    className="col-span-1 md:col-span-14 grid grid-cols-1 md:grid-cols-14 gap-3 md:gap-4 items-start md:items-center pr-10 md:pr-0"
+                  >
                     <div className="md:col-span-2">
                       <Link
                         href={`/portal/contacts/${c.id}`}

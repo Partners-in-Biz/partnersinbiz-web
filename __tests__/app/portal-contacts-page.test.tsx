@@ -235,6 +235,30 @@ describe('Portal contacts page', () => {
     expect(screen.queryByRole('option', { name: 'client' })).not.toBeInTheDocument()
   })
 
+  it('keeps the mobile select control from taking a full contact-card column', async () => {
+    render(<PortalContactsPage />)
+
+    const ownedRowLink = await screen.findByRole('link', { name: 'Open contact Owned Client' })
+    const ownedRow = ownedRowLink.closest('[data-contact-row]')
+    expect(ownedRow).not.toBeNull()
+
+    expect(ownedRow).toHaveClass('grid-cols-1')
+    expect(ownedRow).toHaveClass('md:grid-cols-15')
+    expect(ownedRow).not.toHaveClass('grid-cols-2')
+
+    const selectCell = within(ownedRow as HTMLElement)
+      .getByRole('checkbox', { name: 'Select Owned Client' })
+      .closest('[data-contact-select]')
+    expect(selectCell).not.toBeNull()
+    expect(selectCell).toHaveClass('absolute')
+    expect(selectCell).toHaveClass('md:static')
+
+    const contentCell = (ownedRow as HTMLElement).querySelector('[data-contact-card-content]')
+    expect(contentCell).not.toBeNull()
+    expect(contentCell).toHaveClass('col-span-1')
+    expect(contentCell).toHaveClass('md:col-span-14')
+  })
+
   it('names primary contact commands and filters without decorative icon text', async () => {
     render(<PortalContactsPage />)
 
