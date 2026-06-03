@@ -694,6 +694,7 @@ export default function DealDetailPage() {
               <div className="flex flex-wrap items-center gap-2 md:justify-end">
                 <button
                   type="button"
+                  aria-label={`Cancel archive ${deal.title ?? 'this deal'}`}
                   onClick={() => {
                     setArchiveConfirmOpen(false)
                     setArchiveError('')

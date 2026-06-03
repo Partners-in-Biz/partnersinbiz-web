@@ -114,6 +114,7 @@ describe('Portal deal detail page', () => {
       ),
     ).toBeInTheDocument()
     expect(global.fetch).not.toHaveBeenCalledWith('/api/v1/crm/deals/deal-archive-1', { method: 'DELETE' })
+    expect(screen.getByRole('button', { name: 'Cancel archive Enterprise rollout' })).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Confirm archive Enterprise rollout' }))
 
