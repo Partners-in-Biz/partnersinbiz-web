@@ -117,6 +117,7 @@ function DomainCard({
   const [expanded, setExpanded] = useState(domain.status !== 'verified')
   const [refreshing, setRefreshing] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   async function handleRefresh() {
@@ -138,7 +139,6 @@ function DomainCard({
   }
 
   async function handleDelete() {
-    if (!confirm(`Remove ${domain.name}? This will unverify the domain in Resend.`)) return
     setDeleting(true)
     setError(null)
     try {
@@ -149,6 +149,7 @@ function DomainCard({
         setDeleting(false)
         return
       }
+      setDeleteConfirmOpen(false)
       onDeleted(domain.id)
     } catch {
       setError('Failed to delete')
@@ -172,6 +173,7 @@ function DomainCard({
         <div className="flex items-center gap-2">
           <button
             onClick={handleRefresh}
+            aria-label={`Refresh sender domain ${domain.name}`}
             disabled={refreshing}
             className="btn-pib-secondary !py-1.5 !px-3 !text-sm disabled:opacity-50"
             type="button"
@@ -180,13 +182,18 @@ function DomainCard({
           </button>
           <button
             onClick={() => setExpanded((v) => !v)}
+            aria-label={`${expanded ? 'Hide DNS records for' : 'Show DNS records for'} sender domain ${domain.name}`}
             className="btn-pib-secondary !py-1.5 !px-3 !text-sm"
             type="button"
           >
             {expanded ? 'Hide DNS' : 'Show DNS'}
           </button>
           <button
-            onClick={handleDelete}
+            onClick={() => {
+              setError(null)
+              setDeleteConfirmOpen(true)
+            }}
+            aria-label={`Delete sender domain ${domain.name}`}
             disabled={deleting}
             className="btn-pib-secondary !py-1.5 !px-3 !text-sm !text-[#FCA5A5] disabled:opacity-50"
             type="button"
@@ -197,6 +204,56 @@ function DomainCard({
       </div>
 
       {error && <p className="mt-3 text-sm text-[#FCA5A5]">{error}</p>}
+
+      {deleteConfirmOpen && (
+        <section
+          role="alertdialog"
+          aria-labelledby={`delete-domain-title-${domain.id}`}
+          aria-describedby={`delete-domain-description-${domain.id}`}
+          className="mt-4 rounded-lg border border-red-400/25 bg-red-500/10 p-4"
+        >
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex gap-3">
+              <span className="material-symbols-outlined mt-0.5 text-red-200" aria-hidden="true">
+                warning
+              </span>
+              <div>
+                <p className="eyebrow !text-[10px] !text-red-100/80">Sender domain removal</p>
+                <h3 id={`delete-domain-title-${domain.id}`} className="mt-1 font-display text-lg text-red-50">
+                  Remove sender domain &quot;{domain.name}&quot;?
+                </h3>
+                <p id={`delete-domain-description-${domain.id}`} className="mt-2 max-w-2xl text-sm text-red-100/90">
+                  This removes branded sending for campaigns and unverifies the domain in Resend. Existing campaign history stays available for audit.
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setDeleteConfirmOpen(false)
+                  setError(null)
+                }}
+                disabled={deleting}
+                aria-label={`Cancel remove sender domain ${domain.name}`}
+                className="btn-pib-secondary text-xs disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={deleting}
+                aria-label={`Confirm remove sender domain ${domain.name}`}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-red-300/30 bg-red-500/20 px-3 py-2 text-xs font-semibold text-red-50 transition-colors hover:bg-red-500/30 disabled:opacity-50"
+              >
+                <span className="material-symbols-outlined text-[14px]" aria-hidden="true">delete</span>
+                {deleting ? 'Removing...' : 'Remove domain'}
+              </button>
+            </div>
+          </div>
+        </section>
+      )}
 
       {expanded && (
         <div className="mt-4 space-y-2">
