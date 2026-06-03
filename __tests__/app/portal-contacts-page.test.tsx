@@ -416,6 +416,7 @@ describe('Portal contacts page', () => {
     expect(screen.getByRole('alertdialog', { name: 'Delete 1 selected contact?' })).toBeInTheDocument()
     expect(screen.getByText('This cannot be undone. The selected contacts will be removed from this audience.')).toBeInTheDocument()
     expect(global.fetch).not.toHaveBeenCalledWith('/api/v1/crm/contacts/bulk', expect.any(Object))
+    expect(screen.getByRole('button', { name: 'Cancel delete 1 selected contact' })).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Confirm delete 1 selected contact' }))
 

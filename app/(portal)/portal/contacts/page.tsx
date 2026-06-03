@@ -628,6 +628,7 @@ export default function PortalContactsPage() {
             <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
+                aria-label={`Cancel delete ${selectedIds.size} selected contact${selectedIds.size === 1 ? '' : 's'}`}
                 onClick={() => setBulkDeleteConfirmOpen(false)}
                 className="btn-pib-secondary text-xs"
                 disabled={bulkPending}
