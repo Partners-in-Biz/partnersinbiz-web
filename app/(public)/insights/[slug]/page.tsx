@@ -10,15 +10,21 @@ import { Reveal } from '@/components/marketing/Reveal'
 
 interface Params { params: Promise<{ slug: string }> }
 
+export const revalidate = 60
+
 /**
  * Resolve a slug from either the legacy hardcoded array or Firestore
  * (seo_content where status='live'). Firestore is the source of truth for
  * any post produced by the SEO content engine.
  */
 async function resolvePost(slug: string): Promise<Post | null> {
-  const fromArray = getPostBySlug(slug)
-  if (fromArray) return fromArray
-  return getFirestorePostBySlug(slug)
+  const fromFirestore = await getFirestorePostBySlug(slug).catch(() => null)
+  if (fromFirestore) return fromFirestore
+  return getPostBySlug(slug)
+}
+
+function siteImageUrl(pathOrUrl: string) {
+  return pathOrUrl.startsWith('http') ? pathOrUrl : `${SITE.url}${pathOrUrl}`
 }
 
 export async function generateStaticParams() {
@@ -44,13 +50,13 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
       type: 'article',
       publishedTime: post.datePublished,
       modifiedTime: post.dateModified ?? post.datePublished,
-      images: [{ url: `${SITE.url}${post.cover}` }],
+      images: [{ url: siteImageUrl(post.cover) }],
     },
     twitter: {
       card: 'summary_large_image',
       title: post.title,
       description: post.description,
-      images: [`${SITE.url}${post.cover}`],
+      images: [siteImageUrl(post.cover)],
     },
   }
 }

@@ -7,6 +7,14 @@ const nextConfig = {
   },
   transpilePackages: ['@partnersinbiz/analytics-js'],
   serverExternalPackages: ['@react-pdf/renderer'],
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'firebasestorage.googleapis.com',
+      },
+    ],
+  },
   async redirects() {
     return [
       { source: '/discover', destination: '/work', permanent: true },
