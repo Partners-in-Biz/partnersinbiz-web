@@ -123,6 +123,15 @@ describe('Portal company detail page', () => {
     })
   })
 
+  it('names the company list breadcrumb without decorative icon text', async () => {
+    render(<CompanyDetailPage />)
+
+    await screen.findByRole('heading', { name: 'Acme Holdings' })
+
+    expect(screen.getByRole('link', { name: 'Back to Companies' })).toHaveAttribute('href', '/portal/companies')
+    expect(screen.queryByRole('link', { name: /arrow_back/i })).not.toBeInTheDocument()
+  })
+
   it('uses an in-page confirmation before archiving an account', async () => {
     const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(false)
 
@@ -132,7 +141,7 @@ describe('Portal company detail page', () => {
       expect(screen.getByRole('heading', { name: 'Acme Holdings' })).toBeInTheDocument()
     })
 
-    fireEvent.click(screen.getByRole('button', { name: 'Archive' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Archive account Acme Holdings' }))
 
     expect(confirmSpy).not.toHaveBeenCalled()
     expect(

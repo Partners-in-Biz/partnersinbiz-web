@@ -2387,8 +2387,12 @@ export default function CompanyDetailPage() {
         <p className="text-sm text-[var(--color-pib-text-muted)]">
           {error ?? 'Company not found.'}
         </p>
-        <Link href="/portal/companies" className="btn-pib-secondary inline-flex items-center gap-1.5 mt-2">
-          <span className="material-symbols-outlined text-sm">arrow_back</span>
+        <Link
+          href="/portal/companies"
+          aria-label="Back to Companies"
+          className="btn-pib-secondary inline-flex items-center gap-1.5 mt-2"
+        >
+          <span aria-hidden="true" className="material-symbols-outlined text-sm">arrow_back</span>
           Back to companies
         </Link>
       </div>
@@ -2402,9 +2406,10 @@ export default function CompanyDetailPage() {
       {/* Breadcrumb */}
       <Link
         href="/portal/companies"
+        aria-label="Back to Companies"
         className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] inline-flex items-center gap-1 transition-colors"
       >
-        <span className="material-symbols-outlined text-sm">arrow_back</span>
+        <span aria-hidden="true" className="material-symbols-outlined text-sm">arrow_back</span>
         Companies
       </Link>
 
