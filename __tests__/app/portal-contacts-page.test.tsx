@@ -250,6 +250,58 @@ describe('Portal contacts page', () => {
     expect(screen.queryByRole('button', { name: 'bookmark_add Save current view' })).not.toBeInTheDocument()
   })
 
+  it('surfaces duplicate scan failures before the contact table', async () => {
+    ;(global.fetch as jest.Mock).mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/contacts/duplicates') {
+        return Promise.resolve({
+          ok: false,
+          json: async () => ({ error: 'Duplicate scan unavailable' }),
+        } as Response)
+      }
+      if (url.startsWith('/api/v1/crm/contacts')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: [
+              {
+                id: 'contact-owned',
+                name: 'Owned Client',
+                email: 'owned@example.com',
+                phone: '+27825550111',
+                company: 'Owned Co',
+                type: 'client',
+                stage: 'won',
+                assignedTo: 'sales-lead-1',
+                assignedToRef: { uid: 'sales-lead-1', displayName: 'Ava Owner' },
+                tags: [],
+                lastContactedAt: null,
+              },
+            ],
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/portal/settings/team') {
+        return Promise.resolve({ ok: true, json: async () => ({ members: [] }) } as Response)
+      }
+      if (url.startsWith('/api/v1/crm/saved-views')) {
+        return Promise.resolve({ ok: true, json: async () => ({ data: [] }) } as Response)
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    })
+
+    render(<PortalContactsPage />)
+
+    expect(await screen.findByRole('link', { name: 'Open contact Owned Client' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Find duplicates' }))
+
+    const warning = await screen.findByRole('status', { name: 'Duplicate scan could not run' })
+    expect(warning).toHaveTextContent('Duplicate scan unavailable')
+
+    const firstContactLink = screen.getByRole('link', { name: 'Open contact Owned Client' })
+    expect(warning.compareDocumentPosition(firstContactLink) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
   it('names the new contact drawer close action by drawer context', async () => {
     render(<PortalContactsPage />)
 

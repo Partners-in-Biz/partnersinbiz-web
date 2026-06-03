@@ -533,6 +533,42 @@ export default function PortalContactsPage() {
         </div>
       </section>
 
+      {duplicatesError && (
+        <section
+          role="status"
+          aria-label="Duplicate scan could not run"
+          className="bento-card border-amber-400/25 bg-amber-400/10"
+        >
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex items-start gap-3">
+              <span
+                className="material-symbols-outlined mt-0.5 rounded-lg border border-amber-400/25 bg-amber-400/10 p-2 text-[20px] text-amber-200"
+                aria-hidden="true"
+              >
+                warning
+              </span>
+              <div>
+                <p className="eyebrow !text-[10px] text-amber-200">Duplicate hygiene</p>
+                <h2 className="mt-1 font-display text-xl text-[var(--color-pib-text)]">Duplicate scan could not run</h2>
+                <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">{duplicatesError}</p>
+                <p className="mt-2 text-xs leading-5 text-[var(--color-pib-text-muted)]">
+                  Contacts stay visible, but merge decisions are paused until the duplicate source responds.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handleFindDuplicates}
+              disabled={duplicatesLoading}
+              className="btn-pib-secondary shrink-0 text-xs disabled:opacity-50"
+            >
+              <span className="material-symbols-outlined text-[14px]" aria-hidden="true">refresh</span>
+              Retry scan
+            </button>
+          </div>
+        </section>
+      )}
+
       {/* Filters */}
       <section className="space-y-2">
         <SavedViewsBar
@@ -847,11 +883,6 @@ export default function PortalContactsPage() {
             })}
           </div>
         </div>
-      )}
-
-      {/* Duplicates error inline */}
-      {duplicatesError && (
-        <p className="text-sm text-red-400">{duplicatesError}</p>
       )}
 
       {/* Duplicates modal */}

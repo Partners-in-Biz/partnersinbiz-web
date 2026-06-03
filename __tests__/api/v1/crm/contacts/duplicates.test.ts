@@ -8,12 +8,14 @@ jest.mock('@/lib/firebase/admin', () => ({
 
 // withCrmAuth: gate by role
 jest.mock('@/lib/auth/crm-middleware', () => ({
-  withCrmAuth: (minRole: string, handler: Function) =>
+  withCrmAuth: (
+    minRole: string,
+    handler: (req: Request, ctx: unknown, routeCtx?: unknown) => unknown,
+  ) =>
     (req: Request, routeCtx?: unknown) => {
       const role = (req as Request & { _testRole?: string })._testRole ?? minRole
       if (minRole === 'admin' && role === 'member') {
-        const { NextResponse } = require('next/server')
-        return NextResponse.json({ success: false, error: 'Insufficient permissions' }, { status: 403 })
+        return Response.json({ success: false, error: 'Insufficient permissions' }, { status: 403 })
       }
       return handler(req, { orgId: 'org-a', role, isAgent: false, permissions: {} }, routeCtx)
     },
@@ -121,5 +123,22 @@ describe('GET /api/v1/crm/contacts/duplicates', () => {
     const body = await res.json()
 
     expect(body.data.groups).toHaveLength(0)
+  })
+
+  it('uses an index-light tenant query and filters deleted contacts in memory', async () => {
+    const query = makeQueryMock([
+      { id: 'active-1', orgId: 'org-a', email: 'same@example.com', name: 'Active One' },
+      { id: 'active-2', orgId: 'org-a', email: 'same@example.com', name: 'Active Two' },
+      { id: 'deleted-1', orgId: 'org-a', deleted: true, email: 'same@example.com', name: 'Deleted One' },
+    ])
+    mockCollection.mockReturnValue(query)
+
+    const res = await GET(makeReq())
+    const body = await res.json()
+
+    expect(query.where).toHaveBeenCalledTimes(1)
+    expect(query.where).toHaveBeenCalledWith('orgId', '==', 'org-a')
+    expect(body.data.groups).toHaveLength(1)
+    expect(body.data.groups[0].contacts.map((contact: { id: string }) => contact.id)).toEqual(['active-1', 'active-2'])
   })
 })
