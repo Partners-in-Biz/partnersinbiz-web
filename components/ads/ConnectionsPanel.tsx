@@ -9,11 +9,18 @@ interface Props {
 }
 
 export function ConnectionsPanel({ orgSlug, orgId, connections }: Props) {
-  const meta = connections.find((c) => c.platform === 'meta')
+  const [metaDisconnected, setMetaDisconnected] = useState(false)
+  const meta = metaDisconnected ? undefined : connections.find((c) => c.platform === 'meta')
   const [connecting, setConnecting] = useState(false)
+  const [disconnecting, setDisconnecting] = useState(false)
+  const [confirmDisconnect, setConfirmDisconnect] = useState(false)
+  const [actionError, setActionError] = useState<string | null>(null)
+  const [message, setMessage] = useState<string | null>(null)
 
   async function startConnect() {
     setConnecting(true)
+    setActionError(null)
+    setMessage(null)
     try {
       const res = await fetch('/api/v1/ads/connections/meta/authorize', {
         method: 'POST',
@@ -24,36 +31,69 @@ export function ConnectionsPanel({ orgSlug, orgId, connections }: Props) {
       window.location.href = body.data.authorizeUrl
     } catch (err) {
       setConnecting(false)
-      alert((err as Error).message)
+      setActionError((err as Error).message)
     }
   }
 
+  function requestDisconnect() {
+    setActionError(null)
+    setMessage(null)
+    setConfirmDisconnect(true)
+  }
+
   async function disconnect() {
-    if (!confirm('Disconnect Meta? This revokes ad account access.')) return
-    const res = await fetch('/api/v1/ads/connections/meta', {
-      method: 'DELETE',
-      headers: { 'X-Org-Id': orgId },
-    })
-    const body = await res.json()
-    if (body.success) window.location.reload()
-    else alert(body.error)
+    setDisconnecting(true)
+    setActionError(null)
+    setMessage(null)
+    try {
+      const res = await fetch('/api/v1/ads/connections/meta', {
+        method: 'DELETE',
+        headers: { 'X-Org-Id': orgId },
+      })
+      const body = await res.json()
+      if (body.success) {
+        setConfirmDisconnect(false)
+        setMetaDisconnected(true)
+        setMessage('Meta ads disconnected.')
+      } else {
+        setActionError(body.error ?? 'Failed to disconnect Meta ads.')
+      }
+    } catch (err) {
+      setActionError((err as Error).message)
+    } finally {
+      setDisconnecting(false)
+    }
   }
 
   async function refreshAccounts() {
+    setActionError(null)
+    setMessage(null)
     const res = await fetch('/api/v1/ads/connections/meta/ad-accounts?refresh=1', {
       headers: { 'X-Org-Id': orgId },
     })
     const body = await res.json()
-    if (body.success) window.location.reload()
+    if (body.success) {
+      setMessage('Meta ad accounts refreshed.')
+      window.location.reload()
+    } else {
+      setActionError(body.error ?? 'Failed to refresh Meta ad accounts.')
+    }
   }
 
   async function setDefault(adAccountId: string) {
+    setActionError(null)
+    setMessage(null)
     const res = await fetch(
       `/api/v1/ads/connections/meta/ad-accounts/${encodeURIComponent(adAccountId)}`,
       { method: 'PATCH', headers: { 'X-Org-Id': orgId } },
     )
     const body = await res.json()
-    if (body.success) window.location.reload()
+    if (body.success) {
+      setMessage('Default Meta ad account updated.')
+      window.location.reload()
+    } else {
+      setActionError(body.error ?? 'Failed to set default Meta ad account.')
+    }
   }
 
   return (
@@ -64,6 +104,54 @@ export function ConnectionsPanel({ orgSlug, orgId, connections }: Props) {
           Link ad platforms to manage paid social campaigns from PiB for {orgSlug}.
         </p>
       </header>
+
+      {confirmDisconnect && (
+        <div
+          role="alertdialog"
+          aria-modal="true"
+          aria-label={`Disconnect Meta ads connection for ${orgSlug}?`}
+          className="rounded-lg border border-red-400/30 bg-red-400/10 p-4"
+        >
+          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+            <div>
+              <h2 className="font-semibold text-red-100">Disconnect Meta ads connection?</h2>
+              <p className="mt-1 text-sm text-red-100/80">
+                This revokes Meta ad account access for this workspace. Campaign history stays in PiB.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                className="rounded-md border border-red-100/30 px-3 py-2 text-xs font-medium text-red-50 hover:bg-red-50/10 disabled:cursor-not-allowed disabled:opacity-50"
+                onClick={() => setConfirmDisconnect(false)}
+                disabled={disconnecting}
+              >
+                Keep Meta connected
+              </button>
+              <button
+                type="button"
+                className="rounded-md bg-red-300 px-3 py-2 text-xs font-medium text-red-950 hover:bg-red-200 disabled:cursor-not-allowed disabled:opacity-60"
+                onClick={disconnect}
+                disabled={disconnecting}
+              >
+                {disconnecting ? 'Disconnecting...' : `Confirm disconnect Meta ads connection for ${orgSlug}`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {(message || actionError) && (
+        <div
+          className={`rounded-lg border px-4 py-3 text-sm ${
+            actionError
+              ? 'border-red-400/30 bg-red-400/10 text-red-200'
+              : 'border-emerald-400/30 bg-emerald-400/10 text-emerald-200'
+          }`}
+        >
+          {actionError ?? message}
+        </div>
+      )}
 
       <div className="rounded-lg border border-white/10 p-5">
         <div className="flex items-center justify-between">
@@ -78,7 +166,8 @@ export function ConnectionsPanel({ orgSlug, orgId, connections }: Props) {
           {meta ? (
             <button
               className="btn-pib-ghost text-sm"
-              onClick={disconnect}
+              aria-label={`Disconnect Meta ads connection for ${orgSlug}`}
+              onClick={requestDisconnect}
             >
               Disconnect
             </button>
