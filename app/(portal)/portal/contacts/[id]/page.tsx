@@ -1205,6 +1205,7 @@ export default function PortalContactDetailPage() {
                 onClick={() => setArchiveConfirmOpen(false)}
                 disabled={archiving}
                 className="btn-pib-secondary text-xs disabled:opacity-50"
+                aria-label={`Cancel archive for ${contactName}`}
               >
                 Cancel
               </button>

@@ -294,6 +294,7 @@ describe('Portal contact detail page', () => {
     expect(screen.getByRole('heading', { name: 'Archive Jane Client?' })).toBeInTheDocument()
     expect(screen.getByText('This contact will leave the active CRM list, but relationship history stays available for reporting and audit context.')).toBeInTheDocument()
     expect(global.fetch).not.toHaveBeenCalledWith('/api/v1/crm/contacts/contact-1', { method: 'DELETE' })
+    expect(screen.getByRole('button', { name: 'Cancel archive for Jane Client' })).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Confirm archive for Jane Client' }))
 
