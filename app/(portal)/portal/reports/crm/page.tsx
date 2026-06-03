@@ -91,22 +91,30 @@ interface RepPerformanceData {
   }
 }
 
+type ReportSourceResult<T> = {
+  label: string
+  data: T | null
+  failed: boolean
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
 }
 
-async function fetchReport<T>(
+async function fetchReportSource<T>(
+  label: string,
   url: string,
   validate: (value: unknown) => value is T,
-): Promise<T | null> {
+): Promise<ReportSourceResult<T>> {
   try {
     const response = await fetch(url)
-    if (!response.ok) return null
+    if (!response.ok) return { label, data: null, failed: true }
     const body = await response.json()
     const data = isRecord(body) && 'data' in body ? body.data : body
-    return validate(data) ? data : null
+    if (data == null) return { label, data: null, failed: false }
+    return validate(data) ? { label, data, failed: false } : { label, data: null, failed: true }
   } catch {
-    return null
+    return { label, data: null, failed: true }
   }
 }
 
@@ -302,6 +310,36 @@ function InsightCard({
   )
 }
 
+function ReportSourceWarning({ failures }: { failures: string[] }) {
+  if (failures.length === 0) return null
+  return (
+    <section className="rounded-lg border border-amber-500/25 bg-amber-500/[0.07] p-4">
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div className="flex gap-3">
+          <span className="material-symbols-outlined mt-0.5 text-[22px] text-amber-200" aria-hidden="true">warning</span>
+          <div>
+            <p className="eyebrow !text-[10px] text-amber-200">Source health</p>
+            <h2 className="mt-1 text-base font-semibold text-[var(--color-pib-text)]">CRM report data needs attention</h2>
+            <div className="mt-2 space-y-1 text-sm leading-6 text-[var(--color-pib-text-muted)]">
+              {failures.map((failure) => (
+                <p key={failure}>{failure} report failed to load. Current analytics may be incomplete.</p>
+              ))}
+            </div>
+          </div>
+        </div>
+        <Link
+          href="/portal/reports/crm"
+          aria-label="Reload CRM reports after source failure"
+          className="pib-btn-secondary inline-flex shrink-0 items-center gap-1.5 text-sm"
+        >
+          <span className="material-symbols-outlined text-base" aria-hidden="true">refresh</span>
+          Reload reports
+        </Link>
+      </div>
+    </section>
+  )
+}
+
 function HealthBar({ value, label }: { value: number; label: string }) {
   const normalized = Math.max(0, Math.min(value, 1))
   return (
@@ -416,22 +454,26 @@ export default function CrmReportsPage() {
   const [loading, setLoading] = useState(true)
   const [activityLoading, setActivityLoading] = useState(false)
   const [days, setDays] = useState<DaysOption>(30)
+  const [reportFailures, setReportFailures] = useState<string[]>([])
 
   // Initial fetch — all reports in parallel
   useEffect(() => {
     Promise.all([
-      fetchReport('/api/v1/crm/reports/funnel', isFunnelData),
-      fetchReport('/api/v1/crm/reports/forecast', isForecastData),
-      fetchReport('/api/v1/crm/reports/pipeline-velocity', isPipelineVelocityData),
-      fetchReport('/api/v1/crm/reports/rep-performance', isRepPerformanceData),
-      fetchReport(`/api/v1/crm/reports/activity-summary?days=30`, isActivityData),
+      fetchReportSource('Funnel', '/api/v1/crm/reports/funnel', isFunnelData),
+      fetchReportSource('Forecast', '/api/v1/crm/reports/forecast', isForecastData),
+      fetchReportSource('Pipeline velocity', '/api/v1/crm/reports/pipeline-velocity', isPipelineVelocityData),
+      fetchReportSource('Rep performance', '/api/v1/crm/reports/rep-performance', isRepPerformanceData),
+      fetchReportSource('Activity', `/api/v1/crm/reports/activity-summary?days=30`, isActivityData),
     ])
       .then(([funnelBody, forecastBody, velocityBody, repBody, activityBody]) => {
-        setFunnel(funnelBody)
-        setForecast(forecastBody)
-        setVelocity(velocityBody)
-        setRepPerformance(repBody)
-        setActivity(activityBody)
+        setFunnel(funnelBody.data)
+        setForecast(forecastBody.data)
+        setVelocity(velocityBody.data)
+        setRepPerformance(repBody.data)
+        setActivity(activityBody.data)
+        setReportFailures([funnelBody, forecastBody, velocityBody, repBody, activityBody]
+          .filter((report) => report.failed)
+          .map((report) => report.label))
       })
       .catch(() => {})
       .finally(() => setLoading(false))
@@ -441,8 +483,14 @@ export default function CrmReportsPage() {
   const fetchActivity = useCallback(
     (d: DaysOption) => {
       setActivityLoading(true)
-      fetchReport(`/api/v1/crm/reports/activity-summary?days=${d}`, isActivityData)
-        .then((nextActivity) => setActivity(nextActivity))
+      fetchReportSource('Activity', `/api/v1/crm/reports/activity-summary?days=${d}`, isActivityData)
+        .then((nextActivity) => {
+          setActivity(nextActivity.data)
+          setReportFailures((current) => {
+            const withoutActivity = current.filter((failure) => failure !== 'Activity')
+            return nextActivity.failed ? [...withoutActivity, 'Activity'] : withoutActivity
+          })
+        })
         .catch(() => {})
         .finally(() => setActivityLoading(false))
     },
@@ -608,6 +656,8 @@ export default function CrmReportsPage() {
           A command view for pipeline quality, revenue coverage, team execution, and the actions that need attention.
         </p>
       </header>
+
+      <ReportSourceWarning failures={reportFailures} />
 
       <section className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
         <div className="space-y-5">
