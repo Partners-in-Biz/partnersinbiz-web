@@ -144,6 +144,7 @@ describe('Portal company detail page', () => {
       ),
     ).toBeInTheDocument()
     expect(global.fetch).not.toHaveBeenCalledWith('/api/v1/crm/companies/company-1', { method: 'DELETE' })
+    expect(screen.getByRole('button', { name: 'Cancel archive Acme Holdings' })).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Confirm archive Acme Holdings' }))
 

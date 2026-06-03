@@ -2459,6 +2459,7 @@ export default function CompanyDetailPage() {
             <div className="flex flex-wrap items-center gap-2 md:justify-end">
               <button
                 type="button"
+                aria-label={`Cancel archive ${company.name}`}
                 onClick={() => {
                   setArchiveConfirmOpen(false)
                   setArchiveError(null)
