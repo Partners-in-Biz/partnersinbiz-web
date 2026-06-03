@@ -39,6 +39,10 @@ function hasExitGoal(sequence: Sequence) {
   return Boolean(sequence.goals?.some((goal) => goal.label?.trim()))
 }
 
+function sequenceDisplayName(sequence: Sequence) {
+  return sequence.name?.trim() || 'Sequence name missing'
+}
+
 function sequenceGaps(sequence: Sequence): string[] {
   const gaps: string[] = []
   if (!sequence.name?.trim()) gaps.push('name')
@@ -171,7 +175,7 @@ export default function SequencesPage() {
       if (channelFilter !== 'all' && channelsFor(sequence) !== channelFilter) return false
       if (!query) return true
       return [
-        sequence.name,
+        sequenceDisplayName(sequence),
         sequence.description,
         firstStepPreview(sequence),
         ...sequence.steps.map((step) => step.subject || step.smsBody || step.bodyText),
@@ -274,6 +278,10 @@ export default function SequencesPage() {
     setSearch('')
   }
 
+  const pendingDeleteSequenceName = pendingDeleteSequence ? sequenceDisplayName(pendingDeleteSequence) : ''
+  const firstExitGoalReviewSequence = activeSequencesWithoutExitGoals[0]
+  const firstExitGoalReviewName = firstExitGoalReviewSequence ? sequenceDisplayName(firstExitGoalReviewSequence) : 'sequence'
+
   return (
     <div className="max-w-6xl space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -337,7 +345,7 @@ export default function SequencesPage() {
                       key={sequence.id}
                       className="rounded-full border border-amber-300/20 bg-amber-300/10 px-2.5 py-1 text-xs text-amber-100"
                     >
-                      {sequence.name || 'Unnamed sequence'}
+                      {sequenceDisplayName(sequence)}
                     </span>
                   ))}
                   {activeSequencesWithoutExitGoals.length > 3 && (
@@ -349,9 +357,9 @@ export default function SequencesPage() {
               </div>
             </div>
             <Link
-              href={`/portal/settings/sequences/${activeSequencesWithoutExitGoals[0].id}/edit`}
+              href={`/portal/settings/sequences/${firstExitGoalReviewSequence.id}/edit`}
               className="btn-pib-secondary shrink-0 justify-center text-xs"
-              aria-label={`Review exit goal for ${activeSequencesWithoutExitGoals[0].name || 'sequence'}`}
+              aria-label={`Review exit goal for ${firstExitGoalReviewName}`}
             >
               <span className="material-symbols-outlined text-[14px]" aria-hidden="true">edit</span>
               Review exit goal
@@ -543,7 +551,7 @@ export default function SequencesPage() {
                       <div className="min-w-0">
                         <p className="eyebrow !text-[10px] text-red-200">Sequence delete confirmation</p>
                         <h2 id="sequence-delete-confirm-title" className="mt-1 font-display text-lg text-[var(--color-pib-text)]">
-                          Delete sequence &quot;{pendingDeleteSequence.name}&quot;?
+                          Delete sequence &quot;{pendingDeleteSequenceName}&quot;?
                         </h2>
                         <p id="sequence-delete-confirm-description" className="mt-2 text-sm text-red-100/90">
                           This removes the {pendingDeleteSequence.status} follow-up journey with {pendingDeleteSequence.steps.length} step{pendingDeleteSequence.steps.length === 1 ? '' : 's'}. Existing contact history stays available for audit.
@@ -559,7 +567,7 @@ export default function SequencesPage() {
                         }}
                         className="btn-pib-secondary text-xs"
                         disabled={deletingId !== null}
-                        aria-label={`Cancel delete for sequence ${pendingDeleteSequence.name}`}
+                        aria-label={`Cancel delete for sequence ${pendingDeleteSequenceName}`}
                       >
                         Cancel
                       </button>
@@ -568,7 +576,7 @@ export default function SequencesPage() {
                         onClick={confirmDeleteSequence}
                         disabled={deletingId !== null}
                         className="inline-flex items-center gap-1.5 rounded-md border border-red-300/30 bg-red-400/15 px-3 py-2 text-xs font-semibold text-red-100 transition-colors hover:bg-red-400/25 disabled:opacity-50"
-                        aria-label={`Confirm delete sequence ${pendingDeleteSequence.name}`}
+                        aria-label={`Confirm delete sequence ${pendingDeleteSequenceName}`}
                       >
                         <span className="material-symbols-outlined text-[14px]" aria-hidden="true">
                           delete
@@ -586,6 +594,7 @@ export default function SequencesPage() {
                 const gaps = sequenceGaps(seq)
                 const score = readinessScore(seq)
                 const channel = channelsFor(seq)
+                const displayName = sequenceDisplayName(seq)
 
                 return (
                   <article
@@ -609,7 +618,7 @@ export default function SequencesPage() {
                             {score}% ready
                           </span>
                         </div>
-                        <h2 className="truncate text-base font-semibold">{seq.name}</h2>
+                        <h2 className="truncate text-base font-semibold">{displayName}</h2>
                         {seq.description ? (
                           <p className="mt-1 line-clamp-2 text-xs text-[var(--color-pib-text-muted)]">{seq.description}</p>
                         ) : (
@@ -691,7 +700,7 @@ export default function SequencesPage() {
                           <Link
                             href={`/portal/settings/sequences/${seq.id}/edit`}
                             title="Edit sequence"
-                            aria-label={`Edit sequence ${seq.name}`}
+                            aria-label={`Edit sequence ${displayName}`}
                             className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.06] hover:text-[var(--color-pib-text)]"
                           >
                             <span className="material-symbols-outlined text-[17px]">edit</span>
@@ -703,7 +712,7 @@ export default function SequencesPage() {
                               setPendingDeleteSequence(seq)
                             }}
                             disabled={isDeleting}
-                            aria-label={`Delete sequence ${seq.name}`}
+                            aria-label={`Delete sequence ${displayName}`}
                             title="Delete sequence"
                             className="cursor-pointer flex h-8 w-8 items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] transition-colors hover:bg-red-400/[0.08] hover:text-red-400"
                           >

@@ -280,4 +280,66 @@ describe('Portal settings sequences page', () => {
     confirmSpy.mockRestore()
     alertSpy.mockRestore()
   })
+
+  it('names sparse sequence rows and delete confirmations instead of exposing blank controls', async () => {
+    global.fetch = jest.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/sequences') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: {
+              sequences: [
+                {
+                  id: 'seq-sparse',
+                  orgId: 'org-1',
+                  name: '',
+                  description: '',
+                  status: 'active',
+                  steps: [
+                    {
+                      delayDays: 0,
+                      channel: 'email',
+                      subject: 'Welcome',
+                      bodyText: 'Thanks for getting in touch.',
+                    },
+                  ],
+                  createdAt: null,
+                  updatedAt: null,
+                },
+              ],
+            },
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/sequences/seq-sparse' && init?.method === 'DELETE') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { ok: true } }),
+        } as Response)
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    }) as jest.Mock
+
+    render(<SequencesPage />)
+
+    expect(await screen.findByRole('heading', { name: 'Sequence name missing' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Review exit goal for Sequence name missing' })).toHaveAttribute(
+      'href',
+      '/portal/settings/sequences/seq-sparse/edit',
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete sequence Sequence name missing' }))
+
+    expect(screen.getByRole('alertdialog', { name: 'Delete sequence "Sequence name missing"?' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Cancel delete for sequence Sequence name missing' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Confirm delete sequence Sequence name missing' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm delete sequence Sequence name missing' }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/sequences/seq-sparse', { method: 'DELETE' })
+    })
+    expect(screen.queryByRole('heading', { name: 'Sequence name missing' })).not.toBeInTheDocument()
+  })
 })
