@@ -585,6 +585,16 @@ export default function DealsPage() {
     }
   }
 
+  function selectUnassignedDealsForAssignment() {
+    const ids = unassignedDeals.map((deal) => deal.id)
+    if (!ids.length) return
+    setSelectedDealIds(new Set(ids))
+    setBulkOwnerUid('')
+    setBulkOwnerError('')
+    setOwnerLens('unassigned')
+    setViewMode('list')
+  }
+
   async function assignSelectedDealOwner() {
     const ownerUid = bulkOwnerUid.trim()
     if (!ownerUid || selectedDealIds.size === 0) return
@@ -736,6 +746,24 @@ export default function DealsPage() {
             <p className="mt-1 text-xs leading-relaxed text-[var(--color-pib-text-muted)]">
               Use owner coverage with the forecast and stage lenses so open revenue always has a named person behind it.
             </p>
+            <button
+              type="button"
+              onClick={selectUnassignedDealsForAssignment}
+              disabled={unassignedDeals.length === 0}
+              className="btn-pib-secondary mt-4 w-full justify-center text-xs disabled:cursor-not-allowed disabled:opacity-50"
+              aria-label={
+                unassignedDeals.length === 0
+                  ? 'No unassigned deals to select for owner assignment'
+                  : unassignedDeals.length === 1
+                  ? 'Select 1 unassigned deal for owner assignment'
+                  : `Select ${unassignedDeals.length} unassigned deals for owner assignment`
+              }
+            >
+              <span className="material-symbols-outlined text-[14px]" aria-hidden="true">playlist_add_check</span>
+              {unassignedDeals.length > 0
+                ? `Select ${unassignedDeals.length} owner gap${unassignedDeals.length === 1 ? '' : 's'}`
+                : 'No owner gaps'}
+            </button>
           </div>
         </section>
       )}

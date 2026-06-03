@@ -444,6 +444,23 @@ describe('Portal deals page', () => {
     expect(screen.getByText('Unassigned')).toBeInTheDocument()
   })
 
+  it('turns pipeline responsibility into a bulk unassigned-deal ownership command', async () => {
+    mockSearchParams = new URLSearchParams('view=list')
+
+    render(<DealsPage />)
+
+    expect(await screen.findByText('Growth retainer')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Select 1 unassigned deal for owner assignment' }))
+
+    expect(screen.queryByText('Growth retainer')).not.toBeInTheDocument()
+    const row = screen.getByText('Unowned expansion').closest('[data-deal-row]')
+    expect(row).not.toBeNull()
+    expect(within(row as HTMLElement).getByRole('checkbox', { name: 'Select Unowned expansion for deal owner assignment' })).toBeChecked()
+    expect(screen.getByLabelText('Assign selected deals to owner')).toBeInTheDocument()
+    expect(screen.getByText('1 selected for owner assignment.')).toBeInTheDocument()
+  })
+
   it('names incomplete deal owner snapshots instead of exposing raw owner ids', async () => {
     mockSearchParams = new URLSearchParams('view=list')
     mockDealRows = [
@@ -555,6 +572,7 @@ describe('Portal deals page', () => {
     expect(await screen.findByRole('heading', { name: 'No unassigned deals.' })).toBeInTheDocument()
     expect(screen.getByText('Every open deal in this lens has an owner.')).toBeInTheDocument()
     expect(screen.getAllByRole('button', { name: 'Show all deals' }).length).toBeGreaterThan(0)
+    expect(screen.getByRole('button', { name: 'No unassigned deals to select for owner assignment' })).toBeDisabled()
   })
 
   it('opens directly to a rep-owned deal lens from CRM reports', async () => {
