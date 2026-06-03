@@ -455,6 +455,7 @@ export default function SequencesPage() {
                         }}
                         className="btn-pib-secondary text-xs"
                         disabled={deletingId !== null}
+                        aria-label={`Cancel delete for sequence ${pendingDeleteSequence.name}`}
                       >
                         Cancel
                       </button>

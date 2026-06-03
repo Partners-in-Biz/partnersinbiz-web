@@ -145,6 +145,7 @@ describe('Portal settings sequences page', () => {
     expect(screen.getByRole('alertdialog', { name: 'Delete sequence "Lead welcome"?' })).toBeInTheDocument()
     expect(screen.getByText('This removes the active follow-up journey with 2 steps. Existing contact history stays available for audit.')).toBeInTheDocument()
     expect(global.fetch).not.toHaveBeenCalledWith('/api/v1/crm/sequences/seq-delete', expect.any(Object))
+    expect(screen.getByRole('button', { name: 'Cancel delete for sequence Lead welcome' })).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Confirm delete sequence Lead welcome' }))
 
