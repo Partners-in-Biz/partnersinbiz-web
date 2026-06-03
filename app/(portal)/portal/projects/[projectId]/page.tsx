@@ -276,7 +276,6 @@ export default function ProjectDetailPage() {
   }
 
   const handleDeleteDoc = async (docId: string) => {
-    if (!window.confirm('Are you sure?')) return
     await fetch(`/api/v1/projects/${projectId}/docs/${docId}`, { method: 'DELETE' })
     setDocs(prev => prev.filter(d => d.id !== docId))
     setSelectedDoc(prev => prev?.id === docId ? null : prev)

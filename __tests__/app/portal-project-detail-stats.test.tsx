@@ -75,7 +75,23 @@ function mockFetch() {
       } as Response)
     }
     if (url === '/api/v1/projects/project-1/docs') {
-      return Promise.resolve({ ok: true, json: async () => ({ data: [] }) } as Response)
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({
+          data: [
+            {
+              id: 'doc-1',
+              title: 'Launch brief',
+              type: 'brief',
+              content: 'Keep the campaign launch context visible for every contributor.',
+              createdBy: 'user-1',
+            },
+          ],
+        }),
+      } as Response)
+    }
+    if (url === '/api/v1/projects/project-1/docs/doc-1') {
+      return Promise.resolve({ ok: true, json: async () => ({ success: true }) } as Response)
     }
     if (url === '/api/v1/projects/project-1/tasks') {
       return Promise.resolve({
@@ -215,5 +231,38 @@ describe('Portal project detail kanban stat cards', () => {
     const mobileList = screen.getByTestId('portal-mobile-task-list')
     expect(mobileList).toBeInTheDocument()
     expect(within(mobileList).getByRole('button', { name: /Board blocker/i })).toHaveTextContent('Blocked')
+  })
+
+  it('uses an in-page confirmation before deleting project documents', async () => {
+    const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(false)
+
+    render(<ProjectDetailPage />)
+
+    await waitFor(() => expect(screen.getByText('Board blocker')).toBeInTheDocument())
+
+    fireEvent.click(screen.getByRole('tab', { name: /docs/i }))
+    expect(await screen.findByRole('button', { name: 'Preview Launch brief' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete project document Launch brief' }))
+
+    expect(confirmSpy).not.toHaveBeenCalled()
+    expect(screen.getByRole('alertdialog', { name: 'Delete project document "Launch brief"?' })).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'This removes the document from the project workspace. Tasks, comments, and project history stay intact.',
+      ),
+    ).toBeInTheDocument()
+    expect(global.fetch).not.toHaveBeenCalledWith('/api/v1/projects/project-1/docs/doc-1', { method: 'DELETE' })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm delete project document Launch brief' }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/projects/project-1/docs/doc-1', { method: 'DELETE' })
+    })
+    await waitFor(() => {
+      expect(screen.queryByText('Launch brief')).not.toBeInTheDocument()
+    })
+
+    confirmSpy.mockRestore()
   })
 })
