@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import ProductsPage from '@/app/(portal)/portal/settings/products/page'
 import type { Product } from '@/lib/products/types'
 
@@ -139,12 +139,48 @@ describe('Portal settings products page', () => {
 
     render(<ProductsPage />)
 
-    expect(await screen.findByText('Strategy workshop')).toBeInTheDocument()
-    expect(screen.getByText('Missing unit, price')).toBeInTheDocument()
+    expect((await screen.findAllByText('Strategy workshop')).length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Missing unit, price').length).toBeGreaterThan(0)
     expect(screen.getByText('Unit not set')).toBeInTheDocument()
     expect(screen.queryByText('—')).not.toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: /Fix pricing setup for Strategy workshop/i }))
+    expect(screen.getByRole('dialog', { name: 'Edit product' })).toBeInTheDocument()
+  })
+
+  it('turns the first incomplete catalog item into a leadership cleanup action', async () => {
+    products = [{
+      id: 'product-1',
+      orgId: 'org-1',
+      name: 'Strategy workshop',
+      description: 'Discovery session',
+      unit: '',
+      unitPrice: 0,
+      currency: 'ZAR',
+      createdAt: null,
+      updatedAt: null,
+    }, {
+      id: 'product-2',
+      orgId: 'org-1',
+      name: 'Launch package',
+      description: 'Campaign setup package',
+      unit: 'package',
+      unitPrice: 25000,
+      currency: 'ZAR',
+      createdAt: null,
+      updatedAt: null,
+    }]
+
+    render(<ProductsPage />)
+
+    expect((await screen.findAllByText('Strategy workshop')).length).toBeGreaterThan(0)
+    const review = screen.getByRole('region', { name: 'Catalog readiness review' })
+    expect(within(review).getByRole('heading', { name: 'Quote readiness needs cleanup' })).toBeInTheDocument()
+    expect(within(review).getByText('Sales teams need pricing, units, descriptions, and currencies before this catalog can support reliable quotes and forecasts.')).toBeInTheDocument()
+    expect(within(review).getByText('Strategy workshop')).toBeInTheDocument()
+    expect(within(review).getByText('Missing unit, price')).toBeInTheDocument()
+
+    fireEvent.click(within(review).getByRole('button', { name: 'Fix catalog setup for Strategy workshop' }))
     expect(screen.getByRole('dialog', { name: 'Edit product' })).toBeInTheDocument()
   })
 
@@ -185,15 +221,15 @@ describe('Portal settings products page', () => {
 
     render(<ProductsPage />)
 
-    expect(await screen.findByText('Product name missing')).toBeInTheDocument()
+    expect((await screen.findAllByText('Product name missing')).length).toBeGreaterThan(0)
 
     fireEvent.change(screen.getByPlaceholderText('Search product, unit, currency...'), {
       target: { value: 'missing' },
     })
 
-    expect(screen.getByText('Product name missing')).toBeInTheDocument()
+    expect(screen.getAllByText('Product name missing').length).toBeGreaterThan(0)
     expect(screen.getByText('Currency not set')).toBeInTheDocument()
-    expect(screen.getByText('Missing name, description, unit, price, currency')).toBeInTheDocument()
+    expect(screen.getAllByText('Missing name, description, unit, price, currency').length).toBeGreaterThan(0)
   })
 
   it('treats an empty filtered product view as a reversible catalog lens', async () => {

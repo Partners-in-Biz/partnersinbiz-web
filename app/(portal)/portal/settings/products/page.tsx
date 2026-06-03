@@ -180,6 +180,8 @@ export default function ProductsPage() {
   const healthAverage = products.length > 0
     ? Math.round(products.reduce((sum, product) => sum + productHealth(product).score, 0) / products.length)
     : 0
+  const firstIncompleteProduct = products.find((product) => productHealth(product).score < 80)
+  const firstIncompleteHealth = firstIncompleteProduct ? productHealth(firstIncompleteProduct) : null
   const filteredProducts = products.filter((product) => {
     const q = search.trim().toLowerCase()
     const matchesSearch = !q || productSearchText(product).includes(q)
@@ -244,9 +246,47 @@ export default function ProductsPage() {
           <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <StatCard label="Catalog items" value={String(products.length)} sub={`${activeProducts.length} active in this workspace`} icon="inventory_2" />
             <StatCard label="Catalog value" value={fmtMoney(totalPrimaryValue, primaryCurrency)} sub={`${fmtMoney(avgPrimaryValue, primaryCurrency)} average ${primaryCurrency} price`} icon="payments" />
-            <StatCard label="Catalog health" value={`${healthAverage}%`} sub={`${needsWorkCount} item${needsWorkCount === 1 ? '' : 's'} need setup work`} icon="monitoring" />
+            <StatCard label="Catalog health" value={`${healthAverage}%`} sub={`${needsWorkCount} item${needsWorkCount === 1 ? ' needs' : 's need'} setup work`} icon="monitoring" />
             <StatCard label="Pricing gaps" value={String(zeroPriceCount)} sub={`${missingUnitCount} missing units, ${missingDescriptionCount} missing descriptions`} icon="rule_settings" />
           </section>
+
+          {firstIncompleteProduct && firstIncompleteHealth && (
+            <section
+              role="region"
+              aria-label="Catalog readiness review"
+              className="rounded-[var(--radius-card)] border border-amber-400/25 bg-amber-400/[0.08] p-5 shadow-[0_18px_40px_rgba(146,64,14,0.14)]"
+            >
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div className="flex gap-3">
+                  <span className="material-symbols-outlined mt-0.5 text-amber-200" aria-hidden="true">rule_settings</span>
+                  <div>
+                    <p className="eyebrow !text-[10px] text-amber-200">Catalog readiness</p>
+                    <h2 className="mt-1 font-display text-xl text-[var(--color-pib-text)]">Quote readiness needs cleanup</h2>
+                    <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--color-pib-text-muted)]">
+                      Sales teams need pricing, units, descriptions, and currencies before this catalog can support reliable quotes and forecasts.
+                    </p>
+                    <div className="mt-4 flex flex-wrap items-center gap-2">
+                      <span className="rounded-full border border-amber-300/25 bg-amber-300/10 px-3 py-1 text-xs font-semibold text-amber-50">
+                        {productDisplayName(firstIncompleteProduct)}
+                      </span>
+                      <span className="text-xs text-[var(--color-pib-text-muted)]">
+                        Missing {firstIncompleteHealth.gaps.join(', ')}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleOpenEdit(firstIncompleteProduct)}
+                  aria-label={`Fix catalog setup for ${productDisplayName(firstIncompleteProduct)}`}
+                  className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5 text-sm"
+                >
+                  <span className="material-symbols-outlined text-base" aria-hidden="true">edit_note</span>
+                  Fix catalog setup
+                </button>
+              </div>
+            </section>
+          )}
 
           <section className="grid gap-4 lg:grid-cols-[1fr_320px]">
             <div className="space-y-4">
