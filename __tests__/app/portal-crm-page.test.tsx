@@ -218,4 +218,54 @@ describe('Portal CRM hub', () => {
     const dealActivity = screen.getByRole('link', { name: /Proposal moved to review/ })
     expect(dealActivity).toHaveAttribute('href', '/portal/deals/deal-1')
   })
+
+  it('surfaces a leadership risk brief when the CRM portfolio needs action', async () => {
+    ;(global.fetch as jest.Mock).mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/dashboard') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: {
+              openDealsCount: 3,
+              openDealsValue: 90000,
+              weightedPipelineValue: 0,
+              wonThisMonth: { count: 0, value: 0 },
+              lostThisMonth: { count: 2 },
+              recentActivities: [],
+              topOpenDeals: [
+                {
+                  id: 'deal-1',
+                  title: 'Board reporting rollout',
+                  value: 0,
+                  currency: 'ZAR',
+                  probability: 0,
+                  contactName: '',
+                },
+              ],
+            },
+          }),
+        } as Response)
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    })
+
+    render(<PortalCrmPage />)
+
+    expect(await screen.findByRole('heading', { name: 'CRM leadership risk brief' })).toBeInTheDocument()
+    expect(screen.getByText('4 CRM risks need leadership attention before this workspace is board-ready.')).toBeInTheDocument()
+    expect(screen.getByText('Forecast confidence missing')).toBeInTheDocument()
+    expect(screen.getByText('Relationship activity quiet')).toBeInTheDocument()
+    expect(screen.getByText('2 lost deals this month')).toBeInTheDocument()
+    expect(screen.getByText('Top deal needs value')).toBeInTheDocument()
+
+    expect(screen.getByRole('link', { name: 'Open forecast view to fix CRM risk: Forecast confidence missing' }))
+      .toHaveAttribute('href', '/portal/deals?view=forecast')
+    expect(screen.getByRole('link', { name: 'Open stale follow-up view to fix CRM risk: Relationship activity quiet' }))
+      .toHaveAttribute('href', '/portal/contacts?followUp=stale')
+    expect(screen.getByRole('link', { name: 'Open lost deals view to fix CRM risk: 2 lost deals this month' }))
+      .toHaveAttribute('href', '/portal/deals?view=list&stage=lost')
+    expect(screen.getByRole('link', { name: 'Open top deal to fix CRM risk: Top deal needs value' }))
+      .toHaveAttribute('href', '/portal/deals/deal-1')
+  })
 })

@@ -18,6 +18,14 @@ type CrmDashboard = {
   topOpenDeals?: Array<Deal & { contactName?: string }>
 }
 
+type CrmLeadershipRisk = {
+  label: string
+  description: string
+  href: string
+  icon: string
+  actionLabel: string
+}
+
 const ACTIVITY_TYPE_LABELS: Record<string, string> = {
   email_sent: 'Email sent',
   email_received: 'Email received',
@@ -174,6 +182,10 @@ function formatCurrency(value: unknown, currency = 'ZAR'): string {
   }
 }
 
+function numberValue(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : 0
+}
+
 function timestampMs(value: unknown): number {
   if (!value) return 0
   if (value instanceof Date) return value.getTime()
@@ -244,6 +256,59 @@ function activityHref(activity: NonNullable<CrmDashboard['recentActivities']>[nu
   return contactId ? `/portal/contacts/${encodeURIComponent(contactId)}` : ''
 }
 
+function buildLeadershipRisks(dashboard: CrmDashboard | null): CrmLeadershipRisk[] {
+  if (!dashboard) return []
+  const risks: CrmLeadershipRisk[] = []
+  const openDealsCount = numberValue(dashboard.openDealsCount)
+  const openDealsValue = numberValue(dashboard.openDealsValue)
+  const weightedPipelineValue = numberValue(dashboard.weightedPipelineValue)
+  const recentActivityCount = dashboard.recentActivities?.length ?? 0
+  const lostThisMonthCount = numberValue(dashboard.lostThisMonth?.count)
+  const topDeal = dashboard.topOpenDeals?.[0]
+
+  if (openDealsValue > 0 && weightedPipelineValue <= 0) {
+    risks.push({
+      label: 'Forecast confidence missing',
+      description: 'Open deal value exists, but probability-weighted forecast is still zero.',
+      href: '/portal/deals?view=forecast',
+      icon: 'query_stats',
+      actionLabel: 'Open forecast view',
+    })
+  }
+
+  if (openDealsCount > 0 && recentActivityCount === 0) {
+    risks.push({
+      label: 'Relationship activity quiet',
+      description: 'Active pipeline has no recent contact movement for managers to review.',
+      href: '/portal/contacts?followUp=stale',
+      icon: 'phone_in_talk',
+      actionLabel: 'Open stale follow-up view',
+    })
+  }
+
+  if (lostThisMonthCount > 0) {
+    risks.push({
+      label: `${lostThisMonthCount} lost ${lostThisMonthCount === 1 ? 'deal' : 'deals'} this month`,
+      description: 'Review loss reasons before the same objections repeat across the team.',
+      href: '/portal/deals?view=list&stage=lost',
+      icon: 'report',
+      actionLabel: 'Open lost deals view',
+    })
+  }
+
+  if (topDeal && numberValue(topDeal.value) <= 0) {
+    risks.push({
+      label: 'Top deal needs value',
+      description: 'The highest-priority open deal is missing commercial weight.',
+      href: `/portal/deals/${encodeURIComponent(topDeal.id)}`,
+      icon: 'price_check',
+      actionLabel: 'Open top deal',
+    })
+  }
+
+  return risks
+}
+
 function DashboardMetric({
   label,
   value,
@@ -264,6 +329,45 @@ function DashboardMetric({
       <p className="mt-3 text-2xl font-display leading-none text-[var(--color-pib-text)]">{value}</p>
       <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">{sub}</p>
     </div>
+  )
+}
+
+function CrmLeadershipRiskBrief({ risks }: { risks: CrmLeadershipRisk[] }) {
+  if (!risks.length) return null
+  const riskCopy = `${risks.length} CRM ${risks.length === 1 ? 'risk needs' : 'risks need'} leadership attention before this workspace is board-ready.`
+
+  return (
+    <section className="pib-card-section overflow-hidden">
+      <div className="grid gap-5 border-b border-[var(--color-pib-line)] bg-white/[0.02] px-5 py-4 lg:grid-cols-[0.8fr_1.2fr] lg:items-center">
+        <div>
+          <p className="eyebrow !text-[10px]">Executive controls</p>
+          <h2 className="mt-2 font-display text-2xl leading-tight text-[var(--color-pib-text)]">CRM leadership risk brief</h2>
+        </div>
+        <p className="text-sm leading-6 text-[var(--color-pib-text-muted)]">{riskCopy}</p>
+      </div>
+      <div className="grid divide-y divide-[var(--color-pib-line)] lg:grid-cols-2 lg:divide-x lg:divide-y-0">
+        {risks.map((risk) => (
+          <Link
+            key={`${risk.href}-${risk.label}`}
+            href={risk.href}
+            aria-label={`${risk.actionLabel} to fix CRM risk: ${risk.label}`}
+            className="group flex min-h-[132px] gap-4 p-5 transition-colors hover:bg-[var(--color-pib-surface-2)]"
+          >
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent)]">
+              <span className="material-symbols-outlined text-[22px]" aria-hidden="true">{risk.icon}</span>
+            </span>
+            <span className="min-w-0">
+              <span className="block text-sm font-semibold text-[var(--color-pib-text)]">{risk.label}</span>
+              <span className="mt-1 block text-sm leading-6 text-[var(--color-pib-text-muted)]">{risk.description}</span>
+              <span className="mt-3 inline-flex items-center gap-1 text-xs font-label text-[var(--color-pib-accent)]">
+                {risk.actionLabel}
+                <span className="material-symbols-outlined text-sm transition-transform group-hover:translate-x-0.5" aria-hidden="true">arrow_forward</span>
+              </span>
+            </span>
+          </Link>
+        ))}
+      </div>
+    </section>
   )
 }
 
@@ -305,6 +409,7 @@ export default function PortalCrmPage() {
     topOpenDealCount: dashboard?.topOpenDeals?.length ?? 0,
     lostThisMonthCount: dashboard?.lostThisMonth?.count ?? 0,
   }
+  const leadershipRisks = useMemo(() => buildLeadershipRisks(dashboard), [dashboard])
 
   return (
     <div className="mx-auto max-w-7xl space-y-8">
@@ -368,6 +473,8 @@ export default function PortalCrmPage() {
       </section>
 
       {!loading && <CrmHubCommandRail metrics={commandMetrics} />}
+
+      {!loading && <CrmLeadershipRiskBrief risks={leadershipRisks} />}
 
       <section className="grid gap-5 xl:grid-cols-[1.15fr_0.85fr]">
         <div className="pib-card-section overflow-hidden">
