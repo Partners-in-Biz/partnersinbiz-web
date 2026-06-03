@@ -110,6 +110,7 @@ describe('WebhookSettingsClient', () => {
     expect(screen.getByRole('alertdialog', { name: 'Delete webhook subscription "Warehouse sync"?' })).toBeInTheDocument()
     expect(screen.getByText('This stops outbound CRM deliveries to https://warehouse.example.com/pib. Delivery history stays available for audit.')).toBeInTheDocument()
     expect(global.fetch).not.toHaveBeenCalledWith('/api/v1/crm/webhooks/webhook-1', expect.any(Object))
+    expect(screen.getByRole('button', { name: 'Cancel delete webhook subscription Warehouse sync' })).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Confirm delete webhook subscription Warehouse sync' }))
 
@@ -164,6 +165,7 @@ describe('WebhookSettingsClient', () => {
     expect(screen.getByRole('alertdialog', { name: 'Rotate signing secret for "Warehouse sync"?' })).toBeInTheDocument()
     expect(screen.getByText('Existing consumers must be updated immediately after rotation. The new secret is shown once for the CEO or integration owner to store securely.')).toBeInTheDocument()
     expect(global.fetch).not.toHaveBeenCalledWith('/api/v1/crm/webhooks/webhook-1/rotate-secret', expect.any(Object))
+    expect(screen.getByRole('button', { name: 'Cancel rotate webhook signing secret Warehouse sync' })).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Confirm rotate webhook signing secret Warehouse sync' }))
 

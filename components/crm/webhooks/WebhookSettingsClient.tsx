@@ -747,6 +747,7 @@ export function WebhookSettingsClient() {
                   <div className="flex flex-wrap items-center gap-2">
                     <button
                       type="button"
+                      aria-label={`Cancel delete webhook subscription ${pendingDeleteWebhook.name}`}
                       onClick={() => setPendingDeleteWebhook(null)}
                       className="btn-pib-secondary text-xs"
                       disabled={busyId !== null}
@@ -795,6 +796,7 @@ export function WebhookSettingsClient() {
                   <div className="flex flex-wrap items-center gap-2">
                     <button
                       type="button"
+                      aria-label={`Cancel rotate webhook signing secret ${pendingRotateWebhook.name}`}
                       onClick={() => setPendingRotateWebhook(null)}
                       className="btn-pib-secondary text-xs"
                       disabled={busyId !== null}
