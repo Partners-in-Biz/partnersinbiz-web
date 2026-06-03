@@ -374,6 +374,39 @@ function SummaryChip({ label, value }: { label: string; value: string }) {
   )
 }
 
+function OwnershipMetricTile({
+  label,
+  value,
+  sub,
+  href,
+  ariaLabel,
+}: {
+  label: string
+  value: string
+  sub?: string
+  href?: string
+  ariaLabel?: string
+}) {
+  const className = [
+    'rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-3',
+    href ? 'block transition-colors hover:border-[var(--color-pib-accent)] hover:bg-white/[0.05] focus:outline-none focus:ring-2 focus:ring-[var(--color-pib-accent)] focus:ring-offset-2 focus:ring-offset-[var(--color-pib-bg)]' : '',
+  ].filter(Boolean).join(' ')
+  const content = (
+    <>
+      <p className="eyebrow !text-[10px]">{label}</p>
+      <p className="mt-2 font-display text-xl font-bold text-[var(--color-pib-text)]">{value}</p>
+      {sub && <p className="mt-1 text-[11px] text-[var(--color-pib-text-muted)]">{sub}</p>}
+    </>
+  )
+  return href && ariaLabel ? (
+    <Link href={href} aria-label={ariaLabel} className={className}>
+      {content}
+    </Link>
+  ) : (
+    <div className={className}>{content}</div>
+  )
+}
+
 // ── Section wrapper ────────────────────────────────────────────────────────────
 
 function Section({ eyebrow, children }: { eyebrow: React.ReactNode; children: React.ReactNode }) {
@@ -1106,27 +1139,21 @@ export default function CrmReportsPage() {
               <HealthBar value={1 - unassignedDealShare} label="Assigned deal coverage" />
               <HealthBar value={contactOwnerCoverage} label="Assigned contact coverage" />
               <div className="grid grid-cols-2 gap-3">
-                <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-3">
-                  <p className="eyebrow !text-[10px]">Open value</p>
-                  <p className="mt-2 font-display text-xl font-bold text-[var(--color-pib-text)]">{repOpenValueSummary}</p>
-                  <p className="mt-1 text-[11px] text-[var(--color-pib-text-muted)]">{repOpenValueSub}</p>
-                </div>
-                <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-3">
-                  <p className="eyebrow !text-[10px]">Won value</p>
-                  <p className="mt-2 font-display text-xl font-bold text-[var(--color-pib-text)]">{fmtZar(repPerformance.summary.totalWonValue)}</p>
-                </div>
-                <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-3">
-                  <p className="eyebrow !text-[10px]">Activities</p>
-                  <p className="mt-2 font-display text-xl font-bold text-[var(--color-pib-text)]">{fmtNum(repPerformance.summary.totalActivities)}</p>
-                </div>
-                <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-3">
-                  <p className="eyebrow !text-[10px]">Contact owners</p>
-                  <p className="mt-2 font-display text-xl font-bold text-[var(--color-pib-text)]">{fmtPercent(contactOwnerCoverage)}</p>
-                </div>
-                <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-3">
-                  <p className="eyebrow !text-[10px]">Unowned</p>
-                  <p className="mt-2 font-display text-xl font-bold text-[var(--color-pib-text)]">{fmtNum(unassignedContacts)}</p>
-                </div>
+                <OwnershipMetricTile label="Open value" value={repOpenValueSummary} sub={repOpenValueSub} />
+                <OwnershipMetricTile label="Won value" value={fmtZar(repPerformance.summary.totalWonValue)} />
+                <OwnershipMetricTile label="Activities" value={fmtNum(repPerformance.summary.totalActivities)} />
+                <OwnershipMetricTile
+                  label="Contact owners"
+                  value={fmtPercent(contactOwnerCoverage)}
+                  href={unassignedContacts > 0 ? '/portal/contacts?owner=unowned' : undefined}
+                  ariaLabel={unassignedContacts > 0 ? 'Open unowned contacts from ownership contact coverage summary' : undefined}
+                />
+                <OwnershipMetricTile
+                  label="Unowned"
+                  value={fmtNum(unassignedContacts)}
+                  href={unassignedContacts > 0 ? '/portal/contacts?owner=unowned' : undefined}
+                  ariaLabel={unassignedContacts > 0 ? `Open ${fmtNum(unassignedContacts)} unowned contacts from ownership summary` : undefined}
+                />
               </div>
             </div>
           </div>
