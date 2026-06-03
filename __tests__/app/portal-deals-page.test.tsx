@@ -376,6 +376,43 @@ describe('Portal deals page', () => {
     expect(screen.queryByText('Forecast value needed')).not.toBeInTheDocument()
   })
 
+  it('warns when deals fail to load and gives leaders a retry path', async () => {
+    mockSearchParams = new URLSearchParams('view=list')
+    global.fetch = jest.fn((url: RequestInfo | URL) => {
+      const path = String(url)
+      if (path === '/api/v1/crm/pipelines') return apiResponse(mockPipelineRows)
+      if (path === '/api/v1/crm/contacts?limit=200') return apiResponse([])
+      if (path === '/api/v1/portal/settings/team') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ members: mockTeamMembers }),
+        } as Response)
+      }
+      if (path === '/api/v1/crm/deals?pipelineId=pipeline-1&limit=200') {
+        return Promise.resolve({
+          ok: false,
+          json: async () => ({ error: 'Deals index unavailable' }),
+        } as Response)
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${path}`))
+    }) as jest.Mock
+
+    render(<DealsPage />)
+
+    expect(await screen.findByRole('heading', { name: 'Deals could not load' })).toBeInTheDocument()
+    expect(screen.getByText('Deals index unavailable')).toBeInTheDocument()
+    expect(screen.queryByText('No deals found.')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Retry loading deals' }))
+
+    await waitFor(() => {
+      const dealsRequests = (global.fetch as jest.Mock).mock.calls.filter(([url]) => (
+        String(url) === '/api/v1/crm/deals?pipelineId=pipeline-1&limit=200'
+      ))
+      expect(dealsRequests).toHaveLength(2)
+    })
+  })
+
   it('surfaces unassigned deals as a pipeline accountability lens', async () => {
     render(<DealsPage />)
 
