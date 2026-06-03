@@ -131,6 +131,66 @@ describe('Portal contacts page', () => {
     expect(screen.getByText('owner: unowned')).toBeInTheDocument()
   })
 
+  it('warns leaders when visible contacts look like smoke-test setup data', async () => {
+    ;(global.fetch as jest.Mock).mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.startsWith('/api/v1/crm/contacts')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: [
+              {
+                id: 'contact-owned',
+                name: 'Owned Client',
+                email: 'owned@example.com',
+                phone: '+27825550111',
+                company: 'Owned Co',
+                type: 'client',
+                stage: 'won',
+                assignedTo: 'sales-lead-1',
+                assignedToRef: { uid: 'sales-lead-1', displayName: 'Ava Owner' },
+                tags: [],
+                lastContactedAt: null,
+              },
+              {
+                id: 'contact-smoke',
+                name: 'Smoke composer focus contact 20260531172148',
+                email: 'smoke-20260531172148@example.com',
+                company: '',
+                type: 'lead',
+                stage: 'new',
+                assignedTo: '',
+                tags: [],
+                lastContactedAt: null,
+              },
+            ],
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/portal/settings/team') {
+        return Promise.resolve({ ok: true, json: async () => ({ members: [] }) } as Response)
+      }
+      if (url.startsWith('/api/v1/crm/saved-views')) {
+        return Promise.resolve({ ok: true, json: async () => ({ data: [] }) } as Response)
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    })
+
+    render(<PortalContactsPage />)
+
+    expect(await screen.findByRole('heading', { name: 'Contact setup needs review' })).toBeInTheDocument()
+
+    const review = screen.getByRole('region', { name: 'Contact setup review for visible contacts' })
+    expect(within(review).getByText('1 visible contact looks like smoke-test setup data.')).toBeInTheDocument()
+    expect(within(review).getByText('Smoke composer focus contact 20260531172148')).toBeInTheDocument()
+
+    fireEvent.click(within(review).getByRole('button', { name: 'Select 1 setup contact for cleanup' }))
+
+    expect(screen.getByRole('checkbox', { name: 'Select Smoke composer focus contact 20260531172148' })).toBeChecked()
+    expect(screen.queryByRole('checkbox', { name: 'Select Owned Client' })).not.toBeChecked()
+    expect(screen.getByText('1 selected')).toBeInTheDocument()
+  })
+
   it('warns when contacts fail to load instead of presenting the audience as empty', async () => {
     ;(global.fetch as jest.Mock).mockImplementation((input: RequestInfo | URL) => {
       const url = String(input)

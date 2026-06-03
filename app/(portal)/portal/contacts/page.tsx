@@ -172,6 +172,15 @@ function needsFollowUp(contact: Contact): boolean {
   return Date.now() - lastContactedMs > staleAfterMs
 }
 
+function isContactSetupArtifact(contact: Pick<Contact, 'name' | 'email'>): boolean {
+  const haystack = [contact.name, contact.email]
+    .map((value) => value?.trim().toLowerCase() ?? '')
+    .filter(Boolean)
+    .join(' ')
+
+  return /\b(smoke|test|fixture|delete)\b/.test(haystack)
+}
+
 export default function PortalContactsPage() {
   const searchParams = useSearchParams()
   const shouldOpenCreateContact = searchParams.get('create') === 'contact'
@@ -298,6 +307,13 @@ export default function PortalContactsPage() {
     setBulkAction('assign')
     setOwnerLens('unowned')
     setFollowUpLens('all')
+  }
+
+  function selectSetupArtifactContactsForCleanup() {
+    const ids = setupArtifactContacts.map((contact) => contact.id)
+    if (!ids.length) return
+    setSelectedIds(new Set(ids))
+    setBulkAction('add-tags')
   }
 
   async function handleBulkDelete() {
@@ -431,6 +447,7 @@ export default function PortalContactsPage() {
   const displayedContacts = followUpLens === 'stale'
     ? ownerFilteredContacts.filter(needsFollowUp)
     : ownerFilteredContacts
+  const setupArtifactContacts = displayedContacts.filter(isContactSetupArtifact)
   const allSelected = displayedContacts.length > 0 && displayedContacts.every((contact) => selectedIds.has(contact.id))
   const someSelected = selectedIds.size > 0 && !allSelected
   const hasActiveFilters = !!(search.trim() || stageFilter || typeFilter || followUpLens === 'stale')
@@ -557,6 +574,63 @@ export default function PortalContactsPage() {
           </button>
         </div>
       </section>
+
+      {setupArtifactContacts.length > 0 && (
+        <section
+          role="region"
+          aria-label="Contact setup review for visible contacts"
+          className="rounded-[var(--radius-card)] border border-amber-400/30 bg-amber-400/10 p-5"
+        >
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="flex gap-3">
+              <span
+                className="material-symbols-outlined mt-0.5 rounded-lg border border-amber-400/25 bg-amber-400/10 p-2 text-[20px] text-amber-200"
+                aria-hidden="true"
+              >
+                rule_settings
+              </span>
+              <div>
+                <p className="eyebrow !text-[10px] text-amber-200">Audience hygiene</p>
+                <h2 className="mt-1 font-display text-xl text-[var(--color-pib-text)]">Contact setup needs review</h2>
+                <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">
+                  {setupArtifactContacts.length} visible contact{setupArtifactContacts.length === 1 ? ' looks' : 's look'} like smoke-test setup data.
+                </p>
+                <p className="mt-2 text-xs leading-5 text-[var(--color-pib-text-muted)]">
+                  Review these records before the team treats setup residue as real customer relationships.
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {setupArtifactContacts.slice(0, 3).map((contact) => (
+                    <span
+                      key={contact.id}
+                      className="rounded-full border border-amber-300/20 bg-amber-300/10 px-2.5 py-1 text-xs text-amber-100"
+                    >
+                      {contact.name || contact.email || 'Unnamed setup contact'}
+                    </span>
+                  ))}
+                  {setupArtifactContacts.length > 3 && (
+                    <span className="rounded-full border border-amber-300/20 bg-amber-300/10 px-2.5 py-1 text-xs text-amber-100">
+                      +{setupArtifactContacts.length - 3} more
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={selectSetupArtifactContactsForCleanup}
+              className="btn-pib-secondary shrink-0 justify-center text-xs"
+              aria-label={
+                setupArtifactContacts.length === 1
+                  ? 'Select 1 setup contact for cleanup'
+                  : `Select ${setupArtifactContacts.length} setup contacts for cleanup`
+              }
+            >
+              <span className="material-symbols-outlined text-[14px]" aria-hidden="true">playlist_add_check</span>
+              Select setup contact{setupArtifactContacts.length === 1 ? '' : 's'}
+            </button>
+          </div>
+        </section>
+      )}
 
       {duplicatesError && (
         <section
