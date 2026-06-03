@@ -162,6 +162,11 @@ function labelize(value: string): string {
     .replace(/\b\w/g, (char) => char.toUpperCase())
 }
 
+function activityTypeLabel(value: string): string {
+  const normalized = value.replace(/[_-]+/g, ' ').trim().toLowerCase()
+  return normalized ? normalized.charAt(0).toUpperCase() + normalized.slice(1) : 'Activity'
+}
+
 function dealStageLensHref(stage: PipelineVelocityStage): string {
   const params = new URLSearchParams({
     view: 'list',
@@ -193,7 +198,7 @@ function Skeleton({ className = '' }: { className?: string }) {
 
 // ── Horizontal bar chart (pure CSS) ───────────────────────────────────────────
 
-function HBarChart({ entries }: { entries: [string, number][] }) {
+function HBarChart({ entries, formatLabel = (label) => label }: { entries: [string, number][], formatLabel?: (label: string) => string }) {
   if (entries.length === 0) {
     return <p className="text-sm text-[var(--color-pib-text-muted)]">No data yet.</p>
   }
@@ -202,8 +207,8 @@ function HBarChart({ entries }: { entries: [string, number][] }) {
     <div className="space-y-2">
       {entries.map(([label, count]) => (
         <div key={label} className="flex items-center gap-3">
-          <span className="text-xs w-24 shrink-0 capitalize text-right text-[var(--color-pib-text-muted)] truncate" title={label}>
-            {label}
+          <span className="text-xs w-24 shrink-0 text-right text-[var(--color-pib-text-muted)] truncate" title={formatLabel(label)}>
+            {formatLabel(label)}
           </span>
           <div className="flex-1 h-2 rounded-full bg-[var(--color-pib-line-strong)] overflow-hidden">
             <div
@@ -512,7 +517,9 @@ export default function CrmReportsPage() {
   // ── Activity derived values ──────────────────────────────────────────────────
 
   const byTypeEntries: [string, number][] = activity
-    ? Object.entries(activity.byType ?? {}).sort((a, b) => b[1] - a[1])
+    ? Object.entries(activity.byType ?? {})
+        .map(([label, count]) => [activityTypeLabel(label), count] as [string, number])
+        .sort((a, b) => b[1] - a[1])
     : []
 
   const leadCount = funnel?.byType.lead ?? 0
@@ -820,7 +827,7 @@ export default function CrmReportsPage() {
                   )}
                 </div>
                 {byStageEntries.length > 0 ? (
-                  <HBarChart entries={byStageEntries} />
+                  <HBarChart entries={byStageEntries} formatLabel={labelize} />
                 ) : (
                   <div className="rounded-lg border border-amber-400/20 bg-amber-400/10 p-4">
                     <p className="eyebrow !text-[10px] text-amber-200">Stage mix missing</p>
