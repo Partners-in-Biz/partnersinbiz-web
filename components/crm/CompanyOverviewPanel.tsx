@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { DonutChart, HorizontalBarChart, RevenueBarChart, StatCardWithChart } from '@/components/ui/Charts'
+import { companyHasAccountOwner } from '@/lib/companies/ownership'
 import type { Company } from '@/lib/companies/types'
 
 type OverviewRow = { id?: string; [key: string]: unknown }
@@ -721,7 +722,7 @@ export function CompanyOverviewPanel({ company, center, loading, onSelectTab, on
   ].filter((item) => item.value > 0)
 
   const setupFocus = PROFILE_CHECKS.filter((check) => !check.done(company, counts)).slice(0, 4)
-  const missingAccountOwner = !company.accountManagerRef?.displayName && !company.accountManagerUid
+  const missingAccountOwner = !companyHasAccountOwner(company)
   const hasPipeline = weightedPipelineValue > 0 || counts.deals > 0
   const accountRiskItems: AccountRiskItem[] = [
     ...(missingAccountOwner

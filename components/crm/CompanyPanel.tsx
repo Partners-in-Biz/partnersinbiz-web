@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
+import { companyAccountOwnerRef } from '@/lib/companies/ownership'
 import type { Company } from '@/lib/companies/types'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -153,7 +154,7 @@ export function CompanyPanel({ companyId, companyName, emptyAction }: CompanyPan
 
   // Full company card
   const displayName = company?.name?.trim() || companyName?.trim() || 'Company identity missing'
-  const am = company?.accountManagerRef
+  const am = company ? companyAccountOwnerRef(company) : undefined
   const accountManagerLabel = am?.displayName?.trim() || (am?.uid ? 'Account manager identity missing' : '')
   const lifecycle = labelize(company?.lifecycleStage)
   const tier = labelize(company?.tier)

@@ -1,6 +1,7 @@
 'use client'
 
 import Image from 'next/image'
+import { companyAccountOwnerRef, companyAccountOwnerUid, companyHasAccountOwner } from '@/lib/companies/ownership'
 import type { Company } from '@/lib/companies/types'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -37,7 +38,7 @@ function profileStrength(company: Company): number {
     company.tier,
     company.lifecycleStage,
     company.phone || company.billingEmail || company.accountsContact?.email,
-    company.accountManagerUid || company.accountManagerRef?.uid,
+    companyAccountOwnerUid(company),
     company.notes,
     company.logoUrl,
   ]
@@ -104,14 +105,14 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
     : ''
   const tierLabel = readableAccountLabel(company.tier)
   const lifecycleLabel = readableAccountLabel(company.lifecycleStage)
-  const am = company.accountManagerRef
+  const am = companyAccountOwnerRef(company)
   const strength = typeof company.healthScore === 'number' ? company.healthScore : profileStrength(company)
   const strengthColor = strength >= 75 ? '#4ade80' : strength >= 45 ? '#facc15' : '#f87171'
   const siteHref = websiteHref(company)
   const missingIdentity = !company.domain && !company.website && !company.legalName
   const missingIndustry = !company.industry
   const missingSize = company.employeeCount == null && !company.size
-  const missingAccountManager = !company.accountManagerRef?.displayName && !company.accountManagerUid
+  const missingAccountManager = !companyHasAccountOwner(company)
   const signals = [
     company.linkedOrgId ? 'Client org linked' : undefined,
     company.billingEmail || company.accountsContact?.email ? 'Billing contact ready' : undefined,

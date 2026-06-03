@@ -91,6 +91,20 @@ describe('CompaniesTable', () => {
     expect(handleSetup).toHaveBeenCalledWith('co-setup')
   })
 
+  it('uses imported CRM owner references as the visible account owner', () => {
+    const company = makeCompany({
+      id: 'co-owner-ref',
+      name: 'Owner Ref Ltd',
+      ownerUid: 'agent:pip',
+      ownerRef: { uid: 'agent:pip', displayName: 'Pip', kind: 'agent' },
+    })
+
+    render(<CompaniesTable companies={[company]} loading={false} onRowClick={noop} />)
+
+    expect(screen.getByText('Pip')).toBeInTheDocument()
+    expect(screen.queryByText('Unassigned')).not.toBeInTheDocument()
+  })
+
   it('names missing company row revenue and update metadata instead of showing bare dashes', () => {
     const company = makeCompany({ id: 'co-missing', name: 'Missing Signals Ltd' })
 

@@ -81,6 +81,44 @@ describe('Portal companies page', () => {
     expect(screen.getByText('Unassigned')).toBeInTheDocument()
   })
 
+  it('counts CRM owner references as account-manager coverage for imported client companies', async () => {
+    global.fetch = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.startsWith('/api/v1/crm/companies?')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: {
+              companies: [
+                {
+                  id: 'company-imported',
+                  orgId: 'org-1',
+                  name: 'Imported Client',
+                  lifecycleStage: 'customer',
+                  ownerUid: 'agent:pip',
+                  ownerRef: { uid: 'agent:pip', displayName: 'Pip', kind: 'agent' },
+                  tags: ['client-org'],
+                  notes: '',
+                  createdAt: null,
+                  updatedAt: null,
+                },
+              ],
+            },
+          }),
+        } as Response)
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    }) as jest.Mock
+
+    render(<CompaniesPage />)
+
+    expect(await screen.findByText('Imported Client')).toBeInTheDocument()
+    expect(screen.getByText('100%')).toBeInTheDocument()
+    expect(screen.getByText('0 unmanaged')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Edit owner for Imported Client' })).toHaveTextContent('Pip')
+    expect(screen.queryByText('Unassigned')).not.toBeInTheDocument()
+  })
+
   it('warns when companies fail to load and gives leaders a retry path', async () => {
     global.fetch = jest.fn((input: RequestInfo | URL) => {
       const url = String(input)

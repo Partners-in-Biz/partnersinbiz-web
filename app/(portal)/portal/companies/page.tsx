@@ -10,6 +10,7 @@ import {
 } from '@/components/crm/CompaniesBulkCommandBar'
 import { CompaniesTable } from '@/components/crm/CompaniesTable'
 import { CompanyFiltersBar } from '@/components/crm/CompanyFiltersBar'
+import { companyAccountOwnerUid, companyHasAccountOwner } from '@/lib/companies/ownership'
 import type { Company, CompanyListParams } from '@/lib/companies/types'
 
 // ── Companies list page ───────────────────────────────────────────────────────
@@ -23,7 +24,7 @@ function profileStrength(company: Company): number {
     company.tier,
     company.lifecycleStage,
     company.phone || company.billingEmail || company.accountsContact?.email,
-    company.accountManagerUid || company.accountManagerRef?.uid,
+    companyAccountOwnerUid(company),
     company.notes,
     company.logoUrl,
   ]
@@ -31,7 +32,7 @@ function profileStrength(company: Company): number {
 }
 
 function hasAccountManager(company: Company): boolean {
-  return Boolean(String(company.accountManagerUid ?? company.accountManagerRef?.uid ?? '').trim())
+  return companyHasAccountOwner(company)
 }
 
 function formatCurrency(value: number, currency = 'ZAR'): string {
