@@ -186,6 +186,7 @@ export default function ScoringPage() {
   // ── Save ──────────────────────────────────────────────────────────────────────
 
   async function handleSave() {
+    if (fetchError) return
     setSaving(true)
     setSaveMsg(null)
     setSaveError(null)
@@ -213,6 +214,7 @@ export default function ScoringPage() {
   // ── Recompute all ─────────────────────────────────────────────────────────────
 
   async function handleRecompute() {
+    if (fetchError) return
     setRecomputeConfirmOpen(true)
   }
 
@@ -247,6 +249,7 @@ export default function ScoringPage() {
     totalWeight <= 0 ? 'Add lead weights' : '',
     !aiEnabled ? 'AI score disabled' : '',
   ].filter(Boolean)
+  const hasSourceFailure = Boolean(fetchError)
 
   return (
     <div className="space-y-8">
@@ -262,7 +265,7 @@ export default function ScoringPage() {
           <button
             type="button"
             onClick={handleSave}
-            disabled={saving || loading}
+            disabled={saving || loading || hasSourceFailure}
             className="cursor-pointer btn-pib-accent flex items-center gap-1.5 text-sm disabled:opacity-60"
           >
             <span className="material-symbols-outlined text-[16px]" aria-hidden="true">save</span>
@@ -271,7 +274,7 @@ export default function ScoringPage() {
           <button
             type="button"
             onClick={handleRecompute}
-            disabled={recomputing || loading}
+            disabled={recomputing || loading || hasSourceFailure}
             className="cursor-pointer btn-pib-secondary flex items-center gap-1.5 text-sm disabled:opacity-60"
           >
             <span className="material-symbols-outlined text-[16px]" aria-hidden="true">refresh</span>

@@ -61,6 +61,8 @@ describe('Portal settings scoring page', () => {
     expect(await screen.findByRole('heading', { name: 'Scoring model could not load' })).toBeInTheDocument()
     expect(screen.getByText('Scoring config unavailable')).toBeInTheDocument()
     expect(screen.queryByText('Scoring health')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Save model' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Recompute all' })).toBeDisabled()
 
     fireEvent.click(screen.getByRole('button', { name: 'Retry loading scoring model' }))
 
