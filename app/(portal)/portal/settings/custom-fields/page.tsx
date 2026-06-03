@@ -531,6 +531,7 @@ export default function CustomFieldsPage() {
                 onClick={closeDeleteConfirmation}
                 className="btn-pib-secondary text-xs"
                 disabled={deletingId === pendingDeleteDef.id}
+                aria-label={`Cancel delete for custom field ${pendingDeleteDef.label}`}
               >
                 Cancel
               </button>

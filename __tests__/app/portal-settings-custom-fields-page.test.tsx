@@ -123,6 +123,7 @@ describe('Portal settings custom fields page', () => {
     expect(screen.getByRole('alertdialog', { name: 'Delete custom field "Decision role"?' })).toBeInTheDocument()
     expect(screen.getByText('This removes the field from future contact records and schema views. Existing saved values may remain in historical records for audit and cleanup.')).toBeInTheDocument()
     expect(global.fetch).not.toHaveBeenCalledWith('/api/v1/crm/custom-fields/field-1', expect.any(Object))
+    expect(screen.getByRole('button', { name: 'Cancel delete for custom field Decision role' })).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Confirm delete custom field Decision role' }))
 
