@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts'
+
+type TimestampLike = { seconds: number } | string | number | null | undefined
 
 interface ShortenedLink {
   id: string
@@ -14,7 +15,7 @@ interface ShortenedLink {
   utmTerm?: string
   utmContent?: string
   clickCount: number
-  createdAt: any
+  createdAt: TimestampLike
   createdBy: string
 }
 
@@ -24,7 +25,7 @@ interface LinkStats {
   topReferrers: Array<{ referrer: string; count: number }>
   topCountries: Array<{ country: string; count: number }>
   recentClicks: Array<{
-    timestamp: any
+    timestamp: TimestampLike
     referrer: string | null
     country: string | null
   }>
@@ -37,7 +38,8 @@ interface SelectedLinkData extends ShortenedLink {
 export default function LinksPage() {
   const [links, setLinks] = useState<ShortenedLink[]>([])
   const [selectedLink, setSelectedLink] = useState<SelectedLinkData | null>(null)
-  const [loading, setLoading] = useState(false)
+  const [pendingDeleteLink, setPendingDeleteLink] = useState<ShortenedLink | null>(null)
+  const [deletingLinkId, setDeletingLinkId] = useState<string | null>(null)
   const [page, setPage] = useState(1)
   const [totalLinks, setTotalLinks] = useState(0)
 
@@ -56,7 +58,6 @@ export default function LinksPage() {
 
   // Fetch links
   const fetchLinks = useCallback(async () => {
-    setLoading(true)
     try {
       const res = await fetch(`/api/v1/links?page=${page}&limit=${LIMIT}`)
       const data = await res.json()
@@ -66,8 +67,6 @@ export default function LinksPage() {
       }
     } catch (err) {
       console.error('Failed to fetch links:', err)
-    } finally {
-      setLoading(false)
     }
   }, [page])
 
@@ -153,21 +152,25 @@ export default function LinksPage() {
     }
   }
 
-  const handleDeleteLink = async (linkId: string) => {
-    if (!confirm('Are you sure you want to delete this link?')) return
-
+  const handleDeleteLink = async (link: ShortenedLink) => {
+    setDeletingLinkId(link.id)
+    setError('')
     try {
-      const res = await fetch(`/api/v1/links/${linkId}`, { method: 'DELETE' })
+      const res = await fetch(`/api/v1/links/${link.id}`, { method: 'DELETE' })
       const data = await res.json()
       if (data.success) {
-        setSelectedLink(null)
-        await fetchLinks()
+        if (selectedLink?.id === link.id) setSelectedLink(null)
+        setLinks(prev => prev.filter(item => item.id !== link.id))
+        setTotalLinks(prev => Math.max(0, prev - 1))
+        setPendingDeleteLink(null)
       } else {
         setError('Failed to delete link')
       }
     } catch (err) {
       setError('Failed to delete link')
       console.error(err)
+    } finally {
+      setDeletingLinkId(null)
     }
   }
 
@@ -175,6 +178,15 @@ export default function LinksPage() {
     navigator.clipboard.writeText(text)
     setSuccess('Copied to clipboard!')
     setTimeout(() => setSuccess(''), 2000)
+  }
+
+  const formatCreatedDate = (value: TimestampLike): string => {
+    if (value && typeof value === 'object' && 'seconds' in value) {
+      return new Date(value.seconds * 1000).toLocaleDateString()
+    }
+    if (typeof value === 'number') return new Date(value).toLocaleDateString()
+    if (typeof value === 'string') return new Date(value).toLocaleDateString()
+    return 'Date missing'
   }
 
   const previewUrl = buildPreviewUrl()
@@ -342,6 +354,55 @@ export default function LinksPage() {
 
       {/* Links Table */}
       <div className="mt-6 pib-card overflow-hidden">
+        {pendingDeleteLink && (
+          <section
+            role="alertdialog"
+            aria-labelledby="tracked-link-delete-title"
+            aria-describedby="tracked-link-delete-description"
+            className="m-4 rounded-lg border border-red-400/25 bg-red-500/10 p-4"
+          >
+            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+              <div className="flex gap-3">
+                <span className="material-symbols-outlined mt-0.5 text-red-200" aria-hidden="true">
+                  link_off
+                </span>
+                <div>
+                  <p className="eyebrow !text-[10px] !text-red-100/80">Tracked link delete</p>
+                  <h2 id="tracked-link-delete-title" className="mt-1 font-display text-lg text-red-50">
+                    Delete tracked link &quot;{pendingDeleteLink.shortCode}&quot;?
+                  </h2>
+                  <p id="tracked-link-delete-description" className="mt-2 max-w-2xl text-sm text-red-100/90">
+                    This removes the short link from future campaign use. Historical click analytics stay available in reports and audits.
+                  </p>
+                  <p className="mt-2 break-all text-xs text-[var(--color-pib-text-muted)]">
+                    {pendingDeleteLink.originalUrl}
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 md:justify-end">
+                <button
+                  type="button"
+                  onClick={() => setPendingDeleteLink(null)}
+                  disabled={deletingLinkId === pendingDeleteLink.id}
+                  aria-label={`Cancel delete tracked link ${pendingDeleteLink.shortCode}`}
+                  className="btn-pib-secondary text-xs disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDeleteLink(pendingDeleteLink)}
+                  disabled={deletingLinkId === pendingDeleteLink.id}
+                  aria-label={`Confirm delete tracked link ${pendingDeleteLink.shortCode}`}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-red-300/30 bg-red-500/20 px-3 py-2 text-xs font-semibold text-red-50 transition-colors hover:bg-red-500/30 disabled:opacity-50"
+                >
+                  <span className="material-symbols-outlined text-[14px]" aria-hidden="true">delete</span>
+                  {deletingLinkId === pendingDeleteLink.id ? 'Deleting...' : 'Delete link'}
+                </button>
+              </div>
+            </div>
+          </section>
+        )}
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -400,14 +461,16 @@ export default function LinksPage() {
                       {link.clickCount}
                     </td>
                     <td className="px-4 py-3 text-xs text-slate-400">
-                      {new Date(link.createdAt.seconds * 1000).toLocaleDateString()}
+                      {formatCreatedDate(link.createdAt)}
                     </td>
                     <td className="px-4 py-3 text-right">
                       <button
                         onClick={e => {
                           e.stopPropagation()
-                          handleDeleteLink(link.id)
+                          setError('')
+                          setPendingDeleteLink(link)
                         }}
+                        aria-label={`Delete tracked link ${link.shortCode}`}
                         className="text-red-400 hover:text-red-300 text-xs font-medium"
                       >
                         Delete
