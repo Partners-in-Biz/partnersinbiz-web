@@ -150,6 +150,7 @@ function SourceCard({
   const [redirectDraft, setRedirectDraft] = useState(source.redirectUrl ?? '')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [rotateConfirmOpen, setRotateConfirmOpen] = useState(false)
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
 
   useEffect(() => {
@@ -221,8 +222,8 @@ function SourceCard({
     await patch({ autoSequenceIds: ids })
   }
 
-  async function handleRotateKey() {
-    if (!confirm('Rotate the public key? Any forms or integrations using the current key will immediately stop working.')) return
+  async function confirmRotateKey() {
+    setRotateConfirmOpen(false)
     await patch({ rotateKey: true })
   }
 
@@ -361,14 +362,63 @@ function SourceCard({
               </span>
               <CopyButton value={source.publicKey} />
               <button
-                onClick={handleRotateKey}
+                onClick={() => setRotateConfirmOpen(true)}
                 disabled={busy}
                 className="px-2.5 py-1 rounded-md text-xs bg-white/[0.04] hover:bg-white/[0.08] text-[var(--color-pib-text)] border border-[var(--color-pib-line)] transition-colors disabled:opacity-50"
                 type="button"
+                aria-label={`Rotate public key for ${source.name}`}
               >
                 Rotate
               </button>
             </div>
+            {rotateConfirmOpen && (
+              <section
+                role="alertdialog"
+                aria-labelledby={`capture-source-rotate-title-${source.id}`}
+                aria-describedby={`capture-source-rotate-description-${source.id}`}
+                className="mt-3 rounded-lg border border-amber-300/30 bg-amber-400/10 px-4 py-3 shadow-xl"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="flex gap-3">
+                    <span className="material-symbols-outlined mt-0.5 text-amber-200" aria-hidden="true">
+                      key
+                    </span>
+                    <div className="min-w-0">
+                      <p className="eyebrow !text-[10px] text-amber-100">Public key rotation confirmation</p>
+                      <h3 id={`capture-source-rotate-title-${source.id}`} className="mt-1 font-display text-lg text-[var(--color-pib-text)]">
+                        Rotate public key for &quot;{source.name}&quot;?
+                      </h3>
+                      <p id={`capture-source-rotate-description-${source.id}`} className="mt-2 text-sm text-amber-50/90">
+                        This immediately invalidates the current embed/API key. Update every form, API client, and integration using this capture source before sending more traffic.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setRotateConfirmOpen(false)}
+                      className="btn-pib-secondary text-xs"
+                      disabled={busy}
+                      aria-label={`Cancel key rotation for capture source ${source.name}`}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={confirmRotateKey}
+                      disabled={busy}
+                      className="inline-flex items-center gap-1.5 rounded-md border border-amber-200/30 bg-amber-300/15 px-3 py-2 text-xs font-semibold text-amber-50 transition-colors hover:bg-amber-300/25 disabled:opacity-50"
+                      aria-label={`Confirm rotate public key for capture source ${source.name}`}
+                    >
+                      <span className="material-symbols-outlined text-[14px]" aria-hidden="true">
+                        key
+                      </span>
+                      {busy ? 'Rotating...' : 'Rotate key'}
+                    </button>
+                  </div>
+                </div>
+              </section>
+            )}
           </div>
 
           {/* Snippet (form only) */}

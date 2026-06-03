@@ -149,6 +149,32 @@ describe('PortalCaptureSourcesPage', () => {
     confirmSpy.mockRestore()
   })
 
+  it('uses an in-page confirmation before rotating a capture source key', async () => {
+    const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(false)
+
+    render(<PortalCaptureSourcesPage />)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Details for Homepage enquiry form' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Rotate public key for Homepage enquiry form' }))
+
+    expect(confirmSpy).not.toHaveBeenCalled()
+    expect(screen.getByRole('alertdialog', { name: 'Rotate public key for "Homepage enquiry form"?' })).toBeInTheDocument()
+    expect(screen.getByText('This immediately invalidates the current embed/API key. Update every form, API client, and integration using this capture source before sending more traffic.')).toBeInTheDocument()
+    expect(global.fetch).not.toHaveBeenCalledWith('/api/v1/crm/capture-sources/src-form', expect.objectContaining({ method: 'PUT' }))
+    expect(screen.getByRole('button', { name: 'Cancel key rotation for capture source Homepage enquiry form' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm rotate public key for capture source Homepage enquiry form' }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/capture-sources/src-form', expect.objectContaining({
+        method: 'PUT',
+        body: JSON.stringify({ rotateKey: true }),
+      }))
+    })
+
+    confirmSpy.mockRestore()
+  })
+
   it('turns an empty capture-source list into a first-channel setup action', async () => {
     fetchMock.mockImplementation((input: RequestInfo | URL) => {
       const url = String(input)
