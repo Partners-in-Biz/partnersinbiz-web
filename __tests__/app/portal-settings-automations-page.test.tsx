@@ -184,6 +184,7 @@ describe('Portal settings automations page', () => {
     expect(screen.getByRole('alertdialog', { name: 'Delete automation "New lead owner alert"?' })).toBeInTheDocument()
     expect(screen.getByText('This removes the CRM safety net for contact.created and stops 1 workflow action from running. Existing CRM history stays available for audit.')).toBeInTheDocument()
     expect(global.fetch).not.toHaveBeenCalledWith('/api/v1/crm/automations/rule-delete', expect.any(Object))
+    expect(screen.getByRole('button', { name: 'Cancel delete for automation New lead owner alert' })).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Confirm delete automation New lead owner alert' }))
 
