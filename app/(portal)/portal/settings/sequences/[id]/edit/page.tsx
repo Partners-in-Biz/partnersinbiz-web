@@ -1,7 +1,7 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { use, useEffect, useState } from 'react'
+import { use, useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { SequenceForm } from '@/components/crm/SequenceForm'
 import type { Sequence } from '@/lib/sequences/types'
@@ -18,32 +18,36 @@ export default function EditSequencePage({
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState<string | null>(null)
 
+  const loadSequence = useCallback(async (cancelled?: () => boolean) => {
+    if (!id) return
+    setLoading(true)
+    setFetchError(null)
+    try {
+      const res = await fetch(`/api/v1/crm/sequences/${id}`)
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        const message = typeof body?.error === 'string' ? body.error : `HTTP ${res.status}`
+        throw new Error(message)
+      }
+      const found: Sequence | null = body.data?.sequence ?? body.data ?? body ?? null
+      if (!found?.id) throw new Error('Sequence not found.')
+      if (!cancelled?.()) setSequence(found)
+    } catch (err: unknown) {
+      if (!cancelled?.()) setFetchError(err instanceof Error ? err.message : 'Failed to load sequence.')
+    } finally {
+      if (!cancelled?.()) setLoading(false)
+    }
+  }, [id])
+
   useEffect(() => {
     if (!id) return
     let cancelled = false
 
-    async function loadSequence() {
-      setLoading(true)
-      setFetchError(null)
-      try {
-        const res = await fetch(`/api/v1/crm/sequences/${id}`)
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        const body = await res.json()
-        const found: Sequence | null = body.data?.sequence ?? body.data ?? body ?? null
-        if (!found?.id) throw new Error('Sequence not found.')
-        if (!cancelled) setSequence(found)
-      } catch (err: unknown) {
-        if (!cancelled) setFetchError(err instanceof Error ? err.message : 'Failed to load sequence.')
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    }
-
-    void loadSequence()
+    void loadSequence(() => cancelled)
     return () => {
       cancelled = true
     }
-  }, [id])
+  }, [id, loadSequence])
 
   function handleSave() {
     router.push('/portal/settings/sequences')
@@ -86,19 +90,43 @@ export default function EditSequencePage({
           <p className="text-sm text-[var(--color-pib-text-muted)]">Loading sequence...</p>
         </div>
       ) : fetchError ? (
-        <div className="bento-card !p-6 flex items-start gap-2">
-          <span className="material-symbols-outlined text-[16px] text-red-400 mt-0.5">error</span>
-          <div>
-            <p className="text-sm text-red-400">{fetchError}</p>
-            <button
-              type="button"
-              onClick={handleCancel}
-              className="cursor-pointer mt-3 btn-pib-secondary text-sm"
-            >
-              Back to sequences
-            </button>
+        <section className="bento-card border-amber-400/25 bg-amber-400/10">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="flex gap-3">
+              <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-amber-400/25 bg-amber-400/10 text-amber-200">
+                <span className="material-symbols-outlined text-[20px]" aria-hidden="true">warning</span>
+              </span>
+              <div>
+                <p className="eyebrow !text-[10px] text-amber-200">Source health</p>
+                <h2 className="mt-1 font-display text-xl text-[var(--color-pib-text)]">
+                  Sequence journey could not load
+                </h2>
+                <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">{fetchError}</p>
+                <p className="mt-3 text-xs leading-5 text-[var(--color-pib-text-muted)]">
+                  Journey status, steps, and launch controls stay hidden until the sequence source responds, so teams do not edit from stale or partial follow-up data.
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => loadSequence()}
+                aria-label="Retry loading sequence journey"
+                className="cursor-pointer btn-pib-secondary flex items-center gap-1.5 text-sm"
+              >
+                <span className="material-symbols-outlined text-[16px]" aria-hidden="true">refresh</span>
+                Retry
+              </button>
+              <button
+                type="button"
+                onClick={handleCancel}
+                className="cursor-pointer btn-pib-secondary text-sm"
+              >
+                Back to sequences
+              </button>
+            </div>
           </div>
-        </div>
+        </section>
       ) : sequence ? (
         <SequenceForm initial={sequence} onSave={handleSave} onCancel={handleCancel} />
       ) : null}
