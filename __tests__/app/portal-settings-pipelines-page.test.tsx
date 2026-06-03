@@ -208,6 +208,64 @@ describe('Portal settings pipelines page', () => {
     })
   })
 
+  it('keeps default-route failures inside the pipeline command center', async () => {
+    const alertSpy = jest.spyOn(window, 'alert').mockImplementation(() => {})
+    pipelines = [{
+      id: 'pipeline-ready',
+      orgId: 'org-1',
+      name: 'Sales pipeline',
+      description: 'Main sales route',
+      stages: [
+        { id: 'qualified', label: 'Qualified', kind: 'open', order: 0, probability: 20 },
+        { id: 'proposal', label: 'Proposal', kind: 'open', order: 1, probability: 60 },
+        { id: 'won', label: 'Won', kind: 'won', order: 2, probability: 100 },
+        { id: 'lost', label: 'Lost', kind: 'lost', order: 3, probability: 0 },
+      ],
+      isDefault: false,
+      archived: false,
+      createdAt: null,
+      updatedAt: null,
+    }]
+
+    const fetchMock = global.fetch as jest.Mock
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/v1/portal/settings/profile') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ profile: { role: 'owner' } }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/pipelines?archived=false') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { pipelines } }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/pipelines/pipeline-ready/set-default' && init?.method === 'POST') {
+        return Promise.resolve({
+          ok: false,
+          json: async () => ({ error: 'Default route is locked by policy' }),
+        } as Response)
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    })
+
+    render(<PipelinesPage />)
+
+    expect(await screen.findByRole('article', { name: 'Pipeline Sales pipeline' })).toBeInTheDocument()
+    const warning = screen.getByRole('region', { name: 'Default pipeline route review' })
+
+    fireEvent.click(within(warning).getByRole('button', { name: 'Set Sales pipeline as default pipeline route' }))
+
+    const actionError = await screen.findByRole('status', { name: 'Pipeline action failed' })
+    expect(actionError).toHaveTextContent('Default route is locked by policy')
+    expect(actionError).toHaveTextContent('No pipeline changes were applied. Review permissions or retry the action from this workspace.')
+    expect(alertSpy).not.toHaveBeenCalled()
+
+    alertSpy.mockRestore()
+  })
+
   it('routes smoke-test default candidates into setup review instead of promotion', async () => {
     pipelines = [{
       id: 'pipeline-smoke',

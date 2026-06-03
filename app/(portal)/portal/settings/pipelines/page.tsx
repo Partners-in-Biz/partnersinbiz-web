@@ -74,6 +74,7 @@ export default function PipelinesPage() {
   const [pendingDeletePipeline, setPendingDeletePipeline] = useState<Pipeline | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
 
   // Drawer state
   const [drawerOpen, setDrawerOpen] = useState(false)
@@ -140,20 +141,22 @@ export default function PipelinesPage() {
   }
 
   async function handleSetDefault(p: Pipeline) {
+    setActionError(null)
     try {
       const res = await fetch(`/api/v1/crm/pipelines/${p.id}/set-default`, { method: 'POST' })
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
-        alert(body.error ?? 'Failed to set default pipeline.')
+        setActionError(body.error ?? 'Failed to set default pipeline.')
         return
       }
       await fetchPipelines(showArchived)
     } catch {
-      alert('Could not reach the server.')
+      setActionError('Could not reach the server.')
     }
   }
 
   async function handleArchive(p: Pipeline) {
+    setActionError(null)
     try {
       const res = await fetch(`/api/v1/crm/pipelines/${p.id}`, {
         method: 'PATCH',
@@ -162,12 +165,12 @@ export default function PipelinesPage() {
       })
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
-        alert(body.error ?? 'Failed to update pipeline.')
+        setActionError(body.error ?? 'Failed to update pipeline.')
         return
       }
       await fetchPipelines(showArchived)
     } catch {
-      alert('Could not reach the server.')
+      setActionError('Could not reach the server.')
     }
   }
 
@@ -424,6 +427,24 @@ export default function PipelinesPage() {
           <span className="material-symbols-outlined mr-1.5 align-middle text-[16px]" aria-hidden="true">error</span>
           {deleteError}
         </div>
+      )}
+
+      {actionError && (
+        <section
+          role="status"
+          aria-label="Pipeline action failed"
+          className="rounded-lg border border-amber-400/25 bg-amber-400/10 px-4 py-3"
+        >
+          <div className="flex gap-3">
+            <span className="material-symbols-outlined mt-0.5 text-amber-200" aria-hidden="true">warning</span>
+            <div>
+              <p className="text-sm font-medium text-amber-100">{actionError}</p>
+              <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">
+                No pipeline changes were applied. Review permissions or retry the action from this workspace.
+              </p>
+            </div>
+          </div>
+        </section>
       )}
 
       {pendingDeletePipeline && (
