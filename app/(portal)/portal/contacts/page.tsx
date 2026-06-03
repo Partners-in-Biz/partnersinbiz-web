@@ -177,6 +177,7 @@ export default function PortalContactsPage() {
   const shouldOpenCreateContact = searchParams.get('create') === 'contact'
   const [contacts, setContacts] = useState<Contact[]>([])
   const [loading, setLoading] = useState(true)
+  const [contactsError, setContactsError] = useState('')
   const [search, setSearch] = useState(() => searchParams.get('search') ?? '')
   const [stageFilter, setStageFilter] = useState(() => searchParamInList(searchParams.get('stage'), STAGES))
   const [typeFilter, setTypeFilter] = useState(() => searchParamInList(searchParams.get('type'), TYPES))
@@ -215,12 +216,21 @@ export default function PortalContactsPage() {
     if (stageFilter) params.set('stage', stageFilter)
     if (typeFilter) params.set('type', typeFilter)
     const qs = params.toString()
-    const res = await fetch(`/api/v1/crm/contacts${qs ? `?${qs}` : ''}`)
-    if (res.ok) {
+    try {
+      const res = await fetch(`/api/v1/crm/contacts${qs ? `?${qs}` : ''}`)
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({})) as { error?: string }
+        throw new Error(body.error ?? 'Contacts could not be loaded')
+      }
       const body = await res.json()
       setContacts(body.data ?? [])
+      setContactsError('')
+    } catch (err) {
+      setContacts([])
+      setContactsError(err instanceof Error ? err.message : 'Contacts could not be loaded')
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }, [search, stageFilter, typeFilter])
 
   useEffect(() => {
@@ -628,6 +638,7 @@ export default function PortalContactsPage() {
             <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
+                aria-label={`Cancel delete ${selectedIds.size} selected contact${selectedIds.size === 1 ? '' : 's'}`}
                 onClick={() => setBulkDeleteConfirmOpen(false)}
                 className="btn-pib-secondary text-xs"
                 disabled={bulkPending}
@@ -650,7 +661,29 @@ export default function PortalContactsPage() {
       )}
 
       {/* List */}
-      {loading ? (
+      {contactsError ? (
+        <section className="rounded-[var(--radius-card)] border border-amber-500/25 bg-amber-500/[0.07] p-5">
+          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+            <div className="flex gap-3">
+              <span className="material-symbols-outlined mt-0.5 text-amber-200" aria-hidden="true">warning</span>
+              <div>
+                <p className="eyebrow !text-[10px] text-amber-200">Source health</p>
+                <h2 className="mt-1 font-display text-xl text-[var(--color-pib-text)]">Contacts could not load</h2>
+                <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">{contactsError}</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={fetchContacts}
+              className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5 text-sm"
+              aria-label="Retry loading contacts"
+            >
+              <span className="material-symbols-outlined text-base" aria-hidden="true">refresh</span>
+              Retry
+            </button>
+          </div>
+        </section>
+      ) : loading ? (
         <div className="space-y-2">
           {[...Array(5)].map((_, i) => (
             <div key={i} className="pib-skeleton h-12" />
@@ -845,7 +878,7 @@ export default function PortalContactsPage() {
               <button
                 onClick={() => setShowNew(false)}
                 className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors"
-                aria-label="Close"
+                aria-label="Close New contact drawer"
               >
                 <span className="material-symbols-outlined text-[20px]">close</span>
               </button>

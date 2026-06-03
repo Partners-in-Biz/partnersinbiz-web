@@ -1,7 +1,7 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { ProductModal } from '@/components/crm/ProductModal'
 import type { Product } from '@/lib/products/types'
 
@@ -77,21 +77,31 @@ export default function ProductsPage() {
 
   // ── Fetch ─────────────────────────────────────────────────────────────────────
 
-  useEffect(() => {
+  const loadProducts = useCallback(() => {
     setLoading(true)
     setFetchError(null)
     fetch('/api/v1/crm/products')
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`)
-        return r.json()
+      .then(async (r) => {
+        const body = await r.json().catch(() => ({}))
+        if (!r.ok) {
+          throw new Error(typeof body?.error === 'string' ? body.error : `Failed to load products (${r.status})`)
+        }
+        return body
       })
       .then((body) => {
         const list: Product[] = body.data?.products ?? body.data ?? body ?? []
         setProducts(Array.isArray(list) ? list : [])
       })
-      .catch(() => setFetchError('Failed to load products. Please try again.'))
+      .catch((err) => {
+        setProducts([])
+        setFetchError(err instanceof Error ? err.message : 'Failed to load products. Please try again.')
+      })
       .finally(() => setLoading(false))
   }, [])
+
+  useEffect(() => {
+    loadProducts()
+  }, [loadProducts])
 
   // ── Handlers ──────────────────────────────────────────────────────────────────
 
@@ -229,89 +239,113 @@ export default function ProductsPage() {
         </button>
       </header>
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Catalog items" value={String(products.length)} sub={`${activeProducts.length} active in this workspace`} icon="inventory_2" />
-        <StatCard label="Catalog value" value={fmtMoney(totalPrimaryValue, primaryCurrency)} sub={`${fmtMoney(avgPrimaryValue, primaryCurrency)} average ${primaryCurrency} price`} icon="payments" />
-        <StatCard label="Catalog health" value={`${healthAverage}%`} sub={`${needsWorkCount} item${needsWorkCount === 1 ? '' : 's'} need setup work`} icon="monitoring" />
-        <StatCard label="Pricing gaps" value={String(zeroPriceCount)} sub={`${missingUnitCount} missing units, ${missingDescriptionCount} missing descriptions`} icon="rule_settings" />
-      </section>
+      {!fetchError && (
+        <>
+          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <StatCard label="Catalog items" value={String(products.length)} sub={`${activeProducts.length} active in this workspace`} icon="inventory_2" />
+            <StatCard label="Catalog value" value={fmtMoney(totalPrimaryValue, primaryCurrency)} sub={`${fmtMoney(avgPrimaryValue, primaryCurrency)} average ${primaryCurrency} price`} icon="payments" />
+            <StatCard label="Catalog health" value={`${healthAverage}%`} sub={`${needsWorkCount} item${needsWorkCount === 1 ? '' : 's'} need setup work`} icon="monitoring" />
+            <StatCard label="Pricing gaps" value={String(zeroPriceCount)} sub={`${missingUnitCount} missing units, ${missingDescriptionCount} missing descriptions`} icon="rule_settings" />
+          </section>
 
-      <section className="grid gap-4 lg:grid-cols-[1fr_320px]">
-        <div className="space-y-4">
-          <div className="flex flex-wrap gap-3">
-            <input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              className="pib-input min-w-[220px] flex-1"
-              placeholder="Search product, unit, currency..."
-            />
-            <select
-              aria-label="Filter products by currency"
-              value={currencyFilter}
-              onChange={(event) => setCurrencyFilter(event.target.value)}
-              className="pib-input !w-auto"
-            >
-              <option value="">All currencies</option>
-              {currencyCodes.map((currency) => (
-                <option key={currency} value={currency} className="bg-black">{currency}</option>
-              ))}
-            </select>
-            <select
-              aria-label="Filter products by health"
-              value={healthFilter}
-              onChange={(event) => setHealthFilter(event.target.value as 'all' | 'ready' | 'needs-work')}
-              className="pib-input !w-auto"
-            >
-              <option value="all">All health</option>
-              <option value="ready">Ready</option>
-              <option value="needs-work">Needs work</option>
-            </select>
-          </div>
+          <section className="grid gap-4 lg:grid-cols-[1fr_320px]">
+            <div className="space-y-4">
+              <div className="flex flex-wrap gap-3">
+                <input
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  className="pib-input min-w-[220px] flex-1"
+                  placeholder="Search product, unit, currency..."
+                />
+                <select
+                  aria-label="Filter products by currency"
+                  value={currencyFilter}
+                  onChange={(event) => setCurrencyFilter(event.target.value)}
+                  className="pib-input !w-auto"
+                >
+                  <option value="">All currencies</option>
+                  {currencyCodes.map((currency) => (
+                    <option key={currency} value={currency} className="bg-black">{currency}</option>
+                  ))}
+                </select>
+                <select
+                  aria-label="Filter products by health"
+                  value={healthFilter}
+                  onChange={(event) => setHealthFilter(event.target.value as 'all' | 'ready' | 'needs-work')}
+                  className="pib-input !w-auto"
+                >
+                  <option value="all">All health</option>
+                  <option value="ready">Ready</option>
+                  <option value="needs-work">Needs work</option>
+                </select>
+              </div>
 
-          {search || currencyFilter || healthFilter !== 'all' ? (
-            <button
-              type="button"
-              onClick={() => { setSearch(''); setCurrencyFilter(''); setHealthFilter('all') }}
-              className="btn-pib-secondary text-xs inline-flex items-center gap-1.5"
-            >
-              <span className="material-symbols-outlined text-[14px]" aria-hidden="true">filter_alt_off</span>
-              Clear filters
-            </button>
-          ) : null}
-        </div>
+              {search || currencyFilter || healthFilter !== 'all' ? (
+                <button
+                  type="button"
+                  onClick={() => { setSearch(''); setCurrencyFilter(''); setHealthFilter('all') }}
+                  className="btn-pib-secondary text-xs inline-flex items-center gap-1.5"
+                >
+                  <span className="material-symbols-outlined text-[14px]" aria-hidden="true">filter_alt_off</span>
+                  Clear filters
+                </button>
+              ) : null}
+            </div>
 
-        <div className="bento-card !p-5 space-y-4">
-          <div>
-            <p className="eyebrow !text-[10px]">Catalog focus</p>
-            <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">
-              Quote-ready products need a price, unit, description, and currency. Gaps here become manual work in deals.
-            </p>
-          </div>
-          <div className="grid grid-cols-3 gap-2 text-center">
-            <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-3">
-              <p className="font-display text-xl text-[var(--color-pib-text)]">{zeroPriceCount}</p>
-              <p className="mt-1 text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)]">No price</p>
+            <div className="bento-card !p-5 space-y-4">
+              <div>
+                <p className="eyebrow !text-[10px]">Catalog focus</p>
+                <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">
+                  Quote-ready products need a price, unit, description, and currency. Gaps here become manual work in deals.
+                </p>
+              </div>
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-3">
+                  <p className="font-display text-xl text-[var(--color-pib-text)]">{zeroPriceCount}</p>
+                  <p className="mt-1 text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)]">No price</p>
+                </div>
+                <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-3">
+                  <p className="font-display text-xl text-[var(--color-pib-text)]">{missingUnitCount}</p>
+                  <p className="mt-1 text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)]">No unit</p>
+                </div>
+                <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-3">
+                  <p className="font-display text-xl text-[var(--color-pib-text)]">{missingDescriptionCount}</p>
+                  <p className="mt-1 text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)]">No copy</p>
+                </div>
+              </div>
             </div>
-            <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-3">
-              <p className="font-display text-xl text-[var(--color-pib-text)]">{missingUnitCount}</p>
-              <p className="mt-1 text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)]">No unit</p>
-            </div>
-            <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-3">
-              <p className="font-display text-xl text-[var(--color-pib-text)]">{missingDescriptionCount}</p>
-              <p className="mt-1 text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)]">No copy</p>
-            </div>
-          </div>
-        </div>
-      </section>
+          </section>
+        </>
+      )}
 
       {loading ? (
         <div className="space-y-3">
           {Array.from({ length: 4 }).map((_, index) => <div key={index} className="pib-skeleton h-16" />)}
         </div>
       ) : fetchError ? (
-        <div className="px-4 py-3 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] text-sm text-[var(--color-pib-text-muted)]">
-          {fetchError}
-        </div>
+        <section className="rounded-[var(--radius-card)] border border-amber-500/25 bg-amber-500/[0.07] p-5">
+          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+            <div className="flex gap-3">
+              <span className="material-symbols-outlined mt-0.5 text-amber-200" aria-hidden="true">warning</span>
+              <div>
+                <p className="eyebrow !text-[10px] text-amber-200">Source health</p>
+                <h2 className="mt-1 font-display text-xl text-[var(--color-pib-text)]">
+                  Product catalog could not load
+                </h2>
+                <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">{fetchError}</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={loadProducts}
+              className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5 text-sm"
+              aria-label="Retry loading products"
+            >
+              <span className="material-symbols-outlined text-base" aria-hidden="true">refresh</span>
+              Retry
+            </button>
+          </div>
+        </section>
       ) : products.length === 0 ? (
         <div className="bento-card !p-0 overflow-hidden">
           <div className="grid gap-0 lg:grid-cols-[1.1fr_1.4fr]">
@@ -517,6 +551,7 @@ export default function ProductsPage() {
                 onClick={() => setPendingDeleteProduct(null)}
                 className="btn-pib-secondary text-xs"
                 disabled={deletingId === pendingDeleteProduct.id}
+                aria-label={`Cancel delete for catalog product ${productDisplayName(pendingDeleteProduct)}`}
               >
                 Cancel
               </button>

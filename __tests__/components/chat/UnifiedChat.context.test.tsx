@@ -54,7 +54,31 @@ describe('UnifiedChat context references', () => {
     conversation = { ...baseConversation, contextRefs: [] }
     mockFetch = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
-      if (url.includes('/visible-agents')) return jsonResponse({ data: [] })
+      if (url.includes('/visible-agents')) {
+        return jsonResponse({
+          data: [
+            {
+              agentId: 'pip',
+              name: 'Pip',
+              role: 'Operator',
+              persona: 'Routes work',
+              iconKey: 'robot_2',
+              colorKey: 'violet',
+              enabled: true,
+              baseUrl: 'https://agent.example.com',
+              defaultModel: 'gpt-5',
+              skills: ['partnersinbiz/client-manager'],
+              skillPolicy: {
+                runtimeSkills: ['content-engine', 'social-media-manager'],
+                pibSkills: ['content-engine', 'social-media-manager'],
+                globalSkills: ['google-workspace'],
+                capabilities: ['read', 'draft', 'write'],
+                approvalGates: ['publish'],
+              },
+            },
+          ],
+        })
+      }
       if (url.startsWith('/api/v1/conversations?')) {
         return jsonResponse({ data: { conversations: [conversation] } })
       }
@@ -232,6 +256,45 @@ describe('UnifiedChat context references', () => {
         token: '/task',
         executorKind: 'agent_intent',
         args: 'Follow up with Theo about slash commands',
+      })
+    })
+  })
+
+  it('shows selected agent skills and exposes /skills as structured command intent', async () => {
+    render(
+      <UnifiedChat
+        orgId="org-1"
+        currentUserUid="user-1"
+        currentUserDisplayName="Peet"
+      />,
+    )
+
+    const input = await screen.findByPlaceholderText('Send a message')
+    expect(await screen.findByRole('button', { name: 'Show Pip skills' })).toBeInTheDocument()
+    expect(screen.getByText('content-engine')).toBeInTheDocument()
+    expect(screen.getByText('social-media-manager')).toBeInTheDocument()
+
+    fireEvent.change(input, { target: { value: '/sk' } })
+    expect(await screen.findByRole('button', { name: 'Use /skills' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Use /skills' }))
+    expect(input).toHaveValue('/skills ')
+
+    fireEvent.change(input, { target: { value: '/skills content campaigns' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Send message' }))
+
+    await waitFor(() => {
+      const messagePost = mockFetch.mock.calls.find(([url, init]) =>
+        String(url) === '/api/v1/conversations/conv-1/messages' && init?.method === 'POST',
+      )
+      expect(messagePost).toBeTruthy()
+      const body = JSON.parse(messagePost![1].body as string)
+      expect(body.content).toBe('content campaigns')
+      expect(body.slashCommand).toMatchObject({
+        id: 'skills',
+        token: '/skills',
+        executorKind: 'agent_intent',
+        args: 'content campaigns',
       })
     })
   })

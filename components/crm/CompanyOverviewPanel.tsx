@@ -476,6 +476,77 @@ function MiniStatus({
   )
 }
 
+type AccountRiskItem = {
+  key: string
+  label: string
+  detail: string
+  icon: string
+  tone: 'danger' | 'warn'
+  actionLabel: string
+  onAction?: () => void
+}
+
+function pluralLabel(count: number, singular: string, plural: string) {
+  return `${count} ${count === 1 ? singular : plural}`
+}
+
+function AccountRiskBrief({
+  companyName,
+  items,
+}: {
+  companyName: string
+  items: AccountRiskItem[]
+}) {
+  if (items.length === 0) return null
+
+  const toneClasses = {
+    danger: 'border-red-400/30 bg-red-500/10 text-red-100',
+    warn: 'border-amber-400/30 bg-amber-400/10 text-amber-100',
+  }
+
+  return (
+    <section className="bento-card p-5" role="region" aria-label="Account risk brief">
+      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <div>
+          <p className="eyebrow !text-[10px]">Leadership brief</p>
+          <h2 className="mt-1 font-display text-xl text-[var(--color-pib-text)]">Account risk brief</h2>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--color-pib-text-muted)]">
+            {items.length} account {items.length === 1 ? 'risk needs' : 'risks need'} leadership attention before {companyName} is board-ready.
+          </p>
+        </div>
+        <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-red-400/25 bg-red-500/10 px-3 py-1 text-xs font-medium text-red-100">
+          <span aria-hidden="true" className="material-symbols-outlined text-[14px]">crisis_alert</span>
+          {items.length} active
+        </span>
+      </div>
+      <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        {items.map((item) => (
+          <div key={item.key} className={`flex min-h-[150px] flex-col justify-between rounded-lg border p-4 ${toneClasses[item.tone]}`}>
+            <div>
+              <div className="flex items-start justify-between gap-3">
+                <h3 className="text-sm font-semibold">{item.label}</h3>
+                <span aria-hidden="true" className="material-symbols-outlined text-[18px]">{item.icon}</span>
+              </div>
+              <p className="mt-2 text-xs leading-5 opacity-85">{item.detail}</p>
+            </div>
+            {item.onAction ? (
+              <button
+                type="button"
+                onClick={item.onAction}
+                aria-label={item.actionLabel}
+                className="mt-4 inline-flex w-fit items-center gap-1.5 rounded-md border border-current/20 bg-black/10 px-2.5 py-1.5 text-xs font-semibold transition-colors hover:bg-black/20"
+              >
+                <span aria-hidden="true" className="material-symbols-outlined text-[14px]">arrow_forward</span>
+                Fix now
+              </button>
+            ) : null}
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
 function BusinessProfile({ company, onEditCompany }: { company: Company; onEditCompany?: () => void }) {
   const addr = company.address
   const social = company.socialProfiles
@@ -650,6 +721,87 @@ export function CompanyOverviewPanel({ company, center, loading, onSelectTab, on
   ].filter((item) => item.value > 0)
 
   const setupFocus = PROFILE_CHECKS.filter((check) => !check.done(company, counts)).slice(0, 4)
+  const missingAccountOwner = !company.accountManagerRef?.displayName && !company.accountManagerUid
+  const hasPipeline = weightedPipelineValue > 0 || counts.deals > 0
+  const accountRiskItems: AccountRiskItem[] = [
+    ...(missingAccountOwner
+      ? [{
+          key: 'owner',
+          label: 'No account owner',
+          detail: 'Assign one accountable manager so escalations, renewals, and delivery handoffs do not drift.',
+          icon: 'assignment_ind',
+          tone: 'danger' as const,
+          actionLabel: `Assign account owner for ${company.name} from account risk brief`,
+          onAction: onEditCompany,
+        }]
+      : []),
+    ...(profileScore < 70
+      ? [{
+          key: 'profile',
+          label: 'Profile below 70%',
+          detail: 'Complete the account profile before leadership relies on this record for planning.',
+          icon: 'fact_check',
+          tone: 'warn' as const,
+          actionLabel: `Improve profile completeness for ${company.name} from account risk brief`,
+          onAction: onEditCompany,
+        }]
+      : []),
+    ...(counts.contacts === 0
+      ? [{
+          key: 'contacts',
+          label: 'No stakeholders linked',
+          detail: 'Add buyers, approvers, finance owners, and delivery contacts so the team knows who to engage.',
+          icon: 'groups',
+          tone: 'danger' as const,
+          actionLabel: `Review stakeholders for ${company.name} from account risk brief`,
+          onAction: onSelectTab ? () => onSelectTab('contacts') : undefined,
+        }]
+      : []),
+    ...(!hasPipeline
+      ? [{
+          key: 'pipeline',
+          label: 'No active pipeline',
+          detail: 'Review or create opportunity records so forecast, quote readiness, and growth value are visible.',
+          icon: 'query_stats',
+          tone: 'warn' as const,
+          actionLabel: `Review pipeline for ${company.name} from account risk brief`,
+          onAction: onSelectTab ? () => onSelectTab('deals') : undefined,
+        }]
+      : []),
+    ...(counts.overdueInvoices > 0
+      ? [{
+          key: 'overdue-invoices',
+          label: pluralLabel(counts.overdueInvoices, 'overdue invoice', 'overdue invoices'),
+          detail: 'Clear finance risk before account reviews turn into cash-collection surprises.',
+          icon: 'receipt_long',
+          tone: 'danger' as const,
+          actionLabel: `Review overdue invoices for ${company.name} from account risk brief`,
+          onAction: onSelectTab ? () => onSelectTab('invoices') : undefined,
+        }]
+      : []),
+    ...(counts.openOrders > 0
+      ? [{
+          key: 'open-orders',
+          label: pluralLabel(counts.openOrders, 'open order', 'open orders'),
+          detail: 'Check fulfillment so delivery blockers are visible before the client chases the team.',
+          icon: 'orders',
+          tone: 'warn' as const,
+          actionLabel: `Review fulfillment orders for ${company.name} from account risk brief`,
+          onAction: onSelectTab ? () => onSelectTab('orders') : undefined,
+        }]
+      : []),
+    ...(counts.lowStockItems > 0
+      ? [{
+          key: 'low-stock',
+          label: pluralLabel(counts.lowStockItems, 'low-stock item', 'low-stock items'),
+          detail: 'Review inventory coverage before service delivery depends on stock or capacity that is not there.',
+          icon: 'inventory_2',
+          tone: 'danger' as const,
+          actionLabel: `Review inventory risk for ${company.name} from account risk brief`,
+          onAction: onSelectTab ? () => onSelectTab('inventory') : undefined,
+        }]
+      : []),
+  ]
 
   return (
     <div className="space-y-6">
@@ -742,6 +894,8 @@ export function CompanyOverviewPanel({ company, center, loading, onSelectTab, on
           </div>
         </div>
       </section>
+
+      <AccountRiskBrief companyName={company.name} items={accountRiskItems} />
 
       <section>
         <div className="mb-3 flex items-baseline justify-between gap-3">

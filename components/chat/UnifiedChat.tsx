@@ -2,7 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ChatEvent } from '@/lib/hermes/types'
-import { AGENT_IDS } from '@/lib/agents/types'
+import { AGENT_IDS, type AgentSkillPolicyState } from '@/lib/agents/types'
 import {
   extractCurrentPageContextCommand,
   filterContextReferenceMentionOptions,
@@ -47,8 +47,10 @@ interface AgentTeamDoc {
   colorKey: string
   enabled: boolean
   baseUrl: string
-  apiKey: string
+  apiKey?: string
   defaultModel: string
+  skills?: string[]
+  skillPolicy?: AgentSkillPolicyState
   lastHealthStatus?: 'ok' | 'degraded' | 'unreachable'
 }
 
@@ -1378,7 +1380,7 @@ export default function UnifiedChat({
           {/* Participant bar — desktop only (kept) */}
           {activeConversation?.participants && activeConversation.participants.length > 0 && !compact && (
             <div className="hidden lg:block mt-1.5">
-              <ParticipantBar participants={activeConversation.participants} />
+              <ParticipantBar participants={activeConversation.participants} agentDetails={agentMap} />
             </div>
           )}
         </div>

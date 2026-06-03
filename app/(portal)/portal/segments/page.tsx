@@ -102,6 +102,7 @@ export default function PortalSegmentsPage() {
   const [segments, setSegments] = useState<Segment[]>([])
   const [counts, setCounts] = useState<Record<string, number | null>>({})
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
   const [showNew, setShowNew] = useState(false)
   const [newForm, setNewForm] = useState<FormState>(EMPTY_FORM)
   const [savingNew, setSavingNew] = useState(false)
@@ -119,11 +120,16 @@ export default function PortalSegmentsPage() {
 
   const fetchSegments = useCallback(async () => {
     setLoading(true)
-    const res = await fetch('/api/v1/crm/segments')
-    if (res.ok) {
-      const body = await res.json()
+    setLoadError('')
+    try {
+      const res = await fetch('/api/v1/crm/segments')
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        throw new Error(typeof body?.error === 'string' ? body.error : `Failed to load segments (${res.status})`)
+      }
       const list = extractSegmentsList(body)
       setSegments(list)
+      setCounts({})
       // Lazy count resolution
       list.forEach((s) => {
         setCounts((prev) => (prev[s.id] !== undefined ? prev : { ...prev, [s.id]: null }))
@@ -138,8 +144,13 @@ export default function PortalSegmentsPage() {
           })
           .catch(() => {})
       })
+    } catch (err) {
+      setSegments([])
+      setCounts({})
+      setLoadError(err instanceof Error ? err.message : 'Failed to load segments')
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }, [])
 
   useEffect(() => {
@@ -496,6 +507,7 @@ export default function PortalSegmentsPage() {
                 }}
                 className="btn-pib-secondary text-xs"
                 disabled={deletingId === pendingDeleteSegment.id}
+                aria-label={`Cancel delete for segment ${pendingDeleteSegment.name}`}
               >
                 Cancel
               </button>
@@ -542,6 +554,28 @@ export default function PortalSegmentsPage() {
             <div key={i} className="pib-skeleton h-20" />
           ))}
         </div>
+      ) : loadError ? (
+        <section className="rounded-[var(--radius-card)] border border-amber-500/25 bg-amber-500/[0.07] p-5">
+          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+            <div className="flex gap-3">
+              <span className="material-symbols-outlined mt-0.5 text-amber-200" aria-hidden="true">warning</span>
+              <div>
+                <p className="eyebrow !text-[10px] text-amber-200">Source health</p>
+                <h2 className="mt-1 font-display text-xl text-[var(--color-pib-text)]">Segments could not load</h2>
+                <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">{loadError}</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={fetchSegments}
+              className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5 text-sm"
+              aria-label="Retry loading segments"
+            >
+              <span className="material-symbols-outlined text-base" aria-hidden="true">refresh</span>
+              Retry
+            </button>
+          </div>
+        </section>
       ) : segments.length === 0 ? (
         <div className="bento-card p-10 text-center">
           <span className="material-symbols-outlined text-4xl text-[var(--color-pib-accent)]" aria-hidden="true">filter_alt</span>

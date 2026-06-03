@@ -652,6 +652,8 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
   const [replyText, setReplyText] = useState('')
   const [socialChangeText, setSocialChangeText] = useState('')
   const [followUpText, setFollowUpText] = useState('')
+  const [nextFollowUpTaskTitle, setNextFollowUpTaskTitle] = useState('')
+  const [nextFollowUpTaskDueDate, setNextFollowUpTaskDueDate] = useState('')
   const [mailboxReplyText, setMailboxReplyText] = useState('')
   const [reportRecipients, setReportRecipients] = useState('')
   const [expenseReviewText, setExpenseReviewText] = useState('')
@@ -1264,14 +1266,53 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
       })
       const body = await res.json()
       if (!res.ok) throw new Error(body.error || 'Follow-up note failed')
+      await createNextFollowUpTask(item, { contactId, dealId, summary })
       setFollowUpText('')
-      setFlash({ kind: 'ok', message: 'Follow-up note logged to the CRM contact.' })
-      await loadFeed({ quiet: true })
+      setNextFollowUpTaskTitle('')
+      setNextFollowUpTaskDueDate('')
+      setFlash({
+        kind: 'ok',
+        message: nextFollowUpTaskTitle.trim()
+          ? 'Follow-up note logged and next task scheduled.'
+          : 'Follow-up note logged to the CRM contact.',
+      })
+      void loadFeed({ quiet: true })
     } catch (err) {
       setFlash({ kind: 'error', message: err instanceof Error ? err.message : 'Follow-up note failed' })
     } finally {
       setBusyAction(null)
     }
+  }
+
+  async function createNextFollowUpTask(
+    item: BriefingCard,
+    input: { contactId: string; dealId: string; summary: string },
+  ) {
+    const title = nextFollowUpTaskTitle.trim()
+    if (!title) return
+
+    const orgId = typeof item.orgId === 'string' && item.orgId
+      ? item.orgId
+      : typeof item.context.orgId === 'string' ? item.context.orgId : ''
+    if (!orgId) throw new Error('Workspace is required to schedule the next task')
+
+    const res = await fetch('/api/v1/tasks', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        orgId,
+        title,
+        description: input.summary,
+        status: 'todo',
+        priority: 'normal',
+        dueDate: nextFollowUpTaskDueDate || null,
+        contactId: input.contactId,
+        dealId: input.dealId,
+        tags: ['crm-follow-up'],
+      }),
+    })
+    const body = await res.json().catch(() => ({}))
+    if (!res.ok) throw new Error(body.error || 'Next task scheduling failed')
   }
 
   async function completeContactFollowUp(item: BriefingCard) {
@@ -1310,9 +1351,21 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
       const contactBody = await contactRes.json().catch(() => ({}))
       if (!contactRes.ok) throw new Error(contactBody.error || 'Contact update failed')
 
+      await createNextFollowUpTask(item, {
+        contactId,
+        dealId: typeof item.context.dealId === 'string' ? item.context.dealId : '',
+        summary,
+      })
       setFollowUpText('')
-      setFlash({ kind: 'ok', message: 'Contact follow-up logged and cleared.' })
-      await loadFeed({ quiet: true })
+      setNextFollowUpTaskTitle('')
+      setNextFollowUpTaskDueDate('')
+      setFlash({
+        kind: 'ok',
+        message: nextFollowUpTaskTitle.trim()
+          ? 'Contact follow-up logged, cleared, and next task scheduled.'
+          : 'Contact follow-up logged and cleared.',
+      })
+      void loadFeed({ quiet: true })
     } catch (err) {
       setFlash({ kind: 'error', message: err instanceof Error ? err.message : 'Contact follow-up failed' })
     } finally {
@@ -2372,14 +2425,36 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                       onChange={(event) => setFollowUpText(event.target.value)}
                       placeholder="Log the call, decision, blocker, or next step against this CRM contact..."
                     />
-                    <button className="pib-btn-primary mt-2 w-full justify-center text-xs" type="button" onClick={() => logActivityFollowUp(selected)} disabled={!followUpText.trim() || !!busyAction}>
+                    <div className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_150px]">
+                      <label className="text-xs font-medium text-on-surface-variant" htmlFor="briefing-next-follow-up-task">
+                        Next follow-up task
+                        <input
+                          id="briefing-next-follow-up-task"
+                          className="pib-input mt-1 w-full"
+                          value={nextFollowUpTaskTitle}
+                          onChange={(event) => setNextFollowUpTaskTitle(event.target.value)}
+                          placeholder="Optional next step"
+                        />
+                      </label>
+                      <label className="text-xs font-medium text-on-surface-variant" htmlFor="briefing-next-follow-up-task-due">
+                        Next task due date
+                        <input
+                          id="briefing-next-follow-up-task-due"
+                          className="pib-input mt-1 w-full"
+                          type="date"
+                          value={nextFollowUpTaskDueDate}
+                          onChange={(event) => setNextFollowUpTaskDueDate(event.target.value)}
+                        />
+                      </label>
+                    </div>
+                    <button className="pib-btn-primary mt-2 w-full justify-center text-xs" type="button" onClick={() => canContactFollowUpComplete(selected) ? completeContactFollowUp(selected) : logActivityFollowUp(selected)} disabled={!followUpText.trim() || !!busyAction}>
                       <span className="material-symbols-outlined text-[15px]" aria-hidden="true">add_notes</span>
-                      Log follow-up note
+                      {nextFollowUpTaskTitle.trim() ? 'Log note and schedule task' : 'Log follow-up note'}
                     </button>
                     {canContactFollowUpComplete(selected) ? (
                       <button className="pib-btn-secondary mt-2 w-full justify-center text-xs" type="button" onClick={() => completeContactFollowUp(selected)} disabled={!followUpText.trim() || !!busyAction}>
                         <span className="material-symbols-outlined text-[15px]" aria-hidden="true">done_all</span>
-                        Mark contact followed up
+                        {nextFollowUpTaskTitle.trim() ? 'Mark followed up and schedule task' : 'Mark contact followed up'}
                       </button>
                     ) : null}
                   </div>

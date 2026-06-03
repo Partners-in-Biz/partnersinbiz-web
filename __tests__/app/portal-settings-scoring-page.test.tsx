@@ -44,6 +44,34 @@ describe('Portal settings scoring page', () => {
     jest.restoreAllMocks()
   })
 
+  it('warns when scoring config fails to load and gives leaders a retry path', async () => {
+    global.fetch = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/scoring/config') {
+        return Promise.resolve({
+          ok: false,
+          json: async () => ({ error: 'Scoring config unavailable' }),
+        } as Response)
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    }) as jest.Mock
+
+    render(<ScoringPage />)
+
+    expect(await screen.findByRole('heading', { name: 'Scoring model could not load' })).toBeInTheDocument()
+    expect(screen.getByText('Scoring config unavailable')).toBeInTheDocument()
+    expect(screen.queryByText('Scoring health')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Retry loading scoring model' }))
+
+    await waitFor(() => {
+      const configRequests = (global.fetch as jest.Mock).mock.calls.filter(([url]) => (
+        String(url) === '/api/v1/crm/scoring/config'
+      ))
+      expect(configRequests).toHaveLength(2)
+    })
+  })
+
   it('turns incomplete scoring setup into direct model priority actions', async () => {
     render(<ScoringPage />)
 

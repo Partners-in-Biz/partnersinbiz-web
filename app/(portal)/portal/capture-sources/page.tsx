@@ -150,6 +150,8 @@ function SourceCard({
   const [redirectDraft, setRedirectDraft] = useState(source.redirectUrl ?? '')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [rotateConfirmOpen, setRotateConfirmOpen] = useState(false)
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
 
   useEffect(() => {
     setNameDraft(source.name)
@@ -220,13 +222,12 @@ function SourceCard({
     await patch({ autoSequenceIds: ids })
   }
 
-  async function handleRotateKey() {
-    if (!confirm('Rotate the public key? Any forms or integrations using the current key will immediately stop working.')) return
+  async function confirmRotateKey() {
+    setRotateConfirmOpen(false)
     await patch({ rotateKey: true })
   }
 
-  async function handleDelete() {
-    if (!confirm(`Delete capture source "${source.name}"? This cannot be undone.`)) return
+  async function confirmDelete() {
     setBusy(true)
     setError(null)
     try {
@@ -361,14 +362,63 @@ function SourceCard({
               </span>
               <CopyButton value={source.publicKey} />
               <button
-                onClick={handleRotateKey}
+                onClick={() => setRotateConfirmOpen(true)}
                 disabled={busy}
                 className="px-2.5 py-1 rounded-md text-xs bg-white/[0.04] hover:bg-white/[0.08] text-[var(--color-pib-text)] border border-[var(--color-pib-line)] transition-colors disabled:opacity-50"
                 type="button"
+                aria-label={`Rotate public key for ${source.name}`}
               >
                 Rotate
               </button>
             </div>
+            {rotateConfirmOpen && (
+              <section
+                role="alertdialog"
+                aria-labelledby={`capture-source-rotate-title-${source.id}`}
+                aria-describedby={`capture-source-rotate-description-${source.id}`}
+                className="mt-3 rounded-lg border border-amber-300/30 bg-amber-400/10 px-4 py-3 shadow-xl"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="flex gap-3">
+                    <span className="material-symbols-outlined mt-0.5 text-amber-200" aria-hidden="true">
+                      key
+                    </span>
+                    <div className="min-w-0">
+                      <p className="eyebrow !text-[10px] text-amber-100">Public key rotation confirmation</p>
+                      <h3 id={`capture-source-rotate-title-${source.id}`} className="mt-1 font-display text-lg text-[var(--color-pib-text)]">
+                        Rotate public key for &quot;{source.name}&quot;?
+                      </h3>
+                      <p id={`capture-source-rotate-description-${source.id}`} className="mt-2 text-sm text-amber-50/90">
+                        This immediately invalidates the current embed/API key. Update every form, API client, and integration using this capture source before sending more traffic.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setRotateConfirmOpen(false)}
+                      className="btn-pib-secondary text-xs"
+                      disabled={busy}
+                      aria-label={`Cancel key rotation for capture source ${source.name}`}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={confirmRotateKey}
+                      disabled={busy}
+                      className="inline-flex items-center gap-1.5 rounded-md border border-amber-200/30 bg-amber-300/15 px-3 py-2 text-xs font-semibold text-amber-50 transition-colors hover:bg-amber-300/25 disabled:opacity-50"
+                      aria-label={`Confirm rotate public key for capture source ${source.name}`}
+                    >
+                      <span className="material-symbols-outlined text-[14px]" aria-hidden="true">
+                        key
+                      </span>
+                      {busy ? 'Rotating...' : 'Rotate key'}
+                    </button>
+                  </div>
+                </div>
+              </section>
+            )}
           </div>
 
           {/* Snippet (form only) */}
@@ -521,15 +571,66 @@ function SourceCard({
           )}
 
           {/* Delete */}
-          <div className="pt-3 border-t border-[var(--color-pib-line)] flex justify-end">
-            <button
-              onClick={handleDelete}
-              disabled={busy}
-              className="px-3 py-1.5 rounded-lg bg-white/[0.04] text-[#FCA5A5] text-sm border border-[var(--color-pib-line)] hover:bg-red-500/10 disabled:opacity-50 transition-colors"
-              type="button"
-            >
-              Delete source
-            </button>
+          <div className="space-y-3 border-t border-[var(--color-pib-line)] pt-3">
+            {deleteConfirmOpen && (
+              <section
+                role="alertdialog"
+                aria-labelledby={`capture-source-delete-title-${source.id}`}
+                aria-describedby={`capture-source-delete-description-${source.id}`}
+                className="rounded-lg border border-red-400/30 bg-red-500/10 px-4 py-3 shadow-xl"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="flex gap-3">
+                    <span className="material-symbols-outlined mt-0.5 text-red-300" aria-hidden="true">
+                      warning
+                    </span>
+                    <div className="min-w-0">
+                      <p className="eyebrow !text-[10px] text-red-200">Capture source delete confirmation</p>
+                      <h3 id={`capture-source-delete-title-${source.id}`} className="mt-1 font-display text-lg text-[var(--color-pib-text)]">
+                        Delete capture source &quot;{source.name}&quot;?
+                      </h3>
+                      <p id={`capture-source-delete-description-${source.id}`} className="mt-2 text-sm text-red-100/90">
+                        This removes the tracked intake channel, embed/API key, and future attribution path. Existing captured contacts and CRM history stay available for audit.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setDeleteConfirmOpen(false)}
+                      className="btn-pib-secondary text-xs"
+                      disabled={busy}
+                      aria-label={`Cancel delete for capture source ${source.name}`}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={confirmDelete}
+                      disabled={busy}
+                      className="inline-flex items-center gap-1.5 rounded-md border border-red-300/30 bg-red-400/15 px-3 py-2 text-xs font-semibold text-red-100 transition-colors hover:bg-red-400/25 disabled:opacity-50"
+                      aria-label={`Confirm delete capture source ${source.name}`}
+                    >
+                      <span className="material-symbols-outlined text-[14px]" aria-hidden="true">
+                        delete
+                      </span>
+                      {busy ? 'Deleting...' : 'Delete source'}
+                    </button>
+                  </div>
+                </div>
+              </section>
+            )}
+            <div className="flex justify-end">
+              <button
+                onClick={() => setDeleteConfirmOpen(true)}
+                disabled={busy}
+                className="px-3 py-1.5 rounded-lg bg-white/[0.04] text-[#FCA5A5] text-sm border border-[var(--color-pib-line)] hover:bg-red-500/10 disabled:opacity-50 transition-colors"
+                type="button"
+                aria-label={`Delete capture source ${source.name}`}
+              >
+                Delete source
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -540,6 +641,7 @@ function SourceCard({
 export default function PortalCaptureSourcesPage() {
   const [sources, setSources] = useState<CaptureSource[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [campaigns, setCampaigns] = useState<CampaignSummary[]>([])
   const [sequences, setSequences] = useState<SequenceSummary[]>([])
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
@@ -552,10 +654,20 @@ export default function PortalCaptureSourcesPage() {
 
   const loadSources = useCallback(() => {
     setLoading(true)
+    setLoadError(null)
     fetch('/api/v1/crm/capture-sources')
-      .then((r) => r.json())
+      .then(async (r) => {
+        const body = await r.json().catch(() => ({}))
+        if (!r.ok) {
+          throw new Error(typeof body?.error === 'string' ? body.error : `Failed to load capture sources (${r.status})`)
+        }
+        return body
+      })
       .then((body) => setSources((body.data ?? []) as CaptureSource[]))
-      .catch(() => {})
+      .catch((err) => {
+        setSources([])
+        setLoadError(err instanceof Error ? err.message : 'Failed to load capture sources')
+      })
       .finally(() => setLoading(false))
   }, [])
 
@@ -784,6 +896,30 @@ export default function PortalCaptureSourcesPage() {
             <div key={i} className="pib-skeleton h-20 rounded-xl" />
           ))}
         </div>
+      ) : loadError ? (
+        <section className="rounded-[var(--radius-card)] border border-amber-500/25 bg-amber-500/[0.07] p-5">
+          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+            <div className="flex gap-3">
+              <span className="material-symbols-outlined mt-0.5 text-amber-200" aria-hidden="true">warning</span>
+              <div>
+                <p className="eyebrow !text-[10px] text-amber-200">Source health</p>
+                <h2 className="mt-1 font-display text-xl text-[var(--color-pib-text)]">
+                  Capture sources could not load
+                </h2>
+                <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">{loadError}</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={loadSources}
+              className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5 text-sm"
+              aria-label="Retry loading capture sources"
+            >
+              <span className="material-symbols-outlined text-base" aria-hidden="true">refresh</span>
+              Retry
+            </button>
+          </div>
+        </section>
       ) : sources.length === 0 ? (
         <div className="overflow-hidden rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)]">
           <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_300px]">

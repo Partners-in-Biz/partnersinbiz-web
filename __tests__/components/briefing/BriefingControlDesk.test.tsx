@@ -1625,6 +1625,118 @@ describe('BriefingControlDesk', () => {
     })
   })
 
+  it('uses the primary note action to clear stale CRM contact follow-up cards', async () => {
+    render(<BriefingControlDesk mode="portal" />)
+
+    fireEvent.click(await screen.findByRole('button', { name: /Follow up Ava Owner/i }))
+    fireEvent.change(screen.getByLabelText('Follow-up note'), { target: { value: 'Called Ava; proposal decision due tomorrow.' } })
+    fireEvent.click(screen.getByRole('button', { name: /log follow-up note/i }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/activities', expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          contactId: 'contact-1',
+          dealId: '',
+          type: 'note',
+          summary: 'Called Ava; proposal decision due tomorrow.',
+          metadata: {
+            sourceBriefingId: 'contact:contact-1',
+            sourceContactId: 'contact-1',
+            source: 'briefings-control-desk',
+          },
+        }),
+      }))
+    })
+    await waitFor(() => {
+      const contactCall = (global.fetch as jest.Mock).mock.calls.find(([url]) => url === '/api/v1/crm/contacts/contact-1')
+      expect(contactCall).toBeDefined()
+      expect(contactCall?.[1]).toMatchObject({ method: 'PATCH' })
+    })
+  })
+
+  it('schedules a contact task while logging a stale CRM contact follow-up note', async () => {
+    render(<BriefingControlDesk mode="portal" />)
+
+    fireEvent.click(await screen.findByRole('button', { name: /Follow up Ava Owner/i }))
+    fireEvent.change(screen.getByLabelText('Follow-up note'), { target: { value: 'Called Ava; proposal decision due tomorrow.' } })
+    fireEvent.change(screen.getByLabelText('Next follow-up task'), { target: { value: 'Send Ava the revised proposal' } })
+    fireEvent.change(screen.getByLabelText('Next task due date'), { target: { value: '2026-06-04' } })
+    fireEvent.click(screen.getByRole('button', { name: /log note and schedule task/i }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/activities', expect.objectContaining({
+        method: 'POST',
+      }))
+    })
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/tasks', expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          orgId: 'org-1',
+          title: 'Send Ava the revised proposal',
+          description: 'Called Ava; proposal decision due tomorrow.',
+          status: 'todo',
+          priority: 'normal',
+          dueDate: '2026-06-04',
+          contactId: 'contact-1',
+          dealId: '',
+          tags: ['crm-follow-up'],
+        }),
+      }))
+    })
+    await waitFor(() => {
+      expect(screen.getByLabelText('Next follow-up task')).toHaveValue('')
+      expect(screen.getByLabelText('Next task due date')).toHaveValue('')
+    })
+  })
+
+  it('does not keep CRM follow-up actions busy when the feed refresh hangs', async () => {
+    let feedCalls = 0
+    global.fetch = jest.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/portal/org') {
+        return {
+          ok: true,
+          json: async () => ({
+            org: { id: 'org-1', name: 'Client One', slug: 'client-one', type: 'client' },
+            user: { uid: 'client-user-1', role: 'client' },
+          }),
+        } as Response
+      }
+      if (url.startsWith('/api/v1/briefings/feed')) {
+        feedCalls += 1
+        if (feedCalls > 1) {
+          return new Promise<Response>(() => {})
+        }
+        return {
+          ok: true,
+          json: async () => ({ data: { items: [activityBriefingItem], total: 1, hasMore: false, generatedAt: '2026-05-31T10:05:00.000Z' } }),
+        } as Response
+      }
+      if (url === '/api/v1/crm/activities') {
+        return {
+          ok: true,
+          json: async () => ({ data: { id: 'activity-note-1' } }),
+        } as Response
+      }
+      throw new Error(`Unexpected fetch ${url}`)
+    })
+
+    render(<BriefingControlDesk mode="portal" />)
+
+    fireEvent.click(await screen.findByRole('button', { name: /Follow up with Ava Owner/i }))
+    fireEvent.change(screen.getByLabelText('Follow-up note'), { target: { value: 'Called Ava; approval is waiting on finance.' } })
+    fireEvent.click(screen.getByRole('button', { name: /log follow-up note/i }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/activities', expect.any(Object))
+    })
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /handled/i })).not.toBeDisabled()
+    })
+  })
+
   it('opens and sends rendered report cards from the control desk', async () => {
     render(<BriefingControlDesk mode="portal" />)
 

@@ -125,6 +125,56 @@ describe('PortalCaptureSourcesPage', () => {
     expect(screen.getByLabelText('Website welcome sequence')).toBeChecked()
   })
 
+  it('uses an in-page confirmation before deleting a capture source', async () => {
+    const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(false)
+
+    render(<PortalCaptureSourcesPage />)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Details for Homepage enquiry form' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Delete capture source Homepage enquiry form' }))
+
+    expect(confirmSpy).not.toHaveBeenCalled()
+    expect(screen.getByRole('alertdialog', { name: 'Delete capture source "Homepage enquiry form"?' })).toBeInTheDocument()
+    expect(screen.getByText('This removes the tracked intake channel, embed/API key, and future attribution path. Existing captured contacts and CRM history stay available for audit.')).toBeInTheDocument()
+    expect(global.fetch).not.toHaveBeenCalledWith('/api/v1/crm/capture-sources/src-form', expect.objectContaining({ method: 'DELETE' }))
+    expect(screen.getByRole('button', { name: 'Cancel delete for capture source Homepage enquiry form' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm delete capture source Homepage enquiry form' }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/capture-sources/src-form', { method: 'DELETE' })
+    })
+    expect(screen.queryByText('Homepage enquiry form')).not.toBeInTheDocument()
+
+    confirmSpy.mockRestore()
+  })
+
+  it('uses an in-page confirmation before rotating a capture source key', async () => {
+    const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(false)
+
+    render(<PortalCaptureSourcesPage />)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Details for Homepage enquiry form' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Rotate public key for Homepage enquiry form' }))
+
+    expect(confirmSpy).not.toHaveBeenCalled()
+    expect(screen.getByRole('alertdialog', { name: 'Rotate public key for "Homepage enquiry form"?' })).toBeInTheDocument()
+    expect(screen.getByText('This immediately invalidates the current embed/API key. Update every form, API client, and integration using this capture source before sending more traffic.')).toBeInTheDocument()
+    expect(global.fetch).not.toHaveBeenCalledWith('/api/v1/crm/capture-sources/src-form', expect.objectContaining({ method: 'PUT' }))
+    expect(screen.getByRole('button', { name: 'Cancel key rotation for capture source Homepage enquiry form' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm rotate public key for capture source Homepage enquiry form' }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/capture-sources/src-form', expect.objectContaining({
+        method: 'PUT',
+        body: JSON.stringify({ rotateKey: true }),
+      }))
+    })
+
+    confirmSpy.mockRestore()
+  })
+
   it('turns an empty capture-source list into a first-channel setup action', async () => {
     fetchMock.mockImplementation((input: RequestInfo | URL) => {
       const url = String(input)
@@ -151,6 +201,38 @@ describe('PortalCaptureSourcesPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Set up first form source' }))
 
     expect(screen.getByPlaceholderText('Source name (e.g. Homepage form)')).toHaveFocus()
+  })
+
+  it('warns when capture sources fail to load and gives leaders a retry path', async () => {
+    fetchMock.mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/capture-sources') {
+        return Promise.resolve({
+          ok: false,
+          json: () => Promise.resolve({ error: 'Capture source index unavailable' }),
+        })
+      }
+      if (url.startsWith('/api/v1/campaigns')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ data: [] }) })
+      }
+      if (url.startsWith('/api/v1/crm/sequences')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ data: { sequences: [] } }) })
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    })
+
+    render(<PortalCaptureSourcesPage />)
+
+    expect(await screen.findByRole('heading', { name: 'Capture sources could not load' })).toBeInTheDocument()
+    expect(screen.getByText('Capture source index unavailable')).toBeInTheDocument()
+    expect(screen.queryByText('No tracked intake channels yet.')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Retry loading capture sources' }))
+
+    await waitFor(() => {
+      const sourceRequests = fetchMock.mock.calls.filter(([url]) => String(url) === '/api/v1/crm/capture-sources')
+      expect(sourceRequests).toHaveLength(2)
+    })
   })
 })
 

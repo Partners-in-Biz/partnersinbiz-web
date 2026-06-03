@@ -156,6 +156,19 @@ function toDatetimeLocalValue(date: Date) {
   return local.toISOString().slice(0, 16)
 }
 
+function portalSocialPostUrl(path = '', orgId?: string | null) {
+  const params = new URLSearchParams()
+  if (orgId) params.set('orgId', orgId)
+  const query = params.toString()
+  return `/api/v1/portal/social/posts${path}${query ? `?${query}` : ''}`
+}
+
+function socialPostsListUrl(orgId?: string | null) {
+  const params = new URLSearchParams({ limit: '500' })
+  if (orgId) params.set('orgId', orgId)
+  return `/api/v1/social/posts?${params.toString()}`
+}
+
 function PlatformIcon({ platform }: { platform: string }) {
   const cfg = PLATFORM_ICONS[platform.toLowerCase()]
   if (!cfg) return null
@@ -194,10 +207,12 @@ function PostPanel({
   post,
   onClose,
   onPostUpdated,
+  orgId,
 }: {
   post: SocialPost
   onClose: () => void
   onPostUpdated: (post: SocialPost) => void
+  orgId?: string | null
 }) {
   const scheduledDate = getScheduledDate(post)
   const platforms = getPostPlatforms(post)
@@ -213,7 +228,7 @@ function PostPanel({
     setActionMessage(null)
     try {
       const scheduledAt = new Date(rescheduleValue).toISOString()
-      const res = await fetch(`/api/v1/portal/social/posts/${post.id}/reschedule`, {
+      const res = await fetch(portalSocialPostUrl(`/${post.id}/reschedule`, orgId), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ scheduledAt }),
@@ -241,7 +256,7 @@ function PostPanel({
     setActionError(null)
     setActionMessage(null)
     try {
-      const res = await fetch(`/api/v1/portal/social/posts/${post.id}/publish-now`, {
+      const res = await fetch(portalSocialPostUrl(`/${post.id}/publish-now`, orgId), {
         method: 'POST',
       })
       const body = await res.json().catch(() => null)
@@ -348,6 +363,7 @@ function PostPanel({
               <p className="mb-2 text-xs font-medium uppercase tracking-wide text-on-surface-variant">Media</p>
               <div className="grid grid-cols-2 gap-2">
                 {post.media.map((media, index) => (
+                  // eslint-disable-next-line @next/next/no-img-element
                   <img
                     key={media.id ?? `${media.url}-${index}`}
                     src={media.thumbnailUrl || media.url}
@@ -380,22 +396,31 @@ export default function PortalSocialCalendarPage() {
   const [posts, setPosts] = useState<SocialPost[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedPost, setSelectedPost] = useState<SocialPost | null>(null)
+  const [activeOrgId, setActiveOrgId] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
-    fetch('/api/v1/social/posts?limit=500')
-      .then((res) => res.json())
-      .then((body) => {
+
+    async function loadPosts() {
+      try {
+        const orgRes = await fetch('/api/v1/portal/org')
+        const orgBody = orgRes.ok ? await orgRes.json().catch(() => null) : null
+        const orgId = typeof orgBody?.org?.id === 'string' ? orgBody.org.id : null
+        if (!cancelled) setActiveOrgId(orgId)
+
+        const postsRes = await fetch(socialPostsListUrl(orgId))
+        const postsBody = await postsRes.json().catch(() => ({}))
         if (cancelled) return
-        const datedPosts = ((body.data ?? []) as SocialPost[]).filter((post) => getScheduledDate(post))
+        const datedPosts = ((postsBody.data ?? []) as SocialPost[]).filter((post) => getScheduledDate(post))
         setPosts(datedPosts)
-      })
-      .catch(() => {
+      } catch {
         if (!cancelled) setPosts([])
-      })
-      .finally(() => {
+      } finally {
         if (!cancelled) setLoading(false)
-      })
+      }
+    }
+
+    loadPosts()
     return () => {
       cancelled = true
     }
@@ -476,7 +501,14 @@ export default function PortalSocialCalendarPage() {
 
   return (
     <div className="space-y-6">
-      {selectedPost && <PostPanel post={selectedPost} onClose={() => setSelectedPost(null)} onPostUpdated={handlePostUpdated} />}
+      {selectedPost && (
+        <PostPanel
+          post={selectedPost}
+          onClose={() => setSelectedPost(null)}
+          onPostUpdated={handlePostUpdated}
+          orgId={activeOrgId}
+        />
+      )}
 
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>

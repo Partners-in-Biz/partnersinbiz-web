@@ -231,6 +231,7 @@ export default function DealDetailPage() {
   const router = useRouter()
   const probabilityInputRef = useRef<HTMLInputElement | null>(null)
   const closeDateInputRef = useRef<HTMLInputElement | null>(null)
+  const ownerSelectRef = useRef<HTMLSelectElement | null>(null)
 
   const [deal, setDeal] = useState<DealRecord | null>(null)
   const [loading, setLoading] = useState(true)
@@ -515,6 +516,104 @@ export default function DealDetailPage() {
     probabilityInputRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'center' })
     probabilityInputRef.current?.focus()
   }
+  const focusOwnerSelect = () => {
+    ownerSelectRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'center' })
+    ownerSelectRef.current?.focus()
+  }
+  const openActivityWorkflow = () => {
+    if (deal.contactId) {
+      router.push(`/portal/contacts/${deal.contactId}?activity=note`)
+      return
+    }
+    setEditOpen(true)
+  }
+  const revenueRiskItems: Array<{
+    key: string
+    label: string
+    detail: string
+    icon: string
+    tone: 'danger' | 'warn'
+    actionLabel: string
+    onClick: () => void
+  }> = [
+    ...(!deal.ownerRef?.displayName && !deal.ownerUid
+      ? [{
+          key: 'owner',
+          label: 'No deal owner',
+          detail: 'Assign one accountable person before follow-up, forecast review, and handoff work drift.',
+          icon: 'assignment_ind',
+          tone: 'danger' as const,
+          actionLabel: `Assign owner for ${deal.title ?? 'this deal'} from revenue risk brief`,
+          onClick: focusOwnerSelect,
+        }]
+      : []),
+    ...(!deal.contactId
+      ? [{
+          key: 'contact',
+          label: 'No decision-maker linked',
+          detail: 'Connect the buyer so emails, calls, sequence history, and activity have a real relationship anchor.',
+          icon: 'person_add',
+          tone: 'danger' as const,
+          actionLabel: `Link decision-maker for ${deal.title ?? 'this deal'} from revenue risk brief`,
+          onClick: () => setEditOpen(true),
+        }]
+      : []),
+    ...(!deal.companyId
+      ? [{
+          key: 'company',
+          label: 'No company linked',
+          detail: 'Tie the opportunity to an account so leadership can see total exposure, work, finance, and delivery risk.',
+          icon: 'domain_add',
+          tone: 'warn' as const,
+          actionLabel: `Link company for ${deal.title ?? 'this deal'} from revenue risk brief`,
+          onClick: () => setEditOpen(true),
+        }]
+      : []),
+    ...(!deal.expectedCloseDate
+      ? [{
+          key: 'close-date',
+          label: 'Close date missing',
+          detail: 'Set expected close timing so pipeline velocity and month-end forecast commitments stay visible.',
+          icon: 'event_busy',
+          tone: 'warn' as const,
+          actionLabel: `Set close date for ${deal.title ?? 'this deal'} from revenue risk brief`,
+          onClick: focusCloseDateInput,
+        }]
+      : []),
+    ...((deal.lineItems?.length ?? 0) === 0
+      ? [{
+          key: 'line-items',
+          label: 'No line items',
+          detail: 'Add products or services so the commercial proposal is concrete enough to approve and quote.',
+          icon: 'playlist_add',
+          tone: 'warn' as const,
+          actionLabel: `Add line items for ${deal.title ?? 'this deal'} from revenue risk brief`,
+          onClick: () => setEditOpen(true),
+        }]
+      : []),
+    ...(activities.length === 0
+      ? [{
+          key: 'activity',
+          label: 'No activity logged',
+          detail: 'Record the first touchpoint so every employee can see what happened and what should happen next.',
+          icon: 'history',
+          tone: 'warn' as const,
+          actionLabel: `Log activity for ${deal.title ?? 'this deal'} from revenue risk brief`,
+          onClick: openActivityWorkflow,
+        }]
+      : []),
+    ...(prob < 40 && !isLost
+      ? [{
+          key: 'forecast-confidence',
+          label: 'Forecast confidence low',
+          detail: 'Review probability after real buyer signals so leadership does not over-trust weak pipeline.',
+          icon: 'trending_down',
+          tone: 'danger' as const,
+          actionLabel: `Update forecast confidence for ${deal.title ?? 'this deal'} from revenue risk brief`,
+          onClick: focusProbabilityInput,
+        }]
+      : []),
+  ]
   const commandTiles = [
     {
       label: 'Deal value',
@@ -694,6 +793,7 @@ export default function DealDetailPage() {
               <div className="flex flex-wrap items-center gap-2 md:justify-end">
                 <button
                   type="button"
+                  aria-label={`Cancel archive ${deal.title ?? 'this deal'}`}
                   onClick={() => {
                     setArchiveConfirmOpen(false)
                     setArchiveError('')
@@ -822,6 +922,53 @@ export default function DealDetailPage() {
         )}
       </div>
 
+      {revenueRiskItems.length > 0 && (
+        <section className="bento-card !p-5" role="region" aria-label="Revenue risk brief">
+          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+            <div>
+              <p className="eyebrow !text-[10px]">Leadership brief</p>
+              <h2 className="mt-1 font-display text-xl text-[var(--color-pib-text)]">Revenue risk brief</h2>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--color-pib-text-muted)]">
+                {revenueRiskItems.length} revenue {revenueRiskItems.length === 1 ? 'risk needs' : 'risks need'} leadership attention before {deal.title ?? 'this deal'} is forecast-ready.
+              </p>
+            </div>
+            <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-red-400/25 bg-red-500/10 px-3 py-1 text-xs font-medium text-red-100">
+              <span aria-hidden="true" className="material-symbols-outlined text-[14px]">crisis_alert</span>
+              {revenueRiskItems.length} active
+            </span>
+          </div>
+          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            {revenueRiskItems.map((item) => (
+              <div
+                key={item.key}
+                className={`flex min-h-[150px] flex-col justify-between rounded-lg border p-4 ${
+                  item.tone === 'danger'
+                    ? 'border-red-400/30 bg-red-500/10 text-red-100'
+                    : 'border-amber-400/30 bg-amber-400/10 text-amber-100'
+                }`}
+              >
+                <div>
+                  <div className="flex items-start justify-between gap-3">
+                    <h3 className="text-sm font-semibold">{item.label}</h3>
+                    <span aria-hidden="true" className="material-symbols-outlined text-[18px]">{item.icon}</span>
+                  </div>
+                  <p className="mt-2 text-xs leading-5 opacity-85">{item.detail}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={item.onClick}
+                  aria-label={item.actionLabel}
+                  className="mt-4 inline-flex w-fit items-center gap-1.5 rounded-md border border-current/20 bg-black/10 px-2.5 py-1.5 text-xs font-semibold transition-colors hover:bg-black/20"
+                >
+                  <span aria-hidden="true" className="material-symbols-outlined text-[14px]">arrow_forward</span>
+                  Fix now
+                </button>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* 2-col layout */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left col */}
@@ -865,6 +1012,7 @@ export default function DealDetailPage() {
                 <label htmlFor="dealDetailOwner" className="pib-label">Assign deal owner</label>
                 <div className="flex flex-wrap gap-2">
                   <select
+                    ref={ownerSelectRef}
                     id="dealDetailOwner"
                     value={ownerUid}
                     onChange={(event) => setOwnerUid(event.target.value)}

@@ -38,6 +38,34 @@ describe('Portal settings automations page', () => {
     )
   })
 
+  it('warns when automations fail to load and gives leaders a retry path', async () => {
+    global.fetch = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/automations') {
+        return Promise.resolve({
+          ok: false,
+          json: async () => ({ error: 'Automation rules unavailable' }),
+        } as Response)
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    }) as jest.Mock
+
+    render(<AutomationsPage />)
+
+    expect(await screen.findByRole('heading', { name: 'Automation rules could not load' })).toBeInTheDocument()
+    expect(screen.getByText('Automation rules unavailable')).toBeInTheDocument()
+    expect(screen.queryByText('Live rules')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Retry loading automation rules' }))
+
+    await waitFor(() => {
+      const automationRequests = (global.fetch as jest.Mock).mock.calls.filter(([url]) => (
+        String(url) === '/api/v1/crm/automations'
+      ))
+      expect(automationRequests).toHaveLength(2)
+    })
+  })
+
   it('treats an empty filtered automation view as a reversible operations lens', async () => {
     global.fetch = jest.fn((input: RequestInfo | URL) => {
       const url = String(input)
@@ -184,6 +212,7 @@ describe('Portal settings automations page', () => {
     expect(screen.getByRole('alertdialog', { name: 'Delete automation "New lead owner alert"?' })).toBeInTheDocument()
     expect(screen.getByText('This removes the CRM safety net for contact.created and stops 1 workflow action from running. Existing CRM history stays available for audit.')).toBeInTheDocument()
     expect(global.fetch).not.toHaveBeenCalledWith('/api/v1/crm/automations/rule-delete', expect.any(Object))
+    expect(screen.getByRole('button', { name: 'Cancel delete for automation New lead owner alert' })).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Confirm delete automation New lead owner alert' }))
 

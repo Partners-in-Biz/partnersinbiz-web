@@ -1,7 +1,7 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import type { Sequence, SequenceStatus, SequenceStep } from '@/lib/sequences/types'
 
@@ -118,21 +118,31 @@ export default function SequencesPage() {
   const [channelFilter, setChannelFilter] = useState<ChannelFilter>('all')
   const [search, setSearch] = useState('')
 
-  useEffect(() => {
+  const fetchSequences = useCallback(() => {
     setLoading(true)
     setFetchError(null)
     fetch('/api/v1/crm/sequences')
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`)
-        return r.json()
+      .then(async (r) => {
+        const body = await r.json().catch(() => ({}))
+        if (!r.ok) {
+          throw new Error(typeof body?.error === 'string' ? body.error : `HTTP ${r.status}`)
+        }
+        return body
       })
       .then((body) => {
         const list: Sequence[] = body.data?.sequences ?? body.data ?? []
         setSequences(Array.isArray(list) ? list : [])
       })
-      .catch(() => setFetchError('Failed to load sequences. Please try again.'))
+      .catch((error: unknown) => {
+        setSequences([])
+        setFetchError(error instanceof Error ? error.message : 'Failed to load sequences. Please try again.')
+      })
       .finally(() => setLoading(false))
   }, [])
+
+  useEffect(() => {
+    fetchSequences()
+  }, [fetchSequences])
 
   const stats = useMemo(() => {
     const active = sequences.filter((sequence) => sequence.status === 'active').length
@@ -272,14 +282,17 @@ export default function SequencesPage() {
         </Link>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Active journeys" value={String(stats.active)} sub={`${stats.paused} paused, ${stats.draft} draft`} icon="route" />
-        <StatCard label="Journey steps" value={String(stats.steps)} sub="Touchpoints across all sequences" icon="format_list_numbered" />
-        <StatCard label="Multi-channel" value={String(stats.sms)} sub="Sequences using SMS or mixed channels" icon="forum" />
-        <StatCard label="Readiness" value={`${stats.averageReadiness}%`} sub={`${stats.needsWork} sequence${stats.needsWork === 1 ? '' : 's'} need detail`} icon="task_alt" />
-      </div>
+      {!fetchError && (
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <StatCard label="Active journeys" value={String(stats.active)} sub={`${stats.paused} paused, ${stats.draft} draft`} icon="route" />
+          <StatCard label="Journey steps" value={String(stats.steps)} sub="Touchpoints across all sequences" icon="format_list_numbered" />
+          <StatCard label="Multi-channel" value={String(stats.sms)} sub="Sequences using SMS or mixed channels" icon="forum" />
+          <StatCard label="Readiness" value={`${stats.averageReadiness}%`} sub={`${stats.needsWork} sequence${stats.needsWork === 1 ? '' : 's'} need detail`} icon="task_alt" />
+        </div>
+      )}
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,0.7fr)_minmax(0,1.3fr)]">
+      <div className={fetchError ? '' : 'grid gap-5 xl:grid-cols-[minmax(0,0.7fr)_minmax(0,1.3fr)]'}>
+        {!fetchError && (
         <aside className="space-y-5">
           <div className="bento-card !p-5 space-y-4">
             <div>
@@ -352,6 +365,7 @@ export default function SequencesPage() {
             ))}
           </div>
         </aside>
+        )}
 
         <section>
           {deleteError && (
@@ -365,9 +379,29 @@ export default function SequencesPage() {
               <p className="text-sm text-[var(--color-pib-text-muted)]">Loading sequences...</p>
             </div>
           ) : fetchError ? (
-            <div className="rounded-lg border border-red-400/25 bg-red-400/10 px-4 py-3 text-sm text-red-200">
-              {fetchError}
-            </div>
+            <section className="rounded-[var(--radius-card)] border border-amber-500/25 bg-amber-500/[0.07] p-5">
+              <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                <div className="flex gap-3">
+                  <span className="material-symbols-outlined mt-0.5 text-amber-200" aria-hidden="true">warning</span>
+                  <div>
+                    <p className="eyebrow !text-[10px] text-amber-200">Source health</p>
+                    <h2 className="mt-1 font-display text-xl text-[var(--color-pib-text)]">
+                      Follow-up journeys could not load
+                    </h2>
+                    <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">{fetchError}</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={fetchSequences}
+                  className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5 text-sm"
+                  aria-label="Retry loading follow-up journeys"
+                >
+                  <span className="material-symbols-outlined text-base" aria-hidden="true">refresh</span>
+                  Retry
+                </button>
+              </div>
+            </section>
           ) : sequences.length === 0 ? (
             <div className="bento-card !p-0 overflow-hidden">
               <div className="grid gap-0 lg:grid-cols-[1.1fr_1.4fr]">
@@ -455,6 +489,7 @@ export default function SequencesPage() {
                         }}
                         className="btn-pib-secondary text-xs"
                         disabled={deletingId !== null}
+                        aria-label={`Cancel delete for sequence ${pendingDeleteSequence.name}`}
                       >
                         Cancel
                       </button>

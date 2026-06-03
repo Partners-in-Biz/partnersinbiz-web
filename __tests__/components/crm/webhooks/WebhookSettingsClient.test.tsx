@@ -42,6 +42,40 @@ describe('WebhookSettingsClient', () => {
     expect(screen.getByRole('button', { name: 'Create webhook' })).toBeDisabled()
   })
 
+  it('warns when webhook subscriptions fail to load and gives leaders a retry path', async () => {
+    global.fetch = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/portal/active-org') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ orgId: 'org-webhooks' }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/webhooks?limit=100&orgId=org-webhooks') {
+        return Promise.resolve({
+          ok: false,
+          json: async () => ({ error: 'Webhook delivery source unavailable' }),
+        } as Response)
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    }) as jest.Mock
+
+    render(<WebhookSettingsClient />)
+
+    expect(await screen.findByRole('heading', { name: 'Webhook subscriptions could not load' })).toBeInTheDocument()
+    expect(screen.getByText('Webhook delivery source unavailable')).toBeInTheDocument()
+    expect(screen.queryByText('Launch your first outbound CRM bridge')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Retry loading webhook subscriptions' }))
+
+    await waitFor(() => {
+      const webhookRequests = (global.fetch as jest.Mock).mock.calls.filter(([url]) => (
+        String(url) === '/api/v1/crm/webhooks?limit=100&orgId=org-webhooks'
+      ))
+      expect(webhookRequests).toHaveLength(2)
+    })
+  })
+
   it('keeps webhook health timestamps executive-readable when API dates are malformed', async () => {
     mockFetch([
       {
@@ -110,6 +144,7 @@ describe('WebhookSettingsClient', () => {
     expect(screen.getByRole('alertdialog', { name: 'Delete webhook subscription "Warehouse sync"?' })).toBeInTheDocument()
     expect(screen.getByText('This stops outbound CRM deliveries to https://warehouse.example.com/pib. Delivery history stays available for audit.')).toBeInTheDocument()
     expect(global.fetch).not.toHaveBeenCalledWith('/api/v1/crm/webhooks/webhook-1', expect.any(Object))
+    expect(screen.getByRole('button', { name: 'Cancel delete webhook subscription Warehouse sync' })).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Confirm delete webhook subscription Warehouse sync' }))
 
@@ -164,6 +199,7 @@ describe('WebhookSettingsClient', () => {
     expect(screen.getByRole('alertdialog', { name: 'Rotate signing secret for "Warehouse sync"?' })).toBeInTheDocument()
     expect(screen.getByText('Existing consumers must be updated immediately after rotation. The new secret is shown once for the CEO or integration owner to store securely.')).toBeInTheDocument()
     expect(global.fetch).not.toHaveBeenCalledWith('/api/v1/crm/webhooks/webhook-1/rotate-secret', expect.any(Object))
+    expect(screen.getByRole('button', { name: 'Cancel rotate webhook signing secret Warehouse sync' })).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Confirm rotate webhook signing secret Warehouse sync' }))
 

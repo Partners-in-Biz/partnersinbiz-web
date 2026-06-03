@@ -352,10 +352,12 @@ export default function DealsPage() {
         if (!body.success) throw new Error(body.error ?? 'Failed to load deals')
         setDeals(body.data ?? [])
         setStageFilter(requestedStageId ?? 'all')
+        setError(null)
         setLoading(false)
       })
       .catch(err => {
         if (cancelled) return
+        setDeals([])
         setError(err.message ?? 'Failed to load deals')
         setLoading(false)
       })
@@ -412,6 +414,24 @@ export default function DealsPage() {
         .finally(() => setLoading(false))
     }
   }, [selectedPipelineId])
+
+  function retryDealsLoad() {
+    if (!selectedPipelineId) return
+    setLoading(true)
+    setError(null)
+    fetch(`/api/v1/crm/deals?pipelineId=${encodeURIComponent(selectedPipelineId)}&limit=200`)
+      .then(r => readApiJson(r, 'Failed to load deals'))
+      .then(body => {
+        if (!body.success) throw new Error(body.error ?? 'Failed to load deals')
+        setDeals(body.data ?? [])
+        setStageFilter(requestedStageId ?? 'all')
+      })
+      .catch(err => {
+        setDeals([])
+        setError(err.message ?? 'Failed to load deals')
+      })
+      .finally(() => setLoading(false))
+  }
 
   const handleProbabilityUpdate = useCallback(async (dealId: string, probability: number) => {
     // Optimistic update
@@ -728,11 +748,31 @@ export default function DealsPage() {
 
       {/* Error state */}
       {error && (
-        <EmptyState
-          icon="error"
-          title="Unable to load deals."
-          description={error}
-        />
+        <section className="rounded-[var(--radius-card)] border border-amber-500/25 bg-amber-500/[0.07] p-5">
+          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+            <div className="flex gap-3">
+              <span className="material-symbols-outlined mt-0.5 text-amber-200" aria-hidden="true">warning</span>
+              <div>
+                <p className="eyebrow !text-[10px] text-amber-200">Source health</p>
+                <h2 className="mt-1 font-display text-xl text-[var(--color-pib-text)]">
+                  {selectedPipelineId ? 'Deals could not load' : 'Pipeline could not load'}
+                </h2>
+                <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">{error}</p>
+              </div>
+            </div>
+            {selectedPipelineId && (
+              <button
+                type="button"
+                onClick={retryDealsLoad}
+                className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5 text-sm"
+                aria-label="Retry loading deals"
+              >
+                <span className="material-symbols-outlined text-base" aria-hidden="true">refresh</span>
+                Retry
+              </button>
+            )}
+          </div>
+        </section>
       )}
 
       {/* Board view */}

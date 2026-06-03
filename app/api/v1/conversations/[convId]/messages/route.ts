@@ -29,6 +29,7 @@ import {
   type ContextReferenceSeed,
 } from '@/lib/context-references/types'
 import { getSlashCommandByToken, slashCommandInstruction, type SlashCommandPayload } from '@/lib/chat/slash-commands'
+import { buildAgentSkillsPromptBlock } from '@/lib/chat/agent-skills'
 import type { HermesProfileLink } from '@/lib/hermes/types'
 import type { ApiUser } from '@/lib/api/types'
 import type { AgentTeamDoc } from '@/lib/agents/types'
@@ -319,12 +320,13 @@ export const POST = withAuth(
       const orgContext = await buildOrgContext(conversation.orgId)
       const convContext = buildConversationContext(conversation, authorDisplayName)
       const orchestrationContext = buildOrchestrationContext(conversation, agentId)
+      const agentSkillsContext = buildAgentSkillsPromptBlock(agentData, agentId)
       const attachedContext = buildAttachedContextBlock(resolvedContextRefs)
       const commandContext = slashCommand ? slashCommandInstruction(slashCommand) : ''
       const attachmentContext = attachments.length > 0
         ? `\n\n[Attachments]\n${attachments.map((attachment) => `- ${attachment.name}: ${attachment.url} (${attachment.contentType}, ${attachment.sizeBytes} bytes)`).join('\n')}`
         : ''
-      const hermesInput = orgContext + convContext + orchestrationContext + attachedContext + commandContext + content + attachmentContext
+      const hermesInput = orgContext + convContext + orchestrationContext + agentSkillsContext + attachedContext + commandContext + content + attachmentContext
 
       // Dispatch Hermes run
       const runResult = await createHermesRun(agentLink, user.uid, {

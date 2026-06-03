@@ -294,6 +294,7 @@ describe('Portal contact detail page', () => {
     expect(screen.getByRole('heading', { name: 'Archive Jane Client?' })).toBeInTheDocument()
     expect(screen.getByText('This contact will leave the active CRM list, but relationship history stays available for reporting and audit context.')).toBeInTheDocument()
     expect(global.fetch).not.toHaveBeenCalledWith('/api/v1/crm/contacts/contact-1', { method: 'DELETE' })
+    expect(screen.getByRole('button', { name: 'Cancel archive for Jane Client' })).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Confirm archive for Jane Client' }))
 
@@ -770,6 +771,38 @@ describe('Portal contact detail page', () => {
     expect(screen.getByRole('combobox', { name: 'Relationship owner for Jane Client' })).toHaveFocus()
   })
 
+  it('summarizes relationship risk with direct leadership actions', async () => {
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    expect(screen.getByRole('heading', { name: 'Relationship risk brief' })).toBeInTheDocument()
+    expect(screen.getByText('4 open risks need attention before this relationship is leadership-ready.')).toBeInTheDocument()
+    expect(screen.getByText('No accountable owner')).toBeInTheDocument()
+    expect(screen.getByText('No linked company')).toBeInTheDocument()
+    expect(screen.getByText('No relationship touch logged')).toBeInTheDocument()
+    expect(screen.getByText('No score available')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Assign owner for Jane Client from relationship risk brief' }))
+    expect(screen.getByRole('combobox', { name: 'Relationship owner for Jane Client' })).toHaveFocus()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Link company for Jane Client from relationship risk brief' }))
+    expect(screen.getByRole('combobox', { name: 'Linked company for Jane Client' })).toHaveFocus()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Log relationship touch for Jane Client from relationship risk brief' }))
+    expect(screen.getByRole('textbox', { name: 'Relationship note for Jane Client' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Recompute score for Jane Client from relationship risk brief' }))
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        '/api/v1/crm/contacts/contact-1/recompute-score',
+        expect.objectContaining({ method: 'POST' }),
+      )
+    })
+  })
+
   it('turns a missing last touch insight into an activity action', async () => {
     render(<PortalContactDetailPage />)
 
@@ -781,6 +814,22 @@ describe('Portal contact detail page', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Log touch for Jane Client from last touch insight' }))
 
     expect(screen.getByPlaceholderText('Add a relationship note, handoff, or context…')).toBeInTheDocument()
+  })
+
+  it('turns stale last contacted detail into a fresh touch action', async () => {
+    mockContactOverrides = {
+      lastContactedAt: new Date('2026-01-01T08:00:00.000Z'),
+    }
+
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Log fresh touch for Jane Client from last contacted detail' }))
+
+    expect(screen.getByRole('textbox', { name: 'Relationship note for Jane Client' })).toBeInTheDocument()
   })
 
   it('turns a follow-up suggestion into a prefilled email action', async () => {

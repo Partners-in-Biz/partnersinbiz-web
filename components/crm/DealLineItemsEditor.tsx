@@ -241,7 +241,7 @@ export function DealLineItemsEditor({ value, onChange, currency, orgId, readOnly
                     <button
                       type="button"
                       onClick={() => removeItem(idx)}
-                      aria-label="Remove item"
+                      aria-label={`Remove quote item ${item.name || `line ${idx + 1}`}`}
                       className="cursor-pointer text-[var(--color-pib-text-muted)] hover:text-red-400 transition-colors"
                     >
                       <span className="material-symbols-outlined text-[16px]">delete</span>
@@ -312,7 +312,7 @@ export function DealLineItemsEditor({ value, onChange, currency, orgId, readOnly
                       type="button"
                       onClick={confirmDraft}
                       disabled={!draft.name.trim()}
-                      aria-label="Confirm item"
+                      aria-label="Add quote item"
                       className="cursor-pointer text-emerald-400 hover:text-emerald-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       <span className="material-symbols-outlined text-[16px]">check</span>
@@ -320,7 +320,7 @@ export function DealLineItemsEditor({ value, onChange, currency, orgId, readOnly
                     <button
                       type="button"
                       onClick={cancelDraft}
-                      aria-label="Cancel"
+                      aria-label="Cancel quote item draft"
                       className="cursor-pointer text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors"
                     >
                       <span className="material-symbols-outlined text-[16px]">close</span>

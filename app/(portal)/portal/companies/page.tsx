@@ -211,6 +211,10 @@ export default function CompaniesPage() {
     router.replace(qs ? `/portal/companies?${qs}` : '/portal/companies', { scroll: false })
   }
 
+  function retryCompaniesLoad() {
+    fetchCompanies(filters)
+  }
+
   // ── Row click → navigate to company detail ────────────────────────────────
 
   function handleRowClick(id: string) {
@@ -384,9 +388,27 @@ export default function CompaniesPage() {
 
       {/* ── Error state ── */}
       {error && (
-        <div className="rounded-lg border border-[var(--color-pib-danger,#FCA5A5)] bg-[rgba(252,165,165,0.08)] px-4 py-3 text-sm text-[var(--color-pib-danger,#FCA5A5)]">
-          {error}
-        </div>
+        <section className="rounded-[var(--radius-card)] border border-amber-500/25 bg-amber-500/[0.07] p-5">
+          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+            <div className="flex gap-3">
+              <span className="material-symbols-outlined mt-0.5 text-amber-200" aria-hidden="true">warning</span>
+              <div>
+                <p className="eyebrow !text-[10px] text-amber-200">Source health</p>
+                <h2 className="mt-1 font-display text-xl text-[var(--color-pib-text)]">Companies could not load</h2>
+                <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">{error}</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={retryCompaniesLoad}
+              className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5 text-sm"
+              aria-label="Retry loading companies"
+            >
+              <span className="material-symbols-outlined text-base" aria-hidden="true">refresh</span>
+              Retry
+            </button>
+          </div>
+        </section>
       )}
 
       {notice && (
@@ -420,16 +442,18 @@ export default function CompaniesPage() {
       )}
 
       {/* ── Table ── */}
-      <CompaniesTable
-        companies={displayedCompanies}
-        loading={loading}
-        onRowClick={handleRowClick}
-        onSetupCompany={handleSetupCompany}
-        selectedIds={selectedIds}
-        onToggleCompany={toggleCompany}
-        onToggleAll={toggleAllCompanies}
-        emptyState={emptyState}
-      />
+      {!error && (
+        <CompaniesTable
+          companies={displayedCompanies}
+          loading={loading}
+          onRowClick={handleRowClick}
+          onSetupCompany={handleSetupCompany}
+          selectedIds={selectedIds}
+          onToggleCompany={toggleCompany}
+          onToggleAll={toggleAllCompanies}
+          emptyState={emptyState}
+        />
+      )}
     </div>
   )
 }

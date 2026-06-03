@@ -113,6 +113,54 @@ describe('Portal CRM reports page', () => {
     expect(repDealsLink).toHaveAttribute('href', '/portal/deals?view=list&owner=u1')
   })
 
+  it('warns leadership when a CRM report source fails instead of presenting it as empty data', async () => {
+    ;(global.fetch as jest.Mock).mockImplementation((url: RequestInfo | URL) => {
+      const path = String(url)
+      if (path === '/api/v1/crm/reports/funnel') {
+        return apiResponse({
+          byType: { lead: 3, prospect: 2, client: 1, churned: 0, other: 0 },
+          byStage: { new: 3, contacted: 2, qualified: 1 },
+          total: 6,
+        })
+      }
+      if (path === '/api/v1/crm/reports/forecast') {
+        return Promise.resolve({
+          ok: false,
+          json: async () => ({ error: 'Forecast index missing' }),
+        } as Response)
+      }
+      if (path === '/api/v1/crm/reports/pipeline-velocity') {
+        return apiResponse({ stages: [], summary: { stageCount: 0, bottleneckCount: 0, slowestStage: null } })
+      }
+      if (path === '/api/v1/crm/reports/rep-performance') {
+        return apiResponse({
+          reps: [],
+          summary: {
+            repCount: 0,
+            totalWonValue: 0,
+            totalOpenValue: 0,
+            totalActivities: 0,
+            totalContacts: 6,
+            unassignedContacts: 0,
+            contactOwnerCoverage: 1,
+          },
+        })
+      }
+      if (path === '/api/v1/crm/reports/activity-summary?days=30') {
+        return apiResponse({ byType: { call: 1 }, total: 1, perDay: [{ date: '2026-05-29', count: 1 }], since: '2026-04-29', days: 30 })
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${path}`))
+    })
+
+    render(<CrmReportsPage />)
+
+    expect(await screen.findByRole('heading', { name: 'CRM report data needs attention' })).toBeInTheDocument()
+    expect(screen.getByText('Forecast report failed to load. Current analytics may be incomplete.')).toBeInTheDocument()
+
+    const reloadLink = screen.getByRole('link', { name: 'Reload CRM reports after source failure' })
+    expect(reloadLink).toHaveAttribute('href', '/portal/reports/crm')
+  })
+
   it('renders zero-value forecast periods as explicit forecast values instead of bare placeholders', async () => {
     render(<CrmReportsPage />)
 

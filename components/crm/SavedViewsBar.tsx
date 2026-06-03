@@ -194,6 +194,7 @@ export function SavedViewsBar({
                 type="button"
                 onClick={() => setPendingDeleteView(null)}
                 className="btn-pib-secondary text-xs"
+                aria-label={`Cancel delete for saved view ${pendingDeleteView.name}`}
               >
                 Cancel
               </button>

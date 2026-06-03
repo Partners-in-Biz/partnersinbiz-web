@@ -81,6 +81,31 @@ describe('Portal companies page', () => {
     expect(screen.getByText('Unassigned')).toBeInTheDocument()
   })
 
+  it('warns when companies fail to load and gives leaders a retry path', async () => {
+    global.fetch = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.startsWith('/api/v1/crm/companies?')) {
+        return Promise.resolve({
+          ok: false,
+          json: async () => ({ error: 'Companies index unavailable' }),
+        } as Response)
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    }) as jest.Mock
+
+    render(<CompaniesPage />)
+
+    expect(await screen.findByRole('heading', { name: 'Companies could not load' })).toBeInTheDocument()
+    expect(screen.getByText('Companies index unavailable')).toBeInTheDocument()
+    expect(screen.queryByText('Managed Account')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Retry loading companies' }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledTimes(2)
+    })
+  })
+
   it('names the company creation command without decorative icon text', async () => {
     render(<CompaniesPage />)
 

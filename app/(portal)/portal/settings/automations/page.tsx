@@ -1,7 +1,7 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import type { ActionType, AutomationAction, AutomationRule, TriggerEvent } from '@/lib/automations/types'
 
@@ -174,21 +174,31 @@ export default function AutomationsPage() {
   const [filter, setFilter] = useState<ViewFilter>('all')
   const [search, setSearch] = useState('')
 
-  useEffect(() => {
+  const fetchAutomationRules = useCallback(() => {
     setLoading(true)
     setFetchError(null)
     fetch('/api/v1/crm/automations')
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`)
-        return r.json()
+      .then(async (r) => {
+        const body = await r.json().catch(() => ({}))
+        if (!r.ok) {
+          throw new Error(typeof body?.error === 'string' ? body.error : `HTTP ${r.status}`)
+        }
+        return body
       })
       .then((body) => {
         const list: AutomationRule[] = body.data?.rules ?? body.data ?? body ?? []
         setRules(Array.isArray(list) ? list : [])
       })
-      .catch(() => setFetchError('Failed to load automations. Please try again.'))
+      .catch((error: unknown) => {
+        setRules([])
+        setFetchError(error instanceof Error ? error.message : 'Failed to load automations. Please try again.')
+      })
       .finally(() => setLoading(false))
   }, [])
+
+  useEffect(() => {
+    fetchAutomationRules()
+  }, [fetchAutomationRules])
 
   const stats = useMemo(() => {
     const active = rules.filter((rule) => rule.enabled).length
@@ -297,14 +307,17 @@ export default function AutomationsPage() {
         </Link>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Live rules" value={String(stats.active)} sub={`${stats.paused} paused for review`} icon="bolt" />
-        <StatCard label="Event coverage" value={`${stats.eventCoverage}/6`} sub="CRM triggers with at least one rule" icon="hub" />
-        <StatCard label="Workflow actions" value={String(stats.actions)} sub={`${stats.delayed} delayed handoffs configured`} icon="account_tree" />
-        <StatCard label="Needs work" value={String(stats.needsWork)} sub="Rules missing useful execution details" icon="rule_settings" />
-      </div>
+      {!fetchError && (
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <StatCard label="Live rules" value={String(stats.active)} sub={`${stats.paused} paused for review`} icon="bolt" />
+          <StatCard label="Event coverage" value={`${stats.eventCoverage}/6`} sub="CRM triggers with at least one rule" icon="hub" />
+          <StatCard label="Workflow actions" value={String(stats.actions)} sub={`${stats.delayed} delayed handoffs configured`} icon="account_tree" />
+          <StatCard label="Needs work" value={String(stats.needsWork)} sub="Rules missing useful execution details" icon="rule_settings" />
+        </div>
+      )}
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,0.7fr)_minmax(0,1.3fr)]">
+      <div className={fetchError ? '' : 'grid gap-5 xl:grid-cols-[minmax(0,0.7fr)_minmax(0,1.3fr)]'}>
+        {!fetchError && (
         <aside className="space-y-5">
           <div className="bento-card !p-5 space-y-4">
             <div>
@@ -374,6 +387,7 @@ export default function AutomationsPage() {
             </div>
           </div>
         </aside>
+        )}
 
         <section>
           {deleteError && (
@@ -387,9 +401,29 @@ export default function AutomationsPage() {
               <p className="text-sm text-[var(--color-pib-text-muted)]">Loading automations...</p>
             </div>
           ) : fetchError ? (
-            <div className="rounded-lg border border-red-400/25 bg-red-400/10 px-4 py-3 text-sm text-red-200">
-              {fetchError}
-            </div>
+            <section className="rounded-[var(--radius-card)] border border-amber-500/25 bg-amber-500/[0.07] p-5">
+              <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                <div className="flex gap-3">
+                  <span className="material-symbols-outlined mt-0.5 text-amber-200" aria-hidden="true">warning</span>
+                  <div>
+                    <p className="eyebrow !text-[10px] text-amber-200">Source health</p>
+                    <h2 className="mt-1 font-display text-xl text-[var(--color-pib-text)]">
+                      Automation rules could not load
+                    </h2>
+                    <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">{fetchError}</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={fetchAutomationRules}
+                  className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5 text-sm"
+                  aria-label="Retry loading automation rules"
+                >
+                  <span className="material-symbols-outlined text-base" aria-hidden="true">refresh</span>
+                  Retry
+                </button>
+              </div>
+            </section>
           ) : rules.length === 0 ? (
             <div className="bento-card !p-0 overflow-hidden">
               <div className="grid gap-0 lg:grid-cols-[minmax(0,0.9fr)_minmax(320px,1.1fr)]">
@@ -487,6 +521,7 @@ export default function AutomationsPage() {
                         }}
                         className="btn-pib-secondary text-xs"
                         disabled={deletingId !== null}
+                        aria-label={`Cancel delete for automation ${pendingDeleteRule.name}`}
                       >
                         Cancel
                       </button>

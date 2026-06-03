@@ -58,6 +58,40 @@ describe('Portal settings custom fields page', () => {
     expect(screen.getByRole('dialog', { name: 'New custom field' })).toBeInTheDocument()
   })
 
+  it('warns when custom fields fail to load and gives leaders a retry path', async () => {
+    global.fetch = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/portal/settings/profile') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ profile: { role: 'owner' } }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/custom-fields?resource=contact') {
+        return Promise.resolve({
+          ok: false,
+          json: async () => ({ error: 'Custom field schema unavailable' }),
+        } as Response)
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    }) as jest.Mock
+
+    render(<CustomFieldsPage />)
+
+    expect(await screen.findByRole('heading', { name: 'Custom field schema could not load' })).toBeInTheDocument()
+    expect(screen.getByText('Custom field schema unavailable')).toBeInTheDocument()
+    expect(screen.queryByText('Schema fields')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Retry loading custom field schema' }))
+
+    await waitFor(() => {
+      const schemaRequests = (global.fetch as jest.Mock).mock.calls.filter(([url]) => (
+        String(url) === '/api/v1/crm/custom-fields?resource=contact'
+      ))
+      expect(schemaRequests).toHaveLength(2)
+    })
+  })
+
   it('treats an empty filtered custom-field view as a reversible schema lens', async () => {
     definitions = [{
       id: 'field-1',
@@ -123,6 +157,7 @@ describe('Portal settings custom fields page', () => {
     expect(screen.getByRole('alertdialog', { name: 'Delete custom field "Decision role"?' })).toBeInTheDocument()
     expect(screen.getByText('This removes the field from future contact records and schema views. Existing saved values may remain in historical records for audit and cleanup.')).toBeInTheDocument()
     expect(global.fetch).not.toHaveBeenCalledWith('/api/v1/crm/custom-fields/field-1', expect.any(Object))
+    expect(screen.getByRole('button', { name: 'Cancel delete for custom field Decision role' })).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Confirm delete custom field Decision role' }))
 

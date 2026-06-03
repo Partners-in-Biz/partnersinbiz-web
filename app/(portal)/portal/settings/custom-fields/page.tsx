@@ -128,17 +128,17 @@ export default function CustomFieldsPage() {
     setFetchError(null)
     try {
       const res = await fetch(`/api/v1/crm/custom-fields?resource=${resource}`)
+      const body = await res.json().catch(() => ({}))
       if (res.status === 404) {
         setFetchError('Custom fields API is not yet available. It will be ready shortly.')
         setDefinitions([])
         return
       }
       if (!res.ok) {
-        setFetchError('Failed to load custom fields. Please try again.')
+        setFetchError(typeof body?.error === 'string' ? body.error : 'Failed to load custom fields. Please try again.')
         setDefinitions([])
         return
       }
-      const body = await res.json()
       const defs: CustomFieldDefinition[] = body.data?.definitions ?? body.definitions ?? []
       setDefinitions(defs)
     } catch {
@@ -301,12 +301,14 @@ export default function CustomFieldsPage() {
         )}
       </header>
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Schema fields" value={String(definitions.length)} sub={`${currentTab.label.toLowerCase()} records in this workspace`} icon="data_object" />
-        <StatCard label="Required data" value={String(requiredCount)} sub={`${definitions.length - requiredCount} optional fields`} icon="rule" />
-        <StatCard label="Field health" value={`${readyCount}/${definitions.length || 0}`} sub={`${needsWorkCount} field${needsWorkCount === 1 ? '' : 's'} need setup detail`} icon="monitoring" />
-        <StatCard label="Data shape" value={String(groupNames.length)} sub={`${choiceCount} choice fields, ${constrainedCount} constrained`} icon="category" />
-      </section>
+      {!fetchError && (
+        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <StatCard label="Schema fields" value={String(definitions.length)} sub={`${currentTab.label.toLowerCase()} records in this workspace`} icon="data_object" />
+          <StatCard label="Required data" value={String(requiredCount)} sub={`${definitions.length - requiredCount} optional fields`} icon="rule" />
+          <StatCard label="Field health" value={`${readyCount}/${definitions.length || 0}`} sub={`${needsWorkCount} field${needsWorkCount === 1 ? '' : 's'} need setup detail`} icon="monitoring" />
+          <StatCard label="Data shape" value={String(groupNames.length)} sub={`${choiceCount} choice fields, ${constrainedCount} constrained`} icon="category" />
+        </section>
+      )}
 
       {/* Read-only banner for non-admins */}
       {role !== null && !isAdmin && (
@@ -316,85 +318,89 @@ export default function CustomFieldsPage() {
         </div>
       )}
 
-      <PageTabs
-        ariaLabel="Custom field resource"
-        value={activeTab}
-        onValueChange={(value) => setActiveTab(value as CustomFieldResource)}
-        tabs={TABS.map((tab) => ({ label: tab.label, value: tab.resource }))}
-      />
+      {!fetchError && (
+        <PageTabs
+          ariaLabel="Custom field resource"
+          value={activeTab}
+          onValueChange={(value) => setActiveTab(value as CustomFieldResource)}
+          tabs={TABS.map((tab) => ({ label: tab.label, value: tab.resource }))}
+        />
+      )}
 
-      <section className="grid gap-4 lg:grid-cols-[1fr_340px]">
-        <div className="space-y-4">
-          <div className="flex flex-wrap gap-3">
-            <input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              className="pib-input min-w-[220px] flex-1"
-              placeholder="Search label, key, group, help..."
-            />
-            <select
-              aria-label="Filter custom fields by type"
-              value={typeFilter}
-              onChange={(event) => setTypeFilter(event.target.value)}
-              className="pib-input !w-auto"
-            >
-              <option value="">All types</option>
-              {typeOptions.map((type) => (
-                <option key={type} value={type} className="bg-black">{TYPE_LABELS[type]}</option>
-              ))}
-            </select>
-            <select
-              aria-label="Filter custom fields by health"
-              value={readinessFilter}
-              onChange={(event) => setReadinessFilter(event.target.value as ReadinessFilter)}
-              className="pib-input !w-auto"
-            >
-              <option value="all">All health</option>
-              <option value="ready">Ready</option>
-              <option value="needs-work">Needs work</option>
-            </select>
+      {!fetchError && (
+        <section className="grid gap-4 lg:grid-cols-[1fr_340px]">
+          <div className="space-y-4">
+            <div className="flex flex-wrap gap-3">
+              <input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                className="pib-input min-w-[220px] flex-1"
+                placeholder="Search label, key, group, help..."
+              />
+              <select
+                aria-label="Filter custom fields by type"
+                value={typeFilter}
+                onChange={(event) => setTypeFilter(event.target.value)}
+                className="pib-input !w-auto"
+              >
+                <option value="">All types</option>
+                {typeOptions.map((type) => (
+                  <option key={type} value={type} className="bg-black">{TYPE_LABELS[type]}</option>
+                ))}
+              </select>
+              <select
+                aria-label="Filter custom fields by health"
+                value={readinessFilter}
+                onChange={(event) => setReadinessFilter(event.target.value as ReadinessFilter)}
+                className="pib-input !w-auto"
+              >
+                <option value="all">All health</option>
+                <option value="ready">Ready</option>
+                <option value="needs-work">Needs work</option>
+              </select>
+            </div>
+
+            {hasFilters ? (
+              <button
+                type="button"
+                onClick={() => { setSearch(''); setTypeFilter(''); setReadinessFilter('all') }}
+                className="btn-pib-secondary text-xs inline-flex items-center gap-1.5"
+              >
+                <span className="material-symbols-outlined text-[14px]" aria-hidden="true">filter_alt_off</span>
+                Clear filters
+              </button>
+            ) : null}
           </div>
 
-          {hasFilters ? (
-            <button
-              type="button"
-              onClick={() => { setSearch(''); setTypeFilter(''); setReadinessFilter('all') }}
-              className="btn-pib-secondary text-xs inline-flex items-center gap-1.5"
-            >
-              <span className="material-symbols-outlined text-[14px]" aria-hidden="true">filter_alt_off</span>
-              Clear filters
-            </button>
-          ) : null}
-        </div>
-
-        <div className="bento-card !p-5 space-y-4">
-          <div>
-            <p className="eyebrow !text-[10px]">Schema focus</p>
-            <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">
-              Healthy CRM fields have a clear group, help text, and guardrail so users know why the data matters.
-            </p>
+          <div className="bento-card !p-5 space-y-4">
+            <div>
+              <p className="eyebrow !text-[10px]">Schema focus</p>
+              <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">
+                Healthy CRM fields have a clear group, help text, and guardrail so users know why the data matters.
+              </p>
+            </div>
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-3">
+                <p className="font-display text-xl text-[var(--color-pib-text)]">{groupedCount}</p>
+                <p className="mt-1 text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)]">Grouped</p>
+              </div>
+              <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-3">
+                <p className="font-display text-xl text-[var(--color-pib-text)]">{missingHelpCount}</p>
+                <p className="mt-1 text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)]">No help</p>
+              </div>
+              <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-3">
+                <p className="font-display text-xl text-[var(--color-pib-text)]">{choiceCount}</p>
+                <p className="mt-1 text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)]">Choices</p>
+              </div>
+            </div>
+            {hasFilters && isAdmin ? (
+              <p className="text-xs text-amber-200">
+                Reordering is available after filters are cleared so hidden fields keep their order.
+              </p>
+            ) : null}
           </div>
-          <div className="grid grid-cols-3 gap-2 text-center">
-            <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-3">
-              <p className="font-display text-xl text-[var(--color-pib-text)]">{groupedCount}</p>
-              <p className="mt-1 text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)]">Grouped</p>
-            </div>
-            <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-3">
-              <p className="font-display text-xl text-[var(--color-pib-text)]">{missingHelpCount}</p>
-              <p className="mt-1 text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)]">No help</p>
-            </div>
-            <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-3">
-              <p className="font-display text-xl text-[var(--color-pib-text)]">{choiceCount}</p>
-              <p className="mt-1 text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)]">Choices</p>
-            </div>
-          </div>
-          {hasFilters && isAdmin ? (
-            <p className="text-xs text-amber-200">
-              Reordering is available after filters are cleared so hidden fields keep their order.
-            </p>
-          ) : null}
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* Tab content */}
       <div className="space-y-4">
@@ -412,9 +418,29 @@ export default function CustomFieldsPage() {
             {Array.from({ length: 4 }).map((_, index) => <div key={index} className="pib-skeleton h-24" />)}
           </div>
         ) : fetchError ? (
-          <div className="px-4 py-3 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] text-sm text-[var(--color-pib-text-muted)]">
-            {fetchError}
-          </div>
+          <section className="rounded-[var(--radius-card)] border border-amber-500/25 bg-amber-500/[0.07] p-5">
+            <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+              <div className="flex gap-3">
+                <span className="material-symbols-outlined mt-0.5 text-amber-200" aria-hidden="true">warning</span>
+                <div>
+                  <p className="eyebrow !text-[10px] text-amber-200">Source health</p>
+                  <h2 className="mt-1 font-display text-xl text-[var(--color-pib-text)]">
+                    Custom field schema could not load
+                  </h2>
+                  <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">{fetchError}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => fetchDefs(activeTab)}
+                className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5 text-sm"
+                aria-label="Retry loading custom field schema"
+              >
+                <span className="material-symbols-outlined text-base" aria-hidden="true">refresh</span>
+                Retry
+              </button>
+            </div>
+          </section>
         ) : definitions.length === 0 ? (
           <div className="bento-card !p-0 overflow-hidden">
             <div className="grid gap-0 lg:grid-cols-[minmax(0,0.9fr)_minmax(320px,1.1fr)]">
@@ -531,6 +557,7 @@ export default function CustomFieldsPage() {
                 onClick={closeDeleteConfirmation}
                 className="btn-pib-secondary text-xs"
                 disabled={deletingId === pendingDeleteDef.id}
+                aria-label={`Cancel delete for custom field ${pendingDeleteDef.label}`}
               >
                 Cancel
               </button>

@@ -114,6 +114,7 @@ describe('Portal deal detail page', () => {
       ),
     ).toBeInTheDocument()
     expect(global.fetch).not.toHaveBeenCalledWith('/api/v1/crm/deals/deal-archive-1', { method: 'DELETE' })
+    expect(screen.getByRole('button', { name: 'Cancel archive Enterprise rollout' })).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Confirm archive Enterprise rollout' }))
 
@@ -211,6 +212,55 @@ describe('Portal deal detail page', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Update close timing for Enterprise rollout from command summary' }))
     expect(screen.getByLabelText('Set expected close date')).toHaveFocus()
+  })
+
+  it('summarizes revenue risk with direct leadership actions', async () => {
+    mockDealOverrides = {
+      ownerRef: undefined,
+      ownerUid: '',
+      contactId: '',
+      companyId: '',
+      companyName: '',
+      expectedCloseDate: '',
+      lineItems: [],
+      probability: 25,
+    }
+
+    render(<DealDetailPage />)
+
+    expect(await screen.findByRole('heading', { name: 'Enterprise rollout' })).toBeInTheDocument()
+
+    const brief = screen.getByRole('region', { name: 'Revenue risk brief' })
+    expect(within(brief).getByRole('heading', { name: 'Revenue risk brief' })).toBeInTheDocument()
+    expect(within(brief).getByText('7 revenue risks need leadership attention before Enterprise rollout is forecast-ready.')).toBeInTheDocument()
+    expect(within(brief).getByText('No deal owner')).toBeInTheDocument()
+    expect(within(brief).getByText('No decision-maker linked')).toBeInTheDocument()
+    expect(within(brief).getByText('No company linked')).toBeInTheDocument()
+    expect(within(brief).getByText('Close date missing')).toBeInTheDocument()
+    expect(within(brief).getByText('No line items')).toBeInTheDocument()
+    expect(within(brief).getByText('No activity logged')).toBeInTheDocument()
+    expect(within(brief).getByText('Forecast confidence low')).toBeInTheDocument()
+
+    fireEvent.click(within(brief).getByRole('button', { name: 'Assign owner for Enterprise rollout from revenue risk brief' }))
+    expect(screen.getByLabelText('Assign deal owner')).toHaveFocus()
+
+    fireEvent.click(within(brief).getByRole('button', { name: 'Link decision-maker for Enterprise rollout from revenue risk brief' }))
+    expect(screen.getByRole('dialog', { name: 'Edit Deal' })).toBeInTheDocument()
+
+    fireEvent.click(within(brief).getByRole('button', { name: 'Link company for Enterprise rollout from revenue risk brief' }))
+    expect(screen.getByRole('dialog', { name: 'Edit Deal' })).toBeInTheDocument()
+
+    fireEvent.click(within(brief).getByRole('button', { name: 'Set close date for Enterprise rollout from revenue risk brief' }))
+    expect(screen.getByLabelText('Set expected close date')).toHaveFocus()
+
+    fireEvent.click(within(brief).getByRole('button', { name: 'Add line items for Enterprise rollout from revenue risk brief' }))
+    expect(screen.getByRole('dialog', { name: 'Edit Deal' })).toBeInTheDocument()
+
+    fireEvent.click(within(brief).getByRole('button', { name: 'Log activity for Enterprise rollout from revenue risk brief' }))
+    expect(screen.getByRole('dialog', { name: 'Edit Deal' })).toBeInTheDocument()
+
+    fireEvent.click(within(brief).getByRole('button', { name: 'Update forecast confidence for Enterprise rollout from revenue risk brief' }))
+    expect(screen.getByLabelText('Update forecast probability')).toHaveFocus()
   })
 
   it('shows a resolving contact identity state before secondary contact details finish loading', async () => {

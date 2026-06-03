@@ -534,7 +534,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
                   href={adminViewHref}
                   className="flex items-center gap-2 px-3 py-2 text-sm text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] rounded-lg hover:bg-white/[0.04]"
                 >
-                  <span className="material-symbols-outlined text-[18px]">person</span>
+                  <span className="material-symbols-outlined text-[18px] inline-flex items-center justify-center min-w-[18px] min-h-[18px] leading-none">person</span>
                   Switch to admin view
                 </Link>
               )}
@@ -629,6 +629,20 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
             </Link>
           )}
         </div>
+
+        {!collapsed && canOpenAdminView && (
+          <div className="md:hidden border-b border-[var(--color-pib-line)] shrink-0 px-3 py-3">
+            <Link
+              href={adminViewHref}
+              title="Switch to admin view"
+              aria-label="Switch to admin view"
+              className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.03] hover:text-[var(--color-pib-text)]"
+            >
+              <span className="material-symbols-outlined text-[20px] shrink-0 opacity-70">person</span>
+              <span className="font-medium">Admin view</span>
+            </Link>
+          </div>
+        )}
 
         {collapsed && canOpenAdminView && (
           <div className="border-b border-[var(--color-pib-line)] shrink-0">

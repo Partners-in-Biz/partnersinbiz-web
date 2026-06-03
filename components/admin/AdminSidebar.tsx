@@ -173,6 +173,12 @@ export function AdminSidebar({ open = false, onClose, collapsed = false, onToggl
           )}
         </div>
 
+        {!collapsed && isWorkspaceMode && selectedOrg?.id && (
+          <div className="md:hidden border-b border-[var(--color-pib-line)] shrink-0">
+            <PortalViewSwitch orgId={selectedOrg.id} />
+          </div>
+        )}
+
         {collapsed && isWorkspaceMode && selectedOrg?.id && (
           <PortalViewSwitch orgId={selectedOrg.id} collapsed iconOnly />
         )}
