@@ -1055,10 +1055,83 @@ export default function PortalContactDetailPage() {
 
   if (loading) {
     return (
-      <div className="space-y-4">
-        <div className="pib-skeleton h-8 w-32" />
-        <div className="pib-skeleton h-64" />
-      </div>
+      <section
+        role="status"
+        aria-label="Contact detail loading state"
+        className="space-y-6"
+      >
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <Link
+            href="/portal/contacts"
+            className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] inline-flex items-center gap-1 transition-colors"
+          >
+            <span className="material-symbols-outlined text-sm" aria-hidden="true">arrow_back</span>
+            Contacts
+          </Link>
+          <div className="flex items-center gap-2 text-xs text-[var(--color-pib-text-muted)]">
+            <span className="material-symbols-outlined text-[16px] text-[var(--color-pib-accent)]" aria-hidden="true">sync</span>
+            Loading CRM relationship
+          </div>
+        </div>
+
+        <div className="bento-card !p-6">
+          <div className="grid gap-5 lg:grid-cols-[1fr_320px]">
+            <div className="flex items-start gap-4">
+              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)]">
+                <div className="pib-skeleton h-8 w-8 rounded-md" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="eyebrow">Contact command center</p>
+                <h1 className="mt-2 font-display text-3xl tracking-tight text-[var(--color-pib-text)] md:text-4xl">
+                  Preparing contact command center
+                </h1>
+                <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--color-pib-text-muted)]">
+                  Loading relationship profile, owner coverage, activity, deals, and nurture context.
+                </p>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {['Profile', 'Owner', 'Activity', 'Deals'].map((label) => (
+                    <span key={label} className="pill">
+                      {label}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-4">
+              <p className="eyebrow !text-[10px]">Relationship readiness</p>
+              <div className="mt-4 space-y-3">
+                {['Profile strength', 'Last touch', 'Email thread', 'Activity'].map((label) => (
+                  <div key={label} className="flex items-center justify-between gap-3">
+                    <span className="text-xs text-[var(--color-pib-text-muted)]">{label}</span>
+                    <span className="pib-skeleton h-3 w-16 rounded-full" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-3">
+          {[
+            ['Relationship profile', 'Identity, contact routes, company, and owner accountability.'],
+            ['Activity timeline', 'Recent notes, calls, messages, and the next relationship move.'],
+            ['Pipeline context', 'Deals, forecast value, sequence enrollment, and follow-up cadence.'],
+          ].map(([title, body]) => (
+            <div key={title} className="bento-card !p-5">
+              <div className="mb-4 h-2 overflow-hidden rounded-full bg-[var(--color-pib-line-strong)]">
+                <div className="h-full w-2/3 rounded-full bg-[var(--color-pib-accent)]" />
+              </div>
+              <h2 className="font-display text-lg text-[var(--color-pib-text)]">{title}</h2>
+              <p className="mt-2 text-xs leading-5 text-[var(--color-pib-text-muted)]">{body}</p>
+              <div className="mt-4 space-y-2">
+                <div className="pib-skeleton h-3 w-full rounded-full" />
+                <div className="pib-skeleton h-3 w-2/3 rounded-full" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
     )
   }
 

@@ -262,6 +262,19 @@ describe('Portal contact detail page', () => {
     })
   })
 
+  it('shows an operational contact command loading state while relationship data resolves', () => {
+    global.fetch = jest.fn(() => new Promise(() => undefined)) as jest.Mock
+
+    render(<PortalContactDetailPage />)
+
+    expect(screen.getByRole('heading', { name: 'Preparing contact command center' })).toBeInTheDocument()
+    expect(screen.getByText('Loading relationship profile, owner coverage, activity, deals, and nurture context.')).toBeInTheDocument()
+    expect(screen.getByRole('status', { name: 'Contact detail loading state' })).toBeInTheDocument()
+    expect(screen.getByText('Relationship profile')).toBeInTheDocument()
+    expect(screen.getByText('Activity timeline')).toBeInTheDocument()
+    expect(screen.getByText('Pipeline context')).toBeInTheDocument()
+  })
+
   it('moves the portal header email action into the active CRM composer', async () => {
     const scrollIntoView = jest.fn()
     HTMLElement.prototype.scrollIntoView = scrollIntoView
