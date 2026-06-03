@@ -102,6 +102,7 @@ describe('SavedViewsBar', () => {
     expect(screen.getByRole('alertdialog', { name: 'Delete saved view "Hot proposal leads"?' })).toBeInTheDocument()
     expect(screen.getByText('This removes the shared CRM lens for everyone using the contacts workspace.')).toBeInTheDocument()
     expect(global.fetch).not.toHaveBeenCalledWith('/api/v1/crm/saved-views/view-hot', expect.any(Object))
+    expect(screen.getByRole('button', { name: 'Cancel delete for saved view Hot proposal leads' })).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Confirm delete saved view Hot proposal leads' }))
 
