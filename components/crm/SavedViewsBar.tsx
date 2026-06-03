@@ -14,6 +14,10 @@ interface Props {
   resourceKind?: string
 }
 
+function savedViewDisplayName(view: SavedView) {
+  return view.name?.trim() || 'Saved view name missing'
+}
+
 export function SavedViewsBar({
   currentFilters,
   onSelectView,
@@ -35,6 +39,7 @@ export function SavedViewsBar({
 
   const activeFilterCount = activeFilters.length
   const resourceLabel = resourceKind.replace(/-/g, ' ')
+  const pendingDeleteViewName = pendingDeleteView ? savedViewDisplayName(pendingDeleteView) : ''
   const currentLensLabel = activeFilterCount
     ? activeFilters.map(([key, value]) => `${key}: ${String(value)}`).join(' / ')
     : `All ${resourceLabel}`
@@ -182,7 +187,7 @@ export function SavedViewsBar({
               <div>
                 <p className="eyebrow !text-[10px] text-red-200">Saved view delete confirmation</p>
                 <h3 id="saved-view-delete-title" className="mt-1 font-display text-lg text-[var(--color-pib-text)]">
-                  Delete saved view &quot;{pendingDeleteView.name}&quot;?
+                  Delete saved view &quot;{pendingDeleteViewName}&quot;?
                 </h3>
                 <p id="saved-view-delete-description" className="mt-2 text-sm text-red-100/90">
                   This removes the shared CRM lens for everyone using the {resourceLabel} workspace.
@@ -194,7 +199,7 @@ export function SavedViewsBar({
                 type="button"
                 onClick={() => setPendingDeleteView(null)}
                 className="btn-pib-secondary text-xs"
-                aria-label={`Cancel delete for saved view ${pendingDeleteView.name}`}
+                aria-label={`Cancel delete for saved view ${pendingDeleteViewName}`}
               >
                 Cancel
               </button>
@@ -202,7 +207,7 @@ export function SavedViewsBar({
                 type="button"
                 onClick={confirmDeleteView}
                 className="inline-flex items-center gap-1.5 rounded-[var(--radius-card)] border border-red-400/40 bg-red-500/15 px-3 py-2 text-xs font-medium text-red-100 transition-colors hover:bg-red-500/25"
-                aria-label={`Confirm delete saved view ${pendingDeleteView.name}`}
+                aria-label={`Confirm delete saved view ${pendingDeleteViewName}`}
               >
                 <span className="material-symbols-outlined text-[14px]" aria-hidden="true">
                   delete
@@ -217,6 +222,7 @@ export function SavedViewsBar({
       {views.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
           {views.map((view) => {
+            const displayName = savedViewDisplayName(view)
             const filterCount = Object.entries(view.filters ?? {}).filter(([, value]) => {
               if (Array.isArray(value)) return value.length > 0
               if (typeof value === 'string') return value.trim().length > 0
@@ -231,17 +237,17 @@ export function SavedViewsBar({
                 <button
                   onClick={() => onSelectView(view.filters)}
                   className="min-w-0 text-left flex-1"
-                  aria-label={`Apply saved view ${view.name}`}
+                  aria-label={`Apply saved view ${displayName}`}
                 >
-                  <span className="block font-medium truncate text-[var(--color-pib-text)]">{view.name}</span>
+                  <span className="block font-medium truncate text-[var(--color-pib-text)]">{displayName}</span>
                   <span className="block text-xs text-[var(--color-pib-text-muted)] mt-0.5">
                     {filterCount} filter{filterCount === 1 ? '' : 's'}
                   </span>
                 </button>
                 <button
                   onClick={() => deleteView(view)}
-                  title={`Delete "${view.name}"`}
-                  aria-label={`Delete saved view ${view.name}`}
+                  title={`Delete "${displayName}"`}
+                  aria-label={`Delete saved view ${displayName}`}
                   className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-danger,#FCA5A5)] transition-colors p-1 rounded-md hover:bg-red-400/10"
                 >
                   <span className="material-symbols-outlined text-[16px]">close</span>
