@@ -186,6 +186,10 @@ function formatCurrency(value: unknown, currency = 'ZAR'): string {
   }).format(numberValue(value))
 }
 
+function recordCountLabel(count: number): string {
+  return `${count} ${count === 1 ? 'record' : 'records'}`
+}
+
 function rowList(center: CompanyOverviewCenter | undefined, key: ListKey): OverviewRow[] {
   const rows = center?.[key]
   return Array.isArray(rows) ? rows : []
@@ -416,6 +420,7 @@ function WidgetCard({
   icon,
   color,
   hint,
+  ariaLabel,
   onClick,
 }: {
   label: string
@@ -423,6 +428,7 @@ function WidgetCard({
   icon: string
   color: string
   hint?: string
+  ariaLabel?: string
   onClick?: () => void
 }) {
   const content = (
@@ -441,7 +447,7 @@ function WidgetCard({
   const className = 'pib-stat-card min-h-[124px] text-left transition-colors hover:border-[var(--color-pib-accent)] hover:bg-white/[0.03]'
   if (onClick) {
     return (
-      <button type="button" className={className} onClick={onClick}>
+      <button type="button" aria-label={ariaLabel} className={className} onClick={onClick}>
         {content}
       </button>
     )
@@ -912,6 +918,7 @@ export function CompanyOverviewPanel({ company, center, loading, onSelectTab, on
               icon={item.icon}
               color={item.color}
               hint={counts[item.key] > 0 ? 'Open tab' : 'No records yet'}
+              ariaLabel={`Open ${item.label} tab for ${company.name} with ${recordCountLabel(counts[item.key])}`}
               onClick={onSelectTab ? () => onSelectTab(item.tab) : undefined}
             />
           ))}
