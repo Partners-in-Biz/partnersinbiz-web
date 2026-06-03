@@ -109,7 +109,13 @@ function PipelineSummary({ deals, stages }: PipelineSummaryProps) {
   )
 }
 
-function PipelineLaunchCommandCenter({ onCreateDeal }: { onCreateDeal: () => void }) {
+function PipelineLaunchCommandCenter({
+  onCreateDeal,
+  needsSetupReview = false,
+}: {
+  onCreateDeal: () => void
+  needsSetupReview?: boolean
+}) {
   const launchSteps = [
     {
       icon: 'add_circle',
@@ -135,8 +141,9 @@ function PipelineLaunchCommandCenter({ onCreateDeal }: { onCreateDeal: () => voi
           <p className="eyebrow !text-[10px]">Revenue workspace</p>
           <h2 className="mt-2 font-display text-2xl text-[var(--color-pib-text)]">Launch this pipeline</h2>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--color-pib-text-muted)]">
-            This board is ready, but there are no opportunities in it yet. Create the first deal so the pipeline has
-            a buyer, owner, value, stage, and forecast date from the start.
+            {needsSetupReview
+              ? 'This pipeline needs setup review before the team treats it as board-ready. Review the revenue path, then create the first deal with a buyer, owner, value, stage, and forecast date.'
+              : 'This board is ready, but there are no opportunities in it yet. Create the first deal so the pipeline has a buyer, owner, value, stage, and forecast date from the start.'}
           </p>
           <div className="mt-6 flex flex-wrap gap-2">
             <button
@@ -929,7 +936,10 @@ export default function DealsPage() {
             contactLabelsById={contactLabelsById}
           />
         ) : filteredDeals.length === 0 && stageFilter === 'all' ? (
-          <PipelineLaunchCommandCenter onCreateDeal={() => setShowCreateDrawer(true)} />
+          <PipelineLaunchCommandCenter
+            onCreateDeal={() => setShowCreateDrawer(true)}
+            needsSetupReview={selectedPipelineNeedsReview}
+          />
         ) : (
           <DealKanban
             deals={filteredDeals}

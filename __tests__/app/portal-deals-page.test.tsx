@@ -417,6 +417,27 @@ describe('Portal deals page', () => {
       .toHaveAttribute('href', '/portal/settings/pipelines')
   })
 
+  it('does not describe a setup-risk pipeline as ready in the empty launch state', async () => {
+    mockDealRows = []
+    mockPipelineRows = [
+      {
+        id: 'pipeline-smoke',
+        name: 'Smoke delete pipeline 1780236200000',
+        isDefault: false,
+        archived: false,
+        stages: [
+          { id: 'qualified', label: 'Qualified', kind: 'open', order: 1, probability: 40 },
+        ],
+      },
+    ]
+
+    render(<DealsPage />)
+
+    expect(await screen.findByRole('heading', { name: 'Launch this pipeline' })).toBeInTheDocument()
+    expect(screen.getByText(/This pipeline needs setup review before the team treats it as board-ready/)).toBeInTheDocument()
+    expect(screen.queryByText(/This board is ready, but there are no opportunities in it yet/)).not.toBeInTheDocument()
+  })
+
   it('warns when deals fail to load and gives leaders a retry path', async () => {
     mockSearchParams = new URLSearchParams('view=list')
     global.fetch = jest.fn((url: RequestInfo | URL) => {
