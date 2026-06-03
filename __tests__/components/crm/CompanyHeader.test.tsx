@@ -16,6 +16,35 @@ function company(overrides: Partial<Company> = {}): Company {
 }
 
 describe('CompanyHeader', () => {
+  it('names first-viewport account commands without decorative icon text', () => {
+    const onEdit = jest.fn()
+    const onDelete = jest.fn()
+
+    render(
+      <CompanyHeader
+        company={company({
+          website: 'acme.example',
+          billingEmail: 'billing@acme.example',
+          phone: '+27110001111',
+        })}
+        onEdit={onEdit}
+        onDelete={onDelete}
+      />,
+    )
+
+    expect(screen.getByRole('link', { name: 'Open website for Acme Studio' })).toHaveAttribute('href', 'https://acme.example')
+    expect(screen.getByRole('link', { name: 'Email billing contact for Acme Studio' })).toHaveAttribute('href', 'mailto:billing@acme.example')
+    expect(screen.getByRole('link', { name: 'Call Acme Studio' })).toHaveAttribute('href', 'tel:+27110001111')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit account profile for Acme Studio' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Archive account Acme Studio' }))
+
+    expect(onEdit).toHaveBeenCalledTimes(1)
+    expect(onDelete).toHaveBeenCalledTimes(1)
+    expect(screen.queryByRole('link', { name: /open_in_new/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^edit Edit$/i })).not.toBeInTheDocument()
+  })
+
   it('turns missing domain and industry into company profile actions', () => {
     const onEdit = jest.fn()
 

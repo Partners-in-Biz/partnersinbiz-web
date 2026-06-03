@@ -161,7 +161,7 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
                   aria-label={`Add domain for ${company.name}`}
                   className={setupButtonClass}
                 >
-                  <span className="material-symbols-outlined text-[14px]">add_link</span>
+                  <span aria-hidden="true" className="material-symbols-outlined text-[14px]">add_link</span>
                   Add domain
                 </button>
               )}
@@ -174,7 +174,7 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
                   aria-label={`Add industry for ${company.name}`}
                   className={setupButtonClass}
                 >
-                  <span className="material-symbols-outlined text-[14px]">category</span>
+                  <span aria-hidden="true" className="material-symbols-outlined text-[14px]">category</span>
                   Add industry
                 </button>
               )}
@@ -218,34 +218,40 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
               href={siteHref}
               target="_blank"
               rel="noopener noreferrer"
+              aria-label={`Open website for ${company.name}`}
               className="btn-pib-secondary inline-flex items-center gap-1.5"
             >
-              <span className="material-symbols-outlined text-[16px]">open_in_new</span>
+              <span aria-hidden="true" className="material-symbols-outlined text-[16px]">open_in_new</span>
               Website
             </a>
           )}
           {(company.billingEmail || company.accountsContact?.email) && (
             <a
               href={`mailto:${company.billingEmail || company.accountsContact?.email}`}
+              aria-label={`Email billing contact for ${company.name}`}
               className="btn-pib-secondary inline-flex items-center gap-1.5"
             >
-              <span className="material-symbols-outlined text-[16px]">mail</span>
+              <span aria-hidden="true" className="material-symbols-outlined text-[16px]">mail</span>
               Billing
             </a>
           )}
           {company.phone && (
-            <a href={`tel:${company.phone}`} className="btn-pib-secondary inline-flex items-center gap-1.5">
-              <span className="material-symbols-outlined text-[16px]">call</span>
+            <a
+              href={`tel:${company.phone}`}
+              aria-label={`Call ${company.name}`}
+              className="btn-pib-secondary inline-flex items-center gap-1.5"
+            >
+              <span aria-hidden="true" className="material-symbols-outlined text-[16px]">call</span>
               Call
             </a>
           )}
           <button
             type="button"
             onClick={onEdit}
-            aria-label={`Edit ${company.name}`}
+            aria-label={`Edit account profile for ${company.name}`}
             className="cursor-pointer btn-pib-secondary flex items-center gap-1.5 shrink-0"
           >
-            <span className="material-symbols-outlined text-[16px]">edit</span>
+            <span aria-hidden="true" className="material-symbols-outlined text-[16px]">edit</span>
             Edit
           </button>
           {onDelete && (
@@ -253,6 +259,7 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
               type="button"
               onClick={onDelete}
               disabled={deleting}
+              aria-label={deleting ? `Archiving account ${company.name}` : `Archive account ${company.name}`}
               className="pib-btn-danger shrink-0"
             >
               {deleting ? 'Archiving...' : 'Archive'}
@@ -277,7 +284,7 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
               aria-label={`Assign account manager for ${company.name}`}
               className="btn-pib-secondary inline-flex shrink-0 items-center justify-center gap-1.5"
             >
-              <span className="material-symbols-outlined text-[16px]">person_add</span>
+              <span aria-hidden="true" className="material-symbols-outlined text-[16px]">person_add</span>
               Assign manager
             </button>
           </div>
@@ -304,7 +311,7 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
                 aria-label={`Add company size for ${company.name}`}
                 className={setupButtonClass}
               >
-                <span className="material-symbols-outlined text-[14px]">groups</span>
+                <span aria-hidden="true" className="material-symbols-outlined text-[14px]">groups</span>
                 Add size
               </button>
             )}
@@ -316,7 +323,7 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
             <div key={tile.label} className="rounded-xl border border-[var(--color-pib-line)] bg-white/[0.02] px-3 py-2">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-[11px] text-[var(--color-pib-text-muted)]">{tile.label}</span>
-                <span className="material-symbols-outlined text-[16px] text-[var(--color-pib-text-muted)]">{tile.icon}</span>
+                <span aria-hidden="true" className="material-symbols-outlined text-[16px] text-[var(--color-pib-text-muted)]">{tile.icon}</span>
               </div>
               <p className="mt-1 font-mono text-lg text-[var(--color-pib-text)]">{tile.value}</p>
             </div>
