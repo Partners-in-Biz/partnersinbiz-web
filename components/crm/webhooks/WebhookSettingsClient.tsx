@@ -275,6 +275,7 @@ export function WebhookSettingsClient() {
   const [busyId, setBusyId] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [fetchError, setFetchError] = useState<string | null>(null)
   const [pendingDeleteWebhook, setPendingDeleteWebhook] = useState<OutboundWebhook | null>(null)
   const [pendingRotateWebhook, setPendingRotateWebhook] = useState<OutboundWebhook | null>(null)
 
@@ -298,10 +299,14 @@ export function WebhookSettingsClient() {
 
   async function loadWebhooks(nextOrgId = orgId) {
     if (!nextOrgId) return
-    setError(null)
+    setFetchError(null)
     const res = await fetch(`/api/v1/crm/webhooks?limit=100&orgId=${encodeURIComponent(nextOrgId)}`)
     const body = await res.json().catch(() => ({}))
-    if (!res.ok) throw new Error(parseApiError(body, 'Failed to load webhook subscriptions.'))
+    if (!res.ok) {
+      const message = parseApiError(body, 'Failed to load webhook subscriptions.')
+      setFetchError(message)
+      throw new Error(message)
+    }
     const items: OutboundWebhook[] = body.data?.items ?? body.items ?? []
     setWebhooks(Array.isArray(items) ? items : [])
   }
@@ -322,7 +327,9 @@ export function WebhookSettingsClient() {
         setOrgId(activeOrgBody.orgId)
         await loadWebhooks(activeOrgBody.orgId)
       } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load webhook settings.')
+        if (!cancelled) {
+          setFetchError(err instanceof Error ? err.message : 'Failed to load webhook settings.')
+        }
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -478,8 +485,15 @@ export function WebhookSettingsClient() {
     await postAction(pendingRotateWebhook, 'rotate-secret')
   }
 
+  function retryLoadWebhooks() {
+    void loadWebhooks().catch(() => {
+      // loadWebhooks already stores the source-health message for the UI.
+    })
+  }
+
   const canCreate = Boolean(name.trim() && url.trim() && selectedEvents.length > 0 && !saving)
   const canSaveEdit = Boolean(editing?.name.trim() && editing?.url.trim() && editing.events.length > 0 && !saving)
+  const hasSourceFailure = Boolean(fetchError)
 
   return (
     <div className="max-w-6xl space-y-6">
@@ -493,7 +507,7 @@ export function WebhookSettingsClient() {
         </div>
         <button
           type="button"
-          onClick={() => loadWebhooks()}
+          onClick={retryLoadWebhooks}
           disabled={loading || !orgId}
           className="cursor-pointer btn-pib-secondary flex items-center gap-1.5 text-sm w-fit disabled:opacity-50"
         >
@@ -502,14 +516,16 @@ export function WebhookSettingsClient() {
         </button>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Subscriptions" value={String(webhooks.length)} sub={`${stats.active} actively delivering`} icon="webhook" />
-        <StatCard label="Healthy endpoints" value={String(stats.healthy)} sub={`${stats.failing} need review`} icon="verified" />
-        <StatCard label="Event coverage" value={`${stats.eventCoverage}/${supportedCatalog.length}`} sub="Subscribable CRM events covered" icon="hub" />
-        <StatCard label="Failure count" value={String(stats.totalFailures)} sub="Consecutive webhook-level failures" icon="monitoring" />
-      </div>
+      {!hasSourceFailure && (
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <StatCard label="Subscriptions" value={String(webhooks.length)} sub={`${stats.active} actively delivering`} icon="webhook" />
+          <StatCard label="Healthy endpoints" value={String(stats.healthy)} sub={`${stats.failing} need review`} icon="verified" />
+          <StatCard label="Event coverage" value={`${stats.eventCoverage}/${supportedCatalog.length}`} sub="Subscribable CRM events covered" icon="hub" />
+          <StatCard label="Failure count" value={String(stats.totalFailures)} sub="Consecutive webhook-level failures" icon="monitoring" />
+        </div>
+      )}
 
-      {error && (
+      {error && !hasSourceFailure && (
         <div className="px-4 py-3 rounded-lg border border-red-400/25 bg-red-400/10 text-sm text-red-200">
           {error}
         </div>
@@ -528,6 +544,37 @@ export function WebhookSettingsClient() {
         </div>
       )}
 
+      {hasSourceFailure ? (
+        <section className="bento-card border-amber-400/25 bg-amber-400/10">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="flex gap-3">
+              <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-amber-400/25 bg-amber-400/10 text-amber-200">
+                <span className="material-symbols-outlined text-[20px]" aria-hidden="true">warning</span>
+              </span>
+              <div>
+                <p className="eyebrow !text-[10px] text-amber-200">Source health</p>
+                <h2 className="mt-1 font-display text-xl text-[var(--color-pib-text)]">
+                  Webhook subscriptions could not load
+                </h2>
+                <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">{fetchError}</p>
+                <p className="mt-3 text-xs leading-5 text-[var(--color-pib-text-muted)]">
+                  Subscription counts, event coverage, and delivery health are hidden until the webhook source responds, so leaders do not mistake an outage for a clean integration estate.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={retryLoadWebhooks}
+              disabled={loading || !orgId}
+              aria-label="Retry loading webhook subscriptions"
+              className="btn-pib-secondary flex shrink-0 items-center justify-center gap-1.5 text-sm disabled:opacity-50"
+            >
+              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">refresh</span>
+              Retry
+            </button>
+          </div>
+        </section>
+      ) : (
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)]">
         <section className="space-y-5">
           <div className="bento-card !p-0 overflow-hidden">
@@ -953,6 +1000,7 @@ export function WebhookSettingsClient() {
           </div>
         </aside>
       </div>
+      )}
     </div>
   )
 }
