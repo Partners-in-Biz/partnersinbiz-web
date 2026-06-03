@@ -219,6 +219,16 @@ describe('Portal contacts page', () => {
     expect(screen.queryByRole('button', { name: 'bookmark_add Save current view' })).not.toBeInTheDocument()
   })
 
+  it('names the new contact drawer close action by drawer context', async () => {
+    render(<PortalContactsPage />)
+
+    expect(await screen.findByRole('link', { name: 'Open contact Owned Client' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'New contact' }))
+
+    expect(screen.getByRole('button', { name: 'Close New contact drawer' })).toBeInTheDocument()
+  })
+
   it('turns contact list row details into direct outreach and company triage actions', async () => {
     render(<PortalContactsPage />)
 

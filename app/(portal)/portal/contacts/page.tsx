@@ -846,7 +846,7 @@ export default function PortalContactsPage() {
               <button
                 onClick={() => setShowNew(false)}
                 className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors"
-                aria-label="Close"
+                aria-label="Close New contact drawer"
               >
                 <span className="material-symbols-outlined text-[20px]">close</span>
               </button>
