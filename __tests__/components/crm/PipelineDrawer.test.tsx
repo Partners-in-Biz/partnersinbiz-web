@@ -196,4 +196,13 @@ describe('PipelineDrawer', () => {
     fireEvent.click(cancelBtns[0])
     expect(noopClose).toHaveBeenCalled()
   })
+
+  it('names close and cancel actions by the active pipeline drawer context', () => {
+    render(
+      <PipelineDrawer mode="create" open onSave={noopSave} onClose={noopClose} />,
+    )
+
+    expect(screen.getByRole('button', { name: 'Close New pipeline drawer' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Cancel New pipeline' })).toBeInTheDocument()
+  })
 })
