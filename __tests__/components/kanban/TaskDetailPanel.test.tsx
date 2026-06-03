@@ -80,6 +80,33 @@ describe('TaskDetailPanel', () => {
     expect(props.onClose).toHaveBeenCalledTimes(1)
   })
 
+  it('uses an in-page confirmation before deleting project tasks', async () => {
+    const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(false)
+    const props = renderPanel()
+
+    await waitFor(() => expect(screen.queryByText('Loading comments...')).not.toBeInTheDocument())
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete project task Mobile task' }))
+
+    expect(confirmSpy).not.toHaveBeenCalled()
+    expect(props.onDelete).not.toHaveBeenCalled()
+    expect(screen.getByRole('alertdialog', { name: 'Delete project task "Mobile task"?' })).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'This removes the task from the board for everyone. Comments, blockers, and assignments on this task will no longer be visible from the project workspace.',
+      ),
+    ).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm delete project task Mobile task' }))
+
+    await waitFor(() => {
+      expect(props.onDelete).toHaveBeenCalledWith('task-1')
+    })
+    expect(props.onClose).toHaveBeenCalled()
+
+    confirmSpy.mockRestore()
+  })
+
   it('does not crash when legacy task comments have no userName', async () => {
     global.fetch = jest.fn().mockResolvedValue({
       json: () => Promise.resolve({
