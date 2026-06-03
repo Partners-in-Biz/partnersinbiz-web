@@ -78,6 +78,10 @@ function fieldHealth(def: CustomFieldDefinition): { score: number; gaps: string[
   }
 }
 
+function fieldDisplayName(def: CustomFieldDefinition): string {
+  return def.label?.trim() || 'Field label missing'
+}
+
 function StatCard({ label, value, sub, icon }: { label: string; value: string; sub: string; icon: string }) {
   return (
     <div className="pib-stat-card">
@@ -544,7 +548,7 @@ export default function CustomFieldsPage() {
               <div>
                 <p className="eyebrow !text-[10px] text-red-200">Schema delete confirmation</p>
                 <h2 id="delete-field-title" className="mt-1 font-display text-lg text-[var(--color-pib-text)]">
-                  Delete custom field &quot;{pendingDeleteDef.label}&quot;?
+                  Delete custom field &quot;{fieldDisplayName(pendingDeleteDef)}&quot;?
                 </h2>
                 <p id="delete-field-description" className="mt-2 max-w-3xl text-sm text-[var(--color-pib-text-muted)]">
                   This removes the field from future {currentTab.label.toLowerCase()} records and schema views. Existing saved values may remain in historical records for audit and cleanup.
@@ -557,7 +561,7 @@ export default function CustomFieldsPage() {
                 onClick={closeDeleteConfirmation}
                 className="btn-pib-secondary text-xs"
                 disabled={deletingId === pendingDeleteDef.id}
-                aria-label={`Cancel delete for custom field ${pendingDeleteDef.label}`}
+                aria-label={`Cancel delete for custom field ${fieldDisplayName(pendingDeleteDef)}`}
               >
                 Cancel
               </button>
@@ -566,7 +570,7 @@ export default function CustomFieldsPage() {
                 onClick={confirmDelete}
                 className="inline-flex items-center gap-1.5 rounded-md border border-red-300/30 bg-red-400/15 px-3 py-2 text-xs font-semibold text-red-100 transition-colors hover:bg-red-400/25 disabled:opacity-50"
                 disabled={deletingId === pendingDeleteDef.id}
-                aria-label={`Confirm delete custom field ${pendingDeleteDef.label}`}
+                aria-label={`Confirm delete custom field ${fieldDisplayName(pendingDeleteDef)}`}
               >
                 <span className="material-symbols-outlined text-[14px]" aria-hidden="true">
                   delete

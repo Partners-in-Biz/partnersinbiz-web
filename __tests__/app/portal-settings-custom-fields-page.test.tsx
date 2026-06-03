@@ -168,4 +168,30 @@ describe('Portal settings custom fields page', () => {
 
     confirmSpy.mockRestore()
   })
+
+  it('names sparse field delete confirmations instead of rendering blank schema identity', async () => {
+    definitions = [{
+      id: 'field-1',
+      orgId: 'org-1',
+      resource: 'contact',
+      key: '',
+      label: '',
+      type: 'text',
+      required: false,
+      group: '',
+      order: 0,
+      createdAt: null,
+      updatedAt: null,
+    }]
+
+    render(<CustomFieldsPage />)
+
+    expect(await screen.findByText('Field label missing')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete Field label missing' }))
+
+    expect(screen.getByRole('alertdialog', { name: 'Delete custom field "Field label missing"?' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Cancel delete for custom field Field label missing' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Confirm delete custom field Field label missing' })).toBeInTheDocument()
+  })
 })

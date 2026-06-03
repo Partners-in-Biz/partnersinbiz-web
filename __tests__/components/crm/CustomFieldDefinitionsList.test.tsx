@@ -84,4 +84,24 @@ describe('CustomFieldDefinitionsList', () => {
     expect(screen.queryByRole('button', { name: /Add help text for Decision role/i })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Add options for Decision role/i })).not.toBeInTheDocument()
   })
+
+  it('names sparse field rows and actions instead of exposing blank controls', () => {
+    const onEdit = jest.fn()
+    const onDelete = jest.fn()
+
+    renderList({
+      definitions: [definition({ label: '', key: '', helpText: '' })],
+      onEdit,
+      onDelete,
+    })
+
+    expect(screen.getByText('Field label missing')).toBeInTheDocument()
+    expect(screen.getByText('Field key missing')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add help text for Field label missing' }))
+    expect(onEdit).toHaveBeenCalledWith(expect.objectContaining({ id: 'field-1' }))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete Field label missing' }))
+    expect(onDelete).toHaveBeenCalledWith(expect.objectContaining({ id: 'field-1' }))
+  })
 })
