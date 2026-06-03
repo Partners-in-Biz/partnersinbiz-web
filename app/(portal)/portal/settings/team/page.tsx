@@ -33,6 +33,10 @@ function InviteField({ id, label, children }: { id: string; label: string; child
   )
 }
 
+function pluralLabel(count: number, singular: string, plural = `${singular}s`): string {
+  return `${count} ${count === 1 ? singular : plural}`
+}
+
 export default function TeamPage() {
   const [members, setMembers] = useState<Member[]>([])
   const [myProfile, setMyProfile] = useState<MyProfile>({ uid: '', role: null })
@@ -118,6 +122,17 @@ export default function TeamPage() {
 
   const viewerRole = myProfile.role ?? 'viewer'
   const canInvite = viewerRole === 'owner' || viewerRole === 'admin'
+  const adminCount = members.filter((member) => member.role === 'owner' || member.role === 'admin').length
+  const crmCoverageCount = members.filter((member) => member.accessScope === 'crm').length
+  const reviewerCount = members.filter((member) => member.role === 'viewer' || member.accessScope === 'readonly').length
+  const needsCrmCoverage = crmCoverageCount === 0
+
+  function prepareCrmInvite() {
+    setInviteRole('member')
+    setInviteDepartment('Sales')
+    setInviteAccessScope('crm')
+    if (!inviteJobTitle.trim()) setInviteJobTitle('CRM operator')
+  }
 
   if (loading) {
     return (
@@ -137,6 +152,60 @@ export default function TeamPage() {
           Manage who can access this workspace, what role they hold, and which area of the business they support.
         </p>
       </header>
+
+      <section
+        role="region"
+        aria-label="Team access governance"
+        className="rounded-[var(--radius-card)] border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-5 shadow-[0_18px_40px_rgba(0,0,0,0.14)]"
+      >
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+          <div className="flex gap-3">
+            <span className="material-symbols-outlined mt-0.5 text-[var(--color-pib-accent)]" aria-hidden="true">admin_panel_settings</span>
+            <div>
+              <p className="eyebrow !text-[10px]">Access governance</p>
+              <h2 className="mt-1 font-display text-xl text-[var(--color-pib-text)]">
+                {needsCrmCoverage ? 'Employee access needs CRM coverage' : 'Employee access is mapped'}
+              </h2>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--color-pib-text-muted)]">
+                {needsCrmCoverage
+                  ? 'A CEO needs at least one clearly assigned CRM or sales operator before contacts, deals, and follow-ups can scale across the team.'
+                  : 'CRM and sales coverage is assigned, so managers can delegate relationship work without relying on generic workspace access.'}
+              </p>
+            </div>
+          </div>
+          {canInvite && needsCrmCoverage && (
+            <button
+              type="button"
+              onClick={prepareCrmInvite}
+              className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5 text-sm"
+              aria-label="Prepare CRM sales invite"
+            >
+              <span className="material-symbols-outlined text-base" aria-hidden="true">person_add</span>
+              Prepare CRM invite
+            </button>
+          )}
+        </div>
+        <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-4">
+            <p className="eyebrow !text-[10px]">People</p>
+            <p className="mt-2 font-display text-2xl text-[var(--color-pib-text)]">{pluralLabel(members.length, 'member')}</p>
+          </div>
+          <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-4">
+            <p className="eyebrow !text-[10px]">Admins</p>
+            <p className="mt-2 font-display text-2xl text-[var(--color-pib-text)]">{pluralLabel(adminCount, 'admin')}</p>
+          </div>
+          <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-4">
+            <p className="eyebrow !text-[10px]">CRM operators</p>
+            <p className={['mt-2 font-display text-2xl', needsCrmCoverage ? 'text-amber-200' : 'text-[var(--color-pib-text)]'].join(' ')}>
+              {crmCoverageCount} CRM/sales
+            </p>
+          </div>
+          <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-4">
+            <p className="eyebrow !text-[10px]">Reviewers</p>
+            <p className="mt-2 font-display text-2xl text-[var(--color-pib-text)]">{pluralLabel(reviewerCount, 'reviewer')}</p>
+          </div>
+        </div>
+      </section>
 
       <section className="pib-card-section">
         <div className="pib-card-section-header flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
