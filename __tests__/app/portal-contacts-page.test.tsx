@@ -402,6 +402,104 @@ describe('Portal contacts page', () => {
     expect(warning.compareDocumentPosition(firstContactLink) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
+  it('shows duplicate merge failures in the CRM page instead of a browser alert', async () => {
+    const alertSpy = jest.spyOn(window, 'alert').mockImplementation(() => {})
+
+    ;(global.fetch as jest.Mock).mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/contacts/duplicates') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: [
+              {
+                reason: 'email',
+                contacts: [
+                  {
+                    id: 'contact-owned',
+                    name: 'Owned Client',
+                    email: 'owned@example.com',
+                    company: 'Owned Co',
+                    stage: 'won',
+                  },
+                  {
+                    id: 'contact-duplicate',
+                    name: 'Owned Client Copy',
+                    email: 'owned@example.com',
+                    company: 'Owned Co',
+                    stage: 'proposal',
+                  },
+                ],
+              },
+            ],
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/contacts/merge' && init?.method === 'POST') {
+        return Promise.resolve({
+          ok: false,
+          json: async () => ({ error: 'Contact merge lock unavailable' }),
+        } as Response)
+      }
+      if (url.startsWith('/api/v1/crm/contacts')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: [
+              {
+                id: 'contact-owned',
+                name: 'Owned Client',
+                email: 'owned@example.com',
+                phone: '+27825550111',
+                company: 'Owned Co',
+                type: 'client',
+                stage: 'won',
+                assignedTo: 'sales-lead-1',
+                assignedToRef: { uid: 'sales-lead-1', displayName: 'Ava Owner' },
+                tags: [],
+                lastContactedAt: null,
+              },
+              {
+                id: 'contact-duplicate',
+                name: 'Owned Client Copy',
+                email: 'owned@example.com',
+                company: 'Owned Co',
+                type: 'prospect',
+                stage: 'proposal',
+                assignedTo: '',
+                tags: [],
+                lastContactedAt: null,
+              },
+            ],
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/portal/settings/team') {
+        return Promise.resolve({ ok: true, json: async () => ({ members: [] }) } as Response)
+      }
+      if (url.startsWith('/api/v1/crm/saved-views')) {
+        return Promise.resolve({ ok: true, json: async () => ({ data: [] }) } as Response)
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    })
+
+    render(<PortalContactsPage />)
+
+    expect(await screen.findByRole('link', { name: 'Open contact Owned Client' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Find duplicates' }))
+    expect(await screen.findByRole('heading', { name: 'Resolve contact conflicts' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Merge next duplicate' }))
+
+    const warning = await screen.findByRole('status', { name: 'Duplicate merge failed' })
+    expect(warning).toHaveTextContent('Contact merge lock unavailable')
+    expect(warning).toHaveTextContent('No records were merged. Review the canonical contact and try again before the team works this list.')
+    expect(alertSpy).not.toHaveBeenCalled()
+
+    alertSpy.mockRestore()
+  })
+
   it('names the new contact drawer close action by drawer context', async () => {
     render(<PortalContactsPage />)
 

@@ -136,7 +136,7 @@ function DuplicateGroupResolver({
           disabled={isMerging || !loser}
           className="btn-pib-accent text-xs disabled:opacity-50"
         >
-          <span className="material-symbols-outlined text-[14px]">merge</span>
+          <span className="material-symbols-outlined text-[14px]" aria-hidden="true">merge</span>
           {isMerging ? 'Merging…' : 'Merge next duplicate'}
         </button>
       </div>

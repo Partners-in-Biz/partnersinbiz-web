@@ -214,6 +214,7 @@ export default function PortalContactsPage() {
   const [duplicateGroups, setDuplicateGroups] = useState<DuplicateGroup[]>([])
   const [duplicatesLoading, setDuplicatesLoading] = useState(false)
   const [duplicatesError, setDuplicatesError] = useState<string | null>(null)
+  const [mergeError, setMergeError] = useState<string | null>(null)
   const [mergingGroup, setMergingGroup] = useState<string | null>(null)
 
   const { push: pushToast, node: toastNode } = useInlineToast()
@@ -406,6 +407,7 @@ export default function PortalContactsPage() {
   async function handleFindDuplicates() {
     setDuplicatesLoading(true)
     setDuplicatesError(null)
+    setMergeError(null)
     try {
       const res = await fetch('/api/v1/crm/contacts/duplicates')
       const body = (await res.json()) as { error?: string; data?: DuplicateGroup[] | { groups?: DuplicateGroup[] } }
@@ -425,17 +427,19 @@ export default function PortalContactsPage() {
 
   async function handleMerge(groupIndex: number, winnerId: string, loserId: string) {
     setMergingGroup(String(groupIndex))
+    setMergeError(null)
     try {
       const res = await fetch('/api/v1/crm/contacts/merge', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ winnerId, loserId }),
       })
-      if (!res.ok) throw new Error('Merge failed')
+      const body = await res.json().catch(() => ({})) as { error?: string }
+      if (!res.ok) throw new Error(body.error ?? 'Merge failed')
       setDuplicateGroups(prev => applyContactMergeToDuplicateGroups(prev, groupIndex, loserId))
       setContacts(prev => prev.filter(c => c.id !== loserId))
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Merge failed')
+      setMergeError(err instanceof Error ? err.message : 'Merge failed')
     } finally {
       setMergingGroup(null)
     }
@@ -995,10 +999,33 @@ export default function PortalContactsPage() {
       {showDuplicatesModal && (
         <div className="fixed inset-0 bg-black/60 flex items-start justify-center pt-16 z-50 overflow-y-auto">
           <div className="bento-card !p-6 w-full max-w-4xl mx-4 mb-8">
+            {mergeError && (
+              <section
+                role="status"
+                aria-label="Duplicate merge failed"
+                className="mb-5 rounded-[var(--radius-card)] border border-amber-400/25 bg-amber-400/10 p-4"
+              >
+                <div className="flex gap-3">
+                  <span className="material-symbols-outlined mt-0.5 text-amber-200" aria-hidden="true">
+                    warning
+                  </span>
+                  <div>
+                    <p className="eyebrow !text-[10px] text-amber-200">Duplicate merge failed</p>
+                    <p className="mt-1 text-sm leading-6 text-[var(--color-pib-text)]">{mergeError}</p>
+                    <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">
+                      No records were merged. Review the canonical contact and try again before the team works this list.
+                    </p>
+                  </div>
+                </div>
+              </section>
+            )}
             <ContactDuplicateCommandCenter
               groups={duplicateGroups}
               mergingGroup={mergingGroup}
-              onClose={() => setShowDuplicatesModal(false)}
+              onClose={() => {
+                setShowDuplicatesModal(false)
+                setMergeError(null)
+              }}
               onMerge={handleMerge}
             />
           </div>
