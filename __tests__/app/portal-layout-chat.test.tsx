@@ -3,10 +3,11 @@ import PortalLayout from '@/app/(portal)/layout'
 
 const mockPush = jest.fn()
 const mockRefresh = jest.fn()
+let mockPathname = '/portal/dashboard'
 
 jest.mock('next/navigation', () => ({
   useRouter: () => ({ push: mockPush, refresh: mockRefresh }),
-  usePathname: () => '/portal/dashboard',
+  usePathname: () => mockPathname,
   useSearchParams: () => new URLSearchParams(),
 }))
 
@@ -71,6 +72,7 @@ function jsonResponse(body: unknown, ok = true) {
 
 describe('PortalLayout chat drawer', () => {
   beforeEach(() => {
+    mockPathname = '/portal/dashboard'
     localStorage.clear()
     window.matchMedia = jest.fn().mockImplementation((query: string) => ({
       matches: true,
@@ -118,5 +120,22 @@ describe('PortalLayout chat drawer', () => {
     await waitFor(() => {
       expect(screen.getByTestId('unified-chat')).toHaveAttribute('data-allow-agent-participants', 'true')
     })
+  })
+
+  it('gives the portal messages route a non-scrolling workspace shell', async () => {
+    mockPathname = '/portal/messages'
+
+    render(
+      <PortalLayout>
+        <div>Portal messages content</div>
+      </PortalLayout>,
+    )
+
+    await screen.findByText('Portal messages content')
+
+    const main = screen.getByText('Portal messages content').closest('main')
+    expect(main).toHaveClass('overflow-hidden')
+    expect(main).not.toHaveClass('overflow-y-auto')
+    expect(screen.queryByText(/Partners in Biz · Pretoria/)).not.toBeInTheDocument()
   })
 })

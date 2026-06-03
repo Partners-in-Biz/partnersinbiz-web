@@ -1131,7 +1131,7 @@ export default function UnifiedChat({
       className={
         compact
           ? 'flex h-full min-h-0 min-w-0 flex-1 overflow-hidden'
-          : 'flex min-h-0 min-w-0 flex-1 overflow-hidden lg:grid lg:gap-4 lg:grid-cols-[280px_1fr]'
+          : 'flex h-full min-h-0 min-w-0 flex-1 overflow-hidden lg:grid lg:gap-4 lg:grid-cols-[280px_1fr]'
       }
     >
       {/* ── Left: conversation list ─────────────────────────────────────── */}
@@ -1153,7 +1153,7 @@ export default function UnifiedChat({
 
         <div className="text-xs text-on-surface-variant mt-2 px-1">Conversations</div>
 
-        <div className={['flex flex-col gap-0.5 overflow-y-auto flex-1 min-h-0', compact ? '' : 'lg:max-h-[520px]'].join(' ')}>
+        <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto">
           {conversations.length === 0 && (
             <div className="text-xs text-on-surface-variant px-2 py-3">
               No conversations yet. Start one.
@@ -1388,6 +1388,9 @@ export default function UnifiedChat({
         {/* Messages */}
         <div
           ref={messagesContainerRef}
+          role="log"
+          aria-label="Conversation messages"
+          aria-live="polite"
           className="flex-1 min-h-0 min-w-0 space-y-3 overflow-y-auto overflow-x-hidden p-4"
         >
           {loading && <div className="text-xs text-on-surface-variant">Loading…</div>}

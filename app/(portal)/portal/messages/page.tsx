@@ -26,6 +26,12 @@ export default function PortalMessagesPage() {
   const [user, setUser] = useState<UserInfo | null>(null)
   const [checking, setChecking] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [showIntro, setShowIntro] = useState(true)
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setShowIntro(false), 3000)
+    return () => window.clearTimeout(timer)
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -95,8 +101,17 @@ export default function PortalMessagesPage() {
   }
 
   return (
-    <div className="space-y-8">
-      <header className="flex flex-wrap items-end justify-between gap-4">
+    <div
+      data-testid="portal-messages-workspace"
+      className="flex min-h-[640px] h-[calc(100dvh-120px)] min-w-0 flex-col overflow-hidden"
+    >
+      <header
+        data-testid="portal-messages-intro"
+        className={[
+          'hidden shrink-0 overflow-hidden transition-all duration-700 ease-out lg:flex lg:flex-wrap lg:items-end lg:justify-between lg:gap-4',
+          showIntro ? 'mb-4 max-h-28 translate-y-0 opacity-100' : 'mb-0 max-h-0 -translate-y-2 opacity-0',
+        ].join(' ')}
+      >
         <div>
           <p className="eyebrow">Direct line to your team</p>
           <h1 className="pib-page-title mt-2">Messages</h1>
@@ -104,7 +119,7 @@ export default function PortalMessagesPage() {
         </div>
       </header>
 
-      <section className="min-h-[640px]">
+      <section className="min-h-0 min-w-0 flex-1 overflow-hidden">
         <UnifiedChat
           orgId={org.id}
           currentUserUid={user.uid}

@@ -185,6 +185,8 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const isEmailRoute = pathname === '/portal/email' || pathname.startsWith('/portal/email/')
+  const isMessagesRoute = pathname === '/portal/messages' || pathname.startsWith('/portal/messages/')
+  const isWorkspaceRoute = isEmailRoute || isMessagesRoute
 
   const [email, setEmail]       = useState('')
   const [name, setName]         = useState('')
@@ -212,16 +214,16 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
     if (m === 'sidebar' || m === 'topbar') setLayoutMode(m)
   }, [])
 
-  // Mail needs workspace more than navigation; collapse the sidebar automatically
-  // when users enter the mailbox.
+  // Mail and messages need workspace more than navigation; collapse the sidebar
+  // automatically when users enter those full-height work areas.
   useEffect(() => {
-    if (!isEmailRoute) return
+    if (!isWorkspaceRoute) return
     setCollapsed((prev) => {
       if (prev) return prev
       localStorage.setItem('portal_sidebar_collapsed', 'true')
       return true
     })
-  }, [isEmailRoute])
+  }, [isWorkspaceRoute])
 
   // Auth check
   useEffect(() => {
@@ -542,12 +544,12 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
           </div>
         )}
 
-        <main className={isEmailRoute
-          ? 'flex-1 px-3 md:px-5 py-4 w-full max-w-none'
+        <main className={isWorkspaceRoute
+          ? 'flex-1 min-h-0 overflow-hidden px-3 md:px-5 py-4 w-full max-w-none'
           : 'flex-1 overflow-y-auto px-4 md:px-8 py-8 max-w-[1400px] mx-auto w-full'
         }>{children}</main>
 
-        {!isEmailRoute && (
+        {!isWorkspaceRoute && (
           <footer className="px-4 md:px-8 py-6 border-t border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] text-xs flex flex-wrap items-center justify-between gap-3">
             <span>© {new Date().getFullYear()} Partners in Biz · Pretoria</span>
             <div className="flex items-center gap-4">
@@ -804,12 +806,12 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        <main className={isEmailRoute
-          ? 'flex-1 px-3 md:px-5 py-4 w-full max-w-none'
+        <main className={isWorkspaceRoute
+          ? 'flex-1 min-h-0 overflow-hidden px-3 md:px-5 py-4 w-full max-w-none'
           : 'flex-1 overflow-y-auto px-4 md:px-8 py-8 max-w-[1400px] mx-auto w-full'
         }>{children}</main>
 
-        {!isEmailRoute && (
+        {!isWorkspaceRoute && (
           <footer className="px-4 md:px-8 py-6 border-t border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] text-xs flex flex-wrap items-center justify-between gap-3">
             <span>© {new Date().getFullYear()} Partners in Biz · Pretoria</span>
             <div className="flex items-center gap-4">
