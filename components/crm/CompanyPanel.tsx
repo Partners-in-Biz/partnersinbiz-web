@@ -42,6 +42,10 @@ function extractCompanyRecord(body: unknown): Company | null {
   return payload.company ?? null
 }
 
+function openCompanyCardLabel(companyName: string): string {
+  return `Open linked company ${companyName} from company card`
+}
+
 // ── Props ─────────────────────────────────────────────────────────────────────
 
 export interface CompanyPanelProps {
@@ -141,7 +145,7 @@ export function CompanyPanel({ companyId, companyName, emptyAction }: CompanyPan
         {companyId && (
           <Link
             href={`/portal/companies/${companyId}`}
-            aria-label={`Open ${displayName}`}
+            aria-label={openCompanyCardLabel(displayName)}
             className="text-xs text-[var(--color-accent-v2)] hover:underline shrink-0 flex items-center gap-0.5"
           >
             Open
@@ -199,7 +203,7 @@ export function CompanyPanel({ companyId, companyName, emptyAction }: CompanyPan
       {companyId && (
         <Link
           href={`/portal/companies/${companyId}`}
-          aria-label={`Open ${displayName}`}
+          aria-label={openCompanyCardLabel(displayName)}
           className="text-xs text-[var(--color-accent-v2)] hover:underline shrink-0 flex items-center gap-0.5"
         >
           Open

@@ -55,7 +55,7 @@ describe('CompanyPanel', () => {
 
     await waitFor(() => expect(screen.getByText('Customer')).toBeInTheDocument())
 
-    expect(screen.getByRole('link', { name: 'Open Acme Growth' })).toHaveAttribute('href', '/portal/companies/company-1')
+    expect(screen.getByRole('link', { name: 'Open linked company Acme Growth from company card' })).toHaveAttribute('href', '/portal/companies/company-1')
     expect(screen.getByText('Mid-market')).toBeInTheDocument()
     expect(screen.getByText('Health 82%')).toBeInTheDocument()
     expect(screen.getByText('Maya Sales')).toBeInTheDocument()
@@ -69,7 +69,7 @@ describe('CompanyPanel', () => {
 
     expect(screen.getByText('Acme Growth')).toBeInTheDocument()
     expect(screen.getByText('Resolving company profile...')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Open Acme Growth' })).toHaveAttribute('href', '/portal/companies/company-1')
+    expect(screen.getByRole('link', { name: 'Open linked company Acme Growth from company card' })).toHaveAttribute('href', '/portal/companies/company-1')
   })
 
   it('keeps long linked company names readable in the narrow contact rail', async () => {
@@ -125,7 +125,7 @@ describe('CompanyPanel', () => {
 
     render(<CompanyPanel companyId="company-1" />)
 
-    await waitFor(() => expect(screen.getByRole('link', { name: 'Open Acme Growth' })).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByRole('link', { name: 'Open linked company Acme Growth from company card' })).toBeInTheDocument())
 
     expect(screen.getByText('Customer')).toBeInTheDocument()
     expect(screen.getByText('Mid-market')).toBeInTheDocument()
@@ -150,11 +150,11 @@ describe('CompanyPanel', () => {
     render(<CompanyPanel companyId="company-raw-id" />)
 
     await waitFor(() => {
-      expect(screen.getByRole('link', { name: 'Open Company identity missing' })).toBeInTheDocument()
+      expect(screen.getByRole('link', { name: 'Open linked company Company identity missing from company card' })).toBeInTheDocument()
     })
 
     expect(screen.getByText('Company identity missing')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Open Company identity missing' })).toHaveAttribute('href', '/portal/companies/company-raw-id')
+    expect(screen.getByRole('link', { name: 'Open linked company Company identity missing from company card' })).toHaveAttribute('href', '/portal/companies/company-raw-id')
     expect(screen.queryByText('Unknown company')).not.toBeInTheDocument()
     expect(screen.queryByText('company-raw-id')).not.toBeInTheDocument()
   })
