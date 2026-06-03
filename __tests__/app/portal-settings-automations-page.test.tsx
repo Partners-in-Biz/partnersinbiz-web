@@ -234,4 +234,43 @@ describe('Portal settings automations page', () => {
     confirmSpy.mockRestore()
     alertSpy.mockRestore()
   })
+
+  it('names sparse automation rows and delete confirmations instead of exposing blank controls', async () => {
+    global.fetch = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/automations') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: {
+              rules: [
+                {
+                  id: 'rule-sparse',
+                  orgId: 'org-1',
+                  name: '',
+                  description: '',
+                  enabled: true,
+                  trigger: { event: 'contact.created' },
+                  actions: [],
+                  createdAt: null,
+                  updatedAt: null,
+                },
+              ],
+            },
+          }),
+        } as Response)
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    }) as jest.Mock
+
+    render(<AutomationsPage />)
+
+    expect(await screen.findByText('Automation name missing')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete automation Automation name missing' }))
+
+    expect(screen.getByRole('alertdialog', { name: 'Delete automation "Automation name missing"?' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Cancel delete for automation Automation name missing' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Confirm delete automation Automation name missing' })).toBeInTheDocument()
+  })
 })

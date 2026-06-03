@@ -138,6 +138,10 @@ function ruleScore(rule: AutomationRule): number {
   return Math.max(0, Math.round(((5 - Math.min(gaps, 5)) / 5) * 100))
 }
 
+function ruleDisplayName(rule: AutomationRule): string {
+  return rule.name?.trim() || 'Automation name missing'
+}
+
 function StatCard({ label, value, sub, icon }: { label: string; value: string; sub: string; icon: string }) {
   return (
     <div className="pib-stat-card min-h-[124px]">
@@ -218,7 +222,7 @@ export default function AutomationsPage() {
       if (filter === 'needs-work' && ruleGaps(rule).length === 0) return false
       if (!query) return true
       return [
-        rule.name,
+        ruleDisplayName(rule),
         rule.description,
         triggerLabel(rule),
         ...rule.actions.map(actionDetail),
@@ -507,7 +511,7 @@ export default function AutomationsPage() {
                       <div className="min-w-0">
                         <p className="eyebrow !text-[10px] text-red-200">Automation delete confirmation</p>
                         <h2 id="automation-delete-confirm-title" className="mt-1 font-display text-lg text-[var(--color-pib-text)]">
-                          Delete automation &quot;{pendingDeleteRule.name}&quot;?
+                          Delete automation &quot;{ruleDisplayName(pendingDeleteRule)}&quot;?
                         </h2>
                         <p id="automation-delete-confirm-description" className="mt-2 text-sm text-red-100/90">
                           This removes the CRM safety net for {pendingDeleteRule.trigger.event} and stops {pendingDeleteRule.actions.length} workflow {pendingDeleteRule.actions.length === 1 ? 'action' : 'actions'} from running. Existing CRM history stays available for audit.
@@ -523,7 +527,7 @@ export default function AutomationsPage() {
                         }}
                         className="btn-pib-secondary text-xs"
                         disabled={deletingId !== null}
-                        aria-label={`Cancel delete for automation ${pendingDeleteRule.name}`}
+                        aria-label={`Cancel delete for automation ${ruleDisplayName(pendingDeleteRule)}`}
                       >
                         Cancel
                       </button>
@@ -532,7 +536,7 @@ export default function AutomationsPage() {
                         onClick={confirmDeleteRule}
                         disabled={deletingId !== null}
                         className="inline-flex items-center gap-1.5 rounded-md border border-red-300/30 bg-red-400/15 px-3 py-2 text-xs font-semibold text-red-100 transition-colors hover:bg-red-400/25 disabled:opacity-50"
-                        aria-label={`Confirm delete automation ${pendingDeleteRule.name}`}
+                        aria-label={`Confirm delete automation ${ruleDisplayName(pendingDeleteRule)}`}
                       >
                         <span className="material-symbols-outlined text-[14px]" aria-hidden="true">
                           delete
@@ -550,6 +554,7 @@ export default function AutomationsPage() {
                 const triggerMeta = TRIGGER_META[rule.trigger.event]
                 const gaps = ruleGaps(rule)
                 const score = ruleScore(rule)
+                const displayName = ruleDisplayName(rule)
 
                 return (
                   <article
@@ -580,7 +585,7 @@ export default function AutomationsPage() {
                             {score}% ready
                           </span>
                         </div>
-                        <h2 className="truncate text-base font-semibold">{rule.name}</h2>
+                        <h2 className="truncate text-base font-semibold">{displayName}</h2>
                         {rule.description && (
                           <p className="mt-1 line-clamp-2 text-xs text-[var(--color-pib-text-muted)]">{rule.description}</p>
                         )}
@@ -652,7 +657,7 @@ export default function AutomationsPage() {
                               setPendingDeleteRule(rule)
                             }}
                             disabled={isDeleting}
-                            aria-label={`Delete automation ${rule.name}`}
+                            aria-label={`Delete automation ${displayName}`}
                             title="Delete automation"
                             className="cursor-pointer flex h-8 w-8 items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] transition-colors hover:bg-red-400/[0.08] hover:text-red-400"
                           >
