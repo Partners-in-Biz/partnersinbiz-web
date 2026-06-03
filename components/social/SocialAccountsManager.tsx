@@ -114,6 +114,13 @@ function formatLastUsed(ts: TimestampLike): string {
   return date.toLocaleDateString('en-ZA', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
+function getAccountName(account: SocialAccount): string {
+  const hasPlaceholderIdentity =
+    account.platform === 'instagram' &&
+    (!account.platformAccountId || account.platformAccountId === 'unknown' || account.displayName.toLowerCase() === 'instagram')
+  return hasPlaceholderIdentity ? 'Instagram reconnect required' : account.displayName
+}
+
 function PlatformBadge({ platformId }: { platformId: string }) {
   const config = PLATFORM_ICONS[platformId]
   if (!config) {
@@ -156,7 +163,7 @@ function SubAccountRow({
   disconnecting,
 }: {
   account: SocialAccount
-  onDisconnect: (id: string) => void
+  onDisconnect: (account: SocialAccount) => void
   onSetDefault: (id: string) => void
   disconnecting: boolean
 }) {
@@ -165,7 +172,8 @@ function SubAccountRow({
   const hasPlaceholderIdentity =
     account.platform === 'instagram' &&
     (!account.platformAccountId || account.platformAccountId === 'unknown' || account.displayName.toLowerCase() === 'instagram')
-  const accountName = hasPlaceholderIdentity ? 'Instagram reconnect required' : account.displayName
+  const accountName = getAccountName(account)
+  const platformLabel = PLATFORM_LABELS[account.platform] ?? account.platform
   const username = hasPlaceholderIdentity
     ? 'account identity missing'
     : account.username || account.platformAccountId || account.displayName || 'unknown account'
@@ -211,7 +219,8 @@ function SubAccountRow({
         </button>
         <button
           type="button"
-          onClick={() => onDisconnect(account.id)}
+          aria-label={`Disconnect social account ${accountName} from ${platformLabel}`}
+          onClick={() => onDisconnect(account)}
           disabled={disconnecting}
           className="rounded-md border border-red-400/30 px-2.5 py-1 text-xs font-label text-red-300 transition-colors hover:bg-red-400/10 disabled:cursor-not-allowed disabled:opacity-40"
         >
@@ -233,7 +242,7 @@ function PlatformCard({
 }: {
   platform: string
   accounts: SocialAccount[]
-  onDisconnect: (id: string) => void
+  onDisconnect: (account: SocialAccount) => void
   onSetDefault: (id: string) => void
   disconnectingId: string | null
   scope: SocialScope
@@ -542,6 +551,7 @@ export default function SocialAccountsManager({
   const [accounts, setAccounts] = useState<SocialAccount[]>([])
   const [loading, setLoading] = useState(true)
   const [disconnectingId, setDisconnectingId] = useState<string | null>(null)
+  const [disconnectCandidate, setDisconnectCandidate] = useState<SocialAccount | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
 
@@ -579,8 +589,14 @@ export default function SocialAccountsManager({
     }
   }, [fetchAccounts, pickerNonce, searchParams])
 
-  async function handleDisconnect(id: string) {
-    if (!confirm('Disconnect this account? You can reconnect it later.')) return
+  function requestDisconnect(account: SocialAccount) {
+    setActionError(null)
+    setMessage(null)
+    setDisconnectCandidate(account)
+  }
+
+  async function handleDisconnect(account: SocialAccount) {
+    const id = account.id
     setActionError(null)
     setMessage(null)
     setDisconnectingId(id)
@@ -589,6 +605,7 @@ export default function SocialAccountsManager({
       const res = await fetch(`/api/v1/social/accounts/${id}`, { method: 'DELETE' })
       if (!res.ok) throw new Error(`Failed (${res.status})`)
       setMessage('Account disconnected.')
+      setDisconnectCandidate(null)
       await fetchAccounts()
     } catch {
       setActionError('Failed to disconnect account. Please try again.')
@@ -644,6 +661,10 @@ export default function SocialAccountsManager({
   const unconnectedOAuth = OAUTH_PLATFORMS.filter((platform) => !connectedPlatformIds.has(platform))
   const defaultCount = activeAccounts.filter((account) => account.isDefault).length
   const needsAttentionCount = activeAccounts.filter((account) => account.status !== 'active').length
+  const disconnectCandidateName = disconnectCandidate ? getAccountName(disconnectCandidate) : ''
+  const disconnectCandidatePlatform = disconnectCandidate
+    ? PLATFORM_LABELS[disconnectCandidate.platform] ?? disconnectCandidate.platform
+    : ''
 
   return (
     <div className="space-y-8">
@@ -669,6 +690,46 @@ export default function SocialAccountsManager({
           Connect account
         </a>
       </header>
+
+      {disconnectCandidate && (
+        <div
+          role="alertdialog"
+          aria-modal="true"
+          aria-label={`Disconnect ${disconnectCandidatePlatform} account "${disconnectCandidateName}"?`}
+          className="rounded-md border border-red-400/30 bg-red-400/10 p-4 shadow-sm"
+        >
+          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+            <div className="min-w-0">
+              <p className="font-headline text-lg font-bold text-red-100">
+                Disconnect {disconnectCandidatePlatform} account &quot;{disconnectCandidateName}&quot;?
+              </p>
+              <p className="mt-1 text-sm text-red-100/80">
+                This removes the account from posting, scheduling, and inbox sync. You can reconnect it later from this workspace.
+              </p>
+            </div>
+            <div className="flex shrink-0 flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => setDisconnectCandidate(null)}
+                disabled={disconnectingId === disconnectCandidate.id}
+                className="rounded-md border border-red-100/30 px-3 py-2 text-xs font-label text-red-50 transition-colors hover:bg-red-50/10 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Keep account connected
+              </button>
+              <button
+                type="button"
+                onClick={() => handleDisconnect(disconnectCandidate)}
+                disabled={disconnectingId === disconnectCandidate.id}
+                className="rounded-md bg-red-300 px-3 py-2 text-xs font-label text-red-950 transition-colors hover:bg-red-200 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {disconnectingId === disconnectCandidate.id
+                  ? 'Disconnecting...'
+                  : `Confirm disconnect ${disconnectCandidatePlatform} account ${disconnectCandidateName}`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {(message || actionError) && (
         <div
@@ -736,7 +797,7 @@ export default function SocialAccountsManager({
                 key={platform}
                 platform={platform}
                 accounts={platformAccounts}
-                onDisconnect={handleDisconnect}
+                onDisconnect={requestDisconnect}
                 onSetDefault={handleSetDefault}
                 disconnectingId={disconnectingId}
                 scope={scope}
