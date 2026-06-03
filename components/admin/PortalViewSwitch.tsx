@@ -122,6 +122,7 @@ export function PortalViewSwitch({ orgId, collapsed = false, compact = false, ic
         onClick={switchToPortal}
         disabled={loading}
         title="Switch to portal view"
+        aria-label="Switch to portal view"
         className={[
           'w-full flex items-center rounded-lg text-sm transition-all duration-150 disabled:opacity-60',
           collapsed ? 'justify-center px-0 py-2.5' : 'gap-3 px-3 py-2',
