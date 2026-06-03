@@ -38,6 +38,16 @@ describe('Portal settings sequences page', () => {
     )
   })
 
+  it('names sequence creation commands without decorative icon text', async () => {
+    render(<SequencesPage />)
+
+    expect(await screen.findByText('Launch your first follow-up journey')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'New sequence' })).toHaveAttribute('href', '/portal/settings/sequences/new')
+    expect(screen.getByRole('link', { name: 'Create the first sequence' })).toHaveAttribute('href', '/portal/settings/sequences/new')
+    expect(screen.queryByRole('link', { name: 'addNew sequence' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'addCreate the first sequence' })).not.toBeInTheDocument()
+  })
+
   it('warns when sequences fail to load and gives leaders a retry path', async () => {
     global.fetch = jest.fn((input: RequestInfo | URL) => {
       const url = String(input)

@@ -276,8 +276,9 @@ export default function SequencesPage() {
         <Link
           href="/portal/settings/sequences/new"
           className="btn-pib-accent flex w-fit shrink-0 items-center gap-1.5 text-sm"
+          aria-label="New sequence"
         >
-          <span className="material-symbols-outlined text-[16px]">add</span>
+          <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
           New sequence
         </Link>
       </div>
@@ -418,8 +419,9 @@ export default function SequencesPage() {
                   <Link
                     href="/portal/settings/sequences/new"
                     className="btn-pib-accent mt-5 inline-flex w-fit items-center gap-1.5 text-sm"
+                    aria-label="Create the first sequence"
                   >
-                    <span className="material-symbols-outlined text-[16px]">add</span>
+                    <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
                     Create the first sequence
                   </Link>
                 </div>
