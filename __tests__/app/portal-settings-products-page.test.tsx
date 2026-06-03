@@ -55,6 +55,31 @@ describe('Portal settings products page', () => {
     expect(screen.getByRole('dialog', { name: 'New product' })).toBeInTheDocument()
   })
 
+  it('warns when products fail to load and gives leaders a retry path', async () => {
+    global.fetch = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/products') {
+        return Promise.resolve({
+          ok: false,
+          json: async () => ({ error: 'Product catalog unavailable' }),
+        } as Response)
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    }) as jest.Mock
+
+    render(<ProductsPage />)
+
+    expect(await screen.findByRole('heading', { name: 'Product catalog could not load' })).toBeInTheDocument()
+    expect(screen.getByText('Product catalog unavailable')).toBeInTheDocument()
+    expect(screen.queryByText('Build a quote-ready catalog')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Retry loading products' }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledTimes(2)
+    })
+  })
+
   it('turns missing product description into a direct edit action', async () => {
     products = [{
       id: 'product-1',
