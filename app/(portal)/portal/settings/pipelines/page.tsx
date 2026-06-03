@@ -42,6 +42,12 @@ function pipelineSearchText(pipeline: Pipeline): string {
   ].filter(Boolean).join(' ').toLowerCase()
 }
 
+function isPipelineSetupArtifact(pipeline?: Pipeline): boolean {
+  const name = pipeline?.name?.trim().toLowerCase() ?? ''
+  if (!name) return false
+  return /\b(smoke|test|delete)\b/.test(name)
+}
+
 function StatCard({ label, value, sub, icon }: { label: string; value: string; sub: string; icon: string }) {
   return (
     <div className="pib-stat-card">
@@ -230,7 +236,7 @@ export default function PipelinesPage() {
     ? activePipelines.find((pipeline) => pipelineHealth(pipeline).score >= 100) ?? activePipelines[0]
     : undefined
   const defaultCandidateReady = defaultCandidatePipeline
-    ? pipelineHealth(defaultCandidatePipeline).score >= 100
+    ? pipelineHealth(defaultCandidatePipeline).score >= 100 && !isPipelineSetupArtifact(defaultCandidatePipeline)
     : false
   const totalStages = pipelines.reduce((sum, pipeline) => sum + pipelineStages(pipeline).length, 0)
   const activeStageTotal = activePipelines.reduce((sum, pipeline) => sum + pipelineStages(pipeline).length, 0)

@@ -40,6 +40,12 @@ function pipelineDisplayName(pipeline: Pipeline): string {
   return pipeline.name?.trim() || 'Pipeline name missing'
 }
 
+function isPipelineSetupArtifact(pipeline: Pipeline): boolean {
+  const name = pipeline.name?.trim().toLowerCase() ?? ''
+  if (!name) return false
+  return /\b(smoke|test|delete)\b/.test(name)
+}
+
 function stageDisplayName(stage: PipelineStage): string {
   return stage.label?.trim() || 'Stage name missing'
 }
@@ -77,6 +83,7 @@ function PipelineRow({
   const healthScore = Math.round((healthChecks.filter(Boolean).length / healthChecks.length) * 100)
   const visibleStages = [...stages].sort((a, b) => a.order - b.order).slice(0, 6)
   const hasOperatingNote = Boolean(pipeline.description?.trim())
+  const needsSetupReview = isPipelineSetupArtifact(pipeline)
 
   return (
     <div className="bento-card !p-0 overflow-hidden">
@@ -87,8 +94,8 @@ function PipelineRow({
             <p className="text-base font-semibold text-[var(--color-pib-text)] truncate">{displayName}</p>
             {pipeline.isDefault && <DefaultBadge />}
             {pipeline.archived && <ArchivedBadge />}
-            <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${healthScore >= 100 ? 'bg-emerald-500/10 text-emerald-300' : 'bg-amber-500/10 text-amber-200'}`}>
-              {healthScore >= 100 ? 'Ready' : `${healthScore}% setup`}
+            <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${healthScore >= 100 && !needsSetupReview ? 'bg-emerald-500/10 text-emerald-300' : 'bg-amber-500/10 text-amber-200'}`}>
+              {needsSetupReview ? 'Review setup' : healthScore >= 100 ? 'Ready' : `${healthScore}% setup`}
             </span>
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -176,6 +183,17 @@ function PipelineRow({
         <div className="flex items-center justify-end gap-1 border-t border-[var(--color-pib-line)] px-3 py-2">
           {/* Set default (only if not already default and not archived) */}
           {!pipeline.isDefault && !pipeline.archived && (
+            needsSetupReview ? (
+              <button
+                type="button"
+                aria-label={`Review setup for ${displayName} before setting it as default`}
+                onClick={() => onEdit(pipeline)}
+                className="cursor-pointer w-8 h-8 flex items-center justify-center rounded-lg text-amber-200 hover:text-amber-100 hover:bg-amber-300/[0.10] transition-colors"
+                title="Review setup before default"
+              >
+                <span className="material-symbols-outlined text-[18px]">edit_note</span>
+              </button>
+            ) : (
             <button
               type="button"
               aria-label={`Set ${displayName} as default`}
@@ -185,6 +203,7 @@ function PipelineRow({
             >
               <span className="material-symbols-outlined text-[18px]">star</span>
             </button>
+            )
           )}
 
           {/* Archive / unarchive */}

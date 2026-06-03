@@ -208,6 +208,33 @@ describe('Portal settings pipelines page', () => {
     })
   })
 
+  it('routes smoke-test default candidates into setup review instead of promotion', async () => {
+    pipelines = [{
+      id: 'pipeline-smoke',
+      orgId: 'org-1',
+      name: 'Smoke delete pipeline 1780236200000',
+      description: 'Temporary setup path',
+      stages: [
+        { id: 'qualified', label: 'Qualified', kind: 'open', order: 0, probability: 20 },
+        { id: 'proposal', label: 'Proposal', kind: 'open', order: 1, probability: 60 },
+        { id: 'won', label: 'Won', kind: 'won', order: 2, probability: 100 },
+        { id: 'lost', label: 'Lost', kind: 'lost', order: 3, probability: 0 },
+      ],
+      isDefault: false,
+      archived: false,
+      createdAt: null,
+      updatedAt: null,
+    }]
+
+    render(<PipelinesPage />)
+
+    expect(await screen.findByRole('article', { name: 'Pipeline Smoke delete pipeline 1780236200000' })).toBeInTheDocument()
+    const warning = screen.getByRole('region', { name: 'Default pipeline route review' })
+    expect(within(warning).getByText('Needs setup before it can carry new deals confidently.')).toBeInTheDocument()
+    expect(within(warning).getByRole('button', { name: 'Review Smoke delete pipeline 1780236200000 before setting a default pipeline route' })).toBeInTheDocument()
+    expect(within(warning).queryByRole('button', { name: 'Set Smoke delete pipeline 1780236200000 as default pipeline route' })).not.toBeInTheDocument()
+  })
+
   it('uses an in-page confirmation before deleting a revenue pipeline', async () => {
     const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(false)
     const alertSpy = jest.spyOn(window, 'alert').mockImplementation(() => {})
