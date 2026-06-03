@@ -34,7 +34,7 @@ async function handler(_req: NextRequest, ctx: CrmAuthContext): Promise<Response
     .get()
 
   const contacts: Contact[] = snap.docs
-    .map((doc) => ({
+    .map((doc): Contact => ({
       id: doc.id,
       ...(doc.data() as Omit<Contact, 'id'>),
     }))
