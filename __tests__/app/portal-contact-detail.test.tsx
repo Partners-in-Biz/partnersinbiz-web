@@ -181,6 +181,71 @@ describe('Portal contact detail page', () => {
     expect(screen.getByRole('textbox', { name: 'Email message for Jane Client' })).toBeInTheDocument()
   })
 
+  it('warns when contact details fail to load and gives leaders a retry path', async () => {
+    global.fetch = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/contacts/contact-1') {
+        return Promise.resolve({
+          ok: false,
+          status: 500,
+          json: async () => ({ error: 'Contact detail source unavailable' }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/custom-fields?resource=contact') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { definitions: [] } }),
+        } as Response)
+      }
+      if (url === '/api/v1/portal/settings/team') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ members: [] }),
+        } as Response)
+      }
+      if (url === '/api/v1/email?contactId=contact-1&limit=20') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: [] }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/activities?contactId=contact-1&limit=50') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { activities: [] } }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/contacts/contact-1/suggestions') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { suggestions: [] } }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/contacts/contact-1/enrollments') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { enrollments: [] } }),
+        } as Response)
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    }) as jest.Mock
+
+    render(<PortalContactDetailPage />)
+
+    expect(await screen.findByRole('heading', { name: 'Contact details could not load' })).toBeInTheDocument()
+    expect(screen.getByText('Contact detail source unavailable')).toBeInTheDocument()
+    expect(screen.queryByText('Contact not found.')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Retry loading contact details' }))
+
+    await waitFor(() => {
+      const contactRequests = (global.fetch as jest.Mock).mock.calls.filter(([url]) => (
+        String(url) === '/api/v1/crm/contacts/contact-1'
+      ))
+      expect(contactRequests).toHaveLength(2)
+    })
+  })
+
   it('moves the portal header email action into the active CRM composer', async () => {
     const scrollIntoView = jest.fn()
     HTMLElement.prototype.scrollIntoView = scrollIntoView

@@ -1,7 +1,7 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useEffect, useRef, useState, type RefObject } from 'react'
+import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { fmtTimestamp } from '@/components/admin/email/fmtTimestamp'
@@ -448,34 +448,55 @@ export default function PortalContactDetailPage() {
   const [enrollError, setEnrollError] = useState('')
   const [pendingUnenrollId, setPendingUnenrollId] = useState<string | null>(null)
   const [unenrollError, setUnenrollError] = useState('')
+  const [contactFetchError, setContactFetchError] = useState('')
+
+  const loadContact = useCallback(async (cancelled?: () => boolean) => {
+    if (!id) return
+    setLoading(true)
+    setContactFetchError('')
+    try {
+      const r = await fetch(`/api/v1/crm/contacts/${id}`)
+      const b = await r.json().catch(() => ({}))
+      if (!r.ok) {
+        throw new Error(typeof b?.error === 'string' ? b.error : `HTTP ${r.status}`)
+      }
+      const c = (b.data?.contact ?? b.contact ?? b.data ?? null) as ContactRecord | null
+      if (cancelled?.()) return
+      setContact(c)
+      setName(c?.name ?? '')
+      setEmail(c?.email ?? '')
+      setPhone(c?.phone ?? '')
+      setJobTitle(c?.jobTitle ?? '')
+      setDepartment(c?.department ?? '')
+      setWebsite(c?.website ?? '')
+      setTimezone(c?.timezone ?? '')
+      setSource(c?.source ?? 'manual')
+      setType(c?.type ?? 'lead')
+      setStage(c?.stage ?? 'new')
+      setAssignedTo(c?.assignedTo ?? c?.assignedToRef?.uid ?? '')
+      setTagsInput(Array.isArray(c?.tags) ? c.tags.join(', ') : '')
+      setNotes(c?.notes ?? '')
+      setEditCompanyId(c?.companyId ?? undefined)
+      setEditCompanyName(c?.companyName ?? undefined)
+      setEditCustomFields((c?.customFields as Record<string, unknown>) ?? {})
+    } catch (err) {
+      if (!cancelled?.()) {
+        setContact(null)
+        setContactFetchError(err instanceof Error ? err.message : 'Contact details failed to load.')
+      }
+    } finally {
+      if (!cancelled?.()) setLoading(false)
+    }
+  }, [id])
 
   useEffect(() => {
-    if (!id) return
-    fetch(`/api/v1/crm/contacts/${id}`)
-      .then((r) => r.json())
-      .then((b) => {
-        const c = (b.data?.contact ?? b.contact ?? b.data ?? null) as ContactRecord | null
-        setContact(c)
-        setName(c?.name ?? '')
-        setEmail(c?.email ?? '')
-        setPhone(c?.phone ?? '')
-        setJobTitle(c?.jobTitle ?? '')
-        setDepartment(c?.department ?? '')
-        setWebsite(c?.website ?? '')
-        setTimezone(c?.timezone ?? '')
-        setSource(c?.source ?? 'manual')
-        setType(c?.type ?? 'lead')
-        setStage(c?.stage ?? 'new')
-        setAssignedTo(c?.assignedTo ?? c?.assignedToRef?.uid ?? '')
-        setTagsInput(Array.isArray(c?.tags) ? c.tags.join(', ') : '')
-        setNotes(c?.notes ?? '')
-        setEditCompanyId(c?.companyId ?? undefined)
-        setEditCompanyName(c?.companyName ?? undefined)
-        setEditCustomFields((c?.customFields as Record<string, unknown>) ?? {})
-        setLoading(false)
-      })
-      .catch(() => setLoading(false))
-  }, [id])
+    let cancelled = false
+
+    void loadContact(() => cancelled)
+    return () => {
+      cancelled = true
+    }
+  }, [loadContact])
 
   useEffect(() => {
     // Fetch custom field definitions once per page mount
@@ -993,6 +1014,45 @@ export default function PortalContactDetailPage() {
   }
 
   if (!contact) {
+    if (contactFetchError) {
+      return (
+        <section className="bento-card border-amber-400/25 bg-amber-400/10">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="flex gap-3">
+              <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-amber-400/25 bg-amber-400/10 text-amber-200">
+                <span className="material-symbols-outlined text-[20px]" aria-hidden="true">warning</span>
+              </span>
+              <div>
+                <p className="eyebrow !text-[10px] text-amber-200">Source health</p>
+                <h2 className="mt-1 font-display text-xl text-[var(--color-pib-text)]">
+                  Contact details could not load
+                </h2>
+                <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">{contactFetchError}</p>
+                <p className="mt-3 text-xs leading-5 text-[var(--color-pib-text-muted)]">
+                  Relationship profile, activity, scoring, and follow-up controls stay hidden until the contact source responds, so leaders do not mistake a data outage for a missing CRM relationship.
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => loadContact()}
+                aria-label="Retry loading contact details"
+                className="cursor-pointer btn-pib-secondary flex items-center gap-1.5 text-sm"
+              >
+                <span className="material-symbols-outlined text-[16px]" aria-hidden="true">refresh</span>
+                Retry
+              </button>
+              <Link href="/portal/contacts" className="btn-pib-secondary text-sm">
+                <span className="material-symbols-outlined text-base" aria-hidden="true">arrow_back</span>
+                Back to contacts
+              </Link>
+            </div>
+          </div>
+        </section>
+      )
+    }
+
     return (
       <div className="bento-card p-10 text-center">
         <h2 className="font-display text-2xl">Contact not found.</h2>
