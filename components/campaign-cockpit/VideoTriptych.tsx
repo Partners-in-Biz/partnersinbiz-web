@@ -72,11 +72,13 @@ export function VideoTriptych({ post, brand }: Props) {
 
 function FormatColumn({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="space-y-2">
+    <div className="space-y-2 min-w-0 overflow-hidden">
       <p className="text-xs uppercase tracking-wide text-[var(--color-pib-text-muted)]">
         {label}
       </p>
-      {children}
+      <div className="min-w-0 overflow-hidden">
+        {children}
+      </div>
     </div>
   )
 }
