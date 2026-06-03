@@ -2,7 +2,7 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { IcpProfileEditor } from '@/components/crm/IcpProfileEditor'
 import { LeadWeightsEditor } from '@/components/crm/LeadWeightsEditor'
 import { PageTabs } from '@/components/ui/AppFoundation'
@@ -151,13 +151,16 @@ export default function ScoringPage() {
 
   // ── Fetch config ─────────────────────────────────────────────────────────────
 
-  useEffect(() => {
+  const fetchScoringConfig = useCallback(() => {
     setLoading(true)
     setFetchError(null)
     fetch('/api/v1/crm/scoring/config')
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`)
-        return r.json()
+      .then(async (r) => {
+        const body = await r.json().catch(() => ({}))
+        if (!r.ok) {
+          throw new Error(typeof body?.error === 'string' ? body.error : `HTTP ${r.status}`)
+        }
+        return body
       })
       .then((body) => {
         const cfg: ScoringConfig = body.data?.config ?? body.data ?? body
@@ -166,9 +169,19 @@ export default function ScoringPage() {
         setLeadWeights(cfg.leadWeights ?? {})
         setAiEnabled(cfg.aiEnabled ?? false)
       })
-      .catch(() => setFetchError('Failed to load scoring config. Please try again.'))
+      .catch((error: unknown) => {
+        setConfig(null)
+        setIcp({})
+        setLeadWeights({})
+        setAiEnabled(false)
+        setFetchError(error instanceof Error ? error.message : 'Failed to load scoring config. Please try again.')
+      })
       .finally(() => setLoading(false))
   }, [])
+
+  useEffect(() => {
+    fetchScoringConfig()
+  }, [fetchScoringConfig])
 
   // ── Save ──────────────────────────────────────────────────────────────────────
 
@@ -267,21 +280,43 @@ export default function ScoringPage() {
         </div>
       </header>
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Scoring health" value={`${scoringHealth}%`} sub={setupGaps.length ? setupGaps.join(', ') : 'Model is ready for contact scoring'} icon="monitoring" />
-        <StatCard label="ICP coverage" value={`${icpDimensions.length}/6`} sub={icpDimensions.length ? icpDimensions.join(', ') : 'No fit criteria set yet'} icon="verified_user" />
-        <StatCard label="Lead signal weight" value={String(totalWeight)} sub={`${explicitWeightCount}/6 explicitly tuned`} icon="bar_chart" />
-        <StatCard label="AI supplement" value={aiEnabled ? 'On' : 'Off'} sub={aiEnabled ? `${config?.aiModel ?? 'Default model'} scoring enabled` : 'Formula scoring only'} icon="auto_awesome" />
-      </section>
+      {!fetchError && (
+        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <StatCard label="Scoring health" value={`${scoringHealth}%`} sub={setupGaps.length ? setupGaps.join(', ') : 'Model is ready for contact scoring'} icon="monitoring" />
+          <StatCard label="ICP coverage" value={`${icpDimensions.length}/6`} sub={icpDimensions.length ? icpDimensions.join(', ') : 'No fit criteria set yet'} icon="verified_user" />
+          <StatCard label="Lead signal weight" value={String(totalWeight)} sub={`${explicitWeightCount}/6 explicitly tuned`} icon="bar_chart" />
+          <StatCard label="AI supplement" value={aiEnabled ? 'On' : 'Off'} sub={aiEnabled ? `${config?.aiModel ?? 'Default model'} scoring enabled` : 'Formula scoring only'} icon="auto_awesome" />
+        </section>
+      )}
 
       {loading ? (
         <div className="space-y-3">
           {Array.from({ length: 4 }).map((_, index) => <div key={index} className="pib-skeleton h-24" />)}
         </div>
       ) : fetchError ? (
-        <div className="px-4 py-3 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] text-sm text-[var(--color-pib-text-muted)]">
-          {fetchError}
-        </div>
+        <section className="rounded-[var(--radius-card)] border border-amber-500/25 bg-amber-500/[0.07] p-5">
+          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+            <div className="flex gap-3">
+              <span className="material-symbols-outlined mt-0.5 text-amber-200" aria-hidden="true">warning</span>
+              <div>
+                <p className="eyebrow !text-[10px] text-amber-200">Source health</p>
+                <h2 className="mt-1 font-display text-xl text-[var(--color-pib-text)]">
+                  Scoring model could not load
+                </h2>
+                <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">{fetchError}</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={fetchScoringConfig}
+              className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5 text-sm"
+              aria-label="Retry loading scoring model"
+            >
+              <span className="material-symbols-outlined text-base" aria-hidden="true">refresh</span>
+              Retry
+            </button>
+          </div>
+        </section>
       ) : (
         <div className="space-y-8">
           {recomputeConfirmOpen && (
