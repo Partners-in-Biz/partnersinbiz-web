@@ -344,7 +344,12 @@ export default function CompaniesPage() {
           <AccountMetric icon="handshake" label="Customers" value={String(metrics.customers)} sub={`${metrics.prospects} leads/prospects`} />
           <AccountMetric icon="hub" label="Client links" value={String(metrics.linkedOrgs)} sub="Linked portal organisations" />
           <AccountMetric icon="supervisor_account" label="Manager coverage" value={`${Math.round(metrics.managerCoverage * 100)}%`} sub={`${metrics.unmanaged} unmanaged`} />
-          <AccountMetric icon="fact_check" label="Setup gaps" value={String(metrics.incomplete)} sub={`${metrics.managed} assigned owners`} />
+          <AccountMetric
+            icon="fact_check"
+            label="Setup gaps"
+            value={String(metrics.incomplete)}
+            sub={metrics.incomplete === 1 ? '1 account needs profile cleanup' : `${metrics.incomplete} accounts need profile cleanup`}
+          />
           <AccountMetric icon="payments" label="Tracked value" value={formatCurrency(metrics.revenue, metrics.currency)} sub="Annual revenue fields" />
         </section>
       )}

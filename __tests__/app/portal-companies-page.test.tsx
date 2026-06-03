@@ -81,6 +81,18 @@ describe('Portal companies page', () => {
     expect(screen.getByText('Unassigned')).toBeInTheDocument()
   })
 
+  it('explains setup-gap metrics as profile cleanup instead of owner coverage', async () => {
+    render(<CompaniesPage />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Managed Account')).toBeInTheDocument()
+    })
+
+    expect(screen.getByText('Setup gaps')).toBeInTheDocument()
+    expect(screen.getByText('1 account needs profile cleanup')).toBeInTheDocument()
+    expect(screen.queryByText('1 assigned owners')).not.toBeInTheDocument()
+  })
+
   it('counts CRM owner references as account-manager coverage for imported client companies', async () => {
     global.fetch = jest.fn((input: RequestInfo | URL) => {
       const url = String(input)
