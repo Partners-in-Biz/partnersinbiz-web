@@ -556,6 +556,8 @@ function ComposerPanel({
 
 function RichComposer({ value, onChange }: { value: string; onChange: (html: string) => void }) {
   const editorRef = useRef<HTMLDivElement>(null)
+  const [showLinkPanel, setShowLinkPanel] = useState(false)
+  const [linkUrl, setLinkUrl] = useState('https://')
 
   useEffect(() => {
     if (editorRef.current && editorRef.current.innerHTML !== value) {
@@ -573,9 +575,16 @@ function RichComposer({ value, onChange }: { value: string; onChange: (html: str
     sync()
   }
 
-  function link() {
-    const url = window.prompt('URL', 'https://')
-    if (url) exec('createLink', url)
+  function openLinkPanel() {
+    setLinkUrl('https://')
+    setShowLinkPanel(true)
+  }
+
+  function applyLink() {
+    const trimmed = linkUrl.trim()
+    if (!trimmed || trimmed === 'https://') return
+    exec('createLink', trimmed)
+    setShowLinkPanel(false)
   }
 
   const buttonClass = 'h-8 min-w-8 rounded-md px-2 text-sm text-[var(--color-pib-text-muted)] hover:bg-white/[0.06] hover:text-[var(--color-pib-text)]'
@@ -593,10 +602,53 @@ function RichComposer({ value, onChange }: { value: string; onChange: (html: str
         <button type="button" className={buttonClass} onMouseDown={(e) => { e.preventDefault(); exec('insertOrderedList') }} title="Numbered list">
           <span className="material-symbols-outlined text-[18px]">format_list_numbered</span>
         </button>
-        <button type="button" className={buttonClass} onMouseDown={(e) => { e.preventDefault(); link() }} title="Insert link">
+        <button type="button" className={buttonClass} onMouseDown={(e) => { e.preventDefault(); openLinkPanel() }} title="Insert link" aria-label="Insert link">
           <span className="material-symbols-outlined text-[18px]">link</span>
         </button>
       </div>
+      {showLinkPanel && (
+        <div
+          role="dialog"
+          aria-modal="false"
+          aria-labelledby="email-link-panel-title"
+          className="border-b border-[var(--color-pib-line)] bg-white/[0.035] px-3 py-3"
+        >
+          <div className="flex flex-col gap-3 md:flex-row md:items-end">
+            <div className="min-w-0 flex-1">
+              <p id="email-link-panel-title" className="eyebrow !text-[10px]">Insert email link</p>
+              <label htmlFor="email-link-url" className="mt-2 block text-xs font-medium text-[var(--color-pib-text-muted)]">
+                URL to link
+              </label>
+              <input
+                id="email-link-url"
+                value={linkUrl}
+                onChange={(event) => setLinkUrl(event.target.value)}
+                className="pib-input mt-1 w-full"
+                inputMode="url"
+              />
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                className="btn-pib-secondary text-xs"
+                onClick={() => setShowLinkPanel(false)}
+                aria-label="Cancel email link insert"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn-pib-primary text-xs"
+                onClick={applyLink}
+                disabled={!linkUrl.trim() || linkUrl.trim() === 'https://'}
+                aria-label="Apply link to email body"
+              >
+                Apply link
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <div
         ref={editorRef}
         contentEditable
