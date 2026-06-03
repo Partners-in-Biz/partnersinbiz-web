@@ -3,13 +3,15 @@
  *
  * Strategy: tiny app-shell precache + runtime caching with sensible defaults.
  * - HTML navigations: network-first, fall back to the offline page.
- * - Static assets (CSS/JS/fonts/images): stale-while-revalidate.
+ * - Next build assets: bypass. They are immutable and already handled by
+ *   Vercel/browser caching, and a SW fallback can hide the real network error.
+ * - Public static assets: stale-while-revalidate.
  * - Admin/portal/API: bypass entirely (always go to network).
  *
  * Bump CACHE_VERSION whenever you change the SW logic so old caches purge.
  */
 
-const CACHE_VERSION = 'pib-v1'
+const CACHE_VERSION = 'pib-v2-static-bypass'
 const STATIC_CACHE = `${CACHE_VERSION}-static`
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`
 
@@ -58,6 +60,7 @@ function isBypassPath(url) {
     url.pathname.startsWith('/admin') ||
     url.pathname.startsWith('/portal') ||
     url.pathname.startsWith('/auth') ||
+    url.pathname.startsWith('/_next/static/') ||
     url.pathname.startsWith('/_next/data')
   )
 }
@@ -93,7 +96,6 @@ self.addEventListener('fetch', (event) => {
 
   // Static-ish GETs: stale-while-revalidate.
   const isStatic =
-    url.pathname.startsWith('/_next/static/') ||
     url.pathname.startsWith('/icons/') ||
     url.pathname.startsWith('/images/') ||
     /\.(?:css|js|woff2?|ttf|otf|png|jpg|jpeg|gif|svg|webp|ico)$/i.test(url.pathname)
@@ -109,7 +111,7 @@ self.addEventListener('fetch', (event) => {
             return res
           })
           .catch(() => null)
-        return cached || (await networkPromise) || new Response('', { status: 504 })
+        return cached || (await networkPromise) || fetch(req)
       })(),
     )
   }
