@@ -376,6 +376,20 @@ describe('Portal deals page', () => {
     expect(screen.queryByText('Forecast value needed')).not.toBeInTheDocument()
   })
 
+  it('turns an empty board into a revenue launch command center', async () => {
+    mockDealRows = []
+
+    render(<DealsPage />)
+
+    expect(await screen.findByRole('heading', { name: 'Launch this pipeline' })).toBeInTheDocument()
+    expect(screen.getByText(/This board is ready, but there are no opportunities in it yet/)).toBeInTheDocument()
+    expect(screen.getByText('First opportunity')).toBeInTheDocument()
+    expect(screen.getByText('Add the first deal with owner, value, stage, and close-date context.')).toBeInTheDocument()
+    expect(screen.getByText('Forecast baseline')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Create first deal for this pipeline' })).toBeInTheDocument()
+    expect(screen.queryByText('No deals yet.')).not.toBeInTheDocument()
+  })
+
   it('warns when deals fail to load and gives leaders a retry path', async () => {
     mockSearchParams = new URLSearchParams('view=list')
     global.fetch = jest.fn((url: RequestInfo | URL) => {

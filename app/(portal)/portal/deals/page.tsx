@@ -109,6 +109,78 @@ function PipelineSummary({ deals, stages }: PipelineSummaryProps) {
   )
 }
 
+function PipelineLaunchCommandCenter({ onCreateDeal }: { onCreateDeal: () => void }) {
+  const launchSteps = [
+    {
+      icon: 'add_circle',
+      label: 'First opportunity',
+      body: 'Add the first deal with owner, value, stage, and close-date context.',
+    },
+    {
+      icon: 'query_stats',
+      label: 'Forecast baseline',
+      body: 'Give leadership a weighted pipeline, not a blank board with hidden setup work.',
+    },
+    {
+      icon: 'groups',
+      label: 'Team handoff',
+      body: 'Attach the buyer and owner so every employee can see who drives the next move.',
+    },
+  ]
+
+  return (
+    <section className="bento-card overflow-hidden !p-0">
+      <div className="grid gap-0 lg:grid-cols-[1.1fr_0.9fr]">
+        <div className="p-6 sm:p-7">
+          <p className="eyebrow !text-[10px]">Revenue workspace</p>
+          <h2 className="mt-2 font-display text-2xl text-[var(--color-pib-text)]">Launch this pipeline</h2>
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--color-pib-text-muted)]">
+            This board is ready, but there are no opportunities in it yet. Create the first deal so the pipeline has
+            a buyer, owner, value, stage, and forecast date from the start.
+          </p>
+          <div className="mt-6 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={onCreateDeal}
+              className="btn-pib-accent inline-flex items-center gap-2"
+              aria-label="Create first deal for this pipeline"
+            >
+              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
+              Create first deal
+            </button>
+            <button
+              type="button"
+              onClick={onCreateDeal}
+              className="btn-pib-secondary inline-flex items-center gap-2"
+              aria-label="Open deal setup for forecast baseline"
+            >
+              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">trending_up</span>
+              Build forecast baseline
+            </button>
+          </div>
+        </div>
+        <div className="border-t border-[var(--color-pib-line)] bg-white/[0.02] p-4 lg:border-l lg:border-t-0">
+          <div className="grid gap-3">
+            {launchSteps.map((step) => (
+              <div key={step.label} className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-bg)]/35 p-4">
+                <div className="flex gap-3">
+                  <span className="material-symbols-outlined mt-0.5 text-[20px] text-[var(--color-pib-accent)]" aria-hidden="true">
+                    {step.icon}
+                  </span>
+                  <div>
+                    <p className="text-sm font-semibold text-[var(--color-pib-text)]">{step.label}</p>
+                    <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">{step.body}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
 // ── Forecast helpers ───────────────────────────────────────────────────────────
 
 function fmtDealValue(value: number | null | undefined, currency?: string, missingLabel = 'No value captured') {
@@ -786,21 +858,7 @@ export default function DealsPage() {
             contactLabelsById={contactLabelsById}
           />
         ) : filteredDeals.length === 0 && stageFilter === 'all' ? (
-          <EmptyState
-            icon="monetization_on"
-            title="No deals yet."
-            description="Deals you create will appear here as a kanban pipeline."
-            action={(
-              <button
-                onClick={() => setShowCreateDrawer(true)}
-                className="btn-pib-accent inline-flex items-center gap-2"
-                aria-label="New deal"
-              >
-                <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
-                New deal
-              </button>
-            )}
-          />
+          <PipelineLaunchCommandCenter onCreateDeal={() => setShowCreateDrawer(true)} />
         ) : (
           <DealKanban
             deals={filteredDeals}
