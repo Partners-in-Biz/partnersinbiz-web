@@ -139,11 +139,21 @@ describe('CompanyEditDrawer', () => {
         onClose={noopClose}
       />,
     )
-    // There are two close controls: the header X and the footer Cancel button.
-    // We click the first one (header X which has aria-label="Cancel").
-    const cancelButtons = screen.getAllByRole('button', { name: /cancel/i })
-    fireEvent.click(cancelButtons[0])
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel New Company' }))
     expect(noopClose).toHaveBeenCalled()
+  })
+
+  it('names close and cancel actions by the active company drawer context', () => {
+    render(
+      <CompanyEditDrawer
+        mode="create"
+        onSave={async () => {}}
+        onClose={noopClose}
+      />,
+    )
+
+    expect(screen.getByRole('button', { name: 'Close New Company drawer' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Cancel New Company' })).toBeInTheDocument()
   })
 
   it('renders tier dropdown with options', () => {
