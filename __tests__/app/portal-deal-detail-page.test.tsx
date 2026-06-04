@@ -214,6 +214,24 @@ describe('Portal deal detail page', () => {
     expect(screen.getByLabelText('Set expected close date')).toHaveFocus()
   })
 
+  it('turns deal detail owner and close date rows into direct cleanup actions', async () => {
+    mockDealOverrides = {
+      ownerRef: undefined,
+      ownerUid: '',
+      expectedCloseDate: '',
+    }
+
+    render(<DealDetailPage />)
+
+    expect(await screen.findByRole('heading', { name: 'Enterprise rollout' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Assign owner for Enterprise rollout from deal details' }))
+    expect(screen.getByLabelText('Assign deal owner')).toHaveFocus()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Set close date for Enterprise rollout from deal details' }))
+    expect(screen.getByLabelText('Set expected close date')).toHaveFocus()
+  })
+
   it('summarizes revenue risk with direct leadership actions', async () => {
     mockDealOverrides = {
       ownerRef: undefined,

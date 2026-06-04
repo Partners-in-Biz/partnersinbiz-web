@@ -1005,9 +1005,20 @@ export default function DealDetailPage() {
             )}
             <div>
               <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">Owner</p>
-              <p className="text-[var(--color-pib-text)] mt-0.5">
-                {dealOwnerLabel(deal)}
-              </p>
+              <div className="mt-0.5 flex flex-wrap items-center justify-between gap-2">
+                <p className="text-[var(--color-pib-text)]">
+                  {dealOwnerLabel(deal)}
+                </p>
+                <button
+                  type="button"
+                  onClick={focusOwnerSelect}
+                  aria-label={`${deal.ownerRef?.displayName || deal.ownerUid ? 'Change' : 'Assign'} owner for ${deal.title ?? 'this deal'} from deal details`}
+                  className="inline-flex items-center gap-1 rounded-md border border-[var(--color-pib-line)] px-2 py-1 text-[11px] font-medium text-[var(--color-pib-accent)] transition-colors hover:border-[var(--color-pib-accent)] hover:text-[var(--color-pib-text)]"
+                >
+                  <span className="material-symbols-outlined text-[13px]" aria-hidden="true">assignment_ind</span>
+                  {deal.ownerRef?.displayName || deal.ownerUid ? 'Change owner' : 'Assign owner'}
+                </button>
+              </div>
               <div className="mt-3 space-y-2 rounded-xl border border-[var(--color-pib-line)] bg-white/[0.02] p-3">
                 <label htmlFor="dealDetailOwner" className="pib-label">Assign deal owner</label>
                 <div className="flex flex-wrap gap-2">
@@ -1045,12 +1056,34 @@ export default function DealDetailPage() {
             <div>
               <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">Close date</p>
               {deal.expectedCloseDate ? (
-                <p className="text-[var(--color-pib-text-muted)] mt-0.5 font-mono text-xs">
-                  {fmtTimestamp(deal.expectedCloseDate)}
-                </p>
+                <div className="mt-0.5 flex flex-wrap items-center justify-between gap-2">
+                  <p className="font-mono text-xs text-[var(--color-pib-text-muted)]">
+                    {fmtTimestamp(deal.expectedCloseDate)}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={focusCloseDateInput}
+                    aria-label={`Review close date for ${deal.title ?? 'this deal'} from deal details`}
+                    className="inline-flex items-center gap-1 rounded-md border border-[var(--color-pib-line)] px-2 py-1 text-[11px] font-medium text-[var(--color-pib-accent)] transition-colors hover:border-[var(--color-pib-accent)] hover:text-[var(--color-pib-text)]"
+                  >
+                    <span className="material-symbols-outlined text-[13px]" aria-hidden="true">event_upcoming</span>
+                    Review date
+                  </button>
+                </div>
               ) : (
                 <div className="mt-1 rounded-lg border border-[var(--color-pib-line)] bg-white/[0.02] p-3">
-                  <p className="text-sm font-semibold text-[var(--color-pib-text)]">No close date captured</p>
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <p className="text-sm font-semibold text-[var(--color-pib-text)]">No close date captured</p>
+                    <button
+                      type="button"
+                      onClick={focusCloseDateInput}
+                      aria-label={`Set close date for ${deal.title ?? 'this deal'} from deal details`}
+                      className="inline-flex items-center gap-1 rounded-md border border-[var(--color-pib-line)] px-2 py-1 text-[11px] font-medium text-[var(--color-pib-accent)] transition-colors hover:border-[var(--color-pib-accent)] hover:text-[var(--color-pib-text)]"
+                    >
+                      <span className="material-symbols-outlined text-[13px]" aria-hidden="true">event_upcoming</span>
+                      Set date
+                    </button>
+                  </div>
                   <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">
                     Set forecast timing so leadership can trust pipeline commitments.
                   </p>
