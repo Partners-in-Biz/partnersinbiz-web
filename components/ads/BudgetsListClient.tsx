@@ -49,10 +49,15 @@ interface Props {
 }
 
 export function BudgetsListClient({ budgets, orgSlug }: Props) {
+  const [visibleBudgets, setVisibleBudgets] = useState<BudgetRow[]>(budgets)
   const [activeTab, setActiveTab] = useState<FilterKey>('all')
   const [checking, setChecking] = useState<string | null>(null)
+  const [confirmArchive, setConfirmArchive] = useState<BudgetRow | null>(null)
+  const [archiving, setArchiving] = useState<string | null>(null)
+  const [actionMessage, setActionMessage] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
 
-  const filtered = budgets.filter((b) => {
+  const filtered = visibleBudgets.filter((b) => {
     if (activeTab === 'all') return !b.archivedAt
     if (activeTab === 'archived') return !!b.archivedAt
     if (activeTab === 'org') return b.scope === 'org' && !b.archivedAt
@@ -70,10 +75,31 @@ export function BudgetsListClient({ budgets, orgSlug }: Props) {
     }
   }
 
-  async function archiveBudget(budgetId: string) {
-    if (!confirm('Archive this budget?')) return
-    await fetch(`/api/v1/ads/budgets/${budgetId}`, { method: 'DELETE' })
-    window.location.reload()
+  function requestArchive(budget: BudgetRow) {
+    setActionMessage(null)
+    setActionError(null)
+    setConfirmArchive(budget)
+  }
+
+  async function archiveBudget(budget: BudgetRow) {
+    setArchiving(budget.id)
+    setActionMessage(null)
+    setActionError(null)
+    try {
+      const response = await fetch(`/api/v1/ads/budgets/${budget.id}`, { method: 'DELETE' })
+      if (!response.ok) throw new Error('Budget archive failed')
+      setVisibleBudgets((current) =>
+        current.map((item) =>
+          item.id === budget.id ? { ...item, archivedAt: item.archivedAt ?? new Date().toISOString() } : item,
+        ),
+      )
+      setConfirmArchive(null)
+      setActionMessage(`Budget ${budget.name} archived.`)
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Budget archive failed')
+    } finally {
+      setArchiving(null)
+    }
   }
 
   return (
@@ -95,6 +121,58 @@ export function BudgetsListClient({ budgets, orgSlug }: Props) {
         tabs={FILTER_TABS.map((tab) => ({ label: tab.label, value: tab.key }))}
       />
 
+      {actionMessage && (
+        <div role="status" className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
+          {actionMessage}
+        </div>
+      )}
+
+      {actionError && (
+        <div role="alert" className="rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+          {actionError}
+        </div>
+      )}
+
+      {confirmArchive && (
+        <div
+          role="alertdialog"
+          aria-modal="false"
+          aria-labelledby="budget-archive-title"
+          aria-describedby="budget-archive-description"
+          className="rounded-lg border border-[#F5A623]/30 bg-[#F5A623]/10 p-4 shadow-sm"
+        >
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="space-y-1">
+              <h2 id="budget-archive-title" className="text-sm font-semibold text-white">
+                Archive budget {confirmArchive.name} for {orgSlug}?
+              </h2>
+              <p id="budget-archive-description" className="text-sm text-white/65">
+                This removes {confirmArchive.name} from active budget pacing. Historical spend and alerts stay in PiB.
+              </p>
+            </div>
+            <div className="flex shrink-0 gap-2">
+              <button
+                type="button"
+                onClick={() => setConfirmArchive(null)}
+                disabled={archiving === confirmArchive.id}
+                className="rounded border border-white/10 px-3 py-1.5 text-xs text-white/60 hover:text-white disabled:opacity-40"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => archiveBudget(confirmArchive)}
+                disabled={archiving === confirmArchive.id}
+                aria-label={`Confirm archive budget ${confirmArchive.name} for ${orgSlug}`}
+                className="rounded border border-red-400/40 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-200 hover:bg-red-500/20 disabled:opacity-40"
+              >
+                {archiving === confirmArchive.id ? 'Archiving...' : 'Archive budget'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {filtered.length === 0 ? (
         <div className="rounded-lg border border-dashed border-white/10 p-8 text-center">
           <p className="text-white/60">No budgets found.</p>
@@ -110,7 +188,7 @@ export function BudgetsListClient({ budgets, orgSlug }: Props) {
       ) : (
         <ul className="divide-y divide-white/5 rounded-lg border border-white/10">
           {filtered.map((b) => (
-            <li key={b.id} className="px-5 py-4 space-y-3">
+            <li key={b.id} aria-label={`Budget ${b.name}`} className="px-5 py-4 space-y-3">
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
@@ -160,8 +238,11 @@ export function BudgetsListClient({ budgets, orgSlug }: Props) {
                   </button>
                   {!b.archivedAt && (
                     <button
-                      onClick={() => archiveBudget(b.id)}
-                      className="rounded border border-white/10 px-2 py-1 text-white/40 hover:text-red-400"
+                      type="button"
+                      onClick={() => requestArchive(b)}
+                      disabled={archiving === b.id}
+                      aria-label={`Archive budget ${b.name} for ${orgSlug}`}
+                      className="rounded border border-white/10 px-2 py-1 text-white/40 hover:text-red-400 disabled:opacity-40"
                     >
                       Archive
                     </button>
