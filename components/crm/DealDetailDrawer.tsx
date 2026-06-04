@@ -89,6 +89,7 @@ export function DealDetailDrawer({
 
   const probability = deal.probability ?? (stage?.probability ?? 100)
   const hasDealValue = deal.value !== null && deal.value !== undefined
+  const dealValueLabel = hasDealValue ? fmtValue(deal.value, deal.currency) : 'No value captured'
   const weightedValue = hasDealValue ? deal.value * (probability / 100) : null
 
   const labelCls = 'block text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1'
@@ -217,9 +218,20 @@ export function DealDetailDrawer({
           <div className="flex items-center gap-4 flex-wrap">
             <div>
               <p className={labelCls}>Deal value</p>
-              <p className="text-xl font-headline font-bold text-[var(--color-pib-text)]">
-                {hasDealValue ? fmtValue(deal.value, deal.currency) : 'No value captured'}
-              </p>
+              {onEdit ? (
+                <button
+                  type="button"
+                  aria-label={`${hasDealValue ? 'Edit' : 'Add'} value for ${dealLabel} from deal detail`}
+                  onClick={onEdit}
+                  className="text-left text-xl font-headline font-bold text-[var(--color-pib-text)] transition-colors hover:text-[var(--color-pib-accent)]"
+                >
+                  {dealValueLabel}
+                </button>
+              ) : (
+                <p className="text-xl font-headline font-bold text-[var(--color-pib-text)]">
+                  {dealValueLabel}
+                </p>
+              )}
             </div>
             <div
               className="px-3 py-2 rounded-lg"
