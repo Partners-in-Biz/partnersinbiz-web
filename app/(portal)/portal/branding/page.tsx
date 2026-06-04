@@ -2,6 +2,7 @@
 export const dynamic = 'force-dynamic'
 
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import {
   BrandProfileEditor,
   type BrandAssetUploadPayload,
@@ -10,6 +11,7 @@ import {
   type BrandProfileSavePayload,
   type BrandWorkspaceOrg,
 } from '@/components/brand/BrandProfileEditor'
+import { scopedApiPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 
 interface PortalBrandResponse {
   success?: boolean
@@ -32,6 +34,10 @@ function Skeleton({ className = '' }: { className?: string }) {
 }
 
 export default function BrandingPage() {
+  const searchParams = useSearchParams()
+  const orgScope = scopeFromSearchParams(searchParams)
+  const brandProfileEndpoint = scopedApiPath('/api/v1/portal/brand-profile', orgScope)
+  const brandAssetUploadEndpoint = scopedApiPath('/api/v1/portal/brand-profile/upload', orgScope)
   const [pageData, setPageData] = useState<BrandProfilePageData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -43,7 +49,7 @@ export default function BrandingPage() {
       try {
         setLoading(true)
         setError('')
-        const res = await fetch('/api/v1/portal/brand-profile')
+        const res = await fetch(brandProfileEndpoint)
         const body = (await res.json().catch(() => ({}))) as PortalBrandResponse
         if (!res.ok || !body.data) throw new Error(body.error ?? 'Failed to load brand profile')
         if (!cancelled) setPageData(body.data)
@@ -58,10 +64,10 @@ export default function BrandingPage() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [brandProfileEndpoint])
 
   async function saveBrandProfile({ brandProfile, brandColors }: BrandProfileSavePayload) {
-    const res = await fetch('/api/v1/portal/brand-profile', {
+    const res = await fetch(brandProfileEndpoint, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ brandProfile, brandColors }),
@@ -75,7 +81,7 @@ export default function BrandingPage() {
     form.append('file', file)
     form.append('folder', folder)
 
-    const res = await fetch('/api/v1/portal/brand-profile/upload', { method: 'POST', body: form })
+    const res = await fetch(brandAssetUploadEndpoint, { method: 'POST', body: form })
     const body = await res.json().catch(() => ({}))
     if (!res.ok || !body.data?.url) throw new Error(body.error ?? 'Upload failed')
     return body.data.url as string

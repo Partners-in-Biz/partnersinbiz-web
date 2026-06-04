@@ -119,10 +119,12 @@ function DnsRecordsTable({ records }: { records: EmailDomainDnsRecord[] }) {
 
 function DomainCard({
   domain,
+  domainEndpoint,
   onRefreshed,
   onDeleted,
 }: {
   domain: EmailDomain
+  domainEndpoint: (id: string) => string
   onRefreshed: (d: EmailDomain) => void
   onDeleted: (id: string) => void
 }) {
@@ -136,7 +138,7 @@ function DomainCard({
     setRefreshing(true)
     setError(null)
     try {
-      const res = await fetch(`/api/v1/email/domains/${domain.id}`)
+      const res = await fetch(domainEndpoint(domain.id))
       const body = await res.json()
       if (!res.ok) {
         setError(body.error ?? 'Failed to refresh')
@@ -154,7 +156,7 @@ function DomainCard({
     setDeleting(true)
     setError(null)
     try {
-      const res = await fetch(`/api/v1/email/domains/${domain.id}`, { method: 'DELETE' })
+      const res = await fetch(domainEndpoint(domain.id), { method: 'DELETE' })
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
         setError(body.error ?? 'Failed to delete')
@@ -282,6 +284,10 @@ function DomainCard({
 export function EmailDomainsWorkspace({ orgId, orgName }: EmailDomainsWorkspaceProps) {
   const scopedOrgId = orgId?.trim() || undefined
   const emailDomainsEndpoint = scopedUrl('/api/v1/email/domains', scopedOrgId)
+  const domainEndpoint = useCallback(
+    (id: string) => scopedUrl(`/api/v1/email/domains/${id}`, scopedOrgId),
+    [scopedOrgId],
+  )
   const [domains, setDomains] = useState<EmailDomain[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -311,7 +317,7 @@ export function EmailDomainsWorkspace({ orgId, orgName }: EmailDomainsWorkspaceP
     setSubmitting(true)
     setFormError(null)
     try {
-      const res = await fetch('/api/v1/email/domains', {
+      const res = await fetch(emailDomainsEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -395,6 +401,7 @@ export function EmailDomainsWorkspace({ orgId, orgName }: EmailDomainsWorkspaceP
             <DomainCard
               key={domain.id}
               domain={domain}
+              domainEndpoint={domainEndpoint}
               onRefreshed={handleRefreshed}
               onDeleted={handleDeleted}
             />

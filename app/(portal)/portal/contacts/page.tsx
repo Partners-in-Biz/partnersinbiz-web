@@ -1,7 +1,7 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { ContactForm } from '@/components/admin/crm/ContactForm'
@@ -17,6 +17,7 @@ import {
   ContactDuplicateCommandCenter,
   type DuplicateGroup,
 } from '@/components/crm/ContactDuplicateCommandCenter'
+import { scopedApiPath, scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 
 const STAGES = ['new', 'contacted', 'replied', 'demo', 'proposal', 'won', 'lost']
 const TYPES = ['lead', 'prospect', 'client', 'churned']
@@ -183,6 +184,7 @@ function isContactSetupArtifact(contact: Pick<Contact, 'name' | 'email'>): boole
 
 export default function PortalContactsPage() {
   const searchParams = useSearchParams()
+  const orgScope = useMemo(() => scopeFromSearchParams(searchParams), [searchParams])
   const shouldOpenCreateContact = searchParams.get('create') === 'contact'
   const [contacts, setContacts] = useState<Contact[]>([])
   const [loading, setLoading] = useState(true)
@@ -227,7 +229,7 @@ export default function PortalContactsPage() {
     if (typeFilter) params.set('type', typeFilter)
     const qs = params.toString()
     try {
-      const res = await fetch(`/api/v1/crm/contacts${qs ? `?${qs}` : ''}`)
+      const res = await fetch(scopedApiPath(`/api/v1/crm/contacts${qs ? `?${qs}` : ''}`, orgScope))
       if (!res.ok) {
         const body = await res.json().catch(() => ({})) as { error?: string }
         throw new Error(body.error ?? 'Contacts could not be loaded')
@@ -241,7 +243,7 @@ export default function PortalContactsPage() {
     } finally {
       setLoading(false)
     }
-  }, [search, stageFilter, typeFilter])
+  }, [orgScope, search, stageFilter, typeFilter])
 
   useEffect(() => {
     fetchContacts()
@@ -249,16 +251,16 @@ export default function PortalContactsPage() {
 
   // Load team members once
   useEffect(() => {
-    fetch('/api/v1/portal/settings/team')
+    fetch(scopedApiPath('/api/v1/portal/settings/team', orgScope))
       .then(r => r.ok ? r.json() : null)
       .then(body => {
         if (body?.members) setTeamMembers(body.members)
       })
       .catch(() => {})
-  }, [])
+  }, [orgScope])
 
   async function createContact(data: Record<string, unknown>) {
-    const res = await fetch('/api/v1/crm/contacts', {
+    const res = await fetch(scopedApiPath('/api/v1/crm/contacts', orgScope), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(data),
@@ -328,7 +330,7 @@ export default function PortalContactsPage() {
 
     setBulkPending(true)
     try {
-      const res = await fetch('/api/v1/crm/contacts/bulk', {
+      const res = await fetch(scopedApiPath('/api/v1/crm/contacts/bulk', orgScope), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ ids: Array.from(selectedIds), patch: { delete: true } }),
@@ -378,7 +380,7 @@ export default function PortalContactsPage() {
 
     setBulkPending(true)
     try {
-      const res = await fetch('/api/v1/crm/contacts/bulk', {
+      const res = await fetch(scopedApiPath('/api/v1/crm/contacts/bulk', orgScope), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ ids: Array.from(selectedIds), patch }),
@@ -409,7 +411,7 @@ export default function PortalContactsPage() {
     setDuplicatesError(null)
     setMergeError(null)
     try {
-      const res = await fetch('/api/v1/crm/contacts/duplicates')
+      const res = await fetch(scopedApiPath('/api/v1/crm/contacts/duplicates', orgScope))
       const body = (await res.json()) as { error?: string; data?: DuplicateGroup[] | { groups?: DuplicateGroup[] } }
       if (!res.ok) throw new Error(body.error ?? 'Failed to fetch duplicates')
       const raw = body.data
@@ -429,7 +431,7 @@ export default function PortalContactsPage() {
     setMergingGroup(String(groupIndex))
     setMergeError(null)
     try {
-      const res = await fetch('/api/v1/crm/contacts/merge', {
+      const res = await fetch(scopedApiPath('/api/v1/crm/contacts/merge', orgScope), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ winnerId, loserId }),
@@ -908,7 +910,7 @@ export default function PortalContactsPage() {
                   >
                     <div className="md:col-span-2">
                       <Link
-                        href={`/portal/contacts/${c.id}`}
+                        href={scopedPortalPath(`/portal/contacts/${c.id}`, orgScope)}
                         aria-label={`Open contact ${contactName}`}
                         className="font-medium text-[var(--color-pib-accent-hover)] transition-colors hover:text-[var(--color-pib-text)]"
                       >
@@ -970,7 +972,7 @@ export default function PortalContactsPage() {
                     </div>
                     <div className="md:col-span-2 text-xs font-mono">
                       <Link
-                        href={`/portal/contacts/${c.id}?activity=note`}
+                        href={scopedPortalPath(`/portal/contacts/${c.id}?activity=note`, orgScope)}
                         aria-label={`Log activity for ${contactName} from last contacted column`}
                         className="inline-flex max-w-full items-center gap-1 text-[var(--color-pib-accent)] transition-colors hover:text-[var(--color-pib-text)]"
                       >
