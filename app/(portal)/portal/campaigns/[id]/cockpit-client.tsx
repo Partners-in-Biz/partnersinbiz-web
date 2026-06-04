@@ -1,5 +1,7 @@
 'use client'
 
+import { useSearchParams } from 'next/navigation'
+import { scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 import {
   CampaignCockpitClient,
   type CampaignCockpitClientProps,
@@ -15,12 +17,17 @@ type PortalCockpitClientProps = Omit<
 >
 
 export function CockpitClient(props: PortalCockpitClientProps) {
+  const searchParams = useSearchParams()
+  const scope = scopeFromSearchParams(searchParams)
+  const campaignsHref = scopedPortalPath('/portal/campaigns', scope)
+  const campaignBasePath = scopedPortalPath(`/portal/campaigns/${props.campaignId}`, scope)
+
   return (
     <CampaignCockpitClient
       {...props}
-      backHref="/portal/campaigns"
+      backHref={campaignsHref}
       backLabel="Campaigns"
-      basePath={`/portal/campaigns/${props.campaignId}`}
+      basePath={campaignBasePath}
       assetApprovalMode="client"
       showClientBlogApprovals
     />

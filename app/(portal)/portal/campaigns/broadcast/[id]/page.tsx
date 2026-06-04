@@ -8,6 +8,7 @@ import type { EmailDomain } from '@/lib/email/domains'
 import type { Segment } from '@/lib/crm/segments'
 import {
   resolvePortalCampaignUser,
+  scopedPortalHref,
   scopeFromSearchParams,
   type PortalCampaignSearchParams,
 } from '../../portalCampaignScope'
@@ -191,7 +192,7 @@ export default async function PortalBroadcastPage({
       {/* Hero */}
       <div className="space-y-4">
         <Link
-          href="/portal/campaigns"
+          href={scopedPortalHref('/portal/campaigns', scope)}
           className="inline-flex items-center gap-1 text-sm text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors"
         >
           <span className="material-symbols-outlined text-base">arrow_back</span>

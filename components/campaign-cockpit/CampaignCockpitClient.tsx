@@ -27,6 +27,27 @@ const TABS = [
 
 type TabKey = (typeof TABS)[number]['key']
 
+function splitPathAndQuery(path: string) {
+  const [pathname, query = ''] = path.split('?')
+  return { pathname, query }
+}
+
+function mergePathSearch(path: string, params: URLSearchParams): string {
+  const { pathname, query } = splitPathAndQuery(path)
+  const merged = new URLSearchParams(query)
+  params.forEach((value, key) => {
+    merged.set(key, value)
+  })
+  const qs = merged.toString()
+  return `${pathname}${qs ? `?${qs}` : ''}`
+}
+
+function appendChildPath(path: string, childPath: string): string {
+  const { pathname, query } = splitPathAndQuery(path)
+  const child = childPath.startsWith('/') ? childPath : `/${childPath}`
+  return `${pathname}${child}${query ? `?${query}` : ''}`
+}
+
 export interface CampaignCockpitClientProps {
   campaignId: string
   campaign: AnyObj
@@ -76,8 +97,7 @@ export function CampaignCockpitClient({
     const params = new URLSearchParams(search.toString())
     if (key === 'research') params.delete('tab')
     else params.set('tab', key)
-    const qs = params.toString()
-    router.replace(`${basePath}${qs ? `?${qs}` : ''}`)
+    router.replace(mergePathSearch(basePath, params))
   }
 
   async function approveAll() {
@@ -706,7 +726,7 @@ function BlogsTab({
               blog={b}
               brand={brand}
               status={currentStatus}
-              href={`${basePath}/blog/${b.id}`}
+              href={appendChildPath(basePath, `/blog/${b.id}`)}
             />
             {showClientApprovals && isReview && (
               <BlogApproveButton

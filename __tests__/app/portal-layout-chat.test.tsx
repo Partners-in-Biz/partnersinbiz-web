@@ -156,4 +156,51 @@ describe('PortalLayout chat drawer', () => {
       expect(global.fetch).toHaveBeenCalledWith('/api/v1/portal/org?orgId=lumen-org')
     })
   })
+
+  it('keeps the requested CRM company workspace active when it is not in the normal switcher list', async () => {
+    mockSearchParams = new URLSearchParams({ orgId: 'lumen-org', orgSlug: 'lumen-speeds' })
+    global.fetch = jest.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/portal/org?orgId=lumen-org') {
+        return jsonResponse({
+          org: { id: 'lumen-org', name: 'Lumen', slug: 'lumen-speeds', type: 'client' },
+          user: { uid: 'admin-1', role: 'admin', name: 'Peet', email: 'peet@example.com' },
+        })
+      }
+      if (url === '/api/v1/portal/orgs') {
+        return jsonResponse({
+          activeOrgId: 'pib-org',
+          orgs: [
+            { id: 'pib-org', name: 'Partners in Biz', slug: 'partners-in-biz', type: 'platform_owner', logoUrl: '' },
+            { id: 'other-client', name: 'Other Client', slug: 'other-client', type: 'client', logoUrl: '' },
+          ],
+        })
+      }
+      if (url === '/api/v1/portal/settings/profile') {
+        return jsonResponse({ profile: { firstName: 'Peet', lastName: 'Stander', role: 'owner' } })
+      }
+      if (url === '/api/v1/portal/documents/count?orgId=lumen-org') {
+        return jsonResponse({ data: { count: 0 } })
+      }
+      throw new Error(`Unhandled fetch: ${url}`)
+    })
+
+    render(
+      <PortalLayout>
+        <main>Portal content</main>
+      </PortalLayout>,
+    )
+
+    const switcher = await screen.findByLabelText('Workspace')
+
+    await waitFor(() => {
+      expect(switcher).toHaveValue('lumen-org')
+    })
+
+    expect(screen.getByRole('option', { name: 'Lumen' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Marketing/ })).toHaveAttribute(
+      'href',
+      '/portal/marketing?orgId=lumen-org&orgSlug=lumen-speeds',
+    )
+  })
 })

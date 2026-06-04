@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { BlogReaderCard } from '@/components/campaign-preview'
 import {
   CommentComposer,
@@ -12,6 +12,7 @@ import {
   type InlineComment,
 } from '@/components/inline-comments'
 import type { PreviewBlog } from '@/components/campaign-preview/types'
+import { scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyObj = any
@@ -56,6 +57,7 @@ function PortalCampaignBlogDetail({
   blogId: string
 }) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const bodyRef = useRef<HTMLDivElement | null>(null)
   const [blog, setBlog] = useState<AnyObj | null>(null)
   const [comments, setComments] = useState<InlineComment[]>([])
@@ -109,6 +111,10 @@ function PortalCampaignBlogDetail({
   }, [campaignId, blogId])
 
   const previewBlog = useMemo(() => (blog ? toPreviewBlog(blog) : null), [blog])
+  const campaignBlogsHref = scopedPortalPath(
+    `/portal/campaigns/${campaignId}?tab=blogs`,
+    scopeFromSearchParams(searchParams),
+  )
 
   useEffect(() => {
     const root = bodyRef.current
@@ -240,7 +246,7 @@ function PortalCampaignBlogDetail({
       <div className="pib-card max-w-4xl mx-auto p-10 text-center">
         <p className="text-sm text-on-surface-variant">{loadError ?? 'Blog post not found.'}</p>
         <Link
-          href={`/portal/campaigns/${campaignId}?tab=blogs`}
+          href={campaignBlogsHref}
           className="text-xs underline mt-2 inline-block"
         >
           Back to Blog Posts
@@ -259,7 +265,7 @@ function PortalCampaignBlogDetail({
     <div className="space-y-8 max-w-7xl mx-auto" style={{ color: 'var(--org-text, var(--color-pib-text))' }}>
       <header className="space-y-2">
         <Link
-          href={`/portal/campaigns/${campaignId}?tab=blogs`}
+          href={campaignBlogsHref}
           className="text-xs text-[var(--org-text-muted,var(--color-pib-text-muted))] hover:text-[var(--org-text,var(--color-pib-text))] inline-flex items-center gap-1"
         >
           Back to Blog Posts

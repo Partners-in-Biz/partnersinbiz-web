@@ -336,6 +336,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
   async function handleOrgSwitch(orgId: string) {
     if (orgId === activeOrgId || orgSwitching) return
     setOrgSwitching(true)
+    const switched = orgs.find(o => o.id === orgId)
     try {
       await fetch('/api/v1/portal/active-org', {
         method: 'POST',
@@ -343,13 +344,16 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({ orgId }),
       })
       setActiveOrgId(orgId)
-      const switched = orgs.find(o => o.id === orgId)
       if (switched) {
         setOrgName(switched.name)
         setActiveOrgSlug(switched.slug)
         setActiveOrgType(switched.type ?? '')
       }
-      router.refresh()
+      if (requestedOrgId) {
+        router.push(scopedPortalHref(pathname, orgId, switched?.slug ?? ''))
+      } else {
+        router.refresh()
+      }
     } finally {
       setOrgSwitching(false)
     }
@@ -376,9 +380,12 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
     )
   }
 
+  const scopedShellHref = (path: string) =>
+    requestedOrgId ? scopedPortalHref(path, requestedOrgId, requestedOrgSlug || activeOrgSlug) : path
+
   const navWithBadges: NavItem[] = NAV_LINKS.map((item) => {
     const href = requestedOrgId
-      ? scopedPortalHref(item.href, requestedOrgId, requestedOrgSlug || activeOrgSlug)
+      ? scopedShellHref(item.href)
       : item.href
     return item.href === '/portal/documents' ? { ...item, href, badge: documentCount } : { ...item, href }
   })
@@ -387,6 +394,16 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
     group: g,
     items: navWithBadges.filter(n => n.group === g),
   }))
+  const requestedWorkspaceOption: PortalOrgOption | null = activeOrgId && orgName && !orgs.some(org => org.id === activeOrgId)
+    ? {
+        id: activeOrgId,
+        name: orgName,
+        slug: activeOrgSlug || requestedOrgSlug,
+        type: activeOrgType,
+        logoUrl: '',
+      }
+    : null
+  const workspaceOptions = requestedWorkspaceOption ? [requestedWorkspaceOption, ...orgs] : orgs
 
   const initials = (name || email).split(/[.\s@]/).filter(Boolean).slice(0, 2).map(s => s[0]?.toUpperCase()).join('')
   const canOpenAdminView = userRole === 'admin' && !!activeOrgSlug
@@ -418,7 +435,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
           <header className="h-14 sticky top-0 z-30 bg-[var(--color-pib-bg)]/95 backdrop-blur-md border-b border-[var(--color-pib-line)] shrink-0">
           <div className="flex items-center h-full px-4 gap-2">
             {/* Brand */}
-            <Link href="/portal/dashboard" className="flex items-center gap-2 shrink-0 mr-2">
+            <Link href={scopedShellHref('/portal/dashboard')} className="flex items-center gap-2 shrink-0 mr-2">
               <Image src="/pib-logo-512.png" alt="Partners in Biz" width={24} height={24} className="rounded-md object-contain" />
               <span className="hidden sm:block font-display text-base leading-none">Partners in Biz</span>
               <span className="pill !text-[10px] !py-0.5 !px-2">{portalWorkspaceLabel}</span>
@@ -489,7 +506,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
                 triggerClassName="hidden sm:inline-flex items-center gap-1 text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors"
               />
               <div className="w-8 h-8 rounded-full bg-[var(--color-pib-accent-soft)] border border-[var(--color-pib-line-strong)] flex items-center justify-center text-xs font-medium text-[var(--color-pib-accent-hover)]">
-                <Link href="/portal/settings/profile" title="My profile" className="grid h-full w-full place-items-center rounded-full">
+                <Link href={scopedShellHref('/portal/settings/profile')} title="My profile" className="grid h-full w-full place-items-center rounded-full">
                   {initials || '·'}
                 </Link>
               </div>
@@ -610,7 +627,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
       >
         {/* Brand */}
         <Link
-          href="/portal/dashboard"
+          href={scopedShellHref('/portal/dashboard')}
           className={['flex items-center min-h-16 border-b border-[var(--color-pib-line)] shrink-0', collapsed ? 'justify-center px-0' : 'gap-2.5 px-5 py-3'].join(' ')}
         >
           <Image src="/pib-logo-512.png" alt="Partners in Biz" width={28} height={28} className="rounded-md object-contain shrink-0" />
@@ -680,7 +697,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
         )}
 
         {/* Workspace switcher — compact, near the top like the admin context. */}
-        {orgs.length > 1 && (
+        {workspaceOptions.length > 1 && (
           <div className="border-b border-[var(--color-pib-line)] shrink-0">
             {collapsed ? (
               <button
@@ -689,7 +706,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
                 title={`Workspace: ${orgName || 'Current workspace'}`}
                 className="mx-auto my-2 w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-bold transition-colors bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent-hover)] ring-1 ring-[var(--color-pib-accent)]/30"
               >
-                {(orgName || orgs.find(org => org.id === activeOrgId)?.name || 'W')[0]?.toUpperCase() ?? 'W'}
+                {(orgName || workspaceOptions.find(org => org.id === activeOrgId)?.name || 'W')[0]?.toUpperCase() ?? 'W'}
               </button>
             ) : (
               <div className="px-3 py-3">
@@ -704,7 +721,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
                     disabled={orgSwitching}
                     className="w-full appearance-none rounded-lg border border-[var(--color-pib-line)] bg-white/[0.02] px-3 py-2 pr-9 text-sm text-[var(--color-pib-text)] outline-none transition-colors hover:bg-white/[0.04] focus:border-[var(--color-pib-accent)] disabled:opacity-60"
                   >
-                    {orgs.map(org => (
+                    {workspaceOptions.map(org => (
                       <option key={org.id} value={org.id}>
                         {org.name}
                       </option>
@@ -747,7 +764,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
           {collapsed ? (
             <div className="flex flex-col items-center gap-2">
               <Link
-                href="/portal/settings/profile"
+                href={scopedShellHref('/portal/settings/profile')}
                 title="My profile"
                 className="w-8 h-8 rounded-full bg-[var(--color-pib-accent-soft)] border border-[var(--color-pib-line-strong)] flex items-center justify-center text-xs font-medium text-[var(--color-pib-accent-hover)] hover:ring-2 hover:ring-[var(--color-pib-accent)]/40 transition-all"
               >
@@ -760,13 +777,13 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
           ) : (
             <div className="flex items-center gap-3 px-2 py-2 rounded-lg">
               <Link
-                href="/portal/settings/profile"
+                href={scopedShellHref('/portal/settings/profile')}
                 title="My profile"
                 className="w-8 h-8 rounded-full bg-[var(--color-pib-accent-soft)] border border-[var(--color-pib-line-strong)] flex items-center justify-center text-xs font-medium text-[var(--color-pib-accent-hover)] hover:ring-2 hover:ring-[var(--color-pib-accent)]/40 transition-all shrink-0"
               >
                 {initials || '·'}
               </Link>
-              <Link href="/portal/settings/profile" className="flex-1 min-w-0 rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--color-pib-accent)]/40">
+              <Link href={scopedShellHref('/portal/settings/profile')} className="flex-1 min-w-0 rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--color-pib-accent)]/40">
                 <p className="text-xs font-medium truncate">{profileName || name || 'Client'}</p>
                 <p className="text-[11px] text-[var(--color-pib-text-muted)] truncate">{email}</p>
               </Link>

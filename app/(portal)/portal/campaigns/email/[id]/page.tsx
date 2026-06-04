@@ -8,6 +8,7 @@ import type { Variant } from '@/lib/ab-testing/types'
 import type { EmailDomain } from '@/lib/email/domains'
 import {
   resolvePortalCampaignUser,
+  scopedPortalHref,
   scopeFromSearchParams,
   type PortalCampaignSearchParams,
 } from '../../portalCampaignScope'
@@ -133,7 +134,7 @@ export default async function PortalEmailCampaignPage({
     <div className="space-y-10 pb-16" style={themeStyle}>
       <header className="space-y-5">
         <Link
-          href="/portal/campaigns"
+          href={scopedPortalHref('/portal/campaigns', scope)}
           className="inline-flex items-center gap-1 text-sm text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors"
         >
           <span className="material-symbols-outlined text-base">arrow_back</span>
