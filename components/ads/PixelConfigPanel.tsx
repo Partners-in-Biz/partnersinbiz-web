@@ -12,6 +12,13 @@ export function PixelConfigPanel({ orgId, orgSlug: _orgSlug, initialConfigs }: P
   const [configs, setConfigs] = useState(initialConfigs)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
+  const [actionError, setActionError] = useState<string | null>(null)
+  const [message, setMessage] = useState<string | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState<{
+    id: string
+    name: string
+  } | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   // New config form state
   const [newName, setNewName] = useState('')
@@ -34,6 +41,8 @@ export function PixelConfigPanel({ orgId, orgSlug: _orgSlug, initialConfigs }: P
   } | null>(null)
 
   async function createConfig() {
+    setActionError(null)
+    setMessage(null)
     const res = await fetch('/api/v1/ads/pixel-configs', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-Org-Id': orgId },
@@ -49,8 +58,12 @@ export function PixelConfigPanel({ orgId, orgSlug: _orgSlug, initialConfigs }: P
       }),
     })
     const body = await res.json()
-    if (!body.success) { alert(body.error); return }
+    if (!body.success) {
+      setActionError(body.error ?? `HTTP ${res.status}`)
+      return
+    }
     setConfigs((c) => [...c, body.data])
+    setMessage(`Pixel config ${body.data?.name ?? newName} created.`)
     setCreating(false)
     setNewName('')
     setNewPropertyId('')
@@ -59,6 +72,8 @@ export function PixelConfigPanel({ orgId, orgSlug: _orgSlug, initialConfigs }: P
   }
 
   function startEdit(c: AdPixelConfig) {
+    setActionError(null)
+    setMessage(null)
     setEditingId(c.id)
     setEditMetaPixelId(c.meta?.pixelId ?? '')
     setEditMetaToken('') // Never display existing token
@@ -66,6 +81,8 @@ export function PixelConfigPanel({ orgId, orgSlug: _orgSlug, initialConfigs }: P
   }
 
   async function saveEdit(id: string) {
+    setActionError(null)
+    setMessage(null)
     const patch: Record<string, unknown> = {
       meta: { pixelId: editMetaPixelId, testEventCode: editTestCode || undefined },
     }
@@ -76,22 +93,43 @@ export function PixelConfigPanel({ orgId, orgSlug: _orgSlug, initialConfigs }: P
       body: JSON.stringify(patch),
     })
     const body = await res.json()
-    if (!body.success) { alert(body.error); return }
+    if (!body.success) {
+      setActionError(body.error ?? `HTTP ${res.status}`)
+      return
+    }
     setConfigs((cs) => cs.map((c) => (c.id === id ? body.data : c)))
+    setMessage(`Pixel config ${body.data?.name ?? 'updated'} saved.`)
     setEditingId(null)
   }
 
-  async function deleteConfig(id: string) {
-    if (!confirm('Delete this pixel config?')) return
+  function requestDelete(id: string, name: string) {
+    setActionError(null)
+    setMessage(null)
+    setConfirmDelete({ id, name })
+  }
+
+  async function deleteConfig(id: string, name: string) {
+    setDeletingId(id)
+    setActionError(null)
+    setMessage(null)
     const res = await fetch(`/api/v1/ads/pixel-configs/${id}`, {
       method: 'DELETE',
       headers: { 'X-Org-Id': orgId },
     })
     const body = await res.json()
-    if (body.success) setConfigs((cs) => cs.filter((c) => c.id !== id))
+    setDeletingId(null)
+    if (!body.success) {
+      setActionError(body.error ?? `HTTP ${res.status}`)
+      return
+    }
+    setConfirmDelete(null)
+    setConfigs((cs) => cs.filter((c) => c.id !== id))
+    setMessage(`Pixel config ${name} deleted.`)
   }
 
   async function sendTest(id: string, code: string) {
+    setActionError(null)
+    setMessage(null)
     setTesting(id)
     setTestResult(null)
     const res = await fetch(`/api/v1/ads/pixel-configs/${id}/test-event`, {
@@ -109,6 +147,56 @@ export function PixelConfigPanel({ orgId, orgSlug: _orgSlug, initialConfigs }: P
 
   return (
     <section className="space-y-6">
+      {confirmDelete && (
+        <div
+          role="alertdialog"
+          aria-modal="true"
+          aria-label={`Delete pixel config ${confirmDelete.name} for ${_orgSlug}?`}
+          className="rounded-lg border border-red-400/30 bg-red-400/10 p-4"
+        >
+          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+            <div>
+              <h2 className="font-semibold text-red-100">Delete pixel config?</h2>
+              <p className="mt-1 text-sm text-red-100/80">
+                This removes the conversion tracking configuration for this workspace. Existing campaign history stays in PiB.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                className="rounded-md border border-red-100/30 px-3 py-2 text-xs font-medium text-red-50 hover:bg-red-50/10 disabled:cursor-not-allowed disabled:opacity-50"
+                onClick={() => setConfirmDelete(null)}
+                disabled={deletingId === confirmDelete.id}
+              >
+                Keep pixel config
+              </button>
+              <button
+                type="button"
+                className="rounded-md bg-red-300 px-3 py-2 text-xs font-medium text-red-950 hover:bg-red-200 disabled:cursor-not-allowed disabled:opacity-60"
+                onClick={() => deleteConfig(confirmDelete.id, confirmDelete.name)}
+                disabled={deletingId === confirmDelete.id}
+              >
+                {deletingId === confirmDelete.id
+                  ? 'Deleting...'
+                  : `Confirm delete pixel config ${confirmDelete.name} for ${_orgSlug}`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {(message || actionError) && (
+        <div
+          className={`rounded-lg border px-4 py-3 text-sm ${
+            actionError
+              ? 'border-red-400/30 bg-red-400/10 text-red-200'
+              : 'border-emerald-400/30 bg-emerald-400/10 text-emerald-200'
+          }`}
+        >
+          {actionError ?? message}
+        </div>
+      )}
+
       <header className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Pixel &amp; Conversion API</h1>
@@ -176,7 +264,11 @@ export function PixelConfigPanel({ orgId, orgSlug: _orgSlug, initialConfigs }: P
       ) : (
         <ul className="space-y-3">
           {configs.map((c) => (
-            <li key={c.id} className="rounded border border-white/10 p-4">
+            <li
+              key={c.id}
+              className="rounded border border-white/10 p-4"
+              aria-label={`Pixel config ${c.name}`}
+            >
               {editingId === c.id ? (
                 <div className="space-y-3">
                   <div className="font-medium">{c.name}</div>
@@ -230,9 +322,11 @@ export function PixelConfigPanel({ orgId, orgSlug: _orgSlug, initialConfigs }: P
                       </button>
                       <button
                         className="text-xs text-red-300 underline"
-                        onClick={() => deleteConfig(c.id)}
+                        aria-label={`Delete pixel config ${c.name} for ${_orgSlug}`}
+                        onClick={() => requestDelete(c.id, c.name)}
+                        disabled={deletingId === c.id}
                       >
-                        Delete
+                        {deletingId === c.id ? 'Deleting...' : 'Delete'}
                       </button>
                     </div>
                   </div>
