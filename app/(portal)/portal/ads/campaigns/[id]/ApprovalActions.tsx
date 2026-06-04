@@ -1,23 +1,27 @@
 'use client'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { scopedApiPath } from '@/lib/portal/scoped-routing'
 
 interface Props {
   campaignId: string
+  orgId?: string
 }
 
-export function ApprovalActions({ campaignId }: Props) {
+export function ApprovalActions({ campaignId, orgId }: Props) {
   const router = useRouter()
   const [busy, setBusy] = useState<'approve' | 'reject' | null>(null)
   const [showReject, setShowReject] = useState(false)
   const [reason, setReason] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const approveUrl = scopedApiPath(`/api/v1/portal/ads/campaigns/${campaignId}/approve`, { orgId })
+  const rejectUrl = scopedApiPath(`/api/v1/portal/ads/campaigns/${campaignId}/reject`, { orgId })
 
   async function approve() {
     setBusy('approve')
     setError(null)
     try {
-      const res = await fetch(`/api/v1/portal/ads/campaigns/${campaignId}/approve`, {
+      const res = await fetch(approveUrl, {
         method: 'POST',
       })
       const body = await res.json()
@@ -42,7 +46,7 @@ export function ApprovalActions({ campaignId }: Props) {
     setBusy('reject')
     setError(null)
     try {
-      const res = await fetch(`/api/v1/portal/ads/campaigns/${campaignId}/reject`, {
+      const res = await fetch(rejectUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reason: reason.trim() }),

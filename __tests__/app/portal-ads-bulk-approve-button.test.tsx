@@ -61,4 +61,27 @@ describe('Portal ads bulk approval button', () => {
     confirmSpy.mockRestore()
     alertSpy.mockRestore()
   })
+
+  it('carries the selected company org into bulk approval requests', async () => {
+    ;(global.fetch as jest.Mock).mockImplementationOnce((input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input) === '/api/v1/portal/ads/campaigns/bulk-approve?orgId=lumen-org' && init?.method === 'POST') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: { approved: [{ id: 'campaign-1' }], failed: [] },
+          }),
+        } as Response)
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${String(input)}`))
+    })
+
+    render(<BulkApproveButton count={1} orgId="lumen-org" />)
+    fireEvent.click(screen.getByRole('button', { name: 'Approve all pending campaign (1)' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm approve 1 pending campaign' }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/portal/ads/campaigns/bulk-approve?orgId=lumen-org', { method: 'POST' })
+    })
+  })
 })

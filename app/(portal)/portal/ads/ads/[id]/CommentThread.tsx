@@ -5,6 +5,7 @@
 // Inline-comment thread for an ad. Top-level + 1-level replies.
 // Optimistic? No — POST then refetch. Keeps state simple.
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { scopedApiPath } from '@/lib/portal/scoped-routing'
 
 interface AdComment {
   id: string
@@ -23,6 +24,7 @@ interface AdComment {
 
 interface CommentThreadProps {
   adId: string
+  orgId?: string
   currentUserUid: string
   isAdmin: boolean
 }
@@ -42,7 +44,7 @@ function relativeTime(ts?: { seconds?: number; nanoseconds?: number }): string {
   return `${Math.floor(diff / 86_400_000)}d ago`
 }
 
-export function CommentThread({ adId, currentUserUid, isAdmin }: CommentThreadProps) {
+export function CommentThread({ adId, orgId, currentUserUid, isAdmin }: CommentThreadProps) {
   const [comments, setComments] = useState<AdComment[]>([])
   const [loading, setLoading] = useState(true)
   const [text, setText] = useState('')
@@ -51,7 +53,7 @@ export function CommentThread({ adId, currentUserUid, isAdmin }: CommentThreadPr
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const apiBase = `/api/v1/portal/ads/ads/${adId}/comments`
+  const apiBase = scopedApiPath(`/api/v1/portal/ads/ads/${adId}/comments`, { orgId })
 
   const refresh = useCallback(async () => {
     setLoading(true)

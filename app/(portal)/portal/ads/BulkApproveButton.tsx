@@ -1,20 +1,22 @@
 'use client'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { scopedApiPath } from '@/lib/portal/scoped-routing'
 
-export function BulkApproveButton({ count }: { count: number }) {
+export function BulkApproveButton({ count, orgId }: { count: number; orgId?: string }) {
   const router = useRouter()
   const [busy, setBusy] = useState(false)
   const [confirming, setConfirming] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const bulkApproveUrl = scopedApiPath('/api/v1/portal/ads/campaigns/bulk-approve', { orgId })
 
   async function approveAll() {
     setBusy(true)
     setError(null)
     setNotice(null)
     try {
-      const res = await fetch('/api/v1/portal/ads/campaigns/bulk-approve', { method: 'POST' })
+      const res = await fetch(bulkApproveUrl, { method: 'POST' })
       const body = await res.json()
       if (!body.success) throw new Error(body.error ?? `HTTP ${res.status}`)
       const approved = body.data?.approved ?? []

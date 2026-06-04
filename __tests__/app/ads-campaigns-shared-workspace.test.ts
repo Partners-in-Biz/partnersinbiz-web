@@ -1,0 +1,30 @@
+import { readFileSync } from 'fs'
+import path from 'path'
+
+const root = process.cwd()
+
+function readAppFile(filePath: string) {
+  return readFileSync(path.join(root, filePath), 'utf8')
+}
+
+describe('ads campaign workspace reuse', () => {
+  it('renders portal and admin ads campaign lists through the same workspace component', () => {
+    const portal = readAppFile('app/(portal)/portal/ads/page.tsx')
+    const admin = readAppFile('app/(admin)/admin/org/[slug]/ads/campaigns/page.tsx')
+
+    expect(portal).toContain('@/components/ads/AdCampaignsWorkspace')
+    expect(admin).toContain('@/components/ads/AdCampaignsWorkspace')
+    expect(portal).not.toMatch(/function CampaignRow|STATUS_COLOR/)
+    expect(admin).not.toMatch(/STATUS_TINT/)
+  })
+
+  it('renders portal and admin ads campaign details through the same workspace component', () => {
+    const portal = readAppFile('app/(portal)/portal/ads/campaigns/[id]/page.tsx')
+    const admin = readAppFile('app/(admin)/admin/org/[slug]/ads/campaigns/[id]/page.tsx')
+
+    expect(portal).toContain('@/components/ads/AdCampaignDetailWorkspace')
+    expect(admin).toContain('@/components/ads/AdCampaignDetailWorkspace')
+    expect(portal).not.toMatch(/Awaiting your approval|Ad sets ·/)
+    expect(admin).not.toMatch(/Awaiting client review|Ad sets \(/)
+  })
+})
