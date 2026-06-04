@@ -76,14 +76,24 @@ describe('admin campaign detail canonical cockpit route', () => {
     ).rejects.toThrow(`redirect:/admin/org/lumen-speeds/social/campaign-1?tab=${tab}`)
   })
 
+  it('redirects the legacy global admin research tab into the shared cockpit default tab', async () => {
+    const { default: LegacyResearchPage } = await import('@/app/(admin)/admin/campaigns/[id]/research/page')
+
+    await expect(
+      LegacyResearchPage({ params: Promise.resolve({ id: 'campaign-1' }) }),
+    ).rejects.toThrow('redirect:/admin/org/lumen-speeds/social/campaign-1')
+  })
+
   it('does not keep a second campaign detail UI on the global admin routes', () => {
     const globalCampaignDetail = source('app/(admin)/admin/campaigns/[id]/page.tsx')
     const globalCampaignBlogs = source('app/(admin)/admin/campaigns/[id]/blogs/page.tsx')
+    const globalCampaignResearch = source('app/(admin)/admin/campaigns/[id]/research/page.tsx')
     const globalCampaignSocial = source('app/(admin)/admin/campaigns/[id]/social/page.tsx')
     const globalCampaignVideos = source('app/(admin)/admin/campaigns/[id]/videos/page.tsx')
     const globalCampaignSources = [
       globalCampaignDetail,
       globalCampaignBlogs,
+      globalCampaignResearch,
       globalCampaignSocial,
       globalCampaignVideos,
     ]
