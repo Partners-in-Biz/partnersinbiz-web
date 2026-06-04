@@ -190,6 +190,45 @@ describe('briefing feed', () => {
     })
   })
 
+  it('surfaces software-build evidence rows on task briefing metadata', async () => {
+    collections.organizations = [makeDoc('org-1', { name: 'Client One', slug: 'client-one' })]
+    collections.projects = [makeDoc('project-1', { name: 'Platform Alignment', slug: 'platform-alignment' })]
+    collectionGroups.tasks = [
+      makeDoc('task-1', {
+        orgId: 'org-1',
+        projectId: 'project-1',
+        columnId: 'review',
+        title: 'Theo: link build evidence',
+        labels: ['software-build'],
+        sourceDocumentId: 'doc-123',
+        agentStatus: 'done',
+        agentOutput: {
+          artifacts: [
+            { type: 'commit', ref: 'abc1234', label: 'Development commit' },
+            { type: 'url', ref: 'https://partnersinbiz.online/admin/projects/project-1?taskId=task-1', label: 'Development task link' },
+          ],
+          summary: 'Verification passed: npm run lint -- --file components/briefing/BriefingControlDesk.tsx\nBlocker: production deploy remains separately gated.',
+        },
+        updatedAt: '2026-05-30T10:00:00.000Z',
+      }, 'projects/project-1/tasks/task-1'),
+    ]
+
+    const { buildBriefingFeed } = await import('@/lib/briefing/feed')
+    const feed = await buildBriefingFeed(
+      { uid: 'admin-1', role: 'admin', allowedOrgIds: ['org-1'] },
+      { limit: 10, sourceType: 'task' },
+    )
+
+    const item = feed.items[0]
+    expect(item.metadata?.softwareBuildEvidence).toEqual(expect.arrayContaining([
+      expect.objectContaining({ kind: 'commit', value: 'abc1234' }),
+      expect.objectContaining({ kind: 'verification', value: 'npm run lint -- --file components/briefing/BriefingControlDesk.tsx' }),
+      expect.objectContaining({ kind: 'link', label: 'Development task link' }),
+      expect.objectContaining({ kind: 'document', label: 'Related doc', value: 'doc-123' }),
+      expect.objectContaining({ kind: 'blocker', value: 'Blocker: production deploy remains separately gated.' }),
+    ]))
+  })
+
   it('filters cards a user has marked handled from the live control desk feed', async () => {
     collectionGroups.tasks = [
       makeDoc('task-1', {

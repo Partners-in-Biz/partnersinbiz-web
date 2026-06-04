@@ -22,6 +22,15 @@ const briefingItem = {
     taskId: 'task-1',
     taskTitle: 'Update homepage',
   },
+  metadata: {
+    softwareBuildEvidence: [
+      { kind: 'commit', label: 'Development commit', value: 'abc1234' },
+      { kind: 'verification', label: 'Verification', value: 'npm run lint -- --file components/briefing/BriefingControlDesk.tsx' },
+      { kind: 'link', label: 'Development preview', value: 'https://partnersinbiz.online/admin/projects/project-1?taskId=task-1', href: 'https://partnersinbiz.online/admin/projects/project-1?taskId=task-1' },
+      { kind: 'document', label: 'Related doc', value: 'doc-123', href: '/admin/documents/doc-123' },
+      { kind: 'blocker', label: 'Blocker', value: 'Blocker: production deploy remains separately gated.' },
+    ],
+  },
   occurredAt: '2026-05-31T10:00:00.000Z',
 }
 
@@ -1277,6 +1286,12 @@ describe('BriefingControlDesk', () => {
     expect(screen.getByLabelText('Live briefing cards')).toHaveClass('xl:overflow-y-auto')
     expect(screen.getByRole('button', { name: /filter to acme holdings account/i })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /open source/i })).toHaveAttribute('href', '/portal/projects/project-1?taskId=task-1')
+    expect(screen.getByLabelText('Software build evidence')).toBeInTheDocument()
+    expect(screen.getAllByText('Development commit').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('abc1234').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('npm run lint -- --file components/briefing/BriefingControlDesk.tsx').length).toBeGreaterThan(0)
+    expect(screen.getByRole('link', { name: 'doc-123' })).toHaveAttribute('href', '/admin/documents/doc-123')
+    expect(screen.getByText('Blocker: production deploy remains separately gated.')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /^unblock$/i })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /^approve$/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /send back to agent/i })).toBeInTheDocument()

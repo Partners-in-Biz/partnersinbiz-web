@@ -10,6 +10,13 @@ interface OrgSummary {
   slug?: string
 }
 
+interface SoftwareBuildEvidenceRow {
+  kind: 'commit' | 'verification' | 'link' | 'document' | 'blocker'
+  label: string
+  value: string
+  href?: string
+}
+
 interface BriefingCard {
   id: string
   orgId: string
@@ -269,6 +276,19 @@ function sourceHref(item: BriefingCard, mode: Mode) {
   if (item.context.dealId) return `/portal/deals/${encodeURIComponent(item.context.dealId)}`
   if (item.source.type === 'report' && item.source.url) return item.source.url
   return item.source.url || null
+}
+
+function softwareBuildEvidenceRows(item: BriefingCard): SoftwareBuildEvidenceRow[] {
+  const rows = item.metadata?.softwareBuildEvidence
+  if (!Array.isArray(rows)) return []
+  return rows.filter((row): row is SoftwareBuildEvidenceRow => {
+    if (!row || typeof row !== 'object') return false
+    const candidate = row as Record<string, unknown>
+    return typeof candidate.kind === 'string'
+      && typeof candidate.label === 'string'
+      && typeof candidate.value === 'string'
+      && (candidate.href === undefined || typeof candidate.href === 'string')
+  })
 }
 
 function adminSourceHref(item: BriefingCard) {
@@ -1992,6 +2012,15 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                       {item.context.projectName || item.context.projectId ? <span>Project: {titledId(item.context.projectName, item.context.projectId)}</span> : null}
                       {item.context.taskTitle || item.context.taskId ? <span>Task: {titledId(item.context.taskTitle, item.context.taskId)}</span> : null}
                     </div>
+                    {softwareBuildEvidenceRows(item).length ? (
+                      <div className="mt-3 grid gap-1 rounded-lg border border-white/10 bg-white/[0.03] p-2 text-xs text-on-surface-variant" aria-label={`Software build evidence for ${item.title}`}>
+                        {softwareBuildEvidenceRows(item).slice(0, 4).map((row) => (
+                          <span key={`${row.kind}:${row.label}:${row.value}`} className="truncate">
+                            <span className="font-medium text-on-surface">{row.label}:</span> {row.value}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
                   </button>
                 ))
               )}
@@ -2601,6 +2630,26 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                       onChange={(event) => setAdCampaignChangeText(event.target.value)}
                       placeholder="Tell the ads team what must change before launch..."
                     />
+                  </div>
+                ) : null}
+
+                {softwareBuildEvidenceRows(selected).length ? (
+                  <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3" aria-label="Software build evidence">
+                    <p className="text-xs font-medium text-on-surface-variant">Software build evidence</p>
+                    <dl className="mt-3 space-y-2 text-sm">
+                      {softwareBuildEvidenceRows(selected).map((row) => (
+                        <div key={`${row.kind}:${row.label}:${row.value}`}>
+                          <dt className="text-on-surface-variant">{row.label}</dt>
+                          <dd className={row.kind === 'blocker' ? 'text-amber-100' : 'text-on-surface'}>
+                            {row.href ? (
+                              <a className="break-all underline-offset-2 hover:underline" href={row.href} target="_blank" rel="noopener noreferrer">{row.value}</a>
+                            ) : (
+                              <span className="break-all">{row.value}</span>
+                            )}
+                          </dd>
+                        </div>
+                      ))}
+                    </dl>
                   </div>
                 ) : null}
 

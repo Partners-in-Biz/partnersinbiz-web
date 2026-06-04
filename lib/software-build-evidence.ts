@@ -19,15 +19,13 @@ export interface SoftwareBuildEvidenceSource {
   sourceDocumentId?: unknown
   sourceSpecVersion?: unknown
   approvalGateTaskId?: unknown
-  agentInput?: {
-    context?: Record<string, unknown> | null
-    constraints?: unknown
-  } | null
-  agentOutput?: {
-    summary?: unknown
-    artifacts?: unknown
-  } | null
+  agentInput?: unknown
+  agentOutput?: unknown
   evidence?: unknown
+}
+
+function objectValue(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
 }
 
 function compact(value: unknown): string | null {
@@ -96,9 +94,11 @@ function pushStringArrayRows(rows: SoftwareBuildEvidenceRow[], value: unknown, k
 
 export function getSoftwareBuildEvidenceRows(source: SoftwareBuildEvidenceSource): SoftwareBuildEvidenceRow[] {
   const rows: SoftwareBuildEvidenceRow[] = []
-  const context = source.agentInput?.context ?? {}
+  const agentInput = objectValue(source.agentInput)
+  const agentOutput = objectValue(source.agentOutput)
+  const context = objectValue(agentInput.context)
 
-  const artifacts = Array.isArray(source.agentOutput?.artifacts) ? source.agentOutput?.artifacts as Artifact[] : []
+  const artifacts = Array.isArray(agentOutput.artifacts) ? agentOutput.artifacts as Artifact[] : []
   for (const artifact of artifacts) {
     const type = compact(artifact.type)?.toLowerCase() ?? ''
     const ref = artifactRef(artifact)
@@ -136,7 +136,7 @@ export function getSoftwareBuildEvidenceRows(source: SoftwareBuildEvidenceSource
     pushStringArrayRows(rows, evidence.blockers, 'blocker', 'Blocker')
   }
 
-  const summary = compact(source.agentOutput?.summary)
+  const summary = compact(agentOutput.summary)
   if (summary) {
     for (const command of extractCommandFragments(summary)) {
       rows.push({ kind: 'verification', label: 'Verification', value: command })

@@ -21,8 +21,8 @@ describe('software build evidence rows', () => {
 
     expect(rows).toEqual(expect.arrayContaining([
       expect.objectContaining({ kind: 'commit', label: 'Development commit', value: 'abc1234' }),
-      expect.objectContaining({ kind: 'verification', value: 'npm run lint -- --file components/briefing/BriefingControlDesk' }),
-      expect.objectContaining({ kind: 'verification', value: 'npx jest __tests__/components/briefing/BriefingControlDesk' }),
+      expect.objectContaining({ kind: 'verification', value: 'npm run lint -- --file components/briefing/BriefingControlDesk.tsx' }),
+      expect.objectContaining({ kind: 'verification', value: 'npx jest __tests__/components/briefing/BriefingControlDesk.test.tsx' }),
       expect.objectContaining({ kind: 'link', label: 'Development task link', href: 'https://partnersinbiz.online/admin/projects/project-1?taskId=task-1' }),
       expect.objectContaining({ kind: 'document', label: 'Related doc', value: 'doc-123', href: '/admin/documents/doc-123' }),
       expect.objectContaining({ kind: 'document', label: 'Spec doc', value: 'spec-999', href: '/admin/documents/spec-999' }),
