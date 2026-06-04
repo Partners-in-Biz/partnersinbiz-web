@@ -4,7 +4,10 @@ import { redirect } from 'next/navigation'
 import { adminDb } from '@/lib/firebase/admin'
 import { getCurrentAdminUserFromCookies } from '@/lib/api/currentAdmin'
 import { restrictedAdminOrgIds } from '@/lib/api/platformAdmin'
-import { CampaignProgramCard } from '@/components/campaigns/CampaignProgramCard'
+import {
+  CampaignsWorkspace,
+  type CampaignWorkspaceRecord,
+} from '@/components/campaigns/CampaignsWorkspace'
 
 export const dynamic = 'force-dynamic'
 
@@ -51,51 +54,40 @@ export default async function CampaignsIndexPage() {
       const at = a.createdAt ? new Date(a.createdAt).getTime() : 0
       const bt = b.createdAt ? new Date(b.createdAt).getTime() : 0
       return bt - at
-    })
+    }) as CampaignWorkspaceRecord[]
 
   return (
-    <div className="space-y-6">
-      <header className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Content campaigns</h1>
-          <p className="text-sm text-[var(--color-pib-text-muted)]">
-            Multi-channel content runs — research, brand, blogs, videos, 12 weeks of social.
+    <CampaignsWorkspace
+      surface="admin"
+      eyebrow="Platform"
+      description="Multi-org content campaigns across research, brand, blogs, videos, and social."
+      contentCampaigns={campaigns}
+      emailPrograms={[]}
+      broadcasts={[]}
+      adCampaigns={[]}
+      requests={[]}
+      visibleSections={['content']}
+      contentMeta={(campaign) => (
+        <div className="space-y-1">
+          <p>
+            {String(campaign.clientType ?? '—')} · org: <code>{String(campaign.orgId ?? '—')}</code>
           </p>
-        </div>
-      </header>
-
-      {campaigns.length === 0 ? (
-        <div className="card p-10 text-center text-sm text-[var(--color-pib-text-muted)]">
-          No campaigns yet. Run the <code>content-engine</code> skill to produce one — or{' '}
-          <code>POST /api/v1/campaigns</code> with a name + clientType to create a shell.
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-          {campaigns.map((c: any) => (
-            <CampaignProgramCard
-              key={c.id}
-              campaign={c}
-              href={`/admin/campaigns/${c.id}`}
-              meta={
-                <div className="space-y-1">
-                  <p>
-                    {c.clientType ?? '—'} · org: <code>{c.orgId ?? '—'}</code>
-                  </p>
-                  {c.calendar && Array.isArray(c.calendar) && (
-                    <p>{c.calendar.length} planned slots</p>
-                  )}
-                  {c.shareEnabled !== false && c.shareToken && (
-                    <p className="text-[var(--color-pib-accent)] truncate">
-                      /c/{c.shareToken.slice(0, 12)}…
-                    </p>
-                  )}
-                </div>
-              }
-            />
-          ))}
+          {Array.isArray(campaign.calendar) && (
+            <p>{campaign.calendar.length} planned slots</p>
+          )}
+          {campaign.shareEnabled !== false && typeof campaign.shareToken === 'string' && (
+            <p className="text-[var(--color-pib-accent)] truncate">
+              /c/{campaign.shareToken.slice(0, 12)}…
+            </p>
+          )}
         </div>
       )}
-    </div>
+      hrefs={{
+        content: (campaign) => `/admin/campaigns/${campaign.id}`,
+        email: (campaign) => `/admin/campaigns/${campaign.id}`,
+        broadcast: (broadcast) => `/admin/broadcasts/${broadcast.id}`,
+        ad: (campaign) => `/admin/ads/campaigns/${campaign.id}`,
+      }}
+    />
   )
 }

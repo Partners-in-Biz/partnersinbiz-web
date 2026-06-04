@@ -44,6 +44,8 @@ type CampaignsWorkspaceHrefs = {
   ad: (campaign: CampaignWorkspaceRecord) => string
 }
 
+type CampaignsWorkspaceSection = 'requests' | 'content' | 'email' | 'ads' | 'broadcasts'
+
 type CampaignsWorkspaceProps = {
   surface: 'admin' | 'portal'
   eyebrow: string
@@ -58,6 +60,8 @@ type CampaignsWorkspaceProps = {
   actions?: ReactNode
   workflowPanel?: ReactNode
   requestComposer?: ReactNode
+  contentMeta?: (campaign: CampaignWorkspaceRecord) => ReactNode
+  visibleSections?: CampaignsWorkspaceSection[]
   brandStyle?: CSSProperties
 }
 
@@ -131,6 +135,8 @@ function campaignTitle(record: CampaignWorkspaceRecord): string {
   return record.name ?? record.title ?? 'Untitled campaign'
 }
 
+const DEFAULT_SECTIONS: CampaignsWorkspaceSection[] = ['requests', 'content', 'email', 'ads', 'broadcasts']
+
 export function CampaignsWorkspace({
   surface,
   eyebrow,
@@ -145,11 +151,24 @@ export function CampaignsWorkspace({
   actions,
   workflowPanel,
   requestComposer,
+  contentMeta,
+  visibleSections = DEFAULT_SECTIONS,
   brandStyle,
 }: CampaignsWorkspaceProps) {
-  const activeCount = [...contentCampaigns, ...emailPrograms, ...broadcasts, ...adCampaigns].filter(isActiveProgram).length
-  const reviewCount = [...contentCampaigns, ...adCampaigns].filter(needsReview).length
-  const totalCount = contentCampaigns.length + emailPrograms.length + broadcasts.length + adCampaigns.length
+  const visible = new Set(visibleSections)
+  const visibleContentCampaigns = visible.has('content') ? contentCampaigns : []
+  const visibleEmailPrograms = visible.has('email') ? emailPrograms : []
+  const visibleBroadcasts = visible.has('broadcasts') ? broadcasts : []
+  const visibleAdCampaigns = visible.has('ads') ? adCampaigns : []
+  const activeCount = [
+    ...visibleContentCampaigns,
+    ...visibleEmailPrograms,
+    ...visibleBroadcasts,
+    ...visibleAdCampaigns,
+  ].filter(isActiveProgram).length
+  const reviewCount = [...visibleContentCampaigns, ...visibleAdCampaigns].filter(needsReview).length
+  const totalCount =
+    visibleContentCampaigns.length + visibleEmailPrograms.length + visibleBroadcasts.length + visibleAdCampaigns.length
 
   return (
     <div className="space-y-10" style={brandStyle}>
@@ -165,88 +184,103 @@ export function CampaignsWorkspace({
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatTile label="Active programs" value={String(activeCount)} icon="bolt" />
         <StatTile label="Needs review" value={String(reviewCount)} icon="rate_review" emphasis={reviewCount > 0} />
-        <StatTile label="Client requests" value={String(requests.length)} icon="assignment_add" />
+        {visible.has('requests') && (
+          <StatTile label="Client requests" value={String(requests.length)} icon="assignment_add" />
+        )}
         <StatTile label="Total campaigns" value={String(totalCount)} icon="hub" />
       </section>
 
       {workflowPanel}
       {requestComposer}
 
-      <CampaignRequests requests={requests} />
+      {visible.has('requests') && <CampaignRequests requests={requests} />}
 
-      <CampaignSection title="Content & Social" subhead="Campaign cockpit, social posts, blogs, and video assets.">
-        {contentCampaigns.length === 0 ? (
-          <EmptyState
-            icon="palette"
-            title="No content campaigns yet"
-            body={surface === 'admin' ? 'Create one from the content engine workflow.' : 'Your team will let you know when content is ready to review.'}
-          />
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {contentCampaigns.map((campaign) => (
-              <CampaignProgramCard key={campaign.id} campaign={campaign} href={hrefs.content(campaign)} />
-            ))}
-          </div>
-        )}
-      </CampaignSection>
-
-      <CampaignSection title="Email Programs" subhead="Sequence-backed campaigns linked to CRM segments and contacts.">
-        {emailPrograms.length === 0 ? (
-          <EmptyState
-            icon="forward_to_inbox"
-            title="No email programs yet"
-            body={surface === 'admin' ? 'Use quick create to start a draft email campaign.' : 'Speak to your account manager to get started.'}
-          />
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {emailPrograms.map((campaign) => (
-              <EmailCampaignCard key={campaign.id} campaign={campaign} href={hrefs.email(campaign)} />
-            ))}
-          </div>
-        )}
-      </CampaignSection>
-
-      <CampaignSection title="Ad Campaigns" subhead="Paid campaign shells, review state, launch state, and platform sync.">
-        {adCampaigns.length === 0 ? (
-          <EmptyState
-            icon="ads_click"
-            title="No ad campaigns yet"
-            body={surface === 'admin' ? 'Build the first ad campaign from the Ads area.' : 'Your paid campaign drafts will appear here for review.'}
-          />
-        ) : (
-          <div className="pib-card-section">
-            {adCampaigns.map((campaign) => (
-              <AdCampaignRow key={campaign.id} campaign={campaign} href={hrefs.ad(campaign)} />
-            ))}
-          </div>
-        )}
-      </CampaignSection>
-
-      <CampaignSection title="Broadcasts" subhead="One-off email and SMS sends.">
-        {broadcasts.length === 0 ? (
-          <EmptyState
-            icon="send"
-            title="No broadcasts yet"
-            body={surface === 'admin' ? 'Create broadcasts from the broadcast workspace.' : 'One-off campaign sends will appear here.'}
-          />
-        ) : (
-          <div className="pib-card-section">
-            <div className="hidden md:grid grid-cols-12 gap-4 px-5 py-3 border-b border-[var(--color-pib-line)] bg-white/[0.02]">
-              <p className="col-span-5 eyebrow !text-[10px]">Subject</p>
-              <p className="col-span-2 eyebrow !text-[10px]">Status</p>
-              <p className="col-span-2 eyebrow !text-[10px]">Sent</p>
-              <p className="col-span-1 eyebrow !text-[10px] text-right">Audience</p>
-              <p className="col-span-1 eyebrow !text-[10px] text-right">Open</p>
-              <p className="col-span-1 eyebrow !text-[10px] text-right">Click</p>
-            </div>
-            <div className="divide-y divide-[var(--color-pib-line)]">
-              {broadcasts.map((broadcast) => (
-                <BroadcastRow key={broadcast.id} broadcast={broadcast} href={hrefs.broadcast(broadcast)} />
+      {visible.has('content') && (
+        <CampaignSection title="Content & Social" subhead="Campaign cockpit, social posts, blogs, and video assets.">
+          {contentCampaigns.length === 0 ? (
+            <EmptyState
+              icon="palette"
+              title="No content campaigns yet"
+              body={surface === 'admin' ? 'Create one from the content engine workflow.' : 'Your team will let you know when content is ready to review.'}
+            />
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {contentCampaigns.map((campaign) => (
+                <CampaignProgramCard
+                  key={campaign.id}
+                  campaign={campaign}
+                  href={hrefs.content(campaign)}
+                  meta={contentMeta?.(campaign)}
+                />
               ))}
             </div>
-          </div>
-        )}
-      </CampaignSection>
+          )}
+        </CampaignSection>
+      )}
+
+      {visible.has('email') && (
+        <CampaignSection title="Email Programs" subhead="Sequence-backed campaigns linked to CRM segments and contacts.">
+          {emailPrograms.length === 0 ? (
+            <EmptyState
+              icon="forward_to_inbox"
+              title="No email programs yet"
+              body={surface === 'admin' ? 'Use quick create to start a draft email campaign.' : 'Speak to your account manager to get started.'}
+            />
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {emailPrograms.map((campaign) => (
+                <EmailCampaignCard key={campaign.id} campaign={campaign} href={hrefs.email(campaign)} />
+              ))}
+            </div>
+          )}
+        </CampaignSection>
+      )}
+
+      {visible.has('ads') && (
+        <CampaignSection title="Ad Campaigns" subhead="Paid campaign shells, review state, launch state, and platform sync.">
+          {adCampaigns.length === 0 ? (
+            <EmptyState
+              icon="ads_click"
+              title="No ad campaigns yet"
+              body={surface === 'admin' ? 'Build the first ad campaign from the Ads area.' : 'Your paid campaign drafts will appear here for review.'}
+            />
+          ) : (
+            <div className="pib-card-section">
+              {adCampaigns.map((campaign) => (
+                <AdCampaignRow key={campaign.id} campaign={campaign} href={hrefs.ad(campaign)} />
+              ))}
+            </div>
+          )}
+        </CampaignSection>
+      )}
+
+      {visible.has('broadcasts') && (
+        <CampaignSection title="Broadcasts" subhead="One-off email and SMS sends.">
+          {broadcasts.length === 0 ? (
+            <EmptyState
+              icon="send"
+              title="No broadcasts yet"
+              body={surface === 'admin' ? 'Create broadcasts from the broadcast workspace.' : 'One-off campaign sends will appear here.'}
+            />
+          ) : (
+            <div className="pib-card-section">
+              <div className="hidden md:grid grid-cols-12 gap-4 px-5 py-3 border-b border-[var(--color-pib-line)] bg-white/[0.02]">
+                <p className="col-span-5 eyebrow !text-[10px]">Subject</p>
+                <p className="col-span-2 eyebrow !text-[10px]">Status</p>
+                <p className="col-span-2 eyebrow !text-[10px]">Sent</p>
+                <p className="col-span-1 eyebrow !text-[10px] text-right">Audience</p>
+                <p className="col-span-1 eyebrow !text-[10px] text-right">Open</p>
+                <p className="col-span-1 eyebrow !text-[10px] text-right">Click</p>
+              </div>
+              <div className="divide-y divide-[var(--color-pib-line)]">
+                {broadcasts.map((broadcast) => (
+                  <BroadcastRow key={broadcast.id} broadcast={broadcast} href={hrefs.broadcast(broadcast)} />
+                ))}
+              </div>
+            </div>
+          )}
+        </CampaignSection>
+      )}
     </div>
   )
 }
