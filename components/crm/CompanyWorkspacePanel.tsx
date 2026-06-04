@@ -132,111 +132,6 @@ function adminActions(workspace: LinkedWorkspace): WorkspaceAction[] {
   ]
 }
 
-function portalActions(): WorkspaceAction[] {
-  return [
-    {
-      title: 'Marketing',
-      description: 'Growth command center for campaigns, social, ads, SEO, and channel planning.',
-      icon: 'campaign',
-      href: '/portal/marketing',
-    },
-    {
-      title: 'SEO',
-      description: 'SEO sprint, keywords, content, audits, pages, blog drafts, and performance.',
-      icon: 'travel_explore',
-      href: '/portal/seo',
-    },
-    {
-      title: 'Social',
-      description: 'Review, compose, calendar, history, vault, accounts, and social links.',
-      icon: 'diversity_3',
-      href: '/portal/social',
-    },
-    {
-      title: 'Ads',
-      description: 'Campaign approvals, ad activity, creatives, and performance review.',
-      icon: 'ads_click',
-      href: '/portal/ads',
-    },
-    {
-      title: 'Campaigns',
-      description: 'Client campaigns, broadcasts, email campaigns, and campaign reporting.',
-      icon: 'outgoing_mail',
-      href: '/portal/campaigns',
-    },
-    {
-      title: 'Research',
-      description: 'Research library, opportunity notes, market context, and client intelligence.',
-      icon: 'manage_search',
-      href: '/portal/research',
-    },
-    {
-      title: 'Reports',
-      description: 'Reports, CRM reporting, campaign outcomes, and leadership review.',
-      icon: 'bar_chart',
-      href: '/portal/reports',
-    },
-    {
-      title: 'Projects',
-      description: 'Project delivery, tasks, approvals, assets, and shared work context.',
-      icon: 'folder_managed',
-      href: '/portal/projects',
-    },
-    {
-      title: 'Documents',
-      description: 'Shared documents, proposals, reports, and approvals.',
-      icon: 'description',
-      href: '/portal/documents',
-    },
-    {
-      title: 'Branding',
-      description: 'Brand inputs, identity, voice, and reusable marketing context.',
-      icon: 'palette',
-      href: '/portal/branding',
-    },
-    {
-      title: 'Communications',
-      description: 'Conversations, messages, email, and client communication history.',
-      icon: 'forum',
-      href: '/portal/communications',
-    },
-    {
-      title: 'Capture sources',
-      description: 'Lead capture, imports, sources, and form attribution.',
-      icon: 'input',
-      href: '/portal/capture-sources',
-    },
-    {
-      title: 'Integrations',
-      description: 'Connected channels, services, and account integrations.',
-      icon: 'hub',
-      href: '/portal/integrations',
-    },
-    {
-      title: 'Email domains',
-      description: 'Sending domains, authentication, and email readiness.',
-      icon: 'alternate_email',
-      href: '/portal/email-domains',
-    },
-    {
-      title: 'Settings',
-      description: 'Organisation settings, permissions, automations, products, and webhooks.',
-      icon: 'settings',
-      href: '/portal/settings',
-    },
-    {
-      title: 'Wiki',
-      description: 'Client knowledge base, operating notes, and handoff context.',
-      icon: 'menu_book',
-      href: '/portal/wiki',
-    },
-  ]
-}
-
-function actionsFor(mode: WorkspaceMode, workspace: LinkedWorkspace) {
-  return mode === 'admin' ? adminActions(workspace) : portalActions()
-}
-
 export function CompanyWorkspacePanel({ companyName, mode, workspace }: CompanyWorkspacePanelProps) {
   if (!workspace) {
     return (
@@ -251,21 +146,22 @@ export function CompanyWorkspacePanel({ companyName, mode, workspace }: CompanyW
     )
   }
 
-  const actions = actionsFor(mode, workspace)
+  const actions = adminActions(workspace)
+  const eyebrow = mode === 'portal' ? 'Linked organisation workspace' : 'Organisation workspace'
 
   return (
     <div className="space-y-5">
       <div className="bento-card p-5">
         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
           <div>
-            <p className="eyebrow !text-[10px]">Organisation workspace</p>
+            <p className="eyebrow !text-[10px]">{eyebrow}</p>
             <h2 className="mt-2 text-2xl font-semibold text-[var(--color-pib-text)]">{workspace.name} workspace</h2>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--color-pib-text-muted)]">
               Run the client organisation work from this CRM company record. Work opened here stays inside the linked organisation workspace.
             </p>
           </div>
           <Link
-            href={mode === 'admin' ? adminOrgPath(workspace.slug, '/dashboard') : '/portal/dashboard'}
+            href={adminOrgPath(workspace.slug, '/dashboard')}
             aria-label={`Open ${workspace.name} dashboard for ${companyName}`}
             className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5"
           >

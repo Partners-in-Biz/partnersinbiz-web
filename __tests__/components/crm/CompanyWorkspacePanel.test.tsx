@@ -22,7 +22,7 @@ describe('CompanyWorkspacePanel', () => {
     expect(screen.getByRole('link', { name: 'Open documents workspace for Lumen' })).toHaveAttribute('href', '/admin/org/lumen-speeds/documents')
   })
 
-  it('uses portal routes when the company detail is inside the client portal', () => {
+  it('keeps linked company workspace cards scoped to the linked organisation when rendered from portal CRM', () => {
     render(
       <CompanyWorkspacePanel
         companyName="Lumen"
@@ -31,10 +31,10 @@ describe('CompanyWorkspacePanel', () => {
       />,
     )
 
-    expect(screen.getByRole('link', { name: 'Open marketing workspace for Lumen' })).toHaveAttribute('href', '/portal/marketing')
-    expect(screen.getByRole('link', { name: 'Open SEO workspace for Lumen' })).toHaveAttribute('href', '/portal/seo')
-    expect(screen.getByRole('link', { name: 'Open social workspace for Lumen' })).toHaveAttribute('href', '/portal/social')
-    expect(screen.getByRole('link', { name: 'Open ads workspace for Lumen' })).toHaveAttribute('href', '/portal/ads')
+    expect(screen.getByRole('link', { name: 'Open marketing workspace for Lumen' })).toHaveAttribute('href', '/admin/org/lumen-speeds/marketing')
+    expect(screen.getByRole('link', { name: 'Open SEO workspace for Lumen' })).toHaveAttribute('href', '/admin/org/lumen-speeds/seo')
+    expect(screen.getByRole('link', { name: 'Open social workspace for Lumen' })).toHaveAttribute('href', '/admin/org/lumen-speeds/social')
+    expect(screen.getByRole('link', { name: 'Open ads workspace for Lumen' })).toHaveAttribute('href', '/admin/org/lumen-speeds/ads/campaigns')
   })
 
   it('shows a relationship setup state when the company is not linked to an organisation', () => {
