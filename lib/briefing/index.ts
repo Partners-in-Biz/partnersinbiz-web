@@ -16,6 +16,7 @@ export { workspaceBrokerJobAdapter } from './adapters/workspaceBrokerJobAdapter'
 export { calendarEventAdapter } from './adapters/calendarEventAdapter'
 export { bookingAdapter } from './adapters/bookingAdapter'
 export { contactAdapter } from './adapters/contactAdapter'
+export { dealAdapter } from './adapters/dealAdapter'
 export { approvalAdapter, clientDocumentAdapter } from './adapters/approvalAdapter'
 export { notificationAdapter, activityAdapter } from './adapters/notificationAdapter'
 export { reportAdapter } from './adapters/reportAdapter'
@@ -46,6 +47,7 @@ import { workspaceBrokerJobAdapter } from './adapters/workspaceBrokerJobAdapter'
 import { calendarEventAdapter } from './adapters/calendarEventAdapter'
 import { bookingAdapter } from './adapters/bookingAdapter'
 import { contactAdapter } from './adapters/contactAdapter'
+import { dealAdapter } from './adapters/dealAdapter'
 import { approvalAdapter, clientDocumentAdapter } from './adapters/approvalAdapter'
 import { notificationAdapter, activityAdapter } from './adapters/notificationAdapter'
 import { reportAdapter } from './adapters/reportAdapter'
@@ -80,6 +82,7 @@ export const SOURCE_ADAPTERS: Record<BriefingSourceType, BriefingSourceAdapter> 
   'calendar-event': calendarEventAdapter,
   booking: bookingAdapter,
   contact: contactAdapter,
+  deal: dealAdapter,
   approval: approvalAdapter,
   'client-document': clientDocumentAdapter,
   'social-post': socialPostAdapter,

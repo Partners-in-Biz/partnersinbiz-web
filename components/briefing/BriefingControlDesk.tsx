@@ -145,6 +145,7 @@ const SOURCES = [
   { value: 'notification', label: 'Notifications' },
   { value: 'activity', label: 'Activity' },
   { value: 'contact', label: 'Contacts' },
+  { value: 'deal', label: 'Deals' },
   { value: 'report', label: 'Reports' },
   { value: 'support-ticket', label: 'Support' },
   { value: 'invoice', label: 'Invoices' },
