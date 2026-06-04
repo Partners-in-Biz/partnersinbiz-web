@@ -36,6 +36,8 @@ type ProjectListItem = {
   [key: string]: unknown
 }
 
+type ProjectArchiveMode = 'active' | 'only' | 'include'
+
 function cleanString(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
 }
@@ -146,6 +148,30 @@ function createdAtMillis(value: unknown): number {
   return 0
 }
 
+function projectStatus(value: unknown): string {
+  return typeof value === 'string' ? value.trim().toLowerCase() : ''
+}
+
+function isCompletedProject(project: ProjectListItem): boolean {
+  return projectStatus(project.status) === 'completed'
+}
+
+function isHistoricalProject(project: ProjectListItem): boolean {
+  return project.archived === true || isCompletedProject(project)
+}
+
+function archiveMode(value: string | null): ProjectArchiveMode {
+  if (value === 'only' || value === 'include') return value
+  return 'active'
+}
+
+function filterProjectByArchiveMode(project: ProjectListItem, mode: ProjectArchiveMode): boolean {
+  if (project.deleted === true) return false
+  if (mode === 'include') return true
+  const historical = isHistoricalProject(project)
+  return mode === 'only' ? historical : !historical
+}
+
 async function loadClientVisibleProjectsForOrg(orgId: string): Promise<ProjectListItem[]> {
   const [receivedSnap, targetSnap, clientSnap, legacySnap] = await Promise.all([
     adminDb.collection('projects').where('recipientOrgId', '==', orgId).get(),
@@ -177,6 +203,7 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
   const orgSlug = searchParams.get('orgSlug')
   const view = searchParams.get('view') ?? 'sent'
   const sharedOnly = view === 'shared'
+  const archives = archiveMode(searchParams.get('archive'))
 
   let query: FirebaseFirestore.Query = adminDb.collection('projects')
 
@@ -186,6 +213,7 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
     if (view === 'received' || view === 'shared') {
       const projects = (await loadClientVisibleProjectsForOrg(orgId))
         .filter((project) => !sharedOnly || Boolean(project.claimableRelationshipId))
+        .filter((project) => filterProjectByArchiveMode(project, archives))
         .sort((a, b) => createdAtMillis(b.createdAt) - createdAtMillis(a.createdAt))
       return apiSuccess(projects)
     }
@@ -211,6 +239,7 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
     if (view === 'received' || view === 'shared') {
       const projects = (await loadClientVisibleProjectsForOrg(orgId))
         .filter((project) => !sharedOnly || Boolean(project.claimableRelationshipId))
+        .filter((project) => filterProjectByArchiveMode(project, archives))
         .sort((a, b) => createdAtMillis(b.createdAt) - createdAtMillis(a.createdAt))
       return apiSuccess(projects)
     }
@@ -222,6 +251,7 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
     if ((view === 'received' || view === 'shared') && allowedOrgIds.length > 0) {
       const projects = (await loadClientVisibleProjectsForOrgs(allowedOrgIds.slice(0, 30)))
         .filter((project) => !sharedOnly || Boolean(project.claimableRelationshipId))
+        .filter((project) => filterProjectByArchiveMode(project, archives))
         .sort((a, b) => createdAtMillis(b.createdAt) - createdAtMillis(a.createdAt))
       return apiSuccess(projects)
     }
@@ -235,6 +265,7 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
   const projects: ProjectListItem[] = snapshot.docs
     .map((doc): ProjectListItem => ({ id: doc.id, ...doc.data() }))
     .filter((project) => !sharedOnly || Boolean(project.claimableRelationshipId))
+    .filter((project) => filterProjectByArchiveMode(project, archives))
     .sort((a, b) => createdAtMillis(b.createdAt) - createdAtMillis(a.createdAt))
 
   return apiSuccess(projects)

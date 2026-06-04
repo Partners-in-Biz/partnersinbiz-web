@@ -133,6 +133,38 @@ describe('Admin client projects board view', () => {
     expect(screen.getByRole('tablist', { name: 'Project stage filters' })).toBeInTheDocument()
   })
 
+  it('keeps signed-off projects out of the active workspace and exposes them in archive history', async () => {
+    global.fetch = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/projects?view=received&orgSlug=acme-client') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: [{ id: 'project-1', orgId: 'org-acme', name: 'Active Build', status: 'development' }] }),
+        } as Response)
+      }
+      if (url === '/api/v1/projects?view=received&orgSlug=acme-client&archive=only') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: [{ id: 'project-done', orgId: 'org-acme', name: 'Signed Off Website', status: 'completed' }] }),
+        } as Response)
+      }
+      return Promise.resolve({ ok: true, json: async () => ({ data: [] }) } as Response)
+    }) as jest.Mock
+
+    render(<ProjectsPage />)
+    await switchToProjectsSection()
+
+    await waitFor(() => expect(screen.getByText('Active Build')).toBeInTheDocument())
+    expect(screen.queryByText('Signed Off Website')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('tab', { name: /archive/i }))
+
+    expect(global.fetch).toHaveBeenCalledWith('/api/v1/projects?view=received&orgSlug=acme-client&archive=only')
+    await waitFor(() => expect(screen.getByText('Signed Off Website')).toBeInTheDocument())
+    expect(screen.queryByText('Active Build')).not.toBeInTheDocument()
+    expect(screen.getByText(/completed and archived project history/i)).toBeInTheDocument()
+  })
+
   it('lets admins switch from project cards to a cross-project task board for the client', async () => {
     render(<ProjectsPage />)
 

@@ -10,6 +10,8 @@ import { ProjectPortfolioReportPanel } from '@/components/projects/ProjectPortfo
 import { PageHeader, PageTabs, Surface } from '@/components/ui/AppFoundation'
 import type { BoardTask } from '@/components/projects/CrossProjectBoard'
 
+type ProjectView = 'active' | 'archive'
+
 interface Project {
   id: string
   orgId?: string
@@ -18,6 +20,7 @@ interface Project {
   description?: string
   createdAt?: unknown
   updatedAt?: unknown
+  archived?: boolean
 }
 
 function Skeleton({ className = '' }: { className?: string }) {
@@ -36,10 +39,19 @@ const WORKSPACE_TABS = [
   { value: 'portfolio', label: 'Portfolio report', icon: 'monitoring' },
   { value: 'projects', label: 'Projects', icon: 'folder_managed' },
 ]
+const PROJECT_VIEW_TABS = [
+  { value: 'active', label: 'Active' },
+  { value: 'archive', label: 'Archive' },
+]
 const PROJECT_REFRESH_INTERVAL_MS = 10000
 
-function receivedProjectsUrl(slug: string) {
-  return `/api/v1/projects?view=received&orgSlug=${encodeURIComponent(slug)}`
+function receivedProjectsUrl(slug: string, projectView: ProjectView = 'active') {
+  const archiveQuery = projectView === 'archive' ? '&archive=only' : ''
+  return `/api/v1/projects?view=received&orgSlug=${encodeURIComponent(slug)}${archiveQuery}`
+}
+
+function isHistoricalProject(project: Project): boolean {
+  return project.archived === true || project.status?.trim().toLowerCase() === 'completed'
 }
 
 function mergeLiveTasks(restTasks: BoardTask[], currentTasks: BoardTask[]) {
@@ -55,6 +67,7 @@ export default function ProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
   const [activeSection, setActiveSection] = useState<'portfolio' | 'projects'>('projects')
+  const [projectView, setProjectView] = useState<ProjectView>('active')
   const [filter, setFilter] = useState<string>('all')
   const [viewMode, setViewMode] = useState<'list' | 'board'>('list')
   const [boardSortMode, setBoardSortMode] = useState<'latest' | 'manual'>('latest')
@@ -74,13 +87,13 @@ export default function ProjectsPage() {
   const loadProjects = useCallback(async ({ showSpinner = false }: { showSpinner?: boolean } = {}) => {
     if (showSpinner) setLoading(true)
     try {
-      const res = await fetch(receivedProjectsUrl(slug))
+      const res = await fetch(receivedProjectsUrl(slug, projectView))
       const body = await res.json()
       setProjects(body.data ?? [])
     } finally {
       if (showSpinner) setLoading(false)
     }
-  }, [slug])
+  }, [slug, projectView])
 
   useEffect(() => {
     let cancelled = false
@@ -116,7 +129,9 @@ export default function ProjectsPage() {
           }
 
           const liveProject = { id: change.doc.id, ...change.doc.data() } as Project
+          const visibleInView = projectView === 'archive' ? isHistoricalProject(liveProject) : !isHistoricalProject(liveProject)
           setProjects(prev => {
+            if (!visibleInView) return prev.filter(project => project.id !== liveProject.id)
             const idx = prev.findIndex(project => project.id === liveProject.id)
             if (idx >= 0) {
               const next = [...prev]
@@ -131,7 +146,11 @@ export default function ProjectsPage() {
       () => {} // REST remains the fallback if client Firestore auth/listening fails.
     )
     return () => unsubscribe()
-  }, [liveOrgId])
+  }, [liveOrgId, projectView])
+
+  useEffect(() => {
+    setFilter('all')
+  }, [projectView])
 
   const filtered = useMemo(
     () => filter === 'all' ? projects : projects.filter(p => p.status === filter),
@@ -247,7 +266,7 @@ export default function ProjectsPage() {
       }
 
       // Refetch the full list so the new project is confirmed from the server
-      const listRes = await fetch(receivedProjectsUrl(slug))
+      const listRes = await fetch(receivedProjectsUrl(slug, historyView))
       const listBody = await listRes.json()
       setProjects(listBody.data ?? [])
       setShowForm(false)
@@ -382,12 +401,20 @@ export default function ProjectsPage() {
       {activeSection === 'projects' ? (
         <>
           <div className="flex items-center justify-between gap-3 flex-wrap">
-            <PageTabs
-              ariaLabel="Project stage filters"
+            <div className="flex flex-wrap items-center gap-2">
+              <PageTabs
+                ariaLabel="Project archive filters"
+                value={projectView}
+                onValueChange={(value) => setProjectView(value as ProjectView)}
+                tabs={PROJECT_VIEW_TABS}
+              />
+              <PageTabs
+                ariaLabel="Project stage filters"
               value={filter}
               onValueChange={setFilter}
-              tabs={PROJECT_STAGE_TABS}
-            />
+                tabs={PROJECT_STAGE_TABS}
+              />
+            </div>
 
             <div className="flex w-full items-center justify-between gap-3 sm:w-auto sm:justify-end">
               <div
@@ -456,13 +483,32 @@ export default function ProjectsPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-32" />)}
             </div>
+          ) : projectView === 'archive' ? (
+            <>
+              <p className="text-sm text-on-surface-variant">Completed and archived project history.</p>
+              {filtered.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-[var(--color-card-border)] bg-[var(--color-card)] px-6 py-12 text-center">
+                  <span className="mx-auto mb-3 inline-flex h-10 w-10 items-center justify-center rounded-md bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent)]">
+                    <span className="material-symbols-outlined block text-[22px] leading-none">archive</span>
+                  </span>
+                  <p className="font-medium text-on-surface">No archived projects found</p>
+                  <p className="mt-1 text-sm text-on-surface-variant">Completed and archived projects will appear here after sign-off.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {filtered.map(project => (
+                    <ProjectListCard key={project.id} project={project} href={`/admin/org/${slug}/projects/${project.id}`} />
+                  ))}
+                </div>
+              )}
+            </>
           ) : filtered.length === 0 ? (
             <div className="rounded-lg border border-dashed border-[var(--color-card-border)] bg-[var(--color-card)] px-6 py-12 text-center">
               <span className="mx-auto mb-3 inline-flex h-10 w-10 items-center justify-center rounded-md bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent)]">
                 <span className="material-symbols-outlined block text-[22px] leading-none">folder_managed</span>
               </span>
               <p className="font-medium text-on-surface">No projects found</p>
-              <p className="mt-1 text-sm text-on-surface-variant">Try another stage filter or create a new client project.</p>
+              <p className="mt-1 text-sm text-on-surface-variant">{projectView === 'archive' ? 'Completed and archived project history will appear here after sign-off.' : 'Try another stage filter or create a new client project.'}</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

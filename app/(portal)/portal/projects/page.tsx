@@ -9,6 +9,8 @@ import { ProjectPortfolioReportPanel } from '@/components/projects/ProjectPortfo
 import { EmptyState, PageHeader, PageTabs, Surface } from '@/components/ui/AppFoundation'
 import type { BoardTask } from '@/components/projects/CrossProjectBoard'
 
+type ProjectView = 'active' | 'archive'
+
 interface Project {
   id: string
   name: string
@@ -16,6 +18,7 @@ interface Project {
   description?: string
   createdAt?: unknown
   updatedAt?: unknown
+  archived?: boolean
 }
 
 function Skeleton({ className = '' }: { className?: string }) {
@@ -34,6 +37,19 @@ const WORKSPACE_TABS = [
   { value: 'portfolio', label: 'Portfolio report', icon: 'monitoring' },
   { value: 'projects', label: 'Projects', icon: 'folder_managed' },
 ]
+const PROJECT_VIEW_TABS = [
+  { value: 'active', label: 'Active' },
+  { value: 'archive', label: 'Archive' },
+]
+
+function receivedProjectsUrl(projectView: ProjectView = 'active') {
+  const archiveQuery = projectView === 'archive' ? '&archive=only' : ''
+  return `/api/v1/projects?view=received${archiveQuery}`
+}
+
+function isHistoricalProject(project: Project): boolean {
+  return project.archived === true || project.status?.trim().toLowerCase() === 'completed'
+}
 
 function mergeLiveTasks(restTasks: BoardTask[], currentTasks: BoardTask[]) {
   const merged = new Map<string, BoardTask>()
@@ -46,6 +62,7 @@ export default function ProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
   const [activeSection, setActiveSection] = useState<'portfolio' | 'projects'>('projects')
+  const [projectView, setProjectView] = useState<ProjectView>('active')
   const [filter, setFilter] = useState<string>('all')
 
   const [viewMode, setViewMode]                 = useState<'list' | 'board'>('list')
@@ -62,11 +79,15 @@ export default function ProjectsPage() {
   const [formError, setFormError] = useState<string | null>(null)
 
   useEffect(() => {
-    fetch('/api/v1/projects?view=received')
+    fetch(receivedProjectsUrl(projectView))
       .then(r => r.json())
       .then(body => { setProjects(body.data ?? []); setLoading(false) })
       .catch(() => setLoading(false))
-  }, [])
+  }, [projectView])
+
+  useEffect(() => {
+    setFilter('all')
+  }, [projectView])
 
   const filtered = useMemo(
     () => filter === 'all' ? projects : projects.filter(p => p.status === filter),
@@ -181,7 +202,7 @@ export default function ProjectsPage() {
       }
 
       // Refetch the full list so the new project is confirmed from the server
-      const listRes = await fetch('/api/v1/projects?view=received')
+      const listRes = await fetch(receivedProjectsUrl(projectView))
       const listBody = await listRes.json()
       setProjects(listBody.data ?? [])
       setShowForm(false)
@@ -296,7 +317,13 @@ export default function ProjectsPage() {
         <>
           {/* Filters and view controls */}
           <div className="flex items-center justify-between gap-3 flex-wrap">
-            <div className="min-w-0 overflow-x-auto">
+            <div className="flex min-w-0 flex-wrap items-center gap-2 overflow-x-auto">
+              <PageTabs
+                ariaLabel="Project archive filters"
+                value={projectView}
+                onValueChange={(value) => setProjectView(value as ProjectView)}
+                tabs={PROJECT_VIEW_TABS}
+              />
               <PageTabs
                 value={filter}
                 onValueChange={setFilter}
@@ -372,11 +399,26 @@ export default function ProjectsPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-32" />)}
             </div>
+          ) : projectView === 'archive' ? (
+            <>
+              <p className="text-sm text-on-surface-variant">Completed and archived project history.</p>
+              {filtered.length === 0 ? (
+                <EmptyState
+                  icon="archive"
+                  title="No archived projects found."
+                  description="Completed and archived projects will appear here after sign-off."
+                />
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {filtered.map(project => <ProjectListCard key={project.id} project={project} href={`/portal/projects/${project.id}`} />)}
+                </div>
+              )}
+            </>
           ) : filtered.length === 0 ? (
             <EmptyState
               icon="rocket_launch"
               title="No projects found."
-              description={filter === 'all' ? 'Projects will appear here once work has been opened for your workspace.' : 'Try a different status filter to see more projects.'}
+              description={projectView === 'archive' ? 'Completed and archived project history will appear here after sign-off.' : filter === 'all' ? 'Projects will appear here once work has been opened for your workspace.' : 'Try a different status filter to see more projects.'}
             />
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

@@ -130,6 +130,52 @@ beforeEach(() => {
 })
 
 describe('GET /api/v1/projects', () => {
+  it('hides completed and archived projects from active received lists by default', async () => {
+    mockUser = { uid: 'client-1', role: 'client', orgId: 'recipient-org' }
+    mockProjectGet
+      .mockResolvedValueOnce({
+        docs: [
+          { id: 'active', data: () => ({ name: 'Active Project', recipientOrgId: 'recipient-org', status: 'development', createdAt: { seconds: 30 } }) },
+          { id: 'completed', data: () => ({ name: 'Signed Off', recipientOrgId: 'recipient-org', status: 'completed', createdAt: { seconds: 20 } }) },
+          { id: 'archived-flag', data: () => ({ name: 'Archived Flag', recipientOrgId: 'recipient-org', archived: true, createdAt: { seconds: 10 } }) },
+        ],
+      })
+      .mockResolvedValueOnce({ docs: [] })
+      .mockResolvedValueOnce({ docs: [] })
+      .mockResolvedValueOnce({ docs: [] })
+
+    const { GET } = await import('@/app/api/v1/projects/route')
+    const req = new NextRequest('http://localhost/api/v1/projects?view=received')
+    const res = await GET(req)
+
+    expect(res.status).toBe(200)
+    const body = await res.json() as ProjectResponse
+    expect(body.data.map((project) => project.id)).toEqual(['active'])
+  })
+
+  it('returns completed and archived projects when the archive view is requested', async () => {
+    mockUser = { uid: 'client-1', role: 'client', orgId: 'recipient-org' }
+    mockProjectGet
+      .mockResolvedValueOnce({
+        docs: [
+          { id: 'active', data: () => ({ name: 'Active Project', recipientOrgId: 'recipient-org', status: 'development', createdAt: { seconds: 30 } }) },
+          { id: 'completed', data: () => ({ name: 'Signed Off', recipientOrgId: 'recipient-org', status: 'completed', createdAt: { seconds: 20 } }) },
+          { id: 'archived-flag', data: () => ({ name: 'Archived Flag', recipientOrgId: 'recipient-org', archived: true, createdAt: { seconds: 10 } }) },
+        ],
+      })
+      .mockResolvedValueOnce({ docs: [] })
+      .mockResolvedValueOnce({ docs: [] })
+      .mockResolvedValueOnce({ docs: [] })
+
+    const { GET } = await import('@/app/api/v1/projects/route')
+    const req = new NextRequest('http://localhost/api/v1/projects?view=received&archive=only')
+    const res = await GET(req)
+
+    expect(res.status).toBe(200)
+    const body = await res.json() as ProjectResponse
+    expect(body.data.map((project) => project.id)).toEqual(['completed', 'archived-flag'])
+  })
+
   it('lists client workspace projects by org slug without requiring a Firestore composite index', async () => {
     mockOrgGet.mockResolvedValue({
       empty: false,
