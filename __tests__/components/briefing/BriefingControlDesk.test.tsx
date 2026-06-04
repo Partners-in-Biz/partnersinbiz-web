@@ -1267,11 +1267,11 @@ describe('BriefingControlDesk', () => {
     jest.restoreAllMocks()
   })
 
-  it('renders a live portal control desk with source-aware task actions', async () => {
+  it('renders a portal control desk with source-aware task actions', async () => {
     render(<BriefingControlDesk mode="portal" />)
 
     expect(await screen.findByText('Briefings control desk')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /live on/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /live off/i })).toBeInTheDocument()
     expect((await screen.findAllByText('Theo completed work - review required')).length).toBeGreaterThan(0)
     expect(screen.getAllByText('Client One').length).toBeGreaterThan(0)
     expect(screen.getByLabelText('Live briefing cards')).toHaveClass('xl:overflow-y-auto')

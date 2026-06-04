@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
+const BRIEFING_AUTO_REFRESH_MS = 5 * 60_000
+
 interface OrgSummary {
   id: string
   name: string
@@ -648,7 +650,7 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [snapshotting, setSnapshotting] = useState(false)
-  const [autoRefresh, setAutoRefresh] = useState(true)
+  const [autoRefresh, setAutoRefresh] = useState(false)
   const [replyText, setReplyText] = useState('')
   const [socialChangeText, setSocialChangeText] = useState('')
   const [followUpText, setFollowUpText] = useState('')
@@ -739,7 +741,11 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
   useEffect(() => {
     if (!autoRefresh) return
     if (mode === 'portal' && !orgId) return
-    const timer = window.setInterval(() => loadFeed({ quiet: true }), 30_000)
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        loadFeed({ quiet: true })
+      }
+    }, BRIEFING_AUTO_REFRESH_MS)
     return () => window.clearInterval(timer)
   }, [autoRefresh, loadFeed, mode, orgId])
 
