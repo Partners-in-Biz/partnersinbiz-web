@@ -17,6 +17,7 @@ import { getUnresolvedDependencyIds, hasPendingApprovalGate, hasPendingScheduled
 
 const STALE_THRESHOLD_MS = 5 * 60 * 1_000
 const SWEEP_INTERVAL_MS = 60 * 1_000
+const MAX_STALE_SWEEP_DOCS = 100
 export const HEARTBEAT_INTERVAL_MS = 30 * 1_000
 
 export async function claimTask(taskRef: DocumentReference, expectedAgentId: string): Promise<boolean> {
@@ -106,6 +107,7 @@ export function startHeartbeat(taskRef: DocumentReference): () => void {
 }
 
 let sweeperHandle: NodeJS.Timeout | null = null
+let staleSweeperDisabled = false
 
 function heartbeatMillis(value: unknown): number | null {
   if (!value) return null
@@ -128,6 +130,7 @@ export async function sweepStaleTasks(now = Date.now()): Promise<number> {
   const snap = await db
     .collectionGroup('tasks')
     .where('agentStatus', 'in', ['picked-up', 'in-progress'])
+    .limit(MAX_STALE_SWEEP_DOCS)
     .get()
 
   if (snap.empty) return 0
@@ -163,14 +166,21 @@ export async function sweepStaleTasks(now = Date.now()): Promise<number> {
 
 export function startStaleSweeper(): () => void {
   async function sweepOnce() {
+    if (staleSweeperDisabled) return
     try {
       const reclaimed = await sweepStaleTasks()
       if (reclaimed > 0) {
         logger.info('stale sweeper reclaimed tasks', { count: reclaimed })
       }
     } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      if (message.includes('FAILED_PRECONDITION')) {
+        staleSweeperDisabled = true
+        logger.error('stale sweeper disabled until the tasks collection-group index exists', { error: message })
+        return
+      }
       logger.error('stale sweeper failed', {
-        error: err instanceof Error ? err.message : String(err),
+        error: message,
       })
     }
   }
