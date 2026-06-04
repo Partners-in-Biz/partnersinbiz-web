@@ -15,6 +15,7 @@ const GATED_EXTERNAL_ACTIONS = new Set(['send', 'publish', 'spend', 'deploy', 'b
 const NO_SIDE_EFFECT_COPY = 'No send, publish, spend, deploy, billing, secret/config, or destructive action was performed.'
 
 type EvidenceRow = {
+  id?: string
   kind: 'commit' | 'verification' | 'link' | 'document' | 'blocker'
   label: string
   value: string
@@ -42,8 +43,9 @@ function cleanEvidenceRows(value: unknown): EvidenceRow[] {
     const label = cleanString(row.label)
     const rowValue = cleanString(row.value)
     if (!kind || !['commit', 'verification', 'link', 'document', 'blocker'].includes(kind) || !label || !rowValue) return []
+    const id = cleanString(row.id)
     const href = cleanString(row.href)
-    return [{ kind: kind as EvidenceRow['kind'], label, value: rowValue, ...(href ? { href } : {}) }]
+    return [{ ...(id ? { id } : {}), kind: kind as EvidenceRow['kind'], label, value: rowValue, ...(href ? { href } : {}) }]
   })
 }
 
@@ -69,6 +71,14 @@ function sourceContext(body: Record<string, unknown>, itemId: string) {
   const evidenceRows = cleanEvidenceRows(body.evidenceRows).length > 0
     ? cleanEvidenceRows(body.evidenceRows)
     : cleanEvidenceRows(metadata.softwareBuildEvidence)
+  const explicitEvidenceRowIds = cleanStringArray(context.evidenceRowIds).length > 0
+    ? cleanStringArray(context.evidenceRowIds)
+    : cleanStringArray(body.evidenceRowIds).length > 0
+      ? cleanStringArray(body.evidenceRowIds)
+      : cleanStringArray(metadata.evidenceRowIds)
+  const evidenceRowIds = explicitEvidenceRowIds.length > 0
+    ? explicitEvidenceRowIds
+    : evidenceRows.flatMap((row) => row.id ? [row.id] : [])
 
   return {
     orgId,
@@ -83,6 +93,8 @@ function sourceContext(body: Record<string, unknown>, itemId: string) {
     sourceTaskId: cleanString(context.sourceTaskId) ?? taskId,
     sourceDocumentId: cleanString(context.sourceDocumentId) ?? documentId,
     sourceDocumentSectionId: cleanString(context.sourceDocumentSectionId),
+    sourceEvidenceId: cleanString(context.sourceEvidenceId) ?? cleanString(body.sourceEvidenceId) ?? cleanString(metadata.sourceEvidenceId),
+    evidenceRowIds,
     sourceSpecVersion: cleanString(context.sourceSpecVersion),
     sourceResearchItemId: cleanString(context.sourceResearchItemId),
     approvalGateTaskId: cleanString(context.approvalGateTaskId) ?? cleanString(metadata.approvalTaskId),
@@ -173,6 +185,8 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
     sourceTaskId: source.sourceTaskId,
     sourceDocumentId: source.sourceDocumentId,
     sourceDocumentSectionId: source.sourceDocumentSectionId,
+    sourceEvidenceId: source.sourceEvidenceId,
+    evidenceRowIds: source.evidenceRowIds,
     sourceSpecVersion: source.sourceSpecVersion,
     sourceResearchItemId: source.sourceResearchItemId,
     approvalGateTaskId: source.approvalGateTaskId,

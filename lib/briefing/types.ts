@@ -119,6 +119,17 @@ export interface BriefingContext {
   taskTitle?: string | null
   documentId?: string | null
   documentTitle?: string | null
+  sourceDocumentId?: string | null
+  sourceDocumentSectionId?: string | null
+  sourceSpecVersion?: string | null
+  sourceEvidenceId?: string | null
+  evidenceRowIds?: string[]
+  approvalGateTaskId?: string | null
+  sourceResearchItemId?: string | null
+  requiredCapability?: string | null
+  riskLevel?: string | null
+  reviewerAgentId?: string | null
+  expectedArtifacts?: string[]
   conversationId?: string | null
   conversationTitle?: string | null
   contactId?: string | null

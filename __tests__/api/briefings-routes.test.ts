@@ -240,6 +240,9 @@ describe('briefing API routes', () => {
           projectId: 'project-1',
           taskId: 'source-task-1',
           documentId: 'doc-1',
+          sourceDocumentSectionId: 'section-1',
+          sourceEvidenceId: 'evidence-ledger-1',
+          evidenceRowIds: ['ev-row-1', 'ev-row-2'],
           sourceSpecVersion: 'spec-v1',
           approvalGateTaskId: 'approval-task-1',
           riskLevel: 'medium',
@@ -247,10 +250,13 @@ describe('briefing API routes', () => {
           expectedArtifacts: ['development commit', 'tests'],
         },
         source: { type: 'agent-output', id: 'out-1', url: '/admin/projects/project-1?taskId=source-task-1' },
+        evidenceRows: [
+          { id: 'ev-row-1', kind: 'commit', label: 'Development commit', value: 'abc123' },
+          { id: 'ev-row-2', kind: 'link', label: 'Preview', value: 'Preview URL', href: '/admin/projects/project-1?taskId=source-task-1' },
+        ],
         metadata: {
           softwareBuildEvidence: [
-            { kind: 'commit', label: 'Development commit', value: 'abc123' },
-            { kind: 'link', label: 'Preview', value: 'Preview URL', href: '/admin/projects/project-1?taskId=source-task-1' },
+            { kind: 'commit', label: 'Fallback commit', value: 'fallback-sha' },
           ],
         },
       }),
@@ -277,6 +283,9 @@ describe('briefing API routes', () => {
       sourceProjectId: 'project-1',
       sourceTaskId: 'source-task-1',
       sourceDocumentId: 'doc-1',
+      sourceDocumentSectionId: 'section-1',
+      sourceEvidenceId: 'evidence-ledger-1',
+      evidenceRowIds: ['ev-row-1', 'ev-row-2'],
       sourceSpecVersion: 'spec-v1',
       approvalGateTaskId: 'approval-task-1',
       sourceBriefingId: 'agent-output:out-1',
@@ -286,13 +295,36 @@ describe('briefing API routes', () => {
       requiredCapability: 'write',
       expectedArtifacts: ['development commit', 'tests'],
       evidenceRows: [
-        { kind: 'commit', label: 'Development commit', value: 'abc123' },
-        { kind: 'link', label: 'Preview', value: 'Preview URL', href: '/admin/projects/project-1?taskId=source-task-1' },
+        { id: 'ev-row-1', kind: 'commit', label: 'Development commit', value: 'abc123' },
+        { id: 'ev-row-2', kind: 'link', label: 'Preview', value: 'Preview URL', href: '/admin/projects/project-1?taskId=source-task-1' },
       ],
     })
     expect(payload.agentInput.context.approvalGateCopy).toContain('approval-task-1')
     expect(payload.agentInput.context.approvalGateCopy).toContain('external send')
     expect(mockActivityAdd).not.toHaveBeenCalled()
+  })
+
+  it('rejects external briefing action requests without creating durable records', async () => {
+    const { POST } = await import('@/app/api/v1/briefings/items/[itemId]/actions/route')
+
+    const res = await POST(new NextRequest('http://localhost/api/v1/briefings/items/social%3Apost-1/actions', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        action: 'publish',
+        orgId: 'pib-platform-owner',
+        context: { projectId: 'project-1', taskId: 'task-1' },
+      }),
+    }), { params: Promise.resolve({ itemId: 'social%3Apost-1' }) })
+    const body = await res.json()
+
+    expect(res.status).toBe(400)
+    expect(body.error).toContain('Approval is still required before publish')
+    expect(body.error).toContain('No send, publish, spend, deploy, billing, secret/config, or destructive action was performed')
+    expect(mockProjectTaskAdd).not.toHaveBeenCalled()
+    expect(mockActivityAdd).not.toHaveBeenCalled()
+    expect(mockCollection).not.toHaveBeenCalledWith('social_posts')
+    expect(mockCollection).not.toHaveBeenCalledWith('emails')
   })
 
   it('requires tenant access before creating linked briefing actions', async () => {
