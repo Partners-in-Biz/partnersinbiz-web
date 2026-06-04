@@ -34,6 +34,11 @@ describe('agent output review cards', () => {
     ])
     expect(card.qualityChecks).toEqual(expect.arrayContaining([
       expect.objectContaining({ label: 'Summary', status: 'pass' }),
+      expect.objectContaining({ label: 'Evidence present', status: 'pass' }),
+      expect.objectContaining({ label: 'Approvals separated', status: 'blocked' }),
+      expect.objectContaining({ label: 'Blocked work clear', status: 'blocked' }),
+      expect.objectContaining({ label: 'Test/build artifacts linked', status: 'pass' }),
+      expect.objectContaining({ label: 'False success guard', status: 'pass' }),
       expect.objectContaining({ label: 'Evidence', status: 'pass' }),
       expect.objectContaining({ label: 'Approval gates', status: 'blocked' }),
     ]))
@@ -42,5 +47,46 @@ describe('agent output review cards', () => {
       expect.objectContaining({ label: 'Production/external actions', status: 'blocked' }),
     ]))
     expect(card.nextAction).toBe('Peet should review the evidence, approve if it is correct, or send it back to the assigned agent with a change note.')
+  })
+
+  it('blocks uncaveated success claims when approvals or blockers remain open', () => {
+    const card = buildAgentOutputReviewCard({
+      title: 'Theo: risky completed work',
+      assigneeAgentId: 'theo',
+      reviewStatus: 'pending',
+      agentInput: {
+        context: {
+          approvalGateTaskId: 'gate-2',
+        },
+      },
+      agentOutput: {
+        summary: 'Completed and ready to ship. Verification passed: npx jest risky.test.ts',
+        artifacts: [
+          { type: 'commit', ref: 'def5678', label: 'Development commit' },
+        ],
+      },
+    })
+
+    expect(card.qualityChecks).toEqual(expect.arrayContaining([
+      expect.objectContaining({ label: 'Approvals separated', status: 'blocked' }),
+      expect.objectContaining({ label: 'False success guard', status: 'blocked' }),
+    ]))
+  })
+
+  it('warns when verification exists without a linked build, test, commit, or preview artifact', () => {
+    const card = buildAgentOutputReviewCard({
+      title: 'Theo: partial proof trail',
+      assigneeAgentId: 'theo',
+      reviewStatus: 'pending',
+      agentOutput: {
+        summary: 'Verification passed: npx jest partial.test.ts',
+      },
+    })
+
+    expect(card.qualityChecks).toEqual(expect.arrayContaining([
+      expect.objectContaining({ label: 'Evidence present', status: 'pass' }),
+      expect.objectContaining({ label: 'Test/build artifacts linked', status: 'warning' }),
+      expect.objectContaining({ label: 'False success guard', status: 'pass' }),
+    ]))
   })
 })

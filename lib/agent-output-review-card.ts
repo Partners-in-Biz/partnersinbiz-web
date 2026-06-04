@@ -107,15 +107,91 @@ function buildApprovalGates(source: SoftwareBuildEvidenceSource, context: Record
   return gates
 }
 
-function buildQualityChecks(summary: string, evidence: SoftwareBuildEvidenceRow[], artifacts: AgentOutputReviewArtifact[], approvalGates: AgentOutputApprovalGate[]): AgentOutputQualityCheck[] {
+function hasApprovalReference(source: SoftwareBuildEvidenceSource, context: Record<string, unknown>, evidence: SoftwareBuildEvidenceRow[]) {
+  return Boolean(
+    compact(source.approvalGateTaskId) ||
+    compact(context.approvalGateTaskId) ||
+    compact(source.sourceDocumentId) ||
+    compact(context.sourceDocumentId) ||
+    compact(source.sourceSpecVersion) ||
+    compact(context.sourceSpecVersion) ||
+    evidence.some((row) => /approval|source document|spec version|related doc/i.test(`${row.label} ${row.value}`)),
+  )
+}
+
+function falseSuccessStatus(summary: string, evidence: SoftwareBuildEvidenceRow[], approvalGates: AgentOutputApprovalGate[]): AgentOutputQualityCheck {
+  if (!summary) {
+    return {
+      label: 'False success guard',
+      status: 'warning',
+      detail: 'No summary is available to compare completion claims against blockers and approvals.',
+    }
+  }
+
+  const hasBlocker = hasKind(evidence, 'blocker') || approvalGates.some((gate) => gate.status === 'blocked')
+  const claimsSuccess = /\b(completed|complete|done|ready to ship|shipped|passed|success|successful|approved|deployed|published|sent|launched)\b/i.test(summary)
+  const separatesCaveat = /\b(no production|production[^.]*gated|separately gated|approval required|approval remains|blocked|blocker|internal[-\s]only|no [^.]*occurred|not (?:deployed|published|sent|launched)|without external)\b/i.test(summary)
+
+  if (hasBlocker && claimsSuccess && !separatesCaveat) {
+    return {
+      label: 'False success guard',
+      status: 'blocked',
+      detail: 'The output claims success while approval/blocker evidence is still open, without a clear caveat.',
+    }
+  }
+
+  return {
+    label: 'False success guard',
+    status: 'pass',
+    detail: hasBlocker
+      ? 'Success language is caveated by the blocker or approval-gate status.'
+      : 'No contradictory success claim was detected.',
+  }
+}
+
+function buildQualityChecks(source: SoftwareBuildEvidenceSource, context: Record<string, unknown>, summary: string, evidence: SoftwareBuildEvidenceRow[], artifacts: AgentOutputReviewArtifact[], approvalGates: AgentOutputApprovalGate[]): AgentOutputQualityCheck[] {
   const hasVerification = hasKind(evidence, 'verification')
+  const hasBlocker = hasKind(evidence, 'blocker')
   const hasBlockingGate = approvalGates.some((gate) => gate.status === 'blocked')
+  const hasBuildArtifact = artifacts.some((artifact) => /commit|sha|test|verification|check|build|preview|url|link/i.test(`${artifact.type} ${artifact.label}`)) || evidence.some((row) => row.kind === 'commit' || row.kind === 'link')
+  const approvalReferencePresent = hasApprovalReference(source, context, evidence)
+  const approvalSeparated = !approvalReferencePresent || approvalGates.length > 0
+
   return [
     {
       label: 'Summary',
       status: summary ? 'pass' : 'warning',
       detail: summary ? 'Agent supplied a readable completion summary.' : 'No readable completion summary was supplied.',
     },
+    {
+      label: 'Evidence present',
+      status: evidence.length ? 'pass' : 'warning',
+      detail: evidence.length ? `${evidence.length} evidence row${evidence.length === 1 ? '' : 's'} attached.` : 'No structured evidence rows were found.',
+    },
+    {
+      label: 'Approvals separated',
+      status: approvalSeparated ? (hasBlockingGate ? 'blocked' : 'pass') : 'warning',
+      detail: approvalSeparated
+        ? (hasBlockingGate ? 'Approval/release gates are called out separately from completion evidence.' : 'Approval references are separated from the completion summary.')
+        : 'Approval references were detected but no separate approval gate row was built.',
+    },
+    {
+      label: 'Blocked work clear',
+      status: hasBlocker || hasBlockingGate ? 'blocked' : 'pass',
+      detail: hasBlocker || hasBlockingGate
+        ? 'Blocked or approval-gated work is visible on the review card.'
+        : 'No blocked work was detected in the evidence rows.',
+    },
+    {
+      label: 'Test/build artifacts linked',
+      status: hasVerification && hasBuildArtifact ? 'pass' : 'warning',
+      detail: hasVerification && hasBuildArtifact
+        ? 'Verification evidence and build/test artifacts are linked.'
+        : hasVerification
+          ? 'Verification evidence exists, but no commit, preview, build, or test artifact was linked.'
+          : 'No verification command or test/build artifact was detected in the output.',
+    },
+    falseSuccessStatus(summary, evidence, approvalGates),
     {
       label: 'Evidence',
       status: evidence.length ? 'pass' : 'warning',
@@ -158,7 +234,7 @@ export function buildAgentOutputReviewCard(source: SoftwareBuildEvidenceSource &
   const evidence = getSoftwareBuildEvidenceRows(source)
   const artifacts = buildArtifacts(agentOutput)
   const approvalGates = buildApprovalGates(source, context, evidence)
-  const qualityChecks = buildQualityChecks(summary, evidence, artifacts, approvalGates)
+  const qualityChecks = buildQualityChecks(source, context, summary, evidence, artifacts, approvalGates)
 
   return {
     summary,
