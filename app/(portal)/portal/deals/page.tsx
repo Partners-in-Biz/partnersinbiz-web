@@ -946,6 +946,7 @@ export default function DealsPage() {
             stages={stages}
             onStageChange={handleStageChange}
             contactLabelsById={contactLabelsById}
+            onEditDeal={deal => setEditingDeal(deal)}
           />
         )
       )}

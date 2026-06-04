@@ -49,6 +49,7 @@ interface DealCardProps {
   contactBasePath?: string
   companyBasePath?: string
   contactLabel?: string
+  onEditDeal?: (deal: Deal) => void
 }
 
 function DealCard({
@@ -57,9 +58,12 @@ function DealCard({
   contactBasePath = '/portal/contacts',
   companyBasePath = '/portal/companies',
   contactLabel,
+  onEditDeal,
 }: DealCardProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: deal.id })
   const titleLabel = dealTitleLabel(deal)
+  const hasValue = deal.value !== null && deal.value !== undefined && !Number.isNaN(deal.value)
+  const valueLabel = formatValue(deal.value, deal.currency)
   const readableContactLabel = contactLabel?.trim() || 'Contact identity missing'
   const readableCompanyLabel = deal.companyName?.trim() || (deal.companyId ? 'Company identity missing' : '')
 
@@ -76,9 +80,24 @@ function DealCard({
       >
         <p className="text-sm font-medium text-on-surface mb-2 leading-snug">{titleLabel}</p>
         <div className="flex items-center justify-between gap-2">
-          <span className="text-xs font-mono text-on-surface-variant font-semibold">
-            {formatValue(deal.value, deal.currency)}
-          </span>
+          {onEditDeal ? (
+            <button
+              type="button"
+              onPointerDown={event => event.stopPropagation()}
+              onClick={event => {
+                event.stopPropagation()
+                onEditDeal(deal)
+              }}
+              aria-label={`${hasValue ? 'Edit' : 'Add'} value for ${titleLabel} from deal board`}
+              className="text-xs font-mono text-on-surface-variant font-semibold transition-colors hover:text-[var(--color-pib-accent)]"
+            >
+              {valueLabel}
+            </button>
+          ) : (
+            <span className="text-xs font-mono text-on-surface-variant font-semibold">
+              {valueLabel}
+            </span>
+          )}
           {deal.contactId && (
             <Link
               href={`${contactBasePath}/${deal.contactId}`}
@@ -116,9 +135,10 @@ interface DealColumnProps {
   contactBasePath?: string
   companyBasePath?: string
   contactLabelsById?: Record<string, string>
+  onEditDeal?: (deal: Deal) => void
 }
 
-function DealColumn({ stage, deals, contactBasePath, companyBasePath, contactLabelsById }: DealColumnProps) {
+function DealColumn({ stage, deals, contactBasePath, companyBasePath, contactLabelsById, onEditDeal }: DealColumnProps) {
   const dealIds = deals.map(d => d.id)
   const { setNodeRef, isOver } = useDroppable({ id: stage.id })
   const color = stage.color ?? '#6b7280'
@@ -154,6 +174,7 @@ function DealColumn({ stage, deals, contactBasePath, companyBasePath, contactLab
               contactBasePath={contactBasePath}
               companyBasePath={companyBasePath}
               contactLabel={contactLabelsById?.[deal.contactId]}
+              onEditDeal={onEditDeal}
             />
           ))}
           {deals.length === 0 && (
@@ -198,6 +219,7 @@ export interface DealKanbanProps {
   contactBasePath?: string
   companyBasePath?: string
   contactLabelsById?: Record<string, string>
+  onEditDeal?: (deal: Deal) => void
 }
 
 function Skeleton() {
@@ -212,6 +234,7 @@ export function DealKanban({
   contactBasePath = '/portal/contacts',
   companyBasePath = '/portal/companies',
   contactLabelsById,
+  onEditDeal,
 }: DealKanbanProps) {
   const [deals, setDeals] = useState<Deal[]>(initialDeals)
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -309,6 +332,7 @@ export function DealKanban({
               contactBasePath={contactBasePath}
               companyBasePath={companyBasePath}
               contactLabelsById={contactLabelsById}
+              onEditDeal={onEditDeal}
             />
           ),
         )}
