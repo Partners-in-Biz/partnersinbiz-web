@@ -1,7 +1,7 @@
 /**
  * @jest-environment jsdom
  */
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import '@testing-library/jest-dom'
 import {
   ExperimentsListClient,
@@ -101,5 +101,40 @@ describe('ExperimentsListClient', () => {
     // Start should not appear when filtering to Running
     fireEvent.click(screen.getByRole('tab', { name: 'Running' }))
     expect(screen.queryByRole('button', { name: /^Start/i })).not.toBeInTheDocument()
+  })
+
+  it('archives an experiment through an in-page confirmation without native dialogs', async () => {
+    const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(true)
+    const fetchMock = jest.fn().mockResolvedValue({ ok: true })
+    global.fetch = fetchMock
+
+    render(<ExperimentsListClient experiments={MOCK_EXPERIMENTS} orgSlug="acme" />)
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Archive experiment Headline Variation for acme' }),
+    )
+
+    expect(confirmSpy).not.toHaveBeenCalled()
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(
+      screen.getByRole('alertdialog', { name: 'Archive experiment Headline Variation for acme?' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'This removes Headline Variation from active testing views. Results, winner history, and audit context stay in PiB.',
+      ),
+    ).toBeInTheDocument()
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Confirm archive experiment Headline Variation for acme' }),
+    )
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/ads/experiments/exp_2', { method: 'DELETE' })
+    })
+
+    expect(screen.getByText('Experiment Headline Variation archived.')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Experiment Headline Variation')).not.toBeInTheDocument()
+    confirmSpy.mockRestore()
   })
 })

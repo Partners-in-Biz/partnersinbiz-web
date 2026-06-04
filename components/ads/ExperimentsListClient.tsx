@@ -54,11 +54,29 @@ interface Props {
   orgSlug: string
 }
 
+type ExperimentActionResponse = {
+  error?: string
+  data?: Partial<ExperimentRow> & {
+    significance?: ExperimentRow['significance']
+  }
+}
+
+const ACTION_SUCCESS_COPY: Record<string, string> = {
+  start: 'Experiment started.',
+  stop: 'Experiment paused.',
+  compute: 'Experiment results recomputed.',
+}
+
 export function ExperimentsListClient({ experiments, orgSlug }: Props) {
+  const [visibleExperiments, setVisibleExperiments] = useState<ExperimentRow[]>(experiments)
   const [activeTab, setActiveTab] = useState<FilterKey>('all')
   const [actioning, setActioning] = useState<string | null>(null)
+  const [confirmArchive, setConfirmArchive] = useState<ExperimentRow | null>(null)
+  const [archiving, setArchiving] = useState<string | null>(null)
+  const [actionMessage, setActionMessage] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
 
-  const filtered = experiments.filter((e) => {
+  const filtered = visibleExperiments.filter((e) => {
     if (activeTab === 'all') return !e.archivedAt
     if (activeTab === 'archived') return !!e.archivedAt
     return e.status === activeTab && !e.archivedAt
@@ -66,18 +84,69 @@ export function ExperimentsListClient({ experiments, orgSlug }: Props) {
 
   async function postAction(experimentId: string, action: string) {
     setActioning(experimentId)
+    setActionMessage(null)
+    setActionError(null)
     try {
-      await fetch(`/api/v1/ads/experiments/${experimentId}/${action}`, { method: 'POST' })
-      window.location.reload()
+      const response = await fetch(`/api/v1/ads/experiments/${experimentId}/${action}`, { method: 'POST' })
+      const body = (await response.json().catch(() => null)) as ExperimentActionResponse | null
+      if (!response.ok) throw new Error(body?.error ?? 'Experiment action failed')
+
+      setVisibleExperiments((current) =>
+        current.map((item) => {
+          if (item.id !== experimentId) return item
+          if (action === 'start') {
+            return {
+              ...item,
+              ...body?.data,
+              status: 'running',
+              startedAt: body?.data?.startedAt ?? item.startedAt ?? { seconds: Math.floor(Date.now() / 1000) },
+            }
+          }
+          if (action === 'stop') return { ...item, ...body?.data, status: 'paused' }
+          if (action === 'compute') {
+            return {
+              ...item,
+              significance: body?.data?.significance ?? item.significance,
+            }
+          }
+          return { ...item, ...body?.data }
+        }),
+      )
+      setActionMessage(ACTION_SUCCESS_COPY[action] ?? 'Experiment updated.')
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Experiment action failed')
     } finally {
       setActioning(null)
     }
   }
 
-  async function archiveExperiment(experimentId: string) {
-    if (!confirm('Archive this experiment?')) return
-    await fetch(`/api/v1/ads/experiments/${experimentId}`, { method: 'DELETE' })
-    window.location.reload()
+  function requestArchive(experiment: ExperimentRow) {
+    setActionMessage(null)
+    setActionError(null)
+    setConfirmArchive(experiment)
+  }
+
+  async function archiveExperiment(experiment: ExperimentRow) {
+    setArchiving(experiment.id)
+    setActionMessage(null)
+    setActionError(null)
+    try {
+      const response = await fetch(`/api/v1/ads/experiments/${experiment.id}`, { method: 'DELETE' })
+      if (!response.ok) throw new Error('Experiment archive failed')
+      setVisibleExperiments((current) =>
+        current.map((item) =>
+          item.id === experiment.id
+            ? { ...item, archivedAt: item.archivedAt ?? new Date().toISOString() }
+            : item,
+        ),
+      )
+      setConfirmArchive(null)
+      setActionMessage(`Experiment ${experiment.name} archived.`)
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Experiment archive failed')
+    } finally {
+      setArchiving(null)
+    }
   }
 
   return (
@@ -99,6 +168,65 @@ export function ExperimentsListClient({ experiments, orgSlug }: Props) {
         tabs={FILTER_TABS.map((tab) => ({ label: tab.label, value: tab.key }))}
       />
 
+      {actionMessage && (
+        <div
+          role="status"
+          className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200"
+        >
+          {actionMessage}
+        </div>
+      )}
+
+      {actionError && (
+        <div
+          role="alert"
+          className="rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200"
+        >
+          {actionError}
+        </div>
+      )}
+
+      {confirmArchive && (
+        <div
+          role="alertdialog"
+          aria-modal="false"
+          aria-labelledby="experiment-archive-title"
+          aria-describedby="experiment-archive-description"
+          className="rounded-lg border border-[#F5A623]/30 bg-[#F5A623]/10 p-4 shadow-sm"
+        >
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="space-y-1">
+              <h2 id="experiment-archive-title" className="text-sm font-semibold text-white">
+                Archive experiment {confirmArchive.name} for {orgSlug}?
+              </h2>
+              <p id="experiment-archive-description" className="text-sm text-white/65">
+                This removes {confirmArchive.name} from active testing views. Results, winner history, and audit context
+                stay in PiB.
+              </p>
+            </div>
+            <div className="flex shrink-0 gap-2">
+              <button
+                type="button"
+                onClick={() => setConfirmArchive(null)}
+                disabled={archiving === confirmArchive.id}
+                className="rounded border border-white/10 px-3 py-1.5 text-xs text-white/60 hover:text-white disabled:opacity-40"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => archiveExperiment(confirmArchive)}
+                disabled={archiving === confirmArchive.id}
+                aria-label={`Confirm archive experiment ${confirmArchive.name} for ${orgSlug}`}
+                className="rounded border border-red-400/40 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-200 hover:bg-red-500/20 disabled:opacity-40"
+              >
+                {archiving === confirmArchive.id ? 'Archiving...' : 'Archive experiment'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {filtered.length === 0 ? (
         <div className="rounded-lg border border-dashed border-white/10 p-8 text-center">
           <p className="text-white/60">No experiments found.</p>
@@ -117,7 +245,7 @@ export function ExperimentsListClient({ experiments, orgSlug }: Props) {
             const days = daysRunning(exp.startedAt)
             const busy = actioning === exp.id
             return (
-              <li key={exp.id} className="px-5 py-4">
+              <li key={exp.id} aria-label={`Experiment ${exp.name}`} className="px-5 py-4">
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0 space-y-2">
                     <div className="flex flex-wrap items-center gap-2">
@@ -190,8 +318,11 @@ export function ExperimentsListClient({ experiments, orgSlug }: Props) {
 
                     {!exp.archivedAt && (
                       <button
-                        onClick={() => archiveExperiment(exp.id)}
-                        className="rounded border border-white/10 px-2 py-1 text-white/40 hover:text-red-400"
+                        type="button"
+                        onClick={() => requestArchive(exp)}
+                        disabled={archiving === exp.id}
+                        aria-label={`Archive experiment ${exp.name} for ${orgSlug}`}
+                        className="rounded border border-white/10 px-2 py-1 text-white/40 hover:text-red-400 disabled:opacity-40"
                       >
                         Archive
                       </button>
