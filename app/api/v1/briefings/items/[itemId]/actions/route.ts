@@ -11,7 +11,24 @@ export const dynamic = 'force-dynamic'
 
 type RouteContext = { params: Promise<{ itemId: string }> }
 const SAFE_ACTIONS = ['create-task', 'assign-agent', 'create-crm-activity'] as const
-const GATED_EXTERNAL_ACTIONS = new Set(['send', 'publish', 'spend', 'deploy', 'billing', 'delete', 'archive', 'destructive', 'launch-campaign', 'send-now'])
+const GATED_EXTERNAL_ACTIONS = new Set([
+  'send',
+  'send-email',
+  'send-now',
+  'publish',
+  'spend',
+  'deploy',
+  'billing',
+  'delete',
+  'archive',
+  'destructive',
+  'launch-campaign',
+  'enroll',
+  'enroll-sequence',
+  'sequence',
+  'import',
+  'import-list',
+])
 const NO_SIDE_EFFECT_COPY = 'No send, publish, spend, deploy, billing, secret/config, or destructive action was performed.'
 
 type EvidenceRow = {

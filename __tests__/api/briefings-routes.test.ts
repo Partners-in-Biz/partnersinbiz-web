@@ -327,6 +327,33 @@ describe('briefing API routes', () => {
     expect(mockCollection).not.toHaveBeenCalledWith('emails')
   })
 
+  it('approval-gates CRM revenue external send, sequence enrollment, and import requests', async () => {
+    const { POST } = await import('@/app/api/v1/briefings/items/[itemId]/actions/route')
+
+    for (const action of ['send-email', 'enroll-sequence', 'import-list']) {
+      const res = await POST(new NextRequest('http://localhost/api/v1/briefings/items/contact%3Acontact-1/actions', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          action,
+          orgId: 'pib-platform-owner',
+          context: { contactId: 'contact-1' },
+        }),
+      }), { params: Promise.resolve({ itemId: 'contact%3Acontact-1' }) })
+      const body = await res.json()
+
+      expect(res.status).toBe(400)
+      expect(body.error).toContain(`Approval is still required before ${action}`)
+      expect(body.error).toContain('No send, publish, spend, deploy, billing, secret/config, or destructive action was performed')
+    }
+
+    expect(mockProjectTaskAdd).not.toHaveBeenCalled()
+    expect(mockActivityAdd).not.toHaveBeenCalled()
+    expect(mockCollection).not.toHaveBeenCalledWith('contacts')
+    expect(mockCollection).not.toHaveBeenCalledWith('emails')
+    expect(mockCollection).not.toHaveBeenCalledWith('campaigns')
+  })
+
   it('requires tenant access before creating linked briefing actions', async () => {
     mockCanAccessOrg.mockReturnValue(false)
     const { POST } = await import('@/app/api/v1/briefings/items/[itemId]/actions/route')
