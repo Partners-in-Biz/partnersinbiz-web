@@ -7,6 +7,7 @@ const mockCollection = jest.fn()
 const mockResolvePortalActiveOrgId = jest.fn()
 const mockGetPortalOrgIdsForUser = jest.fn()
 const mockChoosePortalActiveOrgId = jest.fn()
+const mockCanUsePortalOrg = jest.fn()
 
 jest.mock('@/lib/firebase/admin', () => ({
   adminDb: { collection: mockCollection },
@@ -22,6 +23,7 @@ jest.mock('@/lib/portal/org-access', () => ({
   resolvePortalActiveOrgId: mockResolvePortalActiveOrgId,
   getPortalOrgIdsForUser: mockGetPortalOrgIdsForUser,
   choosePortalActiveOrgId: mockChoosePortalActiveOrgId,
+  canUsePortalOrg: mockCanUsePortalOrg,
 }))
 
 beforeEach(() => {
@@ -59,6 +61,36 @@ describe('portal org routes', () => {
     expect(res.status).toBe(200)
     await expect(res.json()).resolves.toMatchObject({
       org: { id: 'client-org', name: 'Client Org', slug: 'client-org', type: 'client' },
+      user: { uid: 'admin-1', role: 'admin' },
+    })
+  })
+
+  it('returns a requested portal org when the user can access the company workspace org', async () => {
+    mockResolvePortalActiveOrgId.mockResolvedValue('platform-org')
+    mockCanUsePortalOrg.mockResolvedValue(true)
+    mockUserGet.mockResolvedValue({
+      exists: true,
+      data: () => ({ role: 'admin', orgId: 'platform-org' }),
+    })
+    mockOrgDoc.mockImplementation((id: string) => ({
+      get: async () => ({
+        exists: true,
+        data: () => ({
+          name: id === 'lumen-org' ? 'Lumen' : 'Partners in Biz',
+          slug: id === 'lumen-org' ? 'lumen-speeds' : 'partners-in-biz',
+          type: id === 'lumen-org' ? 'client' : 'platform_owner',
+          logoUrl: '',
+        }),
+      }),
+    }))
+
+    const { GET } = await import('@/app/api/v1/portal/org/route')
+    const res = await GET(new NextRequest('http://localhost/api/v1/portal/org?orgId=lumen-org'))
+
+    expect(res.status).toBe(200)
+    expect(mockCanUsePortalOrg).toHaveBeenCalledWith('admin-1', expect.objectContaining({ role: 'admin' }), 'lumen-org')
+    await expect(res.json()).resolves.toMatchObject({
+      org: { id: 'lumen-org', name: 'Lumen', slug: 'lumen-speeds', type: 'client' },
       user: { uid: 'admin-1', role: 'admin' },
     })
   })

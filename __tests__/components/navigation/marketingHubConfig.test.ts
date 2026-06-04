@@ -58,4 +58,23 @@ describe('marketing hub config', () => {
       }
     }
   })
+
+  it('keeps portal marketing hub actions scoped when opened from a CRM company workspace', () => {
+    const portal = buildMarketingHubProps({
+      surface: 'portal',
+      orgId: 'client-org',
+      orgSlug: 'lumen-speeds',
+    } as never)
+    const hrefs = actionMap(portal.sections)
+
+    expect(portal.primaryAction?.href).toBe('/portal/social?orgId=client-org&orgSlug=lumen-speeds')
+    expect(hrefs.get('Campaigns')).toBe('/portal/campaigns?orgId=client-org&orgSlug=lumen-speeds')
+    expect(hrefs.get('SEO')).toBe('/portal/seo?orgId=client-org&orgSlug=lumen-speeds')
+    expect(hrefs.get('Capture sources')).toBe('/portal/capture-sources?orgId=client-org&orgSlug=lumen-speeds')
+
+    for (const href of hrefs.values()) {
+      expect(href).toContain('orgId=client-org')
+      expect(href).toContain('orgSlug=lumen-speeds')
+    }
+  })
 })

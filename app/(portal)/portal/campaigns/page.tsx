@@ -1,12 +1,18 @@
-import { cookies } from 'next/headers'
-import { redirect } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import Link from 'next/link'
-import { adminAuth, adminDb } from '@/lib/firebase/admin'
+import { adminDb } from '@/lib/firebase/admin'
 import { getBrandKitForOrg } from '@/lib/brand-kit/store'
 import { serializeForClient } from '@/lib/campaigns/serialize'
 import { CampaignProgramCard } from '@/components/campaigns/CampaignProgramCard'
 import { CampaignRequestPanel } from './CampaignRequestPanel'
 import type { Sequence } from '@/lib/sequences/types'
+import {
+  resolvePortalCampaignUser,
+  scopedPortalHref,
+  scopeFromSearchParams,
+  type PortalCampaignSearchParams,
+  type PortalCampaignScope,
+} from './portalCampaignScope'
 
 export const dynamic = 'force-dynamic'
 
@@ -47,23 +53,16 @@ function statusPill(status: string | undefined): string {
   return STATUS_PILL[status ?? ''] ?? 'bg-zinc-800 text-zinc-300 border border-zinc-700'
 }
 
-async function currentUser(): Promise<{ uid: string; orgId?: string } | null> {
-  const cookieStore = await cookies()
-  const cookieName = process.env.SESSION_COOKIE_NAME ?? '__session'
-  const session = cookieStore.get(cookieName)?.value
-  if (!session) return null
-  try {
-    const decoded = await adminAuth.verifySessionCookie(session, true)
-    const userDoc = await adminDb.collection('users').doc(decoded.uid).get()
-    return { uid: decoded.uid, orgId: userDoc.data()?.orgId }
-  } catch {
-    return null
-  }
-}
-
-export default async function PortalCampaignsIndex() {
-  const user = await currentUser()
+export default async function PortalCampaignsIndex({
+  searchParams,
+}: {
+  searchParams?: Promise<PortalCampaignSearchParams>
+} = {}) {
+  const params = await searchParams
+  const scope = scopeFromSearchParams(params)
+  const user = await resolvePortalCampaignUser(scope.orgId)
   if (!user) redirect('/login')
+  if (user.forbidden) notFound()
   if (!user.orgId) {
     return (
       <div className="pib-card p-10 text-center text-sm text-[var(--color-pib-text-muted)]">
@@ -252,7 +251,7 @@ export default async function PortalCampaignsIndex() {
         <StatTile label="Avg open rate" value={avgOpen} icon="drafts" />
       </div>
 
-      <CampaignRequestPanel />
+      <CampaignRequestPanel orgId={scope.orgId} />
 
       {/* Section 1: Content & Social */}
       <section className="space-y-5">
@@ -272,7 +271,7 @@ export default async function PortalCampaignsIndex() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
             {contentCampaigns.map((c: any) => (
-              <CampaignProgramCard key={c.id} campaign={c} href={`/portal/campaigns/${c.id}`} />
+              <CampaignProgramCard key={c.id} campaign={c} href={scopedPortalHref(`/portal/campaigns/${c.id}`, scope)} />
             ))}
           </div>
         )}
@@ -304,7 +303,7 @@ export default async function PortalCampaignsIndex() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
               {emailPrograms.map((c: any) => (
-                <EmailCampaignCard key={c.id} c={c} />
+                <EmailCampaignCard key={c.id} c={c} scope={scope} />
               ))}
             </div>
           )}
@@ -342,7 +341,7 @@ export default async function PortalCampaignsIndex() {
               <div className="divide-y divide-[var(--color-pib-line)]">
                 {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                 {allBroadcasts.map((b: any) => (
-                  <BroadcastRow key={b.id} b={b} />
+                  <BroadcastRow key={b.id} b={b} scope={scope} />
                 ))}
               </div>
             </div>
@@ -458,7 +457,7 @@ function EmptyState({ icon, title, body }: { icon: string; title: string; body: 
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function EmailCampaignCard({ c }: { c: any }) {
+function EmailCampaignCard({ c, scope }: { c: any; scope: PortalCampaignScope }) {
   const stats = c.stats ?? {}
   const enrolled = Number(stats.enrolled ?? 0)
   const opened = Number(stats.opened ?? 0)
@@ -467,7 +466,9 @@ function EmailCampaignCard({ c }: { c: any }) {
 
   return (
     <Link
-      href={c.kind === 'sequence' ? `/portal/settings/sequences/${c.id}/edit` : `/portal/campaigns/email/${c.id}`}
+      href={c.kind === 'sequence'
+        ? scopedPortalHref(`/portal/settings/sequences/${c.id}/edit`, scope)
+        : scopedPortalHref(`/portal/campaigns/email/${c.id}`, scope)}
       className="pib-card pib-card-hover block !p-5"
     >
       <div className="flex items-start justify-between gap-3">
@@ -506,7 +507,7 @@ function MiniStat({ label, value }: { label: string; value: string }) {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function BroadcastRow({ b }: { b: any }) {
+function BroadcastRow({ b, scope }: { b: any; scope: PortalCampaignScope }) {
   const stats = b.stats ?? {}
   const audience = Number(stats.audienceSize ?? stats.queued ?? 0)
   const opened = Number(stats.opened ?? 0)
@@ -519,7 +520,7 @@ function BroadcastRow({ b }: { b: any }) {
 
   return (
     <Link
-      href={`/portal/campaigns/broadcast/${b.id}`}
+      href={scopedPortalHref(`/portal/campaigns/broadcast/${b.id}`, scope)}
       className="grid grid-cols-2 md:grid-cols-12 gap-3 md:gap-4 items-center px-5 py-4 hover:bg-[var(--color-pib-surface-2)] transition-colors"
     >
       <div className="col-span-2 md:col-span-5 min-w-0 flex items-center gap-3">

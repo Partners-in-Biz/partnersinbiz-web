@@ -5,10 +5,17 @@ const mockVerifySessionCookie = jest.fn()
 const mockGet = jest.fn()
 const mockDoc = jest.fn()
 const mockCollection = jest.fn()
+const mockResolvePortalActiveOrgId = jest.fn()
+const mockCanUsePortalOrg = jest.fn()
 
 jest.mock('@/lib/firebase/admin', () => ({
   adminAuth: { verifySessionCookie: mockVerifySessionCookie },
   adminDb: { collection: mockCollection },
+}))
+
+jest.mock('@/lib/portal/org-access', () => ({
+  resolvePortalActiveOrgId: mockResolvePortalActiveOrgId,
+  canUsePortalOrg: mockCanUsePortalOrg,
 }))
 
 mockCollection.mockReturnValue({ doc: mockDoc })
@@ -16,8 +23,8 @@ mockDoc.mockReturnValue({ get: mockGet })
 
 import { withPortalAuthAndRole } from '@/lib/auth/portal-middleware'
 
-function makeReq() {
-  return new NextRequest('http://localhost/test', {
+function makeReq(url = 'http://localhost/test') {
+  return new NextRequest(url, {
     headers: { Cookie: '__session=valid-cookie' },
   })
 }
@@ -25,6 +32,8 @@ function makeReq() {
 beforeEach(() => {
   jest.clearAllMocks()
   mockVerifySessionCookie.mockResolvedValue({ uid: 'uid-1' })
+  mockResolvePortalActiveOrgId.mockImplementation(async (_uid: string, data: { activeOrgId?: string; orgId?: string }) => data.activeOrgId ?? data.orgId ?? null)
+  mockCanUsePortalOrg.mockResolvedValue(true)
   mockDoc.mockReturnValue({ get: mockGet })
   mockCollection.mockReturnValue({ doc: mockDoc })
 })
@@ -82,6 +91,23 @@ describe('withPortalAuthAndRole', () => {
     const res = await handler(makeReq())
     expect(res.status).toBe(200)
     expect(captured).toEqual({ uid: 'uid-1', orgId: 'org-1', role: 'admin' })
+  })
+
+  it('uses a requested orgId when a portal admin opens a company-scoped route', async () => {
+    mockGet
+      .mockResolvedValueOnce({ exists: true, data: () => ({ activeOrgId: 'platform-org', role: 'admin' }) })
+      .mockResolvedValueOnce({ exists: true, data: () => ({ role: 'owner' }) })
+
+    let captured: { uid: string; orgId: string; role: string } | null = null
+    const handler = withPortalAuthAndRole('member', async (_req, uid, orgId, role) => {
+      captured = { uid, orgId, role }
+      return new Response('ok', { status: 200 })
+    })
+    const res = await handler(makeReq('http://localhost/test?orgId=lumen-org'))
+
+    expect(res.status).toBe(200)
+    expect(mockCanUsePortalOrg).toHaveBeenCalledWith('uid-1', expect.objectContaining({ role: 'admin' }), 'lumen-org')
+    expect(captured).toEqual({ uid: 'uid-1', orgId: 'lumen-org', role: 'owner' })
   })
 
   it('falls back to organizations/members[] when orgMembers doc is missing', async () => {

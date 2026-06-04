@@ -3,6 +3,24 @@ import { buildMarketingHubProps } from '@/components/navigation/marketingHubConf
 
 export const dynamic = 'force-dynamic'
 
-export default function PortalMarketingPage() {
-  return <HubPage {...buildMarketingHubProps({ surface: 'portal' })} />
+type PortalMarketingSearchParams = {
+  orgId?: string
+  orgSlug?: string
+}
+
+export default async function PortalMarketingPage({
+  searchParams,
+}: {
+  searchParams?: Promise<PortalMarketingSearchParams>
+}) {
+  const params = await searchParams
+  return (
+    <HubPage
+      {...buildMarketingHubProps({
+        surface: 'portal',
+        orgId: params?.orgId,
+        orgSlug: params?.orgSlug,
+      })}
+    />
+  )
 }

@@ -2,6 +2,7 @@
 export const dynamic = 'force-dynamic'
 
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { DocumentIndex, type ClientDocumentPartyLabels } from '@/components/client-documents/DocumentIndex'
 import { PageHeader } from '@/components/ui/AppFoundation'
 import type { ClientDocument, ClientDocumentStatus } from '@/lib/client-documents/types'
@@ -16,6 +17,8 @@ interface PortalOrgResponse {
 }
 
 export default function PortalDocuments() {
+  const searchParams = useSearchParams()
+  const scopedOrgId = searchParams.get('orgId')?.trim() ?? ''
   const [docs, setDocs] = useState<ClientDocument[]>([])
   const [orgName, setOrgName] = useState('')
   const [loading, setLoading] = useState(true)
@@ -25,7 +28,10 @@ export default function PortalDocuments() {
 
     async function loadDocuments() {
       try {
-        const portalOrgRes = await fetch('/api/v1/portal/org', { cache: 'no-store' })
+        const portalOrgUrl = scopedOrgId
+          ? `/api/v1/portal/org?orgId=${encodeURIComponent(scopedOrgId)}`
+          : '/api/v1/portal/org'
+        const portalOrgRes = await fetch(portalOrgUrl, { cache: 'no-store' })
         const portalOrgBody: PortalOrgResponse | null = portalOrgRes.ok ? await portalOrgRes.json() : null
         const activeOrgId = typeof portalOrgBody?.org?.id === 'string' ? portalOrgBody.org.id : ''
         const activeOrgName = typeof portalOrgBody?.org?.name === 'string' ? portalOrgBody.org.name : ''
@@ -49,7 +55,7 @@ export default function PortalDocuments() {
     })
 
     return () => { cancelled = true }
-  }, [])
+  }, [scopedOrgId])
 
   const partyLabels: Record<string, ClientDocumentPartyLabels> = Object.fromEntries(
     docs.map((doc) => [

@@ -4,11 +4,12 @@ import PortalLayout from '@/app/(portal)/layout'
 const mockPush = jest.fn()
 const mockRefresh = jest.fn()
 let mockPathname = '/portal/dashboard'
+let mockSearchParams = new URLSearchParams()
 
 jest.mock('next/navigation', () => ({
   useRouter: () => ({ push: mockPush, refresh: mockRefresh }),
   usePathname: () => mockPathname,
-  useSearchParams: () => new URLSearchParams(),
+  useSearchParams: () => mockSearchParams,
 }))
 
 jest.mock('next/image', () => ({
@@ -73,6 +74,7 @@ function jsonResponse(body: unknown, ok = true) {
 describe('PortalLayout chat drawer', () => {
   beforeEach(() => {
     mockPathname = '/portal/dashboard'
+    mockSearchParams = new URLSearchParams()
     localStorage.clear()
     window.matchMedia = jest.fn().mockImplementation((query: string) => ({
       matches: true,
@@ -137,5 +139,21 @@ describe('PortalLayout chat drawer', () => {
     expect(main).toHaveClass('overflow-hidden')
     expect(main).not.toHaveClass('overflow-y-auto')
     expect(screen.queryByText(/Partners in Biz · Pretoria/)).not.toBeInTheDocument()
+  })
+
+  it('loads the requested workspace when portal routes are opened from a CRM company', async () => {
+    mockSearchParams = new URLSearchParams({ orgId: 'lumen-org', orgSlug: 'lumen-speeds' })
+
+    render(
+      <PortalLayout>
+        <main>Portal content</main>
+      </PortalLayout>,
+    )
+
+    await screen.findByText('Portal content')
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/portal/org?orgId=lumen-org')
+    })
   })
 })

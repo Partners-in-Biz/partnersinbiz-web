@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useMemo, useCallback } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { collection, onSnapshot } from 'firebase/firestore'
 import { getClientDb } from '@/lib/firebase/config'
 import { CrossProjectBoard } from '@/components/projects/CrossProjectBoard'
@@ -42,9 +43,15 @@ const PROJECT_VIEW_TABS = [
   { value: 'archive', label: 'Archive' },
 ]
 
-function receivedProjectsUrl(projectView: ProjectView = 'active') {
-  const archiveQuery = projectView === 'archive' ? '&archive=only' : ''
-  return `/api/v1/projects?view=received${archiveQuery}`
+function receivedProjectsUrl(projectView: ProjectView = 'active', orgId = '') {
+  const params = new URLSearchParams({ view: 'received' })
+  if (orgId) params.set('orgId', orgId)
+  if (projectView === 'archive') params.set('archive', 'only')
+  return `/api/v1/projects?${params.toString()}`
+}
+
+function projectReportingUrl(orgId = '') {
+  return orgId ? `/api/v1/projects/reporting?orgId=${encodeURIComponent(orgId)}` : '/api/v1/projects/reporting'
 }
 
 function mergeLiveTasks(restTasks: BoardTask[], currentTasks: BoardTask[]) {
@@ -55,6 +62,8 @@ function mergeLiveTasks(restTasks: BoardTask[], currentTasks: BoardTask[]) {
 }
 
 export default function ProjectsPage() {
+  const searchParams = useSearchParams()
+  const scopedOrgId = searchParams.get('orgId')?.trim() ?? ''
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
   const [activeSection, setActiveSection] = useState<'portfolio' | 'projects'>('projects')
@@ -75,11 +84,11 @@ export default function ProjectsPage() {
   const [formError, setFormError] = useState<string | null>(null)
 
   useEffect(() => {
-    fetch(receivedProjectsUrl(projectView))
+    fetch(receivedProjectsUrl(projectView, scopedOrgId))
       .then(r => r.json())
       .then(body => { setProjects(body.data ?? []); setLoading(false) })
       .catch(() => setLoading(false))
-  }, [projectView])
+  }, [projectView, scopedOrgId])
 
   useEffect(() => {
     setFilter('all')
@@ -188,6 +197,7 @@ export default function ProjectsPage() {
         body: JSON.stringify({
           name: formName,
           status: formStatus,
+          ...(scopedOrgId ? { orgId: scopedOrgId } : {}),
         }),
       })
 
@@ -198,7 +208,7 @@ export default function ProjectsPage() {
       }
 
       // Refetch the full list so the new project is confirmed from the server
-      const listRes = await fetch(receivedProjectsUrl(projectView))
+      const listRes = await fetch(receivedProjectsUrl(projectView, scopedOrgId))
       const listBody = await listRes.json()
       setProjects(listBody.data ?? [])
       setShowForm(false)
@@ -306,7 +316,7 @@ export default function ProjectsPage() {
       )}
 
       {activeSection === 'portfolio' ? (
-        <ProjectPortfolioReportPanel />
+        <ProjectPortfolioReportPanel reportUrl={projectReportingUrl(scopedOrgId)} />
       ) : null}
 
       {activeSection === 'projects' ? (

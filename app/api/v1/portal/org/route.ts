@@ -4,30 +4,42 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withPortalAuth } from '@/lib/auth/portal-middleware'
 import { adminDb } from '@/lib/firebase/admin'
-import { resolvePortalActiveOrgId } from '@/lib/portal/org-access'
+import { canUsePortalOrg, resolvePortalActiveOrgId } from '@/lib/portal/org-access'
 
 export const dynamic = 'force-dynamic'
 
-async function resolveOrgId(uid: string): Promise<string | null> {
+type ResolvedPortalOrg =
+  | { ok: true; orgId: string; userData: Record<string, unknown> }
+  | { ok: false; status: number; error: string }
+
+async function resolveOrgId(req: NextRequest, uid: string): Promise<ResolvedPortalOrg> {
   const userDoc = await adminDb.collection('users').doc(uid).get()
   const data = userDoc.data() as { orgId?: string; activeOrgId?: string } | undefined
-  if (!data) return null
-  return resolvePortalActiveOrgId(uid, data)
+  if (!data) return { ok: false, status: 404, error: 'User not found' }
+
+  const requestedOrgId = req.nextUrl.searchParams.get('orgId')?.trim() ?? ''
+  if (requestedOrgId) {
+    const allowed = await canUsePortalOrg(uid, data, requestedOrgId)
+    if (!allowed) return { ok: false, status: 403, error: 'You do not have access to this organisation' }
+    return { ok: true, orgId: requestedOrgId, userData: data as Record<string, unknown> }
+  }
+
+  const orgId = await resolvePortalActiveOrgId(uid, data)
+  if (!orgId) return { ok: false, status: 404, error: 'No org linked to this account' }
+  return { ok: true, orgId, userData: data as Record<string, unknown> }
 }
 
-export const GET = withPortalAuth(async (_req: NextRequest, uid: string) => {
-  const orgId = await resolveOrgId(uid)
-  if (!orgId) return NextResponse.json({ error: 'No org linked to this account' }, { status: 404 })
+export const GET = withPortalAuth(async (req: NextRequest, uid: string) => {
+  const resolved = await resolveOrgId(req, uid)
+  if (!resolved.ok) return NextResponse.json({ error: resolved.error }, { status: resolved.status })
 
-  const [orgDoc, userDoc] = await Promise.all([
-    adminDb.collection('organizations').doc(orgId).get(),
-    adminDb.collection('users').doc(uid).get(),
-  ])
+  const orgId = resolved.orgId
+  const orgDoc = await adminDb.collection('organizations').doc(orgId).get()
 
   if (!orgDoc.exists) return NextResponse.json({ error: 'Organisation not found' }, { status: 404 })
 
   const org = orgDoc.data()!
-  const user = userDoc.data()!
+  const user = resolved.userData
 
   return NextResponse.json({
     org: {

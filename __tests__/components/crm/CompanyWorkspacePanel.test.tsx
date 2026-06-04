@@ -31,10 +31,10 @@ describe('CompanyWorkspacePanel', () => {
       />,
     )
 
-    expect(screen.getByRole('link', { name: 'Open marketing workspace for Lumen' })).toHaveAttribute('href', '/admin/org/lumen-speeds/marketing')
-    expect(screen.getByRole('link', { name: 'Open SEO workspace for Lumen' })).toHaveAttribute('href', '/admin/org/lumen-speeds/seo')
-    expect(screen.getByRole('link', { name: 'Open social workspace for Lumen' })).toHaveAttribute('href', '/admin/org/lumen-speeds/social')
-    expect(screen.getByRole('link', { name: 'Open ads workspace for Lumen' })).toHaveAttribute('href', '/admin/org/lumen-speeds/ads/campaigns')
+    expect(screen.getByRole('link', { name: 'Open marketing workspace for Lumen' })).toHaveAttribute('href', '/portal/campaigns?orgId=client-org&orgSlug=lumen-speeds')
+    expect(screen.getByRole('link', { name: 'Open SEO workspace for Lumen' })).toHaveAttribute('href', '/portal/seo?orgId=client-org&orgSlug=lumen-speeds')
+    expect(screen.getByRole('link', { name: 'Open social workspace for Lumen' })).toHaveAttribute('href', '/portal/social?orgId=client-org&orgSlug=lumen-speeds')
+    expect(screen.getByRole('link', { name: 'Open ads workspace for Lumen' })).toHaveAttribute('href', '/portal/ads?orgId=client-org&orgSlug=lumen-speeds')
   })
 
   it('shows a relationship setup state when the company is not linked to an organisation', () => {

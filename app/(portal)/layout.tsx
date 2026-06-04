@@ -125,8 +125,17 @@ interface PortalOrgOption {
 }
 
 function active(pathname: string, item: NavItem) {
-  if (pathname === item.href || pathname.startsWith(item.href + '/')) return true
+  const hrefPath = item.href.split('?')[0] ?? item.href
+  if (pathname === hrefPath || pathname.startsWith(hrefPath + '/')) return true
   return item.activePatterns?.some((pattern) => pathname === pattern || pathname.startsWith(pattern + '/')) ?? false
+}
+
+function scopedPortalHref(path: string, orgId: string, orgSlug: string) {
+  if (!orgId) return path
+  const params = new URLSearchParams()
+  params.set('orgId', orgId)
+  if (orgSlug) params.set('orgSlug', orgSlug)
+  return `${path}${path.includes('?') ? '&' : '?'}${params.toString()}`
 }
 
 function NavLink({ item, pathname, collapsed }: { item: NavItem; pathname: string; collapsed?: boolean }) {
@@ -184,6 +193,8 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const requestedOrgId = searchParams.get('orgId')?.trim() ?? ''
+  const requestedOrgSlug = searchParams.get('orgSlug')?.trim() ?? ''
   const isEmailRoute = pathname === '/portal/email' || pathname.startsWith('/portal/email/')
   const isMessagesRoute = pathname === '/portal/messages' || pathname.startsWith('/portal/messages/')
   const isWorkspaceRoute = isEmailRoute || isMessagesRoute
@@ -240,7 +251,10 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
           setUid(user.uid)
           setName(user.displayName ?? user.email?.split('@')[0] ?? '')
           setChecking(false)
-          fetch('/api/v1/portal/org')
+          const portalOrgUrl = requestedOrgId
+            ? `/api/v1/portal/org?orgId=${encodeURIComponent(requestedOrgId)}`
+            : '/api/v1/portal/org'
+          fetch(portalOrgUrl)
             .then(r => r.ok ? r.json() : null)
             .then(d => {
               if (d?.org?.name) setOrgName(d.org.name)
@@ -254,9 +268,10 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
             .then(r => r.ok ? r.json() : null)
             .then(d => {
               if (Array.isArray(d?.orgs)) setOrgs(d.orgs)
-              if (d?.activeOrgId) setActiveOrgId(d.activeOrgId)
+              const nextActiveOrgId = requestedOrgId || d?.activeOrgId
+              if (nextActiveOrgId) setActiveOrgId(nextActiveOrgId)
               const activeOrg = Array.isArray(d?.orgs)
-                ? d.orgs.find((org: PortalOrgOption) => org.id === d.activeOrgId)
+                ? d.orgs.find((org: PortalOrgOption) => org.id === nextActiveOrgId)
                 : null
               if (activeOrg?.slug) setActiveOrgSlug(activeOrg.slug)
               if (activeOrg?.type) setActiveOrgType(activeOrg.type)
@@ -276,7 +291,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
     })
 
     return () => { cancelled = true; unsubscribe?.() }
-  }, [router])
+  }, [router, requestedOrgId])
 
   // Close mobile drawer on navigation
   useEffect(() => {
@@ -289,7 +304,9 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
     let cancelled = false
     async function refresh() {
       try {
-        const res = await fetch('/api/v1/portal/documents/count')
+        const res = await fetch(requestedOrgId
+          ? `/api/v1/portal/documents/count?orgId=${encodeURIComponent(requestedOrgId)}`
+          : '/api/v1/portal/documents/count')
         if (!res.ok) return
         const body = await res.json()
         const count = body?.data?.count ?? 0
@@ -299,7 +316,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
     refresh()
     const id = window.setInterval(refresh, 60_000)
     return () => { cancelled = true; window.clearInterval(id) }
-  }, [checking, pathname])
+  }, [checking, pathname, requestedOrgId])
 
   function toggleCollapsed() {
     setCollapsed(prev => {
@@ -359,9 +376,12 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
     )
   }
 
-  const navWithBadges: NavItem[] = NAV_LINKS.map((item) =>
-    item.href === '/portal/documents' ? { ...item, badge: documentCount } : item,
-  )
+  const navWithBadges: NavItem[] = NAV_LINKS.map((item) => {
+    const href = requestedOrgId
+      ? scopedPortalHref(item.href, requestedOrgId, requestedOrgSlug || activeOrgSlug)
+      : item.href
+    return item.href === '/portal/documents' ? { ...item, href, badge: documentCount } : { ...item, href }
+  })
 
   const grouped = (['work', 'data', 'comms'] as const).map(g => ({
     group: g,

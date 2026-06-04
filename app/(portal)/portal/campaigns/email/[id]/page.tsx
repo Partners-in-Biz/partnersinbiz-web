@@ -1,12 +1,16 @@
 import { notFound, redirect } from 'next/navigation'
-import { cookies } from 'next/headers'
 import Link from 'next/link'
-import { adminDb, adminAuth } from '@/lib/firebase/admin'
+import { adminDb } from '@/lib/firebase/admin'
 import { getBrandKitForOrg } from '@/lib/brand-kit/store'
 import type { Campaign, CampaignStats, CampaignStatus } from '@/lib/campaigns/types'
 import type { Sequence, SequenceStep } from '@/lib/sequences/types'
 import type { Variant } from '@/lib/ab-testing/types'
 import type { EmailDomain } from '@/lib/email/domains'
+import {
+  resolvePortalCampaignUser,
+  scopeFromSearchParams,
+  type PortalCampaignSearchParams,
+} from '../../portalCampaignScope'
 
 export const dynamic = 'force-dynamic'
 
@@ -46,20 +50,6 @@ const AB_STATUS_LABEL: Record<string, string> = {
   complete: 'Complete',
 }
 
-async function currentUser(): Promise<{ uid: string; orgId?: string } | null> {
-  const cookieStore = await cookies()
-  const cookieName = process.env.SESSION_COOKIE_NAME ?? '__session'
-  const session = cookieStore.get(cookieName)?.value
-  if (!session) return null
-  try {
-    const decoded = await adminAuth.verifySessionCookie(session, true)
-    const userDoc = await adminDb.collection('users').doc(decoded.uid).get()
-    return { uid: decoded.uid, orgId: userDoc.data()?.orgId }
-  } catch {
-    return null
-  }
-}
-
 function pct(num: number, denom: number): string {
   if (!denom) return '—'
   return `${((num / denom) * 100).toFixed(1)}%`
@@ -73,11 +63,16 @@ function snippet(step: SequenceStep, length = 140): string {
 
 export default async function PortalEmailCampaignPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>
+  searchParams?: Promise<PortalCampaignSearchParams>
 }) {
-  const user = await currentUser()
+  const resolvedSearchParams = await searchParams
+  const scope = scopeFromSearchParams(resolvedSearchParams)
+  const user = await resolvePortalCampaignUser(scope.orgId)
   if (!user) redirect('/login')
+  if (user.forbidden) notFound()
   const { id } = await params
 
   const campaignSnap = await adminDb.collection('campaigns').doc(id).get()

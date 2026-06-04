@@ -1,7 +1,7 @@
 import type { HubAction, HubPageProps, HubSection } from './HubPage'
 
 type MarketingHubSurface =
-  | { surface: 'portal' }
+  | { surface: 'portal'; orgId?: string; orgSlug?: string }
   | { surface: 'admin' }
   | { surface: 'admin-org'; slug: string }
 
@@ -11,6 +11,14 @@ function orgPath(slug: string, path: string) {
 
 function orgQueryPath(slug: string, path: string) {
   return `${path}${path.includes('?') ? '&' : '?'}org=${encodeURIComponent(slug)}`
+}
+
+function scopedPortalPath(config: { orgId?: string; orgSlug?: string }, path: string) {
+  if (!config.orgId && !config.orgSlug) return path
+  const params = new URLSearchParams()
+  if (config.orgId) params.set('orgId', config.orgId)
+  if (config.orgSlug) params.set('orgSlug', config.orgSlug)
+  return `${path}${path.includes('?') ? '&' : '?'}${params.toString()}`
 }
 
 function section(title: string, actions: HubAction[]): HubSection {
@@ -25,7 +33,7 @@ export function buildMarketingHubProps(config: MarketingHubSurface): HubPageProp
       description: 'Your brand, campaigns, social approvals, SEO work, contacts, and lead capture in one place.',
       primaryAction: {
         label: 'Review social',
-        href: '/portal/social',
+        href: scopedPortalPath(config, '/portal/social'),
         icon: 'rate_review',
         description: 'Review social work.',
       },
@@ -33,28 +41,28 @@ export function buildMarketingHubProps(config: MarketingHubSurface): HubPageProp
         section('Brand and campaigns', [
           {
             label: 'Branding',
-            href: '/portal/branding',
+            href: scopedPortalPath(config, '/portal/branding'),
             icon: 'palette',
             description: 'Review brand assets, colours, voice, and profile information.',
             eyebrow: 'Brand',
           },
           {
             label: 'Campaigns',
-            href: '/portal/campaigns',
+            href: scopedPortalPath(config, '/portal/campaigns'),
             icon: 'flag',
             description: 'See content campaigns, email campaigns, broadcasts, and work in progress.',
             eyebrow: 'Content',
           },
           {
             label: 'Ads',
-            href: '/portal/ads',
+            href: scopedPortalPath(config, '/portal/ads'),
             icon: 'ads_click',
             description: 'Review paid campaigns, approvals, and campaign activity.',
             eyebrow: 'Paid',
           },
           {
             label: 'SEO',
-            href: '/portal/seo',
+            href: scopedPortalPath(config, '/portal/seo'),
             icon: 'trending_up',
             description: 'Track sprint progress, keywords, content, audits, pages, and blog drafts.',
             eyebrow: 'Search',
@@ -63,49 +71,49 @@ export function buildMarketingHubProps(config: MarketingHubSurface): HubPageProp
         section('Social media', [
           {
             label: 'Social overview',
-            href: '/portal/social',
+            href: scopedPortalPath(config, '/portal/social'),
             icon: 'share',
             description: 'Approve posts, review history, and see social publishing status.',
             eyebrow: 'Review',
           },
           {
             label: 'Compose',
-            href: '/portal/social/compose',
+            href: scopedPortalPath(config, '/portal/social/compose'),
             icon: 'edit_square',
             description: 'Create a social post for review or publishing.',
             eyebrow: 'Create',
           },
           {
             label: 'Calendar',
-            href: '/portal/social/calendar',
+            href: scopedPortalPath(config, '/portal/social/calendar'),
             icon: 'calendar_month',
             description: 'See scheduled and planned posts across your social channels.',
             eyebrow: 'Schedule',
           },
           {
             label: 'History',
-            href: '/portal/social/history',
+            href: scopedPortalPath(config, '/portal/social/history'),
             icon: 'history',
             description: 'Review scheduled, published, failed, draft, and cancelled social posts.',
             eyebrow: 'Archive',
           },
           {
             label: 'Vault',
-            href: '/portal/social/vault',
+            href: scopedPortalPath(config, '/portal/social/vault'),
             icon: 'folder_special',
             description: 'Download or reuse approved social assets.',
             eyebrow: 'Assets',
           },
           {
             label: 'Accounts',
-            href: '/portal/social/accounts',
+            href: scopedPortalPath(config, '/portal/social/accounts'),
             icon: 'hub',
             description: 'Connect and inspect your social channels.',
             eyebrow: 'Connect',
           },
           {
             label: 'Links',
-            href: '/portal/social/links',
+            href: scopedPortalPath(config, '/portal/social/links'),
             icon: 'link',
             description: 'Manage links used in profiles and campaigns.',
             eyebrow: 'Profile',
@@ -114,35 +122,35 @@ export function buildMarketingHubProps(config: MarketingHubSurface): HubPageProp
         section('Email and capture', [
           {
             label: 'Sequences',
-            href: '/portal/settings/sequences',
+            href: scopedPortalPath(config, '/portal/settings/sequences'),
             icon: 'route',
             description: 'Build multi-step email nurture paths for captured contacts and clients.',
             eyebrow: 'Journey',
           },
           {
             label: 'Automations',
-            href: '/portal/settings/automations',
+            href: scopedPortalPath(config, '/portal/settings/automations'),
             icon: 'bolt',
             description: 'Trigger follow-up actions from CRM events, tags, forms, and sequence activity.',
             eyebrow: 'Rules',
           },
           {
             label: 'Email analytics',
-            href: '/portal/email-analytics',
+            href: scopedPortalPath(config, '/portal/email-analytics'),
             icon: 'query_stats',
             description: 'Track email delivery, opens, clicks, and engagement performance.',
             eyebrow: 'Reporting',
           },
           {
             label: 'Capture sources',
-            href: '/portal/capture-sources',
+            href: scopedPortalPath(config, '/portal/capture-sources'),
             icon: 'inventory_2',
             description: 'Manage lead forms, imports, and capture surfaces.',
             eyebrow: 'Leads',
           },
           {
             label: 'Email domains',
-            href: '/portal/email-domains',
+            href: scopedPortalPath(config, '/portal/email-domains'),
             icon: 'dns',
             description: 'Check sender-domain verification and deliverability setup.',
             eyebrow: 'Email',
@@ -151,21 +159,21 @@ export function buildMarketingHubProps(config: MarketingHubSurface): HubPageProp
         section('Audience and setup', [
           {
             label: 'Contacts',
-            href: '/portal/contacts',
+            href: scopedPortalPath(config, '/portal/contacts'),
             icon: 'contacts',
             description: 'View contacts and audience records.',
             eyebrow: 'Audience',
           },
           {
             label: 'Communications',
-            href: '/portal/communications',
+            href: scopedPortalPath(config, '/portal/communications'),
             icon: 'forum',
             description: 'Manage customer conversations, campaign replies, templates, and channel performance.',
             eyebrow: 'Comms',
           },
           {
             label: 'Integrations',
-            href: '/portal/integrations',
+            href: scopedPortalPath(config, '/portal/integrations'),
             icon: 'extension',
             description: 'Review connected systems and marketing integrations.',
             eyebrow: 'Systems',
