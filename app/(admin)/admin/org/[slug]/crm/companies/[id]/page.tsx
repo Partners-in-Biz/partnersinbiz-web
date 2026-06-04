@@ -7,10 +7,12 @@ import { useParams } from 'next/navigation'
 import type { Company } from '@/lib/companies/types'
 import { CompanyOverviewPanel } from '@/components/crm/CompanyOverviewPanel'
 import { CompanyTabsBar, type CompanyTab } from '@/components/crm/CompanyTabsBar'
+import { CompanyWorkspacePanel, type LinkedWorkspace } from '@/components/crm/CompanyWorkspacePanel'
 
 type Row = { id: string; [key: string]: unknown }
 type CommandCenter = {
   company?: Company
+  linkedWorkspace?: LinkedWorkspace | null
   summary?: Record<string, number>
   analytics?: {
     accountValue?: number
@@ -424,6 +426,7 @@ export default function AdminCompanyCommandCenterPage() {
         activeTab={tab}
         onChange={(next) => setTab(next as CompanyTab)}
         counts={tabCountsFor(center)}
+        includeWorkspace={Boolean(center.linkedWorkspace)}
       />
 
       <div role="tabpanel">
@@ -437,7 +440,14 @@ export default function AdminCompanyCommandCenterPage() {
         {tab === 'analytics' && (
           <AnalyticsPanel center={center} companyName={center.company.name} portalHref={`/portal/companies/${id}`} />
         )}
-        {tab !== 'overview' && tab !== 'analytics' && (
+        {tab === 'workspace' && (
+          <CompanyWorkspacePanel
+            companyName={center.company.name}
+            mode="admin"
+            workspace={center.linkedWorkspace ?? null}
+          />
+        )}
+        {tab !== 'overview' && tab !== 'analytics' && tab !== 'workspace' && (
           <SimpleRowsPanel
             tab={tab}
             rows={rowsFor(center, tab)}

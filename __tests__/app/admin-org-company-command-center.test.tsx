@@ -201,4 +201,70 @@ describe('Admin company command center page', () => {
     ).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Open portal risk review for Acme Holdings' })).toHaveAttribute('href', '/portal/companies/company-1')
   })
+
+  it('surfaces linked organisation workspace actions from the admin CRM company route', async () => {
+    ;(global.fetch as jest.Mock).mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/admin/crm/companies/company-1/command-center?orgSlug=acme-client&limit=100') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: {
+              company: {
+                id: 'company-1',
+                orgId: 'org-1',
+                name: 'Lumen',
+                linkedOrgId: 'client-org',
+                lifecycleStage: 'customer',
+              },
+              linkedWorkspace: { id: 'client-org', slug: 'lumen-speeds', name: 'Lumen Speeds' },
+              summary: {
+                contacts: 0,
+                deals: 0,
+                projects: 0,
+                documents: 0,
+                serviceWorkspaces: 0,
+                relationships: 0,
+                quotes: 0,
+                invoices: 0,
+                orders: 0,
+                shipments: 0,
+                inventoryItems: 0,
+                activities: 0,
+              },
+              analytics: { riskSignals: [] },
+              contacts: [],
+              deals: [],
+              projects: [],
+              documents: [],
+              serviceWorkspaces: [],
+              relationships: [],
+              quotes: [],
+              invoices: [],
+              orders: [],
+              shipments: [],
+              inventoryItems: [],
+              activities: [],
+            },
+          }),
+        } as Response)
+      }
+
+      return Promise.resolve({
+        ok: false,
+        json: async () => ({ error: `Unexpected request: ${url}` }),
+      } as Response)
+    })
+
+    render(<AdminCompanyCommandCenterPage />)
+
+    expect(await screen.findByText('Admin company command center')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Workspace' }))
+
+    expect(screen.getByText('Lumen Speeds workspace')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Open marketing workspace for Lumen' })).toHaveAttribute('href', '/admin/org/lumen-speeds/marketing')
+    expect(screen.getByRole('link', { name: 'Open SEO workspace for Lumen' })).toHaveAttribute('href', '/admin/org/lumen-speeds/seo')
+    expect(screen.getByRole('link', { name: 'Open social workspace for Lumen' })).toHaveAttribute('href', '/admin/org/lumen-speeds/social')
+  })
 })

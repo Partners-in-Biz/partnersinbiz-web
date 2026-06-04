@@ -1,0 +1,46 @@
+import { render, screen } from '@testing-library/react'
+import { CompanyWorkspacePanel } from '@/components/crm/CompanyWorkspacePanel'
+
+describe('CompanyWorkspacePanel', () => {
+  it('links a CRM company to the full admin organisation workspace when a linked org exists', () => {
+    render(
+      <CompanyWorkspacePanel
+        companyName="Lumen"
+        mode="admin"
+        workspace={{ id: 'client-org', slug: 'lumen-speeds', name: 'Lumen Speeds' }}
+      />,
+    )
+
+    expect(screen.getByText('Lumen Speeds workspace')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Open marketing workspace for Lumen' })).toHaveAttribute('href', '/admin/org/lumen-speeds/marketing')
+    expect(screen.getByRole('link', { name: 'Open SEO workspace for Lumen' })).toHaveAttribute('href', '/admin/org/lumen-speeds/seo')
+    expect(screen.getByRole('link', { name: 'Open social workspace for Lumen' })).toHaveAttribute('href', '/admin/org/lumen-speeds/social')
+    expect(screen.getByRole('link', { name: 'Open ads workspace for Lumen' })).toHaveAttribute('href', '/admin/org/lumen-speeds/ads/campaigns')
+    expect(screen.getByRole('link', { name: 'Open research workspace for Lumen' })).toHaveAttribute('href', '/admin/org/lumen-speeds/research')
+    expect(screen.getByRole('link', { name: 'Open reports workspace for Lumen' })).toHaveAttribute('href', '/admin/reports?orgId=client-org')
+    expect(screen.getByRole('link', { name: 'Open projects workspace for Lumen' })).toHaveAttribute('href', '/admin/org/lumen-speeds/projects')
+    expect(screen.getByRole('link', { name: 'Open documents workspace for Lumen' })).toHaveAttribute('href', '/admin/org/lumen-speeds/documents')
+  })
+
+  it('uses portal routes when the company detail is inside the client portal', () => {
+    render(
+      <CompanyWorkspacePanel
+        companyName="Lumen"
+        mode="portal"
+        workspace={{ id: 'client-org', slug: 'lumen-speeds', name: 'Lumen Speeds' }}
+      />,
+    )
+
+    expect(screen.getByRole('link', { name: 'Open marketing workspace for Lumen' })).toHaveAttribute('href', '/portal/marketing')
+    expect(screen.getByRole('link', { name: 'Open SEO workspace for Lumen' })).toHaveAttribute('href', '/portal/seo')
+    expect(screen.getByRole('link', { name: 'Open social workspace for Lumen' })).toHaveAttribute('href', '/portal/social')
+    expect(screen.getByRole('link', { name: 'Open ads workspace for Lumen' })).toHaveAttribute('href', '/portal/ads')
+  })
+
+  it('shows a relationship setup state when the company is not linked to an organisation', () => {
+    render(<CompanyWorkspacePanel companyName="Standalone prospect" mode="admin" workspace={null} />)
+
+    expect(screen.getByText('Organisation workspace not linked')).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /Open marketing workspace/i })).not.toBeInTheDocument()
+  })
+})

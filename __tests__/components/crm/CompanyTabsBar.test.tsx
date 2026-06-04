@@ -50,4 +50,15 @@ describe('CompanyTabsBar', () => {
     expect(onChange).toHaveBeenCalledWith('deals')
     expect(onChange).toHaveBeenCalledWith('invoices')
   })
+
+  it('shows the organisation workspace tab when a company is linked to a workspace', () => {
+    const onChange = jest.fn()
+    render(<CompanyTabsBar activeTab="overview" onChange={onChange} includeWorkspace />)
+
+    const tablist = screen.getByRole('tablist', { name: 'Company detail tabs' })
+    expect(within(tablist).getByRole('tab', { name: 'Workspace' })).toBeInTheDocument()
+
+    fireEvent.click(within(tablist).getByRole('tab', { name: 'Workspace' }))
+    expect(onChange).toHaveBeenCalledWith('workspace')
+  })
 })

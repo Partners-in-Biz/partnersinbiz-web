@@ -10,6 +10,7 @@ import { CompanyHeader } from '@/components/crm/CompanyHeader'
 import { CompanyTabsBar, COMPANY_TABS } from '@/components/crm/CompanyTabsBar'
 import type { CompanyTab } from '@/components/crm/CompanyTabsBar'
 import { CompanyOverviewPanel } from '@/components/crm/CompanyOverviewPanel'
+import { CompanyWorkspacePanel, type LinkedWorkspace } from '@/components/crm/CompanyWorkspacePanel'
 import { CompanyEditDrawer, type CompanyTeamMember } from '@/components/crm/CompanyEditDrawer'
 import { CustomFieldsSection } from '@/components/crm/CustomFieldsSection'
 import { ContactForm } from '@/components/admin/crm/ContactForm'
@@ -157,6 +158,7 @@ type CommandCenterAnalytics = {
 }
 
 type RelatedState = {
+  linkedWorkspace: LinkedWorkspace | null
   contacts: RelatedContact[]
   deals: RelatedDeal[]
   projects: RelatedProject[]
@@ -1863,6 +1865,7 @@ export default function CompanyDetailPage() {
   const [customFieldDefs, setCustomFieldDefs] = useState<CustomFieldDefinition[]>([])
   const [teamMembers, setTeamMembers] = useState<CompanyTeamMember[]>([])
   const [related, setRelated] = useState<RelatedState>({
+    linkedWorkspace: null,
     contacts: [],
     deals: [],
     projects: [],
@@ -1963,6 +1966,7 @@ export default function CompanyDetailPage() {
         if (!isCancelled()) {
           const commandData = commandCenterBody?.data ?? commandCenterBody ?? {}
           setRelated({
+            linkedWorkspace: (commandData.linkedWorkspace ?? null) as LinkedWorkspace | null,
             contacts: extractList<RelatedContact>(commandCenterBody, 'contacts'),
             deals: extractList<RelatedDeal>(commandCenterBody, 'deals'),
             projects: extractList<RelatedProject>(commandCenterBody, 'projects'),
@@ -2510,6 +2514,7 @@ export default function CompanyDetailPage() {
           inventory: related.inventoryItems.length,
           activity: related.activities.length,
         }}
+        includeWorkspace={Boolean(related.linkedWorkspace)}
       />
 
       {/* Tab content */}
@@ -2563,6 +2568,13 @@ export default function CompanyDetailPage() {
               </div>
             )}
           </div>
+        )}
+        {!relatedLoading && tab === 'workspace' && (
+          <CompanyWorkspacePanel
+            companyName={company.name}
+            mode="portal"
+            workspace={related.linkedWorkspace}
+          />
         )}
         {!relatedLoading && tab === 'contacts' && (
           <ContactsPanel
