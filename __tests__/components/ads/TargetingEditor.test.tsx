@@ -1,7 +1,7 @@
 /**
  * @jest-environment jsdom
  */
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { act, render, screen, fireEvent, waitFor } from '@testing-library/react'
 import '@testing-library/jest-dom'
 import { TargetingEditor } from '@/components/ads/TargetingEditor'
 import type { AdTargeting, AdSavedAudience, AdCustomAudience } from '@/lib/ads/types'
@@ -174,6 +174,8 @@ describe('TargetingEditor', () => {
         onChange={() => {}}
       />
     )
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2))
+    await act(async () => {})
 
     fireEvent.click(screen.getByText('Save current as template'))
     await waitFor(() => screen.getByLabelText('Save name'))
@@ -189,6 +191,64 @@ describe('TargetingEditor', () => {
         })
       )
     )
+  })
+
+  it('shows inline feedback when a targeting template is saved', async () => {
+    const postResponse = {
+      success: true,
+      data: { ...mockSavedAudience, id: 'sa_new', name: 'My Template' },
+    }
+    global.fetch = jest.fn().mockImplementation((url: string, init?: RequestInit) => {
+      if (init?.method === 'POST') {
+        return Promise.resolve({ json: async () => postResponse } as unknown as Response)
+      }
+      return Promise.resolve({ json: async () => ({ success: true, data: [] }) } as unknown as Response)
+    })
+
+    render(
+      <TargetingEditor
+        orgId="org_1"
+        value={makeTargeting({ geo: { countries: ['ZA'] } })}
+        onChange={() => {}}
+      />
+    )
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2))
+    await act(async () => {})
+
+    fireEvent.click(screen.getByText('Save current as template'))
+    fireEvent.change(await screen.findByLabelText('Save name'), { target: { value: 'My Template' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    expect(await screen.findByRole('status')).toHaveTextContent('Saved targeting template My Template.')
+  })
+
+  it('shows inline save errors instead of a native alert', async () => {
+    const alertSpy = jest.spyOn(window, 'alert').mockImplementation(() => undefined)
+    global.fetch = jest.fn().mockImplementation((url: string, init?: RequestInit) => {
+      if (init?.method === 'POST') {
+        return Promise.resolve({
+          json: async () => ({ success: false, error: 'Template name already exists' }),
+        } as unknown as Response)
+      }
+      return Promise.resolve({ json: async () => ({ success: true, data: [] }) } as unknown as Response)
+    })
+
+    render(
+      <TargetingEditor
+        orgId="org_1"
+        value={makeTargeting({ geo: { countries: ['ZA'] } })}
+        onChange={() => {}}
+      />
+    )
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2))
+    await act(async () => {})
+
+    fireEvent.click(screen.getByText('Save current as template'))
+    fireEvent.change(await screen.findByLabelText('Save name'), { target: { value: 'My Template' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Template name already exists')
+    expect(alertSpy).not.toHaveBeenCalled()
   })
 
   it('toggles country on click and fires onChange', () => {
