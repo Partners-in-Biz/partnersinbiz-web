@@ -51,4 +51,31 @@ describe('RefreshButton', () => {
     const parsedBody = JSON.parse(init.body as string)
     expect(parsedBody).toEqual({ level: 'adset', pibEntityId: 'adset_xyz' })
   })
+
+  it('shows inline success feedback when the refresh is queued', async () => {
+    render(
+      <RefreshButton orgId="org_123" level="campaign" pibEntityId="camp_abc" />
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /Refresh insights/i }))
+
+    expect(await screen.findByRole('status')).toHaveTextContent('Insights refresh queued.')
+  })
+
+  it('shows inline failure feedback instead of a native alert', async () => {
+    const alertSpy = jest.spyOn(window, 'alert').mockImplementation(() => undefined)
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ success: false, error: 'Queue unavailable' }),
+    }) as unknown as typeof fetch
+
+    render(
+      <RefreshButton orgId="org_123" level="campaign" pibEntityId="camp_abc" />
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /Refresh insights/i }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Queue unavailable')
+    expect(alertSpy).not.toHaveBeenCalled()
+  })
 })
