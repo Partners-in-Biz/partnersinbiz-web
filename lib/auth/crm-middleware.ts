@@ -9,7 +9,7 @@ import {
   buildHumanRef,
   type MemberRef,
 } from '@/lib/orgMembers/memberRef'
-import { resolvePortalActiveOrgId } from '@/lib/portal/org-access'
+import { canUsePortalOrg, resolvePortalActiveOrgId } from '@/lib/portal/org-access'
 
 export type CrmRole = OrgRole | 'system'
 
@@ -141,7 +141,17 @@ export function withCrmAuth<RouteCtx = unknown>(
     const userDoc = await adminDb.collection('users').doc(uid).get()
     if (!userDoc.exists) return apiError('User not found', 404)
     const userData = userDoc.data() ?? {}
-    const orgId = await resolvePortalActiveOrgId(uid, userData)
+    const requestedOrgId =
+      new URL(req.url).searchParams.get('orgId')?.trim() ||
+      req.headers.get('x-org-id')?.trim() ||
+      ''
+    const activeOrgId = await resolvePortalActiveOrgId(uid, userData)
+    let orgId = activeOrgId
+    if (requestedOrgId) {
+      const allowed = await canUsePortalOrg(uid, userData, requestedOrgId)
+      if (!allowed) return apiError('You do not have access to this workspace', 403)
+      orgId = requestedOrgId
+    }
     if (!orgId) return apiError('No active workspace', 400)
 
     const memberSnap = await adminDb.collection('orgMembers').doc(`${orgId}_${uid}`).get()
