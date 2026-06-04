@@ -36,7 +36,6 @@ const baseProps = {
   backHref: '/admin/org/lumen/social',
   backLabel: 'Lumen',
   basePath: '/admin/org/lumen/social/campaign-1',
-  blogHref: (blogId: string) => `/admin/org/lumen/social/campaign-1/blog/${blogId}`,
 }
 
 describe('CampaignCockpitClient', () => {
@@ -58,7 +57,7 @@ describe('CampaignCockpitClient', () => {
     expect(replace).toHaveBeenCalledWith('/admin/org/lumen/social/campaign-1?tab=linkedin')
   })
 
-  it('uses the supplied blog route builder for campaign blog cards', () => {
+  it('builds campaign blog card links from the serializable base path', () => {
     searchParams = new URLSearchParams('tab=blogs')
 
     render(

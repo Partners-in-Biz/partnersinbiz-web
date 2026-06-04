@@ -39,7 +39,6 @@ export interface CampaignCockpitClientProps {
   backHref: string
   backLabel: string
   basePath: string
-  blogHref: (blogId: string) => string
   assetApprovalMode?: 'direct' | 'client'
   showClientBlogApprovals?: boolean
 }
@@ -56,7 +55,6 @@ export function CampaignCockpitClient({
   backHref,
   backLabel,
   basePath,
-  blogHref,
   assetApprovalMode = 'direct',
   showClientBlogApprovals = false,
 }: CampaignCockpitClientProps) {
@@ -255,7 +253,7 @@ export function CampaignCockpitClient({
           <BlogsTab
             blogs={split.blogs}
             brand={brand}
-            blogHref={blogHref}
+            basePath={basePath}
             showClientApprovals={showClientBlogApprovals}
           />
         )}
@@ -679,12 +677,12 @@ function BlogApproveButton({ contentId, onApproved }: { contentId: string; onApp
 function BlogsTab({
   blogs,
   brand,
-  blogHref,
+  basePath,
   showClientApprovals,
 }: {
   blogs: AnyObj[]
   brand: PreviewBrand | undefined
-  blogHref: (blogId: string) => string
+  basePath: string
   showClientApprovals: boolean
 }) {
   const [statuses, setStatuses] = React.useState<Record<string, string>>({})
@@ -708,7 +706,7 @@ function BlogsTab({
               blog={b}
               brand={brand}
               status={currentStatus}
-              href={blogHref(b.id)}
+              href={`${basePath}/blog/${b.id}`}
             />
             {showClientApprovals && isReview && (
               <BlogApproveButton

@@ -76,7 +76,6 @@ export default async function OrgSocialCampaignPage({
         backHref={`/admin/org/${slug}/social`}
         backLabel={orgName || 'All campaigns'}
         basePath={`/admin/org/${slug}/social/${id}`}
-        blogHref={(blogId) => `/admin/org/${slug}/social/${id}/blog/${blogId}`}
         assetApprovalMode="direct"
       />
     </div>

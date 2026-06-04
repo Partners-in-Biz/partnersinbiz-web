@@ -10,7 +10,6 @@ type PortalCockpitClientProps = Omit<
   | 'backHref'
   | 'backLabel'
   | 'basePath'
-  | 'blogHref'
   | 'assetApprovalMode'
   | 'showClientBlogApprovals'
 >
@@ -22,7 +21,6 @@ export function CockpitClient(props: PortalCockpitClientProps) {
       backHref="/portal/campaigns"
       backLabel="Campaigns"
       basePath={`/portal/campaigns/${props.campaignId}`}
-      blogHref={(blogId) => `/portal/campaigns/${props.campaignId}/blog/${blogId}`}
       assetApprovalMode="client"
       showClientBlogApprovals
     />
