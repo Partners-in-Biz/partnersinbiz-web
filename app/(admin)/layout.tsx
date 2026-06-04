@@ -5,6 +5,7 @@ import { adminAuth, adminDb } from '@/lib/firebase/admin'
 import { AdminShell } from '@/components/admin/AdminShell'
 import { OrgProvider } from '@/lib/contexts/OrgContext'
 import { LastPathTracker } from '@/components/pwa/LastPathTracker'
+import { AdminRouteOrgSync } from '@/components/admin/AdminRouteOrgSync'
 
 const ADMIN_MATERIAL_SYMBOLS =
   'https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap'
@@ -38,6 +39,7 @@ export default async function AdminLayout({
     <>
       <link rel="stylesheet" href={ADMIN_MATERIAL_SYMBOLS} />
       <OrgProvider>
+        <AdminRouteOrgSync />
         <Suspense fallback={null}>
           <LastPathTracker />
         </Suspense>

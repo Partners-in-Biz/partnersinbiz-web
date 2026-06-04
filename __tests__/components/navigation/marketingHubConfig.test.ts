@@ -33,4 +33,29 @@ describe('marketing hub config', () => {
     expect(hrefs.get('Email domains')).toBe('/admin/org/lumen-speeds/email-domains')
     expect(hrefs.get('Integrations')).toBe('/admin/org/lumen-speeds/integrations')
   })
+
+  it('carries the selected organisation into global admin marketing tools', () => {
+    const workspace = buildMarketingHubProps({ surface: 'admin-org', slug: 'lumen-speeds' })
+    const hrefs = actionMap(workspace.sections)
+
+    expect(workspace.primaryAction?.href).toBe('/admin/social/compose?org=lumen-speeds')
+    expect(hrefs.get('Compose')).toBe('/admin/social/compose?org=lumen-speeds')
+    expect(hrefs.get('Calendar')).toBe('/admin/social/calendar?org=lumen-speeds')
+    expect(hrefs.get('History')).toBe('/admin/social/history?org=lumen-speeds')
+    expect(hrefs.get('Queue')).toBe('/admin/social/queue?org=lumen-speeds')
+    expect(hrefs.get('Accounts')).toBe('/admin/social/accounts?org=lumen-speeds')
+    expect(hrefs.get('Links')).toBe('/admin/social/links?org=lumen-speeds')
+    expect(hrefs.get('Email')).toBe('/admin/email?org=lumen-speeds')
+    expect(hrefs.get('Email analytics')).toBe('/admin/email-analytics?org=lumen-speeds')
+    expect(hrefs.get('Sequences')).toBe('/admin/sequences?org=lumen-speeds')
+    expect(hrefs.get('Contacts')).toBe('/admin/crm/contacts?org=lumen-speeds')
+
+    const actions = workspace.sections.flatMap((section) => section.actions)
+    for (const action of actions) {
+      expect(action.href).not.toBe('/portal/marketing')
+      if (action.href.startsWith('/admin/') && !action.href.startsWith('/admin/org/lumen-speeds/')) {
+        expect(action.href).toContain('?org=lumen-speeds')
+      }
+    }
+  })
 })

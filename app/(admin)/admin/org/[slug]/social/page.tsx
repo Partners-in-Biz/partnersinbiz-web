@@ -102,10 +102,10 @@ function SocialIndex({
   const [posts, setPosts] = useState<PostRow[]>([])
   const [loading, setLoading] = useState(true)
   const [monthFilter, setMonthFilter] = useState<string>('all')
+  const [statsNow] = useState(() => Date.now())
 
   useEffect(() => {
     if (!orgId) return
-    setLoading(true)
     const orgQs = `orgId=${encodeURIComponent(orgId)}`
     Promise.all([
       fetch(`/api/v1/campaigns?${orgQs}&limit=200`).then(r => r.json()),
@@ -186,13 +186,13 @@ function SocialIndex({
     const total = posts.length
     const awaiting = posts.filter(p => p.status === 'pending_approval').length
     const published = posts.filter(p => p.status === 'published').length
-    const cutoff = Date.now() - 30 * 24 * 3600 * 1000
+    const cutoff = statsNow - 30 * 24 * 3600 * 1000
     const last30 = posts.filter(p => {
       const d = tsToDate(p.createdAt) ?? tsToDate(p.scheduledAt)
       return d ? d.getTime() >= cutoff : false
     }).length
     return { total, awaiting, published, last30 }
-  }, [posts])
+  }, [posts, statsNow])
 
   const standalonePosts = postsByCampaign.get('__standalone__') ?? []
 
@@ -228,7 +228,7 @@ function SocialIndex({
               </option>
             ))}
           </select>
-          <Link href="/admin/social/compose" className="pib-btn-primary text-sm font-label">
+          <Link href={`/admin/social/compose?org=${encodeURIComponent(slug)}`} className="pib-btn-primary text-sm font-label">
             + Compose Post
           </Link>
         </div>
