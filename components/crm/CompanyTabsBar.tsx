@@ -22,6 +22,7 @@ export type CompanyTab =
   | 'inventory'
   | 'analytics'
   | 'activity'
+  | 'chat'
 
 export const COMPANY_TABS: { key: CompanyTab; label: string; icon: string }[] = [
   { key: 'overview',  label: 'Overview',  icon: 'info' },
@@ -39,10 +40,11 @@ export const COMPANY_TABS: { key: CompanyTab; label: string; icon: string }[] = 
   { key: 'inventory', label: 'Inventory', icon: 'inventory_2' },
   { key: 'analytics', label: 'Analytics', icon: 'monitoring' },
   { key: 'activity',  label: 'Activity',  icon: 'history' },
+  { key: 'chat',      label: 'Chat',      icon: 'forum' },
 ]
 
-const PRIMARY_TAB_KEYS: CompanyTab[] = ['overview', 'contacts', 'deals', 'projects', 'documents']
-const WORKSPACE_PRIMARY_TAB_KEYS: CompanyTab[] = ['overview', 'workspace', 'contacts', 'deals', 'projects', 'documents']
+const PRIMARY_TAB_KEYS: CompanyTab[] = ['overview', 'contacts', 'deals', 'projects', 'documents', 'chat']
+const WORKSPACE_PRIMARY_TAB_KEYS: CompanyTab[] = ['overview', 'workspace', 'contacts', 'deals', 'projects', 'documents', 'chat']
 
 const OVERFLOW_GROUPS: Array<{ label: string; tabs: CompanyTab[] }> = [
   { label: 'Commercial', tabs: ['quotes', 'invoices', 'orders'] },

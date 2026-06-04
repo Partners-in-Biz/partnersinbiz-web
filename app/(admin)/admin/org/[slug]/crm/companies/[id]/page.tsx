@@ -8,6 +8,7 @@ import type { Company } from '@/lib/companies/types'
 import { CompanyOverviewPanel } from '@/components/crm/CompanyOverviewPanel'
 import { CompanyTabsBar, type CompanyTab } from '@/components/crm/CompanyTabsBar'
 import { CompanyWorkspacePanel, type LinkedWorkspace } from '@/components/crm/CompanyWorkspacePanel'
+import { EntityScopedChat } from '@/components/crm/EntityScopedChat'
 
 type Row = { id: string; [key: string]: unknown }
 type CommandCenter = {
@@ -447,7 +448,18 @@ export default function AdminCompanyCommandCenterPage() {
             workspace={center.linkedWorkspace ?? null}
           />
         )}
-        {tab !== 'overview' && tab !== 'analytics' && tab !== 'workspace' && (
+        {tab === 'chat' && (
+          <EntityScopedChat
+            orgId={center.company.orgId}
+            orgName={center.company.name}
+            entityType="company"
+            entityId={center.company.id}
+            entityLabel={center.company.name}
+            href={`/admin/org/${slug}/crm/companies/${id}`}
+            summary={`${center.company.name} CRM company${center.company.lifecycleStage ? ` · ${center.company.lifecycleStage}` : ''}${center.company.linkedOrgId ? ` · linked workspace ${center.company.linkedOrgId}` : ' · unlinked lead workspace'}`}
+          />
+        )}
+        {tab !== 'overview' && tab !== 'analytics' && tab !== 'workspace' && tab !== 'chat' && (
           <SimpleRowsPanel
             tab={tab}
             rows={rowsFor(center, tab)}

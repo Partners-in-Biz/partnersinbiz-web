@@ -12,12 +12,14 @@ import { CompanyPicker } from '@/components/crm/CompanyPicker'
 import { ContactIdentityPanel } from '@/components/crm/ContactIdentityPanel'
 import { ContactOwnershipPanel } from '@/components/crm/ContactOwnershipPanel'
 import { CustomFieldsSection } from '@/components/crm/CustomFieldsSection'
+import { EntityScopedChat } from '@/components/crm/EntityScopedChat'
 import { ScoreChip } from '@/components/crm/ScoreChip'
 import type { CustomFieldDefinition } from '@/lib/customFields/types'
 import type { MemberRef } from '@/lib/orgMembers/memberRef'
 
 interface ContactRecord {
   id?: string
+  orgId?: string
   name?: string
   email?: string
   phone?: string
@@ -1784,6 +1786,19 @@ export default function PortalContactDetailPage() {
           </div>
         )}
       </header>
+
+      {contact.orgId && (
+        <EntityScopedChat
+          orgId={contact.orgId}
+          orgName={companyNameValue || contact.companyName || contact.company}
+          entityType="contact"
+          entityId={id}
+          entityLabel={contactName}
+          href={`/portal/contacts/${id}`}
+          summary={`${contactName} CRM contact${type ? ` · ${type}` : ''}${stage ? ` · ${stage}` : ''}${hasLinkedCompany ? ` · company ${companyLabel}` : ' · unlinked contact workspace'}`}
+          compact
+        />
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left: Info */}

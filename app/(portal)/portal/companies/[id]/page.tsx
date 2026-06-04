@@ -11,6 +11,7 @@ import { CompanyTabsBar, COMPANY_TABS } from '@/components/crm/CompanyTabsBar'
 import type { CompanyTab } from '@/components/crm/CompanyTabsBar'
 import { CompanyOverviewPanel } from '@/components/crm/CompanyOverviewPanel'
 import { CompanyWorkspacePanel, type LinkedWorkspace } from '@/components/crm/CompanyWorkspacePanel'
+import { EntityScopedChat } from '@/components/crm/EntityScopedChat'
 import { CompanyEditDrawer, type CompanyTeamMember } from '@/components/crm/CompanyEditDrawer'
 import { CustomFieldsSection } from '@/components/crm/CustomFieldsSection'
 import { ContactForm } from '@/components/admin/crm/ContactForm'
@@ -2704,6 +2705,17 @@ export default function CompanyDetailPage() {
               setNoteError(null)
             }}
             onCreateContact={() => setNewContactOpen(true)}
+          />
+        )}
+        {!relatedLoading && tab === 'chat' && (
+          <EntityScopedChat
+            orgId={company.orgId}
+            orgName={company.name}
+            entityType="company"
+            entityId={company.id}
+            entityLabel={company.name}
+            href={`/portal/companies/${company.id}`}
+            summary={`${company.name} CRM company${company.lifecycleStage ? ` · ${company.lifecycleStage}` : ''}${company.linkedOrgId ? ` · linked workspace ${company.linkedOrgId}` : ' · unlinked lead workspace'}`}
           />
         )}
       </div>

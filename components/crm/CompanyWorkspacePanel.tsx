@@ -242,14 +242,43 @@ function portalActions(workspace: LinkedWorkspace): WorkspaceAction[] {
 
 export function CompanyWorkspacePanel({ companyName, mode, workspace }: CompanyWorkspacePanelProps) {
   if (!workspace) {
+    const leadWorkspaceItems = [
+      {
+        title: 'Company chat',
+        description: 'Use the Chat tab to keep discovery, qualification, proposal, and handoff discussion scoped to this CRM company.',
+        icon: 'forum',
+      },
+      {
+        title: 'CRM knowledge',
+        description: 'Keep pre-client notes in the company record until the account is promoted to a full organisation workspace.',
+        icon: 'menu_book',
+      },
+      {
+        title: 'Client workspace gate',
+        description: 'Link or create an organisation before client-delivery work such as campaigns, SEO, social, ads, wiki, and reports.',
+        icon: 'approval_delegation',
+      },
+    ]
+
     return (
-      <div className="bento-card p-8 text-center">
-        <span aria-hidden="true" className="material-symbols-outlined text-4xl text-[var(--color-pib-text-muted)]">link_off</span>
-        <p className="eyebrow mt-4 !text-[10px] text-amber-200">Organisation workspace not linked</p>
-        <h2 className="mt-2 font-display text-xl text-[var(--color-pib-text)]">Connect this company to a client organisation</h2>
-        <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-[var(--color-pib-text-muted)]">
-          {companyName} is available as a CRM company, but it is not linked to a client organisation workspace yet.
-        </p>
+      <div className="space-y-5">
+        <div className="bento-card p-8 text-center">
+          <span aria-hidden="true" className="material-symbols-outlined text-4xl text-[var(--color-pib-text-muted)]">link_off</span>
+          <p className="eyebrow mt-4 !text-[10px] text-amber-200">Lead workspace</p>
+          <h2 className="mt-2 font-display text-xl text-[var(--color-pib-text)]">CRM-only company workspace</h2>
+          <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-[var(--color-pib-text-muted)]">
+            {companyName} is available as a CRM company, but it is not linked to a client organisation workspace yet. Keep pre-client context here; convert or link the organisation before running client-delivery work.
+          </p>
+        </div>
+        <div className="grid gap-3 md:grid-cols-3">
+          {leadWorkspaceItems.map((item) => (
+            <div key={item.title} className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.02] p-4">
+              <span aria-hidden="true" className="material-symbols-outlined text-[20px] text-[var(--color-pib-accent)]">{item.icon}</span>
+              <h3 className="mt-3 text-sm font-semibold text-[var(--color-pib-text)]">{item.title}</h3>
+              <p className="mt-2 text-xs leading-5 text-[var(--color-pib-text-muted)]">{item.description}</p>
+            </div>
+          ))}
+        </div>
       </div>
     )
   }

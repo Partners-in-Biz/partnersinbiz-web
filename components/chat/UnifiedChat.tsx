@@ -60,7 +60,7 @@ export interface UnifiedChatProps {
   currentUserDisplayName: string
   orgName?: string
   projectId?: string
-  scope?: 'general' | 'project' | 'task' | 'campaign'
+  scope?: 'general' | 'project' | 'task' | 'campaign' | 'company' | 'contact'
   scopeRefId?: string
   initialConvId?: string
   initialAgentId?: AgentId
@@ -175,7 +175,7 @@ export default function UnifiedChat({
   const [showNewModal, setShowNewModal] = useState(false)
   const [newTitle, setNewTitle] = useState('')
   const [newParticipants, setNewParticipants] = useState<SelectedParticipant[]>([])
-  const [newScope, setNewScope] = useState<'general' | 'project' | 'task' | 'campaign'>(
+  const [newScope, setNewScope] = useState<'general' | 'project' | 'task' | 'campaign' | 'company' | 'contact'>(
     scope ?? (projectId ? 'project' : 'general'),
   )
   const [creatingConv, setCreatingConv] = useState(false)
@@ -286,6 +286,7 @@ export default function UnifiedChat({
             title: autoCreateTitle?.trim() || 'Ticket conversation',
             scope,
             scopeRefId,
+            ...(currentPageContext ? { contextRefs: [coerceContextRef(currentPageContext)] } : {}),
           }),
         })
         const createBody = await createRes.json().catch(() => null)
@@ -312,6 +313,8 @@ export default function UnifiedChat({
     scopeRefId,
     orgId,
     autoCreateTitle,
+    currentPageContext,
+    coerceContextRef,
   ])
 
   // ── Load messages ─────────────────────────────────────────────────────────
@@ -1789,7 +1792,7 @@ export default function UnifiedChat({
                 </label>
                 <select
                   value={newScope}
-                  onChange={(e) => setNewScope(e.target.value as 'general' | 'project' | 'task' | 'campaign')}
+                  onChange={(e) => setNewScope(e.target.value as 'general' | 'project' | 'task' | 'campaign' | 'company' | 'contact')}
                   className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface outline-none focus:border-primary/60"
                 >
                   {availableConversationContexts.map((option) => (

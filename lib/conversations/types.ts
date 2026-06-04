@@ -49,7 +49,7 @@ export interface AgentParticipant {
 
 export type Participant = HumanParticipant | AgentParticipant
 
-export type ConversationScope = 'general' | 'project' | 'task' | 'campaign'
+export type ConversationScope = 'general' | 'project' | 'task' | 'campaign' | 'company' | 'contact'
 
 export interface ConversationAttachment {
   id: string
