@@ -17,6 +17,37 @@ interface SoftwareBuildEvidenceRow {
   href?: string
 }
 
+type AgentOutputReviewStatus = 'pass' | 'warning' | 'blocked'
+
+interface AgentOutputReviewArtifact {
+  type: string
+  label: string
+  ref: string
+  href?: string
+}
+
+interface AgentOutputQualityCheck {
+  label: string
+  status: AgentOutputReviewStatus
+  detail: string
+}
+
+interface AgentOutputApprovalGate {
+  label: string
+  status: AgentOutputReviewStatus
+  value: string
+  href?: string
+}
+
+interface AgentOutputReviewCard {
+  summary: string
+  evidence: SoftwareBuildEvidenceRow[]
+  artifacts: AgentOutputReviewArtifact[]
+  qualityChecks: AgentOutputQualityCheck[]
+  approvalGates: AgentOutputApprovalGate[]
+  nextAction: string
+}
+
 interface BriefingCard {
   id: string
   orgId: string
@@ -298,6 +329,73 @@ function softwareBuildEvidenceRows(item: BriefingCard): SoftwareBuildEvidenceRow
       && typeof candidate.value === 'string'
       && (candidate.href === undefined || typeof candidate.href === 'string')
   })
+}
+
+function isReviewStatus(value: unknown): value is AgentOutputReviewStatus {
+  return value === 'pass' || value === 'warning' || value === 'blocked'
+}
+
+function agentOutputReviewCard(item: BriefingCard): AgentOutputReviewCard | null {
+  const card = item.metadata?.agentOutputReviewCard
+  if (!card || typeof card !== 'object' || Array.isArray(card)) return null
+  const candidate = card as Record<string, unknown>
+  if (typeof candidate.summary !== 'string' || typeof candidate.nextAction !== 'string') return null
+
+  const artifacts = Array.isArray(candidate.artifacts)
+    ? candidate.artifacts.filter((artifact): artifact is AgentOutputReviewArtifact => {
+      if (!artifact || typeof artifact !== 'object' || Array.isArray(artifact)) return false
+      const item = artifact as Record<string, unknown>
+      return typeof item.type === 'string'
+        && typeof item.label === 'string'
+        && typeof item.ref === 'string'
+        && (item.href === undefined || typeof item.href === 'string')
+    })
+    : []
+  const qualityChecks = Array.isArray(candidate.qualityChecks)
+    ? candidate.qualityChecks.filter((check): check is AgentOutputQualityCheck => {
+      if (!check || typeof check !== 'object' || Array.isArray(check)) return false
+      const item = check as Record<string, unknown>
+      return typeof item.label === 'string'
+        && isReviewStatus(item.status)
+        && typeof item.detail === 'string'
+    })
+    : []
+  const approvalGates = Array.isArray(candidate.approvalGates)
+    ? candidate.approvalGates.filter((gate): gate is AgentOutputApprovalGate => {
+      if (!gate || typeof gate !== 'object' || Array.isArray(gate)) return false
+      const item = gate as Record<string, unknown>
+      return typeof item.label === 'string'
+        && isReviewStatus(item.status)
+        && typeof item.value === 'string'
+        && (item.href === undefined || typeof item.href === 'string')
+    })
+    : []
+
+  return {
+    summary: candidate.summary,
+    nextAction: candidate.nextAction,
+    evidence: softwareBuildEvidenceRows(item),
+    artifacts,
+    qualityChecks,
+    approvalGates,
+  }
+}
+
+function statusToneClass(status: AgentOutputReviewStatus) {
+  switch (status) {
+    case 'pass':
+      return 'border-emerald-300/35 bg-emerald-400/10 text-emerald-100'
+    case 'blocked':
+      return 'border-amber-300/45 bg-amber-400/10 text-amber-100'
+    default:
+      return 'border-white/10 bg-white/[0.04] text-on-surface-variant'
+  }
+}
+
+function statusLabel(status: AgentOutputReviewStatus) {
+  if (status === 'pass') return 'Pass'
+  if (status === 'blocked') return 'Blocked'
+  return 'Needs check'
 }
 
 function adminSourceHref(item: BriefingCard) {
@@ -844,6 +942,7 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
     return allItems.filter((item) => accountPulseIdentity(item).id === accountPulseId)
   }, [accountPulseId, allItems, mode])
   const selected = items.find((item) => item.id === selectedId) ?? items[0] ?? null
+  const selectedReviewCard = selected ? agentOutputReviewCard(selected) : null
 
   const counts = useMemo(() => {
     const result: Record<string, number> = {}
@@ -2908,6 +3007,83 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                       onChange={(event) => setAdCampaignChangeText(event.target.value)}
                       placeholder="Tell the ads team what must change before launch..."
                     />
+                  </div>
+                ) : null}
+
+                {selectedReviewCard ? (
+                  <div className="rounded-lg border border-sky-300/25 bg-sky-400/10 p-3" aria-label="Structured review card">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-medium text-sky-100">Structured review card</p>
+                        <p className="mt-2 text-sm text-on-surface">{selectedReviewCard.summary}</p>
+                      </div>
+                      <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-1 text-[11px] text-on-surface-variant">
+                        Internal review
+                      </span>
+                    </div>
+                    <div className="mt-4 rounded-md border border-white/10 bg-white/[0.04] p-3">
+                      <p className="text-xs font-medium text-on-surface-variant">What should Peet do now?</p>
+                      <p className="mt-1 text-sm text-on-surface">{selectedReviewCard.nextAction}</p>
+                    </div>
+                    <div className="mt-4 grid gap-3 lg:grid-cols-2">
+                      <div>
+                        <p className="text-xs font-medium text-on-surface-variant">Quality checks</p>
+                        <div className="mt-2 space-y-2">
+                          {selectedReviewCard.qualityChecks.map((check) => (
+                            <div key={`${check.label}:${check.status}`} className={`rounded-md border px-3 py-2 ${statusToneClass(check.status)}`}>
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="text-sm font-medium">{check.label}</span>
+                                <span className="text-[11px] uppercase tracking-wide">{statusLabel(check.status)}</span>
+                              </div>
+                              <p className="mt-1 text-xs opacity-90">{check.detail}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium text-on-surface-variant">Artifacts</p>
+                        {selectedReviewCard.artifacts.length ? (
+                          <dl className="mt-2 space-y-2 text-sm">
+                            {selectedReviewCard.artifacts.map((artifact) => (
+                              <div key={`${artifact.type}:${artifact.ref}`}>
+                                <dt className="text-on-surface-variant">{artifact.label}</dt>
+                                <dd className="text-on-surface">
+                                  {artifact.href ? (
+                                    <a className="break-all underline-offset-2 hover:underline" href={artifact.href} target="_blank" rel="noopener noreferrer">{artifact.ref}</a>
+                                  ) : (
+                                    <span className="break-all">{artifact.ref}</span>
+                                  )}
+                                </dd>
+                              </div>
+                            ))}
+                          </dl>
+                        ) : (
+                          <p className="mt-2 text-sm text-on-surface-variant">No explicit artifacts were linked.</p>
+                        )}
+                      </div>
+                    </div>
+                    {selectedReviewCard.approvalGates.length ? (
+                      <div className="mt-4">
+                        <p className="text-xs font-medium text-on-surface-variant">Approval gates</p>
+                        <dl className="mt-2 space-y-2 text-sm">
+                          {selectedReviewCard.approvalGates.map((gate) => (
+                            <div key={`${gate.label}:${gate.value}`} className={`rounded-md border px-3 py-2 ${statusToneClass(gate.status)}`}>
+                              <dt className="flex items-center justify-between gap-2">
+                                <span className="font-medium">{gate.label}</span>
+                                <span className="text-[11px] uppercase tracking-wide">{statusLabel(gate.status)}</span>
+                              </dt>
+                              <dd className="mt-1">
+                                {gate.href ? (
+                                  <a className="break-all underline-offset-2 hover:underline" href={gate.href} target="_blank" rel="noopener noreferrer">{gate.value}</a>
+                                ) : (
+                                  <span className="break-all">{gate.value}</span>
+                                )}
+                              </dd>
+                            </div>
+                          ))}
+                        </dl>
+                      </div>
+                    ) : null}
                   </div>
                 ) : null}
 

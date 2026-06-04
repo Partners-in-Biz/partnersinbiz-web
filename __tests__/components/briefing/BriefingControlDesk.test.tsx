@@ -23,6 +23,29 @@ const briefingItem = {
     taskTitle: 'Update homepage',
   },
   metadata: {
+    agentOutputReviewCard: {
+      summary: 'Result: Updated the homepage.',
+      evidence: [
+        { kind: 'commit', label: 'Development commit', value: 'abc1234' },
+        { kind: 'verification', label: 'Verification', value: 'npm run lint -- --file components/briefing/BriefingControlDesk.tsx' },
+        { kind: 'link', label: 'Development preview', value: 'https://partnersinbiz.online/admin/projects/project-1?taskId=task-1', href: 'https://partnersinbiz.online/admin/projects/project-1?taskId=task-1' },
+        { kind: 'document', label: 'Related doc', value: 'doc-123', href: '/admin/documents/doc-123' },
+        { kind: 'blocker', label: 'Blocker', value: 'Blocker: production deploy remains separately gated.' },
+      ],
+      artifacts: [
+        { type: 'commit', label: 'Development commit', ref: 'abc1234' },
+        { type: 'doc', label: 'Related doc', ref: 'doc-123' },
+      ],
+      qualityChecks: [
+        { label: 'Summary', status: 'pass', detail: 'Agent supplied a readable completion summary.' },
+        { label: 'Evidence', status: 'pass', detail: '5 evidence rows attached.' },
+        { label: 'Approval gates', status: 'blocked', detail: 'At least one approval or release gate remains closed.' },
+      ],
+      approvalGates: [
+        { label: 'Approval gate', status: 'blocked', value: 'gate-1' },
+      ],
+      nextAction: 'Peet should review the evidence, approve if it is correct, or send it back to the assigned agent with a change note.',
+    },
     softwareBuildEvidence: [
       { kind: 'commit', label: 'Development commit', value: 'abc1234' },
       { kind: 'verification', label: 'Verification', value: 'npm run lint -- --file components/briefing/BriefingControlDesk.tsx' },
@@ -1391,6 +1414,11 @@ describe('BriefingControlDesk', () => {
     expect(screen.getByLabelText('Live briefing cards')).toHaveClass('xl:overflow-y-auto')
     expect(screen.getByRole('button', { name: /filter to acme holdings account/i })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /open source/i })).toHaveAttribute('href', '/portal/projects/project-1?taskId=task-1')
+    expect(screen.getByLabelText('Structured review card')).toBeInTheDocument()
+    expect(screen.getByText('What should Peet do now?')).toBeInTheDocument()
+    expect(screen.getByText('Peet should review the evidence, approve if it is correct, or send it back to the assigned agent with a change note.')).toBeInTheDocument()
+    expect(screen.getByText('Quality checks')).toBeInTheDocument()
+    expect(screen.getByText('Artifacts')).toBeInTheDocument()
     expect(screen.getByLabelText('Software build evidence')).toBeInTheDocument()
     expect(screen.getAllByText('Development commit').length).toBeGreaterThan(0)
     expect(screen.getAllByText('abc1234').length).toBeGreaterThan(0)
