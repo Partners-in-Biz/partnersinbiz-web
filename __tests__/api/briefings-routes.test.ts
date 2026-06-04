@@ -320,17 +320,17 @@ describe('briefing API routes', () => {
 
     expect(res.status).toBe(400)
     expect(body.error).toContain('Approval is still required before publish')
-    expect(body.error).toContain('No send, publish, spend, deploy, billing, secret/config, or destructive action was performed')
+    expect(body.error).toContain('No deploy, send, publish, spend, finance, secret/config, or destructive action was performed')
     expect(mockProjectTaskAdd).not.toHaveBeenCalled()
     expect(mockActivityAdd).not.toHaveBeenCalled()
     expect(mockCollection).not.toHaveBeenCalledWith('social_posts')
     expect(mockCollection).not.toHaveBeenCalledWith('emails')
   })
 
-  it('approval-gates CRM revenue external send, sequence enrollment, and import requests', async () => {
+  it('approval-gates CRM revenue external send, sequence enrollment, import, finance, and secret/config requests', async () => {
     const { POST } = await import('@/app/api/v1/briefings/items/[itemId]/actions/route')
 
-    for (const action of ['send-email', 'enroll-sequence', 'import-list']) {
+    for (const action of ['send-email', 'enroll-sequence', 'import-list', 'finance', 'secret-config']) {
       const res = await POST(new NextRequest('http://localhost/api/v1/briefings/items/contact%3Acontact-1/actions', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -344,7 +344,7 @@ describe('briefing API routes', () => {
 
       expect(res.status).toBe(400)
       expect(body.error).toContain(`Approval is still required before ${action}`)
-      expect(body.error).toContain('No send, publish, spend, deploy, billing, secret/config, or destructive action was performed')
+      expect(body.error).toContain('No deploy, send, publish, spend, finance, secret/config, or destructive action was performed')
     }
 
     expect(mockProjectTaskAdd).not.toHaveBeenCalled()

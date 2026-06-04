@@ -787,6 +787,25 @@ type PulseRow = {
 
 const WORKSPACE_OPERATIONS_KEY = 'workspace-operations'
 
+const MISSION_CONTROL_DECISION_ROUTES = [
+  { decision: 'Approve', route: 'Approves internal review, document, social-review, agent-run, or workspace-gate records only.' },
+  { decision: 'Reject', route: 'Routes changes back to the source task, document, social item, agent run, or workspace gate.' },
+  { decision: 'Snooze', route: 'Updates the briefing state for 24 hours without touching the source record.' },
+  { decision: 'Create task', route: 'Creates an internal Projects/Kanban follow-up linked to the briefing source and evidence.' },
+  { decision: 'Assign agent', route: 'Assigns the linked project task to the selected specialist agent; unavailable without a project task.' },
+  { decision: 'Open evidence', route: 'Opens the evidence or source link read-only; it never changes client or production state.' },
+]
+
+const MISSION_CONTROL_APPROVAL_GATES = [
+  'production deploys',
+  'external sends',
+  'public publishing',
+  'paid spend',
+  'finance changes',
+  'secret/config changes',
+  'destructive actions',
+]
+
 function cleanText(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
 }
@@ -2405,11 +2424,24 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                   {!canTaskAct(selected) ? <p className="mt-2 text-xs text-on-surface-variant">Agent assignment requires a linked project task.</p> : null}
                   {!canConvertToCrmActivity(selected) ? <p className="mt-2 text-xs text-on-surface-variant">CRM conversion needs a contact or deal on the briefing card.</p> : null}
                   <div className="mt-3 rounded-lg border border-amber-300/25 bg-amber-300/10 p-3">
-                    <button className="pib-btn-secondary w-full justify-center text-xs" type="button" disabled aria-label="Public publish gated">
+                    <button className="pib-btn-secondary w-full justify-center text-xs" type="button" disabled aria-label="Approval gates stay explicit">
                       <span className="material-symbols-outlined text-[15px]" aria-hidden="true">lock</span>
-                      Public publish gated
+                      Approval gates stay explicit
                     </button>
-                    <p className="mt-2 text-xs leading-5 text-amber-100">Public publishing, prospect or client messaging, paid spend, billing, secrets/config, production deploys, and destructive actions stay outside this desk and require a separate approval path.</p>
+                    <p className="mt-2 text-xs leading-5 text-amber-100">
+                      Mission Control can route decisions, but {MISSION_CONTROL_APPROVAL_GATES.join(', ')} require a separate explicit approval before any side effect.
+                    </p>
+                  </div>
+                  <div className="mt-3 rounded-lg border border-white/10 bg-white/[0.03] p-3" aria-label="Mission Control decision routing">
+                    <p className="text-[10px] font-label uppercase tracking-[0.16em] text-on-surface-variant">Decision routing</p>
+                    <dl className="mt-2 space-y-2 text-xs leading-5 text-on-surface-variant">
+                      {MISSION_CONTROL_DECISION_ROUTES.map((row) => (
+                        <div key={row.decision} className="grid gap-1 sm:grid-cols-[96px_minmax(0,1fr)]">
+                          <dt className="font-semibold text-on-surface">{row.decision}</dt>
+                          <dd>{row.route}</dd>
+                        </div>
+                      ))}
+                    </dl>
                   </div>
                 </div>
 

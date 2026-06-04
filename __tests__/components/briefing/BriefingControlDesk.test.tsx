@@ -1327,8 +1327,8 @@ describe('BriefingControlDesk', () => {
     expect(screen.getByRole('link', { name: /open evidence/i })).toHaveAttribute('href', 'https://partnersinbiz.online/admin/projects/project-1?taskId=task-1')
     expect(screen.getByRole('button', { name: /convert to crm activity unavailable/i })).toBeDisabled()
     expect(screen.getByText('CRM conversion needs a contact or deal on the briefing card.')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /public publish gated/i })).toBeDisabled()
-    expect(screen.getByText('Public publishing, prospect or client messaging, paid spend, billing, secrets/config, production deploys, and destructive actions stay outside this desk and require a separate approval path.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /approval gates stay explicit/i })).toBeDisabled()
+    expect(screen.getByText(/production deploys, external sends, public publishing, paid spend, finance changes, secret\/config changes, destructive actions require a separate explicit approval/i)).toBeInTheDocument()
   })
 
   it('creates follow-up tasks and assigns the current task from Phase 2 controls', async () => {
@@ -1428,6 +1428,17 @@ describe('BriefingControlDesk', () => {
     expect(screen.queryByRole('button', { name: /^unblock$/i })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /^approve$/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /send back to agent/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /snooze phase 2 item/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /create follow-up task/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /assign theo/i })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /open evidence/i })).toHaveAttribute('href', 'https://partnersinbiz.online/admin/projects/project-1?taskId=task-1')
+    expect(screen.getByLabelText('Mission Control decision routing')).toHaveTextContent('Approve')
+    expect(screen.getByLabelText('Mission Control decision routing')).toHaveTextContent('Reject')
+    expect(screen.getByLabelText('Mission Control decision routing')).toHaveTextContent('Snooze')
+    expect(screen.getByLabelText('Mission Control decision routing')).toHaveTextContent('Create task')
+    expect(screen.getByLabelText('Mission Control decision routing')).toHaveTextContent('Assign agent')
+    expect(screen.getByLabelText('Mission Control decision routing')).toHaveTextContent('Open evidence')
+    expect(screen.getByText(/production deploys, external sends, public publishing, paid spend, finance changes, secret\/config changes, destructive actions require a separate explicit approval/i)).toBeInTheDocument()
   })
 
   it('renders portal briefings as an active-workspace CRM account pulse', async () => {

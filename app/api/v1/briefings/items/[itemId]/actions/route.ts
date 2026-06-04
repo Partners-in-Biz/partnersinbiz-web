@@ -18,7 +18,12 @@ const GATED_EXTERNAL_ACTIONS = new Set([
   'publish',
   'spend',
   'deploy',
+  'finance',
   'billing',
+  'secret',
+  'secrets',
+  'config',
+  'secret-config',
   'delete',
   'archive',
   'destructive',
@@ -29,7 +34,7 @@ const GATED_EXTERNAL_ACTIONS = new Set([
   'import',
   'import-list',
 ])
-const NO_SIDE_EFFECT_COPY = 'No send, publish, spend, deploy, billing, secret/config, or destructive action was performed.'
+const NO_SIDE_EFFECT_COPY = 'No deploy, send, publish, spend, finance, secret/config, or destructive action was performed.'
 
 type EvidenceRow = {
   id?: string
@@ -216,8 +221,8 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
     expectedArtifacts: source.expectedArtifacts,
     evidenceRows: source.evidenceRows,
     approvalGateCopy: source.approvalGateTaskId
-      ? `Approval gate ${source.approvalGateTaskId} remains required before any external send, public publish, paid spend, production deploy, billing, secret/config, or destructive action.`
-      : 'External send, public publishing, paid spend, production deploy, billing, secret/config, and destructive actions remain separately approval-gated.',
+      ? `Approval gate ${source.approvalGateTaskId} remains required before any external send, public publish, paid spend, production deploy, finance, secret/config, or destructive action.`
+      : 'External sends, public publishing, paid spend, production deploys, finance changes, secret/config changes, and destructive actions remain separately approval-gated.',
   })
   const payload = buildProjectTaskCreateData({
     orgId: projectOrgId,
@@ -236,7 +241,7 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
       context: agentInputContext,
       constraints: [
         'internal-only durable record',
-        'no external send, public publishing, paid spend, production deploy, billing, secret/config, or destructive action without separate approval',
+        'no external send, public publishing, paid spend, production deploy, finance, secret/config, or destructive action without separate approval',
       ],
     },
   }, projectId, projectOrgId)
