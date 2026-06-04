@@ -13,7 +13,7 @@ export interface HubSection {
   actions: HubAction[]
 }
 
-interface HubPageProps {
+export interface HubPageProps {
   eyebrow: string
   title: string
   description: string
