@@ -1,21 +1,33 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { PageTabs } from '@/components/ui/AppFoundation'
+import { scopedApiPath, scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 
 type PostStatus = 'draft' | 'pending_approval' | 'approved' | 'scheduled' | 'published' | 'failed' | 'cancelled'
 type FilterTab = 'pending' | 'scheduled' | 'published'
+type TimestampLike = { _seconds?: number; seconds?: number } | string | number | Date | null | undefined
 
 interface SocialPost {
   id: string
-  content: { text: string; platformOverrides?: Record<string, any> } | string
+  content: { text?: string; platformOverrides?: Record<string, unknown> } | string
   platforms: string[]
   status: PostStatus
-  scheduledAt?: any
-  createdAt?: any
+  platform?: string
+  scheduledAt?: TimestampLike
+  createdAt?: TimestampLike
   approvedBy?: string | null
+}
+
+interface SocialAccount {
+  id: string
+  platform: string
+  displayName: string
+  username?: string
+  status: string
 }
 
 interface Comment {
@@ -24,9 +36,9 @@ interface Comment {
   userId: string
   userName: string
   userRole: 'admin' | 'client' | 'ai'
-  createdAt: any
+  createdAt: TimestampLike
   agentPickedUp: boolean
-  agentPickedUpAt?: any
+  agentPickedUpAt?: TimestampLike
 }
 
 const PLATFORM_COLORS: Record<string, { bg: string; label: string }> = {
@@ -78,26 +90,30 @@ function PlatformBadge({ platform }: { platform: string }) {
   )
 }
 
-function getPostText(post: any): string {
+function getPostText(post: SocialPost): string {
   if (typeof post.content === 'string') return post.content
   if (post.content?.text) return post.content.text
   return ''
 }
 
-function getPostPlatforms(post: any): string[] {
+function getPostPlatforms(post: SocialPost): string[] {
   if (post.platforms?.length) return post.platforms
   if (post.platform) return [post.platform]
   return []
 }
 
-function tsToDate(ts: any): Date | null {
+function tsToDate(ts: TimestampLike): Date | null {
   if (!ts) return null
-  if (ts._seconds) return new Date(ts._seconds * 1000)
-  if (ts.seconds) return new Date(ts.seconds * 1000)
+  if (ts instanceof Date) return ts
+  if (typeof ts === 'object') {
+    if (typeof ts._seconds === 'number') return new Date(ts._seconds * 1000)
+    if (typeof ts.seconds === 'number') return new Date(ts.seconds * 1000)
+    return null
+  }
   return new Date(ts)
 }
 
-function fmtDate(ts: any) {
+function fmtDate(ts: TimestampLike) {
   const d = tsToDate(ts)
   return d
     ? d.toLocaleString('en-ZA', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
@@ -138,7 +154,7 @@ function PostCard({
     return 'bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text)]'
   }
 
-  function formatCommentTime(ts: any): string {
+  function formatCommentTime(ts: TimestampLike): string {
     const d = tsToDate(ts)
     if (!d) return '—'
     const now = new Date()
@@ -253,7 +269,9 @@ function PostCard({
 }
 
 export default function PortalSocialDashboard() {
-  const [accounts, setAccounts] = useState<any[]>([])
+  const searchParams = useSearchParams()
+  const orgScope = useMemo(() => scopeFromSearchParams(searchParams), [searchParams])
+  const [accounts, setAccounts] = useState<SocialAccount[]>([])
   const [posts, setPosts] = useState<SocialPost[]>([])
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
@@ -267,24 +285,25 @@ export default function PortalSocialDashboard() {
 
   useEffect(() => {
     Promise.all([
-      fetch('/api/v1/social/accounts').then((r) => r.json()),
-      fetch('/api/v1/social/posts?limit=100').then((r) => r.json()),
-      fetch('/api/v1/organizations').then((r) => r.json()),
+      fetch(scopedApiPath('/api/v1/social/accounts', orgScope)).then((r) => r.json()),
+      fetch(scopedApiPath('/api/v1/social/posts?limit=100', orgScope)).then((r) => r.json()),
+      fetch(scopedApiPath('/api/v1/portal/org', orgScope)).then((r) => r.json()),
     ])
       .then(([accBody, postBody, orgBody]) => {
         setAccounts(accBody.data ?? [])
         setPosts(postBody.data ?? [])
-        if (orgBody.data?.[0]?.name) setOrgName(orgBody.data[0].name)
+        const nextOrgName = orgBody.org?.name ?? orgBody.data?.[0]?.name
+        if (nextOrgName) setOrgName(nextOrgName)
       })
       .catch(() => {})
       .finally(() => setLoading(false))
-  }, [])
+  }, [orgScope])
 
   async function handleAction(postId: string, action: 'approve' | 'reject') {
     setActionLoading(postId)
     setActionError(null)
     try {
-      const res = await fetch(`/api/v1/social/posts/${postId}/approve`, {
+      const res = await fetch(scopedApiPath(`/api/v1/social/posts/${postId}/approve`, orgScope), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action }),
@@ -297,7 +316,7 @@ export default function PortalSocialDashboard() {
       } else if (!res.ok) {
         setActionError(body.error || 'Action failed')
       }
-    } catch (err) {
+    } catch {
       setActionError('Network error')
     } finally {
       setActionLoading(null)
@@ -311,7 +330,7 @@ export default function PortalSocialDashboard() {
       setExpandedPostId(postId)
       if (!(postId in commentsByPostId)) {
         try {
-          const res = await fetch(`/api/v1/social/posts/${postId}/comments`)
+          const res = await fetch(scopedApiPath(`/api/v1/social/posts/${postId}/comments`, orgScope))
           const body = await res.json()
           if (body.data) {
             setCommentsByPostId((prev) => ({ ...prev, [postId]: body.data }))
@@ -329,7 +348,7 @@ export default function PortalSocialDashboard() {
 
     setCommentLoading(postId)
     try {
-      const res = await fetch(`/api/v1/social/posts/${postId}/comments`, {
+      const res = await fetch(scopedApiPath(`/api/v1/social/posts/${postId}/comments`, orgScope), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text }),
@@ -356,6 +375,7 @@ export default function PortalSocialDashboard() {
 
   const displayPosts =
     tab === 'pending' ? pendingPosts : tab === 'scheduled' ? scheduledPosts : publishedPosts
+  const socialHref = (path: string) => scopedPortalPath(path, orgScope)
 
   return (
     <div className="space-y-10">
@@ -370,7 +390,7 @@ export default function PortalSocialDashboard() {
             Approve content, monitor your queue, and keep every platform in sync.
           </p>
         </div>
-        <Link href="/portal/social/compose" className="btn-pib-accent">
+        <Link href={socialHref('/portal/social/compose')} className="btn-pib-accent">
           <span className="material-symbols-outlined text-base">edit</span>
           Compose post
         </Link>
@@ -406,23 +426,23 @@ export default function PortalSocialDashboard() {
 
       {/* Quick links */}
       <div className="flex gap-3 flex-wrap">
-        <Link href="/portal/social/vault" className="btn-pib-secondary !py-2 !px-4 !text-sm">
+        <Link href={socialHref('/portal/social/vault')} className="btn-pib-secondary !py-2 !px-4 !text-sm">
           <span className="material-symbols-outlined text-base">folder</span>
           Vault
         </Link>
-        <Link href="/portal/social/history" className="btn-pib-secondary !py-2 !px-4 !text-sm">
+        <Link href={socialHref('/portal/social/history')} className="btn-pib-secondary !py-2 !px-4 !text-sm">
           <span className="material-symbols-outlined text-base">history</span>
           Post history
         </Link>
-        <Link href="/portal/social/calendar" className="btn-pib-secondary !py-2 !px-4 !text-sm">
+        <Link href={socialHref('/portal/social/calendar')} className="btn-pib-secondary !py-2 !px-4 !text-sm">
           <span className="material-symbols-outlined text-base">calendar_month</span>
           Calendar
         </Link>
-        <Link href="/portal/social/accounts" className="btn-pib-secondary !py-2 !px-4 !text-sm">
+        <Link href={socialHref('/portal/social/accounts')} className="btn-pib-secondary !py-2 !px-4 !text-sm">
           <span className="material-symbols-outlined text-base">link</span>
           Accounts
         </Link>
-        <Link href="/portal/social/links" className="btn-pib-secondary !py-2 !px-4 !text-sm">
+        <Link href={socialHref('/portal/social/links')} className="btn-pib-secondary !py-2 !px-4 !text-sm">
           <span className="material-symbols-outlined text-base">link</span>
           Links
         </Link>
@@ -440,14 +460,14 @@ export default function PortalSocialDashboard() {
         ) : activeAccounts.length === 0 ? (
           <div className="bento-card p-7 text-center">
             <p className="text-[var(--color-pib-text-muted)] mb-4 text-sm">No accounts connected yet.</p>
-            <Link href="/portal/social/accounts" className="btn-pib-accent !py-2 !px-4 !text-sm">
+            <Link href={socialHref('/portal/social/accounts')} className="btn-pib-accent !py-2 !px-4 !text-sm">
               Connect an account
               <span className="material-symbols-outlined text-base">arrow_outward</span>
             </Link>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {activeAccounts.map((acc: any) => (
+            {activeAccounts.map((acc) => (
               <div key={acc.id} className="pib-stat-card flex items-center gap-3">
                 <PlatformBadge platform={acc.platform} />
                 <div className="flex-1 min-w-0">

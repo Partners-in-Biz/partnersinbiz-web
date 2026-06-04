@@ -1,7 +1,9 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
+import { useSearchParams } from 'next/navigation'
+import { scopedApiPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 
 const PLATFORM_COLORS: Record<string, { bg: string; label: string }> = {
   twitter: { bg: 'bg-black', label: 'X' },
@@ -24,44 +26,72 @@ const STATUS_STYLES: Record<string, string> = {
   cancelled: 'border-[var(--color-outline-variant)] text-[var(--color-on-surface-variant)] line-through',
 }
 
+type TimestampLike = { _seconds?: number; seconds?: number } | string | number | Date | null | undefined
+
+type PlatformResult = {
+  platform?: string
+  platformPostUrl?: string
+}
+
+interface HistoryPost {
+  id: string
+  content: string | { text?: string }
+  status: string
+  platform?: string
+  platforms?: string[]
+  createdAt?: TimestampLike
+  publishedAt?: TimestampLike
+  scheduledAt?: TimestampLike
+  scheduledFor?: TimestampLike
+  platformResults?: Record<string, PlatformResult>
+  externalId?: string
+  error?: string
+}
+
 function PlatformBadge({ platform }: { platform: string }) {
   const cfg = PLATFORM_COLORS[platform] ?? { bg: 'bg-gray-600', label: platform.slice(0, 2).toUpperCase() }
   return <span className={`${cfg.bg} text-white text-[10px] px-2 py-0.5 rounded font-bold`}>{cfg.label}</span>
 }
 
-function getPostText(post: any): string {
+function getPostText(post: HistoryPost): string {
   if (typeof post.content === 'string') return post.content
   if (post.content?.text) return post.content.text
   return ''
 }
 
-function getPostPlatforms(post: any): string[] {
+function getPostPlatforms(post: HistoryPost): string[] {
   if (post.platforms?.length) return post.platforms
   if (post.platform) return [post.platform]
   return []
 }
 
-function tsToDate(ts: any): Date | null {
+function tsToDate(ts: TimestampLike): Date | null {
   if (!ts) return null
-  if (ts._seconds) return new Date(ts._seconds * 1000)
-  if (ts.seconds) return new Date(ts.seconds * 1000)
+  if (ts instanceof Date) return ts
+  if (typeof ts === 'object') {
+    if (typeof ts._seconds === 'number') return new Date(ts._seconds * 1000)
+    if (typeof ts.seconds === 'number') return new Date(ts.seconds * 1000)
+    return null
+  }
   return new Date(ts)
 }
 
-function fmtDateTime(ts: any) {
+function fmtDateTime(ts: TimestampLike) {
   const d = tsToDate(ts)
   return d ? d.toLocaleString('en-ZA', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'
 }
 
 export default function PortalPostHistory() {
-  const [posts, setPosts] = useState<any[]>([])
+  const searchParams = useSearchParams()
+  const orgScope = useMemo(() => scopeFromSearchParams(searchParams), [searchParams])
+  const [posts, setPosts] = useState<HistoryPost[]>([])
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState<string>('all')
 
   const fetchPosts = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await fetch('/api/v1/social/posts?limit=100')
+      const res = await fetch(scopedApiPath('/api/v1/social/posts?limit=100', orgScope))
       const body = await res.json()
       setPosts(body.data ?? [])
     } catch {
@@ -69,7 +99,7 @@ export default function PortalPostHistory() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [orgScope])
 
   useEffect(() => { fetchPosts() }, [fetchPosts])
 
@@ -114,7 +144,7 @@ export default function PortalPostHistory() {
         </div>
       ) : (
         <div className="space-y-2">
-          {filtered.map((post: any) => {
+          {filtered.map((post) => {
             const text = getPostText(post)
             const platforms = getPostPlatforms(post)
             const publishedAt = post.publishedAt ?? post.publishedAt
@@ -145,7 +175,7 @@ export default function PortalPostHistory() {
                     <span>Created: {fmtDateTime(post.createdAt)}</span>
                   )}
                   {/* Platform result links */}
-                  {Object.values(platformResults).map((result: any) => (
+                  {Object.values(platformResults).map((result) => (
                     result.platformPostUrl && (
                       <a
                         key={result.platformPostUrl}

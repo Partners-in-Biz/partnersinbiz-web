@@ -1,6 +1,8 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
+import { useSearchParams } from 'next/navigation'
+import { scopedApiPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 
 type TimestampLike = { seconds: number } | string | number | null | undefined
 
@@ -36,6 +38,8 @@ interface SelectedLinkData extends ShortenedLink {
 }
 
 export default function LinksPage() {
+  const searchParams = useSearchParams()
+  const orgScope = useMemo(() => scopeFromSearchParams(searchParams), [searchParams])
   const [links, setLinks] = useState<ShortenedLink[]>([])
   const [selectedLink, setSelectedLink] = useState<SelectedLinkData | null>(null)
   const [pendingDeleteLink, setPendingDeleteLink] = useState<ShortenedLink | null>(null)
@@ -59,7 +63,7 @@ export default function LinksPage() {
   // Fetch links
   const fetchLinks = useCallback(async () => {
     try {
-      const res = await fetch(`/api/v1/links?page=${page}&limit=${LIMIT}`)
+      const res = await fetch(scopedApiPath(`/api/v1/links?page=${page}&limit=${LIMIT}`, orgScope))
       const data = await res.json()
       if (data.success) {
         setLinks(data.data)
@@ -68,12 +72,12 @@ export default function LinksPage() {
     } catch (err) {
       console.error('Failed to fetch links:', err)
     }
-  }, [page])
+  }, [page, orgScope])
 
   // Fetch link details with stats
   const fetchLinkStats = useCallback(async (linkId: string) => {
     try {
-      const res = await fetch(`/api/v1/links/${linkId}`)
+      const res = await fetch(scopedApiPath(`/api/v1/links/${linkId}`, orgScope))
       const data = await res.json()
       if (data.success) {
         setSelectedLink(data.data)
@@ -81,7 +85,7 @@ export default function LinksPage() {
     } catch (err) {
       console.error('Failed to fetch link stats:', err)
     }
-  }, [])
+  }, [orgScope])
 
   useEffect(() => {
     fetchLinks()
@@ -115,7 +119,7 @@ export default function LinksPage() {
 
     setCreating(true)
     try {
-      const res = await fetch('/api/v1/links', {
+      const res = await fetch(scopedApiPath('/api/v1/links', orgScope), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -156,7 +160,7 @@ export default function LinksPage() {
     setDeletingLinkId(link.id)
     setError('')
     try {
-      const res = await fetch(`/api/v1/links/${link.id}`, { method: 'DELETE' })
+      const res = await fetch(scopedApiPath(`/api/v1/links/${link.id}`, orgScope), { method: 'DELETE' })
       const data = await res.json()
       if (data.success) {
         if (selectedLink?.id === link.id) setSelectedLink(null)

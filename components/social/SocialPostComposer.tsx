@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import PlatformPreview from '@/components/social/PlatformPreview'
+import { appendQueryParams } from '@/lib/portal/scoped-routing'
 
 const PLATFORM_CONFIG: Record<string, { label: string; bg: string; short: string; charLimit: number; supportsThreads: boolean }> = {
   twitter: { label: 'X (Twitter)', bg: 'bg-black', short: 'X', charLimit: 280, supportsThreads: true },
@@ -44,6 +45,7 @@ interface SocialPostComposerProps {
   afterSaveHref?: string
   previewFallbackName?: string
   previewFallbackHandle?: string
+  orgId?: string | null
 }
 
 export default function SocialPostComposer({
@@ -54,6 +56,7 @@ export default function SocialPostComposer({
   afterSaveHref = '/portal/social',
   previewFallbackName = 'Your Brand',
   previewFallbackHandle = '@yourbrand',
+  orgId,
 }: SocialPostComposerProps) {
   const router = useRouter()
   const [accounts, setAccounts] = useState<Account[]>([])
@@ -69,12 +72,17 @@ export default function SocialPostComposer({
   const [mediaItems, setMediaItems] = useState<MediaItem[]>([])
   const [uploadingImage, setUploadingImage] = useState(false)
 
+  const socialApiPath = useCallback((path: string) => appendQueryParams(path, {
+    scope: scope === 'personal' ? 'personal' : undefined,
+    orgId,
+  }), [orgId, scope])
+
   useEffect(() => {
-    fetch(`/api/v1/social/accounts${scope === 'personal' ? '?scope=personal' : ''}`)
+    fetch(socialApiPath('/api/v1/social/accounts'))
       .then(r => r.json())
       .then(b => setAccounts((b.data ?? []).filter((a: Account) => a.status === 'active')))
       .catch(() => {})
-  }, [scope])
+  }, [socialApiPath])
 
   const togglePlatform = (p: string) => {
     setSelectedPlatforms(prev =>
@@ -162,7 +170,7 @@ export default function SocialPostComposer({
       formData.append('file', file)
       formData.append('altText', file.name.replace(/\.[^.]+$/, ''))
 
-      const res = await fetch('/api/v1/social/media/upload', {
+      const res = await fetch(socialApiPath('/api/v1/social/media/upload'), {
         method: 'POST',
         body: formData,
       })
@@ -198,7 +206,7 @@ export default function SocialPostComposer({
     setSubmitting(true)
     try {
       const status = action === 'publish' ? 'draft' : action === 'schedule' ? 'scheduled' : 'draft'
-      const res = await fetch(`/api/v1/social/posts${scope === 'personal' ? '?scope=personal' : ''}`, {
+      const res = await fetch(socialApiPath('/api/v1/social/posts'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(buildBody(status)),
@@ -209,7 +217,7 @@ export default function SocialPostComposer({
       if (action === 'publish') {
         const postId = body.data?.id
         if (!postId) throw new Error('No post ID returned')
-        const pubRes = await fetch(`/api/v1/social/posts/${postId}/publish`, { method: 'POST' })
+        const pubRes = await fetch(socialApiPath(`/api/v1/social/posts/${postId}/publish`), { method: 'POST' })
         const pubBody = await pubRes.json()
         if (!pubRes.ok) throw new Error(pubBody.error ?? 'Failed to publish')
         setSuccessMsg('Published successfully!')

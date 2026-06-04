@@ -3,6 +3,8 @@ export const dynamic = 'force-dynamic'
 
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
+import { scopedApiPath, scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 
 type SocialPostStatus =
   | 'draft'
@@ -388,6 +390,8 @@ function PostPanel({
 }
 
 export default function PortalSocialCalendarPage() {
+  const searchParams = useSearchParams()
+  const orgScope = useMemo(() => scopeFromSearchParams(searchParams), [searchParams])
   const now = useMemo(() => new Date(), [])
   const [year, setYear] = useState(now.getFullYear())
   const [month, setMonth] = useState(now.getMonth())
@@ -403,9 +407,9 @@ export default function PortalSocialCalendarPage() {
 
     async function loadPosts() {
       try {
-        const orgRes = await fetch('/api/v1/portal/org')
+        const orgRes = await fetch(scopedApiPath('/api/v1/portal/org', orgScope))
         const orgBody = orgRes.ok ? await orgRes.json().catch(() => null) : null
-        const orgId = typeof orgBody?.org?.id === 'string' ? orgBody.org.id : null
+        const orgId = orgScope.orgId ?? (typeof orgBody?.org?.id === 'string' ? orgBody.org.id : null)
         if (!cancelled) setActiveOrgId(orgId)
 
         const postsRes = await fetch(socialPostsListUrl(orgId))
@@ -424,7 +428,7 @@ export default function PortalSocialCalendarPage() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [orgScope])
 
   const today = new Date()
   today.setHours(0, 0, 0, 0)
@@ -516,7 +520,7 @@ export default function PortalSocialCalendarPage() {
           <h1 className="pib-page-title mt-2">Scheduled posts</h1>
           <p className="pib-page-sub max-w-2xl">See what is planned across your connected social channels.</p>
         </div>
-        <Link href="/portal/social/compose" className="btn-pib-accent">
+        <Link href={scopedPortalPath('/portal/social/compose', orgScope)} className="btn-pib-accent">
           <span className="material-symbols-outlined text-base">edit</span>
           Compose post
         </Link>

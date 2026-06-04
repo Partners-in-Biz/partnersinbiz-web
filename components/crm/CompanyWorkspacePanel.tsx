@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { scopedPortalPath } from '@/lib/portal/scoped-routing'
 
 export type LinkedWorkspace = {
   id: string
@@ -26,13 +27,6 @@ interface CompanyWorkspacePanelProps {
 function adminOrgPath(slug: string, path = '') {
   const encodedSlug = encodeURIComponent(slug)
   return `/admin/org/${encodedSlug}${path}`
-}
-
-function portalPath(workspace: LinkedWorkspace, path: string) {
-  const params = new URLSearchParams()
-  params.set('orgId', workspace.id)
-  if (workspace.slug) params.set('orgSlug', workspace.slug)
-  return `${path}?${params.toString()}`
 }
 
 function adminActions(workspace: LinkedWorkspace): WorkspaceAction[] {
@@ -145,97 +139,97 @@ function portalActions(workspace: LinkedWorkspace): WorkspaceAction[] {
       title: 'Marketing',
       description: 'Planning, campaign command, growth channels, and client-facing marketing workspace.',
       icon: 'campaign',
-      href: portalPath(workspace, '/portal/campaigns'),
+      href: scopedPortalPath('/portal/marketing', workspace),
     },
     {
       title: 'SEO',
       description: 'Sprints, keyword work, content plans, audits, pages, blog drafts, and performance.',
       icon: 'travel_explore',
-      href: portalPath(workspace, '/portal/seo'),
+      href: scopedPortalPath('/portal/seo', workspace),
     },
     {
       title: 'Social',
       description: 'Review queue, compose, calendar, account connections, vault, and social history.',
       icon: 'diversity_3',
-      href: portalPath(workspace, '/portal/social'),
+      href: scopedPortalPath('/portal/social', workspace),
     },
     {
       title: 'Ads',
       description: 'Campaigns, ad sets, creatives, audiences, budgets, conversions, and experiments.',
       icon: 'ads_click',
-      href: portalPath(workspace, '/portal/ads'),
+      href: scopedPortalPath('/portal/ads', workspace),
     },
     {
       title: 'Campaigns',
       description: 'Email and content campaign work that belongs to the client organisation.',
       icon: 'outgoing_mail',
-      href: portalPath(workspace, '/portal/campaigns'),
+      href: scopedPortalPath('/portal/campaigns', workspace),
     },
     {
       title: 'Research',
       description: 'Discovery, market notes, client intelligence, and research records.',
       icon: 'manage_search',
-      href: portalPath(workspace, '/portal/research'),
+      href: scopedPortalPath('/portal/research', workspace),
     },
     {
       title: 'Reports',
       description: 'Client reporting and performance review workspace.',
       icon: 'bar_chart',
-      href: portalPath(workspace, '/portal/reports'),
+      href: scopedPortalPath('/portal/reports', workspace),
     },
     {
       title: 'Projects',
       description: 'Delivery projects, tasks, approvals, and shared project context.',
       icon: 'folder_managed',
-      href: portalPath(workspace, '/portal/projects'),
+      href: scopedPortalPath('/portal/projects', workspace),
     },
     {
       title: 'Documents',
       description: 'Proposals, reports, shared documents, and client document approvals.',
       icon: 'description',
-      href: portalPath(workspace, '/portal/documents'),
+      href: scopedPortalPath('/portal/documents', workspace),
     },
     {
       title: 'Brand',
       description: 'Brand profile, positioning, and reusable client identity inputs.',
       icon: 'palette',
-      href: portalPath(workspace, '/portal/branding'),
+      href: scopedPortalPath('/portal/branding', workspace),
     },
     {
       title: 'Communications',
       description: 'Client messages, conversations, inbox context, and communication history.',
       icon: 'forum',
-      href: portalPath(workspace, '/portal/messages'),
+      href: scopedPortalPath('/portal/messages', workspace),
     },
     {
       title: 'Capture sources',
       description: 'Lead capture forms, sources, imports, and attribution setup.',
       icon: 'input',
-      href: portalPath(workspace, '/portal/capture-sources'),
+      href: scopedPortalPath('/portal/capture-sources', workspace),
     },
     {
       title: 'Integrations',
       description: 'Platform, account, tracking, and external service connections.',
       icon: 'hub',
-      href: portalPath(workspace, '/portal/integrations'),
+      href: scopedPortalPath('/portal/integrations', workspace),
     },
     {
       title: 'Email domains',
       description: 'Sending domains, authentication, and email readiness.',
       icon: 'alternate_email',
-      href: portalPath(workspace, '/portal/email-domains'),
+      href: scopedPortalPath('/portal/email-domains', workspace),
     },
     {
       title: 'Settings',
       description: 'Organisation settings, CRM setup, permissions, and workspace controls.',
       icon: 'settings',
-      href: portalPath(workspace, '/portal/settings/organization'),
+      href: scopedPortalPath('/portal/settings/organization', workspace),
     },
     {
       title: 'Wiki',
       description: 'Durable client knowledge, operating notes, and internal handoff context.',
       icon: 'menu_book',
-      href: portalPath(workspace, '/portal/wiki'),
+      href: scopedPortalPath('/portal/wiki', workspace),
     },
   ]
 }
@@ -286,7 +280,7 @@ export function CompanyWorkspacePanel({ companyName, mode, workspace }: CompanyW
   const actions = mode === 'portal' ? portalActions(workspace) : adminActions(workspace)
   const eyebrow = mode === 'portal' ? 'Linked organisation workspace' : 'Organisation workspace'
   const dashboardHref = mode === 'portal'
-    ? portalPath(workspace, '/portal/dashboard')
+    ? scopedPortalPath('/portal/dashboard', workspace)
     : adminOrgPath(workspace.slug, '/dashboard')
 
   return (
