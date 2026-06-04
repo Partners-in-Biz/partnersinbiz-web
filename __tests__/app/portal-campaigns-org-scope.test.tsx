@@ -4,6 +4,7 @@ const mockUserDoc = jest.fn()
 const mockCollection = jest.fn()
 const mockGetBrandKitForOrg = jest.fn()
 const mockCanUsePortalOrg = jest.fn()
+const mockListAdCampaigns = jest.fn()
 const whereCalls: Array<[string, string, unknown]> = []
 
 jest.mock('next/headers', () => ({
@@ -32,6 +33,10 @@ jest.mock('@/lib/campaigns/serialize', () => ({
   serializeForClient: (value: unknown) => value,
 }))
 
+jest.mock('@/lib/ads/campaigns/store', () => ({
+  listCampaigns: (...args: unknown[]) => mockListAdCampaigns(...args),
+}))
+
 jest.mock('@/app/(portal)/portal/campaigns/CampaignRequestPanel', () => ({
   CampaignRequestPanel: () => null,
 }))
@@ -53,21 +58,35 @@ function queryCollection(name: string) {
     },
     async get() {
       return {
-        docs: name === 'campaigns'
-          ? [
-              {
-                id: 'lumen-campaign',
-                data: () => ({
-                  orgId: 'lumen-org',
-                  name: 'Lumen launch',
-                  status: 'active',
-                  clientType: 'retainer',
-                  createdAt: '2026-06-01T00:00:00.000Z',
-                  deleted: false,
-                }),
-              },
-            ]
-          : [],
+        docs:
+          name === 'campaigns'
+            ? [
+                {
+                  id: 'lumen-campaign',
+                  data: () => ({
+                    orgId: 'lumen-org',
+                    name: 'Lumen launch',
+                    status: 'active',
+                    clientType: 'retainer',
+                    createdAt: '2026-06-01T00:00:00.000Z',
+                    deleted: false,
+                  }),
+                },
+              ]
+            : name === 'campaign_requests'
+              ? [
+                  {
+                    id: 'request-1',
+                    data: () => ({
+                      orgId: 'lumen-org',
+                      title: 'Lumen ad launch',
+                      status: 'new',
+                      deleted: false,
+                      createdAt: '2026-06-02T00:00:00.000Z',
+                    }),
+                  },
+                ]
+              : [],
       }
     },
   }
@@ -88,6 +107,15 @@ describe('portal campaigns org scope', () => {
       }),
     })
     mockCanUsePortalOrg.mockResolvedValue(true)
+    mockListAdCampaigns.mockResolvedValue([
+      {
+        id: 'ad-campaign-1',
+        orgId: 'lumen-org',
+        name: 'Lumen paid launch',
+        status: 'PENDING_REVIEW',
+        objective: 'LEADS',
+      },
+    ])
     mockGetBrandKitForOrg.mockResolvedValue({
       primaryColor: '#111111',
       secondaryColor: '#222222',
@@ -111,7 +139,9 @@ describe('portal campaigns org scope', () => {
 
     expect(mockCanUsePortalOrg).toHaveBeenCalledWith('admin-1', expect.objectContaining({ orgId: 'platform-org' }), 'lumen-org')
     expect(mockGetBrandKitForOrg).toHaveBeenCalledWith('lumen-org')
+    expect(mockListAdCampaigns).toHaveBeenCalledWith({ orgId: 'lumen-org' })
     expect(whereCalls.filter(([field]) => field === 'orgId').map(([, , value]) => value)).toEqual([
+      'lumen-org',
       'lumen-org',
       'lumen-org',
       'lumen-org',
