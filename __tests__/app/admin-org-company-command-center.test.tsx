@@ -24,17 +24,18 @@ describe('Admin company command center page', () => {
                 industry: 'Creative services',
               },
               summary: {
-                contacts: 0,
-                deals: 0,
-                projects: 0,
-                documents: 0,
-                serviceWorkspaces: 0,
-                relationships: 0,
-                quotes: 0,
-                invoices: 0,
-                orders: 0,
-                shipments: 0,
-                inventoryItems: 0,
+                contacts: 3,
+                deals: 2,
+                projects: 1,
+                documents: 4,
+                serviceWorkspaces: 5,
+                relationships: 6,
+                quotes: 7,
+                invoices: 8,
+                orders: 9,
+                shipments: 10,
+                inventoryItems: 11,
+                activities: 12,
               },
               analytics: {
                 riskSignals: [],
@@ -84,12 +85,41 @@ describe('Admin company command center page', () => {
     await waitFor(() => expect(screen.getByText('Business pulse')).toBeInTheDocument())
   })
 
+  it('shows command-center record counts in admin company tabs', async () => {
+    render(<AdminCompanyCommandCenterPage />)
+
+    expect(await screen.findByText('Admin company command center')).toBeInTheDocument()
+
+    const tablist = screen.getByRole('tablist', { name: 'Company detail tabs' })
+    expect(tablist).toHaveTextContent('Contacts')
+    expect(tablist).toHaveTextContent('3')
+    expect(tablist).toHaveTextContent('Deals')
+    expect(tablist).toHaveTextContent('2')
+    expect(tablist).toHaveTextContent('Projects')
+    expect(tablist).toHaveTextContent('1')
+    expect(tablist).toHaveTextContent('Documents')
+    expect(tablist).toHaveTextContent('4')
+
+    fireEvent.click(screen.getByRole('button', { name: 'More company sections' }))
+
+    const moreMenu = screen.getByRole('menu', { name: 'More company sections' })
+    expect(moreMenu).toHaveTextContent('5')
+    expect(moreMenu).toHaveTextContent('6')
+    expect(moreMenu).toHaveTextContent('7')
+    expect(moreMenu).toHaveTextContent('8')
+    expect(moreMenu).toHaveTextContent('9')
+    expect(moreMenu).toHaveTextContent('10')
+    expect(moreMenu).toHaveTextContent('11')
+    expect(moreMenu).toHaveTextContent('12')
+  })
+
   it('turns clear admin company analytics risk into a portal review action', async () => {
     render(<AdminCompanyCommandCenterPage />)
 
     expect(await screen.findByText('Admin company command center')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('tab', { name: /Analytics/i }))
+    fireEvent.click(screen.getByRole('button', { name: 'More company sections' }))
+    fireEvent.click(screen.getByRole('menuitemradio', { name: /Analytics/i }))
 
     expect(screen.getByText('Risk watch clear')).toBeInTheDocument()
     expect(screen.getByText('Keep leadership risk reviewable')).toBeInTheDocument()

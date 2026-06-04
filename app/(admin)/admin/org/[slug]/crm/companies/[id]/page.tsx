@@ -94,6 +94,24 @@ function rowsFor(center: CommandCenter, tab: CompanyTab): Row[] {
   return Array.isArray(rows) ? rows : []
 }
 
+function tabCountsFor(center: CommandCenter): Partial<Record<CompanyTab, number>> {
+  const summary = center.summary ?? {}
+  return {
+    contacts: summary.contacts ?? center.contacts?.length ?? 0,
+    deals: summary.deals ?? center.deals?.length ?? 0,
+    projects: summary.projects ?? center.projects?.length ?? 0,
+    documents: summary.documents ?? center.documents?.length ?? 0,
+    services: summary.serviceWorkspaces ?? center.serviceWorkspaces?.length ?? 0,
+    relationships: summary.relationships ?? center.relationships?.length ?? 0,
+    quotes: summary.quotes ?? center.quotes?.length ?? 0,
+    invoices: summary.invoices ?? center.invoices?.length ?? 0,
+    orders: summary.orders ?? center.orders?.length ?? 0,
+    shipments: summary.shipments ?? center.shipments?.length ?? 0,
+    inventory: summary.inventoryItems ?? center.inventoryItems?.length ?? 0,
+    activity: summary.activities ?? center.activities?.length ?? 0,
+  }
+}
+
 function rowTitle(row: Row, tab: CompanyTab) {
   if (tab === 'contacts') return String(row.name ?? row.email ?? row.id)
   if (tab === 'deals') return String(row.title ?? row.name ?? row.id)
@@ -365,7 +383,11 @@ export default function AdminCompanyCommandCenterPage() {
         </div>
       </div>
 
-      <CompanyTabsBar activeTab={tab} onChange={(next) => setTab(next as CompanyTab)} />
+      <CompanyTabsBar
+        activeTab={tab}
+        onChange={(next) => setTab(next as CompanyTab)}
+        counts={tabCountsFor(center)}
+      />
 
       <div role="tabpanel">
         {tab === 'overview' && (
