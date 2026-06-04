@@ -4,12 +4,13 @@
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import '@testing-library/jest-dom'
 import { MerchantCenterPanel } from '@/components/ads/google/MerchantCenterPanel'
+import type { AdMerchantCenter } from '@/lib/ads/types'
 
 jest.mock('next/navigation', () => ({
   useRouter: () => ({ push: jest.fn(), refresh: jest.fn() }),
 }))
 
-const BINDING = {
+const BINDING: AdMerchantCenter = {
   id: 'mc_1',
   orgId: 'org_1',
   merchantId: '123456789',
@@ -85,7 +86,9 @@ describe('MerchantCenterPanel', () => {
 
     await waitFor(() => {
       expect(
-        screen.getByRole('button', { name: /Disconnect 123456789/i }),
+        screen.getByRole('button', {
+          name: 'Disconnect Merchant Center account 123456789 for acme',
+        }),
       ).toBeInTheDocument()
     })
   })
@@ -145,5 +148,54 @@ describe('MerchantCenterPanel', () => {
     await waitFor(() => {
       expect(screen.getByText(/Unauthorized/i)).toBeInTheDocument()
     })
+  })
+
+  it('confirms Merchant Center disconnects inside the page', async () => {
+    const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(false)
+    global.fetch = jest
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ success: true, data: { bindings: [BINDING] } }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ success: true }),
+      }) as unknown as typeof fetch
+
+    render(<MerchantCenterPanel orgSlug="acme" orgId="org_1" />)
+
+    const disconnectButton = await screen.findByRole('button', {
+      name: 'Disconnect Merchant Center account 123456789 for acme',
+    })
+    fireEvent.click(disconnectButton)
+
+    expect(confirmSpy).not.toHaveBeenCalled()
+    expect(global.fetch).toHaveBeenCalledTimes(1)
+    expect(
+      screen.getByRole('alertdialog', {
+        name: 'Disconnect Merchant Center account 123456789 for acme?',
+      }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText('Shopping campaigns using this Merchant Center account will stop syncing. Campaign history stays in PiB.'),
+    ).toBeInTheDocument()
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'Confirm disconnect Merchant Center account 123456789 for acme',
+      }),
+    )
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/ads/google/merchant-center/mc_1', {
+        method: 'DELETE',
+        headers: { 'X-Org-Id': 'org_1' },
+      })
+    })
+    expect(await screen.findByText('Merchant Center account 123456789 disconnected.')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Merchant Center binding 123456789')).not.toBeInTheDocument()
+
+    confirmSpy.mockRestore()
   })
 })
