@@ -182,14 +182,24 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
 
             <div className="mt-3 flex flex-wrap items-center gap-2">
               {tierLabel && (
-                <span className={`rounded-full px-2 py-0.5 text-[10px] font-label uppercase tracking-wide ${tierCls}`}>
+                <button
+                  type="button"
+                  onClick={onEdit}
+                  aria-label={`Edit account tier ${tierLabel} for ${company.name}`}
+                  className={`rounded-full px-2 py-0.5 text-[10px] font-label uppercase tracking-wide transition-transform hover:-translate-y-0.5 ${tierCls}`}
+                >
                   {tierLabel}
-                </span>
+                </button>
               )}
               {lifecycleLabel && (
-                <span className={`rounded-full px-2 py-0.5 text-[10px] font-label uppercase tracking-wide ${lcCls}`}>
+                <button
+                  type="button"
+                  onClick={onEdit}
+                  aria-label={`Edit lifecycle stage ${lifecycleLabel} for ${company.name}`}
+                  className={`rounded-full px-2 py-0.5 text-[10px] font-label uppercase tracking-wide transition-transform hover:-translate-y-0.5 ${lcCls}`}
+                >
                   {lifecycleLabel}
-                </span>
+                </button>
               )}
               {company.size && (
                 <span className="rounded-full bg-white/5 px-2 py-0.5 text-[10px] font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">

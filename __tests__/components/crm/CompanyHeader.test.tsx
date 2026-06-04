@@ -134,4 +134,23 @@ describe('CompanyHeader', () => {
     expect(screen.queryByText('customer')).not.toBeInTheDocument()
     expect(screen.queryByText('mid-market')).not.toBeInTheDocument()
   })
+
+  it('turns captured lifecycle and tier chips into profile edit actions', () => {
+    const onEdit = jest.fn()
+
+    render(
+      <CompanyHeader
+        company={company({
+          lifecycleStage: 'customer',
+          tier: 'mid-market',
+        })}
+        onEdit={onEdit}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit lifecycle stage Customer for Acme Studio' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Edit account tier Mid market for Acme Studio' }))
+
+    expect(onEdit).toHaveBeenCalledTimes(2)
+  })
 })
