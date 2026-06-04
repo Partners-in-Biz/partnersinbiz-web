@@ -746,6 +746,23 @@ describe('Portal contact detail page', () => {
     expect(screen.getByPlaceholderText('+27...')).toHaveFocus()
   })
 
+  it('turns lifecycle detail values into direct profile edit actions', async () => {
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit source Manual entry for Jane Client from details' }))
+    expect(screen.getByRole('combobox', { name: 'Contact source for Jane Client' })).toHaveFocus()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit contact type Lead for Jane Client from details' }))
+    expect(screen.getByRole('combobox', { name: 'Contact type for Jane Client' })).toHaveFocus()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit lifecycle stage New lead for Jane Client from details' }))
+    expect(screen.getByRole('combobox', { name: 'Lifecycle stage for Jane Client' })).toHaveFocus()
+  })
+
   it('turns first-viewport contact identity into direct email phone and company links', async () => {
     mockContactOverrides = {
       phone: '+27825550123',

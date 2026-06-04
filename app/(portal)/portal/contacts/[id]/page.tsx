@@ -1326,9 +1326,30 @@ export default function PortalContactDetailPage() {
       actionAriaLabel: `Add relationship notes from details for ${contactName}`,
       onAction: () => focusProfileField(notesFieldRef),
     },
-    { label: 'Source', value: sourceLabel },
-    { label: 'Type', value: typeLabel },
-    { label: 'Stage', value: stageLabel },
+    {
+      label: 'Source',
+      value: sourceLabel,
+      actionLabel: 'Edit source',
+      actionAriaLabel: `Edit source ${sourceLabel} for ${contactName} from details`,
+      onAction: () => focusProfileField(sourceFieldRef),
+      needsActionWhenValued: true,
+    },
+    {
+      label: 'Type',
+      value: typeLabel,
+      actionLabel: 'Edit type',
+      actionAriaLabel: `Edit contact type ${typeLabel} for ${contactName} from details`,
+      onAction: () => focusProfileField(typeFieldRef),
+      needsActionWhenValued: true,
+    },
+    {
+      label: 'Stage',
+      value: stageLabel,
+      actionLabel: 'Edit stage',
+      actionAriaLabel: `Edit lifecycle stage ${stageLabel} for ${contactName} from details`,
+      onAction: () => focusProfileField(stageFieldRef),
+      needsActionWhenValued: true,
+    },
   ]
   const relationshipRiskItems = ([
     !assignedTo
