@@ -53,4 +53,32 @@ describe('SeoSprintOverview', () => {
       '/admin/seo/sprints/sprint-1/content',
     )
   })
+
+  it('allows portal workspaces to preserve company scope on sprint deep links', () => {
+    render(
+      <SeoSprintOverview
+        sprints={[sprint]}
+        singleSprintStats={stats}
+        sprintBasePath="/portal/seo/sprints"
+        sprintHref={(item, childPath = '') =>
+          `/portal/seo/sprints/${item.id}${childPath}?orgId=lumen-org&orgSlug=lumen-speeds`
+        }
+        emptyTitle="SEO Sprint"
+        emptyDescription="Start SEO work for this client."
+      />,
+    )
+
+    expect(screen.getByRole('link', { name: /View today's plan/i })).toHaveAttribute(
+      'href',
+      '/portal/seo/sprints/sprint-1?orgId=lumen-org&orgSlug=lumen-speeds',
+    )
+    expect(screen.getByRole('link', { name: /All keywords/i })).toHaveAttribute(
+      'href',
+      '/portal/seo/sprints/sprint-1/keywords?orgId=lumen-org&orgSlug=lumen-speeds',
+    )
+    expect(screen.getByRole('link', { name: /Content/i })).toHaveAttribute(
+      'href',
+      '/portal/seo/sprints/sprint-1/content?orgId=lumen-org&orgSlug=lumen-speeds',
+    )
+  })
 })

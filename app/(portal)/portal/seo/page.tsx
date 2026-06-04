@@ -1,25 +1,15 @@
-import { cookies } from 'next/headers'
-import { redirect } from 'next/navigation'
-import { adminAuth, adminDb } from '@/lib/firebase/admin'
+import { notFound, redirect } from 'next/navigation'
+import { adminDb } from '@/lib/firebase/admin'
 import { SeoSprintOverview, type SeoSprintOverviewSprint } from '@/components/seo/SeoSprintOverview'
 import { loadSeoOverviewStats } from '@/lib/seo/overview'
+import {
+  resolvePortalSeoUser,
+  scopedPortalHref,
+  scopeFromSearchParams,
+  type PortalSeoSearchParams,
+} from './portalSeoScope'
 
 export const dynamic = 'force-dynamic'
-
-async function currentUser(): Promise<{ uid: string; orgId?: string } | null> {
-  const cookieStore = await cookies()
-  const cookieName = process.env.SESSION_COOKIE_NAME ?? '__session'
-  const session = cookieStore.get(cookieName)?.value
-  if (!session) return null
-
-  try {
-    const decoded = await adminAuth.verifySessionCookie(session, true)
-    const userDoc = await adminDb.collection('users').doc(decoded.uid).get()
-    return { uid: decoded.uid, orgId: userDoc.data()?.orgId }
-  } catch {
-    return null
-  }
-}
 
 function sortSprints(sprints: SeoSprintOverviewSprint[]) {
   return [...sprints].sort((a, b) => {
@@ -33,13 +23,25 @@ function sortSprints(sprints: SeoSprintOverviewSprint[]) {
   })
 }
 
-export default async function PortalSeoIndex() {
-  const user = await currentUser()
+export default async function PortalSeoIndex({
+  searchParams,
+}: {
+  searchParams?: Promise<PortalSeoSearchParams>
+} = {}) {
+  const params = await searchParams
+  const scope = scopeFromSearchParams(params)
+  const user = await resolvePortalSeoUser(scope.orgId)
   if (!user) redirect('/login')
+  if (user.forbidden) notFound()
+  if (!user.orgId) {
+    return (
+      <div className="pib-card p-10 text-center text-sm text-[var(--color-pib-text-muted)]">
+        No organisation linked to this account.
+      </div>
+    )
+  }
 
-  let query = adminDb.collection('seo_sprints').where('deleted', '==', false)
-  if (user.orgId) query = query.where('orgId', '==', user.orgId)
-
+  const query = adminDb.collection('seo_sprints').where('orgId', '==', user.orgId).where('deleted', '==', false)
   const snap = await query.get()
   const sprints = sortSprints(snap.docs.map((doc): SeoSprintOverviewSprint => {
     const data = doc.data() as Partial<SeoSprintOverviewSprint>
@@ -52,6 +54,7 @@ export default async function PortalSeoIndex() {
       sprints={sprints}
       singleSprintStats={singleSprintStats}
       sprintBasePath="/portal/seo/sprints"
+      sprintHref={(sprint, childPath = '') => scopedPortalHref(`/portal/seo/sprints/${sprint.id}${childPath}`, scope)}
       emptyTitle="SEO Sprint"
       emptyDescription="Your team is preparing your 90-day SEO sprint. Once it's set up you'll see your daily plan, keyword movements, content drafts, and progress here."
     />

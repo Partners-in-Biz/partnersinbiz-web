@@ -47,6 +47,7 @@ interface SeoSprintOverviewProps {
   sprints: SeoSprintOverviewSprint[]
   singleSprintStats?: SeoSprintOverviewStats
   sprintBasePath: string
+  sprintHref?: (sprint: SeoSprintOverviewSprint, childPath?: string) => string
   emptyTitle: string
   emptyDescription: string
   emptyAction?: {
@@ -104,10 +105,14 @@ export function SeoSprintOverview({
   sprints,
   singleSprintStats,
   sprintBasePath,
+  sprintHref,
   emptyTitle,
   emptyDescription,
   emptyAction,
 }: SeoSprintOverviewProps) {
+  const hrefForSprint = (sprint: SeoSprintOverviewSprint, childPath = '') =>
+    sprintHref ? sprintHref(sprint, childPath) : sprintPath(sprintBasePath, sprint.id, childPath)
+
   if (sprints.length === 0) {
     return (
       <div className="pib-card p-12 text-center max-w-xl mx-auto">
@@ -145,7 +150,7 @@ export function SeoSprintOverview({
             return (
               <Link
                 key={sprint.id}
-                href={sprintPath(sprintBasePath, sprint.id)}
+                href={hrefForSprint(sprint)}
                 className="pib-card pib-card-hover p-5 space-y-2"
               >
                 <div className="text-xs text-[var(--color-pib-text-muted)]">
@@ -260,7 +265,7 @@ export function SeoSprintOverview({
             <Row label="Done this week" value={stats.wonThisWeek} accent={stats.wonThisWeek > 0} />
           </div>
           <Link
-            href={sprintPath(sprintBasePath, sprint.id)}
+            href={hrefForSprint(sprint)}
             className="text-xs font-medium text-[var(--color-pib-accent-hover)] hover:underline inline-flex items-center gap-1 pt-1"
           >
             View today&apos;s plan
@@ -290,7 +295,7 @@ export function SeoSprintOverview({
             </ul>
           )}
           <Link
-            href={sprintPath(sprintBasePath, sprint.id, '/keywords')}
+            href={hrefForSprint(sprint, '/keywords')}
             className="text-xs font-medium text-[var(--color-pib-accent-hover)] hover:underline inline-flex items-center gap-1 pt-1"
           >
             All keywords
@@ -323,13 +328,13 @@ export function SeoSprintOverview({
       </section>
 
       <section className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <DeepLink href={sprintPath(sprintBasePath, sprint.id)} icon="today" label="Today's plan" />
-        <DeepLink href={sprintPath(sprintBasePath, sprint.id, '/keywords')} icon="key" label="Keywords" />
-        <DeepLink href={sprintPath(sprintBasePath, sprint.id, '/content')} icon="article" label="Content" />
-        <DeepLink href={sprintPath(sprintBasePath, sprint.id, '/audits')} icon="health_and_safety" label="Audits" />
-        <DeepLink href={sprintPath(sprintBasePath, sprint.id, '/pages')} icon="description" label="Pages" />
-        <DeepLink href={sprintPath(sprintBasePath, sprint.id, '/blog')} icon="rss_feed" label="Blog drafts" />
-        <DeepLink href={sprintPath(sprintBasePath, sprint.id, '/performance')} icon="speed" label="Performance" />
+        <DeepLink href={hrefForSprint(sprint)} icon="today" label="Today's plan" />
+        <DeepLink href={hrefForSprint(sprint, '/keywords')} icon="key" label="Keywords" />
+        <DeepLink href={hrefForSprint(sprint, '/content')} icon="article" label="Content" />
+        <DeepLink href={hrefForSprint(sprint, '/audits')} icon="health_and_safety" label="Audits" />
+        <DeepLink href={hrefForSprint(sprint, '/pages')} icon="description" label="Pages" />
+        <DeepLink href={hrefForSprint(sprint, '/blog')} icon="rss_feed" label="Blog drafts" />
+        <DeepLink href={hrefForSprint(sprint, '/performance')} icon="speed" label="Performance" />
       </section>
     </div>
   )
