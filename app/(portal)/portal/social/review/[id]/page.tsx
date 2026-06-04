@@ -3,7 +3,12 @@ export const dynamic = 'force-dynamic'
 
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import Link from 'next/link'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
+import {
+  scopedApiPath,
+  scopedPortalPath,
+  scopeFromSearchParams,
+} from '@/lib/portal/scoped-routing'
 
 type PostStatus =
   | 'draft'
@@ -19,6 +24,17 @@ type PostStatus =
   | 'cancelled'
 
 type DeliveryMode = 'auto_publish' | 'download_only' | 'both' | string
+
+type TimestampLike =
+  | string
+  | number
+  | Date
+  | {
+      seconds?: number
+      _seconds?: number
+    }
+  | null
+  | undefined
 
 interface MediaItem {
   url?: string
@@ -36,14 +52,14 @@ interface SocialPost {
   platform?: string
   status: PostStatus
   deliveryMode?: DeliveryMode
-  scheduledAt?: any
-  scheduledFor?: any
-  createdAt?: any
+  scheduledAt?: TimestampLike
+  scheduledFor?: TimestampLike
+  createdAt?: TimestampLike
   media?: MediaItem[]
   originalContent?: { text?: string } | string
   approval?: {
     regenerationCount?: number
-    [k: string]: any
+    [k: string]: unknown
   }
 }
 
@@ -54,7 +70,7 @@ interface Comment {
   userName: string
   userRole: 'admin' | 'client' | 'ai'
   kind?: 'note' | 'rejection' | 'agent_handoff'
-  createdAt?: any
+  createdAt?: TimestampLike
 }
 
 const PLATFORM_COLORS: Record<string, { bg: string; label: string; full: string }> = {
@@ -86,45 +102,51 @@ function PlatformChip({ platform }: { platform: string }) {
   )
 }
 
-function getPostText(post: any): string {
+function getPostText(post?: SocialPost | null): string {
   if (typeof post?.content === 'string') return post.content
   if (post?.content?.text) return post.content.text
   return ''
 }
 
-function getOriginalText(post: any): string | null {
+function getOriginalText(post?: SocialPost | null): string | null {
   if (!post?.originalContent) return null
   if (typeof post.originalContent === 'string') return post.originalContent
   if (post.originalContent?.text) return post.originalContent.text
   return null
 }
 
-function getPostPlatforms(post: any): string[] {
+function getPostPlatforms(post?: SocialPost | null): string[] {
   if (post?.platforms?.length) return post.platforms
   if (post?.platform) return [post.platform]
   return []
 }
 
-function getMedia(post: any): MediaItem[] {
+function getMedia(post?: SocialPost | null): MediaItem[] {
   if (Array.isArray(post?.media) && post.media.length) return post.media
-  if (Array.isArray(post?.content?.media) && post.content.media.length) return post.content.media
+  if (post?.content && typeof post.content !== 'string' && Array.isArray(post.content.media) && post.content.media.length) {
+    return post.content.media
+  }
   return []
 }
 
-function getHashtags(post: any): string[] {
+function getHashtags(post?: SocialPost | null): string[] {
   if (Array.isArray(post?.hashtags) && post.hashtags.length) return post.hashtags
-  if (Array.isArray(post?.content?.hashtags) && post.content.hashtags.length) return post.content.hashtags
+  if (post?.content && typeof post.content !== 'string' && Array.isArray(post.content.hashtags) && post.content.hashtags.length) {
+    return post.content.hashtags
+  }
   return []
 }
 
-function tsToDate(ts: any): Date | null {
+function tsToDate(ts: TimestampLike): Date | null {
   if (!ts) return null
+  if (ts instanceof Date) return ts
+  if (typeof ts === 'number' || typeof ts === 'string') return new Date(ts)
   if (ts._seconds) return new Date(ts._seconds * 1000)
   if (ts.seconds) return new Date(ts.seconds * 1000)
-  return new Date(ts)
+  return null
 }
 
-function fmtRelative(ts: any): string {
+function fmtRelative(ts: TimestampLike): string {
   const d = tsToDate(ts)
   if (!d) return '—'
   const now = new Date()
@@ -139,7 +161,7 @@ function fmtRelative(ts: any): string {
   return d.toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' })
 }
 
-function fmtScheduled(ts: any): string {
+function fmtScheduled(ts: TimestampLike): string {
   const d = tsToDate(ts)
   return d
     ? d.toLocaleString('en-ZA', {
@@ -266,7 +288,10 @@ interface InlineToast {
 export default function ClientReviewDetailPage() {
   const params = useParams<{ id: string }>()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const id = params?.id
+  const orgScope = useMemo(() => scopeFromSearchParams(searchParams), [searchParams])
+  const reviewQueueHref = useMemo(() => scopedPortalPath('/portal/social/review', orgScope), [orgScope])
 
   const [post, setPost] = useState<SocialPost | null>(null)
   const [comments, setComments] = useState<Comment[]>([])
@@ -294,8 +319,8 @@ export default function ClientReviewDetailPage() {
     setError(null)
     try {
       const [postRes, commentsRes] = await Promise.all([
-        fetch(`/api/v1/social/posts/${id}`).then((r) => r.json()).catch(() => ({})),
-        fetch(`/api/v1/social/posts/${id}/comments`).then((r) => r.json()).catch(() => ({})),
+        fetch(scopedApiPath(`/api/v1/social/posts/${id}`, orgScope)).then((r) => r.json()).catch(() => ({})),
+        fetch(scopedApiPath(`/api/v1/social/posts/${id}/comments`, orgScope)).then((r) => r.json()).catch(() => ({})),
       ])
       if (postRes?.error) {
         setError(postRes.error)
@@ -303,12 +328,12 @@ export default function ClientReviewDetailPage() {
         setPost(postRes?.data ?? null)
       }
       setComments(Array.isArray(commentsRes?.data) ? commentsRes.data : [])
-    } catch (e) {
+    } catch {
       setError('Could not load this post.')
     } finally {
       setLoading(false)
     }
-  }, [id])
+  }, [id, orgScope])
 
   useEffect(() => {
     load()
@@ -327,7 +352,7 @@ export default function ClientReviewDetailPage() {
     if (!id || actionLoading) return
     setActionLoading('approve')
     try {
-      const res = await fetch(`/api/v1/social/posts/${id}/client-approve`, {
+      const res = await fetch(scopedApiPath(`/api/v1/social/posts/${id}/client-approve`, orgScope), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),
@@ -340,8 +365,8 @@ export default function ClientReviewDetailPage() {
         return
       }
       showToast({ type: 'success', text: 'Approved — will be published.' })
-      setTimeout(() => router.push('/portal/social/review'), 700)
-    } catch (e) {
+      setTimeout(() => router.push(reviewQueueHref), 700)
+    } catch {
       showToast({ type: 'error', text: 'Network error. Please try again.' })
       setActionLoading(null)
     }
@@ -356,7 +381,7 @@ export default function ClientReviewDetailPage() {
     }
     setActionLoading('reject')
     try {
-      const res = await fetch(`/api/v1/social/posts/${id}/client-reject`, {
+      const res = await fetch(scopedApiPath(`/api/v1/social/posts/${id}/client-reject`, orgScope), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reason }),
@@ -369,8 +394,8 @@ export default function ClientReviewDetailPage() {
         return
       }
       showToast({ type: 'success', text: 'Sent back — your AI agent is regenerating now.' })
-      setTimeout(() => router.push('/portal/social/review'), 700)
-    } catch (e) {
+      setTimeout(() => router.push(reviewQueueHref), 700)
+    } catch {
       showToast({ type: 'error', text: 'Network error. Please try again.' })
       setActionLoading(null)
     }
@@ -382,7 +407,7 @@ export default function ClientReviewDetailPage() {
     if (!text) return
     setCommentLoading(true)
     try {
-      const res = await fetch(`/api/v1/social/posts/${id}/comments`, {
+      const res = await fetch(scopedApiPath(`/api/v1/social/posts/${id}/comments`, orgScope), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text }),
@@ -396,7 +421,7 @@ export default function ClientReviewDetailPage() {
         setComments((prev) => [...prev, body.data])
       }
       setCommentText('')
-    } catch (e) {
+    } catch {
       showToast({ type: 'error', text: 'Network error.' })
     } finally {
       setCommentLoading(false)
@@ -419,7 +444,7 @@ export default function ClientReviewDetailPage() {
     return (
       <div className="space-y-4">
         <Link
-          href="/portal/social/review"
+          href={reviewQueueHref}
           className="text-xs text-[var(--color-on-surface-variant)] hover:text-[var(--color-accent-v2)] transition-colors"
         >
           ← Back to review queue
@@ -460,7 +485,7 @@ export default function ClientReviewDetailPage() {
 
       <div>
         <Link
-          href="/portal/social/review"
+          href={reviewQueueHref}
           className="text-xs text-[var(--color-on-surface-variant)] hover:text-[var(--color-accent-v2)] transition-colors"
         >
           ← Back to review queue

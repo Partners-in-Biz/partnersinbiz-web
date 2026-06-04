@@ -1,8 +1,15 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
+import {
+  scopedApiPath,
+  scopedPortalPath,
+  scopeFromSearchParams,
+  type PortalOrgRouteScope,
+} from '@/lib/portal/scoped-routing'
 
 type PostStatus =
   | 'draft'
@@ -24,22 +31,42 @@ interface Comment {
   userName: string
   userRole: 'admin' | 'client' | 'ai'
   kind?: 'note' | 'rejection' | 'agent_handoff'
-  createdAt?: any
+  createdAt?: TimestampLike
 }
+
+type TimestampLike =
+  | string
+  | number
+  | Date
+  | {
+      seconds?: number
+      _seconds?: number
+    }
+  | null
+  | undefined
+
+type MediaItem =
+  | string
+  | {
+      url?: string
+      thumbnailUrl?: string
+      previewUrl?: string
+      alt?: string
+    }
 
 interface SocialPost {
   id: string
-  content?: { text?: string; hashtags?: string[]; media?: any[] } | string
+  content?: { text?: string; hashtags?: string[]; media?: MediaItem[] } | string
   platforms?: string[]
   platform?: string
   status: PostStatus
-  scheduledAt?: any
-  scheduledFor?: any
-  createdAt?: any
-  media?: any[]
+  scheduledAt?: TimestampLike
+  scheduledFor?: TimestampLike
+  createdAt?: TimestampLike
+  media?: MediaItem[]
   approval?: {
     regenerationCount?: number
-    [k: string]: any
+    [k: string]: unknown
   }
   comments?: Comment[]
 }
@@ -62,32 +89,36 @@ function PlatformBadge({ platform }: { platform: string }) {
   return <span className={`${config.bg} text-white text-[10px] px-2 py-0.5 rounded font-bold`}>{config.label}</span>
 }
 
-function getPostText(post: any): string {
+function getPostText(post: SocialPost): string {
   if (typeof post.content === 'string') return post.content
   if (post.content?.text) return post.content.text
   return ''
 }
 
-function getPostPlatforms(post: any): string[] {
+function getPostPlatforms(post: SocialPost): string[] {
   if (post.platforms?.length) return post.platforms
   if (post.platform) return [post.platform]
   return []
 }
 
-function getMedia(post: any): any[] {
+function getMedia(post: SocialPost): MediaItem[] {
   if (Array.isArray(post.media) && post.media.length) return post.media
-  if (Array.isArray(post.content?.media) && post.content.media.length) return post.content.media
+  if (post.content && typeof post.content !== 'string' && Array.isArray(post.content.media) && post.content.media.length) {
+    return post.content.media
+  }
   return []
 }
 
-function tsToDate(ts: any): Date | null {
+function tsToDate(ts: TimestampLike): Date | null {
   if (!ts) return null
+  if (ts instanceof Date) return ts
+  if (typeof ts === 'number' || typeof ts === 'string') return new Date(ts)
   if (ts._seconds) return new Date(ts._seconds * 1000)
   if (ts.seconds) return new Date(ts.seconds * 1000)
-  return new Date(ts)
+  return null
 }
 
-function fmtRelative(ts: any): string {
+function fmtRelative(ts: TimestampLike): string {
   const d = tsToDate(ts)
   if (!d) return '—'
   const now = new Date()
@@ -102,14 +133,14 @@ function fmtRelative(ts: any): string {
   return d.toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' })
 }
 
-function fmtScheduled(ts: any): string {
+function fmtScheduled(ts: TimestampLike): string {
   const d = tsToDate(ts)
   return d
     ? d.toLocaleString('en-ZA', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
     : '—'
 }
 
-function MediaThumbs({ media }: { media: any[] }) {
+function MediaThumbs({ media }: { media: MediaItem[] }) {
   if (!media.length) return null
   const visible = media.slice(0, 4)
   return (
@@ -145,7 +176,7 @@ function MediaThumbs({ media }: { media: any[] }) {
   )
 }
 
-function ReviewCard({ post }: { post: SocialPost }) {
+function ReviewCard({ post, orgScope }: { post: SocialPost; orgScope: PortalOrgRouteScope }) {
   const text = getPostText(post)
   const platforms = getPostPlatforms(post)
   const media = getMedia(post)
@@ -189,7 +220,10 @@ function ReviewCard({ post }: { post: SocialPost }) {
           )}
           <p>Created {fmtRelative(post.createdAt)}</p>
         </div>
-        <Link href={`/portal/social/review/${post.id}`} className="pib-btn-primary text-xs px-3 py-1.5">
+        <Link
+          href={scopedPortalPath(`/portal/social/review/${post.id}`, orgScope)}
+          className="pib-btn-primary text-xs px-3 py-1.5"
+        >
           Open
         </Link>
       </div>
@@ -198,6 +232,9 @@ function ReviewCard({ post }: { post: SocialPost }) {
 }
 
 export default function ClientReviewQueuePage() {
+  const searchParams = useSearchParams()
+  const orgScope = useMemo(() => scopeFromSearchParams(searchParams), [searchParams])
+  const socialHref = useMemo(() => scopedPortalPath('/portal/social', orgScope), [orgScope])
   const [posts, setPosts] = useState<SocialPost[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -209,8 +246,12 @@ export default function ClientReviewQueuePage() {
     setError(null)
     try {
       const [clientReviewRes, pendingRes] = await Promise.all([
-        fetch('/api/v1/social/posts?status=client_review&limit=100').then((r) => r.json()).catch(() => ({})),
-        fetch('/api/v1/social/posts?status=pending_approval&limit=100').then((r) => r.json()).catch(() => ({})),
+        fetch(scopedApiPath('/api/v1/social/posts?status=client_review&limit=100', orgScope))
+          .then((r) => r.json())
+          .catch(() => ({})),
+        fetch(scopedApiPath('/api/v1/social/posts?status=pending_approval&limit=100', orgScope))
+          .then((r) => r.json())
+          .catch(() => ({})),
       ])
       const a: SocialPost[] = clientReviewRes?.data ?? []
       const b: SocialPost[] = pendingRes?.data ?? []
@@ -222,13 +263,13 @@ export default function ClientReviewQueuePage() {
         return dy - dx
       })
       setPosts(list)
-    } catch (e) {
+    } catch {
       setError('Could not load posts. Try refreshing.')
     } finally {
       setLoading(false)
       setRefreshing(false)
     }
-  }, [])
+  }, [orgScope])
 
   useEffect(() => {
     load()
@@ -239,7 +280,7 @@ export default function ClientReviewQueuePage() {
       <div className="flex items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-3 text-xs text-[var(--color-on-surface-variant)] mb-2">
-            <Link href="/portal/social" className="hover:text-[var(--color-accent-v2)] transition-colors">
+            <Link href={socialHref} className="hover:text-[var(--color-accent-v2)] transition-colors">
               ← Social
             </Link>
           </div>
@@ -280,7 +321,7 @@ export default function ClientReviewQueuePage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {posts.map((post) => (
-            <ReviewCard key={post.id} post={post} />
+            <ReviewCard key={post.id} post={post} orgScope={orgScope} />
           ))}
         </div>
       )}
