@@ -47,10 +47,6 @@ function receivedProjectsUrl(projectView: ProjectView = 'active') {
   return `/api/v1/projects?view=received${archiveQuery}`
 }
 
-function isHistoricalProject(project: Project): boolean {
-  return project.archived === true || project.status?.trim().toLowerCase() === 'completed'
-}
-
 function mergeLiveTasks(restTasks: BoardTask[], currentTasks: BoardTask[]) {
   const merged = new Map<string, BoardTask>()
   restTasks.forEach(task => merged.set(task.id, task))
@@ -418,7 +414,7 @@ export default function ProjectsPage() {
             <EmptyState
               icon="rocket_launch"
               title="No projects found."
-              description={projectView === 'archive' ? 'Completed and archived project history will appear here after sign-off.' : filter === 'all' ? 'Projects will appear here once work has been opened for your workspace.' : 'Try a different status filter to see more projects.'}
+              description={filter === 'all' ? 'Projects will appear here once work has been opened for your workspace.' : 'Try a different status filter to see more projects.'}
             />
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

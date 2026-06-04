@@ -266,7 +266,7 @@ export default function ProjectsPage() {
       }
 
       // Refetch the full list so the new project is confirmed from the server
-      const listRes = await fetch(receivedProjectsUrl(slug, historyView))
+      const listRes = await fetch(receivedProjectsUrl(slug, projectView))
       const listBody = await listRes.json()
       setProjects(listBody.data ?? [])
       setShowForm(false)
@@ -508,7 +508,7 @@ export default function ProjectsPage() {
                 <span className="material-symbols-outlined block text-[22px] leading-none">folder_managed</span>
               </span>
               <p className="font-medium text-on-surface">No projects found</p>
-              <p className="mt-1 text-sm text-on-surface-variant">{projectView === 'archive' ? 'Completed and archived project history will appear here after sign-off.' : 'Try another stage filter or create a new client project.'}</p>
+              <p className="mt-1 text-sm text-on-surface-variant">Try another stage filter or create a new client project.</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
