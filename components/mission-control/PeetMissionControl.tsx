@@ -79,7 +79,30 @@ function formatTime(value?: string | null) {
 }
 
 function sourceHref(item: BriefingCard) {
+  const evidenceRows = item.metadata?.softwareBuildEvidence
+  if (Array.isArray(evidenceRows)) {
+    const linkedEvidence = evidenceRows.find((row) => {
+      if (!row || typeof row !== 'object') return false
+      return typeof (row as Record<string, unknown>).href === 'string' && Boolean((row as Record<string, unknown>).href)
+    }) as Record<string, unknown> | undefined
+    if (typeof linkedEvidence?.href === 'string') return linkedEvidence.href
+  }
   return item.source?.url || '/admin/briefings'
+}
+
+function generatedAtStatus(value?: string | null, now = Date.now()) {
+  if (!value) {
+    return { stale: true, detail: 'No valid generatedAt timestamp was returned by the briefing feed.' }
+  }
+  const generated = new Date(value).getTime()
+  if (Number.isNaN(generated)) {
+    return { stale: true, detail: 'No valid generatedAt timestamp was returned by the briefing feed.' }
+  }
+  const ageMinutes = Math.floor((now - generated) / (60 * 1000))
+  if (ageMinutes > 30) {
+    return { stale: true, detail: `Generated ${formatTime(value)} (${ageMinutes} minutes old). Refresh or verify the source before using Mission Control for a release or promotion decision.` }
+  }
+  return { stale: false, detail: `Generated ${formatTime(value)}` }
 }
 
 function taskHref(task: AgentTask) {
@@ -229,6 +252,7 @@ export function PeetMissionControl() {
   const outputs = useMemo(() => data.items.filter(isAgentOutput), [data.items])
   const decisions = useMemo(() => data.items.filter(item => asText(item.metadata?.decision) || includesAny(item.title, ['approved', 'decision', 'choice'])), [data.items])
   const followUps = useMemo(() => data.tasks.filter(isFollowUp), [data.tasks])
+  const generatedStatus = useMemo(() => generatedAtStatus(data.generatedAt), [data.generatedAt])
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 pb-8">
@@ -246,9 +270,14 @@ export function PeetMissionControl() {
       />
 
       {error ? <div className="rounded-lg border border-amber-400/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">Some Mission Control feeds could not load: {error}.</div> : null}
+      {!loading && generatedStatus.stale ? (
+        <div className="rounded-lg border border-amber-400/50 bg-amber-500/10 px-4 py-3 text-sm leading-6 text-amber-100" role="status">
+          <span className="font-semibold">Mission Control briefing data may be stale.</span> {generatedStatus.detail} Internal preview can continue, but do not use these cards for a release or promotion decision until the feed freshness is verified.
+        </div>
+      ) : null}
 
       <section aria-label="Mission Control KPI snapshot" className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <KpiTile label="Live cards" value={data.items.length} icon="dashboard" detail={loading ? 'Loading briefing feed…' : `Generated ${formatTime(data.generatedAt)}`} />
+        <KpiTile label="Live cards" value={data.items.length} icon="dashboard" detail={loading ? 'Loading briefing feed…' : generatedStatus.detail} />
         <KpiTile label="Approvals" value={approvals.length} icon="verified_user" detail="Human decisions and gated actions separated from execution." />
         <KpiTile label="Client risks" value={risks.length} icon="report" detail="Blocked, risk, and closed-gate cards that need attention." />
         <KpiTile label="Follow-ups" value={followUps.length} icon="task_alt" detail="Open project or agent tasks Peet can inspect next." />
@@ -259,7 +288,13 @@ export function PeetMissionControl() {
           <SectionTitle eyebrow="Decisions" title="Today’s decisions" count={decisions.length} />
           {decisions.length === 0 ? <EmptyCard label="No explicit decision cards found yet today." /> : (
             <div className="space-y-2">
-              {decisions.slice(0, 4).map(item => <div key={item.id} className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)]/70 p-4"><p className="text-sm font-semibold text-on-surface">{decisionText(item)}</p><p className="mt-2 text-xs text-on-surface-variant">{item.title} · {formatTime(item.occurredAt)}</p></div>)}
+              {decisions.slice(0, 4).map(item => (
+                <Link key={item.id} href={sourceHref(item)} className="group block rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)]/70 p-4 transition-colors hover:border-[var(--color-pib-accent)]/50">
+                  <p className="text-sm font-semibold text-on-surface group-hover:text-[var(--color-pib-accent-hover)]">{decisionText(item)}</p>
+                  <p className="mt-2 text-xs text-on-surface-variant">{item.title} · {formatTime(item.occurredAt)}</p>
+                  <p className="mt-3 text-xs font-medium text-[var(--color-pib-accent)]">Open source/evidence</p>
+                </Link>
+              ))}
             </div>
           )}
         </Surface>

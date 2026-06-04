@@ -18,7 +18,10 @@ const feedItems = [
     source: { type: 'approval', id: 'g7fbjE9LYfAsRTqNtt5I', url: '/admin/projects/p0hFCZE3d4koqIrAaS1c' },
     actor: { id: 'pip', name: 'Pip', role: 'orchestrator' },
     context: { orgId: 'pib-platform-owner', orgName: 'Partners in Biz', projectId: 'p0hFCZE3d4koqIrAaS1c', projectName: 'Revenue Acquisition Sprint' },
-    metadata: { decision: 'Approve internal readiness and property-network preparation only' },
+    metadata: {
+      decision: 'Approve internal readiness and property-network preparation only',
+      softwareBuildEvidence: [{ kind: 'task', label: 'Approval gate', value: 'Choice A+B evidence', href: '/admin/projects/p0hFCZE3d4koqIrAaS1c?taskId=g7fbjE9LYfAsRTqNtt5I' }],
+    },
     occurredAt: '2026-06-04T08:00:00.000Z',
   },
   {
@@ -64,6 +67,7 @@ const agentTasks = [
 ]
 
 beforeEach(() => {
+  jest.useFakeTimers().setSystemTime(new Date('2026-06-04T09:15:00.000Z'))
   global.fetch = jest.fn(async (input: RequestInfo | URL) => {
     const url = String(input)
     if (url.startsWith('/api/v1/briefings/feed')) {
@@ -77,6 +81,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  jest.useRealTimers()
   jest.restoreAllMocks()
 })
 
@@ -95,6 +100,8 @@ describe('PeetMissionControl', () => {
     expect(within(kpis).getByText('Follow-ups')).toBeInTheDocument()
 
     expect(screen.getByRole('heading', { name: 'Today’s decisions' })).toBeInTheDocument()
+    const decisionLink = screen.getByRole('link', { name: /Approve internal readiness and property-network preparation only/i })
+    expect(decisionLink).toHaveAttribute('href', '/admin/projects/p0hFCZE3d4koqIrAaS1c?taskId=g7fbjE9LYfAsRTqNtt5I')
     expect(screen.getByText('Approve internal readiness and property-network preparation only')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Approvals and gates' })).toBeInTheDocument()
     expect(screen.getAllByText(/Choice C controlled send remains blocked/).length).toBeGreaterThanOrEqual(1)
@@ -113,5 +120,49 @@ describe('PeetMissionControl', () => {
     await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2))
     expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/api/v1/briefings/feed?orgId=pib-platform-owner'))
     expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/api/v1/admin/agent-tasks?orgId=pib-platform-owner'))
+  })
+
+  it('warns when the briefing generatedAt timestamp is older than 30 minutes', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-06-04T09:45:01.000Z'))
+    render(<PeetMissionControl />)
+
+    expect(await screen.findByText(/Mission Control briefing data may be stale/i)).toBeInTheDocument()
+    expect(screen.getAllByText(/Generated 04 Jun, 09:00/i).length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('warns when the briefing generatedAt timestamp is missing', async () => {
+    global.fetch = jest.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.startsWith('/api/v1/briefings/feed')) {
+        return { ok: true, json: async () => ({ data: { items: feedItems, total: feedItems.length, hasMore: false } }) } as Response
+      }
+      if (url.startsWith('/api/v1/admin/agent-tasks')) {
+        return { ok: true, json: async () => ({ data: { items: agentTasks } }) } as Response
+      }
+      throw new Error(`Unexpected fetch ${url}`)
+    })
+
+    render(<PeetMissionControl />)
+
+    expect(await screen.findByText(/Mission Control briefing data may be stale/i)).toBeInTheDocument()
+    expect(screen.getAllByText(/No valid generatedAt timestamp/i).length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('warns when the briefing generatedAt timestamp is invalid', async () => {
+    global.fetch = jest.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.startsWith('/api/v1/briefings/feed')) {
+        return { ok: true, json: async () => ({ data: { items: feedItems, total: feedItems.length, hasMore: false, generatedAt: 'not-a-date' } }) } as Response
+      }
+      if (url.startsWith('/api/v1/admin/agent-tasks')) {
+        return { ok: true, json: async () => ({ data: { items: agentTasks } }) } as Response
+      }
+      throw new Error(`Unexpected fetch ${url}`)
+    })
+
+    render(<PeetMissionControl />)
+
+    expect(await screen.findByText(/Mission Control briefing data may be stale/i)).toBeInTheDocument()
+    expect(screen.getAllByText(/No valid generatedAt timestamp/i).length).toBeGreaterThanOrEqual(1)
   })
 })
