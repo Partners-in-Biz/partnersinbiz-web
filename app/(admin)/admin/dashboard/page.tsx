@@ -95,6 +95,8 @@ const SOFTWARE_BUILD_LANES = [
   { id: 'completed', title: 'Completed', icon: 'task_alt', color: '#34d399' },
 ] as const
 
+type WorkLaneConfig = { id: string; title: string; icon: string; color: string }
+
 const RISK_STATUSES = new Set(['blocked', 'awaiting-input'])
 const ACTIVE_STATUSES = new Set(['pending', 'picked-up', 'in-progress'])
 const PULSE_STATUSES = new Set(['pending', 'picked-up', 'in-progress', 'awaiting-input', 'blocked'])
@@ -295,7 +297,7 @@ function WorkLane({
   children,
   count,
 }: {
-  lane: (typeof WORK_LANES)[number]
+  lane: WorkLaneConfig
   children: React.ReactNode
   count: number
 }) {
@@ -309,6 +311,35 @@ function WorkLane({
         <span className="rounded-full bg-[var(--color-surface-container)] px-2 py-0.5 text-[10px] font-label text-on-surface-variant">{count}</span>
       </div>
       <div className="flex flex-1 flex-col gap-2">{children}</div>
+    </div>
+  )
+}
+
+function SoftwareBuildEmptyIndicator({ activeCount }: { activeCount: number }) {
+  if (activeCount > 0) return null
+  const specHref = `/admin/documents/new?orgId=${encodeURIComponent(PIB_PLATFORM_ORG_ID)}&type=build_spec&title=${encodeURIComponent('PiB Platform Build Spec — Next Approved Sprint')}`
+  return (
+    <div className="rounded-lg border border-amber-400/30 bg-amber-500/10 p-4 text-sm text-amber-50">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div className="min-w-0">
+          <p className="flex items-center gap-2 font-label uppercase tracking-widest text-amber-200">
+            <span className="material-symbols-outlined text-[18px]">playlist_add_check</span>
+            No active software build tickets
+          </p>
+          <p className="mt-2 leading-6 text-amber-50/90">
+            The approved platform sprint has no pending or in-progress Theo build tickets. Create a build spec first, get Peet approval, then release gated implementation tasks instead of leaving the queue blank.
+          </p>
+        </div>
+        <div className="flex shrink-0 flex-wrap gap-2">
+          <Link href={specHref} className="inline-flex items-center gap-2 rounded-[var(--radius-btn)] bg-amber-300 px-3 py-2 text-xs font-label uppercase tracking-wide text-slate-950 hover:bg-amber-200">
+            Create gated build spec
+            <span className="material-symbols-outlined text-[15px]">arrow_forward</span>
+          </Link>
+          <Link href="/admin/projects" className="inline-flex items-center gap-2 rounded-[var(--radius-btn)] border border-amber-300/40 px-3 py-2 text-xs font-label uppercase tracking-wide text-amber-100 hover:border-amber-200">
+            Open Projects/Kanban
+          </Link>
+        </div>
+      </div>
     </div>
   )
 }
@@ -481,6 +512,13 @@ export default function MissionControlDashboard() {
   const approvalLaneItems = data.approvals.slice(0, 6)
   const activeLaneItems = pulseTasks.filter(task => !RISK_STATUSES.has(task.agentStatus ?? '')).slice(0, 6)
   const softwareBuildTasks = useMemo(() => data.tasks.filter(task => task.assigneeAgentId === 'theo'), [data.tasks])
+  const activeSoftwareBuildTasks = useMemo(
+    () => softwareBuildTasks.filter(task => {
+      const lane = softwareBuildLane(task)
+      return lane === 'pending' || lane === 'in-progress'
+    }),
+    [softwareBuildTasks],
+  )
   const agentBoardHref = useMemo(() => resolvePlatformAgentBoardHref(data.orgs), [data.orgs])
 
   if (!hydrated) return <DashboardLoadingShell />
@@ -591,8 +629,9 @@ export default function MissionControlDashboard() {
                 <SectionHeader
                   title="Software build queue"
                   eyebrow="Theo / parent PiB workspace"
-                  action={<span className="rounded-full bg-[var(--color-surface-container)] px-2 py-1 text-[10px] font-label uppercase tracking-wide text-on-surface-variant">{softwareBuildTasks.length} tasks</span>}
+                  action={<span className="rounded-full bg-[var(--color-surface-container)] px-2 py-1 text-[10px] font-label uppercase tracking-wide text-on-surface-variant">{activeSoftwareBuildTasks.length} active / {softwareBuildTasks.length} total</span>}
                 />
+                <SoftwareBuildEmptyIndicator activeCount={activeSoftwareBuildTasks.length} />
                 <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
                   {SOFTWARE_BUILD_LANES.map((lane) => {
                     const laneTasks = softwareBuildTasks.filter(task => softwareBuildLane(task) === lane.id)
@@ -662,6 +701,7 @@ export default function MissionControlDashboard() {
                 ))}
               </WorkLane>
             </div>
+            </>
           )}
         </section>
       )}
