@@ -143,6 +143,15 @@ function rowMeta(row: Row, tab: CompanyTab) {
   return []
 }
 
+function rowHref(row: Row, tab: CompanyTab) {
+  if (!row.id) return null
+  if (tab === 'contacts') return `/portal/contacts/${row.id}`
+  if (tab === 'deals') return `/portal/deals/${row.id}`
+  if (tab === 'documents') return `/portal/documents/${row.id}`
+  if (tab === 'projects') return `/portal/projects/${row.id}`
+  return null
+}
+
 const EMPTY_TAB_LABELS: Partial<Record<CompanyTab, string>> = {
   contacts: 'Contacts',
   deals: 'Deals',
@@ -209,15 +218,43 @@ function SimpleRowsPanel({
     <div className="bento-card divide-y divide-[var(--color-pib-line)]">
       {rows.map((row) => {
         const meta = rowMeta(row, tab).filter(Boolean)
-        return (
-          <div key={row.id} className="flex items-start justify-between gap-4 px-5 py-4">
+        const title = rowTitle(row, tab)
+        const href = rowHref(row, tab)
+        const rowContent = (
+          <>
             <div className="min-w-0">
-              <p className="truncate text-sm font-medium text-[var(--color-pib-text)]">{rowTitle(row, tab)}</p>
+              <p className="truncate text-sm font-medium text-[var(--color-pib-text)]">{title}</p>
               {meta.length > 0 && (
                 <p className="mt-1 truncate text-xs text-[var(--color-pib-text-muted)]">{meta.join(' · ')}</p>
               )}
             </div>
-            <StatusChip value={row.status} />
+            <div className="flex shrink-0 items-center gap-2">
+              <StatusChip value={row.status} />
+              {href ? (
+                <span aria-hidden="true" className="material-symbols-outlined text-[16px] text-[var(--color-pib-text-muted)]">
+                  open_in_new
+                </span>
+              ) : null}
+            </div>
+          </>
+        )
+
+        if (href) {
+          return (
+            <Link
+              key={row.id}
+              href={href}
+              aria-label={`Open ${title} from ${companyName} admin command center`}
+              className="flex items-start justify-between gap-4 px-5 py-4 transition-colors hover:bg-white/[0.03] focus:outline-none focus:ring-2 focus:ring-[var(--color-pib-accent)] focus:ring-offset-2 focus:ring-offset-[var(--color-pib-bg)]"
+            >
+              {rowContent}
+            </Link>
+          )
+        }
+
+        return (
+          <div key={row.id} className="flex items-start justify-between gap-4 px-5 py-4">
+            {rowContent}
           </div>
         )
       })}

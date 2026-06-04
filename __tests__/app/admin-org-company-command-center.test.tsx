@@ -113,6 +113,77 @@ describe('Admin company command center page', () => {
     expect(moreMenu).toHaveTextContent('12')
   })
 
+  it('turns linked admin company contact and deal rows into record navigation', async () => {
+    ;(global.fetch as jest.Mock).mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/admin/crm/companies/company-1/command-center?orgSlug=acme-client&limit=100') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: {
+              company: {
+                id: 'company-1',
+                orgId: 'org-1',
+                name: 'Acme Holdings',
+                lifecycleStage: 'customer',
+                tier: 'smb',
+                industry: 'Creative services',
+              },
+              summary: {
+                contacts: 1,
+                deals: 1,
+                projects: 0,
+                documents: 0,
+                serviceWorkspaces: 0,
+                relationships: 0,
+                quotes: 0,
+                invoices: 0,
+                orders: 0,
+                shipments: 0,
+                inventoryItems: 0,
+                activities: 0,
+              },
+              analytics: { riskSignals: [] },
+              contacts: [{ id: 'contact-1', name: 'Ava Buyer', email: 'ava@example.com', status: 'active' }],
+              deals: [{ id: 'deal-1', title: 'Growth Retainer', value: 25000, currency: 'ZAR', stageId: 'proposal' }],
+              projects: [],
+              documents: [],
+              serviceWorkspaces: [],
+              relationships: [],
+              quotes: [],
+              invoices: [],
+              orders: [],
+              shipments: [],
+              inventoryItems: [],
+              activities: [],
+            },
+          }),
+        } as Response)
+      }
+
+      return Promise.resolve({
+        ok: false,
+        json: async () => ({ error: `Unexpected request: ${url}` }),
+      } as Response)
+    })
+
+    render(<AdminCompanyCommandCenterPage />)
+
+    expect(await screen.findByText('Admin company command center')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('tab', { name: /Contacts/i }))
+    expect(screen.getByRole('link', { name: 'Open Ava Buyer from Acme Holdings admin command center' })).toHaveAttribute(
+      'href',
+      '/portal/contacts/contact-1',
+    )
+
+    fireEvent.click(screen.getByRole('tab', { name: /Deals/i }))
+    expect(screen.getByRole('link', { name: 'Open Growth Retainer from Acme Holdings admin command center' })).toHaveAttribute(
+      'href',
+      '/portal/deals/deal-1',
+    )
+  })
+
   it('turns clear admin company analytics risk into a portal review action', async () => {
     render(<AdminCompanyCommandCenterPage />)
 
