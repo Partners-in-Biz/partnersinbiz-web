@@ -349,13 +349,20 @@ function Field({
   value,
   href,
   external = false,
+  onAction,
+  actionAriaLabel,
 }: {
   label: string
   value?: string | number | null
   href?: string
   external?: boolean
+  onAction?: () => void
+  actionAriaLabel?: string
 }) {
   if (!value && value !== 0) return null
+  const displayValue = (
+    <span className="min-w-0 break-words text-sm text-[var(--color-pib-text)]">{value}</span>
+  )
   return (
     <div className="flex items-baseline gap-3 py-1">
       <span className="w-28 shrink-0 text-[11px] text-[var(--color-pib-text-muted)]">{label}</span>
@@ -368,8 +375,18 @@ function Field({
         >
           {value}
         </a>
+      ) : onAction ? (
+        <button
+          type="button"
+          onClick={onAction}
+          aria-label={actionAriaLabel ?? `Edit ${label}`}
+          className="inline-flex min-w-0 items-center gap-1.5 text-left hover:underline"
+        >
+          {displayValue}
+          <span aria-hidden="true" className="material-symbols-outlined text-[14px] text-[var(--color-accent-v2)]">edit</span>
+        </button>
       ) : (
-        <span className="min-w-0 break-words text-sm text-[var(--color-pib-text)]">{value}</span>
+        displayValue
       )}
     </div>
   )
@@ -569,9 +586,24 @@ function BusinessProfile({ company, onEditCompany }: { company: Company; onEditC
       <SectionCard title="Identity">
         <Field label="Legal name" value={company.legalName} />
         <Field label="Trading name" value={company.tradingName} />
-        <Field label="Lifecycle" value={company.lifecycleStage} />
-        <Field label="Tier" value={company.tier} />
-        <Field label="Industry" value={company.industry} />
+        <Field
+          label="Lifecycle"
+          value={readableAccountLabel(company.lifecycleStage)}
+          onAction={onEditCompany}
+          actionAriaLabel={company.lifecycleStage ? `Edit Lifecycle ${readableAccountLabel(company.lifecycleStage)} for ${company.name}` : undefined}
+        />
+        <Field
+          label="Tier"
+          value={readableAccountLabel(company.tier)}
+          onAction={onEditCompany}
+          actionAriaLabel={company.tier ? `Edit Tier ${readableAccountLabel(company.tier)} for ${company.name}` : undefined}
+        />
+        <Field
+          label="Industry"
+          value={company.industry}
+          onAction={onEditCompany}
+          actionAriaLabel={company.industry ? `Edit Industry ${company.industry} for ${company.name}` : undefined}
+        />
         <Field label="Size" value={company.size} />
         <Field label="Employees" value={company.employeeCount} />
         <Field label="Annual revenue" value={company.annualRevenue ? formatCurrency(company.annualRevenue, company.currency || 'ZAR') : null} />

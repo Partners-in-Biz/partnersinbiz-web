@@ -320,6 +320,27 @@ describe('CompanyOverviewPanel', () => {
     expect(onEditCompany).toHaveBeenCalledTimes(1)
   })
 
+  it('turns captured business profile identity rows into profile edit actions', () => {
+    const onEditCompany = jest.fn()
+
+    render(
+      <CompanyOverviewPanel
+        company={company({
+          lifecycleStage: 'customer',
+          tier: 'mid-market',
+          industry: 'Creative services',
+        })}
+        onEditCompany={onEditCompany}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Lifecycle Customer for Acme Studio' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Tier Mid market for Acme Studio' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Industry Creative services for Acme Studio' }))
+
+    expect(onEditCompany).toHaveBeenCalledTimes(3)
+  })
+
   it('turns an empty latest movement panel into an activity review action', () => {
     const onSelectTab = jest.fn()
 
