@@ -59,11 +59,39 @@ describe('admin campaign detail canonical cockpit route', () => {
     expect(mockResolveOrgSlugForLink).toHaveBeenCalledWith(expect.any(Object), 'org-lumen')
   })
 
-  it('does not keep a second campaign detail UI on the global admin route', () => {
-    const globalCampaignDetail = source('app/(admin)/admin/campaigns/[id]/page.tsx')
+  it.each([
+    ['blogs', 'blogs'],
+    ['social', 'social'],
+    ['videos', 'videos'],
+  ])('redirects the legacy global admin %s tab into the shared cockpit tab', async (route, tab) => {
+    const modules = {
+      blogs: () => import('@/app/(admin)/admin/campaigns/[id]/blogs/page'),
+      social: () => import('@/app/(admin)/admin/campaigns/[id]/social/page'),
+      videos: () => import('@/app/(admin)/admin/campaigns/[id]/videos/page'),
+    }
+    const { default: LegacyTabPage } = await modules[route as keyof typeof modules]()
 
-    expect(globalCampaignDetail).not.toContain('@/components/campaign-cockpit/AssetGrid')
-    expect(globalCampaignDetail).not.toContain('function Stat')
-    expect(globalCampaignDetail).toContain('redirect(')
+    await expect(
+      LegacyTabPage({ params: Promise.resolve({ id: 'campaign-1' }) }),
+    ).rejects.toThrow(`redirect:/admin/org/lumen-speeds/social/campaign-1?tab=${tab}`)
+  })
+
+  it('does not keep a second campaign detail UI on the global admin routes', () => {
+    const globalCampaignDetail = source('app/(admin)/admin/campaigns/[id]/page.tsx')
+    const globalCampaignBlogs = source('app/(admin)/admin/campaigns/[id]/blogs/page.tsx')
+    const globalCampaignSocial = source('app/(admin)/admin/campaigns/[id]/social/page.tsx')
+    const globalCampaignVideos = source('app/(admin)/admin/campaigns/[id]/videos/page.tsx')
+    const globalCampaignSources = [
+      globalCampaignDetail,
+      globalCampaignBlogs,
+      globalCampaignSocial,
+      globalCampaignVideos,
+    ]
+
+    for (const routeSource of globalCampaignSources) {
+      expect(routeSource).not.toContain('@/components/campaign-cockpit/AssetGrid')
+      expect(routeSource).not.toContain('function Stat')
+      expect(routeSource).toContain('redirectToOrgCampaignCockpit')
+    }
   })
 })

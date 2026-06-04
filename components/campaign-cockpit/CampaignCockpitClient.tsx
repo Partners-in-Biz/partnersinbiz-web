@@ -14,6 +14,8 @@ type AnyObj = any
 const TABS = [
   { key: 'research',  label: 'Research' },
   { key: 'blogs',     label: 'Blog Posts' },
+  { key: 'social',    label: 'Social' },
+  { key: 'videos',    label: 'Videos' },
   { key: 'instagram', label: 'Instagram' },
   { key: 'reels',     label: 'Reels & TikTok' },
   { key: 'stories',   label: 'Stories' },
@@ -275,6 +277,30 @@ export function CampaignCockpitClient({
             brand={brand}
             basePath={basePath}
             showClientApprovals={showClientBlogApprovals}
+          />
+        )}
+        {tab === 'social' && (
+          <PlatformPanel
+            empty={emptyCopy('social posts', 'social assets')}
+            social={split.social}
+            blogs={[]}
+            videos={[]}
+            filter="social"
+            brand={brand}
+            campaignId={campaignId}
+            approvalMode={assetApprovalMode}
+          />
+        )}
+        {tab === 'videos' && (
+          <PlatformPanel
+            empty={emptyCopy('videos', 'campaign videos')}
+            social={[]}
+            blogs={[]}
+            videos={split.videos}
+            filter="videos"
+            brand={brand}
+            campaignId={campaignId}
+            approvalMode={assetApprovalMode}
           />
         )}
         {tab === 'instagram' && (
@@ -750,6 +776,7 @@ function splitAssets(assets: AnyObj | null) {
   const empty = {
     blogs: [] as AnyObj[],
     videos: [] as AnyObj[],
+    social: [] as AnyObj[],
     allSocial: [] as AnyObj[],
     instagramFeed: [] as AnyObj[],
     reelsAndTikTok: [] as AnyObj[],
@@ -807,6 +834,7 @@ function splitAssets(assets: AnyObj | null) {
   return {
     blogs,
     videos,
+    social,
     allSocial,
     instagramFeed,
     reelsAndTikTok,
@@ -827,6 +855,10 @@ function countFor(tab: TabKey, split: ReturnType<typeof splitAssets>): number | 
       return null
     case 'blogs':
       return split.blogs.length
+    case 'social':
+      return split.social.length
+    case 'videos':
+      return split.videos.length
     case 'instagram':
       return split.instagramFeed.length
     case 'reels':

@@ -139,6 +139,58 @@ describe('Portal campaign cockpit client', () => {
     expect(tabUrl.searchParams.get('orgSlug')).toBe('lumen-speeds')
   })
 
+  it('exposes generic Social and Videos tabs as shared cockpit destinations', () => {
+    render(
+      <CockpitClient
+        campaignId="campaign-1"
+        campaign={{
+          description: 'June campaign for high-value leads',
+          research: { taglines: { master: 'Make every lead count' } },
+        }}
+        assets={{
+          blogs: [],
+          videos: [
+            {
+              id: 'video-1',
+              title: 'Campaign overview video',
+              status: 'review',
+              platform: 'youtube',
+              media: [{ type: 'video', urlYoutube: 'https://example.com/video.mp4' }],
+            },
+          ],
+          social: [
+            {
+              id: 'social-1',
+              status: 'review',
+              platform: 'linkedin',
+              content: 'Launch update',
+              media: [],
+            },
+          ],
+          meta: { byStatus: { pending_approval: 0 } },
+        }}
+        brand={undefined}
+        orgName="Lumen"
+        monthLabel="June 2026"
+        shareEnabled={false}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('tab', { name: /^Social\b/i }))
+    expect(replace).toHaveBeenCalledTimes(1)
+    let tabUrl = new URL(replace.mock.calls[0][0], 'https://partnersinbiz.test')
+    expect(tabUrl.pathname).toBe('/portal/campaigns/campaign-1')
+    expect(tabUrl.searchParams.get('tab')).toBe('social')
+
+    replace.mockClear()
+
+    fireEvent.click(screen.getByRole('tab', { name: /^Videos\b/i }))
+    expect(replace).toHaveBeenCalledTimes(1)
+    tabUrl = new URL(replace.mock.calls[0][0], 'https://partnersinbiz.test')
+    expect(tabUrl.pathname).toBe('/portal/campaigns/campaign-1')
+    expect(tabUrl.searchParams.get('tab')).toBe('videos')
+  })
+
   it('preserves CRM company scope on cockpit blog deep links', () => {
     searchParams = new URLSearchParams('orgId=lumen-org&orgSlug=lumen-speeds&tab=blogs')
 
