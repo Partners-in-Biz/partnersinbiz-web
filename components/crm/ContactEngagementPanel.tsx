@@ -97,6 +97,56 @@ function Signal({
   )
 }
 
+function EngagementCommandButtons({
+  actions,
+  contactName,
+}: {
+  actions?: ContactEngagementActions
+  contactName: string
+}) {
+  const hasActions = Boolean(actions?.onLogNote || actions?.onSendEmail || actions?.onScheduleMeeting)
+
+  if (!hasActions) return null
+
+  return (
+    <div className="mt-3 flex flex-wrap gap-2">
+      {actions?.onLogNote ? (
+        <button
+          type="button"
+          onClick={actions.onLogNote}
+          aria-label={`Log note from engagement cockpit for ${contactName}`}
+          className="btn-pib-secondary inline-flex items-center gap-1.5 text-xs"
+        >
+          <span aria-hidden="true" className="material-symbols-outlined text-[14px]">edit_note</span>
+          Log note
+        </button>
+      ) : null}
+      {actions?.onSendEmail ? (
+        <button
+          type="button"
+          onClick={actions.onSendEmail}
+          aria-label={`Send email from engagement cockpit to ${contactName}`}
+          className="btn-pib-secondary inline-flex items-center gap-1.5 text-xs"
+        >
+          <span aria-hidden="true" className="material-symbols-outlined text-[14px]">outgoing_mail</span>
+          Send email
+        </button>
+      ) : null}
+      {actions?.onScheduleMeeting ? (
+        <button
+          type="button"
+          onClick={actions.onScheduleMeeting}
+          aria-label={`Schedule meeting from engagement cockpit with ${contactName}`}
+          className="btn-pib-secondary inline-flex items-center gap-1.5 text-xs"
+        >
+          <span aria-hidden="true" className="material-symbols-outlined text-[14px]">event</span>
+          Schedule meeting
+        </button>
+      ) : null}
+    </div>
+  )
+}
+
 export function contactEngagementHealth(profile: ContactEngagementProfile): number {
   const days = daysSince(profile.lastContactedAt)
   const emails = profile.emails ?? []
@@ -129,7 +179,6 @@ export function ContactEngagementPanel({
   const suggestionActionLabel = suggestion?.action?.trim() || 'Suggested action missing'
   const suggestionReasonLabel = suggestion?.reason?.trim() || 'Suggestion reason missing'
   const contactName = actions?.contactName?.trim() || 'this contact'
-  const hasActions = Boolean(actions?.onLogNote || actions?.onSendEmail || actions?.onScheduleMeeting)
 
   return (
     <section className="bento-card !p-5 space-y-4">
@@ -183,6 +232,7 @@ export function ContactEngagementPanel({
                   Start action
                 </button>
               ) : null}
+              <EngagementCommandButtons actions={actions} contactName={contactName} />
             </div>
           </div>
         </div>
@@ -205,43 +255,7 @@ export function ContactEngagementPanel({
               </p>
             </div>
           </div>
-          {hasActions ? (
-            <div className="mt-3 flex flex-wrap gap-2">
-              {actions?.onLogNote ? (
-                <button
-                  type="button"
-                  onClick={actions.onLogNote}
-                  aria-label={`Log note from engagement cockpit for ${contactName}`}
-                  className="btn-pib-secondary inline-flex items-center gap-1.5 text-xs"
-                >
-                  <span aria-hidden="true" className="material-symbols-outlined text-[14px]">edit_note</span>
-                  Log note
-                </button>
-              ) : null}
-              {actions?.onSendEmail ? (
-                <button
-                  type="button"
-                  onClick={actions.onSendEmail}
-                  aria-label={`Send email from engagement cockpit to ${contactName}`}
-                  className="btn-pib-secondary inline-flex items-center gap-1.5 text-xs"
-                >
-                  <span aria-hidden="true" className="material-symbols-outlined text-[14px]">outgoing_mail</span>
-                  Send email
-                </button>
-              ) : null}
-              {actions?.onScheduleMeeting ? (
-                <button
-                  type="button"
-                  onClick={actions.onScheduleMeeting}
-                  aria-label={`Schedule meeting from engagement cockpit with ${contactName}`}
-                  className="btn-pib-secondary inline-flex items-center gap-1.5 text-xs"
-                >
-                  <span aria-hidden="true" className="material-symbols-outlined text-[14px]">event</span>
-                  Schedule meeting
-                </button>
-              ) : null}
-            </div>
-          ) : null}
+          <EngagementCommandButtons actions={actions} contactName={contactName} />
         </div>
       )}
     </section>
