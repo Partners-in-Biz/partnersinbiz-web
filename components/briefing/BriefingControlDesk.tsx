@@ -96,6 +96,14 @@ interface BriefingCard {
     calendarEventTitle?: string | null
   }
   metadata?: Record<string, unknown> | null
+  userState?: {
+    status?: 'active' | 'read' | 'handled' | 'snoozed' | 'rejected' | 'approved' | 'pending-review' | 'follow-up-created'
+    note?: string | null
+    snoozedUntil?: string | null
+    approvalState?: string | null
+    approvalCopy?: string | null
+    sideEffectPerformed?: false
+  } | null
   occurredAt: string
 }
 
@@ -602,6 +610,66 @@ function documentReviewable(item: BriefingCard) {
   return canDocumentAct(item) && (item.source.type === 'client-document' || item.source.type === 'approval') && ['needs-peet', 'review'].includes(item.priority)
 }
 
+function briefingStateLabel(item: BriefingCard) {
+  if (item.userState?.status === 'handled') return 'Handled'
+  if (item.userState?.status === 'snoozed') return 'Snoozed'
+  if (item.requiresAction) return 'Needs action'
+  return 'Active'
+}
+
+function phase2StateChips(item: BriefingCard, mode: Mode) {
+  const chips = [`State: ${briefingStateLabel(item)}`]
+  if (reviewable(item)) chips.push('Review pending')
+  if (approvalGateReviewable(item)) chips.push('Approval gate pending')
+  if (documentReviewable(item)) chips.push('Document approval')
+  if (canSocialPostAct(item) && socialActionStage(item)) chips.push(socialActionStage(item) === 'qa' ? 'QA approval' : 'Client approval')
+  if (canAgentRunApprove(item, mode)) chips.push('Agent approval gate')
+  if (canWorkspaceBrokerAct(item, mode)) chips.push('Workspace approval gate')
+  if (canConvertToCrmActivity(item)) chips.push('CRM-ready')
+  if (softwareBuildEvidenceRows(item).length) chips.push('Evidence attached')
+  return chips
+}
+
+function phase2NextActionCopy(item: BriefingCard, mode: Mode) {
+  if (reviewable(item)) return 'Next action: review the evidence, then approve the work or reject it back to the assigned agent.'
+  if (approvalGateReviewable(item)) return 'Next action: approve the gate if the request is safe, or reject it with direction for the agent.'
+  if (documentReviewable(item)) return 'Next action: approve the document, or request changes with a clear note.'
+  if (canSocialPostAct(item) && socialActionStage(item)) return 'Next action: approve the content for its current review stage, or request changes without publishing.'
+  if (canConvertToCrmActivity(item)) return 'Next action: convert this signal into a CRM activity or schedule the next follow-up task.'
+  if (canAgentRunApprove(item, mode) || canWorkspaceBrokerAct(item, mode)) return 'Next action: review the approval request and only approve the scoped operation if it is safe.'
+  if (canTaskAct(item)) return 'Next action: reply on the task, create a follow-up task, assign an agent, or snooze this signal.'
+  return 'Next action: open the source for more context, create a follow-up task when supported, or snooze the card.'
+}
+
+function phase2AgentId(item: BriefingCard) {
+  const assigned = item.metadata?.assigneeAgentId ?? item.metadata?.assignedAgentId ?? item.metadata?.agentId
+  if (typeof assigned === 'string' && assigned.trim()) return assigned.trim().replace(/^agent:/, '')
+  if (item.actor.type === 'agent') return item.actor.id.replace(/^agent:/, '')
+  return 'theo'
+}
+
+function canConvertToCrmActivity(item: BriefingCard) {
+  return Boolean(item.context.contactId || item.context.dealId || item.metadata?.contactId || item.metadata?.dealId)
+}
+
+function evidenceHref(item: BriefingCard, mode: Mode) {
+  const evidence = softwareBuildEvidenceRows(item).find((row) => row.href)?.href
+  return evidence || sourceHref(item, mode)
+}
+
+function briefingActionEndpoint(item: BriefingCard) {
+  return `/api/v1/briefings/items/${encodeURIComponent(item.id)}/actions`
+}
+
+function briefingActionSourcePayload(item: BriefingCard, mode: Mode) {
+  return {
+    orgId: item.orgId || item.context.orgId,
+    context: item.context,
+    source: { ...item.source, url: item.source.url || sourceHref(item, mode) || undefined },
+    metadata: item.metadata ?? {},
+  }
+}
+
 function defaultSnoozeDate() {
   return new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
 }
@@ -873,7 +941,11 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
       const res = await fetch(`/api/v1/briefings/items/${encodeURIComponent(item.id)}/state`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ action, snoozedUntil: action === 'snoozed' ? defaultSnoozeDate() : undefined }),
+        body: JSON.stringify({
+          orgId: item.orgId || item.context.orgId,
+          action,
+          snoozedUntil: action === 'snoozed' ? defaultSnoozeDate() : undefined,
+        }),
       })
       const body = await res.json()
       if (!res.ok) throw new Error(body.error || 'State update failed')
@@ -881,6 +953,133 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
       setFlash({ kind: 'ok', message: action === 'snoozed' ? 'Snoozed for 24 hours.' : action === 'handled' ? 'Marked handled.' : 'Returned to active.' })
     } catch (err) {
       setFlash({ kind: 'error', message: err instanceof Error ? err.message : 'State update failed' })
+    } finally {
+      setBusyAction(null)
+    }
+  }
+
+  async function approvePhase2Item(item: BriefingCard) {
+    if (reviewable(item)) {
+      await taskPatch(item, { reviewStatus: 'approved', columnId: 'done', agentStatus: 'done' }, 'Approved and moved to done.')
+      return
+    }
+    if (approvalGateReviewable(item)) {
+      await taskPatch(item, { reviewStatus: 'approved', approvalStatus: 'approved', columnId: 'done', agentStatus: 'done' }, 'Approval gate approved.')
+      return
+    }
+    if (documentReviewable(item)) {
+      await approveDocument(item)
+      return
+    }
+    if (canSocialPostAct(item) && socialActionStage(item)) {
+      await socialPostAction(item, 'approve')
+      return
+    }
+    await setItemState(item, 'handled')
+  }
+
+  async function rejectPhase2Item(item: BriefingCard) {
+    if (reviewable(item)) {
+      await taskPatch(item, { reviewStatus: 'changes-requested', agentStatus: 'pending', columnId: 'todo' }, 'Sent back to the assigned agent.')
+      return
+    }
+    if (approvalGateReviewable(item)) {
+      await taskPatch(item, { reviewStatus: 'changes-requested', approvalStatus: 'rejected', agentStatus: 'pending', columnId: 'todo' }, 'Approval gate rejected and sent back.')
+      return
+    }
+    if (documentReviewable(item)) {
+      await requestDocumentChanges(item)
+      return
+    }
+    if (canSocialPostAct(item) && socialActionStage(item) && socialChangeText.trim()) {
+      await socialPostAction(item, 'reject')
+    }
+  }
+
+  async function createPhase2Task(item: BriefingCard) {
+    const title = `Follow up: ${item.title}`
+    const payload = {
+      action: 'create-task',
+      ...briefingActionSourcePayload(item, mode),
+      title,
+      description: item.summary,
+      spec: item.summary,
+      priority: item.priority === 'critical' ? 'high' : 'medium',
+      sourceTitle: item.title,
+    }
+    setBusyAction('phase2-create-task')
+    try {
+      const res = await fetch(briefingActionEndpoint(item), {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(body.error || 'Follow-up task creation failed')
+      setFlash({ kind: 'ok', message: 'Follow-up task created from the briefing.' })
+      await loadFeed({ quiet: true })
+    } catch (err) {
+      setFlash({ kind: 'error', message: err instanceof Error ? err.message : 'Follow-up task creation failed' })
+    } finally {
+      setBusyAction(null)
+    }
+  }
+
+  async function assignPhase2Agent(item: BriefingCard) {
+    if (!canTaskAct(item)) return
+    const agentId = phase2AgentId(item)
+    setBusyAction('phase2-assign-agent')
+    try {
+      const res = await fetch(briefingActionEndpoint(item), {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          action: 'assign-agent',
+          ...briefingActionSourcePayload(item, mode),
+          title: `Assign ${agentId}: ${item.title}`,
+          spec: item.summary,
+          assigneeAgentId: agentId,
+        }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(body.error || 'Agent assignment failed')
+      setFlash({ kind: 'ok', message: `Assigned ${agentId} to the source task.` })
+      await loadFeed({ quiet: true })
+    } catch (err) {
+      setFlash({ kind: 'error', message: err instanceof Error ? err.message : 'Agent assignment failed' })
+    } finally {
+      setBusyAction(null)
+    }
+  }
+
+  async function convertToCrmActivity(item: BriefingCard) {
+    const contactId = typeof item.context.contactId === 'string' && item.context.contactId
+      ? item.context.contactId
+      : typeof item.metadata?.contactId === 'string' ? item.metadata.contactId : ''
+    const dealId = typeof item.context.dealId === 'string' && item.context.dealId
+      ? item.context.dealId
+      : typeof item.metadata?.dealId === 'string' ? item.metadata.dealId : ''
+    if (!contactId && !dealId) return
+    setBusyAction('phase2-crm-activity')
+    try {
+      const res = await fetch(briefingActionEndpoint(item), {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          action: 'create-crm-activity',
+          ...briefingActionSourcePayload(item, mode),
+          contactId,
+          dealId,
+          summary: `Follow up: ${item.summary}`,
+          crmActivityInternalOnly: true,
+        }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(body.error || 'CRM activity conversion failed')
+      setFlash({ kind: 'ok', message: 'Briefing converted to a CRM activity.' })
+      await loadFeed({ quiet: true })
+    } catch (err) {
+      setFlash({ kind: 'error', message: err instanceof Error ? err.message : 'CRM activity conversion failed' })
     } finally {
       setBusyAction(null)
     }
@@ -2034,6 +2233,84 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                 <div>
                   <h2 className="text-xl font-semibold text-on-surface">{selected.title}</h2>
                   <p className="mt-2 text-sm leading-6 text-on-surface-variant">{selected.excerpt || selected.summary}</p>
+                </div>
+
+                <div className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface-container)] p-3">
+                  <div className="flex flex-wrap gap-2">
+                    {phase2StateChips(selected, mode).map((chip) => (
+                      <span key={chip} className="rounded-full border border-[var(--color-accent-v2)]/30 bg-[var(--color-accent-subtle)] px-2.5 py-1 text-xs font-medium text-[var(--color-accent-text)]">
+                        {chip}
+                      </span>
+                    ))}
+                  </div>
+                  <p className="mt-3 text-sm leading-6 text-on-surface-variant">{phase2NextActionCopy(selected, mode)}</p>
+                </div>
+
+                <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand">Phase 2 actions</p>
+                    <span className="rounded-full border border-emerald-300/30 bg-emerald-300/10 px-2 py-1 text-[11px] text-emerald-100">Safe controls only</span>
+                  </div>
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => approvePhase2Item(selected)} disabled={!!busyAction} aria-label="Approve Phase 2 item">
+                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">verified</span>
+                      Approve
+                    </button>
+                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => rejectPhase2Item(selected)} disabled={!!busyAction || (canSocialPostAct(selected) && !!socialActionStage(selected) && !socialChangeText.trim())} aria-label="Reject Phase 2 item">
+                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">assignment_return</span>
+                      Reject
+                    </button>
+                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => setItemState(selected, 'snoozed')} disabled={!!busyAction} aria-label="Snooze Phase 2 item">
+                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">snooze</span>
+                      Snooze
+                    </button>
+                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => createPhase2Task(selected)} disabled={!!busyAction || !(selected.context.projectId || selected.context.orgId || selected.orgId)}>
+                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">add_task</span>
+                      Create follow-up task
+                    </button>
+                    {canTaskAct(selected) ? (
+                      <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => assignPhase2Agent(selected)} disabled={!!busyAction}>
+                        <span className="material-symbols-outlined text-[15px]" aria-hidden="true">smart_toy</span>
+                        Assign {phase2AgentId(selected)}
+                      </button>
+                    ) : (
+                      <button className="pib-btn-secondary justify-center text-xs" type="button" disabled title="Agent assignment requires a linked project task." aria-label="Assign agent unavailable">
+                        <span className="material-symbols-outlined text-[15px]" aria-hidden="true">smart_toy</span>
+                        Assign agent unavailable
+                      </button>
+                    )}
+                    {evidenceHref(selected, mode) ? (
+                      <a className="pib-btn-secondary inline-flex justify-center text-xs" href={evidenceHref(selected, mode) ?? undefined} target="_blank" rel="noopener noreferrer">
+                        <span className="material-symbols-outlined text-[15px]" aria-hidden="true">fact_check</span>
+                        Open evidence
+                      </a>
+                    ) : (
+                      <button className="pib-btn-secondary justify-center text-xs" type="button" disabled title="No evidence link is available on this briefing." aria-label="Open evidence unavailable">
+                        <span className="material-symbols-outlined text-[15px]" aria-hidden="true">fact_check</span>
+                        Open evidence unavailable
+                      </button>
+                    )}
+                    {canConvertToCrmActivity(selected) ? (
+                      <button className="pib-btn-secondary col-span-2 justify-center text-xs" type="button" onClick={() => convertToCrmActivity(selected)} disabled={!!busyAction}>
+                        <span className="material-symbols-outlined text-[15px]" aria-hidden="true">add_notes</span>
+                        Convert to CRM activity
+                      </button>
+                    ) : (
+                      <button className="pib-btn-secondary col-span-2 justify-center text-xs" type="button" disabled aria-label="Convert to CRM activity unavailable">
+                        <span className="material-symbols-outlined text-[15px]" aria-hidden="true">add_notes</span>
+                        Convert to CRM activity unavailable
+                      </button>
+                    )}
+                  </div>
+                  {!canTaskAct(selected) ? <p className="mt-2 text-xs text-on-surface-variant">Agent assignment requires a linked project task.</p> : null}
+                  {!canConvertToCrmActivity(selected) ? <p className="mt-2 text-xs text-on-surface-variant">CRM conversion needs a contact or deal on the briefing card.</p> : null}
+                  <div className="mt-3 rounded-lg border border-amber-300/25 bg-amber-300/10 p-3">
+                    <button className="pib-btn-secondary w-full justify-center text-xs" type="button" disabled aria-label="Public publish gated">
+                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">lock</span>
+                      Public publish gated
+                    </button>
+                    <p className="mt-2 text-xs leading-5 text-amber-100">Public publishing, prospect or client messaging, paid spend, billing, secrets/config, production deploys, and destructive actions stay outside this desk and require a separate approval path.</p>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2">

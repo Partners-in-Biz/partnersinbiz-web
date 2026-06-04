@@ -250,6 +250,13 @@ describe('briefing feed', () => {
 
     collections.briefing_user_states = [
       makeDoc('state-1', {
+        orgId: 'org-1',
+        userId: 'admin-1',
+        itemId: firstFeed.items[0].id,
+        status: 'handled',
+      }),
+      makeDoc('state-other-org', {
+        orgId: 'org-2',
         userId: 'admin-1',
         itemId: firstFeed.items[0].id,
         status: 'handled',

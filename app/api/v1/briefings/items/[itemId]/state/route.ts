@@ -3,14 +3,40 @@ import { createHash } from 'crypto'
 import { FieldValue, Timestamp } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
+import { canAccessOrg } from '@/lib/api/platformAdmin'
 import { apiError, apiSuccess } from '@/lib/api/response'
+import type { BriefingCardAction } from '@/lib/briefing/types'
 
 export const dynamic = 'force-dynamic'
 
 type RouteContext = { params: Promise<{ itemId: string }> }
 
-function stateDocId(userId: string, itemId: string) {
-  return createHash('sha256').update(`${userId}:${itemId}`).digest('hex')
+function stateDocId(orgId: string, userId: string, itemId: string) {
+  return createHash('sha256').update(`${orgId}:${userId}:${itemId}`).digest('hex')
+}
+
+const SUPPORTED_ACTIONS: readonly BriefingCardAction[] = [
+  'read',
+  'handled',
+  'snoozed',
+  'rejected',
+  'approved',
+  'pending-review',
+  'follow-up-created',
+]
+
+const GATED_EXTERNAL_SIDE_EFFECTS = new Set(['send', 'publish', 'spend', 'deploy', 'billing', 'delete', 'archive', 'destructive'])
+const NO_SIDE_EFFECT_COPY = 'No send, publish, spend, deploy, billing, or destructive action was performed.'
+
+function normalizeAction(action: string): BriefingCardAction | null {
+  if (action === 'active') return 'read'
+  return (SUPPORTED_ACTIONS as readonly string[]).includes(action) ? action as BriefingCardAction : null
+}
+
+function cleanText(value: unknown, maxLength = 1000): string | null {
+  if (typeof value !== 'string') return null
+  const trimmed = value.trim().slice(0, maxLength)
+  return trimmed || null
 }
 
 function snoozeUntil(value: unknown): Timestamp | null {
@@ -30,25 +56,49 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
   if (!itemId) return apiError('itemId is required', 400)
 
   const body = await req.json().catch(() => ({})) as Record<string, unknown>
-  const action = typeof body.action === 'string' ? body.action : ''
-  if (!['handled', 'snoozed', 'active'].includes(action)) {
-    return apiError("action must be 'handled', 'snoozed', or 'active'", 400)
+  const requestedAction = typeof body.action === 'string' ? body.action : ''
+  const action = normalizeAction(requestedAction)
+  if (!action) {
+    return apiError(`Unsupported briefing action '${requestedAction}'. ${NO_SIDE_EFFECT_COPY}`, 400)
   }
 
-  const note = typeof body.note === 'string' ? body.note.trim().slice(0, 1000) : ''
+  const orgId = cleanText(body.orgId)
+  if (!orgId) return apiError('orgId is required', 400)
+  if (!canAccessOrg(user, orgId)) return apiError(`You do not have access to workspace ${orgId}`, 403)
+
+  const externalSideEffect = cleanText(body.externalSideEffect)
+  if (externalSideEffect && GATED_EXTERNAL_SIDE_EFFECTS.has(externalSideEffect)) {
+    return apiSuccess({
+      itemId,
+      orgId,
+      status: 'pending-review',
+      approvalRequired: true,
+      sideEffectPerformed: false,
+      copy: `Approval is still required before any external ${externalSideEffect}. ${NO_SIDE_EFFECT_COPY}`,
+    }, 202)
+  }
+
+  const note = cleanText(body.note)
   const snoozedUntil = action === 'snoozed' ? snoozeUntil(body.snoozedUntil) : null
   if (action === 'snoozed' && !snoozedUntil) return apiError('snoozedUntil must be a future date', 400)
 
-  const ref = adminDb.collection('briefing_user_states').doc(stateDocId(user.uid, itemId))
+  const approvalState = cleanText(body.approvalState)
+  const approvalCopy = cleanText(body.approvalCopy, 2000)
+  const ref = adminDb.collection('briefing_user_states').doc(stateDocId(orgId, user.uid, itemId))
   await ref.set({
     itemId,
+    orgId,
     userId: user.uid,
     status: action,
-    note: note || null,
+    action,
+    note,
     snoozedUntil,
+    approvalState,
+    approvalCopy,
+    sideEffectPerformed: false,
     updatedAt: FieldValue.serverTimestamp(),
     createdAt: FieldValue.serverTimestamp(),
   }, { merge: true })
 
-  return apiSuccess({ itemId, status: action })
+  return apiSuccess({ itemId, orgId, status: action, approvalState, sideEffectPerformed: false })
 })

@@ -60,6 +60,28 @@ export type BriefingSourceType =
   | 'enquiry'              // Public project enquiries needing admin follow-up
   | 'form-submission'      // Public form submissions needing admin follow-up
 
+export type BriefingCardAction =
+  | 'read'
+  | 'handled'
+  | 'snoozed'
+  | 'rejected'
+  | 'approved'
+  | 'pending-review'
+  | 'follow-up-created'
+
+export type BriefingCardStateStatus = BriefingCardAction
+
+export interface BriefingCardUserState {
+  status: BriefingCardStateStatus | 'active'
+  action?: BriefingCardAction | null
+  note?: string | null
+  snoozedUntil?: string | null
+  approvalState?: string | null
+  approvalCopy?: string | null
+  sideEffectPerformed?: false
+  updatedAt?: string | null
+}
+
 /**
  * Briefing item lifecycle states.
  */
@@ -277,12 +299,7 @@ export interface BriefingCard extends BriefingSourceItem {
   /**
    * Per-user control state from the briefing desk.
    */
-  userState?: {
-    status: 'active' | 'handled' | 'snoozed'
-    note?: string | null
-    snoozedUntil?: string | null
-    updatedAt?: string | null
-  } | null
+  userState?: BriefingCardUserState | null
 }
 
 /**

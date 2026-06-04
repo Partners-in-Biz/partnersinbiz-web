@@ -1036,6 +1036,18 @@ describe('BriefingControlDesk', () => {
           json: async () => ({ data: { id: 'comment-1' } }),
         } as Response
       }
+      if (url === '/api/v1/projects/project-1/tasks') {
+        return {
+          ok: true,
+          json: async () => ({ data: { id: 'phase2-task-1' } }),
+        } as Response
+      }
+      if (url === '/api/v1/projects/project-1/tasks/task-1') {
+        return {
+          ok: true,
+          json: async () => ({ data: { id: 'task-1', assigneeAgentId: 'theo' } }),
+        } as Response
+      }
       if (url === '/api/v1/projects/project-1/tasks/approval-task-1') {
         return {
           ok: true,
@@ -1274,6 +1286,99 @@ describe('BriefingControlDesk', () => {
   afterEach(() => {
     jest.useRealTimers()
     jest.restoreAllMocks()
+  })
+
+  it('renders Phase 2 actions with state chips, next-action copy, and safe gated explanations', async () => {
+    render(<BriefingControlDesk mode="portal" />)
+
+    expect((await screen.findAllByText('Theo completed work - review required')).length).toBeGreaterThan(0)
+    expect(screen.getByText('State: Needs action')).toBeInTheDocument()
+    expect(screen.getByText('Review pending')).toBeInTheDocument()
+    expect(screen.getByText('Next action: review the evidence, then approve the work or reject it back to the assigned agent.')).toBeInTheDocument()
+    expect(screen.getByText('Phase 2 actions')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /approve phase 2 item/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /reject phase 2 item/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /snooze phase 2 item/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /create follow-up task/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /assign theo/i })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /open evidence/i })).toHaveAttribute('href', 'https://partnersinbiz.online/admin/projects/project-1?taskId=task-1')
+    expect(screen.getByRole('button', { name: /convert to crm activity unavailable/i })).toBeDisabled()
+    expect(screen.getByText('CRM conversion needs a contact or deal on the briefing card.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /public publish gated/i })).toBeDisabled()
+    expect(screen.getByText('Public publishing, prospect or client messaging, paid spend, billing, secrets/config, production deploys, and destructive actions stay outside this desk and require a separate approval path.')).toBeInTheDocument()
+  })
+
+  it('creates follow-up tasks and assigns the current task from Phase 2 controls', async () => {
+    render(<BriefingControlDesk mode="portal" />)
+
+    expect((await screen.findAllByText('Theo completed work - review required')).length).toBeGreaterThan(0)
+    fireEvent.click(screen.getByRole('button', { name: /create follow-up task/i }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/briefings/items/task%3Aitem-1/actions', expect.objectContaining({
+        method: 'POST',
+        body: expect.stringContaining('"action":"create-task"'),
+      }))
+    })
+    const createCall = (global.fetch as jest.Mock).mock.calls.find(([url]) => url === '/api/v1/briefings/items/task%3Aitem-1/actions')
+    expect(JSON.parse(createCall?.[1]?.body)).toMatchObject({
+      action: 'create-task',
+      orgId: 'org-1',
+      title: 'Follow up: Theo completed work - review required',
+      description: 'Result: Updated the homepage.',
+      spec: 'Result: Updated the homepage.',
+      priority: 'medium',
+      context: expect.objectContaining({ projectId: 'project-1', taskId: 'task-1' }),
+      source: expect.objectContaining({ type: 'agent-output', id: 'item-1' }),
+      metadata: expect.objectContaining({ softwareBuildEvidence: expect.any(Array) }),
+    })
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /assign theo/i })).not.toBeDisabled()
+    })
+    fireEvent.click(screen.getByRole('button', { name: /assign theo/i }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/briefings/items/task%3Aitem-1/actions', expect.objectContaining({
+        method: 'POST',
+        body: expect.stringContaining('"action":"assign-agent"'),
+      }))
+    })
+    const assignCall = (global.fetch as jest.Mock).mock.calls.filter(([url]) => url === '/api/v1/briefings/items/task%3Aitem-1/actions').at(-1)
+    expect(JSON.parse(assignCall?.[1]?.body)).toMatchObject({
+      action: 'assign-agent',
+      orgId: 'org-1',
+      assigneeAgentId: 'theo',
+      context: expect.objectContaining({ projectId: 'project-1', taskId: 'task-1' }),
+      source: expect.objectContaining({ type: 'agent-output', id: 'item-1' }),
+    })
+  })
+
+  it('converts contact-backed briefings into CRM activities from Phase 2 controls', async () => {
+    render(<BriefingControlDesk mode="portal" />)
+
+    fireEvent.click(await screen.findByRole('button', { name: /Follow up with Ava Owner/i }))
+    expect(screen.getByText('State: Needs action')).toBeInTheDocument()
+    expect(screen.getByText('Next action: convert this signal into a CRM activity or schedule the next follow-up task.')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /convert to crm activity/i }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/briefings/items/activity%3Aactivity-1/actions', expect.objectContaining({
+        method: 'POST',
+        body: expect.stringContaining('"action":"create-crm-activity"'),
+      }))
+    })
+    const crmCall = (global.fetch as jest.Mock).mock.calls.find(([url]) => url === '/api/v1/briefings/items/activity%3Aactivity-1/actions')
+    expect(JSON.parse(crmCall?.[1]?.body)).toMatchObject({
+      action: 'create-crm-activity',
+      orgId: 'org-1',
+      contactId: 'contact-1',
+      dealId: 'deal-1',
+      summary: 'Follow up: Follow up with Ava about the retainer approval before Friday.',
+      crmActivityInternalOnly: true,
+      context: expect.objectContaining({ contactId: 'contact-1', dealId: 'deal-1' }),
+      source: expect.objectContaining({ type: 'activity', id: 'activity-1' }),
+    })
   })
 
   it('renders a portal control desk with source-aware task actions', async () => {
