@@ -400,6 +400,10 @@ export default function ContactDetailPage() {
     noteInputRef.current?.focus()
   }
 
+  function openProfileEditor() {
+    setEditing(true)
+  }
+
   function focusStageControl() {
     activeStageRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'center' })
     activeStageRef.current?.focus()
@@ -770,6 +774,41 @@ export default function ContactDetailPage() {
             emails={emails}
             activities={activities}
             nextSuggestion={suggestions[0]}
+            actions={{
+              contactName: name,
+              onLogNote: focusNoteComposer,
+              onSendEmail: composeEmailHref ? () => router.push(composeEmailHref) : undefined,
+              onStartSuggestion: startSuggestion,
+              identity: {
+                jobTitle: {
+                  label: 'Add role',
+                  ariaLabel: `Add role for ${name} from admin intelligence stack`,
+                  onClick: openProfileEditor,
+                },
+                department: {
+                  label: 'Add department',
+                  ariaLabel: `Add department for ${name} from admin intelligence stack`,
+                  onClick: openProfileEditor,
+                },
+                timezone: {
+                  label: 'Add timezone',
+                  ariaLabel: `Add timezone for ${name} from admin intelligence stack`,
+                  onClick: openProfileEditor,
+                },
+              },
+              ownership: {
+                assignOwner: {
+                  label: 'Assign owner',
+                  ariaLabel: `Assign owner for ${name} from admin intelligence stack`,
+                  onClick: openProfileEditor,
+                },
+                reviewSource: {
+                  label: 'Review source',
+                  ariaLabel: `Review source provenance for ${name} from admin intelligence stack`,
+                  onClick: openProfileEditor,
+                },
+              },
+            }}
           />
 
           {suggestions.length > 0 && (

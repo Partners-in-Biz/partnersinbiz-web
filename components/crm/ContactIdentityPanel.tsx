@@ -19,7 +19,7 @@ interface IdentityFieldAction {
   onClick: () => void
 }
 
-type IdentityFieldActions = Partial<Record<IdentityFieldKey, IdentityFieldAction>>
+export type ContactIdentityFieldActions = Partial<Record<IdentityFieldKey, IdentityFieldAction>>
 
 export function contactIdentityHealth(profile: ContactIdentityProfile): number {
   const checks = [
@@ -56,7 +56,7 @@ function Field({ label, value, action }: { label: string; value?: string; action
   )
 }
 
-function MissingIdentityPanel({ fieldActions }: { fieldActions?: IdentityFieldActions }) {
+function MissingIdentityPanel({ fieldActions }: { fieldActions?: ContactIdentityFieldActions }) {
   const actions = [
     fieldActions?.jobTitle,
     fieldActions?.department,
@@ -140,7 +140,7 @@ export function ContactIdentityPanel({
   fieldActions,
 }: {
   profile: ContactIdentityProfile
-  fieldActions?: IdentityFieldActions
+  fieldActions?: ContactIdentityFieldActions
 }) {
   const health = contactIdentityHealth(profile)
   const smsReady = profile.phoneVerified === true && profile.smsOptedIn === true

@@ -171,7 +171,7 @@ describe('Admin contact detail page', () => {
     })
 
     const composeLink = screen.getByRole('link', { name: 'Compose first email to Jane Client from admin email history' })
-    expect(composeLink).toHaveAttribute('href', '/admin/email/compose?to=jane%40example.com&contactId=contact-1')
+    expect(composeLink).toHaveAttribute('href', '/admin/email/compose?to=jane%40example.com&contactId=contact-1&orgId=org-1')
   })
 
   it('turns empty admin email records into a command-center compose action', async () => {
@@ -183,7 +183,7 @@ describe('Admin contact detail page', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Compose first email to Jane Client from contact command center metric' }))
 
-    expect(push).toHaveBeenCalledWith('/admin/email/compose?to=jane%40example.com&contactId=contact-1')
+    expect(push).toHaveBeenCalledWith('/admin/email/compose?to=jane%40example.com&contactId=contact-1&orgId=org-1')
   })
 
   it('turns blocked admin email history into an email capture action', async () => {
@@ -208,7 +208,7 @@ describe('Admin contact detail page', () => {
     })
 
     const headerEmailLink = screen.getByRole('link', { name: 'Email Jane Client from contact command center' })
-    expect(headerEmailLink).toHaveAttribute('href', '/admin/email/compose?to=jane%40example.com&contactId=contact-1')
+    expect(headerEmailLink).toHaveAttribute('href', '/admin/email/compose?to=jane%40example.com&contactId=contact-1&orgId=org-1')
   })
 
   it('turns weak admin profile strength into a command-center enrichment action', async () => {
