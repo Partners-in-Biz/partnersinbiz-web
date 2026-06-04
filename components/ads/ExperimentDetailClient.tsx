@@ -82,9 +82,28 @@ interface Props {
   orgSlug: string
 }
 
+type ExperimentActionResponse = {
+  error?: string
+  data?: Partial<ExperimentDetailPlain> & {
+    significance?: ExperimentDetailPlain['significance']
+  }
+}
+
+const ACTION_SUCCESS_COPY: Record<string, string> = {
+  start: 'Experiment started.',
+  stop: 'Experiment paused.',
+  compute: 'Experiment significance recomputed.',
+  'declare-winner': 'Experiment winner declared.',
+}
+
 export function ExperimentDetailClient({ experiment: exp, results, orgSlug }: Props) {
+  const [currentExperiment, setCurrentExperiment] = useState(exp)
   const [actioning, setActioning] = useState<string | null>(null)
   const [showHistory, setShowHistory] = useState(false)
+  const [confirmArchive, setConfirmArchive] = useState(false)
+  const [archiving, setArchiving] = useState(false)
+  const [actionMessage, setActionMessage] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
 
   // Latest results per variant
   const latestByVariant: Record<string, ExperimentResultPlain> = {}
@@ -97,13 +116,49 @@ export function ExperimentDetailClient({ experiment: exp, results, orgSlug }: Pr
 
   async function postAction(action: string, body?: object) {
     setActioning(action)
+    setActionMessage(null)
+    setActionError(null)
     try {
-      await fetch(`/api/v1/ads/experiments/${exp.id}/${action}`, {
+      const response = await fetch(`/api/v1/ads/experiments/${currentExperiment.id}/${action}`, {
         method: 'POST',
         headers: body ? { 'Content-Type': 'application/json' } : undefined,
         body: body ? JSON.stringify(body) : undefined,
       })
-      window.location.reload()
+      const json = (await response.json().catch(() => null)) as ExperimentActionResponse | null
+      if (!response.ok) throw new Error(json?.error ?? 'Experiment action failed')
+
+      setCurrentExperiment((current) => {
+        const data = json?.data
+        if (data && (data.status || data.significance || data.declaredWinnerVariantId || data.endedAt || data.startedAt)) {
+          return { ...current, ...data }
+        }
+        if (action === 'start') {
+          return {
+            ...current,
+            status: 'running',
+            startedAt: current.startedAt ?? { seconds: Math.floor(Date.now() / 1000) },
+          }
+        }
+        if (action === 'stop') return { ...current, status: 'paused' }
+        if (action === 'compute') {
+          return {
+            ...current,
+            significance: json?.data?.significance ?? current.significance,
+          }
+        }
+        if (action === 'declare-winner') {
+          return {
+            ...current,
+            status: 'winner_declared',
+            declaredWinnerVariantId: json?.data?.declaredWinnerVariantId ?? current.significance?.winnerVariantId,
+            endedAt: json?.data?.endedAt ?? current.endedAt ?? { seconds: Math.floor(Date.now() / 1000) },
+          }
+        }
+        return current
+      })
+      setActionMessage(ACTION_SUCCESS_COPY[action] ?? 'Experiment updated.')
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Experiment action failed')
     } finally {
       setActioning(null)
     }
@@ -113,10 +168,30 @@ export function ExperimentDetailClient({ experiment: exp, results, orgSlug }: Pr
     await postAction('declare-winner', variantId ? { variantId } : {})
   }
 
+  function requestArchive() {
+    setActionMessage(null)
+    setActionError(null)
+    setConfirmArchive(true)
+  }
+
   async function archiveExperiment() {
-    if (!confirm('Archive this experiment?')) return
-    await fetch(`/api/v1/ads/experiments/${exp.id}`, { method: 'DELETE' })
-    window.location.href = `/admin/org/${orgSlug}/ads/experiments`
+    setArchiving(true)
+    setActionMessage(null)
+    setActionError(null)
+    try {
+      const response = await fetch(`/api/v1/ads/experiments/${currentExperiment.id}`, { method: 'DELETE' })
+      if (!response.ok) throw new Error('Experiment archive failed')
+      setCurrentExperiment((current) => ({
+        ...current,
+        archivedAt: current.archivedAt ?? new Date().toISOString(),
+      }))
+      setConfirmArchive(false)
+      setActionMessage(`Experiment ${currentExperiment.name} archived.`)
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Experiment archive failed')
+    } finally {
+      setArchiving(false)
+    }
   }
 
   const busy = actioning !== null
@@ -132,26 +207,78 @@ export function ExperimentDetailClient({ experiment: exp, results, orgSlug }: Pr
           ← Experiments
         </Link>
         <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-2xl font-semibold">{exp.name}</h1>
-          <span className={`rounded px-2 py-0.5 text-xs uppercase tracking-wide ${STATUS_BADGE[exp.status]}`}>
-            {exp.status.replace('_', ' ')}
+          <h1 className="text-2xl font-semibold">{currentExperiment.name}</h1>
+          <span className={`rounded px-2 py-0.5 text-xs uppercase tracking-wide ${STATUS_BADGE[currentExperiment.status]}`}>
+            {currentExperiment.status.replace('_', ' ')}
           </span>
-          <ExperimentSignificanceBadge significance={exp.significance} />
+          <ExperimentSignificanceBadge significance={currentExperiment.significance} />
         </div>
-        {exp.description && <p className="text-sm text-white/50">{exp.description}</p>}
+        {currentExperiment.description && <p className="text-sm text-white/50">{currentExperiment.description}</p>}
       </header>
+
+      {actionMessage && (
+        <div role="status" className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
+          {actionMessage}
+        </div>
+      )}
+
+      {actionError && (
+        <div role="alert" className="rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+          {actionError}
+        </div>
+      )}
+
+      {confirmArchive && (
+        <div
+          role="alertdialog"
+          aria-modal="false"
+          aria-labelledby="experiment-detail-archive-title"
+          aria-describedby="experiment-detail-archive-description"
+          className="rounded-lg border border-[#F5A623]/30 bg-[#F5A623]/10 p-4 shadow-sm"
+        >
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="space-y-1">
+              <h2 id="experiment-detail-archive-title" className="text-sm font-semibold text-white">
+                Archive experiment {currentExperiment.name} for {orgSlug}?
+              </h2>
+              <p id="experiment-detail-archive-description" className="text-sm text-white/65">
+                This removes {currentExperiment.name} from active testing controls. Results, variants, and winner history stay in PiB.
+              </p>
+            </div>
+            <div className="flex shrink-0 gap-2">
+              <button
+                type="button"
+                onClick={() => setConfirmArchive(false)}
+                disabled={archiving}
+                className="rounded border border-white/10 px-3 py-1.5 text-xs text-white/60 hover:text-white disabled:opacity-40"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={archiveExperiment}
+                disabled={archiving}
+                aria-label={`Confirm archive experiment ${currentExperiment.name} for ${orgSlug}`}
+                className="rounded border border-red-400/40 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-200 hover:bg-red-500/20 disabled:opacity-40"
+              >
+                {archiving ? 'Archiving...' : 'Archive experiment'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Info grid */}
       <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm sm:grid-cols-3">
         {[
-          { label: 'Platform', value: exp.platform },
-          { label: 'Level', value: exp.level },
-          { label: 'Success metric', value: exp.successMetric },
-          { label: 'Min days', value: String(exp.minDays) },
-          { label: 'Significance threshold', value: String(exp.significanceThreshold) },
-          { label: 'Auto-declare winner', value: exp.autoWinner ? 'Yes' : 'No' },
-          { label: 'Started', value: fmtDate(exp.startedAt) },
-          { label: 'Ended', value: fmtDate(exp.endedAt) },
+          { label: 'Platform', value: currentExperiment.platform },
+          { label: 'Level', value: currentExperiment.level },
+          { label: 'Success metric', value: currentExperiment.successMetric },
+          { label: 'Min days', value: String(currentExperiment.minDays) },
+          { label: 'Significance threshold', value: String(currentExperiment.significanceThreshold) },
+          { label: 'Auto-declare winner', value: currentExperiment.autoWinner ? 'Yes' : 'No' },
+          { label: 'Started', value: fmtDate(currentExperiment.startedAt) },
+          { label: 'Ended', value: fmtDate(currentExperiment.endedAt) },
         ].map(({ label, value }) => (
           <div key={label}>
             <dt className="text-white/40">{label}</dt>
@@ -162,59 +289,64 @@ export function ExperimentDetailClient({ experiment: exp, results, orgSlug }: Pr
 
       {/* Action bar */}
       <div className="flex flex-wrap gap-2 text-sm">
-        {exp.status === 'draft' && (
+        {currentExperiment.status === 'draft' && (
           <button
             onClick={() => postAction('start')}
             disabled={busy}
+            aria-label={`Start experiment ${currentExperiment.name}`}
             className="rounded border border-green-500/30 px-3 py-1.5 text-green-400 hover:bg-green-500/10 disabled:opacity-40"
           >
             {actioning === 'start' ? 'Starting…' : 'Start experiment'}
           </button>
         )}
 
-        {exp.status === 'running' && (
+        {currentExperiment.status === 'running' && (
           <button
             onClick={() => postAction('stop')}
             disabled={busy}
+            aria-label={`Stop experiment ${currentExperiment.name}`}
             className="rounded border border-white/10 px-3 py-1.5 text-white/60 hover:text-white disabled:opacity-40"
           >
             {actioning === 'stop' ? 'Stopping…' : 'Stop'}
           </button>
         )}
 
-        {(exp.status === 'running' || exp.status === 'paused' || exp.status === 'completed') && (
+        {(currentExperiment.status === 'running' || currentExperiment.status === 'paused' || currentExperiment.status === 'completed') && (
           <button
             onClick={() => postAction('compute')}
             disabled={busy}
+            aria-label={`Compute significance for experiment ${currentExperiment.name}`}
             className="rounded border border-white/10 px-3 py-1.5 text-white/60 hover:text-white disabled:opacity-40"
           >
             {actioning === 'compute' ? 'Computing…' : 'Compute significance'}
           </button>
         )}
 
-        {exp.significance?.confident && exp.status !== 'winner_declared' && (
+        {currentExperiment.significance?.confident && currentExperiment.status !== 'winner_declared' && (
           <button
-            onClick={() => declareWinner(exp.significance?.winnerVariantId)}
+            onClick={() => declareWinner(currentExperiment.significance?.winnerVariantId)}
             disabled={busy}
+            aria-label={`Declare winner for experiment ${currentExperiment.name}`}
             className="rounded border border-[#F5A623]/40 px-3 py-1.5 text-[#F5A623] hover:bg-[#F5A623]/10 disabled:opacity-40"
           >
             {actioning === 'declare-winner' ? 'Declaring…' : 'Declare winner'}
           </button>
         )}
 
-        {!exp.archivedAt && (
+        {!currentExperiment.archivedAt && (
           <button
-            onClick={archiveExperiment}
+            onClick={requestArchive}
             disabled={busy}
+            aria-label={`Archive experiment ${currentExperiment.name} for ${orgSlug}`}
             className="rounded border border-white/10 px-3 py-1.5 text-white/40 hover:text-red-400 disabled:opacity-40"
           >
             Archive
           </button>
         )}
 
-        {exp.status === 'draft' && (
+        {currentExperiment.status === 'draft' && (
           <Link
-            href={`/admin/org/${orgSlug}/ads/experiments/${exp.id}/edit`}
+            href={`/admin/org/${orgSlug}/ads/experiments/${currentExperiment.id}/edit`}
             className="rounded border border-white/10 px-3 py-1.5 text-white/60 hover:text-white"
           >
             Edit
@@ -242,11 +374,11 @@ export function ExperimentDetailClient({ experiment: exp, results, orgSlug }: Pr
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
-              {exp.variants.map((v) => {
+              {currentExperiment.variants.map((v) => {
                 const r = latestByVariant[v.id]
                 const isWinner =
-                  v.id === exp.declaredWinnerVariantId ||
-                  v.id === exp.significance?.winnerVariantId
+                  v.id === currentExperiment.declaredWinnerVariantId ||
+                  v.id === currentExperiment.significance?.winnerVariantId
 
                 return (
                   <tr
