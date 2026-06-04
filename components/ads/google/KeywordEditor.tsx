@@ -60,10 +60,12 @@ export function KeywordEditor({ orgId, adSetId, campaignId }: Props) {
   const [adding, setAdding] = useState(false)
   const [addError, setAddError] = useState<string | null>(null)
   const [removingId, setRemovingId] = useState<string | null>(null)
+  const [removeError, setRemoveError] = useState<string | null>(null)
 
   async function load() {
     setLoading(true)
     setError(null)
+    setRemoveError(null)
     try {
       const res = await fetch(
         `/api/v1/ads/keywords?adSetId=${encodeURIComponent(adSetId)}`,
@@ -88,6 +90,7 @@ export function KeywordEditor({ orgId, adSetId, campaignId }: Props) {
     if (!form.text.trim()) return
     setAdding(true)
     setAddError(null)
+    setRemoveError(null)
     try {
       const payload: Record<string, unknown> = {
         campaignId,
@@ -117,6 +120,7 @@ export function KeywordEditor({ orgId, adSetId, campaignId }: Props) {
 
   async function handleRemove(id: string) {
     setRemovingId(id)
+    setRemoveError(null)
     try {
       const res = await fetch(`/api/v1/ads/keywords/${encodeURIComponent(id)}`, {
         method: 'DELETE',
@@ -126,7 +130,7 @@ export function KeywordEditor({ orgId, adSetId, campaignId }: Props) {
       if (!body.success) throw new Error(body.error ?? `HTTP ${res.status}`)
       await load()
     } catch (err) {
-      alert((err as Error).message)
+      setRemoveError(err instanceof Error ? err.message : 'Keyword removal failed')
     } finally {
       setRemovingId(null)
     }
@@ -185,6 +189,11 @@ export function KeywordEditor({ orgId, adSetId, campaignId }: Props) {
             </div>
           ))}
         </div>
+      )}
+      {removeError && (
+        <p role="alert" className="text-xs text-red-300">
+          {removeError}
+        </p>
       )}
 
       {/* Add row */}
