@@ -4,7 +4,7 @@
 export const dynamic = 'force-dynamic'
 
 import { useCallback, useEffect, useState } from 'react'
-import Link from 'next/link'
+import { ReportsWorkspace, type ReportsWorkspaceReport } from '@/components/reports/ReportsWorkspace'
 
 interface Org {
   id: string
@@ -18,7 +18,7 @@ interface PropertyOption {
   domain: string
 }
 
-interface Report {
+interface Report extends ReportsWorkspaceReport {
   id: string
   orgId: string
   type: 'monthly' | 'quarterly' | 'ad_hoc' | 'launch_review'
@@ -29,20 +29,6 @@ interface Report {
   kpis: { total_revenue: number; mrr: number; deltas: { total_revenue: number | null } }
   createdAt: { _seconds: number } | null
   sentAt: { _seconds: number } | null
-}
-
-const fmtZar = new Intl.NumberFormat('en-ZA', {
-  style: 'currency',
-  currency: 'ZAR',
-  maximumFractionDigits: 0,
-})
-
-function fmtTs(ts: { _seconds: number } | null) {
-  if (!ts) return '—'
-  return new Date(ts._seconds * 1000).toLocaleString('en-ZA', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  })
 }
 
 export default function AdminReportsPage() {
@@ -225,65 +211,14 @@ export default function AdminReportsPage() {
         </div>
       )}
 
-      {loading ? (
-        <div className="space-y-3">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="rounded-xl bg-white/5 h-20" />
-          ))}
-        </div>
-      ) : reports.length === 0 ? (
-        <div className="rounded-xl border border-white/10 bg-white/[0.02] p-8 text-center text-white/60">
-          No reports yet. Press “Generate this month” to create the first one.
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {reports.map((r) => (
-            <div key={r.id} className="rounded-xl border border-white/10 bg-white/[0.02] p-5">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-3 mb-1">
-                    <h3 className="text-base font-medium text-white">
-                      {r.brand.orgName} — {r.period.start} → {r.period.end}
-                    </h3>
-                    <span className={`text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full font-mono ${
-                      r.status === 'sent' ? 'bg-emerald-500/15 text-emerald-300' :
-                      r.status === 'rendered' ? 'bg-blue-500/15 text-blue-300' :
-                      r.status === 'archived' ? 'bg-white/5 text-white/40' :
-                      'bg-amber-500/15 text-amber-300'
-                    }`}>{r.status}</span>
-                    <span className="text-[10px] uppercase tracking-wider text-white/30 font-mono">{r.type}</span>
-                  </div>
-                  <div className="text-xs text-white/60">
-                    Total revenue {fmtZar.format(r.kpis.total_revenue)} · MRR {fmtZar.format(r.kpis.mrr)}
-                  </div>
-                  <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-white/40 font-mono">
-                    <span>Created {fmtTs(r.createdAt)}</span>
-                    {r.sentAt && <span>Sent {fmtTs(r.sentAt)}</span>}
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  {r.publicToken && (
-                    <Link
-                      href={`/reports/${r.publicToken}`}
-                      target="_blank"
-                      className="px-3 py-1.5 text-xs rounded-full border border-white/15 text-white hover:bg-white/5 transition-colors"
-                    >
-                      Preview
-                    </Link>
-                  )}
-                  <button
-                    disabled={busy === r.id || !r.publicToken}
-                    onClick={() => sendReport(r.id)}
-                    className="px-3 py-1.5 text-xs rounded-full bg-white text-black font-medium hover:bg-[#F5A623] transition-colors disabled:opacity-60"
-                  >
-                    {busy === r.id ? '…' : r.status === 'sent' ? 'Resend' : 'Send'}
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+      <ReportsWorkspace
+        reports={reports}
+        loading={loading}
+        mode="admin"
+        busyReportId={busy}
+        onSendReport={sendReport}
+        emptyMessage="Press Generate this month to create the first report."
+      />
     </div>
   )
 }
