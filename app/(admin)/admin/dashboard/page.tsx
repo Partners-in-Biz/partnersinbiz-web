@@ -21,8 +21,11 @@ type AgentTask = {
   id: string
   orgId?: string
   title: string
+  projectName?: string | null
   assigneeAgentId?: string | null
   agentStatus?: string | null
+  columnId?: string | null
+  reviewStatus?: string | null
   priority?: string | null
   href?: string
   updatedAt?: string | null
@@ -82,6 +85,14 @@ const WORK_LANES = [
   { id: 'attention', title: 'Needs attention', icon: 'priority_high', color: '#f59e0b' },
   { id: 'active', title: 'In progress', icon: 'autorenew', color: 'var(--color-accent-v2)' },
   { id: 'approval', title: 'Approvals', icon: 'rate_review', color: '#c084fc' },
+] as const
+
+const SOFTWARE_BUILD_LANES = [
+  { id: 'pending', title: 'Pending', icon: 'pending_actions', color: '#fbbf24' },
+  { id: 'in-progress', title: 'In progress', icon: 'construction', color: '#60a5fa' },
+  { id: 'blocked', title: 'Blocked', icon: 'report_problem', color: '#fb7185' },
+  { id: 'review', title: 'Review', icon: 'rate_review', color: '#c084fc' },
+  { id: 'completed', title: 'Completed', icon: 'task_alt', color: '#34d399' },
 ] as const
 
 const RISK_STATUSES = new Set(['blocked', 'awaiting-input'])
@@ -170,6 +181,23 @@ function dashboardTone(value: number, goodWhenZero = false): 'success' | 'warn' 
 function softColor(color: string, opacity = 14) {
   const alpha = Math.round((opacity / 100) * 255).toString(16).padStart(2, '0')
   return color.startsWith('var(') ? `color-mix(in oklab, ${color} ${opacity}%, transparent)` : `${color}${alpha}`
+}
+
+function softwareBuildLane(task: AgentTask): (typeof SOFTWARE_BUILD_LANES)[number]['id'] {
+  const status = task.agentStatus ?? ''
+  const column = task.columnId ?? ''
+  if (column === 'review') return 'review'
+  if (column === 'done' || status === 'done') return 'completed'
+  if (column === 'blocked' || status === 'blocked' || status === 'awaiting-input') return 'blocked'
+  if (status === 'in-progress' || status === 'picked-up' || column === 'in_progress') return 'in-progress'
+  return 'pending'
+}
+
+function taskMeta(task: AgentTask) {
+  const status = STATUS_LABELS[task.agentStatus ?? ''] ?? task.agentStatus ?? 'Queued'
+  const project = task.projectName ?? 'No project title'
+  const assignee = task.assigneeAgentId ?? 'agent'
+  return `${project} · ${assignee} · ${status} · ${formatRelative(task.updatedAt ?? task.createdAt)}`
 }
 
 function MetricCard({
@@ -452,6 +480,7 @@ export default function MissionControlDashboard() {
   const serviceEntries = Object.entries(data.health?.services ?? {})
   const approvalLaneItems = data.approvals.slice(0, 6)
   const activeLaneItems = pulseTasks.filter(task => !RISK_STATUSES.has(task.agentStatus ?? '')).slice(0, 6)
+  const softwareBuildTasks = useMemo(() => data.tasks.filter(task => task.assigneeAgentId === 'theo'), [data.tasks])
   const agentBoardHref = useMemo(() => resolvePlatformAgentBoardHref(data.orgs), [data.orgs])
 
   if (!hydrated) return <DashboardLoadingShell />
@@ -557,7 +586,37 @@ export default function MissionControlDashboard() {
           {loading ? (
             <div className="grid gap-4 lg:grid-cols-3"><Skeleton className="h-80 rounded-lg" /><Skeleton className="h-80 rounded-lg" /><Skeleton className="h-80 rounded-lg" /></div>
           ) : (
-            <div className="grid gap-4 lg:grid-cols-3">
+            <>
+              <div className="space-y-3 rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)]/40 p-4">
+                <SectionHeader
+                  title="Software build queue"
+                  eyebrow="Theo / parent PiB workspace"
+                  action={<span className="rounded-full bg-[var(--color-surface-container)] px-2 py-1 text-[10px] font-label uppercase tracking-wide text-on-surface-variant">{softwareBuildTasks.length} tasks</span>}
+                />
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+                  {SOFTWARE_BUILD_LANES.map((lane) => {
+                    const laneTasks = softwareBuildTasks.filter(task => softwareBuildLane(task) === lane.id)
+                    return (
+                      <WorkLane key={lane.id} lane={lane} count={laneTasks.length}>
+                        {laneTasks.length === 0 ? (
+                          <EmptyState title={`No ${lane.title.toLowerCase()} builds`} body="Software-build tasks in this state will appear here." />
+                        ) : laneTasks.slice(0, 6).map(task => (
+                          <WorkItemCard
+                            key={task.id}
+                            title={task.title}
+                            meta={taskMeta(task)}
+                            href={task.href ?? agentBoardHref}
+                            color={lane.color}
+                            icon={lane.icon}
+                            priority={task.priority}
+                          />
+                        ))}
+                      </WorkLane>
+                    )
+                  })}
+                </div>
+              </div>
+              <div className="grid gap-4 lg:grid-cols-3">
               <WorkLane lane={WORK_LANES[0]} count={riskTasks.length}>
                 {riskTasks.length === 0 ? (
                   <EmptyState title="No blockers" body="Blocked and awaiting-input tasks will collect here." />
@@ -565,7 +624,7 @@ export default function MissionControlDashboard() {
                   <WorkItemCard
                     key={task.id}
                     title={task.title}
-                    meta={`${task.assigneeAgentId ?? 'agent'} · ${STATUS_LABELS[task.agentStatus ?? ''] ?? task.agentStatus ?? 'Queued'} · ${formatRelative(task.updatedAt ?? task.createdAt)}`}
+                    meta={taskMeta(task)}
                     href={task.href ?? agentBoardHref}
                     color={WORK_LANES[0].color}
                     icon={WORK_LANES[0].icon}
@@ -580,7 +639,7 @@ export default function MissionControlDashboard() {
                   <WorkItemCard
                     key={task.id}
                     title={task.title}
-                    meta={`${task.assigneeAgentId ?? 'agent'} · ${STATUS_LABELS[task.agentStatus ?? ''] ?? task.agentStatus ?? 'Queued'} · ${formatRelative(task.updatedAt ?? task.createdAt)}`}
+                    meta={taskMeta(task)}
                     href={task.href ?? agentBoardHref}
                     color={WORK_LANES[1].color}
                     icon={WORK_LANES[1].icon}

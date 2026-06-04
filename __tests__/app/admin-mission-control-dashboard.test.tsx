@@ -1,5 +1,5 @@
 import React from 'react'
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import MissionControlDashboard from '@/app/(admin)/admin/dashboard/page'
 
 jest.mock('next/link', () => {
@@ -152,6 +152,45 @@ describe('Mission control dashboard', () => {
     orgs.forEach(org => {
       expect(screen.getAllByText(org.name).some(element => element.closest('a')?.className.includes('pib-card'))).toBe(true)
     })
+  })
+
+  it('groups software-build tasks into pending, in progress, blocked, review, and completed lanes with project titles and links', async () => {
+    global.fetch = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/organizations') {
+        return Promise.resolve({ ok: true, json: async () => ({ data: [
+          { id: 'pib-platform-owner', name: 'Partners in Biz', slug: 'partners-in-biz', status: 'active', type: 'platform_owner' },
+        ] }) } as Response)
+      }
+      if (url === '/api/v1/admin/agent-tasks?orgId=pib-platform-owner&assigneeAgentId=theo') {
+        return Promise.resolve({ ok: true, json: async () => ({ data: { cards: [
+          { id: 'pending-task', orgId: 'pib-platform-owner', title: 'Build queue shell', projectName: 'PiB Platform Alignment', assigneeAgentId: 'theo', agentStatus: 'pending', columnId: 'todo', href: '/admin/org/partners-in-biz/projects/platform?task=pending-task' },
+          { id: 'active-task', orgId: 'pib-platform-owner', title: 'Wire status cards', projectName: 'PiB Platform Alignment', assigneeAgentId: 'theo', agentStatus: 'in-progress', columnId: 'in_progress', href: '/admin/org/partners-in-biz/projects/platform?task=active-task' },
+          { id: 'blocked-task', orgId: 'pib-platform-owner', title: 'Approval gate blocked', projectName: 'PiB Platform Alignment', assigneeAgentId: 'theo', agentStatus: 'awaiting-input', columnId: 'blocked', href: '/admin/org/partners-in-biz/projects/platform?task=blocked-task' },
+          { id: 'review-task', orgId: 'pib-platform-owner', title: 'Review evidence links', projectName: 'PiB Platform Alignment', assigneeAgentId: 'theo', agentStatus: 'done', columnId: 'review', href: '/admin/org/partners-in-biz/projects/platform?task=review-task' },
+          { id: 'completed-task', orgId: 'pib-platform-owner', title: 'Completed build card', projectName: 'PiB Platform Alignment', assigneeAgentId: 'theo', agentStatus: 'done', columnId: 'done', href: '/admin/org/partners-in-biz/projects/platform?task=completed-task' },
+        ] } }) } as Response)
+      }
+      if (url === '/api/v1/health') {
+        return Promise.resolve({ ok: true, json: async () => ({ success: true, data: { ok: true, services: { firestore: 'ok' } } }) } as Response)
+      }
+      return Promise.resolve({ ok: true, json: async () => ({ data: [] }) } as Response)
+    }) as jest.Mock
+
+    render(<MissionControlDashboard />)
+    await waitFor(() => expect(screen.getByRole('tab', { name: /work board/i })).toBeInTheDocument())
+
+    fireEvent.click(screen.getByRole('tab', { name: /work board/i }))
+
+    expect(screen.getByText('Software build queue')).toBeInTheDocument()
+    expect(screen.getByText('Pending')).toBeInTheDocument()
+    expect(screen.getByText('In progress')).toBeInTheDocument()
+    expect(screen.getByText('Blocked')).toBeInTheDocument()
+    expect(screen.getByText('Review')).toBeInTheDocument()
+    expect(screen.getByText('Completed')).toBeInTheDocument()
+    expect(screen.getByText('PiB Platform Alignment')).toBeInTheDocument()
+    expect(screen.getByText('Build queue shell').closest('a')).toHaveAttribute('href', '/admin/org/partners-in-biz/projects/platform?task=pending-task')
+    expect(screen.getByText('Completed build card').closest('a')).toHaveAttribute('href', '/admin/org/partners-in-biz/projects/platform?task=completed-task')
   })
 
   it('has excellent empty and error states', async () => {
