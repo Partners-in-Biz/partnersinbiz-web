@@ -399,6 +399,7 @@ export function generateSourceUrl(
       return `${baseUrl}/admin/projects/${docId}`
 
     case 'task':
+    case 'agent-learning-review':
       if (context?.projectId) {
         return `${baseUrl}/admin/projects/${context.projectId}?taskId=${docId}`
       }

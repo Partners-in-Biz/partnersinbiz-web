@@ -48,6 +48,22 @@ interface AgentOutputReviewCard {
   nextAction: string
 }
 
+interface AgentLearningReviewLink {
+  label: string
+  href: string
+  type: string
+}
+
+interface AgentLearningReviewCard {
+  automationGuard: string
+  skillLinks: AgentLearningReviewLink[]
+  wikiLinks: AgentLearningReviewLink[]
+  taskLinks: AgentLearningReviewLink[]
+  proposedChanges: string[]
+  sourceDocumentId?: string | null
+  approvalGateTaskId?: string | null
+}
+
 interface BriefingCard {
   id: string
   orgId: string
@@ -161,6 +177,7 @@ const PRIORITIES = [
 const SOURCES = [
   { value: 'all', label: 'All sources' },
   { value: 'task', label: 'Tasks' },
+  { value: 'agent-learning-review', label: 'Agent learning' },
   { value: 'comment', label: 'Comments' },
   { value: 'agent-output', label: 'Agent output' },
   { value: 'agent-run', label: 'Agent runs' },
@@ -378,6 +395,39 @@ function agentOutputReviewCard(item: BriefingCard): AgentOutputReviewCard | null
     artifacts,
     qualityChecks,
     approvalGates,
+  }
+}
+
+function normalizeAgentLearningLinks(value: unknown): AgentLearningReviewLink[] {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((entry) => {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return []
+    const candidate = entry as Record<string, unknown>
+    if (typeof candidate.label !== 'string' || typeof candidate.href !== 'string') return []
+    return [{ label: candidate.label, href: candidate.href, type: typeof candidate.type === 'string' ? candidate.type : 'link' }]
+  })
+}
+
+function normalizeAgentLearningText(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  return value.filter((entry): entry is string => typeof entry === 'string' && entry.trim().length > 0)
+}
+
+function agentLearningReviewCard(item: BriefingCard): AgentLearningReviewCard | null {
+  const card = item.metadata?.agentLearningReview
+  if (!card || typeof card !== 'object' || Array.isArray(card)) return null
+  const candidate = card as Record<string, unknown>
+  const automationGuard = typeof candidate.automationGuard === 'string' && candidate.automationGuard.trim().length
+    ? candidate.automationGuard
+    : 'No automatic skill or wiki rewrites. Proposed changes must be reviewed before any durable knowledge is changed.'
+  return {
+    automationGuard,
+    skillLinks: normalizeAgentLearningLinks(candidate.skillLinks),
+    wikiLinks: normalizeAgentLearningLinks(candidate.wikiLinks),
+    taskLinks: normalizeAgentLearningLinks(candidate.taskLinks),
+    proposedChanges: normalizeAgentLearningText(candidate.proposedChanges),
+    sourceDocumentId: typeof candidate.sourceDocumentId === 'string' ? candidate.sourceDocumentId : null,
+    approvalGateTaskId: typeof candidate.approvalGateTaskId === 'string' ? candidate.approvalGateTaskId : null,
   }
 }
 
@@ -962,6 +1012,7 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
   }, [accountPulseId, allItems, mode])
   const selected = items.find((item) => item.id === selectedId) ?? items[0] ?? null
   const selectedReviewCard = selected ? agentOutputReviewCard(selected) : null
+  const selectedLearningReview = selected ? agentLearningReviewCard(selected) : null
 
   const counts = useMemo(() => {
     const result: Record<string, number> = {}
@@ -3039,6 +3090,53 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                       onChange={(event) => setAdCampaignChangeText(event.target.value)}
                       placeholder="Tell the ads team what must change before launch..."
                     />
+                  </div>
+                ) : null}
+
+                {selectedLearningReview ? (
+                  <div className="rounded-lg border border-violet-300/25 bg-violet-400/10 p-3" aria-label="Agent Learning Review">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-medium text-violet-100">Weekly Agent Learning Review</p>
+                        <p className="mt-2 text-sm text-on-surface">{selectedLearningReview.automationGuard}</p>
+                      </div>
+                      <span className="rounded-full border border-amber-300/35 bg-amber-300/10 px-2 py-1 text-[11px] text-amber-100">
+                        Review before rewrite
+                      </span>
+                    </div>
+                    {selectedLearningReview.proposedChanges.length ? (
+                      <div className="mt-4 rounded-md border border-white/10 bg-white/[0.04] p-3">
+                        <p className="text-xs font-medium text-on-surface-variant">Proposed learning items</p>
+                        <ul className="mt-2 space-y-1 text-sm text-on-surface">
+                          {selectedLearningReview.proposedChanges.map((change) => <li key={change}>• {change}</li>)}
+                        </ul>
+                      </div>
+                    ) : null}
+                    <div className="mt-4 grid gap-3 lg:grid-cols-3">
+                      {[
+                        { label: 'Skills', links: selectedLearningReview.skillLinks },
+                        { label: 'Wiki', links: selectedLearningReview.wikiLinks },
+                        { label: 'Tasks', links: selectedLearningReview.taskLinks },
+                      ].map((group) => (
+                        <div key={group.label} className="rounded-md border border-white/10 bg-white/[0.03] p-3">
+                          <p className="text-xs font-medium text-on-surface-variant">{group.label}</p>
+                          <div className="mt-2 space-y-1 text-sm">
+                            {group.links.length ? group.links.map((link) => (
+                              <a key={`${group.label}:${link.href}:${link.label}`} className="block truncate text-brand underline-offset-4 hover:underline" href={link.href} target="_blank" rel="noopener noreferrer">
+                                {link.label}
+                              </a>
+                            )) : <span className="text-on-surface-variant">No links attached</span>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    {(selectedLearningReview.sourceDocumentId || selectedLearningReview.approvalGateTaskId) ? (
+                      <p className="mt-3 text-xs text-on-surface-variant">
+                        {selectedLearningReview.sourceDocumentId ? `Source doc: ${selectedLearningReview.sourceDocumentId}` : null}
+                        {selectedLearningReview.sourceDocumentId && selectedLearningReview.approvalGateTaskId ? ' · ' : null}
+                        {selectedLearningReview.approvalGateTaskId ? `Approval gate task: ${selectedLearningReview.approvalGateTaskId}` : null}
+                      </p>
+                    ) : null}
                   </div>
                 ) : null}
 

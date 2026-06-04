@@ -57,6 +57,41 @@ const briefingItem = {
   occurredAt: '2026-05-31T10:00:00.000Z',
 }
 
+const agentLearningBriefingItem = {
+  id: 'agent-learning-review:task-learning-1',
+  orgId: 'org-1',
+  priority: 'review',
+  title: 'Weekly Agent Learning Review - Theo',
+  summary: 'Weekly Agent Learning Review is pending review. No automatic skill or wiki rewrites.',
+  excerpt: 'Review proposed learning items before applying durable changes.',
+  timeAgo: '1 minute ago',
+  requiresAction: true,
+  source: { type: 'agent-learning-review', id: 'task-learning-1', url: '/admin/projects/project-1?taskId=task-learning-1' },
+  actor: { id: 'agent:theo', name: 'Theo', role: 'ai', type: 'agent' },
+  context: {
+    orgId: 'org-1',
+    orgName: 'Client One',
+    orgSlug: 'client-one',
+    projectId: 'project-1',
+    projectName: 'Launch site',
+    taskId: 'task-learning-1',
+    taskTitle: 'Weekly Agent Learning Review - Theo',
+  },
+  metadata: {
+    agentLearningReview: {
+      reviewGate: 'proposals-only',
+      automationGuard: 'No automatic skill or wiki rewrites. Proposed changes must be reviewed before any durable knowledge is changed.',
+      skillLinks: [{ label: 'systematic debugging', href: '/admin/skills/partnersinbiz/software-development/systematic-debugging', type: 'skill' }],
+      wikiLinks: [{ label: 'Agent learning log', href: '/admin/wiki/partners/agent-learning', type: 'wiki' }],
+      taskLinks: [{ label: 'Follow-up task', href: '/admin/projects/project-1?taskId=task-learning-1', type: 'task' }],
+      proposedChanges: ['Add a pitfall about not rewriting skills automatically.'],
+      sourceDocumentId: 'doc-learning-2026-06-04',
+      approvalGateTaskId: 'approval-learning-1',
+    },
+  },
+  occurredAt: '2026-05-31T10:00:30.000Z',
+}
+
 const documentBriefingItem = {
   id: 'client-document:doc-1',
   orgId: 'org-1',
@@ -1036,7 +1071,7 @@ describe('BriefingControlDesk', () => {
         } as Response
       }
       if (url.startsWith('/api/v1/briefings/feed')) {
-        const orgOneItems = [briefingItem, documentBriefingItem, documentCommentBriefingItem, approvalBriefingItem, conversationBriefingItem, socialBriefingItem, notificationBriefingItem, activityBriefingItem, contactBriefingItem, reportBriefingItem, supportBriefingItem, invoiceBriefingItem, invoiceProofBriefingItem, quoteBriefingItem, shipmentBriefingItem, orderBriefingItem, inventoryBriefingItem, expenseBriefingItem, seoContentBriefingItem, seoTaskBriefingItem, adCampaignBriefingItem, draftBroadcastBriefingItem, scheduledBroadcastBriefingItem, pausedBroadcastBriefingItem, draftCampaignBriefingItem, activeCampaignBriefingItem, formSubmissionBriefingItem, socialInboxBriefingItem, mailboxBriefingItem, agentRunBriefingItem, workspaceBrokerBriefingItem, calendarBriefingItem]
+        const orgOneItems = [briefingItem, agentLearningBriefingItem, documentBriefingItem, documentCommentBriefingItem, approvalBriefingItem, conversationBriefingItem, socialBriefingItem, notificationBriefingItem, activityBriefingItem, contactBriefingItem, reportBriefingItem, supportBriefingItem, invoiceBriefingItem, invoiceProofBriefingItem, quoteBriefingItem, shipmentBriefingItem, orderBriefingItem, inventoryBriefingItem, expenseBriefingItem, seoContentBriefingItem, seoTaskBriefingItem, adCampaignBriefingItem, draftBroadcastBriefingItem, scheduledBroadcastBriefingItem, pausedBroadcastBriefingItem, draftCampaignBriefingItem, activeCampaignBriefingItem, formSubmissionBriefingItem, socialInboxBriefingItem, mailboxBriefingItem, agentRunBriefingItem, workspaceBrokerBriefingItem, calendarBriefingItem]
         const items = url.includes('orgId=org-2')
           ? [secondOrgBriefingItem]
           : url.includes('orgId=org-1')
@@ -1329,6 +1364,21 @@ describe('BriefingControlDesk', () => {
     expect(screen.getByText('CRM conversion needs a contact or deal on the briefing card.')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /approval gates stay explicit/i })).toBeDisabled()
     expect(screen.getByText(/production deploys, external sends, public publishing, paid spend, finance changes, secret\/config changes, destructive actions require a separate explicit approval/i)).toBeInTheDocument()
+  })
+
+  it('renders Agent Learning Review proposals with skill, wiki, task links and no automatic rewrite guard', async () => {
+    render(<BriefingControlDesk mode="portal" />)
+
+    fireEvent.click(await screen.findByRole('button', { name: /weekly agent learning review - theo/i }))
+
+    expect(screen.getByLabelText('Agent Learning Review')).toBeInTheDocument()
+    expect(screen.getByText('Review before rewrite')).toBeInTheDocument()
+    expect(screen.getByText('No automatic skill or wiki rewrites. Proposed changes must be reviewed before any durable knowledge is changed.')).toBeInTheDocument()
+    expect(screen.getByText(/Add a pitfall about not rewriting skills automatically\./)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'systematic debugging' })).toHaveAttribute('href', '/admin/skills/partnersinbiz/software-development/systematic-debugging')
+    expect(screen.getByRole('link', { name: 'Agent learning log' })).toHaveAttribute('href', '/admin/wiki/partners/agent-learning')
+    expect(screen.getByRole('link', { name: 'Follow-up task' })).toHaveAttribute('href', '/admin/projects/project-1?taskId=task-learning-1')
+    expect(screen.getByText(/Source doc: doc-learning-2026-06-04 · Approval gate task: approval-learning-1/)).toBeInTheDocument()
   })
 
   it('creates follow-up tasks and assigns the current task from Phase 2 controls', async () => {

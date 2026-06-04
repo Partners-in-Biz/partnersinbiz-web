@@ -9,6 +9,7 @@ export * from './utils'
 
 // Adapters
 export { taskAdapter, projectAdapter } from './adapters/taskAdapter'
+export { agentLearningReviewAdapter } from './adapters/agentLearningReviewAdapter'
 export { commentAdapter } from './adapters/commentAdapter'
 export { agentOutputAdapter } from './adapters/agentOutputAdapter'
 export { agentRunAdapter } from './adapters/agentRunAdapter'
@@ -40,6 +41,7 @@ export { formSubmissionAdapter } from './adapters/formSubmissionAdapter'
 
 import type { BriefingSourceAdapter, BriefingSourceType } from './types'
 import { taskAdapter, projectAdapter } from './adapters/taskAdapter'
+import { agentLearningReviewAdapter } from './adapters/agentLearningReviewAdapter'
 import { commentAdapter } from './adapters/commentAdapter'
 import { agentOutputAdapter } from './adapters/agentOutputAdapter'
 import { agentRunAdapter } from './adapters/agentRunAdapter'
@@ -75,6 +77,7 @@ import { formSubmissionAdapter } from './adapters/formSubmissionAdapter'
 export const SOURCE_ADAPTERS: Record<BriefingSourceType, BriefingSourceAdapter> = {
   task: taskAdapter,
   project: projectAdapter,
+  'agent-learning-review': agentLearningReviewAdapter,
   comment: commentAdapter,
   'agent-output': agentOutputAdapter,
   'agent-run': agentRunAdapter,
