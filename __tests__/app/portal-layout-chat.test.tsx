@@ -106,6 +106,9 @@ describe('PortalLayout chat drawer', () => {
       if (url === '/api/v1/portal/documents/count') {
         return jsonResponse({ data: { count: 0 } })
       }
+      if (url === '/api/v1/portal/active-org') {
+        return jsonResponse({ orgId: 'lumen-org' })
+      }
       throw new Error(`Unhandled fetch: ${url}`)
     })
   })
@@ -182,6 +185,9 @@ describe('PortalLayout chat drawer', () => {
       if (url === '/api/v1/portal/documents/count?orgId=lumen-org') {
         return jsonResponse({ data: { count: 0 } })
       }
+      if (url === '/api/v1/portal/active-org') {
+        return jsonResponse({ orgId: 'lumen-org' })
+      }
       throw new Error(`Unhandled fetch: ${url}`)
     })
 
@@ -202,5 +208,12 @@ describe('PortalLayout chat drawer', () => {
       'href',
       '/portal/marketing?orgId=lumen-org&orgSlug=lumen-speeds',
     )
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/portal/active-org', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orgId: 'lumen-org' }),
+      })
+    })
   })
 })

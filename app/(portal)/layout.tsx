@@ -275,6 +275,13 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
                 : null
               if (activeOrg?.slug) setActiveOrgSlug(activeOrg.slug)
               if (activeOrg?.type) setActiveOrgType(activeOrg.type)
+              if (requestedOrgId && d?.activeOrgId !== requestedOrgId) {
+                fetch('/api/v1/portal/active-org', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ orgId: requestedOrgId }),
+                }).catch(() => {})
+              }
             })
             .catch(() => {})
           fetch('/api/v1/portal/settings/profile')
