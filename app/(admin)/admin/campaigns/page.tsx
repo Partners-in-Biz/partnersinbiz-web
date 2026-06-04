@@ -1,10 +1,10 @@
-import Link from 'next/link'
 import { Timestamp } from 'firebase-admin/firestore'
 import type * as FirebaseFirestore from 'firebase-admin/firestore'
 import { redirect } from 'next/navigation'
 import { adminDb } from '@/lib/firebase/admin'
 import { getCurrentAdminUserFromCookies } from '@/lib/api/currentAdmin'
 import { restrictedAdminOrgIds } from '@/lib/api/platformAdmin'
+import { CampaignProgramCard } from '@/components/campaigns/CampaignProgramCard'
 
 export const dynamic = 'force-dynamic'
 
@@ -20,14 +20,6 @@ function serialize(value: any): any {
     return out
   }
   return value
-}
-
-const STATUS_PILL: Record<string, string> = {
-  draft: 'bg-gray-700 text-gray-100',
-  in_review: 'bg-amber-700 text-amber-50',
-  approved: 'bg-emerald-700 text-emerald-50',
-  shipping: 'bg-violet-700 text-violet-50',
-  archived: 'bg-zinc-800 text-zinc-300',
 }
 
 export default async function CampaignsIndexPage() {
@@ -81,35 +73,26 @@ export default async function CampaignsIndexPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
           {campaigns.map((c: any) => (
-            <Link
+            <CampaignProgramCard
               key={c.id}
+              campaign={c}
               href={`/admin/campaigns/${c.id}`}
-              className="card p-5 hover:bg-[var(--color-row-hover)] block"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <h2 className="text-lg font-semibold leading-tight">{c.name}</h2>
-                <span
-                  className={`text-[10px] px-2 py-1 rounded uppercase tracking-wide ${
-                    STATUS_PILL[c.status] ?? 'bg-gray-800 text-gray-300'
-                  }`}
-                >
-                  {c.status}
-                </span>
-              </div>
-              <p className="text-xs text-[var(--color-pib-text-muted)] mt-1">
-                {c.clientType ?? '—'} · org: <code>{c.orgId ?? '—'}</code>
-              </p>
-              {c.calendar && Array.isArray(c.calendar) && (
-                <p className="text-xs text-[var(--color-pib-text-muted)] mt-2">
-                  {c.calendar.length} planned slots
-                </p>
-              )}
-              {c.shareEnabled !== false && c.shareToken && (
-                <p className="text-xs text-[var(--color-pib-accent)] mt-3 truncate">
-                  /c/{c.shareToken.slice(0, 12)}…
-                </p>
-              )}
-            </Link>
+              meta={
+                <div className="space-y-1">
+                  <p>
+                    {c.clientType ?? '—'} · org: <code>{c.orgId ?? '—'}</code>
+                  </p>
+                  {c.calendar && Array.isArray(c.calendar) && (
+                    <p>{c.calendar.length} planned slots</p>
+                  )}
+                  {c.shareEnabled !== false && c.shareToken && (
+                    <p className="text-[var(--color-pib-accent)] truncate">
+                      /c/{c.shareToken.slice(0, 12)}…
+                    </p>
+                  )}
+                </div>
+              }
+            />
           ))}
         </div>
       )}

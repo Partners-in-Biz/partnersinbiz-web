@@ -4,6 +4,7 @@ import { adminDb } from '@/lib/firebase/admin'
 import { resolveOrgIdBySlug } from '@/lib/organizations/resolve-by-slug'
 import { serializeForClient } from '@/lib/campaigns/serialize'
 import { listCampaigns as listAdCampaigns } from '@/lib/ads/campaigns/store'
+import { CampaignProgramCard } from '@/components/campaigns/CampaignProgramCard'
 import { QuickEmailCampaignCreator } from './QuickEmailCampaignCreator'
 
 export const dynamic = 'force-dynamic'
@@ -132,7 +133,11 @@ export default async function CampaignsPage({ params }: { params: Promise<{ slug
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {contentCampaigns.map((campaign: any) => (
-              <ContentCampaignCard key={campaign.id} campaign={campaign} />
+              <CampaignProgramCard
+                key={campaign.id}
+                campaign={campaign}
+                href={`/admin/org/${slug}/social/${campaign.id}`}
+              />
             ))}
           </div>
         )}
@@ -304,25 +309,6 @@ function BriefItem({ label, value }: { label: string; value?: string }) {
       <dt className="eyebrow !text-[9px]">{label}</dt>
       <dd className="mt-1 text-[var(--color-pib-text)]">{value || '-'}</dd>
     </div>
-  )
-}
-
-function ContentCampaignCard({ campaign }: { campaign: any }) {
-  const assets = campaign.assets ?? campaign.assetCounts ?? {}
-  return (
-    <Link href={`/admin/campaigns/${campaign.id}`} className="bento-card !p-5 block">
-      <div className="flex items-start justify-between gap-3">
-        <span className={`text-[10px] px-2 py-1 rounded uppercase tracking-wide ${statusPill(campaign.status)}`}>
-          {campaign.status ?? 'draft'}
-        </span>
-        <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">palette</span>
-      </div>
-      <h3 className="font-headline text-lg font-semibold mt-4 leading-tight">{campaign.name ?? 'Untitled campaign'}</h3>
-      <p className="text-xs text-[var(--color-pib-text-muted)] mt-2">{formatDate(campaign.createdAt)}</p>
-      <p className="text-xs text-[var(--color-pib-text-muted)] mt-4 pt-4 border-t border-[var(--color-pib-line)]">
-        {Number(assets.social ?? assets.socialPosts ?? 0)} social - {Number(assets.blogs ?? assets.blogPosts ?? 0)} blogs - {Number(assets.videos ?? assets.shorts ?? 0)} videos
-      </p>
-    </Link>
   )
 }
 

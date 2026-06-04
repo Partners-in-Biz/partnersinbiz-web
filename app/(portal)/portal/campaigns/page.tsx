@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { adminAuth, adminDb } from '@/lib/firebase/admin'
 import { getBrandKitForOrg } from '@/lib/brand-kit/store'
 import { serializeForClient } from '@/lib/campaigns/serialize'
+import { CampaignProgramCard } from '@/components/campaigns/CampaignProgramCard'
 import { CampaignRequestPanel } from './CampaignRequestPanel'
 import type { Sequence } from '@/lib/sequences/types'
 
@@ -33,13 +34,6 @@ function pct(num: number, denom: number): string {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function isContentCampaign(c: any): boolean {
   return Boolean(c.clientType || c.brandIdentity || c.research)
-}
-
-function formatMonth(iso?: string | null): string {
-  if (!iso) return '—'
-  const d = new Date(iso)
-  if (isNaN(d.getTime())) return '—'
-  return new Intl.DateTimeFormat('en-ZA', { month: 'long', year: 'numeric' }).format(d)
 }
 
 function formatDate(iso?: string | null): string {
@@ -278,7 +272,7 @@ export default async function PortalCampaignsIndex() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
             {contentCampaigns.map((c: any) => (
-              <ContentCampaignCard key={c.id} c={c} />
+              <CampaignProgramCard key={c.id} campaign={c} href={`/portal/campaigns/${c.id}`} />
             ))}
           </div>
         )}
@@ -460,70 +454,6 @@ function EmptyState({ icon, title, body }: { icon: string; title: string; body: 
       <h3 className="font-headline text-lg font-semibold mt-3">{title}</h3>
       <p className="text-sm text-[var(--color-pib-text-muted)] mt-1.5 max-w-md mx-auto">{body}</p>
     </div>
-  )
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function ContentCampaignCard({ c }: { c: any }) {
-  const isAwaiting = c.status === 'in_review' || c.status === 'draft'
-  const heroUrl: string | undefined = c.heroImageUrl ?? c.heroUrl ?? c.coverImageUrl
-  const month = formatMonth(c.createdAt)
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const assets: any = c.assets ?? c.assetCounts ?? {}
-  const socialCount = Number(assets.social ?? assets.socialPosts ?? 0)
-  const blogCount = Number(assets.blogs ?? assets.blogPosts ?? 0)
-  const videoCount = Number(assets.videos ?? assets.shorts ?? 0)
-  const hasFooter = socialCount + blogCount + videoCount > 0
-
-  return (
-    <Link
-      href={`/portal/campaigns/${c.id}`}
-      className="bento-card !p-0 group block overflow-hidden"
-    >
-      <div className="relative aspect-[16/9] w-full overflow-hidden">
-        {heroUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={heroUrl}
-            alt=""
-            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-          />
-        ) : (
-          <div
-            className="w-full h-full"
-            style={{
-              background:
-                'linear-gradient(135deg, var(--brand-accent, var(--color-pib-accent)) 0%, var(--brand-primary, var(--color-pib-accent-hover)) 50%, var(--brand-secondary, #0A0A0B) 100%)',
-            }}
-          />
-        )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/0 to-black/0" />
-
-        {isAwaiting && (
-          <span className="absolute top-3 left-3 text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-full bg-amber-500/90 text-amber-950 font-semibold backdrop-blur">
-            Awaiting review
-          </span>
-        )}
-        <span
-          className={`absolute top-3 right-3 text-[10px] px-2 py-1 rounded uppercase tracking-wide backdrop-blur-sm ${statusPill(c.status)}`}
-        >
-          {c.status ?? 'draft'}
-        </span>
-      </div>
-
-      <div className="p-5">
-        <h3 className="font-headline text-base font-semibold leading-tight line-clamp-2">
-          {c.name ?? 'Untitled campaign'}
-        </h3>
-        <p className="text-xs text-[var(--color-pib-text-muted)] mt-1.5">{month}</p>
-        {hasFooter && (
-          <p className="text-xs text-[var(--color-pib-text-muted)] mt-3 pt-3 border-t border-[var(--color-pib-line)]">
-            {socialCount} social · {blogCount} blogs · {videoCount} videos
-          </p>
-        )}
-      </div>
-    </Link>
   )
 }
 
