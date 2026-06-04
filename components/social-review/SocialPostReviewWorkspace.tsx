@@ -33,12 +33,16 @@ export interface SocialPostReviewPost {
   hashtags?: string[]
   platforms?: string[]
   platform?: string
+  createdBy?: string
+  createdByName?: string
   status?: string
   deliveryMode?: string
   scheduledAt?: SocialReviewTimestamp
   scheduledFor?: SocialReviewTimestamp
   createdAt?: SocialReviewTimestamp
+  mediaCount?: number
   media?: SocialReviewMedia[]
+  comments?: SocialPostReviewComment[]
   aiPrompt?: string
   prompt?: string
   approval?: {
@@ -152,7 +156,7 @@ const COMMENT_KIND_META: Record<string, { label: string; tone: string }> = {
   agent_handoff: { label: 'Revised', tone: 'bg-indigo-500/10 text-indigo-300' },
 }
 
-function tsToDate(ts: SocialReviewTimestamp): Date | null {
+export function tsToDate(ts: SocialReviewTimestamp): Date | null {
   if (!ts) return null
   if (ts instanceof Date) return ts
   if (typeof ts === 'number' || typeof ts === 'string') return new Date(ts)
@@ -161,7 +165,7 @@ function tsToDate(ts: SocialReviewTimestamp): Date | null {
   return null
 }
 
-function fmtRelative(ts: SocialReviewTimestamp): string {
+export function fmtRelative(ts: SocialReviewTimestamp): string {
   const date = tsToDate(ts)
   if (!date) return '-'
 
@@ -178,7 +182,7 @@ function fmtRelative(ts: SocialReviewTimestamp): string {
   return date.toLocaleDateString('en-ZA', { day: '2-digit', month: 'short' })
 }
 
-function fmtScheduled(ts: SocialReviewTimestamp): string {
+export function fmtScheduled(ts: SocialReviewTimestamp): string {
   const date = tsToDate(ts)
   return date
     ? date.toLocaleString('en-ZA', {
@@ -191,7 +195,7 @@ function fmtScheduled(ts: SocialReviewTimestamp): string {
     : '-'
 }
 
-function getPostText(post?: SocialPostReviewPost | null): string {
+export function getPostText(post?: SocialPostReviewPost | null): string {
   if (typeof post?.content === 'string') return post.content
   if (post?.content?.text) return post.content.text
   return ''
@@ -204,13 +208,13 @@ function getOriginalText(post?: SocialPostReviewPost | null): string {
   return ''
 }
 
-function getPostPlatforms(post?: SocialPostReviewPost | null): string[] {
+export function getPostPlatforms(post?: SocialPostReviewPost | null): string[] {
   if (post?.platforms?.length) return post.platforms
   if (post?.platform) return [post.platform]
   return []
 }
 
-function getMedia(post?: SocialPostReviewPost | null): SocialReviewMedia[] {
+export function getMedia(post?: SocialPostReviewPost | null): SocialReviewMedia[] {
   if (Array.isArray(post?.media) && post.media.length) return post.media
   if (post?.content && typeof post.content !== 'string' && Array.isArray(post.content.media)) {
     return post.content.media
@@ -226,7 +230,7 @@ function getHashtags(post?: SocialPostReviewPost | null): string[] {
   return []
 }
 
-function mediaUrl(media: SocialReviewMedia): string {
+export function mediaUrl(media: SocialReviewMedia): string {
   if (typeof media === 'string') return media
   return media.url ?? media.thumbnailUrl ?? media.previewUrl ?? ''
 }
@@ -241,7 +245,7 @@ function visibleStatus(status?: string): string {
   return STATUS_LABEL[status] ?? status.replace(/_/g, ' ')
 }
 
-function PlatformChip({ platform }: { platform: string }) {
+export function PlatformChip({ platform }: { platform: string }) {
   const config = PLATFORM_COLORS[platform] ?? {
     bg: 'bg-surface-container-high',
     label: platform.slice(0, 2).toUpperCase(),
