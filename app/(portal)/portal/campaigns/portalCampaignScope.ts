@@ -5,11 +5,15 @@ import { canUsePortalOrg, resolvePortalActiveOrgId } from '@/lib/portal/org-acce
 export type PortalCampaignSearchParams = {
   orgId?: string
   orgSlug?: string
+  sourceCompanyId?: string
+  sourceCompanyName?: string
 }
 
 export type PortalCampaignScope = {
   orgId?: string
   orgSlug?: string
+  sourceCompanyId?: string
+  sourceCompanyName?: string
 }
 
 export type PortalCampaignUser =
@@ -24,14 +28,18 @@ export function scopeFromSearchParams(params?: PortalCampaignSearchParams): Port
   return {
     orgId: cleanString(params?.orgId) || undefined,
     orgSlug: cleanString(params?.orgSlug) || undefined,
+    sourceCompanyId: cleanString(params?.sourceCompanyId) || undefined,
+    sourceCompanyName: cleanString(params?.sourceCompanyName) || undefined,
   }
 }
 
 export function scopedPortalHref(path: string, scope: PortalCampaignScope) {
-  if (!scope.orgId && !scope.orgSlug) return path
+  if (!scope.orgId && !scope.orgSlug && !scope.sourceCompanyId && !scope.sourceCompanyName) return path
   const params = new URLSearchParams()
   if (scope.orgId) params.set('orgId', scope.orgId)
   if (scope.orgSlug) params.set('orgSlug', scope.orgSlug)
+  if (scope.sourceCompanyId) params.set('sourceCompanyId', scope.sourceCompanyId)
+  if (scope.sourceCompanyName) params.set('sourceCompanyName', scope.sourceCompanyName)
   return `${path}${path.includes('?') ? '&' : '?'}${params.toString()}`
 }
 
