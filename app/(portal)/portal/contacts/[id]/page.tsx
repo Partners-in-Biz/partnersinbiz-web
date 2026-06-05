@@ -1346,9 +1346,12 @@ export default function PortalContactDetailPage() {
       href: websiteHref(website),
       external: true,
       empty: 'No website captured',
-      actionLabel: 'Add website',
-      actionAriaLabel: `Add website from details for ${contactName}`,
+      actionLabel: website.trim() ? 'Edit website' : 'Add website',
+      actionAriaLabel: website.trim()
+        ? `Edit website ${website.trim()} for ${contactName} from details`
+        : `Add website from details for ${contactName}`,
       onAction: () => focusProfileField(websiteFieldRef),
+      needsActionWhenValued: true,
     },
     {
       label: 'Relationship notes',

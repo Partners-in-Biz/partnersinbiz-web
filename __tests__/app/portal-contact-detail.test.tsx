@@ -916,6 +916,25 @@ describe('Portal contact detail page', () => {
     expect(screen.getByRole('textbox', { name: 'Tags for Jane Client' })).toHaveFocus()
   })
 
+  it('keeps captured website details editable from the details card', async () => {
+    mockContactOverrides = {
+      website: 'https://partnersinbiz.online',
+    }
+
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    expect(screen.getByRole('link', { name: 'https://partnersinbiz.online' }))
+      .toHaveAttribute('href', 'https://partnersinbiz.online')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit website https://partnersinbiz.online for Jane Client from details' }))
+
+    expect(screen.getByRole('textbox', { name: 'Website for Jane Client' })).toHaveFocus()
+  })
+
   it('turns first-viewport contact identity into direct email phone and company links', async () => {
     mockContactOverrides = {
       phone: '+27825550123',
