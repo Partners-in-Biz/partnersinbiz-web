@@ -30,7 +30,7 @@ jest.mock('@/components/admin/crm/ContactBrief', () => ({
   ),
 }))
 
-jest.mock('@/components/admin/crm/ContactForm', () => ({
+jest.mock('@/components/crm/ContactForm', () => ({
   ContactForm: () => <div data-testid="contact-form" />,
 }))
 

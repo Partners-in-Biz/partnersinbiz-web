@@ -14,7 +14,7 @@ import { CompanyWorkspacePanel, type LinkedWorkspace } from '@/components/crm/Co
 import { EntityScopedChat } from '@/components/crm/EntityScopedChat'
 import { CompanyEditDrawer, type CompanyTeamMember } from '@/components/crm/CompanyEditDrawer'
 import { CustomFieldsSection } from '@/components/crm/CustomFieldsSection'
-import { ContactForm } from '@/components/admin/crm/ContactForm'
+import { ContactForm } from '@/components/crm/ContactForm'
 import { DealDrawer } from '@/components/crm/DealDrawer'
 import { scopeFromSearchParams, scopedApiPath, scopedPortalPath } from '@/lib/portal/scoped-routing'
 

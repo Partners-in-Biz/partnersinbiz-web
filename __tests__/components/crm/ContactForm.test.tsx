@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { ContactForm } from '@/components/admin/crm/ContactForm'
+import { ContactForm } from '@/components/crm/ContactForm'
 
 describe('ContactForm', () => {
   it('preserves and edits contact tags instead of clearing them on save', async () => {

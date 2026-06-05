@@ -1,4 +1,4 @@
-// components/admin/crm/ContactForm.tsx
+// components/crm/ContactForm.tsx
 'use client'
 import { useState } from 'react'
 

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useCallback } from 'react'
 import Link from 'next/link'
-import { ContactForm } from '@/components/admin/crm/ContactForm'
+import { ContactForm } from '@/components/crm/ContactForm'
 import { fmtTimestamp } from '@/components/admin/email/fmtTimestamp'
 import { SavedViewsBar } from '@/components/crm/SavedViewsBar'
 import { ScoreChip } from '@/components/crm/ScoreChip'
