@@ -5,6 +5,7 @@ export const dynamic = 'force-dynamic'
 import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
+import { CrmSearchBar } from '@/components/crm/CrmSearchBar'
 import { CrmHubCommandRail } from '@/components/crm/CrmHubCommandRail'
 import type { HubSection } from '@/components/navigation/HubPage'
 import type { Deal } from '@/lib/crm/types'
@@ -482,15 +483,18 @@ export default function PortalCrmPage() {
             Sales movement, customer context, capture quality, and follow-up work for this workspace.
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Link href={crmPortalPath('/portal/contacts')} className="btn-pib-secondary">
-            <span className="material-symbols-outlined text-base" aria-hidden="true">contacts</span>
-            Contacts
-          </Link>
-          <Link href={crmPortalPath('/portal/deals')} className="btn-pib-accent">
-            <span className="material-symbols-outlined text-base" aria-hidden="true">view_kanban</span>
-            Pipeline
-          </Link>
+        <div className="flex w-full flex-col gap-3 md:w-[min(100%,28rem)]">
+          <CrmSearchBar orgScope={routeScope} className="w-full" />
+          <div className="flex flex-wrap gap-2 md:justify-end">
+            <Link href={crmPortalPath('/portal/contacts')} className="btn-pib-secondary">
+              <span className="material-symbols-outlined text-base" aria-hidden="true">contacts</span>
+              Contacts
+            </Link>
+            <Link href={crmPortalPath('/portal/deals')} className="btn-pib-accent">
+              <span className="material-symbols-outlined text-base" aria-hidden="true">view_kanban</span>
+              Pipeline
+            </Link>
+          </div>
         </div>
       </header>
 

@@ -1,7 +1,8 @@
 'use client'
 
-import { useRef, useState, useEffect, useCallback } from 'react'
+import { useRef, useState, useEffect, useCallback, useMemo } from 'react'
 import Link from 'next/link'
+import { scopedApiPath, scopedPortalPath, type PortalOrgRouteScope } from '@/lib/portal/scoped-routing'
 
 interface ContactResult {
   id: string
@@ -23,13 +24,14 @@ interface DealResult {
 
 interface Props {
   className?: string
+  orgScope?: PortalOrgRouteScope
 }
 
 function contactResultLabel(contact: ContactResult): string {
   return contact.name?.trim() || contact.email?.trim() || 'Contact identity missing'
 }
 
-export function CrmSearchBar({ className }: Props) {
+export function CrmSearchBar({ className, orgScope }: Props) {
   const [query, setQuery] = useState('')
   const [contacts, setContacts] = useState<ContactResult[]>([])
   const [companies, setCompanies] = useState<CompanyResult[]>([])
@@ -40,6 +42,9 @@ export function CrmSearchBar({ className }: Props) {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const searchScope = useMemo(() => orgScope ?? {}, [orgScope])
+  const crmApiPath = useCallback((path: string) => scopedApiPath(path, searchScope), [searchScope])
+  const crmPortalPath = useCallback((path: string) => scopedPortalPath(path, searchScope), [searchScope])
 
   // Click-outside closes dropdown
   useEffect(() => {
@@ -56,9 +61,9 @@ export function CrmSearchBar({ className }: Props) {
     setLoading(true)
     try {
       const [cRes, coRes, dRes] = await Promise.allSettled([
-        fetch(`/api/v1/crm/contacts?search=${encodeURIComponent(q)}&limit=5`),
-        fetch(`/api/v1/crm/companies?search=${encodeURIComponent(q)}&limit=5`),
-        fetch(`/api/v1/crm/deals?search=${encodeURIComponent(q)}&limit=5`),
+        fetch(crmApiPath(`/api/v1/crm/contacts?search=${encodeURIComponent(q)}&limit=5`)),
+        fetch(crmApiPath(`/api/v1/crm/companies?search=${encodeURIComponent(q)}&limit=5`)),
+        fetch(crmApiPath(`/api/v1/crm/deals?search=${encodeURIComponent(q)}&limit=5`)),
       ])
 
       if (cRes.status === 'fulfilled' && cRes.value.ok) {
@@ -92,7 +97,7 @@ export function CrmSearchBar({ className }: Props) {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [crmApiPath])
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const val = e.target.value
@@ -181,7 +186,7 @@ export function CrmSearchBar({ className }: Props) {
                   {contacts.map(c => (
                     <Link
                       key={c.id}
-                      href={`/portal/contacts/${c.id}`}
+                      href={crmPortalPath(`/portal/contacts/${c.id}`)}
                       onClick={clearAndClose}
                       className="flex items-center gap-2.5 px-4 py-2 hover:bg-[var(--color-pib-surface-2)] transition-colors"
                     >
@@ -200,7 +205,7 @@ export function CrmSearchBar({ className }: Props) {
                   {companies.map(co => (
                     <Link
                       key={co.id}
-                      href={`/portal/companies/${co.id}`}
+                      href={crmPortalPath(`/portal/companies/${co.id}`)}
                       onClick={clearAndClose}
                       className="flex items-center gap-2.5 px-4 py-2 hover:bg-[var(--color-pib-surface-2)] transition-colors"
                     >
@@ -219,7 +224,7 @@ export function CrmSearchBar({ className }: Props) {
                   {deals.map(d => (
                     <Link
                       key={d.id}
-                      href="/portal/deals"
+                      href={crmPortalPath(`/portal/deals/${d.id}`)}
                       onClick={clearAndClose}
                       className="flex items-center gap-2.5 px-4 py-2 hover:bg-[var(--color-pib-surface-2)] transition-colors"
                     >

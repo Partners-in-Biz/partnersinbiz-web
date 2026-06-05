@@ -54,4 +54,58 @@ describe('CrmSearchBar', () => {
     expect(screen.queryByText('—')).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: /Contact identity missing/i })).toHaveAttribute('href', '/portal/contacts/contact-1')
   })
+
+  it('preserves company workspace scope through CRM search fetches and result links', async () => {
+    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+      const path = String(url)
+      if (path === '/api/v1/crm/contacts?search=Lumen&limit=5&orgId=lumen-org') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ success: true, data: [{ id: 'contact-1', name: 'Ava Owner', email: '' }] }),
+        } as Response)
+      }
+      if (path === '/api/v1/crm/companies?search=Lumen&limit=5&orgId=lumen-org') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ success: true, data: [{ id: 'company-1', name: 'Lumen Speeds' }] }),
+        } as Response)
+      }
+      if (path === '/api/v1/crm/deals?search=Lumen&limit=5&orgId=lumen-org') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ success: true, data: [{ id: 'deal-1', title: 'Lumen board rollout', currency: 'ZAR', value: 12000 }] }),
+        } as Response)
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${path}`))
+    })
+
+    render(
+      <CrmSearchBar
+        orgScope={{
+          orgId: 'lumen-org',
+          orgSlug: 'lumen-speeds',
+          sourceCompanyId: 'company-1',
+          sourceCompanyName: 'Lumen',
+        }}
+      />,
+    )
+
+    fireEvent.change(screen.getByLabelText('Search contacts, companies, and deals'), {
+      target: { value: 'Lumen' },
+    })
+
+    await act(async () => {
+      jest.advanceTimersByTime(300)
+    })
+
+    const scope = 'orgId=lumen-org&orgSlug=lumen-speeds&sourceCompanyId=company-1&sourceCompanyName=Lumen'
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith('/api/v1/crm/contacts?search=Lumen&limit=5&orgId=lumen-org')
+      expect(mockFetch).toHaveBeenCalledWith('/api/v1/crm/companies?search=Lumen&limit=5&orgId=lumen-org')
+      expect(mockFetch).toHaveBeenCalledWith('/api/v1/crm/deals?search=Lumen&limit=5&orgId=lumen-org')
+    })
+    expect(screen.getByRole('link', { name: /Ava Owner/i })).toHaveAttribute('href', `/portal/contacts/contact-1?${scope}`)
+    expect(screen.getByRole('link', { name: /Lumen Speeds/i })).toHaveAttribute('href', `/portal/companies/company-1?${scope}`)
+    expect(screen.getByRole('link', { name: /Lumen board rollout/i })).toHaveAttribute('href', `/portal/deals/deal-1?${scope}`)
+  })
 })
