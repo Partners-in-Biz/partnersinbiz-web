@@ -1,6 +1,8 @@
 import { render, screen } from '@testing-library/react'
 import PortalCrmPage from '@/app/(portal)/portal/crm/page'
 
+let mockSearchParams = new URLSearchParams()
+
 jest.mock('next/link', () => ({
   __esModule: true,
   default: ({ children, href, ...props }: { children: React.ReactNode; href: string }) => (
@@ -8,11 +10,17 @@ jest.mock('next/link', () => ({
   ),
 }))
 
+jest.mock('next/navigation', () => ({
+  useSearchParams: () => mockSearchParams,
+}))
+
 describe('Portal CRM hub', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    mockSearchParams = new URLSearchParams()
     global.fetch = jest.fn((input: RequestInfo | URL) => {
-      const url = String(input)
+      const rawUrl = String(input)
+      const url = rawUrl.split('?')[0]
       if (url === '/api/v1/crm/dashboard') {
         return Promise.resolve({
           ok: true,
@@ -31,6 +39,86 @@ describe('Portal CRM hub', () => {
       }
       return Promise.reject(new Error(`Unexpected fetch: ${url}`))
     }) as jest.Mock
+  })
+
+  it('preserves company workspace scope across dashboard fetches and command center links', async () => {
+    mockSearchParams = new URLSearchParams({
+      orgId: 'org-1',
+      orgSlug: 'lumen-speeds',
+      sourceCompanyId: 'company-1',
+      sourceCompanyName: 'Lumen',
+    })
+
+    ;(global.fetch as jest.Mock).mockImplementation((input: RequestInfo | URL) => {
+      const rawUrl = String(input)
+      const url = rawUrl.split('?')[0]
+      if (url === '/api/v1/crm/dashboard') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: {
+              openDealsCount: 3,
+              openDealsValue: 90000,
+              weightedPipelineValue: 0,
+              wonThisMonth: { count: 0, value: 0 },
+              lostThisMonth: { count: 2 },
+              recentActivities: [
+                {
+                  id: 'activity-1',
+                  type: 'call',
+                  summary: 'CEO call logged',
+                  contactName: 'Mandy CEO',
+                  contactId: 'contact-1',
+                  createdAt: null,
+                },
+                {
+                  id: 'activity-2',
+                  type: 'stage_change',
+                  summary: 'Proposal moved to review',
+                  contactName: 'Board Sponsor',
+                  dealId: 'deal-1',
+                  createdAt: null,
+                },
+              ],
+              topOpenDeals: [
+                {
+                  id: 'deal-1',
+                  title: 'Board reporting rollout',
+                  value: 0,
+                  currency: 'ZAR',
+                  probability: 0,
+                  contactName: 'Mandy CEO',
+                },
+              ],
+            },
+          }),
+        } as Response)
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${rawUrl}`))
+    })
+
+    render(<PortalCrmPage />)
+
+    expect(await screen.findByText('Board reporting rollout')).toBeInTheDocument()
+
+    const scope = 'orgId=org-1&orgSlug=lumen-speeds&sourceCompanyId=company-1&sourceCompanyName=Lumen'
+    expect(global.fetch).toHaveBeenCalledWith(`/api/v1/crm/dashboard?orgId=org-1`)
+    expect(screen.getByRole('link', { name: 'Contacts' })).toHaveAttribute('href', `/portal/contacts?${scope}`)
+    expect(screen.getByRole('link', { name: 'Pipeline' })).toHaveAttribute('href', `/portal/deals?${scope}`)
+    expect(screen.getByRole('link', { name: 'Open pipeline board' })).toHaveAttribute('href', `/portal/deals?${scope}`)
+    expect(screen.getByRole('link', { name: 'Open CRM reports' })).toHaveAttribute('href', `/portal/reports/crm?${scope}`)
+    expect(screen.getByRole('link', { name: 'Open CRM setup' })).toHaveAttribute('href', `/portal/settings/crm-setup?${scope}`)
+    expect(screen.getByRole('link', { name: 'Open CRM reports workspace' })).toHaveAttribute('href', `/portal/reports/crm?${scope}`)
+    expect(screen.getByRole('link', { name: 'Open forecast view to fix CRM risk: Forecast confidence missing' }))
+      .toHaveAttribute('href', `/portal/deals?view=forecast&${scope}`)
+    expect(screen.getByRole('link', { name: 'Open lost deals view to fix CRM risk: 2 lost deals this month' }))
+      .toHaveAttribute('href', `/portal/deals?view=list&stage=lost&${scope}`)
+    expect(screen.getByRole('link', { name: 'Open top deal to fix CRM risk: Top deal needs value' }))
+      .toHaveAttribute('href', `/portal/deals/deal-1?${scope}`)
+    expect(screen.getByRole('link', { name: /CEO call logged/ }))
+      .toHaveAttribute('href', `/portal/contacts/contact-1?${scope}`)
+    expect(screen.getByRole('link', { name: /Proposal moved to review/ }))
+      .toHaveAttribute('href', `/portal/deals/deal-1?${scope}`)
   })
 
   it('turns the empty top-open-deals panel into a create-deal action', async () => {

@@ -11,6 +11,8 @@ export interface CrmHubCommandMetric {
   lostThisMonthCount: number
 }
 
+type CrmHubHrefBuilder = (path: string) => string
+
 function formatMoney(value: number) {
   try {
     return new Intl.NumberFormat('en-ZA', {
@@ -23,7 +25,13 @@ function formatMoney(value: number) {
   }
 }
 
-export function CrmHubCommandRail({ metrics }: { metrics: CrmHubCommandMetric }) {
+export function CrmHubCommandRail({
+  metrics,
+  buildHref = (path) => path,
+}: {
+  metrics: CrmHubCommandMetric
+  buildHref?: CrmHubHrefBuilder
+}) {
   const hasPipeline = metrics.openDealsCount > 0
   const actions = [
     {
@@ -60,7 +68,7 @@ export function CrmHubCommandRail({ metrics }: { metrics: CrmHubCommandMetric })
         {actions.map((action) => (
           <Link
             key={action.title}
-            href={action.href}
+            href={buildHref(action.href)}
             aria-label={action.cta}
             className="group rounded-lg border border-[var(--color-pib-line)] bg-white/[0.02] p-4 transition-colors hover:border-[var(--color-pib-accent)] hover:bg-white/[0.05]"
           >

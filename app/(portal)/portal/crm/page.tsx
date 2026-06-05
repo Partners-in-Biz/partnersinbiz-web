@@ -3,10 +3,12 @@
 export const dynamic = 'force-dynamic'
 
 import Link from 'next/link'
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { CrmHubCommandRail } from '@/components/crm/CrmHubCommandRail'
 import type { HubSection } from '@/components/navigation/HubPage'
 import type { Deal } from '@/lib/crm/types'
+import { scopedApiPath, scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 
 type CrmDashboard = {
   openDealsCount?: number
@@ -25,6 +27,8 @@ type CrmLeadershipRisk = {
   icon: string
   actionLabel: string
 }
+
+type PortalHrefBuilder = (path: string) => string
 
 const ACTIVITY_TYPE_LABELS: Record<string, string> = {
   email_sent: 'Email sent',
@@ -249,11 +253,14 @@ function activityContactLabel(value: unknown): string {
   return textValue(value) || 'Contact not linked'
 }
 
-function activityHref(activity: NonNullable<CrmDashboard['recentActivities']>[number]): string {
+function activityHref(
+  activity: NonNullable<CrmDashboard['recentActivities']>[number],
+  buildHref: PortalHrefBuilder = (path) => path,
+): string {
   const dealId = textValue(activity.dealId)
-  if (dealId) return `/portal/deals/${encodeURIComponent(dealId)}`
+  if (dealId) return buildHref(`/portal/deals/${encodeURIComponent(dealId)}`)
   const contactId = textValue(activity.contactId)
-  return contactId ? `/portal/contacts/${encodeURIComponent(contactId)}` : ''
+  return contactId ? buildHref(`/portal/contacts/${encodeURIComponent(contactId)}`) : ''
 }
 
 function countActivityAttributionGaps(activities: CrmDashboard['recentActivities']): number {
@@ -336,7 +343,13 @@ function DashboardMetric({
   )
 }
 
-function CrmLeadershipRiskBrief({ risks }: { risks: CrmLeadershipRisk[] }) {
+function CrmLeadershipRiskBrief({
+  risks,
+  buildHref = (path) => path,
+}: {
+  risks: CrmLeadershipRisk[]
+  buildHref?: PortalHrefBuilder
+}) {
   if (!risks.length) return null
   const riskCopy = `${risks.length} CRM ${risks.length === 1 ? 'risk needs' : 'risks need'} leadership attention before this workspace is board-ready.`
 
@@ -353,7 +366,7 @@ function CrmLeadershipRiskBrief({ risks }: { risks: CrmLeadershipRisk[] }) {
         {risks.map((risk) => (
           <Link
             key={`${risk.href}-${risk.label}`}
-            href={risk.href}
+            href={buildHref(risk.href)}
             aria-label={`${risk.actionLabel} to fix CRM risk: ${risk.label}`}
             className="group flex min-h-[132px] gap-4 p-5 transition-colors hover:bg-[var(--color-pib-surface-2)]"
           >
@@ -375,7 +388,13 @@ function CrmLeadershipRiskBrief({ risks }: { risks: CrmLeadershipRisk[] }) {
   )
 }
 
-function ActivityAttributionReview({ count }: { count: number }) {
+function ActivityAttributionReview({
+  count,
+  buildHref = (path) => path,
+}: {
+  count: number
+  buildHref?: PortalHrefBuilder
+}) {
   if (count <= 0) return null
   const itemCopy = `${count} recent CRM activity ${count === 1 ? 'item is' : 'items are'} missing visible contact or deal names.`
 
@@ -393,7 +412,7 @@ function ActivityAttributionReview({ count }: { count: number }) {
           </div>
         </div>
         <Link
-          href="/portal/contacts?followUp=stale"
+          href={buildHref('/portal/contacts?followUp=stale')}
           aria-label="Review unlinked CRM activity from command center"
           className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5 text-sm"
         >
@@ -410,13 +429,17 @@ function Skeleton({ className = '' }: { className?: string }) {
 }
 
 export default function PortalCrmPage() {
+  const searchParams = useSearchParams()
   const [dashboard, setDashboard] = useState<CrmDashboard | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const routeScope = useMemo(() => scopeFromSearchParams(searchParams), [searchParams])
+  const crmApiPath = useCallback((path: string) => scopedApiPath(path, routeScope), [routeScope])
+  const crmPortalPath = useCallback((path: string) => scopedPortalPath(path, routeScope), [routeScope])
 
   useEffect(() => {
     let cancelled = false
-    fetch('/api/v1/crm/dashboard')
+    fetch(crmApiPath('/api/v1/crm/dashboard'))
       .then((res) => res.json().then((body) => ({ ok: res.ok, body })))
       .then(({ ok, body }) => {
         if (cancelled) return
@@ -432,7 +455,7 @@ export default function PortalCrmPage() {
         if (!cancelled) setLoading(false)
       })
     return () => { cancelled = true }
-  }, [])
+  }, [crmApiPath])
 
   const primaryCurrency = useMemo(() => dashboard?.topOpenDeals?.find((deal) => deal.currency)?.currency ?? 'ZAR', [dashboard])
   const commandMetrics = {
@@ -460,11 +483,11 @@ export default function PortalCrmPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Link href="/portal/contacts" className="btn-pib-secondary">
+          <Link href={crmPortalPath('/portal/contacts')} className="btn-pib-secondary">
             <span className="material-symbols-outlined text-base" aria-hidden="true">contacts</span>
             Contacts
           </Link>
-          <Link href="/portal/deals" className="btn-pib-accent">
+          <Link href={crmPortalPath('/portal/deals')} className="btn-pib-accent">
             <span className="material-symbols-outlined text-base" aria-hidden="true">view_kanban</span>
             Pipeline
           </Link>
@@ -510,9 +533,9 @@ export default function PortalCrmPage() {
         )}
       </section>
 
-      {!loading && <CrmHubCommandRail metrics={commandMetrics} />}
+      {!loading && <CrmHubCommandRail metrics={commandMetrics} buildHref={crmPortalPath} />}
 
-      {!loading && <CrmLeadershipRiskBrief risks={leadershipRisks} />}
+      {!loading && <CrmLeadershipRiskBrief risks={leadershipRisks} buildHref={crmPortalPath} />}
 
       <section className="grid gap-5 xl:grid-cols-[1.15fr_0.85fr]">
         <div className="pib-card-section overflow-hidden">
@@ -531,7 +554,7 @@ export default function PortalCrmPage() {
                 Create a deal so leadership can see value, owner, and next-step accountability from this command center.
               </p>
               <Link
-                href="/portal/deals?create=deal"
+                href={crmPortalPath('/portal/deals?create=deal')}
                 aria-label="Create first deal from CRM command center"
                 className="pib-btn-primary mt-4 inline-flex items-center gap-1.5 text-sm"
               >
@@ -544,7 +567,7 @@ export default function PortalCrmPage() {
               {dashboard.topOpenDeals.map((deal) => (
                 <Link
                   key={deal.id}
-                  href={`/portal/deals/${deal.id}`}
+                  href={crmPortalPath(`/portal/deals/${deal.id}`)}
                   className="grid gap-3 px-5 py-3.5 transition-colors hover:bg-[var(--color-pib-surface-2)] md:grid-cols-[1fr_120px_90px]"
                 >
                   <div className="min-w-0">
@@ -577,7 +600,7 @@ export default function PortalCrmPage() {
                 Open the stale follow-up lens so managers can assign calls, emails, meetings, and notes before accounts go quiet.
               </p>
               <Link
-                href="/portal/contacts?followUp=stale"
+                href={crmPortalPath('/portal/contacts?followUp=stale')}
                 aria-label="Open stale contacts from CRM command center"
                 className="pib-btn-primary mt-4 inline-flex items-center gap-1.5 text-sm"
               >
@@ -587,9 +610,9 @@ export default function PortalCrmPage() {
             </div>
           ) : (
             <div className="divide-y divide-[var(--color-pib-line)]">
-              <ActivityAttributionReview count={activityAttributionGapCount} />
+              <ActivityAttributionReview count={activityAttributionGapCount} buildHref={crmPortalPath} />
               {dashboard.recentActivities.map((activity) => {
-                const href = activityHref(activity)
+                const href = activityHref(activity, crmPortalPath)
                 const content = (
                   <>
                     <span className="material-symbols-outlined mt-0.5 text-[17px] text-[var(--color-pib-text-muted)]">radio_button_checked</span>
@@ -627,7 +650,7 @@ export default function PortalCrmPage() {
             {section.actions.map((action) => (
               <Link
                 key={`${section.title}-${action.href}-${action.label}`}
-                href={action.href}
+                href={crmPortalPath(action.href)}
                 aria-label={hubActionLabel(action.label)}
                 className="pib-card group min-h-[152px] p-5 transition-colors hover:border-[var(--color-pib-accent)] hover:bg-white/[0.03]"
               >
