@@ -127,7 +127,7 @@ export default async function DocumentsIndexPage({
 
   const documents =
     activeStatus === 'all'
-      ? allDocuments
+      ? allDocuments.filter((d) => d.status !== 'archived')
       : allDocuments.filter((d) => d.status === activeStatus)
   const relationshipLabels = Object.fromEntries(
     documents.map((document) => [
@@ -162,7 +162,7 @@ export default async function DocumentsIndexPage({
     label: tab.label,
     value: tab.value,
     href: buildDocumentsHref({ status: tab.value, orgId: selectedOrgId, q: search }),
-    badge: allDocuments.filter((d) => tab.value === 'all' || d.status === tab.value).length,
+    badge: allDocuments.filter((d) => tab.value === 'all' ? d.status !== 'archived' : d.status === tab.value).length,
   }))
 
   return (
@@ -170,7 +170,7 @@ export default async function DocumentsIndexPage({
       <PageHeader
         eyebrow="Admin workspace"
         title="Client Documents"
-        description="All proposals, research reports, build specs, change requests, strategies, and monthly reports across client workspaces. Research decides what is true; specs decide what to build."
+        description="Active proposals, research reports, build specs, change requests, strategies, and monthly reports across client workspaces. Archived documents stay available from the Archived tab."
         actions={(
           <Link
             href="/admin/documents/new"

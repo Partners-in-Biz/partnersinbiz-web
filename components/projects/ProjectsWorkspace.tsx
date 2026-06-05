@@ -117,6 +117,7 @@ export function ProjectsWorkspace({ mode, orgSlug = '', orgScope = {} }: Project
   const [activeSection, setActiveSection] = useState<WorkspaceSection>('projects')
   const [projectView, setProjectView] = useState<ProjectView>('active')
   const [filter, setFilter] = useState<string>('all')
+  const [searchTerm, setSearchTerm] = useState('')
   const [viewMode, setViewMode] = useState<ProjectDisplayMode>('list')
   const [boardSortMode, setBoardSortMode] = useState<BoardSortMode>('latest')
   const [boardTasks, setBoardTasks] = useState<BoardTask[]>([])
@@ -225,8 +226,17 @@ export function ProjectsWorkspace({ mode, orgSlug = '', orgScope = {} }: Project
   }, [projectView])
 
   const filtered = useMemo(
-    () => filter === 'all' ? projects : projects.filter(p => p.status === filter),
-    [projects, filter],
+    () => projects.filter((project) => {
+      if (filter !== 'all' && project.status !== filter) return false
+      const q = searchTerm.trim().toLowerCase()
+      if (!q) return true
+      return [project.name, project.status, project.description]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+        .includes(q)
+    }),
+    [projects, filter, searchTerm],
   )
 
   useEffect(() => {
@@ -392,7 +402,7 @@ export function ProjectsWorkspace({ mode, orgSlug = '', orgScope = {} }: Project
 
   const isAdmin = mode === 'admin'
   const emptyActiveDescription = isAdmin
-    ? 'Try another stage filter or create a new client project.'
+    ? 'Try another stage/search filter or create a new client project.'
     : filter === 'all'
       ? 'Projects will appear here once work has been opened for your workspace.'
       : 'Try a different status filter to see more projects.'
@@ -496,7 +506,16 @@ export function ProjectsWorkspace({ mode, orgSlug = '', orgScope = {} }: Project
               />
             </div>
 
-            <div className="flex w-full items-center justify-between gap-3 sm:w-auto sm:justify-end">
+            <div className="flex w-full flex-wrap items-center justify-between gap-3 sm:w-auto sm:justify-end">
+              <label className="min-w-[220px] flex-1 sm:flex-none">
+                <span className="sr-only">Search projects</span>
+                <input
+                  value={searchTerm}
+                  onChange={(event) => setSearchTerm(event.target.value)}
+                  placeholder="Search projects..."
+                  className="pib-input h-9 text-sm"
+                />
+              </label>
               <div
                 className="flex rounded-[var(--radius-btn)] overflow-hidden border"
                 style={{ borderColor: 'var(--color-outline)' }}
@@ -594,7 +613,7 @@ export function ProjectsWorkspace({ mode, orgSlug = '', orgScope = {} }: Project
 
                   {isAdmin && (confirmId === project.id ? (
                     <div className="absolute top-2 right-2 flex items-center gap-1 bg-[var(--color-surface)] border border-[#ef4444] rounded-md px-2 py-1 shadow-sm z-10">
-                      <span className="text-[11px] text-[#ef4444]">Delete?</span>
+                      <span className="text-[11px] text-[#ef4444]">Archive?</span>
                       <button
                         onClick={() => handleDelete(project.id)}
                         disabled={deletingId === project.id}
@@ -617,7 +636,7 @@ export function ProjectsWorkspace({ mode, orgSlug = '', orgScope = {} }: Project
                         setConfirmId(project.id)
                       }}
                       className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-[#ef444420] text-[#ef4444]"
-                      title="Delete project"
+                      title="Archive project"
                     >
                       <span className="material-symbols-outlined text-[16px]">delete</span>
                     </button>

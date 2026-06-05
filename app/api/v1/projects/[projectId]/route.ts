@@ -54,6 +54,12 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
     updates.status = body.status
   }
 
+  if (body.archived !== undefined) {
+    updates.archived = body.archived === true
+    updates.archivedAt = body.archived === true ? FieldValue.serverTimestamp() : null
+    updates.archivedBy = body.archived === true ? user.uid : null
+  }
+
   if (body.description !== undefined) {
     updates.description = body.description
   }
