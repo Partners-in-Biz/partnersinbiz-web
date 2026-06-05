@@ -1,7 +1,7 @@
 import { notFound, redirect } from 'next/navigation'
 import { listCampaigns } from '@/lib/ads/campaigns/store'
 import { AdCampaignsWorkspace } from '@/components/ads/AdCampaignsWorkspace'
-import { BulkApproveButton } from './BulkApproveButton'
+import { BulkApproveButton } from '@/components/ads/BulkApproveButton'
 import {
   resolvePortalAdsUser,
   scopedPortalHref,
