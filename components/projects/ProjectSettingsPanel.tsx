@@ -2,6 +2,14 @@
 
 import type { ReactNode } from 'react'
 
+function parseIdList(value: string): string[] {
+  return Array.from(new Set(value.split(/[\n,]/).map(item => item.trim()).filter(Boolean)))
+}
+
+function idListValue(values: string[]): string {
+  return values.join('\n')
+}
+
 interface ProjectSettingsPanelProps {
   name: string
   status: string
@@ -11,6 +19,14 @@ interface ProjectSettingsPanelProps {
   onNameChange: (value: string) => void
   onStatusChange: (value: string) => void
   onDescriptionChange: (value: string) => void
+  sourceCompanyId: string
+  additionalCompanyIds: string[]
+  sourceContactId: string
+  additionalContactIds: string[]
+  onSourceCompanyIdChange: (value: string) => void
+  onAdditionalCompanyIdsChange: (value: string[]) => void
+  onSourceContactIdChange: (value: string) => void
+  onAdditionalContactIdsChange: (value: string[]) => void
   onSave: () => void
   peopleAccessSlot?: ReactNode
   adminTransferSlot?: ReactNode
@@ -25,6 +41,14 @@ export function ProjectSettingsPanel({
   onNameChange,
   onStatusChange,
   onDescriptionChange,
+  sourceCompanyId,
+  additionalCompanyIds,
+  sourceContactId,
+  additionalContactIds,
+  onSourceCompanyIdChange,
+  onAdditionalCompanyIdsChange,
+  onSourceContactIdChange,
+  onAdditionalContactIdsChange,
   onSave,
   peopleAccessSlot,
   adminTransferSlot,
@@ -79,6 +103,63 @@ export function ProjectSettingsPanel({
                 className="w-full rounded-[var(--radius-card)] border border-[var(--color-card-border)] bg-[var(--color-background)] px-4 py-3 text-sm text-on-surface focus:outline-none focus:border-[var(--color-accent-v2)]"
                 rows={5}
               />
+            </div>
+            <div className="md:col-span-2 rounded-[var(--radius-card)] border border-[var(--color-card-border)] bg-[var(--color-background)] p-4">
+              <div className="mb-4">
+                <p className="text-xs font-label uppercase tracking-widest text-on-surface-variant">CRM relationships</p>
+                <h3 className="mt-1 text-lg font-headline font-bold text-on-surface">Linked companies and contacts</h3>
+                <p className="mt-2 text-sm leading-6 text-on-surface-variant">
+                  Edit the project-side CRM links used by company/contact Projects panels. Claim/share invites stay tied to the explicit primary company/contact; additional links do not create extra invite or claim-token targets.
+                </p>
+              </div>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <label htmlFor="project-settings-source-company" className="block text-xs font-label uppercase tracking-widest text-on-surface-variant mb-2">Primary company</label>
+                  <input
+                    id="project-settings-source-company"
+                    type="text"
+                    value={sourceCompanyId}
+                    onChange={e => onSourceCompanyIdChange(e.target.value)}
+                    placeholder="sourceCompanyId or companyId"
+                    className="w-full rounded-[var(--radius-card)] border border-[var(--color-card-border)] bg-[var(--color-card)] px-4 py-3 font-mono text-sm text-on-surface focus:outline-none focus:border-[var(--color-accent-v2)]"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="project-settings-source-contact" className="block text-xs font-label uppercase tracking-widest text-on-surface-variant mb-2">Primary contact</label>
+                  <input
+                    id="project-settings-source-contact"
+                    type="text"
+                    value={sourceContactId}
+                    onChange={e => onSourceContactIdChange(e.target.value)}
+                    placeholder="sourceContactId or contactId"
+                    className="w-full rounded-[var(--radius-card)] border border-[var(--color-card-border)] bg-[var(--color-card)] px-4 py-3 font-mono text-sm text-on-surface focus:outline-none focus:border-[var(--color-accent-v2)]"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="project-settings-company-ids" className="block text-xs font-label uppercase tracking-widest text-on-surface-variant mb-2">Additional company links</label>
+                  <textarea
+                    id="project-settings-company-ids"
+                    value={idListValue(additionalCompanyIds)}
+                    onChange={e => onAdditionalCompanyIdsChange(parseIdList(e.target.value))}
+                    placeholder="One company id per line"
+                    rows={4}
+                    className="w-full rounded-[var(--radius-card)] border border-[var(--color-card-border)] bg-[var(--color-card)] px-4 py-3 font-mono text-sm text-on-surface focus:outline-none focus:border-[var(--color-accent-v2)]"
+                  />
+                  <p className="mt-1 text-[11px] text-on-surface-variant">Saved to companyIds for reverse CRM visibility.</p>
+                </div>
+                <div>
+                  <label htmlFor="project-settings-contact-ids" className="block text-xs font-label uppercase tracking-widest text-on-surface-variant mb-2">Additional contact links</label>
+                  <textarea
+                    id="project-settings-contact-ids"
+                    value={idListValue(additionalContactIds)}
+                    onChange={e => onAdditionalContactIdsChange(parseIdList(e.target.value))}
+                    placeholder="One contact id per line"
+                    rows={4}
+                    className="w-full rounded-[var(--radius-card)] border border-[var(--color-card-border)] bg-[var(--color-card)] px-4 py-3 font-mono text-sm text-on-surface focus:outline-none focus:border-[var(--color-accent-v2)]"
+                  />
+                  <p className="mt-1 text-[11px] text-on-surface-variant">Saved to contactIds for reverse CRM visibility.</p>
+                </div>
+              </div>
             </div>
           </div>
           <div className="mt-6 flex items-center gap-3 border-t border-[var(--color-card-border)] pt-5">

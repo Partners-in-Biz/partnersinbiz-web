@@ -11,6 +11,9 @@ const mockProjectGetById = jest.fn()
 const mockProjectDelete = jest.fn()
 const mockProjectMemberDoc = jest.fn()
 const mockProjectMemberSet = jest.fn()
+const mockProjectMemberGet = jest.fn()
+const mockProjectOrganizationDoc = jest.fn()
+const mockProjectOrganizationGet = jest.fn()
 const mockCollection = jest.fn()
 const mockRecursiveDelete = jest.fn()
 const mockActivityAdd = jest.fn()
@@ -98,8 +101,11 @@ beforeEach(() => {
   mockRecursiveDelete.mockResolvedValue(undefined)
   mockActivityAdd.mockResolvedValue({ id: 'activity-1' })
   mockProjectUpdate.mockResolvedValue(undefined)
-  mockProjectMemberDoc.mockReturnValue({ set: mockProjectMemberSet })
+  mockProjectMemberDoc.mockReturnValue({ set: mockProjectMemberSet, get: mockProjectMemberGet })
   mockProjectMemberSet.mockResolvedValue(undefined)
+  mockProjectMemberGet.mockResolvedValue({ exists: false, data: () => undefined })
+  mockProjectOrganizationDoc.mockReturnValue({ get: mockProjectOrganizationGet })
+  mockProjectOrganizationGet.mockResolvedValue({ exists: false, data: () => undefined })
   mockCompanyDoc.mockReturnValue({ get: mockCompanyGet })
   mockContactDoc.mockReturnValue({ get: mockContactGet })
   mockCompanyGet.mockResolvedValue({ exists: false, data: () => undefined })
@@ -122,6 +128,7 @@ beforeEach(() => {
     if (name === 'organizations') return { where: mockOrgWhere, doc: mockOrgDoc }
     if (name === 'projects') return projectCollection
     if (name === 'projectMembers') return { doc: mockProjectMemberDoc }
+    if (name === 'projectOrganizations') return { doc: mockProjectOrganizationDoc }
     if (name === 'companies') return { doc: mockCompanyDoc }
     if (name === 'contacts') return { doc: mockContactDoc }
     if (name === 'activity') return { add: mockActivityAdd }
@@ -410,6 +417,53 @@ describe('POST /api/v1/projects', () => {
       claimToken: 'claim-token-1',
       claimStatus: 'claimed',
     }))
+  })
+})
+
+describe('PATCH /api/v1/projects/[projectId]', () => {
+  it('updates normalized project company/contact links without fanning out claim tokens', async () => {
+    mockUser = { uid: 'admin-1', role: 'admin', orgId: 'platform', allowedOrgIds: ['platform', 'recipient-org'] }
+    mockProjectGetById.mockResolvedValue({
+      exists: true,
+      id: 'project-1',
+      data: () => ({
+        orgId: 'platform',
+        sourceOrgId: 'platform',
+        name: 'Shared implementation',
+        sourceCompanyId: 'company-primary',
+        sourceContactId: 'contact-primary',
+        recipientOrgId: 'recipient-org',
+        claimToken: 'claim-token-1',
+      }),
+    })
+    mockCompanyGet.mockResolvedValue({ exists: true, data: () => ({ orgId: 'platform', name: 'Linked company' }) })
+    mockContactGet.mockResolvedValue({ exists: true, data: () => ({ orgId: 'platform', name: 'Linked contact' }) })
+
+    const { PATCH } = await import('@/app/api/v1/projects/[projectId]/route')
+    const req = new NextRequest('http://localhost/api/v1/projects/project-1', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        sourceCompanyId: ' company-primary ',
+        companyIds: ['company-secondary', 'company-primary'],
+        sourceContactId: ' contact-primary ',
+        contactIds: ['contact-secondary'],
+      }),
+    })
+
+    const res = await PATCH(req, { params: Promise.resolve({ projectId: 'project-1' }) })
+
+    expect(res.status).toBe(200)
+    expect(mockProjectUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      sourceCompanyId: 'company-primary',
+      sourceCompanyIds: ['company-primary'],
+      companyIds: ['company-secondary', 'company-primary'],
+      sourceContactId: 'contact-primary',
+      sourceContactIds: ['contact-primary'],
+      contactIds: ['contact-secondary'],
+    }))
+    expect(mockEnsureClaimableRelationship).not.toHaveBeenCalled()
+    expect(mockProjectUpdate).not.toHaveBeenCalledWith(expect.objectContaining({ claimToken: expect.anything() }))
   })
 })
 

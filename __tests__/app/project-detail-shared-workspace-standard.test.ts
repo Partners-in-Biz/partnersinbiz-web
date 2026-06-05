@@ -53,4 +53,21 @@ describe('project detail shared workspace standard', () => {
     expect(workspace).toContain('hideAgentSection={mode ===')
     expect(workspace).toContain("mode === 'admin'")
   })
+
+  it('keeps CRM relationship editing centralized in project settings', () => {
+    const workspace = read('components/projects/ProjectDetailWorkspace.tsx')
+    const settingsPanel = read('components/projects/ProjectSettingsPanel.tsx')
+
+    expect(workspace).toContain('settingsSourceCompanyId')
+    expect(workspace).toContain('sourceCompanyId: cleanSourceCompanyId || undefined')
+    expect(workspace).toContain('companyIds: cleanAdditionalCompanyIds')
+    expect(workspace).toContain('sourceContactId: cleanSourceContactId || undefined')
+    expect(workspace).toContain('contactIds: cleanAdditionalContactIds')
+    expect(settingsPanel).toContain('CRM relationships')
+    expect(settingsPanel).toContain('Primary company')
+    expect(settingsPanel).toContain('Additional company links')
+    expect(settingsPanel).toContain('Primary contact')
+    expect(settingsPanel).toContain('Additional contact links')
+    expect(settingsPanel).toContain('Claim/share invites stay tied to the explicit primary company/contact')
+  })
 })
