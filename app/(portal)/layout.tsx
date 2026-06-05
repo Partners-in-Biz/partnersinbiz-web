@@ -130,11 +130,19 @@ function active(pathname: string, item: NavItem) {
   return item.activePatterns?.some((pattern) => pathname === pattern || pathname.startsWith(pattern + '/')) ?? false
 }
 
-function scopedPortalHref(path: string, orgId: string, orgSlug: string) {
+function scopedPortalHref(
+  path: string,
+  orgId: string,
+  orgSlug: string,
+  sourceCompanyId = '',
+  sourceCompanyName = '',
+) {
   if (!orgId) return path
   const params = new URLSearchParams()
   params.set('orgId', orgId)
   if (orgSlug) params.set('orgSlug', orgSlug)
+  if (sourceCompanyId) params.set('sourceCompanyId', sourceCompanyId)
+  if (sourceCompanyName) params.set('sourceCompanyName', sourceCompanyName)
   return `${path}${path.includes('?') ? '&' : '?'}${params.toString()}`
 }
 
@@ -195,6 +203,8 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
   const searchParams = useSearchParams()
   const requestedOrgId = searchParams.get('orgId')?.trim() ?? ''
   const requestedOrgSlug = searchParams.get('orgSlug')?.trim() ?? ''
+  const requestedSourceCompanyId = searchParams.get('sourceCompanyId')?.trim() ?? ''
+  const requestedSourceCompanyName = searchParams.get('sourceCompanyName')?.trim() ?? ''
   const isEmailRoute = pathname === '/portal/email' || pathname.startsWith('/portal/email/')
   const isMessagesRoute = pathname === '/portal/messages' || pathname.startsWith('/portal/messages/')
   const isWorkspaceRoute = isEmailRoute || isMessagesRoute
@@ -389,7 +399,15 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
   }
 
   const scopedShellHref = (path: string) =>
-    requestedOrgId ? scopedPortalHref(path, requestedOrgId, requestedOrgSlug || activeOrgSlug) : path
+    requestedOrgId
+      ? scopedPortalHref(
+          path,
+          requestedOrgId,
+          requestedOrgSlug || activeOrgSlug,
+          requestedSourceCompanyId,
+          requestedSourceCompanyName,
+        )
+      : path
 
   const navWithBadges: NavItem[] = NAV_LINKS.map((item) => {
     const href = requestedOrgId
