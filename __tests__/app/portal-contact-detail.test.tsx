@@ -954,6 +954,29 @@ describe('Portal contact detail page', () => {
     expect(screen.getByRole('textbox', { name: 'Relationship notes for Jane Client' })).toHaveFocus()
   })
 
+  it('keeps captured email and phone details editable without losing direct contact links', async () => {
+    mockContactOverrides = {
+      phone: '+27825550123',
+    }
+
+    render(<PortalContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
+    })
+
+    expect(screen.getAllByRole('link', { name: 'jane@example.com' })[0])
+      .toHaveAttribute('href', 'mailto:jane@example.com')
+    expect(screen.getAllByRole('link', { name: '+27825550123' })[0])
+      .toHaveAttribute('href', 'tel:+27825550123')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit email jane@example.com for Jane Client from details' }))
+    expect(screen.getByRole('textbox', { name: 'Email address for Jane Client' })).toHaveFocus()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit phone +27825550123 for Jane Client from details' }))
+    expect(screen.getByRole('textbox', { name: 'Phone number for Jane Client' })).toHaveFocus()
+  })
+
   it('turns first-viewport contact identity into direct email phone and company links', async () => {
     mockContactOverrides = {
       phone: '+27825550123',

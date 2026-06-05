@@ -1274,18 +1274,24 @@ export default function PortalContactDetailPage() {
       value: email.trim(),
       href: email.trim() ? `mailto:${email.trim()}` : '',
       empty: 'No email captured',
-      actionLabel: 'Add email',
-      actionAriaLabel: `Add email from details for ${contactName}`,
+      actionLabel: email.trim() ? 'Edit email' : 'Add email',
+      actionAriaLabel: email.trim()
+        ? `Edit email ${email.trim()} for ${contactName} from details`
+        : `Add email from details for ${contactName}`,
       onAction: () => focusProfileField(emailFieldRef),
+      needsActionWhenValued: true,
     },
     {
       label: 'Phone',
       value: phone.trim(),
       href: phone.trim() ? `tel:${phone.trim()}` : '',
       empty: 'No phone captured',
-      actionLabel: 'Add phone',
-      actionAriaLabel: `Add phone from details for ${contactName}`,
+      actionLabel: phone.trim() ? 'Edit phone' : 'Add phone',
+      actionAriaLabel: phone.trim()
+        ? `Edit phone ${phone.trim()} for ${contactName} from details`
+        : `Add phone from details for ${contactName}`,
       onAction: () => focusProfileField(phoneFieldRef),
+      needsActionWhenValued: true,
     },
     {
       label: 'Linked company',
