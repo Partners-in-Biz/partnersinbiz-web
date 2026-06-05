@@ -1,9 +1,11 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { CompanyMigrationCommandCenter } from '@/components/crm/CompanyMigrationCommandCenter'
+import { scopedApiPath, scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -44,12 +46,20 @@ function Skeleton({ className = '' }: { className?: string }) {
   return <div className={`pib-skeleton ${className}`} />
 }
 
-export function ExistingCompanyReviewLink({ companyId, companyName }: { companyId: string; companyName: string }) {
+export function ExistingCompanyReviewLink({
+  companyId,
+  companyName,
+  href,
+}: {
+  companyId: string
+  companyName: string
+  href?: string
+}) {
   const label = companyName.trim() || 'matched company'
 
   return (
     <Link
-      href={`/portal/companies/${companyId}`}
+      href={href ?? `/portal/companies/${companyId}`}
       className="inline-flex max-w-[220px] items-center gap-1 rounded-md border border-[var(--color-pib-line)] bg-white/[0.03] px-2.5 py-1 text-xs font-medium text-[var(--color-accent-v2)] transition-colors hover:border-[var(--color-accent-v2)]/50 hover:bg-white/[0.06]"
       target="_blank"
       rel="noopener noreferrer"
@@ -98,6 +108,10 @@ function ResultBanner({ summary }: { summary: ApplyResponse['summary'] }) {
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function MigrateCompaniesPage() {
+  const searchParams = useSearchParams()
+  const orgScope = useMemo(() => scopeFromSearchParams(searchParams), [searchParams])
+  const companyApiPath = useCallback((path: string) => scopedApiPath(path, orgScope), [orgScope])
+  const companyPortalPath = useCallback((path: string) => scopedPortalPath(path, orgScope), [orgScope])
   const [matches, setMatches] = useState<MigrateMatch[]>([])
   const [loading, setLoading] = useState(true)
   const [previewError, setPreviewError] = useState<string | null>(null)
@@ -117,7 +131,7 @@ export default function MigrateCompaniesPage() {
     setLoading(true)
     setPreviewError(null)
     try {
-      const res = await fetch('/api/v1/crm/companies/migrate-from-contacts', {
+      const res = await fetch(companyApiPath('/api/v1/crm/companies/migrate-from-contacts'), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ mode: 'preview' }),
@@ -148,7 +162,7 @@ export default function MigrateCompaniesPage() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [companyApiPath])
 
   useEffect(() => {
     void fetchPreview()
@@ -188,7 +202,7 @@ export default function MigrateCompaniesPage() {
         return
       }
 
-      const res = await fetch('/api/v1/crm/companies/migrate-from-contacts', {
+      const res = await fetch(companyApiPath('/api/v1/crm/companies/migrate-from-contacts'), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ mode: 'apply', selections }),
@@ -216,7 +230,7 @@ export default function MigrateCompaniesPage() {
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
           <Link
-            href="/portal/companies"
+            href={companyPortalPath('/portal/companies')}
             className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] inline-flex items-center gap-1 transition-colors mb-2"
           >
             <span className="material-symbols-outlined text-sm">arrow_back</span>
@@ -285,7 +299,7 @@ export default function MigrateCompaniesPage() {
                   </td>
                   <td className="px-4 py-3 text-[var(--color-pib-text)]">
                     {row.companyId ? (
-                      <Link href={`/portal/companies/${row.companyId}`} className="text-[var(--color-accent-v2)] hover:underline">
+                      <Link href={companyPortalPath(`/portal/companies/${row.companyId}`)} className="text-[var(--color-accent-v2)] hover:underline">
                         {row.companyId}
                       </Link>
                     ) : '—'}
@@ -338,11 +352,11 @@ export default function MigrateCompaniesPage() {
             Every visible contact company value is already grouped or ready for first-class account work.
           </p>
           <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
-            <Link href="/portal/companies" className="btn-pib-accent inline-flex items-center gap-1.5 text-sm">
+            <Link href={companyPortalPath('/portal/companies')} className="btn-pib-accent inline-flex items-center gap-1.5 text-sm">
               <span className="material-symbols-outlined text-[16px]" aria-hidden="true">business</span>
               Review companies
             </Link>
-            <Link href="/portal/contacts" className="btn-pib-secondary inline-flex items-center gap-1.5 text-sm">
+            <Link href={companyPortalPath('/portal/contacts')} className="btn-pib-secondary inline-flex items-center gap-1.5 text-sm">
               <span className="material-symbols-outlined text-[16px]" aria-hidden="true">group</span>
               Review contacts
             </Link>
@@ -411,6 +425,7 @@ export default function MigrateCompaniesPage() {
                         <ExistingCompanyReviewLink
                           companyId={m.existingCompanyId}
                           companyName={names[m.normalizedKey] ?? m.suggestedCompanyName}
+                          href={companyPortalPath(`/portal/companies/${m.existingCompanyId}`)}
                         />
                       ) : (
                         <span className="text-xs text-[var(--color-pib-text-muted)]">—</span>
