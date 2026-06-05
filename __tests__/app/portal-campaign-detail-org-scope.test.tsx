@@ -1,3 +1,5 @@
+import { render, screen } from '@testing-library/react'
+
 const mockVerifySessionCookie = jest.fn()
 const mockCookies = jest.fn()
 const mockUserDoc = jest.fn()
@@ -5,6 +7,25 @@ const mockOrgDoc = jest.fn()
 const mockCollection = jest.fn()
 const mockLoadCampaignWithAssets = jest.fn()
 const mockCanUsePortalOrg = jest.fn()
+const mockCockpitClient = jest.fn(
+  ({
+    campaignId,
+    orgName,
+    brand,
+  }: {
+    campaignId: string
+    orgName: string
+    brand?: { name?: string }
+  }) => (
+    <div
+      data-testid="campaign-cockpit"
+      data-campaign-id={campaignId}
+      data-org-name={orgName}
+      data-brand-name={brand?.name ?? ''}
+    />
+  ),
+)
+const mockToPreviewBrand = jest.fn()
 
 jest.mock('next/headers', () => ({
   cookies: () => mockCookies(),
@@ -29,19 +50,29 @@ jest.mock('@/lib/campaigns/load', () => ({
 }))
 
 jest.mock('@/app/(portal)/portal/campaigns/[id]/cockpit-client', () => ({
-  CockpitClient: ({ campaignId, orgName }: { campaignId: string; orgName: string }) => (
-    <div data-testid="campaign-cockpit" data-campaign-id={campaignId} data-org-name={orgName} />
-  ),
+  CockpitClient: (props: { campaignId: string; orgName: string; brand?: { name?: string } }) =>
+    mockCockpitClient(props),
 }))
 
 jest.mock('@/lib/organizations/toPreviewBrand', () => ({
-  toPreviewBrand: () => undefined,
+  toPreviewBrand: (...args: unknown[]) => mockToPreviewBrand(...args),
 }))
 
 describe('portal campaign detail org scope', () => {
   beforeEach(() => {
     jest.resetModules()
     jest.clearAllMocks()
+    mockToPreviewBrand.mockImplementation((brandColors, brandProfile, orgName) => ({
+      name: orgName,
+      palette: {
+        bg: '#0A0A0B',
+        accent: '#F5A623',
+        alert: '#F59E0B',
+        text: '#EDEDED',
+      },
+      brandColors,
+      brandProfile,
+    }))
     mockVerifySessionCookie.mockResolvedValue({ uid: 'admin-1' })
     mockCookies.mockResolvedValue({ get: () => ({ value: 'session' }) })
     mockCanUsePortalOrg.mockResolvedValue(true)
@@ -90,7 +121,14 @@ describe('portal campaign detail org scope', () => {
     } as never)
 
     expect(result).toBeTruthy()
+    render(result)
+    expect(screen.getByTestId('campaign-cockpit')).toHaveAttribute('data-brand-name', 'Lumen')
     expect(mockCanUsePortalOrg).toHaveBeenCalledWith('admin-1', expect.objectContaining({ orgId: 'platform-org' }), 'lumen-org')
     expect(mockOrgDoc).toHaveBeenCalledWith('lumen-org')
+    expect(mockToPreviewBrand).toHaveBeenCalledWith(
+      { primary: '#111111', accent: '#F5A623' },
+      {},
+      'Lumen',
+    )
   })
 })
