@@ -38,7 +38,7 @@ describe('PortalSocialDashboard', () => {
           }),
         } as Response)
       }
-      if (url === '/api/v1/social/posts?limit=100&orgId=lumen-org') {
+      if (url === '/api/v1/social/posts?limit=200&orgId=lumen-org') {
         return Promise.resolve({
           ok: true,
           json: async () => ({
@@ -87,11 +87,14 @@ describe('PortalSocialDashboard', () => {
     })
 
     expect(await screen.findByText('Lumen')).toBeInTheDocument()
-    expect(await screen.findByText('Lumen launch social post')).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.getAllByText('Lumen launch social post')).toHaveLength(2)
+    })
+    expect(screen.getByText('Recent posts')).toBeInTheDocument()
 
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith('/api/v1/social/accounts?orgId=lumen-org')
-      expect(global.fetch).toHaveBeenCalledWith('/api/v1/social/posts?limit=100&orgId=lumen-org')
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/social/posts?limit=200&orgId=lumen-org')
       expect(global.fetch).toHaveBeenCalledWith('/api/v1/portal/org?orgId=lumen-org')
     })
 

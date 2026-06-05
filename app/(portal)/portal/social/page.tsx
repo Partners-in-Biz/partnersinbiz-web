@@ -19,12 +19,13 @@ export default function PortalSocialDashboard() {
       title="Social"
       eyebrow="Social media"
       description="Approve content, monitor your queue, and keep every platform in sync."
-      postsLimit={100}
+      postsLimit={200}
       buildApiPath={buildApiPath}
       buildHref={buildHref}
       loadOrgName
       showConnectedAccounts
       showApprovalTabs
+      showRecentPosts
       primaryAction={{ label: 'Compose post', href: '/portal/social/compose', icon: 'edit' }}
       quickActions={[
         { label: 'Vault', href: '/portal/social/vault', icon: 'folder' },
