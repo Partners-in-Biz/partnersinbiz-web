@@ -15,6 +15,7 @@ import {
 } from '@/lib/workspace-os/broker'
 import {
   normalizeWorkspaceFolderInput,
+  buildWorkspaceFolderUpdate,
   canReadWorkspaceFolder,
 } from '@/lib/workspace-folders/model'
 
@@ -197,6 +198,35 @@ describe('workspace folder registry models', () => {
     expect(canReadWorkspaceFolder(folder, { uid: 'client', role: 'client', orgId: 'org-2' })).toBe(false)
     expect(() => normalizeWorkspaceFolderInput({ name: 'Bad', safeMetadata: { accessToken: 'raw' } }, 'org-1')).toThrow('raw secrets are not allowed')
   })
+
+  it('keeps folder registry updates complete and safe-metadata-only', () => {
+    const folder = normalizeWorkspaceFolderInput({
+      name: 'Client assets',
+      safeMetadata: { source: 'provisioning', nested: { ok: true }, dropMe: () => 'unsafe' },
+    }, 'org-1')
+    const update = buildWorkspaceFolderUpdate({
+      provider: 'google_workspace',
+      owner: { type: 'agent', id: 'theo' },
+      connectionId: 'conn-1',
+      projectId: 'project-1',
+      taskId: 'task-1',
+      clientDocumentId: 'doc-1',
+      capabilityScopes: ['drive.read'],
+      safeMetadata: { source: 'manual', nested: { ok: true }, unsafe: () => 'drop' },
+    })
+
+    expect(folder.safeMetadata).toEqual({ source: 'provisioning', nested: { ok: true } })
+    expect(update).toMatchObject({
+      provider: 'google_workspace',
+      owner: { type: 'agent', id: 'theo' },
+      connectionId: 'conn-1',
+      projectId: 'project-1',
+      taskId: 'task-1',
+      clientDocumentId: 'doc-1',
+      capabilityScopes: ['drive.read'],
+      safeMetadata: { source: 'manual', nested: { ok: true } },
+    })
+  })
 })
 
 describe('workspace broker approval envelope', () => {
@@ -285,6 +315,13 @@ describe('workspace broker approval envelope', () => {
     expect(canExecuteWorkspaceBrokerJob(awaiting)).toMatchObject({ ok: false, reason: 'approval_required' })
     expect(canExecuteWorkspaceBrokerJob({ ...approved, status: 'running' })).toMatchObject({ ok: true })
     expect(canExecuteWorkspaceBrokerJob({ operation: 'request_share', status: 'queued', approvalRequired: false, approvalSatisfied: false, input: { visibility: 'admin_agents_clients' } })).toMatchObject({ ok: false, reason: 'approval_required' })
+    expect(canExecuteWorkspaceBrokerJob({
+      operation: 'request_share',
+      status: 'queued',
+      approvalStatus: 'approved',
+      approvalGateTaskId: 'caller-supplied-gate',
+      input: { visibility: 'admin_agents_clients' },
+    })).toMatchObject({ ok: false, reason: 'approval_required' })
   })
 
   it('detects Google ACLs that are broader than PiB visibility', () => {

@@ -134,6 +134,23 @@ describe('workspace broker API routes', () => {
     }))
   })
 
+  it('does not let create callers self-satisfy Workspace broker approval gates', async () => {
+    mockAdd.mockResolvedValue({ id: 'job-self-approval' })
+    const { POST } = await import('@/app/api/v1/workspace-broker/docs/create/route')
+    const res = await POST(new NextRequest('http://localhost/api/v1/workspace-broker/docs/create', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ orgId: 'org-1', title: 'Client-facing brief', visibility: 'admin_agents_clients', approvalGateTaskId: 'task-approval-1', approvalStatus: 'approved' }),
+    }))
+
+    expect(res.status).toBe(202)
+    expect(mockAdd).toHaveBeenCalledWith(expect.objectContaining({
+      status: 'awaiting_approval',
+      approvalSatisfied: false,
+      approvalEvidence: { gateTaskId: null, status: null },
+    }))
+  })
+
   it('archives broker delete requests as approval-gated metadata jobs only', async () => {
     mockAdd.mockResolvedValue({ id: 'job-delete' })
     mockGetDoc.mockResolvedValue({ exists: true, id: 'artifact-1', data: () => ({ orgId: 'org-1', title: 'Plan', artifactType: 'google_doc', visibility: 'admin_agents', deleted: false }) })
@@ -187,5 +204,18 @@ describe('workspace broker API routes', () => {
       output: { googleMutationPerformed: false },
       updatedAt: 'SERVER_TIMESTAMP',
     }))
+  })
+
+  it('rejects approval transitions for jobs that are not awaiting approval', async () => {
+    mockGetDoc.mockResolvedValue({ exists: true, id: 'job-1', data: () => ({ orgId: 'org-1', status: 'done', operation: 'request_share', approvalRequired: true, output: { googleMutationPerformed: false } }) })
+    const { PATCH } = await import('@/app/api/v1/workspace-broker/jobs/[id]/route')
+    const res = await PATCH(new NextRequest('http://localhost/api/v1/workspace-broker/jobs/job-1?orgId=org-1', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ action: 'approve' }),
+    }), { params: Promise.resolve({ id: 'job-1' }) })
+
+    expect(res.status).toBe(409)
+    expect(mockUpdate).not.toHaveBeenCalled()
   })
 })

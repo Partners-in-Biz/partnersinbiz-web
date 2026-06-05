@@ -218,9 +218,9 @@ export function buildWorkspaceBrokerJobInput(input: WorkspaceBrokerJobInput): Wo
 export function canExecuteWorkspaceBrokerJob(job: Partial<WorkspaceBrokerJob>): { ok: true } | { ok: false; reason: 'approval_required' | 'not_ready' } {
   const operation = typeof job.operation === 'string' && (WORKSPACE_BROKER_OPERATIONS as readonly string[]).includes(job.operation) ? job.operation as WorkspaceBrokerOperation : 'link_existing'
   const visibility = asRecord(job.input).visibility
-  const fallbackDecision = evaluateWorkspaceBrokerApproval({ operation, visibility: cleanString(visibility), approvalStatus: cleanString(job.approvalStatus), approvalGateTaskId: cleanString(job.approvalGateTaskId) })
+  const fallbackDecision = evaluateWorkspaceBrokerApproval({ operation, visibility: cleanString(visibility) })
   const approvalRequired = job.approvalRequired === true || fallbackDecision.approvalRequired
-  const approvalSatisfied = job.approvalSatisfied === true || (job.approvalSatisfied === undefined && fallbackDecision.approvalSatisfied)
+  const approvalSatisfied = job.approvalSatisfied === true
   if (approvalRequired && !approvalSatisfied) return { ok: false, reason: 'approval_required' }
   const status = cleanString(job.status)
   if (status !== 'queued' && status !== 'running') return { ok: false, reason: 'not_ready' }

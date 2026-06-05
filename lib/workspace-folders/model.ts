@@ -1,4 +1,5 @@
 import type { ApiUser } from '@/lib/api/types'
+import { normalizeSafeMetadata } from '@/lib/workspace-os/common'
 
 export const WORKSPACE_FOLDER_COLLECTION = 'workspace_folders'
 
@@ -233,7 +234,7 @@ export function normalizeWorkspaceFolderInput(input: unknown, orgId: string): Wo
       id: cleanString(asRecord(body.owner).id) ?? cleanString(body.ownerAgentId) ?? cleanString(body.ownerUserId),
     },
     capabilityScopes: cleanStringArray(body.capabilityScopes),
-    safeMetadata: asRecord(body.safeMetadata),
+    safeMetadata: normalizeSafeMetadata(body.safeMetadata),
     parentId: cleanString(body.parentId),
     visibility: enumValue(body.visibility, WORKSPACE_FOLDER_VISIBILITIES, 'admin_agents', 'visibility'),
     tags: cleanStringArray(body.tags),
@@ -285,6 +286,14 @@ export function buildWorkspaceFolderUpdate(input: unknown): Partial<WorkspaceFol
     'description',
     'resourceType',
     'resourceId',
+    'projectId',
+    'taskId',
+    'clientDocumentId',
+    'connectionId',
+    'provider',
+    'owner',
+    'capabilityScopes',
+    'safeMetadata',
     'parentId',
     'visibility',
     'tags',
