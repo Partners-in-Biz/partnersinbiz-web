@@ -1,9 +1,12 @@
 import type { MetadataRoute } from 'next'
 import { SITE, SERVICES, CASE_STUDIES } from '@/lib/seo/site'
 import { POSTS } from '@/lib/content/posts'
+import { listLiveSlugs } from '@/lib/content/posts-firestore'
+import { PUBLISHED_CAMPAIGN_INSIGHT_SLUGS } from '@/lib/seo/published-insights'
 
-export default function sitemap(): MetadataRoute.Sitemap {
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticLastModified = new Date('2026-06-01')
+  const campaignLastModified = new Date('2026-06-03')
 
   const staticPages: MetadataRoute.Sitemap = [
     '',
@@ -37,5 +40,16 @@ export default function sitemap(): MetadataRoute.Sitemap {
     lastModified: new Date(p.dateModified ?? p.datePublished),
   }))
 
-  return [...staticPages, ...services, ...work, ...insights]
+  const firestoreSlugs = await listLiveSlugs().catch(() => [])
+  const staticInsightSlugs = new Set(POSTS.map(p => p.slug))
+  const publishedCampaignInsights: MetadataRoute.Sitemap = Array.from(
+    new Set([...PUBLISHED_CAMPAIGN_INSIGHT_SLUGS, ...firestoreSlugs]),
+  )
+    .filter(slug => !staticInsightSlugs.has(slug))
+    .map(slug => ({
+      url: `${SITE.url}/insights/${slug}`,
+      lastModified: campaignLastModified,
+    }))
+
+  return [...staticPages, ...services, ...work, ...insights, ...publishedCampaignInsights]
 }

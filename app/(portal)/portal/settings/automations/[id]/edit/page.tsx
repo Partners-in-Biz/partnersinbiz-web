@@ -1,10 +1,11 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { use, useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { use, useCallback, useEffect, useMemo, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { AutomationRuleForm } from '@/components/crm/AutomationRuleForm'
 import type { AutomationRule } from '@/lib/automations/types'
+import { scopedApiPath, scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 
 export default function EditAutomationPage({
   params,
@@ -13,44 +14,51 @@ export default function EditAutomationPage({
 }) {
   const { id } = use(params)
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const orgScope = useMemo(() => scopeFromSearchParams(searchParams), [searchParams])
+  const automationEndpoint = useCallback((path: string) => scopedApiPath(path, orgScope), [orgScope])
+  const automationHref = useCallback((path: string) => scopedPortalPath(path, orgScope), [orgScope])
 
   const [rule, setRule] = useState<AutomationRule | null>(null)
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState<string | null>(null)
 
+  const loadRule = useCallback(async (cancelled?: () => boolean) => {
+    setLoading(true)
+    setFetchError(null)
+    try {
+      const res = await fetch(automationEndpoint('/api/v1/crm/automations'))
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        const message = typeof body?.error === 'string' ? body.error : `HTTP ${res.status}`
+        throw new Error(message)
+      }
+      const rules: AutomationRule[] = body.data?.rules ?? body.data ?? body
+      const found = Array.isArray(rules) ? rules.find((r) => r.id === id) : null
+      if (!found) throw new Error('Automation rule not found.')
+      if (!cancelled?.()) setRule(found)
+    } catch (err: unknown) {
+      if (!cancelled?.()) setFetchError(err instanceof Error ? err.message : 'Failed to load rule.')
+    } finally {
+      if (!cancelled?.()) setLoading(false)
+    }
+  }, [automationEndpoint, id])
+
   useEffect(() => {
     let cancelled = false
 
-    async function loadRule() {
-      setLoading(true)
-      setFetchError(null)
-      try {
-        const res = await fetch('/api/v1/crm/automations')
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        const body = await res.json()
-        const rules: AutomationRule[] = body.data?.rules ?? body.data ?? body
-        const found = Array.isArray(rules) ? rules.find((r) => r.id === id) : null
-        if (!found) throw new Error('Automation rule not found.')
-        if (!cancelled) setRule(found)
-      } catch (err: unknown) {
-        if (!cancelled) setFetchError(err instanceof Error ? err.message : 'Failed to load rule.')
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    }
-
-    void loadRule()
+    void loadRule(() => cancelled)
     return () => {
       cancelled = true
     }
-  }, [id])
+  }, [id, loadRule])
 
   function handleSave() {
-    router.push('/portal/settings/automations')
+    router.push(automationHref('/portal/settings/automations'))
   }
 
   function handleCancel() {
-    router.push('/portal/settings/automations')
+    router.push(automationHref('/portal/settings/automations'))
   }
 
   return (
@@ -86,21 +94,51 @@ export default function EditAutomationPage({
           <p className="text-sm text-[var(--color-pib-text-muted)]">Loading rule…</p>
         </div>
       ) : fetchError ? (
-        <div className="bento-card !p-6 flex items-start gap-2">
-          <span className="material-symbols-outlined text-[16px] text-red-400 mt-0.5">error</span>
-          <div>
-            <p className="text-sm text-red-400">{fetchError}</p>
-            <button
-              type="button"
-              onClick={handleCancel}
-              className="cursor-pointer mt-3 btn-pib-secondary text-sm"
-            >
-              Back to automations
-            </button>
+        <section className="bento-card border-amber-400/25 bg-amber-400/10">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="flex gap-3">
+              <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-amber-400/25 bg-amber-400/10 text-amber-200">
+                <span className="material-symbols-outlined text-[20px]" aria-hidden="true">warning</span>
+              </span>
+              <div>
+                <p className="eyebrow !text-[10px] text-amber-200">Source health</p>
+                <h2 className="mt-1 font-display text-xl text-[var(--color-pib-text)]">
+                  Automation rule could not load
+                </h2>
+                <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">{fetchError}</p>
+                <p className="mt-3 text-xs leading-5 text-[var(--color-pib-text-muted)]">
+                  Trigger, timing, and action controls stay hidden until the automation source responds, so teams do not change workflow rules from stale or partial data.
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => loadRule()}
+                aria-label="Retry loading automation rule"
+                className="cursor-pointer btn-pib-secondary flex items-center gap-1.5 text-sm"
+              >
+                <span className="material-symbols-outlined text-[16px]" aria-hidden="true">refresh</span>
+                Retry
+              </button>
+              <button
+                type="button"
+                onClick={handleCancel}
+                className="cursor-pointer btn-pib-secondary text-sm"
+              >
+                Back to automations
+              </button>
+            </div>
           </div>
-        </div>
+        </section>
       ) : rule ? (
-        <AutomationRuleForm initial={rule} onSave={handleSave} onCancel={handleCancel} />
+        <AutomationRuleForm
+          initial={rule}
+          endpoint={automationEndpoint(`/api/v1/crm/automations/${rule.id}`)}
+          sequencesEndpoint={automationEndpoint('/api/v1/crm/sequences')}
+          onSave={handleSave}
+          onCancel={handleCancel}
+        />
       ) : null}
     </div>
   )

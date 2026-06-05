@@ -18,13 +18,22 @@ const TYPE_OPTIONS = CLIENT_DOCUMENT_TEMPLATES.map((template) => ({
   description: template.picker.description,
 }))
 
+function initialDocumentQuery() {
+  if (typeof window === 'undefined') return new URLSearchParams()
+  return new URLSearchParams(window.location.search)
+}
+
 export default function NewDocumentPage() {
   const router = useRouter()
+  const searchParams = initialDocumentQuery()
 
   const [orgs, setOrgs] = useState<OrgOption[]>([])
-  const [orgId, setOrgId] = useState('')
-  const [title, setTitle] = useState('')
-  const [type, setType] = useState<ClientDocumentType>('sales_proposal')
+  const [orgId, setOrgId] = useState(searchParams.get('orgId') ?? '')
+  const [title, setTitle] = useState(searchParams.get('title') ?? '')
+  const initialType = searchParams.get('type')
+  const [type, setType] = useState<ClientDocumentType>(
+    TYPE_OPTIONS.some(option => option.value === initialType) ? initialType as ClientDocumentType : 'sales_proposal'
+  )
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 

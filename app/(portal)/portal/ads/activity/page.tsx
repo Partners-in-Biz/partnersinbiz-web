@@ -1,26 +1,12 @@
-import { cookies } from 'next/headers'
-import { redirect } from 'next/navigation'
-import { adminAuth, adminDb } from '@/lib/firebase/admin'
+import { notFound, redirect } from 'next/navigation'
+import { adminDb } from '@/lib/firebase/admin'
+import {
+  resolvePortalAdsUser,
+  scopeFromSearchParams,
+  type PortalAdsSearchParams,
+} from '../portalAdsScope'
 
 export const dynamic = 'force-dynamic'
-
-// Mirror of `app/(portal)/portal/ads/page.tsx::currentClient()` — kept inline
-// because there's no shared portal-auth helper for server components yet.
-async function currentClient(): Promise<{ uid: string; orgId: string } | null> {
-  const cookieStore = await cookies()
-  const cookieName = process.env.SESSION_COOKIE_NAME ?? '__session'
-  const session = cookieStore.get(cookieName)?.value
-  if (!session) return null
-  try {
-    const decoded = await adminAuth.verifySessionCookie(session, true)
-    const userDoc = await adminDb.collection('users').doc(decoded.uid).get()
-    const orgId = userDoc.data()?.activeOrgId ?? userDoc.data()?.orgId
-    if (!orgId) return null
-    return { uid: decoded.uid, orgId }
-  } catch {
-    return null
-  }
-}
 
 interface ActivityEntry {
   id: string
@@ -115,9 +101,16 @@ function describeKind(type: string | undefined): string {
   }
 }
 
-export default async function PortalAdsActivityPage() {
-  const user = await currentClient()
+export default async function PortalAdsActivityPage({
+  searchParams,
+}: {
+  searchParams?: Promise<PortalAdsSearchParams>
+} = {}) {
+  const params = await searchParams
+  const scope = scopeFromSearchParams(params)
+  const user = await resolvePortalAdsUser(scope.orgId)
   if (!user) redirect('/login')
+  if (user.forbidden) notFound()
 
   const entries = await loadAdActivity(user.orgId)
 

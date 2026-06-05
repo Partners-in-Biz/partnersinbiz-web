@@ -1,6 +1,7 @@
 'use client'
 
 import Image from 'next/image'
+import { companyAccountOwnerRef, companyAccountOwnerUid, companyHasAccountOwner } from '@/lib/companies/ownership'
 import type { Company } from '@/lib/companies/types'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -37,7 +38,7 @@ function profileStrength(company: Company): number {
     company.tier,
     company.lifecycleStage,
     company.phone || company.billingEmail || company.accountsContact?.email,
-    company.accountManagerUid || company.accountManagerRef?.uid,
+    companyAccountOwnerUid(company),
     company.notes,
     company.logoUrl,
   ]
@@ -104,14 +105,14 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
     : ''
   const tierLabel = readableAccountLabel(company.tier)
   const lifecycleLabel = readableAccountLabel(company.lifecycleStage)
-  const am = company.accountManagerRef
+  const am = companyAccountOwnerRef(company)
   const strength = typeof company.healthScore === 'number' ? company.healthScore : profileStrength(company)
   const strengthColor = strength >= 75 ? '#4ade80' : strength >= 45 ? '#facc15' : '#f87171'
   const siteHref = websiteHref(company)
   const missingIdentity = !company.domain && !company.website && !company.legalName
   const missingIndustry = !company.industry
   const missingSize = company.employeeCount == null && !company.size
-  const missingAccountManager = !company.accountManagerRef?.displayName && !company.accountManagerUid
+  const missingAccountManager = !companyHasAccountOwner(company)
   const signals = [
     company.linkedOrgId ? 'Client org linked' : undefined,
     company.billingEmail || company.accountsContact?.email ? 'Billing contact ready' : undefined,
@@ -160,7 +161,7 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
                   aria-label={`Add domain for ${company.name}`}
                   className={setupButtonClass}
                 >
-                  <span className="material-symbols-outlined text-[14px]">add_link</span>
+                  <span aria-hidden="true" className="material-symbols-outlined text-[14px]">add_link</span>
                   Add domain
                 </button>
               )}
@@ -173,7 +174,7 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
                   aria-label={`Add industry for ${company.name}`}
                   className={setupButtonClass}
                 >
-                  <span className="material-symbols-outlined text-[14px]">category</span>
+                  <span aria-hidden="true" className="material-symbols-outlined text-[14px]">category</span>
                   Add industry
                 </button>
               )}
@@ -181,14 +182,24 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
 
             <div className="mt-3 flex flex-wrap items-center gap-2">
               {tierLabel && (
-                <span className={`rounded-full px-2 py-0.5 text-[10px] font-label uppercase tracking-wide ${tierCls}`}>
+                <button
+                  type="button"
+                  onClick={onEdit}
+                  aria-label={`Edit account tier ${tierLabel} for ${company.name}`}
+                  className={`rounded-full px-2 py-0.5 text-[10px] font-label uppercase tracking-wide transition-transform hover:-translate-y-0.5 ${tierCls}`}
+                >
                   {tierLabel}
-                </span>
+                </button>
               )}
               {lifecycleLabel && (
-                <span className={`rounded-full px-2 py-0.5 text-[10px] font-label uppercase tracking-wide ${lcCls}`}>
+                <button
+                  type="button"
+                  onClick={onEdit}
+                  aria-label={`Edit lifecycle stage ${lifecycleLabel} for ${company.name}`}
+                  className={`rounded-full px-2 py-0.5 text-[10px] font-label uppercase tracking-wide transition-transform hover:-translate-y-0.5 ${lcCls}`}
+                >
                   {lifecycleLabel}
-                </span>
+                </button>
               )}
               {company.size && (
                 <span className="rounded-full bg-white/5 px-2 py-0.5 text-[10px] font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">
@@ -217,34 +228,40 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
               href={siteHref}
               target="_blank"
               rel="noopener noreferrer"
+              aria-label={`Open website for ${company.name}`}
               className="btn-pib-secondary inline-flex items-center gap-1.5"
             >
-              <span className="material-symbols-outlined text-[16px]">open_in_new</span>
+              <span aria-hidden="true" className="material-symbols-outlined text-[16px]">open_in_new</span>
               Website
             </a>
           )}
           {(company.billingEmail || company.accountsContact?.email) && (
             <a
               href={`mailto:${company.billingEmail || company.accountsContact?.email}`}
+              aria-label={`Email billing contact for ${company.name}`}
               className="btn-pib-secondary inline-flex items-center gap-1.5"
             >
-              <span className="material-symbols-outlined text-[16px]">mail</span>
+              <span aria-hidden="true" className="material-symbols-outlined text-[16px]">mail</span>
               Billing
             </a>
           )}
           {company.phone && (
-            <a href={`tel:${company.phone}`} className="btn-pib-secondary inline-flex items-center gap-1.5">
-              <span className="material-symbols-outlined text-[16px]">call</span>
+            <a
+              href={`tel:${company.phone}`}
+              aria-label={`Call ${company.name}`}
+              className="btn-pib-secondary inline-flex items-center gap-1.5"
+            >
+              <span aria-hidden="true" className="material-symbols-outlined text-[16px]">call</span>
               Call
             </a>
           )}
           <button
             type="button"
             onClick={onEdit}
-            aria-label={`Edit ${company.name}`}
+            aria-label={`Edit account profile for ${company.name}`}
             className="cursor-pointer btn-pib-secondary flex items-center gap-1.5 shrink-0"
           >
-            <span className="material-symbols-outlined text-[16px]">edit</span>
+            <span aria-hidden="true" className="material-symbols-outlined text-[16px]">edit</span>
             Edit
           </button>
           {onDelete && (
@@ -252,6 +269,7 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
               type="button"
               onClick={onDelete}
               disabled={deleting}
+              aria-label={deleting ? `Archiving account ${company.name}` : `Archive account ${company.name}`}
               className="pib-btn-danger shrink-0"
             >
               {deleting ? 'Archiving...' : 'Archive'}
@@ -276,7 +294,7 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
               aria-label={`Assign account manager for ${company.name}`}
               className="btn-pib-secondary inline-flex shrink-0 items-center justify-center gap-1.5"
             >
-              <span className="material-symbols-outlined text-[16px]">person_add</span>
+              <span aria-hidden="true" className="material-symbols-outlined text-[16px]">person_add</span>
               Assign manager
             </button>
           </div>
@@ -303,7 +321,7 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
                 aria-label={`Add company size for ${company.name}`}
                 className={setupButtonClass}
               >
-                <span className="material-symbols-outlined text-[14px]">groups</span>
+                <span aria-hidden="true" className="material-symbols-outlined text-[14px]">groups</span>
                 Add size
               </button>
             )}
@@ -315,7 +333,7 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
             <div key={tile.label} className="rounded-xl border border-[var(--color-pib-line)] bg-white/[0.02] px-3 py-2">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-[11px] text-[var(--color-pib-text-muted)]">{tile.label}</span>
-                <span className="material-symbols-outlined text-[16px] text-[var(--color-pib-text-muted)]">{tile.icon}</span>
+                <span aria-hidden="true" className="material-symbols-outlined text-[16px] text-[var(--color-pib-text-muted)]">{tile.icon}</span>
               </div>
               <p className="mt-1 font-mono text-lg text-[var(--color-pib-text)]">{tile.value}</p>
             </div>

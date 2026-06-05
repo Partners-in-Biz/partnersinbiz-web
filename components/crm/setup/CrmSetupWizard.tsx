@@ -46,6 +46,47 @@ function templateIcon(kind: CrmStarterTemplate['kind']) {
   return 'dynamic_form'
 }
 
+function SetupLoadingState() {
+  return (
+    <div className="max-w-5xl space-y-6">
+      <div>
+        <p className="eyebrow">CRM setup</p>
+        <h1 className="mt-2 text-lg font-semibold text-[var(--color-pib-text)]">Preparing CRM setup workspace</h1>
+        <p className="mt-2 max-w-2xl text-sm text-[var(--color-pib-text-muted)]">
+          Loading pipeline templates, import status, and launch blockers for this workspace.
+        </p>
+      </div>
+
+      <section className="bento-card !p-6 space-y-5" aria-label="CRM setup loading preview">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <p className="eyebrow">Setup command center</p>
+            <h2 className="mt-2 font-display text-2xl text-[var(--color-pib-text)]">CRM launch readiness</h2>
+            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-[var(--color-pib-text-muted)]">
+              We are preparing the workflow, starter assets, and first actions before the team starts editing setup.
+            </p>
+          </div>
+          <div className="min-w-[150px] rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-4">
+            <p className="eyebrow !text-[10px]">Readiness</p>
+            <div className="pib-skeleton mt-3 h-9 w-20 rounded" />
+            <div className="pib-skeleton mt-4 h-2 w-full rounded-full" />
+          </div>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {['Workflow', 'Starter templates', 'Pipelines', 'Next actions'].map((label) => (
+            <div key={label} className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.02] p-4">
+              <p className="eyebrow !text-[10px]">{label}</p>
+              <div className="pib-skeleton mt-3 h-4 w-28 rounded" />
+              <div className="pib-skeleton mt-3 h-3 w-20 rounded" />
+            </div>
+          ))}
+        </div>
+      </section>
+    </div>
+  )
+}
+
 export function CrmSetupWizard() {
   const [setup, setSetup] = useState<CrmSetupState | null>(null)
   const [templates, setTemplates] = useState<CrmStarterTemplate[]>([])
@@ -128,7 +169,7 @@ export function CrmSetupWizard() {
     }
   }
 
-  if (loading) return <p className="text-sm text-[var(--color-pib-text-muted)]">Loading...</p>
+  if (loading) return <SetupLoadingState />
   if (!setup) {
     return (
       <div className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-4 py-3 text-sm text-[var(--color-pib-text-muted)]">

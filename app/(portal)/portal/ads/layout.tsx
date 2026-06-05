@@ -1,12 +1,19 @@
+'use client'
+
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
+import { scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 
 export default function PortalAdsLayout({ children }: { children: React.ReactNode }) {
+  const searchParams = useSearchParams()
+  const scope = scopeFromSearchParams(searchParams)
+
   return (
     <div className="space-y-6">
       <header className="flex items-start justify-between gap-4">
         <div>
           <Link
-            href="/portal/marketing"
+            href={scopedPortalPath('/portal/marketing', scope)}
             className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]"
           >
             ← Marketing
@@ -17,7 +24,7 @@ export default function PortalAdsLayout({ children }: { children: React.ReactNod
           </p>
         </div>
         <Link
-          href="/portal/ads/activity"
+          href={scopedPortalPath('/portal/ads/activity', scope)}
           className="shrink-0 mt-1 text-xs text-[var(--color-pib-accent)] hover:text-[var(--color-pib-accent-hover)]"
         >
           Activity →

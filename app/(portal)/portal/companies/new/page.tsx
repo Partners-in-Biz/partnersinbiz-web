@@ -1,21 +1,26 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import type { Company } from '@/lib/companies/types'
 import { CompanyEditDrawer, type CompanyTeamMember } from '@/components/crm/CompanyEditDrawer'
+import { scopedApiPath, scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function NewCompanyPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const orgScope = useMemo(() => scopeFromSearchParams(searchParams), [searchParams])
+  const companyApiPath = useCallback((path: string) => scopedApiPath(path, orgScope), [orgScope])
+  const companyPortalPath = useCallback((path: string) => scopedPortalPath(path, orgScope), [orgScope])
   const [teamMembers, setTeamMembers] = useState<CompanyTeamMember[]>([])
 
   useEffect(() => {
     let cancelled = false
-    fetch('/api/v1/portal/settings/team')
+    fetch(companyApiPath('/api/v1/portal/settings/team'))
       .then((res) => res.ok ? res.json() : null)
       .then((body) => {
         if (cancelled) return
@@ -26,10 +31,10 @@ export default function NewCompanyPage() {
         if (!cancelled) setTeamMembers([])
       })
     return () => { cancelled = true }
-  }, [])
+  }, [companyApiPath])
 
   async function handleSave(data: Partial<Company>): Promise<void> {
-    const res = await fetch('/api/v1/crm/companies', {
+    const res = await fetch(companyApiPath('/api/v1/crm/companies'), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(data),
@@ -41,14 +46,14 @@ export default function NewCompanyPage() {
     const body = await res.json()
     const newId: string | undefined = body.data?.id ?? body.id
     if (newId) {
-      router.push(`/portal/companies/${newId}`)
+      router.push(companyPortalPath(`/portal/companies/${newId}`))
     } else {
-      router.push('/portal/companies')
+      router.push(companyPortalPath('/portal/companies'))
     }
   }
 
   function handleClose() {
-    router.push('/portal/companies')
+    router.push(companyPortalPath('/portal/companies'))
   }
 
   return (
@@ -56,7 +61,7 @@ export default function NewCompanyPage() {
       {/* Setup context visible behind the drawer */}
       <div className="mx-auto flex max-w-7xl flex-col gap-6 p-6 lg:pr-[min(34rem,45vw)]">
         <Link
-          href="/portal/companies"
+          href={companyPortalPath('/portal/companies')}
           className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] inline-flex items-center gap-1 transition-colors"
         >
           <span className="material-symbols-outlined text-sm">arrow_back</span>

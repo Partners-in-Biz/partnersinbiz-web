@@ -3,17 +3,44 @@ import CustomFieldsPage from '@/app/(portal)/portal/settings/custom-fields/page'
 import type { CustomFieldDefinition } from '@/lib/customFields/types'
 
 let definitions: CustomFieldDefinition[] = []
+let mockSearchParams = new URLSearchParams()
 
 jest.mock('@/components/crm/CustomFieldDefinitionDrawer', () => ({
-  CustomFieldDefinitionDrawer: ({ open, mode }: { open: boolean; mode: string }) => (
-    open ? <div role="dialog" aria-label={mode === 'create' ? 'New custom field' : 'Edit custom field'} /> : null
+  CustomFieldDefinitionDrawer: ({
+    open,
+    mode,
+    onSave,
+  }: {
+    open: boolean
+    mode: string
+    onSave: (def: Partial<CustomFieldDefinition>) => Promise<void>
+  }) => (
+    open ? (
+      <div role="dialog" aria-label={mode === 'create' ? 'New custom field' : 'Edit custom field'}>
+        <button
+          type="button"
+          onClick={() => onSave({
+            label: 'Decision role',
+            key: 'decision_role',
+            type: 'dropdown',
+          })}
+        >
+          Save field from drawer
+        </button>
+      </div>
+    ) : null
   ),
+}))
+
+jest.mock('next/navigation', () => ({
+  useSearchParams: () => mockSearchParams,
 }))
 
 describe('Portal settings custom fields page', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     definitions = []
+    mockSearchParams = new URLSearchParams()
     global.fetch = jest.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
       if (url === '/api/v1/portal/settings/profile') {
@@ -40,6 +67,95 @@ describe('Portal settings custom fields page', () => {
 
   afterEach(() => {
     jest.restoreAllMocks()
+  })
+
+  it('preserves company workspace scope across custom field list and CRUD operations', async () => {
+    mockSearchParams = new URLSearchParams({
+      orgId: 'org-1',
+      orgSlug: 'lumen-speeds',
+      sourceCompanyId: 'company-1',
+      sourceCompanyName: 'Lumen',
+    })
+    definitions = [{
+      id: 'field-1',
+      orgId: 'org-1',
+      resource: 'contact',
+      key: 'decision_role',
+      label: 'Decision role',
+      type: 'dropdown',
+      required: true,
+      options: [
+        { value: 'buyer', label: 'Buyer' },
+        { value: 'influencer', label: 'Influencer' },
+      ],
+      helpText: 'Clarifies buying influence for handover and segmentation.',
+      group: 'Qualification',
+      order: 0,
+      createdAt: null,
+      updatedAt: null,
+    }]
+
+    const fetchMock = jest.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/v1/portal/settings/profile') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ profile: { role: 'owner' } }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/custom-fields?resource=contact&orgId=org-1') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { definitions } }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/custom-fields?orgId=org-1' && init?.method === 'POST') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ success: true }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/custom-fields/field-1?orgId=org-1' && init?.method === 'PATCH') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ success: true }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/custom-fields/field-1?orgId=org-1' && init?.method === 'DELETE') {
+        definitions = []
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ success: true }),
+        } as Response)
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    })
+    global.fetch = fetchMock as jest.Mock
+
+    render(<CustomFieldsPage />)
+
+    expect(await screen.findByText('Decision role')).toBeInTheDocument()
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/crm/custom-fields?resource=contact&orgId=org-1')
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'New field' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Save field from drawer' }))
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/crm/custom-fields?orgId=org-1', expect.objectContaining({ method: 'POST' }))
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Decision role' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Save field from drawer' }))
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/crm/custom-fields/field-1?orgId=org-1', expect.objectContaining({ method: 'PATCH' }))
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete Decision role' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm delete custom field Decision role' }))
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/crm/custom-fields/field-1?orgId=org-1', { method: 'DELETE' })
+    })
   })
 
   it('turns empty contact custom fields into a schema setup command center', async () => {
@@ -167,5 +283,31 @@ describe('Portal settings custom fields page', () => {
     expect(screen.queryByText('Decision role')).not.toBeInTheDocument()
 
     confirmSpy.mockRestore()
+  })
+
+  it('names sparse field delete confirmations instead of rendering blank schema identity', async () => {
+    definitions = [{
+      id: 'field-1',
+      orgId: 'org-1',
+      resource: 'contact',
+      key: '',
+      label: '',
+      type: 'text',
+      required: false,
+      group: '',
+      order: 0,
+      createdAt: null,
+      updatedAt: null,
+    }]
+
+    render(<CustomFieldsPage />)
+
+    expect(await screen.findByText('Field label missing')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete Field label missing' }))
+
+    expect(screen.getByRole('alertdialog', { name: 'Delete custom field "Field label missing"?' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Cancel delete for custom field Field label missing' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Confirm delete custom field Field label missing' })).toBeInTheDocument()
   })
 })

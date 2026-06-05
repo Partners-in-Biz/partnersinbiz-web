@@ -48,23 +48,28 @@ interface Props {
 }
 
 export function BudgetDetailClient({ budget, events, orgSlug }: Props) {
+  const [currentBudget, setCurrentBudget] = useState(budget)
   const [showEdit, setShowEdit] = useState(false)
   const [checking, setChecking] = useState(false)
   const [resetting, setResetting] = useState(false)
+  const [archiving, setArchiving] = useState(false)
+  const [confirmAction, setConfirmAction] = useState<'reset' | 'archive' | null>(null)
   const [actionMsg, setActionMsg] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
 
   const fmt = (cents: number) =>
-    new Intl.NumberFormat('en-US', { style: 'currency', currency: budget.currencyCode }).format(
+    new Intl.NumberFormat('en-US', { style: 'currency', currency: currentBudget.currencyCode }).format(
       cents / 100,
     )
 
   async function runCheck() {
     setChecking(true)
     setActionMsg(null)
+    setActionError(null)
     try {
-      const res = await fetch(`/api/v1/ads/budgets/${budget.id}/check`, {
+      const res = await fetch(`/api/v1/ads/budgets/${currentBudget.id}/check`, {
         method: 'POST',
-        headers: { 'X-Org-Id': budget.orgId },
+        headers: { 'X-Org-Id': currentBudget.orgId },
       })
       const json = await res.json()
       if (json.success) {
@@ -73,45 +78,73 @@ export function BudgetDetailClient({ budget, events, orgSlug }: Props) {
           `Check complete — ${d.percent?.toFixed(1)}% spent. ${d.exhausted ? 'Budget exhausted.' : ''}`,
         )
       } else {
-        setActionMsg(`Error: ${json.error ?? 'Unknown'}`)
+        setActionError(json.error ?? 'Budget check failed')
       }
     } catch {
-      setActionMsg('Check failed.')
+      setActionError('Check failed.')
     } finally {
       setChecking(false)
     }
   }
 
+  function requestReset() {
+    setActionMsg(null)
+    setActionError(null)
+    setConfirmAction('reset')
+  }
+
   async function resetPeriod() {
-    if (!confirm('Reset this budget period? Spend tracking will restart from 0.')) return
     setResetting(true)
     setActionMsg(null)
+    setActionError(null)
     try {
-      const res = await fetch(`/api/v1/ads/budgets/${budget.id}/reset`, {
+      const res = await fetch(`/api/v1/ads/budgets/${currentBudget.id}/reset`, {
         method: 'POST',
-        headers: { 'X-Org-Id': budget.orgId },
+        headers: { 'X-Org-Id': currentBudget.orgId },
       })
       const json = await res.json()
       if (json.success) {
-        setActionMsg('Period reset. Refreshing…')
-        setTimeout(() => window.location.reload(), 1000)
+        setCurrentBudget((current) => ({
+          ...current,
+          currentSpendCents: json.data?.currentSpendCents ?? 0,
+          currentSpendPercent: json.data?.currentSpendPercent ?? 0,
+        }))
+        setConfirmAction(null)
+        setActionMsg('Budget period reset. Spend tracking is back at 0.')
       } else {
-        setActionMsg(`Error: ${json.error ?? 'Unknown'}`)
+        setActionError(json.error ?? 'Budget reset failed')
       }
     } catch {
-      setActionMsg('Reset failed.')
+      setActionError('Reset failed.')
     } finally {
       setResetting(false)
     }
   }
 
+  function requestArchive() {
+    setActionMsg(null)
+    setActionError(null)
+    setConfirmAction('archive')
+  }
+
   async function archiveBudget() {
-    if (!confirm('Archive this budget?')) return
-    await fetch(`/api/v1/ads/budgets/${budget.id}`, {
-      method: 'DELETE',
-      headers: { 'X-Org-Id': budget.orgId },
-    })
-    window.location.href = `/admin/org/${orgSlug}/ads/budgets`
+    setArchiving(true)
+    setActionMsg(null)
+    setActionError(null)
+    try {
+      const res = await fetch(`/api/v1/ads/budgets/${currentBudget.id}`, {
+        method: 'DELETE',
+        headers: { 'X-Org-Id': currentBudget.orgId },
+      })
+      if (!res.ok) throw new Error('Budget archive failed')
+      setCurrentBudget((current) => ({ ...current, archivedAt: current.archivedAt ?? new Date().toISOString() }))
+      setConfirmAction(null)
+      setActionMsg(`Budget ${currentBudget.name} archived.`)
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Budget archive failed')
+    } finally {
+      setArchiving(false)
+    }
   }
 
   function formatTs(ts: { seconds: number }) {
@@ -123,50 +156,118 @@ export function BudgetDetailClient({ budget, events, orgSlug }: Props) {
       {/* Pace meter */}
       <div className="rounded-lg border border-white/10 p-4">
         <BudgetPaceMeter
-          percent={budget.currentSpendPercent ?? 0}
-          spendCents={budget.currentSpendCents}
-          capCents={budget.capCents}
-          currencyCode={budget.currencyCode}
+          percent={currentBudget.currentSpendPercent ?? 0}
+          spendCents={currentBudget.currentSpendCents}
+          capCents={currentBudget.capCents}
+          currencyCode={currentBudget.currencyCode}
         />
       </div>
+
+      {actionMsg && (
+        <div role="status" className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
+          {actionMsg}
+        </div>
+      )}
+
+      {actionError && (
+        <div role="alert" className="rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+          {actionError}
+        </div>
+      )}
+
+      {confirmAction && (
+        <div
+          role="alertdialog"
+          aria-modal="false"
+          aria-labelledby="budget-detail-confirm-title"
+          aria-describedby="budget-detail-confirm-description"
+          className="rounded-lg border border-[#F5A623]/30 bg-[#F5A623]/10 p-4 shadow-sm"
+        >
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="space-y-1">
+              <h2 id="budget-detail-confirm-title" className="text-sm font-semibold text-white">
+                {confirmAction === 'reset'
+                  ? `Reset budget period for ${currentBudget.name}?`
+                  : `Archive budget ${currentBudget.name} for ${orgSlug}?`}
+              </h2>
+              <p id="budget-detail-confirm-description" className="text-sm text-white/65">
+                {confirmAction === 'reset'
+                  ? `Spend tracking restarts at 0 for the current ${currentBudget.period} period. Historical budget events stay in PiB.`
+                  : `This removes ${currentBudget.name} from active pacing controls. Historical spend and events stay in PiB.`}
+              </p>
+            </div>
+            <div className="flex shrink-0 gap-2">
+              <button
+                type="button"
+                onClick={() => setConfirmAction(null)}
+                disabled={resetting || archiving}
+                className="rounded border border-white/10 px-3 py-1.5 text-xs text-white/60 hover:text-white disabled:opacity-40"
+              >
+                Cancel
+              </button>
+              {confirmAction === 'reset' ? (
+                <button
+                  type="button"
+                  onClick={resetPeriod}
+                  disabled={resetting}
+                  aria-label={`Confirm reset period for budget ${currentBudget.name}`}
+                  className="rounded border border-[#F5A623]/40 bg-[#F5A623]/10 px-3 py-1.5 text-xs font-medium text-[#F5A623] hover:bg-[#F5A623]/20 disabled:opacity-40"
+                >
+                  {resetting ? 'Resetting...' : 'Reset period'}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={archiveBudget}
+                  disabled={archiving}
+                  aria-label={`Confirm archive budget ${currentBudget.name} for ${orgSlug}`}
+                  className="rounded border border-red-400/40 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-200 hover:bg-red-500/20 disabled:opacity-40"
+                >
+                  {archiving ? 'Archiving...' : 'Archive budget'}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Status row */}
       <dl className="grid grid-cols-2 gap-x-6 gap-y-3 rounded-lg border border-white/10 p-4 text-sm sm:grid-cols-3">
         <div>
           <dt className="text-white/40">Period</dt>
-          <dd className="font-medium capitalize">{budget.period}</dd>
+          <dd className="font-medium capitalize">{currentBudget.period}</dd>
         </div>
         <div>
           <dt className="text-white/40">Scope</dt>
-          <dd className="font-medium capitalize">{budget.scope}</dd>
+          <dd className="font-medium capitalize">{currentBudget.scope}</dd>
         </div>
-        {budget.platform && (
+        {currentBudget.platform && (
           <div>
             <dt className="text-white/40">Platform</dt>
-            <dd className="font-medium capitalize">{budget.platform}</dd>
+            <dd className="font-medium capitalize">{currentBudget.platform}</dd>
           </div>
         )}
-        {budget.campaignId && (
+        {currentBudget.campaignId && (
           <div>
             <dt className="text-white/40">Campaign ID</dt>
-            <dd className="font-mono text-xs text-white/60">{budget.campaignId}</dd>
+            <dd className="font-mono text-xs text-white/60">{currentBudget.campaignId}</dd>
           </div>
         )}
         <div>
           <dt className="text-white/40">Cap</dt>
-          <dd className="font-medium">{fmt(budget.capCents)}</dd>
+          <dd className="font-medium">{fmt(currentBudget.capCents)}</dd>
         </div>
         <div>
           <dt className="text-white/40">Currency</dt>
-          <dd className="font-medium">{budget.currencyCode}</dd>
+          <dd className="font-medium">{currentBudget.currencyCode}</dd>
         </div>
         <div>
           <dt className="text-white/40">Auto-pause</dt>
-          <dd className="font-medium">{budget.autoPause ? 'Yes' : 'No'}</dd>
+          <dd className="font-medium">{currentBudget.autoPause ? 'Yes' : 'No'}</dd>
         </div>
         <div>
           <dt className="text-white/40">Alert thresholds</dt>
-          <dd className="font-medium">{budget.alertThresholds.join(', ')}%</dd>
+          <dd className="font-medium">{currentBudget.alertThresholds.join(', ')}%</dd>
         </div>
       </dl>
 
@@ -175,35 +276,37 @@ export function BudgetDetailClient({ budget, events, orgSlug }: Props) {
         <button
           onClick={runCheck}
           disabled={checking}
+          aria-label={`Run pacing check for budget ${currentBudget.name}`}
           className="rounded border border-white/10 px-4 py-2 text-sm text-white/70 hover:text-white disabled:opacity-50"
         >
           {checking ? 'Running check…' : 'Run check'}
         </button>
         <button
-          onClick={resetPeriod}
+          onClick={requestReset}
           disabled={resetting}
+          aria-label={`Reset period for budget ${currentBudget.name}`}
           className="rounded border border-white/10 px-4 py-2 text-sm text-white/70 hover:text-white disabled:opacity-50"
         >
           {resetting ? 'Resetting…' : 'Reset period'}
         </button>
-        {!budget.archivedAt && (
+        {!currentBudget.archivedAt && (
           <button
             onClick={() => setShowEdit((v) => !v)}
+            aria-label={`${showEdit ? 'Cancel edit for' : 'Edit'} budget ${currentBudget.name}`}
             className="rounded border border-[#F5A623]/30 px-4 py-2 text-sm text-[#F5A623] hover:border-[#F5A623]"
           >
             {showEdit ? 'Cancel edit' : 'Edit'}
           </button>
         )}
-        {!budget.archivedAt && (
+        {!currentBudget.archivedAt && (
           <button
-            onClick={archiveBudget}
+            onClick={requestArchive}
+            disabled={archiving}
+            aria-label={`Archive budget ${currentBudget.name} for ${orgSlug}`}
             className="rounded border border-white/10 px-4 py-2 text-sm text-white/40 hover:text-red-400"
           >
             Archive
           </button>
-        )}
-        {actionMsg && (
-          <span className="text-sm text-white/60">{actionMsg}</span>
         )}
       </div>
 
@@ -214,19 +317,19 @@ export function BudgetDetailClient({ budget, events, orgSlug }: Props) {
           <BudgetCapEditor
             orgId={budget.orgId}
             orgSlug={orgSlug}
-            budgetId={budget.id}
+            budgetId={currentBudget.id}
             initial={{
-              name: budget.name,
-              description: budget.description,
-              capMajor: budget.capCents / 100,
-              currencyCode: budget.currencyCode,
-              alertThresholds: budget.alertThresholds,
-              autoPause: budget.autoPause,
-              autoResumeOnRollover: budget.autoResumeOnRollover,
+              name: currentBudget.name,
+              description: currentBudget.description,
+              capMajor: currentBudget.capCents / 100,
+              currencyCode: currentBudget.currencyCode,
+              alertThresholds: currentBudget.alertThresholds,
+              autoPause: currentBudget.autoPause,
+              autoResumeOnRollover: currentBudget.autoResumeOnRollover,
             }}
             onSaved={() => {
               setShowEdit(false)
-              window.location.reload()
+              setActionMsg('Budget settings saved.')
             }}
             onCancel={() => setShowEdit(false)}
           />

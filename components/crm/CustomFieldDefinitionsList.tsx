@@ -70,6 +70,14 @@ function fieldHealth(def: CustomFieldDefinition): number {
   return Math.round((checks.filter(Boolean).length / checks.length) * 100)
 }
 
+function fieldDisplayName(def: CustomFieldDefinition): string {
+  return def.label?.trim() || 'Field label missing'
+}
+
+function fieldKeyDisplay(def: CustomFieldDefinition): string {
+  return def.key?.trim() || 'Field key missing'
+}
+
 // ── Sortable row ──────────────────────────────────────────────────────────────
 
 function SortableRow({
@@ -105,6 +113,8 @@ function SortableRow({
   const hasHelpText = Boolean(def.helpText?.trim())
   const needsOptions = def.type === 'dropdown' || def.type === 'multi_select'
   const missingOptions = needsOptions && optionCount === 0
+  const displayName = fieldDisplayName(def)
+  const keyDisplay = fieldKeyDisplay(def)
 
   return (
     <div
@@ -118,7 +128,7 @@ function SortableRow({
           {isAdmin && canReorder && (
             <button
               type="button"
-              aria-label={`Drag to reorder ${def.label}`}
+              aria-label={`Drag to reorder ${displayName}`}
               {...attributes}
               {...listeners}
               className="cursor-grab active:cursor-grabbing text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors touch-none"
@@ -130,7 +140,7 @@ function SortableRow({
           {/* Label + key */}
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
-              <p className="text-base font-semibold text-[var(--color-pib-text)] truncate">{def.label}</p>
+              <p className="text-base font-semibold text-[var(--color-pib-text)] truncate">{displayName}</p>
               <TypeChip type={def.type} />
               {def.required && (
                 <span className="rounded-full bg-red-400/10 px-2 py-0.5 text-[10px] font-medium text-red-200">Required</span>
@@ -139,7 +149,7 @@ function SortableRow({
                 {health >= 80 ? 'Ready' : `${health}% setup`}
               </span>
             </div>
-            <p className="mt-1 text-xs text-[var(--color-pib-text-muted)] font-mono truncate">{def.key}</p>
+            <p className="mt-1 text-xs text-[var(--color-pib-text-muted)] font-mono truncate">{keyDisplay}</p>
             <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
               <p className="text-xs text-[var(--color-pib-text-muted)] line-clamp-2">
                 {hasHelpText
@@ -149,7 +159,7 @@ function SortableRow({
               {isAdmin && !hasHelpText && (
                 <button
                   type="button"
-                  aria-label={`Add help text for ${def.label}`}
+                  aria-label={`Add help text for ${displayName}`}
                   onClick={() => onEdit(def)}
                   className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] px-2 py-1 text-[11px] font-medium text-[var(--color-pib-text)] transition-colors hover:border-[var(--color-accent-v2)]/40 hover:bg-[var(--color-accent-v2)]/10"
                 >
@@ -173,7 +183,7 @@ function SortableRow({
                 {isAdmin && (
                   <button
                     type="button"
-                    aria-label={`Add options for ${def.label}`}
+                    aria-label={`Add options for ${displayName}`}
                     onClick={() => onEdit(def)}
                     className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-amber-300/20 bg-amber-300/10 px-2 py-1 text-[11px] font-medium text-amber-100 transition-colors hover:border-amber-200/50 hover:bg-amber-300/15"
                   >
@@ -199,7 +209,7 @@ function SortableRow({
         <div className="flex items-center justify-end gap-1 border-t border-[var(--color-pib-line)] px-3 py-2">
           <button
             type="button"
-            aria-label={`Edit ${def.label}`}
+            aria-label={`Edit ${displayName}`}
             onClick={() => onEdit(def)}
             title="Edit field"
             className="cursor-pointer w-8 h-8 flex items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.06] transition-colors"
@@ -208,7 +218,7 @@ function SortableRow({
           </button>
           <button
             type="button"
-            aria-label={`Delete ${def.label}`}
+            aria-label={`Delete ${displayName}`}
             onClick={() => onDelete(def)}
             title="Delete field"
             className="cursor-pointer w-8 h-8 flex items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] hover:text-red-400 hover:bg-red-400/[0.08] transition-colors"

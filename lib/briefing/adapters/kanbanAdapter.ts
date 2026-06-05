@@ -6,6 +6,7 @@
 
 import type { BriefingSourceAdapter, BriefingPriority, BriefingActor } from '../types'
 import { normalizeActor, hashSourceDocument, extractMultiFieldExcerpt, normalizeTimestamp, extractOrgId, generateSourceUrl } from '../utils'
+import { getSoftwareBuildEvidenceRows } from '@/lib/software-build-evidence'
 
 interface TaskDocument extends Record<string, unknown> {
   id: string
@@ -200,6 +201,8 @@ export const kanbanAdapter: BriefingSourceAdapter<TaskDocument> = {
    * Extract additional metadata specific to tasks.
    */
   extractMetadata(doc: TaskDocument): Record<string, unknown> | null {
+    const softwareBuildEvidence = getSoftwareBuildEvidenceRows(doc)
+
     return {
       taskStatus: doc.status,
       agentStatus: doc.agentStatus,
@@ -215,6 +218,7 @@ export const kanbanAdapter: BriefingSourceAdapter<TaskDocument> = {
       tags: Array.isArray(doc.tags) ? doc.tags : [],
       sourceDocumentId: doc.sourceDocumentId,
       sourceSpecVersion: doc.sourceSpecVersion,
+      softwareBuildEvidence: softwareBuildEvidence.length ? softwareBuildEvidence : undefined,
       hasAgentOutput: !!doc.agentOutput,
       hasEvidence: !!doc.evidence,
       hasComments: !!doc.comments,

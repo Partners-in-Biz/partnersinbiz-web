@@ -42,6 +42,8 @@ export interface CompaniesTableProps {
   loading: boolean
   onRowClick: (id: string) => void
   onSetupCompany?: (id: string) => void
+  newCompanyHref?: string
+  migrateHref?: string
   selectedIds?: Set<string>
   onToggleCompany?: (id: string) => void
   onToggleAll?: () => void
@@ -64,6 +66,8 @@ export function CompaniesTable({
   loading,
   onRowClick,
   onSetupCompany,
+  newCompanyHref = '/portal/companies/new',
+  migrateHref = '/portal/companies/migrate',
   selectedIds,
   onToggleCompany,
   onToggleAll,
@@ -138,14 +142,14 @@ export function CompaniesTable({
                     ) : (
                       <>
                         <Link
-                          href="/portal/companies/new"
+                          href={newCompanyHref}
                           className="btn-pib-accent inline-flex items-center gap-1.5 text-xs"
                         >
                           <span className="material-symbols-outlined text-[15px]">add_business</span>
                           Create first company
                         </Link>
                         <Link
-                          href="/portal/companies/migrate"
+                          href={migrateHref}
                           className="btn-pib-secondary inline-flex items-center gap-1.5 text-xs"
                         >
                           <span className="material-symbols-outlined text-[15px]">sync_alt</span>

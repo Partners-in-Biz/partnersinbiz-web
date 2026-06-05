@@ -4,6 +4,7 @@
  * Generates briefing items when agents complete work and produce output.
  */
 
+import { buildAgentOutputReviewCard } from '@/lib/agent-output-review-card'
 import type { BriefingSourceAdapter, BriefingPriority } from '../types'
 import { normalizeActor, hashSourceDocument, extractMultiFieldExcerpt, normalizeTimestamp, extractOrgId, extractTaskId, generateSourceUrl } from '../utils'
 
@@ -203,6 +204,8 @@ export const agentOutputAdapter: BriefingSourceAdapter<AgentOutputDocument> = {
    * Extract metadata specific to agent outputs.
    */
   extractMetadata(doc: AgentOutputDocument, _docId: string): Record<string, unknown> | null {
+    const reviewCard = buildAgentOutputReviewCard(doc)
+
     return {
       assigneeAgentId: doc.assigneeAgentId,
       reviewerAgentId: doc.reviewerAgentId,
@@ -212,6 +215,8 @@ export const agentOutputAdapter: BriefingSourceAdapter<AgentOutputDocument> = {
       artifactCount: Array.isArray(doc.artifacts) ? doc.artifacts.length : 0,
       artifactTypes: Array.isArray(doc.artifacts) ? [...new Set(doc.artifacts.map(a => a.type))] : [],
       blockedReason: doc.blockedReason,
+      agentOutputReviewCard: reviewCard,
+      softwareBuildEvidence: reviewCard.evidence.length ? reviewCard.evidence : undefined,
     }
   },
 

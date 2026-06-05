@@ -2,12 +2,13 @@
 
 import {
   ContactEngagementPanel,
+  type ContactEngagementActions,
   type ContactEngagementActivity,
   type ContactEngagementEmail,
   type ContactEngagementSuggestion,
 } from '@/components/crm/ContactEngagementPanel'
-import { ContactIdentityPanel } from '@/components/crm/ContactIdentityPanel'
-import { ContactOwnershipPanel } from '@/components/crm/ContactOwnershipPanel'
+import { ContactIdentityPanel, type ContactIdentityFieldActions } from '@/components/crm/ContactIdentityPanel'
+import { ContactOwnershipPanel, type ContactOwnershipActions } from '@/components/crm/ContactOwnershipPanel'
 import type { MemberRef } from '@/lib/orgMembers/memberRef'
 
 export interface ContactIntelligenceStackContact {
@@ -34,11 +35,16 @@ export function ContactIntelligenceStack({
   emails,
   activities,
   nextSuggestion,
+  actions,
 }: {
   contact: ContactIntelligenceStackContact
   emails: ContactEngagementEmail[]
   activities: ContactEngagementActivity[]
   nextSuggestion?: ContactEngagementSuggestion
+  actions?: ContactEngagementActions & {
+    identity?: ContactIdentityFieldActions
+    ownership?: ContactOwnershipActions
+  }
 }) {
   return (
     <div className="space-y-5">
@@ -49,6 +55,7 @@ export function ContactIntelligenceStack({
           activities,
           nextSuggestion,
         }}
+        actions={actions}
       />
 
       <ContactIdentityPanel
@@ -62,6 +69,7 @@ export function ContactIntelligenceStack({
           bouncedAt: contact.bouncedAt,
           repliesCount: contact.repliesCount,
         }}
+        fieldActions={actions?.identity}
       />
 
       <ContactOwnershipPanel
@@ -73,6 +81,7 @@ export function ContactIntelligenceStack({
           createdByRef: contact.createdByRef,
           updatedByRef: contact.updatedByRef,
         }}
+        actions={actions?.ownership}
       />
     </div>
   )

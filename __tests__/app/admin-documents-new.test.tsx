@@ -17,6 +17,7 @@ import NewDocumentPage from '@/app/(admin)/admin/documents/new/page'
 
 describe('new client document type picker copy', () => {
   beforeEach(() => {
+    window.history.pushState({}, '', '/')
     global.fetch = jest.fn().mockResolvedValue({
       json: async () => ({ data: [{ id: 'org-1', name: 'Partners in Biz', slug: 'partners' }] }),
     }) as jest.Mock
@@ -50,5 +51,17 @@ describe('new client document type picker copy', () => {
     expect(screen.getByText('build-spec-v1')).toBeInTheDocument()
     expect(screen.getByText(/Requirements, technical approach, data\/API changes, tests, rollout, and rollback/i)).toBeInTheDocument()
     expect(screen.getByText(/next decision is build execution/i)).toBeInTheDocument()
+  })
+
+  it('prefills gated build spec creation from dashboard query parameters', async () => {
+    window.history.pushState({}, '', '/admin/documents/new?orgId=org-1&type=build_spec&title=PiB%20Platform%20Build%20Spec%20%E2%80%94%20Next%20Approved%20Sprint')
+
+    render(<NewDocumentPage />)
+    await screen.findByRole('option', { name: 'Partners in Biz' })
+
+    expect(screen.getByLabelText('Organisation')).toHaveValue('org-1')
+    expect(screen.getByLabelText('Title')).toHaveValue('PiB Platform Build Spec — Next Approved Sprint')
+    expect(screen.getByLabelText('Document type')).toHaveValue('build_spec')
+    expect(screen.getByRole('heading', { name: 'Website/App Build Spec' })).toBeInTheDocument()
   })
 })

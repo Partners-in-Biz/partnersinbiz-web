@@ -191,6 +191,23 @@ describe('DealDetailDrawer', () => {
     expect(screen.queryByText(/R\s*0[,.]00/)).not.toBeInTheDocument()
   })
 
+  it('turns missing commercial value into a forecast value edit action', () => {
+    const onEdit = jest.fn()
+    render(
+      <DealDetailDrawer
+        deal={{ ...deal, value: undefined }}
+        stages={stages}
+        orgId="org-1"
+        onClose={jest.fn()}
+        onEdit={onEdit}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add value for Growth retainer from deal detail' }))
+
+    expect(onEdit).toHaveBeenCalledTimes(1)
+  })
+
   it('names linked relationship records when display labels are missing', () => {
     render(
       <DealDetailDrawer

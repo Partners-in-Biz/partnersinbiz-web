@@ -45,6 +45,18 @@ describe('CommentThread', () => {
     expect(init?.method).toBeUndefined() // initial GET
   })
 
+  it('carries the selected company org into comment requests', async () => {
+    render(<CommentThread adId="ad_1" currentUserUid="uid_client" isAdmin={false} orgId="lumen-org" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('First comment')).toBeInTheDocument()
+    })
+
+    const [url, init] = (global.fetch as jest.Mock).mock.calls[0] as [string, RequestInit?]
+    expect(url).toBe('/api/v1/portal/ads/ads/ad_1/comments?orgId=lumen-org')
+    expect(init?.method).toBeUndefined()
+  })
+
   it('POSTs to the portal comments endpoint when Send is clicked', async () => {
     // Initial GET returns base list; second call (POST) returns 201; third call (refetch GET)
     // returns updated list. We only assert the POST shape.

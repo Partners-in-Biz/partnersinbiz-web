@@ -1,10 +1,15 @@
 import type { MetadataRoute } from 'next'
 import { SITE } from '@/lib/seo/site'
+import { PUBLISHED_CAMPAIGN_INSIGHT_PATHS } from '@/lib/seo/published-insights'
 
 export default function robots(): MetadataRoute.Robots {
   return {
     rules: [
-      { userAgent: '*', allow: '/', disallow: ['/api/', '/admin/', '/portal/', '/login', '/register', '/_next/'] },
+      {
+        userAgent: '*',
+        allow: ['/', ...PUBLISHED_CAMPAIGN_INSIGHT_PATHS],
+        disallow: ['/api/', '/admin/', '/portal/', '/login', '/register', '/_next/'],
+      },
 
       // AI citation bots — let them index us so we get cited in answers
       { userAgent: 'OAI-SearchBot', allow: '/' },

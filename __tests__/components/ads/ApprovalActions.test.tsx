@@ -37,4 +37,15 @@ describe('ApprovalActions', () => {
       )
     })
   })
+
+  it('carries the selected company org into approve requests', async () => {
+    render(<ApprovalActions campaignId="camp-1" orgId="lumen-org" />)
+    fireEvent.click(screen.getByRole('button', { name: /approve/i }))
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        '/api/v1/portal/ads/campaigns/camp-1/approve?orgId=lumen-org',
+        expect.objectContaining({ method: 'POST' }),
+      )
+    })
+  })
 })

@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 
 export type CompanyTab =
   | 'overview'
+  | 'workspace'
   | 'contacts'
   | 'deals'
   | 'projects'
@@ -21,9 +22,11 @@ export type CompanyTab =
   | 'inventory'
   | 'analytics'
   | 'activity'
+  | 'chat'
 
 export const COMPANY_TABS: { key: CompanyTab; label: string; icon: string }[] = [
   { key: 'overview',  label: 'Overview',  icon: 'info' },
+  { key: 'workspace', label: 'Workspace', icon: 'business_center' },
   { key: 'contacts',  label: 'Contacts',  icon: 'person' },
   { key: 'deals',     label: 'Deals',     icon: 'monetization_on' },
   { key: 'projects',  label: 'Projects',  icon: 'folder_managed' },
@@ -37,9 +40,11 @@ export const COMPANY_TABS: { key: CompanyTab; label: string; icon: string }[] = 
   { key: 'inventory', label: 'Inventory', icon: 'inventory_2' },
   { key: 'analytics', label: 'Analytics', icon: 'monitoring' },
   { key: 'activity',  label: 'Activity',  icon: 'history' },
+  { key: 'chat',      label: 'Chat',      icon: 'forum' },
 ]
 
-const PRIMARY_TAB_KEYS: CompanyTab[] = ['overview', 'contacts', 'deals', 'projects', 'documents']
+const PRIMARY_TAB_KEYS: CompanyTab[] = ['overview', 'contacts', 'deals', 'projects', 'documents', 'chat']
+const WORKSPACE_PRIMARY_TAB_KEYS: CompanyTab[] = ['overview', 'workspace', 'contacts', 'deals', 'projects', 'documents', 'chat']
 
 const OVERFLOW_GROUPS: Array<{ label: string; tabs: CompanyTab[] }> = [
   { label: 'Commercial', tabs: ['quotes', 'invoices', 'orders'] },
@@ -54,15 +59,16 @@ export interface CompanyTabsBarProps {
   activeTab: string
   onChange: (tab: string) => void
   counts?: Partial<Record<CompanyTab, number>>
+  includeWorkspace?: boolean
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function CompanyTabsBar({ activeTab, onChange, counts }: CompanyTabsBarProps) {
+export function CompanyTabsBar({ activeTab, onChange, counts, includeWorkspace = false }: CompanyTabsBarProps) {
   const [moreOpen, setMoreOpen] = useState(false)
   const moreRef = useRef<HTMLDivElement | null>(null)
   const activeOverflowTab = COMPANY_TAB_BY_KEY.get(activeTab as CompanyTab)
-  const visibleKeys = new Set<CompanyTab>(PRIMARY_TAB_KEYS)
+  const visibleKeys = new Set<CompanyTab>(includeWorkspace ? WORKSPACE_PRIMARY_TAB_KEYS : PRIMARY_TAB_KEYS)
   if (activeOverflowTab && !visibleKeys.has(activeOverflowTab.key)) visibleKeys.add(activeOverflowTab.key)
 
   useEffect(() => {
@@ -85,7 +91,7 @@ export function CompanyTabsBar({ activeTab, onChange, counts }: CompanyTabsBarPr
     }
   }, [moreOpen])
 
-  const visibleTabs = COMPANY_TABS.filter((tab) => visibleKeys.has(tab.key))
+  const visibleTabs = COMPANY_TABS.filter((tab) => visibleKeys.has(tab.key) && (includeWorkspace || tab.key !== 'workspace'))
 
   return (
     <div className="flex min-w-0 flex-wrap items-center gap-2">

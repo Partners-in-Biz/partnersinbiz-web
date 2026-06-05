@@ -21,6 +21,8 @@ export interface DealDetailDrawerProps {
   contactLabel?: string
   contactBasePath?: string
   companyBasePath?: string
+  contactHrefForDeal?: (deal: Deal) => string
+  companyHrefForDeal?: (deal: Deal) => string
 }
 
 function fmtValue(value: number, currency: Currency): string {
@@ -65,6 +67,8 @@ export function DealDetailDrawer({
   contactLabel,
   contactBasePath = '/portal/contacts',
   companyBasePath = '/portal/companies',
+  contactHrefForDeal,
+  companyHrefForDeal,
 }: DealDetailDrawerProps) {
   const stage = stages.find(s => s.id === deal.stageId)
   const stageColor = stage?.color ?? (stage?.kind === 'won' ? '#4ade80' : stage?.kind === 'lost' ? '#ef4444' : '#60a5fa')
@@ -72,6 +76,8 @@ export function DealDetailDrawer({
   const dealLabel = deal.title?.trim() || 'Deal name missing'
   const readableContact = contactLabel?.trim() || 'Decision-maker name missing'
   const readableCompany = deal.companyName?.trim() || (deal.companyId ? 'Company name missing' : '')
+  const contactHref = contactHrefForDeal ? contactHrefForDeal(deal) : `${contactBasePath}/${deal.contactId}`
+  const companyHref = companyHrefForDeal ? companyHrefForDeal(deal) : `${companyBasePath}/${deal.companyId}`
   const ownerLabel = dealOwnerLabel(deal)
   const needsOwner = !deal.ownerRef?.displayName && !deal.ownerRef?.uid && !deal.ownerUid
   const closeDateLabel = fmtDate(deal.expectedCloseDate)
@@ -89,6 +95,7 @@ export function DealDetailDrawer({
 
   const probability = deal.probability ?? (stage?.probability ?? 100)
   const hasDealValue = deal.value !== null && deal.value !== undefined
+  const dealValueLabel = hasDealValue ? fmtValue(deal.value, deal.currency) : 'No value captured'
   const weightedValue = hasDealValue ? deal.value * (probability / 100) : null
 
   const labelCls = 'block text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1'
@@ -217,9 +224,20 @@ export function DealDetailDrawer({
           <div className="flex items-center gap-4 flex-wrap">
             <div>
               <p className={labelCls}>Deal value</p>
-              <p className="text-xl font-headline font-bold text-[var(--color-pib-text)]">
-                {hasDealValue ? fmtValue(deal.value, deal.currency) : 'No value captured'}
-              </p>
+              {onEdit ? (
+                <button
+                  type="button"
+                  aria-label={`${hasDealValue ? 'Edit' : 'Add'} value for ${dealLabel} from deal detail`}
+                  onClick={onEdit}
+                  className="text-left text-xl font-headline font-bold text-[var(--color-pib-text)] transition-colors hover:text-[var(--color-pib-accent)]"
+                >
+                  {dealValueLabel}
+                </button>
+              ) : (
+                <p className="text-xl font-headline font-bold text-[var(--color-pib-text)]">
+                  {dealValueLabel}
+                </p>
+              )}
             </div>
             <div
               className="px-3 py-2 rounded-lg"
@@ -300,7 +318,7 @@ export function DealDetailDrawer({
                 <p className={labelCls}>Contact</p>
                 {deal.contactId ? (
                   <a
-                    href={`${contactBasePath}/${deal.contactId}`}
+                    href={contactHref}
                     className="text-sm font-semibold text-[var(--color-pib-accent)] hover:underline"
                   >
                     {readableContact}
@@ -326,7 +344,7 @@ export function DealDetailDrawer({
                 <p className={labelCls}>Company</p>
                 {deal.companyId ? (
                   <a
-                    href={`${companyBasePath}/${deal.companyId}`}
+                    href={companyHref}
                     className="text-sm font-semibold text-[var(--color-pib-accent)] hover:underline"
                   >
                     {readableCompany}

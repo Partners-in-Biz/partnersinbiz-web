@@ -17,7 +17,6 @@ function isAdminUser(data: PortalUserData): boolean {
 
 function userLinkedOrgIds(data: PortalUserData): string[] {
   const ids = new Set<string>()
-  const isAdmin = isAdminUser(data)
 
   if (Array.isArray(data.orgIds)) {
     for (const value of data.orgIds) {
@@ -26,11 +25,10 @@ function userLinkedOrgIds(data: PortalUserData): string[] {
     }
   }
 
-  // For platform admins, activeOrgId is a remembered portal context, not an
-  // access grant. It is accepted later only if it is already in orgIds or
-  // orgMembers. Client users keep the legacy activeOrgId fallback.
+  // Platform admins use activeOrgId as an operator context when opening a
+  // linked client workspace from CRM. Client users keep the legacy fallback.
   const activeOrgId = cleanString(data.activeOrgId)
-  if (activeOrgId && !isAdmin) ids.add(activeOrgId)
+  if (activeOrgId) ids.add(activeOrgId)
 
   const primaryOrgId = cleanString(data.orgId)
   if (primaryOrgId) {
@@ -54,6 +52,13 @@ async function orgMemberOrgIds(uid: string): Promise<string[]> {
     if (orgId) ids.add(orgId)
   }
   return Array.from(ids)
+}
+
+async function orgExists(orgId: string): Promise<boolean> {
+  const snap = await adminDb.collection('organizations').doc(orgId).get()
+  if (!snap.exists) return false
+  const data = snap.data() ?? {}
+  return data.deleted !== true && data.archived !== true
 }
 
 export function choosePortalActiveOrgId(data: PortalUserData, orgIds: string[]): string | null {
@@ -83,5 +88,6 @@ export async function canUsePortalOrg(uid: string, data: PortalUserData, orgId: 
   if (!requestedOrgId) return false
   if (userLinkedOrgIds(data).includes(requestedOrgId)) return true
   const memberOrgIds = await orgMemberOrgIds(uid)
-  return memberOrgIds.includes(requestedOrgId)
+  if (memberOrgIds.includes(requestedOrgId)) return true
+  return isAdminUser(data) ? orgExists(requestedOrgId) : false
 }

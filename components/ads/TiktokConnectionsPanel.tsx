@@ -38,11 +38,15 @@ function getSelectedAdvertiserId(conn: AdConnection | undefined): string | undef
 
 export function TiktokConnectionsPanel({ orgSlug, orgId, connections }: Props) {
   const router = useRouter()
-  const tiktok = connections.find((c) => c.platform === 'tiktok')
+  const [tiktokDisconnected, setTiktokDisconnected] = useState(false)
+  const tiktok = tiktokDisconnected ? undefined : connections.find((c) => c.platform === 'tiktok')
   const selectedAdvertiserId = getSelectedAdvertiserId(tiktok)
 
   const [connecting, setConnecting] = useState(false)
   const [disconnecting, setDisconnecting] = useState(false)
+  const [confirmDisconnect, setConfirmDisconnect] = useState(false)
+  const [actionError, setActionError] = useState<string | null>(null)
+  const [message, setMessage] = useState<string | null>(null)
   const [accounts, setAccounts] = useState<TiktokAdvertiserSummary[]>([])
   const [accountsLoading, setAccountsLoading] = useState(false)
   const [accountsError, setAccountsError] = useState<string | null>(null)
@@ -86,6 +90,8 @@ export function TiktokConnectionsPanel({ orgSlug, orgId, connections }: Props) {
 
   async function startConnect() {
     setConnecting(true)
+    setActionError(null)
+    setMessage(null)
     try {
       const res = await fetch('/api/v1/ads/tiktok/oauth/authorize', {
         method: 'POST',
@@ -96,13 +102,15 @@ export function TiktokConnectionsPanel({ orgSlug, orgId, connections }: Props) {
       window.location.href = body.data.authorizeUrl
     } catch (err) {
       setConnecting(false)
-      alert((err as Error).message)
+      setActionError((err as Error).message)
     }
   }
 
   async function saveAdvertiser() {
     if (!tiktok || !selected) return
     setSaving(true)
+    setActionError(null)
+    setMessage(null)
     try {
       const res = await fetch(
         `/api/v1/ads/tiktok/connections/${encodeURIComponent(tiktok.id)}/account`,
@@ -117,18 +125,26 @@ export function TiktokConnectionsPanel({ orgSlug, orgId, connections }: Props) {
       )
       const body = await res.json()
       if (!body.success) throw new Error(body.error ?? `HTTP ${res.status}`)
+      setMessage('TikTok Ads advertiser updated.')
       router.refresh()
     } catch (err) {
-      alert((err as Error).message)
+      setActionError((err as Error).message)
     } finally {
       setSaving(false)
     }
   }
 
+  function requestDisconnect() {
+    setActionError(null)
+    setMessage(null)
+    setConfirmDisconnect(true)
+  }
+
   async function disconnect() {
     if (!tiktok) return
-    if (!confirm('Disconnect TikTok Ads? This revokes ad account access.')) return
     setDisconnecting(true)
+    setActionError(null)
+    setMessage(null)
     try {
       const res = await fetch('/api/v1/ads/connections/tiktok', {
         method: 'DELETE',
@@ -136,9 +152,12 @@ export function TiktokConnectionsPanel({ orgSlug, orgId, connections }: Props) {
       })
       const body = await res.json()
       if (!body.success) throw new Error(body.error ?? `HTTP ${res.status}`)
+      setConfirmDisconnect(false)
+      setTiktokDisconnected(true)
+      setMessage('TikTok Ads disconnected.')
       router.refresh()
     } catch (err) {
-      alert((err as Error).message)
+      setActionError((err as Error).message)
     } finally {
       setDisconnecting(false)
     }
@@ -146,6 +165,54 @@ export function TiktokConnectionsPanel({ orgSlug, orgId, connections }: Props) {
 
   return (
     <div className="rounded-lg border border-white/10 p-5">
+      {confirmDisconnect && (
+        <div
+          role="alertdialog"
+          aria-modal="true"
+          aria-label={`Disconnect TikTok Ads connection for ${orgSlug}?`}
+          className="mb-4 rounded-lg border border-red-400/30 bg-red-400/10 p-4"
+        >
+          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+            <div>
+              <h2 className="font-semibold text-red-100">Disconnect TikTok Ads connection?</h2>
+              <p className="mt-1 text-sm text-red-100/80">
+                This revokes TikTok Marketing API advertiser access for this workspace. Campaign history stays in PiB.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                className="rounded-md border border-red-100/30 px-3 py-2 text-xs font-medium text-red-50 hover:bg-red-50/10 disabled:cursor-not-allowed disabled:opacity-50"
+                onClick={() => setConfirmDisconnect(false)}
+                disabled={disconnecting}
+              >
+                Keep TikTok Ads connected
+              </button>
+              <button
+                type="button"
+                className="rounded-md bg-red-300 px-3 py-2 text-xs font-medium text-red-950 hover:bg-red-200 disabled:cursor-not-allowed disabled:opacity-60"
+                onClick={disconnect}
+                disabled={disconnecting}
+              >
+                {disconnecting ? 'Disconnecting...' : `Confirm disconnect TikTok Ads connection for ${orgSlug}`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {(message || actionError) && (
+        <div
+          className={`mb-4 rounded-lg border px-4 py-3 text-sm ${
+            actionError
+              ? 'border-red-400/30 bg-red-400/10 text-red-200'
+              : 'border-emerald-400/30 bg-emerald-400/10 text-emerald-200'
+          }`}
+        >
+          {actionError ?? message}
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <div>
           <h2 className="font-medium">TikTok Ads</h2>
@@ -160,7 +227,8 @@ export function TiktokConnectionsPanel({ orgSlug, orgId, connections }: Props) {
         {tiktok ? (
           <button
             className="btn-pib-ghost text-sm"
-            onClick={disconnect}
+            aria-label={`Disconnect TikTok Ads connection for ${orgSlug}`}
+            onClick={requestDisconnect}
             disabled={disconnecting}
           >
             {disconnecting ? 'Disconnecting…' : 'Disconnect'}

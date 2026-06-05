@@ -2,10 +2,66 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
+const BRIEFING_AUTO_REFRESH_MS = 5 * 60_000
+
 interface OrgSummary {
   id: string
   name: string
   slug?: string
+}
+
+interface SoftwareBuildEvidenceRow {
+  kind: 'commit' | 'verification' | 'link' | 'document' | 'blocker'
+  label: string
+  value: string
+  href?: string
+}
+
+type AgentOutputReviewStatus = 'pass' | 'warning' | 'blocked'
+
+interface AgentOutputReviewArtifact {
+  type: string
+  label: string
+  ref: string
+  href?: string
+}
+
+interface AgentOutputQualityCheck {
+  label: string
+  status: AgentOutputReviewStatus
+  detail: string
+}
+
+interface AgentOutputApprovalGate {
+  label: string
+  status: AgentOutputReviewStatus
+  value: string
+  href?: string
+}
+
+interface AgentOutputReviewCard {
+  summary: string
+  evidence: SoftwareBuildEvidenceRow[]
+  artifacts: AgentOutputReviewArtifact[]
+  qualityChecks: AgentOutputQualityCheck[]
+  approvalGates: AgentOutputApprovalGate[]
+  nextAction: string
+}
+
+interface AgentLearningReviewLink {
+  label: string
+  href: string
+  type: string
+}
+
+interface AgentLearningReviewCard {
+  automationGuard: string
+  skillLinks: AgentLearningReviewLink[]
+  wikiLinks: AgentLearningReviewLink[]
+  taskLinks: AgentLearningReviewLink[]
+  proposedChanges: string[]
+  sourceDocumentId?: string | null
+  approvalGateTaskId?: string | null
 }
 
 interface BriefingCard {
@@ -87,6 +143,14 @@ interface BriefingCard {
     calendarEventTitle?: string | null
   }
   metadata?: Record<string, unknown> | null
+  userState?: {
+    status?: 'active' | 'read' | 'handled' | 'snoozed' | 'rejected' | 'approved' | 'pending-review' | 'follow-up-created'
+    note?: string | null
+    snoozedUntil?: string | null
+    approvalState?: string | null
+    approvalCopy?: string | null
+    sideEffectPerformed?: false
+  } | null
   occurredAt: string
 }
 
@@ -113,6 +177,7 @@ const PRIORITIES = [
 const SOURCES = [
   { value: 'all', label: 'All sources' },
   { value: 'task', label: 'Tasks' },
+  { value: 'agent-learning-review', label: 'Agent learning' },
   { value: 'comment', label: 'Comments' },
   { value: 'agent-output', label: 'Agent output' },
   { value: 'agent-run', label: 'Agent runs' },
@@ -128,6 +193,7 @@ const SOURCES = [
   { value: 'notification', label: 'Notifications' },
   { value: 'activity', label: 'Activity' },
   { value: 'contact', label: 'Contacts' },
+  { value: 'deal', label: 'Deals' },
   { value: 'report', label: 'Reports' },
   { value: 'support-ticket', label: 'Support' },
   { value: 'invoice', label: 'Invoices' },
@@ -267,6 +333,119 @@ function sourceHref(item: BriefingCard, mode: Mode) {
   if (item.context.dealId) return `/portal/deals/${encodeURIComponent(item.context.dealId)}`
   if (item.source.type === 'report' && item.source.url) return item.source.url
   return item.source.url || null
+}
+
+function softwareBuildEvidenceRows(item: BriefingCard): SoftwareBuildEvidenceRow[] {
+  const rows = item.metadata?.softwareBuildEvidence
+  if (!Array.isArray(rows)) return []
+  return rows.filter((row): row is SoftwareBuildEvidenceRow => {
+    if (!row || typeof row !== 'object') return false
+    const candidate = row as Record<string, unknown>
+    return typeof candidate.kind === 'string'
+      && typeof candidate.label === 'string'
+      && typeof candidate.value === 'string'
+      && (candidate.href === undefined || typeof candidate.href === 'string')
+  })
+}
+
+function isReviewStatus(value: unknown): value is AgentOutputReviewStatus {
+  return value === 'pass' || value === 'warning' || value === 'blocked'
+}
+
+function agentOutputReviewCard(item: BriefingCard): AgentOutputReviewCard | null {
+  const card = item.metadata?.agentOutputReviewCard
+  if (!card || typeof card !== 'object' || Array.isArray(card)) return null
+  const candidate = card as Record<string, unknown>
+  if (typeof candidate.summary !== 'string' || typeof candidate.nextAction !== 'string') return null
+
+  const artifacts = Array.isArray(candidate.artifacts)
+    ? candidate.artifacts.filter((artifact): artifact is AgentOutputReviewArtifact => {
+      if (!artifact || typeof artifact !== 'object' || Array.isArray(artifact)) return false
+      const item = artifact as Record<string, unknown>
+      return typeof item.type === 'string'
+        && typeof item.label === 'string'
+        && typeof item.ref === 'string'
+        && (item.href === undefined || typeof item.href === 'string')
+    })
+    : []
+  const qualityChecks = Array.isArray(candidate.qualityChecks)
+    ? candidate.qualityChecks.filter((check): check is AgentOutputQualityCheck => {
+      if (!check || typeof check !== 'object' || Array.isArray(check)) return false
+      const item = check as Record<string, unknown>
+      return typeof item.label === 'string'
+        && isReviewStatus(item.status)
+        && typeof item.detail === 'string'
+    })
+    : []
+  const approvalGates = Array.isArray(candidate.approvalGates)
+    ? candidate.approvalGates.filter((gate): gate is AgentOutputApprovalGate => {
+      if (!gate || typeof gate !== 'object' || Array.isArray(gate)) return false
+      const item = gate as Record<string, unknown>
+      return typeof item.label === 'string'
+        && isReviewStatus(item.status)
+        && typeof item.value === 'string'
+        && (item.href === undefined || typeof item.href === 'string')
+    })
+    : []
+
+  return {
+    summary: candidate.summary,
+    nextAction: candidate.nextAction,
+    evidence: softwareBuildEvidenceRows(item),
+    artifacts,
+    qualityChecks,
+    approvalGates,
+  }
+}
+
+function normalizeAgentLearningLinks(value: unknown): AgentLearningReviewLink[] {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((entry) => {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return []
+    const candidate = entry as Record<string, unknown>
+    if (typeof candidate.label !== 'string' || typeof candidate.href !== 'string') return []
+    return [{ label: candidate.label, href: candidate.href, type: typeof candidate.type === 'string' ? candidate.type : 'link' }]
+  })
+}
+
+function normalizeAgentLearningText(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  return value.filter((entry): entry is string => typeof entry === 'string' && entry.trim().length > 0)
+}
+
+function agentLearningReviewCard(item: BriefingCard): AgentLearningReviewCard | null {
+  const card = item.metadata?.agentLearningReview
+  if (!card || typeof card !== 'object' || Array.isArray(card)) return null
+  const candidate = card as Record<string, unknown>
+  const automationGuard = typeof candidate.automationGuard === 'string' && candidate.automationGuard.trim().length
+    ? candidate.automationGuard
+    : 'No automatic skill or wiki rewrites. Proposed changes must be reviewed before any durable knowledge is changed.'
+  return {
+    automationGuard,
+    skillLinks: normalizeAgentLearningLinks(candidate.skillLinks),
+    wikiLinks: normalizeAgentLearningLinks(candidate.wikiLinks),
+    taskLinks: normalizeAgentLearningLinks(candidate.taskLinks),
+    proposedChanges: normalizeAgentLearningText(candidate.proposedChanges),
+    sourceDocumentId: typeof candidate.sourceDocumentId === 'string' ? candidate.sourceDocumentId : null,
+    approvalGateTaskId: typeof candidate.approvalGateTaskId === 'string' ? candidate.approvalGateTaskId : null,
+  }
+}
+
+function statusToneClass(status: AgentOutputReviewStatus) {
+  switch (status) {
+    case 'pass':
+      return 'border-emerald-300/35 bg-emerald-400/10 text-emerald-100'
+    case 'blocked':
+      return 'border-amber-300/45 bg-amber-400/10 text-amber-100'
+    default:
+      return 'border-white/10 bg-white/[0.04] text-on-surface-variant'
+  }
+}
+
+function statusLabel(status: AgentOutputReviewStatus) {
+  if (status === 'pass') return 'Pass'
+  if (status === 'blocked') return 'Blocked'
+  return 'Needs check'
 }
 
 function adminSourceHref(item: BriefingCard) {
@@ -580,6 +759,66 @@ function documentReviewable(item: BriefingCard) {
   return canDocumentAct(item) && (item.source.type === 'client-document' || item.source.type === 'approval') && ['needs-peet', 'review'].includes(item.priority)
 }
 
+function briefingStateLabel(item: BriefingCard) {
+  if (item.userState?.status === 'handled') return 'Handled'
+  if (item.userState?.status === 'snoozed') return 'Snoozed'
+  if (item.requiresAction) return 'Needs action'
+  return 'Active'
+}
+
+function phase2StateChips(item: BriefingCard, mode: Mode) {
+  const chips = [`State: ${briefingStateLabel(item)}`]
+  if (reviewable(item)) chips.push('Review pending')
+  if (approvalGateReviewable(item)) chips.push('Approval gate pending')
+  if (documentReviewable(item)) chips.push('Document approval')
+  if (canSocialPostAct(item) && socialActionStage(item)) chips.push(socialActionStage(item) === 'qa' ? 'QA approval' : 'Client approval')
+  if (canAgentRunApprove(item, mode)) chips.push('Agent approval gate')
+  if (canWorkspaceBrokerAct(item, mode)) chips.push('Workspace approval gate')
+  if (canConvertToCrmActivity(item)) chips.push('CRM-ready')
+  if (softwareBuildEvidenceRows(item).length) chips.push('Evidence attached')
+  return chips
+}
+
+function phase2NextActionCopy(item: BriefingCard, mode: Mode) {
+  if (reviewable(item)) return 'Next action: review the evidence, then approve the work or reject it back to the assigned agent.'
+  if (approvalGateReviewable(item)) return 'Next action: approve the gate if the request is safe, or reject it with direction for the agent.'
+  if (documentReviewable(item)) return 'Next action: approve the document, or request changes with a clear note.'
+  if (canSocialPostAct(item) && socialActionStage(item)) return 'Next action: approve the content for its current review stage, or request changes without publishing.'
+  if (canConvertToCrmActivity(item)) return 'Next action: convert this signal into a CRM activity or schedule the next follow-up task.'
+  if (canAgentRunApprove(item, mode) || canWorkspaceBrokerAct(item, mode)) return 'Next action: review the approval request and only approve the scoped operation if it is safe.'
+  if (canTaskAct(item)) return 'Next action: reply on the task, create a follow-up task, assign an agent, or snooze this signal.'
+  return 'Next action: open the source for more context, create a follow-up task when supported, or snooze the card.'
+}
+
+function phase2AgentId(item: BriefingCard) {
+  const assigned = item.metadata?.assigneeAgentId ?? item.metadata?.assignedAgentId ?? item.metadata?.agentId
+  if (typeof assigned === 'string' && assigned.trim()) return assigned.trim().replace(/^agent:/, '')
+  if (item.actor.type === 'agent') return item.actor.id.replace(/^agent:/, '')
+  return 'theo'
+}
+
+function canConvertToCrmActivity(item: BriefingCard) {
+  return Boolean(item.context.contactId || item.context.dealId || item.metadata?.contactId || item.metadata?.dealId)
+}
+
+function evidenceHref(item: BriefingCard, mode: Mode) {
+  const evidence = softwareBuildEvidenceRows(item).find((row) => row.href)?.href
+  return evidence || sourceHref(item, mode)
+}
+
+function briefingActionEndpoint(item: BriefingCard) {
+  return `/api/v1/briefings/items/${encodeURIComponent(item.id)}/actions`
+}
+
+function briefingActionSourcePayload(item: BriefingCard, mode: Mode) {
+  return {
+    orgId: item.orgId || item.context.orgId,
+    context: item.context,
+    source: { ...item.source, url: item.source.url || sourceHref(item, mode) || undefined },
+    metadata: item.metadata ?? {},
+  }
+}
+
 function defaultSnoozeDate() {
   return new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
 }
@@ -597,6 +836,25 @@ type PulseRow = {
 }
 
 const WORKSPACE_OPERATIONS_KEY = 'workspace-operations'
+
+const MISSION_CONTROL_DECISION_ROUTES = [
+  { decision: 'Approve', route: 'Approves internal review, document, social-review, agent-run, or workspace-gate records only.' },
+  { decision: 'Reject', route: 'Routes changes back to the source task, document, social item, agent run, or workspace gate.' },
+  { decision: 'Snooze', route: 'Updates the briefing state for 24 hours without touching the source record.' },
+  { decision: 'Create task', route: 'Creates an internal Projects/Kanban follow-up linked to the briefing source and evidence.' },
+  { decision: 'Assign agent', route: 'Assigns the linked project task to the selected specialist agent; unavailable without a project task.' },
+  { decision: 'Open evidence', route: 'Opens the evidence or source link read-only; it never changes client or production state.' },
+]
+
+const MISSION_CONTROL_APPROVAL_GATES = [
+  'production deploys',
+  'external sends',
+  'public publishing',
+  'paid spend',
+  'finance changes',
+  'secret/config changes',
+  'destructive actions',
+]
 
 function cleanText(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
@@ -648,7 +906,7 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [snapshotting, setSnapshotting] = useState(false)
-  const [autoRefresh, setAutoRefresh] = useState(true)
+  const [autoRefresh, setAutoRefresh] = useState(false)
   const [replyText, setReplyText] = useState('')
   const [socialChangeText, setSocialChangeText] = useState('')
   const [followUpText, setFollowUpText] = useState('')
@@ -739,7 +997,11 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
   useEffect(() => {
     if (!autoRefresh) return
     if (mode === 'portal' && !orgId) return
-    const timer = window.setInterval(() => loadFeed({ quiet: true }), 30_000)
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        loadFeed({ quiet: true })
+      }
+    }, BRIEFING_AUTO_REFRESH_MS)
     return () => window.clearInterval(timer)
   }, [autoRefresh, loadFeed, mode, orgId])
 
@@ -749,6 +1011,8 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
     return allItems.filter((item) => accountPulseIdentity(item).id === accountPulseId)
   }, [accountPulseId, allItems, mode])
   const selected = items.find((item) => item.id === selectedId) ?? items[0] ?? null
+  const selectedReviewCard = selected ? agentOutputReviewCard(selected) : null
+  const selectedLearningReview = selected ? agentLearningReviewCard(selected) : null
 
   const counts = useMemo(() => {
     const result: Record<string, number> = {}
@@ -847,7 +1111,11 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
       const res = await fetch(`/api/v1/briefings/items/${encodeURIComponent(item.id)}/state`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ action, snoozedUntil: action === 'snoozed' ? defaultSnoozeDate() : undefined }),
+        body: JSON.stringify({
+          orgId: item.orgId || item.context.orgId,
+          action,
+          snoozedUntil: action === 'snoozed' ? defaultSnoozeDate() : undefined,
+        }),
       })
       const body = await res.json()
       if (!res.ok) throw new Error(body.error || 'State update failed')
@@ -855,6 +1123,133 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
       setFlash({ kind: 'ok', message: action === 'snoozed' ? 'Snoozed for 24 hours.' : action === 'handled' ? 'Marked handled.' : 'Returned to active.' })
     } catch (err) {
       setFlash({ kind: 'error', message: err instanceof Error ? err.message : 'State update failed' })
+    } finally {
+      setBusyAction(null)
+    }
+  }
+
+  async function approvePhase2Item(item: BriefingCard) {
+    if (reviewable(item)) {
+      await taskPatch(item, { reviewStatus: 'approved', columnId: 'done', agentStatus: 'done' }, 'Approved and moved to done.')
+      return
+    }
+    if (approvalGateReviewable(item)) {
+      await taskPatch(item, { reviewStatus: 'approved', approvalStatus: 'approved', columnId: 'done', agentStatus: 'done' }, 'Approval gate approved.')
+      return
+    }
+    if (documentReviewable(item)) {
+      await approveDocument(item)
+      return
+    }
+    if (canSocialPostAct(item) && socialActionStage(item)) {
+      await socialPostAction(item, 'approve')
+      return
+    }
+    await setItemState(item, 'handled')
+  }
+
+  async function rejectPhase2Item(item: BriefingCard) {
+    if (reviewable(item)) {
+      await taskPatch(item, { reviewStatus: 'changes-requested', agentStatus: 'pending', columnId: 'todo' }, 'Sent back to the assigned agent.')
+      return
+    }
+    if (approvalGateReviewable(item)) {
+      await taskPatch(item, { reviewStatus: 'changes-requested', approvalStatus: 'rejected', agentStatus: 'pending', columnId: 'todo' }, 'Approval gate rejected and sent back.')
+      return
+    }
+    if (documentReviewable(item)) {
+      await requestDocumentChanges(item)
+      return
+    }
+    if (canSocialPostAct(item) && socialActionStage(item) && socialChangeText.trim()) {
+      await socialPostAction(item, 'reject')
+    }
+  }
+
+  async function createPhase2Task(item: BriefingCard) {
+    const title = `Follow up: ${item.title}`
+    const payload = {
+      action: 'create-task',
+      ...briefingActionSourcePayload(item, mode),
+      title,
+      description: item.summary,
+      spec: item.summary,
+      priority: item.priority === 'critical' ? 'high' : 'medium',
+      sourceTitle: item.title,
+    }
+    setBusyAction('phase2-create-task')
+    try {
+      const res = await fetch(briefingActionEndpoint(item), {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(body.error || 'Follow-up task creation failed')
+      setFlash({ kind: 'ok', message: 'Follow-up task created from the briefing.' })
+      await loadFeed({ quiet: true })
+    } catch (err) {
+      setFlash({ kind: 'error', message: err instanceof Error ? err.message : 'Follow-up task creation failed' })
+    } finally {
+      setBusyAction(null)
+    }
+  }
+
+  async function assignPhase2Agent(item: BriefingCard) {
+    if (!canTaskAct(item)) return
+    const agentId = phase2AgentId(item)
+    setBusyAction('phase2-assign-agent')
+    try {
+      const res = await fetch(briefingActionEndpoint(item), {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          action: 'assign-agent',
+          ...briefingActionSourcePayload(item, mode),
+          title: `Assign ${agentId}: ${item.title}`,
+          spec: item.summary,
+          assigneeAgentId: agentId,
+        }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(body.error || 'Agent assignment failed')
+      setFlash({ kind: 'ok', message: `Assigned ${agentId} to the source task.` })
+      await loadFeed({ quiet: true })
+    } catch (err) {
+      setFlash({ kind: 'error', message: err instanceof Error ? err.message : 'Agent assignment failed' })
+    } finally {
+      setBusyAction(null)
+    }
+  }
+
+  async function convertToCrmActivity(item: BriefingCard) {
+    const contactId = typeof item.context.contactId === 'string' && item.context.contactId
+      ? item.context.contactId
+      : typeof item.metadata?.contactId === 'string' ? item.metadata.contactId : ''
+    const dealId = typeof item.context.dealId === 'string' && item.context.dealId
+      ? item.context.dealId
+      : typeof item.metadata?.dealId === 'string' ? item.metadata.dealId : ''
+    if (!contactId && !dealId) return
+    setBusyAction('phase2-crm-activity')
+    try {
+      const res = await fetch(briefingActionEndpoint(item), {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          action: 'create-crm-activity',
+          ...briefingActionSourcePayload(item, mode),
+          contactId,
+          dealId,
+          summary: `Follow up: ${item.summary}`,
+          crmActivityInternalOnly: true,
+        }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(body.error || 'CRM activity conversion failed')
+      setFlash({ kind: 'ok', message: 'Briefing converted to a CRM activity.' })
+      await loadFeed({ quiet: true })
+    } catch (err) {
+      setFlash({ kind: 'error', message: err instanceof Error ? err.message : 'CRM activity conversion failed' })
     } finally {
       setBusyAction(null)
     }
@@ -1986,6 +2381,15 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                       {item.context.projectName || item.context.projectId ? <span>Project: {titledId(item.context.projectName, item.context.projectId)}</span> : null}
                       {item.context.taskTitle || item.context.taskId ? <span>Task: {titledId(item.context.taskTitle, item.context.taskId)}</span> : null}
                     </div>
+                    {softwareBuildEvidenceRows(item).length ? (
+                      <div className="mt-3 grid gap-1 rounded-lg border border-white/10 bg-white/[0.03] p-2 text-xs text-on-surface-variant" aria-label={`Software build evidence for ${item.title}`}>
+                        {softwareBuildEvidenceRows(item).slice(0, 4).map((row) => (
+                          <span key={`${row.kind}:${row.label}:${row.value}`} className="truncate">
+                            <span className="font-medium text-on-surface">{row.label}:</span> {row.value}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
                   </button>
                 ))
               )}
@@ -1999,6 +2403,97 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                 <div>
                   <h2 className="text-xl font-semibold text-on-surface">{selected.title}</h2>
                   <p className="mt-2 text-sm leading-6 text-on-surface-variant">{selected.excerpt || selected.summary}</p>
+                </div>
+
+                <div className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface-container)] p-3">
+                  <div className="flex flex-wrap gap-2">
+                    {phase2StateChips(selected, mode).map((chip) => (
+                      <span key={chip} className="rounded-full border border-[var(--color-accent-v2)]/30 bg-[var(--color-accent-subtle)] px-2.5 py-1 text-xs font-medium text-[var(--color-accent-text)]">
+                        {chip}
+                      </span>
+                    ))}
+                  </div>
+                  <p className="mt-3 text-sm leading-6 text-on-surface-variant">{phase2NextActionCopy(selected, mode)}</p>
+                </div>
+
+                <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand">Phase 2 actions</p>
+                    <span className="rounded-full border border-emerald-300/30 bg-emerald-300/10 px-2 py-1 text-[11px] text-emerald-100">Safe controls only</span>
+                  </div>
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => approvePhase2Item(selected)} disabled={!!busyAction} aria-label="Approve Phase 2 item">
+                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">verified</span>
+                      Approve
+                    </button>
+                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => rejectPhase2Item(selected)} disabled={!!busyAction || (canSocialPostAct(selected) && !!socialActionStage(selected) && !socialChangeText.trim())} aria-label="Reject Phase 2 item">
+                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">assignment_return</span>
+                      Reject
+                    </button>
+                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => setItemState(selected, 'snoozed')} disabled={!!busyAction} aria-label="Snooze Phase 2 item">
+                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">snooze</span>
+                      Snooze
+                    </button>
+                    <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => createPhase2Task(selected)} disabled={!!busyAction || !(selected.context.projectId || selected.context.orgId || selected.orgId)}>
+                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">add_task</span>
+                      Create follow-up task
+                    </button>
+                    {canTaskAct(selected) ? (
+                      <button className="pib-btn-secondary justify-center text-xs" type="button" onClick={() => assignPhase2Agent(selected)} disabled={!!busyAction}>
+                        <span className="material-symbols-outlined text-[15px]" aria-hidden="true">smart_toy</span>
+                        Assign {phase2AgentId(selected)}
+                      </button>
+                    ) : (
+                      <button className="pib-btn-secondary justify-center text-xs" type="button" disabled title="Agent assignment requires a linked project task." aria-label="Assign agent unavailable">
+                        <span className="material-symbols-outlined text-[15px]" aria-hidden="true">smart_toy</span>
+                        Assign agent unavailable
+                      </button>
+                    )}
+                    {evidenceHref(selected, mode) ? (
+                      <a className="pib-btn-secondary inline-flex justify-center text-xs" href={evidenceHref(selected, mode) ?? undefined} target="_blank" rel="noopener noreferrer">
+                        <span className="material-symbols-outlined text-[15px]" aria-hidden="true">fact_check</span>
+                        Open evidence
+                      </a>
+                    ) : (
+                      <button className="pib-btn-secondary justify-center text-xs" type="button" disabled title="No evidence link is available on this briefing." aria-label="Open evidence unavailable">
+                        <span className="material-symbols-outlined text-[15px]" aria-hidden="true">fact_check</span>
+                        Open evidence unavailable
+                      </button>
+                    )}
+                    {canConvertToCrmActivity(selected) ? (
+                      <button className="pib-btn-secondary col-span-2 justify-center text-xs" type="button" onClick={() => convertToCrmActivity(selected)} disabled={!!busyAction}>
+                        <span className="material-symbols-outlined text-[15px]" aria-hidden="true">add_notes</span>
+                        Convert to CRM activity
+                      </button>
+                    ) : (
+                      <button className="pib-btn-secondary col-span-2 justify-center text-xs" type="button" disabled aria-label="Convert to CRM activity unavailable">
+                        <span className="material-symbols-outlined text-[15px]" aria-hidden="true">add_notes</span>
+                        Convert to CRM activity unavailable
+                      </button>
+                    )}
+                  </div>
+                  {!canTaskAct(selected) ? <p className="mt-2 text-xs text-on-surface-variant">Agent assignment requires a linked project task.</p> : null}
+                  {!canConvertToCrmActivity(selected) ? <p className="mt-2 text-xs text-on-surface-variant">CRM conversion needs a contact or deal on the briefing card.</p> : null}
+                  <div className="mt-3 rounded-lg border border-amber-300/25 bg-amber-300/10 p-3">
+                    <button className="pib-btn-secondary w-full justify-center text-xs" type="button" disabled aria-label="Approval gates stay explicit">
+                      <span className="material-symbols-outlined text-[15px]" aria-hidden="true">lock</span>
+                      Approval gates stay explicit
+                    </button>
+                    <p className="mt-2 text-xs leading-5 text-amber-100">
+                      Mission Control can route decisions, but {MISSION_CONTROL_APPROVAL_GATES.join(', ')} require a separate explicit approval before any side effect.
+                    </p>
+                  </div>
+                  <div className="mt-3 rounded-lg border border-white/10 bg-white/[0.03] p-3" aria-label="Mission Control decision routing">
+                    <p className="text-[10px] font-label uppercase tracking-[0.16em] text-on-surface-variant">Decision routing</p>
+                    <dl className="mt-2 space-y-2 text-xs leading-5 text-on-surface-variant">
+                      {MISSION_CONTROL_DECISION_ROUTES.map((row) => (
+                        <div key={row.decision} className="grid gap-1 sm:grid-cols-[96px_minmax(0,1fr)]">
+                          <dt className="font-semibold text-on-surface">{row.decision}</dt>
+                          <dd>{row.route}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2">
@@ -2595,6 +3090,150 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                       onChange={(event) => setAdCampaignChangeText(event.target.value)}
                       placeholder="Tell the ads team what must change before launch..."
                     />
+                  </div>
+                ) : null}
+
+                {selectedLearningReview ? (
+                  <div className="rounded-lg border border-violet-300/25 bg-violet-400/10 p-3" aria-label="Agent Learning Review">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-medium text-violet-100">Weekly Agent Learning Review</p>
+                        <p className="mt-2 text-sm text-on-surface">{selectedLearningReview.automationGuard}</p>
+                      </div>
+                      <span className="rounded-full border border-amber-300/35 bg-amber-300/10 px-2 py-1 text-[11px] text-amber-100">
+                        Review before rewrite
+                      </span>
+                    </div>
+                    {selectedLearningReview.proposedChanges.length ? (
+                      <div className="mt-4 rounded-md border border-white/10 bg-white/[0.04] p-3">
+                        <p className="text-xs font-medium text-on-surface-variant">Proposed learning items</p>
+                        <ul className="mt-2 space-y-1 text-sm text-on-surface">
+                          {selectedLearningReview.proposedChanges.map((change) => <li key={change}>• {change}</li>)}
+                        </ul>
+                      </div>
+                    ) : null}
+                    <div className="mt-4 grid gap-3 lg:grid-cols-3">
+                      {[
+                        { label: 'Skills', links: selectedLearningReview.skillLinks },
+                        { label: 'Wiki', links: selectedLearningReview.wikiLinks },
+                        { label: 'Tasks', links: selectedLearningReview.taskLinks },
+                      ].map((group) => (
+                        <div key={group.label} className="rounded-md border border-white/10 bg-white/[0.03] p-3">
+                          <p className="text-xs font-medium text-on-surface-variant">{group.label}</p>
+                          <div className="mt-2 space-y-1 text-sm">
+                            {group.links.length ? group.links.map((link) => (
+                              <a key={`${group.label}:${link.href}:${link.label}`} className="block truncate text-brand underline-offset-4 hover:underline" href={link.href} target="_blank" rel="noopener noreferrer">
+                                {link.label}
+                              </a>
+                            )) : <span className="text-on-surface-variant">No links attached</span>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    {(selectedLearningReview.sourceDocumentId || selectedLearningReview.approvalGateTaskId) ? (
+                      <p className="mt-3 text-xs text-on-surface-variant">
+                        {selectedLearningReview.sourceDocumentId ? `Source doc: ${selectedLearningReview.sourceDocumentId}` : null}
+                        {selectedLearningReview.sourceDocumentId && selectedLearningReview.approvalGateTaskId ? ' · ' : null}
+                        {selectedLearningReview.approvalGateTaskId ? `Approval gate task: ${selectedLearningReview.approvalGateTaskId}` : null}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                {selectedReviewCard ? (
+                  <div className="rounded-lg border border-sky-300/25 bg-sky-400/10 p-3" aria-label="Structured review card">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-medium text-sky-100">Structured review card</p>
+                        <p className="mt-2 text-sm text-on-surface">{selectedReviewCard.summary}</p>
+                      </div>
+                      <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-1 text-[11px] text-on-surface-variant">
+                        Internal review
+                      </span>
+                    </div>
+                    <div className="mt-4 rounded-md border border-white/10 bg-white/[0.04] p-3">
+                      <p className="text-xs font-medium text-on-surface-variant">What should Peet do now?</p>
+                      <p className="mt-1 text-sm text-on-surface">{selectedReviewCard.nextAction}</p>
+                    </div>
+                    <div className="mt-4 grid gap-3 lg:grid-cols-2">
+                      <div>
+                        <p className="text-xs font-medium text-on-surface-variant">Quality checks</p>
+                        <div className="mt-2 space-y-2">
+                          {selectedReviewCard.qualityChecks.map((check) => (
+                            <div key={`${check.label}:${check.status}`} className={`rounded-md border px-3 py-2 ${statusToneClass(check.status)}`}>
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="text-sm font-medium">{check.label}</span>
+                                <span className="text-[11px] uppercase tracking-wide">{statusLabel(check.status)}</span>
+                              </div>
+                              <p className="mt-1 text-xs opacity-90">{check.detail}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium text-on-surface-variant">Artifacts</p>
+                        {selectedReviewCard.artifacts.length ? (
+                          <dl className="mt-2 space-y-2 text-sm">
+                            {selectedReviewCard.artifacts.map((artifact) => (
+                              <div key={`${artifact.type}:${artifact.ref}`}>
+                                <dt className="text-on-surface-variant">{artifact.label}</dt>
+                                <dd className="text-on-surface">
+                                  {artifact.href ? (
+                                    <a className="break-all underline-offset-2 hover:underline" href={artifact.href} target="_blank" rel="noopener noreferrer">{artifact.ref}</a>
+                                  ) : (
+                                    <span className="break-all">{artifact.ref}</span>
+                                  )}
+                                </dd>
+                              </div>
+                            ))}
+                          </dl>
+                        ) : (
+                          <p className="mt-2 text-sm text-on-surface-variant">No explicit artifacts were linked.</p>
+                        )}
+                      </div>
+                    </div>
+                    {selectedReviewCard.approvalGates.length ? (
+                      <div className="mt-4">
+                        <p className="text-xs font-medium text-on-surface-variant">Approval gates</p>
+                        <dl className="mt-2 space-y-2 text-sm">
+                          {selectedReviewCard.approvalGates.map((gate) => (
+                            <div key={`${gate.label}:${gate.value}`} className={`rounded-md border px-3 py-2 ${statusToneClass(gate.status)}`}>
+                              <dt className="flex items-center justify-between gap-2">
+                                <span className="font-medium">{gate.label}</span>
+                                <span className="text-[11px] uppercase tracking-wide">{statusLabel(gate.status)}</span>
+                              </dt>
+                              <dd className="mt-1">
+                                {gate.href ? (
+                                  <a className="break-all underline-offset-2 hover:underline" href={gate.href} target="_blank" rel="noopener noreferrer">{gate.value}</a>
+                                ) : (
+                                  <span className="break-all">{gate.value}</span>
+                                )}
+                              </dd>
+                            </div>
+                          ))}
+                        </dl>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                {softwareBuildEvidenceRows(selected).length ? (
+                  <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3" aria-label="Software build evidence">
+                    <p className="text-xs font-medium text-on-surface-variant">Software build evidence</p>
+                    <dl className="mt-3 space-y-2 text-sm">
+                      {softwareBuildEvidenceRows(selected).map((row) => (
+                        <div key={`${row.kind}:${row.label}:${row.value}`}>
+                          <dt className="text-on-surface-variant">{row.label}</dt>
+                          <dd className={row.kind === 'blocker' ? 'text-amber-100' : 'text-on-surface'}>
+                            {row.href ? (
+                              <a className="break-all underline-offset-2 hover:underline" href={row.href} target="_blank" rel="noopener noreferrer">{row.value}</a>
+                            ) : (
+                              <span className="break-all">{row.value}</span>
+                            )}
+                          </dd>
+                        </div>
+                      ))}
+                    </dl>
                   </div>
                 ) : null}
 

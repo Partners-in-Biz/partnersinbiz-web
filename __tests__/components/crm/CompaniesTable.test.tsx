@@ -91,6 +91,20 @@ describe('CompaniesTable', () => {
     expect(handleSetup).toHaveBeenCalledWith('co-setup')
   })
 
+  it('uses imported CRM owner references as the visible account owner', () => {
+    const company = makeCompany({
+      id: 'co-owner-ref',
+      name: 'Owner Ref Ltd',
+      ownerUid: 'agent:pip',
+      ownerRef: { uid: 'agent:pip', displayName: 'Pip', kind: 'agent' },
+    })
+
+    render(<CompaniesTable companies={[company]} loading={false} onRowClick={noop} />)
+
+    expect(screen.getByText('Pip')).toBeInTheDocument()
+    expect(screen.queryByText('Unassigned')).not.toBeInTheDocument()
+  })
+
   it('names missing company row revenue and update metadata instead of showing bare dashes', () => {
     const company = makeCompany({ id: 'co-missing', name: 'Missing Signals Ltd' })
 
@@ -123,6 +137,17 @@ describe('CompaniesTable', () => {
     )
     fireEvent.click(screen.getByText('Click Me Inc'))
     expect(handleClick).toHaveBeenCalledWith('co-42')
+  })
+
+  it('names the account identity as a direct detail command', () => {
+    const handleClick = jest.fn()
+    const company = makeCompany({ id: 'co-detail', name: 'Board Account Ltd' })
+
+    render(<CompaniesTable companies={[company]} loading={false} onRowClick={handleClick} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open account detail for Board Account Ltd' }))
+
+    expect(handleClick).toHaveBeenCalledWith('co-detail')
   })
 
   it('renders tier chip as a readable account label when tier is set', () => {

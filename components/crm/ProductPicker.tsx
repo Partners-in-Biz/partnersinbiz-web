@@ -12,6 +12,10 @@ export interface ProductPickerProps {
   className?: string
 }
 
+function productDisplayName(product: Product) {
+  return product.name?.trim() || 'Product name missing'
+}
+
 export function ProductPicker({ onSelect, onAdHoc, placeholder = 'Search products…', className = '' }: ProductPickerProps) {
   const [products, setProducts] = useState<Product[]>([])
   const [query, setQuery] = useState('')
@@ -50,13 +54,14 @@ export function ProductPicker({ onSelect, onAdHoc, placeholder = 'Search product
   }, [])
 
   const filtered = query.trim()
-    ? products.filter(p => p.name.toLowerCase().includes(query.toLowerCase()))
+    ? products.filter(p => productDisplayName(p).toLowerCase().includes(query.toLowerCase()))
     : products
 
   function selectProduct(product: Product) {
-    setQuery(product.name)
+    const displayName = productDisplayName(product)
+    setQuery(displayName)
     setOpen(false)
-    onSelect(product)
+    onSelect({ ...product, name: displayName })
   }
 
   function clear() {
@@ -69,7 +74,7 @@ export function ProductPicker({ onSelect, onAdHoc, placeholder = 'Search product
     if (e.key === 'Enter' && query.trim()) {
       e.preventDefault()
       // If exact match exists, select it; otherwise ad-hoc
-      const exact = products.find(p => p.name.toLowerCase() === query.trim().toLowerCase())
+      const exact = products.find(p => productDisplayName(p).toLowerCase() === query.trim().toLowerCase())
       if (exact) {
         selectProduct(exact)
       } else {
@@ -114,21 +119,26 @@ export function ProductPicker({ onSelect, onAdHoc, placeholder = 'Search product
         <div className="absolute z-50 top-full mt-1 left-0 right-0 pib-card rounded-lg shadow-lg overflow-hidden max-h-56 overflow-y-auto">
           {filtered.length > 0 ? (
             <ul role="listbox">
-              {filtered.map(product => (
+              {filtered.map(product => {
+                const displayName = productDisplayName(product)
+
+                return (
                 <li key={product.id} role="option" aria-selected={false}>
                   <button
                     type="button"
                     onClick={() => selectProduct(product)}
+                    aria-label={`Select product ${displayName}`}
                     className="cursor-pointer w-full text-left px-3 py-2 hover:bg-white/[0.05] transition-colors"
                   >
-                    <p className="text-sm font-medium text-[var(--color-pib-text)]">{product.name}</p>
+                    <p className="text-sm font-medium text-[var(--color-pib-text)]">{displayName}</p>
                     <p className="text-[11px] text-[var(--color-pib-text-muted)] font-mono">
                       {product.currency} {product.unitPrice.toFixed(2)}
                       {product.unit ? ` / ${product.unit}` : ''}
                     </p>
                   </button>
                 </li>
-              ))}
+                )
+              })}
             </ul>
           ) : (
             <div className="px-3 py-2">
@@ -149,7 +159,7 @@ export function ProductPicker({ onSelect, onAdHoc, placeholder = 'Search product
           )}
 
           {/* Ad-hoc option when query has text and no exact match */}
-          {query.trim() && !products.find(p => p.name.toLowerCase() === query.trim().toLowerCase()) && onAdHoc && (
+          {query.trim() && !products.find(p => productDisplayName(p).toLowerCase() === query.trim().toLowerCase()) && onAdHoc && (
             <button
               type="button"
               onClick={() => { setOpen(false); onAdHoc(query.trim()) }}

@@ -1,7 +1,7 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useEffect, useRef, useState, type RefObject } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { fmtTimestamp } from '@/components/admin/email/fmtTimestamp'
@@ -12,12 +12,15 @@ import { CompanyPicker } from '@/components/crm/CompanyPicker'
 import { ContactIdentityPanel } from '@/components/crm/ContactIdentityPanel'
 import { ContactOwnershipPanel } from '@/components/crm/ContactOwnershipPanel'
 import { CustomFieldsSection } from '@/components/crm/CustomFieldsSection'
+import { EntityScopedChat } from '@/components/crm/EntityScopedChat'
 import { ScoreChip } from '@/components/crm/ScoreChip'
 import type { CustomFieldDefinition } from '@/lib/customFields/types'
 import type { MemberRef } from '@/lib/orgMembers/memberRef'
+import { scopedApiPath, scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 
 interface ContactRecord {
   id?: string
+  orgId?: string
   name?: string
   email?: string
   phone?: string
@@ -82,6 +85,45 @@ interface RelationshipRiskItem {
   actionAriaLabel: string
   onAction: () => void | Promise<void>
   disabled?: boolean
+}
+
+function ContactSetupReviewCard({
+  contactName,
+  onReviewProfile,
+}: {
+  contactName: string
+  onReviewProfile: () => void
+}) {
+  return (
+    <section
+      role="region"
+      aria-label={`Contact setup review for ${contactName}`}
+      className="rounded-[var(--radius-card)] border border-amber-500/25 bg-amber-500/[0.07] p-5"
+    >
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div className="flex gap-3">
+          <span className="material-symbols-outlined mt-0.5 text-amber-200" aria-hidden="true">rule_settings</span>
+          <div>
+            <p className="eyebrow !text-[10px] text-amber-200">Contact hygiene</p>
+            <h2 className="mt-1 font-display text-xl text-[var(--color-pib-text)]">Contact setup needs review</h2>
+            <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">
+              <span className="font-medium text-[var(--color-pib-text)]">{contactName}</span> looks like smoke-test contact data.
+              Review the profile before the team treats this as a real relationship.
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={onReviewProfile}
+          className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5 text-sm"
+          aria-label={`Review contact setup for ${contactName}`}
+        >
+          <span className="material-symbols-outlined text-base" aria-hidden="true">edit</span>
+          Review profile
+        </button>
+      </div>
+    </section>
+  )
 }
 
 interface TeamMemberOption {
@@ -192,6 +234,15 @@ function websiteHref(value: string): string {
   if (!trimmed) return ''
   if (/^https?:\/\//i.test(trimmed)) return trimmed
   return `https://${trimmed}`
+}
+
+function isContactSetupArtifact(contact: Pick<ContactRecord, 'name' | 'email'>): boolean {
+  const haystack = [contact.name, contact.email]
+    .map((value) => value?.trim().toLowerCase() ?? '')
+    .filter(Boolean)
+    .join(' ')
+  if (!haystack) return false
+  return /\b(smoke|test|fixture|delete)\b/.test(haystack)
 }
 
 function readableStatusLabel(value?: string): string {
@@ -333,7 +384,12 @@ export default function PortalContactDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
   const searchParams = useSearchParams()
+  const routeScope = useMemo(() => scopeFromSearchParams(searchParams), [searchParams])
+  const contactApiPath = useCallback((path: string) => scopedApiPath(path, routeScope), [routeScope])
+  const contactListHref = scopedPortalPath('/portal/contacts', routeScope)
+  const contactDetailHref = scopedPortalPath(`/portal/contacts/${encodeURIComponent(id)}`, routeScope)
   const companyPickerRef = useRef<HTMLDivElement | null>(null)
+  const nameFieldRef = useRef<HTMLInputElement | null>(null)
   const emailFieldRef = useRef<HTMLInputElement | null>(null)
   const phoneFieldRef = useRef<HTMLInputElement | null>(null)
   const jobTitleFieldRef = useRef<HTMLInputElement | null>(null)
@@ -448,92 +504,113 @@ export default function PortalContactDetailPage() {
   const [enrollError, setEnrollError] = useState('')
   const [pendingUnenrollId, setPendingUnenrollId] = useState<string | null>(null)
   const [unenrollError, setUnenrollError] = useState('')
+  const [contactFetchError, setContactFetchError] = useState('')
+
+  const loadContact = useCallback(async (cancelled?: () => boolean) => {
+    if (!id) return
+    setLoading(true)
+    setContactFetchError('')
+    try {
+      const r = await fetch(contactApiPath(`/api/v1/crm/contacts/${id}`))
+      const b = await r.json().catch(() => ({}))
+      if (!r.ok) {
+        throw new Error(typeof b?.error === 'string' ? b.error : `HTTP ${r.status}`)
+      }
+      const c = (b.data?.contact ?? b.contact ?? b.data ?? null) as ContactRecord | null
+      if (cancelled?.()) return
+      setContact(c)
+      setName(c?.name ?? '')
+      setEmail(c?.email ?? '')
+      setPhone(c?.phone ?? '')
+      setJobTitle(c?.jobTitle ?? '')
+      setDepartment(c?.department ?? '')
+      setWebsite(c?.website ?? '')
+      setTimezone(c?.timezone ?? '')
+      setSource(c?.source ?? 'manual')
+      setType(c?.type ?? 'lead')
+      setStage(c?.stage ?? 'new')
+      setAssignedTo(c?.assignedTo ?? c?.assignedToRef?.uid ?? '')
+      setTagsInput(Array.isArray(c?.tags) ? c.tags.join(', ') : '')
+      setNotes(c?.notes ?? '')
+      setEditCompanyId(c?.companyId ?? undefined)
+      setEditCompanyName(c?.companyName ?? undefined)
+      setEditCustomFields((c?.customFields as Record<string, unknown>) ?? {})
+    } catch (err) {
+      if (!cancelled?.()) {
+        setContact(null)
+        setContactFetchError(err instanceof Error ? err.message : 'Contact details failed to load.')
+      }
+    } finally {
+      if (!cancelled?.()) setLoading(false)
+    }
+  }, [contactApiPath, id])
 
   useEffect(() => {
-    if (!id) return
-    fetch(`/api/v1/crm/contacts/${id}`)
-      .then((r) => r.json())
-      .then((b) => {
-        const c = (b.data?.contact ?? b.contact ?? b.data ?? null) as ContactRecord | null
-        setContact(c)
-        setName(c?.name ?? '')
-        setEmail(c?.email ?? '')
-        setPhone(c?.phone ?? '')
-        setJobTitle(c?.jobTitle ?? '')
-        setDepartment(c?.department ?? '')
-        setWebsite(c?.website ?? '')
-        setTimezone(c?.timezone ?? '')
-        setSource(c?.source ?? 'manual')
-        setType(c?.type ?? 'lead')
-        setStage(c?.stage ?? 'new')
-        setAssignedTo(c?.assignedTo ?? c?.assignedToRef?.uid ?? '')
-        setTagsInput(Array.isArray(c?.tags) ? c.tags.join(', ') : '')
-        setNotes(c?.notes ?? '')
-        setEditCompanyId(c?.companyId ?? undefined)
-        setEditCompanyName(c?.companyName ?? undefined)
-        setEditCustomFields((c?.customFields as Record<string, unknown>) ?? {})
-        setLoading(false)
-      })
-      .catch(() => setLoading(false))
-  }, [id])
+    let cancelled = false
+
+    void loadContact(() => cancelled)
+    return () => {
+      cancelled = true
+    }
+  }, [loadContact])
 
   useEffect(() => {
     // Fetch custom field definitions once per page mount
-    fetch('/api/v1/crm/custom-fields?resource=contact')
+    fetch(contactApiPath('/api/v1/crm/custom-fields?resource=contact'))
       .then((r) => r.json())
       .then((b) => setCustomFieldDefs(b.data?.definitions ?? b.definitions ?? []))
       .catch(() => setCustomFieldDefs([]))
-  }, [])
+  }, [contactApiPath])
 
   useEffect(() => {
-    fetch('/api/v1/portal/settings/team')
+    fetch(contactApiPath('/api/v1/portal/settings/team'))
       .then((r) => (r.ok ? r.json() : null))
       .then((body) => setTeamMembers(body?.members ?? []))
       .catch(() => setTeamMembers([]))
-  }, [])
+  }, [contactApiPath])
 
   useEffect(() => {
     if (!id) return
-    fetch(`/api/v1/email?contactId=${id}&limit=20`)
+    fetch(contactApiPath(`/api/v1/email?contactId=${id}&limit=20`))
       .then((r) => r.json())
       .then((b) => {
         setEmails(b.data ?? [])
         setEmailsLoading(false)
       })
       .catch(() => setEmailsLoading(false))
-  }, [id])
+  }, [contactApiPath, id])
 
   useEffect(() => {
     if (!id) return
-    fetch(`/api/v1/crm/activities?contactId=${id}&limit=50`)
+    fetch(contactApiPath(`/api/v1/crm/activities?contactId=${id}&limit=50`))
       .then((r) => r.json())
       .then((b) => {
         setActivities(b.data?.activities ?? b.data ?? [])
         setActivitiesLoading(false)
       })
       .catch(() => setActivitiesLoading(false))
-  }, [id])
+  }, [contactApiPath, id])
 
   // C1: Fetch smart suggestions (silent fail)
   useEffect(() => {
     if (!id) return
-    fetch(`/api/v1/crm/contacts/${id}/suggestions`)
+    fetch(contactApiPath(`/api/v1/crm/contacts/${id}/suggestions`))
       .then((r) => r.json())
       .then((b) => setSuggestions(b.data?.suggestions ?? []))
       .catch(() => setSuggestions([]))
-  }, [id])
+  }, [contactApiPath, id])
 
   // C3: Fetch enrollments
   useEffect(() => {
     if (!id) return
-    fetch(`/api/v1/crm/contacts/${id}/enrollments`)
+    fetch(contactApiPath(`/api/v1/crm/contacts/${id}/enrollments`))
       .then((r) => r.json())
       .then((b) => {
         setEnrollments(b.data?.enrollments ?? [])
         setEnrollmentsLoading(false)
       })
       .catch(() => setEnrollmentsLoading(false))
-  }, [id])
+  }, [contactApiPath, id])
 
   useEffect(() => {
     if (searchParams.get('activity') !== 'note') return
@@ -570,7 +647,7 @@ export default function PortalContactDetailPage() {
       if (customFieldDefs.length > 0) {
         payload.customFields = editCustomFields
       }
-      const res = await fetch(`/api/v1/crm/contacts/${id}`, {
+      const res = await fetch(contactApiPath(`/api/v1/crm/contacts/${id}`), {
         method: 'PUT',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(payload),
@@ -641,13 +718,13 @@ export default function PortalContactDetailPage() {
     setArchiving(true)
     setError('')
     try {
-      const res = await fetch(`/api/v1/crm/contacts/${id}`, { method: 'DELETE' })
+      const res = await fetch(contactApiPath(`/api/v1/crm/contacts/${id}`), { method: 'DELETE' })
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
         throw new Error(err.error ?? 'Archive failed')
       }
       setArchiveConfirmOpen(false)
-      router.push('/portal/contacts')
+      router.push(scopedPortalPath('/portal/contacts', routeScope))
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Archive failed')
     } finally {
@@ -660,7 +737,7 @@ export default function PortalContactDetailPage() {
     setScoreSaving(true)
     setScoreError(null)
     try {
-      const res = await fetch(`/api/v1/crm/contacts/${id}/recompute-score`, {
+      const res = await fetch(contactApiPath(`/api/v1/crm/contacts/${id}/recompute-score`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ includeAi: true }),
@@ -684,7 +761,7 @@ export default function PortalContactDetailPage() {
   async function loadMoreActivities() {
     const nextPage = activityPage + 1
     try {
-      const r = await fetch(`/api/v1/crm/activities?contactId=${id}&limit=50&page=${nextPage}`)
+      const r = await fetch(contactApiPath(`/api/v1/crm/activities?contactId=${id}&limit=50&page=${nextPage}`))
       const b = await r.json()
       const more: ActivityRecord[] = b.data?.activities ?? b.data ?? []
       setActivities((prev) => [...prev, ...more])
@@ -805,7 +882,7 @@ export default function PortalContactDetailPage() {
     try {
       if (logType === 'email_sent') {
         if (!email.trim() || !logEmailSubject.trim() || !logSummary.trim()) return
-        const res = await fetch(`/api/v1/crm/contacts/${id}/send-email`, {
+        const res = await fetch(contactApiPath(`/api/v1/crm/contacts/${id}/send-email`), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ subject: logEmailSubject.trim(), bodyText: logSummary.trim() }),
@@ -827,7 +904,7 @@ export default function PortalContactDetailPage() {
         setLogError(null)
       } else if (logType === 'sms') {
         if (!logSummary.trim()) return
-        const res = await fetch(`/api/v1/crm/contacts/${id}/send-sms`, {
+        const res = await fetch(contactApiPath(`/api/v1/crm/contacts/${id}/send-sms`), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ message: logSummary.trim() }),
@@ -852,7 +929,7 @@ export default function PortalContactDetailPage() {
         const end = new Date(meetingEndAt)
         if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime()) || end <= start) return
         const title = meetingTitle.trim() || `Meeting with ${contactName}`
-        const res = await fetch(`/api/v1/crm/contacts/${id}/schedule-meeting`, {
+        const res = await fetch(contactApiPath(`/api/v1/crm/contacts/${id}/schedule-meeting`), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -884,7 +961,7 @@ export default function PortalContactDetailPage() {
       } else {
         if (logType === 'call' && !phone.trim()) return
         if (!logSummary.trim()) return
-        const res = await fetch('/api/v1/crm/activities', {
+        const res = await fetch(contactApiPath('/api/v1/crm/activities'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -917,7 +994,7 @@ export default function PortalContactDetailPage() {
     setAiError(null)
     setAiDraft(null)
     try {
-      const res = await fetch('/api/v1/crm/ai/compose-email', {
+      const res = await fetch(contactApiPath('/api/v1/crm/ai/compose-email'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ contactId: id, purpose: aiPurpose, tone: aiTone }),
@@ -934,7 +1011,7 @@ export default function PortalContactDetailPage() {
 
   // C3: Enrollment handlers
   async function handleOpenEnrollModal() {
-    const r = await fetch('/api/v1/crm/sequences')
+    const r = await fetch(contactApiPath('/api/v1/crm/sequences'))
     const b = await r.json()
     setSequences(normalizeSequenceOptions(b))
     setEnrollingSequenceId('')
@@ -947,7 +1024,7 @@ export default function PortalContactDetailPage() {
     setEnrolling(true)
     setEnrollError('')
     try {
-      const res = await fetch(`/api/v1/crm/sequences/${enrollingSequenceId}/enrollments`, {
+      const res = await fetch(contactApiPath(`/api/v1/crm/sequences/${enrollingSequenceId}/enrollments`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ contactId: id }),
@@ -969,7 +1046,7 @@ export default function PortalContactDetailPage() {
     if (!enrollment?.sequenceId) return
     setUnenrollError('')
     try {
-      const res = await fetch(`/api/v1/crm/sequences/${enrollment.sequenceId}/enrollments/${enrollmentId}`, {
+      const res = await fetch(contactApiPath(`/api/v1/crm/sequences/${enrollment.sequenceId}/enrollments/${enrollmentId}`), {
         method: 'DELETE',
       })
       if (!res.ok) {
@@ -985,18 +1062,130 @@ export default function PortalContactDetailPage() {
 
   if (loading) {
     return (
-      <div className="space-y-4">
-        <div className="pib-skeleton h-8 w-32" />
-        <div className="pib-skeleton h-64" />
-      </div>
+      <section
+        role="status"
+        aria-label="Contact detail loading state"
+        className="space-y-6"
+      >
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <Link
+            href={contactListHref}
+            className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] inline-flex items-center gap-1 transition-colors"
+          >
+            <span className="material-symbols-outlined text-sm" aria-hidden="true">arrow_back</span>
+            Contacts
+          </Link>
+          <div className="flex items-center gap-2 text-xs text-[var(--color-pib-text-muted)]">
+            <span className="material-symbols-outlined text-[16px] text-[var(--color-pib-accent)]" aria-hidden="true">sync</span>
+            Loading CRM relationship
+          </div>
+        </div>
+
+        <div className="bento-card !p-6">
+          <div className="grid gap-5 lg:grid-cols-[1fr_320px]">
+            <div className="flex items-start gap-4">
+              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)]">
+                <div className="pib-skeleton h-8 w-8 rounded-md" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="eyebrow">Contact command center</p>
+                <h1 className="mt-2 font-display text-3xl tracking-tight text-[var(--color-pib-text)] md:text-4xl">
+                  Preparing contact command center
+                </h1>
+                <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--color-pib-text-muted)]">
+                  Loading relationship profile, owner coverage, activity, deals, and nurture context.
+                </p>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {['Profile', 'Owner', 'Activity', 'Deals'].map((label) => (
+                    <span key={label} className="pill">
+                      {label}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-4">
+              <p className="eyebrow !text-[10px]">Relationship readiness</p>
+              <div className="mt-4 space-y-3">
+                {['Profile strength', 'Last touch', 'Email thread', 'Activity'].map((label) => (
+                  <div key={label} className="flex items-center justify-between gap-3">
+                    <span className="text-xs text-[var(--color-pib-text-muted)]">{label}</span>
+                    <span className="pib-skeleton h-3 w-16 rounded-full" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-3">
+          {[
+            ['Relationship profile', 'Identity, contact routes, company, and owner accountability.'],
+            ['Activity timeline', 'Recent notes, calls, messages, and the next relationship move.'],
+            ['Pipeline context', 'Deals, forecast value, sequence enrollment, and follow-up cadence.'],
+          ].map(([title, body]) => (
+            <div key={title} className="bento-card !p-5">
+              <div className="mb-4 h-2 overflow-hidden rounded-full bg-[var(--color-pib-line-strong)]">
+                <div className="h-full w-2/3 rounded-full bg-[var(--color-pib-accent)]" />
+              </div>
+              <h2 className="font-display text-lg text-[var(--color-pib-text)]">{title}</h2>
+              <p className="mt-2 text-xs leading-5 text-[var(--color-pib-text-muted)]">{body}</p>
+              <div className="mt-4 space-y-2">
+                <div className="pib-skeleton h-3 w-full rounded-full" />
+                <div className="pib-skeleton h-3 w-2/3 rounded-full" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
     )
   }
 
   if (!contact) {
+    if (contactFetchError) {
+      return (
+        <section className="bento-card border-amber-400/25 bg-amber-400/10">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="flex gap-3">
+              <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-amber-400/25 bg-amber-400/10 text-amber-200">
+                <span className="material-symbols-outlined text-[20px]" aria-hidden="true">warning</span>
+              </span>
+              <div>
+                <p className="eyebrow !text-[10px] text-amber-200">Source health</p>
+                <h2 className="mt-1 font-display text-xl text-[var(--color-pib-text)]">
+                  Contact details could not load
+                </h2>
+                <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">{contactFetchError}</p>
+                <p className="mt-3 text-xs leading-5 text-[var(--color-pib-text-muted)]">
+                  Relationship profile, activity, scoring, and follow-up controls stay hidden until the contact source responds, so leaders do not mistake a data outage for a missing CRM relationship.
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => loadContact()}
+                aria-label="Retry loading contact details"
+                className="cursor-pointer btn-pib-secondary flex items-center gap-1.5 text-sm"
+              >
+                <span className="material-symbols-outlined text-[16px]" aria-hidden="true">refresh</span>
+                Retry
+              </button>
+              <Link href={contactListHref} className="btn-pib-secondary text-sm">
+                <span className="material-symbols-outlined text-base" aria-hidden="true">arrow_back</span>
+                Back to contacts
+              </Link>
+            </div>
+          </div>
+        </section>
+      )
+    }
+
     return (
       <div className="bento-card p-10 text-center">
         <h2 className="font-display text-2xl">Contact not found.</h2>
-        <Link href="/portal/contacts" className="btn-pib-secondary mt-6">
+        <Link href={contactListHref} className="btn-pib-secondary mt-6">
           <span className="material-symbols-outlined text-base">arrow_back</span>
           Back to contacts
         </Link>
@@ -1024,11 +1213,19 @@ export default function PortalContactDetailPage() {
   const tags = splitTags(tagsInput)
   const hasContactName = Boolean(name.trim() || contact.name?.trim())
   const contactName = name.trim() || contact.name?.trim() || 'Unnamed contact'
+  const contactNeedsSetupReview = isContactSetupArtifact({ name: contactName, email })
   const linkedCompanyId = editCompanyId || contact.companyId || ''
   const companyNameValue = editCompanyName || contact.companyName || contact.company || ''
   const companyLabel = companyNameValue || 'No company linked'
   const hasLinkedCompany = Boolean(linkedCompanyId)
   const hasCompanyContext = Boolean(companyNameValue)
+  const linkedCompanyHref = hasLinkedCompany
+    ? scopedPortalPath(`/portal/companies/${encodeURIComponent(linkedCompanyId)}`, routeScope)
+    : ''
+  const linkedCompanyApiPath = hasLinkedCompany
+    ? contactApiPath(`/api/v1/crm/companies/${linkedCompanyId}`)
+    : undefined
+  const sequenceSetupHref = scopedPortalPath('/portal/settings/sequences/new', routeScope)
   const lastTouchDays = daysSince(contact.lastContactedAt)
   const createdDays = daysSince(contact.createdAt)
   const profileFields = [
@@ -1143,9 +1340,30 @@ export default function PortalContactDetailPage() {
       actionAriaLabel: `Add relationship notes from details for ${contactName}`,
       onAction: () => focusProfileField(notesFieldRef),
     },
-    { label: 'Source', value: sourceLabel },
-    { label: 'Type', value: typeLabel },
-    { label: 'Stage', value: stageLabel },
+    {
+      label: 'Source',
+      value: sourceLabel,
+      actionLabel: 'Edit source',
+      actionAriaLabel: `Edit source ${sourceLabel} for ${contactName} from details`,
+      onAction: () => focusProfileField(sourceFieldRef),
+      needsActionWhenValued: true,
+    },
+    {
+      label: 'Type',
+      value: typeLabel,
+      actionLabel: 'Edit type',
+      actionAriaLabel: `Edit contact type ${typeLabel} for ${contactName} from details`,
+      onAction: () => focusProfileField(typeFieldRef),
+      needsActionWhenValued: true,
+    },
+    {
+      label: 'Stage',
+      value: stageLabel,
+      actionLabel: 'Edit stage',
+      actionAriaLabel: `Edit lifecycle stage ${stageLabel} for ${contactName} from details`,
+      onAction: () => focusProfileField(stageFieldRef),
+      needsActionWhenValued: true,
+    },
   ]
   const relationshipRiskItems = ([
     !assignedTo
@@ -1195,7 +1413,7 @@ export default function PortalContactDetailPage() {
     <div className="space-y-8">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <Link
-          href="/portal/contacts"
+          href={contactListHref}
           className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] inline-flex items-center gap-1 transition-colors"
         >
           <span className="material-symbols-outlined text-sm">arrow_back</span>
@@ -1236,6 +1454,13 @@ export default function PortalContactDetailPage() {
           </button>
         </div>
       </div>
+
+      {contactNeedsSetupReview && (
+        <ContactSetupReviewCard
+          contactName={contactName}
+          onReviewProfile={() => focusProfileField(nameFieldRef)}
+        />
+      )}
 
       {archiveConfirmOpen && (
         <section
@@ -1287,6 +1512,7 @@ export default function PortalContactDetailPage() {
               <div className="min-w-0 flex-1">
                 <p className="eyebrow">Contact command center</p>
                 <input
+                  ref={nameFieldRef}
                   aria-label={`Rename ${contactName} from contact header`}
                   value={name}
                   onChange={(e) => setName(e.target.value)}
@@ -1299,7 +1525,7 @@ export default function PortalContactDetailPage() {
                 <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-[var(--color-pib-text-muted)]">
                   {hasLinkedCompany ? (
                     <Link
-                      href={`/portal/companies/${encodeURIComponent(linkedCompanyId)}`}
+                      href={linkedCompanyHref}
                       aria-label={`Open linked company ${companyLabel} from contact header`}
                       className="inline-flex items-center gap-1 text-[var(--color-pib-accent)] transition-colors hover:text-[var(--color-pib-text)]"
                     >
@@ -1573,6 +1799,19 @@ export default function PortalContactDetailPage() {
         )}
       </header>
 
+      {contact.orgId && (
+        <EntityScopedChat
+          orgId={contact.orgId}
+          orgName={companyNameValue || contact.companyName || contact.company}
+          entityType="contact"
+          entityId={id}
+          entityLabel={contactName}
+          href={contactDetailHref}
+          summary={`${contactName} CRM contact${type ? ` · ${type}` : ''}${stage ? ` · ${stage}` : ''}${hasLinkedCompany ? ` · company ${companyLabel}` : ' · unlinked contact workspace'}`}
+          compact
+        />
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left: Info */}
         <section className="lg:col-span-1 space-y-4">
@@ -1582,6 +1821,8 @@ export default function PortalContactDetailPage() {
             <CompanyPanel
               companyId={linkedCompanyId}
               companyName={companyNameValue}
+              companyHref={linkedCompanyHref}
+              companyApiPath={linkedCompanyApiPath}
               emptyAction={{
                 label: 'Link company',
                 ariaLabel: `Link company from company card for ${contactName}`,
@@ -2680,7 +2921,7 @@ export default function PortalContactDetailPage() {
                       This workspace needs at least one nurture sequence before {contactName} can be enrolled from the contact record.
                     </p>
                     <Link
-                      href="/portal/settings/sequences/new"
+                      href={sequenceSetupHref}
                       className="btn-pib-secondary mt-3 inline-flex items-center gap-1.5 text-xs"
                     >
                       <span className="material-symbols-outlined text-[14px]" aria-hidden="true">add</span>

@@ -7,10 +7,14 @@ import { useParams } from 'next/navigation'
 import type { Company } from '@/lib/companies/types'
 import { CompanyOverviewPanel } from '@/components/crm/CompanyOverviewPanel'
 import { CompanyTabsBar, type CompanyTab } from '@/components/crm/CompanyTabsBar'
+import { CompanyWorkspacePanel, type LinkedWorkspace } from '@/components/crm/CompanyWorkspacePanel'
+import { EntityScopedChat } from '@/components/crm/EntityScopedChat'
+import { scopedPortalPath } from '@/lib/portal/scoped-routing'
 
 type Row = { id: string; [key: string]: unknown }
 type CommandCenter = {
   company?: Company
+  linkedWorkspace?: LinkedWorkspace | null
   summary?: Record<string, number>
   analytics?: {
     accountValue?: number
@@ -94,6 +98,24 @@ function rowsFor(center: CommandCenter, tab: CompanyTab): Row[] {
   return Array.isArray(rows) ? rows : []
 }
 
+function tabCountsFor(center: CommandCenter): Partial<Record<CompanyTab, number>> {
+  const summary = center.summary ?? {}
+  return {
+    contacts: summary.contacts ?? center.contacts?.length ?? 0,
+    deals: summary.deals ?? center.deals?.length ?? 0,
+    projects: summary.projects ?? center.projects?.length ?? 0,
+    documents: summary.documents ?? center.documents?.length ?? 0,
+    services: summary.serviceWorkspaces ?? center.serviceWorkspaces?.length ?? 0,
+    relationships: summary.relationships ?? center.relationships?.length ?? 0,
+    quotes: summary.quotes ?? center.quotes?.length ?? 0,
+    invoices: summary.invoices ?? center.invoices?.length ?? 0,
+    orders: summary.orders ?? center.orders?.length ?? 0,
+    shipments: summary.shipments ?? center.shipments?.length ?? 0,
+    inventory: summary.inventoryItems ?? center.inventoryItems?.length ?? 0,
+    activity: summary.activities ?? center.activities?.length ?? 0,
+  }
+}
+
 function rowTitle(row: Row, tab: CompanyTab) {
   if (tab === 'contacts') return String(row.name ?? row.email ?? row.id)
   if (tab === 'deals') return String(row.title ?? row.name ?? row.id)
@@ -125,6 +147,25 @@ function rowMeta(row: Row, tab: CompanyTab) {
   return []
 }
 
+function scopedPortalCompanyPath(path: string, company: Company, workspace?: LinkedWorkspace | null) {
+  if (!workspace) return path
+  return scopedPortalPath(path, {
+    orgId: workspace.orgId || workspace.id,
+    orgSlug: workspace.orgSlug || workspace.slug,
+    sourceCompanyId: company.id,
+    sourceCompanyName: company.name,
+  })
+}
+
+function rowHref(row: Row, tab: CompanyTab) {
+  if (!row.id) return null
+  if (tab === 'contacts') return `/portal/contacts/${row.id}`
+  if (tab === 'deals') return `/portal/deals/${row.id}`
+  if (tab === 'documents') return `/portal/documents/${row.id}`
+  if (tab === 'projects') return `/portal/projects/${row.id}`
+  return null
+}
+
 const EMPTY_TAB_LABELS: Partial<Record<CompanyTab, string>> = {
   contacts: 'Contacts',
   deals: 'Deals',
@@ -145,12 +186,14 @@ function SimpleRowsPanel({
   rows,
   companyName,
   portalHref,
+  portalPathFor,
   onReviewOverview,
 }: {
   tab: CompanyTab
   rows: Row[]
   companyName: string
   portalHref: string
+  portalPathFor: (path: string) => string
   onReviewOverview: () => void
 }) {
   if (rows.length === 0) {
@@ -191,15 +234,44 @@ function SimpleRowsPanel({
     <div className="bento-card divide-y divide-[var(--color-pib-line)]">
       {rows.map((row) => {
         const meta = rowMeta(row, tab).filter(Boolean)
-        return (
-          <div key={row.id} className="flex items-start justify-between gap-4 px-5 py-4">
+        const title = rowTitle(row, tab)
+        const href = rowHref(row, tab)
+        const scopedHref = href ? portalPathFor(href) : null
+        const rowContent = (
+          <>
             <div className="min-w-0">
-              <p className="truncate text-sm font-medium text-[var(--color-pib-text)]">{rowTitle(row, tab)}</p>
+              <p className="truncate text-sm font-medium text-[var(--color-pib-text)]">{title}</p>
               {meta.length > 0 && (
                 <p className="mt-1 truncate text-xs text-[var(--color-pib-text-muted)]">{meta.join(' · ')}</p>
               )}
             </div>
-            <StatusChip value={row.status} />
+            <div className="flex shrink-0 items-center gap-2">
+              <StatusChip value={row.status} />
+              {scopedHref ? (
+                <span aria-hidden="true" className="material-symbols-outlined text-[16px] text-[var(--color-pib-text-muted)]">
+                  open_in_new
+                </span>
+              ) : null}
+            </div>
+          </>
+        )
+
+        if (scopedHref) {
+          return (
+            <Link
+              key={row.id}
+              href={scopedHref}
+              aria-label={`Open ${title} from ${companyName} admin command center`}
+              className="flex items-start justify-between gap-4 px-5 py-4 transition-colors hover:bg-white/[0.03] focus:outline-none focus:ring-2 focus:ring-[var(--color-pib-accent)] focus:ring-offset-2 focus:ring-offset-[var(--color-pib-bg)]"
+            >
+              {rowContent}
+            </Link>
+          )
+        }
+
+        return (
+          <div key={row.id} className="flex items-start justify-between gap-4 px-5 py-4">
+            {rowContent}
           </div>
         )
       })}
@@ -317,6 +389,10 @@ export default function AdminCompanyCommandCenterPage() {
     )
   }
 
+  const company = center.company
+  const portalPathFor = (path: string) => scopedPortalCompanyPath(path, company, center.linkedWorkspace)
+  const portalCompanyHref = portalPathFor(`/portal/companies/${id}`)
+
   return (
     <div className="space-y-6">
       <Link
@@ -330,10 +406,10 @@ export default function AdminCompanyCommandCenterPage() {
       <div className="bento-card p-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex min-w-0 items-start gap-4">
-            {center.company.logoUrl ? (
+            {company.logoUrl ? (
               <Image
-                src={center.company.logoUrl}
-                alt={center.company.name}
+                src={company.logoUrl}
+                alt={company.name}
                 width={64}
                 height={64}
                 unoptimized
@@ -341,19 +417,19 @@ export default function AdminCompanyCommandCenterPage() {
               />
             ) : (
               <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-[var(--color-surface-container)] text-xl font-label text-on-surface-variant">
-                {initials(center.company.name)}
+                {initials(company.name)}
               </div>
             )}
             <div className="min-w-0">
               <p className="eyebrow !text-[10px]">Admin company command center</p>
-              <h1 className="truncate text-2xl font-semibold text-[var(--color-pib-text)]">{center.company.name}</h1>
+              <h1 className="truncate text-2xl font-semibold text-[var(--color-pib-text)]">{company.name}</h1>
               <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
                 {center.summary?.contacts ?? 0} contacts · {center.summary?.projects ?? 0} projects · {center.summary?.orders ?? 0} orders
               </p>
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Link href={`/portal/companies/${id}`} className="btn-pib-secondary inline-flex items-center gap-1.5">
+            <Link href={portalCompanyHref} className="btn-pib-secondary inline-flex items-center gap-1.5">
               <span className="material-symbols-outlined text-[16px]">visibility</span>
               Portal view
             </Link>
@@ -365,25 +441,49 @@ export default function AdminCompanyCommandCenterPage() {
         </div>
       </div>
 
-      <CompanyTabsBar activeTab={tab} onChange={(next) => setTab(next as CompanyTab)} />
+      <CompanyTabsBar
+        activeTab={tab}
+        onChange={(next) => setTab(next as CompanyTab)}
+        counts={tabCountsFor(center)}
+        includeWorkspace={Boolean(center.linkedWorkspace)}
+      />
 
       <div role="tabpanel">
         {tab === 'overview' && (
           <CompanyOverviewPanel
-            company={center.company}
+            company={company}
             center={center}
             onSelectTab={(nextTab) => setTab(nextTab as CompanyTab)}
           />
         )}
         {tab === 'analytics' && (
-          <AnalyticsPanel center={center} companyName={center.company.name} portalHref={`/portal/companies/${id}`} />
+          <AnalyticsPanel center={center} companyName={company.name} portalHref={portalCompanyHref} />
         )}
-        {tab !== 'overview' && tab !== 'analytics' && (
+        {tab === 'workspace' && (
+          <CompanyWorkspacePanel
+            companyName={company.name}
+            mode="admin"
+            workspace={center.linkedWorkspace ?? null}
+          />
+        )}
+        {tab === 'chat' && (
+          <EntityScopedChat
+            orgId={company.orgId}
+            orgName={company.name}
+            entityType="company"
+            entityId={company.id}
+            entityLabel={company.name}
+            href={`/admin/org/${slug}/crm/companies/${id}`}
+            summary={`${company.name} CRM company${company.lifecycleStage ? ` · ${company.lifecycleStage}` : ''}${company.linkedOrgId ? ` · linked workspace ${company.linkedOrgId}` : ' · unlinked lead workspace'}`}
+          />
+        )}
+        {tab !== 'overview' && tab !== 'analytics' && tab !== 'workspace' && tab !== 'chat' && (
           <SimpleRowsPanel
             tab={tab}
             rows={rowsFor(center, tab)}
-            companyName={center.company.name}
-            portalHref={`/portal/companies/${id}`}
+            companyName={company.name}
+            portalHref={portalCompanyHref}
+            portalPathFor={portalPathFor}
             onReviewOverview={() => setTab('overview')}
           />
         )}

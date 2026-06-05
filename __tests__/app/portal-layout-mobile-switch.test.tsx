@@ -4,14 +4,16 @@ import PortalLayout from '@/app/(portal)/layout'
 
 const pushMock = jest.fn()
 const refreshMock = jest.fn()
+let mockPathname = '/portal/dashboard'
+let mockSearchParams = new URLSearchParams()
 
 jest.mock('next/navigation', () => ({
   useRouter: () => ({
     push: pushMock,
     refresh: refreshMock,
   }),
-  usePathname: () => '/portal/dashboard',
-  useSearchParams: () => new URLSearchParams(),
+  usePathname: () => mockPathname,
+  useSearchParams: () => mockSearchParams,
 }))
 
 jest.mock('next/image', () => ({
@@ -79,6 +81,8 @@ describe('PortalLayout mobile role switch', () => {
   beforeEach(() => {
     localStorage.clear()
     jest.clearAllMocks()
+    mockPathname = '/portal/dashboard'
+    mockSearchParams = new URLSearchParams()
     global.fetch = jest.fn((input: RequestInfo | URL) => {
       const url = String(input)
       if (url === '/api/v1/portal/org') {
@@ -86,6 +90,15 @@ describe('PortalLayout mobile role switch', () => {
           ok: true,
           json: async () => ({
             org: { id: 'org-acme', slug: 'acme', name: 'Acme Growth', type: 'client' },
+            user: { role: 'admin' },
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/portal/org?orgId=lumen-org') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            org: { id: 'lumen-org', slug: 'lumen-speeds', name: 'Lumen', type: 'client' },
             user: { role: 'admin' },
           }),
         } as Response)
@@ -105,7 +118,7 @@ describe('PortalLayout mobile role switch', () => {
           json: async () => ({ profile: { firstName: 'Admin', lastName: 'User', role: 'admin' } }),
         } as Response)
       }
-      if (url === '/api/v1/portal/documents/count') {
+      if (url === '/api/v1/portal/documents/count' || url === '/api/v1/portal/documents/count?orgId=lumen-org') {
         return Promise.resolve({
           ok: true,
           json: async () => ({ data: { count: 0 } }),
@@ -129,6 +142,53 @@ describe('PortalLayout mobile role switch', () => {
     await waitFor(() => {
       const switches = screen.getAllByRole('link', { name: 'Switch to admin view' })
       expect(switches.some((control) => !hasHiddenAncestor(control))).toBe(true)
+    })
+  })
+
+  it('keeps the desktop topbar admin switch icon-only', async () => {
+    localStorage.setItem('portal_layout_mode', 'topbar')
+
+    render(
+      <PortalLayout>
+        <div>Portal content</div>
+      </PortalLayout>,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: 'Switch to admin view' })).toHaveAttribute(
+        'href',
+        '/admin/org/acme/dashboard',
+      )
+    })
+    expect(screen.queryByText('Admin')).not.toBeInTheDocument()
+  })
+
+  it('keeps CRM company workspace scope on portal shell navigation', async () => {
+    mockPathname = '/portal/marketing'
+    mockSearchParams = new URLSearchParams({
+      orgId: 'lumen-org',
+      orgSlug: 'lumen-speeds',
+      sourceCompanyId: 'company-1',
+      sourceCompanyName: 'Lumen',
+    })
+
+    render(
+      <PortalLayout>
+        <div>Portal content</div>
+      </PortalLayout>,
+    )
+
+    await waitFor(() => expect(screen.getAllByText('Lumen').length).toBeGreaterThan(0))
+
+    await waitFor(() => {
+      const marketingHref = screen
+        .getAllByRole('link')
+        .map((link) => link.getAttribute('href'))
+        .find((href) => href?.startsWith('/portal/marketing?'))
+
+      expect(marketingHref).toBe(
+        '/portal/marketing?orgId=lumen-org&orgSlug=lumen-speeds&sourceCompanyId=company-1&sourceCompanyName=Lumen',
+      )
     })
   })
 })

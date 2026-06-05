@@ -99,6 +99,38 @@ describe('ContactEngagementPanel', () => {
     expect(onScheduleMeeting).toHaveBeenCalledTimes(1)
   })
 
+  it('keeps direct engagement commands available when an AI suggestion exists', () => {
+    const onLogNote = jest.fn()
+    const onSendEmail = jest.fn()
+    const onScheduleMeeting = jest.fn()
+    const onStartSuggestion = jest.fn()
+
+    render(
+      <ContactEngagementPanel
+        profile={profile}
+        actions={{
+          contactName: 'Jane Client',
+          onLogNote,
+          onSendEmail,
+          onScheduleMeeting,
+          onStartSuggestion,
+        }}
+      />,
+    )
+
+    expect(screen.getByText('Send the proposal recap')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Start suggested action: Send the proposal recap for Jane Client' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Log note from engagement cockpit for Jane Client' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Send email from engagement cockpit to Jane Client' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Schedule meeting from engagement cockpit with Jane Client' }))
+
+    expect(onStartSuggestion).toHaveBeenCalledWith(profile.nextSuggestion)
+    expect(onLogNote).toHaveBeenCalledTimes(1)
+    expect(onSendEmail).toHaveBeenCalledTimes(1)
+    expect(onScheduleMeeting).toHaveBeenCalledTimes(1)
+  })
+
   it('names incomplete AI suggestions instead of rendering blank recommendation copy', () => {
     const onStartSuggestion = jest.fn()
 

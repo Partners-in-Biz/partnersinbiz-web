@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { StatCardWithChart, DonutChart, HorizontalBarChart, TrendAreaChart } from '@/components/ui/Charts'
-import { ScheduledContentPreviewCards, type ScheduledContentPost } from '@/components/admin/ScheduledContentPreviewCards'
+import { ScheduledContentPreviewCards, type ScheduledContentPost } from '@/components/social/ScheduledContentPreviewCards'
 import { PageHeader, Surface } from '@/components/ui/AppFoundation'
 
 interface Project {
@@ -338,11 +338,11 @@ export default function OrgDashboard() {
         <div className="flex flex-wrap gap-2">
           {[
             { label: 'Projects',     href: `/admin/org/${slug}/projects` },
-            { label: 'Social Queue', href: '/admin/social/queue' },
-            { label: 'Compose Post', href: '/admin/social/compose' },
+            { label: 'Social Queue', href: `/admin/social/queue?org=${encodeURIComponent(slug)}` },
+            { label: 'Compose Post', href: `/admin/social/compose?org=${encodeURIComponent(slug)}` },
             { label: 'Team',         href: `/admin/org/${slug}/team` },
             { label: 'Billing',      href: `/admin/org/${slug}/billing` },
-            { label: 'Analytics',    href: '/admin/social/analytics' },
+            { label: 'Analytics',    href: `/admin/social/analytics?org=${encodeURIComponent(slug)}` },
           ].map(a => (
             <Link key={a.href} href={a.href} className="pib-btn-secondary text-xs font-label">{a.label}</Link>
           ))}

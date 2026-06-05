@@ -28,7 +28,7 @@ jest.mock('@/components/crm/DealKanban', () => ({
 }))
 
 jest.mock('@/components/crm/DealDrawer', () => ({
-  DealDrawer: () => <div data-testid="deal-drawer" />,
+  DealDrawer: ({ orgId }: { orgId?: string }) => <div data-testid="deal-drawer" data-org-id={orgId ?? ''} />,
 }))
 
 jest.mock('@/components/crm/DealDetailDrawer', () => ({
@@ -101,12 +101,13 @@ describe('Portal deals page', () => {
         ],
       },
     ]
-    global.fetch = jest.fn((url: RequestInfo | URL) => {
-      const path = String(url)
+    global.fetch = jest.fn((url: RequestInfo | URL, init?: RequestInit) => {
+      const rawPath = String(url)
+      const path = rawPath.split('?')[0]
       if (path === '/api/v1/crm/pipelines') {
         return apiResponse(mockPipelineRows)
       }
-      if (path === '/api/v1/crm/contacts?limit=200') {
+      if (path === '/api/v1/crm/contacts') {
         return apiResponse([
           {
             id: 'contact-1',
@@ -137,8 +138,14 @@ describe('Portal deals page', () => {
           }),
         } as Response)
       }
-      if (path === '/api/v1/crm/deals?pipelineId=pipeline-1&limit=200') {
+      if (path === '/api/v1/crm/deals' && rawPath.includes('pipelineId=pipeline-1') && rawPath.includes('limit=200')) {
         return apiResponse(mockDealRows)
+      }
+      if (path === '/api/v1/crm/deals' && rawPath.includes('pipelineId=pipeline-smoke') && rawPath.includes('limit=200')) {
+        return apiResponse(mockDealRows)
+      }
+      if (path === '/api/v1/crm/deals/deal-2' && (init?.method === 'PATCH' || init?.method === 'PUT')) {
+        return apiResponse({ id: 'deal-2' })
       }
       if (path === '/api/v1/crm/deals/deal-2') {
         return apiResponse({ id: 'deal-2' })
@@ -173,6 +180,36 @@ describe('Portal deals page', () => {
     })
 
     await waitFor(() => expect(screen.getByText('Growth retainer')).toBeInTheDocument())
+  })
+
+  it('preserves CRM company workspace scope across deal list data, links, and create actions', async () => {
+    mockSearchParams = new URLSearchParams({
+      view: 'list',
+      orgId: 'org-1',
+      orgSlug: 'lumen-speeds',
+      sourceCompanyId: 'company-1',
+      sourceCompanyName: 'Lumen',
+    })
+
+    render(<DealsPage />)
+
+    expect(await screen.findByText('Growth retainer')).toBeInTheDocument()
+
+    const scope = 'orgId=org-1&orgSlug=lumen-speeds&sourceCompanyId=company-1&sourceCompanyName=Lumen'
+    expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/pipelines?orgId=org-1')
+    expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/contacts?limit=200&orgId=org-1')
+    expect(global.fetch).toHaveBeenCalledWith('/api/v1/portal/settings/team?orgId=org-1')
+    expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/deals?pipelineId=pipeline-1&limit=200&orgId=org-1')
+
+    const row = screen.getByText('Growth retainer').closest('[data-deal-row]')
+    expect(row).not.toBeNull()
+    expect(within(row as HTMLElement).getByRole('link', { name: 'Growth retainer' }))
+      .toHaveAttribute('href', `/portal/deals/deal-1?${scope}`)
+    expect(within(row as HTMLElement).getByRole('link', { name: 'Ava Owner' }))
+      .toHaveAttribute('href', `/portal/contacts/contact-1?${scope}`)
+
+    fireEvent.click(screen.getByRole('button', { name: 'New deal' }))
+    expect(screen.getByTestId('deal-drawer')).toHaveAttribute('data-org-id', 'org-1')
   })
 
   it('names missing deal values and renders zero values as explicit commercial data', async () => {
@@ -376,6 +413,65 @@ describe('Portal deals page', () => {
     expect(screen.queryByText('Forecast value needed')).not.toBeInTheDocument()
   })
 
+  it('turns an empty board into a revenue launch command center', async () => {
+    mockDealRows = []
+
+    render(<DealsPage />)
+
+    expect(await screen.findByRole('heading', { name: 'Launch this pipeline' })).toBeInTheDocument()
+    expect(screen.getByText(/This board is ready, but there are no opportunities in it yet/)).toBeInTheDocument()
+    expect(screen.getByText('First opportunity')).toBeInTheDocument()
+    expect(screen.getByText('Add the first deal with owner, value, stage, and close-date context.')).toBeInTheDocument()
+    expect(screen.getByText('Forecast baseline')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Create first deal for this pipeline' })).toBeInTheDocument()
+    expect(screen.queryByText('No deals yet.')).not.toBeInTheDocument()
+  })
+
+  it('warns leaders when the active pipeline looks like smoke-test setup data', async () => {
+    mockDealRows = []
+    mockPipelineRows = [
+      {
+        id: 'pipeline-smoke',
+        name: 'Smoke delete pipeline 1780236200000',
+        isDefault: false,
+        archived: false,
+        stages: [
+          { id: 'qualified', label: 'Qualified', kind: 'open', order: 1, probability: 40 },
+        ],
+      },
+    ]
+
+    render(<DealsPage />)
+
+    expect(await screen.findByRole('heading', { name: 'Pipeline setup needs review' })).toBeInTheDocument()
+    const review = screen.getByRole('region', { name: 'Pipeline setup review for Smoke delete pipeline 1780236200000' })
+    expect(within(review).getByText('Smoke delete pipeline 1780236200000')).toBeInTheDocument()
+    expect(within(review).getByText(/looks like smoke-test pipeline data/)).toBeInTheDocument()
+    expect(within(review).getByRole('link', { name: 'Review pipeline settings for Smoke delete pipeline 1780236200000' }))
+      .toHaveAttribute('href', '/portal/settings/pipelines')
+  })
+
+  it('does not describe a setup-risk pipeline as ready in the empty launch state', async () => {
+    mockDealRows = []
+    mockPipelineRows = [
+      {
+        id: 'pipeline-smoke',
+        name: 'Smoke delete pipeline 1780236200000',
+        isDefault: false,
+        archived: false,
+        stages: [
+          { id: 'qualified', label: 'Qualified', kind: 'open', order: 1, probability: 40 },
+        ],
+      },
+    ]
+
+    render(<DealsPage />)
+
+    expect(await screen.findByRole('heading', { name: 'Launch this pipeline' })).toBeInTheDocument()
+    expect(screen.getByText(/This pipeline needs setup review before the team treats it as board-ready/)).toBeInTheDocument()
+    expect(screen.queryByText(/This board is ready, but there are no opportunities in it yet/)).not.toBeInTheDocument()
+  })
+
   it('warns when deals fail to load and gives leaders a retry path', async () => {
     mockSearchParams = new URLSearchParams('view=list')
     global.fetch = jest.fn((url: RequestInfo | URL) => {
@@ -428,6 +524,23 @@ describe('Portal deals page', () => {
     expect(screen.queryByText('Growth retainer')).not.toBeInTheDocument()
     expect(screen.getByText('Unowned expansion')).toBeInTheDocument()
     expect(screen.getByText('Unassigned')).toBeInTheDocument()
+  })
+
+  it('turns pipeline responsibility into a bulk unassigned-deal ownership command', async () => {
+    mockSearchParams = new URLSearchParams('view=list')
+
+    render(<DealsPage />)
+
+    expect(await screen.findByText('Growth retainer')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Select 1 unassigned deal for owner assignment' }))
+
+    expect(screen.queryByText('Growth retainer')).not.toBeInTheDocument()
+    const row = screen.getByText('Unowned expansion').closest('[data-deal-row]')
+    expect(row).not.toBeNull()
+    expect(within(row as HTMLElement).getByRole('checkbox', { name: 'Select Unowned expansion for deal owner assignment' })).toBeChecked()
+    expect(screen.getByLabelText('Assign selected deals to owner')).toBeInTheDocument()
+    expect(screen.getByText('1 selected for owner assignment.')).toBeInTheDocument()
   })
 
   it('names incomplete deal owner snapshots instead of exposing raw owner ids', async () => {
@@ -541,6 +654,7 @@ describe('Portal deals page', () => {
     expect(await screen.findByRole('heading', { name: 'No unassigned deals.' })).toBeInTheDocument()
     expect(screen.getByText('Every open deal in this lens has an owner.')).toBeInTheDocument()
     expect(screen.getAllByRole('button', { name: 'Show all deals' }).length).toBeGreaterThan(0)
+    expect(screen.getByRole('button', { name: 'No unassigned deals to select for owner assignment' })).toBeDisabled()
   })
 
   it('opens directly to a rep-owned deal lens from CRM reports', async () => {

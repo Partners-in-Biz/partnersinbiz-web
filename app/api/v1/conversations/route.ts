@@ -25,7 +25,7 @@ import type { ApiUser } from '@/lib/api/types'
 export const dynamic = 'force-dynamic'
 
 const VALID_AGENT_IDS: AgentId[] = [...AGENT_IDS]
-const VALID_SCOPES: ConversationScope[] = ['general', 'project', 'task', 'campaign']
+const VALID_SCOPES: ConversationScope[] = ['general', 'project', 'task', 'campaign', 'company', 'contact']
 const isPlatformWorkspace = (orgId: string) => orgId === PIB_PLATFORM_ORG_ID
 
 export const POST = withAuth(

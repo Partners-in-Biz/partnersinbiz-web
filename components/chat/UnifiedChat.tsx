@@ -60,7 +60,7 @@ export interface UnifiedChatProps {
   currentUserDisplayName: string
   orgName?: string
   projectId?: string
-  scope?: 'general' | 'project' | 'task' | 'campaign'
+  scope?: 'general' | 'project' | 'task' | 'campaign' | 'company' | 'contact'
   scopeRefId?: string
   initialConvId?: string
   initialAgentId?: AgentId
@@ -175,7 +175,7 @@ export default function UnifiedChat({
   const [showNewModal, setShowNewModal] = useState(false)
   const [newTitle, setNewTitle] = useState('')
   const [newParticipants, setNewParticipants] = useState<SelectedParticipant[]>([])
-  const [newScope, setNewScope] = useState<'general' | 'project' | 'task' | 'campaign'>(
+  const [newScope, setNewScope] = useState<'general' | 'project' | 'task' | 'campaign' | 'company' | 'contact'>(
     scope ?? (projectId ? 'project' : 'general'),
   )
   const [creatingConv, setCreatingConv] = useState(false)
@@ -286,6 +286,7 @@ export default function UnifiedChat({
             title: autoCreateTitle?.trim() || 'Ticket conversation',
             scope,
             scopeRefId,
+            ...(currentPageContext ? { contextRefs: [coerceContextRef(currentPageContext)] } : {}),
           }),
         })
         const createBody = await createRes.json().catch(() => null)
@@ -312,6 +313,8 @@ export default function UnifiedChat({
     scopeRefId,
     orgId,
     autoCreateTitle,
+    currentPageContext,
+    coerceContextRef,
   ])
 
   // ── Load messages ─────────────────────────────────────────────────────────
@@ -1131,7 +1134,7 @@ export default function UnifiedChat({
       className={
         compact
           ? 'flex h-full min-h-0 min-w-0 flex-1 overflow-hidden'
-          : 'flex min-h-0 min-w-0 flex-1 overflow-hidden lg:grid lg:gap-4 lg:grid-cols-[280px_1fr]'
+          : 'flex h-full min-h-0 min-w-0 flex-1 overflow-hidden lg:grid lg:gap-4 lg:grid-cols-[280px_1fr]'
       }
     >
       {/* ── Left: conversation list ─────────────────────────────────────── */}
@@ -1153,7 +1156,7 @@ export default function UnifiedChat({
 
         <div className="text-xs text-on-surface-variant mt-2 px-1">Conversations</div>
 
-        <div className={['flex flex-col gap-0.5 overflow-y-auto flex-1 min-h-0', compact ? '' : 'lg:max-h-[520px]'].join(' ')}>
+        <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto">
           {conversations.length === 0 && (
             <div className="text-xs text-on-surface-variant px-2 py-3">
               No conversations yet. Start one.
@@ -1388,6 +1391,9 @@ export default function UnifiedChat({
         {/* Messages */}
         <div
           ref={messagesContainerRef}
+          role="log"
+          aria-label="Conversation messages"
+          aria-live="polite"
           className="flex-1 min-h-0 min-w-0 space-y-3 overflow-y-auto overflow-x-hidden p-4"
         >
           {loading && <div className="text-xs text-on-surface-variant">Loading…</div>}
@@ -1786,7 +1792,7 @@ export default function UnifiedChat({
                 </label>
                 <select
                   value={newScope}
-                  onChange={(e) => setNewScope(e.target.value as 'general' | 'project' | 'task' | 'campaign')}
+                  onChange={(e) => setNewScope(e.target.value as 'general' | 'project' | 'task' | 'campaign' | 'company' | 'contact')}
                   className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface outline-none focus:border-primary/60"
                 >
                   {availableConversationContexts.map((option) => (

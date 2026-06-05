@@ -2,12 +2,13 @@
 export const dynamic = 'force-dynamic'
 
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
+import { useSearchParams } from 'next/navigation'
 import type {
   BehavioralRule,
   EngagementScoreRule,
 } from '@/lib/crm/segments'
-import { BehavioralRuleEditor } from '@/components/admin/segments/BehavioralRuleEditor'
-import { EngagementRuleEditor } from '@/components/admin/segments/EngagementRuleEditor'
+import { BehavioralRuleEditor } from '@/components/crm/segments/BehavioralRuleEditor'
+import { EngagementRuleEditor } from '@/components/crm/segments/EngagementRuleEditor'
 import { PREDEFINED_SEGMENTS } from '@/lib/crm/predefined-segments'
 import {
   SegmentCommandCenter,
@@ -15,6 +16,7 @@ import {
   matchesSegmentSearch,
   type SegmentCommandFocus,
 } from '@/components/crm/SegmentCommandCenter'
+import { scopedApiPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 
 const STAGES = ['', 'new', 'contacted', 'replied', 'demo', 'proposal', 'won', 'lost']
 const TYPES = ['', 'lead', 'prospect', 'client', 'churned']
@@ -98,7 +100,17 @@ function formFromSegment(s: Segment): FormState {
   }
 }
 
+function segmentDisplayName(segment: Segment): string {
+  return segment.name?.trim() || 'Segment name missing'
+}
+
 export default function PortalSegmentsPage() {
+  const searchParams = useSearchParams()
+  const orgScope = useMemo(() => scopeFromSearchParams(searchParams), [searchParams])
+  const segmentEndpoint = useCallback(
+    (path: string) => scopedApiPath(path, orgScope),
+    [orgScope],
+  )
   const [segments, setSegments] = useState<Segment[]>([])
   const [counts, setCounts] = useState<Record<string, number | null>>({})
   const [loading, setLoading] = useState(true)
@@ -122,7 +134,7 @@ export default function PortalSegmentsPage() {
     setLoading(true)
     setLoadError('')
     try {
-      const res = await fetch('/api/v1/crm/segments')
+      const res = await fetch(segmentEndpoint('/api/v1/crm/segments'))
       const body = await res.json().catch(() => ({}))
       if (!res.ok) {
         throw new Error(typeof body?.error === 'string' ? body.error : `Failed to load segments (${res.status})`)
@@ -133,7 +145,7 @@ export default function PortalSegmentsPage() {
       // Lazy count resolution
       list.forEach((s) => {
         setCounts((prev) => (prev[s.id] !== undefined ? prev : { ...prev, [s.id]: null }))
-        fetch(`/api/v1/crm/segments/${s.id}/resolve`, { method: 'POST' })
+        fetch(segmentEndpoint(`/api/v1/crm/segments/${s.id}/resolve`), { method: 'POST' })
           .then((r) => (r.ok ? r.json() : null))
           .then((b) => {
             if (b && typeof b.data?.count === 'number') {
@@ -151,7 +163,7 @@ export default function PortalSegmentsPage() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [segmentEndpoint])
 
   useEffect(() => {
     fetchSegments()
@@ -166,7 +178,7 @@ export default function PortalSegmentsPage() {
     setSavingNew(true)
     setNewError('')
     try {
-      const res = await fetch('/api/v1/crm/segments', {
+      const res = await fetch(segmentEndpoint('/api/v1/crm/segments'), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
@@ -205,7 +217,7 @@ export default function PortalSegmentsPage() {
     setSavingEdit(true)
     setEditError('')
     try {
-      const res = await fetch(`/api/v1/crm/segments/${editingId}`, {
+      const res = await fetch(segmentEndpoint(`/api/v1/crm/segments/${editingId}`), {
         method: 'PUT',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
@@ -220,7 +232,7 @@ export default function PortalSegmentsPage() {
       }
       setEditingId(null)
       // Refresh count for this segment
-      fetch(`/api/v1/crm/segments/${editingId}/resolve`, { method: 'POST' })
+      fetch(segmentEndpoint(`/api/v1/crm/segments/${editingId}/resolve`), { method: 'POST' })
         .then((r) => (r.ok ? r.json() : null))
         .then((b) => {
           const count = b?.data?.count ?? b?.count
@@ -241,7 +253,7 @@ export default function PortalSegmentsPage() {
     setDeletingId(id)
     setDeleteError('')
     try {
-      const res = await fetch(`/api/v1/crm/segments/${id}`, { method: 'DELETE' })
+      const res = await fetch(segmentEndpoint(`/api/v1/crm/segments/${id}`), { method: 'DELETE' })
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
         setDeleteError(body.error ?? `Failed to delete segment "${name}".`)
@@ -264,7 +276,7 @@ export default function PortalSegmentsPage() {
 
   async function confirmDeleteSegment() {
     if (!pendingDeleteSegment) return
-    await deleteSegment(pendingDeleteSegment.id, pendingDeleteSegment.name)
+    await deleteSegment(pendingDeleteSegment.id, segmentDisplayName(pendingDeleteSegment))
   }
 
   function applyTemplate(presetId: string, target: 'new' | 'edit') {
@@ -418,6 +430,7 @@ export default function PortalSegmentsPage() {
         rules={form.behavioral}
         engagement={form.engagement}
         filters={filtersFromForm(form)}
+        segmentEndpoint={segmentEndpoint}
         onRulesChange={(rules) => setForm({ ...form, behavioral: rules })}
         onEngagementChange={(e) => setForm({ ...form, engagement: e })}
       />
@@ -491,7 +504,7 @@ export default function PortalSegmentsPage() {
               <div>
                 <p className="eyebrow !text-[10px] !text-red-100/80">Saved audience delete</p>
                 <h2 id="segment-delete-confirm-title" className="mt-1 font-display text-lg text-red-50">
-                  Delete segment &quot;{pendingDeleteSegment.name}&quot;?
+                  Delete segment &quot;{segmentDisplayName(pendingDeleteSegment)}&quot;?
                 </h2>
                 <p id="segment-delete-confirm-description" className="mt-2 max-w-2xl text-sm text-red-100/90">
                   This removes the saved audience lens for {counts[pendingDeleteSegment.id] ?? 'unresolved'} contact{counts[pendingDeleteSegment.id] === 1 ? '' : 's'}. Existing contact records and campaign history stay available for audit.
@@ -507,14 +520,14 @@ export default function PortalSegmentsPage() {
                 }}
                 className="btn-pib-secondary text-xs"
                 disabled={deletingId === pendingDeleteSegment.id}
-                aria-label={`Cancel delete for segment ${pendingDeleteSegment.name}`}
+                aria-label={`Cancel delete for segment ${segmentDisplayName(pendingDeleteSegment)}`}
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={confirmDeleteSegment}
-                aria-label={`Confirm delete segment ${pendingDeleteSegment.name}`}
+                aria-label={`Confirm delete segment ${segmentDisplayName(pendingDeleteSegment)}`}
                 className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-lg border border-red-300/30 bg-red-500/20 px-3 py-2 text-xs font-semibold text-red-50 transition-colors hover:border-red-200/60 hover:bg-red-500/30 disabled:cursor-not-allowed disabled:opacity-60"
                 disabled={deletingId === pendingDeleteSegment.id}
               >
@@ -614,6 +627,7 @@ export default function PortalSegmentsPage() {
           {filteredSegments.map((s) => {
             const isEditing = editingId === s.id
             const count = counts[s.id]
+            const displayName = segmentDisplayName(s)
             const filterChips: string[] = []
             if (s.filters?.stage) filterChips.push(`stage: ${s.filters.stage}`)
             if (s.filters?.type) filterChips.push(`type: ${s.filters.type}`)
@@ -646,7 +660,7 @@ export default function PortalSegmentsPage() {
                   <div className="flex items-start justify-between gap-4 flex-wrap">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-3 flex-wrap">
-                        <h3 className="font-display text-xl">{s.name}</h3>
+                        <h3 className="font-display text-xl">{displayName}</h3>
                         <span className="pill">
                           {count === undefined || count === null ? '…' : `${count} contact${count === 1 ? '' : 's'}`}
                         </span>
@@ -678,7 +692,7 @@ export default function PortalSegmentsPage() {
                           setDeleteError('')
                         }}
                         className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-danger,#FCA5A5)] transition-colors p-2"
-                        aria-label={`Delete segment ${s.name}`}
+                        aria-label={`Delete segment ${displayName}`}
                       >
                         <span className="material-symbols-outlined text-[18px]">delete</span>
                       </button>
@@ -698,6 +712,7 @@ interface BehavioralBlockProps {
   rules: BehavioralRule[]
   engagement: EngagementScoreRule | null
   filters: SegmentFilters
+  segmentEndpoint: (path: string) => string
   onRulesChange: (rules: BehavioralRule[]) => void
   onEngagementChange: (rule: EngagementScoreRule | null) => void
 }
@@ -710,6 +725,7 @@ function BehavioralBlock({
   rules,
   engagement,
   filters,
+  segmentEndpoint,
   onRulesChange,
   onEngagementChange,
 }: BehavioralBlockProps) {
@@ -724,7 +740,7 @@ function BehavioralBlock({
       const myId = ++reqIdRef.current
       setLiveLoading(true)
       try {
-        const res = await fetch('/api/v1/crm/segments/preview', {
+        const res = await fetch(segmentEndpoint('/api/v1/crm/segments/preview'), {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ filters }),
@@ -749,7 +765,7 @@ function BehavioralBlock({
     }
     // Re-run whenever the JSON-shape of filters changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [JSON.stringify(filters)])
+  }, [JSON.stringify(filters), segmentEndpoint])
 
   return (
     <div className="space-y-5 pt-2 border-t border-[var(--color-pib-line)]">

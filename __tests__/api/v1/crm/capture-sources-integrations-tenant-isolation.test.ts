@@ -142,6 +142,7 @@ function setupIsolationFixtures() {
             data: () => ({
               activeOrgId:
                 uid === memberA.uid || uid === adminA.uid ? 'org-a' : 'org-b',
+              role: uid === adminA.uid ? 'admin' : 'client',
             }),
           }),
         }),
@@ -157,6 +158,7 @@ function setupIsolationFixtures() {
             data: () => (
               id === `org-a_${memberA.uid}` ? memberA :
               id === `org-a_${adminA.uid}`  ? adminA  :
+              id === `org-b_${adminA.uid}`  ? { ...adminA, orgId: 'org-b' } :
               id === `org-b_${memberB.uid}` ? memberB :
               { uid: id.split('_')[1], firstName: 'X', lastName: 'Y' }
             ),
@@ -168,6 +170,7 @@ function setupIsolationFixtures() {
               docs: [
                 { id: `org-a_${memberA.uid}`, data: () => memberA },
                 { id: `org-a_${adminA.uid}`, data: () => adminA },
+                { id: `org-b_${adminA.uid}`, data: () => ({ ...adminA, orgId: 'org-b' }) },
                 { id: `org-b_${memberB.uid}`, data: () => memberB },
               ].filter((doc) => doc.data().uid === value),
             }),
@@ -354,6 +357,17 @@ describe('cross-tenant isolation: capture-sources + integrations', () => {
     const body = await res.json()
     const arr = (body.data ?? []) as Array<{ id: string }>
     expect(arr.map(s => s.id)).not.toContain('cs-b')
+  })
+
+  it('admin GET capture-sources honours requested orgId for company workspace routes', async () => {
+    setupIsolationFixtures()
+    const req = callAsMember(adminA, 'GET', '/api/v1/crm/capture-sources?orgId=org-b')
+    const { GET } = await import('@/app/api/v1/crm/capture-sources/route')
+    const res = await GET(req)
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    const arr = (body.data ?? []) as Array<{ id: string }>
+    expect(arr.map(s => s.id)).toEqual(['cs-b'])
   })
 
   it('admin cannot PUT cross-org capture-source → 404', async () => {

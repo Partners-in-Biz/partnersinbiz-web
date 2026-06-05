@@ -98,6 +98,33 @@ describe('CompanyOverviewPanel', () => {
     expect(onSelectTab).toHaveBeenCalledWith('contacts')
   })
 
+  it('names command widgets as account-scoped tab actions', () => {
+    const onSelectTab = jest.fn()
+
+    render(
+      <CompanyOverviewPanel
+        company={company()}
+        onSelectTab={onSelectTab}
+        center={{
+          summary: {
+            contacts: 3,
+            deals: 0,
+            relationships: 1,
+          },
+        }}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open Contacts tab for Acme Studio with 3 records' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Open Deals tab for Acme Studio with 0 records' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Open Relationships tab for Acme Studio with 1 record' }))
+
+    expect(onSelectTab).toHaveBeenCalledWith('contacts')
+    expect(onSelectTab).toHaveBeenCalledWith('deals')
+    expect(onSelectTab).toHaveBeenCalledWith('relationships')
+    expect(screen.queryByRole('button', { name: /^Deals 0 No records yet$/ })).not.toBeInTheDocument()
+  })
+
   it('renders latest movement statuses as readable CRM labels', () => {
     render(
       <CompanyOverviewPanel
@@ -291,6 +318,27 @@ describe('CompanyOverviewPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Edit company profile to capture Website' }))
 
     expect(onEditCompany).toHaveBeenCalledTimes(1)
+  })
+
+  it('turns captured business profile identity rows into profile edit actions', () => {
+    const onEditCompany = jest.fn()
+
+    render(
+      <CompanyOverviewPanel
+        company={company({
+          lifecycleStage: 'customer',
+          tier: 'mid-market',
+          industry: 'Creative services',
+        })}
+        onEditCompany={onEditCompany}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Lifecycle Customer for Acme Studio' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Tier Mid market for Acme Studio' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Industry Creative services for Acme Studio' }))
+
+    expect(onEditCompany).toHaveBeenCalledTimes(3)
   })
 
   it('turns an empty latest movement panel into an activity review action', () => {

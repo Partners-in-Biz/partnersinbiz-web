@@ -26,18 +26,19 @@ interface DuplicateGroup {
 async function handler(_req: NextRequest, ctx: CrmAuthContext): Promise<Response> {
   const { orgId } = ctx
 
-  // Fetch all non-deleted contacts for the org (limit 2000)
+  // Keep this query index-light: filter deleted contacts in memory.
   const snap = await adminDb
     .collection('contacts')
     .where('orgId', '==', orgId)
-    .where('deleted', '!=', true)
     .limit(2000)
     .get()
 
-  const contacts: Contact[] = snap.docs.map((doc) => ({
-    id: doc.id,
-    ...(doc.data() as Omit<Contact, 'id'>),
-  }))
+  const contacts: Contact[] = snap.docs
+    .map((doc): Contact => ({
+      id: doc.id,
+      ...(doc.data() as Omit<Contact, 'id'>),
+    }))
+    .filter((contact) => contact.deleted !== true)
 
   const groups: DuplicateGroup[] = []
 

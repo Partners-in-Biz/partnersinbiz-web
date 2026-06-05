@@ -50,7 +50,7 @@ function typeQuestions(type: CampaignType) {
   ]
 }
 
-export function CampaignRequestPanel() {
+export function CampaignRequestPanel({ orgId }: { orgId?: string }) {
   const [open, setOpen] = useState(false)
   const [campaignType, setCampaignType] = useState<CampaignType>('social')
   const [selectedChannels, setSelectedChannels] = useState<string[]>(['Instagram'])
@@ -87,7 +87,10 @@ export function CampaignRequestPanel() {
         channels: selectedChannels,
         details,
       }
-      const res = await fetch('/api/v1/portal/campaign-requests', {
+      const requestUrl = orgId
+        ? `/api/v1/portal/campaign-requests?orgId=${encodeURIComponent(orgId)}`
+        : '/api/v1/portal/campaign-requests'
+      const res = await fetch(requestUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),

@@ -7,6 +7,7 @@ import {
   FaReddit, FaTiktok, FaPinterest, FaYoutube,
 } from 'react-icons/fa6'
 import { SiThreads, SiBluesky } from 'react-icons/si'
+import { appendQueryParams } from '@/lib/portal/scoped-routing'
 
 type AccountStatus = 'active' | 'token_expired' | 'disconnected' | 'rate_limited'
 type SubAccountType = 'personal' | 'business' | 'page' | 'group'
@@ -77,6 +78,7 @@ interface SocialAccountsManagerProps {
   eyebrow?: string
   description?: string
   emptyDescription?: string
+  orgId?: string | null
 }
 
 const STATUS_PILLS: Record<AccountStatus, string> = {
@@ -112,6 +114,13 @@ function formatLastUsed(ts: TimestampLike): string {
   const date = timestampToDate(ts)
   if (!date) return 'Not used yet'
   return date.toLocaleDateString('en-ZA', { day: '2-digit', month: 'short', year: 'numeric' })
+}
+
+function getAccountName(account: SocialAccount): string {
+  const hasPlaceholderIdentity =
+    account.platform === 'instagram' &&
+    (!account.platformAccountId || account.platformAccountId === 'unknown' || account.displayName.toLowerCase() === 'instagram')
+  return hasPlaceholderIdentity ? 'Instagram reconnect required' : account.displayName
 }
 
 function PlatformBadge({ platformId }: { platformId: string }) {
@@ -156,7 +165,7 @@ function SubAccountRow({
   disconnecting,
 }: {
   account: SocialAccount
-  onDisconnect: (id: string) => void
+  onDisconnect: (account: SocialAccount) => void
   onSetDefault: (id: string) => void
   disconnecting: boolean
 }) {
@@ -165,7 +174,8 @@ function SubAccountRow({
   const hasPlaceholderIdentity =
     account.platform === 'instagram' &&
     (!account.platformAccountId || account.platformAccountId === 'unknown' || account.displayName.toLowerCase() === 'instagram')
-  const accountName = hasPlaceholderIdentity ? 'Instagram reconnect required' : account.displayName
+  const accountName = getAccountName(account)
+  const platformLabel = PLATFORM_LABELS[account.platform] ?? account.platform
   const username = hasPlaceholderIdentity
     ? 'account identity missing'
     : account.username || account.platformAccountId || account.displayName || 'unknown account'
@@ -211,7 +221,8 @@ function SubAccountRow({
         </button>
         <button
           type="button"
-          onClick={() => onDisconnect(account.id)}
+          aria-label={`Disconnect social account ${accountName} from ${platformLabel}`}
+          onClick={() => onDisconnect(account)}
           disabled={disconnecting}
           className="rounded-md border border-red-400/30 px-2.5 py-1 text-xs font-label text-red-300 transition-colors hover:bg-red-400/10 disabled:cursor-not-allowed disabled:opacity-40"
         >
@@ -230,21 +241,25 @@ function PlatformCard({
   disconnectingId,
   scope,
   redirectPath,
+  orgId,
 }: {
   platform: string
   accounts: SocialAccount[]
-  onDisconnect: (id: string) => void
+  onDisconnect: (account: SocialAccount) => void
   onSetDefault: (id: string) => void
   disconnectingId: string | null
   scope: SocialScope
   redirectPath: string
+  orgId?: string | null
 }) {
   const label = PLATFORM_LABELS[platform] ?? platform
-  const oauthParams = new URLSearchParams({ redirectUrl: redirectPath })
-  if (scope === 'personal') oauthParams.set('scope', 'personal')
-  const oauthUrl = `/api/v1/social/oauth/${platform}?${oauthParams.toString()}`
-  const linkedInPersonalUrl = `${oauthUrl}&linkedinMode=personal`
-  const linkedInOrganizationUrl = `${oauthUrl}&linkedinMode=organization`
+  const oauthUrl = appendQueryParams(`/api/v1/social/oauth/${platform}`, {
+    redirectUrl: redirectPath,
+    scope: scope === 'personal' ? 'personal' : undefined,
+    orgId,
+  })
+  const linkedInPersonalUrl = appendQueryParams(oauthUrl, { linkedinMode: 'personal' })
+  const linkedInOrganizationUrl = appendQueryParams(oauthUrl, { linkedinMode: 'organization' })
   const defaultAccount = accounts.find((account) => account.isDefault)
 
   return (
@@ -293,11 +308,13 @@ function PickerModal({
   platform,
   onConfirm,
   onSkip,
+  orgId,
 }: {
   nonce: string
   platform: string
   onConfirm: () => void
   onSkip: () => void
+  orgId?: string | null
 }) {
   const [options, setOptions] = useState<PendingOption[]>([])
   const [selected, setSelected] = useState<Set<number>>(new Set())
@@ -312,7 +329,7 @@ function PickerModal({
     setLoading(true)
     setError('')
 
-    fetch(`/api/v1/social/oauth/pending/${nonce}`)
+    fetch(appendQueryParams(`/api/v1/social/oauth/pending/${nonce}`, { orgId }))
       .then((res) => res.ok ? res.json() : Promise.reject(new Error(`Failed (${res.status})`)))
       .then((body) => {
         const opts: PendingOption[] = body.data?.options ?? []
@@ -322,7 +339,7 @@ function PickerModal({
       })
       .catch(() => setError('Failed to load account options. Please reconnect and try again.'))
       .finally(() => setLoading(false))
-  }, [nonce])
+  }, [nonce, orgId])
 
   function toggleSelect(index: number) {
     setSelected((prev) => {
@@ -353,7 +370,7 @@ function PickerModal({
         index,
         isDefault: index === defaultIndex,
       }))
-      const res = await fetch('/api/v1/social/accounts/confirm', {
+      const res = await fetch(appendQueryParams('/api/v1/social/accounts/confirm', { orgId }), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ nonce, selections }),
@@ -454,7 +471,17 @@ function PickerModal({
   )
 }
 
-function BlueskyForm({ onSuccess, disabled, scope }: { onSuccess: () => void; disabled: boolean; scope: SocialScope }) {
+function BlueskyForm({
+  onSuccess,
+  disabled,
+  scope,
+  orgId,
+}: {
+  onSuccess: () => void
+  disabled: boolean
+  scope: SocialScope
+  orgId?: string | null
+}) {
   const [handle, setHandle] = useState('')
   const [appPassword, setAppPassword] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -467,7 +494,10 @@ function BlueskyForm({ onSuccess, disabled, scope }: { onSuccess: () => void; di
     setError(null)
 
     try {
-      const res = await fetch(`/api/v1/social/accounts${scope === 'personal' ? '?scope=personal' : ''}`, {
+      const res = await fetch(appendQueryParams('/api/v1/social/accounts', {
+        scope: scope === 'personal' ? 'personal' : undefined,
+        orgId,
+      }), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -536,22 +566,29 @@ export default function SocialAccountsManager({
   title = 'Social Accounts',
   description = 'Connect every profile or page you want Pip to publish to. Multiple accounts per platform are supported.',
   emptyDescription = 'Connect your first account below so scheduled content has somewhere to publish.',
+  orgId,
 }: SocialAccountsManagerProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [accounts, setAccounts] = useState<SocialAccount[]>([])
   const [loading, setLoading] = useState(true)
   const [disconnectingId, setDisconnectingId] = useState<string | null>(null)
+  const [disconnectCandidate, setDisconnectCandidate] = useState<SocialAccount | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
 
   const pickerNonce = searchParams.get('picker')
   const pickerPlatform = searchParams.get('platform') ?? ''
+  const socialApiPath = useCallback((path: string) => appendQueryParams(path, {
+    scope: scope === 'personal' ? 'personal' : undefined,
+    orgId,
+  }), [orgId, scope])
+  const tenantApiPath = useCallback((path: string) => appendQueryParams(path, { orgId }), [orgId])
 
   const fetchAccounts = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await fetch(`/api/v1/social/accounts${scope === 'personal' ? '?scope=personal' : ''}`)
+      const res = await fetch(socialApiPath('/api/v1/social/accounts'))
       const body = await res.json()
       setAccounts(body.data ?? [])
     } catch {
@@ -560,7 +597,7 @@ export default function SocialAccountsManager({
     } finally {
       setLoading(false)
     }
-  }, [scope])
+  }, [socialApiPath])
 
   useEffect(() => {
     fetchAccounts()
@@ -579,16 +616,23 @@ export default function SocialAccountsManager({
     }
   }, [fetchAccounts, pickerNonce, searchParams])
 
-  async function handleDisconnect(id: string) {
-    if (!confirm('Disconnect this account? You can reconnect it later.')) return
+  function requestDisconnect(account: SocialAccount) {
+    setActionError(null)
+    setMessage(null)
+    setDisconnectCandidate(account)
+  }
+
+  async function handleDisconnect(account: SocialAccount) {
+    const id = account.id
     setActionError(null)
     setMessage(null)
     setDisconnectingId(id)
 
     try {
-      const res = await fetch(`/api/v1/social/accounts/${id}`, { method: 'DELETE' })
+      const res = await fetch(tenantApiPath(`/api/v1/social/accounts/${id}`), { method: 'DELETE' })
       if (!res.ok) throw new Error(`Failed (${res.status})`)
       setMessage('Account disconnected.')
+      setDisconnectCandidate(null)
       await fetchAccounts()
     } catch {
       setActionError('Failed to disconnect account. Please try again.')
@@ -602,7 +646,7 @@ export default function SocialAccountsManager({
     setMessage(null)
 
     try {
-      const res = await fetch(`/api/v1/social/accounts/${id}/set-default`, { method: 'PUT' })
+      const res = await fetch(tenantApiPath(`/api/v1/social/accounts/${id}/set-default`), { method: 'PUT' })
       if (!res.ok) throw new Error(`Failed (${res.status})`)
       setMessage('Default account updated.')
       await fetchAccounts()
@@ -616,7 +660,8 @@ export default function SocialAccountsManager({
     params.delete('picker')
     params.delete('platform')
     const qs = params.toString()
-    router.replace(qs ? `${basePath}?${qs}` : basePath)
+    const basePathWithoutQuery = basePath.split('?')[0] ?? basePath
+    router.replace(qs ? `${basePathWithoutQuery}?${qs}` : basePath)
   }
 
   function handlePickerConfirm() {
@@ -644,6 +689,10 @@ export default function SocialAccountsManager({
   const unconnectedOAuth = OAUTH_PLATFORMS.filter((platform) => !connectedPlatformIds.has(platform))
   const defaultCount = activeAccounts.filter((account) => account.isDefault).length
   const needsAttentionCount = activeAccounts.filter((account) => account.status !== 'active').length
+  const disconnectCandidateName = disconnectCandidate ? getAccountName(disconnectCandidate) : ''
+  const disconnectCandidatePlatform = disconnectCandidate
+    ? PLATFORM_LABELS[disconnectCandidate.platform] ?? disconnectCandidate.platform
+    : ''
 
   return (
     <div className="space-y-8">
@@ -653,6 +702,7 @@ export default function SocialAccountsManager({
           platform={pickerPlatform}
           onConfirm={handlePickerConfirm}
           onSkip={dismissPicker}
+          orgId={orgId}
         />
       )}
 
@@ -669,6 +719,46 @@ export default function SocialAccountsManager({
           Connect account
         </a>
       </header>
+
+      {disconnectCandidate && (
+        <div
+          role="alertdialog"
+          aria-modal="true"
+          aria-label={`Disconnect ${disconnectCandidatePlatform} account "${disconnectCandidateName}"?`}
+          className="rounded-md border border-red-400/30 bg-red-400/10 p-4 shadow-sm"
+        >
+          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+            <div className="min-w-0">
+              <p className="font-headline text-lg font-bold text-red-100">
+                Disconnect {disconnectCandidatePlatform} account &quot;{disconnectCandidateName}&quot;?
+              </p>
+              <p className="mt-1 text-sm text-red-100/80">
+                This removes the account from posting, scheduling, and inbox sync. You can reconnect it later from this workspace.
+              </p>
+            </div>
+            <div className="flex shrink-0 flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => setDisconnectCandidate(null)}
+                disabled={disconnectingId === disconnectCandidate.id}
+                className="rounded-md border border-red-100/30 px-3 py-2 text-xs font-label text-red-50 transition-colors hover:bg-red-50/10 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Keep account connected
+              </button>
+              <button
+                type="button"
+                onClick={() => handleDisconnect(disconnectCandidate)}
+                disabled={disconnectingId === disconnectCandidate.id}
+                className="rounded-md bg-red-300 px-3 py-2 text-xs font-label text-red-950 transition-colors hover:bg-red-200 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {disconnectingId === disconnectCandidate.id
+                  ? 'Disconnecting...'
+                  : `Confirm disconnect ${disconnectCandidatePlatform} account ${disconnectCandidateName}`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {(message || actionError) && (
         <div
@@ -736,11 +826,12 @@ export default function SocialAccountsManager({
                 key={platform}
                 platform={platform}
                 accounts={platformAccounts}
-                onDisconnect={handleDisconnect}
+                onDisconnect={requestDisconnect}
                 onSetDefault={handleSetDefault}
                 disconnectingId={disconnectingId}
                 scope={scope}
                 redirectPath={basePath}
+                orgId={orgId}
               />
             ))}
           </div>
@@ -760,10 +851,12 @@ export default function SocialAccountsManager({
             {unconnectedOAuth.map((platform) => (
               <a
                 key={platform}
-                href={`/api/v1/social/oauth/${platform}?${new URLSearchParams({
+                href={appendQueryParams(`/api/v1/social/oauth/${platform}`, {
                   redirectUrl: basePath,
-                  ...(scope === 'personal' ? { scope: 'personal' } : {}),
-                }).toString()}${platform === 'linkedin' ? '&linkedinMode=personal' : ''}`}
+                  scope: scope === 'personal' ? 'personal' : undefined,
+                  orgId,
+                  linkedinMode: platform === 'linkedin' ? 'personal' : undefined,
+                })}
                 className="pib-card pib-card-hover flex items-center gap-3 p-4"
               >
                 <PlatformBadge platformId={platform} />
@@ -780,7 +873,9 @@ export default function SocialAccountsManager({
           </div>
         )}
 
-        {!connectedPlatformIds.has('bluesky') && <BlueskyForm onSuccess={fetchAccounts} disabled={loading} scope={scope} />}
+        {!connectedPlatformIds.has('bluesky') && (
+          <BlueskyForm onSuccess={fetchAccounts} disabled={loading} scope={scope} orgId={orgId} />
+        )}
       </section>
     </div>
   )

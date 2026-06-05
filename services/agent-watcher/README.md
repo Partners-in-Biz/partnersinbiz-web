@@ -67,9 +67,12 @@ This implements Step 2-3 of the multi-agent orchestrator spec
      with the error in `agentOutput.summary` on failure).
 - Caps concurrency at **5 dispatches per agent**. Other tasks are kept in an
   in-process deferred queue and drained as soon as that agent has capacity again.
-- Runs a stale-task sweeper every 60 seconds: any task stuck in `picked-up` /
-  `in-progress` with `agentHeartbeatAt` older than 5 minutes is reset to
-  `pending` so it can be re-claimed (crash-safe).
+- Runs bounded safety sweeps every 60 seconds: pending/scheduled/stale task
+  scans are capped so the watcher cannot re-read the entire task history while
+  waiting for dependencies or reclaiming crashed work.
+- If a safety-sweep collection-group index is missing, that sweep logs the
+  `FAILED_PRECONDITION` once and disables itself until the watcher restarts
+  after the index is created.
 - Graceful shutdown on `SIGTERM` / `SIGINT`: stops accepting new work, waits up
   to 30 seconds for in-flight tasks to finish, then exits.
 - Structured JSON logging to stdout/stderr (one line per event) for journald /

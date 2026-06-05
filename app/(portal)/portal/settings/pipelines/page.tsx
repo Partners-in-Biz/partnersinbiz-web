@@ -2,11 +2,13 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { PipelineDefinitionsList } from '@/components/crm/PipelineDefinitionsList'
 import { PipelineDrawer } from '@/components/crm/PipelineDrawer'
 import { extractPipelinesList } from '@/lib/pipelines/response'
 import type { Pipeline, PipelineStage } from '@/lib/pipelines/types'
+import { scopedApiPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 
 type HealthFilter = 'all' | 'ready' | 'needs-work'
 
@@ -42,6 +44,12 @@ function pipelineSearchText(pipeline: Pipeline): string {
   ].filter(Boolean).join(' ').toLowerCase()
 }
 
+function isPipelineSetupArtifact(pipeline?: Pipeline): boolean {
+  const name = pipeline?.name?.trim().toLowerCase() ?? ''
+  if (!name) return false
+  return /\b(smoke|test|delete)\b/.test(name)
+}
+
 function StatCard({ label, value, sub, icon }: { label: string; value: string; sub: string; icon: string }) {
   return (
     <div className="pib-stat-card">
@@ -58,6 +66,8 @@ function StatCard({ label, value, sub, icon }: { label: string; value: string; s
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function PipelinesPage() {
+  const searchParams = useSearchParams()
+  const orgScope = useMemo(() => scopeFromSearchParams(searchParams), [searchParams])
   const [pipelines, setPipelines] = useState<Pipeline[]>([])
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState<string | null>(null)
@@ -68,6 +78,8 @@ export default function PipelinesPage() {
   const [pendingDeletePipeline, setPendingDeletePipeline] = useState<Pipeline | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
+  const pipelineEndpoint = useCallback((path: string) => scopedApiPath(path, orgScope), [orgScope])
 
   // Drawer state
   const [drawerOpen, setDrawerOpen] = useState(false)
@@ -89,7 +101,7 @@ export default function PipelinesPage() {
     setLoading(true)
     setFetchError(null)
     try {
-      const res = await fetch(`/api/v1/crm/pipelines?archived=${archived}`)
+      const res = await fetch(pipelineEndpoint(`/api/v1/crm/pipelines?archived=${archived}`))
       const body = await res.json().catch(() => ({}))
       if (res.status === 404) {
         setFetchError('Pipelines API is not yet available. It will be ready shortly.')
@@ -109,7 +121,7 @@ export default function PipelinesPage() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [pipelineEndpoint])
 
   useEffect(() => {
     fetchPipelines(showArchived)
@@ -134,34 +146,36 @@ export default function PipelinesPage() {
   }
 
   async function handleSetDefault(p: Pipeline) {
+    setActionError(null)
     try {
-      const res = await fetch(`/api/v1/crm/pipelines/${p.id}/set-default`, { method: 'POST' })
+      const res = await fetch(pipelineEndpoint(`/api/v1/crm/pipelines/${p.id}/set-default`), { method: 'POST' })
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
-        alert(body.error ?? 'Failed to set default pipeline.')
+        setActionError(body.error ?? 'Failed to set default pipeline.')
         return
       }
       await fetchPipelines(showArchived)
     } catch {
-      alert('Could not reach the server.')
+      setActionError('Could not reach the server.')
     }
   }
 
   async function handleArchive(p: Pipeline) {
+    setActionError(null)
     try {
-      const res = await fetch(`/api/v1/crm/pipelines/${p.id}`, {
+      const res = await fetch(pipelineEndpoint(`/api/v1/crm/pipelines/${p.id}`), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ archived: !p.archived }),
       })
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
-        alert(body.error ?? 'Failed to update pipeline.')
+        setActionError(body.error ?? 'Failed to update pipeline.')
         return
       }
       await fetchPipelines(showArchived)
     } catch {
-      alert('Could not reach the server.')
+      setActionError('Could not reach the server.')
     }
   }
 
@@ -169,7 +183,7 @@ export default function PipelinesPage() {
     setDeletingId(p.id)
     setDeleteError(null)
     try {
-      const res = await fetch(`/api/v1/crm/pipelines/${p.id}`, { method: 'DELETE' })
+      const res = await fetch(pipelineEndpoint(`/api/v1/crm/pipelines/${p.id}`), { method: 'DELETE' })
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
         // 400 means live deals are attached — surface a friendly message
@@ -196,8 +210,8 @@ export default function PipelinesPage() {
   async function handleSave(data: Partial<Pipeline>) {
     const isEdit = drawerMode === 'edit' && editingPipeline?.id
     const url = isEdit
-      ? `/api/v1/crm/pipelines/${editingPipeline!.id}`
-      : '/api/v1/crm/pipelines'
+      ? pipelineEndpoint(`/api/v1/crm/pipelines/${editingPipeline!.id}`)
+      : pipelineEndpoint('/api/v1/crm/pipelines')
     const method = isEdit ? 'PATCH' : 'POST'
 
     const res = await fetch(url, {
@@ -226,6 +240,12 @@ export default function PipelinesPage() {
   const activePipelines = pipelines.filter((pipeline) => !pipeline.archived)
   const archivedPipelines = pipelines.filter((pipeline) => pipeline.archived)
   const defaultPipeline = pipelines.find((pipeline) => pipeline.isDefault)
+  const defaultCandidatePipeline = !defaultPipeline
+    ? activePipelines.find((pipeline) => pipelineHealth(pipeline).score >= 100) ?? activePipelines[0]
+    : undefined
+  const defaultCandidateReady = defaultCandidatePipeline
+    ? pipelineHealth(defaultCandidatePipeline).score >= 100 && !isPipelineSetupArtifact(defaultCandidatePipeline)
+    : false
   const totalStages = pipelines.reduce((sum, pipeline) => sum + pipelineStages(pipeline).length, 0)
   const activeStageTotal = activePipelines.reduce((sum, pipeline) => sum + pipelineStages(pipeline).length, 0)
   const openStageCount = pipelines.reduce((sum, pipeline) => sum + pipelineStages(pipeline).filter((stage) => stage.kind === 'open').length, 0)
@@ -274,6 +294,60 @@ export default function PipelinesPage() {
           <StatCard label="Default route" value={defaultPipeline ? 'Set' : 'Missing'} sub={defaultPipeline ? pipelineDisplayName(defaultPipeline) : 'Choose a default path for new deals'} icon="star" />
           <StatCard label="Stage coverage" value={String(totalStages)} sub={`${openStageCount} open, ${wonStageCount} won, ${lostStageCount} lost`} icon="schema" />
           <StatCard label="Pipeline health" value={`${readyCount}/${pipelines.length || 0}`} sub={`${needsWorkCount} definition${needsWorkCount === 1 ? '' : 's'} need setup work`} icon="monitoring" />
+        </section>
+      )}
+
+      {!fetchError && defaultCandidatePipeline && (
+        <section
+          role="region"
+          aria-label="Default pipeline route review"
+          className="rounded-[var(--radius-card)] border border-amber-400/25 bg-amber-400/[0.08] p-5 shadow-[0_18px_40px_rgba(146,64,14,0.14)]"
+        >
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="flex gap-3">
+              <span className="material-symbols-outlined mt-0.5 text-amber-200" aria-hidden="true">alt_route</span>
+              <div>
+                <p className="eyebrow !text-[10px] text-amber-200">Revenue routing</p>
+                <h2 className="mt-1 font-display text-xl text-[var(--color-pib-text)]">Default route is missing</h2>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--color-pib-text-muted)]">
+                  New deals need a default revenue path before the team scales pipeline entry.
+                </p>
+                <div className="mt-4 flex flex-wrap items-center gap-2">
+                  <span className="rounded-full border border-amber-300/25 bg-amber-300/10 px-3 py-1 text-xs font-semibold text-amber-50">
+                    {pipelineDisplayName(defaultCandidatePipeline)}
+                  </span>
+                  <span className="text-xs text-[var(--color-pib-text-muted)]">
+                    {defaultCandidateReady
+                      ? 'Ready to become the first route for new deals.'
+                      : 'Needs setup before it can carry new deals confidently.'}
+                  </span>
+                </div>
+              </div>
+            </div>
+            {isAdmin && (
+              defaultCandidateReady ? (
+                <button
+                  type="button"
+                  onClick={() => handleSetDefault(defaultCandidatePipeline)}
+                  aria-label={`Set ${pipelineDisplayName(defaultCandidatePipeline)} as default pipeline route`}
+                  className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5 text-sm"
+                >
+                  <span className="material-symbols-outlined text-base" aria-hidden="true">star</span>
+                  Set default route
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => openEdit(defaultCandidatePipeline)}
+                  aria-label={`Review ${pipelineDisplayName(defaultCandidatePipeline)} before setting a default pipeline route`}
+                  className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5 text-sm"
+                >
+                  <span className="material-symbols-outlined text-base" aria-hidden="true">edit_note</span>
+                  Review setup
+                </button>
+              )
+            )}
+          </div>
         </section>
       )}
 
@@ -358,6 +432,24 @@ export default function PipelinesPage() {
           <span className="material-symbols-outlined mr-1.5 align-middle text-[16px]" aria-hidden="true">error</span>
           {deleteError}
         </div>
+      )}
+
+      {actionError && (
+        <section
+          role="status"
+          aria-label="Pipeline action failed"
+          className="rounded-lg border border-amber-400/25 bg-amber-400/10 px-4 py-3"
+        >
+          <div className="flex gap-3">
+            <span className="material-symbols-outlined mt-0.5 text-amber-200" aria-hidden="true">warning</span>
+            <div>
+              <p className="text-sm font-medium text-amber-100">{actionError}</p>
+              <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">
+                No pipeline changes were applied. Review permissions or retry the action from this workspace.
+              </p>
+            </div>
+          </div>
+        </section>
       )}
 
       {pendingDeletePipeline && (

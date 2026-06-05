@@ -1,8 +1,9 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import ProductsPage from '@/app/(portal)/portal/settings/products/page'
 import type { Product } from '@/lib/products/types'
 
 let products: Product[] = []
+let mockSearchParams = new URLSearchParams()
 
 jest.mock('@/components/crm/ProductModal', () => ({
   ProductModal: ({ product, onClose }: { product: unknown; onClose: () => void }) => (
@@ -13,10 +14,15 @@ jest.mock('@/components/crm/ProductModal', () => ({
   ),
 }))
 
+jest.mock('next/navigation', () => ({
+  useSearchParams: () => mockSearchParams,
+}))
+
 describe('Portal settings products page', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     products = []
+    mockSearchParams = new URLSearchParams()
     global.fetch = jest.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
       if (url === '/api/v1/crm/products') {
@@ -37,6 +43,59 @@ describe('Portal settings products page', () => {
 
   afterEach(() => {
     jest.restoreAllMocks()
+  })
+
+  it('preserves company workspace scope across product list and delete operations', async () => {
+    mockSearchParams = new URLSearchParams({
+      orgId: 'org-1',
+      orgSlug: 'lumen-speeds',
+      sourceCompanyId: 'company-1',
+      sourceCompanyName: 'Lumen',
+    })
+    products = [{
+      id: 'product-1',
+      orgId: 'org-1',
+      name: 'Launch package',
+      description: 'Campaign setup package',
+      unit: 'package',
+      unitPrice: 25000,
+      currency: 'ZAR',
+      createdAt: null,
+      updatedAt: null,
+    }]
+
+    const fetchMock = jest.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/products?orgId=org-1') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { products } }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/products/product-1?orgId=org-1' && init?.method === 'DELETE') {
+        products = []
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ success: true }),
+        } as Response)
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    })
+    global.fetch = fetchMock as jest.Mock
+
+    render(<ProductsPage />)
+
+    expect(await screen.findByText('Launch package')).toBeInTheDocument()
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/crm/products?orgId=org-1')
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete Launch package' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm delete catalog product Launch package' }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/crm/products/product-1?orgId=org-1', { method: 'DELETE' })
+    })
   })
 
   it('turns the empty product catalog into a quote-readiness command center', async () => {
@@ -139,12 +198,48 @@ describe('Portal settings products page', () => {
 
     render(<ProductsPage />)
 
-    expect(await screen.findByText('Strategy workshop')).toBeInTheDocument()
-    expect(screen.getByText('Missing unit, price')).toBeInTheDocument()
+    expect((await screen.findAllByText('Strategy workshop')).length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Missing unit, price').length).toBeGreaterThan(0)
     expect(screen.getByText('Unit not set')).toBeInTheDocument()
     expect(screen.queryByText('—')).not.toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: /Fix pricing setup for Strategy workshop/i }))
+    expect(screen.getByRole('dialog', { name: 'Edit product' })).toBeInTheDocument()
+  })
+
+  it('turns the first incomplete catalog item into a leadership cleanup action', async () => {
+    products = [{
+      id: 'product-1',
+      orgId: 'org-1',
+      name: 'Strategy workshop',
+      description: 'Discovery session',
+      unit: '',
+      unitPrice: 0,
+      currency: 'ZAR',
+      createdAt: null,
+      updatedAt: null,
+    }, {
+      id: 'product-2',
+      orgId: 'org-1',
+      name: 'Launch package',
+      description: 'Campaign setup package',
+      unit: 'package',
+      unitPrice: 25000,
+      currency: 'ZAR',
+      createdAt: null,
+      updatedAt: null,
+    }]
+
+    render(<ProductsPage />)
+
+    expect((await screen.findAllByText('Strategy workshop')).length).toBeGreaterThan(0)
+    const review = screen.getByRole('region', { name: 'Catalog readiness review' })
+    expect(within(review).getByRole('heading', { name: 'Quote readiness needs cleanup' })).toBeInTheDocument()
+    expect(within(review).getByText('Sales teams need pricing, units, descriptions, and currencies before this catalog can support reliable quotes and forecasts.')).toBeInTheDocument()
+    expect(within(review).getByText('Strategy workshop')).toBeInTheDocument()
+    expect(within(review).getByText('Missing unit, price')).toBeInTheDocument()
+
+    fireEvent.click(within(review).getByRole('button', { name: 'Fix catalog setup for Strategy workshop' }))
     expect(screen.getByRole('dialog', { name: 'Edit product' })).toBeInTheDocument()
   })
 
@@ -185,15 +280,15 @@ describe('Portal settings products page', () => {
 
     render(<ProductsPage />)
 
-    expect(await screen.findByText('Product name missing')).toBeInTheDocument()
+    expect((await screen.findAllByText('Product name missing')).length).toBeGreaterThan(0)
 
     fireEvent.change(screen.getByPlaceholderText('Search product, unit, currency...'), {
       target: { value: 'missing' },
     })
 
-    expect(screen.getByText('Product name missing')).toBeInTheDocument()
+    expect(screen.getAllByText('Product name missing').length).toBeGreaterThan(0)
     expect(screen.getByText('Currency not set')).toBeInTheDocument()
-    expect(screen.getByText('Missing name, description, unit, price, currency')).toBeInTheDocument()
+    expect(screen.getAllByText('Missing name, description, unit, price, currency').length).toBeGreaterThan(0)
   })
 
   it('treats an empty filtered product view as a reversible catalog lens', async () => {
@@ -257,5 +352,54 @@ describe('Portal settings products page', () => {
     expect(screen.queryByText('Launch package')).not.toBeInTheDocument()
 
     confirmSpy.mockRestore()
+  })
+
+  it('keeps catalog delete failures inside the product command center', async () => {
+    const alertSpy = jest.spyOn(window, 'alert').mockImplementation(() => {})
+    products = [{
+      id: 'product-locked',
+      orgId: 'org-1',
+      name: 'Locked retainer',
+      description: 'Used by active deal lines',
+      unit: 'month',
+      unitPrice: 15000,
+      currency: 'ZAR',
+      createdAt: null,
+      updatedAt: null,
+    }]
+
+    ;(global.fetch as jest.Mock).mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/products') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { products } }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/products/product-locked' && init?.method === 'DELETE') {
+        return Promise.resolve({
+          ok: false,
+          status: 409,
+          json: async () => ({ error: 'Product is used by an active deal' }),
+        } as Response)
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    })
+
+    render(<ProductsPage />)
+
+    expect(await screen.findByText('Locked retainer')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete Locked retainer' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm delete catalog product Locked retainer' }))
+
+    const warning = await screen.findByRole('status', { name: 'Catalog product delete failed' })
+    expect(warning).toHaveTextContent('Product is used by an active deal')
+    expect(warning).toHaveTextContent('The product stayed in the catalog. Resolve the dependency or archive it before trying again.')
+    expect(screen.getByRole('alertdialog', { name: 'Delete catalog product "Locked retainer"?' })).toBeInTheDocument()
+    expect(screen.getByText('Locked retainer')).toBeInTheDocument()
+    expect(alertSpy).not.toHaveBeenCalled()
+
+    alertSpy.mockRestore()
   })
 })

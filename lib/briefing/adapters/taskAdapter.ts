@@ -9,6 +9,7 @@
  */
 
 import type { BriefingSourceAdapter, BriefingPriority } from '../types'
+import { getSoftwareBuildEvidenceRows } from '@/lib/software-build-evidence'
 import { normalizeActor, hashSourceDocument, extractSafeExcerpt, extractMultiFieldExcerpt, normalizeTimestamp, extractOrgId, extractProjectId, extractTaskId, generateSourceUrl, comparePriority, priorityRequiresAction } from '../utils'
 
 /**
@@ -267,6 +268,8 @@ export const taskAdapter: BriefingSourceAdapter<TaskDocument> = {
    * Extract metadata specific to tasks.
    */
   extractMetadata(doc: TaskDocument, _docId: string): Record<string, unknown> | null {
+    const softwareBuildEvidence = getSoftwareBuildEvidenceRows(doc)
+
     return {
       columnId: doc.columnId,
       agentStatus: doc.agentStatus,
@@ -277,6 +280,7 @@ export const taskAdapter: BriefingSourceAdapter<TaskDocument> = {
       assigneeAgentId: doc.assigneeAgentId,
       assigneeId: doc.assigneeId,
       hasDependencies: Array.isArray(doc.dependsOn) && doc.dependsOn.length > 0,
+      softwareBuildEvidence: softwareBuildEvidence.length ? softwareBuildEvidence : undefined,
     }
   },
 

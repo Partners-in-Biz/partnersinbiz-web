@@ -9,6 +9,7 @@ export * from './utils'
 
 // Adapters
 export { taskAdapter, projectAdapter } from './adapters/taskAdapter'
+export { agentLearningReviewAdapter } from './adapters/agentLearningReviewAdapter'
 export { commentAdapter } from './adapters/commentAdapter'
 export { agentOutputAdapter } from './adapters/agentOutputAdapter'
 export { agentRunAdapter } from './adapters/agentRunAdapter'
@@ -16,6 +17,7 @@ export { workspaceBrokerJobAdapter } from './adapters/workspaceBrokerJobAdapter'
 export { calendarEventAdapter } from './adapters/calendarEventAdapter'
 export { bookingAdapter } from './adapters/bookingAdapter'
 export { contactAdapter } from './adapters/contactAdapter'
+export { dealAdapter } from './adapters/dealAdapter'
 export { approvalAdapter, clientDocumentAdapter } from './adapters/approvalAdapter'
 export { notificationAdapter, activityAdapter } from './adapters/notificationAdapter'
 export { reportAdapter } from './adapters/reportAdapter'
@@ -39,6 +41,7 @@ export { formSubmissionAdapter } from './adapters/formSubmissionAdapter'
 
 import type { BriefingSourceAdapter, BriefingSourceType } from './types'
 import { taskAdapter, projectAdapter } from './adapters/taskAdapter'
+import { agentLearningReviewAdapter } from './adapters/agentLearningReviewAdapter'
 import { commentAdapter } from './adapters/commentAdapter'
 import { agentOutputAdapter } from './adapters/agentOutputAdapter'
 import { agentRunAdapter } from './adapters/agentRunAdapter'
@@ -46,6 +49,7 @@ import { workspaceBrokerJobAdapter } from './adapters/workspaceBrokerJobAdapter'
 import { calendarEventAdapter } from './adapters/calendarEventAdapter'
 import { bookingAdapter } from './adapters/bookingAdapter'
 import { contactAdapter } from './adapters/contactAdapter'
+import { dealAdapter } from './adapters/dealAdapter'
 import { approvalAdapter, clientDocumentAdapter } from './adapters/approvalAdapter'
 import { notificationAdapter, activityAdapter } from './adapters/notificationAdapter'
 import { reportAdapter } from './adapters/reportAdapter'
@@ -73,6 +77,7 @@ import { formSubmissionAdapter } from './adapters/formSubmissionAdapter'
 export const SOURCE_ADAPTERS: Record<BriefingSourceType, BriefingSourceAdapter> = {
   task: taskAdapter,
   project: projectAdapter,
+  'agent-learning-review': agentLearningReviewAdapter,
   comment: commentAdapter,
   'agent-output': agentOutputAdapter,
   'agent-run': agentRunAdapter,
@@ -80,6 +85,7 @@ export const SOURCE_ADAPTERS: Record<BriefingSourceType, BriefingSourceAdapter> 
   'calendar-event': calendarEventAdapter,
   booking: bookingAdapter,
   contact: contactAdapter,
+  deal: dealAdapter,
   approval: approvalAdapter,
   'client-document': clientDocumentAdapter,
   'social-post': socialPostAdapter,

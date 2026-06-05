@@ -9,6 +9,7 @@ import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { LineChart, BarChart, Donut, heatmapShade, heatmapTextColor } from './charts'
 import { PageTabs } from '@/components/ui/AppFoundation'
+import { scopedApiPath, scopedPortalPath, type PortalOrgRouteScope } from '@/lib/portal/scoped-routing'
 import type {
   OrgEmailOverview,
   EngagementTimeseries,
@@ -24,6 +25,7 @@ type TabKey =
   | 'overview'
   | 'engagement'
   | 'broadcasts'
+  | 'sequences'
   | 'cohorts'
   | 'revenue'
   | 'send-time'
@@ -34,6 +36,7 @@ const TABS: Array<{ key: TabKey; label: string; adminOnly?: boolean }> = [
   { key: 'overview', label: 'Overview' },
   { key: 'engagement', label: 'Engagement' },
   { key: 'broadcasts', label: 'Broadcasts' },
+  { key: 'sequences', label: 'Sequences' },
   { key: 'cohorts', label: 'Cohorts' },
   { key: 'revenue', label: 'Revenue' },
   { key: 'send-time', label: 'Send time' },
@@ -42,6 +45,14 @@ const TABS: Array<{ key: TabKey; label: string; adminOnly?: boolean }> = [
 ]
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+
+interface SequenceSummary {
+  id: string
+  name: string
+  status: string
+}
+
+type EmailAnalyticsSurface = 'admin' | 'portal'
 
 function isoDate(d: Date): string {
   return d.toISOString().slice(0, 10)
@@ -54,9 +65,13 @@ function pct(n: number): string {
 export default function EmailAnalyticsDashboard({
   orgId,
   isAdmin,
+  surface = 'admin',
+  orgScope,
 }: {
   orgId: string
   isAdmin: boolean
+  surface?: EmailAnalyticsSurface
+  orgScope?: PortalOrgRouteScope
 }) {
   const today = useMemo(() => new Date(), [])
   const thirtyDaysAgo = useMemo(
@@ -66,6 +81,13 @@ export default function EmailAnalyticsDashboard({
   const [from, setFrom] = useState<string>(isoDate(thirtyDaysAgo))
   const [to, setTo] = useState<string>(isoDate(today))
   const [tab, setTab] = useState<TabKey>('overview')
+  const routeScope = useMemo<PortalOrgRouteScope>(
+    () => ({
+      orgId: orgScope?.orgId ?? (surface === 'portal' ? orgId : undefined),
+      orgSlug: orgScope?.orgSlug ?? undefined,
+    }),
+    [orgId, orgScope?.orgId, orgScope?.orgSlug, surface],
+  )
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
@@ -101,7 +123,22 @@ export default function EmailAnalyticsDashboard({
 
       {tab === 'overview' && <OverviewTab orgId={orgId} from={from} to={to} />}
       {tab === 'engagement' && <EngagementTab orgId={orgId} />}
-      {tab === 'broadcasts' && <BroadcastsTab orgId={orgId} from={from} to={to} />}
+      {tab === 'broadcasts' && (
+        <BroadcastsTab
+          orgId={orgId}
+          from={from}
+          to={to}
+          surface={surface}
+          orgScope={routeScope}
+        />
+      )}
+      {tab === 'sequences' && (
+        <SequencesTab
+          orgId={orgId}
+          surface={surface}
+          orgScope={routeScope}
+        />
+      )}
       {tab === 'cohorts' && <CohortsTab orgId={orgId} from={from} to={to} />}
       {tab === 'revenue' && <RevenueTab orgId={orgId} from={from} to={to} />}
       {tab === 'send-time' && <SendTimeTab orgId={orgId} from={from} to={to} />}
@@ -340,7 +377,30 @@ function EngagementTab({ orgId }: { orgId: string }) {
 
 // ── Broadcasts tab ──────────────────────────────────────────────────────────
 
-function BroadcastsTab({ orgId, from, to }: { orgId: string; from: string; to: string }) {
+function broadcastAnalyticsHref(
+  broadcastId: string,
+  surface: EmailAnalyticsSurface,
+  orgScope: PortalOrgRouteScope,
+): string {
+  if (surface === 'portal') {
+    return scopedPortalPath(`/portal/email-analytics/broadcasts/${broadcastId}`, orgScope)
+  }
+  return `/admin/email-analytics/broadcasts/${broadcastId}`
+}
+
+function BroadcastsTab({
+  orgId,
+  from,
+  to,
+  surface,
+  orgScope,
+}: {
+  orgId: string
+  from: string
+  to: string
+  surface: EmailAnalyticsSurface
+  orgScope: PortalOrgRouteScope
+}) {
   const [state, setState] = useState<{ overview: OrgEmailOverview | null; loading: boolean; key: string }>(
     { overview: null, loading: true, key: '' },
   )
@@ -393,7 +453,8 @@ function BroadcastsTab({ orgId, from, to }: { orgId: string; from: string; to: s
             <td className="py-2 text-right tabular-nums">{pct(b.clickRate)}</td>
             <td className="py-2 text-right">
               <Link
-                href={`/admin/email-analytics/broadcasts/${b.id}`}
+                href={broadcastAnalyticsHref(b.id, surface, orgScope)}
+                aria-label={`Open analytics for ${b.name}`}
                 className="text-amber-500 hover:underline text-xs"
               >
                 Details →
@@ -403,6 +464,112 @@ function BroadcastsTab({ orgId, from, to }: { orgId: string; from: string; to: s
         ))}
       </tbody>
     </table>
+  )
+}
+
+// ── Sequences tab ───────────────────────────────────────────────────────────
+
+function sequenceAnalyticsHref(
+  sequenceId: string,
+  surface: EmailAnalyticsSurface,
+  orgScope: PortalOrgRouteScope,
+): string {
+  if (surface === 'portal') {
+    return scopedPortalPath(`/portal/email-analytics/sequences/${sequenceId}`, orgScope)
+  }
+  return `/admin/email-analytics/sequences/${sequenceId}`
+}
+
+function sequenceManagementHref(surface: EmailAnalyticsSurface, orgScope: PortalOrgRouteScope): string {
+  if (surface === 'portal') {
+    return scopedPortalPath('/portal/settings/sequences', orgScope)
+  }
+  return '/admin/sequences'
+}
+
+function SequencesTab({
+  orgId,
+  surface,
+  orgScope,
+}: {
+  orgId: string
+  surface: EmailAnalyticsSurface
+  orgScope: PortalOrgRouteScope
+}) {
+  const [state, setState] = useState<{
+    sequences: SequenceSummary[]
+    loading: boolean
+    error: string
+    key: string
+  }>({ sequences: [], loading: true, error: '', key: '' })
+
+  useEffect(() => {
+    const key = orgId
+    let cancelled = false
+    fetch(scopedApiPath('/api/v1/crm/sequences', { orgId }))
+      .then((r) => r.json())
+      .then((body) => {
+        if (cancelled) return
+        const rawSequences = body.data?.sequences ?? body.data ?? []
+        const sequences = Array.isArray(rawSequences)
+          ? rawSequences.filter((item): item is SequenceSummary => (
+            item &&
+            typeof item.id === 'string' &&
+            typeof item.name === 'string' &&
+            item.status === 'active'
+          ))
+          : []
+        setState({ sequences, loading: false, error: body.error ?? '', key })
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return
+        setState({
+          sequences: [],
+          loading: false,
+          error: err instanceof Error ? err.message : 'Failed to load sequences.',
+          key,
+        })
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [orgId])
+
+  const loading = state.loading || state.key !== orgId
+  const sequences = state.sequences
+
+  if (loading) return <div className="h-64 rounded-xl bg-surface-container animate-pulse" />
+
+  return (
+    <section>
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <h2 className="text-sm font-medium text-on-surface-variant">Sequence performance</h2>
+        <Link
+          href={sequenceManagementHref(surface, orgScope)}
+          className="text-xs font-medium text-amber-500 hover:underline"
+        >
+          Manage sequences
+        </Link>
+      </div>
+      <div className="rounded-xl bg-surface-container border border-outline-variant divide-y divide-outline-variant">
+        {state.error ? (
+          <p className="p-4 text-sm text-on-surface-variant">{state.error}</p>
+        ) : sequences.length === 0 ? (
+          <p className="p-4 text-sm text-on-surface-variant">No active sequences yet.</p>
+        ) : (
+          sequences.map((sequence) => (
+            <Link
+              key={sequence.id}
+              href={sequenceAnalyticsHref(sequence.id, surface, orgScope)}
+              className="flex items-center justify-between gap-4 p-4 text-sm transition-colors hover:bg-white/[0.04]"
+            >
+              <span className="font-medium text-on-surface">{sequence.name}</span>
+              <span className="text-xs text-amber-500">Open analytics</span>
+            </Link>
+          ))
+        )}
+      </div>
+    </section>
   )
 }
 

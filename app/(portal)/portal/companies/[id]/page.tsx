@@ -1,7 +1,7 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import type { Company } from '@/lib/companies/types'
@@ -10,10 +10,13 @@ import { CompanyHeader } from '@/components/crm/CompanyHeader'
 import { CompanyTabsBar, COMPANY_TABS } from '@/components/crm/CompanyTabsBar'
 import type { CompanyTab } from '@/components/crm/CompanyTabsBar'
 import { CompanyOverviewPanel } from '@/components/crm/CompanyOverviewPanel'
+import { CompanyWorkspacePanel, type LinkedWorkspace } from '@/components/crm/CompanyWorkspacePanel'
+import { EntityScopedChat } from '@/components/crm/EntityScopedChat'
 import { CompanyEditDrawer, type CompanyTeamMember } from '@/components/crm/CompanyEditDrawer'
 import { CustomFieldsSection } from '@/components/crm/CustomFieldsSection'
 import { ContactForm } from '@/components/admin/crm/ContactForm'
 import { DealDrawer } from '@/components/crm/DealDrawer'
+import { scopeFromSearchParams, scopedApiPath, scopedPortalPath } from '@/lib/portal/scoped-routing'
 
 type RelatedContact = {
   id: string
@@ -157,6 +160,7 @@ type CommandCenterAnalytics = {
 }
 
 type RelatedState = {
+  linkedWorkspace: LinkedWorkspace | null
   contacts: RelatedContact[]
   deals: RelatedDeal[]
   projects: RelatedProject[]
@@ -662,6 +666,7 @@ function ProjectsPanel({
   projects,
   company,
   contacts,
+  workspace,
   creatingProject,
   projectError,
   onCreateProject,
@@ -670,12 +675,16 @@ function ProjectsPanel({
   projects: RelatedProject[]
   company: Company
   contacts: RelatedContact[]
+  workspace?: LinkedWorkspace | null
   creatingProject: boolean
   projectError: string | null
   onCreateProject: () => void
   onCreateContact: () => void
 }) {
   const firstContact = contacts[0]
+  const scopedWorkspaceHref = (path: string) => (
+    workspace ? scopedPortalPath(path, workspace) : path
+  )
   if (projects.length === 0) {
     return (
       <EmptyPanel
@@ -752,7 +761,7 @@ function ProjectsPanel({
         emptyIcon="folder_off"
         emptyLabel="No linked projects yet."
         title={(row) => projectNameLabel(row as RelatedProject)}
-        hrefFor={(row) => `/portal/projects/${row.id}`}
+        hrefFor={(row) => scopedWorkspaceHref(`/portal/projects/${row.id}`)}
         metaFor={(row) => [
           projectDescriptionLabel(row as RelatedProject),
           projectStatusLabel(row as RelatedProject),
@@ -847,16 +856,22 @@ function ServicesPanel({
 function DocumentsPanel({
   documents,
   company,
+  workspace,
   creatingDocument,
   documentError,
   onCreateDocument,
 }: {
   documents: RelatedDocument[]
   company: Company
+  workspace?: LinkedWorkspace | null
   creatingDocument: boolean
   documentError: string | null
   onCreateDocument: () => void
 }) {
+  const scopedWorkspaceHref = (path: string) => (
+    workspace ? scopedPortalPath(path, workspace) : path
+  )
+
   if (documents.length === 0) {
     return (
       <EmptyPanel
@@ -903,7 +918,7 @@ function DocumentsPanel({
         emptyIcon="description"
         emptyLabel="No linked documents yet."
         title={(row) => documentTitleLabel(row as RelatedDocument)}
-        hrefFor={(row) => `/portal/documents/${row.id}`}
+        hrefFor={(row) => scopedWorkspaceHref(`/portal/documents/${row.id}`)}
         metaFor={(row) => [
           documentTypeLabel(row as RelatedDocument),
           documentStatusLabel(row as RelatedDocument),
@@ -1825,7 +1840,11 @@ export default function CompanyDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
   const searchParams = useSearchParams()
+  const orgScope = useMemo(() => scopeFromSearchParams(searchParams), [searchParams])
+  const scopedOrgId = orgScope.orgId
   const initialTab = toCompanyTab(searchParams.get('tab')) ?? 'overview'
+  const companyApiPath = useCallback((path: string) => scopedApiPath(path, { orgId: scopedOrgId }), [scopedOrgId])
+  const companyPortalPath = useCallback((path: string) => scopedPortalPath(path, orgScope), [orgScope])
 
   const [company, setCompany] = useState<Company | null>(null)
   const [loading, setLoading] = useState(true)
@@ -1863,6 +1882,7 @@ export default function CompanyDetailPage() {
   const [customFieldDefs, setCustomFieldDefs] = useState<CustomFieldDefinition[]>([])
   const [teamMembers, setTeamMembers] = useState<CompanyTeamMember[]>([])
   const [related, setRelated] = useState<RelatedState>({
+    linkedWorkspace: null,
     contacts: [],
     deals: [],
     projects: [],
@@ -1906,15 +1926,15 @@ export default function CompanyDetailPage() {
   const [relatedError, setRelatedError] = useState<string | null>(null)
 
   useEffect(() => {
-    fetch('/api/v1/crm/custom-fields?resource=company')
+    fetch(companyApiPath('/api/v1/crm/custom-fields?resource=company'))
       .then((r) => r.json())
       .then((b) => setCustomFieldDefs(b.data?.definitions ?? b.definitions ?? []))
       .catch(() => setCustomFieldDefs([]))
-  }, [])
+  }, [companyApiPath])
 
   useEffect(() => {
     let cancelled = false
-    fetch('/api/v1/portal/settings/team')
+    fetch(companyApiPath('/api/v1/portal/settings/team'))
       .then((res) => res.ok ? res.json() : null)
       .then((body) => {
         if (cancelled) return
@@ -1925,14 +1945,14 @@ export default function CompanyDetailPage() {
         if (!cancelled) setTeamMembers([])
       })
     return () => { cancelled = true }
-  }, [])
+  }, [companyApiPath])
 
   const fetchCompany = useCallback(async () => {
     if (!id) return
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch(`/api/v1/crm/companies/${id}`)
+      const res = await fetch(companyApiPath(`/api/v1/crm/companies/${id}`))
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
         throw new Error(body.error ?? `HTTP ${res.status}`)
@@ -1944,7 +1964,7 @@ export default function CompanyDetailPage() {
     } finally {
       setLoading(false)
     }
-  }, [id])
+  }, [id, companyApiPath])
 
   useEffect(() => {
     void fetchCompany()
@@ -1954,7 +1974,7 @@ export default function CompanyDetailPage() {
       setRelatedLoading(true)
       setRelatedError(null)
       try {
-        const commandCenterRes = await fetch(`/api/v1/crm/companies/${nextCompanyId}/command-center?limit=100`)
+        const commandCenterRes = await fetch(companyApiPath(`/api/v1/crm/companies/${nextCompanyId}/command-center?limit=100`))
         if (!commandCenterRes.ok) {
           const body = await commandCenterRes.json().catch(() => ({}))
           throw new Error(body.error ?? `HTTP ${commandCenterRes.status}`)
@@ -1963,6 +1983,7 @@ export default function CompanyDetailPage() {
         if (!isCancelled()) {
           const commandData = commandCenterBody?.data ?? commandCenterBody ?? {}
           setRelated({
+            linkedWorkspace: (commandData.linkedWorkspace ?? null) as LinkedWorkspace | null,
             contacts: extractList<RelatedContact>(commandCenterBody, 'contacts'),
             deals: extractList<RelatedDeal>(commandCenterBody, 'deals'),
             projects: extractList<RelatedProject>(commandCenterBody, 'projects'),
@@ -1984,7 +2005,7 @@ export default function CompanyDetailPage() {
       } finally {
         if (!isCancelled()) setRelatedLoading(false)
       }
-  }, [])
+  }, [companyApiPath])
 
   const companyId = company?.id
   useEffect(() => {
@@ -1997,7 +2018,7 @@ export default function CompanyDetailPage() {
   }, [companyId, loadRelated])
 
   async function handleSave(patch: Partial<Company>): Promise<void> {
-    const res = await fetch(`/api/v1/crm/companies/${id}`, {
+    const res = await fetch(companyApiPath(`/api/v1/crm/companies/${id}`), {
       method: 'PATCH',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(patch),
@@ -2011,7 +2032,7 @@ export default function CompanyDetailPage() {
 
   async function createCompanyContact(data: Record<string, unknown>): Promise<void> {
     if (!company) return
-    const res = await fetch('/api/v1/crm/contacts', {
+    const res = await fetch(companyApiPath('/api/v1/crm/contacts'), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
@@ -2048,7 +2069,7 @@ export default function CompanyDetailPage() {
     setSavingNote(true)
     setNoteError(null)
     try {
-      const res = await fetch('/api/v1/crm/activities', {
+      const res = await fetch(companyApiPath('/api/v1/crm/activities'), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
@@ -2091,7 +2112,7 @@ export default function CompanyDetailPage() {
     setCreatingProject(true)
     setProjectError(null)
     try {
-      const res = await fetch('/api/v1/projects', {
+      const res = await fetch(companyApiPath('/api/v1/projects'), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
@@ -2121,7 +2142,7 @@ export default function CompanyDetailPage() {
     setCreatingService(true)
     setServiceError(null)
     try {
-      const res = await fetch('/api/v1/service-workspaces', {
+      const res = await fetch(companyApiPath('/api/v1/service-workspaces'), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
@@ -2150,7 +2171,7 @@ export default function CompanyDetailPage() {
     setCreatingDocument(true)
     setDocumentError(null)
     try {
-      const res = await fetch('/api/v1/client-documents', {
+      const res = await fetch(companyApiPath('/api/v1/client-documents'), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
@@ -2178,7 +2199,7 @@ export default function CompanyDetailPage() {
     setCreatingRelationship(true)
     setRelationshipError(null)
     try {
-      const res = await fetch('/api/v1/crm/relationships', {
+      const res = await fetch(companyApiPath('/api/v1/crm/relationships'), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
@@ -2213,7 +2234,7 @@ export default function CompanyDetailPage() {
     setCreatingQuote(true)
     setQuoteError(null)
     try {
-      const res = await fetch('/api/v1/quotes', {
+      const res = await fetch(companyApiPath('/api/v1/quotes'), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
@@ -2245,7 +2266,7 @@ export default function CompanyDetailPage() {
     setCreatingInvoiceId(quote.id)
     setInvoiceError(null)
     try {
-      const res = await fetch(`/api/v1/quotes/${quote.id}`, {
+      const res = await fetch(companyApiPath(`/api/v1/quotes/${quote.id}`), {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ action: 'convert-to-invoice' }),
@@ -2266,7 +2287,7 @@ export default function CompanyDetailPage() {
     setCreatingOrder(true)
     setOrderError(null)
     try {
-      const res = await fetch('/api/v1/orders', {
+      const res = await fetch(companyApiPath('/api/v1/orders'), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
@@ -2301,7 +2322,7 @@ export default function CompanyDetailPage() {
     setCreatingShipment(true)
     setShipmentError(null)
     try {
-      const res = await fetch('/api/v1/shipments', {
+      const res = await fetch(companyApiPath('/api/v1/shipments'), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
@@ -2329,7 +2350,7 @@ export default function CompanyDetailPage() {
     setCreatingInventoryItem(true)
     setInventoryError(null)
     try {
-      const res = await fetch('/api/v1/inventory-items', {
+      const res = await fetch(companyApiPath('/api/v1/inventory-items'), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
@@ -2361,12 +2382,12 @@ export default function CompanyDetailPage() {
     setDeleting(true)
     setArchiveError(null)
     try {
-      const res = await fetch(`/api/v1/crm/companies/${id}`, { method: 'DELETE' })
+      const res = await fetch(companyApiPath(`/api/v1/crm/companies/${id}`), { method: 'DELETE' })
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
         throw new Error(body.error ?? `HTTP ${res.status}`)
       }
-      router.push('/portal/companies')
+      router.push(companyPortalPath('/portal/companies'))
       router.refresh()
     } catch (err) {
       setArchiveError(err instanceof Error ? err.message : 'Failed to archive company')
@@ -2387,8 +2408,12 @@ export default function CompanyDetailPage() {
         <p className="text-sm text-[var(--color-pib-text-muted)]">
           {error ?? 'Company not found.'}
         </p>
-        <Link href="/portal/companies" className="btn-pib-secondary inline-flex items-center gap-1.5 mt-2">
-          <span className="material-symbols-outlined text-sm">arrow_back</span>
+        <Link
+          href={companyPortalPath('/portal/companies')}
+          aria-label="Back to Companies"
+          className="btn-pib-secondary inline-flex items-center gap-1.5 mt-2"
+        >
+          <span aria-hidden="true" className="material-symbols-outlined text-sm">arrow_back</span>
           Back to companies
         </Link>
       </div>
@@ -2401,10 +2426,11 @@ export default function CompanyDetailPage() {
     <div className="space-y-6">
       {/* Breadcrumb */}
       <Link
-        href="/portal/companies"
+        href={companyPortalPath('/portal/companies')}
+        aria-label="Back to Companies"
         className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] inline-flex items-center gap-1 transition-colors"
       >
-        <span className="material-symbols-outlined text-sm">arrow_back</span>
+        <span aria-hidden="true" className="material-symbols-outlined text-sm">arrow_back</span>
         Companies
       </Link>
 
@@ -2505,6 +2531,7 @@ export default function CompanyDetailPage() {
           inventory: related.inventoryItems.length,
           activity: related.activities.length,
         }}
+        includeWorkspace={Boolean(related.linkedWorkspace)}
       />
 
       {/* Tab content */}
@@ -2559,6 +2586,14 @@ export default function CompanyDetailPage() {
             )}
           </div>
         )}
+        {!relatedLoading && tab === 'workspace' && (
+          <CompanyWorkspacePanel
+            companyName={company.name}
+            companyId={company.id}
+            mode="portal"
+            workspace={related.linkedWorkspace}
+          />
+        )}
         {!relatedLoading && tab === 'contacts' && (
           <ContactsPanel
             contacts={related.contacts}
@@ -2580,6 +2615,7 @@ export default function CompanyDetailPage() {
             projects={related.projects}
             company={company}
             contacts={related.contacts}
+            workspace={related.linkedWorkspace}
             creatingProject={creatingProject}
             projectError={projectError}
             onCreateProject={createDiscoveryProject}
@@ -2590,6 +2626,7 @@ export default function CompanyDetailPage() {
           <DocumentsPanel
             documents={related.documents}
             company={company}
+            workspace={related.linkedWorkspace}
             creatingDocument={creatingDocument}
             documentError={documentError}
             onCreateDocument={createSalesProposalDocument}
@@ -2687,6 +2724,17 @@ export default function CompanyDetailPage() {
               setNoteError(null)
             }}
             onCreateContact={() => setNewContactOpen(true)}
+          />
+        )}
+        {!relatedLoading && tab === 'chat' && (
+          <EntityScopedChat
+            orgId={company.orgId}
+            orgName={company.name}
+            entityType="company"
+            entityId={company.id}
+            entityLabel={company.name}
+            href={companyPortalPath(`/portal/companies/${company.id}`)}
+            summary={`${company.name} CRM company${company.lifecycleStage ? ` · ${company.lifecycleStage}` : ''}${company.linkedOrgId ? ` · linked workspace ${company.linkedOrgId}` : ' · unlinked lead workspace'}`}
           />
         )}
       </div>

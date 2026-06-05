@@ -1,5 +1,7 @@
 'use client'
 
+import { useState } from 'react'
+
 export interface ProjectDoc {
   id: string
   title: string
@@ -87,6 +89,14 @@ export function ProjectDocsPanel({
   onSaveDoc,
   onDeleteDoc,
 }: ProjectDocsPanelProps) {
+  const [deleteCandidate, setDeleteCandidate] = useState<ProjectDoc | null>(null)
+
+  function confirmDeleteDoc() {
+    if (!deleteCandidate) return
+    onDeleteDoc(deleteCandidate.id)
+    setDeleteCandidate(null)
+  }
+
   return (
     <div className="flex-1 overflow-auto space-y-6 pb-6">
       <div className="rounded-[var(--radius-card)] border border-[var(--color-card-border)] bg-[var(--color-card)] p-5 shadow-sm">
@@ -206,10 +216,48 @@ export function ProjectDocsPanel({
                       </button>
                       <div className="flex items-center justify-end gap-2 border-t border-[var(--color-card-border)] px-3 py-2">
                         <button onClick={() => onEditDoc(doc)} className="pib-btn-secondary text-xs font-label">Edit</button>
-                        <button onClick={() => onDeleteDoc(doc.id)} className="text-xs font-label text-red-400 hover:text-red-300">Delete</button>
+                        <button
+                          type="button"
+                          onClick={() => setDeleteCandidate(doc)}
+                          className="text-xs font-label text-red-400 hover:text-red-300"
+                        >
+                          <span className="sr-only">Delete project document {doc.title}</span>
+                          <span aria-hidden="true">Delete</span>
+                        </button>
                       </div>
                     </div>
                   ))}
+                  {deleteCandidate && (
+                    <div
+                      role="alertdialog"
+                      aria-modal="true"
+                      aria-label={`Delete project document "${deleteCandidate.title}"?`}
+                      className="rounded-[var(--radius-card)] border border-red-500/30 bg-red-500/10 p-4 shadow-sm"
+                    >
+                      <p className="text-sm font-label text-on-surface">
+                        Delete project document &quot;{deleteCandidate.title}&quot;?
+                      </p>
+                      <p className="mt-2 text-xs leading-5 text-on-surface-variant">
+                        This removes the document from the project workspace. Tasks, comments, and project history stay intact.
+                      </p>
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={confirmDeleteDoc}
+                          className="rounded-[var(--radius-btn)] bg-red-500 px-3 py-2 text-xs font-label text-white transition-colors hover:bg-red-400"
+                        >
+                          Confirm delete project document {deleteCandidate.title}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDeleteCandidate(null)}
+                          className="pib-btn-secondary text-xs font-label"
+                        >
+                          Keep document
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <div className="min-h-[320px] rounded-[var(--radius-card)] border border-[var(--color-card-border)] bg-[var(--color-background)] p-5">
                   {selectedDoc ? (

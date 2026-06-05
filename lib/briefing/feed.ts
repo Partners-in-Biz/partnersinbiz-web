@@ -2,8 +2,8 @@ import { FieldValue } from 'firebase-admin/firestore'
 import { adminAuth, adminDb } from '@/lib/firebase/admin'
 import type { ApiUser } from '@/lib/api/types'
 import { canAccessOrg } from '@/lib/api/platformAdmin'
-import type { BriefingCard, BriefingPriority, BriefingResponse, BriefingSourceAdapter, BriefingSourceItem, BriefingSourceType } from './types'
-import { activityAdapter, adCampaignAdapter, agentOutputAdapter, agentRunAdapter, approvalAdapter, bookingAdapter, broadcastAdapter, calendarEventAdapter, campaignAdapter, clientDocumentAdapter, commentAdapter, contactAdapter, enquiryAdapter, expenseAdapter, formSubmissionAdapter, inventoryItemAdapter, invoiceAdapter, mailboxMessageAdapter, notificationAdapter, orderAdapter, projectAdapter, quoteAdapter, reportAdapter, seoContentAdapter, seoTaskAdapter, shipmentAdapter, socialInboxAdapter, socialPostAdapter, supportTicketAdapter, taskAdapter, workspaceBrokerJobAdapter } from './index'
+import type { BriefingCard, BriefingCardAction, BriefingCardStateStatus, BriefingPriority, BriefingResponse, BriefingSourceAdapter, BriefingSourceItem, BriefingSourceType } from './types'
+import { activityAdapter, adCampaignAdapter, agentLearningReviewAdapter, agentOutputAdapter, agentRunAdapter, approvalAdapter, bookingAdapter, broadcastAdapter, calendarEventAdapter, campaignAdapter, clientDocumentAdapter, commentAdapter, contactAdapter, dealAdapter, enquiryAdapter, expenseAdapter, formSubmissionAdapter, inventoryItemAdapter, invoiceAdapter, mailboxMessageAdapter, notificationAdapter, orderAdapter, projectAdapter, quoteAdapter, reportAdapter, seoContentAdapter, seoTaskAdapter, shipmentAdapter, socialInboxAdapter, socialPostAdapter, supportTicketAdapter, taskAdapter, workspaceBrokerJobAdapter } from './index'
 import { comparePriority, formatTimeAgo, normalizeTimestamp, priorityRequiresAction } from './utils'
 
 const PLATFORM_ORG_ID = 'pib-platform-owner'
@@ -36,9 +36,14 @@ type UserSummary = { id: string; name?: string | null; email?: string | null }
 type TaskLookupRef = { id: string; projectId?: string | null }
 type BriefingUserState = {
   itemId: string
-  status?: 'active' | 'handled' | 'snoozed' | string
+  orgId?: string | null
+  status?: BriefingCardStateStatus | 'active' | string
+  action?: BriefingCardAction | string | null
   note?: string | null
   snoozedUntil?: unknown
+  approvalState?: string | null
+  approvalCopy?: string | null
+  sideEffectPerformed?: false
   updatedAt?: unknown
 }
 
@@ -206,7 +211,7 @@ async function loadUserSummaries(actorIds: string[]): Promise<Map<string, UserSu
   return map
 }
 
-async function loadBriefingUserStates(userId: string): Promise<Map<string, BriefingUserState>> {
+async function loadBriefingUserStates(userId: string, scopedOrgIds: string[] | null): Promise<Map<string, BriefingUserState>> {
   const map = new Map<string, BriefingUserState>()
   if (!userId) return map
   try {
@@ -218,12 +223,19 @@ async function loadBriefingUserStates(userId: string): Promise<Map<string, Brief
     for (const doc of snap.docs as FirestoreDoc[]) {
       const data = doc.data()
       const itemId = typeof data.itemId === 'string' ? data.itemId : ''
+      const orgId = typeof data.orgId === 'string' ? data.orgId : null
       if (!itemId) continue
+      if (scopedOrgIds && orgId && !scopedOrgIds.includes(orgId)) continue
       map.set(itemId, {
         itemId,
+        orgId,
         status: typeof data.status === 'string' ? data.status : 'active',
+        action: typeof data.action === 'string' ? data.action : null,
         note: typeof data.note === 'string' ? data.note : null,
         snoozedUntil: data.snoozedUntil,
+        approvalState: typeof data.approvalState === 'string' ? data.approvalState : null,
+        approvalCopy: typeof data.approvalCopy === 'string' ? data.approvalCopy : null,
+        sideEffectPerformed: data.sideEffectPerformed === false ? false : undefined,
         updatedAt: data.updatedAt,
       })
     }
@@ -240,16 +252,21 @@ function applyUserState(items: BriefingCard[], states: Map<string, BriefingUserS
     if (!state) return [item]
 
     const snoozedUntil = normalizeTimestamp(state.snoozedUntil)
-    const status = state.status === 'handled' || state.status === 'snoozed' ? state.status : 'active'
+    const status = state.status === 'handled' || state.status === 'snoozed' ? state.status : state.status as BriefingCardStateStatus | 'active'
     if (status === 'handled') return []
     if (status === 'snoozed' && snoozedUntil && snoozedUntil.getTime() > now) return []
 
     return [{
       ...item,
+      unread: status === 'read' ? false : item.unread,
       userState: {
-        status: 'active',
+        status,
+        action: typeof state.action === 'string' ? state.action as BriefingCardAction : null,
         note: state.note ?? null,
         snoozedUntil: snoozedUntil ? snoozedUntil.toISOString() : null,
+        approvalState: state.approvalState ?? null,
+        approvalCopy: state.approvalCopy ?? null,
+        sideEffectPerformed: state.sideEffectPerformed,
         updatedAt: normalizeTimestamp(state.updatedAt)?.toISOString() ?? null,
       },
     }]
@@ -580,7 +597,7 @@ export async function buildBriefingFeed(user: ApiUser, options: BriefingFeedOpti
 
   const include = (source: BriefingSourceType) => !options.sourceType || options.sourceType === 'all' || options.sourceType === source
 
-  if (include('task') || include('agent-output')) {
+  if (include('task') || include('agent-output') || include('agent-learning-review')) {
     const docs = await fetchTaskDocs(scopedOrgIds)
     for (const doc of docs) {
       const data = normalizeDoc(doc)
@@ -593,6 +610,10 @@ export async function buildBriefingFeed(user: ApiUser, options: BriefingFeedOpti
       if (include('agent-output') && enriched.agentOutput && typeof enriched.agentOutput === 'object') {
         const output = { ...(enriched.agentOutput as Record<string, unknown>), ...enriched, summary: (enriched.agentOutput as Record<string, unknown>).summary }
         const item = toItemSafe(agentOutputAdapter, output, `${doc.id}:agent-output`)
+        if (item) items.push(decorate(item, orgs))
+      }
+      if (include('agent-learning-review')) {
+        const item = toItemSafe(agentLearningReviewAdapter, enriched, doc.id)
         if (item) items.push(decorate(item, orgs))
       }
     }
@@ -718,6 +739,16 @@ export async function buildBriefingFeed(user: ApiUser, options: BriefingFeedOpti
       const docs = await fetchCollectionDocs('contacts', scopedOrgIds)
       for (const doc of docs) {
         const item = toItemSafe(contactAdapter, normalizeDoc(doc), doc.id)
+        if (item) items.push(decorate(item, orgs))
+      }
+    } catch {}
+  }
+
+  if (include('deal')) {
+    try {
+      const docs = await fetchCollectionDocs('deals', scopedOrgIds)
+      for (const doc of docs) {
+        const item = toItemSafe(dealAdapter, normalizeDoc(doc), doc.id)
         if (item) items.push(decorate(item, orgs))
       }
     } catch {}
@@ -906,7 +937,7 @@ export async function buildBriefingFeed(user: ApiUser, options: BriefingFeedOpti
   const users = await loadUserSummaries(actorIds)
   const labelledItems = applyUserState(
     enrichBriefingLabels(items, projects, tasks, users),
-    await loadBriefingUserStates(user.uid),
+    await loadBriefingUserStates(user.uid, scopedOrgIds),
   )
 
   const filtered = labelledItems

@@ -13,15 +13,22 @@ export interface HubSection {
   actions: HubAction[]
 }
 
-interface HubPageProps {
+export interface HubPageProps {
   eyebrow: string
   title: string
   description: string
   primaryAction?: HubAction
   sections: HubSection[]
+  sourceContext?: {
+    sourceCompanyName?: string
+    targetWorkspaceName?: string
+  }
 }
 
-export function HubPage({ eyebrow, title, description, primaryAction, sections }: HubPageProps) {
+export function HubPage({ eyebrow, title, description, primaryAction, sections, sourceContext }: HubPageProps) {
+  const sourceCompanyName = sourceContext?.sourceCompanyName?.trim()
+  const targetWorkspaceName = sourceContext?.targetWorkspaceName?.trim()
+
   return (
     <div className="space-y-8 max-w-6xl mx-auto">
       <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
@@ -37,6 +44,25 @@ export function HubPage({ eyebrow, title, description, primaryAction, sections }
           </Link>
         )}
       </header>
+
+      {sourceCompanyName && (
+        <section className="pib-card border-[var(--color-pib-accent)]/40 bg-[var(--color-pib-accent-soft)]/10 p-4" aria-label="CRM company workspace context">
+          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+            <div className="flex gap-3">
+              <span aria-hidden="true" className="material-symbols-outlined mt-0.5 text-[22px] text-[var(--color-pib-accent)]">account_tree</span>
+              <div>
+                <p className="eyebrow !text-[10px]">Opened from CRM company</p>
+                <h2 className="mt-1 text-base font-semibold text-[var(--color-pib-text)]">
+                  {sourceCompanyName} is linked to {targetWorkspaceName || 'this organisation workspace'}
+                </h2>
+                <p className="mt-1 text-sm leading-6 text-[var(--color-pib-text-muted)]">
+                  You are now working in the linked organisation workspace. New delivery work created here belongs to that organisation, while the CRM company remains the source context and relationship record.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
 
       {sections.map((section) => (
         <section key={section.title} className="space-y-3">

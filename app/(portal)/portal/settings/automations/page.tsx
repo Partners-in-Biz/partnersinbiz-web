@@ -3,6 +3,8 @@ export const dynamic = 'force-dynamic'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
+import { scopedApiPath, scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 import type { ActionType, AutomationAction, AutomationRule, TriggerEvent } from '@/lib/automations/types'
 
 type ViewFilter = 'all' | 'active' | 'paused' | 'needs-work'
@@ -138,6 +140,10 @@ function ruleScore(rule: AutomationRule): number {
   return Math.max(0, Math.round(((5 - Math.min(gaps, 5)) / 5) * 100))
 }
 
+function ruleDisplayName(rule: AutomationRule): string {
+  return rule.name?.trim() || 'Automation name missing'
+}
+
 function StatCard({ label, value, sub, icon }: { label: string; value: string; sub: string; icon: string }) {
   return (
     <div className="pib-stat-card min-h-[124px]">
@@ -164,6 +170,8 @@ function ActionChip({ action }: { action: AutomationAction }) {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function AutomationsPage() {
+  const searchParams = useSearchParams()
+  const orgScope = useMemo(() => scopeFromSearchParams(searchParams), [searchParams])
   const [rules, setRules] = useState<AutomationRule[]>([])
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState<string | null>(null)
@@ -173,11 +181,19 @@ export default function AutomationsPage() {
   const [pendingDeleteRule, setPendingDeleteRule] = useState<AutomationRule | null>(null)
   const [filter, setFilter] = useState<ViewFilter>('all')
   const [search, setSearch] = useState('')
+  const automationEndpoint = useCallback(
+    (path: string) => scopedApiPath(path, orgScope),
+    [orgScope],
+  )
+  const automationHref = useCallback(
+    (path: string) => scopedPortalPath(path, orgScope),
+    [orgScope],
+  )
 
   const fetchAutomationRules = useCallback(() => {
     setLoading(true)
     setFetchError(null)
-    fetch('/api/v1/crm/automations')
+    fetch(automationEndpoint('/api/v1/crm/automations'))
       .then(async (r) => {
         const body = await r.json().catch(() => ({}))
         if (!r.ok) {
@@ -194,7 +210,7 @@ export default function AutomationsPage() {
         setFetchError(error instanceof Error ? error.message : 'Failed to load automations. Please try again.')
       })
       .finally(() => setLoading(false))
-  }, [])
+  }, [automationEndpoint])
 
   useEffect(() => {
     fetchAutomationRules()
@@ -218,7 +234,7 @@ export default function AutomationsPage() {
       if (filter === 'needs-work' && ruleGaps(rule).length === 0) return false
       if (!query) return true
       return [
-        rule.name,
+        ruleDisplayName(rule),
         rule.description,
         triggerLabel(rule),
         ...rule.actions.map(actionDetail),
@@ -240,7 +256,7 @@ export default function AutomationsPage() {
     setTogglingId(rule.id)
 
     try {
-      const res = await fetch(`/api/v1/crm/automations/${rule.id}`, {
+      const res = await fetch(automationEndpoint(`/api/v1/crm/automations/${rule.id}`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ enabled: newEnabled }),
@@ -262,7 +278,7 @@ export default function AutomationsPage() {
     setDeleteError(null)
     setDeletingId(rule.id)
     try {
-      const res = await fetch(`/api/v1/crm/automations/${rule.id}`, {
+      const res = await fetch(automationEndpoint(`/api/v1/crm/automations/${rule.id}`), {
         method: 'DELETE',
       })
       if (!res.ok) {
@@ -299,10 +315,11 @@ export default function AutomationsPage() {
           </p>
         </div>
         <Link
-          href="/portal/settings/automations/new"
+          href={automationHref('/portal/settings/automations/new')}
           className="btn-pib-accent flex w-fit shrink-0 items-center gap-1.5 text-sm"
+          aria-label="New automation"
         >
-          <span className="material-symbols-outlined text-[16px]">add</span>
+          <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
           New automation
         </Link>
       </div>
@@ -442,10 +459,11 @@ export default function AutomationsPage() {
                   </div>
                   <div className="flex flex-wrap items-center gap-3">
                     <Link
-                      href="/portal/settings/automations/new"
+                      href={automationHref('/portal/settings/automations/new')}
                       className="btn-pib-accent flex w-fit items-center gap-1.5 text-sm"
+                      aria-label="Create the first automation"
                     >
-                      <span className="material-symbols-outlined text-[16px]">add</span>
+                      <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
                       Create the first automation
                     </Link>
                     <span className="rounded-full border border-[var(--color-pib-line)] px-3 py-1.5 text-xs text-[var(--color-pib-text-muted)]">
@@ -505,7 +523,7 @@ export default function AutomationsPage() {
                       <div className="min-w-0">
                         <p className="eyebrow !text-[10px] text-red-200">Automation delete confirmation</p>
                         <h2 id="automation-delete-confirm-title" className="mt-1 font-display text-lg text-[var(--color-pib-text)]">
-                          Delete automation &quot;{pendingDeleteRule.name}&quot;?
+                          Delete automation &quot;{ruleDisplayName(pendingDeleteRule)}&quot;?
                         </h2>
                         <p id="automation-delete-confirm-description" className="mt-2 text-sm text-red-100/90">
                           This removes the CRM safety net for {pendingDeleteRule.trigger.event} and stops {pendingDeleteRule.actions.length} workflow {pendingDeleteRule.actions.length === 1 ? 'action' : 'actions'} from running. Existing CRM history stays available for audit.
@@ -521,7 +539,7 @@ export default function AutomationsPage() {
                         }}
                         className="btn-pib-secondary text-xs"
                         disabled={deletingId !== null}
-                        aria-label={`Cancel delete for automation ${pendingDeleteRule.name}`}
+                        aria-label={`Cancel delete for automation ${ruleDisplayName(pendingDeleteRule)}`}
                       >
                         Cancel
                       </button>
@@ -530,7 +548,7 @@ export default function AutomationsPage() {
                         onClick={confirmDeleteRule}
                         disabled={deletingId !== null}
                         className="inline-flex items-center gap-1.5 rounded-md border border-red-300/30 bg-red-400/15 px-3 py-2 text-xs font-semibold text-red-100 transition-colors hover:bg-red-400/25 disabled:opacity-50"
-                        aria-label={`Confirm delete automation ${pendingDeleteRule.name}`}
+                        aria-label={`Confirm delete automation ${ruleDisplayName(pendingDeleteRule)}`}
                       >
                         <span className="material-symbols-outlined text-[14px]" aria-hidden="true">
                           delete
@@ -548,6 +566,7 @@ export default function AutomationsPage() {
                 const triggerMeta = TRIGGER_META[rule.trigger.event]
                 const gaps = ruleGaps(rule)
                 const score = ruleScore(rule)
+                const displayName = ruleDisplayName(rule)
 
                 return (
                   <article
@@ -578,7 +597,7 @@ export default function AutomationsPage() {
                             {score}% ready
                           </span>
                         </div>
-                        <h2 className="truncate text-base font-semibold">{rule.name}</h2>
+                        <h2 className="truncate text-base font-semibold">{displayName}</h2>
                         {rule.description && (
                           <p className="mt-1 line-clamp-2 text-xs text-[var(--color-pib-text-muted)]">{rule.description}</p>
                         )}
@@ -637,7 +656,7 @@ export default function AutomationsPage() {
 
                         <div className="flex items-center justify-end gap-1">
                           <Link
-                            href={`/portal/settings/automations/${rule.id}/edit`}
+                            href={automationHref(`/portal/settings/automations/${rule.id}/edit`)}
                             title="Edit automation"
                             className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.06] hover:text-[var(--color-pib-text)]"
                           >
@@ -650,7 +669,7 @@ export default function AutomationsPage() {
                               setPendingDeleteRule(rule)
                             }}
                             disabled={isDeleting}
-                            aria-label={`Delete automation ${rule.name}`}
+                            aria-label={`Delete automation ${displayName}`}
                             title="Delete automation"
                             className="cursor-pointer flex h-8 w-8 items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] transition-colors hover:bg-red-400/[0.08] hover:text-red-400"
                           >

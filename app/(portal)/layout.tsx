@@ -125,8 +125,25 @@ interface PortalOrgOption {
 }
 
 function active(pathname: string, item: NavItem) {
-  if (pathname === item.href || pathname.startsWith(item.href + '/')) return true
+  const hrefPath = item.href.split('?')[0] ?? item.href
+  if (pathname === hrefPath || pathname.startsWith(hrefPath + '/')) return true
   return item.activePatterns?.some((pattern) => pathname === pattern || pathname.startsWith(pattern + '/')) ?? false
+}
+
+function scopedPortalHref(
+  path: string,
+  orgId: string,
+  orgSlug: string,
+  sourceCompanyId = '',
+  sourceCompanyName = '',
+) {
+  if (!orgId) return path
+  const params = new URLSearchParams()
+  params.set('orgId', orgId)
+  if (orgSlug) params.set('orgSlug', orgSlug)
+  if (sourceCompanyId) params.set('sourceCompanyId', sourceCompanyId)
+  if (sourceCompanyName) params.set('sourceCompanyName', sourceCompanyName)
+  return `${path}${path.includes('?') ? '&' : '?'}${params.toString()}`
 }
 
 function NavLink({ item, pathname, collapsed }: { item: NavItem; pathname: string; collapsed?: boolean }) {
@@ -184,7 +201,13 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const requestedOrgId = searchParams.get('orgId')?.trim() ?? ''
+  const requestedOrgSlug = searchParams.get('orgSlug')?.trim() ?? ''
+  const requestedSourceCompanyId = searchParams.get('sourceCompanyId')?.trim() ?? ''
+  const requestedSourceCompanyName = searchParams.get('sourceCompanyName')?.trim() ?? ''
   const isEmailRoute = pathname === '/portal/email' || pathname.startsWith('/portal/email/')
+  const isMessagesRoute = pathname === '/portal/messages' || pathname.startsWith('/portal/messages/')
+  const isWorkspaceRoute = isEmailRoute || isMessagesRoute
 
   const [email, setEmail]       = useState('')
   const [name, setName]         = useState('')
@@ -212,16 +235,16 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
     if (m === 'sidebar' || m === 'topbar') setLayoutMode(m)
   }, [])
 
-  // Mail needs workspace more than navigation; collapse the sidebar automatically
-  // when users enter the mailbox.
+  // Mail and messages need workspace more than navigation; collapse the sidebar
+  // automatically when users enter those full-height work areas.
   useEffect(() => {
-    if (!isEmailRoute) return
+    if (!isWorkspaceRoute) return
     setCollapsed((prev) => {
       if (prev) return prev
       localStorage.setItem('portal_sidebar_collapsed', 'true')
       return true
     })
-  }, [isEmailRoute])
+  }, [isWorkspaceRoute])
 
   // Auth check
   useEffect(() => {
@@ -238,7 +261,10 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
           setUid(user.uid)
           setName(user.displayName ?? user.email?.split('@')[0] ?? '')
           setChecking(false)
-          fetch('/api/v1/portal/org')
+          const portalOrgUrl = requestedOrgId
+            ? `/api/v1/portal/org?orgId=${encodeURIComponent(requestedOrgId)}`
+            : '/api/v1/portal/org'
+          fetch(portalOrgUrl)
             .then(r => r.ok ? r.json() : null)
             .then(d => {
               if (d?.org?.name) setOrgName(d.org.name)
@@ -252,12 +278,21 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
             .then(r => r.ok ? r.json() : null)
             .then(d => {
               if (Array.isArray(d?.orgs)) setOrgs(d.orgs)
-              if (d?.activeOrgId) setActiveOrgId(d.activeOrgId)
+              const nextActiveOrgId = requestedOrgId || d?.activeOrgId
+              if (nextActiveOrgId) setActiveOrgId(nextActiveOrgId)
               const activeOrg = Array.isArray(d?.orgs)
-                ? d.orgs.find((org: PortalOrgOption) => org.id === d.activeOrgId)
+                ? d.orgs.find((org: PortalOrgOption) => org.id === nextActiveOrgId)
                 : null
+              if (activeOrg?.name) setOrgName(activeOrg.name)
               if (activeOrg?.slug) setActiveOrgSlug(activeOrg.slug)
               if (activeOrg?.type) setActiveOrgType(activeOrg.type)
+              if (requestedOrgId && d?.activeOrgId !== requestedOrgId) {
+                fetch('/api/v1/portal/active-org', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ orgId: requestedOrgId }),
+                }).catch(() => {})
+              }
             })
             .catch(() => {})
           fetch('/api/v1/portal/settings/profile')
@@ -274,7 +309,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
     })
 
     return () => { cancelled = true; unsubscribe?.() }
-  }, [router])
+  }, [router, requestedOrgId])
 
   // Close mobile drawer on navigation
   useEffect(() => {
@@ -287,7 +322,9 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
     let cancelled = false
     async function refresh() {
       try {
-        const res = await fetch('/api/v1/portal/documents/count')
+        const res = await fetch(requestedOrgId
+          ? `/api/v1/portal/documents/count?orgId=${encodeURIComponent(requestedOrgId)}`
+          : '/api/v1/portal/documents/count')
         if (!res.ok) return
         const body = await res.json()
         const count = body?.data?.count ?? 0
@@ -297,7 +334,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
     refresh()
     const id = window.setInterval(refresh, 60_000)
     return () => { cancelled = true; window.clearInterval(id) }
-  }, [checking, pathname])
+  }, [checking, pathname, requestedOrgId])
 
   function toggleCollapsed() {
     setCollapsed(prev => {
@@ -317,6 +354,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
   async function handleOrgSwitch(orgId: string) {
     if (orgId === activeOrgId || orgSwitching) return
     setOrgSwitching(true)
+    const switched = orgs.find(o => o.id === orgId)
     try {
       await fetch('/api/v1/portal/active-org', {
         method: 'POST',
@@ -324,13 +362,16 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({ orgId }),
       })
       setActiveOrgId(orgId)
-      const switched = orgs.find(o => o.id === orgId)
       if (switched) {
         setOrgName(switched.name)
         setActiveOrgSlug(switched.slug)
         setActiveOrgType(switched.type ?? '')
       }
-      router.refresh()
+      if (requestedOrgId) {
+        router.push(scopedPortalHref(pathname, orgId, switched?.slug ?? ''))
+      } else {
+        router.refresh()
+      }
     } finally {
       setOrgSwitching(false)
     }
@@ -357,14 +398,38 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
     )
   }
 
-  const navWithBadges: NavItem[] = NAV_LINKS.map((item) =>
-    item.href === '/portal/documents' ? { ...item, badge: documentCount } : item,
-  )
+  const scopedShellHref = (path: string) =>
+    requestedOrgId
+      ? scopedPortalHref(
+          path,
+          requestedOrgId,
+          requestedOrgSlug || activeOrgSlug,
+          requestedSourceCompanyId,
+          requestedSourceCompanyName,
+        )
+      : path
+
+  const navWithBadges: NavItem[] = NAV_LINKS.map((item) => {
+    const href = requestedOrgId
+      ? scopedShellHref(item.href)
+      : item.href
+    return item.href === '/portal/documents' ? { ...item, href, badge: documentCount } : { ...item, href }
+  })
 
   const grouped = (['work', 'data', 'comms'] as const).map(g => ({
     group: g,
     items: navWithBadges.filter(n => n.group === g),
   }))
+  const requestedWorkspaceOption: PortalOrgOption | null = activeOrgId && orgName && !orgs.some(org => org.id === activeOrgId)
+    ? {
+        id: activeOrgId,
+        name: orgName,
+        slug: activeOrgSlug || requestedOrgSlug,
+        type: activeOrgType,
+        logoUrl: '',
+      }
+    : null
+  const workspaceOptions = requestedWorkspaceOption ? [requestedWorkspaceOption, ...orgs] : orgs
 
   const initials = (name || email).split(/[.\s@]/).filter(Boolean).slice(0, 2).map(s => s[0]?.toUpperCase()).join('')
   const canOpenAdminView = userRole === 'admin' && !!activeOrgSlug
@@ -396,7 +461,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
           <header className="h-14 sticky top-0 z-30 bg-[var(--color-pib-bg)]/95 backdrop-blur-md border-b border-[var(--color-pib-line)] shrink-0">
           <div className="flex items-center h-full px-4 gap-2">
             {/* Brand */}
-            <Link href="/portal/dashboard" className="flex items-center gap-2 shrink-0 mr-2">
+            <Link href={scopedShellHref('/portal/dashboard')} className="flex items-center gap-2 shrink-0 mr-2">
               <Image src="/pib-logo-512.png" alt="Partners in Biz" width={24} height={24} className="rounded-md object-contain" />
               <span className="hidden sm:block font-display text-base leading-none">Partners in Biz</span>
               <span className="pill !text-[10px] !py-0.5 !px-2">{portalWorkspaceLabel}</span>
@@ -439,10 +504,10 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
                 <Link
                   href={adminViewHref}
                   title="Switch to admin view"
-                  className="hidden md:flex items-center gap-1.5 px-2.5 h-8 rounded-lg text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.05] transition-colors"
+                  aria-label="Switch to admin view"
+                  className="hidden md:flex items-center justify-center w-8 h-8 rounded-lg text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.05] transition-colors"
                 >
-                  <span className="material-symbols-outlined text-[18px]">person</span>
-                  <span className="hidden lg:inline">Admin</span>
+                  <span className="material-symbols-outlined text-[18px]" aria-hidden="true">person</span>
                 </Link>
               )}
               <NotificationBell />
@@ -467,7 +532,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
                 triggerClassName="hidden sm:inline-flex items-center gap-1 text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors"
               />
               <div className="w-8 h-8 rounded-full bg-[var(--color-pib-accent-soft)] border border-[var(--color-pib-line-strong)] flex items-center justify-center text-xs font-medium text-[var(--color-pib-accent-hover)]">
-                <Link href="/portal/settings/profile" title="My profile" className="grid h-full w-full place-items-center rounded-full">
+                <Link href={scopedShellHref('/portal/settings/profile')} title="My profile" className="grid h-full w-full place-items-center rounded-full">
                   {initials || '·'}
                 </Link>
               </div>
@@ -542,12 +607,12 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
           </div>
         )}
 
-        <main className={isEmailRoute
-          ? 'flex-1 px-3 md:px-5 py-4 w-full max-w-none'
+        <main className={isWorkspaceRoute
+          ? 'flex-1 min-h-0 overflow-hidden px-3 md:px-5 py-4 w-full max-w-none'
           : 'flex-1 overflow-y-auto px-4 md:px-8 py-8 max-w-[1400px] mx-auto w-full'
         }>{children}</main>
 
-        {!isEmailRoute && (
+        {!isWorkspaceRoute && (
           <footer className="px-4 md:px-8 py-6 border-t border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] text-xs flex flex-wrap items-center justify-between gap-3">
             <span>© {new Date().getFullYear()} Partners in Biz · Pretoria</span>
             <div className="flex items-center gap-4">
@@ -588,7 +653,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
       >
         {/* Brand */}
         <Link
-          href="/portal/dashboard"
+          href={scopedShellHref('/portal/dashboard')}
           className={['flex items-center min-h-16 border-b border-[var(--color-pib-line)] shrink-0', collapsed ? 'justify-center px-0' : 'gap-2.5 px-5 py-3'].join(' ')}
         >
           <Image src="/pib-logo-512.png" alt="Partners in Biz" width={28} height={28} className="rounded-md object-contain shrink-0" />
@@ -658,7 +723,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
         )}
 
         {/* Workspace switcher — compact, near the top like the admin context. */}
-        {orgs.length > 1 && (
+        {workspaceOptions.length > 1 && (
           <div className="border-b border-[var(--color-pib-line)] shrink-0">
             {collapsed ? (
               <button
@@ -667,7 +732,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
                 title={`Workspace: ${orgName || 'Current workspace'}`}
                 className="mx-auto my-2 w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-bold transition-colors bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent-hover)] ring-1 ring-[var(--color-pib-accent)]/30"
               >
-                {(orgName || orgs.find(org => org.id === activeOrgId)?.name || 'W')[0]?.toUpperCase() ?? 'W'}
+                {(orgName || workspaceOptions.find(org => org.id === activeOrgId)?.name || 'W')[0]?.toUpperCase() ?? 'W'}
               </button>
             ) : (
               <div className="px-3 py-3">
@@ -682,7 +747,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
                     disabled={orgSwitching}
                     className="w-full appearance-none rounded-lg border border-[var(--color-pib-line)] bg-white/[0.02] px-3 py-2 pr-9 text-sm text-[var(--color-pib-text)] outline-none transition-colors hover:bg-white/[0.04] focus:border-[var(--color-pib-accent)] disabled:opacity-60"
                   >
-                    {orgs.map(org => (
+                    {workspaceOptions.map(org => (
                       <option key={org.id} value={org.id}>
                         {org.name}
                       </option>
@@ -725,7 +790,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
           {collapsed ? (
             <div className="flex flex-col items-center gap-2">
               <Link
-                href="/portal/settings/profile"
+                href={scopedShellHref('/portal/settings/profile')}
                 title="My profile"
                 className="w-8 h-8 rounded-full bg-[var(--color-pib-accent-soft)] border border-[var(--color-pib-line-strong)] flex items-center justify-center text-xs font-medium text-[var(--color-pib-accent-hover)] hover:ring-2 hover:ring-[var(--color-pib-accent)]/40 transition-all"
               >
@@ -738,13 +803,13 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
           ) : (
             <div className="flex items-center gap-3 px-2 py-2 rounded-lg">
               <Link
-                href="/portal/settings/profile"
+                href={scopedShellHref('/portal/settings/profile')}
                 title="My profile"
                 className="w-8 h-8 rounded-full bg-[var(--color-pib-accent-soft)] border border-[var(--color-pib-line-strong)] flex items-center justify-center text-xs font-medium text-[var(--color-pib-accent-hover)] hover:ring-2 hover:ring-[var(--color-pib-accent)]/40 transition-all shrink-0"
               >
                 {initials || '·'}
               </Link>
-              <Link href="/portal/settings/profile" className="flex-1 min-w-0 rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--color-pib-accent)]/40">
+              <Link href={scopedShellHref('/portal/settings/profile')} className="flex-1 min-w-0 rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--color-pib-accent)]/40">
                 <p className="text-xs font-medium truncate">{profileName || name || 'Client'}</p>
                 <p className="text-[11px] text-[var(--color-pib-text-muted)] truncate">{email}</p>
               </Link>
@@ -804,12 +869,12 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        <main className={isEmailRoute
-          ? 'flex-1 px-3 md:px-5 py-4 w-full max-w-none'
+        <main className={isWorkspaceRoute
+          ? 'flex-1 min-h-0 overflow-hidden px-3 md:px-5 py-4 w-full max-w-none'
           : 'flex-1 overflow-y-auto px-4 md:px-8 py-8 max-w-[1400px] mx-auto w-full'
         }>{children}</main>
 
-        {!isEmailRoute && (
+        {!isWorkspaceRoute && (
           <footer className="px-4 md:px-8 py-6 border-t border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] text-xs flex flex-wrap items-center justify-between gap-3">
             <span>© {new Date().getFullYear()} Partners in Biz · Pretoria</span>
             <div className="flex items-center gap-4">

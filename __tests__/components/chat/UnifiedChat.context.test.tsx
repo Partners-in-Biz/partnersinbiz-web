@@ -325,4 +325,70 @@ describe('UnifiedChat context references', () => {
     )
     expect(messagePosts).toHaveLength(0)
   })
+
+  it('keeps loaded messages in a scrollable log and scrolls to the latest message', async () => {
+    Object.defineProperty(HTMLElement.prototype, 'scrollHeight', {
+      configurable: true,
+      get() {
+        return this.getAttribute('role') === 'log' ? 1200 : 0
+      },
+    })
+
+    mockFetch.mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/visible-agents')) {
+        return jsonResponse({ data: [] })
+      }
+      if (url.startsWith('/api/v1/conversations?')) {
+        return jsonResponse({ data: { conversations: [conversation] } })
+      }
+      if (url === '/api/v1/conversations/conv-1/messages') {
+        return jsonResponse({
+          data: {
+            messages: [
+              {
+                id: 'msg-1',
+                conversationId: 'conv-1',
+                role: 'user',
+                content: 'Earlier note',
+                authorKind: 'user',
+                authorId: 'user-1',
+                authorDisplayName: 'Peet',
+                status: 'completed',
+                createdAt: { seconds: 1 },
+              },
+              {
+                id: 'msg-2',
+                conversationId: 'conv-1',
+                role: 'assistant',
+                content: 'Latest reply',
+                authorKind: 'agent',
+                authorId: 'pip',
+                authorDisplayName: 'Pip',
+                status: 'completed',
+                createdAt: { seconds: 2 },
+              },
+            ],
+          },
+        })
+      }
+      throw new Error(`Unhandled fetch: ${url}`)
+    })
+
+    render(
+      <UnifiedChat
+        orgId="org-1"
+        currentUserUid="user-1"
+        currentUserDisplayName="Peet"
+        initialConvId="conv-1"
+      />,
+    )
+
+    const messageLog = await screen.findByRole('log', { name: 'Conversation messages' })
+    await screen.findByText('Latest reply')
+
+    await waitFor(() => {
+      expect(messageLog.scrollTop).toBe(1200)
+    })
+  })
 })

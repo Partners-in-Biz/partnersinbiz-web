@@ -1,7 +1,7 @@
 /**
  * @jest-environment jsdom
  */
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import '@testing-library/jest-dom'
 import { BudgetsListClient, type BudgetRow } from '@/components/ads/BudgetsListClient'
 
@@ -111,5 +111,38 @@ describe('BudgetsListClient', () => {
     render(<BudgetsListClient budgets={MOCK_BUDGETS} orgSlug="acme" />)
     const newLink = screen.getByRole('link', { name: /New budget/i })
     expect(newLink).toHaveAttribute('href', '/admin/org/acme/ads/budgets/new')
+  })
+
+  it('archives a budget through an in-page confirmation without native dialogs', async () => {
+    const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(true)
+    const fetchMock = jest.fn().mockResolvedValue({ ok: true })
+    global.fetch = fetchMock
+
+    render(<BudgetsListClient budgets={MOCK_BUDGETS} orgSlug="acme" />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Archive budget Org Monthly Cap for acme' }))
+
+    expect(confirmSpy).not.toHaveBeenCalled()
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(
+      screen.getByRole('alertdialog', { name: 'Archive budget Org Monthly Cap for acme?' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'This removes Org Monthly Cap from active budget pacing. Historical spend and alerts stay in PiB.',
+      ),
+    ).toBeInTheDocument()
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Confirm archive budget Org Monthly Cap for acme' }),
+    )
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/ads/budgets/bgt_1', { method: 'DELETE' })
+    })
+
+    expect(screen.getByText('Budget Org Monthly Cap archived.')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Budget Org Monthly Cap')).not.toBeInTheDocument()
+    confirmSpy.mockRestore()
   })
 })

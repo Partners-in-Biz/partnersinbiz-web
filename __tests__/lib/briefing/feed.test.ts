@@ -190,6 +190,45 @@ describe('briefing feed', () => {
     })
   })
 
+  it('surfaces software-build evidence rows on task briefing metadata', async () => {
+    collections.organizations = [makeDoc('org-1', { name: 'Client One', slug: 'client-one' })]
+    collections.projects = [makeDoc('project-1', { name: 'Platform Alignment', slug: 'platform-alignment' })]
+    collectionGroups.tasks = [
+      makeDoc('task-1', {
+        orgId: 'org-1',
+        projectId: 'project-1',
+        columnId: 'review',
+        title: 'Theo: link build evidence',
+        labels: ['software-build'],
+        sourceDocumentId: 'doc-123',
+        agentStatus: 'done',
+        agentOutput: {
+          artifacts: [
+            { type: 'commit', ref: 'abc1234', label: 'Development commit' },
+            { type: 'url', ref: 'https://partnersinbiz.online/admin/projects/project-1?taskId=task-1', label: 'Development task link' },
+          ],
+          summary: 'Verification passed: npm run lint -- --file components/briefing/BriefingControlDesk.tsx\nBlocker: production deploy remains separately gated.',
+        },
+        updatedAt: '2026-05-30T10:00:00.000Z',
+      }, 'projects/project-1/tasks/task-1'),
+    ]
+
+    const { buildBriefingFeed } = await import('@/lib/briefing/feed')
+    const feed = await buildBriefingFeed(
+      { uid: 'admin-1', role: 'admin', allowedOrgIds: ['org-1'] },
+      { limit: 10, sourceType: 'task' },
+    )
+
+    const item = feed.items[0]
+    expect(item.metadata?.softwareBuildEvidence).toEqual(expect.arrayContaining([
+      expect.objectContaining({ kind: 'commit', value: 'abc1234' }),
+      expect.objectContaining({ kind: 'verification', value: 'npm run lint -- --file components/briefing/BriefingControlDesk.tsx' }),
+      expect.objectContaining({ kind: 'link', label: 'Development task link' }),
+      expect.objectContaining({ kind: 'document', label: 'Related doc', value: 'doc-123' }),
+      expect.objectContaining({ kind: 'blocker', value: 'Blocker: production deploy remains separately gated.' }),
+    ]))
+  })
+
   it('filters cards a user has marked handled from the live control desk feed', async () => {
     collectionGroups.tasks = [
       makeDoc('task-1', {
@@ -211,6 +250,13 @@ describe('briefing feed', () => {
 
     collections.briefing_user_states = [
       makeDoc('state-1', {
+        orgId: 'org-1',
+        userId: 'admin-1',
+        itemId: firstFeed.items[0].id,
+        status: 'handled',
+      }),
+      makeDoc('state-other-org', {
+        orgId: 'org-2',
         userId: 'admin-1',
         itemId: firstFeed.items[0].id,
         status: 'handled',
@@ -632,6 +678,134 @@ describe('briefing feed', () => {
     expect(feed.items[0].summary).toContain('Confirm approval blockers')
   })
 
+  it('surfaces CRM revenue intelligence cards for hot prospects, no-touch imports, and proposal follow-ups', async () => {
+    collections.contacts = [
+      makeDoc('contact-hot', {
+        orgId: 'org-1',
+        name: 'Hannah Hot',
+        email: 'hannah@example.test',
+        company: 'Scale Co',
+        type: 'prospect',
+        stage: 'demo',
+        leadScore: 92,
+        icpScore: 88,
+        lastContactedAt: '2026-05-30T08:00:00.000Z',
+        updatedAt: '2026-05-30T08:00:00.000Z',
+      }),
+      makeDoc('contact-import', {
+        orgId: 'org-1',
+        name: 'Ivy Import',
+        email: 'ivy@example.test',
+        source: 'import',
+        type: 'lead',
+        stage: 'new',
+        createdAt: '2026-05-20T08:00:00.000Z',
+        updatedAt: '2026-05-20T08:00:00.000Z',
+      }),
+      makeDoc('contact-proposal', {
+        orgId: 'org-1',
+        name: 'Paul Proposal',
+        email: 'paul@example.test',
+        company: 'Proposal Ltd',
+        type: 'prospect',
+        stage: 'proposal',
+        lastContactedAt: '2026-04-01T08:00:00.000Z',
+        updatedAt: '2026-05-30T08:00:00.000Z',
+      }),
+    ]
+
+    const { buildBriefingFeed } = await import('@/lib/briefing/feed')
+    const feed = await buildBriefingFeed(
+      { uid: 'client-1', role: 'client', orgId: 'org-1' },
+      { limit: 10, sourceType: 'contact' },
+    )
+
+    expect(feed.items).toHaveLength(3)
+    expect(feed.items.map((item) => item.title)).toEqual(expect.arrayContaining([
+      'Hot prospect: Hannah Hot',
+      'Import follow-up: Ivy Import',
+      'Proposal follow-up: Paul Proposal',
+    ]))
+    expect(feed.items.find((item) => item.source.id === 'contact-hot')).toMatchObject({
+      priority: 'needs-peet',
+      metadata: expect.objectContaining({
+        revenueSignal: 'hot-prospect',
+        nextAction: expect.stringContaining('Book or confirm the next sales step'),
+        leadScore: 92,
+        icpScore: 88,
+      }),
+    })
+    expect(feed.items.find((item) => item.source.id === 'contact-import')?.summary).toContain('Imported lead needs qualification')
+    expect(feed.items.find((item) => item.source.id === 'contact-import')).toMatchObject({
+      priority: 'needs-peet',
+      metadata: expect.objectContaining({ revenueSignal: 'import-suggestion' }),
+    })
+    expect(feed.items.find((item) => item.source.id === 'contact-proposal')?.summary).toContain('Proposal-stage prospect has not been touched since 2026-04-01')
+  })
+
+  it('surfaces stale CRM deals and proposal follow-ups as internal revenue briefing cards', async () => {
+    collections.deals = [
+      makeDoc('deal-stale', {
+        orgId: 'org-1',
+        title: 'Scale Co annual sprint',
+        value: 120000,
+        currency: 'ZAR',
+        stageLabel: 'Discovery',
+        stageKind: 'open',
+        probability: 55,
+        contactId: 'contact-hot',
+        companyId: 'company-1',
+        companyName: 'Scale Co',
+        expectedCloseDate: '2026-05-25T00:00:00.000Z',
+        lastActivityAt: '2026-05-01T08:00:00.000Z',
+        updatedAt: '2026-05-01T08:00:00.000Z',
+      }),
+      makeDoc('deal-proposal', {
+        orgId: 'org-1',
+        title: 'Proposal Ltd growth OS',
+        value: 90000,
+        currency: 'ZAR',
+        stageLabel: 'Proposal',
+        stageKind: 'open',
+        probability: 75,
+        contactId: 'contact-proposal',
+        expectedCloseDate: '2026-06-20T00:00:00.000Z',
+        lastActivityAt: '2026-05-10T08:00:00.000Z',
+        updatedAt: '2026-05-10T08:00:00.000Z',
+      }),
+      makeDoc('deal-won', {
+        orgId: 'org-1',
+        title: 'Closed deal',
+        stageKind: 'won',
+        updatedAt: '2026-05-30T08:00:00.000Z',
+      }),
+    ]
+
+    const { buildBriefingFeed } = await import('@/lib/briefing/feed')
+    const feed = await buildBriefingFeed(
+      { uid: 'admin-1', role: 'admin', allowedOrgIds: ['org-1'] },
+      { limit: 10, sourceType: 'deal' },
+    )
+
+    expect(feed.items).toHaveLength(2)
+    expect(feed.items.map((item) => item.title)).toEqual(expect.arrayContaining([
+      'Stale deal: Scale Co annual sprint',
+      'Proposal follow-up: Proposal Ltd growth OS',
+    ]))
+    expect(feed.items.find((item) => item.source.id === 'deal-stale')).toMatchObject({
+      source: { type: 'deal', collectionPath: 'deals', url: '/admin/crm/deals/deal-stale' },
+      priority: 'client-risk',
+      context: { dealId: 'deal-stale', dealTitle: 'Scale Co annual sprint', companyId: 'company-1', companyName: 'Scale Co' },
+      metadata: expect.objectContaining({
+        revenueSignal: 'stale-deal',
+        nextAction: expect.stringContaining('Review the deal owner'),
+        value: 120000,
+        currency: 'ZAR',
+      }),
+    })
+    expect(feed.items.find((item) => item.source.id === 'deal-proposal')?.summary).toContain('Proposal-stage deal needs follow-up')
+  })
+
   it('surfaces stale CRM contacts as follow-up control cards', async () => {
     collections.contacts = [
       makeDoc('contact-1', {
@@ -673,7 +847,7 @@ describe('briefing feed', () => {
     expect(feed.items[0]).toMatchObject({
       source: { type: 'contact', id: 'contact-1', collectionPath: 'contacts', url: '/portal/contacts/contact-1' },
       priority: 'needs-peet',
-      title: 'Follow up Ava Owner',
+      title: 'Proposal follow-up: Ava Owner',
       context: {
         orgId: 'org-1',
         contactId: 'contact-1',
@@ -687,7 +861,7 @@ describe('briefing feed', () => {
         email: 'ava@example.test',
       },
     })
-    expect(feed.items[0].summary).toContain('Ava Owner has not been contacted since 2026-04-01')
+    expect(feed.items[0].summary).toContain('Proposal-stage prospect has not been touched since 2026-04-01')
     expect(JSON.stringify(feed.items)).not.toContain('contact-secret-123')
   })
 

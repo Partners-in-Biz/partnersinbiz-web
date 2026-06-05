@@ -3,6 +3,7 @@ import DealDetailPage from '@/app/(portal)/portal/deals/[id]/page'
 
 const pushMock = jest.fn()
 const refreshMock = jest.fn()
+let mockSearchParams = new URLSearchParams()
 let mockDealOverrides: Record<string, unknown> = {}
 let mockPipelineResponse: unknown = null
 type DeferredResponse = {
@@ -17,6 +18,7 @@ jest.mock('next/navigation', () => ({
     push: pushMock,
     refresh: refreshMock,
   }),
+  useSearchParams: () => mockSearchParams,
 }))
 
 jest.mock('next/link', () => ({
@@ -40,11 +42,13 @@ function apiResponse(data: unknown) {
 describe('Portal deal detail page', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    mockSearchParams = new URLSearchParams()
     mockDealOverrides = {}
     mockPipelineResponse = null
     contactLookupDeferred = null
     global.fetch = jest.fn((url: RequestInfo | URL, init?: RequestInit) => {
-      const path = String(url)
+      const rawPath = String(url)
+      const path = rawPath.split('?')[0]
       if (path === '/api/v1/crm/deals/deal-archive-1' && init?.method === 'DELETE') {
         return apiResponse({ archived: true })
       }
@@ -82,7 +86,7 @@ describe('Portal deal detail page', () => {
         if (contactLookupDeferred) return contactLookupDeferred.promise
         return apiResponse({ contact: { id: 'contact-1', name: 'Ava Owner', email: 'ava@example.com' } })
       }
-      if (path === '/api/v1/crm/activities?contactId=contact-1&limit=20') {
+      if (path === '/api/v1/crm/activities' && rawPath.includes('contactId=contact-1') && rawPath.includes('limit=20')) {
         return apiResponse({ activities: [] })
       }
       if (path === '/api/v1/portal/settings/team') {
@@ -150,6 +154,75 @@ describe('Portal deal detail page', () => {
     expect(screen.getByRole('dialog', { name: 'Edit Deal' })).toBeInTheDocument()
   })
 
+  it('preserves CRM company workspace scope across deal detail data, navigation, and activity actions', async () => {
+    mockSearchParams = new URLSearchParams({
+      orgId: 'org-1',
+      orgSlug: 'lumen-speeds',
+      sourceCompanyId: 'company-1',
+      sourceCompanyName: 'Lumen',
+    })
+
+    render(<DealDetailPage />)
+
+    expect(await screen.findByRole('heading', { name: 'Enterprise rollout' })).toBeInTheDocument()
+
+    const scope = 'orgId=org-1&orgSlug=lumen-speeds&sourceCompanyId=company-1&sourceCompanyName=Lumen'
+    expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/deals/deal-archive-1?orgId=org-1')
+    expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/pipelines/pipeline-1?orgId=org-1')
+    expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/contacts/contact-1?orgId=org-1')
+    expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/activities?contactId=contact-1&limit=20&orgId=org-1')
+    expect(global.fetch).toHaveBeenCalledWith('/api/v1/portal/settings/team?orgId=org-1')
+
+    expect(screen.getByRole('link', { name: /Deals/ }))
+      .toHaveAttribute('href', `/portal/deals?${scope}`)
+    expect(screen.getByRole('link', { name: /Contact/ }))
+      .toHaveAttribute('href', `/portal/contacts/contact-1?${scope}`)
+    expect(screen.getByRole('link', { name: /Company/ }))
+      .toHaveAttribute('href', `/portal/companies/company-1?${scope}`)
+    expect(await screen.findByRole('link', { name: 'Ava Owner' }))
+      .toHaveAttribute('href', `/portal/contacts/contact-1?${scope}`)
+    expect(screen.getByRole('link', { name: 'Acme Board' }))
+      .toHaveAttribute('href', `/portal/companies/company-1?${scope}`)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Log first activity for Enterprise rollout' }))
+    expect(pushMock).toHaveBeenCalledWith(`/portal/contacts/contact-1?activity=note&${scope}`)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Archive Enterprise rollout' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm archive Enterprise rollout' }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/deals/deal-archive-1?orgId=org-1', { method: 'DELETE' })
+    })
+    expect(pushMock).toHaveBeenCalledWith(`/portal/deals?${scope}`)
+  })
+
+  it('preserves workspace scope on the deal detail error fallback link', async () => {
+    mockSearchParams = new URLSearchParams({
+      orgId: 'org-1',
+      orgSlug: 'lumen-speeds',
+      sourceCompanyId: 'company-1',
+      sourceCompanyName: 'Lumen',
+    })
+    global.fetch = jest.fn((url: RequestInfo | URL) => {
+      if (String(url) === '/api/v1/crm/deals/deal-archive-1?orgId=org-1') {
+        return Promise.resolve({
+          ok: false,
+          status: 404,
+          json: async () => ({ error: 'Deal not found' }),
+        } as Response)
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${String(url)}`))
+    }) as jest.Mock
+
+    render(<DealDetailPage />)
+
+    expect(await screen.findByText('Deal not found')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Back to Deals/ })).toHaveAttribute(
+      'href',
+      '/portal/deals?orgId=org-1&orgSlug=lumen-speeds&sourceCompanyId=company-1&sourceCompanyName=Lumen',
+    )
+  })
+
   it('keeps next best action cards readable in the deal side rail', async () => {
     render(<DealDetailPage />)
 
@@ -211,6 +284,24 @@ describe('Portal deal detail page', () => {
     expect(screen.getByLabelText('Update forecast probability')).toHaveFocus()
 
     fireEvent.click(screen.getByRole('button', { name: 'Update close timing for Enterprise rollout from command summary' }))
+    expect(screen.getByLabelText('Set expected close date')).toHaveFocus()
+  })
+
+  it('turns deal detail owner and close date rows into direct cleanup actions', async () => {
+    mockDealOverrides = {
+      ownerRef: undefined,
+      ownerUid: '',
+      expectedCloseDate: '',
+    }
+
+    render(<DealDetailPage />)
+
+    expect(await screen.findByRole('heading', { name: 'Enterprise rollout' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Assign owner for Enterprise rollout from deal details' }))
+    expect(screen.getByLabelText('Assign deal owner')).toHaveFocus()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Set close date for Enterprise rollout from deal details' }))
     expect(screen.getByLabelText('Set expected close date')).toHaveFocus()
   })
 

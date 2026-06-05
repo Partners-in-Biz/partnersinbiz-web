@@ -1,18 +1,24 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useRouter } from 'next/navigation'
+import { useCallback, useMemo } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { AutomationRuleForm } from '@/components/crm/AutomationRuleForm'
+import { scopedApiPath, scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 
 export default function NewAutomationPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const orgScope = useMemo(() => scopeFromSearchParams(searchParams), [searchParams])
+  const automationEndpoint = useCallback((path: string) => scopedApiPath(path, orgScope), [orgScope])
+  const automationHref = useCallback((path: string) => scopedPortalPath(path, orgScope), [orgScope])
 
   function handleSave() {
-    router.push('/portal/settings/automations')
+    router.push(automationHref('/portal/settings/automations'))
   }
 
   function handleCancel() {
-    router.push('/portal/settings/automations')
+    router.push(automationHref('/portal/settings/automations'))
   }
 
   return (
@@ -41,7 +47,12 @@ export default function NewAutomationPage() {
         </div>
       </div>
 
-      <AutomationRuleForm onSave={handleSave} onCancel={handleCancel} />
+      <AutomationRuleForm
+        endpoint={automationEndpoint('/api/v1/crm/automations')}
+        sequencesEndpoint={automationEndpoint('/api/v1/crm/sequences')}
+        onSave={handleSave}
+        onCancel={handleCancel}
+      />
     </div>
   )
 }

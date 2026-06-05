@@ -5,6 +5,7 @@ const mockUserUpdate = jest.fn()
 const mockUserDoc = jest.fn()
 const mockMemberWhere = jest.fn()
 const mockMemberGet = jest.fn()
+const mockOrgDoc = jest.fn()
 const mockCollection = jest.fn()
 
 jest.mock('@/lib/firebase/admin', () => ({
@@ -25,9 +26,16 @@ beforeEach(() => {
   jest.clearAllMocks()
   mockUserDoc.mockReturnValue({ get: mockUserGet, update: mockUserUpdate })
   mockMemberWhere.mockReturnValue({ get: mockMemberGet })
+  mockOrgDoc.mockImplementation((orgId: string) => ({
+    get: jest.fn().mockResolvedValue({
+      exists: orgId === 'client-org' || orgId === 'pib-platform-owner',
+      data: () => ({ deleted: false }),
+    }),
+  }))
   mockCollection.mockImplementation((name: string) => {
     if (name === 'users') return { doc: mockUserDoc }
     if (name === 'orgMembers') return { where: mockMemberWhere }
+    if (name === 'organizations') return { doc: mockOrgDoc }
     throw new Error(`Unexpected collection: ${name}`)
   })
 })
@@ -78,11 +86,54 @@ describe('/api/v1/portal/active-org', () => {
     })
   })
 
-  it('does not treat platform admin allowedOrgIds as client portal membership', async () => {
+  it('lets a platform admin switch into a linked company client org even without orgMembers membership', async () => {
     mockUserGet.mockResolvedValue({
       exists: true,
       data: () => ({
         role: 'admin',
+        orgId: 'pib-platform-owner',
+      }),
+    })
+    mockMemberGet.mockResolvedValue({ docs: [] })
+
+    const { POST } = await import('@/app/api/v1/portal/active-org/route')
+    const req = new NextRequest('http://localhost/api/v1/portal/active-org', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ orgId: 'client-org' }),
+    })
+    const res = await POST(req)
+
+    expect(res.status).toBe(200)
+    expect(mockUserUpdate).toHaveBeenCalledWith({
+      activeOrgId: 'client-org',
+      updatedAt: 'SERVER_TS',
+    })
+  })
+
+  it('keeps a CRM-selected client org active for admin portal pages without query params', async () => {
+    mockUserGet.mockResolvedValue({
+      exists: true,
+      data: () => ({
+        role: 'admin',
+        orgId: 'pib-platform-owner',
+        activeOrgId: 'client-org',
+      }),
+    })
+    mockMemberGet.mockResolvedValue({ docs: [] })
+
+    const { GET } = await import('@/app/api/v1/portal/active-org/route')
+    const res = await GET(new NextRequest('http://localhost/api/v1/portal/active-org'))
+
+    expect(res.status).toBe(200)
+    await expect(res.json()).resolves.toEqual({ orgId: 'client-org' })
+  })
+
+  it('does not treat allowedOrgIds as client portal membership for non-admin users', async () => {
+    mockUserGet.mockResolvedValue({
+      exists: true,
+      data: () => ({
+        role: 'client',
         orgId: 'pib-platform-owner',
         allowedOrgIds: ['client-org'],
       }),

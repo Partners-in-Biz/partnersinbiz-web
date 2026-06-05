@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useParams } from 'next/navigation'
 import { FiCheckCircle, FiCopy, FiLink, FiSearch, FiUserCheck, FiUserPlus, FiX } from 'react-icons/fi'
+import { TeamAccessGovernancePanel } from '@/components/settings/TeamAccessGovernancePanel'
 import { copyToClipboard } from '@/lib/utils/clipboard'
 
 interface OrgMember {
@@ -612,6 +613,18 @@ export default function TeamPage() {
     }
   }
 
+  function prepareCrmInvite() {
+    setCreateRole('member')
+    setCreateDepartment('Sales')
+    setCreateAccessScope('crm')
+    setClientRole('member')
+    setClientDepartment('Sales')
+    setClientAccessScope('crm')
+    setAddRole('member')
+    setAddDepartment('Sales')
+    setAddAccessScope('crm')
+  }
+
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
       {/* Header */}
@@ -630,6 +643,14 @@ export default function TeamPage() {
         >
           <p className="text-sm text-[#7f1d1d]">{error}</p>
         </div>
+      )}
+
+      {!loading && org && (
+        <TeamAccessGovernancePanel
+          members={members}
+          canPrepareCrmInvite
+          onPrepareCrmInvite={prepareCrmInvite}
+        />
       )}
 
       {/* Create Client Login */}

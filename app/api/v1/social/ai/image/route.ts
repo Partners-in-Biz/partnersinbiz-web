@@ -14,10 +14,30 @@ interface ImageGenerationRequest {
   size?: '1024x1024' | '1024x1536' | '1536x1024'
 }
 
+class XaiImageError extends Error {
+  status: number
+
+  constructor(message: string, status: number) {
+    super(message)
+    this.name = 'XaiImageError'
+    this.status = status
+  }
+}
+
+const XAI_SIZE_BY_REQUEST_SIZE: Record<NonNullable<ImageGenerationRequest['size']>, 'square' | 'portrait' | 'landscape'> = {
+  '1024x1024': 'square',
+  '1024x1536': 'portrait',
+  '1536x1024': 'landscape',
+}
+
 // ---------------------------------------------------------------------------
 // xAI (Grok) image generation
 // ---------------------------------------------------------------------------
-async function generateWithXai(prompt: string, apiKey: string): Promise<{ url: string; revisedPrompt: string }> {
+async function generateWithXai(
+  prompt: string,
+  apiKey: string,
+  size: NonNullable<ImageGenerationRequest['size']>,
+): Promise<{ url: string; revisedPrompt: string }> {
   const response = await fetch('https://api.x.ai/v1/images/generations', {
     method: 'POST',
     headers: {
@@ -27,8 +47,9 @@ async function generateWithXai(prompt: string, apiKey: string): Promise<{ url: s
     body: JSON.stringify({
       model: 'grok-2-image',
       prompt,
-      n: 1,
-      response_format: 'url',
+      num_images: 1,
+      size: XAI_SIZE_BY_REQUEST_SIZE[size],
+      response_format: 'b64_json',
     }),
   })
 
@@ -37,25 +58,26 @@ async function generateWithXai(prompt: string, apiKey: string): Promise<{ url: s
     const msg = errorData?.error?.message ?? `xAI API error (${response.status})`
     if (response.status === 429) throw new Error('RATE_LIMIT')
     if (response.status === 400 && msg.toLowerCase().includes('policy')) throw new Error('CONTENT_POLICY')
-    throw new Error(msg)
+    throw new XaiImageError(msg, response.status)
   }
 
   const data = await response.json() as {
-    data: Array<{ url: string; revised_prompt?: string }>
+    data: Array<{ url?: string; b64_json?: string; revised_prompt?: string }>
   }
 
-  if (!data.data?.[0]?.url) throw new Error('No image returned from xAI')
+  const image = data.data?.[0]
+  if (!image?.url && !image?.b64_json) throw new Error('No image returned from xAI')
 
   return {
-    url: data.data[0].url,
-    revisedPrompt: data.data[0].revised_prompt ?? prompt,
+    url: image.url ?? `data:image/png;base64,${image.b64_json}`,
+    revisedPrompt: image.revised_prompt ?? prompt,
   }
 }
 
 // ---------------------------------------------------------------------------
 // Route handler — xAI only
 // ---------------------------------------------------------------------------
-export const POST = withAuth('admin', withTenant(async (req, _user, _orgId) => {
+export const POST = withAuth('admin', withTenant(async (req) => {
   const body = await req.json() as ImageGenerationRequest
 
   const prompt = body.prompt?.trim()
@@ -71,7 +93,7 @@ export const POST = withAuth('admin', withTenant(async (req, _user, _orgId) => {
   if (!xaiKey) return apiError('XAI_API_KEY not configured', 500)
 
   try {
-    const result = await generateWithXai(prompt, xaiKey)
+    const result = await generateWithXai(prompt, xaiKey, size)
 
     return apiSuccess({
       url: result.url,
@@ -86,6 +108,9 @@ export const POST = withAuth('admin', withTenant(async (req, _user, _orgId) => {
     }
     if (message === 'CONTENT_POLICY') {
       return apiError('Image prompt violates content policy. Please try a different prompt.', 400)
+    }
+    if (error instanceof XaiImageError) {
+      return apiError(`xAI image generation failed: ${message}`, error.status)
     }
 
     console.error('Image generation error:', error)

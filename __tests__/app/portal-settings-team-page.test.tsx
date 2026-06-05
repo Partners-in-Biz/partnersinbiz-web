@@ -1,5 +1,5 @@
 import React from 'react'
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import TeamPage from '@/app/(portal)/portal/settings/team/page'
 
 const fetchMock = jest.fn()
@@ -69,7 +69,54 @@ describe('TeamPage', () => {
 
     expect(screen.getByRole('button', { name: 'Remove Sam Sales' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'person_remove' })).not.toBeInTheDocument()
-    expect(screen.getByRole('combobox', { name: 'Invite role' })).toBeInTheDocument()
-    expect(screen.getByRole('combobox', { name: 'Invite workspace access' })).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Role' })).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Workspace access' })).toBeInTheDocument()
+  })
+
+  it('surfaces team access governance gaps for employee-scale CRM work', async () => {
+    render(<TeamPage />)
+
+    expect(await screen.findByRole('heading', { name: 'Team' })).toBeInTheDocument()
+
+    const governance = await screen.findByRole('region', { name: 'Team access governance' })
+    expect(within(governance).getByRole('heading', { name: 'Employee access needs CRM coverage' })).toBeInTheDocument()
+    expect(within(governance).getByText('A CEO needs at least one clearly assigned CRM or sales operator before contacts, deals, and follow-ups can scale across the team.')).toBeInTheDocument()
+    expect(within(governance).getByText('2 members')).toBeInTheDocument()
+    expect(within(governance).getByText('1 admin')).toBeInTheDocument()
+    expect(within(governance).getByText('0 CRM/sales')).toBeInTheDocument()
+    expect(within(governance).getByText('0 reviewers')).toBeInTheDocument()
+
+    fireEvent.click(within(governance).getByRole('button', { name: 'Prepare CRM sales invite' }))
+
+    expect(screen.getByRole('combobox', { name: 'Workspace access' })).toHaveValue('crm')
+    expect(screen.getByRole('textbox', { name: 'Department' })).toHaveValue('Sales')
+  })
+
+  it('uses an in-page confirmation before removing workspace members', async () => {
+    const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(false)
+
+    render(<TeamPage />)
+
+    expect(await screen.findByText('Sam Sales')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Sam Sales' }))
+
+    expect(confirmSpy).not.toHaveBeenCalled()
+    expect(screen.getByRole('alertdialog', { name: 'Remove Sam Sales from this workspace?' })).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'This removes their access to CRM contacts, deals, projects, and workspace data. Existing activity history remains available for audit.',
+      ),
+    ).toBeInTheDocument()
+    expect(fetchMock).not.toHaveBeenCalledWith('/api/v1/portal/settings/team/sales-rep', expect.any(Object))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm remove Sam Sales from workspace' }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/portal/settings/team/sales-rep', { method: 'DELETE' })
+    })
+    expect(screen.queryByText('Sam Sales')).not.toBeInTheDocument()
+
+    confirmSpy.mockRestore()
   })
 })

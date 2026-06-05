@@ -1,30 +1,18 @@
 // app/(portal)/portal/ads/ads/[id]/page.tsx
 //
 // Client-facing ad detail with inline-comments thread (Sub-2b A).
-import { cookies } from 'next/headers'
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
-import { adminAuth, adminDb } from '@/lib/firebase/admin'
 import { getAd } from '@/lib/ads/ads/store'
 import { CommentThread } from './CommentThread'
+import {
+  resolvePortalAdsUser,
+  scopedPortalHref,
+  scopeFromSearchParams,
+  type PortalAdsSearchParams,
+} from '../../portalAdsScope'
 
 export const dynamic = 'force-dynamic'
-
-async function currentClient(): Promise<{ uid: string; orgId: string } | null> {
-  const cookieStore = await cookies()
-  const cookieName = process.env.SESSION_COOKIE_NAME ?? '__session'
-  const session = cookieStore.get(cookieName)?.value
-  if (!session) return null
-  try {
-    const decoded = await adminAuth.verifySessionCookie(session, true)
-    const userDoc = await adminDb.collection('users').doc(decoded.uid).get()
-    const orgId = userDoc.data()?.activeOrgId ?? userDoc.data()?.orgId
-    if (!orgId) return null
-    return { uid: decoded.uid, orgId }
-  } catch {
-    return null
-  }
-}
 
 function inferImageUrl(ad: Awaited<ReturnType<typeof getAd>>): string | null {
   if (!ad) return null
@@ -39,12 +27,17 @@ function inferImageUrl(ad: Awaited<ReturnType<typeof getAd>>): string | null {
 
 export default async function PortalAdDetail({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>
+  searchParams?: Promise<PortalAdsSearchParams>
 }) {
   const { id } = await params
-  const user = await currentClient()
+  const resolvedSearchParams = await searchParams
+  const scope = scopeFromSearchParams(resolvedSearchParams)
+  const user = await resolvePortalAdsUser(scope.orgId)
   if (!user) redirect('/login')
+  if (user.forbidden) notFound()
 
   const ad = await getAd(id)
   if (!ad || ad.orgId !== user.orgId) notFound()
@@ -56,7 +49,7 @@ export default async function PortalAdDetail({
     <article className="space-y-6">
       <header>
         <Link
-          href={`/portal/ads/campaigns/${ad.campaignId}`}
+          href={scopedPortalHref(`/portal/ads/campaigns/${ad.campaignId}`, scope)}
           className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]"
         >
           ← Campaign
@@ -108,6 +101,7 @@ export default async function PortalAdDetail({
         <h2 className="eyebrow !text-[10px] mb-2">Comments</h2>
         <CommentThread
           adId={id}
+          orgId={scope.orgId}
           currentUserUid={user.uid}
           isAdmin={false}
         />

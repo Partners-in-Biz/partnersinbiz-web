@@ -3,7 +3,9 @@ export const dynamic = 'force-dynamic'
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import type { CaptureSource } from '@/lib/crm/captureSources'
+import { scopedApiPath, scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 
 interface ParsedRow {
   email: string
@@ -160,6 +162,11 @@ function rowsFromCsv(grid: string[][]): ParsedRow[] {
 // ── Component ───────────────────────────────────────────────────────────────
 
 export default function PortalCaptureSourceImportPage() {
+  const searchParams = useSearchParams()
+  const orgScope = useMemo(() => scopeFromSearchParams(searchParams), [searchParams])
+  const captureSourcesEndpoint = scopedApiPath('/api/v1/crm/capture-sources', orgScope)
+  const contactsImportEndpoint = scopedApiPath('/api/v1/crm/contacts/import', orgScope)
+  const captureSourcesHref = scopedPortalPath('/portal/capture-sources', orgScope)
   const [sources, setSources] = useState<CaptureSource[]>([])
   const [selectedSourceId, setSelectedSourceId] = useState<string>('')
   const [defaultTagsRaw, setDefaultTagsRaw] = useState('')
@@ -184,13 +191,13 @@ export default function PortalCaptureSourceImportPage() {
 
   // Load capture sources
   useEffect(() => {
-    fetch('/api/v1/crm/capture-sources')
+    fetch(captureSourcesEndpoint)
       .then((r) => r.json())
       .then((body) => {
         setSources((body.data ?? []) as CaptureSource[])
       })
       .catch(() => {})
-  }, [])
+  }, [captureSourcesEndpoint])
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     setSubmitError(null)
@@ -230,7 +237,7 @@ export default function PortalCaptureSourceImportPage() {
       rows,
       dryRun,
     }
-    const res = await fetch('/api/v1/crm/contacts/import', {
+    const res = await fetch(contactsImportEndpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
@@ -292,7 +299,7 @@ export default function PortalCaptureSourceImportPage() {
         </div>
         <div>
           <Link
-            href="/portal/capture-sources"
+            href={captureSourcesHref}
             className="btn-pib-secondary !py-2 !px-4 !text-sm"
           >
             <span className="material-symbols-outlined text-base">arrow_back</span>

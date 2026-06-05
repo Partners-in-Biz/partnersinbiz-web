@@ -19,11 +19,14 @@ import { getTaskDispatchBlocker, isDependencyResolved, releaseMillis } from './e
 
 const MAX_CONCURRENT_PER_AGENT = 5
 const READY_TASK_SWEEP_MS = 60_000
+const MAX_READY_SWEEP_DOCS = 100
+const MAX_SCHEDULED_RELEASE_SWEEP_DOCS = 100
 
 const inFlight = new Set<string>()
 const perAgentInFlight = new Map<AgentId, number>()
 const deferredByAgent = new Map<AgentId, Map<string, { ref: DocumentReference; data: TaskData }>>()
 let activeAgentIds = new Set<string>(AGENT_IDS)
+let scheduledReleaseSweepDisabled = false
 
 function incAgent(agentId: AgentId): void {
   perAgentInFlight.set(agentId, (perAgentInFlight.get(agentId) ?? 0) + 1)
@@ -423,11 +426,13 @@ async function dispatchReview(taskRef: DocumentReference, taskData: TaskData): P
 }
 
 async function releaseDueScheduledTasks(now = Date.now()): Promise<void> {
+  if (scheduledReleaseSweepDisabled) return
   try {
     const snap = await db
       .collectionGroup('tasks')
       .where('agentReleaseStatus', '==', 'scheduled')
       .where('agentStatus', '==', 'pending')
+      .limit(MAX_SCHEDULED_RELEASE_SWEEP_DOCS)
       .get()
 
     await Promise.all(snap.docs.map(async (doc) => {
@@ -451,8 +456,14 @@ async function releaseDueScheduledTasks(now = Date.now()): Promise<void> {
       })
     }))
   } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    if (message.includes('FAILED_PRECONDITION')) {
+      scheduledReleaseSweepDisabled = true
+      logger.error('scheduled backlog release sweep disabled until the tasks collection-group index exists', { error: message })
+      return
+    }
     logger.error('scheduled backlog release sweep failed', {
-      error: err instanceof Error ? err.message : String(err),
+      error: message,
     })
   }
 }
@@ -467,6 +478,7 @@ export async function sweepReadyPendingTasks(now = Date.now()): Promise<void> {
         .where('assigneeAgentId', 'in', chunk)
         .where('agentStatus', '==', 'pending')
         .where('columnId', '==', 'todo')
+        .limit(MAX_READY_SWEEP_DOCS)
         .get()
 
       snap.docs.forEach((doc) => {

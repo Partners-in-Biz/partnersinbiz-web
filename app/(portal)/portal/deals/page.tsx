@@ -14,6 +14,7 @@ import { DealDrawer } from '@/components/crm/DealDrawer'
 import { DealDetailDrawer } from '@/components/crm/DealDetailDrawer'
 import { EmptyState, PageHeader, PageTabs } from '@/components/ui/AppFoundation'
 import type { Contact, Deal, Currency } from '@/lib/crm/types'
+import { scopedApiPath, scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 import { extractPipelinesList } from '@/lib/pipelines/response'
 import type { Pipeline, PipelineStage } from '@/lib/pipelines/types'
 
@@ -106,6 +107,123 @@ function PipelineSummary({ deals, stages }: PipelineSummaryProps) {
         </div>
       ))}
     </div>
+  )
+}
+
+function PipelineLaunchCommandCenter({
+  onCreateDeal,
+  needsSetupReview = false,
+}: {
+  onCreateDeal: () => void
+  needsSetupReview?: boolean
+}) {
+  const launchSteps = [
+    {
+      icon: 'add_circle',
+      label: 'First opportunity',
+      body: 'Add the first deal with owner, value, stage, and close-date context.',
+    },
+    {
+      icon: 'query_stats',
+      label: 'Forecast baseline',
+      body: 'Give leadership a weighted pipeline, not a blank board with hidden setup work.',
+    },
+    {
+      icon: 'groups',
+      label: 'Team handoff',
+      body: 'Attach the buyer and owner so every employee can see who drives the next move.',
+    },
+  ]
+
+  return (
+    <section className="bento-card overflow-hidden !p-0">
+      <div className="grid gap-0 lg:grid-cols-[1.1fr_0.9fr]">
+        <div className="p-6 sm:p-7">
+          <p className="eyebrow !text-[10px]">Revenue workspace</p>
+          <h2 className="mt-2 font-display text-2xl text-[var(--color-pib-text)]">Launch this pipeline</h2>
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--color-pib-text-muted)]">
+            {needsSetupReview
+              ? 'This pipeline needs setup review before the team treats it as board-ready. Review the revenue path, then create the first deal with a buyer, owner, value, stage, and forecast date.'
+              : 'This board is ready, but there are no opportunities in it yet. Create the first deal so the pipeline has a buyer, owner, value, stage, and forecast date from the start.'}
+          </p>
+          <div className="mt-6 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={onCreateDeal}
+              className="btn-pib-accent inline-flex items-center gap-2"
+              aria-label="Create first deal for this pipeline"
+            >
+              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
+              Create first deal
+            </button>
+            <button
+              type="button"
+              onClick={onCreateDeal}
+              className="btn-pib-secondary inline-flex items-center gap-2"
+              aria-label="Open deal setup for forecast baseline"
+            >
+              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">trending_up</span>
+              Build forecast baseline
+            </button>
+          </div>
+        </div>
+        <div className="border-t border-[var(--color-pib-line)] bg-white/[0.02] p-4 lg:border-l lg:border-t-0">
+          <div className="grid gap-3">
+            {launchSteps.map((step) => (
+              <div key={step.label} className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-bg)]/35 p-4">
+                <div className="flex gap-3">
+                  <span className="material-symbols-outlined mt-0.5 text-[20px] text-[var(--color-pib-accent)]" aria-hidden="true">
+                    {step.icon}
+                  </span>
+                  <div>
+                    <p className="text-sm font-semibold text-[var(--color-pib-text)]">{step.label}</p>
+                    <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">{step.body}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function isPipelineSetupArtifact(pipeline?: Pipeline): boolean {
+  const name = pipeline?.name?.trim().toLowerCase() ?? ''
+  if (!name) return false
+  return /\b(smoke|test|delete)\b/.test(name)
+}
+
+function PipelineSetupReviewCard({ pipeline, settingsHref }: { pipeline: Pipeline; settingsHref: string }) {
+  return (
+    <section
+      role="region"
+      aria-label={`Pipeline setup review for ${pipeline.name}`}
+      className="rounded-[var(--radius-card)] border border-amber-500/25 bg-amber-500/[0.07] p-5"
+    >
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div className="flex gap-3">
+          <span className="material-symbols-outlined mt-0.5 text-amber-200" aria-hidden="true">rule_settings</span>
+          <div>
+            <p className="eyebrow !text-[10px] text-amber-200">Pipeline hygiene</p>
+            <h2 className="mt-1 font-display text-xl text-[var(--color-pib-text)]">Pipeline setup needs review</h2>
+            <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">
+              <span className="font-medium text-[var(--color-pib-text)]">{pipeline.name}</span> looks like smoke-test pipeline data.
+              Review pipeline settings before the team treats this as a board-ready revenue path.
+            </p>
+          </div>
+        </div>
+        <Link
+          href={settingsHref}
+          className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5 text-sm"
+          aria-label={`Review pipeline settings for ${pipeline.name}`}
+        >
+          <span className="material-symbols-outlined text-base" aria-hidden="true">settings</span>
+          Review settings
+        </Link>
+      </div>
+    </section>
   )
 }
 
@@ -246,6 +364,9 @@ function ProbabilityInput({ deal, onUpdate }: { deal: Deal; onUpdate: (id: strin
 
 export default function DealsPage() {
   const searchParams = useSearchParams()
+  const routeScope = useMemo(() => scopeFromSearchParams(searchParams), [searchParams])
+  const dealApiPath = useCallback((path: string) => scopedApiPath(path, routeScope), [routeScope])
+  const dealPortalPath = useCallback((path: string) => scopedPortalPath(path, routeScope), [routeScope])
   const requestedPipelineId = searchParams.get('pipelineId') ?? undefined
   const requestedStageId = searchParams.get('stage') ?? undefined
   const shouldOpenCreateDrawer = searchParams.get('create') === 'deal'
@@ -284,7 +405,7 @@ export default function DealsPage() {
   // Fetch pipelines once on mount
   useEffect(() => {
     let cancelled = false
-    fetch('/api/v1/crm/pipelines')
+    fetch(dealApiPath('/api/v1/crm/pipelines'))
       .then(r => readApiJson(r, 'Failed to load pipelines'))
       .then(body => {
         if (cancelled) return
@@ -307,11 +428,11 @@ export default function DealsPage() {
         setPipelinesLoading(false)
       })
     return () => { cancelled = true }
-  }, [requestedPipelineId])
+  }, [dealApiPath, requestedPipelineId])
 
   useEffect(() => {
     let cancelled = false
-    fetch('/api/v1/portal/settings/team')
+    fetch(dealApiPath('/api/v1/portal/settings/team'))
       .then((res) => res.ok ? res.json() : null)
       .then((body) => {
         if (cancelled) return
@@ -322,11 +443,11 @@ export default function DealsPage() {
         if (!cancelled) setTeamMembers([])
       })
     return () => { cancelled = true }
-  }, [])
+  }, [dealApiPath])
 
   useEffect(() => {
     let cancelled = false
-    fetch('/api/v1/crm/contacts?limit=200')
+    fetch(dealApiPath('/api/v1/crm/contacts?limit=200'))
       .then(r => readApiJson(r, 'Failed to load contacts'))
       .then(body => {
         if (cancelled) return
@@ -339,13 +460,13 @@ export default function DealsPage() {
         setContactsLoading(false)
       })
     return () => { cancelled = true }
-  }, [])
+  }, [dealApiPath])
 
   // Fetch deals whenever selected pipeline changes
   useEffect(() => {
     if (!selectedPipelineId) return
     let cancelled = false
-    fetch(`/api/v1/crm/deals?pipelineId=${encodeURIComponent(selectedPipelineId)}&limit=200`)
+    fetch(dealApiPath(`/api/v1/crm/deals?pipelineId=${encodeURIComponent(selectedPipelineId)}&limit=200`))
       .then(r => readApiJson(r, 'Failed to load deals'))
       .then(body => {
         if (cancelled) return
@@ -362,9 +483,10 @@ export default function DealsPage() {
         setLoading(false)
       })
     return () => { cancelled = true }
-  }, [requestedStageId, selectedPipelineId])
+  }, [dealApiPath, requestedStageId, selectedPipelineId])
 
   const selectedPipeline = pipelines.find(p => p.id === selectedPipelineId)
+  const selectedPipelineNeedsReview = isPipelineSetupArtifact(selectedPipeline)
   const stages = useMemo<PipelineStage[]>(
     () => selectedPipeline ? [...selectedPipeline.stages].sort((a, b) => a.order - b.order) : [],
     [selectedPipeline],
@@ -380,7 +502,7 @@ export default function DealsPage() {
 
   const handleStageChange = useCallback(async (dealId: string, newStageId: string) => {
     // Optimistic update happens inside DealKanban; we just fire the PATCH
-    const res = await fetch(`/api/v1/crm/deals/${dealId}`, {
+    const res = await fetch(dealApiPath(`/api/v1/crm/deals/${dealId}`), {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ stageId: newStageId }),
@@ -391,7 +513,7 @@ export default function DealsPage() {
     }
     // Sync local list so list-view stays consistent
     setDeals(prev => prev.map(d => d.id === dealId ? { ...d, stageId: newStageId } : d))
-  }, [])
+  }, [dealApiPath])
 
   const handlePipelineChange = useCallback((id: string) => {
     setLoading(true)
@@ -407,19 +529,19 @@ export default function DealsPage() {
     setViewingDeal(null)
     if (selectedPipelineId) {
       setLoading(true)
-      fetch(`/api/v1/crm/deals?pipelineId=${encodeURIComponent(selectedPipelineId)}&limit=200`)
+      fetch(dealApiPath(`/api/v1/crm/deals?pipelineId=${encodeURIComponent(selectedPipelineId)}&limit=200`))
         .then(r => readApiJson(r, 'Failed to load deals'))
         .then(body => { if (body.success) setDeals(body.data ?? []) })
         .catch(() => {})
         .finally(() => setLoading(false))
     }
-  }, [selectedPipelineId])
+  }, [dealApiPath, selectedPipelineId])
 
   function retryDealsLoad() {
     if (!selectedPipelineId) return
     setLoading(true)
     setError(null)
-    fetch(`/api/v1/crm/deals?pipelineId=${encodeURIComponent(selectedPipelineId)}&limit=200`)
+    fetch(dealApiPath(`/api/v1/crm/deals?pipelineId=${encodeURIComponent(selectedPipelineId)}&limit=200`))
       .then(r => readApiJson(r, 'Failed to load deals'))
       .then(body => {
         if (!body.success) throw new Error(body.error ?? 'Failed to load deals')
@@ -437,12 +559,12 @@ export default function DealsPage() {
     // Optimistic update
     setDeals(prev => prev.map(d => d.id === dealId ? { ...d, probability } : d))
     // Persist best-effort
-    await fetch(`/api/v1/crm/deals/${dealId}`, {
+    await fetch(dealApiPath(`/api/v1/crm/deals/${dealId}`), {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ probability }),
     }).catch(() => {})
-  }, [])
+  }, [dealApiPath])
 
   const filteredDeals = useMemo(() => {
     const query = search.trim().toLowerCase()
@@ -513,6 +635,16 @@ export default function DealsPage() {
     }
   }
 
+  function selectUnassignedDealsForAssignment() {
+    const ids = unassignedDeals.map((deal) => deal.id)
+    if (!ids.length) return
+    setSelectedDealIds(new Set(ids))
+    setBulkOwnerUid('')
+    setBulkOwnerError('')
+    setOwnerLens('unassigned')
+    setViewMode('list')
+  }
+
   async function assignSelectedDealOwner() {
     const ownerUid = bulkOwnerUid.trim()
     if (!ownerUid || selectedDealIds.size === 0) return
@@ -523,7 +655,7 @@ export default function DealsPage() {
     try {
       const ids = Array.from(selectedDealIds)
       await Promise.all(ids.map(async (dealId) => {
-        const res = await fetch(`/api/v1/crm/deals/${dealId}`, {
+        const res = await fetch(dealApiPath(`/api/v1/crm/deals/${dealId}`), {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ ownerUid }),
@@ -625,6 +757,10 @@ export default function DealsPage() {
       {/* Summary strip */}
       {isReady && !error && <PipelineSummary deals={deals} stages={stages} />}
 
+      {isReady && !error && selectedPipeline && selectedPipelineNeedsReview && (
+        <PipelineSetupReviewCard pipeline={selectedPipeline} settingsHref={dealPortalPath('/portal/settings/pipelines')} />
+      )}
+
       {isReady && !error && (
         <section className="grid gap-3 md:grid-cols-[220px_1fr_1fr]">
           <div className="pib-card px-4 py-3">
@@ -664,6 +800,24 @@ export default function DealsPage() {
             <p className="mt-1 text-xs leading-relaxed text-[var(--color-pib-text-muted)]">
               Use owner coverage with the forecast and stage lenses so open revenue always has a named person behind it.
             </p>
+            <button
+              type="button"
+              onClick={selectUnassignedDealsForAssignment}
+              disabled={unassignedDeals.length === 0}
+              className="btn-pib-secondary mt-4 w-full justify-center text-xs disabled:cursor-not-allowed disabled:opacity-50"
+              aria-label={
+                unassignedDeals.length === 0
+                  ? 'No unassigned deals to select for owner assignment'
+                  : unassignedDeals.length === 1
+                  ? 'Select 1 unassigned deal for owner assignment'
+                  : `Select ${unassignedDeals.length} unassigned deals for owner assignment`
+              }
+            >
+              <span className="material-symbols-outlined text-[14px]" aria-hidden="true">playlist_add_check</span>
+              {unassignedDeals.length > 0
+                ? `Select ${unassignedDeals.length} owner gap${unassignedDeals.length === 1 ? '' : 's'}`
+                : 'No owner gaps'}
+            </button>
           </div>
         </section>
       )}
@@ -784,22 +938,13 @@ export default function DealsPage() {
             loading
             onStageChange={handleStageChange}
             contactLabelsById={contactLabelsById}
+            contactHrefForDeal={(deal) => dealPortalPath(`/portal/contacts/${deal.contactId}`)}
+            companyHrefForDeal={(deal) => dealPortalPath(`/portal/companies/${deal.companyId}`)}
           />
         ) : filteredDeals.length === 0 && stageFilter === 'all' ? (
-          <EmptyState
-            icon="monetization_on"
-            title="No deals yet."
-            description="Deals you create will appear here as a kanban pipeline."
-            action={(
-              <button
-                onClick={() => setShowCreateDrawer(true)}
-                className="btn-pib-accent inline-flex items-center gap-2"
-                aria-label="New deal"
-              >
-                <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
-                New deal
-              </button>
-            )}
+          <PipelineLaunchCommandCenter
+            onCreateDeal={() => setShowCreateDrawer(true)}
+            needsSetupReview={selectedPipelineNeedsReview}
           />
         ) : (
           <DealKanban
@@ -807,6 +952,9 @@ export default function DealsPage() {
             stages={stages}
             onStageChange={handleStageChange}
             contactLabelsById={contactLabelsById}
+            onEditDeal={deal => setEditingDeal(deal)}
+            contactHrefForDeal={(deal) => dealPortalPath(`/portal/contacts/${deal.contactId}`)}
+            companyHrefForDeal={(deal) => dealPortalPath(`/portal/companies/${deal.companyId}`)}
           />
         )
       )}
@@ -912,7 +1060,7 @@ export default function DealsPage() {
                       </td>
                       <td className="px-4 py-3 font-medium text-on-surface">
                         <Link
-                          href={`/portal/deals/${deal.id}`}
+                          href={dealPortalPath(`/portal/deals/${deal.id}`)}
                           className="hover:text-[var(--color-pib-accent)] transition-colors font-medium"
                           onClick={e => e.stopPropagation()}
                         >
@@ -987,7 +1135,7 @@ export default function DealsPage() {
                       <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
                         {deal.contactId ? (
                           <a
-                            href={`/portal/contacts/${deal.contactId}`}
+                            href={dealPortalPath(`/portal/contacts/${deal.contactId}`)}
                             className="text-xs text-[var(--color-accent-v2)] hover:underline"
                           >
                             {contactLabel || 'Contact identity missing'}
@@ -1086,7 +1234,7 @@ export default function DealsPage() {
                       >
                         <td className="px-4 py-3 font-medium">
                           <Link
-                            href={`/portal/deals/${deal.id}`}
+                            href={dealPortalPath(`/portal/deals/${deal.id}`)}
                             className="hover:text-[var(--color-pib-accent)] transition-colors"
                           >
                             {dealTitle}
@@ -1126,7 +1274,7 @@ export default function DealsPage() {
           defaultPipelineId={selectedPipelineId}
           onSaved={handleDealSaved}
           onClose={() => setShowCreateDrawer(false)}
-          orgId={''}
+          orgId={routeScope.orgId ?? ''}
         />
       )}
 
@@ -1137,7 +1285,7 @@ export default function DealsPage() {
           defaultContactLabel={contactLabelsById[editingDeal.contactId]}
           onSaved={handleDealSaved}
           onClose={() => setEditingDeal(null)}
-          orgId={''}
+          orgId={editingDeal.orgId ?? routeScope.orgId ?? ''}
         />
       )}
 
@@ -1146,8 +1294,10 @@ export default function DealsPage() {
         <DealDetailDrawer
           deal={viewingDeal}
           stages={stages}
-          orgId={''}
+          orgId={viewingDeal.orgId ?? routeScope.orgId ?? ''}
           contactLabel={contactLabelsById[viewingDeal.contactId]}
+          contactHrefForDeal={(deal) => dealPortalPath(`/portal/contacts/${deal.contactId}`)}
+          companyHrefForDeal={(deal) => dealPortalPath(`/portal/companies/${deal.companyId}`)}
           onClose={() => setViewingDeal(null)}
           onEdit={() => { setEditingDeal(viewingDeal); setViewingDeal(null) }}
         />

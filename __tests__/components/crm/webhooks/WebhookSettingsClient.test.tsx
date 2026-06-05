@@ -210,4 +210,70 @@ describe('WebhookSettingsClient', () => {
 
     confirmSpy.mockRestore()
   })
+
+  it('names sparse webhook subscriptions across row actions and confirmations', async () => {
+    const webhook = {
+      id: 'webhook-sparse',
+      name: '',
+      url: 'https://warehouse.example.com/pib',
+      events: ['contact.created'],
+      active: true,
+      failureCount: 0,
+    }
+
+    global.fetch = jest.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/v1/portal/active-org') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ orgId: 'org-webhooks' }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/webhooks?limit=100&orgId=org-webhooks') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { items: [webhook] } }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/webhooks/webhook-sparse/rotate-secret' && init?.method === 'POST') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { secretOnce: 'whsec_rotated_secret' } }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/webhooks/webhook-sparse' && init?.method === 'DELETE') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { ok: true } }),
+        } as Response)
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    }) as jest.Mock
+
+    render(<WebhookSettingsClient />)
+
+    expect(await screen.findByText('Webhook subscription name missing')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Test webhook subscription Webhook subscription name missing' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Disable webhook subscription Webhook subscription name missing' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Edit webhook subscription Webhook subscription name missing' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Rotate webhook signing secret Webhook subscription name missing' }))
+
+    expect(screen.getByRole('alertdialog', { name: 'Rotate signing secret for "Webhook subscription name missing"?' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Cancel rotate webhook signing secret Webhook subscription name missing' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Confirm rotate webhook signing secret Webhook subscription name missing' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel rotate webhook signing secret Webhook subscription name missing' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Delete webhook subscription Webhook subscription name missing' }))
+
+    expect(screen.getByRole('alertdialog', { name: 'Delete webhook subscription "Webhook subscription name missing"?' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Cancel delete webhook subscription Webhook subscription name missing' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Confirm delete webhook subscription Webhook subscription name missing' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm delete webhook subscription Webhook subscription name missing' }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/webhooks/webhook-sparse', { method: 'DELETE' })
+    })
+  })
 })

@@ -1,6 +1,8 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import ScoringPage from '@/app/(portal)/portal/settings/scoring/page'
 
+let mockSearchParams = new URLSearchParams()
+
 jest.mock('@/components/crm/IcpProfileEditor', () => ({
   IcpProfileEditor: () => <div>ICP editor ready</div>,
 }))
@@ -9,9 +11,14 @@ jest.mock('@/components/crm/LeadWeightsEditor', () => ({
   LeadWeightsEditor: () => <div>Lead weights editor ready</div>,
 }))
 
+jest.mock('next/navigation', () => ({
+  useSearchParams: () => mockSearchParams,
+}))
+
 describe('Portal settings scoring page', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    mockSearchParams = new URLSearchParams()
     global.fetch = jest.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
       if (url === '/api/v1/crm/scoring/config') {
@@ -44,6 +51,77 @@ describe('Portal settings scoring page', () => {
     jest.restoreAllMocks()
   })
 
+  it('preserves company workspace scope across scoring config load, save, and recompute', async () => {
+    mockSearchParams = new URLSearchParams({
+      orgId: 'org-1',
+      orgSlug: 'lumen-speeds',
+      sourceCompanyId: 'company-1',
+      sourceCompanyName: 'Lumen',
+    })
+
+    const fetchMock = jest.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/scoring/config?orgId=org-1' && !init?.method) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: {
+              config: {
+                orgId: 'org-1',
+                icp: {},
+                leadWeights: {},
+                aiEnabled: false,
+                aiCacheHours: 24,
+              },
+            },
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/scoring/config?orgId=org-1' && init?.method === 'PUT') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: {
+              config: {
+                orgId: 'org-1',
+                icp: {},
+                leadWeights: {},
+                aiEnabled: false,
+                aiCacheHours: 24,
+              },
+            },
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/scoring/recompute-all?orgId=org-1' && init?.method === 'POST') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { processed: 12, succeeded: 11, failed: 1 } }),
+        } as Response)
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    })
+    global.fetch = fetchMock as jest.Mock
+
+    render(<ScoringPage />)
+
+    expect(await screen.findByText('Model setup priorities')).toBeInTheDocument()
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/crm/scoring/config?orgId=org-1')
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save model' }))
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/crm/scoring/config?orgId=org-1', expect.objectContaining({ method: 'PUT' }))
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /Recompute all/i }))
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm recompute all contact scores' }))
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/crm/scoring/recompute-all?orgId=org-1', { method: 'POST' })
+    })
+  })
+
   it('warns when scoring config fails to load and gives leaders a retry path', async () => {
     global.fetch = jest.fn((input: RequestInfo | URL) => {
       const url = String(input)
@@ -61,6 +139,8 @@ describe('Portal settings scoring page', () => {
     expect(await screen.findByRole('heading', { name: 'Scoring model could not load' })).toBeInTheDocument()
     expect(screen.getByText('Scoring config unavailable')).toBeInTheDocument()
     expect(screen.queryByText('Scoring health')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Save model' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Recompute all' })).toBeDisabled()
 
     fireEvent.click(screen.getByRole('button', { name: 'Retry loading scoring model' }))
 

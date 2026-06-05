@@ -30,4 +30,47 @@ describe('ProductPicker', () => {
     const catalogLink = screen.getByRole('link', { name: 'Open product catalog to create quote-ready products' })
     expect(catalogLink).toHaveAttribute('href', '/portal/settings/products')
   })
+
+  it('names sparse catalog products before quote selection', async () => {
+    const onSelect = jest.fn()
+    global.fetch = jest.fn(() => Promise.resolve({
+      ok: true,
+      json: async () => ({
+        success: true,
+        data: {
+          products: [
+            {
+              id: 'product-sparse',
+              orgId: 'org-1',
+              name: '',
+              description: '',
+              currency: 'ZAR',
+              unitPrice: 1500,
+              unit: '',
+              active: true,
+              createdAt: null,
+              updatedAt: null,
+            },
+          ],
+        },
+      }),
+    } as Response))
+
+    render(<ProductPicker orgId="org-1" onSelect={onSelect} />)
+
+    const input = await screen.findByRole('textbox')
+    await waitFor(() => expect(input).not.toBeDisabled())
+
+    fireEvent.focus(input)
+
+    expect(await screen.findByRole('option', { name: /Product name missing/ })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Select product Product name missing' }))
+
+    expect(input).toHaveValue('Product name missing')
+    expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({
+      id: 'product-sparse',
+      name: 'Product name missing',
+    }))
+  })
 })

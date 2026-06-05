@@ -42,12 +42,16 @@ function getCustomerId(conn: AdConnection | undefined): string | undefined {
 
 export function GoogleConnectionsPanel({ orgSlug, orgId, connections }: Props) {
   const router = useRouter()
-  const google = connections.find((c) => c.platform === 'google')
+  const [googleDisconnected, setGoogleDisconnected] = useState(false)
+  const google = googleDisconnected ? undefined : connections.find((c) => c.platform === 'google')
   const loginCustomerId = getLoginCustomerId(google)
   const customerId = getCustomerId(google)
 
   const [connecting, setConnecting] = useState(false)
   const [disconnecting, setDisconnecting] = useState(false)
+  const [confirmDisconnect, setConfirmDisconnect] = useState(false)
+  const [actionError, setActionError] = useState<string | null>(null)
+  const [message, setMessage] = useState<string | null>(null)
   const [customers, setCustomers] = useState<CustomerSummary[]>([])
   const [customersLoading, setCustomersLoading] = useState(false)
   const [customersError, setCustomersError] = useState<string | null>(null)
@@ -92,6 +96,8 @@ export function GoogleConnectionsPanel({ orgSlug, orgId, connections }: Props) {
 
   async function startConnect() {
     setConnecting(true)
+    setActionError(null)
+    setMessage(null)
     try {
       const res = await fetch('/api/v1/ads/google/oauth/authorize', {
         method: 'POST',
@@ -102,13 +108,15 @@ export function GoogleConnectionsPanel({ orgSlug, orgId, connections }: Props) {
       window.location.href = body.data.authorizeUrl
     } catch (err) {
       setConnecting(false)
-      alert((err as Error).message)
+      setActionError((err as Error).message)
     }
   }
 
   async function saveCustomerId() {
     if (!google || !selected) return
     setSaving(true)
+    setActionError(null)
+    setMessage(null)
     try {
       const res = await fetch(
         `/api/v1/ads/google/connections/${encodeURIComponent(google.id)}/customer`,
@@ -126,18 +134,26 @@ export function GoogleConnectionsPanel({ orgSlug, orgId, connections }: Props) {
       )
       const body = await res.json()
       if (!body.success) throw new Error(body.error ?? `HTTP ${res.status}`)
+      setMessage('Google Ads customer updated.')
       router.refresh()
     } catch (err) {
-      alert((err as Error).message)
+      setActionError((err as Error).message)
     } finally {
       setSaving(false)
     }
   }
 
+  function requestDisconnect() {
+    setActionError(null)
+    setMessage(null)
+    setConfirmDisconnect(true)
+  }
+
   async function disconnect() {
     if (!google) return
-    if (!confirm('Disconnect Google Ads? This revokes ad account access.')) return
     setDisconnecting(true)
+    setActionError(null)
+    setMessage(null)
     try {
       const res = await fetch('/api/v1/ads/connections/google', {
         method: 'DELETE',
@@ -145,9 +161,12 @@ export function GoogleConnectionsPanel({ orgSlug, orgId, connections }: Props) {
       })
       const body = await res.json()
       if (!body.success) throw new Error(body.error ?? `HTTP ${res.status}`)
+      setConfirmDisconnect(false)
+      setGoogleDisconnected(true)
+      setMessage('Google Ads disconnected.')
       router.refresh()
     } catch (err) {
-      alert((err as Error).message)
+      setActionError((err as Error).message)
     } finally {
       setDisconnecting(false)
     }
@@ -155,6 +174,54 @@ export function GoogleConnectionsPanel({ orgSlug, orgId, connections }: Props) {
 
   return (
     <div className="rounded-lg border border-white/10 p-5">
+      {confirmDisconnect && (
+        <div
+          role="alertdialog"
+          aria-modal="true"
+          aria-label={`Disconnect Google Ads connection for ${orgSlug}?`}
+          className="mb-4 rounded-lg border border-red-400/30 bg-red-400/10 p-4"
+        >
+          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+            <div>
+              <h2 className="font-semibold text-red-100">Disconnect Google Ads connection?</h2>
+              <p className="mt-1 text-sm text-red-100/80">
+                This revokes Google Ads account access for this workspace. Campaign history stays in PiB.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                className="rounded-md border border-red-100/30 px-3 py-2 text-xs font-medium text-red-50 hover:bg-red-50/10 disabled:cursor-not-allowed disabled:opacity-50"
+                onClick={() => setConfirmDisconnect(false)}
+                disabled={disconnecting}
+              >
+                Keep Google Ads connected
+              </button>
+              <button
+                type="button"
+                className="rounded-md bg-red-300 px-3 py-2 text-xs font-medium text-red-950 hover:bg-red-200 disabled:cursor-not-allowed disabled:opacity-60"
+                onClick={disconnect}
+                disabled={disconnecting}
+              >
+                {disconnecting ? 'Disconnecting...' : `Confirm disconnect Google Ads connection for ${orgSlug}`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {(message || actionError) && (
+        <div
+          className={`mb-4 rounded-lg border px-4 py-3 text-sm ${
+            actionError
+              ? 'border-red-400/30 bg-red-400/10 text-red-200'
+              : 'border-emerald-400/30 bg-emerald-400/10 text-emerald-200'
+          }`}
+        >
+          {actionError ?? message}
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <div>
           <h2 className="font-medium">Google Ads</h2>
@@ -169,7 +236,8 @@ export function GoogleConnectionsPanel({ orgSlug, orgId, connections }: Props) {
         {google ? (
           <button
             className="btn-pib-ghost text-sm"
-            onClick={disconnect}
+            aria-label={`Disconnect Google Ads connection for ${orgSlug}`}
+            onClick={requestDisconnect}
             disabled={disconnecting}
           >
             {disconnecting ? 'Disconnecting…' : 'Disconnect'}

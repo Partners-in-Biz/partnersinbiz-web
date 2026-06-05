@@ -175,6 +175,102 @@ describe('PortalCaptureSourcesPage', () => {
     confirmSpy.mockRestore()
   })
 
+  it('names sparse capture source rows and confirmations instead of exposing blank controls', async () => {
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/capture-sources') {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              data: [
+                {
+                  id: 'src-sparse',
+                  orgId: 'org-1',
+                  name: '',
+                  type: 'form',
+                  publicKey: 'pub-sparse',
+                  enabled: true,
+                  autoTags: [],
+                  autoCampaignIds: [],
+                  autoSequenceIds: [],
+                  redirectUrl: '',
+                  consentRequired: false,
+                  capturedCount: 0,
+                  lastCapturedAt: null,
+                  createdAt: null,
+                  updatedAt: null,
+                },
+              ],
+            }),
+        })
+      }
+      if (url === '/api/v1/crm/capture-sources/src-sparse' && init?.method === 'PUT') {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              data: {
+                id: 'src-sparse',
+                orgId: 'org-1',
+                name: '',
+                type: 'form',
+                publicKey: 'pub-sparse-rotated',
+                enabled: true,
+                autoTags: [],
+                autoCampaignIds: [],
+                autoSequenceIds: [],
+                redirectUrl: '',
+                consentRequired: false,
+                capturedCount: 0,
+                lastCapturedAt: null,
+                createdAt: null,
+                updatedAt: null,
+              },
+            }),
+        })
+      }
+      if (url === '/api/v1/crm/capture-sources/src-sparse' && init?.method === 'DELETE') {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ data: { ok: true } }),
+        })
+      }
+      if (url.startsWith('/api/v1/campaigns')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ data: [] }) })
+      }
+      if (url.startsWith('/api/v1/crm/sequences')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ data: { sequences: [] } }) })
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    })
+
+    render(<PortalCaptureSourcesPage />)
+
+    expect(await screen.findByText('Capture source name missing')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Details for Capture source name missing' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Rotate public key for Capture source name missing' }))
+
+    expect(screen.getByRole('alertdialog', { name: 'Rotate public key for "Capture source name missing"?' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Cancel key rotation for capture source Capture source name missing' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Confirm rotate public key for capture source Capture source name missing' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel key rotation for capture source Capture source name missing' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Delete capture source Capture source name missing' }))
+
+    expect(screen.getByRole('alertdialog', { name: 'Delete capture source "Capture source name missing"?' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Cancel delete for capture source Capture source name missing' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Confirm delete capture source Capture source name missing' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm delete capture source Capture source name missing' }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/capture-sources/src-sparse', { method: 'DELETE' })
+    })
+    expect(screen.queryByText('Capture source name missing')).not.toBeInTheDocument()
+  })
+
   it('turns an empty capture-source list into a first-channel setup action', async () => {
     fetchMock.mockImplementation((input: RequestInfo | URL) => {
       const url = String(input)

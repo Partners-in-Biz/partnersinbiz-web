@@ -176,6 +176,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
   const [submittingRevision, setSubmittingRevision] = useState(false)
   const [unblocking, setUnblocking] = useState(false)
   const [unblockError, setUnblockError] = useState<string | null>(null)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
   useEffect(() => {
     setEditing(false)
@@ -198,6 +199,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
     setAttachments(task?.attachments ?? [])
     setAttachmentError(null)
     setUnblockError(null)
+    setShowDeleteConfirm(false)
   }, [task?.id, task])
 
   // Fetch comments when task changes
@@ -278,7 +280,6 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
 
   async function handleDelete() {
     if (!task) return
-    if (!confirm('Delete this task?')) return
     await onDelete(task.id)
     onClose()
   }
@@ -607,7 +608,8 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={handleDelete}
+              aria-label={`Delete project task ${task.title}`}
+              onClick={() => setShowDeleteConfirm(true)}
               className="text-xs text-on-surface-variant hover:text-red-400 transition-colors font-label"
             >
               Delete
@@ -622,6 +624,38 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
             </button>
           </div>
         </div>
+
+        {showDeleteConfirm && (
+          <div className="border-b border-red-500/30 bg-red-500/10 px-6 py-4">
+            <div
+              role="alertdialog"
+              aria-modal="true"
+              aria-label={`Delete project task "${task.title}"?`}
+              className="rounded-[var(--radius-card)] border border-red-500/30 bg-[var(--color-sidebar)] p-4 shadow-sm"
+            >
+              <p className="text-sm font-label text-on-surface">Delete project task &quot;{task.title}&quot;?</p>
+              <p className="mt-2 text-xs leading-5 text-on-surface-variant">
+                This removes the task from the board for everyone. Comments, blockers, and assignments on this task will no longer be visible from the project workspace.
+              </p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  className="rounded-[var(--radius-btn)] bg-red-500 px-3 py-2 text-xs font-label text-white transition-colors hover:bg-red-400"
+                >
+                  Confirm delete project task {task.title}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className="pib-btn-secondary text-xs font-label"
+                >
+                  Keep task
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Content */}
         <div className="flex-1 px-6 py-5 space-y-5">

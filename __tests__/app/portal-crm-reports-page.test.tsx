@@ -1,5 +1,11 @@
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import CrmReportsPage from '@/app/(portal)/portal/reports/crm/page'
+
+let mockSearchParams = new URLSearchParams()
+
+jest.mock('next/navigation', () => ({
+  useSearchParams: () => mockSearchParams,
+}))
 
 jest.mock('next/link', () => ({
   __esModule: true,
@@ -18,8 +24,10 @@ function apiResponse(data: unknown) {
 describe('Portal CRM reports page', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    mockSearchParams = new URLSearchParams()
     global.fetch = jest.fn((url: RequestInfo | URL) => {
-      const path = String(url)
+      const rawPath = String(url)
+      const path = rawPath.split('?')[0]
       if (path === '/api/v1/crm/reports/funnel') {
         return apiResponse({
           byType: { lead: 3, prospect: 2, client: 1, churned: 0, other: 0 },
@@ -72,7 +80,7 @@ describe('Portal CRM reports page', () => {
           },
         })
       }
-      if (path === '/api/v1/crm/reports/activity-summary?days=30') {
+      if (path === '/api/v1/crm/reports/activity-summary' && rawPath.includes('days=30')) {
         return apiResponse({
           byType: { call: 3, email: 4 },
           total: 7,
@@ -83,6 +91,37 @@ describe('Portal CRM reports page', () => {
       }
       return Promise.reject(new Error(`Unexpected fetch: ${path}`))
     })
+  })
+
+  it('preserves CRM company workspace scope across report data loads and drilldown links', async () => {
+    mockSearchParams = new URLSearchParams({
+      orgId: 'org-1',
+      orgSlug: 'lumen-speeds',
+      sourceCompanyId: 'company-1',
+      sourceCompanyName: 'Lumen',
+    })
+
+    render(<CrmReportsPage />)
+
+    expect(await screen.findByText('Executive signal')).toBeInTheDocument()
+
+    expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/reports/funnel?orgId=org-1')
+    expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/reports/forecast?orgId=org-1')
+    expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/reports/pipeline-velocity?orgId=org-1')
+    expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/reports/rep-performance?orgId=org-1')
+    expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/reports/activity-summary?days=30&orgId=org-1')
+
+    const scope = 'orgId=org-1&orgSlug=lumen-speeds&sourceCompanyId=company-1&sourceCompanyName=Lumen'
+    expect(screen.getByRole('link', { name: 'Open unowned contacts from team execution report' }))
+      .toHaveAttribute('href', `/portal/contacts?owner=unowned&${scope}`)
+    expect(screen.getByRole('link', { name: 'Open forecast deals missing close dates' }))
+      .toHaveAttribute('href', `/portal/deals?view=forecast&focus=no-close-date&${scope}`)
+    expect(screen.getByRole('link', { name: 'Open no close date forecast deals' }))
+      .toHaveAttribute('href', `/portal/deals?view=forecast&focus=no-close-date&${scope}`)
+    expect(screen.getByRole('link', { name: 'Open contacts in dominant New stage' }))
+      .toHaveAttribute('href', `/portal/contacts?stage=new&${scope}`)
+    expect(screen.getByRole('link', { name: 'Open Mandy Manager deals from rep performance report' }))
+      .toHaveAttribute('href', `/portal/deals?view=list&owner=u1&${scope}`)
   })
 
   it('renders contact owner coverage as an executive accountability signal', async () => {
@@ -99,6 +138,12 @@ describe('Portal CRM reports page', () => {
 
     const ownerGapLink = screen.getByRole('link', { name: 'Open unowned contacts from team execution report' })
     expect(ownerGapLink).toHaveAttribute('href', '/portal/contacts?owner=unowned')
+
+    const ownerCoverageSummaryLink = screen.getByRole('link', { name: 'Open unowned contacts from ownership contact coverage summary' })
+    expect(ownerCoverageSummaryLink).toHaveAttribute('href', '/portal/contacts?owner=unowned')
+
+    const unownedSummaryLink = screen.getByRole('link', { name: 'Open 2 unowned contacts from ownership summary' })
+    expect(unownedSummaryLink).toHaveAttribute('href', '/portal/contacts?owner=unowned')
 
     const closeDateLink = screen.getByRole('link', { name: 'Open forecast deals missing close dates' })
     expect(closeDateLink).toHaveAttribute('href', '/portal/deals?view=forecast&focus=no-close-date')
@@ -161,6 +206,68 @@ describe('Portal CRM reports page', () => {
     expect(reloadLink).toHaveAttribute('href', '/portal/reports/crm')
   })
 
+  it('times out a stalled CRM report source and still renders partial executive analytics', async () => {
+    jest.useFakeTimers()
+    ;(global.fetch as jest.Mock).mockImplementation((url: RequestInfo | URL) => {
+      const path = String(url)
+      if (path === '/api/v1/crm/reports/funnel') {
+        return apiResponse({
+          byType: { lead: 3, prospect: 2, client: 1, churned: 0, other: 0 },
+          byStage: { new: 3, contacted: 2, qualified: 1 },
+          total: 6,
+        })
+      }
+      if (path === '/api/v1/crm/reports/forecast') {
+        return apiResponse({
+          periods: {
+            thisMonth: { dealCount: 1, totalValue: 10000, weightedValue: 5000 },
+            nextMonth: { dealCount: 0, totalValue: 0, weightedValue: 0 },
+            thisQuarter: { dealCount: 1, totalValue: 10000, weightedValue: 5000 },
+            nextQuarter: { dealCount: 0, totalValue: 0, weightedValue: 0 },
+            beyond: { dealCount: 0, totalValue: 0, weightedValue: 0 },
+            noDate: { dealCount: 0, totalValue: 0, weightedValue: 0 },
+          },
+          summary: { totalOpenDeals: 1, totalValue: 10000, weightedValue: 5000 },
+        })
+      }
+      if (path === '/api/v1/crm/reports/pipeline-velocity') {
+        return new Promise(() => undefined)
+      }
+      if (path === '/api/v1/crm/reports/rep-performance') {
+        return apiResponse({
+          reps: [],
+          summary: {
+            repCount: 0,
+            totalWonValue: 0,
+            totalOpenValue: 0,
+            totalActivities: 0,
+            totalContacts: 6,
+            unassignedContacts: 0,
+            contactOwnerCoverage: 1,
+          },
+        })
+      }
+      if (path === '/api/v1/crm/reports/activity-summary?days=30') {
+        return apiResponse({ byType: { call: 1 }, total: 1, perDay: [{ date: '2026-05-29', count: 1 }], since: '2026-04-29', days: 30 })
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${path}`))
+    })
+
+    render(<CrmReportsPage />)
+
+    await act(async () => {
+      jest.advanceTimersByTime(8000)
+    })
+
+    expect(await screen.findByRole('heading', { name: 'CRM report data needs attention' })).toBeInTheDocument()
+    expect(screen.getByText('Pipeline velocity report failed to load. Current analytics may be incomplete.')).toBeInTheDocument()
+    expect(screen.getByText('Executive signal')).toBeInTheDocument()
+    const metrics = screen.getByRole('group', { name: 'Executive CRM signal metrics' })
+    expect(within(metrics).getByText('Open pipeline')).toBeInTheDocument()
+
+    jest.useRealTimers()
+  })
+
   it('renders zero-value forecast periods as explicit forecast values instead of bare placeholders', async () => {
     render(<CrmReportsPage />)
 
@@ -187,6 +294,66 @@ describe('Portal CRM reports page', () => {
     expect(screen.getByRole('button', { name: 'Show CRM activity for last 60 days' })).toHaveAttribute('aria-pressed', 'false')
     expect(screen.getByRole('button', { name: 'Show CRM activity for last 90 days' })).toHaveAttribute('aria-pressed', 'false')
     expect(screen.queryByRole('button', { name: '30' })).not.toBeInTheDocument()
+  })
+
+  it('renders activity type keys as readable report labels', async () => {
+    ;(global.fetch as jest.Mock).mockImplementation((url: RequestInfo | URL) => {
+      const path = String(url)
+      if (path === '/api/v1/crm/reports/funnel') {
+        return apiResponse({
+          byType: { lead: 3, prospect: 2, client: 1, churned: 0, other: 0 },
+          byStage: { new: 3, contacted: 2, qualified: 1 },
+          total: 6,
+        })
+      }
+      if (path === '/api/v1/crm/reports/forecast') {
+        return apiResponse({
+          periods: {
+            thisMonth: { dealCount: 0, totalValue: 0, weightedValue: 0 },
+            nextMonth: { dealCount: 0, totalValue: 0, weightedValue: 0 },
+            thisQuarter: { dealCount: 0, totalValue: 0, weightedValue: 0 },
+            nextQuarter: { dealCount: 0, totalValue: 0, weightedValue: 0 },
+            beyond: { dealCount: 0, totalValue: 0, weightedValue: 0 },
+            noDate: { dealCount: 0, totalValue: 0, weightedValue: 0 },
+          },
+          summary: { totalOpenDeals: 0, totalValue: 0, weightedValue: 0 },
+        })
+      }
+      if (path === '/api/v1/crm/reports/pipeline-velocity') {
+        return apiResponse({ stages: [], summary: { stageCount: 0, bottleneckCount: 0, slowestStage: null } })
+      }
+      if (path === '/api/v1/crm/reports/rep-performance') {
+        return apiResponse({
+          reps: [],
+          summary: {
+            repCount: 0,
+            totalWonValue: 0,
+            totalOpenValue: 0,
+            totalActivities: 8,
+            totalContacts: 6,
+            unassignedContacts: 0,
+            contactOwnerCoverage: 1,
+          },
+        })
+      }
+      if (path === '/api/v1/crm/reports/activity-summary?days=30') {
+        return apiResponse({
+          byType: { email_sent: 5, meeting_scheduled: 3 },
+          total: 8,
+          perDay: [{ date: '2026-05-29', count: 8 }],
+          since: '2026-04-29',
+          days: 30,
+        })
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${path}`))
+    })
+
+    render(<CrmReportsPage />)
+
+    expect(await screen.findByText('Email sent')).toBeInTheDocument()
+    expect(screen.getByText('Meeting scheduled')).toBeInTheDocument()
+    expect(screen.queryByText('Email_sent')).not.toBeInTheDocument()
+    expect(screen.queryByText('Meeting_scheduled')).not.toBeInTheDocument()
   })
 
   it('turns unassigned deal ownership into a direct deal owner lens', async () => {

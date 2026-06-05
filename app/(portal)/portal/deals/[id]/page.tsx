@@ -1,14 +1,15 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { fmtTimestamp } from '@/components/admin/email/fmtTimestamp'
 import { DealDrawer } from '@/components/crm/DealDrawer'
 import { lineItemDisplayTotal, lineItemsDisplayTotal } from '@/components/crm/dealFinancials'
 import type { MemberRef } from '@/lib/orgMembers/memberRef'
 import type { Deal } from '@/lib/crm/types'
+import { scopedApiPath, scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 
 interface DealRecord {
   id?: string
@@ -229,6 +230,10 @@ function activityTimeLabel(activity: ActivityRecord): string {
 export default function DealDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const routeScope = useMemo(() => scopeFromSearchParams(searchParams), [searchParams])
+  const dealApiPath = useCallback((path: string) => scopedApiPath(path, routeScope), [routeScope])
+  const dealListHref = scopedPortalPath('/portal/deals', routeScope)
   const probabilityInputRef = useRef<HTMLInputElement | null>(null)
   const closeDateInputRef = useRef<HTMLInputElement | null>(null)
   const ownerSelectRef = useRef<HTMLSelectElement | null>(null)
@@ -272,7 +277,7 @@ export default function DealDetailPage() {
     setContactLoading(false)
 
     try {
-      const res = await fetch(`/api/v1/crm/deals/${id}`)
+      const res = await fetch(dealApiPath(`/api/v1/crm/deals/${id}`))
       const body = await res.json().catch(() => ({}))
       if (!res.ok || body.success === false) {
         throw new Error(body.error ?? `HTTP ${res.status}`)
@@ -288,7 +293,7 @@ export default function DealDetailPage() {
 
       if (d.pipelineId) {
         secondaryFetches.push(
-          fetch(`/api/v1/crm/pipelines/${d.pipelineId}`)
+          fetch(dealApiPath(`/api/v1/crm/pipelines/${d.pipelineId}`))
             .then(r => r.json())
             .then(pb => {
               const pipeline = extractPipelineRecord(pb)
@@ -306,7 +311,7 @@ export default function DealDetailPage() {
       if (d.contactId) {
         setContactLoading(true)
         secondaryFetches.push(
-          fetch(`/api/v1/crm/contacts/${d.contactId}`)
+          fetch(dealApiPath(`/api/v1/crm/contacts/${d.contactId}`))
             .then(r => r.json())
             .then(cb => {
               const contact = cb.data?.contact ?? cb.data ?? cb
@@ -316,7 +321,7 @@ export default function DealDetailPage() {
             .finally(() => setContactLoading(false)),
         )
         secondaryFetches.push(
-          fetch(`/api/v1/crm/activities?contactId=${encodeURIComponent(d.contactId)}&limit=20`)
+          fetch(dealApiPath(`/api/v1/crm/activities?contactId=${encodeURIComponent(d.contactId)}&limit=20`))
             .then(r => r.json())
             .then(ab => {
               setActivities(ab.data?.activities ?? ab.data ?? [])
@@ -335,7 +340,7 @@ export default function DealDetailPage() {
       setLoading(false)
       setActivitiesLoading(false)
     }
-  }, [id])
+  }, [dealApiPath, id])
 
   useEffect(() => {
     void fetchDeal()
@@ -343,7 +348,7 @@ export default function DealDetailPage() {
 
   useEffect(() => {
     let cancelled = false
-    fetch('/api/v1/portal/settings/team')
+    fetch(dealApiPath('/api/v1/portal/settings/team'))
       .then((res) => res.ok ? res.json() : null)
       .then((body) => {
         if (cancelled) return
@@ -354,7 +359,7 @@ export default function DealDetailPage() {
         if (!cancelled) setTeamMembers([])
       })
     return () => { cancelled = true }
-  }, [])
+  }, [dealApiPath])
 
   async function assignOwner() {
     if (!deal || !id) return
@@ -365,7 +370,7 @@ export default function DealDetailPage() {
     setOwnerPending(true)
     setOwnerError('')
     try {
-      const res = await fetch(`/api/v1/crm/deals/${id}`, {
+      const res = await fetch(dealApiPath(`/api/v1/crm/deals/${id}`), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ownerUid: nextOwnerUid }),
@@ -393,7 +398,7 @@ export default function DealDetailPage() {
     setProbabilityPending(true)
     setProbabilityError('')
     try {
-      const res = await fetch(`/api/v1/crm/deals/${id}`, {
+      const res = await fetch(dealApiPath(`/api/v1/crm/deals/${id}`), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ probability: nextProbability }),
@@ -421,7 +426,7 @@ export default function DealDetailPage() {
     setCloseDatePending(true)
     setCloseDateError('')
     try {
-      const res = await fetch(`/api/v1/crm/deals/${id}`, {
+      const res = await fetch(dealApiPath(`/api/v1/crm/deals/${id}`), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ expectedCloseDate: nextCloseDate }),
@@ -446,10 +451,10 @@ export default function DealDetailPage() {
     setDeleting(true)
     setArchiveError('')
     try {
-      const res = await fetch(`/api/v1/crm/deals/${id}`, { method: 'DELETE' })
+      const res = await fetch(dealApiPath(`/api/v1/crm/deals/${id}`), { method: 'DELETE' })
       const body = await res.json().catch(() => ({}))
       if (!res.ok || body.success === false) throw new Error(body.error ?? `HTTP ${res.status}`)
-      router.push('/portal/deals')
+      router.push(dealListHref)
       router.refresh()
     } catch (err) {
       setArchiveError(err instanceof Error ? err.message : 'Failed to archive deal')
@@ -487,7 +492,7 @@ export default function DealDetailPage() {
           monetization_on
         </span>
         <p className="text-[var(--color-pib-text-muted)]">{error || 'Deal not found'}</p>
-        <Link href="/portal/deals" className="text-sm text-[var(--color-pib-accent)] hover:underline">
+        <Link href={dealListHref} className="text-sm text-[var(--color-pib-accent)] hover:underline">
           ← Back to Deals
         </Link>
       </div>
@@ -522,7 +527,7 @@ export default function DealDetailPage() {
   }
   const openActivityWorkflow = () => {
     if (deal.contactId) {
-      router.push(`/portal/contacts/${deal.contactId}?activity=note`)
+      router.push(scopedPortalPath(`/portal/contacts/${deal.contactId}?activity=note`, routeScope))
       return
     }
     setEditOpen(true)
@@ -654,7 +659,7 @@ export default function DealDetailPage() {
       ariaLabel: deal.contactId ? `Open contact for ${deal.title ?? 'this deal'}` : `Link a decision-maker for ${deal.title ?? 'this deal'}`,
       onClick: () => {
         if (deal.contactId) {
-          router.push(`/portal/contacts/${deal.contactId}`)
+          router.push(scopedPortalPath(`/portal/contacts/${deal.contactId}`, routeScope))
           return
         }
         setEditOpen(true)
@@ -683,7 +688,7 @@ export default function DealDetailPage() {
       buttonLabel: 'Log first activity',
       ariaLabel: `Log first activity for ${deal.title ?? 'this deal'}`,
       icon: 'note_add',
-      onClick: () => router.push(`/portal/contacts/${deal.contactId}?activity=note`),
+      onClick: () => router.push(scopedPortalPath(`/portal/contacts/${deal.contactId}?activity=note`, routeScope)),
     }
     : {
       copy: 'Link a contact before the first note, email, call, or meeting so every employee can see who owns the conversation and what happened next.',
@@ -697,7 +702,7 @@ export default function DealDetailPage() {
     <div className="space-y-6">
       {/* Back link */}
       <Link
-        href="/portal/deals"
+        href={dealListHref}
         className="inline-flex items-center gap-1 text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors"
       >
         <span className="material-symbols-outlined text-[14px]">arrow_back</span>
@@ -732,13 +737,13 @@ export default function DealDetailPage() {
 
           <div className="flex shrink-0 flex-wrap items-center gap-2">
             {deal.contactId && (
-              <Link href={`/portal/contacts/${deal.contactId}`} className="btn-pib-secondary inline-flex items-center gap-1.5">
+              <Link href={scopedPortalPath(`/portal/contacts/${deal.contactId}`, routeScope)} className="btn-pib-secondary inline-flex items-center gap-1.5">
                 <span className="material-symbols-outlined text-[16px]">person</span>
                 Contact
               </Link>
             )}
             {deal.companyId && (
-              <Link href={`/portal/companies/${deal.companyId}`} className="btn-pib-secondary inline-flex items-center gap-1.5">
+              <Link href={scopedPortalPath(`/portal/companies/${deal.companyId}`, routeScope)} className="btn-pib-secondary inline-flex items-center gap-1.5">
                 <span className="material-symbols-outlined text-[16px]">domain</span>
                 Company
               </Link>
@@ -985,7 +990,7 @@ export default function DealDetailPage() {
               <div>
                 <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">Contact</p>
                 <Link
-                  href={`/portal/contacts/${deal.contactId}`}
+                  href={scopedPortalPath(`/portal/contacts/${deal.contactId}`, routeScope)}
                   className="text-[var(--color-pib-accent)] hover:underline mt-0.5 inline-block"
                 >
                   {dealContactLabel(deal, contactName, contactLoading)}
@@ -996,7 +1001,7 @@ export default function DealDetailPage() {
               <div>
                 <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">Company</p>
                 <Link
-                  href={`/portal/companies/${deal.companyId}`}
+                  href={scopedPortalPath(`/portal/companies/${deal.companyId}`, routeScope)}
                   className="text-[var(--color-pib-accent)] hover:underline mt-0.5 inline-block"
                 >
                   {dealCompanyLabel(deal)}
@@ -1005,9 +1010,20 @@ export default function DealDetailPage() {
             )}
             <div>
               <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">Owner</p>
-              <p className="text-[var(--color-pib-text)] mt-0.5">
-                {dealOwnerLabel(deal)}
-              </p>
+              <div className="mt-0.5 flex flex-wrap items-center justify-between gap-2">
+                <p className="text-[var(--color-pib-text)]">
+                  {dealOwnerLabel(deal)}
+                </p>
+                <button
+                  type="button"
+                  onClick={focusOwnerSelect}
+                  aria-label={`${deal.ownerRef?.displayName || deal.ownerUid ? 'Change' : 'Assign'} owner for ${deal.title ?? 'this deal'} from deal details`}
+                  className="inline-flex items-center gap-1 rounded-md border border-[var(--color-pib-line)] px-2 py-1 text-[11px] font-medium text-[var(--color-pib-accent)] transition-colors hover:border-[var(--color-pib-accent)] hover:text-[var(--color-pib-text)]"
+                >
+                  <span className="material-symbols-outlined text-[13px]" aria-hidden="true">assignment_ind</span>
+                  {deal.ownerRef?.displayName || deal.ownerUid ? 'Change owner' : 'Assign owner'}
+                </button>
+              </div>
               <div className="mt-3 space-y-2 rounded-xl border border-[var(--color-pib-line)] bg-white/[0.02] p-3">
                 <label htmlFor="dealDetailOwner" className="pib-label">Assign deal owner</label>
                 <div className="flex flex-wrap gap-2">
@@ -1045,12 +1061,34 @@ export default function DealDetailPage() {
             <div>
               <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">Close date</p>
               {deal.expectedCloseDate ? (
-                <p className="text-[var(--color-pib-text-muted)] mt-0.5 font-mono text-xs">
-                  {fmtTimestamp(deal.expectedCloseDate)}
-                </p>
+                <div className="mt-0.5 flex flex-wrap items-center justify-between gap-2">
+                  <p className="font-mono text-xs text-[var(--color-pib-text-muted)]">
+                    {fmtTimestamp(deal.expectedCloseDate)}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={focusCloseDateInput}
+                    aria-label={`Review close date for ${deal.title ?? 'this deal'} from deal details`}
+                    className="inline-flex items-center gap-1 rounded-md border border-[var(--color-pib-line)] px-2 py-1 text-[11px] font-medium text-[var(--color-pib-accent)] transition-colors hover:border-[var(--color-pib-accent)] hover:text-[var(--color-pib-text)]"
+                  >
+                    <span className="material-symbols-outlined text-[13px]" aria-hidden="true">event_upcoming</span>
+                    Review date
+                  </button>
+                </div>
               ) : (
                 <div className="mt-1 rounded-lg border border-[var(--color-pib-line)] bg-white/[0.02] p-3">
-                  <p className="text-sm font-semibold text-[var(--color-pib-text)]">No close date captured</p>
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <p className="text-sm font-semibold text-[var(--color-pib-text)]">No close date captured</p>
+                    <button
+                      type="button"
+                      onClick={focusCloseDateInput}
+                      aria-label={`Set close date for ${deal.title ?? 'this deal'} from deal details`}
+                      className="inline-flex items-center gap-1 rounded-md border border-[var(--color-pib-line)] px-2 py-1 text-[11px] font-medium text-[var(--color-pib-accent)] transition-colors hover:border-[var(--color-pib-accent)] hover:text-[var(--color-pib-text)]"
+                    >
+                      <span className="material-symbols-outlined text-[13px]" aria-hidden="true">event_upcoming</span>
+                      Set date
+                    </button>
+                  </div>
                   <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">
                     Set forecast timing so leadership can trust pipeline commitments.
                   </p>
@@ -1306,7 +1344,7 @@ export default function DealDetailPage() {
           defaultContactLabel={contactName}
           onSaved={handleSaved}
           onClose={() => setEditOpen(false)}
-          orgId={deal.orgId ?? ''}
+          orgId={deal.orgId ?? routeScope.orgId ?? ''}
         />
       )}
     </div>

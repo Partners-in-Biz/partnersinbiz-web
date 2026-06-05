@@ -4,44 +4,47 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import '@testing-library/jest-dom'
 import { LinkedinConnectionsPanel } from '@/components/ads/LinkedinConnectionsPanel'
+import type { AdConnection } from '@/lib/ads/types'
 
 // next/navigation mock
+const refresh = jest.fn()
+
 jest.mock('next/navigation', () => ({
-  useRouter: () => ({ refresh: jest.fn() }),
+  useRouter: () => ({ refresh }),
 }))
 
-const META_CONNECTION = {
+const META_CONNECTION: AdConnection = {
   id: 'conn_meta_1',
   orgId: 'org_1',
-  platform: 'meta' as const,
-  status: 'active' as const,
+  platform: 'meta',
+  status: 'active',
   userId: 'u1',
   scopes: [],
   adAccounts: [],
 }
 
-const GOOGLE_CONNECTION = {
+const GOOGLE_CONNECTION: AdConnection = {
   id: 'conn_google_1',
   orgId: 'org_1',
-  platform: 'google' as const,
-  status: 'active' as const,
+  platform: 'google',
+  status: 'active',
   userId: 'u1',
   scopes: [],
   adAccounts: [],
 }
 
-const LINKEDIN_CONNECTION_NO_ACCOUNT = {
+const LINKEDIN_CONNECTION_NO_ACCOUNT: AdConnection = {
   id: 'conn_li_1',
   orgId: 'org_1',
-  platform: 'linkedin' as const,
-  status: 'active' as const,
+  platform: 'linkedin',
+  status: 'active',
   userId: 'u1',
   scopes: [],
   adAccounts: [],
   meta: { linkedin: {} },
 }
 
-const LINKEDIN_CONNECTION_WITH_ACCOUNT = {
+const LINKEDIN_CONNECTION_WITH_ACCOUNT: AdConnection = {
   ...LINKEDIN_CONNECTION_NO_ACCOUNT,
   meta: { linkedin: { selectedAdAccountUrn: 'urn:li:sponsoredAccount:9876543210' } },
 }
@@ -56,7 +59,7 @@ describe('LinkedinConnectionsPanel', () => {
       <LinkedinConnectionsPanel
         orgSlug="acme"
         orgId="org_1"
-        connections={[META_CONNECTION, GOOGLE_CONNECTION] as any}
+        connections={[META_CONNECTION, GOOGLE_CONNECTION]}
       />,
     )
     expect(screen.getByText('Connect LinkedIn Ads')).toBeInTheDocument()
@@ -73,7 +76,7 @@ describe('LinkedinConnectionsPanel', () => {
       <LinkedinConnectionsPanel
         orgSlug="acme"
         orgId="org_1"
-        connections={[LINKEDIN_CONNECTION_NO_ACCOUNT] as any}
+        connections={[LINKEDIN_CONNECTION_NO_ACCOUNT]}
       />,
     )
 
@@ -102,7 +105,7 @@ describe('LinkedinConnectionsPanel', () => {
       <LinkedinConnectionsPanel
         orgSlug="acme"
         orgId="org_1"
-        connections={[LINKEDIN_CONNECTION_NO_ACCOUNT] as any}
+        connections={[LINKEDIN_CONNECTION_NO_ACCOUNT]}
       />,
     )
 
@@ -131,7 +134,7 @@ describe('LinkedinConnectionsPanel', () => {
       <LinkedinConnectionsPanel
         orgSlug="acme"
         orgId="org_1"
-        connections={[LINKEDIN_CONNECTION_NO_ACCOUNT] as any}
+        connections={[LINKEDIN_CONNECTION_NO_ACCOUNT]}
       />,
     )
 
@@ -141,7 +144,7 @@ describe('LinkedinConnectionsPanel', () => {
 
     await waitFor(() => {
       const calls = (global.fetch as jest.Mock).mock.calls
-      const patchCall = calls.find(([url, opts]: [string, any]) =>
+      const patchCall = calls.find(([url, opts]: [string, RequestInit]) =>
         url.includes('/api/v1/ads/linkedin/connections/conn_li_1/account') &&
         opts?.method === 'PATCH',
       )
@@ -149,5 +152,44 @@ describe('LinkedinConnectionsPanel', () => {
       const patchBody = JSON.parse(patchCall[1].body)
       expect(patchBody.selectedAdAccountUrn).toBe('urn:li:sponsoredAccount:111111111')
     })
+  })
+
+  it('confirms LinkedIn Ads disconnects inside the page', async () => {
+    const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(false)
+    global.fetch = jest.fn(() =>
+      Promise.resolve({ ok: true, json: async () => ({ success: true }) } as Response),
+    ) as jest.Mock
+
+    render(
+      <LinkedinConnectionsPanel
+        orgSlug="acme"
+        orgId="org_1"
+        connections={[LINKEDIN_CONNECTION_WITH_ACCOUNT]}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Disconnect LinkedIn Ads connection for acme' }))
+
+    expect(confirmSpy).not.toHaveBeenCalled()
+    expect(global.fetch).not.toHaveBeenCalled()
+    expect(
+      screen.getByRole('alertdialog', { name: 'Disconnect LinkedIn Ads connection for acme?' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText('This revokes LinkedIn Marketing API ad account access for this workspace. Campaign history stays in PiB.'),
+    ).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm disconnect LinkedIn Ads connection for acme' }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/ads/connections/linkedin', {
+        method: 'DELETE',
+        headers: { 'X-Org-Id': 'org_1' },
+      })
+    })
+    expect(await screen.findByText('LinkedIn Ads disconnected.')).toBeInTheDocument()
+    expect(refresh).toHaveBeenCalled()
+
+    confirmSpy.mockRestore()
   })
 })

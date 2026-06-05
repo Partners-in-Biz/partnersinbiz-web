@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
+import { companyAccountOwnerRef } from '@/lib/companies/ownership'
 import type { Company } from '@/lib/companies/types'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -41,11 +42,17 @@ function extractCompanyRecord(body: unknown): Company | null {
   return payload.company ?? null
 }
 
+function openCompanyCardLabel(companyName: string): string {
+  return `Open linked company ${companyName} from company card`
+}
+
 // ── Props ─────────────────────────────────────────────────────────────────────
 
 export interface CompanyPanelProps {
   companyId?: string
   companyName?: string
+  companyHref?: string
+  companyApiPath?: string
   emptyAction?: {
     label: string
     ariaLabel: string
@@ -56,7 +63,7 @@ export interface CompanyPanelProps {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function CompanyPanel({ companyId, companyName, emptyAction }: CompanyPanelProps) {
+export function CompanyPanel({ companyId, companyName, companyHref, companyApiPath, emptyAction }: CompanyPanelProps) {
   const [company, setCompany] = useState<Company | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -66,7 +73,7 @@ export function CompanyPanel({ companyId, companyName, emptyAction }: CompanyPan
     // Keep the known company name actionable while the richer profile resolves.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true)
-    fetch(`/api/v1/crm/companies/${companyId}`)
+    fetch(companyApiPath ?? `/api/v1/crm/companies/${companyId}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((body) => {
         if (cancelled) return
@@ -76,7 +83,9 @@ export function CompanyPanel({ companyId, companyName, emptyAction }: CompanyPan
       })
       .catch(() => setLoading(false))
     return () => { cancelled = true }
-  }, [companyId])
+  }, [companyApiPath, companyId])
+
+  const resolvedCompanyHref = companyHref ?? (companyId ? `/portal/companies/${companyId}` : '')
 
   // Neither set
   if (!companyId && !companyName) {
@@ -139,8 +148,8 @@ export function CompanyPanel({ companyId, companyName, emptyAction }: CompanyPan
         </div>
         {companyId && (
           <Link
-            href={`/portal/companies/${companyId}`}
-            aria-label={`Open ${displayName}`}
+            href={resolvedCompanyHref}
+            aria-label={openCompanyCardLabel(displayName)}
             className="text-xs text-[var(--color-accent-v2)] hover:underline shrink-0 flex items-center gap-0.5"
           >
             Open
@@ -153,7 +162,7 @@ export function CompanyPanel({ companyId, companyName, emptyAction }: CompanyPan
 
   // Full company card
   const displayName = company?.name?.trim() || companyName?.trim() || 'Company identity missing'
-  const am = company?.accountManagerRef
+  const am = company ? companyAccountOwnerRef(company) : undefined
   const accountManagerLabel = am?.displayName?.trim() || (am?.uid ? 'Account manager identity missing' : '')
   const lifecycle = labelize(company?.lifecycleStage)
   const tier = labelize(company?.tier)
@@ -197,8 +206,8 @@ export function CompanyPanel({ companyId, companyName, emptyAction }: CompanyPan
 
       {companyId && (
         <Link
-          href={`/portal/companies/${companyId}`}
-          aria-label={`Open ${displayName}`}
+          href={resolvedCompanyHref}
+          aria-label={openCompanyCardLabel(displayName)}
           className="text-xs text-[var(--color-accent-v2)] hover:underline shrink-0 flex items-center gap-0.5"
         >
           Open

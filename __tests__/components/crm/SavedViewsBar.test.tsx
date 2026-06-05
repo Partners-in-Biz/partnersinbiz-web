@@ -112,4 +112,50 @@ describe('SavedViewsBar', () => {
 
     confirmSpy.mockRestore()
   })
+
+  it('names sparse saved CRM views across apply and delete controls', async () => {
+    ;(global.fetch as jest.Mock).mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        data: {
+          views: [
+            {
+              id: 'view-sparse',
+              name: '',
+              filters: { owner: 'unassigned' },
+            },
+          ],
+        },
+      }),
+    } as Response)
+    const onSelectView = jest.fn()
+
+    render(
+      <SavedViewsBar
+        currentFilters={{ stage: 'proposal' }}
+        onSelectView={onSelectView}
+        resourceKind="contacts"
+      />,
+    )
+
+    expect(await screen.findByText('Saved view name missing')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Apply saved view Saved view name missing' }))
+
+    await waitFor(() => {
+      expect(onSelectView).toHaveBeenCalledWith({ owner: 'unassigned' })
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete saved view Saved view name missing' }))
+
+    expect(screen.getByRole('alertdialog', { name: 'Delete saved view "Saved view name missing"?' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Cancel delete for saved view Saved view name missing' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Confirm delete saved view Saved view name missing' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm delete saved view Saved view name missing' }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/saved-views/view-sparse', { method: 'DELETE' })
+    })
+  })
 })

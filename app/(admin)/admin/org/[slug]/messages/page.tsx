@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { adminAuth, adminDb } from '@/lib/firebase/admin'
-import MessagesClient from './MessagesClient'
+import { MessagesWorkspace } from '@/components/messages/MessagesWorkspace'
 
 interface PageProps {
   params: Promise<{ slug: string }>
@@ -42,10 +42,11 @@ export default async function MessagesPage({ params, searchParams }: PageProps) 
   const orgId = orgSnap.docs[0].id
 
   return (
-    <MessagesClient
+    <MessagesWorkspace
+      surface="admin"
       orgId={orgId}
-      uid={uid}
-      displayName={displayName}
+      currentUserUid={uid}
+      currentUserDisplayName={displayName}
       orgSlug={slug}
       initialConvId={initialConvId}
       initialAgentId={initialAgentId}

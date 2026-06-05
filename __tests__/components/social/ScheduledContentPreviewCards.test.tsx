@@ -1,0 +1,74 @@
+import { render, screen } from '@testing-library/react'
+import { ScheduledContentPreviewCards, type ScheduledContentPost } from '@/components/social/ScheduledContentPreviewCards'
+
+const basePost: ScheduledContentPost = {
+  id: 'post_1',
+  status: 'scheduled',
+  scheduledAt: { _seconds: 1779655200 },
+  content: { text: 'Today we are launching the new client growth sprint with a quick story hook and a useful CTA.' },
+  media: [{ type: 'image', url: 'https://example.com/launch.jpg' }],
+}
+
+describe('ScheduledContentPreviewCards', () => {
+  it('renders today scheduled posts as channel-native card variants linked to edit or approval surfaces', () => {
+    const posts: ScheduledContentPost[] = [
+      { ...basePost, id: 'ig-square', platform: 'instagram', platforms: ['instagram'] },
+      { ...basePost, id: 'ig-reel', platform: 'instagram', platforms: ['instagram'], media: [{ type: 'video', url: 'https://example.com/reel.mp4' }] },
+      { ...basePost, id: 'ig-story', platform: 'instagram', platforms: ['instagram'], category: 'story' },
+      { ...basePost, id: 'facebook', platform: 'facebook', platforms: ['facebook'] },
+      { ...basePost, id: 'linkedin', platform: 'linkedin', platforms: ['linkedin'] },
+      { ...basePost, id: 'x', platform: 'x', platforms: ['twitter'] },
+      { ...basePost, id: 'bluesky', platform: 'bluesky', platforms: ['bluesky'] },
+      { ...basePost, id: 'pinterest', platform: 'pinterest', platforms: ['pinterest'] },
+    ]
+
+    render(<ScheduledContentPreviewCards slug="acme" posts={posts} loading={false} />)
+
+    expect(screen.getByText('Instagram square')).toBeInTheDocument()
+    expect(screen.getByText('Instagram reel')).toBeInTheDocument()
+    expect(screen.getByText('Instagram story')).toBeInTheDocument()
+    expect(screen.getByText('Facebook post')).toBeInTheDocument()
+    expect(screen.getByText('LinkedIn update')).toBeInTheDocument()
+    expect(screen.getByText('X post')).toBeInTheDocument()
+    expect(screen.getByText('Bluesky post')).toBeInTheDocument()
+    expect(screen.getByText('Pinterest pin')).toBeInTheDocument()
+
+    expect(screen.getByTestId('scheduled-preview-ig-square')).toHaveAttribute('href', '/admin/org/acme/social/standalone?postId=ig-square')
+  })
+
+  it('links approval statuses with approvalId', () => {
+    render(<ScheduledContentPreviewCards slug="acme" posts={[{ ...basePost, id: 'approval', status: 'pending_approval', platform: 'linkedin', platforms: ['linkedin'] }]} loading={false} />)
+
+    expect(screen.getByTestId('scheduled-preview-approval')).toHaveAttribute('href', '/admin/org/acme/social/standalone?approvalId=approval')
+  })
+
+  it('falls back to a generic post label only for unknown platforms', () => {
+    render(<ScheduledContentPreviewCards slug="acme" posts={[{ ...basePost, id: 'generic', platform: 'mastodon', platforms: ['mastodon'] }]} loading={false} />)
+
+    expect(screen.getByText('Generic post')).toBeInTheDocument()
+  })
+
+  it('shows an empty state that still links to the social composer', () => {
+    render(<ScheduledContentPreviewCards slug="acme" posts={[]} loading={false} />)
+
+    expect(screen.getByText('No scheduled content today.')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Compose post →' })).toHaveAttribute('href', '/admin/org/acme/social/standalone')
+  })
+
+  it('supports client portal safe links and copy', () => {
+    render(
+      <ScheduledContentPreviewCards
+        slug="acme"
+        posts={[{ ...basePost, id: 'review-me', status: 'client_review' }]}
+        loading={false}
+        composeHref="/portal/social/compose"
+        description="Client-safe previews open into review or calendar."
+        hrefForPost={(post) => `/portal/social/review/${post.id}`}
+      />,
+    )
+
+    expect(screen.getByText('Client-safe previews open into review or calendar.')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Compose post →' })).toHaveAttribute('href', '/portal/social/compose')
+    expect(screen.getByTestId('scheduled-preview-review-me')).toHaveAttribute('href', '/portal/social/review/review-me')
+  })
+})

@@ -42,7 +42,7 @@ describe('Admin CRM contacts page', () => {
           }),
         } as Response)
       }
-      if (url === '/api/v1/portal/settings/team') {
+      if (url.startsWith('/api/v1/portal/settings/team')) {
         return Promise.resolve({
           ok: true,
           json: async () => ({
@@ -74,7 +74,7 @@ describe('Admin CRM contacts page', () => {
           json: async () => ({ data: [] }),
         } as Response)
       }
-      if (url === '/api/v1/portal/settings/team') {
+      if (url.startsWith('/api/v1/portal/settings/team')) {
         return Promise.resolve({
           ok: true,
           json: async () => ({ members: [] }),
@@ -89,34 +89,32 @@ describe('Admin CRM contacts page', () => {
     render(<AdminContactsPage />)
 
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: 'Build the first admin contact record' })).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: 'No contacts yet.' })).toBeInTheDocument()
     })
-    expect(screen.getByText(
-      'Create the first contact so admin can assign ownership, track follow-up, and give every employee a shared relationship profile before pipeline work starts.'
-    )).toBeInTheDocument()
+    expect(screen.getByText('Add your first contact to start building your audience.')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Create first admin contact' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Add contact' }))
 
-    expect(screen.getByRole('heading', { name: 'New Contact' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'New contact' })).toBeInTheDocument()
   })
 
   it('surfaces unowned contacts as a management accountability lens', async () => {
     render(<AdminContactsPage />)
 
     await waitFor(() => {
-      expect(screen.getByRole('link', { name: 'Owned Client' })).toBeInTheDocument()
+      expect(screen.getByRole('link', { name: 'Open contact Owned Client' })).toBeInTheDocument()
     })
-    expect(screen.getByRole('link', { name: 'Unowned Prospect' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Open contact Unowned Prospect' })).toBeInTheDocument()
 
     expect(screen.getByText('Owner coverage')).toBeInTheDocument()
     expect(screen.getByText('1 unowned')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Show unowned contacts needing an owner' }))
 
-    expect(screen.queryByRole('link', { name: 'Owned Client' })).not.toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Unowned Prospect' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Open contact Owned Client' })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Open contact Unowned Prospect' })).toBeInTheDocument()
 
-    const row = screen.getByRole('link', { name: 'Unowned Prospect' }).closest('tr')
+    const row = screen.getByRole('link', { name: 'Open contact Unowned Prospect' }).closest('[data-contact-row]')
     expect(row).not.toBeNull()
     expect(within(row as HTMLElement).getByText('Unassigned')).toBeInTheDocument()
   })
@@ -144,7 +142,7 @@ describe('Admin CRM contacts page', () => {
           }),
         } as Response)
       }
-      if (url === '/api/v1/portal/settings/team') {
+      if (url.startsWith('/api/v1/portal/settings/team')) {
         return Promise.resolve({
           ok: true,
           json: async () => ({ members: [] }),
@@ -158,37 +156,32 @@ describe('Admin CRM contacts page', () => {
 
     render(<AdminContactsPage />)
 
-    const row = (await screen.findByRole('link', { name: 'Sparse Prospect' })).closest('tr')
+    const row = (await screen.findByRole('link', { name: 'Open contact Sparse Prospect' })).closest('[data-contact-row]')
     expect(row).not.toBeNull()
     expect(within(row as HTMLElement).getByText('Email missing')).toBeInTheDocument()
     expect(within(row as HTMLElement).getByText('Company missing')).toBeInTheDocument()
-    expect(within(row as HTMLElement).getByText('Scores not captured')).toBeInTheDocument()
-    expect(within(row as HTMLElement).queryByText('—')).not.toBeInTheDocument()
-
-    expect(screen.getByText('Avg lead score')).toBeInTheDocument()
-    expect(screen.getAllByText('Not scored').length).toBeGreaterThan(0)
-    expect(screen.getByText('ICP not scored · AI not scored')).toBeInTheDocument()
+    expect(within(row as HTMLElement).getAllByText('Not scored')).toHaveLength(3)
   })
 
   it('assigns selected unowned contacts to an owner from the list view', async () => {
     render(<AdminContactsPage />)
 
     await waitFor(() => {
-      expect(screen.getByRole('link', { name: 'Unowned Prospect' })).toBeInTheDocument()
+      expect(screen.getByRole('link', { name: 'Open contact Unowned Prospect' })).toBeInTheDocument()
     })
 
     fireEvent.click(screen.getByRole('button', { name: 'Show unowned contacts needing an owner' }))
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Select Unowned Prospect for bulk owner assignment' }))
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Select Unowned Prospect' }))
     await waitFor(() => {
-      expect(screen.getByRole('option', { name: 'Mandy Manager - Sales lead' })).toBeInTheDocument()
+      expect(screen.getByRole('option', { name: 'Mandy Manager (Sales lead)' })).toBeInTheDocument()
     })
     fireEvent.change(screen.getByLabelText('Assign selected contacts to owner'), {
       target: { value: 'sales-lead-2' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Assign owner to 1 selected contact' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Apply updates' }))
 
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/contacts/bulk', {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/contacts/bulk?orgId=org-1', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
@@ -198,8 +191,6 @@ describe('Admin CRM contacts page', () => {
       })
     })
 
-    const row = screen.getByRole('link', { name: 'Unowned Prospect' }).closest('tr')
-    expect(row).not.toBeNull()
-    expect(within(row as HTMLElement).getByText('Owner set')).toBeInTheDocument()
+    expect(screen.getByText('Updated 0, skipped 0')).toBeInTheDocument()
   })
 })

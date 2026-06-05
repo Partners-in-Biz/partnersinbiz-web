@@ -115,4 +115,27 @@ describe('KeywordEditor', () => {
     // text input is empty by default → button should be disabled
     expect(addBtn).toBeDisabled()
   })
+
+  it('shows inline remove errors instead of a native alert', async () => {
+    const alertSpy = jest.spyOn(window, 'alert').mockImplementation(() => undefined)
+    ;(global.fetch as jest.Mock)
+      .mockResolvedValueOnce({ ok: true, json: async () => KEYWORD_RESPONSE })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: false, error: 'Keyword is still syncing' }),
+      })
+
+    await act(async () => {
+      render(<KeywordEditor orgId="org_1" adSetId="ads_1" campaignId="cmp_1" />)
+    })
+
+    await waitFor(() => screen.getByText('running shoes'))
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Remove keyword running shoes' }))
+    })
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Keyword is still syncing')
+    expect(alertSpy).not.toHaveBeenCalled()
+  })
 })

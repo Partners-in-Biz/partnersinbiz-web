@@ -68,7 +68,8 @@ async function loadProjectsForOrg(orgId: string, limit: number): Promise<Project
   const byId = new Map<string, ProjectRow>()
   for (const snap of snaps) {
     for (const project of docRows(snap)) {
-      if (project.deleted === true || project.archived === true) continue
+      const status = typeof project.status === 'string' ? project.status.trim().toLowerCase() : ''
+      if (project.deleted === true || project.archived === true || status === 'completed') continue
       byId.set(project.id, project)
     }
   }

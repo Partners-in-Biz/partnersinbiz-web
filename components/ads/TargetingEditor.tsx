@@ -30,6 +30,8 @@ export function TargetingEditor({ orgId, value, onChange }: Props) {
   const [saveModalOpen, setSaveModalOpen] = useState(false)
   const [saveName, setSaveName] = useState('')
   const [saving, setSaving] = useState(false)
+  const [saveMessage, setSaveMessage] = useState<string | null>(null)
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   // Fetch SAs + READY CAs on mount
   useEffect(() => {
@@ -91,6 +93,8 @@ export function TargetingEditor({ orgId, value, onChange }: Props) {
   async function saveAsSavedAudience() {
     if (!saveName.trim()) return
     setSaving(true)
+    setSaveMessage(null)
+    setSaveError(null)
     try {
       const res = await fetch('/api/v1/ads/saved-audiences', {
         method: 'POST',
@@ -107,10 +111,13 @@ export function TargetingEditor({ orgId, value, onChange }: Props) {
         const newSa = body.data as AdSavedAudience
         setSavedAudiences((prev) => [newSa, ...prev])
         setSaveModalOpen(false)
+        setSaveMessage(`Saved targeting template ${newSa.name}.`)
         setSaveName('')
       } else {
-        alert(body.error ?? 'Save failed')
+        setSaveError(body.error ?? 'Save failed')
       }
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Save failed')
     } finally {
       setSaving(false)
     }
@@ -130,11 +137,20 @@ export function TargetingEditor({ orgId, value, onChange }: Props) {
         <button
           type="button"
           className="text-xs text-white/60 underline"
-          onClick={() => setSaveModalOpen(true)}
+          onClick={() => {
+            setSaveMessage(null)
+            setSaveError(null)
+            setSaveModalOpen(true)
+          }}
         >
           Save current as template
         </button>
       </div>
+      {saveMessage && (
+        <div role="status" className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-200">
+          {saveMessage}
+        </div>
+      )}
       {savedSelectorOpen && (
         <div className="rounded border border-white/10 p-3">
           {savedAudiences.length === 0 ? (
@@ -283,8 +299,20 @@ export function TargetingEditor({ orgId, value, onChange }: Props) {
                 disabled={saving}
               />
             </label>
+            {saveError && (
+              <div role="alert" className="mt-3 rounded border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-200">
+                {saveError}
+              </div>
+            )}
             <div className="mt-4 flex justify-end gap-2">
-              <button className="btn-pib-ghost text-sm" onClick={() => setSaveModalOpen(false)} disabled={saving}>
+              <button
+                className="btn-pib-ghost text-sm"
+                onClick={() => {
+                  setSaveError(null)
+                  setSaveModalOpen(false)
+                }}
+                disabled={saving}
+              >
                 Cancel
               </button>
               <button

@@ -30,6 +30,7 @@ export type BriefingPriority =
 export type BriefingSourceType =
   | 'project'              // Projects/Kanban tasks
   | 'task'                 // Task events (created, updated, moved, completed)
+  | 'agent-learning-review' // Weekly agent learning items linking proposed skill/wiki/task follow-ups for review
   | 'comment'              // Comments on tasks, documents, conversations
   | 'agent-output'         // Agent completion summaries and artifacts
   | 'agent-run'            // Live Hermes agent run status and approval prompts
@@ -38,6 +39,7 @@ export type BriefingSourceType =
   | 'approval'             // Approval gates and client document approvals
   | 'booking'              // Public call bookings needing admin follow-up
   | 'contact'              // CRM contacts needing relationship follow-up
+  | 'deal'                 // CRM deals needing revenue follow-up or stale-pipeline attention
   | 'client-document'      // Client documents, specs, reports
   | 'social-post'          // Social content awaiting QA/client approval or attention
   | 'social-inbox'         // Social engagement inbox items needing read/reply/archive
@@ -59,6 +61,28 @@ export type BriefingSourceType =
   | 'campaign'             // Top-level marketing campaigns needing launch, approval, or archive control
   | 'enquiry'              // Public project enquiries needing admin follow-up
   | 'form-submission'      // Public form submissions needing admin follow-up
+
+export type BriefingCardAction =
+  | 'read'
+  | 'handled'
+  | 'snoozed'
+  | 'rejected'
+  | 'approved'
+  | 'pending-review'
+  | 'follow-up-created'
+
+export type BriefingCardStateStatus = BriefingCardAction
+
+export interface BriefingCardUserState {
+  status: BriefingCardStateStatus | 'active'
+  action?: BriefingCardAction | null
+  note?: string | null
+  snoozedUntil?: string | null
+  approvalState?: string | null
+  approvalCopy?: string | null
+  sideEffectPerformed?: false
+  updatedAt?: string | null
+}
 
 /**
  * Briefing item lifecycle states.
@@ -97,6 +121,17 @@ export interface BriefingContext {
   taskTitle?: string | null
   documentId?: string | null
   documentTitle?: string | null
+  sourceDocumentId?: string | null
+  sourceDocumentSectionId?: string | null
+  sourceSpecVersion?: string | null
+  sourceEvidenceId?: string | null
+  evidenceRowIds?: string[]
+  approvalGateTaskId?: string | null
+  sourceResearchItemId?: string | null
+  requiredCapability?: string | null
+  riskLevel?: string | null
+  reviewerAgentId?: string | null
+  expectedArtifacts?: string[]
   conversationId?: string | null
   conversationTitle?: string | null
   contactId?: string | null
@@ -277,12 +312,7 @@ export interface BriefingCard extends BriefingSourceItem {
   /**
    * Per-user control state from the briefing desk.
    */
-  userState?: {
-    status: 'active' | 'handled' | 'snoozed'
-    note?: string | null
-    snoozedUntil?: string | null
-    updatedAt?: string | null
-  } | null
+  userState?: BriefingCardUserState | null
 }
 
 /**

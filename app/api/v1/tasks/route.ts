@@ -79,7 +79,9 @@ export const GET = withAuth('admin', async (req, user) => {
     }
   }
   if (projectId) query = query.where('projectId', '==', projectId)
-  if (contactId) query = query.where('contactId', '==', contactId)
+  // Contact task lookups are commonly used from CRM contact pages. Keep them index-safe by
+  // filtering in memory after the tenant-scoped createdAt query instead of requiring a
+  // Firestore composite index on orgId + contactId + createdAt.
   if (dealId) query = query.where('dealId', '==', dealId)
   if (dueBefore) query = query.where('dueDate', '<=', dueBefore)
   if (dueAfter) query = query.where('dueDate', '>=', dueAfter)
@@ -96,12 +98,14 @@ export const GET = withAuth('admin', async (req, user) => {
   }
 
   const needsAgentAssigneeInMemoryFilter = assignedToFilter?.type === 'agent'
-  const queryLimit = needsAgentAssigneeInMemoryFilter
+  const needsContactInMemoryFilter = Boolean(contactId)
+  const needsInMemoryFilter = needsAgentAssigneeInMemoryFilter || needsContactInMemoryFilter
+  const queryLimit = needsInMemoryFilter
     ? Math.min(Math.max(limit * page, 500), 1000)
     : limit
 
   let pagedQuery = query.limit(queryLimit)
-  if (!needsAgentAssigneeInMemoryFilter) {
+  if (!needsInMemoryFilter) {
     pagedQuery = pagedQuery.offset((page - 1) * limit)
   }
 
@@ -111,6 +115,10 @@ export const GET = withAuth('admin', async (req, user) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .map((doc: any) => ({ id: doc.id, ...doc.data() }))
     .filter((t: Task) => t.deleted !== true)
+
+  if (needsContactInMemoryFilter && contactId) {
+    tasks = tasks.filter((t: Task) => t.contactId === contactId)
+  }
 
   if (needsAgentAssigneeInMemoryFilter && assignedToFilter) {
     tasks = tasks.filter((t: Task) => {
@@ -122,7 +130,7 @@ export const GET = withAuth('admin', async (req, user) => {
   }
 
   const total = tasks.length
-  if (needsAgentAssigneeInMemoryFilter) {
+  if (needsInMemoryFilter) {
     tasks = tasks.slice((page - 1) * limit, page * limit)
   }
 

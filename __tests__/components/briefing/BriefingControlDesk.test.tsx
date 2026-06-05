@@ -22,7 +22,74 @@ const briefingItem = {
     taskId: 'task-1',
     taskTitle: 'Update homepage',
   },
+  metadata: {
+    agentOutputReviewCard: {
+      summary: 'Result: Updated the homepage.',
+      evidence: [
+        { kind: 'commit', label: 'Development commit', value: 'abc1234' },
+        { kind: 'verification', label: 'Verification', value: 'npm run lint -- --file components/briefing/BriefingControlDesk.tsx' },
+        { kind: 'link', label: 'Development preview', value: 'https://partnersinbiz.online/admin/projects/project-1?taskId=task-1', href: 'https://partnersinbiz.online/admin/projects/project-1?taskId=task-1' },
+        { kind: 'document', label: 'Related doc', value: 'doc-123', href: '/admin/documents/doc-123' },
+        { kind: 'blocker', label: 'Blocker', value: 'Blocker: production deploy remains separately gated.' },
+      ],
+      artifacts: [
+        { type: 'commit', label: 'Development commit', ref: 'abc1234' },
+        { type: 'doc', label: 'Related doc', ref: 'doc-123' },
+      ],
+      qualityChecks: [
+        { label: 'Summary', status: 'pass', detail: 'Agent supplied a readable completion summary.' },
+        { label: 'Evidence', status: 'pass', detail: '5 evidence rows attached.' },
+        { label: 'Approval gates', status: 'blocked', detail: 'At least one approval or release gate remains closed.' },
+      ],
+      approvalGates: [
+        { label: 'Approval gate', status: 'blocked', value: 'gate-1' },
+      ],
+      nextAction: 'Peet should review the evidence, approve if it is correct, or send it back to the assigned agent with a change note.',
+    },
+    softwareBuildEvidence: [
+      { kind: 'commit', label: 'Development commit', value: 'abc1234' },
+      { kind: 'verification', label: 'Verification', value: 'npm run lint -- --file components/briefing/BriefingControlDesk.tsx' },
+      { kind: 'link', label: 'Development preview', value: 'https://partnersinbiz.online/admin/projects/project-1?taskId=task-1', href: 'https://partnersinbiz.online/admin/projects/project-1?taskId=task-1' },
+      { kind: 'document', label: 'Related doc', value: 'doc-123', href: '/admin/documents/doc-123' },
+      { kind: 'blocker', label: 'Blocker', value: 'Blocker: production deploy remains separately gated.' },
+    ],
+  },
   occurredAt: '2026-05-31T10:00:00.000Z',
+}
+
+const agentLearningBriefingItem = {
+  id: 'agent-learning-review:task-learning-1',
+  orgId: 'org-1',
+  priority: 'review',
+  title: 'Weekly Agent Learning Review - Theo',
+  summary: 'Weekly Agent Learning Review is pending review. No automatic skill or wiki rewrites.',
+  excerpt: 'Review proposed learning items before applying durable changes.',
+  timeAgo: '1 minute ago',
+  requiresAction: true,
+  source: { type: 'agent-learning-review', id: 'task-learning-1', url: '/admin/projects/project-1?taskId=task-learning-1' },
+  actor: { id: 'agent:theo', name: 'Theo', role: 'ai', type: 'agent' },
+  context: {
+    orgId: 'org-1',
+    orgName: 'Client One',
+    orgSlug: 'client-one',
+    projectId: 'project-1',
+    projectName: 'Launch site',
+    taskId: 'task-learning-1',
+    taskTitle: 'Weekly Agent Learning Review - Theo',
+  },
+  metadata: {
+    agentLearningReview: {
+      reviewGate: 'proposals-only',
+      automationGuard: 'No automatic skill or wiki rewrites. Proposed changes must be reviewed before any durable knowledge is changed.',
+      skillLinks: [{ label: 'systematic debugging', href: '/admin/skills/partnersinbiz/software-development/systematic-debugging', type: 'skill' }],
+      wikiLinks: [{ label: 'Agent learning log', href: '/admin/wiki/partners/agent-learning', type: 'wiki' }],
+      taskLinks: [{ label: 'Follow-up task', href: '/admin/projects/project-1?taskId=task-learning-1', type: 'task' }],
+      proposedChanges: ['Add a pitfall about not rewriting skills automatically.'],
+      sourceDocumentId: 'doc-learning-2026-06-04',
+      approvalGateTaskId: 'approval-learning-1',
+    },
+  },
+  occurredAt: '2026-05-31T10:00:30.000Z',
 }
 
 const documentBriefingItem = {
@@ -1004,7 +1071,7 @@ describe('BriefingControlDesk', () => {
         } as Response
       }
       if (url.startsWith('/api/v1/briefings/feed')) {
-        const orgOneItems = [briefingItem, documentBriefingItem, documentCommentBriefingItem, approvalBriefingItem, conversationBriefingItem, socialBriefingItem, notificationBriefingItem, activityBriefingItem, contactBriefingItem, reportBriefingItem, supportBriefingItem, invoiceBriefingItem, invoiceProofBriefingItem, quoteBriefingItem, shipmentBriefingItem, orderBriefingItem, inventoryBriefingItem, expenseBriefingItem, seoContentBriefingItem, seoTaskBriefingItem, adCampaignBriefingItem, draftBroadcastBriefingItem, scheduledBroadcastBriefingItem, pausedBroadcastBriefingItem, draftCampaignBriefingItem, activeCampaignBriefingItem, formSubmissionBriefingItem, socialInboxBriefingItem, mailboxBriefingItem, agentRunBriefingItem, workspaceBrokerBriefingItem, calendarBriefingItem]
+        const orgOneItems = [briefingItem, agentLearningBriefingItem, documentBriefingItem, documentCommentBriefingItem, approvalBriefingItem, conversationBriefingItem, socialBriefingItem, notificationBriefingItem, activityBriefingItem, contactBriefingItem, reportBriefingItem, supportBriefingItem, invoiceBriefingItem, invoiceProofBriefingItem, quoteBriefingItem, shipmentBriefingItem, orderBriefingItem, inventoryBriefingItem, expenseBriefingItem, seoContentBriefingItem, seoTaskBriefingItem, adCampaignBriefingItem, draftBroadcastBriefingItem, scheduledBroadcastBriefingItem, pausedBroadcastBriefingItem, draftCampaignBriefingItem, activeCampaignBriefingItem, formSubmissionBriefingItem, socialInboxBriefingItem, mailboxBriefingItem, agentRunBriefingItem, workspaceBrokerBriefingItem, calendarBriefingItem]
         const items = url.includes('orgId=org-2')
           ? [secondOrgBriefingItem]
           : url.includes('orgId=org-1')
@@ -1025,6 +1092,18 @@ describe('BriefingControlDesk', () => {
         return {
           ok: true,
           json: async () => ({ data: { id: 'comment-1' } }),
+        } as Response
+      }
+      if (url === '/api/v1/projects/project-1/tasks') {
+        return {
+          ok: true,
+          json: async () => ({ data: { id: 'phase2-task-1' } }),
+        } as Response
+      }
+      if (url === '/api/v1/projects/project-1/tasks/task-1') {
+        return {
+          ok: true,
+          json: async () => ({ data: { id: 'task-1', assigneeAgentId: 'theo' } }),
         } as Response
       }
       if (url === '/api/v1/projects/project-1/tasks/approval-task-1') {
@@ -1267,19 +1346,149 @@ describe('BriefingControlDesk', () => {
     jest.restoreAllMocks()
   })
 
-  it('renders a live portal control desk with source-aware task actions', async () => {
+  it('renders Phase 2 actions with state chips, next-action copy, and safe gated explanations', async () => {
+    render(<BriefingControlDesk mode="portal" />)
+
+    expect((await screen.findAllByText('Theo completed work - review required')).length).toBeGreaterThan(0)
+    expect(screen.getByText('State: Needs action')).toBeInTheDocument()
+    expect(screen.getByText('Review pending')).toBeInTheDocument()
+    expect(screen.getByText('Next action: review the evidence, then approve the work or reject it back to the assigned agent.')).toBeInTheDocument()
+    expect(screen.getByText('Phase 2 actions')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /approve phase 2 item/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /reject phase 2 item/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /snooze phase 2 item/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /create follow-up task/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /assign theo/i })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /open evidence/i })).toHaveAttribute('href', 'https://partnersinbiz.online/admin/projects/project-1?taskId=task-1')
+    expect(screen.getByRole('button', { name: /convert to crm activity unavailable/i })).toBeDisabled()
+    expect(screen.getByText('CRM conversion needs a contact or deal on the briefing card.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /approval gates stay explicit/i })).toBeDisabled()
+    expect(screen.getByText(/production deploys, external sends, public publishing, paid spend, finance changes, secret\/config changes, destructive actions require a separate explicit approval/i)).toBeInTheDocument()
+  })
+
+  it('renders Agent Learning Review proposals with skill, wiki, task links and no automatic rewrite guard', async () => {
+    render(<BriefingControlDesk mode="portal" />)
+
+    fireEvent.click(await screen.findByRole('button', { name: /weekly agent learning review - theo/i }))
+
+    expect(screen.getByLabelText('Agent Learning Review')).toBeInTheDocument()
+    expect(screen.getByText('Review before rewrite')).toBeInTheDocument()
+    expect(screen.getByText('No automatic skill or wiki rewrites. Proposed changes must be reviewed before any durable knowledge is changed.')).toBeInTheDocument()
+    expect(screen.getByText(/Add a pitfall about not rewriting skills automatically\./)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'systematic debugging' })).toHaveAttribute('href', '/admin/skills/partnersinbiz/software-development/systematic-debugging')
+    expect(screen.getByRole('link', { name: 'Agent learning log' })).toHaveAttribute('href', '/admin/wiki/partners/agent-learning')
+    expect(screen.getByRole('link', { name: 'Follow-up task' })).toHaveAttribute('href', '/admin/projects/project-1?taskId=task-learning-1')
+    expect(screen.getByText(/Source doc: doc-learning-2026-06-04 · Approval gate task: approval-learning-1/)).toBeInTheDocument()
+  })
+
+  it('creates follow-up tasks and assigns the current task from Phase 2 controls', async () => {
+    render(<BriefingControlDesk mode="portal" />)
+
+    expect((await screen.findAllByText('Theo completed work - review required')).length).toBeGreaterThan(0)
+    fireEvent.click(screen.getByRole('button', { name: /create follow-up task/i }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/briefings/items/task%3Aitem-1/actions', expect.objectContaining({
+        method: 'POST',
+        body: expect.stringContaining('"action":"create-task"'),
+      }))
+    })
+    const createCall = (global.fetch as jest.Mock).mock.calls.find(([url]) => url === '/api/v1/briefings/items/task%3Aitem-1/actions')
+    expect(JSON.parse(createCall?.[1]?.body)).toMatchObject({
+      action: 'create-task',
+      orgId: 'org-1',
+      title: 'Follow up: Theo completed work - review required',
+      description: 'Result: Updated the homepage.',
+      spec: 'Result: Updated the homepage.',
+      priority: 'medium',
+      context: expect.objectContaining({ projectId: 'project-1', taskId: 'task-1' }),
+      source: expect.objectContaining({ type: 'agent-output', id: 'item-1' }),
+      metadata: expect.objectContaining({ softwareBuildEvidence: expect.any(Array) }),
+    })
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /assign theo/i })).not.toBeDisabled()
+    })
+    fireEvent.click(screen.getByRole('button', { name: /assign theo/i }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/briefings/items/task%3Aitem-1/actions', expect.objectContaining({
+        method: 'POST',
+        body: expect.stringContaining('"action":"assign-agent"'),
+      }))
+    })
+    const assignCall = (global.fetch as jest.Mock).mock.calls.filter(([url]) => url === '/api/v1/briefings/items/task%3Aitem-1/actions').at(-1)
+    expect(JSON.parse(assignCall?.[1]?.body)).toMatchObject({
+      action: 'assign-agent',
+      orgId: 'org-1',
+      assigneeAgentId: 'theo',
+      context: expect.objectContaining({ projectId: 'project-1', taskId: 'task-1' }),
+      source: expect.objectContaining({ type: 'agent-output', id: 'item-1' }),
+    })
+  })
+
+  it('converts contact-backed briefings into CRM activities from Phase 2 controls', async () => {
+    render(<BriefingControlDesk mode="portal" />)
+
+    fireEvent.click(await screen.findByRole('button', { name: /Follow up with Ava Owner/i }))
+    expect(screen.getByText('State: Needs action')).toBeInTheDocument()
+    expect(screen.getByText('Next action: convert this signal into a CRM activity or schedule the next follow-up task.')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /convert to crm activity/i }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/briefings/items/activity%3Aactivity-1/actions', expect.objectContaining({
+        method: 'POST',
+        body: expect.stringContaining('"action":"create-crm-activity"'),
+      }))
+    })
+    const crmCall = (global.fetch as jest.Mock).mock.calls.find(([url]) => url === '/api/v1/briefings/items/activity%3Aactivity-1/actions')
+    expect(JSON.parse(crmCall?.[1]?.body)).toMatchObject({
+      action: 'create-crm-activity',
+      orgId: 'org-1',
+      contactId: 'contact-1',
+      dealId: 'deal-1',
+      summary: 'Follow up: Follow up with Ava about the retainer approval before Friday.',
+      crmActivityInternalOnly: true,
+      context: expect.objectContaining({ contactId: 'contact-1', dealId: 'deal-1' }),
+      source: expect.objectContaining({ type: 'activity', id: 'activity-1' }),
+    })
+  })
+
+  it('renders a portal control desk with source-aware task actions', async () => {
     render(<BriefingControlDesk mode="portal" />)
 
     expect(await screen.findByText('Briefings control desk')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /live on/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /live off/i })).toBeInTheDocument()
     expect((await screen.findAllByText('Theo completed work - review required')).length).toBeGreaterThan(0)
     expect(screen.getAllByText('Client One').length).toBeGreaterThan(0)
     expect(screen.getByLabelText('Live briefing cards')).toHaveClass('xl:overflow-y-auto')
     expect(screen.getByRole('button', { name: /filter to acme holdings account/i })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /open source/i })).toHaveAttribute('href', '/portal/projects/project-1?taskId=task-1')
+    expect(screen.getByLabelText('Structured review card')).toBeInTheDocument()
+    expect(screen.getByText('What should Peet do now?')).toBeInTheDocument()
+    expect(screen.getByText('Peet should review the evidence, approve if it is correct, or send it back to the assigned agent with a change note.')).toBeInTheDocument()
+    expect(screen.getByText('Quality checks')).toBeInTheDocument()
+    expect(screen.getByText('Artifacts')).toBeInTheDocument()
+    expect(screen.getByLabelText('Software build evidence')).toBeInTheDocument()
+    expect(screen.getAllByText('Development commit').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('abc1234').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('npm run lint -- --file components/briefing/BriefingControlDesk.tsx').length).toBeGreaterThan(0)
+    expect(screen.getByRole('link', { name: 'doc-123' })).toHaveAttribute('href', '/admin/documents/doc-123')
+    expect(screen.getByText('Blocker: production deploy remains separately gated.')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /^unblock$/i })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /^approve$/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /send back to agent/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /snooze phase 2 item/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /create follow-up task/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /assign theo/i })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /open evidence/i })).toHaveAttribute('href', 'https://partnersinbiz.online/admin/projects/project-1?taskId=task-1')
+    expect(screen.getByLabelText('Mission Control decision routing')).toHaveTextContent('Approve')
+    expect(screen.getByLabelText('Mission Control decision routing')).toHaveTextContent('Reject')
+    expect(screen.getByLabelText('Mission Control decision routing')).toHaveTextContent('Snooze')
+    expect(screen.getByLabelText('Mission Control decision routing')).toHaveTextContent('Create task')
+    expect(screen.getByLabelText('Mission Control decision routing')).toHaveTextContent('Assign agent')
+    expect(screen.getByLabelText('Mission Control decision routing')).toHaveTextContent('Open evidence')
+    expect(screen.getByText(/production deploys, external sends, public publishing, paid spend, finance changes, secret\/config changes, destructive actions require a separate explicit approval/i)).toBeInTheDocument()
   })
 
   it('renders portal briefings as an active-workspace CRM account pulse', async () => {

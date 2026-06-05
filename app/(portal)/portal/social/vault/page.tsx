@@ -3,6 +3,8 @@ export const dynamic = 'force-dynamic'
 
 import { useEffect, useMemo, useState, useCallback } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
+import { scopedApiPath, scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 
 // NOTE: The bulk download endpoint (/api/v1/social/vault/download-bulk) does not
 // exist on the backend yet, so the "Download all visible (zip)" button is
@@ -344,6 +346,8 @@ function VaultCard({ post, onCopy, onDownload }: {
 }
 
 export default function VaultPage() {
+  const searchParams = useSearchParams()
+  const orgScope = useMemo(() => scopeFromSearchParams(searchParams), [searchParams])
   const [posts, setPosts] = useState<VaultPost[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -365,7 +369,7 @@ export default function VaultPage() {
       if (platform) params.set('platform', platform)
       if (fromDate) params.set('from', new Date(fromDate).toISOString())
       if (toDate) params.set('to', new Date(toDate).toISOString())
-      const url = `/api/v1/social/vault${params.toString() ? `?${params.toString()}` : ''}`
+      const url = scopedApiPath(`/api/v1/social/vault${params.toString() ? `?${params.toString()}` : ''}`, orgScope)
       const res = await fetch(url)
       if (!res.ok) {
         throw new Error(`Failed to load vault (${res.status})`)
@@ -378,7 +382,7 @@ export default function VaultPage() {
     } finally {
       setLoading(false)
     }
-  }, [platform, fromDate, toDate])
+  }, [platform, fromDate, toDate, orgScope])
 
   useEffect(() => { fetchVault() }, [fetchVault])
 
@@ -434,7 +438,7 @@ export default function VaultPage() {
 
   function handleDownload(post: VaultPost) {
     // Backend sends Content-Disposition: attachment, so the browser downloads.
-    window.open(`/api/v1/social/posts/${post.id}/download`, '_blank', 'noopener,noreferrer')
+    window.open(scopedApiPath(`/api/v1/social/posts/${post.id}/download`, orgScope), '_blank', 'noopener,noreferrer')
   }
 
   async function handleCopyAllVisible() {
@@ -569,7 +573,7 @@ export default function VaultPage() {
             Copy all visible
           </button>
           <Link
-            href="/portal/social"
+            href={scopedPortalPath('/portal/social', orgScope)}
             className="ml-auto text-xs text-[var(--color-on-surface-variant)] hover:text-[var(--color-accent-v2)] underline"
           >
             ← Back to Social

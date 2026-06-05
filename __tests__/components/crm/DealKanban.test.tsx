@@ -1,5 +1,5 @@
 import React from 'react'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { DealKanban } from '@/components/crm/DealKanban'
 import type { Deal } from '@/lib/crm/types'
 import type { PipelineStage } from '@/lib/pipelines/types'
@@ -101,6 +101,17 @@ describe('DealKanban', () => {
     expect(screen.getByText('Unpriced board deal')).toBeInTheDocument()
     expect(screen.getByText('No value captured')).toBeInTheDocument()
     expect(screen.queryByText(/NaN/)).not.toBeInTheDocument()
+  })
+
+  it('turns missing board deal value into an edit action', () => {
+    const deal = makeDeal({ id: 'd1', title: 'Unpriced board deal', value: undefined, stageId: 'proposal' })
+    const onEditDeal = jest.fn()
+
+    render(<DealKanban deals={[deal]} stages={TEST_STAGES} onStageChange={noop} onEditDeal={onEditDeal} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add value for Unpriced board deal from deal board' }))
+
+    expect(onEditDeal).toHaveBeenCalledWith(deal)
   })
 
   it('names sparse deal titles on board cards instead of rendering blank pipeline cards', () => {

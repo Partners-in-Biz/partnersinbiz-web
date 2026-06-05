@@ -233,6 +233,7 @@ describe('CRM OS company command center foundations', () => {
 
   it('builds a command center with CRM, delivery, commerce, relationship, and analytics rollups', async () => {
     mockCollection.mockImplementation((name: string) => {
+      if (name === 'organizations') return collectionFor()
       if (name === 'projects') return collectionFor([
         { id: 'project-1', data: { orgId: 'org-1', companyId: 'company-1', name: 'SEO Sprint', status: 'active', createdAt: timestamp(20) } },
       ])
@@ -284,5 +285,30 @@ describe('CRM OS company command center foundations', () => {
     expect(center.projects[0].name).toBe('SEO Sprint')
     expect(center.documents[0].title).toBe('Proposal')
     expect(center.relationships[0].id).toBe('rel-1')
+  })
+
+  it('includes linked organisation workspace metadata for client-org companies', async () => {
+    mockCollection.mockImplementation((name: string) => {
+      if (name === 'organizations') return collectionFor([
+        { id: 'client-org', data: { name: 'Lumen Speeds', slug: 'lumen-speeds' } },
+      ])
+      return collectionFor()
+    })
+
+    const { buildCompanyCommandCenter } = await import('@/lib/companies/command-center')
+    const center = await buildCompanyCommandCenter(company({
+      id: 'platform-company',
+      orgId: 'pib-platform-owner',
+      name: 'Lumen',
+      linkedOrgId: 'client-org',
+    }), { limit: 10 })
+
+    expect(center.linkedWorkspace).toEqual({
+      id: 'client-org',
+      orgId: 'client-org',
+      name: 'Lumen Speeds',
+      slug: 'lumen-speeds',
+      orgSlug: 'lumen-speeds',
+    })
   })
 })

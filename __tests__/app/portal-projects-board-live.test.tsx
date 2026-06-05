@@ -5,6 +5,11 @@ import { collection, onSnapshot } from 'firebase/firestore'
 
 let snapshotCallback: ((snap: { docChanges: () => Array<{ type: 'added' | 'modified' | 'removed'; doc: { id: string; data: () => Record<string, unknown> } }> }) => void) | null = null
 const unsubscribe = jest.fn()
+let mockSearchParams = new URLSearchParams()
+
+jest.mock('next/navigation', () => ({
+  useSearchParams: () => mockSearchParams,
+}))
 
 jest.mock('firebase/firestore', () => ({
   collection: jest.fn((...segments: string[]) => segments),
@@ -41,6 +46,7 @@ function mockSnapshotChange(type: 'added' | 'modified' | 'removed', id: string, 
 
 describe('Portal projects board live data', () => {
   beforeEach(() => {
+    mockSearchParams = new URLSearchParams()
     snapshotCallback = null
     unsubscribe.mockClear()
     ;(collection as jest.Mock).mockClear()
@@ -95,6 +101,25 @@ describe('Portal projects board live data', () => {
     expect(screen.getByRole('link', { name: 'Open project Launch Site' })).toHaveAttribute('href', '/portal/projects/project-1')
   })
 
+  it('loads projects for the company-scoped portal org when opened from CRM workspace', async () => {
+    mockSearchParams = new URLSearchParams({ orgId: 'lumen-org', orgSlug: 'lumen-speeds' })
+    global.fetch = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/projects?view=received&orgId=lumen-org') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: [{ id: 'lumen-project', name: 'Lumen website', status: 'development' }] }),
+        } as Response)
+      }
+      return Promise.resolve({ ok: true, json: async () => ({ data: [] }) } as Response)
+    }) as jest.Mock
+
+    render(<ProjectsPage />)
+
+    await waitFor(() => expect(screen.getByText('Lumen website')).toBeInTheDocument())
+    expect(global.fetch).toHaveBeenCalledWith('/api/v1/projects?view=received&orgId=lumen-org')
+  })
+
   it('updates the cross-project kanban board when Firestore task snapshots change', async () => {
     render(<ProjectsPage />)
 
@@ -118,6 +143,28 @@ describe('Portal projects board live data', () => {
     expect(toolbar).toHaveClass('justify-between')
     expect(toolbar).toHaveClass('gap-3')
     expect(toolbar).toContainElement(manualOrderButton)
+  })
+
+  it('loads completed project history separately from the active portal workspace', async () => {
+    global.fetch = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/projects?view=received') {
+        return Promise.resolve({ ok: true, json: async () => ({ data: [{ id: 'project-1', name: 'Active Launch', status: 'development' }] }) } as Response)
+      }
+      if (url === '/api/v1/projects?view=received&archive=only') {
+        return Promise.resolve({ ok: true, json: async () => ({ data: [{ id: 'project-done', name: 'Signed Off Launch', status: 'completed' }] }) } as Response)
+      }
+      return Promise.resolve({ ok: true, json: async () => ({ data: [] }) } as Response)
+    }) as jest.Mock
+
+    render(<ProjectsPage />)
+    await waitFor(() => expect(screen.getByText('Active Launch')).toBeInTheDocument())
+
+    fireEvent.click(screen.getByRole('tab', { name: /archive/i }))
+
+    expect(global.fetch).toHaveBeenCalledWith('/api/v1/projects?view=received&archive=only')
+    await waitFor(() => expect(screen.getByText('Signed Off Launch')).toBeInTheDocument())
+    expect(screen.queryByText('Active Launch')).not.toBeInTheDocument()
   })
 
   it('keeps live task changes that arrive before the REST fallback finishes', async () => {

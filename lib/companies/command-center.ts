@@ -9,8 +9,17 @@ import type { InventoryItem, Order, Shipment } from '@/lib/commerce/types'
 
 export type CommandCenterRow = { id: string; [key: string]: unknown }
 
+export type LinkedWorkspace = {
+  id: string
+  orgId: string
+  slug: string
+  orgSlug: string
+  name: string
+}
+
 export interface CompanyCommandCenter {
   company: Company
+  linkedWorkspace: LinkedWorkspace | null
   summary: {
     contacts: number
     deals: number
@@ -192,6 +201,34 @@ async function listOrgRows(collectionName: string, orgId: string, limit = 1000):
   return snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }))
 }
 
+async function loadLinkedWorkspace(company: Company): Promise<LinkedWorkspace | null> {
+  const linkedOrgId = cleanString(company.linkedOrgId)
+  if (!linkedOrgId) return null
+
+  const snap = await adminDb.collection('organizations').doc(linkedOrgId).get()
+  if (!snap.exists) {
+    return {
+      id: linkedOrgId,
+      orgId: linkedOrgId,
+      slug: linkedOrgId,
+      orgSlug: linkedOrgId,
+      name: linkedOrgId,
+    }
+  }
+
+  const data = snap.data() ?? {}
+  const slug = cleanString(data.slug) || linkedOrgId
+  const name = cleanString(data.name) || cleanString(data.displayName) || slug
+
+  return {
+    id: linkedOrgId,
+    orgId: linkedOrgId,
+    slug,
+    orgSlug: slug,
+    name,
+  }
+}
+
 export async function listCompanyProjects(company: Company, options: CommandCenterOptions = {}): Promise<CommandCenterRow[]> {
   const limit = limitValue(options.limit)
   const [rows, relationships] = await Promise.all([
@@ -252,6 +289,7 @@ export async function buildCompanyCommandCenter(
     shipments,
     inventoryItems,
     activities,
+    linkedWorkspace,
   ] = await Promise.all([
     listCompanyRows('contacts', company, { limit }),
     listCompanyRows('deals', company, { limit }),
@@ -265,6 +303,7 @@ export async function buildCompanyCommandCenter(
     listShipments(company.orgId, { companyId: company.id, limit }),
     listInventoryItems(company.orgId, { companyId: company.id, limit }),
     listCompanyRows('activities', company, { limit }),
+    loadLinkedWorkspace(company),
   ])
 
   const openOrders = orders.filter(isOpenOrder)
@@ -281,6 +320,7 @@ export async function buildCompanyCommandCenter(
 
   return {
     company,
+    linkedWorkspace,
     summary: {
       contacts: contacts.length,
       deals: deals.length,

@@ -133,4 +133,67 @@ describe('PortalIntegrationsPage', () => {
       'true',
     )
   })
+
+  it('confirms sparse integration deletes in the CRM page instead of a browser prompt', async () => {
+    const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(false)
+
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/integrations/integration-sparse' && init?.method === 'DELETE') {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ data: null }) })
+      }
+      if (url.startsWith('/api/v1/crm/integrations')) {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              data: [
+                {
+                  id: 'integration-sparse',
+                  provider: 'mailchimp',
+                  name: '   ',
+                  status: 'active',
+                  cadenceMinutes: 60,
+                  autoTags: [],
+                  autoCampaignIds: [],
+                  lastSyncedAt: null,
+                  lastSyncStats: { imported: 0, created: 0, updated: 0, skipped: 0, errored: 0 },
+                  lastError: '',
+                  configPreview: { listId: 'list-001' },
+                },
+              ],
+            }),
+        })
+      }
+      if (url.startsWith('/api/v1/campaigns')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ data: [] }) })
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ data: [] }) })
+    })
+
+    render(<PortalIntegrationsPage />)
+
+    expect(await screen.findByText('Integration name missing')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete integration Integration name missing' }))
+
+    expect(confirmSpy).not.toHaveBeenCalled()
+    expect(
+      screen.getByRole('alertdialog', { name: 'Delete integration "Integration name missing"?' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'This disconnects the CRM source, stops future syncs, and keeps imported contact history available for audit.',
+      ),
+    ).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm delete integration Integration name missing' }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/crm/integrations/integration-sparse', { method: 'DELETE' })
+      expect(screen.queryByText('Integration name missing')).not.toBeInTheDocument()
+    })
+
+    confirmSpy.mockRestore()
+  })
 })

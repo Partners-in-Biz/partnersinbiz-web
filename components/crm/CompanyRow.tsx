@@ -1,6 +1,12 @@
 'use client'
 
 import Image from 'next/image'
+import {
+  companyAccountOwnerLabel,
+  companyAccountOwnerRef,
+  companyAccountOwnerUid,
+  companyHasAccountOwner,
+} from '@/lib/companies/ownership'
 import type { Company } from '@/lib/companies/types'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -40,7 +46,7 @@ function profileStrength(company: Company): number {
     company.tier,
     company.lifecycleStage,
     company.phone || company.billingEmail || company.accountsContact?.email,
-    company.accountManagerUid || company.accountManagerRef?.uid,
+    companyAccountOwnerUid(company),
     company.notes,
     company.logoUrl,
   ]
@@ -58,7 +64,7 @@ function initials(name: string): string {
 }
 
 function accountManagerName(company: Company): string {
-  return company.accountManagerRef?.displayName || company.accountManagerUid || 'Unassigned'
+  return companyAccountOwnerLabel(company)
 }
 
 function readableAccountLabel(value?: string): string | undefined {
@@ -77,6 +83,10 @@ function websiteHref(value?: string): string {
   const trimmed = value?.trim()
   if (!trimmed) return ''
   return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`
+}
+
+function openAccountDetailLabel(companyName: string): string {
+  return `Open account detail for ${companyName}`
 }
 
 // ── Tier / lifecycle colour chips ─────────────────────────────────────────────
@@ -133,7 +143,8 @@ export function CompanyRow({
   const websiteLabel = company.domain || company.website || ''
   const websiteLink = websiteHref(websiteLabel)
   const hasAnnualRevenue = typeof company.annualRevenue === 'number' && Number.isFinite(company.annualRevenue)
-  const hasOwner = Boolean(company.accountManagerRef || company.accountManagerUid)
+  const accountOwnerRef = companyAccountOwnerRef(company)
+  const hasOwner = companyHasAccountOwner(company)
   const hasSetupGap = !company.domain && !company.website && !company.legalName
     || !company.industry
     || company.employeeCount == null && !company.size
@@ -181,9 +192,17 @@ export function CompanyRow({
 
       {/* Name */}
       <td className="px-4 py-3">
-        <p className="text-sm font-medium text-[var(--color-pib-text)] truncate max-w-xs">
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation()
+            onClick(company.id)
+          }}
+          aria-label={openAccountDetailLabel(company.name)}
+          className="block max-w-xs truncate text-left text-sm font-medium text-[var(--color-pib-text)] transition-colors hover:text-[var(--color-pib-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-pib-accent)]"
+        >
           {company.name}
-        </p>
+        </button>
         {websiteLink ? (
           <a
             href={websiteLink}
@@ -304,18 +323,18 @@ export function CompanyRow({
           aria-label={`${hasOwner ? 'Edit' : 'Assign'} owner for ${company.name}`}
           className="group flex max-w-[150px] items-center gap-2 text-left transition-colors hover:text-[var(--color-pib-accent)]"
         >
-          {company.accountManagerRef?.avatarUrl ? (
+          {accountOwnerRef?.avatarUrl ? (
             <Image
-              src={company.accountManagerRef.avatarUrl}
-              alt={company.accountManagerRef.displayName}
+              src={accountOwnerRef.avatarUrl}
+              alt={accountOwnerRef.displayName}
               width={24}
               height={24}
               unoptimized
               className="h-6 w-6 rounded-full object-cover"
             />
-          ) : company.accountManagerRef ? (
+          ) : accountOwnerRef?.displayName ? (
             <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--color-surface-container)] text-[9px] font-label text-on-surface-variant">
-              {initials(company.accountManagerRef.displayName)}
+              {initials(accountOwnerRef.displayName)}
             </div>
           ) : null}
           <span className={`${hasOwner ? 'text-xs' : 'text-sm'} truncate text-[var(--color-pib-text-muted)] group-hover:text-[var(--color-pib-accent)]`}>

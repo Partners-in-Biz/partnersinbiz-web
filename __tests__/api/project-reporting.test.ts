@@ -58,6 +58,27 @@ const projects = [
       createdAt: { seconds: 10 },
     },
   },
+  {
+    id: 'project-completed',
+    data: {
+      name: 'Signed-off project',
+      status: 'completed',
+      ownerOrgId: 'owner-org',
+      clientOrgId: 'client-3',
+      createdAt: { seconds: 30 },
+    },
+  },
+  {
+    id: 'project-archived',
+    data: {
+      name: 'Archived project',
+      status: 'maintenance',
+      archived: true,
+      ownerOrgId: 'owner-org',
+      clientOrgId: 'client-4',
+      createdAt: { seconds: 40 },
+    },
+  },
 ]
 
 const subcollections: Record<string, Record<string, Array<{ id: string; data: Record<string, unknown> }>>> = {

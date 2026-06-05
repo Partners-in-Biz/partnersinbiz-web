@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { PageTabs } from '@/components/ui/AppFoundation'
 import { useOrg } from '@/lib/contexts/OrgContext'
+import { scopedPortalPath } from '@/lib/portal/scoped-routing'
 import type {
   CommunicationChannel,
   Conversation,
@@ -107,10 +108,10 @@ export function CommunicationsConsole({ mode, initialOrgId = '', initialOrgSlug 
   const requestedOrgSlug = initialOrgSlug.trim()
   const linkedOrg = requestedOrgSlug ? orgs.find((org) => org.slug === requestedOrgSlug) : undefined
   const activeOrgId = mode === 'portal'
-    ? portalOrgId
+    ? requestedOrgId || portalOrgId
     : requestedOrgId || linkedOrg?.id || selectedOrgId
   const activeOrgName = mode === 'portal'
-    ? ''
+    ? requestedOrgSlug || activeOrgId
     : linkedOrg?.name || (activeOrgId === selectedOrgId ? orgName : '') || activeOrgId
 
   const orgQuery = useMemo(() => {
@@ -119,9 +120,17 @@ export function CommunicationsConsole({ mode, initialOrgId = '', initialOrgSlug 
   }, [activeOrgId])
 
   const canLoad = Boolean(activeOrgId) && (mode === 'admin' || portalOrgReady)
+  const marketingHref = mode === 'admin'
+    ? '/admin/marketing'
+    : scopedPortalPath('/portal/marketing', { orgId: activeOrgId, orgSlug: requestedOrgSlug })
 
   useEffect(() => {
     if (mode !== 'portal') return
+    if (requestedOrgId) {
+      setPortalOrgId(requestedOrgId)
+      setPortalOrgReady(true)
+      return
+    }
     let cancelled = false
     setPortalOrgReady(false)
     fetch('/api/v1/portal/active-org', { cache: 'no-store' })
@@ -137,7 +146,7 @@ export function CommunicationsConsole({ mode, initialOrgId = '', initialOrgSlug 
     return () => {
       cancelled = true
     }
-  }, [mode])
+  }, [mode, requestedOrgId])
 
   useEffect(() => {
     if (!canLoad) return
@@ -257,7 +266,7 @@ export function CommunicationsConsole({ mode, initialOrgId = '', initialOrgSlug 
             </p>
           )}
         </div>
-        <Link href={mode === 'admin' ? '/admin/marketing' : '/portal/marketing'} className="btn-pib-secondary self-start lg:self-auto">
+        <Link href={marketingHref} className="btn-pib-secondary self-start lg:self-auto">
           <span className="material-symbols-outlined text-base">arrow_back</span>
           Marketing
         </Link>

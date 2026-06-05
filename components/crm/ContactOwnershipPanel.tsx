@@ -11,6 +11,19 @@ export interface ContactOwnershipProfile {
   updatedByRef?: MemberRef
 }
 
+export interface ContactOwnershipActions {
+  assignOwner?: {
+    label: string
+    ariaLabel: string
+    onClick: () => void
+  }
+  reviewSource?: {
+    label: string
+    ariaLabel: string
+    onClick: () => void
+  }
+}
+
 const SOURCE_LABELS: Record<string, string> = {
   manual: 'Manual entry',
   form: 'Form capture',
@@ -210,18 +223,7 @@ export function ContactOwnershipPanel({
   actions,
 }: {
   profile: ContactOwnershipProfile
-  actions?: {
-    assignOwner?: {
-      label: string
-      ariaLabel: string
-      onClick: () => void
-    }
-    reviewSource?: {
-      label: string
-      ariaLabel: string
-      onClick: () => void
-    }
-  }
+  actions?: ContactOwnershipActions
 }) {
   const health = contactOwnershipHealth(profile)
   const owner = memberLabel(profile.assignedToRef, profile.assignedTo)

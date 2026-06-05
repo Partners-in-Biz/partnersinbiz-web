@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react'
 import { onAuthStateChanged } from 'firebase/auth'
 import { useRouter } from 'next/navigation'
 import { auth, getClientAuth } from '@/lib/firebase/config'
-import UnifiedChat from '@/components/chat/UnifiedChat'
+import { MessagesWorkspace } from '@/components/messages/MessagesWorkspace'
 
 interface OrgInfo {
   id: string
@@ -95,24 +95,13 @@ export default function PortalMessagesPage() {
   }
 
   return (
-    <div className="space-y-8">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="eyebrow">Direct line to your team</p>
-          <h1 className="pib-page-title mt-2">Messages</h1>
-          <p className="pib-page-sub mt-2 max-w-2xl">Start a conversation with your team or the Partners in Biz team.</p>
-        </div>
-      </header>
-
-      <section className="min-h-[640px]">
-        <UnifiedChat
-          orgId={org.id}
-          currentUserUid={user.uid}
-          currentUserDisplayName={user.name}
-          orgName={org.name}
-          allowAgentParticipants={user.role === 'admin'}
-        />
-      </section>
-    </div>
+    <MessagesWorkspace
+      surface="portal"
+      orgId={org.id}
+      orgName={org.name}
+      currentUserUid={user.uid}
+      currentUserDisplayName={user.name}
+      userRole={user.role}
+    />
   )
 }

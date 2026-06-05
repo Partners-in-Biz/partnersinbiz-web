@@ -2,10 +2,12 @@ import React from 'react'
 import { render, screen, waitFor } from '@testing-library/react'
 
 const mockRefresh = jest.fn()
+let searchParams = new URLSearchParams()
 
 jest.mock('next/navigation', () => ({
   useParams: () => ({ id: 'campaign-1', blogId: 'blog-1' }),
   useRouter: () => ({ refresh: mockRefresh }),
+  useSearchParams: () => searchParams,
 }))
 
 jest.mock('@/components/campaign-preview', () => ({
@@ -28,6 +30,7 @@ jest.mock('@/components/inline-comments', () => ({
 describe('portal campaign blog detail route', () => {
   beforeEach(() => {
     mockRefresh.mockClear()
+    searchParams = new URLSearchParams()
     global.fetch = jest.fn((input: RequestInfo | URL) => {
       const url = String(input)
       if (url === '/api/v1/campaigns/campaign-1/assets') {
@@ -82,5 +85,18 @@ describe('portal campaign blog detail route', () => {
       expect(global.fetch).toHaveBeenCalledWith('/api/v1/campaigns/campaign-1/assets')
     })
     expect(screen.getByRole('button', { name: 'Approve this post' })).toBeInTheDocument()
+  })
+
+  it('preserves CRM company scope on links back to the campaign Blogs tab', async () => {
+    searchParams = new URLSearchParams('orgId=lumen-org&orgSlug=lumen-speeds')
+    const Page = (await import('@/app/(portal)/portal/campaigns/[id]/blog/[blogId]/page')).default
+
+    render(<Page />)
+
+    expect(await screen.findByRole('heading', { name: 'Pipeline post' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /blog posts/i })).toHaveAttribute(
+      'href',
+      '/portal/campaigns/campaign-1?tab=blogs&orgId=lumen-org&orgSlug=lumen-speeds',
+    )
   })
 })

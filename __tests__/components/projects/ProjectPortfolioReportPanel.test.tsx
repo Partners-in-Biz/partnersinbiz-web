@@ -79,6 +79,20 @@ describe('ProjectPortfolioReportPanel', () => {
     expect(screen.getByRole('link', { name: 'Open project Website launch' })).toHaveAttribute('href', '/admin/org/partners-in-biz/projects/project-1')
   })
 
+  it('supports scoped project and company link builders', async () => {
+    render(
+      <ProjectPortfolioReportPanel
+        reportUrl="/api/v1/projects/reporting?orgId=owner-org"
+        buildProjectHref={(projectId) => `/portal/projects/${projectId}?orgId=owner-org&orgSlug=owner-slug`}
+        buildCompanyHref={(companyId) => `/portal/companies/${companyId}?orgId=owner-org&orgSlug=owner-slug`}
+      />,
+    )
+
+    await waitFor(() => expect(screen.getByRole('link', { name: 'Open project Website launch' })).toBeInTheDocument())
+    expect(screen.getByRole('link', { name: 'Open project Website launch' })).toHaveAttribute('href', '/portal/projects/project-1?orgId=owner-org&orgSlug=owner-slug')
+    expect(screen.getByRole('link', { name: 'Open company Client One' })).toHaveAttribute('href', '/portal/companies/company-1?orgId=owner-org&orgSlug=owner-slug')
+  })
+
   it('shows a quiet empty state when reporting data is unavailable', async () => {
     ;(global.fetch as jest.Mock).mockResolvedValueOnce({
       ok: false,

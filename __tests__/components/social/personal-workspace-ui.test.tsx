@@ -33,6 +33,9 @@ describe('personal workspace social UI', () => {
           }),
         } as Response)
       }
+      if (url === '/api/v1/social/accounts/acct-1' && init?.method === 'DELETE') {
+        return Promise.resolve({ ok: true, json: async () => ({ success: true }) } as Response)
+      }
       if (url === '/api/v1/social/posts?scope=personal' && init?.method === 'POST') {
         return Promise.resolve({ ok: true, json: async () => ({ data: { id: 'post-1' } }) } as Response)
       }
@@ -66,6 +69,44 @@ describe('personal workspace social UI', () => {
       'href',
       '/api/v1/social/oauth/twitter?redirectUrl=%2Fportal%2Fpersonal%2Fsocial%2Faccounts&scope=personal',
     )
+  })
+
+  it('confirms personal social account disconnects inside the page', async () => {
+    const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(false)
+
+    render(
+      <SocialAccountsManager
+        scope="personal"
+        basePath="/portal/personal/social/accounts"
+        title="Personal social accounts"
+      />,
+    )
+
+    const disconnectButton = await screen.findByRole('button', {
+      name: 'Disconnect social account Peet Stander from LinkedIn',
+    })
+
+    fireEvent.click(disconnectButton)
+
+    expect(confirmSpy).not.toHaveBeenCalled()
+    expect(global.fetch).not.toHaveBeenCalledWith('/api/v1/social/accounts/acct-1', { method: 'DELETE' })
+    expect(
+      screen.getByRole('alertdialog', { name: 'Disconnect LinkedIn account "Peet Stander"?' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'This removes the account from posting, scheduling, and inbox sync. You can reconnect it later from this workspace.',
+      ),
+    ).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm disconnect LinkedIn account Peet Stander' }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/social/accounts/acct-1', { method: 'DELETE' })
+    })
+    expect(await screen.findByText('Account disconnected.')).toBeInTheDocument()
+
+    confirmSpy.mockRestore()
   })
 
   it('posts personal drafts to the personal post API', async () => {

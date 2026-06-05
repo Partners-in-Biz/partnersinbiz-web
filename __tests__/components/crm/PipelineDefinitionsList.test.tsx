@@ -123,4 +123,26 @@ describe('PipelineDefinitionsList', () => {
     expect(screen.queryByRole('button', { name: /Add operating note for New sales/i })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Add stages for New sales/i })).not.toBeInTheDocument()
   })
+
+  it('routes smoke-test row default actions into setup review instead of promotion', () => {
+    const onEdit = jest.fn()
+    const onSetDefault = jest.fn()
+
+    renderList({
+      pipelines: [pipeline({
+        id: 'pipeline-smoke',
+        name: 'Smoke delete pipeline 1780236200000',
+        isDefault: false,
+      })],
+      onEdit,
+      onSetDefault,
+    })
+
+    expect(screen.queryByRole('button', { name: 'Set Smoke delete pipeline 1780236200000 as default' })).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Review setup for Smoke delete pipeline 1780236200000 before setting it as default' }))
+
+    expect(onEdit).toHaveBeenCalledWith(expect.objectContaining({ id: 'pipeline-smoke' }))
+    expect(onSetDefault).not.toHaveBeenCalled()
+  })
 })

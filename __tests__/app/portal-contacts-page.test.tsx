@@ -68,7 +68,7 @@ describe('Portal contacts page', () => {
           }),
         } as Response)
       }
-      if (url === '/api/v1/portal/settings/team') {
+      if (url.startsWith('/api/v1/portal/settings/team')) {
         return Promise.resolve({
           ok: true,
           json: async () => ({
@@ -113,6 +113,162 @@ describe('Portal contacts page', () => {
     const row = screen.getByRole('link', { name: 'Open contact Unowned Prospect' }).closest('[data-contact-row]')
     expect(row).not.toBeNull()
     expect(within(row as HTMLElement).getByText('Unassigned')).toBeInTheDocument()
+  })
+
+  it('turns the team workload card into a bulk owner-gap assignment command', async () => {
+    render(<PortalContactsPage />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: 'Open contact Owned Client' })).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Select 1 unowned contact for owner assignment' }))
+
+    expect(screen.getByRole('checkbox', { name: 'Select Unowned Prospect' })).toBeChecked()
+    expect(screen.queryByRole('checkbox', { name: 'Select Owned Client' })).not.toBeInTheDocument()
+    expect(screen.getByText('1 selected')).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Bulk action' })).toHaveValue('assign')
+    expect(screen.getByText('owner: unowned')).toBeInTheDocument()
+  })
+
+  it('gives executives a contact cockpit before the dense table', async () => {
+    const recentTouch = new Date().toISOString()
+    ;(global.fetch as jest.Mock).mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.startsWith('/api/v1/crm/contacts')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: [
+              {
+                id: 'contact-owned',
+                name: 'Owned Client',
+                email: 'owned@example.com',
+                company: 'Owned Co',
+                type: 'client',
+                stage: 'won',
+                assignedTo: 'sales-lead-1',
+                assignedToRef: { uid: 'sales-lead-1', displayName: 'Ava Owner' },
+                tags: [],
+                lastContactedAt: null,
+              },
+              {
+                id: 'contact-unowned',
+                name: 'Unowned Prospect',
+                email: 'unowned@example.com',
+                company: 'Open Co',
+                type: 'lead',
+                stage: 'new',
+                assignedTo: '',
+                tags: [],
+                lastContactedAt: null,
+              },
+              {
+                id: 'contact-fresh',
+                name: 'Fresh Followup',
+                email: 'fresh@example.com',
+                company: 'Fresh Co',
+                type: 'lead',
+                stage: 'contacted',
+                assignedTo: 'sales-lead-1',
+                assignedToRef: { uid: 'sales-lead-1', displayName: 'Ava Owner' },
+                tags: [],
+                lastContactedAt: recentTouch,
+              },
+            ],
+          }),
+        } as Response)
+      }
+      if (url.startsWith('/api/v1/portal/settings/team')) {
+        return Promise.resolve({ ok: true, json: async () => ({ members: [] }) } as Response)
+      }
+      if (url.startsWith('/api/v1/crm/saved-views')) {
+        return Promise.resolve({ ok: true, json: async () => ({ data: [] }) } as Response)
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    })
+
+    render(<PortalContactsPage />)
+
+    expect(await screen.findByRole('link', { name: 'Open contact Owned Client' })).toBeInTheDocument()
+    const cockpit = await screen.findByRole('region', { name: "Today's contact cockpit" })
+    expect(within(cockpit).getByRole('heading', { name: "Today's contact cockpit" })).toBeInTheDocument()
+    expect(within(cockpit).getByText('2 follow-ups due')).toBeInTheDocument()
+    expect(within(cockpit).getByText('1 owner gap')).toBeInTheDocument()
+    expect(within(cockpit).getByText('1 client')).toBeInTheDocument()
+    expect(cockpit.compareDocumentPosition(screen.getByRole('link', { name: 'Open contact Owned Client' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+
+    fireEvent.click(within(cockpit).getByRole('button', { name: 'Show contacts needing follow-up' }))
+
+    expect(screen.getByRole('link', { name: 'Open contact Owned Client' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Open contact Unowned Prospect' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Open contact Fresh Followup' })).not.toBeInTheDocument()
+    expect(screen.getByText('2 contacts need follow-up.')).toBeInTheDocument()
+
+    fireEvent.click(within(cockpit).getByRole('button', { name: 'Show full contact audience' }))
+    expect(screen.getByRole('link', { name: 'Open contact Fresh Followup' })).toBeInTheDocument()
+  })
+
+  it('warns leaders when visible contacts look like smoke-test setup data', async () => {
+    ;(global.fetch as jest.Mock).mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.startsWith('/api/v1/crm/contacts')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: [
+              {
+                id: 'contact-owned',
+                name: 'Owned Client',
+                email: 'owned@example.com',
+                phone: '+27825550111',
+                company: 'Owned Co',
+                type: 'client',
+                stage: 'won',
+                assignedTo: 'sales-lead-1',
+                assignedToRef: { uid: 'sales-lead-1', displayName: 'Ava Owner' },
+                tags: [],
+                lastContactedAt: null,
+              },
+              {
+                id: 'contact-smoke',
+                name: 'Smoke composer focus contact 20260531172148',
+                email: 'smoke-20260531172148@example.com',
+                company: '',
+                type: 'lead',
+                stage: 'new',
+                assignedTo: '',
+                tags: [],
+                lastContactedAt: null,
+              },
+            ],
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/portal/settings/team') {
+        return Promise.resolve({ ok: true, json: async () => ({ members: [] }) } as Response)
+      }
+      if (url.startsWith('/api/v1/crm/saved-views')) {
+        return Promise.resolve({ ok: true, json: async () => ({ data: [] }) } as Response)
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    })
+
+    render(<PortalContactsPage />)
+
+    expect(await screen.findByRole('heading', { name: 'Contact setup needs review' })).toBeInTheDocument()
+
+    const review = screen.getByRole('region', { name: 'Contact setup review for visible contacts' })
+    expect(within(review).getByText('1 visible contact looks like smoke-test setup data.')).toBeInTheDocument()
+    expect(within(review).getByText('Smoke composer focus contact 20260531172148')).toBeInTheDocument()
+
+    fireEvent.click(within(review).getByRole('button', { name: 'Select 1 setup contact for cleanup' }))
+
+    expect(screen.getByRole('checkbox', { name: 'Select Smoke composer focus contact 20260531172148' })).toBeChecked()
+    expect(screen.queryByRole('checkbox', { name: 'Select Owned Client' })).not.toBeChecked()
+    expect(screen.getByText('1 selected')).toBeInTheDocument()
+    expect(screen.getByRole('alertdialog', { name: 'Delete 1 selected contact?' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Confirm delete 1 selected contact' })).toBeInTheDocument()
   })
 
   it('warns when contacts fail to load instead of presenting the audience as empty', async () => {
@@ -235,6 +391,30 @@ describe('Portal contacts page', () => {
     expect(screen.queryByRole('option', { name: 'client' })).not.toBeInTheDocument()
   })
 
+  it('keeps the mobile select control from taking a full contact-card column', async () => {
+    render(<PortalContactsPage />)
+
+    const ownedRowLink = await screen.findByRole('link', { name: 'Open contact Owned Client' })
+    const ownedRow = ownedRowLink.closest('[data-contact-row]')
+    expect(ownedRow).not.toBeNull()
+
+    expect(ownedRow).toHaveClass('grid-cols-1')
+    expect(ownedRow).toHaveClass('md:grid-cols-15')
+    expect(ownedRow).not.toHaveClass('grid-cols-2')
+
+    const selectCell = within(ownedRow as HTMLElement)
+      .getByRole('checkbox', { name: 'Select Owned Client' })
+      .closest('[data-contact-select]')
+    expect(selectCell).not.toBeNull()
+    expect(selectCell).toHaveClass('absolute')
+    expect(selectCell).toHaveClass('md:static')
+
+    const contentCell = (ownedRow as HTMLElement).querySelector('[data-contact-card-content]')
+    expect(contentCell).not.toBeNull()
+    expect(contentCell).toHaveClass('col-span-1')
+    expect(contentCell).toHaveClass('md:col-span-14')
+  })
+
   it('names primary contact commands and filters without decorative icon text', async () => {
     render(<PortalContactsPage />)
 
@@ -248,6 +428,156 @@ describe('Portal contacts page', () => {
     expect(screen.queryByRole('button', { name: 'merge Find duplicates' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'add New contact' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'bookmark_add Save current view' })).not.toBeInTheDocument()
+  })
+
+  it('surfaces duplicate scan failures before the contact table', async () => {
+    ;(global.fetch as jest.Mock).mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/contacts/duplicates') {
+        return Promise.resolve({
+          ok: false,
+          json: async () => ({ error: 'Duplicate scan unavailable' }),
+        } as Response)
+      }
+      if (url.startsWith('/api/v1/crm/contacts')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: [
+              {
+                id: 'contact-owned',
+                name: 'Owned Client',
+                email: 'owned@example.com',
+                phone: '+27825550111',
+                company: 'Owned Co',
+                type: 'client',
+                stage: 'won',
+                assignedTo: 'sales-lead-1',
+                assignedToRef: { uid: 'sales-lead-1', displayName: 'Ava Owner' },
+                tags: [],
+                lastContactedAt: null,
+              },
+            ],
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/portal/settings/team') {
+        return Promise.resolve({ ok: true, json: async () => ({ members: [] }) } as Response)
+      }
+      if (url.startsWith('/api/v1/crm/saved-views')) {
+        return Promise.resolve({ ok: true, json: async () => ({ data: [] }) } as Response)
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    })
+
+    render(<PortalContactsPage />)
+
+    expect(await screen.findByRole('link', { name: 'Open contact Owned Client' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Find duplicates' }))
+
+    const warning = await screen.findByRole('status', { name: 'Duplicate scan could not run' })
+    expect(warning).toHaveTextContent('Duplicate scan unavailable')
+
+    const firstContactLink = screen.getByRole('link', { name: 'Open contact Owned Client' })
+    expect(warning.compareDocumentPosition(firstContactLink) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('shows duplicate merge failures in the CRM page instead of a browser alert', async () => {
+    const alertSpy = jest.spyOn(window, 'alert').mockImplementation(() => {})
+
+    ;(global.fetch as jest.Mock).mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/contacts/duplicates') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: [
+              {
+                reason: 'email',
+                contacts: [
+                  {
+                    id: 'contact-owned',
+                    name: 'Owned Client',
+                    email: 'owned@example.com',
+                    company: 'Owned Co',
+                    stage: 'won',
+                  },
+                  {
+                    id: 'contact-duplicate',
+                    name: 'Owned Client Copy',
+                    email: 'owned@example.com',
+                    company: 'Owned Co',
+                    stage: 'proposal',
+                  },
+                ],
+              },
+            ],
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/contacts/merge' && init?.method === 'POST') {
+        return Promise.resolve({
+          ok: false,
+          json: async () => ({ error: 'Contact merge lock unavailable' }),
+        } as Response)
+      }
+      if (url.startsWith('/api/v1/crm/contacts')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: [
+              {
+                id: 'contact-owned',
+                name: 'Owned Client',
+                email: 'owned@example.com',
+                phone: '+27825550111',
+                company: 'Owned Co',
+                type: 'client',
+                stage: 'won',
+                assignedTo: 'sales-lead-1',
+                assignedToRef: { uid: 'sales-lead-1', displayName: 'Ava Owner' },
+                tags: [],
+                lastContactedAt: null,
+              },
+              {
+                id: 'contact-duplicate',
+                name: 'Owned Client Copy',
+                email: 'owned@example.com',
+                company: 'Owned Co',
+                type: 'prospect',
+                stage: 'proposal',
+                assignedTo: '',
+                tags: [],
+                lastContactedAt: null,
+              },
+            ],
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/portal/settings/team') {
+        return Promise.resolve({ ok: true, json: async () => ({ members: [] }) } as Response)
+      }
+      if (url.startsWith('/api/v1/crm/saved-views')) {
+        return Promise.resolve({ ok: true, json: async () => ({ data: [] }) } as Response)
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    })
+
+    render(<PortalContactsPage />)
+
+    expect(await screen.findByRole('link', { name: 'Open contact Owned Client' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Find duplicates' }))
+    expect(await screen.findByRole('heading', { name: 'Resolve contact conflicts' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Merge next duplicate' }))
+
+    const warning = await screen.findByRole('status', { name: 'Duplicate merge failed' })
+    expect(warning).toHaveTextContent('Contact merge lock unavailable')
+    expect(warning).toHaveTextContent('No records were merged. Review the canonical contact and try again before the team works this list.')
+    expect(alertSpy).not.toHaveBeenCalled()
+
+    alertSpy.mockRestore()
   })
 
   it('names the new contact drawer close action by drawer context', async () => {
@@ -281,6 +611,33 @@ describe('Portal contacts page', () => {
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/contacts?search=Owned+Co')
     })
+  })
+
+  it('preserves CRM company source context on portal contact row links', async () => {
+    mockSearchParams = new URLSearchParams({
+      orgId: 'lumen-org',
+      orgSlug: 'lumen-speeds',
+      sourceCompanyId: 'company-1',
+      sourceCompanyName: 'Lumen',
+    })
+
+    render(<PortalContactsPage />)
+
+    const ownedRowLink = await screen.findByRole('link', { name: 'Open contact Owned Client' })
+    const ownedRow = ownedRowLink.closest('[data-contact-row]')
+    expect(ownedRow).not.toBeNull()
+
+    expect(ownedRowLink).toHaveAttribute(
+      'href',
+      '/portal/contacts/contact-owned?orgId=lumen-org&orgSlug=lumen-speeds&sourceCompanyId=company-1&sourceCompanyName=Lumen',
+    )
+    expect(within(ownedRow as HTMLElement).getByRole('link', { name: 'Log activity for Owned Client from last contacted column' }))
+      .toHaveAttribute(
+        'href',
+        '/portal/contacts/contact-owned?activity=note&orgId=lumen-org&orgSlug=lumen-speeds&sourceCompanyId=company-1&sourceCompanyName=Lumen',
+      )
+    expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/contacts?orgId=lumen-org')
+    expect(global.fetch).toHaveBeenCalledWith('/api/v1/portal/settings/team?orgId=lumen-org')
   })
 
   it('treats an empty contact stage lens as a clean funnel stage', async () => {

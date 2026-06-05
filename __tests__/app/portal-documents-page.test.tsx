@@ -3,6 +3,12 @@ import { render, screen, waitFor } from '@testing-library/react'
 
 import PortalDocumentsPage from '@/app/(portal)/portal/documents/page'
 
+let mockSearchParams = new URLSearchParams()
+
+jest.mock('next/navigation', () => ({
+  useSearchParams: () => mockSearchParams,
+}))
+
 jest.mock('next/link', () => {
   return function MockLink({ href, children, className }: { href: string; children: React.ReactNode; className?: string }) {
     return <a href={href} className={className}>{children}</a>
@@ -11,6 +17,7 @@ jest.mock('next/link', () => {
 
 describe('portal documents page', () => {
   beforeEach(() => {
+    mockSearchParams = new URLSearchParams()
     jest.clearAllMocks()
   })
 
@@ -61,5 +68,49 @@ describe('portal documents page', () => {
     expect(global.fetch).toHaveBeenCalledWith('/api/v1/portal/org', { cache: 'no-store' })
     expect(global.fetch).toHaveBeenCalledWith('/api/v1/client-documents?orgId=org-1')
     expect(global.fetch).not.toHaveBeenCalledWith('/api/v1/client-documents')
+  })
+
+  it('loads documents for the company-scoped portal org when opened from CRM workspace', async () => {
+    mockSearchParams = new URLSearchParams({ orgId: 'lumen-org', orgSlug: 'lumen-speeds' })
+    global.fetch = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/portal/org?orgId=lumen-org') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            org: { id: 'lumen-org', name: 'Lumen' },
+            user: { role: 'admin' },
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/client-documents?orgId=lumen-org') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: [
+              {
+                id: 'doc-lumen',
+                orgId: 'lumen-org',
+                title: 'Lumen proposal',
+                type: 'sales_proposal',
+                status: 'client_review',
+              },
+            ],
+          }),
+        } as Response)
+      }
+      return Promise.resolve({
+        ok: false,
+        json: async () => ({ success: false, error: 'unexpected fetch' }),
+      } as Response)
+    }) as jest.Mock
+
+    render(<PortalDocumentsPage />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Lumen proposal')).toBeInTheDocument()
+    })
+    expect(global.fetch).toHaveBeenCalledWith('/api/v1/portal/org?orgId=lumen-org', { cache: 'no-store' })
+    expect(global.fetch).toHaveBeenCalledWith('/api/v1/client-documents?orgId=lumen-org')
   })
 })

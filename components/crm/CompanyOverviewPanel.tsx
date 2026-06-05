@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { DonutChart, HorizontalBarChart, RevenueBarChart, StatCardWithChart } from '@/components/ui/Charts'
+import { companyHasAccountOwner } from '@/lib/companies/ownership'
 import type { Company } from '@/lib/companies/types'
 
 type OverviewRow = { id?: string; [key: string]: unknown }
@@ -185,6 +186,10 @@ function formatCurrency(value: unknown, currency = 'ZAR'): string {
   }).format(numberValue(value))
 }
 
+function recordCountLabel(count: number): string {
+  return `${count} ${count === 1 ? 'record' : 'records'}`
+}
+
 function rowList(center: CompanyOverviewCenter | undefined, key: ListKey): OverviewRow[] {
   const rows = center?.[key]
   return Array.isArray(rows) ? rows : []
@@ -344,13 +349,20 @@ function Field({
   value,
   href,
   external = false,
+  onAction,
+  actionAriaLabel,
 }: {
   label: string
   value?: string | number | null
   href?: string
   external?: boolean
+  onAction?: () => void
+  actionAriaLabel?: string
 }) {
   if (!value && value !== 0) return null
+  const displayValue = (
+    <span className="min-w-0 break-words text-sm text-[var(--color-pib-text)]">{value}</span>
+  )
   return (
     <div className="flex items-baseline gap-3 py-1">
       <span className="w-28 shrink-0 text-[11px] text-[var(--color-pib-text-muted)]">{label}</span>
@@ -363,8 +375,18 @@ function Field({
         >
           {value}
         </a>
+      ) : onAction ? (
+        <button
+          type="button"
+          onClick={onAction}
+          aria-label={actionAriaLabel ?? `Edit ${label}`}
+          className="inline-flex min-w-0 items-center gap-1.5 text-left hover:underline"
+        >
+          {displayValue}
+          <span aria-hidden="true" className="material-symbols-outlined text-[14px] text-[var(--color-accent-v2)]">edit</span>
+        </button>
       ) : (
-        <span className="min-w-0 break-words text-sm text-[var(--color-pib-text)]">{value}</span>
+        displayValue
       )}
     </div>
   )
@@ -415,6 +437,7 @@ function WidgetCard({
   icon,
   color,
   hint,
+  ariaLabel,
   onClick,
 }: {
   label: string
@@ -422,6 +445,7 @@ function WidgetCard({
   icon: string
   color: string
   hint?: string
+  ariaLabel?: string
   onClick?: () => void
 }) {
   const content = (
@@ -440,7 +464,7 @@ function WidgetCard({
   const className = 'pib-stat-card min-h-[124px] text-left transition-colors hover:border-[var(--color-pib-accent)] hover:bg-white/[0.03]'
   if (onClick) {
     return (
-      <button type="button" className={className} onClick={onClick}>
+      <button type="button" aria-label={ariaLabel} className={className} onClick={onClick}>
         {content}
       </button>
     )
@@ -562,9 +586,24 @@ function BusinessProfile({ company, onEditCompany }: { company: Company; onEditC
       <SectionCard title="Identity">
         <Field label="Legal name" value={company.legalName} />
         <Field label="Trading name" value={company.tradingName} />
-        <Field label="Lifecycle" value={company.lifecycleStage} />
-        <Field label="Tier" value={company.tier} />
-        <Field label="Industry" value={company.industry} />
+        <Field
+          label="Lifecycle"
+          value={readableAccountLabel(company.lifecycleStage)}
+          onAction={onEditCompany}
+          actionAriaLabel={company.lifecycleStage ? `Edit Lifecycle ${readableAccountLabel(company.lifecycleStage)} for ${company.name}` : undefined}
+        />
+        <Field
+          label="Tier"
+          value={readableAccountLabel(company.tier)}
+          onAction={onEditCompany}
+          actionAriaLabel={company.tier ? `Edit Tier ${readableAccountLabel(company.tier)} for ${company.name}` : undefined}
+        />
+        <Field
+          label="Industry"
+          value={company.industry}
+          onAction={onEditCompany}
+          actionAriaLabel={company.industry ? `Edit Industry ${company.industry} for ${company.name}` : undefined}
+        />
         <Field label="Size" value={company.size} />
         <Field label="Employees" value={company.employeeCount} />
         <Field label="Annual revenue" value={company.annualRevenue ? formatCurrency(company.annualRevenue, company.currency || 'ZAR') : null} />
@@ -721,7 +760,7 @@ export function CompanyOverviewPanel({ company, center, loading, onSelectTab, on
   ].filter((item) => item.value > 0)
 
   const setupFocus = PROFILE_CHECKS.filter((check) => !check.done(company, counts)).slice(0, 4)
-  const missingAccountOwner = !company.accountManagerRef?.displayName && !company.accountManagerUid
+  const missingAccountOwner = !companyHasAccountOwner(company)
   const hasPipeline = weightedPipelineValue > 0 || counts.deals > 0
   const accountRiskItems: AccountRiskItem[] = [
     ...(missingAccountOwner
@@ -911,6 +950,7 @@ export function CompanyOverviewPanel({ company, center, loading, onSelectTab, on
               icon={item.icon}
               color={item.color}
               hint={counts[item.key] > 0 ? 'Open tab' : 'No records yet'}
+              ariaLabel={`Open ${item.label} tab for ${company.name} with ${recordCountLabel(counts[item.key])}`}
               onClick={onSelectTab ? () => onSelectTab(item.tab) : undefined}
             />
           ))}
