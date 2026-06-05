@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } fro
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { fmtTimestamp } from '@/lib/format/timestamp'
+import { ContactActivityTimeline } from '@/components/crm/ContactActivityTimeline'
 import { ContactDealsPanel } from '@/components/crm/ContactDealsPanel'
 import { ContactEngagementPanel } from '@/components/crm/ContactEngagementPanel'
 import { CompanyPanel } from '@/components/crm/CompanyPanel'
@@ -131,18 +132,6 @@ interface TeamMemberOption {
   firstName?: string
   lastName?: string
   jobTitle?: string
-}
-
-const ACTIVITY_ICONS: Record<string, string> = {
-  note: 'notes',
-  email_sent: 'mail',
-  email_received: 'inbox',
-  sequence_enrolled: 'route',
-  sequence_completed: 'route',
-  contact_captured: 'add_circle',
-  call: 'call',
-  meeting_scheduled: 'event',
-  stage_change: 'swap_horiz',
 }
 
 const STAGE_OPTIONS = ['new', 'contacted', 'replied', 'demo', 'proposal', 'won', 'lost']
@@ -313,26 +302,10 @@ function emailStatusLabel(email: EmailRecord): string {
   return EMAIL_STATUS_LABELS[key] ?? (fallback ? fallback.charAt(0).toUpperCase() + fallback.slice(1) : 'Email status not captured')
 }
 
-function activityTimeLabel(activity: ActivityRecord): string {
-  return fmtTimestamp(activity.createdAt) || 'Activity time not captured'
-}
-
-function activitySummaryLabel(activity: ActivityRecord): string {
-  const summary = activity.summary?.trim() || activity.notes?.trim()
-  if (summary) return summary
-  return 'Activity summary missing'
-}
-
 function activityContinuationNote(activity: ActivityRecord): string {
   const summary = activity.summary?.trim() || activity.notes?.trim()
   if (!summary) return ''
   return `Follow-up from: ${summary}`
-}
-
-function activityActorLabel(activity: ActivityRecord): string {
-  if (activity.createdByRef?.displayName?.trim()) return activity.createdByRef.displayName
-  if (activity.createdByRef?.uid?.trim()) return 'Activity actor identity missing'
-  return 'Activity actor not captured'
 }
 
 function normalizeSequenceOptions(body: unknown): { id: string; name: string }[] {
@@ -2683,82 +2656,15 @@ export default function PortalContactDetailPage() {
               )}
             </div>
 
-            {/* B1: Activity timeline */}
-            {activitiesLoading ? (
-              <div className="p-5 space-y-2">
-                {[...Array(3)].map((_, i) => (
-                  <div key={i} className="pib-skeleton h-10" />
-                ))}
-              </div>
-            ) : activities.length === 0 ? (
-              <div className="p-10">
-                <div className="mx-auto flex max-w-lg flex-col items-center gap-3 text-center">
-                  <span
-                    aria-hidden="true"
-                    className="material-symbols-outlined flex h-10 w-10 items-center justify-center rounded-md border border-[var(--color-pib-line)] bg-white/[0.04] text-[20px] text-[var(--color-pib-accent)]"
-                  >
-                    history
-                  </span>
-                  <div>
-                    <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
-                      Relationship timeline missing
-                    </p>
-                    <h3 className="mt-1 text-base font-semibold text-[var(--color-pib-text)]">Start the first contact note</h3>
-                    <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">
-                      Log the first note, call, email, or meeting so the whole team can see what happened, who followed up, and what should happen next.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={openFirstNoteComposer}
-                    aria-label={`Start activity trail for ${contactName}`}
-                    className="btn-pib-primary mt-4 inline-flex items-center gap-1.5 text-xs"
-                  >
-                    <span className="material-symbols-outlined text-[14px]" aria-hidden="true">edit_note</span>
-                    Start activity trail
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="px-5 pb-4">
-                {activities.map((a) => (
-                  <div key={a.id} className="flex gap-3 py-3 border-b border-[var(--color-pib-line)] last:border-0">
-                    {/* Icon */}
-                    <div className="shrink-0 w-8 h-8 rounded-full bg-[var(--color-pib-surface)] border border-[var(--color-pib-line)] flex items-center justify-center">
-                      <span className="material-symbols-outlined text-[14px] text-[var(--color-pib-text-muted)]">
-                        {ACTIVITY_ICONS[String(a.type ?? '')] ?? 'circle'}
-                      </span>
-                    </div>
-                    {/* Content */}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-[var(--color-pib-text)]">{activitySummaryLabel(a)}</p>
-                      <p className="text-xs text-[var(--color-pib-text-muted)] mt-0.5">
-                        {activityActorLabel(a)} · {activityTimeLabel(a)}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => continueFromActivity(a)}
-                      aria-label={`Continue from activity ${activitySummaryLabel(a)} with ${contactName}`}
-                      className="inline-flex shrink-0 items-center gap-1 rounded-md border border-[var(--color-pib-line)] px-2 py-1 text-[11px] font-medium text-[var(--color-pib-accent)] transition-colors hover:border-[var(--color-pib-accent)] hover:text-[var(--color-pib-text)]"
-                    >
-                      <span className="material-symbols-outlined text-[13px]" aria-hidden="true">edit_note</span>
-                      Continue
-                    </button>
-                  </div>
-                ))}
-                {activities.length === 50 && (
-                  <button
-                    type="button"
-                    onClick={loadMoreActivities}
-                    aria-label={`Load more activity for ${contactName}`}
-                    className="text-sm text-[var(--color-pib-text-muted)] w-full py-2 hover:text-[var(--color-pib-text)]"
-                  >
-                    Load more
-                  </button>
-                )}
-              </div>
-            )}
+            <ContactActivityTimeline
+              activities={activities}
+              loading={activitiesLoading}
+              contactName={contactName}
+              onAddNote={openFirstNoteComposer}
+              onContinueActivity={continueFromActivity}
+              hasMore={activities.length === 50}
+              onLoadMore={loadMoreActivities}
+            />
           </div>
 
           <ContactDealsPanel

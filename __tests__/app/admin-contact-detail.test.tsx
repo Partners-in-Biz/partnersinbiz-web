@@ -10,8 +10,8 @@ jest.mock('next/navigation', () => ({
   useRouter: () => ({ push }),
 }))
 
-jest.mock('@/components/admin/crm/ActivityTimeline', () => ({
-  ActivityTimeline: ({ contactName, onAddNote }: { contactName?: string; onAddNote?: () => void }) => (
+jest.mock('@/components/crm/ContactActivityTimeline', () => ({
+  ContactActivityTimeline: ({ contactName, onAddNote }: { contactName?: string; onAddNote?: () => void }) => (
     <div data-testid="activity-timeline">
       <span>{contactName ? `Timeline for ${contactName}` : 'Timeline contact missing'}</span>
       {onAddNote && (

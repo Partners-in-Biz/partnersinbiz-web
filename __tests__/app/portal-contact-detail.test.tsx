@@ -412,7 +412,7 @@ describe('Portal contact detail page', () => {
       expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
     })
 
-    fireEvent.click(screen.getByRole('button', { name: 'Start activity trail for Jane Client' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Log first activity note for Jane Client' }))
 
     expect(screen.getByRole('textbox', { name: 'Relationship note for Jane Client' })).toBeInTheDocument()
     expect(screen.queryByPlaceholderText('Add note notes…')).not.toBeInTheDocument()
@@ -711,14 +711,14 @@ describe('Portal contact detail page', () => {
       expect(screen.getAllByDisplayValue('Jane Client').length).toBeGreaterThan(0)
     })
 
-    expect(await screen.findByText('Relationship timeline missing')).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Start the first contact note' })).toBeInTheDocument()
+    expect(await screen.findByText('Relationship activity missing')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: "Start Jane Client's activity trail" })).toBeInTheDocument()
     expect(
       screen.getByText(
         'Log the first note, call, email, or meeting so the whole team can see what happened, who followed up, and what should happen next.'
       )
     ).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Start activity trail for Jane Client' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Log first activity note for Jane Client' }))
 
     expect(screen.getByPlaceholderText('Add a relationship note, handoff, or context…')).toBeInTheDocument()
   })
@@ -860,7 +860,7 @@ describe('Portal contact detail page', () => {
 
     expect(screen.getByText('Unnamed contact')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Send first email to Unnamed contact' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Start activity trail for Unnamed contact' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Log first activity note for Unnamed contact' })).toBeInTheDocument()
     expect(screen.getByTestId('contact-deals-panel')).toHaveTextContent('Deals for Unnamed contact')
 
     fireEvent.click(screen.getByRole('button', { name: 'Schedule meeting from engagement cockpit with Unnamed contact' }))

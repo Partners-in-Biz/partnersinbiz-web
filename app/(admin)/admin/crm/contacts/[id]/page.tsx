@@ -5,8 +5,8 @@ export const dynamic = 'force-dynamic'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
-import { ActivityTimeline } from '@/components/admin/crm/ActivityTimeline'
 import ContactBrief from '@/components/admin/crm/ContactBrief'
+import { ContactActivityTimeline } from '@/components/crm/ContactActivityTimeline'
 import { ContactForm } from '@/components/crm/ContactForm'
 import { fmtTimestamp } from '@/lib/format/timestamp'
 import { CompanyPanel } from '@/components/crm/CompanyPanel'
@@ -936,8 +936,8 @@ export default function ContactDetailPage() {
               </div>
             </div>
             <div className="p-5">
-              <ActivityTimeline
-                activities={activities as never}
+              <ContactActivityTimeline
+                activities={activities}
                 loading={activitiesLoading}
                 contactName={contact.name}
                 onAddNote={focusNoteComposer}
