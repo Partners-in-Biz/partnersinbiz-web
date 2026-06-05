@@ -16,6 +16,11 @@ export default function PortalComposePage() {
       orgId={orgScope.orgId}
       accountsHref={scopedPortalPath('/portal/social/accounts', orgScope)}
       afterSaveHref={scopedPortalPath('/portal/social', orgScope)}
+      afterPublishHref={scopedPortalPath('/portal/social/history', orgScope)}
+      advanced
+      queryPrefill
+      accountFilter="connected"
+      previewMode="toggle"
     />
   )
 }
