@@ -19,4 +19,11 @@ describe('integrations route shared workspace standard', () => {
     expect(adminSource).not.toContain('confirm(')
     expect(portalSource).not.toContain('confirm(')
   })
+
+  it('keeps portal integrations scoped when opened from a CRM company workspace', () => {
+    const portalSource = routeSource('app/(portal)/portal/integrations/page.tsx')
+
+    expect(portalSource).toContain('searchParams')
+    expect(portalSource).toContain('orgId={params?.orgId}')
+  })
 })

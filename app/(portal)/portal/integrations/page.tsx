@@ -2,6 +2,15 @@ import { IntegrationsWorkspace } from '@/components/integrations/IntegrationsWor
 
 export const dynamic = 'force-dynamic'
 
-export default function PortalIntegrationsPage() {
-  return <IntegrationsWorkspace />
+type PortalIntegrationsSearchParams = {
+  orgId?: string
+}
+
+export default async function PortalIntegrationsPage({
+  searchParams,
+}: {
+  searchParams?: Promise<PortalIntegrationsSearchParams>
+}) {
+  const params = await searchParams
+  return <IntegrationsWorkspace orgId={params?.orgId} />
 }

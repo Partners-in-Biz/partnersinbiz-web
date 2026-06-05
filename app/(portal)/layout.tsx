@@ -273,6 +273,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
               const activeOrg = Array.isArray(d?.orgs)
                 ? d.orgs.find((org: PortalOrgOption) => org.id === nextActiveOrgId)
                 : null
+              if (activeOrg?.name) setOrgName(activeOrg.name)
               if (activeOrg?.slug) setActiveOrgSlug(activeOrg.slug)
               if (activeOrg?.type) setActiveOrgType(activeOrg.type)
               if (requestedOrgId && d?.activeOrgId !== requestedOrgId) {

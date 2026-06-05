@@ -3,6 +3,8 @@ export const dynamic = 'force-dynamic'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
+import { scopedApiPath, scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 import type { Sequence, SequenceStatus, SequenceStep } from '@/lib/sequences/types'
 
 type ViewFilter = 'all' | 'active' | 'paused' | 'draft' | 'needs-work'
@@ -117,6 +119,8 @@ function StatCard({ label, value, sub, icon }: { label: string; value: string; s
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function SequencesPage() {
+  const searchParams = useSearchParams()
+  const orgScope = useMemo(() => scopeFromSearchParams(searchParams), [searchParams])
   const [sequences, setSequences] = useState<Sequence[]>([])
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState<string | null>(null)
@@ -127,11 +131,19 @@ export default function SequencesPage() {
   const [filter, setFilter] = useState<ViewFilter>('all')
   const [channelFilter, setChannelFilter] = useState<ChannelFilter>('all')
   const [search, setSearch] = useState('')
+  const sequenceEndpoint = useCallback(
+    (path: string) => scopedApiPath(path, orgScope),
+    [orgScope],
+  )
+  const sequenceHref = useCallback(
+    (path: string) => scopedPortalPath(path, orgScope),
+    [orgScope],
+  )
 
   const fetchSequences = useCallback(() => {
     setLoading(true)
     setFetchError(null)
-    fetch('/api/v1/crm/sequences')
+    fetch(sequenceEndpoint('/api/v1/crm/sequences'))
       .then(async (r) => {
         const body = await r.json().catch(() => ({}))
         if (!r.ok) {
@@ -148,7 +160,7 @@ export default function SequencesPage() {
         setFetchError(error instanceof Error ? error.message : 'Failed to load sequences. Please try again.')
       })
       .finally(() => setLoading(false))
-  }, [])
+  }, [sequenceEndpoint])
 
   useEffect(() => {
     fetchSequences()
@@ -229,7 +241,7 @@ export default function SequencesPage() {
     setTogglingId(seq.id)
 
     try {
-      const res = await fetch(`/api/v1/crm/sequences/${seq.id}`, {
+      const res = await fetch(sequenceEndpoint(`/api/v1/crm/sequences/${seq.id}`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus }),
@@ -251,7 +263,7 @@ export default function SequencesPage() {
     setDeleteError(null)
     setDeletingId(seq.id)
     try {
-      const res = await fetch(`/api/v1/crm/sequences/${seq.id}`, {
+      const res = await fetch(sequenceEndpoint(`/api/v1/crm/sequences/${seq.id}`), {
         method: 'DELETE',
       })
       if (!res.ok) {
@@ -293,7 +305,7 @@ export default function SequencesPage() {
           </p>
         </div>
         <Link
-          href="/portal/settings/sequences/new"
+          href={sequenceHref('/portal/settings/sequences/new')}
           className="btn-pib-accent flex w-fit shrink-0 items-center gap-1.5 text-sm"
           aria-label="New sequence"
         >
@@ -357,7 +369,7 @@ export default function SequencesPage() {
               </div>
             </div>
             <Link
-              href={`/portal/settings/sequences/${firstExitGoalReviewSequence.id}/edit`}
+              href={sequenceHref(`/portal/settings/sequences/${firstExitGoalReviewSequence.id}/edit`)}
               className="btn-pib-secondary shrink-0 justify-center text-xs"
               aria-label={`Review exit goal for ${firstExitGoalReviewName}`}
             >
@@ -493,7 +505,7 @@ export default function SequencesPage() {
                     sales prompts, and handover expectations into a company playbook rather than individual memory.
                   </p>
                   <Link
-                    href="/portal/settings/sequences/new"
+                    href={sequenceHref('/portal/settings/sequences/new')}
                     className="btn-pib-accent mt-5 inline-flex w-fit items-center gap-1.5 text-sm"
                     aria-label="Create the first sequence"
                   >
@@ -698,7 +710,7 @@ export default function SequencesPage() {
 
                         <div className="flex items-center justify-end gap-1">
                           <Link
-                            href={`/portal/settings/sequences/${seq.id}/edit`}
+                            href={sequenceHref(`/portal/settings/sequences/${seq.id}/edit`)}
                             title="Edit sequence"
                             aria-label={`Edit sequence ${displayName}`}
                             className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.06] hover:text-[var(--color-pib-text)]"

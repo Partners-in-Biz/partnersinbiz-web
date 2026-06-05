@@ -3,6 +3,8 @@ export const dynamic = 'force-dynamic'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
+import { scopedApiPath, scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 import type { ActionType, AutomationAction, AutomationRule, TriggerEvent } from '@/lib/automations/types'
 
 type ViewFilter = 'all' | 'active' | 'paused' | 'needs-work'
@@ -168,6 +170,8 @@ function ActionChip({ action }: { action: AutomationAction }) {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function AutomationsPage() {
+  const searchParams = useSearchParams()
+  const orgScope = useMemo(() => scopeFromSearchParams(searchParams), [searchParams])
   const [rules, setRules] = useState<AutomationRule[]>([])
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState<string | null>(null)
@@ -177,11 +181,19 @@ export default function AutomationsPage() {
   const [pendingDeleteRule, setPendingDeleteRule] = useState<AutomationRule | null>(null)
   const [filter, setFilter] = useState<ViewFilter>('all')
   const [search, setSearch] = useState('')
+  const automationEndpoint = useCallback(
+    (path: string) => scopedApiPath(path, orgScope),
+    [orgScope],
+  )
+  const automationHref = useCallback(
+    (path: string) => scopedPortalPath(path, orgScope),
+    [orgScope],
+  )
 
   const fetchAutomationRules = useCallback(() => {
     setLoading(true)
     setFetchError(null)
-    fetch('/api/v1/crm/automations')
+    fetch(automationEndpoint('/api/v1/crm/automations'))
       .then(async (r) => {
         const body = await r.json().catch(() => ({}))
         if (!r.ok) {
@@ -198,7 +210,7 @@ export default function AutomationsPage() {
         setFetchError(error instanceof Error ? error.message : 'Failed to load automations. Please try again.')
       })
       .finally(() => setLoading(false))
-  }, [])
+  }, [automationEndpoint])
 
   useEffect(() => {
     fetchAutomationRules()
@@ -244,7 +256,7 @@ export default function AutomationsPage() {
     setTogglingId(rule.id)
 
     try {
-      const res = await fetch(`/api/v1/crm/automations/${rule.id}`, {
+      const res = await fetch(automationEndpoint(`/api/v1/crm/automations/${rule.id}`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ enabled: newEnabled }),
@@ -266,7 +278,7 @@ export default function AutomationsPage() {
     setDeleteError(null)
     setDeletingId(rule.id)
     try {
-      const res = await fetch(`/api/v1/crm/automations/${rule.id}`, {
+      const res = await fetch(automationEndpoint(`/api/v1/crm/automations/${rule.id}`), {
         method: 'DELETE',
       })
       if (!res.ok) {
@@ -303,7 +315,7 @@ export default function AutomationsPage() {
           </p>
         </div>
         <Link
-          href="/portal/settings/automations/new"
+          href={automationHref('/portal/settings/automations/new')}
           className="btn-pib-accent flex w-fit shrink-0 items-center gap-1.5 text-sm"
           aria-label="New automation"
         >
@@ -447,7 +459,7 @@ export default function AutomationsPage() {
                   </div>
                   <div className="flex flex-wrap items-center gap-3">
                     <Link
-                      href="/portal/settings/automations/new"
+                      href={automationHref('/portal/settings/automations/new')}
                       className="btn-pib-accent flex w-fit items-center gap-1.5 text-sm"
                       aria-label="Create the first automation"
                     >
@@ -644,7 +656,7 @@ export default function AutomationsPage() {
 
                         <div className="flex items-center justify-end gap-1">
                           <Link
-                            href={`/portal/settings/automations/${rule.id}/edit`}
+                            href={automationHref(`/portal/settings/automations/${rule.id}/edit`)}
                             title="Edit automation"
                             className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.06] hover:text-[var(--color-pib-text)]"
                           >

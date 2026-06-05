@@ -12,6 +12,10 @@ describe('portal marketing child scope standard', () => {
     const captureImport = source('app/(portal)/portal/capture-sources/import/page.tsx')
     const emailDomains = source('app/(portal)/portal/email-domains/page.tsx')
     const emailDomainsWorkspace = source('components/email-domains/EmailDomainsWorkspace.tsx')
+    const emailAnalytics = source('app/(portal)/portal/email-analytics/page.tsx')
+    const emailAnalyticsClient = source('app/(portal)/portal/email-analytics/EmailAnalyticsClient.tsx')
+    const sequences = source('app/(portal)/portal/settings/sequences/page.tsx')
+    const automations = source('app/(portal)/portal/settings/automations/page.tsx')
     const communications = source('app/(portal)/portal/communications/page.tsx')
     const contacts = source('app/(portal)/portal/contacts/page.tsx')
     const contactsWorkspace = source('components/crm/ContactsWorkspace.tsx')
@@ -34,6 +38,20 @@ describe('portal marketing child scope standard', () => {
     expect(emailDomains).toContain('orgId={orgScope.orgId ?? undefined}')
     expect(emailDomainsWorkspace).toContain('domainEndpoint=')
     expect(emailDomainsWorkspace).toContain('fetch(domainEndpoint(domain.id)')
+
+    expect(emailAnalytics).toContain('canUsePortalOrg')
+    expect(emailAnalytics).toContain('searchParams')
+    expect(emailAnalytics).toContain('orgSlug={params?.orgSlug}')
+    expect(emailAnalyticsClient).toContain('scopedApiPath')
+    expect(emailAnalyticsClient).toContain('scopedPortalPath')
+
+    expect(sequences).toContain('scopeFromSearchParams')
+    expect(sequences).toContain("sequenceEndpoint('/api/v1/crm/sequences'")
+    expect(sequences).toContain("sequenceHref('/portal/settings/sequences/new'")
+
+    expect(automations).toContain('scopeFromSearchParams')
+    expect(automations).toContain("automationEndpoint('/api/v1/crm/automations'")
+    expect(automations).toContain("automationHref('/portal/settings/automations/new'")
 
     expect(communications).toContain('scopeFromSearchParams')
     expect(communications).toContain('initialOrgId={orgScope.orgId ??')

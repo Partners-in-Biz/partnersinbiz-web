@@ -102,4 +102,22 @@ describe('EmailAnalyticsClient', () => {
       expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/api/v1/crm/sequences'))
     })
   })
+
+  it('keeps sequence analytics scoped when opened from a CRM company workspace', async () => {
+    render(<EmailAnalyticsClient orgId="lumen-org" orgSlug="lumen-speeds" />)
+
+    expect(await screen.findByText('Sequence performance')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Manage sequences' })).toHaveAttribute(
+      'href',
+      '/portal/settings/sequences?orgId=lumen-org&orgSlug=lumen-speeds',
+    )
+    expect(screen.getByRole('link', { name: /Website welcome sequence/i })).toHaveAttribute(
+      'href',
+      '/portal/email-analytics/sequences/seq-1?orgId=lumen-org&orgSlug=lumen-speeds',
+    )
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/crm/sequences?orgId=lumen-org')
+    })
+  })
 })

@@ -1,6 +1,12 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import AutomationsPage from '@/app/(portal)/portal/settings/automations/page'
 
+let mockSearchParams = new URLSearchParams()
+
+jest.mock('next/navigation', () => ({
+  useSearchParams: () => mockSearchParams,
+}))
+
 jest.mock('next/link', () => ({
   __esModule: true,
   default: ({ children, href, ...props }: { children: React.ReactNode; href: string }) => (
@@ -11,6 +17,7 @@ jest.mock('next/link', () => ({
 describe('Portal settings automations page', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    mockSearchParams = new URLSearchParams()
     global.fetch = jest.fn((input: RequestInfo | URL) => {
       const url = String(input)
       if (url === '/api/v1/crm/automations') {
@@ -46,6 +53,28 @@ describe('Portal settings automations page', () => {
     expect(screen.getByRole('link', { name: 'Create the first automation' })).toHaveAttribute('href', '/portal/settings/automations/new')
     expect(screen.queryByRole('link', { name: 'addNew automation' })).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'addCreate the first automation' })).not.toBeInTheDocument()
+  })
+
+  it('keeps automations scoped when opened from a CRM company workspace', async () => {
+    mockSearchParams = new URLSearchParams({ orgId: 'lumen-org', orgSlug: 'lumen-speeds' })
+    global.fetch = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/automations?orgId=lumen-org') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { rules: [] } }),
+        } as Response)
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    }) as jest.Mock
+
+    render(<AutomationsPage />)
+
+    expect(await screen.findByText('Launch your first CRM safety net')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'New automation' })).toHaveAttribute(
+      'href',
+      '/portal/settings/automations/new?orgId=lumen-org&orgSlug=lumen-speeds',
+    )
   })
 
   it('warns when automations fail to load and gives leaders a retry path', async () => {

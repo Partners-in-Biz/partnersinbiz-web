@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { LineChart, Donut } from '@/components/admin/email-analytics/charts'
+import { scopedApiPath, scopedPortalPath } from '@/lib/portal/scoped-routing'
 import type {
   OrgEmailOverview,
   EngagementTimeseries,
@@ -22,7 +23,7 @@ function pct(n: number): string {
   return `${(n * 100).toFixed(1)}%`
 }
 
-export function EmailAnalyticsClient({ orgId }: { orgId: string }) {
+export function EmailAnalyticsClient({ orgId, orgSlug }: { orgId: string; orgSlug?: string }) {
   const today = useMemo(() => new Date(), [])
   const thirtyDaysAgo = useMemo(
     () => new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000),
@@ -38,6 +39,8 @@ export function EmailAnalyticsClient({ orgId }: { orgId: string }) {
     key: string
     error: string
   }>({ overview: null, series: null, sequences: [], loading: true, key: '', error: '' })
+  const apiOrgScope = useMemo(() => ({ orgId }), [orgId])
+  const portalOrgScope = useMemo(() => (orgSlug ? { orgId, orgSlug } : {}), [orgId, orgSlug])
 
   useEffect(() => {
     const key = `${from}|${to}|${orgId}`
@@ -50,7 +53,7 @@ export function EmailAnalyticsClient({ orgId }: { orgId: string }) {
     Promise.all([
       fetch(`/api/v1/email-analytics/overview?${query.toString()}`).then((r) => r.json()),
       fetch(`/api/v1/email-analytics/timeseries?${seriesQuery.toString()}`).then((r) => r.json()),
-      fetch('/api/v1/crm/sequences').then((r) => r.json()),
+      fetch(scopedApiPath('/api/v1/crm/sequences', apiOrgScope)).then((r) => r.json()),
     ]).then(([o, s, seq]) => {
       if (cancelled) return
       const error = o.error || s.error || ''
@@ -86,7 +89,7 @@ export function EmailAnalyticsClient({ orgId }: { orgId: string }) {
     return () => {
       cancelled = true
     }
-  }, [from, orgId, to])
+  }, [apiOrgScope, from, orgId, to])
 
   const loading = state.loading || state.key !== `${from}|${to}|${orgId}`
   const overview = state.overview
@@ -173,7 +176,7 @@ export function EmailAnalyticsClient({ orgId }: { orgId: string }) {
                 Sequence performance
               </h2>
               <Link
-                href="/portal/settings/sequences"
+                href={scopedPortalPath('/portal/settings/sequences', portalOrgScope)}
                 className="text-xs font-medium text-[var(--color-pib-accent)] hover:underline"
               >
                 Manage sequences
@@ -188,7 +191,7 @@ export function EmailAnalyticsClient({ orgId }: { orgId: string }) {
                 sequences.map((sequence) => (
                   <Link
                     key={sequence.id}
-                    href={`/portal/email-analytics/sequences/${sequence.id}`}
+                    href={scopedPortalPath(`/portal/email-analytics/sequences/${sequence.id}`, portalOrgScope)}
                     className="flex items-center justify-between gap-4 p-4 text-sm transition-colors hover:bg-white/[0.04]"
                   >
                     <span className="font-medium text-[var(--color-pib-text)]">{sequence.name}</span>

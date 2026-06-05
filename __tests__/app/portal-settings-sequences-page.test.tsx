@@ -1,6 +1,12 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import SequencesPage from '@/app/(portal)/portal/settings/sequences/page'
 
+let mockSearchParams = new URLSearchParams()
+
+jest.mock('next/navigation', () => ({
+  useSearchParams: () => mockSearchParams,
+}))
+
 jest.mock('next/link', () => ({
   __esModule: true,
   default: ({ children, href, ...props }: { children: React.ReactNode; href: string }) => (
@@ -11,6 +17,7 @@ jest.mock('next/link', () => ({
 describe('Portal settings sequences page', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    mockSearchParams = new URLSearchParams()
     global.fetch = jest.fn((input: RequestInfo | URL) => {
       const url = String(input)
       if (url === '/api/v1/crm/sequences') {
@@ -46,6 +53,28 @@ describe('Portal settings sequences page', () => {
     expect(screen.getByRole('link', { name: 'Create the first sequence' })).toHaveAttribute('href', '/portal/settings/sequences/new')
     expect(screen.queryByRole('link', { name: 'addNew sequence' })).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'addCreate the first sequence' })).not.toBeInTheDocument()
+  })
+
+  it('keeps sequences scoped when opened from a CRM company workspace', async () => {
+    mockSearchParams = new URLSearchParams({ orgId: 'lumen-org', orgSlug: 'lumen-speeds' })
+    global.fetch = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/sequences?orgId=lumen-org') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { sequences: [] } }),
+        } as Response)
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    }) as jest.Mock
+
+    render(<SequencesPage />)
+
+    expect(await screen.findByText('Launch your first follow-up journey')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'New sequence' })).toHaveAttribute(
+      'href',
+      '/portal/settings/sequences/new?orgId=lumen-org&orgSlug=lumen-speeds',
+    )
   })
 
   it('warns when sequences fail to load and gives leaders a retry path', async () => {
