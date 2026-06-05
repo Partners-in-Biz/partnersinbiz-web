@@ -92,6 +92,7 @@ const PORTAL_CONFIG: ReviewQueueConfig = {
       statusLabel: 'Client review',
       statusTone: 'warning',
       layout: 'card',
+      showMediaCount: true,
       showMediaThumbs: true,
       skeletonHeight: 'h-36',
     },

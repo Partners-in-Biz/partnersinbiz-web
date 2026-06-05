@@ -33,6 +33,10 @@ describe('ClientReviewQueuePage', () => {
                 platforms: ['linkedin'],
                 content: { text: 'Lumen June launch post' },
                 createdAt: { seconds: 1_720_000_000 },
+                media: [
+                  { url: 'https://cdn.partnersinbiz.test/lumen-hero.jpg', type: 'image' },
+                  { url: 'https://cdn.partnersinbiz.test/lumen-offer.jpg', type: 'image' },
+                ],
               },
             ],
           }),
@@ -60,6 +64,7 @@ describe('ClientReviewQueuePage', () => {
     })
 
     expect(await screen.findByText('Lumen June launch post')).toBeInTheDocument()
+    expect(screen.getByText('2 media items')).toBeInTheDocument()
 
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith('/api/v1/social/posts?status=client_review&limit=100&orgId=lumen-org')
