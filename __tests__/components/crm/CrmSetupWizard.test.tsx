@@ -2,6 +2,12 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { CrmSetupWizard } from '@/components/crm/setup/CrmSetupWizard'
 import type { CrmSetupState, CrmStarterTemplate } from '@/lib/crm/setup/types'
 
+const mockUseSearchParams = jest.fn(() => new URLSearchParams())
+
+jest.mock('next/navigation', () => ({
+  useSearchParams: () => mockUseSearchParams(),
+}))
+
 const setup: CrmSetupState = {
   id: 'setup-org-1',
   orgId: 'org-1',
@@ -49,9 +55,10 @@ const templates: CrmStarterTemplate[] = [
 describe('CrmSetupWizard', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    mockUseSearchParams.mockReturnValue(new URLSearchParams())
     global.fetch = jest.fn((input: RequestInfo | URL) => {
       const url = String(input)
-      if (url === '/api/v1/crm/setup') {
+      if (url.startsWith('/api/v1/crm/setup')) {
         return Promise.resolve({
           ok: true,
           json: async () => ({ data: { setup, templates } }),
@@ -80,6 +87,45 @@ describe('CrmSetupWizard', () => {
     expect(screen.getByRole('checkbox', { name: 'Select New lead follow-up starter template' })).toBeChecked()
     expect(screen.getByRole('checkbox', { name: 'Select Hot leads starter template' })).toBeChecked()
     expect(screen.getByRole('button', { name: 'Apply Simple sales pipeline template' })).toBeInTheDocument()
+  })
+
+  it('preserves linked company workspace scope through setup links and mutations', async () => {
+    mockUseSearchParams.mockReturnValue(new URLSearchParams('orgId=lumen-org&orgSlug=lumen-speeds&sourceCompanyId=company-1&sourceCompanyName=Lumen'))
+
+    render(<CrmSetupWizard />)
+
+    expect(await screen.findByRole('heading', { name: 'CRM setup' })).toBeInTheDocument()
+    const scope = 'orgId=lumen-org&orgSlug=lumen-speeds&sourceCompanyId=company-1&sourceCompanyName=Lumen'
+    const apiScope = 'orgId=lumen-org'
+
+    for (const link of screen.getAllByRole('link', { name: 'Open CSV import' })) {
+      expect(link).toHaveAttribute('href', `/portal/capture-sources/import?${scope}`)
+    }
+    expect(screen.getByRole('link', { name: 'Review pipelines' })).toHaveAttribute('href', `/portal/settings/pipelines?${scope}`)
+    expect(screen.getByRole('link', { name: 'Build sequences' })).toHaveAttribute('href', `/portal/settings/sequences?${scope}`)
+
+    expect(global.fetch).toHaveBeenCalledWith(`/api/v1/crm/setup?${apiScope}`)
+
+    fireEvent.change(screen.getByLabelText('CRM rollout notes'), {
+      target: { value: 'Mandy owns first import. Sales team reviews pipeline every Monday.' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Save setup' }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        `/api/v1/crm/setup?${apiScope}`,
+        expect.objectContaining({ method: 'PUT' }),
+      )
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Apply Simple sales pipeline template' }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        `/api/v1/crm/setup/apply-template?${apiScope}`,
+        expect.objectContaining({ method: 'POST' }),
+      )
+    })
   })
 
   it('captures CRM rollout notes and shows a team launch plan', async () => {

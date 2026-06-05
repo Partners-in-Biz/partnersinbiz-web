@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import type {
   CrmGmailIntent,
   CrmImportStatus,
@@ -11,6 +12,7 @@ import type {
   CrmStarterTemplate,
 } from '@/lib/crm/setup/types'
 import { CrmSetupCommandCenter } from '@/components/crm/setup/CrmSetupCommandCenter'
+import { scopedApiPath, scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 
 const SALES_PROCESS_OPTIONS: Array<{ value: CrmSalesProcess; label: string }> = [
   { value: 'new_sales', label: 'New business sales' },
@@ -106,6 +108,14 @@ function SetupLoadingState() {
 }
 
 export function CrmSetupWizard() {
+  const searchParams = useSearchParams()
+  const orgScope = useMemo(() => scopeFromSearchParams(searchParams), [searchParams])
+  const setupApiPath = useMemo(() => scopedApiPath('/api/v1/crm/setup', orgScope), [orgScope])
+  const applyTemplateApiPath = useMemo(() => scopedApiPath('/api/v1/crm/setup/apply-template', orgScope), [orgScope])
+  const setupPortalPath = useMemo(
+    () => (path: string) => scopedPortalPath(path, orgScope),
+    [orgScope],
+  )
   const [setup, setSetup] = useState<CrmSetupState | null>(null)
   const [templates, setTemplates] = useState<CrmStarterTemplate[]>([])
   const [loading, setLoading] = useState(true)
@@ -115,7 +125,7 @@ export function CrmSetupWizard() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    fetch('/api/v1/crm/setup')
+    fetch(setupApiPath)
       .then(async (res) => {
         const body = await res.json().catch(() => ({}))
         if (!res.ok) throw new Error(body.error ?? 'Failed to load setup.')
@@ -124,7 +134,7 @@ export function CrmSetupWizard() {
       })
       .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load setup.'))
       .finally(() => setLoading(false))
-  }, [])
+  }, [setupApiPath])
 
   const recommendedTemplates = useMemo(() => {
     if (!setup) return templates
@@ -149,7 +159,7 @@ export function CrmSetupWizard() {
     setSaving(true)
     setError(null)
     try {
-      const res = await fetch('/api/v1/crm/setup', {
+      const res = await fetch(setupApiPath, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(setup),
@@ -169,7 +179,7 @@ export function CrmSetupWizard() {
     setApplyingId(templateId)
     setError(null)
     try {
-      const res = await fetch('/api/v1/crm/setup/apply-template', {
+      const res = await fetch(applyTemplateApiPath, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ templateId, makeDefault: false }),
@@ -177,7 +187,7 @@ export function CrmSetupWizard() {
       const body = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(body.error ?? 'Failed to apply template.')
       setMessage(body.data.applied ? 'Pipeline template applied.' : 'That pipeline already exists.')
-      const setupRes = await fetch('/api/v1/crm/setup')
+      const setupRes = await fetch(setupApiPath)
       const setupBody = await setupRes.json()
       if (setupRes.ok) setSetup(setupBody.data.setup)
     } catch (err) {
@@ -216,7 +226,7 @@ export function CrmSetupWizard() {
         </div>
       )}
 
-      <CrmSetupCommandCenter setup={setup} recommendedTemplates={recommendedTemplates} />
+      <CrmSetupCommandCenter setup={setup} recommendedTemplates={recommendedTemplates} portalPath={setupPortalPath} />
 
       <section className="grid gap-4 md:grid-cols-2">
         <Field label="Sales process">
@@ -284,7 +294,7 @@ export function CrmSetupWizard() {
               Use the existing CSV importer once your source file is ready. Validate first to preview mapping and skipped rows.
             </p>
           </div>
-          <Link href="/portal/capture-sources/import" className="btn-pib-secondary inline-flex items-center gap-1.5 text-sm">
+          <Link href={setupPortalPath('/portal/capture-sources/import')} className="btn-pib-secondary inline-flex items-center gap-1.5 text-sm">
             <span className="material-symbols-outlined text-[16px]" aria-hidden="true">upload_file</span>
             Open CSV import
           </Link>

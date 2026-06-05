@@ -28,6 +28,7 @@ export type SetupCommandTemplate = Pick<
 interface Props {
   setup: SetupCommandState
   recommendedTemplates: SetupCommandTemplate[]
+  portalPath?: (path: string) => string
 }
 
 export function setupReadinessScore(setup: SetupCommandState): number {
@@ -60,7 +61,7 @@ function CommandLink({ href, icon, children }: { href: string; icon: string; chi
   )
 }
 
-export function CrmSetupCommandCenter({ setup, recommendedTemplates }: Props) {
+export function CrmSetupCommandCenter({ setup, recommendedTemplates, portalPath = (path) => path }: Props) {
   const readiness = setupReadinessScore(setup)
   const blockers = setupBlockers(setup)
   const pipelineTemplates = templateKindCount(recommendedTemplates, 'pipeline')
@@ -134,9 +135,9 @@ export function CrmSetupCommandCenter({ setup, recommendedTemplates }: Props) {
         <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.02] p-4">
           <p className="eyebrow !text-[10px]">Next actions</p>
           <div className="mt-3 grid gap-2">
-            <CommandLink href="/portal/capture-sources/import" icon="upload_file">Open CSV import</CommandLink>
-            <CommandLink href="/portal/settings/pipelines" icon="account_tree">Review pipelines</CommandLink>
-            <CommandLink href="/portal/settings/sequences" icon="route">Build sequences</CommandLink>
+            <CommandLink href={portalPath('/portal/capture-sources/import')} icon="upload_file">Open CSV import</CommandLink>
+            <CommandLink href={portalPath('/portal/settings/pipelines')} icon="account_tree">Review pipelines</CommandLink>
+            <CommandLink href={portalPath('/portal/settings/sequences')} icon="route">Build sequences</CommandLink>
           </div>
         </div>
       </div>
