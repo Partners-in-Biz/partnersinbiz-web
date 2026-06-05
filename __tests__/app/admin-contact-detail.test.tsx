@@ -405,6 +405,39 @@ describe('Admin contact detail page', () => {
     expect(screen.getByTestId('contact-form')).toBeInTheDocument()
   })
 
+  it('shows admin role department and timezone as separate relationship details', async () => {
+    contactOverride = {
+      jobTitle: 'Finance Director',
+      department: 'Operations',
+      timezone: 'Africa/Johannesburg',
+    }
+
+    render(<AdminContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Jane Client' })).toBeInTheDocument()
+    })
+
+    expect(screen.getByText('Finance Director')).toBeInTheDocument()
+    expect(screen.getByText('Operations')).toBeInTheDocument()
+    expect(screen.getByText('Africa/Johannesburg')).toBeInTheDocument()
+    expect(screen.queryByText('Finance Director · Operations')).not.toBeInTheDocument()
+  })
+
+  it('turns a missing admin contact timezone into a relationship profile completion action', async () => {
+    contactOverride = { timezone: '' }
+
+    render(<AdminContactDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Jane Client' })).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add timezone for Jane Client from relationship profile' }))
+
+    expect(screen.getByTestId('contact-form')).toBeInTheDocument()
+  })
+
   it('turns a missing admin contact owner into an accountability completion action', async () => {
     contactOverride = { assignedTo: '' }
 

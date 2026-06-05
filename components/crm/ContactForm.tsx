@@ -18,6 +18,7 @@ type ContactFormState = {
   phone: string
   jobTitle: string
   department: string
+  timezone: string
   company: string
   website: string
   assignedTo: string
@@ -51,6 +52,7 @@ export function ContactForm({ onSave, onCancel, initial = {}, contextName }: Con
     phone: String(initial.phone ?? ''),
     jobTitle: String(initial.jobTitle ?? ''),
     department: String(initial.department ?? ''),
+    timezone: String(initial.timezone ?? ''),
     company: String(initial.company ?? ''),
     website: String(initial.website ?? ''),
     assignedTo: String(initial.assignedTo ?? ''),
@@ -145,6 +147,7 @@ export function ContactForm({ onSave, onCancel, initial = {}, contextName }: Con
         {field('Job title', 'jobTitle')}
         {field('Department', 'department')}
       </div>
+      {field('Timezone', 'timezone')}
       {field('Company', 'company')}
       {field('Website', 'website')}
       {field('Owner', 'assignedTo')}

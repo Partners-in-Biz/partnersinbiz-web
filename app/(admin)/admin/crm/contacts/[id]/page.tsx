@@ -674,11 +674,25 @@ export default function ContactDetailPage() {
                   actionIcon="add_call"
                 />
                 <DetailRow
-                  label="Role"
-                  value={[contact.jobTitle, contact.department].filter(Boolean).join(' · ')}
+                  label="Job title"
+                  value={contact.jobTitle}
                   actionLabel={`Add role for ${name} from relationship profile`}
                   onAction={() => setEditing(true)}
                   actionIcon="badge"
+                />
+                <DetailRow
+                  label="Department"
+                  value={contact.department}
+                  actionLabel={`Add department for ${name} from relationship profile`}
+                  onAction={() => setEditing(true)}
+                  actionIcon="corporate_fare"
+                />
+                <DetailRow
+                  label="Timezone"
+                  value={contact.timezone}
+                  actionLabel={`Add timezone for ${name} from relationship profile`}
+                  onAction={() => setEditing(true)}
+                  actionIcon="schedule"
                 />
                 <DetailRow
                   label="Website"
