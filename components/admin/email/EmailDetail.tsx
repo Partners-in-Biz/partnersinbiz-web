@@ -1,6 +1,6 @@
 // components/admin/email/EmailDetail.tsx
 'use client'
-import { fmtTimestamp } from './fmtTimestamp'
+import { fmtTimestamp } from '@/lib/format/timestamp'
 
 interface EmailDetailProps {
   email: {

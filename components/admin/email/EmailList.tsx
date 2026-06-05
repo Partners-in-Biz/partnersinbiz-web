@@ -1,7 +1,7 @@
 // components/admin/email/EmailList.tsx
 'use client'
 import Link from 'next/link'
-import { fmtTimestamp } from './fmtTimestamp'
+import { fmtTimestamp } from '@/lib/format/timestamp'
 
 export type EmailFolder = 'sent' | 'scheduled' | 'drafts' | 'failed'
 
