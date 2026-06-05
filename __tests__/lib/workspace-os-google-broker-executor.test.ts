@@ -69,6 +69,8 @@ describe('Google Workspace broker executor', () => {
       requiredCapability: 'write',
       approvalStatus: 'approved',
       approvalGateTaskId: 'gate-1',
+      approvalSatisfied: true,
+      approvalEvidence: { gateTaskId: 'gate-1', status: 'approved', decidedBy: 'pip', decidedAt: '2026-06-05T10:00:00.000Z' },
       input: { title: 'Budget', folderId: 'folder-1', projectId: 'project-1', taskId: 'task-1', credentialsPath: '/untrusted/body.json' },
     } as never)
 
@@ -115,6 +117,57 @@ describe('Google Workspace broker executor', () => {
     expect(result).toMatchObject({ googleMutationPerformed: false, providerResultIds: ['doc-1'], artifactIds: ['artifact-doc-1'] })
   })
 
+  it('rejects artifact-scoped execution when the artifact org does not match the broker job org', async () => {
+    for (const operation of ['permission_audit', 'inventory_refresh', 'export_pdf'] as const) {
+      jest.clearAllMocks()
+      const { drive } = setupGoogleClients()
+      mockDoc.mockReturnValue({ get: mockGetDoc, update: mockUpdateDoc })
+      mockGetDoc.mockResolvedValueOnce({ exists: true, data: () => ({ orgId: 'org-other', title: 'Other tenant plan', google: { fileId: 'doc-other' } }) })
+
+      const { executeWorkspaceBrokerJob } = await import('@/lib/workspace-os/googleBrokerExecutor')
+      await expect(executeWorkspaceBrokerJob({
+        id: `job-org-mismatch-${operation}`,
+        orgId: 'org-1',
+        operation,
+        status: 'queued',
+        requiredCapability: operation === 'export_pdf' ? 'write' : 'read',
+        approvalRequired: operation === 'export_pdf',
+        approvalSatisfied: operation === 'export_pdf',
+        approvalStatus: operation === 'export_pdf' ? 'approved' : null,
+        approvalGateTaskId: operation === 'export_pdf' ? 'gate-export' : null,
+        approvalEvidence: operation === 'export_pdf' ? { gateTaskId: 'gate-export', status: 'approved', decidedBy: 'pip', decidedAt: '2026-06-05T10:00:00.000Z' } : { gateTaskId: null, status: null },
+        input: { artifactId: 'artifact-other' },
+      } as never)).rejects.toThrow('Workspace artifact orgId does not match broker job orgId')
+
+      expect(drive.files.get).not.toHaveBeenCalled()
+      expect(drive.files.export).not.toHaveBeenCalled()
+      expect(drive.permissions.list).not.toHaveBeenCalled()
+      expect(mockUpdateDoc).not.toHaveBeenCalled()
+    }
+  })
+
+  it('blocks direct Google mutation executor calls without persisted approval evidence', async () => {
+    const { drive } = setupGoogleClients()
+    const { executeWorkspaceBrokerJob } = await import('@/lib/workspace-os/googleBrokerExecutor')
+
+    await expect(executeWorkspaceBrokerJob({
+      id: 'job-no-approval',
+      orgId: 'org-1',
+      operation: 'create_doc',
+      status: 'queued',
+      requiredCapability: 'write',
+      approvalRequired: false,
+      approvalSatisfied: false,
+      approvalStatus: null,
+      approvalGateTaskId: null,
+      approvalEvidence: { gateTaskId: null, status: null },
+      input: { title: 'No approval doc' },
+    } as never)).rejects.toThrow('Workspace broker approval evidence is required before execution')
+
+    expect(drive.files.create).not.toHaveBeenCalled()
+    expect(mockGoogleAuth).not.toHaveBeenCalled()
+  })
+
   it('rolls back created Google files when PiB artifact linking fails', async () => {
     const { drive } = setupGoogleClients()
     drive.files.create.mockResolvedValueOnce({ data: { id: 'folder-1', name: 'Evidence', mimeType: 'application/vnd.google-apps.folder', webViewLink: 'https://drive.google.com/drive/folders/folder-1', parents: ['parent-1'] } })
@@ -128,6 +181,11 @@ describe('Google Workspace broker executor', () => {
       operation: 'create_folder',
       status: 'queued',
       requiredCapability: 'write',
+      approvalRequired: true,
+      approvalSatisfied: true,
+      approvalStatus: 'approved',
+      approvalGateTaskId: 'gate-rollback',
+      approvalEvidence: { gateTaskId: 'gate-rollback', status: 'approved', decidedBy: 'pip', decidedAt: '2026-06-05T10:00:00.000Z' },
       input: { title: 'Evidence', parentFolderId: 'parent-1' },
     } as never)).rejects.toThrow('metadata link failed')
 

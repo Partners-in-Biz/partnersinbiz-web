@@ -21,6 +21,7 @@ export const WORKSPACE_BROKER_OPERATIONS = [
 export type WorkspaceBrokerOperation = (typeof WORKSPACE_BROKER_OPERATIONS)[number]
 export type WorkspaceBrokerJobStatus = 'requested' | 'awaiting_approval' | 'queued' | 'running' | 'done' | 'failed' | 'blocked' | 'cancelled'
 export type WorkspaceBrokerRiskLevel = 'low' | 'medium' | 'high' | 'critical'
+const GOOGLE_MUTATION_OPERATIONS = new Set<WorkspaceBrokerOperation>(['create_folder', 'create_doc', 'create_sheet', 'copy_template_doc', 'copy_template_sheet', 'export_pdf', 'request_share', 'request_delete'])
 
 export interface WorkspaceBrokerApprovalInput {
   operation: WorkspaceBrokerOperation
@@ -45,18 +46,17 @@ export function evaluateWorkspaceBrokerApproval(input: WorkspaceBrokerApprovalIn
   let riskLevel: WorkspaceBrokerRiskLevel = 'low'
   let approvalRequired = false
 
-  if (operation === 'request_share') {
-    requiredCapability = 'publish'
-    riskLevel = 'high'
-    approvalRequired = true
-  } else if (operation === 'request_delete') {
-    requiredCapability = 'delete'
-    riskLevel = 'high'
-    approvalRequired = true
-  } else if (['create_folder', 'create_doc', 'create_sheet', 'copy_template_doc', 'copy_template_sheet', 'export_pdf'].includes(operation)) {
+  if (GOOGLE_MUTATION_OPERATIONS.has(operation)) {
     requiredCapability = 'write'
     riskLevel = input.visibility === 'admin_agents_clients' ? 'medium' : 'low'
-    approvalRequired = input.visibility === 'admin_agents_clients'
+    approvalRequired = true
+    if (operation === 'request_share') {
+      requiredCapability = 'publish'
+      riskLevel = 'high'
+    } else if (operation === 'request_delete') {
+      requiredCapability = 'delete'
+      riskLevel = 'high'
+    }
   } else if (operation === 'permission_audit' || operation === 'inventory_refresh') {
     requiredCapability = 'read'
   }
@@ -142,6 +142,11 @@ export interface WorkspaceBrokerJob {
   idempotencyKey: string | null
   requestedAt: string
   updatedAt: string
+  startedAt?: string | null
+  failedAt?: string | null
+  approvalDecidedBy?: string | null
+  approvalDecidedAt?: string | null
+  approvedAt?: string | null
   completedAt: string | null
 }
 
@@ -217,6 +222,11 @@ export function buildWorkspaceBrokerJobInput(input: WorkspaceBrokerJobInput): Wo
     idempotencyKey: cleanString(input.idempotencyKey),
     requestedAt: now,
     updatedAt: now,
+    startedAt: null,
+    failedAt: null,
+    approvalDecidedBy: trustedApprovalSatisfied ? cleanString(input.requestedBy) ?? null : null,
+    approvalDecidedAt: trustedApprovalSatisfied ? now : null,
+    approvedAt: trustedApprovalSatisfied ? now : null,
     completedAt: null,
   }
 }
@@ -225,7 +235,7 @@ export function canExecuteWorkspaceBrokerJob(job: Partial<WorkspaceBrokerJob>): 
   const operation = typeof job.operation === 'string' && (WORKSPACE_BROKER_OPERATIONS as readonly string[]).includes(job.operation) ? job.operation as WorkspaceBrokerOperation : 'link_existing'
   const visibility = asRecord(job.input).visibility
   const fallbackDecision = evaluateWorkspaceBrokerApproval({ operation, visibility: cleanString(visibility) })
-  const approvalRequired = job.approvalRequired === true || fallbackDecision.approvalRequired
+  const approvalRequired = job.approvalRequired === true || fallbackDecision.approvalRequired || GOOGLE_MUTATION_OPERATIONS.has(operation)
   const approvalEvidence = asRecord(job.approvalEvidence)
   const approvalStatus = cleanString(job.approvalStatus)?.toLowerCase()
   const evidenceStatus = cleanString(approvalEvidence.status)?.toLowerCase()
@@ -239,6 +249,7 @@ export function canExecuteWorkspaceBrokerJob(job: Partial<WorkspaceBrokerJob>): 
     && !!evidenceStatus
     && APPROVED.has(evidenceStatus)
     && !!cleanString(approvalEvidence.decidedBy)
+    && !!cleanString(approvalEvidence.decidedAt)
   if (approvalRequired && !approvalSatisfied) return { ok: false, reason: 'approval_required' }
   const status = cleanString(job.status)
   if (status !== 'queued' && status !== 'running') return { ok: false, reason: 'not_ready' }

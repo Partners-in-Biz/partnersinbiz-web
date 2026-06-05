@@ -3,12 +3,13 @@ import { google } from 'googleapis'
 import { adminDb } from '@/lib/firebase/admin'
 import { WORKSPACE_ARTIFACT_COLLECTION, normalizeWorkspaceArtifactInput } from '@/lib/workspace-os/artifacts'
 import { asRecord, cleanString } from '@/lib/workspace-os/common'
-import type { WorkspaceBrokerJob, WorkspaceBrokerOperation } from '@/lib/workspace-os/broker'
+import { canExecuteWorkspaceBrokerJob, type WorkspaceBrokerJob, type WorkspaceBrokerOperation } from '@/lib/workspace-os/broker'
 
 const GOOGLE_DOC_MIME = 'application/vnd.google-apps.document'
 const GOOGLE_SHEET_MIME = 'application/vnd.google-apps.spreadsheet'
 const GOOGLE_FOLDER_MIME = 'application/vnd.google-apps.folder'
 const PDF_MIME = 'application/pdf'
+const GOOGLE_MUTATION_OPERATIONS = new Set<WorkspaceBrokerOperation>(['create_folder', 'create_doc', 'create_sheet', 'copy_template_doc', 'copy_template_sheet', 'export_pdf', 'request_share', 'request_delete'])
 
 export interface WorkspaceBrokerExecutionResult {
   googleMutationPerformed: boolean
@@ -131,21 +132,22 @@ async function createGoogleResource(operation: WorkspaceBrokerOperation, input: 
   throw new Error(`Unsupported Google Workspace broker operation: ${operation}`)
 }
 
-async function getArtifactGoogleFile(artifactId: string, purpose: string): Promise<{ ref: FirebaseFirestore.DocumentReference; artifact: Record<string, unknown>; fileId: string }> {
+async function getArtifactGoogleFile(artifactId: string, purpose: string, brokerOrgId: string): Promise<{ ref: FirebaseFirestore.DocumentReference; artifact: Record<string, unknown>; fileId: string }> {
   const ref = adminDb.collection(WORKSPACE_ARTIFACT_COLLECTION).doc(artifactId)
   const artifactSnap = await ref.get()
   if (!artifactSnap.exists) throw new Error(`Workspace artifact not found for ${purpose}`)
   const artifact = artifactSnap.data() as Record<string, unknown>
+  if (cleanString(artifact.orgId) !== cleanString(brokerOrgId)) throw new Error('Workspace artifact orgId does not match broker job orgId')
   const googleInfo = asRecord(artifact.google)
   const fileId = cleanString(googleInfo.fileId)
   if (!fileId) throw new Error('Workspace artifact has no Google file id')
   return { ref, artifact, fileId }
 }
 
-async function exportArtifact(input: Record<string, unknown>, clients: GoogleWorkspaceClients): Promise<{ fileId: string; title: string; mimeType: string; url: string; parents: string[]; size?: string | null }> {
+async function exportArtifact(job: WorkspaceBrokerJob & { id?: string }, input: Record<string, unknown>, clients: GoogleWorkspaceClients): Promise<{ fileId: string; title: string; mimeType: string; url: string; parents: string[]; size?: string | null }> {
   const artifactId = cleanString(input.artifactId)
   if (!artifactId) throw new Error('artifactId is required for export broker jobs')
-  const { artifact, fileId: sourceFileId } = await getArtifactGoogleFile(artifactId, 'export')
+  const { artifact, fileId: sourceFileId } = await getArtifactGoogleFile(artifactId, 'export', job.orgId)
   const metadata = await clients.drive.files.get({ fileId: sourceFileId, fields: 'id, name, mimeType, webViewLink, parents' })
   const sourceTitle = cleanString(metadata.data.name) ?? cleanString(artifact.title) ?? 'workspace-export'
   const title = inputTitle(input, `${sourceTitle}.pdf`)
@@ -163,7 +165,7 @@ async function exportArtifact(input: Record<string, unknown>, clients: GoogleWor
 async function readArtifactMetadata(job: WorkspaceBrokerJob & { id?: string }, input: Record<string, unknown>, clients: GoogleWorkspaceClients): Promise<WorkspaceBrokerExecutionResult> {
   const artifactId = cleanString(input.artifactId)
   if (!artifactId) throw new Error('artifactId is required for metadata broker jobs')
-  const { ref, fileId } = await getArtifactGoogleFile(artifactId, 'metadata refresh')
+  const { ref, fileId } = await getArtifactGoogleFile(artifactId, 'metadata refresh', job.orgId)
   const [metadata, permissions] = await Promise.all([
     clients.drive.files.get({ fileId, fields: 'id, name, mimeType, webViewLink, parents, size, owners(emailAddress), modifiedTime' }),
     clients.drive.permissions.list({ fileId, fields: 'permissions(id,type,role,emailAddress,domain,allowFileDiscovery)' }),
@@ -236,6 +238,10 @@ async function registerArtifact(job: WorkspaceBrokerJob & { id?: string }, resou
 }
 
 export async function executeWorkspaceBrokerJob(job: WorkspaceBrokerJob & { id?: string }): Promise<WorkspaceBrokerExecutionResult> {
+  if (GOOGLE_MUTATION_OPERATIONS.has(job.operation)) {
+    const executionGate = canExecuteWorkspaceBrokerJob(job)
+    if (!executionGate.ok) throw new Error(executionGate.reason === 'approval_required' ? 'Workspace broker approval evidence is required before execution' : 'Workspace broker job is not ready for execution')
+  }
   requiredEnvCredentialPath()
   const input = asRecord(job.input)
   const clients = await buildGoogleWorkspaceClients()
@@ -246,7 +252,7 @@ export async function executeWorkspaceBrokerJob(job: WorkspaceBrokerJob & { id?:
     }
 
     const resource = job.operation === 'export_pdf'
-      ? await exportArtifact(input, clients)
+      ? await exportArtifact(job, input, clients)
       : await createGoogleResource(job.operation, input, clients)
     createdFileIds.push(resource.fileId)
     const artifactId = await registerArtifact(job, resource)

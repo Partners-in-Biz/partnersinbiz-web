@@ -233,6 +233,7 @@ describe('workspace broker approval envelope', () => {
   it('maps operations to safe capabilities and approval states', () => {
     expect(evaluateWorkspaceBrokerApproval({ operation: 'link_existing', visibility: 'admin_agents' })).toMatchObject({ requiredCapability: 'draft', riskLevel: 'low', approvalRequired: false })
     expect(evaluateWorkspaceBrokerApproval({ operation: 'create_doc', visibility: 'admin_agents_clients' })).toMatchObject({ requiredCapability: 'write', riskLevel: 'medium', approvalRequired: true })
+    expect(evaluateWorkspaceBrokerApproval({ operation: 'create_doc', visibility: 'admin_agents' })).toMatchObject({ requiredCapability: 'write', riskLevel: 'low', approvalRequired: true, status: 'awaiting_approval' })
     expect(evaluateWorkspaceBrokerApproval({ operation: 'request_share', visibility: 'admin_agents_clients' })).toMatchObject({ requiredCapability: 'publish', riskLevel: 'high', approvalRequired: true })
     expect(evaluateWorkspaceBrokerApproval({ operation: 'request_delete' })).toMatchObject({ requiredCapability: 'delete', riskLevel: 'high', approvalRequired: true })
   })
@@ -315,6 +316,7 @@ describe('workspace broker approval envelope', () => {
     expect(canExecuteWorkspaceBrokerJob(awaiting)).toMatchObject({ ok: false, reason: 'approval_required' })
     expect(canExecuteWorkspaceBrokerJob({ ...approved, status: 'running' })).toMatchObject({ ok: true })
     expect(canExecuteWorkspaceBrokerJob({ ...approved, approvalEvidence: { ...approved.approvalEvidence, gateTaskId: 'other-task' } })).toMatchObject({ ok: false, reason: 'approval_required' })
+    expect(canExecuteWorkspaceBrokerJob({ ...approved, approvalEvidence: { ...approved.approvalEvidence, decidedAt: null } })).toMatchObject({ ok: false, reason: 'approval_required' })
     expect(canExecuteWorkspaceBrokerJob({ operation: 'request_share', status: 'queued', approvalRequired: false, approvalSatisfied: false, input: { visibility: 'admin_agents_clients' } })).toMatchObject({ ok: false, reason: 'approval_required' })
     expect(canExecuteWorkspaceBrokerJob({
       operation: 'request_share',
@@ -323,6 +325,21 @@ describe('workspace broker approval envelope', () => {
       approvalGateTaskId: 'caller-supplied-gate',
       input: { visibility: 'admin_agents_clients' },
     })).toMatchObject({ ok: false, reason: 'approval_required' })
+  })
+
+  it('requires persisted approval evidence before any Google mutation execution class can run', () => {
+    for (const operation of ['create_folder', 'create_doc', 'create_sheet', 'copy_template_doc', 'copy_template_sheet', 'export_pdf', 'request_share', 'request_delete'] as const) {
+      expect(canExecuteWorkspaceBrokerJob({
+        operation,
+        status: 'queued',
+        approvalRequired: false,
+        approvalSatisfied: false,
+        approvalStatus: null,
+        approvalGateTaskId: null,
+        approvalEvidence: { gateTaskId: null, status: null },
+        input: { visibility: 'admin_agents' },
+      })).toMatchObject({ ok: false, reason: 'approval_required' })
+    }
   })
 
   it('detects Google ACLs that are broader than PiB visibility', () => {

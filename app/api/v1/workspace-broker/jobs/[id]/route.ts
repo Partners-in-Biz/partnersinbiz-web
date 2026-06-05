@@ -100,13 +100,14 @@ export const PATCH = withAuth('admin', async (req: NextRequest, user, context) =
 
   const nextStatus = action === 'approve' ? 'queued' : 'cancelled'
   const approvalStatus = action === 'approve' ? 'approved' : 'rejected'
+  const decidedAtIso = new Date().toISOString()
   const output = { ...(job.output ?? {}), googleMutationPerformed: false }
   const approvalEvidence = {
     ...((job.approvalEvidence && typeof job.approvalEvidence === 'object') ? job.approvalEvidence as Record<string, unknown> : {}),
     gateTaskId: approvalGateTaskId,
     status: approvalStatus,
     decidedBy: user.uid,
-    decidedAt: FieldValue.serverTimestamp(),
+    decidedAt: decidedAtIso,
   }
   const update = {
     status: nextStatus,
@@ -116,9 +117,22 @@ export const PATCH = withAuth('admin', async (req: NextRequest, user, context) =
     approvalEvidence,
     approvalDecidedBy: user.uid,
     approvalDecidedAt: FieldValue.serverTimestamp(),
+    approvedAt: action === 'approve' ? FieldValue.serverTimestamp() : null,
     output,
     updatedAt: FieldValue.serverTimestamp(),
   }
   await ref.update(update)
-  return apiSuccess({ id, ...update, updatedAt: new Date().toISOString(), approvalDecidedAt: new Date().toISOString() })
+  return apiSuccess({
+    id,
+    status: nextStatus,
+    approvalStatus,
+    approvalGateTaskId,
+    approvalSatisfied: action === 'approve',
+    approvalEvidence: { ...approvalEvidence, decidedAt: decidedAtIso },
+    approvalDecidedBy: user.uid,
+    approvalDecidedAt: decidedAtIso,
+    approvedAt: action === 'approve' ? decidedAtIso : null,
+    output,
+    updatedAt: decidedAtIso,
+  })
 })
