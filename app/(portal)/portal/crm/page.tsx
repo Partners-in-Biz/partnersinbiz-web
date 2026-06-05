@@ -264,6 +264,28 @@ function activityHref(
   return contactId ? buildHref(`/portal/contacts/${encodeURIComponent(contactId)}`) : ''
 }
 
+function topDealHasContact(deal: NonNullable<CrmDashboard['topOpenDeals']>[number]): boolean {
+  return Boolean(textValue(deal.contactName) || textValue(deal.contactId))
+}
+
+function topDealContactLabel(deal: NonNullable<CrmDashboard['topOpenDeals']>[number]): string {
+  return textValue(deal.contactName) || textValue(deal.contactId) || 'Contact cleanup needed'
+}
+
+function topDealHref(
+  deal: NonNullable<CrmDashboard['topOpenDeals']>[number],
+  buildHref: PortalHrefBuilder = (path) => path,
+): string {
+  if (!topDealHasContact(deal)) {
+    return buildHref('/portal/deals?view=list&focus=needsContact')
+  }
+  return buildHref(`/portal/deals/${encodeURIComponent(deal.id)}`)
+}
+
+function topDealActionLabel(deal: NonNullable<CrmDashboard['topOpenDeals']>[number]): string | undefined {
+  return topDealHasContact(deal) ? undefined : `Open missing contact cleanup for ${deal.title}`
+}
+
 function countActivityAttributionGaps(activities: CrmDashboard['recentActivities']): number {
   return activities?.filter((activity) => !textValue(activity.contactName)).length ?? 0
 }
@@ -568,22 +590,26 @@ export default function PortalCrmPage() {
             </div>
           ) : (
             <div className="divide-y divide-[var(--color-pib-line)]">
-              {dashboard.topOpenDeals.map((deal) => (
-                <Link
-                  key={deal.id}
-                  href={crmPortalPath(`/portal/deals/${deal.id}`)}
-                  className="grid gap-3 px-5 py-3.5 transition-colors hover:bg-[var(--color-pib-surface-2)] md:grid-cols-[1fr_120px_90px]"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-[var(--color-pib-text)]">{deal.title}</p>
-                    <p className="mt-0.5 truncate text-xs text-[var(--color-pib-text-muted)]">
-                      {deal.contactName ?? deal.contactId ?? 'No contact linked'}
-                    </p>
-                  </div>
-                  <p className="text-sm font-medium text-[var(--color-pib-text)]">{formatCurrency(deal.value, deal.currency)}</p>
-                  <p className="text-xs text-[var(--color-pib-text-muted)]">{deal.probability ?? 50}%</p>
-                </Link>
-              ))}
+              {dashboard.topOpenDeals.map((deal) => {
+                const actionLabel = topDealActionLabel(deal)
+                return (
+                  <Link
+                    key={deal.id}
+                    href={topDealHref(deal, crmPortalPath)}
+                    aria-label={actionLabel}
+                    className="grid gap-3 px-5 py-3.5 transition-colors hover:bg-[var(--color-pib-surface-2)] md:grid-cols-[1fr_120px_90px]"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-[var(--color-pib-text)]">{deal.title}</p>
+                      <p className="mt-0.5 truncate text-xs text-[var(--color-pib-text-muted)]">
+                        {topDealContactLabel(deal)}
+                      </p>
+                    </div>
+                    <p className="text-sm font-medium text-[var(--color-pib-text)]">{formatCurrency(deal.value, deal.currency)}</p>
+                    <p className="text-xs text-[var(--color-pib-text-muted)]">{deal.probability ?? 50}%</p>
+                  </Link>
+                )
+              })}
             </div>
           )}
         </div>
