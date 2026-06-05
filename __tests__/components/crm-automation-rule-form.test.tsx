@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { AutomationRuleForm } from '@/components/crm/AutomationRuleForm'
 
 describe('AutomationRuleForm', () => {
@@ -44,5 +44,48 @@ describe('AutomationRuleForm', () => {
 
     expect(await screen.findByRole('option', { name: 'Active welcome' })).toBeInTheDocument()
     expect(screen.queryByRole('option', { name: 'Draft welcome' })).not.toBeInTheDocument()
+  })
+
+  it('saves automation rules through the provided scoped endpoint', async () => {
+    const onSave = jest.fn()
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        data: {
+          id: 'rule-scoped',
+          name: 'Notify owner',
+          enabled: true,
+          trigger: { event: 'contact.created' },
+          actions: [{ type: 'send_notification', notificationMessage: 'Review the new lead' }],
+          delayMinutes: 0,
+        },
+      }),
+    } as Response)
+    Object.defineProperty(global, 'fetch', { value: fetchMock, writable: true })
+
+    render(
+      <AutomationRuleForm
+        endpoint="/api/v1/crm/automations?orgId=lumen-org"
+        onSave={onSave}
+        onCancel={jest.fn()}
+      />,
+    )
+
+    fireEvent.change(screen.getByRole('textbox', { name: 'Name the business outcome' }), {
+      target: { value: 'Notify owner' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Add action' }))
+    fireEvent.change(screen.getByRole('textbox', { name: 'Action 1 notification message' }), {
+      target: { value: 'Review the new lead' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Create rule' }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/v1/crm/automations?orgId=lumen-org',
+        expect.objectContaining({ method: 'POST' }),
+      )
+    })
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ id: 'rule-scoped' }))
   })
 })

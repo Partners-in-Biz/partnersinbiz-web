@@ -48,21 +48,23 @@ function SequencePickerInline({
   value,
   onChange,
   label,
+  endpoint = '/api/v1/crm/sequences',
 }: {
   value: string
   onChange: (id: string, name: string) => void
   label: string
+  endpoint?: string
 }) {
   const [sequences, setSequences] = useState<{ id: string; name: string; status?: string }[]>([])
   useEffect(() => {
-    fetch('/api/v1/crm/sequences')
+    fetch(endpoint)
       .then(r => r.json())
       .then(b => {
         const allSequences = (b.data?.sequences ?? b.data ?? []) as { id: string; name: string; status?: string }[]
         setSequences(allSequences.filter((sequence) => sequence.status === 'active'))
       })
       .catch(() => {})
-  }, [])
+  }, [endpoint])
   return (
     <select
       aria-label={label}
@@ -86,11 +88,13 @@ function ActionRow({
   index,
   onChange,
   onRemove,
+  sequencesEndpoint,
 }: {
   action: AutomationAction
   index: number
   onChange: (a: AutomationAction) => void
   onRemove: () => void
+  sequencesEndpoint?: string
 }) {
   const actionNumber = index + 1
 
@@ -200,6 +204,7 @@ function ActionRow({
           value={action.sequenceId ?? ''}
           label={`Action ${actionNumber} sequence`}
           onChange={(id, name) => onChange({ ...action, sequenceId: id, sequenceName: name })}
+          endpoint={sequencesEndpoint}
         />
       )}
 
@@ -222,11 +227,13 @@ interface Props {
   initial?: Partial<AutomationRule>
   onSave: (rule: AutomationRule) => void
   onCancel: () => void
+  endpoint?: string
+  sequencesEndpoint?: string
 }
 
 // ── AutomationRuleForm ─────────────────────────────────────────────────────────
 
-export function AutomationRuleForm({ initial, onSave, onCancel }: Props) {
+export function AutomationRuleForm({ initial, onSave, onCancel, endpoint, sequencesEndpoint }: Props) {
   const [name, setName] = useState(initial?.name ?? '')
   const [trigger, setTrigger] = useState<AutomationTrigger>(
     initial?.trigger ?? { event: 'deal.created' }
@@ -295,9 +302,9 @@ export function AutomationRuleForm({ initial, onSave, onCancel }: Props) {
         delayMinutes: computeDelayMinutes(),
       }
 
-      const url = isEdit
+      const url = endpoint ?? (isEdit
         ? `/api/v1/crm/automations/${initial!.id}`
-        : '/api/v1/crm/automations'
+        : '/api/v1/crm/automations')
       const method = isEdit ? 'PUT' : 'POST'
 
       const res = await fetch(url, {
@@ -466,6 +473,7 @@ export function AutomationRuleForm({ initial, onSave, onCancel }: Props) {
             action={action}
             onChange={(updated) => updateAction(i, updated)}
             onRemove={() => removeAction(i)}
+            sequencesEndpoint={sequencesEndpoint}
           />
         ))}
 

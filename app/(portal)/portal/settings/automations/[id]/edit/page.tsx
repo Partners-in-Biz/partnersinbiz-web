@@ -1,10 +1,11 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { use, useCallback, useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { use, useCallback, useEffect, useMemo, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { AutomationRuleForm } from '@/components/crm/AutomationRuleForm'
 import type { AutomationRule } from '@/lib/automations/types'
+import { scopedApiPath, scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 
 export default function EditAutomationPage({
   params,
@@ -13,6 +14,10 @@ export default function EditAutomationPage({
 }) {
   const { id } = use(params)
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const orgScope = useMemo(() => scopeFromSearchParams(searchParams), [searchParams])
+  const automationEndpoint = useCallback((path: string) => scopedApiPath(path, orgScope), [orgScope])
+  const automationHref = useCallback((path: string) => scopedPortalPath(path, orgScope), [orgScope])
 
   const [rule, setRule] = useState<AutomationRule | null>(null)
   const [loading, setLoading] = useState(true)
@@ -22,7 +27,7 @@ export default function EditAutomationPage({
     setLoading(true)
     setFetchError(null)
     try {
-      const res = await fetch('/api/v1/crm/automations')
+      const res = await fetch(automationEndpoint('/api/v1/crm/automations'))
       const body = await res.json().catch(() => ({}))
       if (!res.ok) {
         const message = typeof body?.error === 'string' ? body.error : `HTTP ${res.status}`
@@ -37,7 +42,7 @@ export default function EditAutomationPage({
     } finally {
       if (!cancelled?.()) setLoading(false)
     }
-  }, [id])
+  }, [automationEndpoint, id])
 
   useEffect(() => {
     let cancelled = false
@@ -49,11 +54,11 @@ export default function EditAutomationPage({
   }, [id, loadRule])
 
   function handleSave() {
-    router.push('/portal/settings/automations')
+    router.push(automationHref('/portal/settings/automations'))
   }
 
   function handleCancel() {
-    router.push('/portal/settings/automations')
+    router.push(automationHref('/portal/settings/automations'))
   }
 
   return (
@@ -127,7 +132,13 @@ export default function EditAutomationPage({
           </div>
         </section>
       ) : rule ? (
-        <AutomationRuleForm initial={rule} onSave={handleSave} onCancel={handleCancel} />
+        <AutomationRuleForm
+          initial={rule}
+          endpoint={automationEndpoint(`/api/v1/crm/automations/${rule.id}`)}
+          sequencesEndpoint={automationEndpoint('/api/v1/crm/sequences')}
+          onSave={handleSave}
+          onCancel={handleCancel}
+        />
       ) : null}
     </div>
   )
