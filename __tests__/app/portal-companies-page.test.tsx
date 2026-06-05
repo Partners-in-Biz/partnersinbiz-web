@@ -23,7 +23,7 @@ describe('Portal companies page', () => {
     mockSearchParams = new URLSearchParams()
     global.fetch = jest.fn((input: RequestInfo | URL) => {
       const url = String(input)
-      if (url.startsWith('/api/v1/crm/companies?')) {
+      if (url === '/api/v1/crm/companies' || url.startsWith('/api/v1/crm/companies?')) {
         return Promise.resolve({
           ok: true,
           json: async () => ({
@@ -63,6 +63,108 @@ describe('Portal companies page', () => {
     }) as jest.Mock
   })
 
+  it('preserves company workspace scope across account list, links, row actions, filters, and bulk updates', async () => {
+    const scope = 'orgId=org-1&orgSlug=lumen-speeds&sourceCompanyId=company-source&sourceCompanyName=Lumen'
+    mockSearchParams = new URLSearchParams(`industry=SaaS&${scope}`)
+    global.fetch = jest.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/companies?industry=SaaS&orgId=org-1') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: {
+              companies: [
+                {
+                  id: 'company-managed',
+                  orgId: 'org-1',
+                  name: 'Managed Account',
+                  website: 'https://managed.example',
+                  industry: 'SaaS',
+                  lifecycleStage: 'customer',
+                  accountManagerUid: 'uid-1',
+                  accountManagerRef: { uid: 'uid-1', displayName: 'Ava Owner' },
+                  tags: [],
+                  notes: 'Managed relationship',
+                  createdAt: null,
+                  updatedAt: null,
+                },
+                {
+                  id: 'company-unmanaged',
+                  orgId: 'org-1',
+                  name: 'Unmanaged Account',
+                  lifecycleStage: 'prospect',
+                  tags: [],
+                  notes: '',
+                  createdAt: null,
+                  updatedAt: null,
+                },
+              ],
+            },
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/companies?orgId=org-1') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: {
+              companies: [
+                {
+                  id: 'company-managed',
+                  orgId: 'org-1',
+                  name: 'Managed Account',
+                  website: 'https://managed.example',
+                  industry: 'SaaS',
+                  lifecycleStage: 'customer',
+                  accountManagerUid: 'uid-1',
+                  accountManagerRef: { uid: 'uid-1', displayName: 'Ava Owner' },
+                  tags: [],
+                  notes: 'Managed relationship',
+                  createdAt: null,
+                  updatedAt: null,
+                },
+              ],
+            },
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/companies/bulk?orgId=org-1' && init?.method === 'POST') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { updated: 1, skipped: 0 } }),
+        } as Response)
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    }) as jest.Mock
+
+    render(<CompaniesPage />)
+
+    expect(await screen.findByText('Managed Account')).toBeInTheDocument()
+
+    expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/companies?industry=SaaS&orgId=org-1')
+    expect(screen.getByRole('link', { name: 'New company' })).toHaveAttribute('href', `/portal/companies/new?${scope}`)
+    expect(screen.getByRole('link', { name: 'Migrate from contacts' })).toHaveAttribute('href', `/portal/companies/migrate?${scope}`)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open account detail for Managed Account' }))
+    expect(mockPush).toHaveBeenCalledWith(`/portal/companies/company-managed?${scope}`)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Complete account profile for Unmanaged Account' }))
+    expect(mockPush).toHaveBeenCalledWith(`/portal/companies/company-unmanaged?edit=profile&${scope}`)
+
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Select Managed Account' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Apply company bulk updates' }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/companies/bulk?orgId=org-1', expect.objectContaining({ method: 'POST' }))
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /Clear/ }))
+    expect(mockReplace).toHaveBeenCalledWith(`/portal/companies?${scope}`, { scroll: false })
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/companies?orgId=org-1')
+    })
+  })
+
   it('surfaces unmanaged accounts as a company accountability lens', async () => {
     render(<CompaniesPage />)
 
@@ -96,7 +198,7 @@ describe('Portal companies page', () => {
   it('counts CRM owner references as account-manager coverage for imported client companies', async () => {
     global.fetch = jest.fn((input: RequestInfo | URL) => {
       const url = String(input)
-      if (url.startsWith('/api/v1/crm/companies?')) {
+      if (url === '/api/v1/crm/companies' || url.startsWith('/api/v1/crm/companies?')) {
         return Promise.resolve({
           ok: true,
           json: async () => ({
@@ -134,7 +236,7 @@ describe('Portal companies page', () => {
   it('warns when companies fail to load and gives leaders a retry path', async () => {
     global.fetch = jest.fn((input: RequestInfo | URL) => {
       const url = String(input)
-      if (url.startsWith('/api/v1/crm/companies?')) {
+      if (url === '/api/v1/crm/companies' || url.startsWith('/api/v1/crm/companies?')) {
         return Promise.resolve({
           ok: false,
           json: async () => ({ error: 'Companies index unavailable' }),
@@ -168,7 +270,7 @@ describe('Portal companies page', () => {
   it('treats an empty unmanaged-company lens as clean account accountability', async () => {
     global.fetch = jest.fn((input: RequestInfo | URL) => {
       const url = String(input)
-      if (url.startsWith('/api/v1/crm/companies?')) {
+      if (url === '/api/v1/crm/companies' || url.startsWith('/api/v1/crm/companies?')) {
         return Promise.resolve({
           ok: true,
           json: async () => ({
@@ -219,7 +321,7 @@ describe('Portal companies page', () => {
           json: async () => ({ data: { companies: [] } }),
         } as Response)
       }
-      if (url.startsWith('/api/v1/crm/companies?')) {
+      if (url === '/api/v1/crm/companies' || url.startsWith('/api/v1/crm/companies?')) {
         return Promise.resolve({
           ok: true,
           json: async () => ({

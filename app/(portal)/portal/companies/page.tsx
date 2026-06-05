@@ -12,6 +12,7 @@ import { CompaniesTable } from '@/components/crm/CompaniesTable'
 import { CompanyFiltersBar } from '@/components/crm/CompanyFiltersBar'
 import { companyAccountOwnerUid, companyHasAccountOwner } from '@/lib/companies/ownership'
 import type { Company, CompanyListParams } from '@/lib/companies/types'
+import { scopedApiPath, scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 
 // ── Companies list page ───────────────────────────────────────────────────────
 
@@ -73,6 +74,9 @@ function AccountMetric({
 export default function CompaniesPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const orgScope = useMemo(() => scopeFromSearchParams(searchParams), [searchParams])
+  const companyApiPath = useCallback((path: string) => scopedApiPath(path, orgScope), [orgScope])
+  const companyPortalPath = useCallback((path: string) => scopedPortalPath(path, orgScope), [orgScope])
 
   const [companies, setCompanies] = useState<Company[]>([])
   const [loading, setLoading] = useState(true)
@@ -176,7 +180,8 @@ export default function CompaniesPage() {
       if (params.accountManagerUid) query.set('accountManagerUid', params.accountManagerUid)
       if (params.tags && params.tags.length > 0) query.set('tags', params.tags.join(','))
 
-      const res = await fetch(`/api/v1/crm/companies?${query.toString()}`)
+      const queryString = query.toString()
+      const res = await fetch(companyApiPath(queryString ? `/api/v1/crm/companies?${queryString}` : '/api/v1/crm/companies'))
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
         throw new Error(body.error ?? `HTTP ${res.status}`)
@@ -189,7 +194,7 @@ export default function CompaniesPage() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [companyApiPath])
 
   // Fetch on mount and when filters change
   useEffect(() => {
@@ -209,7 +214,7 @@ export default function CompaniesPage() {
     if (newFilters.lifecycleStage) params.set('lifecycleStage', newFilters.lifecycleStage)
     if (newFilters.accountManagerUid) params.set('accountManagerUid', newFilters.accountManagerUid)
     const qs = params.toString()
-    router.replace(qs ? `/portal/companies?${qs}` : '/portal/companies', { scroll: false })
+    router.replace(companyPortalPath(qs ? `/portal/companies?${qs}` : '/portal/companies'), { scroll: false })
   }
 
   function retryCompaniesLoad() {
@@ -219,11 +224,11 @@ export default function CompaniesPage() {
   // ── Row click → navigate to company detail ────────────────────────────────
 
   function handleRowClick(id: string) {
-    router.push(`/portal/companies/${id}`)
+    router.push(companyPortalPath(`/portal/companies/${id}`))
   }
 
   function handleSetupCompany(id: string) {
-    router.push(`/portal/companies/${id}?edit=profile`)
+    router.push(companyPortalPath(`/portal/companies/${id}?edit=profile`))
   }
 
   function toggleCompany(id: string) {
@@ -285,7 +290,7 @@ export default function CompaniesPage() {
     setBulkPending(true)
     setNotice(null)
     try {
-      const res = await fetch('/api/v1/crm/companies/bulk', {
+      const res = await fetch(companyApiPath('/api/v1/crm/companies/bulk'), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ ids: Array.from(selectedIds), patch }),
@@ -320,14 +325,14 @@ export default function CompaniesPage() {
         <div className="flex items-center gap-2">
           {/* Migrate from contacts — only visible to admins; route handled by W2-E */}
           <Link
-            href="/portal/companies/migrate"
+            href={companyPortalPath('/portal/companies/migrate')}
             className="cursor-pointer text-xs px-3 py-1.5 rounded-lg border border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:border-[var(--color-pib-text-muted)] transition-colors"
           >
             Migrate from contacts
           </Link>
 
           <Link
-            href="/portal/companies/new"
+            href={companyPortalPath('/portal/companies/new')}
             className="cursor-pointer flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
             style={{ background: 'var(--color-accent-v2)', color: '#fff' }}
             aria-label="New company"
@@ -458,6 +463,8 @@ export default function CompaniesPage() {
           onToggleCompany={toggleCompany}
           onToggleAll={toggleAllCompanies}
           emptyState={emptyState}
+          newCompanyHref={companyPortalPath('/portal/companies/new')}
+          migrateHref={companyPortalPath('/portal/companies/migrate')}
         />
       )}
     </div>
