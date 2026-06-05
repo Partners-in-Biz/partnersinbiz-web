@@ -32,6 +32,7 @@ export const GET = withPortalAuth(async (_req: NextRequest, uid: string) => {
       logoUrl: (d.data()!.logoUrl as string) ?? '',
     }))
 
-  const activeOrgId = choosePortalActiveOrgId(data, orgIds) ?? orgs[0]?.id ?? null
+  const loadedOrgIds = orgs.map((org) => org.id)
+  const activeOrgId = choosePortalActiveOrgId(data, loadedOrgIds) ?? orgs[0]?.id ?? null
   return NextResponse.json({ orgs, activeOrgId })
 })
