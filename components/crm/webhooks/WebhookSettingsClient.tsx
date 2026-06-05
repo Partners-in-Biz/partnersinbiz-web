@@ -1,6 +1,8 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
+import { scopedApiPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 import type { WebhookEvent } from '@/lib/webhooks/types'
 import { VALID_WEBHOOK_EVENTS } from '@/lib/webhooks/types'
 
@@ -266,6 +268,9 @@ function StatCard({ label, value, sub, icon }: { label: string; value: string; s
 }
 
 export function WebhookSettingsClient() {
+  const searchParams = useSearchParams()
+  const routeScope = useMemo(() => scopeFromSearchParams(searchParams), [searchParams])
+  const scopedOrgId = routeScope.orgId ?? ''
   const [orgId, setOrgId] = useState('')
   const [webhooks, setWebhooks] = useState<OutboundWebhook[]>([])
   const [selectedEvent, setSelectedEvent] = useState(CRM_EVENT_CATALOG[0].event)
@@ -301,10 +306,12 @@ export function WebhookSettingsClient() {
     return { active, healthy, failing, eventCoverage, totalFailures }
   }, [webhooks])
 
-  async function loadWebhooks(nextOrgId = orgId) {
+  const webhookEndpoint = useCallback((path: string, nextOrgId = orgId) => scopedApiPath(path, { orgId: nextOrgId }), [orgId])
+
+  const loadWebhooks = useCallback(async (nextOrgId: string) => {
     if (!nextOrgId) return
     setFetchError(null)
-    const res = await fetch(`/api/v1/crm/webhooks?limit=100&orgId=${encodeURIComponent(nextOrgId)}`)
+    const res = await fetch(scopedApiPath('/api/v1/crm/webhooks?limit=100', { orgId: nextOrgId }))
     const body = await res.json().catch(() => ({}))
     if (!res.ok) {
       const message = parseApiError(body, 'Failed to load webhook subscriptions.')
@@ -313,7 +320,7 @@ export function WebhookSettingsClient() {
     }
     const items: OutboundWebhook[] = body.data?.items ?? body.items ?? []
     setWebhooks(Array.isArray(items) ? items : [])
-  }
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -322,6 +329,11 @@ export function WebhookSettingsClient() {
       setLoading(true)
       setError(null)
       try {
+        if (scopedOrgId) {
+          setOrgId(scopedOrgId)
+          await loadWebhooks(scopedOrgId)
+          return
+        }
         const activeOrgRes = await fetch('/api/v1/portal/active-org')
         const activeOrgBody = await activeOrgRes.json().catch(() => ({}))
         if (!activeOrgRes.ok || !activeOrgBody.orgId) {
@@ -343,8 +355,7 @@ export function WebhookSettingsClient() {
     return () => {
       cancelled = true
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [loadWebhooks, scopedOrgId])
 
   function toggleEvent(event: string) {
     if (!SUPPORTED_EVENTS.has(event)) return
@@ -388,7 +399,7 @@ export function WebhookSettingsClient() {
       const events = selectedEvents.filter((event): event is WebhookEvent =>
         VALID_WEBHOOK_EVENTS.includes(event as WebhookEvent),
       )
-      const res = await fetch('/api/v1/crm/webhooks', {
+      const res = await fetch(webhookEndpoint('/api/v1/crm/webhooks'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -423,7 +434,7 @@ export function WebhookSettingsClient() {
       const events = editing.events.filter((event): event is WebhookEvent =>
         VALID_WEBHOOK_EVENTS.includes(event as WebhookEvent),
       )
-      const res = await fetch(`/api/v1/crm/webhooks/${editing.id}`, {
+      const res = await fetch(webhookEndpoint(`/api/v1/crm/webhooks/${editing.id}`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -455,7 +466,7 @@ export function WebhookSettingsClient() {
 
     try {
       const method = action === 'delete' ? 'DELETE' : 'POST'
-      const res = await fetch(`/api/v1/crm/webhooks/${webhook.id}${action === 'delete' ? '' : `/${action}`}`, { method })
+      const res = await fetch(webhookEndpoint(`/api/v1/crm/webhooks/${webhook.id}${action === 'delete' ? '' : `/${action}`}`), { method })
       const body = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(parseApiError(body, `Failed to ${action} webhook.`))
       if (action === 'rotate-secret') setSecretOnce(body.data?.secretOnce ?? '')
@@ -490,7 +501,7 @@ export function WebhookSettingsClient() {
   }
 
   function retryLoadWebhooks() {
-    void loadWebhooks().catch(() => {
+    void loadWebhooks(orgId).catch(() => {
       // loadWebhooks already stores the source-health message for the UI.
     })
   }
