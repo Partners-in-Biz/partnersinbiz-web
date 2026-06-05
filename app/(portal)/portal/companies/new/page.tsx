@@ -109,6 +109,7 @@ export default function NewCompanyPage() {
       {/* Drawer is always open on this route */}
       <CompanyEditDrawer
         mode="create"
+        orgScope={orgScope}
         onSave={handleSave}
         onClose={handleClose}
         teamMembers={teamMembers}

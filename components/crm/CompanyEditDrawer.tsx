@@ -4,6 +4,7 @@ import { useState } from 'react'
 import type { Company, CompanySize, CompanyTier, CompanyLifecycleStage } from '@/lib/companies/types'
 import type { Currency } from '@/lib/crm/types'
 import type { CustomFieldDefinition } from '@/lib/customFields/types'
+import type { PortalOrgRouteScope } from '@/lib/portal/scoped-routing'
 import { CompanyPicker } from '@/components/crm/CompanyPicker'
 import { CustomFieldsSection } from '@/components/crm/CustomFieldsSection'
 
@@ -209,6 +210,7 @@ export interface CompanyEditDrawerProps {
   onSave: (data: Partial<Company>) => Promise<void>
   onClose: () => void
   mode: 'create' | 'edit'
+  orgScope?: PortalOrgRouteScope
   teamMembers?: CompanyTeamMember[]
   /** Custom-field definitions for the `company` resource — when present, render the dynamic section. */
   customFieldDefinitions?: CustomFieldDefinition[]
@@ -257,7 +259,7 @@ function teamMemberOptionLabel(member: CompanyTeamMember): string {
 
 // ── Public component ──────────────────────────────────────────────────────────
 
-export function CompanyEditDrawer({ company, onSave, onClose, mode, teamMembers = [], customFieldDefinitions }: CompanyEditDrawerProps) {
+export function CompanyEditDrawer({ company, onSave, onClose, mode, orgScope, teamMembers = [], customFieldDefinitions }: CompanyEditDrawerProps) {
   const [form, setForm] = useState<FormState>(() => companyToForm(company ?? {}))
   const [customFields, setCustomFields] = useState<Record<string, unknown>>(
     () => ((company?.customFields as Record<string, unknown>) ?? {}),
@@ -569,6 +571,7 @@ export function CompanyEditDrawer({ company, onSave, onClose, mode, teamMembers 
             <CompanyPicker
               currentCompanyId={form.parentCompanyId || undefined}
               currentCompanyName={form.parentCompanyName || undefined}
+              orgScope={orgScope}
               onChange={({ companyId, companyName }) => {
                 setForm((f) => ({
                   ...f,

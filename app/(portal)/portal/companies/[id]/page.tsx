@@ -2744,6 +2744,7 @@ export default function CompanyDetailPage() {
         <CompanyEditDrawer
           company={company}
           mode="edit"
+          orgScope={orgScope}
           onSave={handleSave}
           onClose={() => setEditOpen(false)}
           teamMembers={teamMembers}
@@ -2795,6 +2796,7 @@ export default function CompanyDetailPage() {
           defaultCompanyId={company.id}
           defaultCompanyName={company.name}
           orgId={company.orgId}
+          orgScope={orgScope}
           onSaved={handleDealSaved}
           onClose={() => setNewDealOpen(false)}
         />

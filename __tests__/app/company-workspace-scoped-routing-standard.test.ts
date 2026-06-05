@@ -20,5 +20,7 @@ describe('company workspace scoped routing standard', () => {
     expect(source).toContain('companyApiPath(`/api/v1/crm/companies/${nextCompanyId}/command-center?limit=100`)')
     expect(source).toContain("hrefFor={(row) => scopedWorkspaceHref(`/portal/projects/${row.id}`)}")
     expect(source).toContain("hrefFor={(row) => scopedWorkspaceHref(`/portal/documents/${row.id}`)}")
+    expect(source).toMatch(/<CompanyEditDrawer[\s\S]*?orgScope=\{orgScope\}/)
+    expect(source).toMatch(/<DealDrawer[\s\S]*?orgScope=\{orgScope\}/)
   })
 })
