@@ -22,7 +22,7 @@ jest.mock('@/components/dashboard/TopCompaniesByPipelineTile', () => ({
   TopCompaniesByPipelineTile: () => null,
 }))
 
-jest.mock('@/components/admin/ScheduledContentPreviewCards', () => ({
+jest.mock('@/components/social/ScheduledContentPreviewCards', () => ({
   ScheduledContentPreviewCards: () => null,
 }))
 

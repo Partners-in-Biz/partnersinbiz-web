@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { StatCardWithChart, DonutChart, HorizontalBarChart, TrendAreaChart } from '@/components/ui/Charts'
-import { ScheduledContentPreviewCards, type ScheduledContentPost } from '@/components/admin/ScheduledContentPreviewCards'
+import { ScheduledContentPreviewCards, type ScheduledContentPost } from '@/components/social/ScheduledContentPreviewCards'
 import { PageHeader, Surface } from '@/components/ui/AppFoundation'
 
 interface Project {

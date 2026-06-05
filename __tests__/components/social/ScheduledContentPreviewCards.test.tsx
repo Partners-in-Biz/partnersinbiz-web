@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react'
-import { ScheduledContentPreviewCards, type ScheduledContentPost } from '@/components/admin/ScheduledContentPreviewCards'
+import { ScheduledContentPreviewCards, type ScheduledContentPost } from '@/components/social/ScheduledContentPreviewCards'
 
 const basePost: ScheduledContentPost = {
   id: 'post_1',
