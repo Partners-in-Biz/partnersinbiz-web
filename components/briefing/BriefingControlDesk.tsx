@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { scopedPortalPath, type PortalOrgRouteScope } from '@/lib/portal/scoped-routing'
 
 const BRIEFING_AUTO_REFRESH_MS = 5 * 60_000
 
@@ -323,31 +324,61 @@ function sourceLabel(item: BriefingCard) {
   return sourceTypeLabel(item.source.type)
 }
 
-function sourceHref(item: BriefingCard, mode: Mode) {
+function hasPortalRouteScope(scope?: PortalOrgRouteScope) {
+  return Boolean(
+    cleanText(scope?.orgId)
+    || cleanText(scope?.orgSlug)
+    || cleanText(scope?.sourceCompanyId)
+    || cleanText(scope?.sourceCompanyName),
+  )
+}
+
+function portalSourceHref(href: string | null | undefined, scope?: PortalOrgRouteScope) {
+  const path = href?.trim()
+  if (!path) return null
+  if (!path.startsWith('/portal')) return path
+  if (!hasPortalRouteScope(scope)) return path
+  if (/[?&](?:orgId|orgSlug|sourceCompanyId|sourceCompanyName)=/.test(path)) return path
+  return scopedPortalPath(path, scope ?? {})
+}
+
+function sourceHref(item: BriefingCard, mode: Mode, portalScope?: PortalOrgRouteScope) {
   if (item.source.type === 'agent-run') return mode === 'admin' ? adminSourceHref(item) : null
   if (item.source.type === 'workspace-broker-job') return mode === 'admin' ? adminSourceHref(item) : null
-  if (item.source.type === 'calendar-event') return item.source.url || (mode === 'admin' ? adminSourceHref(item) : `/portal/calendar/events/${encodeURIComponent(item.source.id)}`)
+  if (item.source.type === 'calendar-event') {
+    return mode === 'admin'
+      ? item.source.url || adminSourceHref(item)
+      : portalSourceHref(item.source.url || `/portal/calendar/events/${encodeURIComponent(item.source.id)}`, portalScope)
+  }
   if (item.source.type === 'booking') return mode === 'admin' ? adminSourceHref(item) : null
   if (item.source.type === 'form-submission') return mode === 'admin' ? adminSourceHref(item) : null
   if (item.source.type === 'social-inbox') return adminSourceHref(item)
-  if (item.source.type === 'mailbox-message') return mode === 'admin' ? adminSourceHref(item) : item.source.url || `/portal/email?message=${encodeURIComponent(item.source.id)}`
-  if (item.source.type === 'social-post') return `/portal/social/review/${encodeURIComponent(item.source.id)}`
-  if (item.source.type === 'support-ticket') return mode === 'admin' ? `/admin/support?ticket=${encodeURIComponent(item.source.id)}` : '/portal'
-  if (item.source.type === 'invoice') return mode === 'admin' ? `/admin/invoicing/${encodeURIComponent(item.source.id)}` : `/portal/payments?invoice=${encodeURIComponent(item.source.id)}`
-  if (item.source.type === 'quote') return mode === 'admin' ? `/admin/quotes/${encodeURIComponent(item.source.id)}` : `/portal/payments?quote=${encodeURIComponent(item.source.id)}`
-  if (item.source.type === 'order') return item.source.url || (item.context.companyId ? `/portal/companies/${encodeURIComponent(item.context.companyId)}?order=${encodeURIComponent(item.source.id)}` : `/portal/crm?order=${encodeURIComponent(item.source.id)}`)
-  if (item.source.type === 'inventory-item') return item.source.url || (item.context.companyId ? `/portal/companies/${encodeURIComponent(item.context.companyId)}?inventory=${encodeURIComponent(item.source.id)}` : `/portal/crm?inventory=${encodeURIComponent(item.source.id)}`)
-  if (item.source.type === 'shipment') return item.source.url || (item.context.companyId ? `/portal/companies/${encodeURIComponent(item.context.companyId)}?shipment=${encodeURIComponent(item.source.id)}` : `/portal/crm?shipment=${encodeURIComponent(item.source.id)}`)
+  if (item.source.type === 'mailbox-message') {
+    return mode === 'admin' ? adminSourceHref(item) : portalSourceHref(item.source.url || `/portal/email?message=${encodeURIComponent(item.source.id)}`, portalScope)
+  }
+  if (item.source.type === 'social-post') return portalSourceHref(`/portal/social/review/${encodeURIComponent(item.source.id)}`, portalScope)
+  if (item.source.type === 'support-ticket') return mode === 'admin' ? `/admin/support?ticket=${encodeURIComponent(item.source.id)}` : portalSourceHref('/portal', portalScope)
+  if (item.source.type === 'invoice') return mode === 'admin' ? `/admin/invoicing/${encodeURIComponent(item.source.id)}` : portalSourceHref(`/portal/payments?invoice=${encodeURIComponent(item.source.id)}`, portalScope)
+  if (item.source.type === 'quote') return mode === 'admin' ? `/admin/quotes/${encodeURIComponent(item.source.id)}` : portalSourceHref(`/portal/payments?quote=${encodeURIComponent(item.source.id)}`, portalScope)
+  if (item.source.type === 'order') return portalSourceHref(item.source.url || (item.context.companyId ? `/portal/companies/${encodeURIComponent(item.context.companyId)}?order=${encodeURIComponent(item.source.id)}` : `/portal/crm?order=${encodeURIComponent(item.source.id)}`), portalScope)
+  if (item.source.type === 'inventory-item') return portalSourceHref(item.source.url || (item.context.companyId ? `/portal/companies/${encodeURIComponent(item.context.companyId)}?inventory=${encodeURIComponent(item.source.id)}` : `/portal/crm?inventory=${encodeURIComponent(item.source.id)}`), portalScope)
+  if (item.source.type === 'shipment') return portalSourceHref(item.source.url || (item.context.companyId ? `/portal/companies/${encodeURIComponent(item.context.companyId)}?shipment=${encodeURIComponent(item.source.id)}` : `/portal/crm?shipment=${encodeURIComponent(item.source.id)}`), portalScope)
   if (item.source.type === 'expense') return mode === 'admin' ? `/admin/finance?expense=${encodeURIComponent(item.source.id)}` : null
-  if (item.source.type === 'ad-campaign') return mode === 'admin' ? adminSourceHref(item) : `/portal/ads/campaigns/${encodeURIComponent(item.source.id)}`
-  if (item.source.type === 'broadcast') return mode === 'admin' ? adminSourceHref(item) : item.source.url || `/portal/campaigns/broadcast/${encodeURIComponent(item.source.id)}`
-  if (item.source.type === 'campaign') return mode === 'admin' ? adminSourceHref(item) : item.source.url || `/portal/campaigns/${encodeURIComponent(item.source.id)}`
+  if (item.source.type === 'ad-campaign') return mode === 'admin' ? adminSourceHref(item) : portalSourceHref(`/portal/ads/campaigns/${encodeURIComponent(item.source.id)}`, portalScope)
+  if (item.source.type === 'broadcast') return mode === 'admin' ? adminSourceHref(item) : portalSourceHref(item.source.url || `/portal/campaigns/broadcast/${encodeURIComponent(item.source.id)}`, portalScope)
+  if (item.source.type === 'campaign') return mode === 'admin' ? adminSourceHref(item) : portalSourceHref(item.source.url || `/portal/campaigns/${encodeURIComponent(item.source.id)}`, portalScope)
   if (item.source.type === 'enquiry') return mode === 'admin' ? adminSourceHref(item) : null
   if (item.source.type === 'seo-content') {
     const sprintId = item.context.seoSprintId
     const contentId = encodeURIComponent(item.source.id)
-    if (sprintId) return `${mode === 'admin' ? '/admin' : '/portal'}/seo/sprints/${encodeURIComponent(sprintId)}/content?content=${contentId}`
-    return mode === 'admin' ? `/admin/seo?content=${contentId}` : `/portal/seo?content=${contentId}`
+    if (sprintId) {
+      return mode === 'admin'
+        ? `/admin/seo/sprints/${encodeURIComponent(sprintId)}/content?content=${contentId}`
+        : portalSourceHref(`/portal/seo/sprints/${encodeURIComponent(sprintId)}/content?content=${contentId}`, portalScope)
+    }
+    return mode === 'admin'
+      ? `/admin/seo?content=${contentId}`
+      : portalSourceHref(`/portal/seo?content=${contentId}`, portalScope)
   }
   if (item.source.type === 'seo-task') {
     if (mode !== 'admin') return null
@@ -357,12 +388,12 @@ function sourceHref(item: BriefingCard, mode: Mode) {
     return `/admin/seo?task=${taskId}`
   }
   if (mode === 'admin') return item.source.url || null
-  if (item.source.url?.startsWith('/portal')) return item.source.url
-  if (item.context.conversationId) return `/portal/conversations?convId=${encodeURIComponent(item.context.conversationId)}`
-  if (item.context.projectId) return `/portal/projects/${item.context.projectId}${item.context.taskId ? `?taskId=${encodeURIComponent(item.context.taskId)}` : ''}`
-  if (item.context.documentId) return `/portal/documents/${item.context.documentId}`
-  if (item.context.contactId) return `/portal/contacts/${encodeURIComponent(item.context.contactId)}`
-  if (item.context.dealId) return `/portal/deals/${encodeURIComponent(item.context.dealId)}`
+  if (item.source.url?.startsWith('/portal')) return portalSourceHref(item.source.url, portalScope)
+  if (item.context.conversationId) return portalSourceHref(`/portal/conversations?convId=${encodeURIComponent(item.context.conversationId)}`, portalScope)
+  if (item.context.projectId) return portalSourceHref(`/portal/projects/${item.context.projectId}${item.context.taskId ? `?taskId=${encodeURIComponent(item.context.taskId)}` : ''}`, portalScope)
+  if (item.context.documentId) return portalSourceHref(`/portal/documents/${item.context.documentId}`, portalScope)
+  if (item.context.contactId) return portalSourceHref(`/portal/contacts/${encodeURIComponent(item.context.contactId)}`, portalScope)
+  if (item.context.dealId) return portalSourceHref(`/portal/deals/${encodeURIComponent(item.context.dealId)}`, portalScope)
   if (item.source.type === 'report' && item.source.url) return item.source.url
   return item.source.url || null
 }
@@ -833,20 +864,20 @@ function canConvertToCrmActivity(item: BriefingCard) {
   return Boolean(item.context.contactId || item.context.dealId || item.metadata?.contactId || item.metadata?.dealId)
 }
 
-function evidenceHref(item: BriefingCard, mode: Mode) {
+function evidenceHref(item: BriefingCard, mode: Mode, portalScope?: PortalOrgRouteScope) {
   const evidence = softwareBuildEvidenceRows(item).find((row) => row.href)?.href
-  return evidence || sourceHref(item, mode)
+  return evidence || sourceHref(item, mode, portalScope)
 }
 
 function briefingActionEndpoint(item: BriefingCard) {
   return `/api/v1/briefings/items/${encodeURIComponent(item.id)}/actions`
 }
 
-function briefingActionSourcePayload(item: BriefingCard, mode: Mode) {
+function briefingActionSourcePayload(item: BriefingCard, mode: Mode, portalScope?: PortalOrgRouteScope) {
   return {
     orgId: item.orgId || item.context.orgId,
     context: item.context,
-    source: { ...item.source, url: item.source.url || sourceHref(item, mode) || undefined },
+    source: { ...item.source, url: sourceHref(item, mode, portalScope) || item.source.url || undefined },
     metadata: item.metadata ?? {},
   }
 }
@@ -938,7 +969,7 @@ function accountPulseIdentity(item: BriefingCard): { id: string; name: string } 
   return { id: WORKSPACE_OPERATIONS_KEY, name: 'Workspace operations' }
 }
 
-export function BriefingControlDesk({ mode }: { mode: Mode }) {
+export function BriefingControlDesk({ mode, portalScope }: { mode: Mode; portalScope?: PortalOrgRouteScope }) {
   const [orgs, setOrgs] = useState<OrgSummary[]>([])
   const [orgId, setOrgId] = useState('')
   const [accountPulseId, setAccountPulseId] = useState('')
@@ -1212,7 +1243,7 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
     const title = `Follow up: ${item.title}`
     const payload = {
       action: 'create-task',
-      ...briefingActionSourcePayload(item, mode),
+      ...briefingActionSourcePayload(item, mode, portalScope),
       title,
       description: item.summary,
       spec: item.summary,
@@ -1247,7 +1278,7 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           action: 'assign-agent',
-          ...briefingActionSourcePayload(item, mode),
+          ...briefingActionSourcePayload(item, mode, portalScope),
           title: `Assign ${agentId}: ${item.title}`,
           spec: item.summary,
           assigneeAgentId: agentId,
@@ -1279,7 +1310,7 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           action: 'create-crm-activity',
-          ...briefingActionSourcePayload(item, mode),
+          ...briefingActionSourcePayload(item, mode, portalScope),
           contactId,
           dealId,
           summary: `Follow up: ${item.summary}`,
@@ -2522,8 +2553,8 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                         Assign agent unavailable
                       </button>
                     )}
-                    {evidenceHref(selected, mode) ? (
-                      <a className="pib-btn-secondary inline-flex justify-center text-xs" href={evidenceHref(selected, mode) ?? undefined} target="_blank" rel="noopener noreferrer">
+                    {evidenceHref(selected, mode, portalScope) ? (
+                      <a className="pib-btn-secondary inline-flex justify-center text-xs" href={evidenceHref(selected, mode, portalScope) ?? undefined} target="_blank" rel="noopener noreferrer">
                         <span className="material-symbols-outlined text-[15px]" aria-hidden="true">fact_check</span>
                         Open evidence
                       </a>
@@ -3352,8 +3383,8 @@ export function BriefingControlDesk({ mode }: { mode: Mode }) {
                   <div><dt className="text-on-surface-variant">Source</dt><dd className="text-on-surface">{sourceLabel(selected)}</dd></div>
                 </dl>
 
-                {(mode === 'admin' ? adminSourceHref(selected) : sourceHref(selected, mode)) ? (
-                  <a className="pib-btn-primary inline-flex w-full justify-center" href={(mode === 'admin' ? adminSourceHref(selected) : sourceHref(selected, mode)) ?? undefined} target="_blank" rel="noopener noreferrer">
+                {(mode === 'admin' ? adminSourceHref(selected) : sourceHref(selected, mode, portalScope)) ? (
+                  <a className="pib-btn-primary inline-flex w-full justify-center" href={(mode === 'admin' ? adminSourceHref(selected) : sourceHref(selected, mode, portalScope)) ?? undefined} target="_blank" rel="noopener noreferrer">
                     <span className="material-symbols-outlined text-[16px]" aria-hidden="true">open_in_new</span>
                     Open source
                   </a>

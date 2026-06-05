@@ -1730,6 +1730,48 @@ describe('BriefingControlDesk', () => {
     })
   })
 
+  it('preserves CRM company scope on portal marketing source links', async () => {
+    const portalScope = {
+      orgId: 'org-1',
+      orgSlug: 'client-one',
+      sourceCompanyId: 'company-1',
+      sourceCompanyName: 'Lumen',
+    }
+    const scopedSuffix = 'orgId=org-1&orgSlug=client-one&sourceCompanyId=company-1&sourceCompanyName=Lumen'
+
+    render(<BriefingControlDesk mode="portal" portalScope={portalScope} />)
+
+    fireEvent.click(await screen.findByRole('button', { name: /Social post awaiting client approval/i }))
+    expect(screen.getByRole('link', { name: /open source/i })).toHaveAttribute(
+      'href',
+      `/portal/social/review/post-1?${scopedSuffix}`,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /SEO content awaiting review: Website SEO launch checklist/i }))
+    expect(screen.getByRole('link', { name: /open source/i })).toHaveAttribute(
+      'href',
+      `/portal/seo/sprints/sprint-1/content?content=seo-content-1&${scopedSuffix}`,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /Ad campaign awaiting approval: June lead generation push/i }))
+    expect(screen.getByRole('link', { name: /open source/i })).toHaveAttribute(
+      'href',
+      `/portal/ads/campaigns/ad-campaign-1?${scopedSuffix}`,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /Broadcast ready to send: June newsletter/i }))
+    expect(screen.getByRole('link', { name: /open source/i })).toHaveAttribute(
+      'href',
+      `/portal/campaigns/broadcast/broadcast-1?${scopedSuffix}`,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /Campaign ready to launch: Lead nurture launch/i }))
+    expect(screen.getByRole('link', { name: /open source/i })).toHaveAttribute(
+      'href',
+      `/portal/campaigns/campaign-1?${scopedSuffix}`,
+    )
+  })
+
   it('marks notification cards read or archived from the control desk', async () => {
     render(<BriefingControlDesk mode="portal" />)
 
