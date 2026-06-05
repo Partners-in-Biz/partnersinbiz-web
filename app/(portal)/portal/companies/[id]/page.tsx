@@ -759,8 +759,10 @@ function ProjectsPanel({
       <SimpleRowsPanel
         rows={projects}
         emptyIcon="folder_off"
-        emptyLabel="No linked projects yet."
+        emptyLabel="No linked projects match these filters."
         title={(row) => projectNameLabel(row as RelatedProject)}
+        enableFilters
+        searchPlaceholder="Search projects..."
         hrefFor={(row) => scopedWorkspaceHref(`/portal/projects/${row.id}`)}
         metaFor={(row) => [
           projectDescriptionLabel(row as RelatedProject),
@@ -916,8 +918,10 @@ function DocumentsPanel({
       <SimpleRowsPanel
         rows={documents}
         emptyIcon="description"
-        emptyLabel="No linked documents yet."
+        emptyLabel="No linked documents match these filters."
         title={(row) => documentTitleLabel(row as RelatedDocument)}
+        enableFilters
+        searchPlaceholder="Search documents..."
         hrefFor={(row) => scopedWorkspaceHref(`/portal/documents/${row.id}`)}
         metaFor={(row) => [
           documentTypeLabel(row as RelatedDocument),
@@ -1501,6 +1505,8 @@ function SimpleRowsPanel({
   title,
   hrefFor,
   metaFor,
+  enableFilters = false,
+  searchPlaceholder = 'Search rows...',
 }: {
   rows: Array<{ id: string; [key: string]: unknown }>
   emptyIcon: string
@@ -1508,34 +1514,102 @@ function SimpleRowsPanel({
   title: (row: { id: string; [key: string]: unknown }) => string
   hrefFor?: (row: { id: string; [key: string]: unknown }) => string | undefined
   metaFor: (row: { id: string; [key: string]: unknown }) => Array<string | undefined>
+  enableFilters?: boolean
+  searchPlaceholder?: string
 }) {
+  const [query, setQuery] = useState('')
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [archiveFilter, setArchiveFilter] = useState<'active' | 'archived' | 'all'>('active')
+
+  const statusOptions = Array.from(new Set(
+    rows
+      .map((row) => typeof row.status === 'string' ? row.status : undefined)
+      .filter((status): status is string => Boolean(status) && status !== 'archived'),
+  )).sort()
+
+  const filteredRows = enableFilters ? rows.filter((row) => {
+    const isArchived = row.archived === true || row.status === 'archived'
+    if (archiveFilter === 'active' && isArchived) return false
+    if (archiveFilter === 'archived' && !isArchived) return false
+    if (statusFilter !== 'all' && row.status !== statusFilter) return false
+    const q = query.trim().toLowerCase()
+    if (!q) return true
+    const rowTitle = title(row)
+    const meta = metaFor(row).filter(Boolean)
+    return [rowTitle, typeof row.status === 'string' ? row.status : undefined, ...meta]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase()
+      .includes(q)
+  }) : rows
+
   if (rows.length === 0) return <EmptyPanel icon={emptyIcon} label={emptyLabel} />
   return (
-    <div className="bento-card divide-y divide-[var(--color-pib-line)]">
-      {rows.map((row) => {
-        const rowTitle = title(row)
-        const href = hrefFor?.(row)
-        const meta = metaFor(row).filter(Boolean)
-        return (
-          <div key={row.id} className="px-5 py-4 flex items-start justify-between gap-4">
-            <div className="min-w-0">
-              {href ? (
-                <Link href={href} className="font-medium text-sm text-[var(--color-accent-v2)] hover:underline">
-                  {rowTitle}
-                </Link>
-              ) : (
-                <p className="font-medium text-sm text-[var(--color-pib-text)]">{rowTitle}</p>
-              )}
-              {meta.length > 0 && (
-                <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
-                  {meta.join(' · ')}
-                </p>
-              )}
-            </div>
-            {'status' in row && typeof row.status === 'string' ? <StatusChip value={row.status} /> : null}
-          </div>
-        )
-      })}
+    <div className="space-y-3">
+      {enableFilters ? (
+        <div className="bento-card !p-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_180px_180px]">
+          <label className="block">
+            <span className="eyebrow !text-[9px]">Search</span>
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder={searchPlaceholder}
+              className="pib-input mt-1"
+            />
+          </label>
+          <label className="block">
+            <span className="eyebrow !text-[9px]">Status</span>
+            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="pib-select mt-1">
+              <option value="all">All statuses</option>
+              {statusOptions.map((status) => (
+                <option key={status} value={status}>{status.replaceAll('_', ' ')}</option>
+              ))}
+            </select>
+          </label>
+          <label className="block">
+            <span className="eyebrow !text-[9px]">History</span>
+            <select
+              value={archiveFilter}
+              onChange={(event) => setArchiveFilter(event.target.value as 'active' | 'archived' | 'all')}
+              className="pib-select mt-1"
+            >
+              <option value="active">Active only</option>
+              <option value="archived">Archived only</option>
+              <option value="all">Active + archived</option>
+            </select>
+          </label>
+        </div>
+      ) : null}
+      {filteredRows.length === 0 ? (
+        <EmptyPanel icon={emptyIcon} label={emptyLabel} />
+      ) : (
+        <div className="bento-card divide-y divide-[var(--color-pib-line)]">
+          {filteredRows.map((row) => {
+            const rowTitle = title(row)
+            const href = hrefFor?.(row)
+            const meta = metaFor(row).filter(Boolean)
+            return (
+              <div key={row.id} className="px-5 py-4 flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  {href ? (
+                    <Link href={href} className="font-medium text-sm text-[var(--color-accent-v2)] hover:underline">
+                      {rowTitle}
+                    </Link>
+                  ) : (
+                    <p className="font-medium text-sm text-[var(--color-pib-text)]">{rowTitle}</p>
+                  )}
+                  {meta.length > 0 && (
+                    <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
+                      {meta.join(' · ')}
+                    </p>
+                  )}
+                </div>
+                {'status' in row && typeof row.status === 'string' ? <StatusChip value={row.status} /> : null}
+              </div>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }

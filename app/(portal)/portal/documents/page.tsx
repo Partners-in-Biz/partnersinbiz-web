@@ -62,6 +62,7 @@ export default function PortalDocuments() {
   }, [scopedOrgId])
 
   const visibleDocs = docs.filter((doc) => {
+    if (statusFilter === 'all' && doc.status === 'archived') return false
     if (statusFilter !== 'all' && doc.status !== statusFilter) return false
     if (!query) return true
     return [doc.title, doc.type, doc.status]

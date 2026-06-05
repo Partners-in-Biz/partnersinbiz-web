@@ -40,7 +40,7 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
   const access = await getProjectForUser(projectId, user)
   if (!access.ok) return apiError(access.error, access.status)
 
-  const updates: Record<string, any> = { updatedAt: FieldValue.serverTimestamp() }
+  const updates: Record<string, unknown> = { updatedAt: FieldValue.serverTimestamp() }
 
   if (body.name !== undefined) {
     if (!body.name.trim()) return apiError('name cannot be empty', 400)

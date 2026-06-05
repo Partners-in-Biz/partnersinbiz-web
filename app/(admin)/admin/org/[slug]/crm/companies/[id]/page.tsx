@@ -196,6 +196,31 @@ function SimpleRowsPanel({
   portalPathFor: (path: string) => string
   onReviewOverview: () => void
 }) {
+  const [query, setQuery] = useState('')
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [archiveFilter, setArchiveFilter] = useState<'active' | 'archived' | 'all'>('active')
+  const filterable = tab === 'projects' || tab === 'documents'
+  const statusOptions = Array.from(new Set(
+    rows
+      .map((row) => typeof row.status === 'string' ? row.status : undefined)
+      .filter((status): status is string => Boolean(status) && status !== 'archived'),
+  )).sort()
+  const visibleRows = filterable ? rows.filter((row) => {
+    const isArchived = row.archived === true || row.status === 'archived'
+    if (archiveFilter === 'active' && isArchived) return false
+    if (archiveFilter === 'archived' && !isArchived) return false
+    if (statusFilter !== 'all' && row.status !== statusFilter) return false
+    const q = query.trim().toLowerCase()
+    if (!q) return true
+    const title = rowTitle(row, tab)
+    const meta = rowMeta(row, tab).filter(Boolean)
+    return [title, typeof row.status === 'string' ? row.status : undefined, ...meta]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase()
+      .includes(q)
+  }) : rows
+
   if (rows.length === 0) {
     const label = EMPTY_TAB_LABELS[tab] ?? 'Records'
     const lowerLabel = label.toLowerCase()
@@ -231,50 +256,94 @@ function SimpleRowsPanel({
   }
 
   return (
-    <div className="bento-card divide-y divide-[var(--color-pib-line)]">
-      {rows.map((row) => {
-        const meta = rowMeta(row, tab).filter(Boolean)
-        const title = rowTitle(row, tab)
-        const href = rowHref(row, tab)
-        const scopedHref = href ? portalPathFor(href) : null
-        const rowContent = (
-          <>
-            <div className="min-w-0">
-              <p className="truncate text-sm font-medium text-[var(--color-pib-text)]">{title}</p>
-              {meta.length > 0 && (
-                <p className="mt-1 truncate text-xs text-[var(--color-pib-text-muted)]">{meta.join(' · ')}</p>
-              )}
-            </div>
-            <div className="flex shrink-0 items-center gap-2">
-              <StatusChip value={row.status} />
-              {scopedHref ? (
-                <span aria-hidden="true" className="material-symbols-outlined text-[16px] text-[var(--color-pib-text-muted)]">
-                  open_in_new
-                </span>
-              ) : null}
-            </div>
-          </>
-        )
-
-        if (scopedHref) {
-          return (
-            <Link
-              key={row.id}
-              href={scopedHref}
-              aria-label={`Open ${title} from ${companyName} admin command center`}
-              className="flex items-start justify-between gap-4 px-5 py-4 transition-colors hover:bg-white/[0.03] focus:outline-none focus:ring-2 focus:ring-[var(--color-pib-accent)] focus:ring-offset-2 focus:ring-offset-[var(--color-pib-bg)]"
+    <div className="space-y-3">
+      {filterable ? (
+        <div className="bento-card !p-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_180px_180px]">
+          <label className="block">
+            <span className="eyebrow !text-[9px]">Search</span>
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder={tab === 'projects' ? 'Search projects...' : 'Search documents...'}
+              className="pib-input mt-1"
+            />
+          </label>
+          <label className="block">
+            <span className="eyebrow !text-[9px]">Status</span>
+            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="pib-select mt-1">
+              <option value="all">All statuses</option>
+              {statusOptions.map((status) => (
+                <option key={status} value={status}>{status.replaceAll('_', ' ')}</option>
+              ))}
+            </select>
+          </label>
+          <label className="block">
+            <span className="eyebrow !text-[9px]">History</span>
+            <select
+              value={archiveFilter}
+              onChange={(event) => setArchiveFilter(event.target.value as 'active' | 'archived' | 'all')}
+              className="pib-select mt-1"
             >
-              {rowContent}
-            </Link>
-          )
-        }
+              <option value="active">Active only</option>
+              <option value="archived">Archived only</option>
+              <option value="all">Active + archived</option>
+            </select>
+          </label>
+        </div>
+      ) : null}
+      {visibleRows.length === 0 ? (
+        <div className="bento-card p-8 text-center">
+          <span className="material-symbols-outlined text-4xl text-amber-200">filter_alt_off</span>
+          <p className="eyebrow mt-4 !text-[10px] text-amber-200">No matching {EMPTY_TAB_LABELS[tab]?.toLowerCase() ?? 'records'}</p>
+          <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-[var(--color-pib-text-muted)]">Try clearing the search, status, or history filter.</p>
+        </div>
+      ) : (
+        <div className="bento-card divide-y divide-[var(--color-pib-line)]">
+          {visibleRows.map((row) => {
+            const meta = rowMeta(row, tab).filter(Boolean)
+            const title = rowTitle(row, tab)
+            const href = rowHref(row, tab)
+            const scopedHref = href ? portalPathFor(href) : null
+            const rowContent = (
+              <>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-[var(--color-pib-text)]">{title}</p>
+                  {meta.length > 0 && (
+                    <p className="mt-1 truncate text-xs text-[var(--color-pib-text-muted)]">{meta.join(' · ')}</p>
+                  )}
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  <StatusChip value={row.status} />
+                  {scopedHref ? (
+                    <span aria-hidden="true" className="material-symbols-outlined text-[16px] text-[var(--color-pib-text-muted)]">
+                      open_in_new
+                    </span>
+                  ) : null}
+                </div>
+              </>
+            )
 
-        return (
-          <div key={row.id} className="flex items-start justify-between gap-4 px-5 py-4">
-            {rowContent}
-          </div>
-        )
-      })}
+            if (scopedHref) {
+              return (
+                <Link
+                  key={row.id}
+                  href={scopedHref}
+                  aria-label={`Open ${title} from ${companyName} admin command center`}
+                  className="flex items-start justify-between gap-4 px-5 py-4 transition-colors hover:bg-white/[0.03] focus:outline-none focus:ring-2 focus:ring-[var(--color-pib-accent)] focus:ring-offset-2 focus:ring-offset-[var(--color-pib-bg)]"
+                >
+                  {rowContent}
+                </Link>
+              )
+            }
+
+            return (
+              <div key={row.id} className="flex items-start justify-between gap-4 px-5 py-4">
+                {rowContent}
+              </div>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }

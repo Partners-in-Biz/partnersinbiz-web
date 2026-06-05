@@ -375,7 +375,7 @@ export function ProjectsWorkspace({ mode, orgSlug = '', orgScope = {} }: Project
       const res = await fetch(`/api/v1/projects?id=${encodeURIComponent(id)}`, { method: 'DELETE' })
       if (!res.ok) {
         const body = await res.json()
-        throw new Error(body.error || 'Failed to delete project')
+        throw new Error(body.error || 'Failed to archive project')
       }
       setProjects(prev => prev.filter(p => p.id !== id))
     } catch (err) {
