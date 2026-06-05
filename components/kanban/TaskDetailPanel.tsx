@@ -176,6 +176,8 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
   const [submittingRevision, setSubmittingRevision] = useState(false)
   const [unblocking, setUnblocking] = useState(false)
   const [unblockError, setUnblockError] = useState<string | null>(null)
+  const [approvalGateBusy, setApprovalGateBusy] = useState<'approve' | 'reject' | null>(null)
+  const [approvalGateError, setApprovalGateError] = useState<string | null>(null)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
   useEffect(() => {
@@ -199,6 +201,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
     setAttachments(task?.attachments ?? [])
     setAttachmentError(null)
     setUnblockError(null)
+    setApprovalGateError(null)
     setShowDeleteConfirm(false)
   }, [task?.id, task])
 
@@ -363,6 +366,48 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
       columnId: 'done',
       reviewStatus: 'approved',
     })
+  }
+
+  async function postSystemComment(text: string) {
+    if (!task?.id || !projectId) return null
+    const res = await fetch(`/api/v1/projects/${projectId}/tasks/${task.id}/comments`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
+    })
+    const body = await res.json().catch(() => ({}))
+    if (res.ok === false || !body.success) {
+      throw new Error(typeof body.error === 'string' ? body.error : 'Could not save approval comment')
+    }
+    if (body.data) setComments(prev => [...prev, body.data])
+    return body.data ?? null
+  }
+
+  async function handleApprovalGateDecision(decision: 'approve' | 'reject') {
+    if (!task?.id) return
+    setApprovalGateBusy(decision)
+    setApprovalGateError(null)
+    try {
+      if (decision === 'approve') {
+        await postSystemComment('✅ Peet approved this implementation plan for development. This approval does not approve production deployment, client-visible publishing, spend, secrets/config changes, destructive actions, finance changes, or live data backfill.')
+        await onUpdate(task.id, {
+          columnId: 'done',
+          reviewStatus: 'approved',
+          approvalStatus: 'approved',
+        })
+      } else {
+        await postSystemComment('❌ Peet rejected this approval gate. Changes are required before development can start.')
+        await onUpdate(task.id, {
+          columnId: 'todo',
+          reviewStatus: 'changes-requested',
+          approvalStatus: 'rejected',
+        })
+      }
+    } catch (err) {
+      setApprovalGateError(err instanceof Error ? err.message : 'Could not record approval decision')
+    } finally {
+      setApprovalGateBusy(null)
+    }
   }
 
   async function handleSubmitComment() {
@@ -568,6 +613,8 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
 
   const priorityColor = PRIORITY_COLORS[task.priority ?? 'medium'] ?? PRIORITY_COLORS.medium
   const blockerRecovery = buildBlockedTaskRecovery(task, comments)
+  const isApprovalGate = task.labels?.some((label) => label.toLowerCase() === 'approval-gate') || task.approvalStatus === 'pending'
+  const approvalGateResolved = task.approvalStatus === 'approved' || task.reviewStatus === 'approved' || task.columnId === 'done'
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-end" onClick={onClose}>
@@ -718,6 +765,41 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
               </p>
             )}
           </div>
+
+          {isApprovalGate && (
+            <div className="rounded-[var(--radius-card)] border border-[var(--color-accent-v2)]/40 bg-[var(--color-accent-v2)]/10 p-4">
+              <div className="flex items-start gap-3">
+                <span className="material-symbols-outlined text-[20px] text-[var(--color-accent-v2)]">approval</span>
+                <div className="min-w-0 flex-1 space-y-3">
+                  <div>
+                    <p className="text-sm font-label text-on-surface">Approval gate</p>
+                    <p className="mt-1 text-xs leading-5 text-on-surface-variant">
+                      This card is waiting for Peet to approve or reject the scoped internal work. Approval releases the dependent agent tasks; it does not approve production, public/client-visible actions, spend, secrets/config changes, destructive actions, finance changes, or live backfills.
+                    </p>
+                  </div>
+                  {approvalGateError ? <p className="text-xs text-[#ef4444]">{approvalGateError}</p> : null}
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleApprovalGateDecision('approve')}
+                      disabled={approvalGateResolved || !!approvalGateBusy}
+                      className="pib-btn-primary text-xs font-label"
+                    >
+                      {approvalGateBusy === 'approve' ? 'Approving...' : approvalGateResolved ? 'Approved' : 'Approve this gate'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleApprovalGateDecision('reject')}
+                      disabled={approvalGateResolved || !!approvalGateBusy}
+                      className="pib-btn-secondary text-xs font-label"
+                    >
+                      {approvalGateBusy === 'reject' ? 'Rejecting...' : 'Reject / request changes'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Project metadata */}
           <div className="grid grid-cols-2 gap-3">
