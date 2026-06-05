@@ -4,6 +4,8 @@ export const dynamic = 'force-dynamic'
 
 import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
+import { scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 
 interface OrgItem {
   id: string
@@ -12,6 +14,9 @@ interface OrgItem {
 }
 
 export default function WorkspacesPage() {
+  const searchParams = useSearchParams()
+  const orgScope = useMemo(() => scopeFromSearchParams(searchParams), [searchParams])
+  const settingsPath = useCallback((path: string) => scopedPortalPath(path, orgScope), [orgScope])
   const [orgs, setOrgs] = useState<OrgItem[]>([])
   const [activeOrgId, setActiveOrgId] = useState('')
   const [switching, setSwitching] = useState('')
@@ -31,8 +36,11 @@ export default function WorkspacesPage() {
         return body
       })
       .then((body) => {
-        setOrgs(Array.isArray(body?.orgs) ? body.orgs : [])
-        setActiveOrgId(typeof body?.activeOrgId === 'string' ? body.activeOrgId : '')
+        const nextOrgs = Array.isArray(body?.orgs) ? body.orgs : []
+        const requestedOrgId = typeof orgScope.orgId === 'string' ? orgScope.orgId : ''
+        const requestedOrg = requestedOrgId ? nextOrgs.find((org: OrgItem) => org.id === requestedOrgId) : null
+        setOrgs(nextOrgs)
+        setActiveOrgId(requestedOrg ? requestedOrg.id : typeof body?.activeOrgId === 'string' ? body.activeOrgId : '')
       })
       .catch((err) => {
         setOrgs([])
@@ -40,7 +48,7 @@ export default function WorkspacesPage() {
         setLoadError(err instanceof Error ? err.message : 'Workspace list could not load.')
       })
       .finally(() => setLoading(false))
-  }, [])
+  }, [orgScope.orgId])
 
   useEffect(() => {
     loadWorkspaces()
@@ -146,11 +154,11 @@ export default function WorkspacesPage() {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Link href="/portal/settings/team" className="btn-pib-secondary text-xs">
+            <Link href={settingsPath('/portal/settings/team')} className="btn-pib-secondary text-xs">
               <span className="material-symbols-outlined text-[14px]" aria-hidden="true">groups</span>
               Review team access
             </Link>
-            <Link href="/portal/settings/crm-setup" className="btn-pib-secondary text-xs">
+            <Link href={settingsPath('/portal/settings/crm-setup')} className="btn-pib-secondary text-xs">
               <span className="material-symbols-outlined text-[14px]" aria-hidden="true">rule_settings</span>
               Review CRM setup
             </Link>

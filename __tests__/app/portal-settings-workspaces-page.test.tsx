@@ -1,9 +1,16 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import WorkspacesPage from '@/app/(portal)/portal/settings/workspaces/page'
 
+const mockUseSearchParams = jest.fn(() => new URLSearchParams())
+
+jest.mock('next/navigation', () => ({
+  useSearchParams: () => mockUseSearchParams(),
+}))
+
 describe('Portal settings workspaces page', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    mockUseSearchParams.mockReturnValue(new URLSearchParams())
     global.fetch = jest.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
       if (url === '/api/v1/portal/orgs') {
@@ -53,5 +60,18 @@ describe('Portal settings workspaces page', () => {
       })
     })
     expect(await screen.findByText('Acme Sales active')).toBeInTheDocument()
+  })
+
+  it('preserves linked company workspace scope through command-center handoffs', async () => {
+    mockUseSearchParams.mockReturnValue(new URLSearchParams('orgId=org-acme&orgSlug=acme-sales&sourceCompanyId=company-1&sourceCompanyName=Acme'))
+
+    render(<WorkspacesPage />)
+
+    expect(await screen.findByText('Acme Sales active')).toBeInTheDocument()
+
+    const scope = 'orgId=org-acme&orgSlug=acme-sales&sourceCompanyId=company-1&sourceCompanyName=Acme'
+    const commandCenter = screen.getByRole('region', { name: 'Workspace command center' })
+    expect(within(commandCenter).getByRole('link', { name: 'Review team access' })).toHaveAttribute('href', `/portal/settings/team?${scope}`)
+    expect(within(commandCenter).getByRole('link', { name: 'Review CRM setup' })).toHaveAttribute('href', `/portal/settings/crm-setup?${scope}`)
   })
 })
