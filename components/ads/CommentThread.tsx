@@ -1,9 +1,5 @@
 'use client'
 
-// app/(portal)/portal/ads/ads/[id]/CommentThread.tsx
-//
-// Inline-comment thread for an ad. Top-level + 1-level replies.
-// Optimistic? No — POST then refetch. Keeps state simple.
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { scopedApiPath } from '@/lib/portal/scoped-routing'
 

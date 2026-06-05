@@ -3,7 +3,7 @@
  */
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import '@testing-library/jest-dom'
-import { CommentThread } from '@/app/(portal)/portal/ads/ads/[id]/CommentThread'
+import { CommentThread } from '@/components/ads/CommentThread'
 
 const baseCommentsResponse = {
   ok: true,

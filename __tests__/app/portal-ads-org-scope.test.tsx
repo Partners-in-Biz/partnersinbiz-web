@@ -56,7 +56,7 @@ jest.mock('@/components/ads/AdCampaignReviewActions', () => ({
   AdCampaignReviewActions: () => null,
 }))
 
-jest.mock('@/app/(portal)/portal/ads/ads/[id]/CommentThread', () => ({
+jest.mock('@/components/ads/CommentThread', () => ({
   CommentThread: ({ orgId }: { orgId?: string }) => <div data-testid="comment-thread" data-org-id={orgId} />,
 }))
 
