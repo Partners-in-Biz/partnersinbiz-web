@@ -1,5 +1,5 @@
 import React from 'react'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import OrganizationSettingsPage from '@/app/(portal)/portal/settings/organization/page'
 
 describe('Portal organisation settings page', () => {
@@ -31,7 +31,7 @@ describe('Portal organisation settings page', () => {
                 invoiceInstructions: 'Email invoices monthly.',
               },
             },
-            permissions: { canEdit: true },
+            permissions: { canEdit: true, role: 'owner' },
           }),
         } as Response)
       }
@@ -56,6 +56,21 @@ describe('Portal organisation settings page', () => {
     expect(screen.getByLabelText(/Purchase order required/i)).toBeChecked()
     expect(screen.queryByLabelText(/Bank name/i)).not.toBeInTheDocument()
     expect(screen.queryByLabelText(/Account number/i)).not.toBeInTheDocument()
+  })
+
+  it('summarizes organisation readiness before the long CRM settings form', async () => {
+    render(<OrganizationSettingsPage />)
+
+    const commandCenter = await screen.findByRole('region', { name: 'Organisation command center' })
+
+    expect(commandCenter).toBeInTheDocument()
+    expect(within(commandCenter).getByRole('heading', { name: 'Organisation command center' })).toBeInTheDocument()
+    expect(within(commandCenter).getByText('4 ready areas')).toBeInTheDocument()
+    expect(within(commandCenter).getByText('Owner access')).toBeInTheDocument()
+    expect(within(commandCenter).getByText('Purchase order required')).toBeInTheDocument()
+    expect(within(commandCenter).getByText('Client Legal Pty Ltd')).toBeInTheDocument()
+    expect(within(commandCenter).getByText('accounts@client.example')).toBeInTheDocument()
+    expect(within(commandCenter).getByText('Owner Person')).toBeInTheDocument()
   })
 
   it('saves organisation detail changes back to the portal route', async () => {
