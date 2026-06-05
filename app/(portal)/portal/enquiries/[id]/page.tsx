@@ -96,7 +96,7 @@ export default function EnquiryDetailPage({ params }: { params: Promise<{ id: st
         href={projectsHref}
         className="inline-flex items-center gap-1 text-sm text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors"
       >
-        <span className="material-symbols-outlined text-base">arrow_back</span>
+        <span className="material-symbols-outlined text-base" aria-hidden="true">arrow_back</span>
         Back to projects
       </Link>
 
@@ -117,7 +117,12 @@ export default function EnquiryDetailPage({ params }: { params: Promise<{ id: st
         {[
           ['Workspace', workspaceLabel, enquiry.company ? `Company · ${enquiry.company}` : 'Client workspace context', 'business_center'],
           ['Intake status', statusLabel, projectTypeLabel, 'fact_check'],
-          ['Team next step', messages.length > 0 ? `${messages.length} message${messages.length === 1 ? '' : 's'} logged` : 'Awaiting first reply', 'groups'],
+          [
+            'Team next step',
+            messages.length > 0 ? `${messages.length} message${messages.length === 1 ? '' : 's'} logged` : 'No messages yet',
+            messages.length > 0 ? 'Conversation history' : 'Awaiting first reply',
+            'groups',
+          ],
         ].map(([label, value, sub, icon]) => (
           <div key={label} className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-surface)] p-4">
             <div className="flex items-start justify-between gap-3">
