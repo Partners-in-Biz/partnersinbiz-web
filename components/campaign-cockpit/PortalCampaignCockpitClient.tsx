@@ -7,7 +7,7 @@ import {
   type CampaignCockpitClientProps,
 } from '@/components/campaign-cockpit/CampaignCockpitClient'
 
-type PortalCockpitClientProps = Omit<
+type PortalCampaignCockpitClientProps = Omit<
   CampaignCockpitClientProps,
   | 'backHref'
   | 'backLabel'
@@ -16,7 +16,7 @@ type PortalCockpitClientProps = Omit<
   | 'showClientBlogApprovals'
 >
 
-export function CockpitClient(props: PortalCockpitClientProps) {
+export function PortalCampaignCockpitClient(props: PortalCampaignCockpitClientProps) {
   const searchParams = useSearchParams()
   const scope = scopeFromSearchParams(searchParams)
   const campaignsHref = scopedPortalPath('/portal/campaigns', scope)

@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { CockpitClient } from '@/app/(portal)/portal/campaigns/[id]/cockpit-client'
+import { PortalCampaignCockpitClient } from '@/components/campaign-cockpit/PortalCampaignCockpitClient'
 
 const refresh = jest.fn()
 const replace = jest.fn()
@@ -48,7 +48,7 @@ describe('Portal campaign cockpit client', () => {
     const alertSpy = jest.spyOn(window, 'alert').mockImplementation(() => undefined)
 
     render(
-      <CockpitClient
+      <PortalCampaignCockpitClient
         campaignId="campaign-1"
         campaign={{
           description: 'June campaign for high-value leads',
@@ -98,7 +98,7 @@ describe('Portal campaign cockpit client', () => {
     searchParams = new URLSearchParams('orgId=lumen-org&orgSlug=lumen-speeds')
 
     render(
-      <CockpitClient
+      <PortalCampaignCockpitClient
         campaignId="campaign-1"
         campaign={{
           description: 'June campaign for high-value leads',
@@ -166,7 +166,7 @@ describe('Portal campaign cockpit client', () => {
     })
 
     render(
-      <CockpitClient
+      <PortalCampaignCockpitClient
         campaignId="campaign-1"
         campaign={{
           description: 'June campaign for high-value leads',
@@ -200,7 +200,7 @@ describe('Portal campaign cockpit client', () => {
 
   it('exposes generic Social and Videos tabs as shared cockpit destinations', () => {
     render(
-      <CockpitClient
+      <PortalCampaignCockpitClient
         campaignId="campaign-1"
         campaign={{
           description: 'June campaign for high-value leads',
@@ -254,7 +254,7 @@ describe('Portal campaign cockpit client', () => {
     searchParams = new URLSearchParams('orgId=lumen-org&orgSlug=lumen-speeds&tab=blogs')
 
     render(
-      <CockpitClient
+      <PortalCampaignCockpitClient
         campaignId="campaign-1"
         campaign={{
           description: 'June campaign for high-value leads',
@@ -300,7 +300,7 @@ describe('Portal campaign cockpit client', () => {
     })
 
     render(
-      <CockpitClient
+      <PortalCampaignCockpitClient
         campaignId="campaign-1"
         campaign={{
           description: 'June campaign for high-value leads',

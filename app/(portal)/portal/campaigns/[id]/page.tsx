@@ -4,7 +4,7 @@ import { adminDb } from '@/lib/firebase/admin'
 import { loadCampaignWithAssets } from '@/lib/campaigns/load'
 import type { PreviewBrand } from '@/components/campaign-preview'
 import { toPreviewBrand, type BrandColorsLike } from '@/lib/organizations/toPreviewBrand'
-import { CockpitClient } from './cockpit-client'
+import { PortalCampaignCockpitClient } from '@/components/campaign-cockpit/PortalCampaignCockpitClient'
 import {
   resolvePortalCampaignUser,
   scopedPortalHref,
@@ -83,7 +83,7 @@ export default async function PortalCampaignCockpitPage({
 
   return (
     <div className="-m-6 p-6 min-h-screen" style={styleVars}>
-      <CockpitClient
+      <PortalCampaignCockpitClient
         campaignId={id}
         campaign={campaign}
         assets={assets}
