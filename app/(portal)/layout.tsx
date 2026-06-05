@@ -504,10 +504,10 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
                 <Link
                   href={adminViewHref}
                   title="Switch to admin view"
-                  className="hidden md:flex items-center gap-1.5 px-2.5 h-8 rounded-lg text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.05] transition-colors"
+                  aria-label="Switch to admin view"
+                  className="hidden md:flex items-center justify-center w-8 h-8 rounded-lg text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.05] transition-colors"
                 >
-                  <span className="material-symbols-outlined text-[18px]">person</span>
-                  <span className="hidden lg:inline">Admin</span>
+                  <span className="material-symbols-outlined text-[18px]" aria-hidden="true">person</span>
                 </Link>
               )}
               <NotificationBell />

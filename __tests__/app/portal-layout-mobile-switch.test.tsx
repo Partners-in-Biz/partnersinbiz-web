@@ -145,6 +145,24 @@ describe('PortalLayout mobile role switch', () => {
     })
   })
 
+  it('keeps the desktop topbar admin switch icon-only', async () => {
+    localStorage.setItem('portal_layout_mode', 'topbar')
+
+    render(
+      <PortalLayout>
+        <div>Portal content</div>
+      </PortalLayout>,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: 'Switch to admin view' })).toHaveAttribute(
+        'href',
+        '/admin/org/acme/dashboard',
+      )
+    })
+    expect(screen.queryByText('Admin')).not.toBeInTheDocument()
+  })
+
   it('keeps CRM company workspace scope on portal shell navigation', async () => {
     mockPathname = '/portal/marketing'
     mockSearchParams = new URLSearchParams({
