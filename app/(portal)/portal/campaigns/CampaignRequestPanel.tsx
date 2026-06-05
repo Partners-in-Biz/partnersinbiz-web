@@ -50,7 +50,13 @@ function typeQuestions(type: CampaignType) {
   ]
 }
 
-export function CampaignRequestPanel({ orgId }: { orgId?: string }) {
+type CampaignRequestPanelProps = {
+  orgId?: string
+  sourceCompanyId?: string
+  sourceCompanyName?: string
+}
+
+export function CampaignRequestPanel({ orgId, sourceCompanyId, sourceCompanyName }: CampaignRequestPanelProps) {
   const [open, setOpen] = useState(false)
   const [campaignType, setCampaignType] = useState<CampaignType>('social')
   const [selectedChannels, setSelectedChannels] = useState<string[]>(['Instagram'])
@@ -86,6 +92,8 @@ export function CampaignRequestPanel({ orgId }: { orgId?: string }) {
         notes: String(formData.get('notes') ?? ''),
         channels: selectedChannels,
         details,
+        sourceCompanyId,
+        sourceCompanyName,
       }
       const requestUrl = orgId
         ? `/api/v1/portal/campaign-requests?orgId=${encodeURIComponent(orgId)}`

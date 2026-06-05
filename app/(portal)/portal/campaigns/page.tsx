@@ -171,7 +171,13 @@ export default async function PortalCampaignsIndex({
       adCampaigns={adCampaigns}
       requests={requests}
       brandStyle={brandStyle}
-      requestComposer={<CampaignRequestPanel orgId={scope.orgId} />}
+      requestComposer={
+        <CampaignRequestPanel
+          orgId={scope.orgId}
+          sourceCompanyId={scope.sourceCompanyId}
+          sourceCompanyName={scope.sourceCompanyName}
+        />
+      }
       hrefs={{
         content: (campaign) => scopedPortalHref(`/portal/campaigns/${campaign.id}`, scope),
         email: (campaign) =>

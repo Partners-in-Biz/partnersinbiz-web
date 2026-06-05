@@ -16,7 +16,20 @@ describe('CampaignRequestPanel', () => {
   })
 
   it('submits campaign requests against the scoped company workspace org', async () => {
-    render(React.createElement(CampaignRequestPanel as React.ComponentType<{ orgId?: string }>, { orgId: 'lumen-org' }))
+    render(
+      React.createElement(
+        CampaignRequestPanel as React.ComponentType<{
+          orgId?: string
+          sourceCompanyId?: string
+          sourceCompanyName?: string
+        }>,
+        {
+          orgId: 'lumen-org',
+          sourceCompanyId: 'company-1',
+          sourceCompanyName: 'Lumen',
+        },
+      ),
+    )
 
     fireEvent.click(screen.getByRole('button', { name: /New request/ }))
     fireEvent.change(screen.getByLabelText('Campaign name'), { target: { value: 'Lumen launch' } })
@@ -27,8 +40,15 @@ describe('CampaignRequestPanel', () => {
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith(
         '/api/v1/portal/campaign-requests?orgId=lumen-org',
-        expect.objectContaining({ method: 'POST' }),
+        expect.objectContaining({
+          method: 'POST',
+          body: expect.stringContaining('"sourceCompanyId":"company-1"'),
+        }),
       )
+    })
+    expect(JSON.parse((global.fetch as jest.Mock).mock.calls[0][1].body)).toMatchObject({
+      sourceCompanyId: 'company-1',
+      sourceCompanyName: 'Lumen',
     })
   })
 })
