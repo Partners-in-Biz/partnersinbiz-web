@@ -2,11 +2,13 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { PipelineDefinitionsList } from '@/components/crm/PipelineDefinitionsList'
 import { PipelineDrawer } from '@/components/crm/PipelineDrawer'
 import { extractPipelinesList } from '@/lib/pipelines/response'
 import type { Pipeline, PipelineStage } from '@/lib/pipelines/types'
+import { scopedApiPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 
 type HealthFilter = 'all' | 'ready' | 'needs-work'
 
@@ -64,6 +66,8 @@ function StatCard({ label, value, sub, icon }: { label: string; value: string; s
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function PipelinesPage() {
+  const searchParams = useSearchParams()
+  const orgScope = useMemo(() => scopeFromSearchParams(searchParams), [searchParams])
   const [pipelines, setPipelines] = useState<Pipeline[]>([])
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState<string | null>(null)
@@ -75,6 +79,7 @@ export default function PipelinesPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
+  const pipelineEndpoint = useCallback((path: string) => scopedApiPath(path, orgScope), [orgScope])
 
   // Drawer state
   const [drawerOpen, setDrawerOpen] = useState(false)
@@ -96,7 +101,7 @@ export default function PipelinesPage() {
     setLoading(true)
     setFetchError(null)
     try {
-      const res = await fetch(`/api/v1/crm/pipelines?archived=${archived}`)
+      const res = await fetch(pipelineEndpoint(`/api/v1/crm/pipelines?archived=${archived}`))
       const body = await res.json().catch(() => ({}))
       if (res.status === 404) {
         setFetchError('Pipelines API is not yet available. It will be ready shortly.')
@@ -116,7 +121,7 @@ export default function PipelinesPage() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [pipelineEndpoint])
 
   useEffect(() => {
     fetchPipelines(showArchived)
@@ -143,7 +148,7 @@ export default function PipelinesPage() {
   async function handleSetDefault(p: Pipeline) {
     setActionError(null)
     try {
-      const res = await fetch(`/api/v1/crm/pipelines/${p.id}/set-default`, { method: 'POST' })
+      const res = await fetch(pipelineEndpoint(`/api/v1/crm/pipelines/${p.id}/set-default`), { method: 'POST' })
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
         setActionError(body.error ?? 'Failed to set default pipeline.')
@@ -158,7 +163,7 @@ export default function PipelinesPage() {
   async function handleArchive(p: Pipeline) {
     setActionError(null)
     try {
-      const res = await fetch(`/api/v1/crm/pipelines/${p.id}`, {
+      const res = await fetch(pipelineEndpoint(`/api/v1/crm/pipelines/${p.id}`), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ archived: !p.archived }),
@@ -178,7 +183,7 @@ export default function PipelinesPage() {
     setDeletingId(p.id)
     setDeleteError(null)
     try {
-      const res = await fetch(`/api/v1/crm/pipelines/${p.id}`, { method: 'DELETE' })
+      const res = await fetch(pipelineEndpoint(`/api/v1/crm/pipelines/${p.id}`), { method: 'DELETE' })
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
         // 400 means live deals are attached — surface a friendly message
@@ -205,8 +210,8 @@ export default function PipelinesPage() {
   async function handleSave(data: Partial<Pipeline>) {
     const isEdit = drawerMode === 'edit' && editingPipeline?.id
     const url = isEdit
-      ? `/api/v1/crm/pipelines/${editingPipeline!.id}`
-      : '/api/v1/crm/pipelines'
+      ? pipelineEndpoint(`/api/v1/crm/pipelines/${editingPipeline!.id}`)
+      : pipelineEndpoint('/api/v1/crm/pipelines')
     const method = isEdit ? 'PATCH' : 'POST'
 
     const res = await fetch(url, {

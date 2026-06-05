@@ -3,23 +3,34 @@ import PipelinesPage from '@/app/(portal)/portal/settings/pipelines/page'
 import type { Pipeline } from '@/lib/pipelines/types'
 
 let pipelines: Pipeline[] = []
+let mockSearchParams = new URLSearchParams()
 
 jest.mock('@/components/crm/PipelineDefinitionsList', () => ({
   PipelineDefinitionsList: ({
     pipelines: visiblePipelines,
+    onArchive,
     onDelete,
+    onEdit,
     onSetDefault,
   }: {
     pipelines: Pipeline[]
+    onArchive: (pipeline: Pipeline) => void
     onDelete: (pipeline: Pipeline) => void
+    onEdit: (pipeline: Pipeline) => void
     onSetDefault: (pipeline: Pipeline) => void
   }) => (
     <div>
       {visiblePipelines.map((pipeline) => (
         <article key={pipeline.id} aria-label={`Pipeline ${pipeline.name?.trim() || 'Pipeline name missing'}`}>
           {pipeline.name?.trim() || 'Pipeline name missing'}
+          <button type="button" onClick={() => onEdit(pipeline)}>
+            Edit {pipeline.name?.trim() || 'Pipeline name missing'}
+          </button>
           <button type="button" onClick={() => onSetDefault(pipeline)}>
             Set {pipeline.name?.trim() || 'Pipeline name missing'} as default
+          </button>
+          <button type="button" onClick={() => onArchive(pipeline)}>
+            Archive {pipeline.name?.trim() || 'Pipeline name missing'}
           </button>
           <button type="button" onClick={() => onDelete(pipeline)}>
             Delete {pipeline.name?.trim() || 'Pipeline name missing'}
@@ -31,15 +42,34 @@ jest.mock('@/components/crm/PipelineDefinitionsList', () => ({
 }))
 
 jest.mock('@/components/crm/PipelineDrawer', () => ({
-  PipelineDrawer: ({ open, mode }: { open: boolean; mode: string }) => (
-    open ? <div role="dialog" aria-label={mode === 'create' ? 'New pipeline' : 'Edit pipeline'} /> : null
+  PipelineDrawer: ({
+    open,
+    mode,
+    onSave,
+  }: {
+    open: boolean
+    mode: string
+    onSave: (data: Partial<Pipeline>) => Promise<void>
+  }) => (
+    open ? (
+      <div role="dialog" aria-label={mode === 'create' ? 'New pipeline' : 'Edit pipeline'}>
+        <button type="button" onClick={() => onSave({ name: 'Expansion pipeline' })}>
+          Save pipeline from drawer
+        </button>
+      </div>
+    ) : null
   ),
+}))
+
+jest.mock('next/navigation', () => ({
+  useSearchParams: () => mockSearchParams,
 }))
 
 describe('Portal settings pipelines page', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     pipelines = []
+    mockSearchParams = new URLSearchParams()
     global.fetch = jest.fn((input: RequestInfo | URL) => {
       const url = String(input)
       if (url === '/api/v1/portal/settings/profile') {
@@ -56,6 +86,107 @@ describe('Portal settings pipelines page', () => {
       }
       return Promise.reject(new Error(`Unexpected fetch: ${url}`))
     }) as jest.Mock
+  })
+
+  it('preserves company workspace scope across pipeline list and CRUD operations', async () => {
+    mockSearchParams = new URLSearchParams({
+      orgId: 'org-1',
+      orgSlug: 'lumen-speeds',
+      sourceCompanyId: 'company-1',
+      sourceCompanyName: 'Lumen',
+    })
+    pipelines = [{
+      id: 'pipeline-1',
+      orgId: 'org-1',
+      name: 'Sales pipeline',
+      description: 'Main sales route',
+      stages: [
+        { id: 'qualified', label: 'Qualified', kind: 'open', order: 0, probability: 20 },
+        { id: 'proposal', label: 'Proposal', kind: 'open', order: 1, probability: 60 },
+        { id: 'won', label: 'Won', kind: 'won', order: 2, probability: 100 },
+        { id: 'lost', label: 'Lost', kind: 'lost', order: 3, probability: 0 },
+      ],
+      isDefault: false,
+      archived: false,
+      createdAt: null,
+      updatedAt: null,
+    }]
+
+    const fetchMock = jest.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/v1/portal/settings/profile') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ profile: { role: 'owner' } }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/pipelines?archived=false&orgId=org-1') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { pipelines } }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/pipelines/pipeline-1/set-default?orgId=org-1' && init?.method === 'POST') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ success: true }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/pipelines/pipeline-1?orgId=org-1' && init?.method === 'PATCH') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ success: true }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/pipelines?orgId=org-1' && init?.method === 'POST') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ success: true }),
+        } as Response)
+      }
+      if (url === '/api/v1/crm/pipelines/pipeline-1?orgId=org-1' && init?.method === 'DELETE') {
+        pipelines = []
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ success: true }),
+        } as Response)
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    })
+    global.fetch = fetchMock as jest.Mock
+
+    render(<PipelinesPage />)
+
+    expect(await screen.findByRole('article', { name: 'Pipeline Sales pipeline' })).toBeInTheDocument()
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/crm/pipelines?archived=false&orgId=org-1')
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Set Sales pipeline as default' }))
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/crm/pipelines/pipeline-1/set-default?orgId=org-1', { method: 'POST' })
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Archive Sales pipeline' }))
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/crm/pipelines/pipeline-1?orgId=org-1', expect.objectContaining({
+        method: 'PATCH',
+      }))
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'New pipeline' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Save pipeline from drawer' }))
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/crm/pipelines?orgId=org-1', expect.objectContaining({
+        method: 'POST',
+      }))
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete Sales pipeline' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Confirm delete pipeline Sales pipeline' }))
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/crm/pipelines/pipeline-1?orgId=org-1', { method: 'DELETE' })
+    })
   })
 
   it('warns when pipelines fail to load and gives leaders a retry path', async () => {
