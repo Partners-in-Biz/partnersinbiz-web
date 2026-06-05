@@ -108,7 +108,8 @@ describe('portal companies migration review', () => {
 
     expect(await screen.findByDisplayValue('Lumen')).toBeInTheDocument()
     expect(fetchMock).toHaveBeenCalledWith('/api/v1/crm/companies/migrate-from-contacts?orgId=org-1', expect.objectContaining({ method: 'POST' }))
-    expect(screen.getByRole('link', { name: 'arrow_back Companies' })).toHaveAttribute('href', `/portal/companies?${scope}`)
+    expect(screen.getByRole('link', { name: 'Companies' })).toHaveAttribute('href', `/portal/companies?${scope}`)
+    expect(screen.queryByRole('link', { name: 'arrow_back Companies' })).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Open Lumen' })).toHaveAttribute('href', `/portal/companies/company-existing?${scope}`)
 
     fireEvent.click(screen.getAllByRole('button', { name: /apply selected/i })[0])

@@ -91,7 +91,8 @@ describe('Portal new company page', () => {
     expect(screen.getByLabelText('Mock company drawer')).toHaveAttribute('data-org-slug', 'lumen-speeds')
     expect(screen.getByLabelText('Mock company drawer')).toHaveAttribute('data-source-company-id', 'source-company')
     expect(screen.getByLabelText('Mock company drawer')).toHaveAttribute('data-source-company-name', 'Lumen')
-    expect(screen.getByRole('link', { name: 'arrow_back Companies' })).toHaveAttribute('href', `/portal/companies?${scope}`)
+    expect(screen.getByRole('link', { name: 'Companies' })).toHaveAttribute('href', `/portal/companies?${scope}`)
+    expect(screen.queryByRole('link', { name: 'arrow_back Companies' })).not.toBeInTheDocument()
 
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith('/api/v1/portal/settings/team?orgId=org-1')
