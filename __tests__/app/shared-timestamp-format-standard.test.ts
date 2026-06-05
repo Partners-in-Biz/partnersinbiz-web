@@ -23,8 +23,6 @@ describe('shared timestamp format standard', () => {
       'app/(portal)/portal/contacts/[id]/page.tsx',
       'app/(portal)/portal/dashboard/page.tsx',
       'app/(portal)/portal/deals/[id]/page.tsx',
-      'components/admin/email/EmailDetail.tsx',
-      'components/admin/email/EmailList.tsx',
       'components/capture-sources/CaptureSourcesWorkspace.tsx',
       'components/crm/ContactsWorkspace.tsx',
       'components/crm/NotificationBell.tsx',
