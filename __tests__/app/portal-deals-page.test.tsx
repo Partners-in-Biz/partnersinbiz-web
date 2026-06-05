@@ -182,6 +182,17 @@ describe('Portal deals page', () => {
     await waitFor(() => expect(screen.getByText('Growth retainer')).toBeInTheDocument())
   })
 
+  it('turns missing deal contacts into a direct link-contact action', async () => {
+    render(<DealsPage />)
+
+    fireEvent.click(await screen.findByRole('tab', { name: /List/i }))
+    await screen.findByText('Unowned expansion')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Link contact for Unowned expansion from deals list' }))
+
+    expect(screen.getByTestId('deal-drawer')).toBeInTheDocument()
+  })
+
   it('preserves CRM company workspace scope across deal list data, links, and create actions', async () => {
     mockSearchParams = new URLSearchParams({
       view: 'list',
