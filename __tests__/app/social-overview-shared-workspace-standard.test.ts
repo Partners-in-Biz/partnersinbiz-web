@@ -52,5 +52,7 @@ describe('social overview shared workspace standard', () => {
     expect(file).toContain('buildApiPath')
     expect(file).toContain('orgId')
     expect(file).toContain('OrgThemedFrame')
+    expect(file).toContain("`/admin/org/${encodeURIComponent(slug)}/social/standalone`")
+    expect(file).not.toContain("scopedAdminHref('/admin/social/standalone')")
   })
 })

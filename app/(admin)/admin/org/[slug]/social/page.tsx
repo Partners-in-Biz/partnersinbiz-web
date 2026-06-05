@@ -43,7 +43,7 @@ export default function OrgSocialIndexPage() {
       { label: 'View Queue', href: scopedAdminHref('/admin/social/queue'), icon: 'pending_actions' },
       { label: 'Calendar', href: scopedAdminHref('/admin/social/calendar'), icon: 'calendar_month' },
       { label: 'Campaigns', href: `/admin/org/${encodeURIComponent(slug)}/campaigns`, icon: 'flag' },
-      { label: 'Standalone', href: scopedAdminHref('/admin/social/standalone'), icon: 'edit_note' },
+      { label: 'Standalone', href: `/admin/org/${encodeURIComponent(slug)}/social/standalone`, icon: 'edit_note' },
       { label: 'Accounts', href: scopedAdminHref('/admin/social/accounts'), icon: 'hub' },
       { label: 'Links', href: scopedAdminHref('/admin/social/links'), icon: 'link' },
     ],
