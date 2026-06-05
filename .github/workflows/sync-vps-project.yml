@@ -1,15 +1,16 @@
 name: Mirror partnersinbiz-web to Hermes VPS
 #
-# Rsyncs the development source tree to /var/lib/hermes/projects/partnersinbiz-web/
-# on hermes-vps-01 so all PiB code-capable agents can read project code.
+# Rsyncs the development source tree to a clean mirror at
+# /var/lib/hermes/projects/partnersinbiz-web-mirror/ on hermes-vps-01.
+# The active writable agent checkout remains
+# /var/lib/hermes/projects/partnersinbiz-web-development/.
 #
 # Scaling to other projects:
-#   Copy this file into any other repo, update the destination path in the
-#   rsync step to match /var/lib/hermes/projects/<repo-name>/, and ensure
-#   the same VPS_DEPLOY_KEY / VPS_HOST / VPS_USER secrets are set on that
-#   repo (or fork them to a new team's org secrets). The hermes-deploy user
-#   on hermes-vps-01 owns the entire /var/lib/hermes/projects/ tree so
-#   multiple repos can write side-by-side without extra provisioning.
+#   Copy this file into any other repo, update MIRROR_DIR to match
+#   /var/lib/hermes/projects/<repo-name>-mirror, and ensure the same
+#   VPS_DEPLOY_KEY / VPS_HOST / VPS_USER secrets are set on that repo (or
+#   fork them to a new team's org secrets). The hermes-deploy user must be
+#   able to write the mirror directory.
 #
 # This is a read-only mirror — no VPS → GitHub auth needed. The GitHub
 # Action runner checks out the code, then rsyncs it over SSH to the VPS.
@@ -19,6 +20,13 @@ on:
   push:
     branches: [development]
   workflow_dispatch:
+
+concurrency:
+  group: vps-mirror-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  MIRROR_DIR: /var/lib/hermes/projects/partnersinbiz-web-mirror
 
 jobs:
   sync:
@@ -35,20 +43,27 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
 
+      - name: Prepare VPS mirror directory
+        run: |
+          ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" \
+            "mkdir -p '$MIRROR_DIR'"
+
       - name: Rsync source tree to VPS
         run: |
-          rsync -avz --delete \
+          rsync -rlz --delete --omit-dir-times --no-perms --no-owner --no-group \
             --exclude=node_modules \
             --exclude=.next \
             --exclude=dist \
             --exclude=.vercel \
             --exclude=.git \
-            --exclude=.env.local \
+            --exclude=.env \
+            --exclude=.env.* \
             --exclude='*.local.json' \
+            --exclude='*.log' \
             ./ \
-            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/var/lib/hermes/projects/partnersinbiz-web/"
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:$MIRROR_DIR/"
 
       - name: Verify (count files synced)
         run: |
           ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" \
-            'find /var/lib/hermes/projects/partnersinbiz-web -type f | wc -l'
+            "test -d '$MIRROR_DIR' && find '$MIRROR_DIR' -type f | wc -l"
