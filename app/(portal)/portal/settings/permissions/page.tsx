@@ -3,6 +3,8 @@
 export const dynamic = 'force-dynamic'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
+import { scopedApiPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 
 interface Permissions {
   membersCanDeleteContacts: boolean
@@ -72,6 +74,11 @@ function StatCard({ label, value, sub, icon }: { label: string; value: string; s
 }
 
 export default function PermissionsPage() {
+  const searchParams = useSearchParams()
+  const permissionsEndpoint = useMemo(
+    () => scopedApiPath('/api/v1/portal/settings/permissions', scopeFromSearchParams(searchParams)),
+    [searchParams],
+  )
   const [permissions, setPermissions] = useState<Permissions>(DEFAULT_PERMISSIONS)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState<keyof Permissions | null>(null)
@@ -81,7 +88,7 @@ export default function PermissionsPage() {
   const loadPermissions = useCallback(() => {
     setLoading(true)
     setLoadError(null)
-    fetch('/api/v1/portal/settings/permissions')
+    fetch(permissionsEndpoint)
       .then(async (response) => {
         const body = await response.json().catch(() => ({}))
         if (!response.ok) {
@@ -96,7 +103,7 @@ export default function PermissionsPage() {
         setLoadError(err instanceof Error ? err.message : 'Permission settings could not load.')
       })
       .finally(() => setLoading(false))
-  }, [])
+  }, [permissionsEndpoint])
 
   useEffect(() => {
     loadPermissions()
@@ -116,7 +123,7 @@ export default function PermissionsPage() {
     setSaveError(null)
     setPermissions((current) => ({ ...current, [key]: newValue }))
     try {
-      const response = await fetch('/api/v1/portal/settings/permissions', {
+      const response = await fetch(permissionsEndpoint, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ [key]: newValue }),
